@@ -276,11 +276,12 @@ a Role at a Scope materializes — idempotently, exactly as a Blueprint material
 records (§9.3) — one durable allow- or deny-Grant per Role rule, identified by
 `(membership, rule ordinal)`, for that subject at that Scope. Reapplying the same Role
 reconciles those Grants rather than adding authority. Downward flow, attenuation, and
-revocation operate only on Grants. The enforcement plane resolves only Grants and
-Bindings; Roles and Memberships have no second path. Revoking or changing a Membership
-revokes its obsolete materialized Grants and advances the affected path epoch (§3.4).
-A guest Membership materializes the same way after removing all allow rules that could
-grant `delegate` or `administer`; deny rules are retained.
+revocation MUST operate only on Grants. The enforcement plane MUST resolve only Grants
+and Bindings; Roles and Memberships have no second path. Revoking or changing a
+Membership revokes its obsolete materialized Grants and advances the affected path
+epoch (§3.4). A guest Membership materializes the same way after removing all allow
+rules that could grant `delegate` or `administer`; deny rules are retained. This single
+enforcement plane maps to **C13-AUTH-PLANE**.
 
 *Why:* the moment roles and grants are two separate enforcement systems, they drift
 apart, and that kind of drift tends to be discovered during an incident rather than
@@ -290,7 +291,8 @@ exactly one answer, computed one way.
 **Precedence.** Effective authority exists exactly when at least one live matching
 allow-Grant reaches the target Scope and no live matching deny-Grant exists on the
 ordered Tenant-to-target path. Direct and team Grants are considered together. A
-descendant allow cannot re-widen an ancestor deny. Example: Team A holds `reader` on
+descendant allow MUST NOT re-widen an ancestor deny; this deny-overrides precedence
+maps to **C13-AUTH-DENY-PRECEDENCE**. Example: Team A holds `reader` on
 Project P, so its members read every Workspace in P; a deny-Grant for W2 removes W2
 without touching W1.
 
@@ -321,7 +323,8 @@ increasing order of coupling:
   home Tenant's owner approves the link, the host records the resulting trust
   configuration) that downgrades all future verifications to `token`. `handshake` is
   the bootstrap and never materializes a Grant itself; steady state is always `token` or
-  `callback`, and a subject still stamped `handshake` at materialization denies.
+  `callback`, and a subject still stamped `handshake` at materialization MUST be denied.
+  This maps to **C13-AUTH-GUEST-HANDSHAKE-BOOTSTRAP**.
 
 Whichever scheme is used, the host verifies provenance *before* materializing any guest
 Grant, and a verification failure denies. The wire protocol for a token or a callback
@@ -337,9 +340,10 @@ delegated only to an equal or narrower capability; a deny is not callable or
 delegable. A **Binding** associates a subject-local name with an allow-Grant-backed
 Facet instance in one protection domain. Binding resolution evaluates all matching
 allow and deny Grants through §3.3 precedence. There is no deny list or role check
-beside this plane. Callable access requires a **ResolvedFacet** produced by that resolver;
-identifiers alone confer nothing. A Binding authorizes only the Operations of the Facet it
-names; an Invocation whose Operation belongs to another Facet is not authorized by it.
+beside this plane. Callable access requires a **ResolvedFacet** produced by that
+resolver; identifiers alone confer nothing. A Binding authorizes only the Operations
+of the Facet it names; an Invocation whose Operation belongs to another Facet MUST NOT
+be authorized by it. This maps to **C13-AUTH-BINDING-RESOLUTION**.
 
 ![One authority plane](diagrams/authority.svg)
 
@@ -561,8 +565,9 @@ at.
 A **Contribution** is a typed, schema-validated manifest entry targeting a **Slot** —
 the extension points of a platform. The spec defines the core slots; the `slots`
 meta-contribution declares new ones. Contributions are data that compiles down to
-existing primitives, and a conforming host materializes them through the same paths it
-offers imperatively, so declared and programmatic behavior cannot diverge.
+existing primitives, and a conforming host MUST materialize them through the same paths
+it offers imperatively, so declared and programmatic behavior cannot diverge. This maps
+to **C13-FACET-CONTRIBUTION-MATERIALIZATION**.
 
 | Core slot | Entry | Materializes as |
 | --- | --- | --- |
@@ -594,10 +599,11 @@ abstract class SlotCatalog {
 }
 ```
 
-`query` filters by the slot's visibility policy; the materializer (§9.3) rejects
-contributions that violate the slot's contribute-authority. Core slots carry an
+`query` MUST filter by the slot's visibility policy; the materializer (§9.3) MUST
+reject contributions that violate the slot's contribute-authority. Core slots carry an
 implicit default policy: contribute = any installed Facet in scope; visibility = the
-same policy as direct reads (§3.4 rule 4).
+same policy as direct reads (§3.4 rule 4). These map to **C13-FACET-SLOT-VISIBILITY**
+and **C13-FACET-SLOT-AUTHORITY**.
 
 Slot entries come in two flavors: *declarative* (the entry is data validated against
 `entrySchema`; the reading Surface renders it) and *surface-backed* (the entry carries
@@ -807,12 +813,14 @@ An **Environment** is an execution endpoint that opens live **Sessions**; a Sess
 exposes session-scoped child Facets (`env.fs`, `env.shell`, `env.ports`, `env.proc`).
 An Environment is the agent's computer.
 
-Rules: stale Sessions fail; closing a Session disposes its child Facets; rotation
-changes future Sessions without retargeting open ones. Environment profiles further
-define **snapshot/restore** (boot from a known image), **ephemeral-filesystem durability** (backup and
-restore for container-backed environments), **preview exposure** (how a port becomes an
-authenticated URL), and the **credential-isolation seam** (secrets injected by proxy,
-never present inside the environment).
+Rules: stale Sessions MUST fail; closing a Session MUST dispose its child Facets;
+rotation MUST change future Sessions without retargeting open ones. These map to
+**C13-ENVIRONMENT-STALE-SESSION**, **C13-ENVIRONMENT-DISPOSE-CLOSE**, and
+**C13-ENVIRONMENT-ROTATION**. Environment profiles further define
+**snapshot/restore** (boot from a known image), **ephemeral-filesystem durability**
+(backup and restore for container-backed environments), **preview exposure** (how a
+port becomes an authenticated URL), and the **credential-isolation seam** (secrets
+injected by proxy, never present inside the environment).
 
 A Session is **Turn-owned** when exactly one Turn opened it, no other Turn may use it,
 and it closes when that Turn reaches a terminal status. A Turn-owned Session cannot be
@@ -1111,13 +1119,13 @@ independently identified FacetManifests. This maps to **C13-RUN-PIN-IDENTITY-TYP
 - `spawn` creates a child Run under attenuated authority (`delegate` impact, §11 Self
   profile).
 
-- The commit graph is **append-only**. An `undo` appends an undo RunCommit `U` whose
-  parent is the current head and whose `selects` field names an ancestor commit; the
-  branch head advances to `U`, and the branch's **effective state** becomes the
+- The commit graph MUST be **append-only**. An `undo` appends an undo RunCommit `U`
+  whose parent is the current head and whose `selects` field names an ancestor commit;
+  the branch head advances to `U`, and the branch's **effective state** becomes the
   selected commit. Redo appends another undo commit selecting the prior effective
   commit. The interval until the next non-undo commit is the **pending revert**: it is
   durable and reversible. Prior heads remain reachable; ancestry
-  queries are unaffected.
+  queries are unaffected. This maps to **C13-RUN-UNDO-REDO**.
 
 - Undo targeting a branch with a held Turn MUST first fence that Turn (§5.3), whether or
   not its lease has expired — an expired lease is still reclaimable until someone fences
@@ -1130,12 +1138,14 @@ independently identified FacetManifests. This maps to **C13-RUN-PIN-IDENTITY-TYP
   branch order. A merge records one of the three content resolutions in §5.2.1; the
   graph records lineage and does not compute content.
 
-- Conforming stores support ancestry and reachability queries, not merely head moves.
+- Conforming stores MUST support ancestry and reachability queries, not merely head
+  moves. This maps to **C13-RUN-ANCESTRY**.
 
-The **canonical graph** has one root with zero parents; every non-root, non-merge commit
-has exactly one parent equal to its branch head at append; every merge has exactly the two
-parents above; and no other parent arity is valid. Appending atomically advances only
-the target branch head. Commit records and parent order never change.
+The **canonical graph** MUST have one root with zero parents; every non-root, non-merge
+commit has exactly one parent equal to its branch head at append; every merge has
+exactly the two parents above; and no other parent arity is valid. Appending atomically
+advances only the target branch head. Commit records and parent order never change.
+This maps to **C13-RUN-GRAPH-ARITY**.
 
 A Run MAY declare **acceptance criteria** when it opens, so that finishing is something it
 proves rather than something it asserts. Each criterion names an Operation that decides
@@ -1178,15 +1188,16 @@ child does not declare inherits the parent's remainder. A Run that declares no c
 unbounded — the platform imposes none — so fan-out narrows downward without anything
 capping work nobody chose to bound. This maps to **C13-RUN-RESOURCE-CEILING**.
 
-The three dimensions differ in how their remainder is known. `depth` and `wallClockMs` are
-derived, never separately accounted: depth is the length of the spawn lineage from the Run
-back to the ancestor that declared the ceiling, and wall-clock consumption is the current
-time minus the Run's root RunCommit timestamp — both computable from records this document
-already requires, with no running total to maintain. `tokens` has no such derivation:
-consuming it needs a durable running total per Run, accumulated at the same point a model
-call commits (§5.1, C13-TURN-MODEL-CALL) — a counter this document requires without
-further shaping its storage, left to the executor seam (§5.6) like every other model-call
-detail.
+The three dimensions differ in how their remainder is known. `depth` and `wallClockMs`
+MUST be derived, never separately accounted: depth is the length of the spawn lineage
+from the Run back to the ancestor that declared the ceiling, and wall-clock consumption
+is the current time minus the Run's root RunCommit timestamp — both computable from
+records this document already requires, with no running total to maintain. `tokens` has
+no such derivation: consuming it needs a durable running total per Run, which a host
+MUST accumulate at the same point a model call commits (§5.1, C13-TURN-MODEL-CALL) — a
+counter this document requires without further shaping its storage, left to the executor
+seam (§5.6) like every other model-call detail. This maps to
+**C13-RUN-CEILING-REMAINDER**.
 
 Exhaustion is neither silence nor a new mechanism: the host cancels the Run through the
 closed §5.3 rows with outcome `cancelled` and the exhausted dimension recorded in
@@ -1309,12 +1320,15 @@ commit-kind matrix is closed:
 | `system(delivery)` | `eventDelivery` | exact terminal RouteDelivery and matching delivery audit |
 | `system(control)` | `merge`, `undo`, `migration` | exact successful `administer` Receipt and matching audit |
 
-No other pair commits. Root, Turn-authored content, Receipt evidence, and delivery
+No other pair commits; a host MUST reject any CommitWriter and kind pair this matrix
+does not name. Root, Turn-authored content, Receipt evidence, and delivery
 evidence do not require a successful Invocation. Only control effects do. A system
-writer may append Receipt or delivery evidence after the originating Turn is fenced;
-it gains no Turn authority. Every merge is system-authored by its successful matching
-control Receipt. A `synthesize` merge additionally records a LeaseToken and a successful
-`execute` Receipt whose PreparedInvocation binds that exact token and content.
+writer MAY append Receipt or delivery evidence after the originating Turn is fenced;
+it gains no Turn authority. Every merge MUST be system-authored by its successful
+matching control Receipt. A `synthesize` merge additionally MUST record a LeaseToken
+and a successful `execute` Receipt whose PreparedInvocation binds that exact token and
+content. These map to **C13-WRITER-MATRIX**, **C13-WRITER-POST-FENCE-EVIDENCE**,
+**C13-WRITER-SYSTEM-MERGE**, and **C13-WRITER-SYNTHESIS**.
 
 *Why selection instead of head-rewind:* an append-only graph means nothing is ever
 lost, undo is itself undoable, ancestry queries stay simple, and two observers can
@@ -1347,7 +1361,8 @@ abstract class TurnLease {
 ```
 
 A Turn starts `queued` with an unheld exact-Turn lease at epoch 0. The only lifecycle
-transitions are:
+transitions are those in the table below; a Turn MUST NOT take any other, and the
+complete table maps to **C13-TURN-LIFECYCLE**:
 
 | From | Operation | To | Lease rule |
 | --- | --- | --- | --- |
@@ -1365,14 +1380,17 @@ transitions are:
 | `running` sibling | system force-cancel during terminalization | `cancelled` | exact administer control evidence; fence epoch + 1; token-scoped cancellation inbox/audit |
 | `suspended` sibling | system force-cancel during terminalization | `cancelled` | exact administer control evidence; fence epoch + 1; token-scoped cancellation inbox/audit |
 
-Terminal Turns never transition. A lease never changes its `turn` and cannot authorize
-a write for another Turn. Every executor-authored RunCommit, Invocation intent,
-EffectAttempt, child-Run spawn, callback, checkpoint, and terminal result presents that
-exact Turn id and the current lease epoch; mismatch, expiry, or stale epoch rejects it.
-A system writer may append only the evidence and control kinds allowed by the §5.2
-CommitWriter matrix.
-Every claim, renew, or reclaim requires `expiresAt > now`; reclaim additionally
-requires the recorded expiry to be at or before `now`.
+Terminal Turns MUST NOT transition. A lease never changes its `turn` and MUST NOT
+authorize a write for another Turn. Every executor-authored RunCommit, Invocation
+intent, EffectAttempt, child-Run spawn, callback, checkpoint, and terminal result MUST
+present that exact Turn id and the current lease epoch; mismatch, expiry, or stale
+epoch rejects it. A system writer MAY append only the evidence and control kinds
+allowed by the §5.2 CommitWriter matrix. These map to **C13-TURN-EXACT-LEASE** and
+**C13-TURN-EXECUTOR-WRITER**.
+
+Every claim, renew, or reclaim requires `expiresAt > now` and MUST be rejected without
+it; reclaim additionally requires the recorded expiry to be at or before `now`. This
+maps to **C13-TURN-LEASE-EXPIRY**.
 
 For running success, failure, or cancellation, the terminal result commit is validated
 with the current LeaseToken and the fence is applied in the same transition, with the
@@ -1462,7 +1480,8 @@ firing, a chat message, a button press, and a command invocation are all Events:
 input model, one routing mechanism, and one audit trail for everything that enters the
 system.
 
-**Trust tiers are host-derived, never facet-asserted.** A Facet supplies raw
+**Trust tiers MUST be host-derived, never facet-asserted**, which maps to
+**C13-TRUST-HOST-DERIVED**. A Facet supplies raw
 provenance — authenticated identity, channel, group, transport verification result —
 and the host derives the tier from that provenance and the Blueprint's trust-tier
 policy:
@@ -1473,12 +1492,13 @@ policy:
 - `self` — emitted by a Turn executor under a valid lease. Assignable only by the
   host for lease-fenced emissions.
 
-TrustTier is categorical, not ordered. Consumers declare an explicit accepted set;
-there is no minimum-tier comparison.
+TrustTier is categorical, not ordered. Consumers MUST declare an explicit accepted set;
+there is no minimum-tier comparison. This maps to **C13-SUBSCRIPTION-ACCEPTED-TIERS**.
 
-An Event whose tier was set by a non-host source is rejected. If a channel adapter
+An Event whose tier was set by a non-host source MUST be rejected. If a channel adapter
 could stamp its own trust tier, a compromised adapter could mark an attacker's message
-as `owner` and defeat every policy keyed on the tier.
+as `owner` and defeat every policy keyed on the tier. This maps to
+**C13-TRUST-ASSERTION-REJECTION**.
 
 **Ingress.** External input enters through `ingress` contributions:
 
@@ -1491,7 +1511,8 @@ interface IngressDeclaration {
 ```
 
 The host exposes declared endpoints, verifies per `verification`, and mints Events
-with derived provenance; unverified requests never mint Events.
+with derived provenance; unverified requests MUST NOT mint Events. This maps to
+**C13-TRUST-VERIFIED-INGRESS**.
 
 The standard source actions enter through ordinary mediated host Operations and the
 closed Receipt-to-Event causal edge; they do not create a WriteRecord-to-Event edge or
@@ -1596,10 +1617,11 @@ interface FieldMove {
 Routing is at-least-once with deduplication on the subscription's dedupe key: `event`
 dedupes on the Event id, `causation` on its cause, `payload` on its payload digest, and
 `none` assigns each delivery a distinct key. Before delivery, the Event-owning source
-Actor authenticates the Event and mapping, derives trust, validates it is in
-`acceptedTrust`, maps the payload, and appends the authoritative **RouteReservation**.
-The reservation's projection and digest are immutable; the target never remaps source
-data or accepts an unauthenticated projection.
+Actor MUST authenticate the Event and mapping, derive trust, validate it is in
+`acceptedTrust`, map the payload, and append the authoritative **RouteReservation**.
+The reservation's projection and digest MUST be immutable; the target never remaps
+source data or accepts an unauthenticated projection. These map to
+**C13-ROUTE-SOURCE-OWNED** and **C13-ROUTE-PROJECTION-DIGEST**.
 
 `initiator` uses the authenticated initiating Principal recorded by the source Actor in
 the reservation through exactly its named Binding; an Event without one cannot use that
@@ -1673,13 +1695,13 @@ interface ActionDescriptor {
 // A reconnecting client presents its last cursor to resume ViewDelta replay (§10.3).
 ```
 
-A View carries no live Facets, stubs, credentials, or hidden state — refs only.
+A View MUST carry no live Facets, stubs, credentials, or hidden state — refs only.
 Surfaces stream via **ViewDelta** events: RFC 6902 JSON Patches against a View
 revision (compatible with AG-UI's `STATE_DELTA` convention), so clients update
 without re-snapshotting. Surface actions emit Events; Subscriptions route them to
 Operations. Aggregating surfaces — dashboards — compose slot-contributed child Views
 per §4.2. Token-level model-output streaming is an executor and transport concern
-(§5.6), not Events.
+(§5.6), not Events. This maps to **C13-VIEW-NO-LIVE-STATE**.
 
 A View that presents an intent for a human decision carries the provenance of what it
 shows. A **decision View** is exactly a View whose `intentDigest` field is present — the
@@ -1879,23 +1901,26 @@ interface InvocationContinuation {
 }
 ```
 
-A PreparedInvocation has exactly one shared header. A batch is nonempty and ordered;
-homogeneity is structural because operation, impact, target, authority, optional exact
-LeaseToken, and evidence occur only in that header. Every item validates against the shared
-Operation input schema. A single is not encoded as a one-item batch, item order is part
-of identity, and a batch is not atomic.
+A PreparedInvocation MUST have exactly one shared header. A batch is nonempty and
+ordered; homogeneity is structural because operation, impact, target, authority,
+optional exact LeaseToken, and evidence occur only in that header. Every item MUST
+validate against the shared Operation input schema. A single is not encoded as a
+one-item batch, item order is part of identity, and a batch is not atomic. These map to
+**C13-PREPARED-SHARED-HEADER**, **C13-PREPARED-OPTIONAL-LEASE**, and
+**C13-PREPARED-PAYLOAD-SHAPE**.
 
-The host derives, never accepts, each item key from the complete tuple
+The host MUST derive, never accept, each item key from the complete tuple
 `("agent-core.item.v1", structuralDigest(completeSharedHeaderIdentity), payloadShape,
 itemIndex, structuralDigest(arguments), header.idempotencySeed)`. The shared-header
 identity commits every header field, not merely InvocationId; payload shape is `single`
 or `batch(itemCount)`. The derivation is domain-separated and collision resistant;
-index is zero for a single. `intentDigest` covers the canonical structural
+index is zero for a single. `intentDigest` MUST cover the canonical structural
 encoding of the complete header and payload, including shape, order, exact optional
 LeaseToken, authority, evidence, arguments, and every derived key. Invocation identity
 therefore explicitly binds both InvocationId and exact lease epoch. It is not byte
 concatenation and omits no field. Format, derivation, and digest algorithm are
-codec-versioned (§8.3).
+codec-versioned (§8.3). These map to **C13-PREPARED-ITEM-KEYS** and
+**C13-PREPARED-WHOLE-DIGEST**.
 
 Before any mutating interceptor runs, the host atomically looks up the
 `MediatedReplayRecord` by authenticated caller plus `OperationRequestKey`. A miss
@@ -1957,9 +1982,9 @@ proceed on that same normal admission alone. This maps to **C13-PREPARED-APPROVA
 
 ### 7.4 EffectAttempt, Receipt, AuditRecord, reconciliation
 
-An **EffectAttempt** is immutable write-ahead evidence that one item may cross the
+An **EffectAttempt** MUST be immutable write-ahead evidence that one item may cross the
 effect boundary. Retry appends a new ordinal; pre-effect denial or cancellation never
-creates one.
+creates one. This maps to **C13-EFFECT-ATTEMPT-IMMUTABLE**.
 
 ```ts
 type ItemClaimOwner =
@@ -2026,9 +2051,10 @@ allowed only after the prior ordinal is finally `failed`; neither `succeeded` no
 `indeterminate` admits a concurrent retry. These lineage rules map to
 **C13-RECEIPT-IMMUTABLE**.
 
-ReceiptId is allocated from one owning-Actor namespace across both Receipt variants and
-all items; `AttemptReceipt.previous` and `AuditKind.receiptSuperseded`'s `previous` and
-`next` all refer to that same namespace. An id is never reused.
+ReceiptId MUST be allocated from one owning-Actor namespace across both Receipt variants
+and all items; `AttemptReceipt.previous` and `AuditKind.receiptSuperseded`'s `previous`
+and `next` all refer to that same namespace. An id is never reused. This maps to
+**C13-RECEIPT-ID-NAMESPACE**.
 
 Each nonterminal item has at most one live claim. Claiming is an atomic
 compare-and-set over `(InvocationId, itemIndex)`; the first claim uses attempt ordinal 0
@@ -2058,10 +2084,11 @@ Receipt clears the claim; `succeeded` terminalizes the item while `failed` permi
 next ordinal. These rules apply to index 0 of a single too, and prevent two executors
 from continuing one item.
 
-`BatchOutcome` is unavailable until every item has a current Receipt; those Receipts
-need not be final, so the derived outcome may be `indeterminate`. A
-`TerminalBatchOutcome` is available exactly when the derived BatchOutcome is
+`BatchOutcome` MUST be unavailable until every item has a current Receipt; those
+Receipts need not be final, so the derived outcome may be `indeterminate`. A
+`TerminalBatchOutcome` MUST be available exactly when the derived BatchOutcome is
 non-indeterminate. Neither aggregate is a Receipt or substitutes for item evidence.
+These map to **C13-BATCH-OUTCOME-COMPLETE** and **C13-BATCH-OUTCOME-TERMINAL**.
 Aggregate `denied` and
 `cancelled` therefore cannot be confused with the item outcomes `deniedPreEffect` and
 `cancelledPreEffect`. Derivation is the first matching rule: any indeterminate →
@@ -2069,12 +2096,14 @@ Aggregate `denied` and
 otherwise any failed → `failed`; otherwise any cancelledPreEffect → `cancelled`;
 otherwise → `denied`.
 
-For mediated external effects, intent and EffectAttempt evidence precede the effect.
-The call carries the item's idempotency key. If its result is not known, the pipeline
-appends `indeterminate`; reconciliation re-queries that same attempt by idempotency key
-and appends its superseding final Receipt. A resend after final failure is a new
-EffectAttempt through the normal mediated path, never an unrecorded reconciler action. Eventual reconciliation
-depends only on the external liveness assumptions stated in §14.
+For mediated external effects, intent and EffectAttempt evidence MUST precede the
+effect. The call MUST carry the item's idempotency key. If its result is not known, the
+pipeline appends `indeterminate`; reconciliation re-queries that same attempt by
+idempotency key and appends its superseding final Receipt. A resend after final failure
+is a new EffectAttempt through the normal mediated path, never an unrecorded reconciler
+action. Eventual reconciliation depends only on the external liveness assumptions stated
+in §14. These map to **C13-EFFECT-WRITE-AHEAD**, **C13-EFFECT-IDEMPOTENCY**,
+**C13-EFFECT-RECONCILIATION**, and **C13-EFFECT-SUPERSEDING-RECEIPT**.
 
 An **AuditRecord** is one immutable entry in an append-only typed causal chain:
 
@@ -2130,13 +2159,17 @@ command-rejection WriteRecord MAY also be a root only under the §8.5 no-caller-
 rule. These map to **C13-AUDIT-EDGE-RELATION**, **C13-AUDIT-PREEXISTING-CAUSE**, and
 **C13-AUDIT-APPEND-ONLY**.
 
-Cross-Actor causality never points directly into another Audit log. The source-owned
-RouteReservation is the authenticated bridge: it cites the preexisting source Event
-audit cause and authenticates source Actor, target Actor, tenants, projection,
-authority, and stable InvocationId. The target's `routeProjected` entry is a
+Cross-Actor causality MUST NOT point directly into another Audit log. The source-owned
+RouteReservation is the authenticated bridge. The target's `routeProjected` entry is a
 target-local bridge root with no AuditRecord cause; it is admitted only by authenticating
 that reservation projection. Delivery is caused by the target-local projection entry.
+This maps to **C13-AUDIT-ROUTE-BRIDGE**.
+
+The reservation cites the preexisting source Event audit cause and MUST authenticate
+source Actor, target Actor, tenants, projection, authority, and stable InvocationId.
 Cross-tenant delivery also verifies the reservation's explicit cross-tenant Binding.
+These map to **C13-ROUTE-SOURCE-EVENT**, **C13-ROUTE-AUDIT-CAUSE**,
+**C13-ROUTE-TENANT-RELATION**, and **C13-ROUTE-STABLE-INVOCATION**.
 
 Every Receipt outcome has an AuditRecord. Attempted outcomes are caused by their
 EffectAttempt audit; pre-effect outcomes are caused by Invocation or terminal Approval
@@ -2155,9 +2188,10 @@ maps to **C13-AUDIT-TELEMETRY-EXCLUDED**.
 
 An **Actor** is a durably addressable state machine with one authoritative
 coordination unit owning its mailbox, local transaction boundary, lifecycle, recovery,
-and fencing state. It serializes conflicting commands, recovers state before serving,
-commits at declared linearization points, and rejects stale fences. Actor roles:
-Tenant, Workspace, Run (when dedicated), Environment, Slate host.
+and fencing state. It MUST serialize conflicting commands, recover state before serving,
+commit at declared linearization points, and reject stale fences. Actor roles:
+Tenant, Workspace, Run (when dedicated), Environment, Slate host. This maps to
+**C13-OWNERSHIP-ACTOR-CONTRACT**.
 
 ### 8.2 ContentStore
 
@@ -2169,10 +2203,11 @@ abstract class ContentStore {
 }
 ```
 
-Every `ContentRef` in this specification resolves through a ContentStore — run inputs,
-checkpoints, instructions, results, slate sources. A ContentStore belongs to exactly one
-Tenant (§3.2, §8.4 rule 1), and a `ContentRef` resolves only for a caller whose authority
-reaches that Tenant; there is no cross-Tenant content read without a Grant that says so.
+Every `ContentRef` in this specification MUST resolve through a ContentStore — run
+inputs, checkpoints, instructions, results, slate sources. A ContentStore belongs to
+exactly one Tenant (§3.2, §8.4 rule 1), and a `ContentRef` resolves only for a caller
+whose authority reaches that Tenant; there is no cross-Tenant content read without a
+Grant that says so. This maps to **C13-CONTENT-RESOLUTION**.
 
 A reference alone keeps nothing alive. Every durable record type that names a `ContentRef`
 is a retained owner of that content for as long as the record exists, and the §8.4 rule 6
@@ -2193,10 +2228,11 @@ no declared retainer owns, so a record cannot outlive the bytes it names. This m
 
 Durable records are data. Every record type defines a stable serialized form with a
 **versioned codec**, used identically for storage, the command protocol, and
-export/import. A codec upcasts records of an older minor within the same major, and rejects
-an unknown major — newer or older — and an unknown newer minor with a typed error, never a
-silent truncation. Live behavior wraps records; it never *is* the
-record, and durable records never own live substrate resources.
+export/import. A codec MUST upcast records of an older minor within the same major, and
+MUST reject an unknown major — newer or older — and an unknown newer minor with a typed
+error, never a silent truncation. Live behavior wraps records; it never *is* the
+record, and durable records never own live substrate resources. This maps to
+**C13-CODEC-VERSIONING**.
 
 ### 8.4 State-ownership rules
 
@@ -2212,11 +2248,11 @@ record, and durable records never own live substrate resources.
 6. Conformance includes an **ownership map** artifact — record type → owning Actor —
    verified against the implementation.
 
-In particular, the Tenant Actor is the sole durable owner of Binding, Grant, and
+In particular, the Tenant Actor MUST be the sole durable owner of Binding, Grant, and
 ScopeEpoch records. Creating, replacing, or deactivating a Binding and advancing its
-affected path epoch occur in one Tenant-local control transaction. Workspace and Run
-Actors may retain Binding ids and rebuildable indexes, never canonical or mirrored
-Binding records.
+affected path epoch MUST occur in one Tenant-local control transaction. Workspace and
+Run Actors MAY retain Binding ids and rebuildable indexes, never canonical or mirrored
+Binding records. This maps to **C13-OWNERSHIP-AUTHORITY-RECORDS**.
 
 These rules exist because mirrored state is the most expensive class of bug a durable
 platform can have: two copies of the truth always eventually disagree, and by the time
@@ -2275,18 +2311,19 @@ interface WriteRecord {
 }
 ```
 
-The dispatcher evaluates in this order: decode/shape, authenticate exact caller,
+The dispatcher MUST evaluate in this order: decode/shape, authenticate exact caller,
 duplicate lookup on `(caller, idempotencyKey)`, authority, lifecycle, expected revision,
 optional LeaseToken, then mutation. A Turn-owned command requires a token; a supplied
-token is always checked for exact Turn, holder, epoch, and non-expiry. Missing required,
-unexpected, stale, wrong-Turn, or expired tokens yield `rejectedLease`. Duplicate
-returns the original reply and records `duplicateOf` without re-running later gates or
-mutation.
+token MUST always be checked for exact Turn, holder, epoch, and non-expiry. Missing
+required, unexpected, stale, wrong-Turn, or expired tokens yield `rejectedLease`.
+Duplicate MUST return the original reply and record `duplicateOf` without re-running
+later gates or mutation. These map to **C13-PROTOCOL-OUTCOMES**,
+**C13-PROTOCOL-EXACT-ENVELOPE**, and **C13-PROTOCOL-DUPLICATE**.
 
-Each command family declares whether `expectedRevision` is required and whether a
+Each command family MUST declare whether `expectedRevision` is required and whether a
 LeaseToken is required, optional, or forbidden. Missing required envelope fields and
 forbidden fields are `rejectedMalformed`, except token-policy violations, which are
-`rejectedLease`.
+`rejectedLease`. This maps to **C13-PROTOCOL-FAMILY-ENVELOPE-POLICY**.
 
 Every request appends exactly one WriteRecord and one linked AuditRecord, including
 malformed and rejected requests. A valid `callerCause` MUST preexist and be a permitted
@@ -2333,15 +2370,19 @@ interface Blueprint {
 `policies.placement` decides isolation (§1.5) using one explicit preference order.
 For each Facet, compute exactly `manifest ∩ policy ∩ substrate ∩ trust`, where each term
 is an independently derived admissible-mode set. One preference order applies
-everywhere: `dynamic`, then `provider`, then `bundled`. Placement is the first member of
-the intersection in that order. An empty intersection rejects the Blueprint; no
-fallback is inferred. `policies.placement.trusted` names the Packages the trust set
+everywhere: `dynamic`, then `provider`, then `bundled`. Placement MUST be the first
+member of the intersection in that order. An empty intersection MUST reject the
+Blueprint; no fallback is inferred. These map to **C13-PLACEMENT-INTERSECTION**,
+**C13-PLACEMENT-ORDER**, and **C13-PLACEMENT-EMPTY**.
+
+`policies.placement.trusted` names the Packages the trust set
 admits to `bundled`, as a nonempty list of globs matched against the whole `PackageId`:
 `*` matches any sequence of characters, including none, everywhere it appears in the
 pattern; every other character matches itself; a pattern with no `*` matches only that
-exact id. The trust set excludes `bundled` for every Package no glob matches. If the
-chosen mode cannot admit a policy-selected direct call, that call escalates to mediated
-(§7.2); placement itself does not change.
+exact id. The trust set MUST exclude `bundled` for every Package no glob matches. If the
+chosen mode cannot admit a policy-selected direct call, that call MUST escalate to
+mediated (§7.2); placement itself does not change. These map to
+**C13-PLACEMENT-UNTRUSTED-BUNDLED** and **C13-POLICY-DIRECT-ESCALATION**.
 
 The composed platform config schema is the spec's base schema plus every installed
 package's `settings` fragments, and a Blueprint MUST validate against it **before any
@@ -2369,15 +2410,16 @@ A skeleton:
 
 ### 9.3 Materialization
 
-A **materializer** projects a Blueprint into records — Facet installs, Bindings,
+A **materializer** MUST project a Blueprint into records — Facet installs, Bindings,
 Subscriptions, slots, policies, scope scaffolding — **idempotently**: re-applying
 reconciles (create, update, remove-managed) rather than duplicates. Materialized
 records are marked Blueprint-managed; manual edits to managed records are rejected or
 adopted explicitly, per policy. The materializer enforces slot contribute-authority
 (§4.2), command uniqueness (§4.3), and role→Grant materialization (§3.3) through the
-same records the runtime uses. Reconciliation on a live platform orders changes so
+same records the runtime uses. Reconciliation on a live platform MUST order changes so
 existing RunPins remain resolvable (§5.2); removing a pinned Package is deferred until
-no Run references it or performed through explicit Run migration — never silent.
+no Run references it or performed through explicit Run migration — never silent. These
+map to **C13-BLUEPRINT-REMATERIALIZE** and **C13-BLUEPRINT-RUN-PINS**.
 
 ![From Blueprint to running platform](diagrams/blueprint.svg)
 
@@ -2871,7 +2913,8 @@ A conforming implementation provides:
 - **C13-AUTH-TEAM-SUBJECT** Team-derived authority cases.
 - **C13-AUTH-GUEST-SUBJECT** Guest authority cases.
 - **C13-AUTH-GUEST-ELEVATION** The guest elevation prohibition.
-- **C13-AUTH-GUEST-VERIFICATION** The host verifies a guest's provenance by one of the three declared schemes before materializing any Grant, a failure denies, and `handshake` never materializes.
+- **C13-AUTH-GUEST-VERIFICATION** The host verifies a guest's provenance by one of the three declared schemes before materializing any Grant, and a failure denies.
+- **C13-AUTH-GUEST-HANDSHAKE-BOOTSTRAP** `handshake` is a bootstrap scheme that materializes no Grant itself, and a subject still stamped `handshake` at materialization is denied.
 - **C13-AUTH-PRINCIPAL-REF** Security-sensitive Principal references are tenant-qualified and exact-matched.
 - **C13-AUTH-PATH-EVIDENCE** Complete Tenant-to-target PathEpochEvidence.
 - **C13-AUTH-EPOCH-ADVANCEMENT** Path epoch advancement for allow and deny changes.
@@ -3013,6 +3056,7 @@ A conforming implementation provides:
 - **C13-RUN-ACCEPTANCE-SUBJECT** An acceptance verdict is evidence for its exact subject digest, and a further attempt requires a subject no recorded verdict names.
 - **C13-RUN-RESOURCE-CEILING** A spawned Run's declared resource ceiling never exceeds its parent's remainder in any declared dimension, an undeclared dimension inherits that remainder, and declaring none bounds nothing.
 - **C13-RUN-CEILING-EXHAUSTION** An exhausted ceiling cancels the Run through the ordinary §5.3 terminal rows, naming the exhausted dimension only when that dimension has no allowance left.
+- **C13-RUN-CEILING-REMAINDER** `depth` and `wallClockMs` remainders are derived from the spawn lineage and the root RunCommit timestamp rather than separately accounted, and `tokens` is a durable per-Run running total accumulated where a model call commits.
 - **C13-RUN-TERMINAL-SIBLINGS** Run terminalization closes only after every sibling Turn is terminal and unheld.
 - **C13-RUN-FORCED-CANCELLATION** Forced cancellation is terminalization-only, distinct-sibling, administer-authorized fencing and cancellation evidence without Turn impersonation.
 - **C13-RUN-TERMINAL-OBLIGATIONS** Run terminalization captures a finite obligation set.
@@ -3022,6 +3066,7 @@ A conforming implementation provides:
 - **C13-TURN-ADMISSION-HANDLE** An executor may return a mediated Invocation's admission identity in the model's tool position without changing admission, and a spawn's `delegate` Receipt carries the child RunRef, never the child's result.
 - **C13-TURN-CANCEL-INBOX** Mid-turn delivery appends to the running Turn's lease-fenced inbox, cancellation is the reserved `turn.cancel` Event, and a conforming executor observes it between steps and stops committing.
 - **C13-TURN-EXACT-LEASE** Turn leases are exact-Turn.
+- **C13-TURN-LEASE-EXPIRY** Every lease claim, renew, or reclaim requires a future `expiresAt`, and reclaim additionally requires the recorded expiry to be at or before now.
 - **C13-TURN-MODEL-CALL** A model call happens only inside a Turn.
 - **C13-TURN-LIFECYCLE** Turns implement the complete lifecycle table.
 - **C13-TURN-NO-RETRY** The closed Turn lifecycle contains no retry transition.
@@ -3033,10 +3078,11 @@ A conforming implementation provides:
 - **C13-VIEW-NO-LIVE-STATE** Views satisfy the no-live-state invariant.
 - **C13-VIEW-DELTA-REPLAY** ViewDelta supports revision replay.
 - **C13-VIEW-APPROVAL-PROVENANCE** A decision View marks every value the host did not originate with its TrustTier, names the exact `intentDigest` it authorizes, and its Surface renders a marked value as data rather than as platform voice.
-- **C13-CONTENT-RESOLUTION** Every ContentRef resolves through ContentStore.
-- **C13-CONTENT-CUSTODY** Stored content is owned by one Tenant, and every record naming a `ContentRef` retains it until the record releases it.
+- **C13-CONTENT-RESOLUTION** Every ContentRef resolves through a ContentStore that belongs to exactly one Tenant, and only for a caller whose authority reaches that Tenant.
+- **C13-CONTENT-CUSTODY** Every record naming a `ContentRef` retains that content until the record releases it.
 - **C13-CODEC-VERSIONING** Every durable record codec satisfies §8.3.
 - **C13-PROTOCOL-EXACT-ENVELOPE** The command dispatcher enforces exact caller and optional LeaseToken envelopes.
+- **C13-PROTOCOL-FAMILY-ENVELOPE-POLICY** Each command family declares whether `expectedRevision` is required and whether a LeaseToken is required, optional, or forbidden, and a violated declaration is `rejectedMalformed` except for token policy, which is `rejectedLease`.
 - **C13-PROTOCOL-OUTCOMES** The command dispatcher produces deterministic complete outcomes.
 - **C13-PROTOCOL-DUPLICATE** Duplicate commands return duplicate replies without repeating mutation.
 - **C13-PROTOCOL-REJECTION-ROOT** Host rejection roots follow §8.5.
@@ -3044,6 +3090,8 @@ A conforming implementation provides:
 - **C13-PROTOCOL-ATOMIC-EVIDENCE** Domain decision, WriteRecord, and AuditRecord commit atomically.
 - **C13-OWNERSHIP-MAP** Conformance includes the state-ownership map required by §8.4 rule 6.
 - **C13-OWNERSHIP-SINGLE-OWNER** Every record type has one owning Actor; other Actors hold only rebuildable indexes and derived caches, and never dual-write.
+- **C13-OWNERSHIP-ACTOR-CONTRACT** An Actor serializes conflicting commands, recovers state before serving, commits at declared linearization points, and rejects stale fences.
+- **C13-OWNERSHIP-AUTHORITY-RECORDS** The Tenant Actor is the sole durable owner of Binding, Grant, and ScopeEpoch records, a Binding change and its path-epoch advance commit in one Tenant-local control transaction, and other Actors retain no canonical or mirrored copy.
 - **C13-BLUEPRINT-VALIDATE-BEFORE-LOAD** Blueprint validation completes before package code loads.
 - **C13-BLUEPRINT-REMATERIALIZE** Blueprint re-materialization is idempotent.
 - **C13-BLUEPRINT-RUN-PINS** Re-materialization preserves RunPins (§9.3).

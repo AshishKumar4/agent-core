@@ -17,6 +17,34 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-OWNERSHIP-ACTOR-CONTRACT",
+      "owner": "W0",
+      "specAnchor": "C13-OWNERSHIP-ACTOR-CONTRACT",
+      "specTextSha256": "sha256:1365800e5691d2b92b3726bad008432e5a9f8fcdf6af6f416ef7a2160366a542",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "src/actors/actor.ts#Actor is the coordination unit and src/actors/fence.ts#ActorRecoveryState carries the recover-before-serve and stale-fence state; W0 must cite those symbols and add a test titled with [C13-OWNERSHIP-ACTOR-CONTRACT] covering command serialization, recovery before serving, the declared linearization point, and stale-fence rejection before this atom leaves planned"
+      ]
+    },
+    {
+      "id": "C13-OWNERSHIP-AUTHORITY-RECORDS",
+      "owner": "W0",
+      "specAnchor": "C13-OWNERSHIP-AUTHORITY-RECORDS",
+      "specTextSha256": "sha256:b06da9c7840fdb13494ec6074159fc66c8d512b46407bcaed5ba4c0fdb103114",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "src/authority/memory.ts#MemoryTenantControlStore holds the Tenant-owned canonical Binding records its own version-2 note describes, and src/authority/binding.ts scopes a Binding to its Tenant; W0 must cite those symbols and add a test titled with [C13-OWNERSHIP-AUTHORITY-RECORDS] showing the Binding change and its path-epoch advance commit in one Tenant-local transaction and that no other Actor holds a canonical or mirrored copy, before this atom leaves planned"
+      ]
+    },
+    {
       "id": "C13-OWNERSHIP-MAP",
       "owner": "W0",
       "specAnchor": "C13-OWNERSHIP-MAP",
@@ -41,7 +69,7 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "Rule 1 is mechanically enforced: the records registry gives every durable record exactly one owning Actor and authoritative store, ACQ-OWNER rejects duplicates, and the W0 checker tests cover it \u2014 but those tests run outside the ledger's executed-test lanes, so no citable selector exists yet",
+        "Rule 1 is mechanically enforced: the records registry gives every durable record exactly one owning Actor and authoritative store, ACQ-OWNER rejects duplicates, and the W0 checker tests cover it — but those tests run outside the ledger's executed-test lanes, so no citable selector exists yet",
         "The never-dual-write and rebuildable-index clauses have declaration-level enforcement only: no checker or test proves an index can be dropped and rebuilt from the authoritative store, and no mechanical guard catches a second writer for a declared kind",
         "No cache abstraction exists, so rule 3 is vacuous in the current tree and should be evidenced as such explicitly rather than silently"
       ]

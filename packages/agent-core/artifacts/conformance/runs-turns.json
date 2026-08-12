@@ -233,7 +233,7 @@
       "id": "C13-RUN-ANCESTRY",
       "owner": "W5",
       "specAnchor": "C13-RUN-ANCESTRY",
-      "specTextSha256": "sha256:ec2b5bf2a0bbdf90247803a63ddc27ceb8c8ffb2646052d716358047550d8e8c",
+      "specTextSha256": "sha256:108c067468adfd3b108814546629ff1706bf49af06cfb03793a2f55dd56d7868",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
@@ -275,6 +275,20 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-CEILING-REMAINDER",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-CEILING-REMAINDER",
+      "specTextSha256": "sha256:e5e0e2c56f7fd8de06e3128a5a69d7a3239bf708b8a5c2450b2fd68352972f5b",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "src/agents/runs/ceiling.ts folds each dimension's remainder, src/agents/runs/runtime.ts#remainingResourcesInTransaction walks the spawn lineage for it, and src/agents/runs/run.ts#Run.recordTokens keeps the durable per-Run token total. test/agents/runs/ceiling.test.ts exercises remainingResources today, but only under [C13-RUN-RESOURCE-CEILING], and no test yet distinguishes a derived depth or wall-clock remainder from a separately accounted one. W5 must add a test titled with [C13-RUN-CEILING-REMAINDER] that does, and cite those symbols, before this atom leaves planned"
+      ]
     },
     {
       "id": "C13-RUN-CHECKPOINT-KINDS",
@@ -375,7 +389,7 @@
       "id": "C13-RUN-GRAPH-ARITY",
       "owner": "W5",
       "specAnchor": "C13-RUN-GRAPH-ARITY",
-      "specTextSha256": "sha256:deff1b8cdf975dcba7b6620c92119bbc5e1152fbaabe5bbb802173efbcfd85ea",
+      "specTextSha256": "sha256:3a9a9df8095300fdb734681b9489a6af1e37e7139e425e8157b7c57238d0a1a3",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
@@ -650,7 +664,7 @@
       "id": "C13-RUN-UNDO-REDO",
       "owner": "W5",
       "specAnchor": "C13-RUN-UNDO-REDO",
-      "specTextSha256": "sha256:0c027866c87033f5ad4397cf538abdb2432fba59cdf6491deb9cb5596a513526",
+      "specTextSha256": "sha256:c29452cbc6ed8b28c98c4bff48ac0f3e93bfd5d7021e75ff004095241379d335",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
@@ -694,7 +708,7 @@
       "id": "C13-TURN-EXACT-LEASE",
       "owner": "W5",
       "specAnchor": "C13-TURN-EXACT-LEASE",
-      "specTextSha256": "sha256:80ea987e35963daa701fe349cc8915e69aa275cb2a1a48645cb474fac4db04b1",
+      "specTextSha256": "sha256:a9a36a1f9d2df5e1f4f3f1e3e2e4480685c8c391f01c3282b6ddadb8bedf2112",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/agents/runs/lease-verifier.ts#RepositoryTurnLeaseVerifier"],
@@ -708,7 +722,7 @@
       "id": "C13-TURN-EXECUTOR-WRITER",
       "owner": "W5",
       "specAnchor": "C13-TURN-EXECUTOR-WRITER",
-      "specTextSha256": "sha256:32cdaa886b10167058e0da1c59c707ccc00a485595e60da9a0dea13105795657",
+      "specTextSha256": "sha256:a9a36a1f9d2df5e1f4f3f1e3e2e4480685c8c391f01c3282b6ddadb8bedf2112",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
@@ -731,10 +745,24 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-TURN-LEASE-EXPIRY",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-LEASE-EXPIRY",
+      "specTextSha256": "sha256:f6f58a20f1ab1b18d8afb192a42777fa8c7cd6a083405bccb4a3e6bcf53992ae",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "src/agents/runs/lease.ts#ensureFutureExpiration already rejects a non-future expiry on claim, renew, and reclaim, and reclaim additionally checks the recorded expiry against now; W5 must cite those symbols and add a test titled with [C13-TURN-LEASE-EXPIRY] before this atom leaves planned"
+      ]
+    },
+    {
       "id": "C13-TURN-LIFECYCLE",
       "owner": "W5",
       "specAnchor": "C13-TURN-LIFECYCLE",
-      "specTextSha256": "sha256:d956d969985d744a9fc8db829da25cf6844979ce6d4aa4145d6fbab371d8fd6c",
+      "specTextSha256": "sha256:f99178cd6ad82f2577a64f5b7ea1aa0174ec9c1663d1c26e4583f19c2f05763c",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/agents/runs/turn.ts#Turn"],
@@ -839,7 +867,7 @@
       "id": "C13-WRITER-MATRIX",
       "owner": "W5",
       "specAnchor": "C13-WRITER-MATRIX",
-      "specTextSha256": "sha256:61a4221336b2aa2cba0d0d97ad8d910bb3b59cedc82c5982278d2a35b68a8050",
+      "specTextSha256": "sha256:51b343d611e668ee2d959449ec4c47ff4147653f8a025e25817f6f892f78718d",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
@@ -853,7 +881,7 @@
       "id": "C13-WRITER-POST-FENCE-EVIDENCE",
       "owner": "W5",
       "specAnchor": "C13-WRITER-POST-FENCE-EVIDENCE",
-      "specTextSha256": "sha256:70fe79e00295cd92ea76ffda978589bd0b0561f27f23d78cf37c576450c98f4c",
+      "specTextSha256": "sha256:51b343d611e668ee2d959449ec4c47ff4147653f8a025e25817f6f892f78718d",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
@@ -867,7 +895,7 @@
       "id": "C13-WRITER-SYNTHESIS",
       "owner": "W5",
       "specAnchor": "C13-WRITER-SYNTHESIS",
-      "specTextSha256": "sha256:735d22c968ed74b479863c0a3e66eed431badae137c758954fedb2deb7ae0d9a",
+      "specTextSha256": "sha256:51b343d611e668ee2d959449ec4c47ff4147653f8a025e25817f6f892f78718d",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
@@ -881,7 +909,7 @@
       "id": "C13-WRITER-SYSTEM-MERGE",
       "owner": "W5",
       "specAnchor": "C13-WRITER-SYSTEM-MERGE",
-      "specTextSha256": "sha256:a29896a9f0689826dd7330b70ae705294e6c60bb1c0b344a749250e200624532",
+      "specTextSha256": "sha256:51b343d611e668ee2d959449ec4c47ff4147653f8a025e25817f6f892f78718d",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
