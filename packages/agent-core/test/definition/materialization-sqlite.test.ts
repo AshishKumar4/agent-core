@@ -267,7 +267,10 @@ describe("SqliteMaterializationStore persistence", () => {
             "managed kind",
             "definition_managed_state",
             "record_kind",
-            "facet-placement",
+            // Neither of this fixture's two seeded rows (facet-placement, policy-set) has
+            // this kind, so the rewrite is a real mismatch regardless of which row the
+            // unordered `LIMIT 1` selects.
+            "facet-install",
             "listManagedState"
         ],
         [

@@ -1,5 +1,11 @@
 import { resolve } from "node:path";
-import { artifactRoot, readCanonicalJson, reportRoot, writeCanonicalJson } from "./project.mjs";
+import {
+    artifactRoot,
+    assertUniqueIds,
+    readCanonicalJson,
+    reportRoot,
+    writeCanonicalJson
+} from "./project.mjs";
 
 // With --hermetic, rules whose checker is a process node (multi-agent change-review
 // governance) defer to the governed stages: the hermetic closure never runs those
@@ -7,6 +13,7 @@ import { artifactRoot, readCanonicalJson, reportRoot, writeCanonicalJson } from 
 const hermetic = process.argv.includes("--hermetic");
 const graph = await readCanonicalJson(resolve(artifactRoot, "quality/check-dag.json"));
 const rules = await readCanonicalJson(resolve(artifactRoot, "quality/rules.json"));
+assertUniqueIds(rules.rules, (rule) => rule.id, "quality/rules.json rules");
 const passed = [];
 const deferred = [];
 for (const rule of rules.rules) {

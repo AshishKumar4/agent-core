@@ -14,7 +14,12 @@ export {
 } from "./id";
 export { CapabilitySpec, isCapabilityEffect } from "./capability";
 export type { CapabilityEffect, CapabilityIntent, CapabilitySpecInit } from "./capability";
-export { BindingRequirement, FacetManifest, canonicalIsolationModes } from "./manifest";
+export {
+    BindingRequirement,
+    FacetManifest,
+    PLACEMENT_PREFERENCE,
+    canonicalIsolationModes
+} from "./manifest";
 export type { FacetManifestInit, IsolationMode } from "./manifest";
 export {
     Contribution,

@@ -117,18 +117,18 @@ export function materializationStoreContract<TTransaction>(
             installGeneration(store, third);
 
             expect(store.listPlans().map((plan) => plan.id.value)).toEqual([
-                planBeta.plan.id.value,
-                planAlpha.plan.id.value
+                planAlpha.plan.id.value,
+                planBeta.plan.id.value
             ]);
             expect(store.listGenerations().map((generation) => generation.id.value)).toEqual([
+                third.materialization.generation.id.value,
                 second.materialization.generation.id.value,
-                first.materialization.generation.id.value,
-                third.materialization.generation.id.value
+                first.materialization.generation.id.value
             ]);
             expect(store.listManagedState().map((record) => record.generationId.value)).toEqual([
+                third.materialization.generation.id.value,
                 second.materialization.generation.id.value,
-                first.materialization.generation.id.value,
-                third.materialization.generation.id.value
+                first.materialization.generation.id.value
             ]);
             const stored = store.getManagedState(first.materialization.records[0]!.id);
             expect(ManagedStateRecord.encode(stored!)).toEqual(

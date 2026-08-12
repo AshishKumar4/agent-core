@@ -1,9 +1,10 @@
-import { Digest, RecordCodec, encodeCanonicalJson, type JsonValue } from "../../core";
+import { Digest, RecordCodec, encodeCanonicalJson, isMember, type JsonValue } from "../../core";
 import { FacetRef, type IsolationMode } from "../../facets";
-import { PLACEMENT_PREFERENCE } from "../../definition";
+import { PLACEMENT_PREFERENCE, preferredPlacement } from "../../definition";
 import { TurnId } from "../../execution-references";
 import {
     CodecRecord,
+    compareText,
     requireArray,
     requireExactFields,
     requireObject,
@@ -41,13 +42,7 @@ export class PlacementPin {
         ) {
             throw new TypeError("Placement selection must belong to every source set");
         }
-        const selected = PLACEMENT_PREFERENCE.find(
-            (mode) =>
-                this.manifest.includes(mode) &&
-                this.policy.includes(mode) &&
-                this.substrate.includes(mode) &&
-                this.trust.includes(mode)
-        );
+        const selected = preferredPlacement(this.manifest, this.policy, this.substrate, this.trust);
         if (selected !== init.selected) {
             throw new TypeError("Placement selection must use the fixed preference order");
         }
@@ -98,7 +93,7 @@ export class TurnPlacementSnapshot extends CodecRecord {
         super();
         const canonical = [...placements]
             .map((placement) => PlacementPin.fromData(placement.toData()))
-            .sort((left, right) => left.facet.value.localeCompare(right.facet.value));
+            .sort((left, right) => compareText(left.facet.value, right.facet.value));
         if (
             new Set(canonical.map((placement) => placement.facet.value)).size !== canonical.length
         ) {
@@ -165,6 +160,6 @@ function modesFromData(value: JsonValue | undefined, subject: string): readonly 
 }
 
 function requireIsolationMode(value: JsonValue | undefined, subject: string): IsolationMode {
-    if (value === "dynamic" || value === "provider" || value === "bundled") return value;
+    if (isMember(PLACEMENT_PREFERENCE, value)) return value;
     throw new TypeError(`${subject} contains an unknown isolation mode`);
 }

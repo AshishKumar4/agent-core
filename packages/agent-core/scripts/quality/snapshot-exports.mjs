@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import ts from "typescript";
-import { artifactRoot, packageRoot, writeCanonicalJson } from "./project.mjs";
+import { artifactRoot, packageRoot, parseCanonicalJson, portablePath, writeCanonicalJson } from "./project.mjs";
 
 if (process.env.QUALITY_WRITE_BASELINE !== "1" || process.env.CI) {
     throw new TypeError("Snapshotting exports requires QUALITY_WRITE_BASELINE=1 outside CI");
@@ -38,9 +38,8 @@ for (const [specifier, path] of declarationPaths) {
 }
 let governance = {};
 try {
-    const previous = JSON.parse(
-        await readFile(resolve(artifactRoot, "quality/exports.json"), "utf8")
-    );
+    const exportsPath = resolve(artifactRoot, "quality/exports.json");
+    const previous = parseCanonicalJson(await readFile(exportsPath, "utf8"), portablePath(exportsPath));
     governance = {
         forbiddenSymbols: previous.forbiddenSymbols ?? {},
         forbiddenSubpaths: previous.forbiddenSubpaths ?? [],

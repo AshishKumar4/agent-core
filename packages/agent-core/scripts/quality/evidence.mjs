@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { relative, resolve, sep } from "node:path";
 import ts from "typescript";
-import { packageRoot, reportRoot, repositoryRoot } from "./project.mjs";
+import { packageRoot, parseCanonicalJson, portablePath, reportRoot, repositoryRoot } from "./project.mjs";
 
 export function createProgram() {
     const roots = [packageRoot, resolve(repositoryRoot, "packages/agent-core-cloudflare")];
@@ -103,7 +103,7 @@ export async function executedTestSelectors(path) {
     for (const reportPath of paths) {
         let report;
         try {
-            report = JSON.parse(await readFile(reportPath, "utf8"));
+            report = parseCanonicalJson(await readFile(reportPath, "utf8"), portablePath(reportPath));
         } catch (error) {
             if (path === undefined && reportPath !== coreReport && error?.code === "ENOENT")
                 continue;
@@ -132,7 +132,7 @@ export async function executedTestSelectors(path) {
 }
 
 export async function requireSuccessfulTestReport(path, requireTests = true) {
-    const report = JSON.parse(await readFile(path, "utf8"));
+    const report = parseCanonicalJson(await readFile(path, "utf8"), portablePath(path));
     validateTestReport(report, path, requireTests);
     return report;
 }
