@@ -1,0 +1,33 @@
+{
+  "name": "@agent-core/harness",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "pnpm --filter @agent-core/core build && node ./scripts/build.mjs",
+    "check:consumer": "pnpm build && node ./scripts/check-consumer.mjs",
+    "check:exports": "pnpm check:consumer",
+    "check:types": "pnpm --filter @agent-core/core build && tsc -p tsconfig.json && tsc -p test/tsconfig.json",
+    "lint": "pnpm --workspace-root exec oxlint --deny-warnings packages/agent-core-harness/src packages/agent-core-harness/test packages/agent-core-harness/scripts",
+    "test": "pnpm --filter @agent-core/core build && vitest run --config test/vitest.config.mjs"
+  },
+  "dependencies": {
+    "@agent-core/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.1",
+    "@vitest/coverage-v8": "4.1.9",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.0",
+    "vitest": "4.1.9"
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "edition": "1.0.0",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "runtime": {
+    "@agent-core/harness": [
+      "AgentLoopTurnExecutor",
+      "AssistantMessage",
+      "AssistantMessageCodec",
+      "HarnessError",
+      "ModelProvider",
+      "OpenAiCompatibleModelProvider",
+      "PlacementOperationSource",
+      "ToolCall",
+      "ToolCallId",
+      "ToolResultMessage",
+      "Transcript",
+      "TranscriptCodec",
+      "TranscriptMessage",
+      "TranscriptPromptAssembler",
+      "TranscriptTurnModelPort",
+      "UserMessage",
+      "aiGatewayEndpoint",
+      "workersAiEndpoint"
+    ]
+  },
+  "declarations": {
+    "@agent-core/harness": {
+      "values": [
+        "AgentLoopTurnExecutor",
+        "AssistantMessage",
+        "AssistantMessageCodec",
+        "HarnessError",
+        "ModelProvider",
+        "OpenAiCompatibleModelProvider",
+        "PlacementOperationSource",
+        "ToolCall",
+        "ToolCallId",
+        "ToolResultMessage",
+        "Transcript",
+        "TranscriptCodec",
+        "TranscriptMessage",
+        "TranscriptPromptAssembler",
+        "TranscriptTurnModelPort",
+        "UserMessage",
+        "aiGatewayEndpoint",
+        "workersAiEndpoint"
+      ],
+      "types": [
+        "AgentLoopOptions",
+        "HarnessErrorCode",
+        "ModelCompletion",
+        "ModelRequest",
+        "ModelToolSpec",
+        "OpenAiCompatibleModelOptions"
+      ]
+    }
+  },
+  "forbiddenSymbols": {},
+  "forbiddenSubpaths": [
+    "@agent-core/harness/executor",
+    "@agent-core/harness/model",
+    "@agent-core/harness/transcript"
+  ],
+  "forbiddenMembers": []
+}

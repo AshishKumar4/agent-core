@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 
@@ -21,7 +21,7 @@ describe("request outcome reconciliation", () => {
 
     test("subsumes W2, W5, and W6 detached coverage evidence under owner-complete global coverage", () => {
         const policy = json("artifacts/quality/policy.json") as {
-            coverage: { threshold: number; sourceUniverses: Array<{ id: string }> };
+            coverage: { threshold: number; sourceUniverses: Array<{ root: string }> };
         };
         const w2 = JSON.parse(
             readFileSync(resolve(archiveRoot, "W2/coverage-manifest.json"), "utf8")
@@ -32,7 +32,17 @@ describe("request outcome reconciliation", () => {
         };
         const w6 = readFileSync(resolve(archiveRoot, "W6/coverage.md"), "utf8");
         expect(policy.coverage.threshold).toBe(95);
-        expect(policy.coverage.sourceUniverses.map(({ id }) => id)).toEqual(["node", "cloudflare"]);
+        // The universe set is the workspace package set, derived rather than listed, so
+        // a new package cannot be covered by nothing and still satisfy this evidence.
+        const workspaceRoots = readdirSync(resolve(repositoryRoot, "packages"), {
+            withFileTypes: true
+        })
+            .filter((entry) => entry.isDirectory())
+            .map((entry) => `packages/${entry.name}/src`)
+            .sort();
+        expect(policy.coverage.sourceUniverses.map(({ root }) => root).sort()).toEqual(
+            workspaceRoots
+        );
         expect(w2.sourceFiles.length).toBeGreaterThan(30);
         expect(w2.testFiles.length).toBeGreaterThan(10);
         expect(

@@ -14,7 +14,7 @@ import {
     writeCanonicalJson
 } from "./project.mjs";
 import { dependencyClosure, topologicalOrder, validateGraph } from "./dag.mjs";
-import { hasCloudflareSource } from "./workspaces.mjs";
+import { activeAdjunctPackages, adjunctPackages, adjunctReportRoot } from "./workspaces.mjs";
 
 const stage = argument("--stage") ?? "building";
 if (stage !== "building" && stage !== "final") throw new TypeError(`Unknown stage ${stage}`);
@@ -44,12 +44,13 @@ for (const node of expectedNodes) {
     }
 }
 const reports = await collectFiles(reportRoot, (path) => path.endsWith(".json"));
-const cloudflareReportRoot = resolve(
-    repositoryRoot,
-    "packages/agent-core-cloudflare/reports/quality"
-);
-const cloudflareReports = await collectFiles(cloudflareReportRoot, (path) =>
-    path.endsWith(".json")
+const active = await activeAdjunctPackages();
+const adjunctReports = await Promise.all(
+    adjunctPackages().map(async (workspace) => ({
+        workspace,
+        root: adjunctReportRoot(workspace),
+        files: await collectFiles(adjunctReportRoot(workspace), (path) => path.endsWith(".json"))
+    }))
 );
 const expectedCoreReports = new Set([
     "checks-input.json",
@@ -91,20 +92,18 @@ if (expectedNodes.includes("coverage")) {
     expectedCoreReports.add("coverage/source-universe.json");
 }
 requireExactReports(reports, reportRoot, expectedCoreReports, "core");
-const expectedCloudflareReports = new Set();
-if ((await hasCloudflareSource()) && expectedNodes.includes("tests")) {
-    for (const lane of ["structural", "workers"]) {
-        expectedCloudflareReports.add(`tests/${lane}.json`);
+for (const { workspace, root, files } of adjunctReports) {
+    const expected = new Set();
+    if (active.includes(workspace) && expectedNodes.includes("tests")) {
+        for (const lane of workspace.testLanes) {
+            expected.add(`tests/${lane.id}.json`);
+            if (!lane.coverage) continue;
+            expected.add(`coverage/${lane.id}/coverage-final.json`);
+            expected.add(`coverage/${lane.id}/coverage-summary.json`);
+        }
     }
-    expectedCloudflareReports.add("coverage/structural/coverage-final.json");
-    expectedCloudflareReports.add("coverage/structural/coverage-summary.json");
+    requireExactReports(files, root, expected, workspace.id);
 }
-requireExactReports(
-    cloudflareReports,
-    cloudflareReportRoot,
-    expectedCloudflareReports,
-    "cloudflare"
-);
 const status = git(["status", "--porcelain=v1"]);
 if (stage === "final" && status.trim().length > 0) {
     throw new TypeError("Final quality attestation requires a clean worktree");
@@ -136,10 +135,12 @@ const attestation = {
                     name: `core/${path.slice(reportRoot.length + 1)}`,
                     path
                 })),
-                ...cloudflareReports.map((path) => ({
-                    name: `cloudflare/${path.slice(cloudflareReportRoot.length + 1)}`,
-                    path
-                }))
+                ...adjunctReports.flatMap(({ workspace, root, files }) =>
+                    files.map((path) => ({
+                        name: `${workspace.id}/${path.slice(root.length + 1)}`,
+                        path
+                    }))
+                )
             ]
                 .sort((left, right) => left.name.localeCompare(right.name))
                 .map(async ({ name, path }) => [name, await fileSha256(path)])
