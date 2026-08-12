@@ -69,9 +69,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "\u00a73.5 now defines the custody record as a (SecretRef, consumer, endpoint) triple recorded by whichever Tenant-owned consumer accepts the credential, names the credential-isolation seam (\u00a74.5) as the resolution seam the custody check binds, and ties denial to the existing failed-AttemptReceipt vocabulary (\u00a77.4) rather than a new record kind \u2014 the three gaps the prior evidence named (custody record shape, acceptance operation, denial vocabulary) are now specified by composition, not new machinery",
-        "No secret resolution runtime exists to evidence against: SecretRef is a value type and the two credential ports (EnvironmentCredentialPort.forward, EnvironmentCredentialIsolationProxy) remain abstract with no implementation \u2014 the credential-isolation seam is a \u00a74.5 SHOULD, so no substrate is required to implement one at all, and none currently does",
-        "Building the custody check needs an implementation of at least one resolution seam (a substrate's EnvironmentCredentialPort or EnvironmentCredentialIsolationProxy) that records acceptance against a consumer and endpoint and denies a presented mismatch \u2014 genuine W4/W8 implementation scope now that the shape is specified, not a remaining spec ambiguity"
+        "§3.5 now defines the custody record as a (SecretRef, consumer, endpoint) triple recorded by whichever Tenant-owned consumer accepts the credential, names the credential-isolation seam (§4.5) as the resolution seam the custody check binds, and ties denial to the existing failed-AttemptReceipt vocabulary (§7.4) rather than a new record kind — the three gaps the prior evidence named (custody record shape, acceptance operation, denial vocabulary) are now specified by composition, not new machinery",
+        "No secret resolution runtime exists to evidence against: SecretRef is a value type and the two credential ports (EnvironmentCredentialPort.forward, EnvironmentCredentialIsolationProxy) remain abstract with no implementation — the credential-isolation seam is a §4.5 SHOULD, so no substrate is required to implement one at all, and none currently does",
+        "Building the custody check needs an implementation of at least one resolution seam (a substrate's EnvironmentCredentialPort or EnvironmentCredentialIsolationProxy) that records acceptance against a consumer and endpoint and denies a presented mismatch — genuine W4/W8 implementation scope now that the shape is specified, not a remaining spec ambiguity"
       ]
     },
     {
@@ -100,11 +100,11 @@
         "src/definition/placement.ts#PlacementPolicy"
       ],
       "testSelectors": [
-        "test/definition/authored-code-backing.test.ts#declaring which backing serves which \u00a74.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] serves a declared consumer from the backing the Blueprint named",
-        "test/definition/authored-code-backing.test.ts#declaring which backing serves which \u00a74.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] sends an unmapped consumer to the profile's declared default",
-        "test/definition/authored-code-backing.test.ts#declaring which backing serves which \u00a74.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] round-trips the declaration through the placement record",
-        "test/definition/authored-code-backing.test.ts#declaring which backing serves which \u00a74.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] admits only the three \u00a74.7 consumers",
-        "test/definition/authored-code-backing.test.ts#declaring which backing serves which \u00a74.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] rejects a placement record whose declaration is malformed"
+        "test/definition/authored-code-backing.test.ts#declaring which backing serves which §4.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] serves a declared consumer from the backing the Blueprint named",
+        "test/definition/authored-code-backing.test.ts#declaring which backing serves which §4.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] sends an unmapped consumer to the profile's declared default",
+        "test/definition/authored-code-backing.test.ts#declaring which backing serves which §4.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] round-trips the declaration through the placement record",
+        "test/definition/authored-code-backing.test.ts#declaring which backing serves which §4.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] admits only the three §4.7 consumers",
+        "test/definition/authored-code-backing.test.ts#declaring which backing serves which §4.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] rejects a placement record whose declaration is malformed"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -120,7 +120,7 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The rule is enforced at the substrate (SPEC \u00a71.5: an outbound policy code can reach around is advice), but W4's definition plane holds only the dynamic mode token; the sole enforcement point is globalOutbound: null in the W8 Cloudflare loader, which W4 cannot cite",
+        "The rule is enforced at the substrate (SPEC §1.5: an outbound policy code can reach around is advice), but W4's definition plane holds only the dynamic mode token; the sole enforcement point is globalOutbound: null in the W8 Cloudflare loader, which W4 cannot cite",
         "Needs a substrate-neutral domain-construction seam in the definition plane whose contract is no-ambient-egress with destinations only as passed Bindings, implemented by the Cloudflare loader and a local reference, before W4-citable evidence exists",
         "Adversarial evidence: loaded code attempting an outbound connection with no Binding must be denied by the substrate, not by a policy check inside the domain"
       ]
@@ -253,8 +253,8 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "\u00a77.1 now defines the seam precisely \u2014 bundled placement's already-trusted manifest for first-party destinations, or the Tenant's own install-time config for externally configurable ones \u2014 and the floor-preserving comparison (facets/contribution.ts#enforcementFloor, #claimHonorsEnforcementFloor) is no longer duplicated inside the MCP facet: it is one shared, general implementation MCP is now the sole consumer of. An audit of every current OperationDescriptor construction site confirms every non-MCP facet declares a static, first-party impact literal (trivially seam-compliant under bundled placement) and MCP is the only facet deriving impact from anything install-configurable, so the rule holds across the present codebase",
-        "What remains is ownership and architecture, not ambiguity: the atom is filed under W4 (definition/policy), but the actual derivation this rule constrains happens in each facet's own manifest-construction code (W3's shared utility, consumed by W8's MCP facet) \u2014 W4's evaluatePolicy only ever sees an already-derived impact, so no W4-owned source or test can evidence the derivation step itself under this ledger's single-owner evidence rule",
+        "§7.1 now defines the seam precisely — bundled placement's already-trusted manifest for first-party destinations, or the Tenant's own install-time config for externally configurable ones — and the floor-preserving comparison (facets/contribution.ts#enforcementFloor, #claimHonorsEnforcementFloor) is no longer duplicated inside the MCP facet: it is one shared, general implementation MCP is now the sole consumer of. An audit of every current OperationDescriptor construction site confirms every non-MCP facet declares a static, first-party impact literal (trivially seam-compliant under bundled placement) and MCP is the only facet deriving impact from anything install-configurable, so the rule holds across the present codebase",
+        "What remains is ownership and architecture, not ambiguity: the atom is filed under W4 (definition/policy), but the actual derivation this rule constrains happens in each facet's own manifest-construction code (W3's shared utility, consumed by W8's MCP facet) — W4's evaluatePolicy only ever sees an already-derived impact, so no W4-owned source or test can evidence the derivation step itself under this ledger's single-owner evidence rule",
         "Verifying this atom needs the owner to decide the shape: either a composition-layer gate that re-derives/checks impact against a Binding's own boundary declaration at mediation time for every facet (a new central enforcement point, generalizing today's per-facet pattern), or an explicit acceptance that per-facet seam derivation is the intended architecture and evidence for this atom must be sourced across waves rather than from one owner"
       ]
     },
