@@ -1310,6 +1310,46 @@
       "occurrence": 1,
       "sites": 2,
       "proof": "Dropping the trim here makes the test read value.length === 0, which differs from the original only for a string that is non-empty but trims to empty \u2014 one made of nothing but whitespace. For exactly those strings the operand beside it is true, because a whitespace-only string is never equal to its own trim, so the refusal fires for the same inputs with the same message. The second occurrence is the canonicality test itself and cannot be dropped: without its trim the comparison becomes value !== value, constantly false, and a padded string would be accepted. Its mutant is killed."
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "sibling.lease.holder !== undefined",
+      "mutator": "ConditionalExpression",
+      "occurrence": 1,
+      "proof": "This is the second half of the screen that refuses to close a Run while any sibling is still live, and forcing it false leaves `!isTerminalTurn(sibling)` selecting the same siblings. The only sibling the disjunct could add is one that is terminal and still holds its lease, and that Turn is not merely unreachable \u2014 it is unrepresentable. Turn's constructor throws \"Suspended and terminal Turns must be unheld\" for exactly that pair, and a stored Turn is bytes: listTurns decodes every row through TurnCodec into Turn.fromData and so through that constructor, so no row can carry the state and no store can hand one back. That is what separates this operand from the twenty-nine mutants in this method that a storage port answering later reads with something else does kill: those states are all representable records the store simply got wrong, and this one cannot be written down. The complementary mutant forcing the same test true, which would refuse every terminalization, is killed.",
+      "replacement": "false",
+      "sites": 2,
+      "symbol": "RunRuntime.validateTerminalSiblings"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "sibling.lease.holder !== undefined",
+      "mutator": "ConditionalExpression",
+      "occurrence": 2,
+      "proof": "Control reaches this disjunct only after `sibling.status.kind !== \"cancelled\"` was false, so the sibling is cancelled and therefore terminal, and Turn's constructor refuses a terminal Turn that holds a lease. The record type is what makes this decisive rather than the call order: every sibling here came out of listTurns, which decodes stored bytes through TurnCodec and Turn.fromData into that constructor, so a held cancelled Turn is a value the codec cannot produce however wrong the store is. The clauses on either side of this one are killed by exactly such a store \u2014 a sibling handed back succeeded rather than cancelled kills the status test, and one handed back at an epoch the fence never wrote kills the epoch test \u2014 which is the sharpest evidence that this operand is the only one of the six with no representable input rather than one nobody thought to stage.",
+      "replacement": "false",
+      "sites": 2,
+      "symbol": "RunRuntime.validateTerminalSiblings"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "commit.resolution?.kind",
+      "mutator": "OptionalChaining",
+      "occurrence": 1,
+      "proof": "The optional call cannot short-circuit here, so it selects the same branch as a plain read. validateMerge has one caller, appendInTransaction, which invokes it only under `commit.kind === \"merge\"`, and validateClosedShape's merge branch throws \"Merge commit fields are invalid\" unless the commit carries a resolution, along with two parents, a system control writer, content and a receipt. RunCommit runs that check on construction and RunCommitCodec decodes through the same constructor, so every merge commit that reaches this line has a resolution and both spellings read the same discriminant off the same object. The chain is written because resolution is optional across the union of commit kinds, not because a merge commit can arrive without one; the pick rules this branch guards are themselves exercised, and the mutants inside them are killed.",
+      "replacement": "commit.resolution.kind",
+      "sites": 2,
+      "symbol": "RunRuntime.validateMerge"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "commit.resolution?.kind",
+      "mutator": "OptionalChaining",
+      "occurrence": 2,
+      "proof": "This site guards the concat check, where the mutant could in principle change more than a value: the conjunct it heads decides whether the merge port's verifyConcat runs at all, so a short circuit that became a throw would replace a skipped verification with a fault. It cannot, because the receiver is present. The commit reached validateMerge only by being a merge commit, and validateClosedShape refuses a merge commit with no resolution before one can be constructed or decoded. Nothing can clear the field between this read and the earlier one either: RunCommit freezes itself at the end of its constructor, so resolution is the same value for the whole call. The optional call therefore always proceeds, verifyConcat is reached on exactly the commits it was reached on before, and the refusal it can raise is unchanged.",
+      "replacement": "commit.resolution.kind",
+      "sites": 2,
+      "symbol": "RunRuntime.validateMerge"
     }
   ]
 }
