@@ -47,15 +47,24 @@ class ScriptedModelProvider extends ModelProvider {
 
 class RecordingInvocationPort extends TurnInvocationPort {
     public readonly requests: TurnInvocationRequest[] = [];
+    public readonly served: TurnInvocationResult[] = [];
     public outcome: (input: FacetData) => FacetData = (input) => ({ echoed: input });
+    public tier: "direct" | "mediated" = "mediated";
 
     public async invoke(request: TurnInvocationRequest): Promise<TurnInvocationResult> {
         this.requests.push(request);
-        return Object.freeze({
-            tier: "mediated",
-            output: this.outcome(request.input),
-            evidence: { receipt: `receipt-${this.requests.length}` }
-        });
+        const output = this.outcome(request.input);
+        const result: TurnInvocationResult = Object.freeze(
+            this.tier === "direct"
+                ? { tier: "direct", output }
+                : {
+                      tier: "mediated",
+                      output,
+                      evidence: { receipt: `receipt-${this.requests.length}` }
+                  }
+        );
+        this.served.push(result);
+        return result;
     }
 }
 
@@ -104,11 +113,12 @@ function deliverCancellation(fixture: RunFixture): void {
 
 async function runLoop(
     replies: readonly ModelCompletion[],
-    options: { readonly maximumSteps?: number } = {}
+    options: { readonly maximumSteps?: number; readonly tier?: "direct" | "mediated" } = {}
 ) {
     const fixture = await seedRunningTurn("Where did I park?");
     const provider = new ScriptedModelProvider(replies);
     const invocations = new RecordingInvocationPort();
+    invocations.tier = options.tier ?? "mediated";
     const stream = new RecordingStreamPort();
     const host = new TurnExecutorHost({
         runtime: fixture.runtime,
@@ -157,7 +167,7 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
     );
 
     test(
-        "routes every tool call through the mediated invocation port and commits each step",
+        "routes every mediated tool call through the invocation port and commits each step",
         { tags: "p0" },
         async () => {
             const call = new ToolCall(
@@ -204,6 +214,54 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
                 `${ids.turn.value}-result:result`,
                 `${ids.turn.value}-tools-0:message`
             ]);
+        }
+    );
+
+    test(
+        "commits a direct-tier tool result exactly as it commits a mediated one",
+        { tags: "p0" },
+        async () => {
+            const call = new ToolCall(
+                new ToolCallId("call-1"),
+                boundOperation("recall", "recall").binding,
+                { query: "parking" }
+            );
+            const { fixture, invocations, provider, outcome } = await runLoop(
+                [reply("Let me check.", [call]), reply("You parked on level 3.")],
+                { tier: "direct" }
+            );
+
+            expect(outcome.kind).toBe("succeeded");
+            expect(invocations.requests).toHaveLength(1);
+            expect(invocations.served.map((result) => result.tier)).toEqual(["direct"]);
+
+            // A direct call carries no invocation evidence (§7.2), and the loop needs
+            // none: the tool output is what the model reads and what the step commits.
+            const second = provider.requests[1]!;
+            expect(second.transcript.messages[2]).toMatchObject({
+                role: "toolResult",
+                failed: false,
+                output: { echoed: { query: "parking" } }
+            });
+
+            const commits = fixture.repository.transaction((transaction) =>
+                fixture.repository.listCommits(transaction)
+            );
+            const authored = commits
+                .filter((commit) => commit.subjectTurn?.equals(ids.turn) === true)
+                .map((commit) => `${commit.id.value}:${commit.kind}`)
+                .sort();
+            expect(authored).toEqual([
+                `${ids.turn.value}-assistant-0:message`,
+                `${ids.turn.value}-result:result`,
+                `${ids.turn.value}-tools-0:message`
+            ]);
+
+            const tools = commits.find((commit) => commit.id.value === `${ids.turn.value}-tools-0`);
+            if (tools?.content === undefined) throw new TypeError("expected a tool step commit");
+            expect(
+                TranscriptCodec.decode(await fixture.content.get(tools.content)).messages
+            ).toMatchObject([{ role: "toolResult", output: { echoed: { query: "parking" } } }]);
         }
     );
 
