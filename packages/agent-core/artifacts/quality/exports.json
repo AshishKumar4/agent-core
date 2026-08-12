@@ -65,6 +65,7 @@
   "runtime": {
     "@agent-core/core": [
       "ACTOR_STATE_SNAPSHOT",
+      "AUTHORED_CODE_CONSUMERS",
       "Actor",
       "ActorActivation",
       "ActorCommitUnknownError",
@@ -346,6 +347,7 @@
       "invariant",
       "invocationError",
       "isActorActivationStore",
+      "isAuthoredCodeConsumer",
       "isFacetData",
       "isFacetDataMap",
       "isJsonObject",
@@ -437,7 +439,9 @@
       "MemoryRunStorage",
       "MemoryTurnLeaseVerifier",
       "PlacementPin",
+      "RESOURCE_DIMENSIONS",
       "RepositoryTurnLeaseVerifier",
+      "ResourceCeiling",
       "Run",
       "RunAdmissionRegistry",
       "RunAdmissionRegistryCodec",
@@ -457,6 +461,8 @@
       "RunSpawnPort",
       "SettlementEvidencePort",
       "SettlementObligation",
+      "SpawnAttenuation",
+      "SpawnAttenuationCodec",
       "SpawnReservation",
       "TerminalSnapshot",
       "Turn",
@@ -482,7 +488,10 @@
       "TurnPromptAssembler",
       "TurnStreamHandle",
       "TurnStreamPort",
-      "isSettled"
+      "exhaustedResource",
+      "isSettled",
+      "narrowResources",
+      "widensResourceCeiling"
     ],
     "@agent-core/core/core": [
       "CompatRange",
@@ -526,6 +535,7 @@
       "requireOperationTime"
     ],
     "@agent-core/core/definition": [
+      "AUTHORED_CODE_CONSUMERS",
       "ActorPlan",
       "BASE_CONFIG_SCHEMA",
       "Blueprint",
@@ -594,6 +604,7 @@
       "evaluatePolicy",
       "expectedOutboxEntries",
       "forwardRollbackPlan",
+      "isAuthoredCodeConsumer",
       "isLegalDeploymentTransition",
       "isLegalOutboxTransition",
       "isSecretRefData",
@@ -852,6 +863,7 @@
   "declarations": {
     "@agent-core/core": [
       "ACTOR_STATE_SNAPSHOT",
+      "AUTHORED_CODE_CONSUMERS",
       "Actor",
       "ActorActivation",
       "ActorActivationStore",
@@ -892,6 +904,8 @@
       "AuditRootAdmission",
       "AuthenticatedAuthorityPermit",
       "AuthenticatedPackageInstallation",
+      "AuthoredCodeBackings",
+      "AuthoredCodeConsumer",
       "AuthorityAdmissionContext",
       "AuthorityAdmissionPort",
       "AuthorityAdmissionReference",
@@ -1405,6 +1419,7 @@
       "invariant",
       "invocationError",
       "isActorActivationStore",
+      "isAuthoredCodeConsumer",
       "isFacetData",
       "isFacetDataMap",
       "isJsonObject",
@@ -1523,8 +1538,13 @@
       "MemoryTurnLeaseVerifier",
       "PlacementPin",
       "PlacementPinInit",
+      "RESOURCE_DIMENSIONS",
       "ReceiptCommitEvidence",
       "RepositoryTurnLeaseVerifier",
+      "ResourceCeiling",
+      "ResourceDimension",
+      "ResourceLimits",
+      "ResourceUsage",
       "Run",
       "RunAdmissionRegistry",
       "RunAdmissionRegistryCodec",
@@ -1555,6 +1575,9 @@
       "SettlementObligation",
       "SettlementObligationInit",
       "SiblingCancellationEvidence",
+      "SpawnAttenuation",
+      "SpawnAttenuationCodec",
+      "SpawnAttenuationInit",
       "SpawnReservation",
       "SynthesisCommitEvidence",
       "TerminalSnapshot",
@@ -1598,7 +1621,10 @@
       "TurnStreamHandle",
       "TurnStreamPort",
       "TurnStreamPublication",
-      "isSettled"
+      "exhaustedResource",
+      "isSettled",
+      "narrowResources",
+      "widensResourceCeiling"
     ],
     "@agent-core/core/core": [
       "CompatRange",
@@ -1659,9 +1685,12 @@
       "requireOperationTime"
     ],
     "@agent-core/core/definition": [
+      "AUTHORED_CODE_CONSUMERS",
       "ActorPlan",
       "ActorPlanInit",
       "AuthenticatedPackageInstallation",
+      "AuthoredCodeBackings",
+      "AuthoredCodeConsumer",
       "BASE_CONFIG_SCHEMA",
       "Blueprint",
       "BlueprintDeclarationCodec",
@@ -1786,6 +1815,7 @@
       "evaluatePolicy",
       "expectedOutboxEntries",
       "forwardRollbackPlan",
+      "isAuthoredCodeConsumer",
       "isLegalDeploymentTransition",
       "isLegalOutboxTransition",
       "isSecretRefData",

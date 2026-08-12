@@ -116,20 +116,25 @@ export function materializationStoreContract<TTransaction>(
             installGeneration(store, second);
             installGeneration(store, third);
 
-            expect(store.listPlans().map((plan) => plan.id.value)).toEqual([
-                planAlpha.plan.id.value,
-                planBeta.plan.id.value
-            ]);
-            expect(store.listGenerations().map((generation) => generation.id.value)).toEqual([
-                third.materialization.generation.id.value,
+            // Canonical order is content-addressed identity order, which is not the order
+            // the generations were installed in.
+            const orderedGenerations = [first, second, third]
+                .map((fixture) => fixture.materialization.generation.id.value)
+                .sort();
+            expect(orderedGenerations).not.toEqual([
+                first.materialization.generation.id.value,
                 second.materialization.generation.id.value,
-                first.materialization.generation.id.value
+                third.materialization.generation.id.value
             ]);
-            expect(store.listManagedState().map((record) => record.generationId.value)).toEqual([
-                third.materialization.generation.id.value,
-                second.materialization.generation.id.value,
-                first.materialization.generation.id.value
-            ]);
+            expect(store.listPlans().map((plan) => plan.id.value)).toEqual(
+                [planAlpha.plan.id.value, planBeta.plan.id.value].sort()
+            );
+            expect(store.listGenerations().map((generation) => generation.id.value)).toEqual(
+                orderedGenerations
+            );
+            expect(store.listManagedState().map((record) => record.generationId.value)).toEqual(
+                orderedGenerations
+            );
             const stored = store.getManagedState(first.materialization.records[0]!.id);
             expect(ManagedStateRecord.encode(stored!)).toEqual(
                 ManagedStateRecord.encode(first.materialization.records[0]!)

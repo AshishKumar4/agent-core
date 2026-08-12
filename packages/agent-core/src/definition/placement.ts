@@ -12,6 +12,25 @@ export { PLACEMENT_PREFERENCE };
 export type NonemptyIsolationModes = readonly [IsolationMode, ...IsolationMode[]];
 export type PlacementErrorCode = "operation.invalid-input";
 
+// SPEC §4.7 names three consumers of agent-authored code and says the set is closed,
+// because nothing else under that section is agent-authored. Membership is therefore the
+// agent-authored marker itself — there is no separate runtime flag to drift from it.
+export const AUTHORED_CODE_CONSUMERS = Object.freeze([
+    "agentAuthoredFacet",
+    "programmaticToolCall",
+    "slateBackend"
+] as const);
+
+export type AuthoredCodeConsumer = (typeof AUTHORED_CODE_CONSUMERS)[number];
+
+export function isAuthoredCodeConsumer(value: string): value is AuthoredCodeConsumer {
+    return isMember(AUTHORED_CODE_CONSUMERS, value);
+}
+
+// Backing ids are substrate-defined and opaque to this document (SPEC §4.7): the
+// Cloudflare profile names `workerLoader` and `dispatchNamespace`, but no enum is fixed.
+export type AuthoredCodeBackings = { readonly [Consumer in AuthoredCodeConsumer]?: string };
+
 export class PlacementUnavailableError extends AgentCoreError {
     public constructor(message: string) {
         super("operation.invalid-input", message);
@@ -21,7 +40,7 @@ export class PlacementUnavailableError extends AgentCoreError {
 
 class PlacementPolicyCodec extends RecordCodec<PlacementPolicy> {
     public constructor() {
-        super("definition.placement-policy", { major: 2, minor: 0 });
+        super("definition.placement-policy", { major: 3, minor: 0 });
     }
 
     protected encodePayload(policy: PlacementPolicy): JsonValue {
@@ -52,10 +71,18 @@ export class PlacementPolicy {
     // PlacementPolicy.all()) are unaffected; a Blueprint parsed from data always states
     // this explicitly (see fromData), so no platform silently inherits a permissive default.
     public readonly trusted: readonly string[];
+    // Which backing hosts each agent-authored consumer (SPEC §4.7). A consumer this
+    // platform does not map takes the substrate profile's declared default instead.
+    public readonly backings: AuthoredCodeBackings;
 
-    public constructor(allowed: readonly IsolationMode[], trusted: readonly string[] = ["*"]) {
+    public constructor(
+        allowed: readonly IsolationMode[],
+        trusted: readonly string[] = ["*"],
+        backings: AuthoredCodeBackings = {}
+    ) {
         this.allowed = canonicalModes(allowed, "Placement policy");
         this.trusted = canonicalGlobs(trusted);
+        this.backings = canonicalBackings(backings);
         Object.freeze(this);
     }
 
@@ -73,13 +100,20 @@ export class PlacementPolicy {
 
     public static fromData(payload: JsonValue): PlacementPolicy {
         const object = requireObject(payload, "Placement policy");
-        if (!hasExactJsonKeys(object, ["allowed", "trusted"])) {
+        if (!hasExactJsonKeys(object, ["allowed", "backings", "trusted"])) {
             throw new TypeError("Placement policy contains missing or unknown fields");
         }
         return new PlacementPolicy(
             requireModeArray(object["allowed"], "Placement policy modes"),
-            requireGlobArray(object["trusted"], "Placement policy trust pattern")
+            requireGlobArray(object["trusted"], "Placement policy trust pattern"),
+            requireBackings(object["backings"])
         );
+    }
+
+    // SPEC §4.7: the platform's declaration wins where it makes one; every other consumer
+    // takes the substrate profile's default rather than an arbitrary offered backing.
+    public backing(consumer: AuthoredCodeConsumer, profileDefault: string): string {
+        return this.backings[consumer] ?? requireBackingId(profileDefault);
     }
 
     public admits(mode: IsolationMode): boolean {
@@ -97,7 +131,7 @@ export class PlacementPolicy {
     }
 
     public toData(): JsonValue {
-        return { allowed: this.allowed, trusted: this.trusted };
+        return { allowed: this.allowed, backings: { ...this.backings }, trusted: this.trusted };
     }
 }
 
@@ -209,6 +243,39 @@ function canonicalGlobs(patterns: readonly string[]): readonly string[] {
         throw new TypeError("Placement policy trust patterns must be unique");
     }
     return Object.freeze([...patterns].sort(compareText));
+}
+
+function canonicalBackings(backings: AuthoredCodeBackings): AuthoredCodeBackings {
+    const declared: { [Consumer in AuthoredCodeConsumer]?: string } = {};
+    for (const consumer of AUTHORED_CODE_CONSUMERS) {
+        const backing = backings[consumer];
+        if (backing !== undefined) declared[consumer] = requireBackingId(backing);
+    }
+    if (Object.keys(backings).some((consumer) => !isAuthoredCodeConsumer(consumer))) {
+        throw new TypeError("Placement backing names an unknown agent-authored consumer");
+    }
+    return Object.freeze(declared);
+}
+
+function requireBackings(value: JsonValue | undefined): AuthoredCodeBackings {
+    if (!isJsonObject(value)) {
+        throw new TypeError("Placement policy backings must be an object");
+    }
+    const backings: { [Consumer in AuthoredCodeConsumer]?: string } = {};
+    for (const [consumer, backing] of Object.entries(value)) {
+        if (!isAuthoredCodeConsumer(consumer)) {
+            throw new TypeError("Placement backing names an unknown agent-authored consumer");
+        }
+        backings[consumer] = requireBackingId(backing);
+    }
+    return backings;
+}
+
+function requireBackingId(value: JsonValue | undefined): string {
+    if (typeof value !== "string" || value.trim().length === 0 || value !== value.trim()) {
+        throw new TypeError("Placement backing id must be a nonblank canonical string");
+    }
+    return value;
 }
 
 function requireObject(value: JsonValue, subject: string): { readonly [key: string]: JsonValue } {

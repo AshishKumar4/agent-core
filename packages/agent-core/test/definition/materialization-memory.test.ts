@@ -133,39 +133,32 @@ describe("MemoryMaterializationStore persistence", () => {
         installGeneration(store, first);
         installGeneration(store, second);
         installGeneration(store, third);
-        expect(
-            [planAlpha, planBeta].map((fixture) => fixture.plan.id.value).sort()
-        ).toEqual([planAlpha.plan.id.value, planBeta.plan.id.value]);
-        expect(
-            [first, second, third]
-                .map((fixture) => fixture.materialization.generation.id.value)
-                .sort()
-        ).toEqual([
-            third.materialization.generation.id.value,
-            second.materialization.generation.id.value,
-            first.materialization.generation.id.value
-        ]);
+        // Snapshot rows come back in content-addressed identity order, not the order the
+        // generations were installed in.
+        const ordered = [first, second, third].sort((left, right) =>
+            left.materialization.generation.id.value <
+            right.materialization.generation.id.value
+                ? -1
+                : 1
+        );
+        const orderedGenerations = ordered.map(
+            (fixture) => fixture.materialization.generation.id.value
+        );
+        expect(orderedGenerations).not.toEqual(
+            [first, second, third].map((fixture) => fixture.materialization.generation.id.value)
+        );
 
         const detached = store.snapshot();
-        expect(detached.plans.map((row) => row.id)).toEqual([
-            planAlpha.plan.id.value,
-            planBeta.plan.id.value
-        ]);
-        expect(detached.generations.map((row) => row.id.value)).toEqual([
-            third.materialization.generation.id.value,
-            second.materialization.generation.id.value,
-            first.materialization.generation.id.value
-        ]);
-        expect(detached.managedState.map((row) => row.generationId.value)).toEqual([
-            third.materialization.generation.id.value,
-            second.materialization.generation.id.value,
-            first.materialization.generation.id.value
-        ]);
-        expect(detached.managedState.map((row) => row.logicalKey)).toEqual([
-            "slot:pp",
-            "slot:mm",
-            "slot:kk"
-        ]);
+        expect(detached.plans.map((row) => row.id)).toEqual(
+            [planAlpha.plan.id.value, planBeta.plan.id.value].sort()
+        );
+        expect(detached.generations.map((row) => row.id.value)).toEqual(orderedGenerations);
+        expect(detached.managedState.map((row) => row.generationId.value)).toEqual(
+            orderedGenerations
+        );
+        expect(detached.managedState.map((row) => row.logicalKey)).toEqual(
+            ordered.map((fixture) => fixture.materialization.records[0]!.logicalKey)
+        );
     });
 
     test("orders generation pointers by deployment across deployments", { tags: "p1" }, () => {
