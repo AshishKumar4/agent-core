@@ -652,7 +652,7 @@
         {
             "id": "w1.core.codec.validateanddetachversion.f228b285d2",
             "file": "src/core/codec.ts",
-            "line": 137,
+            "line": 129,
             "source": "src/core/codec.ts",
             "sourceAnchor": {
                 "container": "validateAndDetachVersion",
@@ -668,7 +668,7 @@
         {
             "id": "w1.core.codec.validateanddetachversion.18c9106de0",
             "file": "src/core/codec.ts",
-            "line": 149,
+            "line": 141,
             "source": "src/core/codec.ts",
             "sourceAnchor": {
                 "container": "validateAndDetachVersion",
@@ -684,7 +684,7 @@
         {
             "id": "w1.core.codec.validateanddetachversion.b25bb6acb8",
             "file": "src/core/codec.ts",
-            "line": 161,
+            "line": 153,
             "source": "src/core/codec.ts",
             "sourceAnchor": {
                 "container": "validateAndDetachVersion",

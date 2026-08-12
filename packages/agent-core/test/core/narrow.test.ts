@@ -47,6 +47,13 @@ describe("shared narrowing primitives", () => {
         for (const candidate of [0, 1, true, null, undefined, {}, ["observe"]]) {
             expect(isMember(VOCABULARY, candidate)).toBe(false);
         }
+        // The candidate is the untrusted half, so the verdict must not rest on
+        // membership alone: a vocabulary that carries a non-string still admits no
+        // non-string candidate.
+        const polluted = Object.freeze([0, "observe"] as unknown as readonly string[]);
+
+        expect(isMember(polluted, 0)).toBe(false);
+        expect(isMember(polluted, "observe")).toBe(true);
     });
 
     test("carries emptiness into the type of a sequence", { tags: "p1" }, () => {
