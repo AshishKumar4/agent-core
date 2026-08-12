@@ -316,20 +316,18 @@ async function execute(node, context) {
                 options.stage === "hermetic" ? ["--hermetic"] : []
             ),
         build: async () => {
-            if (await hasCloudflareSource()) {
-                run(process.execPath, [resolve(cloudflareRoot, "scripts/build.mjs")], {
-                    cwd: cloudflareRoot
-                });
+            for (const workspace of await activeAdjunctPackages()) {
+                const root = adjunctPackageRoot(workspace);
+                run(process.execPath, [resolve(root, "scripts/build.mjs")], { cwd: root });
             }
         },
         exports: async () => {
             run(process.execPath, [resolve(packageRoot, "scripts/check-exports.mjs")], {
                 cwd: packageRoot
             });
-            if (await hasCloudflareSource()) {
-                run(process.execPath, [resolve(cloudflareRoot, "scripts/check-consumer.mjs")], {
-                    cwd: cloudflareRoot
-                });
+            for (const workspace of await activeAdjunctPackages()) {
+                const root = adjunctPackageRoot(workspace);
+                run(process.execPath, [resolve(root, workspace.consumerCheck)], { cwd: root });
             }
         },
         traceability: () =>

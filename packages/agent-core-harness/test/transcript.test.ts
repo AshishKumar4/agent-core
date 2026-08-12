@@ -72,4 +72,28 @@ describe("Transcript record", () => {
     test("rejects an empty user message", { tags: "p2" }, () => {
         expect(() => new UserMessage("")).toThrow(/empty/u);
     });
+
+    test("rejects non-object messages and absent required fields", { tags: "p2" }, () => {
+        for (const payload of [
+            { instructions: "", messages: ["not-an-object"] },
+            { instructions: "", messages: [{ role: "assistant", text: "hi", toolCalls: [7] }] },
+            {
+                instructions: "",
+                messages: [
+                    { role: "assistant", text: "hi", toolCalls: [{ id: "c", binding: "b" }] }
+                ]
+            },
+            {
+                instructions: "",
+                messages: [{ role: "toolResult", call: "c", failed: false }]
+            }
+        ]) {
+            const bytes = encodeCanonicalJson({
+                kind: "harness.transcript",
+                version: { major: 1, minor: 0 },
+                payload
+            });
+            expect(() => TranscriptCodec.decode(bytes)).toThrow();
+        }
+    });
 });

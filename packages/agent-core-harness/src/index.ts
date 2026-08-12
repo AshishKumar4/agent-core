@@ -1,5 +1,5 @@
-export { HarnessError } from "./error";
-export type { HarnessErrorCode } from "./error";
+export { HarnessError } from "./error.js";
+export type { HarnessErrorCode } from "./error.js";
 export {
     AssistantMessage,
     ToolCall,
@@ -9,17 +9,17 @@ export {
     TranscriptCodec,
     TranscriptMessage,
     UserMessage
-} from "./transcript";
-export { ModelProvider } from "./model/provider";
-export type { ModelCompletion, ModelRequest, ModelToolSpec } from "./model/provider";
+} from "./transcript.js";
+export { ModelProvider } from "./model/provider.js";
+export type { ModelCompletion, ModelRequest, ModelToolSpec } from "./model/provider.js";
 export {
     OpenAiCompatibleModelProvider,
     aiGatewayEndpoint,
     workersAiEndpoint
-} from "./model/openai-compatible";
-export type { OpenAiCompatibleModelOptions } from "./model/openai-compatible";
-export { AssistantMessageCodec, TranscriptTurnModelPort } from "./model/port";
-export { AgentLoopTurnExecutor } from "./executor/loop";
-export type { AgentLoopOptions } from "./executor/loop";
-export { TranscriptPromptAssembler } from "./executor/prompt";
-export { PlacementOperationSource } from "./executor/operations";
+} from "./model/openai-compatible.js";
+export type { OpenAiCompatibleModelOptions } from "./model/openai-compatible.js";
+export { AssistantMessageCodec, TranscriptTurnModelPort } from "./model/port.js";
+export { AgentLoopTurnExecutor } from "./executor/loop.js";
+export type { AgentLoopOptions } from "./executor/loop.js";
+export { TranscriptPromptAssembler } from "./executor/prompt.js";
+export { PlacementOperationSource } from "./executor/operations.js";

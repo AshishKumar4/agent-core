@@ -7,7 +7,7 @@ import {
     type RecordVersion
 } from "@agent-core/core/core";
 import { BindingName, canonicalFacetData, type FacetData } from "@agent-core/core/facets";
-import { HarnessError } from "./error";
+import { HarnessError } from "./error.js";
 
 /**
  * Identifies one tool call inside one Transcript. The model echoes it back on the

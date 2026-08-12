@@ -4,9 +4,11 @@ import {
     TurnInboxEntry,
     TurnInboxEntryId,
     TurnMediatedInvocationPort,
+    TurnModelPort,
     TurnStreamPort,
     type TurnMediatedInvocationRequest,
     type TurnMediatedInvocationResult,
+    type TurnModelResult,
     type TurnStreamEvent,
     type TurnStreamPublication
 } from "@agent-core/core/agents/runs";
@@ -20,6 +22,7 @@ import {
     ToolCallId,
     TranscriptCodec,
     TranscriptPromptAssembler,
+    Transcript,
     TranscriptTurnModelPort,
     UserMessage,
     type ModelCompletion,
@@ -198,6 +201,40 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
         }
     );
 
+    test("renders a non-Error tool rejection into the transcript", { tags: "p2" }, async () => {
+        const fixture = await seedRunningTurn("Where did I park?");
+        const call = new ToolCall(
+            new ToolCallId("call-1"),
+            boundOperation("recall", "recall").binding,
+            {}
+        );
+        const invocations = new RecordingInvocationPort();
+        invocations.outcome = () => {
+            throw "binding is unavailable";
+        };
+        const provider = new ScriptedModelProvider([
+            reply("Checking.", [call]),
+            reply("I could not look that up.")
+        ]);
+        const outcome = await new TurnExecutorHost({
+            runtime: fixture.runtime,
+            executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
+            content: fixture.content,
+            operations: new PlacementOperationSource([boundOperation("recall", "recall")]),
+            prompt: new TranscriptPromptAssembler("Be brief.", fixture.content),
+            invocations,
+            model: new TranscriptTurnModelPort(provider, fixture.content),
+            stream: new RecordingStreamPort(),
+            now: () => new Date(2_000)
+        }).execute(fixture.token);
+
+        expect(outcome.kind).toBe("succeeded");
+        expect(provider.requests[1]!.transcript.messages[2]).toMatchObject({
+            failed: true,
+            output: { error: "binding is unavailable" }
+        });
+    });
+
     test(
         "derives a stable mediated request key so a re-executed step replays instead of repeating",
         { tags: "p0" },
@@ -330,6 +367,136 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
             expect(provider.requests).toHaveLength(0);
         }
     );
+
+    test(
+        "refuses a tool call the Turn never bound even when the model port admits it",
+        { tags: "p0" },
+        async () => {
+            const fixture = await seedRunningTurn("Where did I park?");
+            const unbound = new ToolCall(
+                new ToolCallId("call-1"),
+                boundOperation("forbidden", "forbidden").binding,
+                {}
+            );
+            // A permissive TurnModelPort stands in for any implementation that does not
+            // re-check the bound set; the loop must still refuse the call itself.
+            const permissive = new (class extends TurnModelPort {
+                public async call(): Promise<TurnModelResult> {
+                    const stored = await fixture.content.put(
+                        TranscriptCodec.encode(
+                            new Transcript("", [new AssistantMessage("Checking.", [unbound])])
+                        )
+                    );
+                    return { output: stored.ref, usage: { inputTokens: 1, outputTokens: 1 } };
+                }
+            })();
+
+            await expect(
+                new TurnExecutorHost({
+                    runtime: fixture.runtime,
+                    executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
+                    content: fixture.content,
+                    operations: new PlacementOperationSource([boundOperation("recall", "recall")]),
+                    prompt: new TranscriptPromptAssembler("Be brief.", fixture.content),
+                    invocations: new RecordingInvocationPort(),
+                    model: permissive,
+                    stream: new RecordingStreamPort(),
+                    now: () => new Date(2_000)
+                }).execute(fixture.token)
+            ).rejects.toMatchObject({ code: "model.unknown-tool" });
+        }
+    );
+
+    test(
+        "propagates a tool failure that happens because the Turn was cancelled mid-call",
+        { tags: "p0" },
+        async () => {
+            const fixture = await seedRunningTurn("Where did I park?");
+            const call = new ToolCall(
+                new ToolCallId("call-1"),
+                boundOperation("recall", "recall").binding,
+                { query: "parking" }
+            );
+            const invocations = new RecordingInvocationPort();
+            invocations.outcome = () => {
+                deliverCancellation(fixture);
+                throw new TypeError("the lease was fenced");
+            };
+
+            const outcome = await new TurnExecutorHost({
+                runtime: fixture.runtime,
+                executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
+                content: fixture.content,
+                operations: new PlacementOperationSource([boundOperation("recall", "recall")]),
+                prompt: new TranscriptPromptAssembler("Be brief.", fixture.content),
+                invocations,
+                model: new TranscriptTurnModelPort(
+                    new ScriptedModelProvider([reply("Checking.", [call]), reply("Level 3.")]),
+                    fixture.content
+                ),
+                stream: new RecordingStreamPort(),
+                now: () => new Date(2_000)
+            }).execute(fixture.token);
+
+            // The loop rethrows rather than reporting a tool failure, and the host
+            // settles the Turn from the cancellation evidence it recovers.
+            expect(outcome.kind).toBe("cancelled");
+        }
+    );
+
+    test("rejects a non-positive step budget", { tags: "p2" }, () => {
+        for (const maximumSteps of [0, -1, 1.5, Number.NaN]) {
+            expect(() => new AgentLoopTurnExecutor({ maximumSteps })).toThrow(
+                /positive safe integer/u
+            );
+        }
+    });
+
+    test("advances its inbox cursor past entries it has already read", { tags: "p1" }, async () => {
+        const fixture = await seedRunningTurn("Where did I park?");
+        const turn = fixture.repository.transaction((transaction) =>
+            fixture.repository.loadTurn(transaction, ids.turn)
+        );
+        if (turn === undefined) throw new TypeError("Turn must exist");
+        fixture.runtime.deliverEvent(
+            ids.turn,
+            turn.revision,
+            fixture.token,
+            new TurnInboxEntry(
+                new TurnInboxEntryId("note-1"),
+                ids.turn,
+                0,
+                "note",
+                fixture.input,
+                fixture.inputDigest,
+                "note-key",
+                undefined,
+                new Date(1_500)
+            ),
+            new Date(1_500)
+        );
+        const call = new ToolCall(
+            new ToolCallId("call-1"),
+            boundOperation("recall", "recall").binding,
+            { query: "parking" }
+        );
+        const outcome = await new TurnExecutorHost({
+            runtime: fixture.runtime,
+            executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
+            content: fixture.content,
+            operations: new PlacementOperationSource([boundOperation("recall", "recall")]),
+            prompt: new TranscriptPromptAssembler("You are a helpful agent.", fixture.content),
+            invocations: new RecordingInvocationPort(),
+            model: new TranscriptTurnModelPort(
+                new ScriptedModelProvider([reply("Checking.", [call]), reply("Level 3.")]),
+                fixture.content
+            ),
+            stream: new RecordingStreamPort(),
+            now: () => new Date(2_000)
+        }).execute(fixture.token);
+
+        expect(outcome.kind).toBe("succeeded");
+    });
 
     test("rejects a model reply naming a tool the Turn never bound", { tags: "p0" }, async () => {
         await expect(

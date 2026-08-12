@@ -1,7 +1,7 @@
 import { isJsonObject, isJsonValue, type JsonValue } from "@agent-core/core/core";
 import type { TurnModelUsage } from "@agent-core/core/agents/runs";
 import { BindingName } from "@agent-core/core/facets";
-import { HarnessError } from "../error";
+import { HarnessError } from "../error.js";
 import {
     AssistantMessage,
     ToolCall,
@@ -9,8 +9,8 @@ import {
     ToolResultMessage,
     UserMessage,
     type Transcript
-} from "../transcript";
-import { ModelProvider, type ModelCompletion, type ModelRequest } from "./provider";
+} from "../transcript.js";
+import { ModelProvider, type ModelCompletion, type ModelRequest } from "./provider.js";
 
 /**
  * Both Workers AI and AI Gateway speak the OpenAI chat-completions shape, so one

@@ -1,7 +1,7 @@
 import { ContentStore } from "@agent-core/core/content";
 import type { ContentRef } from "@agent-core/core/core";
 import { TurnPromptAssembler, type TurnPromptAssembly } from "@agent-core/core/agents/runs";
-import { Transcript, TranscriptCodec, UserMessage } from "../transcript";
+import { Transcript, TranscriptCodec, UserMessage } from "../transcript.js";
 
 /**
  * Assembles the Turn's starting Transcript from the Agent's instructions and the

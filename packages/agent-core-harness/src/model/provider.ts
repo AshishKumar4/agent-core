@@ -1,7 +1,7 @@
 import type { JsonSchemaDocument } from "@agent-core/core/core";
 import type { TurnModelUsage } from "@agent-core/core/agents/runs";
-import type { Transcript } from "../transcript";
-import type { AssistantMessage } from "../transcript";
+import type { Transcript } from "../transcript.js";
+import type { AssistantMessage } from "../transcript.js";
 
 /** One tool as the provider sees it: the binding name plus the Operation's input schema. */
 export interface ModelToolSpec {

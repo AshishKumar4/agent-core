@@ -4,15 +4,15 @@ import { RunCommitId } from "@agent-core/core/agents/runs";
 import type { ContentRef } from "@agent-core/core/core";
 import { OperationRequestKey } from "@agent-core/core/operations";
 import type { FacetData } from "@agent-core/core/facets";
-import { HarnessError } from "../error";
-import { AssistantMessageCodec } from "../model/port";
+import { HarnessError } from "../error.js";
+import { AssistantMessageCodec } from "../model/port.js";
 import {
     AssistantMessage,
     ToolResultMessage,
     Transcript,
     TranscriptCodec,
     type ToolCall
-} from "../transcript";
+} from "../transcript.js";
 
 export interface AgentLoopOptions {
     /** Upper bound on model calls in one Turn. Reaching it fails the Turn explicitly. */

@@ -16,6 +16,7 @@ const registry = Object.freeze([
             "test/tsconfig.json",
             "test/cloudflare/tsconfig.json"
         ]),
+        consumerCheck: "scripts/check-consumer.mjs",
         wranglerTypes: Object.freeze({
             declaration: "test/cloudflare/worker-configuration.d.ts",
             config: "wrangler.test.jsonc"
@@ -33,6 +34,7 @@ const registry = Object.freeze([
         id: "harness",
         directory: "packages/agent-core-harness",
         typeProjects: Object.freeze(["tsconfig.json", "test/tsconfig.json"]),
+        consumerCheck: "scripts/check-consumer.mjs",
         testLanes: Object.freeze([
             Object.freeze({ id: "structural", config: "test/vitest.config.mjs", coverage: true })
         ])

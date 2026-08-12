@@ -5,9 +5,9 @@ import {
     type TurnModelCall,
     type TurnModelResult
 } from "@agent-core/core/agents/runs";
-import { AssistantMessage, Transcript, TranscriptCodec } from "../transcript";
-import { HarnessError } from "../error";
-import { ModelProvider, type ModelToolSpec } from "./provider";
+import { AssistantMessage, Transcript, TranscriptCodec } from "../transcript.js";
+import { HarnessError } from "../error.js";
+import { ModelProvider, type ModelToolSpec } from "./provider.js";
 
 /**
  * Binds a `ModelProvider` to the kernel's content-addressed model seam: the prompt
