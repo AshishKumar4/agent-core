@@ -258,6 +258,25 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-RUN-CEILING-EXHAUSTION",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-CEILING-EXHAUSTION",
+      "specTextSha256": "sha256:8f158620fe131f034a7b256631beb914b71b38f183b11a232ea1528c5e7536d7",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/agents/runs/ceiling.ts#exhaustedResource",
+        "src/agents/runs/run.ts#RunLifecycle",
+        "src/agents/runs/runtime.ts#RunRuntime.terminalizeRunInTransaction",
+        "src/agents/runs/settlement.ts#TerminalSnapshot"
+      ],
+      "testSelectors": [
+        "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] cancels an exhausted Run through the ordinary terminal rows and refuses to name a dimension with allowance left"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
       "id": "C13-RUN-CHECKPOINT-KINDS",
       "owner": "W5",
       "specAnchor": "C13-RUN-CHECKPOINT-KINDS",
@@ -540,16 +559,12 @@
         "src/agents/runs/ceiling.ts#ResourceCeiling",
         "src/agents/runs/ceiling.ts#SpawnAttenuation",
         "src/agents/runs/executor.ts#ScopedModelHandle",
-        "src/agents/runs/run.ts#RunLifecycle",
-        "src/agents/runs/runtime.ts#RunRuntime.requireNarrowingCeiling",
-        "src/agents/runs/runtime.ts#RunRuntime.terminalizeRunInTransaction",
-        "src/agents/runs/settlement.ts#TerminalSnapshot"
+        "src/agents/runs/runtime.ts#RunRuntime.requireNarrowingCeiling"
       ],
       "testSelectors": [
         "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] admits a spawned ceiling only at or below the parent's remaining allowance",
         "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] inherits an undeclared dimension from the parent's remainder and bounds nothing without a declaration",
         "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] spends wall clock from the spawn that started the Run",
-        "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] cancels an exhausted Run through the ordinary terminal rows and refuses to name a dimension with allowance left",
         "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] binds the ceiling to the attenuation content the reservation digests",
         "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-RUN-RESOURCE-CEILING] advances the Run's durable token total where each model call commits"
       ],

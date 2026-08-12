@@ -2330,7 +2330,7 @@
       "id": "C13-PREPARED-NO-TURN-AUDIT",
       "owner": "W6",
       "specAnchor": "C13-PREPARED-NO-TURN-AUDIT",
-      "specTextSha256": "sha256:507871f90d4db47014b647e1ccae20f1318c935951ee06719d70191c01b1269a",
+      "specTextSha256": "sha256:a15ebbac122e3a5b369a2b5e2eb9981a4e44ff39f4802f3dfac9f2722e5d6805",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
@@ -2344,7 +2344,7 @@
       "id": "C13-PREPARED-NO-TURN-OWNER",
       "owner": "W6",
       "specAnchor": "C13-PREPARED-NO-TURN-OWNER",
-      "specTextSha256": "sha256:507871f90d4db47014b647e1ccae20f1318c935951ee06719d70191c01b1269a",
+      "specTextSha256": "sha256:a15ebbac122e3a5b369a2b5e2eb9981a4e44ff39f4802f3dfac9f2722e5d6805",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
@@ -2807,6 +2807,20 @@
       "owner": "W5",
       "specAnchor": "C13-RUN-BINARY-TREE-MERGE",
       "specTextSha256": "sha256:1c9435c5ad3a97343920081244e63a9e55b80bd0774e62dc6ebf80659e02b2d5",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-CEILING-EXHAUSTION",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-CEILING-EXHAUSTION",
+      "specTextSha256": "sha256:8f158620fe131f034a7b256631beb914b71b38f183b11a232ea1528c5e7536d7",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],

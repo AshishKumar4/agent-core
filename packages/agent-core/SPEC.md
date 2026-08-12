@@ -1193,7 +1193,8 @@ closed §5.3 rows with outcome `cancelled` and the exhausted dimension recorded 
 `RunLifecycle`'s terminal `exhausted` field, and the Run's acceptance criteria still say
 whether the work was finished, so an exhausted Run with an undischarged criterion reads as
 exactly that. A ceiling is scheduling state, like claim expiry (§7.4); it never appears in
-authority admission and changes no admission decision.
+authority admission and changes no admission decision. This maps to
+**C13-RUN-CEILING-EXHAUSTION**.
 
 #### 5.2.1 Merge resolution and tree conflicts
 
@@ -1920,11 +1921,11 @@ Actor's `routeProjected` AuditRecord for that reservation. Initiator authority M
 exactly the authenticated Principal owned by the source reservation. This maps to
 **C13-PREPARED-ROUTED-PROJECTION**.
 
-A local preparation has neither and allocates one stable InvocationId. The host also
-assigns the immutable idempotency seed. If `lease` is present, preparation and every
-executor effect require that exact current token and the matching entry in the
-TurnPlacementSnapshot. If absent, `actor` MUST be authenticated as the exact owner of
-`domain`; only that Actor may prepare or continue the invocation.
+A local preparation has neither `route` nor `projectionDigest`, and allocates one stable
+InvocationId. The host also assigns the immutable idempotency seed. If `lease` is
+present, preparation and every executor effect require that exact current token and the
+matching entry in the TurnPlacementSnapshot. If absent, `actor` MUST be authenticated as
+the exact owner of `domain`; only that Actor may prepare or continue the invocation.
 In all cases `auditCause` MUST be a preexisting compatible record in that Actor's local
 audit chain with matching tenant and correlation. These map to
 **C13-PREPARED-NO-TURN-OWNER** and **C13-PREPARED-NO-TURN-AUDIT**.
@@ -3010,7 +3011,8 @@ A conforming implementation provides:
 - **C13-RUN-RESERVATION-EPOCH** Remote admission validates the exact reserved identity and open Run registry epoch.
 - **C13-RUN-ACCEPTANCE-OBLIGATION** A declared acceptance criterion is a reserved Run obligation that only a succeeded verifier Receipt discharges, and declaring none changes nothing.
 - **C13-RUN-ACCEPTANCE-SUBJECT** An acceptance verdict is evidence for its exact subject digest, and a further attempt requires a subject no recorded verdict names.
-- **C13-RUN-RESOURCE-CEILING** A spawned Run's declared resource ceiling never exceeds its parent's remainder, exhaustion cancels through the ordinary terminal rows, and declaring none bounds nothing.
+- **C13-RUN-RESOURCE-CEILING** A spawned Run's declared resource ceiling never exceeds its parent's remainder in any declared dimension, an undeclared dimension inherits that remainder, and declaring none bounds nothing.
+- **C13-RUN-CEILING-EXHAUSTION** An exhausted ceiling cancels the Run through the ordinary §5.3 terminal rows, naming the exhausted dimension only when that dimension has no allowance left.
 - **C13-RUN-TERMINAL-SIBLINGS** Run terminalization closes only after every sibling Turn is terminal and unheld.
 - **C13-RUN-FORCED-CANCELLATION** Forced cancellation is terminalization-only, distinct-sibling, administer-authorized fencing and cancellation evidence without Turn impersonation.
 - **C13-RUN-TERMINAL-OBLIGATIONS** Run terminalization captures a finite obligation set.
