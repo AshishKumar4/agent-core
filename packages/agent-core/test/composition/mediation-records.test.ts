@@ -52,9 +52,11 @@ function digest(character: string): Digest {
     return new Digest(character.repeat(64));
 }
 
-function records(overrides: { readonly actor?: ActorRef } = {}): CanonicalMediationRecords<string> {
+function records(
+    overrides: { readonly actor?: ActorRef; readonly worker?: ClaimWorkerId } = {}
+): CanonicalMediationRecords<string> {
     return new CanonicalMediationRecords(
-        { actor: overrides.actor ?? actor, tenant, worker },
+        { actor: overrides.actor ?? actor, tenant, worker: overrides.worker ?? worker },
         identities,
         LIFETIME
     );
@@ -264,6 +266,22 @@ describe("mediation records carry the evidence their chain needs", () => {
         }
     );
 
+    test("recovers an expired claim under a different worker", { tags: "p0" }, () => {
+        // Recovery keeps the ordinal — it is the same attempt, taken over — and §7.3
+        // requires a different worker, which is what stops a worker that merely stalled
+        // from renewing a claim another worker is entitled to take.
+        const leased = invocation("leased");
+        const first = records().claim(leased, 0, undefined, now);
+        const other = new ClaimWorkerId("other-worker");
+        const recovered = records({ worker: other }).claim(leased, 0, first, new Date(9_000_000));
+        expect(recovered.attemptOrdinal).toBe(first.attemptOrdinal);
+        expect(recovered.owner.worker.value).toBe(other.value);
+        expect(recovered.id.equals(first.id)).toBe(false);
+        expect(() => records().claim(leased, 0, first, new Date(9_000_000))).toThrow(
+            /different worker/u
+        );
+    });
+
     test("gives a retried claim a fresh lifetime and the next ordinal", { tags: "p0" }, () => {
         // A retry is a new claim over the same item, so it takes the ordinal that
         // separates it from the attempt it follows and an expiry the retrying worker can
@@ -277,6 +295,8 @@ describe("mediation records carry the evidence their chain needs", () => {
         expect(retry.expiresAt.getTime()).toBe(now.getTime() + LIFETIME);
         expect(() => retry.requireFuture(now)).not.toThrow();
         expect(retry.id.equals(first.id)).toBe(false);
+        // The retry's attempt is a second attempt, not the first one re-minted.
+        expect(attemptFor(retry, leased).id.equals(previous.id)).toBe(false);
     });
 
     test("refuses a claim lifetime that is not a positive duration", { tags: "p1" }, () => {
@@ -322,6 +342,10 @@ describe("mediation records carry the evidence their chain needs", () => {
         const attempt = attemptFor(claim, leased);
         const invocationAudit = records().invocationAudit(leased);
         expect(invocationAudit.cause).toBeUndefined();
+        // The root is the cause the prepared record already committed, so evidence written
+        // later chains to the same node the Invocation named.
+        expect(invocationAudit.id.equals(leased.header.auditCause)).toBe(true);
+        expect(attempt.auditCause.equals(invocationAudit.id)).toBe(true);
         expect(invocationAudit.kind).toEqual({ kind: "invocation", id: leased.header.id });
         expect(invocationAudit.actor.equals(actor)).toBe(true);
         expect(invocationAudit.tenant.equals(tenant)).toBe(true);

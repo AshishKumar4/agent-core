@@ -103,6 +103,7 @@ function intent(
     overrides: {
         readonly lease?: LeaseToken | undefined;
         readonly route?: RouteReservationId | undefined;
+        readonly policies?: readonly PolicySet[];
     } = {}
 ): MediatedAuthorityIntent {
     return new MediatedAuthorityIntent(
@@ -121,7 +122,7 @@ function intent(
         owner,
         "lease" in overrides ? overrides.lease : token,
         overrides.route,
-        [new PolicySet({})]
+        overrides.policies ?? [new PolicySet({})]
     );
 }
 
@@ -358,6 +359,25 @@ describe("mediated preparation freezes the effect intent", () => {
         );
         expect(record.header.idempotencySeed).toBe(identities.idempotencySeed(record.header.id));
     });
+
+    test(
+        "reads the approval requirement from policy rather than assuming one",
+        { tags: "p0" },
+        () => {
+            // §7.2's approval requirement is frozen into the OperationPin at preparation, and
+            // resolution is the only place the governing policy sets are known. Preparation
+            // that assumed a default would either gate an Operation no policy gates or wave
+            // through one that every policy gates.
+            const { port } = preparation();
+            expect(port.prepare(request()).header.operation.approvalRequired).toBe(false);
+            const gated = port.prepare(
+                request({
+                    authorization: intent({ policies: [new PolicySet({ approvals: ["observe"] })] })
+                })
+            );
+            expect(gated.header.operation.approvalRequired).toBe(true);
+        }
+    );
 
     test("refuses a header carrying neither a lease nor a route", { tags: "p0" }, () => {
         // §7.3 admits exactly two ways to authorize a mediated Invocation. Without the

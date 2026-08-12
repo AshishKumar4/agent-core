@@ -224,6 +224,7 @@ describe("mediation identifiers derive from the evidence that determines them", 
             identities.attemptReceipt(attempt, "failed").value,
             identities.attemptReceipt(attempt, "indeterminate").value,
             identities.preEffectReceipt(invocation, 0, "deniedPreEffect").value,
+            identities.preEffectReceipt(invocation, 0, "cancelledPreEffect").value,
             identities.preEffectReceipt(invocation, 1, "deniedPreEffect").value,
             identities.preEffectReceipt(other, 0, "deniedPreEffect").value
         ];
