@@ -9,11 +9,16 @@
       "specTextSha256": "sha256:fa91b059007276909c928df0d26bcb099254f951e467bf407465bdbb9440c5a5",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/definition/placement.ts#selectPlacement"],
+      "sourceSymbols": [
+        "src/definition/placement.ts#selectPlacement"
+      ],
       "testSelectors": [
         "test/definition/placement.test.ts#placement policy declaration [C13-ADV-EMPTY-PLACEMENT] rejects empty, duplicate, unknown, and unknown codec fields"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -23,11 +28,16 @@
       "specTextSha256": "sha256:24c2e693a4af5f20d29a29d1223479fef91705c6ac9953775a25d50a249ff189",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/definition/materializer.ts#LocalMaterializer"],
+      "sourceSymbols": [
+        "src/definition/materializer.ts#LocalMaterializer"
+      ],
       "testSelectors": [
         "test/definition/materialization-memory.test.ts#MemoryMaterializationStore persistence [C13-BLUEPRINT-REMATERIALIZE] [definition.blueprint] [definition.materialization-plan] [definition.managed-state] [definition.materialization-generation] [definition.materialization-generation-pointer] restores a detached deterministic snapshot and clones all generation history"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -37,11 +47,16 @@
       "specTextSha256": "sha256:02a893734d7a62ff01191edec5a872ec2a68e7152d50d41a62798607500bd70c",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/definition/materializer.ts#LocalMaterializer"],
+      "sourceSymbols": [
+        "src/definition/materializer.ts#LocalMaterializer"
+      ],
       "testSelectors": [
         "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-RUN-PINS] requires the exact PackageLock closure and pin metadata"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -51,11 +66,16 @@
       "specTextSha256": "sha256:c63014a32d2617e3a63590c3e26f7bc275f0bcf008cdeb0448593a9fe0381fc0",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/definition/validator.ts#BlueprintValidator"],
+      "sourceSymbols": [
+        "src/definition/validator.ts#BlueprintValidator"
+      ],
       "testSelectors": [
         "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] validates every core contribution kind before loading Package code"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -69,9 +89,10 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "\u00a73.5 now defines the custody record as a (SecretRef, consumer, endpoint) triple recorded by whichever Tenant-owned consumer accepts the credential, names the credential-isolation seam (\u00a74.5) as the resolution seam the custody check binds, and ties denial to the existing failed-AttemptReceipt vocabulary (\u00a77.4) rather than a new record kind \u2014 the three gaps the prior evidence named (custody record shape, acceptance operation, denial vocabulary) are now specified by composition, not new machinery",
-        "No secret resolution runtime exists to evidence against: SecretRef is a value type and the two credential ports (EnvironmentCredentialPort.forward, EnvironmentCredentialIsolationProxy) remain abstract with no implementation \u2014 the credential-isolation seam is a \u00a74.5 SHOULD, so no substrate is required to implement one at all, and none currently does",
-        "Building the custody check needs an implementation of at least one resolution seam (a substrate's EnvironmentCredentialPort or EnvironmentCredentialIsolationProxy) that records acceptance against a consumer and endpoint and denies a presented mismatch \u2014 genuine W4/W8 implementation scope now that the shape is specified, not a remaining spec ambiguity"
+        "\u00a73.5 fixes the shape by composition \u2014 custody is the (SecretRef, consumer, endpoint) triple a Tenant-owned consumer's own record carries, the resolution seam is \u00a74.5's credential-isolation seam, and denial is an ordinary failed AttemptReceipt (\u00a77.4) \u2014 so nothing about this atom is still a spec ambiguity",
+        "The \u00a74.5 SHOULD does not weaken the rule and is not what blocks the atom: \u00a73.5's requirement is conditional on resolving at all, so any seam that resolves a SecretRef MUST check custody first. What blocks it is that no such seam exists to check anything. P11-ENVIRONMENT-CREDENTIAL-SEAM is verified against the *shape* of the seam only (src/facets/environment/facet.ts#EnvironmentFacet, evidenced by a test that credential isolation passes only a bound capability and content references); EnvironmentCredentialPort.forward and EnvironmentCredentialIsolationProxy are both abstract with no implementation anywhere in the tree, and SecretRef (src/core/secret-ref.ts) is a self-contained value type with no custody association at all",
+        "Verifying this atom needs three pieces that do not exist: a custody association durably carried by a consumer record and validating `source` against the exact canonical TenantId; one concrete resolution seam that consults it before forwarding and fails rather than degrading on a mismatched or unrecorded pair; and a mediated externalSend path recording that failure as an ordinary failed AttemptReceipt. A custody type no seam consults would be evidence for nothing, so the enforcement point is the load-bearing part",
+        "Ownership is a live constraint on the flip: the atom is filed under W4 (src/definition/**) while the only place a custody check can bind is a concrete EnvironmentCredentialPort in W3/W8 and the denial receipt is W6. Under the single-owner evidence rule the owner must either accept cross-wave sourcing for this atom or place the custody record and its check in the definition plane with the seam calling into it"
       ]
     },
     {
@@ -81,11 +102,16 @@
       "specTextSha256": "sha256:62bf9cf98ec65a399e38c14ab6d1bdeaace4c96105746d18023c2f51325d7b90",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/definition/config.ts#Config"],
+      "sourceSymbols": [
+        "src/definition/config.ts#Config"
+      ],
       "testSelectors": [
         "test/definition/config.test.ts#Blueprint config [C13-CONFIG-SECRET-REF] [definition.config] uses one tagged SecretRef representation and round-trips canonical nested refs"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -99,9 +125,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "\u00a74.7/\u00a710.2 now name the declaration site (policies.placement, \u00a79.2 \u2014 one more consumer \u2192 backing id mapping alongside the isolation-mode admissibility PlacementPolicy already declares, not a new artifact), the closed consumer set (the three \u00a74.7-named consumers, which is also now the agent-authored-code marker: membership in that closed set, not a runtime flag), canonical backing ids for the Cloudflare profile (workerLoader, dispatchNamespace), and the equivalence procedure (each backing independently satisfies the \u00a71.5 dynamic-mode invariants under C13-PLACEMENT-DYNAMIC-NO-EGRESS; never a comparison between backings)",
-        "PlacementPolicy (src/definition/placement.ts) still has no backings field. quality/unify-placement (merged into main after this atom's SPEC amendment) already spent PlacementPolicy's major-2 bump on an unrelated field (`trusted`, for C13-PLACEMENT-UNTRUSTED-BUNDLED); adding consumer \u2192 backing id is now a closed-key codec-major-3 change to that record, not major-2 as first scoped",
-        "Verifying this atom needs that field plus a selector reading it (a TurnPlacementSnapshot/composition consumer choosing a backing id per \u00a74.7 consumer) and adversarial evidence that an unmapped consumer falls back to the profile default rather than an arbitrary backing"
+        "The declaration half is now built: PlacementPolicy carries `backings` (src/definition/placement.ts), a partial consumer \u2192 backing id map over the closed AUTHORED_CODE_CONSUMERS set, at codec major 3 (major 2 was spent on `trusted` by quality/unify-placement). The selector is PlacementPolicy.backing(consumer, profileDefault), which returns the declaration where the platform makes one and the profile default \u2014 never another offered backing \u2014 where it does not. Discrimination-tested in test/definition/placement.test.ts under this atom's id: substituting the default for an arbitrary declared backing, ignoring the declaration, opening the consumer set, and making `backings` optional on the wire each fail a distinct cited test",
+        "The atom's second conjunct \u2014 'every offered backing preserves identical `dynamic` authority semantics' \u2014 is discharged, per \u00a74.7, by each backing independently satisfying \u00a71.5's no-ambient-egress requirement, which is C13-PLACEMENT-DYNAMIC-NO-EGRESS. That atom is planned: its sole enforcement point is `globalOutbound: null` in the W8 Cloudflare loader and it needs a substrate-neutral domain-construction seam before any W4-citable evidence exists. No backing is implemented anywhere in the tree, so there is nothing that could demonstrate the invariant",
+        "Verifying this atom therefore means recording C13-PLACEMENT-DYNAMIC-NO-EGRESS as a prerequisite and flipping once that lands; the ledger already refuses a verified atom whose prerequisite is unverified, so the dependency must be declared rather than omitted to obtain the flip"
       ]
     },
     {
@@ -127,11 +153,16 @@
       "specTextSha256": "sha256:e8bba373c592b862247b43e3912803f0f317f7557b44f0cfbdb1fd884192a3d4",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/definition/placement.ts#selectPlacement"],
+      "sourceSymbols": [
+        "src/definition/placement.ts#selectPlacement"
+      ],
       "testSelectors": [
         "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-EMPTY] reports every empty source and a disjoint intersection as typed unavailability"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -141,11 +172,16 @@
       "specTextSha256": "sha256:7792aad0c34b456981f9934caf6c3a29f7120916dcdca1d6fd66f5f12ae89c1a",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/definition/placement.ts#selectPlacement"],
+      "sourceSymbols": [
+        "src/definition/placement.ts#selectPlacement"
+      ],
       "testSelectors": [
         "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-INTERSECTION] matches the exact reference intersection and preference for all 8^4 source combinations"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -155,11 +191,16 @@
       "specTextSha256": "sha256:e55c0a160933455879b52935bb9f82e4d8b8ba095cc533549b23ee6ba3afb881",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/definition/placement.ts#selectPlacement"],
+      "sourceSymbols": [
+        "src/definition/placement.ts#selectPlacement"
+      ],
       "testSelectors": [
         "test/definition/loader.test.ts#production Blueprint validation-before-load [C13-PLACEMENT-ORDER] passes detached verified bytes to one selected evaluator in canonical order"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -178,7 +219,10 @@
         "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-UNTRUSTED-BUNDLED] a Blueprint's placement policy derives trust from its own glob patterns",
         "test/definition/validation.test.ts#Blueprint validation [C13-PLACEMENT-UNTRUSTED-BUNDLED] derives trust from the Blueprint's own policy, not the substrate port"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -188,11 +232,16 @@
       "specTextSha256": "sha256:993a5ebac824b91f1732b3496583f7a752506e74d9561affb02545967ccb3d99",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/definition/policy.ts#evaluatePolicy"],
+      "sourceSymbols": [
+        "src/definition/policy.ts#evaluatePolicy"
+      ],
       "testSelectors": [
         "test/definition/policy.test.ts#monotone policy composition [C13-POLICY-APPROVAL-FLOOR] ORs positive approval requirements and cannot remove package, profile, or ancestor requirements"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -202,11 +251,16 @@
       "specTextSha256": "sha256:d2006c6ccd2e98dc60e0ab35d06f252691bf5fc35ac31d880cced5e8d8370fd1",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/definition/policy.ts#evaluatePolicy"],
+      "sourceSymbols": [
+        "src/definition/policy.ts#evaluatePolicy"
+      ],
       "testSelectors": [
         "test/definition/policy.test.ts#pure policy floors [C13-POLICY-DIRECT-COLOCATION] permits direct only for bundled co-location"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -216,11 +270,16 @@
       "specTextSha256": "sha256:9187db4f59f64f4ceb11478a13347bb0f25ced1076b0bc0c6f584dde24d288de",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/definition/policy.ts#evaluatePolicy"],
+      "sourceSymbols": [
+        "src/definition/policy.ts#evaluatePolicy"
+      ],
       "testSelectors": [
         "test/definition/policy.test.ts#monotone policy composition [C13-POLICY-DIRECT-ESCALATION] intersects placement policies and cannot broaden an ancestor constraint"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -230,11 +289,16 @@
       "specTextSha256": "sha256:5db97aedd6cc13d3a92d4352f2610582ce1ac78313e1345a2dd619cbdbfb3b4e",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/definition/policy.ts#evaluatePolicy"],
+      "sourceSymbols": [
+        "src/definition/policy.ts#evaluatePolicy"
+      ],
       "testSelectors": [
         "test/definition/plan.test.ts#materialization planning [C13-POLICY-EPOCH-RECHECK] rechecks supported kinds while assembling Actor and materialization plans"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -260,11 +324,16 @@
       "specTextSha256": "sha256:0f22eaff6a8edfffe7b917dffe0ec2ebe202b880ad9e0c777e15cf8a50478175",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/definition/policy.ts#evaluatePolicy"],
+      "sourceSymbols": [
+        "src/definition/policy.ts#evaluatePolicy"
+      ],
       "testSelectors": [
         "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] raises every non-bundled direct call without changing placement"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     }
   ]
