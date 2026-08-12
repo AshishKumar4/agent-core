@@ -178,6 +178,12 @@ describe("Run lifecycle record", () => {
             "run.invalid-state",
             "Terminal Runs reject configuration migration"
         );
+        expectCode(
+            "record tokens on terminal",
+            () => terminal.recordTokens(1),
+            "run.invalid-state",
+            "Terminal Runs consume no further tokens"
+        );
         const exhausted = new Run({
             id: ids.run,
             agent: ids.agent,
@@ -192,6 +198,45 @@ describe("Run lifecycle record", () => {
             "run.invalid-state",
             "Run revision is exhausted"
         );
+    });
+
+    test("accumulates only whole non-negative token usage", { tags: "p1" }, () => {
+        const active = genesis().run;
+
+        // Zero is a usage a model call can legitimately report, and rejecting it would
+        // fail the very call it is meant to account for.
+        expect(active.recordTokens(0).tokensConsumed).toBe(0);
+        expect(active.recordTokens(7).recordTokens(5).tokensConsumed).toBe(12);
+
+        // Both halves of the guard matter: a fractional count is not a token total, and a
+        // negative one would hand allowance back to a Run that had already spent it.
+        for (const tokens of [-1, 1.5, Number.MAX_SAFE_INTEGER + 2, Number.NaN]) {
+            expectTypeError(
+                `usage ${tokens}`,
+                () => active.recordTokens(tokens),
+                "Run token usage must be a non-negative safe integer"
+            );
+        }
+
+        // The stored total is checked where the Run is built, not only where it is
+        // decoded: Run.fromData reaches this through requireInteger, so a Run constructed
+        // in memory is the only caller that can reach the constructor's own guard.
+        for (const tokensConsumed of [-1, 1.5, Number.MAX_SAFE_INTEGER + 2, Number.NaN]) {
+            expectTypeError(
+                `total ${tokensConsumed}`,
+                () =>
+                    new Run({
+                        id: ids.run,
+                        agent: ids.agent,
+                        configuration: active.configuration,
+                        root: ids.root,
+                        initialBranch: ids.branch,
+                        tokensConsumed,
+                        revision: new Revision(0)
+                    }),
+                "Run token total must be a non-negative safe integer"
+            );
+        }
     });
 
     test("names each Run field in decode errors", { tags: "p2" }, () => {
