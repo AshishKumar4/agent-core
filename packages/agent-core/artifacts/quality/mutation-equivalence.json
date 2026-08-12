@@ -56,6 +56,14 @@
       "replacement": "true",
       "mutated": "this.kind === other.kind",
       "proof": "kind is a function of which optional ids a ScopeRef holds. The private constructor is reached only from the three factories, which produce \"tenant\" with neither id, \"project\" with a projectId and no workspaceId, and \"workspace\" with a workspaceId, so the pair (projectId defined, workspaceId defined) determines kind uniquely: (false, false) is tenant, (true, false) is project, and anything holding a workspaceId is workspace. optionalIdEquals returns true only when its two operands agree on definedness, so the two conjuncts that follow this one force both receivers into the same row of that table and hence to the same kind. The kind comparison is therefore implied by the conjuncts after it, and replacing it with true cannot change the value of the chain. Nor can it change anything else: the conjuncts the original short-circuited away are TextId.equals calls, which are total and pure and return false rather than throwing for a mismatched id type. The mutants replacing this test with false, and the equality operator with !==, are both killed."
+    },
+    {
+      "file": "src/agents/runs/ceiling.ts",
+      "mutated": "left < current",
+      "mutator": "EqualityOperator",
+      "proof": "The only effect of this statement is the assignment remaining[dimension] = left, and current was read from remaining[dimension] on the line immediately above. Original and mutant therefore differ on exactly one class of input: current !== undefined && left === current. There the original skips the assignment and leaves remaining[dimension] holding current, while the mutant performs it and writes left. Because left === current on precisely that branch, and remaining holds primitive numbers with no reference or identity semantics to leak a difference, both leave the same key holding the same value. Assigning a key that already exists also leaves insertion order untouched, and current !== undefined guarantees the key exists on exactly that branch. Order could not matter regardless: ResourceCeiling's constructor iterates the fixed RESOURCE_DIMENSIONS list rather than Object.keys, so neither the Object.keys(remaining).length test in narrowResources nor the ceiling it constructs can vary with it. On every other input the two conditions agree and the same assignment happens or is skipped in both. The claim therefore holds through the whole call chain, not merely inside narrow, and no test written against the resulting ceiling could distinguish the two.",
+      "replacement": "left <= current",
+      "symbol": "narrow"
     }
   ]
 }

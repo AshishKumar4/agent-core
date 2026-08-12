@@ -1,0 +1,40 @@
+{
+  "edition": "1.0.0",
+  "area": "interaction-references",
+  "measuredAt": "67a93aedaadb9ccdede5260d013bd71738a5f73c",
+  "fingerprint": "sha256:8398ee32322a9ae244e5a55349d6863c7a1d6037a25edd64ae2eb292e18713b4",
+  "files": {
+    "src/interaction-references/id.ts": {
+      "mutants": 14,
+      "sha256": "sha256:acd704222692788bfd7a4a17ba104b432279f60824117bb598d338a5c40a40a6"
+    }
+  },
+  "killed": {
+    "test/integration/blueprint-live-composition.test.ts#a declared Blueprint is what executes the derived Subscription record targets exactly the declared Operation": {
+      "src/interaction-references/id.ts": [
+        11
+      ]
+    },
+    "test/interaction-references/identity.test.ts#canonical interaction identities every interaction and invocation reference ID names its exact subject": {
+      "src/interaction-references/id.ts": [
+        5,
+        12,
+        19,
+        26,
+        33,
+        40,
+        47
+      ]
+    },
+    "test/interaction-references/identity.test.ts#canonical interaction identities re-exports one frozen constructor through W6 and W7 barrels": {
+      "src/interaction-references/id.ts": [
+        4,
+        18,
+        25,
+        32,
+        39,
+        46
+      ]
+    }
+  }
+}

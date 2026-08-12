@@ -1,0 +1,1032 @@
+{
+  "edition": "1.0.0",
+  "area": "actors",
+  "measuredAt": "67a93aedaadb9ccdede5260d013bd71738a5f73c",
+  "fingerprint": "sha256:9d0a24802c53b9f40e530a8399b9a0e98af22a9a9bab8c9044267e902db342f1",
+  "files": {
+    "src/actors/actor.ts": {
+      "mutants": 114,
+      "sha256": "sha256:b82185e5959bb366801de35aa566761de9ce1d094dcaaa5057714fa53fc2553d"
+    },
+    "src/actors/context.ts": {
+      "mutants": 21,
+      "sha256": "sha256:058646716caf988aba9ef5496e3a929a04dcc45755a733fe035ccf7ebcdb6979"
+    },
+    "src/actors/fence.ts": {
+      "mutants": 132,
+      "sha256": "sha256:4da04696223b9399fed6f7dead04f3c2d9c2cd3f4cdb59418363aaff12735843"
+    },
+    "src/actors/id.ts": {
+      "mutants": 16,
+      "sha256": "sha256:3d1c643e9e305c0360405bd94d81ef7ff321418918bdd1143b272376de2835ad"
+    },
+    "src/actors/store.ts": {
+      "mutants": 673,
+      "sha256": "sha256:868d64e7158a46d23c1efa3909384550fd53418e39d58c3337bd1a2e4927e716"
+    },
+    "src/actors/types.ts": {
+      "mutants": 55,
+      "sha256": "sha256:f84f9253cb9d627ed6ee0305ed5a8b13590d10f169d65d3029a55c04173e2db7"
+    }
+  },
+  "killed": {
+    "test/actors/actor.test.ts#Actor mailbox admission and commit poisoning closes a poisoned Actor without re-entering the mailbox": {
+      "src/actors/actor.ts": [
+        78,
+        201
+      ]
+    },
+    "test/actors/actor.test.ts#Actor mailbox admission and commit poisoning keeps the incarnation open when a store refuses before its callback": {
+      "src/actors/actor.ts": [
+        171
+      ]
+    },
+    "test/actors/actor.test.ts#Actor mailbox admission and commit poisoning poisons an incarnation only for trusted commit uncertainty": {
+      "src/actors/actor.ts": [
+        23
+      ]
+    },
+    "test/actors/actor.test.ts#Actor mailbox admission and commit poisoning rejects commands without entering the mailbox once closing": {
+      "src/actors/actor.ts": [
+        82,
+        150,
+        152,
+        193,
+        194
+      ]
+    },
+    "test/actors/actor.test.ts#Actor mailbox admission and commit poisoning rejects fence reads after a completed close": {
+      "src/actors/actor.ts": [
+        89
+      ]
+    },
+    "test/actors/actor.test.ts#Actor mailbox admission and commit poisoning requires atomic activation storage that exposes a callable hook": {
+      "src/actors/context.ts": [
+        12
+      ]
+    },
+    "test/actors/actor.test.ts#Memory ActorStore contract [actor.recovery-state] recovers durable fencing state before a restarted actor serves": {
+      "src/actors/actor.ts": [
+        65,
+        69,
+        70,
+        72,
+        125,
+        179,
+        185,
+        186,
+        206,
+        207,
+        218
+      ],
+      "src/actors/fence.ts": [
+        75
+      ],
+      "src/actors/store.ts": [
+        56,
+        133,
+        150,
+        154,
+        157,
+        161,
+        164
+      ],
+      "src/actors/types.ts": [
+        45
+      ]
+    },
+    "test/actors/actor.test.ts#Memory ActorStore contract [C13-ADV-COMMAND-REJECTIONS] rejects commands after close and invalidates the durable fence": {
+      "src/actors/actor.ts": [
+        76,
+        77,
+        78,
+        83,
+        84,
+        85,
+        195
+      ]
+    },
+    "test/actors/actor.test.ts#Memory ActorStore contract closes a stale incarnation without advancing the current incarnation": {
+      "src/actors/actor.ts": [
+        88,
+        212,
+        213
+      ]
+    },
+    "test/actors/actor.test.ts#Memory ActorStore contract does not let lookalike errors forge poisoning": {
+      "src/actors/actor.ts": [
+        186
+      ]
+    },
+    "test/actors/actor.test.ts#Memory ActorStore contract does not trust commit uncertainty thrown by a command callback": {
+      "src/actors/actor.ts": [
+        227,
+        228
+      ]
+    },
+    "test/actors/actor.test.ts#Memory ActorStore contract fails closed after an unknown commit and recovers on a new incarnation": {
+      "src/actors/actor.ts": [
+        25,
+        177,
+        186,
+        187,
+        199,
+        200,
+        201,
+        216,
+        218,
+        219
+      ]
+    },
+    "test/actors/actor.test.ts#Memory ActorStore contract finishes a queued close after prior work poisons the incarnation": {
+      "src/actors/actor.ts": [
+        84
+      ]
+    },
+    "test/actors/actor.test.ts#Memory ActorStore contract keeps an unknown close commit poisoned after FIFO prior work": {
+      "src/actors/actor.ts": [
+        87,
+        88,
+        90,
+        213
+      ]
+    },
+    "test/actors/actor.test.ts#Memory ActorStore contract rejects a fence that becomes stale while queued": {
+      "src/actors/actor.ts": [
+        96,
+        102,
+        109,
+        110
+      ]
+    },
+    "test/actors/actor.test.ts#Memory ActorStore contract rejects runtime thenables and rolls their transaction back": {
+      "src/actors/store.ts": [
+        315,
+        316,
+        324,
+        325,
+        330
+      ]
+    },
+    "test/actors/actor.test.ts#Memory ActorStore contract rejects unstable thenable objects before committing state": {
+      "src/actors/store.ts": [
+        329,
+        330
+      ]
+    },
+    "test/actors/actor.test.ts#Memory ActorStore contract revokes an escaped Promise transaction before continuation": {
+      "src/actors/store.ts": [
+        190,
+        254,
+        380,
+        381
+      ]
+    },
+    "test/actors/actor.test.ts#Memory ActorStore contract runs an asynchronous mailbox outside synchronous transactions": {
+      "src/actors/actor.ts": [
+        46,
+        122,
+        123,
+        125,
+        130,
+        139,
+        149,
+        161,
+        172,
+        194,
+        200
+      ],
+      "src/actors/context.ts": [
+        20,
+        27,
+        30
+      ],
+      "src/actors/fence.ts": [
+        12,
+        13,
+        20,
+        50,
+        53,
+        59
+      ],
+      "src/actors/id.ts": [
+        8
+      ],
+      "src/actors/store.ts": [
+        50,
+        133,
+        139,
+        141,
+        149,
+        150,
+        151,
+        154,
+        157,
+        161,
+        164,
+        176,
+        186,
+        189,
+        199,
+        227,
+        241,
+        249,
+        274,
+        279,
+        284,
+        287,
+        302,
+        305,
+        325,
+        326,
+        333,
+        381,
+        680,
+        690,
+        703,
+        720,
+        725,
+        729,
+        743,
+        747,
+        748,
+        753,
+        757,
+        763
+      ],
+      "src/actors/types.ts": [
+        18,
+        19,
+        38,
+        45
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation accepts detached extensible TextIds and protects their read metadata": {
+      "src/actors/store.ts": [
+        428
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation certifies only exact Revision instances as immutable leaves": {
+      "src/actors/store.ts": [
+        768
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation detaches clone-owned custom class data from immutable reads": {
+      "src/actors/store.ts": [
+        499,
+        501,
+        504,
+        506,
+        775
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation detaches frozen TextIds with private, symbol, and non-enumerable state": {
+      "src/actors/store.ts": [
+        377,
+        413,
+        421,
+        422,
+        425,
+        426,
+        427,
+        428,
+        430,
+        431,
+        782,
+        784,
+        786
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation expires every reflective transaction capability after commit": {
+      "src/actors/store.ts": [
+        195,
+        203,
+        207,
+        211,
+        215,
+        219,
+        223,
+        231
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation exposes detached immutable reads only inside the active transaction": {
+      "src/actors/store.ts": [
+        262,
+        263,
+        376,
+        377,
+        388,
+        400,
+        401,
+        403,
+        404,
+        405,
+        406,
+        407,
+        408,
+        409,
+        413,
+        442,
+        459,
+        460,
+        465,
+        524,
+        525,
+        526,
+        531,
+        532,
+        535
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation fails closed on malformed, future-major, and mismatched recovery snapshots": {
+      "src/actors/store.ts": [
+        114,
+        123,
+        338,
+        340,
+        345,
+        349,
+        666
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation fails closed when an existing Actor identity has no recovery state": {
+      "src/actors/store.ts": [
+        113,
+        121,
+        154,
+        340,
+        341,
+        342,
+        343,
+        344,
+        345,
+        346,
+        347,
+        348,
+        356,
+        358,
+        359,
+        360,
+        361,
+        366,
+        368,
+        370,
+        670,
+        671
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation makes cyclic collections, dates, and typed views immutable during reads": {
+      "src/actors/store.ts": [
+        403,
+        472,
+        473,
+        476,
+        477,
+        548,
+        552,
+        555,
+        561,
+        565,
+        572,
+        573,
+        576,
+        577,
+        579,
+        604,
+        650,
+        749,
+        766,
+        770,
+        771,
+        772
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation permits value reads across immutable built-in wrappers": {
+      "src/actors/store.ts": [
+        407,
+        409,
+        585,
+        587,
+        590,
+        592,
+        593,
+        624,
+        626,
+        631,
+        713
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation preserves sparse, symbolic, and non-enumerable read state": {
+      "src/actors/store.ts": [
+        454,
+        465,
+        526,
+        764
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation preserves typed view offsets and shared backing in immutable reads": {
+      "src/actors/store.ts": [
+        408,
+        622,
+        643,
+        650
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation read-view dates copy without losing milliseconds": {
+      "src/actors/store.ts": [
+        404,
+        477,
+        478,
+        483,
+        484,
+        486,
+        491
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation rejects clone functions that do not return owned object state": {
+      "src/actors/store.ts": [
+        680,
+        681
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation rejects clone functions that retain mutable state aliases": {
+      "src/actors/store.ts": [
+        689,
+        690,
+        695,
+        702,
+        703,
+        706,
+        707,
+        710,
+        717,
+        732,
+        734,
+        737
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation rejects mutable custom class instances without an ownership contract": {
+      "src/actors/store.ts": [
+        763,
+        765,
+        773,
+        775,
+        776
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation rejects nested transactions and recovery access outside its Actor scope": {
+      "src/actors/store.ts": [
+        176,
+        178,
+        301,
+        302,
+        305,
+        307,
+        384,
+        385
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation rejects shared-memory state that cannot be detached": {
+      "src/actors/store.ts": [
+        742,
+        747,
+        748,
+        750,
+        751,
+        753,
+        779
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation rejects sharing one store across different Actor identities": {
+      "src/actors/store.ts": [
+        132,
+        133,
+        135,
+        139
+      ],
+      "src/actors/types.ts": [
+        19
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation reports created and recovered activation without virtual construction": {
+      "src/actors/store.ts": [
+        34,
+        38,
+        40,
+        43,
+        45,
+        49,
+        50,
+        51,
+        55,
+        56,
+        57
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation restores a valid unbound snapshot without inventing Actor recovery": {
+      "src/actors/store.ts": [
+        113,
+        114,
+        358
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation rolls back Actor identity, recovery, and state when eager start fails": {
+      "src/actors/store.ts": [
+        291,
+        293,
+        295
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation snapshots and restores detached Actor identity and recovery bytes": {
+      "src/actors/store.ts": [
+        121,
+        123,
+        295,
+        348
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation treats Actor kind as part of storage identity": {
+      "src/actors/types.ts": [
+        19
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation validates and narrows generic Actor stores without casts": {
+      "src/actors/context.ts": [
+        12,
+        26,
+        27,
+        28,
+        30,
+        31
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore isolation walks a non-callable snapshot-key value as ordinary state": {
+      "src/actors/store.ts": [
+        737,
+        743,
+        744,
+        755,
+        757,
+        758
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore ownership walk accepts null-prototype state objects without an ownership contract": {
+      "src/actors/store.ts": [
+        765
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore ownership walk detects aliases held beside a callable snapshot key": {
+      "src/actors/store.ts": [
+        737
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore ownership walk detects aliases reachable only through clone-owned snapshots": {
+      "src/actors/store.ts": [
+        729
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore ownership walk detects clone aliases behind every owned child edge": {
+      "src/actors/store.ts": [
+        718,
+        720,
+        721,
+        725
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore ownership walk keeps clone-owned snapshot members out of the state graph": {
+      "src/actors/store.ts": [
+        535,
+        737
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore ownership walk rejects state the store cannot prove it owns": {
+      "src/actors/store.ts": [
+        680
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore ownership walk requires custom state objects to be frozen and clone-owned": {
+      "src/actors/store.ts": [
+        775
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore readonly view members denies every Map and Set mutator through a read view": {
+      "src/actors/store.ts": [
+        405,
+        406,
+        552,
+        565,
+        577,
+        579
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore readonly view members denies typed array and DataView mutators through a read view": {
+      "src/actors/store.ts": [
+        592,
+        620,
+        624,
+        631,
+        663
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore readonly view members exposes data members and denies behavior through read views": {
+      "src/actors/store.ts": [
+        415,
+        427,
+        430,
+        431,
+        465,
+        491,
+        506,
+        508,
+        514
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore readonly view members keeps plain arrays array-like through read views": {
+      "src/actors/store.ts": [
+        415
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore snapshot and transaction guards binds Memory reads and recovery state to the active transaction": {
+      "src/actors/store.ts": [
+        263,
+        264,
+        302,
+        303
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore snapshot and transaction guards expires escaped transaction scopes with a named error": {
+      "src/actors/store.ts": [
+        381
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore snapshot and transaction guards keeps reads stale-callback outside any transaction": {
+      "src/actors/store.ts": [
+        263
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore snapshot and transaction guards names every corrupt Actor recovery snapshot failure": {
+      "src/actors/store.ts": [
+        115,
+        124,
+        671
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore snapshot and transaction guards rejects a second Actor identity bound inside a transaction": {
+      "src/actors/store.ts": [
+        132,
+        136
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore snapshot and transaction guards rejects every malformed Memory Actor snapshot shape": {
+      "src/actors/store.ts": [
+        340,
+        341,
+        342,
+        344,
+        346,
+        348,
+        350,
+        358,
+        359,
+        360,
+        361
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore snapshot and transaction guards rejects thenable and unstable transaction results": {
+      "src/actors/store.ts": [
+        316,
+        325,
+        330
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore snapshot and transaction guards requires initial and recovered activation states": {
+      "src/actors/store.ts": [
+        50
+      ]
+    },
+    "test/actors/actor.test.ts#MemoryActorStore snapshot and transaction guards restores snapshots for every Actor kind and rejects the rest": {
+      "src/actors/store.ts": [
+        368,
+        369,
+        371,
+        372
+      ]
+    },
+    "test/actors/actor.test.ts#SqliteActorStore recovery storage fences two live incarnations using separate stores on one database": {
+      "src/actors/actor.ts": [
+        139
+      ]
+    },
+    "test/actors/fence.test.ts#Actor identity names Actor IDs in their own validation failures": {
+      "src/actors/id.ts": [
+        7
+      ]
+    },
+    "test/actors/fence.test.ts#Actor identity requires exact ActorId instances and closed Actor kinds": {
+      "src/actors/types.ts": [
+        11
+      ]
+    },
+    "test/actors/fence.test.ts#ActorRecoveryState codec [actor.recovery-state] round-trips recovery state through its versioned codec": {
+      "src/actors/fence.ts": [
+        63,
+        67,
+        94,
+        95,
+        99,
+        100,
+        101,
+        103,
+        105,
+        107,
+        108,
+        110,
+        117,
+        119,
+        120,
+        121,
+        125,
+        127,
+        129
+      ]
+    },
+    "test/actors/fence.test.ts#ActorRecoveryState codec enforces safe integer state invariants in constructors and decoding": {
+      "src/actors/fence.ts": [
+        49,
+        50,
+        53
+      ]
+    },
+    "test/actors/fence.test.ts#ActorRecoveryState codec fails before recovery counters or fences exceed safe integers": {
+      "src/actors/fence.ts": [
+        50,
+        83,
+        139,
+        140,
+        141
+      ],
+      "src/actors/types.ts": [
+        37,
+        38,
+        39
+      ]
+    },
+    "test/actors/fence.test.ts#ActorRecoveryState codec names the exhausted counter when a fence cannot advance": {
+      "src/actors/fence.ts": [
+        78,
+        79,
+        86,
+        140,
+        141
+      ]
+    },
+    "test/actors/fence.test.ts#ActorRecoveryState codec rejects malformed payloads with a typed codec error": {
+      "src/actors/fence.ts": [
+        20,
+        30,
+        95,
+        103,
+        117,
+        135,
+        136
+      ]
+    },
+    "test/actors/fence.test.ts#ActorRecoveryState codec rejects recovery payloads whose Actor record is not exact": {
+      "src/actors/fence.ts": [
+        119
+      ]
+    },
+    "test/actors/fence.test.ts#ActorRecoveryState codec round-trips recovery state for every Actor kind": {
+      "src/actors/fence.ts": [
+        71,
+        127,
+        128,
+        130,
+        131
+      ],
+      "src/actors/types.ts": [
+        26,
+        28,
+        38,
+        44,
+        45
+      ]
+    },
+    "test/actors/fence.test.ts#ActorRef accepts only its closed kinds and exact ActorId instances": {
+      "src/actors/id.ts": [
+        8,
+        14
+      ],
+      "src/actors/types.ts": [
+        10,
+        25,
+        26,
+        27,
+        28
+      ]
+    },
+    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) binds validation and check evidence to the authenticated source and decision time": {
+      "src/actors/fence.ts": [
+        53,
+        127
+      ],
+      "src/actors/store.ts": [
+        50,
+        131
+      ]
+    },
+    "test/definition/package-sqlite.test.ts#SQLite PackageStore contract adds and gets an exact package release synchronously": {
+      "src/actors/store.ts": [
+        314,
+        315,
+        325
+      ]
+    },
+    "test/invocations/prepared.test.ts#PreparedInvocation canonical identity round-trips canonical single and ordered batch records": {
+      "src/actors/id.ts": [
+        8,
+        14
+      ],
+      "src/actors/types.ts": [
+        27
+      ]
+    },
+    "test/invocations/prepared.test.ts#PreparedInvocation canonical identity round-trips every declared actor kind": {
+      "src/actors/types.ts": [
+        25,
+        29
+      ]
+    },
+    "test/invocations/records.test.ts#Invocation evidence records round-trips executor and system claims and enforces recovery ownership": {
+      "src/actors/types.ts": [
+        25
+      ]
+    },
+    "test/protocol/bootstrap.test.ts#memory bootstrap names every snapshot rejection exactly": {
+      "src/actors/store.ts": [
+        667
+      ]
+    },
+    "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions [protocol.tenant-bootstrap-anchor] memory composition creates and restores the complete closure": {
+      "src/actors/store.ts": [
+        121,
+        123,
+        368,
+        401,
+        453,
+        463,
+        616,
+        619,
+        620,
+        622,
+        624,
+        641,
+        649,
+        677,
+        690,
+        703,
+        706,
+        753,
+        763
+      ]
+    },
+    "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions memory bootstrap rejects malformed snapshot envelopes and Actor state": {
+      "src/actors/store.ts": [
+        114
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) accepts an absent caller cause with a host-created Invocation root": {
+      "src/actors/actor.ts": [
+        33,
+        34,
+        41,
+        50,
+        57,
+        125,
+        137,
+        139,
+        155,
+        170,
+        174,
+        175
+      ],
+      "src/actors/context.ts": [
+        11,
+        12,
+        18,
+        27,
+        30
+      ],
+      "src/actors/fence.ts": [
+        11,
+        19,
+        20,
+        24,
+        50,
+        107,
+        110,
+        116,
+        117,
+        119,
+        127
+      ],
+      "src/actors/id.ts": [
+        13,
+        14
+      ],
+      "src/actors/store.ts": [
+        50,
+        191,
+        680,
+        690,
+        757,
+        763,
+        764,
+        767
+      ],
+      "src/actors/types.ts": [
+        10,
+        23,
+        38,
+        45
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) requires a same-key retry after an unknown commit acknowledgement": {
+      "src/actors/actor.ts": [
+        186
+      ],
+      "src/actors/fence.ts": [
+        143
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rolls back an asynchronous gate instead of treating its Promise as approval": {
+      "src/actors/store.ts": [
+        325
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#SQLite restart fences a callback prepared by the prior dispatcher": {
+      "src/actors/actor.ts": [
+        139
+      ],
+      "src/actors/types.ts": [
+        45
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#supports the default clock and rolls back an invalid injected timestamp": {
+      "src/actors/actor.ts": [
+        224
+      ]
+    },
+    "test/substrates/sqlite/events-coverage.test.ts#workspace storage parity memory and SQLite expose the same complete record/index/pointer trace": {
+      "src/actors/store.ts": [
+        102,
+        110,
+        113,
+        175,
+        186,
+        343
+      ]
+    },
+    "test/substrates/sqlite/materialization-control.test.ts#SQLite materialization rollout control requires a Tenant owner and a complete marked schema": {
+      "src/actors/id.ts": [
+        6
+      ],
+      "src/actors/store.ts": [
+        325
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior issue binds each nonce to one exact expectation": {
+      "src/actors/store.ts": [
+        325
+      ],
+      "src/actors/types.ts": [
+        19,
+        27
+      ]
+    },
+    "test/substrates/sqlite/protocol.test.ts#SQLite protocol persistence exact schema and projection behavior rejects a counterfeit identity view projection when its rebuild is lost": {
+      "src/actors/types.ts": [
+        9
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage [run-storage-port] memory and SQLite satisfy one shared transaction and record contract": {
+      "src/actors/store.ts": [
+        330,
+        333
+      ]
+    },
+    "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control construction and transaction gating requires an immutable bootstrap anchor to construct": {
+      "src/actors/store.ts": [
+        325
+      ]
+    },
+    "test/workspaces/protocols.test.ts#SourceEventProtocol registers opaque prepared routing as typed W1 command evidence": {
+      "src/actors/store.ts": [
+        769
+      ],
+      "src/actors/types.ts": [
+        25
+      ]
+    }
+  }
+}

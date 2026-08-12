@@ -1,0 +1,42 @@
+{
+  "edition": "1.0.0",
+  "area": "invocation-references",
+  "measuredAt": "67a93aedaadb9ccdede5260d013bd71738a5f73c",
+  "fingerprint": "sha256:b632d2a2eef9d8b8ba61159306af4a5f417380b6a4dcb0d793cda04f21b3e946",
+  "files": {
+    "src/invocation-references/id.ts": {
+      "mutants": 12,
+      "sha256": "sha256:80bfe5751c0dc619fbf6ffc3696fc8c3195cec10e8121bb45049273d6e661a2c"
+    }
+  },
+  "killed": {
+    "test/agents/runs/records-mutation.test.ts#spawn reservations names each spawn field in decode errors": {
+      "src/invocation-references/id.ts": [
+        11
+      ]
+    },
+    "test/interaction-references/identity.test.ts#canonical interaction identities every interaction and invocation reference ID names its exact subject": {
+      "src/invocation-references/id.ts": [
+        5,
+        12,
+        19,
+        26,
+        33,
+        40
+      ]
+    },
+    "test/protocol/persistence-sqlite.test.ts#ProtocolPersistence (SQLite) stores codec-backed records and resolves them synchronously": {
+      "src/invocation-references/id.ts": [
+        39
+      ]
+    },
+    "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.approval] [invocation.continuation] consumes one exact Approval with the first admitted attempt": {
+      "src/invocation-references/id.ts": [
+        4,
+        18,
+        25,
+        32
+      ]
+    }
+  }
+}
