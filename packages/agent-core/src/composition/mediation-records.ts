@@ -1,10 +1,7 @@
 import type { ActorRef } from "../actors";
-import type { PathEpochEvidence } from "../authority";
 import type { ContentRef } from "../core";
 import { AgentCoreError } from "../errors";
-import type { ProtectionDomain } from "../facets";
 import type { TenantId } from "../identity";
-import { leaseTokensEqual, type LeaseToken } from "../agents";
 import {
     AttemptReceipt,
     AuditRecord,
@@ -20,9 +17,13 @@ import {
     type Receipt
 } from "../invocations";
 import type { DerivedMediationIdentities } from "./mediation-identity";
-import type {
-    MediatedInvocationAuthority,
-    MediationPreparedInvocation
+import {
+    sameLeaseReference,
+    type MediationAuthorityReference,
+    type MediationDomainReference,
+    type MediationLeaseReference,
+    type MediationPathEpochReference,
+    type MediationPreparedInvocation
 } from "./mediation-preparation";
 
 export interface MediationRecordIdentity {
@@ -44,13 +45,13 @@ export interface MediationRecordIdentity {
  */
 export class MediationClaimOwnerAdmission<Transaction, Admission> implements InvocationClaimOwnerPort<
     Transaction,
-    LeaseToken,
+    MediationLeaseReference,
     Admission
 > {
     public admits(
         _transaction: Transaction,
-        claim: ItemClaim<LeaseToken>,
-        attempt: EffectAttempt<LeaseToken, Admission>
+        claim: ItemClaim<MediationLeaseReference>,
+        attempt: EffectAttempt<MediationLeaseReference, Admission>
     ): boolean {
         return (
             claim.id.equals(attempt.claim) &&
@@ -59,7 +60,7 @@ export class MediationClaimOwnerAdmission<Transaction, Admission> implements Inv
             claim.attemptOrdinal === attempt.ordinal &&
             (claim.owner.kind === "executor"
                 ? attempt.token !== undefined &&
-                  leaseTokensEqual(claim.owner.token, attempt.token)
+                  sameLeaseReference(claim.owner.token, attempt.token)
                 : attempt.token === undefined)
         );
     }
@@ -76,10 +77,10 @@ export class MediationClaimOwnerAdmission<Transaction, Admission> implements Inv
  * record is caused by the Invocation root directly.
  */
 export class CanonicalMediationRecords<Admission> implements CanonicalBatchRecordPort<
-    LeaseToken,
-    MediatedInvocationAuthority,
-    ProtectionDomain,
-    PathEpochEvidence,
+    MediationLeaseReference,
+    MediationAuthorityReference,
+    MediationDomainReference,
+    MediationPathEpochReference,
     Admission
 > {
     public constructor(
@@ -105,9 +106,9 @@ export class CanonicalMediationRecords<Admission> implements CanonicalBatchRecor
     public claim(
         invocation: MediationPreparedInvocation,
         itemIndex: number,
-        previous: ItemClaim<LeaseToken> | undefined,
+        previous: ItemClaim<MediationLeaseReference> | undefined,
         now: Date
-    ): ItemClaim<LeaseToken> {
+    ): ItemClaim<MediationLeaseReference> {
         const owner = this.owner(invocation);
         const expiresAt = new Date(now.getTime() + this.claimLifetimeMilliseconds);
         if (previous === undefined) {
@@ -135,9 +136,9 @@ export class CanonicalMediationRecords<Admission> implements CanonicalBatchRecor
 
     public retryClaim(
         invocation: MediationPreparedInvocation,
-        previous: EffectAttempt<LeaseToken, Admission>,
+        previous: EffectAttempt<MediationLeaseReference, Admission>,
         now: Date
-    ): ItemClaim<LeaseToken> {
+    ): ItemClaim<MediationLeaseReference> {
         const owner = this.owner(invocation);
         const attemptOrdinal = previous.ordinal + 1;
         return new ItemClaim(
@@ -157,11 +158,11 @@ export class CanonicalMediationRecords<Admission> implements CanonicalBatchRecor
 
     public attempt(
         invocation: MediationPreparedInvocation,
-        claim: ItemClaim<LeaseToken>,
+        claim: ItemClaim<MediationLeaseReference>,
         admission: AuthorityAdmissionReference<Admission>,
         now: Date
-    ): EffectAttempt<LeaseToken, Admission> {
-        return new EffectAttempt<LeaseToken, Admission>(
+    ): EffectAttempt<MediationLeaseReference, Admission> {
+        return new EffectAttempt<MediationLeaseReference, Admission>(
             this.identities.attempt(invocation.header.id, claim.itemIndex, claim.attemptOrdinal),
             invocation.header.id,
             claim.itemIndex,
@@ -177,7 +178,7 @@ export class CanonicalMediationRecords<Admission> implements CanonicalBatchRecor
 
     public attemptAudit(
         invocation: MediationPreparedInvocation,
-        attempt: EffectAttempt<LeaseToken, Admission>
+        attempt: EffectAttempt<MediationLeaseReference, Admission>
     ): AuditRecord {
         return this.audit(
             invocation,
@@ -189,7 +190,7 @@ export class CanonicalMediationRecords<Admission> implements CanonicalBatchRecor
 
     public preEffectReceipt(
         invocation: MediationPreparedInvocation,
-        claim: ItemClaim<LeaseToken>,
+        claim: ItemClaim<MediationLeaseReference>,
         recordedAt: Date,
         reason: string
     ): PreEffectReceipt {
@@ -208,7 +209,7 @@ export class CanonicalMediationRecords<Admission> implements CanonicalBatchRecor
     }
 
     public attemptReceipt(
-        attempt: EffectAttempt<LeaseToken, Admission>,
+        attempt: EffectAttempt<MediationLeaseReference, Admission>,
         outcome: AttemptReceiptOutcome,
         recordedAt: Date,
         result: ContentRef | undefined
@@ -224,7 +225,7 @@ export class CanonicalMediationRecords<Admission> implements CanonicalBatchRecor
     }
 
     public reconciledReceipt(
-        attempt: EffectAttempt<LeaseToken, Admission>,
+        attempt: EffectAttempt<MediationLeaseReference, Admission>,
         previous: AttemptReceipt,
         result: { readonly kind: "succeeded" | "failed"; readonly result?: ContentRef },
         recordedAt: Date
@@ -266,7 +267,7 @@ export class CanonicalMediationRecords<Admission> implements CanonicalBatchRecor
         );
     }
 
-    private owner(invocation: MediationPreparedInvocation): ItemClaimOwner<LeaseToken> {
+    private owner(invocation: MediationPreparedInvocation): ItemClaimOwner<MediationLeaseReference> {
         const lease = invocation.header.lease;
         return lease === undefined
             ? { kind: "system", actor: invocation.header.actor, worker: this.identity.worker }

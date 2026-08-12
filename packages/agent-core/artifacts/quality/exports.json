@@ -871,12 +871,14 @@
         ],
         "@agent-core/core/mediation": [
             "MediatedAuthorityIntent",
-            "MediatedInvocationAuthority",
             "MediatedOperationPipeline",
             "ResolutionStamp",
             "ResolvedOperationAuthority",
+            "leaseReference",
+            "leaseToken",
             "mediationInvocationCodecs",
-            "mediationPreparedCodecs"
+            "mediationPreparedCodecs",
+            "sameLeaseReference"
         ]
     },
     "declarations": {
@@ -2300,10 +2302,13 @@
             "FacetActivationPin",
             "FacetActivationPinPort",
             "MediatedAuthorityIntent",
-            "MediatedInvocationAuthority",
             "MediatedOperationPipeline",
             "MediatedOperationPipelineInit",
             "MediatedTurnCaller",
+            "MediationAuthorityReference",
+            "MediationDomainReference",
+            "MediationLeaseReference",
+            "MediationPathEpochReference",
             "MediationPersistence",
             "MediationPreparedInvocation",
             "OperationAuthorityStatePort",
@@ -2312,8 +2317,11 @@
             "OperationResolutionState",
             "ResolutionStamp",
             "ResolvedOperationAuthority",
+            "leaseReference",
+            "leaseToken",
             "mediationInvocationCodecs",
-            "mediationPreparedCodecs"
+            "mediationPreparedCodecs",
+            "sameLeaseReference"
         ]
     },
     "forbiddenSymbols": {

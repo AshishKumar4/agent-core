@@ -2,13 +2,7 @@ import { PathEpochEvidence } from "../authority";
 import { Digest, SemVer, encodeCanonicalJson, type JsonValue } from "../core";
 import { PackageId, mergePolicySets } from "../definition";
 import { AgentCoreError } from "../errors";
-import {
-    BindingName,
-    FacetPackageId,
-    OperationRef,
-    ProtectionDomain,
-    type FacetRef
-} from "../facets";
+import { FacetPackageId, OperationRef, type FacetRef, type ProtectionDomain } from "../facets";
 import { PrincipalId, PrincipalRef, TenantId } from "../identity";
 import { TurnId, type LeaseToken } from "../agents";
 import {
@@ -20,14 +14,15 @@ import {
     PreparedInvocation,
     PreparedInvocationCodec,
     ReceiptCodec,
+    requireArray,
     requireExactObject,
     requireNonnegativeInteger,
     requireString,
     type CanonicalBatchInvocationRequest,
     type CanonicalBatchPreparationPort,
+    type InvocationMemoryCodecs,
     type InvocationPersistence,
     type InvocationPreparationPort,
-    type InvocationMemoryCodecs,
     type InvocationTransactionPort,
     type PreparedInvocationCodecs,
     type StructuralCodec,
@@ -37,104 +32,143 @@ import type { MediatedAuthorityIntent } from "./authority";
 import type { DerivedMediationIdentities } from "./mediation-identity";
 
 /**
- * SPEC §7.3's `InvocationAuthority`: the authenticated Principal and the Binding its
- * authority came through, plus whether the Invocation acts for its own initiator or on
- * delegated authority routed from another Actor.
+ * A PreparedInvocation's Lease, Authority, Domain, and PathEpochs are *structural
+ * references*: the invocations context never interprets them, persists them through a
+ * codec, and requires them to be immutable data carrying no behavior (§8.3). Each is
+ * therefore declared here as the canonical data shape of the domain value it stands for,
+ * with the conversion at this boundary rather than a domain class smuggled into the
+ * record.
  */
-export class MediatedInvocationAuthority {
-    public constructor(
-        public readonly kind: "initiator" | "delegated",
-        public readonly principal: PrincipalRef,
-        public readonly binding: BindingName
-    ) {
-        if (kind !== "initiator" && kind !== "delegated") {
-            throw new TypeError("Invocation authority kind is invalid");
-        }
-        Object.freeze(this);
-    }
-
-    public toData(): JsonValue {
-        return {
-            binding: this.binding.value,
-            kind: this.kind,
-            principal: {
-                principal: this.principal.principalId.value,
-                tenant: this.principal.tenantId.value
-            }
-        };
-    }
-
-    public static fromData(value: JsonValue): MediatedInvocationAuthority {
-        const object = requireExactObject(
-            value,
-            ["binding", "kind", "principal"],
-            "Invocation authority"
-        );
-        const principal = requireExactObject(
-            object["principal"],
-            ["principal", "tenant"],
-            "Invocation authority principal"
-        );
-        const kind = requireString(object, "kind");
-        if (kind !== "initiator" && kind !== "delegated") {
-            throw new TypeError("Invocation authority kind is invalid");
-        }
-        return new MediatedInvocationAuthority(
-            kind,
-            new PrincipalRef(
-                new TenantId(requireString(principal, "tenant")),
-                new PrincipalId(requireString(principal, "principal"))
-            ),
-            new BindingName(requireString(object, "binding"))
-        );
-    }
+export interface MediationLeaseReference {
+    readonly turn: string;
+    readonly tenant: string;
+    readonly principal: string;
+    readonly epoch: number;
 }
 
-export const mediatedInvocationAuthorityCodec: StructuralCodec<MediatedInvocationAuthority> =
-    Object.freeze({
-        encode: (value: MediatedInvocationAuthority): JsonValue => value.toData(),
-        decode: (value: JsonValue): MediatedInvocationAuthority =>
-            MediatedInvocationAuthority.fromData(value)
-    });
+/** SPEC §7.3's `InvocationAuthority`, as a structural reference. */
+export interface MediationAuthorityReference {
+    readonly kind: "initiator" | "delegated";
+    readonly tenant: string;
+    readonly principal: string;
+    readonly binding: string;
+}
 
-export const leaseTokenCodec: StructuralCodec<LeaseToken> = Object.freeze({
-    encode: (value: LeaseToken): JsonValue => ({
+export interface MediationDomainReference {
+    readonly kind: "frontend" | "backend";
+    readonly label: string;
+    readonly secretPolicy: "no-secrets" | "may-hold-secrets";
+}
+
+export interface MediationPathEpochReference {
+    readonly path: readonly JsonValue[];
+}
+
+export function leaseReference(token: LeaseToken): MediationLeaseReference {
+    return Object.freeze({
+        turn: token.turn.value,
+        tenant: token.holder.tenantId.value,
+        principal: token.holder.principalId.value,
+        epoch: token.epoch
+    });
+}
+
+export function leaseToken(reference: MediationLeaseReference): LeaseToken {
+    return Object.freeze({
+        turn: new TurnId(reference.turn),
+        holder: new PrincipalRef(
+            new TenantId(reference.tenant),
+            new PrincipalId(reference.principal)
+        ),
+        epoch: reference.epoch
+    });
+}
+
+export function sameLeaseReference(
+    left: MediationLeaseReference,
+    right: MediationLeaseReference
+): boolean {
+    return (
+        left.turn === right.turn &&
+        left.tenant === right.tenant &&
+        left.principal === right.principal &&
+        left.epoch === right.epoch
+    );
+}
+
+export function domainReference(domain: ProtectionDomain): MediationDomainReference {
+    return Object.freeze({
+        kind: domain.kind,
+        label: domain.label,
+        secretPolicy: domain.secretPolicy
+    });
+}
+
+export function pathEpochReference(evidence: PathEpochEvidence): MediationPathEpochReference {
+    return Object.freeze({
+        path: Object.freeze(requireArray(evidence.toData(), "path"))
+    });
+}
+
+export const leaseReferenceCodec: StructuralCodec<MediationLeaseReference> = Object.freeze({
+    encode: (value: MediationLeaseReference): JsonValue => ({
         epoch: value.epoch,
-        holder: {
-            principal: value.holder.principalId.value,
-            tenant: value.holder.tenantId.value
-        },
-        turn: value.turn.value
+        principal: value.principal,
+        tenant: value.tenant,
+        turn: value.turn
     }),
-    decode: (value: JsonValue): LeaseToken => {
-        const object = requireExactObject(value, ["epoch", "holder", "turn"], "Lease token");
-        const holder = requireExactObject(
-            object["holder"],
-            ["principal", "tenant"],
-            "Lease token holder"
+    decode: (value: JsonValue): MediationLeaseReference => {
+        const object = requireExactObject(
+            value,
+            ["epoch", "principal", "tenant", "turn"],
+            "Invocation lease reference"
         );
         return Object.freeze({
-            turn: new TurnId(requireString(object, "turn")),
-            holder: new PrincipalRef(
-                new TenantId(requireString(holder, "tenant")),
-                new PrincipalId(requireString(holder, "principal"))
-            ),
+            turn: requireString(object, "turn"),
+            tenant: requireString(object, "tenant"),
+            principal: requireString(object, "principal"),
             epoch: requireNonnegativeInteger(object, "epoch")
         });
     }
 });
 
-export const protectionDomainCodec: StructuralCodec<ProtectionDomain> = Object.freeze({
-    encode: (value: ProtectionDomain): JsonValue => ({
+export const authorityReferenceCodec: StructuralCodec<MediationAuthorityReference> = Object.freeze({
+    encode: (value: MediationAuthorityReference): JsonValue => ({
+        binding: value.binding,
+        kind: value.kind,
+        principal: value.principal,
+        tenant: value.tenant
+    }),
+    decode: (value: JsonValue): MediationAuthorityReference => {
+        const object = requireExactObject(
+            value,
+            ["binding", "kind", "principal", "tenant"],
+            "Invocation authority reference"
+        );
+        const kind = requireString(object, "kind");
+        if (kind !== "initiator" && kind !== "delegated") {
+            throw new TypeError("Invocation authority kind is invalid");
+        }
+        return Object.freeze({
+            kind,
+            tenant: requireString(object, "tenant"),
+            principal: requireString(object, "principal"),
+            binding: requireString(object, "binding")
+        });
+    }
+});
+
+export const domainReferenceCodec: StructuralCodec<MediationDomainReference> = Object.freeze({
+    encode: (value: MediationDomainReference): JsonValue => ({
         kind: value.kind,
         label: value.label,
         secretPolicy: value.secretPolicy
     }),
-    decode: (value: JsonValue): ProtectionDomain => {
+    decode: (value: JsonValue): MediationDomainReference => {
         const object = requireExactObject(
             value,
             ["kind", "label", "secretPolicy"],
-            "Protection domain"
+            "Protection domain reference"
         );
         const kind = requireString(object, "kind");
         const secretPolicy = requireString(object, "secretPolicy");
@@ -144,45 +178,47 @@ export const protectionDomainCodec: StructuralCodec<ProtectionDomain> = Object.f
         ) {
             throw new TypeError("Protection domain kind or secret policy is invalid");
         }
-        return new ProtectionDomain(kind, requireString(object, "label"), secretPolicy);
+        return Object.freeze({ kind, label: requireString(object, "label"), secretPolicy });
     }
 });
 
-export const pathEpochEvidenceCodec: StructuralCodec<PathEpochEvidence> = Object.freeze({
-    encode: (value: PathEpochEvidence): JsonValue => value.toData(),
-    decode: (value: JsonValue): PathEpochEvidence => PathEpochEvidence.fromData(value)
+export const pathEpochReferenceCodec: StructuralCodec<MediationPathEpochReference> = Object.freeze({
+    encode: (value: MediationPathEpochReference): JsonValue =>
+        PathEpochEvidence.fromData({ path: [...value.path] }).toData(),
+    decode: (value: JsonValue): MediationPathEpochReference =>
+        pathEpochReference(PathEpochEvidence.fromData(value))
+});
+
+export const mediationPreparedCodecs: PreparedInvocationCodecs<
+    MediationLeaseReference,
+    MediationAuthorityReference,
+    MediationDomainReference,
+    MediationPathEpochReference
+> = Object.freeze({
+    lease: leaseReferenceCodec,
+    authority: authorityReferenceCodec,
+    domain: domainReferenceCodec,
+    pathEpochs: pathEpochReferenceCodec
 });
 
 export function mediationInvocationCodecs<Admission>(
     admission: StructuralCodec<Admission>
 ): InvocationMemoryCodecs<
-    LeaseToken,
-    MediatedInvocationAuthority,
-    ProtectionDomain,
-    PathEpochEvidence,
+    MediationLeaseReference,
+    MediationAuthorityReference,
+    MediationDomainReference,
+    MediationPathEpochReference,
     Admission
 > {
     return Object.freeze({
         prepared: new PreparedInvocationCodec(mediationPreparedCodecs),
         approval: ApprovalCodec,
-        continuation: new InvocationContinuationCodec(leaseTokenCodec),
-        claim: new ItemClaimCodec(leaseTokenCodec),
-        attempt: new EffectAttemptCodec(leaseTokenCodec, admission),
+        continuation: new InvocationContinuationCodec(leaseReferenceCodec),
+        claim: new ItemClaimCodec(leaseReferenceCodec),
+        attempt: new EffectAttemptCodec(leaseReferenceCodec, admission),
         receipt: ReceiptCodec
     });
 }
-
-export const mediationPreparedCodecs: PreparedInvocationCodecs<
-    LeaseToken,
-    MediatedInvocationAuthority,
-    ProtectionDomain,
-    PathEpochEvidence
-> = Object.freeze({
-    lease: leaseTokenCodec,
-    authority: mediatedInvocationAuthorityCodec,
-    domain: protectionDomainCodec,
-    pathEpochs: pathEpochEvidenceCodec
-});
 
 /**
  * The activation facts an OperationPin commits that authority resolution does not carry:
@@ -202,18 +238,18 @@ export interface FacetActivationPinPort {
 }
 
 export type MediationPreparedInvocation = PreparedInvocation<
-    LeaseToken,
-    MediatedInvocationAuthority,
-    ProtectionDomain,
-    PathEpochEvidence
+    MediationLeaseReference,
+    MediationAuthorityReference,
+    MediationDomainReference,
+    MediationPathEpochReference
 >;
 
 export type MediationPersistence<Transaction, Admission> = InvocationPersistence<
     Transaction,
-    LeaseToken,
-    MediatedInvocationAuthority,
-    ProtectionDomain,
-    PathEpochEvidence,
+    MediationLeaseReference,
+    MediationAuthorityReference,
+    MediationDomainReference,
+    MediationPathEpochReference,
     Admission
 >;
 
@@ -227,12 +263,15 @@ export type MediationPersistence<Transaction, Admission> = InvocationPersistence
  * `RoutedInvocationAdmissionPort` has already made that preparation durable; this port
  * returns that exact record rather than deriving a second one that could disagree.
  */
-export class CanonicalMediationPreparation<Transaction, Admission> implements CanonicalBatchPreparationPort<
+export class CanonicalMediationPreparation<
+    Transaction,
+    Admission
+> implements CanonicalBatchPreparationPort<
     MediatedAuthorityIntent,
-    LeaseToken,
-    MediatedInvocationAuthority,
-    ProtectionDomain,
-    PathEpochEvidence
+    MediationLeaseReference,
+    MediationAuthorityReference,
+    MediationDomainReference,
+    MediationPathEpochReference
 > {
     public constructor(
         private readonly identities: DerivedMediationIdentities,
@@ -254,15 +293,16 @@ export class CanonicalMediationPreparation<Transaction, Admission> implements Ca
             {
                 id: invocation,
                 operation: this.operationPin(request),
-                domain: intent.domain,
+                domain: domainReference(intent.domain),
                 actor: intent.owner,
-                authority: new MediatedInvocationAuthority(
-                    "initiator",
-                    intent.principal,
-                    intent.binding.name
-                ),
-                pathEpochs: intent.pathEpochs,
-                lease: intent.lease,
+                authority: Object.freeze({
+                    kind: "initiator" as const,
+                    tenant: intent.principal.tenantId.value,
+                    principal: intent.principal.principalId.value,
+                    binding: intent.binding.name.value
+                }),
+                pathEpochs: pathEpochReference(intent.pathEpochs),
+                lease: leaseReference(intent.lease),
                 auditCause: this.identities.invocationAudit(invocation),
                 idempotencySeed: this.identities.idempotencySeed(invocation)
             },
@@ -296,9 +336,7 @@ export class CanonicalMediationPreparation<Transaction, Admission> implements Ca
         }
         const descriptor = request.request.descriptor;
         return OperationPin.create({
-            operation: new OperationRef(
-                `${facetPackage(facet).value}:${descriptor.name.value}`
-            ),
+            operation: new OperationRef(`${facetPackage(facet).value}:${descriptor.name.value}`),
             target: facet.value,
             package: new PackageId(intent.packagePin.id.value),
             version: new SemVer(intent.packagePin.version.toString()),
@@ -316,16 +354,16 @@ export class CanonicalMediationPreparation<Transaction, Admission> implements Ca
 }
 
 /**
- * The ledger's preparation gate for locally prepared Invocations: the audit cause must
- * be the derived Invocation audit root for this exact Invocation, and a header that
- * carries neither a lease nor a route cannot be prepared at all (§7.3).
+ * The ledger's preparation gate for locally prepared Invocations: the audit cause and
+ * idempotency seed must be the ones this Invocation's own identity derives, and a header
+ * carrying neither a lease nor a route cannot be prepared at all (§7.3).
  */
 export class DerivedPreparationAdmission<Transaction> implements InvocationPreparationPort<
     Transaction,
-    LeaseToken,
-    MediatedInvocationAuthority,
-    ProtectionDomain,
-    PathEpochEvidence
+    MediationLeaseReference,
+    MediationAuthorityReference,
+    MediationDomainReference,
+    MediationPathEpochReference
 > {
     public constructor(private readonly identities: DerivedMediationIdentities) {}
 

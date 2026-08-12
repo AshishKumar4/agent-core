@@ -91,17 +91,25 @@ export type {
 export {
     CanonicalMediationPreparation,
     DerivedPreparationAdmission,
-    MediatedInvocationAuthority,
-    leaseTokenCodec,
-    mediatedInvocationAuthorityCodec,
+    authorityReferenceCodec,
+    domainReference,
+    domainReferenceCodec,
+    leaseReference,
+    leaseReferenceCodec,
+    leaseToken,
     mediationInvocationCodecs,
     mediationPreparedCodecs,
-    pathEpochEvidenceCodec,
-    protectionDomainCodec
+    pathEpochReference,
+    pathEpochReferenceCodec,
+    sameLeaseReference
 } from "./mediation-preparation";
 export type {
     FacetActivationPin,
     FacetActivationPinPort,
+    MediationAuthorityReference,
+    MediationDomainReference,
+    MediationLeaseReference,
+    MediationPathEpochReference,
     MediationPersistence,
     MediationPreparedInvocation
 } from "./mediation-preparation";

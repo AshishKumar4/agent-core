@@ -1,5 +1,4 @@
 import type { ActorRef } from "../actors";
-import type { PathEpochEvidence } from "../authority";
 import type { LeaseToken } from "../agents";
 import {
     GatewayTurnInvocationPort,
@@ -8,7 +7,7 @@ import {
     type TurnMediatedInvocationPort
 } from "../agents/runs";
 import type { ContentStore } from "../content";
-import type { Facet, FacetManifest, ProtectionDomain } from "../facets";
+import type { Facet, FacetManifest } from "../facets";
 import type { TenantId } from "../identity";
 import {
     CanonicalBatchInvocationPort,
@@ -40,9 +39,12 @@ import { DerivedDirectOperationContext, ScopedMediationResources } from "./media
 import {
     CanonicalMediationPreparation,
     DerivedPreparationAdmission,
-    leaseTokenCodec,
+    leaseReferenceCodec,
     type FacetActivationPinPort,
-    type MediatedInvocationAuthority,
+    type MediationAuthorityReference,
+    type MediationDomainReference,
+    type MediationLeaseReference,
+    type MediationPathEpochReference,
     type MediationPersistence
 } from "./mediation-preparation";
 import { CanonicalMediationRecords, MediationClaimOwnerAdmission } from "./mediation-records";
@@ -76,36 +78,36 @@ export interface MediatedOperationPipelineInit<Transaction, Admission, Authentic
     readonly roots: readonly Facet[];
     readonly activations: FacetActivationPinPort;
     readonly permits: CanonicalBatchAuthorityPermitPort<
-        LeaseToken,
-        MediatedInvocationAuthority,
-        ProtectionDomain,
-        PathEpochEvidence,
+        MediationLeaseReference,
+        MediationAuthorityReference,
+        MediationDomainReference,
+        MediationPathEpochReference,
         Admission
     >;
     readonly authentication: CanonicalBatchAuthorityAuthenticationPort<
-        LeaseToken,
-        MediatedInvocationAuthority,
-        ProtectionDomain,
-        PathEpochEvidence,
+        MediationLeaseReference,
+        MediationAuthorityReference,
+        MediationDomainReference,
+        MediationPathEpochReference,
         Admission,
         Authentication
     >;
     readonly admission: AuthorityAdmissionPort<
         Transaction,
-        LeaseToken,
-        MediatedInvocationAuthority,
-        ProtectionDomain,
-        PathEpochEvidence,
+        MediationLeaseReference,
+        MediationAuthorityReference,
+        MediationDomainReference,
+        MediationPathEpochReference,
         Admission,
         Authentication
     >;
     readonly finalAdmission: CanonicalBatchFinalAdmissionPort<
         Transaction,
         MediatedAuthorityIntent,
-        LeaseToken,
-        MediatedInvocationAuthority,
-        ProtectionDomain,
-        PathEpochEvidence,
+        MediationLeaseReference,
+        MediationAuthorityReference,
+        MediationDomainReference,
+        MediationPathEpochReference,
         Admission
     >;
     readonly content: ContentStore;
@@ -174,15 +176,15 @@ export class MediatedOperationPipeline<
         const identities = new DerivedMediationIdentities(init.scope);
         const ledger = new InvocationLedger<
             Transaction,
-            LeaseToken,
-            MediatedInvocationAuthority,
-            ProtectionDomain,
-            PathEpochEvidence,
+            MediationLeaseReference,
+            MediationAuthorityReference,
+            MediationDomainReference,
+            MediationPathEpochReference,
             Admission,
             Authentication
         >(
             init.persistence,
-            leaseTokenCodec,
+            leaseReferenceCodec,
             new DerivedPreparationAdmission(identities),
             new FiniteInvocationTime(),
             new MediationClaimOwnerAdmission(),
@@ -224,10 +226,10 @@ function operations<Transaction, Admission, Authentication>(
     identities: DerivedMediationIdentities,
     ledger: InvocationLedger<
         Transaction,
-        LeaseToken,
-        MediatedInvocationAuthority,
-        ProtectionDomain,
-        PathEpochEvidence,
+        MediationLeaseReference,
+        MediationAuthorityReference,
+        MediationDomainReference,
+        MediationPathEpochReference,
         Admission,
         Authentication
     >,
@@ -243,10 +245,10 @@ function operations<Transaction, Admission, Authentication>(
         new CanonicalBatchInvocationPort<
             MediatedAuthorityIntent,
             Transaction,
-            LeaseToken,
-            MediatedInvocationAuthority,
-            ProtectionDomain,
-            PathEpochEvidence,
+            MediationLeaseReference,
+            MediationAuthorityReference,
+            MediationDomainReference,
+            MediationPathEpochReference,
             Admission,
             Authentication
         >(
