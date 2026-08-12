@@ -272,6 +272,374 @@
       "replacement": "false",
       "mutated": "childIndex === undefined",
       "proof": "validateLineage has three callers and each establishes that its starting Grant's scope lies on the exact path before calling. evaluate tests path.has(scopeKey(backing.scope)) above the call; the allow filter draws its Grants from relevant, which is filtered on that same path membership; validateBinding tests scopeReaches(grant.scope, workspace.scope), which is the same question asked of the same ancestry. Later iterations set child to a parent whose own index was found defined on the previous pass. childIndex is therefore never undefined where this operand is evaluated, while parentIndex genuinely can be \u2014 which is why that operand's mutant is killed and this one is not."
+    },
+    {
+      "file": "src/authority/service.ts",
+      "symbol": "AuthorityMutationService.createWorkspace",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "workspace.revision.value !== 0",
+      "proof": "Workspace's constructor throws \"Workspace topology requires immutable revision zero\" for any revision but zero, and every Workspace reaches the service through it \u2014 the codec's decode path builds through the same constructor. The service can therefore never hold a Workspace with a non-zero revision, this operand is constantly false, and the Tenant comparison beside it decides alone. It is written because the refusal names both preconditions, and a reader would otherwise have to know the record type enforces one of them on its own."
+    },
+    {
+      "file": "src/authority/service.ts",
+      "symbol": "AuthorityMutationService.revokeGuestTrust",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "revoked === trust",
+      "proof": "GuestTrust.revoke returns this when the trust is already revoked, so identity here means the call was a no-op. Forcing the test false lets the method continue: putGuestTrust finds the stored bytes identical and returns without writing, and revokeGuestMemberships walks the Memberships again. Every Membership naming this trust was revoked by the first revocation, and assignGuestMembership refuses to attach a new one to an inactive trust, so the loop's revoked-state test skips them all, the affected map stays empty, closureMutation yields no mutations and bump returns without planning. The same record comes back, over the same store, at the same epochs."
+    },
+    {
+      "file": "src/authority/service.ts",
+      "symbol": "AuthorityMutationService.revokeMembership.role",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"Role\"",
+      "proof": "The label reaches a message only when requireRecord finds no Role, and a stored Membership always has its Role. There is no removal path \u2014 the store exposes putRole and nothing else \u2014 and the Memory store re-derives the closure at the end of every transaction and on every restore, refusing any state in which a Membership names a Role that is not present. The Membership in hand was read from that same store a line earlier, so the lookup resolves and the literal is never read."
+    },
+    {
+      "file": "src/authority/service.ts",
+      "symbol": "AuthorityMutationService.reconcile.replaced",
+      "mutator": "MethodExpression",
+      "replacement": "materialization.changedRecords",
+      "mutated": "materialization.changedRecords .filter((grant) => previous.has(grant.id.value))",
+      "proof": "Dropping the filter widens replaced from the changed records that already existed to every changed record, and the widened list is passed to revokeGrantClosure as roots together with a skip set built from that same list. The roots loop skips every id in skip, so the extra entries can only matter through the descendant walk \u2014 and a record that did not exist before this materialization has no descendants, because attenuationOf can only name a Grant createGrant found present when the child was created. The closure revokes the same Grants and returns the same affected Scopes either way."
+    },
+    {
+      "file": "src/authority/service.ts",
+      "symbol": "AuthorityMutationService.revokeGuestMemberships",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "membership.subject.kind !== \"foreign\"",
+      "proof": "Membership's constructor refuses a guest verification on a subject that is not foreign, so a Membership whose subject is not foreign carries no verification and the disjunct beside this one is true. Forcing this operand false therefore continues past exactly the same Memberships. It leads the disjunction because it is what narrows the subject for the reads below, not because it decides anything the verification test does not already decide."
+    },
+    {
+      "file": "src/authority/service.ts",
+      "symbol": "AuthorityMutationService.revokeGuestMemberships",
+      "mutator": "LogicalOperator",
+      "replacement": "membership.subject.kind !== \"foreign\" && membership.guestVerification === undefined",
+      "mutated": "membership.subject.kind !== \"foreign\" || membership.guestVerification === undefined",
+      "proof": "The operands are ordered so that the first implies the second \u2014 a non-foreign subject cannot carry a guest verification, because the Membership constructor refuses that pairing \u2014 so they can disagree only where the subject is foreign and the verification absent. The Memory store holds no such Membership: assertRestoredState demands trust evidence for every foreign Membership, and it runs on restore and at the end of every transaction. Where the operands agree, conjunction and disjunction select the same branch."
+    },
+    {
+      "file": "src/authority/service.ts",
+      "symbol": "AuthorityMutationService.revokeGuestMemberships",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "membership.guestVerification === undefined",
+      "proof": "Forcing this operand false lets the comparison beside it dereference guestVerification, which would throw for an absent one. It is never absent where this line runs: the operand ahead of it has already continued past every non-foreign Membership, and a foreign Membership without verification cannot be in the store \u2014 assertRestoredState refuses that snapshot and refuses that commit, and assignGuestMembership only ever writes one with verification attached. The operand is constantly false and the mutant dereferences nothing."
+    },
+    {
+      "file": "src/authority/service.ts",
+      "symbol": "AuthorityMutationService.revokeGuestMemberships.role",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"Role\"",
+      "proof": "This label becomes a message only if requireRecord finds the Membership's Role missing. The loop reads Memberships out of the same store that refuses any state in which a Membership names an absent Role, checked for every Membership on restore and at the end of every transaction, and no operation removes a Role. It is registered apart from the identical label in revokeMembership because the two sit in different methods reached by different callers, and one could become reachable without the other."
+    },
+    {
+      "file": "src/authority/service.ts",
+      "symbol": "AuthorityMutationService.bump",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "mutations.length === 0",
+      "proof": "The early return is a shortcut past a plan that would be empty anyway. With the test forced false, plan runs with no mutations: the affected map stays empty, so no Scope is bumped, the loop that writes epochs iterates nothing, and the EpochPlan is built from the store's current epochs alone. Those come from the store keyed by Scope and are unique by construction, so the planner's own duplicate check cannot fire. Nothing is written and the returned list is empty either way."
+    },
+    {
+      "file": "src/authority/service.ts",
+      "symbol": "nonEmpty",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "distinct.length === 0",
+      "proof": "nonEmpty has two kinds of caller. closureMutation returns an empty mutation list rather than calling it when its Scopes are empty. Every other call spreads a Scope that is present by construction \u2014 the Membership's own Scope, the current Membership's Scope, the Workspace's Scope \u2014 into the array before distinctScopes runs, and distinctScopes keeps at least one entry for a non-empty input. The list is therefore never empty here, the test is constantly false, and the cast below it never sees an empty array."
+    },
+    {
+      "file": "src/authority/service.ts",
+      "symbol": "nonEmpty",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ throw new AgentCoreError( \"protocol.invalid-state\", \"Authority mutations require an affected Scope\" ); }",
+      "proof": "The block is the throw guarded by the empty-list test, and that test is constantly false because closureMutation refuses to call nonEmpty with nothing while every other caller spreads a Scope that exists by construction into the array first. A block that never runs contributes no value and no exception to any observation, so emptying it changes nothing: the cast below is reached on exactly the same inputs, holding exactly the same non-empty arrays."
+    },
+    {
+      "file": "src/authority/service.ts",
+      "symbol": "nonEmpty",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"protocol.invalid-state\"",
+      "proof": "This is the code argument of an AgentCoreError constructed only inside the unreachable empty-list guard. Because that guard's test is constantly false \u2014 closureMutation refuses to call nonEmpty with nothing, and every other caller spreads a Scope that is present by construction \u2014 the error is never built and the code never read. The classifier keeps error codes actionable because they normally carry behaviour; this one carries none, because no call can produce it."
+    },
+    {
+      "file": "src/authority/service.ts",
+      "symbol": "nonEmpty",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"Authority mutations require an affected Scope\"",
+      "proof": "The message argument of the same never-constructed AgentCoreError. It is not merely unasserted prose, which would make it tolerated rather than actionable, but a value the program cannot produce, because nonEmpty's callers guarantee a non-empty list before it is asked. Recording it here makes the claim falsifiable: should a caller ever lose that guarantee, the guard becomes reachable, the mutant becomes killable, and this entry is reported refuted rather than surviving quietly."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "MemoryTenantControlStore.isBootstrapEligible",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "this.#marker === null",
+      "proof": "Forcing the first conjunct true leaves the four emptiness tests deciding. A store carrying a marker has been through applyBootstrap, which writes the Tenant, the owner Principal, the built-in Roles, the owner Membership and the materialized Grants before it sets the marker, so its identity map is never empty and the identity conjunct is false either way. restore cannot produce a marked store with an empty identity map either: assertRestoredState demands the whole bootstrapped closure \u2014 Tenant, owner, Membership, Roles, Grants and epoch \u2014 for any marked snapshot."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "MemoryTenantControlStore.grants",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"Grant\"",
+      "proof": "The name reaches a message only through decodeRecord's key comparison, and that comparison cannot fire for this map. Every entry in the Grant map was written either by loadRecords, which decodes the bytes and refuses a stored id that disagrees with the decoded record's own id, or by putCanonical, which does the same before writing. The map's key is therefore always the decoded record's id, decoding is deterministic, and the mismatch branch that would read this label is unreachable."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "MemoryTenantControlStore.binding",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"Binding\"",
+      "proof": "The same reasoning for the Binding map read through decodeRecord's single-record path: the map is written only by loadRecords and putCanonical, both of which decode and compare the derived key against Binding.key before storing. A caller-supplied lookup key either misses the map, in which case nothing is decoded, or hits an entry stored under the decoded record's own key. Registered apart from the collection reader because they are different call sites and one could become reachable alone."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "MemoryTenantControlStore.bindings",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"Binding\"",
+      "proof": "decodeRecords sorts the map's keys and reads each through decodeRecord, so every id it passes is a key the map already holds, and every key the map holds was checked against its decoded record when loadRecords or putCanonical wrote it. The mismatch message this label would name is unreachable from the collection reader as well as from the single-record one, so the label is never read on either path."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "MemoryTenantControlStore.commit",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "candidate !== undefined",
+      "proof": "The finally block clears the candidate's write flag, and the guard exists because candidate is declared before the try. It is assigned by the first statement inside the try, from a restore of this store's own snapshot, and that restore can only throw if this store's snapshot is malformed \u2014 a state assertRestoredState refuses to leave the store in. candidate is therefore defined by the time any later statement can throw, and forcing the test true never dereferences undefined."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "MemoryTenantControlStore.identityRecord",
+      "mutator": "MethodExpression",
+      "replacement": "stored.bytes",
+      "mutated": "stored.bytes.slice()",
+      "proof": "The copy hands the codec a private buffer rather than the store's own. RecordCodec.decode parses the array through decodeCanonicalJson and retains no reference to it, and the caller receives the decoded record rather than the bytes, so the stored buffer cannot escape whether or not it was copied. The identity map is private and its only other exit, identitySnapshot, copies on the way out."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "MemoryTenantControlStore.identityRecords",
+      "mutator": "MethodExpression",
+      "replacement": "record.bytes",
+      "mutated": "record.bytes.slice()",
+      "proof": "The collection reader at the same seam. Each stored record's bytes are decoded and the decoded records are returned frozen; the array handed to decode is never retained, because RecordCodec.decode parses it and keeps only the parsed value. No caller of identityRecords receives a buffer at all, so whether decode saw the store's array or a copy of it cannot be observed."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "MemoryTenantControlStore.putIdentity",
+      "mutator": "ArrayDeclaration",
+      "replacement": "[]",
+      "mutated": "[record]",
+      "proof": "The repository is constructed and immediately discarded; it exists to validate the record before the map takes it, and with an empty record list it validates nothing. Every caller pairs a kind with an id read from the record's own identifier and bytes from that record's encoder \u2014 Tenant.encode with tenant.id.value, Project.encode with project.id.value, and so on for each identity kind \u2014 so the record it would check is well formed by construction. The validation never rejects, and skipping it changes nothing."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "MemoryTenantControlStore.assertRestoredState",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "tenant.authorizationRevision.value < this.#marker.revision",
+      "proof": "The marker check earlier in this method refuses any marker whose revision is not Revision.initial().value, which is zero, so this.#marker.revision is zero wherever this line runs. Revision refuses negative values, so tenant.authorizationRevision.value is at least zero and the comparison is constantly false. Forcing it false leaves the disjunction unchanged for every snapshot that reaches it."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "MemoryTenantControlStore.assertRestoredState",
+      "mutator": "MethodExpression",
+      "replacement": "bootstrap.grants.every(grant => this.grant(grant.id) === undefined)",
+      "mutated": "bootstrap.grants.some((grant) => this.grant(grant.id) === undefined)",
+      "proof": "some and every differ only on an array with mixed results or on the empty array. bootstrap.grants is the materialization of OWNER_ROLE over the owner Membership, and OWNER_ROLE is built with exactly one rule, so the array always holds exactly one Grant \u2014 materializeActive emits one record per rule for a non-guest Membership, and the owner Membership is never a guest. On a one-element array the two quantifiers agree by definition."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "MemoryTenantControlStore.assertRestoredState",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "grant.attenuationOf !== undefined",
+      "proof": "The block this guards seeds a visited set with the Grant's own id and then walks while child.attenuationOf is defined. For a Grant with no attenuation parent that loop condition is false on entry, so the block allocates a set and a variable and does nothing else. Forcing the test true runs the block for every Grant, and for the ones without a parent it walks nothing and throws nothing, so the method reaches the same conclusion on the same snapshots."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "MemoryTenantControlStore.assertRestoredState",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "expected.length !== owned.length",
+      "proof": "expected is the materializer's desiredRecords: the active records for the Role's rules, plus every owned record those do not cover, revoked. Every owned id is therefore present in expected, and the lengths differ exactly when some desired active id is absent from owned. In that case the lookup inside the some() beside this comparison returns undefined for that record and the disjunction is true anyway. This comparison is never the only reason the guard fires."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "MemoryTenantControlStore.assertRestoredState",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "actual === undefined",
+      "proof": "Forcing this operand false lets the bytes comparison beside it encode undefined, which would throw a different error. It is never undefined where it runs: the length comparison ahead of it short-circuits whenever a desired record is missing from owned, and when the lengths do agree every desired id is owned \u2014 expected is the desired active records plus the owned records they exclude, so equal lengths force the active ids to be a subset of the owned ids and the lookup always resolves."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "MemoryTenantControlStore.replace",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "candidate.#marker === null",
+      "proof": "replace copies committed state out of a candidate store, and commit only reaches it after the operation returned and assertRestoredState passed on that candidate. Both entry points guarantee a marker: bootstrap runs applyBootstrap, which sets the marker as its last act, and transaction refuses to start unless this store's marker is already set, which the candidate inherits through the snapshot it was restored from. The candidate's marker is never null here, so the ternary always takes the copy branch."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "requireSnapshot",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "snapshot.marker !== null",
+      "proof": "Forcing the left conjunct true leaves the typeof test, and typeof null is \"object\", so a null marker makes that test false exactly as the original pair did. For every other value the left conjunct was already true and the typeof test decided alone. The pair therefore has the same value on every input, which is why the null test reads as belt-and-braces here rather than as a case typeof cannot settle."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "copyMarkerSnapshot",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "marker === null || typeof marker !== \"object\"",
+      "proof": "Both operands of this pair are constantly false where copyMarkerSnapshot runs. The private constructor filters null itself, passing null straight through without calling, and requireSnapshot has already refused any marker that is neither null nor typeof \"object\" before the constructor gets that far; the other two calls pass this store's own marker, which is an object whenever it is not null. Forcing the pair false therefore selects the branch it already selects. The disjunction is written out because it is what narrows marker to an object for the reads below it."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "copyMarkerSnapshot",
+      "mutator": "LogicalOperator",
+      "replacement": "marker === null && typeof marker !== \"object\"",
+      "mutated": "marker === null || typeof marker !== \"object\"",
+      "proof": "Conjunction and disjunction differ only where the operands disagree, and here neither can even be true: the constructor tests for null before calling, and requireSnapshot has refused every marker that is not null and not typeof \"object\". With both operands constantly false the two operators produce the same value. They would also agree on a null marker if one could arrive, since typeof null is \"object\" makes the second operand false there too."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "copyMarkerSnapshot",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "marker === null",
+      "proof": "The only caller that could hand this function null is the private constructor, and it tests for null itself and passes null through without calling. snapshot and replace pass a marker they have already tested against null. The operand is constantly false, and forcing it false leaves the typeof test \u2014 which would be false for null in any case, since typeof null is \"object\" \u2014 deciding over values that cannot occur."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "copyMarkerSnapshot",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "typeof marker !== \"object\"",
+      "proof": "requireSnapshot refuses a snapshot whose marker is neither null nor typeof \"object\" before the constructor reaches this function, and the constructor filters null itself, so every marker arriving here is a non-null object and the operand is constantly false. Even if one did arrive, forcing this operand false would hand a primitive to hasExactKeys, whose Object.keys call returns an empty array rather than throwing, and the length disagreement would raise the same malformed-marker error."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "decodeRecord.record",
+      "mutator": "MethodExpression",
+      "replacement": "bytes",
+      "mutated": "bytes.slice()",
+      "proof": "The copy keeps the map's own buffer out of the codec. RecordCodec.decode parses the array through decodeCanonicalJson and holds no reference to it afterwards, and the caller receives the decoded record rather than the bytes, so the buffer cannot escape either way. The record maps are private and their other exits \u2014 snapshotRecords and copyMap \u2014 copy on the way out."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "decodeRecord",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "key(record) !== id",
+      "proof": "This compares the map key against the identifier the decoded record carries, and the two cannot disagree. Every entry in these maps is written by loadRecords or putCanonical, and both decode the bytes and refuse the write unless the key derived from the decoded record equals the id they are storing under. Codec decoding is deterministic, so re-decoding the same bytes yields the same identifier. The comparison is constantly false wherever it runs."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "decodeRecord",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ throw corruptMemoryTenantControl(`${name} key does not match codec bytes`); }",
+      "proof": "The block is the corruption throw guarded by a comparison that cannot be true, because the maps only ever accept an entry whose derived key already matched the id it is stored under \u2014 loadRecords and putCanonical both check before writing, and decoding is deterministic. Emptying a block that never runs leaves the return below it reached on exactly the same inputs, carrying exactly the same record."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "decodeRecord",
+      "mutator": "StringLiteral",
+      "replacement": "``",
+      "mutated": "`${name} key does not match codec bytes`",
+      "proof": "The message is built only inside the unreachable key-mismatch guard on the read side, so the template is never evaluated and the name interpolated into it never read. That is why the \"Grant\" and \"Binding\" labels the callers pass survive as well: they exist only to be interpolated here. Emptying the template changes no value any caller, log or assertion can observe."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "putCanonical",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "key(record) !== id",
+      "proof": "putCanonical decodes the bytes it is about to store and checks them against the id. Its three callers pass a record's own identifier alongside that record's encoder output \u2014 Grant.encode with id.value, Binding.encode with key, ScopeEpoch.encode with scopeKey(scope) \u2014 and each codec round-trips the fields those identifiers derive from, so the decoded record always yields the id it was given. Registered apart from decodeRecord's identical comparison because the two sit on opposite sides of the map and one could become reachable alone."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "putCanonical",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ throw corruptMemoryTenantControl(`${name} key does not match codec bytes`); }",
+      "proof": "The guarded throw on the write side is unreachable because each caller hands putCanonical a record's own identifier alongside that record's encoding, and the codecs round-trip the fields those identifiers derive from. Emptying the block leaves map.set reached on the same inputs with the same bytes; nothing between the guard and the write depends on the throw having been skipped."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "putCanonical",
+      "mutator": "StringLiteral",
+      "replacement": "``",
+      "mutated": "`${name} key does not match codec bytes`",
+      "proof": "The message is interpolated only inside the write-side key-mismatch guard, which cannot fire because every caller pairs a record with its own identifier and the codecs round-trip deterministically, so the template is never evaluated. The identical text exists on the read side in decodeRecord under its own entry, precisely so neither proof can be read as covering the other site."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "putCanonical",
+      "mutator": "MethodExpression",
+      "replacement": "bytes",
+      "mutated": "bytes.slice()",
+      "proof": "The copy keeps the caller's array out of the map. Every caller passes a freshly encoded buffer \u2014 Grant.encode, Binding.encode or ScopeEpoch.encode evaluated in the argument list \u2014 so nothing else holds a reference that could later mutate it, and putCanonical has already handed the same array to decode, which retains nothing. Storing it directly cannot be told from storing a copy of it."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "copyMap",
+      "mutator": "MethodExpression",
+      "replacement": "bytes",
+      "mutated": "bytes.slice()",
+      "proof": "copyMap has one caller, replace, which moves committed maps out of a candidate store into this one. The candidate is discarded immediately afterwards and never touches its buffers again, and every entry in either map is a buffer putCanonical or loadRecords created and no one else retains. Sharing the arrays rather than copying them is unobservable, because the only exits from these maps decode or copy."
+    },
+    {
+      "file": "src/authority/memory.ts",
+      "symbol": "hasExactKeys",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "actual.length === keys.length",
+      "proof": "Forcing the length test true leaves the positional comparison, which differs from the original only when the actual keys are a proper prefix of the expected ones \u2014 a longer actual array already fails at the first index past the expected keys. A proper prefix means the object lacks a suffix of the sorted expected keys, and every caller follows hasExactKeys with a per-field test that rejects exactly that: the anchor and marker copiers check each identifier's type, loadRecords checks the id and the bytes, and requireSnapshot's version test runs ahead of it. Each raises the same error the key test would."
+    },
+    {
+      "file": "src/authority/permit-store.ts",
+      "symbol": "MemoryAuthorityPermitStore.issued.permit",
+      "mutator": "MethodExpression",
+      "replacement": "bytes",
+      "mutated": "bytes.slice()",
+      "proof": "The copy keeps the transaction's stored buffer out of the codec. AuthorityPermit.decode parses the array through the record codec, which reads it with decodeCanonicalJson and retains no reference, and the caller receives the decoded permit rather than the bytes. The issued map is private to the transaction and its other exits re-encode, so dropping the copy cannot be observed."
+    },
+    {
+      "file": "src/authority/permit-store.ts",
+      "symbol": "MemoryAuthorityPermitStore.restore.permit",
+      "mutator": "MethodExpression",
+      "replacement": "record.bytes",
+      "mutated": "record.bytes.slice()",
+      "proof": "restore decodes each snapshot record and then stores AuthorityPermit.encode(permit), a freshly built buffer, rather than the caller's array \u2014 so the caller's bytes never become the stored ones whether or not they were copied first. The decode itself retains nothing: the record codec parses the array and keeps only the parsed value. A caller mutating its snapshot afterwards cannot reach the store either way."
+    },
+    {
+      "file": "src/authority/watermark-store.ts",
+      "symbol": "MemoryInvalidationWatermarkStore.constructor.watermark",
+      "mutator": "MethodExpression",
+      "replacement": "stored.bytes",
+      "mutated": "stored.bytes.slice()",
+      "proof": "The constructor decodes each snapshot record to check its key and its owner, then stores a separate stored.bytes.slice() in the map, so the array handed to decode never becomes the stored buffer. InvalidationWatermark.decode parses it and retains no reference. Whether the check decoded the caller's array or a copy of it is therefore invisible to every later read."
+    },
+    {
+      "file": "src/authority/watermark-store.ts",
+      "symbol": "MemoryInvalidationWatermarkStore.load",
+      "mutator": "MethodExpression",
+      "replacement": "bytes",
+      "mutated": "bytes.slice()",
+      "proof": "load decodes the map's own buffer and returns the decoded watermark, never the bytes. The record codec parses the array through decodeCanonicalJson and holds nothing afterwards, and the map is private with save as its only writer, which always stores a freshly encoded buffer. Decoding the stored array directly cannot be told from decoding a copy of it."
     }
   ]
 }
