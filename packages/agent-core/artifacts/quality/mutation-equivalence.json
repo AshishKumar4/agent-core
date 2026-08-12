@@ -650,12 +650,156 @@
       "proof": "This loop reaches a root that is not in skip only from revokeGrant, which read the Grant a moment earlier and returned unless it was live, so the lookup here resolves to that same live record and the test is constantly false. reconcile is the only other caller and it passes a skip set built from the very ids it passes as roots, so the continue above this line takes every one of them. Forcing the test false therefore revokes and records exactly the Grants it already did."
     },
     {
-      "file": "src/authority/service.ts",
-      "symbol": "revokeGrantClosure",
+      "file": "src/composition/mediation-preparation.ts",
+      "symbol": "DerivedPreparationAdmission.admits",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "header.projectionDigest !== undefined",
+      "proof": "This is the routed branch's whole result, and it reads as the gate that stops a routed record with no projection digest. It cannot observe that state. PreparedInvocationHeader's constructor rejects `(route === undefined) !== (projectionDigest === undefined)` with \"Route and projection digest must be present together\", and every PreparedInvocation reaches this port through that constructor: PreparedInvocation.create builds its header there, and PreparedInvocationCodec.decode reconstructs one the same way, so no record exists in memory or in storage that carries a route without a digest. Control arrives here only when header.route !== undefined, so the pairing rule makes header.projectionDigest !== undefined constantly true on this branch and returning true selects the identical value for every record. The complementary mutants are killed: replacing it with false, and flipping the operator to ===, both refuse a routed record the port must admit."
+    },
+    {
+      "file": "src/composition/mediation-preparation.ts",
+      "symbol": "payload",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"batch\"",
+      "proof": "The discriminant of the UnpreparedPayload this function returns is never read as \"batch\" by anything downstream. The value flows to exactly one place, PreparedInvocation.create, which tests it three times and always against \"single\": the shape it commits is `payload.kind === \"single\" ? {kind: \"single\"} : {itemCount, kind: \"batch\"}`, the item list is `payload.kind === \"single\" ? [payload.item] : payload.items`, and the payload it freezes is chosen by the same test, so the emitted record's own kind is the literal \"batch\" written in prepared.ts rather than the one passed in. requireNonemptyPayload does test `kind === \"batch\"`, but only to reject an empty items array, and this function returns `[first, ...rest]` after refusing an absent first, so that guard has nothing to catch on either the original or the mutant. Every byte of the resulting record is therefore identical."
+    },
+    {
+      "file": "src/composition/mediation-preparation.ts",
+      "symbol": "facetPackage",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "separator <= 0",
+      "proof": "The guard restates an invariant its own parameter type already carries. facetPackage takes a FacetRef, and FacetRef's constructor calls requireFacetRef, which computes `const separator = value.indexOf(\":\")` and throws unless `separator > 0`, `separator === value.lastIndexOf(\":\")`, `separator !== value.length - 1`, and the whole value matches a pattern demanding a canonical segment on each side of a single colon. FacetRef has no other construction path and freezes itself, and indexOf is a pure function of the frozen value, so recomputing it here yields the same positive number the constructor already accepted. The condition is therefore constantly false for every FacetRef that exists, and replacing it with false selects the same branch on every input. This is the same shape as the delegation guard in authored-code.ts: a check enforced twice, whose second copy cannot fire."
+    },
+    {
+      "file": "src/composition/mediation-preparation.ts",
+      "symbol": "facetPackage",
+      "mutator": "EqualityOperator",
+      "replacement": "separator < 0",
+      "mutated": "separator <= 0",
+      "proof": "Original and mutant differ on exactly one input, separator === 0, where `<= 0` throws and `< 0` falls through to slice a zero-length package name. That input requires a FacetRef whose value begins with a colon, and requireFacetRef refuses one: it demands `separator > 0` outright, and its pattern requires a segment matching [a-z][a-z0-9]* before the colon. No FacetRef can hold such a value, so the distinguishing input cannot be constructed and the two conditions agree on every argument this function can receive. The negative case separator === -1 is likewise unreachable for the same constructor reason, but it is not where these two conditions differ, so it does not bear on this claim."
+    },
+    {
+      "file": "src/composition/mediation-preparation.ts",
+      "symbol": "facetPackage",
+      "mutator": "StringLiteral",
+      "replacement": "``",
+      "mutated": "`Facet reference ${facet.value} names no Package`",
+      "proof": "The template is the sole argument of the invalid() call inside facetPackage's separator guard, and that guard's condition is constantly false because FacetRef's constructor already refuses any reference whose colon is absent or leading. The template is therefore never evaluated: neither its literal chunks nor its facet.value interpolation is ever materialized, no AgentCoreError is ever constructed from it, and no caller, log, or assertion can read it. Emptying a template that the program cannot reach changes nothing observable. This is a stronger claim than the message-text tolerance the classifier grants a reachable throw site, and it is why the mutant arrives as NoCoverage rather than Survived."
+    },
+    {
+      "file": "src/composition/mediation-records.ts",
+      "symbol": "CanonicalMediationRecords.audit",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "cause === undefined",
+      "proof": "The conditional chooses between spreading nothing and spreading `{ cause }` into the AuditRecordInit literal. Forcing the second branch changes the init object only when cause is undefined, and then only by adding an own property whose value is undefined. AuditRecord's constructor reads that init exactly twice: `init.kind.kind === \"invocation\" && init.cause !== undefined`, which is false either way because init.cause evaluates to undefined in both, and `this.cause = init.cause`, which assigns undefined in both. It never tests for the key's presence with `in` or Object.hasOwn, never enumerates the init, and never re-emits it \u2014 the record it freezes exposes only the fields it assigned. Every record this method returns is therefore identical under the mutation, including the one path where the operands differ at all, invocationAudit passing an undefined cause."
+    },
+    {
+      "file": "src/composition/authored-code.ts",
+      "symbol": "TenantAuthoredCodeDelegationPort.delegateOne",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "parent === undefined",
+      "proof": "The Grant read here is store.grant(source.grantId), where source is the Binding sourceBinding just resolved and refused as absent or non-resolving. A Binding naming a Grant the store does not hold cannot be created: createBinding runs requireBindingAuthority, which requires a live allow Grant matching the Binding's subject and scope, and no operation on the store deletes a Grant \u2014 revokeGrant marks the record through revokeGrantClosure and then reads it back with requireRecord, so the record survives revocation rather than disappearing. The store therefore always answers this read with a Grant, the disjunct is constantly false, and dropping it selects the same branch on every input. Its sibling disjunct !parent.isLive is reachable by exactly that revocation path and is killed by the test for it."
+    },
+    {
+      "file": "src/composition/authored-code.ts",
+      "symbol": "TenantAuthoredCodeDelegationPort.delegateOne",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "parent.effect !== \"allow\"",
+      "proof": "A deny Grant cannot be the backing of a resolvable Binding. createBinding requires the named Grant to be a live allow through requireBindingAuthority, and a Grant's effect is fixed at construction \u2014 the record exposes it as readonly and no mutation service operation rewrites it, revocation changing liveness rather than effect. The Binding reached here has already been refused unless it resolves, so its Grant was an allow when the Binding was created and is an allow now. The disjunct is therefore constantly false and removing it cannot change which branch runs. The distinction from the sibling disjunct matters: liveness is mutable state that revocation reaches, effect is not, which is why one of these two operands earns a test and this one earns a proof."
+    },
+    {
+      "file": "src/composition/authored-code.ts",
+      "symbol": "required",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "value === undefined",
+      "proof": "required has exactly one call site, guarding request.requested.capability(name) for a name drawn from request.requested.names in the same expression. Both members read one frozen AuthoredCodeCapabilitySet: names is `[...capabilities.values()].map((entry) => entry.name)` and capability(name) is `capabilities.get(name.value)`, over a private Map the constructor keys by each capability's own name.value. Every name the map yields therefore round-trips to the entry it came from. The set is frozen with Object.freeze and its map is a private field with no mutator, and the two reads happen inside one synchronous map callback with nothing between them, so the \"disappeared between reads\" state the message describes cannot arise. The condition is constantly false and the guard selects the same branch on every input."
+    },
+    {
+      "file": "src/composition/authored-code.ts",
+      "symbol": "required",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"protocol.invalid-state\"",
+      "proof": "This literal is the error code of an AgentCoreError constructed only inside required's undefined guard, whose condition is constantly false because the single call site draws its key from the very capability set it then reads, over a frozen record with no mutator and no suspension point between the two reads. The error is therefore never constructed and its code never reaches a catch, a Receipt, or an assertion. The classifier keeps error codes actionable while tolerating message prose, which is right \u2014 a code is a discriminant callers branch on \u2014 but that reasoning presumes the throw can happen. Here it cannot, so the discriminant has no observation to discriminate."
+    },
+    {
+      "file": "src/composition/routing.ts",
+      "symbol": "sameBytes",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "left.byteLength === right.byteLength",
+      "proof": "Dropping the length test changes the result only when left is a strict byte prefix of right: `left.every((value, index) => value === right[index])` already returns false when left is the longer operand, because right[index] is undefined past its end, and agrees with the original whenever the lengths match. So the mutant differs on exactly one class of input, and that class is empty here. Both operands are TurnInboxEntry.codec.encode(...) results, and RecordCodec.encode returns encodeCanonicalJson of a `{kind, version, payload}` object \u2014 a complete canonical JSON document whose final byte is the closing brace of that object. Every proper prefix of such a document is unbalanced and so is not itself an encoding any record could produce, and encode never yields zero bytes. Neither operand can therefore be a strict prefix of the other, and the two conditions agree on every pair this function can receive."
+    },
+    {
+      "file": "src/composition/package-runtime.ts",
+      "symbol": "sameBytes",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "left.byteLength === right.byteLength",
+      "proof": "The length comparison can only decide this conjunction when the surviving operand disagrees with it, and `left.every((value, index) => value === right[index])` disagrees only when left is shorter than right and matches it position for position \u2014 a strict prefix. When left is longer the callback reads undefined past right's end and returns false, and at equal lengths the two forms are identical. This module's two call sites pass SlotDeclaration.encode and SlotEntry.encode results, both RecordCodec.encode, which emits encodeCanonicalJson of a `{kind, version, payload}` envelope. Such a document ends with the brace closing that envelope and is never empty, so truncating it to any proper prefix leaves a byte string no encode call can return. The prefix case is unconstructible and the mutant selects the same value on every pair."
+    },
+    {
+      "file": "src/composition/device-consent.ts",
+      "symbol": "DeviceConsentFinalAdmissionPort.admit",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "typeof input !== \"object\"",
+      "proof": "This disjunct rejects a non-object Device input, and the disjunct after it rejects the same inputs anyway. `input` is `request.request.inputs[0]`, typed FacetData, which is an alias of JsonValue \u2014 so at runtime it is an object, an array, a string, a number, a boolean, or null, and nothing else. The earlier disjuncts have already returned for null, for arrays, and (through the length test) for the empty-inputs case where the index read yields undefined. Every remaining non-object is a string, number or boolean primitive, and reading `[\"deviceId\"]` off any of those yields undefined rather than throwing, so `typeof undefined !== \"string\"` makes the following disjunct true and the request is denied with the identical result. The two forms therefore agree on every input this port can be handed."
+    },
+    {
+      "file": "src/composition/authority-commands.ts",
+      "symbol": "BindingValidationCommand.currentRevision",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ return undefined; }",
+      "proof": "The body is a single `return undefined;` and the declared return type is `undefined`, so emptying it changes nothing a caller can observe: a JavaScript function that falls off its end and one that returns undefined explicitly both evaluate to undefined, and there is no other statement here to lose \u2014 no argument is read, no field is written, nothing is thrown. The method exists because ProtocolCommandRegistration requires it, and this registration deliberately has no revision to report: Binding validation is a read-only check that pins no record revision, which is exactly what returning undefined states. Emptying the body states the same thing less legibly and no test can tell the two apart."
+    },
+    {
+      "file": "src/composition/authority-commands.ts",
+      "symbol": "BindingValidationCommand.currentLease",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ return undefined; }",
+      "proof": "This is the lease half of the same registration's optional-evidence pair, and like its sibling its whole body is `return undefined;` against a declared `undefined` return. An empty body yields undefined by falling off the end, so the two forms produce the same value for every call, and the body contains nothing else \u2014 no parameter is read and no effect is performed \u2014 so there is no second observation to differ on. Binding validation takes no Turn lease, and reporting no lease is the honest answer rather than a stub awaiting implementation; the emptied body gives the identical answer."
+    },
+    {
+      "file": "src/composition/authority-commands.ts",
+      "symbol": "AuthorityCheckCommand.currentRevision",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ return undefined; }",
+      "proof": "AuthorityCheckCommand answers whether an intent is permitted; it revises no record, so the revision it reports is none, written as an explicit `return undefined;` against an `undefined` return type. Deleting that statement leaves a function that falls off its end, which evaluates to undefined as well, and the body holds nothing else that deletion could remove. The entry is anchored to this class rather than shared with the identically-worded methods on the other two registrations, because each is a separate declaration whose reachability and role stand on their own even though the text coincides."
+    },
+    {
+      "file": "src/composition/authority-commands.ts",
+      "symbol": "AuthorityPermitIssuanceCommand.currentRevision",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ return undefined; }",
+      "proof": "Permit issuance mints a permit rather than advancing a versioned record, so this registration reports no current revision and says so with a lone `return undefined;`. The declared return type is `undefined`, and an empty body returns undefined by falling off its end, so every call yields the same value under the mutation. Nothing else is in the body: no read of the transaction or envelope, no write, no throw. Three registrations in this file carry a textually identical method and each is registered separately, since one proof may bless only one site."
+    },
+    {
+      "file": "src/composition/authority-commands.ts",
+      "symbol": "ClosedTenantAuthorityComposition.constructor",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "init.now === undefined",
+      "proof": "The conditional chooses between spreading nothing and spreading `{ now: init.now }` into the CommandIngress init. Forcing the second branch differs only when init.now is undefined, and then only by adding an own key whose value is undefined. CommandIngress resolves it with `this.#now = init.now ?? (() => new Date())`, and nullish coalescing treats an absent key and a present-but-undefined key identically, so the same default clock is installed either way. The constructor never tests for the key with `in` or Object.hasOwn, never enumerates the init, and never forwards it elsewhere, so no later observation can recover which of the two objects was built."
+    },
+    {
+      "file": "src/composition/routing.ts",
+      "symbol": "RoutedInvocationAdmissionPort.admit",
       "mutator": "OptionalChaining",
-      "replacement": "grant.isLive",
-      "mutated": "grant?.isLive",
-      "proof": "Dropping the optional chain dereferences an absent Grant, and none is absent here. A root that reaches this line came from revokeGrant, which found the record through requireRecord on the line above the closure call, and nothing removes a Grant from a store \u2014 revocation writes a revoked record in place. reconcile's roots are all in its skip set and never reach the lookup. The store therefore always answers with a record, and the chain never short-circuits."
+      "replacement": "prepared.invocation.header.projectionDigest.equals",
+      "mutated": "prepared.invocation.header.projectionDigest?.equals",
+      "proof": "Removing the optional call changes behaviour only when projectionDigest is undefined, where the original yields undefined and the mutant throws. That state cannot reach this operand twice over. PreparedInvocationHeader's constructor refuses `(route === undefined) !== (projectionDigest === undefined)`, and every PreparedInvocation is built or decoded through it, so a header carrying a route always carries a digest. And this operand is only evaluated when the disjunct above it was false, which required `header.route?.equals(input.reservation.id)` to be true \u2014 impossible unless route is defined. So by the time control reaches this call the digest is present, the optional check never short-circuits, and the two forms compute the same value on every admission this port can be handed."
     }
   ]
 }

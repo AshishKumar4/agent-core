@@ -99,9 +99,17 @@ describe("passing a capability set into a §4.7 isolate is delegation", () => {
             expect(fixture.check(isolateBinding).reason).toBe("revokedGrant");
             expect(fixture.store.grant(loaderGrantId)?.isLive).toBe(true);
 
-            // Disposal is idempotent: a second one neither throws nor revokes anything
-            // it did not mint.
+            // Disposal is idempotent, and the state it leaves is not what proves that:
+            // revokeGrant is itself a no-op on an already-revoked Grant, so a disposal
+            // that severed twice would leave exactly these records too. What distinguishes
+            // it is that the second disposal does not reach the authority plane at all —
+            // the delegation remembers it has already severed rather than re-deriving that
+            // from the Grants it minted.
+            expect(fixture.authority.revocations.map((id) => id.value)).toEqual([
+                delegatedGrantId(mailBinding).value
+            ]);
             await delegation[Symbol.asyncDispose]();
+            expect(fixture.authority.revocations).toHaveLength(1);
             expect(fixture.check(fixture.loaderBinding()).reason).toBe("allowed");
         }
     );
@@ -228,9 +236,19 @@ function createFixture(): DelegationFixture {
     return new DelegationFixture();
 }
 
+/** Records the revocations the port asks for, so disposal can be checked at the seam. */
+class CountingAuthority extends AuthorityMutationService {
+    public readonly revocations: GrantId[] = [];
+
+    public override revokeGrant(id: GrantId): Grant {
+        this.revocations.push(id);
+        return super.revokeGrant(id);
+    }
+}
+
 class DelegationFixture {
     public readonly store: MemoryTenantControlStore;
-    public readonly authority: AuthorityMutationService;
+    public readonly authority: CountingAuthority;
     public readonly runtime: TenantAuthorityRuntime;
     public readonly port: TenantAuthoredCodeDelegationPort;
 
@@ -243,7 +261,7 @@ class DelegationFixture {
         };
         this.store = MemoryTenantControlStore.create(anchor);
         this.store.bootstrapTenant(anchor, Revision.initial());
-        this.authority = new AuthorityMutationService(this.store);
+        this.authority = new CountingAuthority(this.store);
         this.authority.createWorkspace(
             new Workspace(workspaceId, tenantId, undefined, Revision.initial())
         );
