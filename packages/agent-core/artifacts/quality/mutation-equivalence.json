@@ -7,7 +7,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "scope.projectId === undefined",
-      "proof": "ScopeRef's constructor is private and every `new ScopeRef(...)` in the module sits inside one of its own static factories, so kind and the optional ids are always assigned together, at four sites and nowhere else. The only site that yields kind \"project\" is ScopeRef.project(tenantId, projectId), whose projectId parameter is a required ProjectId; no factory can build a project scope with an absent projectId, and decodeScopeRef reaches the class only through those same factories. Control arrives at this guard only after the kind \"tenant\" branch has returned, so the scope here is a project scope and scope.projectId === undefined is constantly false. Replacing the test with false therefore selects the identical branch on every input. The complementary mutant that replaces it with true, which would throw for every project scope, is killed \u2014 the outward signature of an unreachable guard."
+      "proof": "ScopeRef's constructor is private and every `new ScopeRef(...)` in the module sits inside one of its own static factories, so kind and the optional ids are always assigned together, at four sites and nowhere else. The only site that yields kind \"project\" is ScopeRef.project(tenantId, projectId), whose projectId parameter is a required ProjectId; no factory can build a project scope with an absent projectId, and decodeScopeRef reaches the class only through those same factories. Control arrives at this guard only after the kind \"tenant\" branch has returned, so the scope here is a project scope and scope.projectId === undefined is constantly false. Replacing the test with false therefore selects the identical branch on every input. The complementary mutant that replaces it with true, which would throw for every project scope, is killed — the outward signature of an unreachable guard."
     },
     {
       "file": "src/identity/scope.ts",
@@ -31,7 +31,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "scope.workspaceId === undefined",
-      "proof": "ScopeKind is a closed union of three members, and control reaches this guard only after the tenant and project branches have returned, so scope.kind is \"workspace\" here. The only factory that produces a workspace scope is ScopeRef.workspace, whose implementation passes either requireWorkspace(projectOrWorkspace) \u2014 which returns a WorkspaceId or throws \u2014 or the workspace argument on the branch where it has already been tested as defined. Neither path can store an absent workspaceId, so the condition is constantly false and replacing it with false selects the same branch on every input. The complementary mutant replacing it with true, which would reject every workspace scope, is killed."
+      "proof": "ScopeKind is a closed union of three members, and control reaches this guard only after the tenant and project branches have returned, so scope.kind is \"workspace\" here. The only factory that produces a workspace scope is ScopeRef.workspace, whose implementation passes either requireWorkspace(projectOrWorkspace) — which returns a WorkspaceId or throws — or the workspace argument on the branch where it has already been tested as defined. Neither path can store an absent workspaceId, so the condition is constantly false and replacing it with false selects the same branch on every input. The complementary mutant replacing it with true, which would reject every workspace scope, is killed."
     },
     {
       "file": "src/identity/scope.ts",
@@ -71,7 +71,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "new Set(path.map((entry) => scopeKey(entry.scope))).size !== path.length",
-      "proof": "The kinds check immediately above admits exactly four sequences \u2014 \"tenant\", \"tenant,project\", \"tenant,workspace\" and \"tenant,project,workspace\" \u2014 and each of them names a ScopeRef kind at most once. scopeKey is authorityKey(\"scope\", [encodeScopeRef(scope)]) and encodeScopeRef writes the kind into every encoding it produces, so two entries of different kinds can never hash to the same key. Control reaches this line only after that check has returned, so the entries in hand carry distinct kinds and therefore distinct keys, the Set is exactly as large as the array, and the comparison is constantly false. Replacing it with false selects the same branch on every path the function accepts."
+      "proof": "The kinds check immediately above admits exactly four sequences — \"tenant\", \"tenant,project\", \"tenant,workspace\" and \"tenant,project,workspace\" — and each of them names a ScopeRef kind at most once. scopeKey is authorityKey(\"scope\", [encodeScopeRef(scope)]) and encodeScopeRef writes the kind into every encoding it produces, so two entries of different kinds can never hash to the same key. Control reaches this line only after that check has returned, so the entries in hand carry distinct kinds and therefore distinct keys, the Set is exactly as large as the array, and the comparison is constantly false. Replacing it with false selects the same branch on every path the function accepts."
     },
     {
       "file": "src/authority/epoch.ts",
@@ -95,7 +95,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "true",
       "mutated": "target.kind === \"workspace\"",
-      "proof": "This is the left conjunct of the exact-Project guard, so forcing it true leaves the right conjunct deciding alone. The kinds check above restricts the last entry to kind tenant, project or workspace. For a tenant target ScopeRef.tenant leaves projectId undefined, so the right conjunct is false and the block is skipped either way. For a project target the block now runs, but it looks for the first entry of kind project, which for a project target is the target itself, and compares that entry's projectId with the target's own \u2014 the same value, so nothing is thrown. For a workspace target the conjunct was already true. No admitted path reaches a different outcome."
+      "proof": "This is the left conjunct of the exact-Project guard, so forcing it true leaves the right conjunct deciding alone. The kinds check above restricts the last entry to kind tenant, project or workspace. For a tenant target ScopeRef.tenant leaves projectId undefined, so the right conjunct is false and the block is skipped either way. For a project target the block now runs, but it looks for the first entry of kind project, which for a project target is the target itself, and compares that entry's projectId with the target's own — the same value, so nothing is thrown. For a workspace target the conjunct was already true. No admitted path reaches a different outcome."
     },
     {
       "file": "src/authority/epoch.ts",
@@ -151,7 +151,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "right.kind === \"direct\"",
-      "proof": "Kind equality is established on the preceding line and GrantOrigin has exactly two members, so the right operand is true precisely when the left one is. Short-circuiting means this operand is evaluated only when the left is already false \u2014 that is, only when both origins are role origins \u2014 so under the mutant the disjunction is false on exactly the inputs where it was already false, and true on exactly the inputs the left operand already decided. No pair of origins reaching this line can tell the two apart."
+      "proof": "Kind equality is established on the preceding line and GrantOrigin has exactly two members, so the right operand is true precisely when the left one is. Short-circuiting means this operand is evaluated only when the left is already false — that is, only when both origins are role origins — so under the mutant the disjunction is false on exactly the inputs where it was already false, and true on exactly the inputs the left operand already decided. No pair of origins reaching this line can tell the two apart."
     },
     {
       "file": "src/authority/grant.ts",
@@ -159,7 +159,7 @@
       "mutator": "LogicalOperator",
       "replacement": "left.kind === \"direct\" && right.kind === \"direct\"",
       "mutated": "left.kind === \"direct\" || right.kind === \"direct\"",
-      "proof": "Conjunction and disjunction differ only where the operands disagree, and these cannot disagree: the preceding line returns false unless the two kinds are equal, and GrantOrigin is closed over \"direct\" and \"role\", so both operands report the same proposition about the same kind. Every input reaching this line makes them both true or both false, and the two operators select the same branch. This is why the site needs both operands written out even though either would decide the value \u2014 it is the test that narrows left and right to the role variant for the comparisons that follow."
+      "proof": "Conjunction and disjunction differ only where the operands disagree, and these cannot disagree: the preceding line returns false unless the two kinds are equal, and GrantOrigin is closed over \"direct\" and \"role\", so both operands report the same proposition about the same kind. Every input reaching this line makes them both true or both false, and the two operators select the same branch. This is why the site needs both operands written out even though either would decide the value — it is the test that narrows left and right to the role variant for the comparisons that follow."
     },
     {
       "file": "src/authority/binding.ts",
@@ -215,7 +215,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "membership.subject.kind !== \"foreign\"",
-      "proof": "Membership's constructor refuses a guest verification on a subject that is not foreign \u2014 \"Only foreign Memberships may carry guest verification\" \u2014 and every Membership, constructed or decoded, passes through it. A Membership whose subject is not foreign therefore has guestVerification undefined, which makes the verification disjunct beside this operand true and returns false without ever reaching the admits call this operand narrows the subject for. Forcing it false leaves the disjunction with the same value for every Membership a store can hold."
+      "proof": "Membership's constructor refuses a guest verification on a subject that is not foreign — \"Only foreign Memberships may carry guest verification\" — and every Membership, constructed or decoded, passes through it. A Membership whose subject is not foreign therefore has guestVerification undefined, which makes the verification disjunct beside this operand true and returns false without ever reaching the admits call this operand narrows the subject for. Forcing it false leaves the disjunction with the same value for every Membership a store can hold."
     },
     {
       "file": "src/authority/runtime.ts",
@@ -231,7 +231,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "scope.kind !== \"workspace\"",
-      "proof": "Both call sites constrain the scope upstream \u2014 a BindingValidationRequest refuses a non-workspace scope in its own constructor and a Binding refuses one in its own \u2014 so this operand is constantly false where it runs. It is also subsumed by its partner: ScopeRef's factories store a workspaceId exactly when they produce kind \"workspace\", so a scope failing this test would fail the workspaceId test as well. Forcing it false cannot change which branch the guard takes for any scope the runtime is given."
+      "proof": "Both call sites constrain the scope upstream — a BindingValidationRequest refuses a non-workspace scope in its own constructor and a Binding refuses one in its own — so this operand is constantly false where it runs. It is also subsumed by its partner: ScopeRef's factories store a workspaceId exactly when they produce kind \"workspace\", so a scope failing this test would fail the workspaceId test as well. Forcing it false cannot change which branch the guard takes for any scope the runtime is given."
     },
     {
       "file": "src/authority/runtime.ts",
@@ -239,7 +239,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "scope.workspaceId === undefined",
-      "proof": "This operand is evaluated only when the kind test before it is false, that is for a scope of kind \"workspace\". ScopeRef.workspace is the only factory producing that kind, and both of its paths resolve a WorkspaceId \u2014 through requireWorkspace, which returns an id or throws, or through the workspace argument on the branch where it is already known to be defined \u2014 so a workspace scope always carries one and this comparison is constantly false where it runs. It is written because the store lookup on the next line needs the narrowing it provides."
+      "proof": "This operand is evaluated only when the kind test before it is false, that is for a scope of kind \"workspace\". ScopeRef.workspace is the only factory producing that kind, and both of its paths resolve a WorkspaceId — through requireWorkspace, which returns an id or throws, or through the workspace argument on the branch where it is already known to be defined — so a workspace scope always carries one and this comparison is constantly false where it runs. It is written because the store lookup on the next line needs the narrowing it provides."
     },
     {
       "file": "src/authority/runtime.ts",
@@ -247,7 +247,7 @@
       "mutator": "BlockStatement",
       "replacement": "{}",
       "mutated": "{ throw authorityDenied(\"Authority target must be a Workspace Scope\"); }",
-      "proof": "The block is the refusal guarded by a test that is constantly false at both of requireWorkspace's call sites, for the reasons recorded against that test's operands: a BindingValidationRequest and a Binding each refuse a non-workspace scope in their own constructors, and a workspace ScopeRef always carries a workspaceId. A block that never runs contributes no value and no exception to any observation, so emptying it changes nothing a caller can see \u2014 the store lookup on the following line is reached on exactly the same inputs either way."
+      "proof": "The block is the refusal guarded by a test that is constantly false at both of requireWorkspace's call sites, for the reasons recorded against that test's operands: a BindingValidationRequest and a Binding each refuse a non-workspace scope in their own constructors, and a workspace ScopeRef always carries a workspaceId. A block that never runs contributes no value and no exception to any observation, so emptying it changes nothing a caller can see — the store lookup on the following line is reached on exactly the same inputs either way."
     },
     {
       "file": "src/authority/runtime.ts",
@@ -271,7 +271,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "childIndex === undefined",
-      "proof": "validateLineage has three callers and each establishes that its starting Grant's scope lies on the exact path before calling. evaluate tests path.has(scopeKey(backing.scope)) above the call; the allow filter draws its Grants from relevant, which is filtered on that same path membership; validateBinding tests scopeReaches(grant.scope, workspace.scope), which is the same question asked of the same ancestry. Later iterations set child to a parent whose own index was found defined on the previous pass. childIndex is therefore never undefined where this operand is evaluated, while parentIndex genuinely can be \u2014 which is why that operand's mutant is killed and this one is not."
+      "proof": "validateLineage has three callers and each establishes that its starting Grant's scope lies on the exact path before calling. evaluate tests path.has(scopeKey(backing.scope)) above the call; the allow filter draws its Grants from relevant, which is filtered on that same path membership; validateBinding tests scopeReaches(grant.scope, workspace.scope), which is the same question asked of the same ancestry. Later iterations set child to a parent whose own index was found defined on the previous pass. childIndex is therefore never undefined where this operand is evaluated, while parentIndex genuinely can be — which is why that operand's mutant is killed and this one is not."
     },
     {
       "file": "src/authority/service.ts",
@@ -279,7 +279,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "workspace.revision.value !== 0",
-      "proof": "Workspace's constructor throws \"Workspace topology requires immutable revision zero\" for any revision but zero, and every Workspace reaches the service through it \u2014 the codec's decode path builds through the same constructor. The service can therefore never hold a Workspace with a non-zero revision, this operand is constantly false, and the Tenant comparison beside it decides alone. It is written because the refusal names both preconditions, and a reader would otherwise have to know the record type enforces one of them on its own."
+      "proof": "Workspace's constructor throws \"Workspace topology requires immutable revision zero\" for any revision but zero, and every Workspace reaches the service through it — the codec's decode path builds through the same constructor. The service can therefore never hold a Workspace with a non-zero revision, this operand is constantly false, and the Tenant comparison beside it decides alone. It is written because the refusal names both preconditions, and a reader would otherwise have to know the record type enforces one of them on its own."
     },
     {
       "file": "src/authority/service.ts",
@@ -295,7 +295,7 @@
       "mutator": "StringLiteral",
       "replacement": "\"\"",
       "mutated": "\"Role\"",
-      "proof": "The label reaches a message only when requireRecord finds no Role, and a stored Membership always has its Role. There is no removal path \u2014 the store exposes putRole and nothing else \u2014 and the Memory store re-derives the closure at the end of every transaction and on every restore, refusing any state in which a Membership names a Role that is not present. The Membership in hand was read from that same store a line earlier, so the lookup resolves and the literal is never read."
+      "proof": "The label reaches a message only when requireRecord finds no Role, and a stored Membership always has its Role. There is no removal path — the store exposes putRole and nothing else — and the Memory store re-derives the closure at the end of every transaction and on every restore, refusing any state in which a Membership names a Role that is not present. The Membership in hand was read from that same store a line earlier, so the lookup resolves and the literal is never read."
     },
     {
       "file": "src/authority/service.ts",
@@ -303,7 +303,7 @@
       "mutator": "MethodExpression",
       "replacement": "materialization.changedRecords",
       "mutated": "materialization.changedRecords .filter((grant) => previous.has(grant.id.value))",
-      "proof": "Dropping the filter widens replaced from the changed records that already existed to every changed record, and the widened list is passed to revokeGrantClosure as roots together with a skip set built from that same list. The roots loop skips every id in skip, so the extra entries can only matter through the descendant walk \u2014 and a record that did not exist before this materialization has no descendants, because attenuationOf can only name a Grant createGrant found present when the child was created. The closure revokes the same Grants and returns the same affected Scopes either way."
+      "proof": "Dropping the filter widens replaced from the changed records that already existed to every changed record, and the widened list is passed to revokeGrantClosure as roots together with a skip set built from that same list. The roots loop skips every id in skip, so the extra entries can only matter through the descendant walk — and a record that did not exist before this materialization has no descendants, because attenuationOf can only name a Grant createGrant found present when the child was created. The closure revokes the same Grants and returns the same affected Scopes either way."
     },
     {
       "file": "src/authority/service.ts",
@@ -319,7 +319,7 @@
       "mutator": "LogicalOperator",
       "replacement": "membership.subject.kind !== \"foreign\" && membership.guestVerification === undefined",
       "mutated": "membership.subject.kind !== \"foreign\" || membership.guestVerification === undefined",
-      "proof": "The operands are ordered so that the first implies the second \u2014 a non-foreign subject cannot carry a guest verification, because the Membership constructor refuses that pairing \u2014 so they can disagree only where the subject is foreign and the verification absent. The Memory store holds no such Membership: assertRestoredState demands trust evidence for every foreign Membership, and it runs on restore and at the end of every transaction. Where the operands agree, conjunction and disjunction select the same branch."
+      "proof": "The operands are ordered so that the first implies the second — a non-foreign subject cannot carry a guest verification, because the Membership constructor refuses that pairing — so they can disagree only where the subject is foreign and the verification absent. The Memory store holds no such Membership: assertRestoredState demands trust evidence for every foreign Membership, and it runs on restore and at the end of every transaction. Where the operands agree, conjunction and disjunction select the same branch."
     },
     {
       "file": "src/authority/service.ts",
@@ -327,7 +327,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "membership.guestVerification === undefined",
-      "proof": "Forcing this operand false lets the comparison beside it dereference guestVerification, which would throw for an absent one. It is never absent where this line runs: the operand ahead of it has already continued past every non-foreign Membership, and a foreign Membership without verification cannot be in the store \u2014 assertRestoredState refuses that snapshot and refuses that commit, and assignGuestMembership only ever writes one with verification attached. The operand is constantly false and the mutant dereferences nothing."
+      "proof": "Forcing this operand false lets the comparison beside it dereference guestVerification, which would throw for an absent one. It is never absent where this line runs: the operand ahead of it has already continued past every non-foreign Membership, and a foreign Membership without verification cannot be in the store — assertRestoredState refuses that snapshot and refuses that commit, and assignGuestMembership only ever writes one with verification attached. The operand is constantly false and the mutant dereferences nothing."
     },
     {
       "file": "src/authority/service.ts",
@@ -351,7 +351,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "distinct.length === 0",
-      "proof": "nonEmpty has two kinds of caller. closureMutation returns an empty mutation list rather than calling it when its Scopes are empty. Every other call spreads a Scope that is present by construction \u2014 the Membership's own Scope, the current Membership's Scope, the Workspace's Scope \u2014 into the array before distinctScopes runs, and distinctScopes keeps at least one entry for a non-empty input. The list is therefore never empty here, the test is constantly false, and the cast below it never sees an empty array."
+      "proof": "nonEmpty has two kinds of caller. closureMutation returns an empty mutation list rather than calling it when its Scopes are empty. Every other call spreads a Scope that is present by construction — the Membership's own Scope, the current Membership's Scope, the Workspace's Scope — into the array before distinctScopes runs, and distinctScopes keeps at least one entry for a non-empty input. The list is therefore never empty here, the test is constantly false, and the cast below it never sees an empty array."
     },
     {
       "file": "src/authority/service.ts",
@@ -367,7 +367,7 @@
       "mutator": "StringLiteral",
       "replacement": "\"\"",
       "mutated": "\"protocol.invalid-state\"",
-      "proof": "This is the code argument of an AgentCoreError constructed only inside the unreachable empty-list guard. Because that guard's test is constantly false \u2014 closureMutation refuses to call nonEmpty with nothing, and every other caller spreads a Scope that is present by construction \u2014 the error is never built and the code never read. The classifier keeps error codes actionable because they normally carry behaviour; this one carries none, because no call can produce it."
+      "proof": "This is the code argument of an AgentCoreError constructed only inside the unreachable empty-list guard. Because that guard's test is constantly false — closureMutation refuses to call nonEmpty with nothing, and every other caller spreads a Scope that is present by construction — the error is never built and the code never read. The classifier keeps error codes actionable because they normally carry behaviour; this one carries none, because no call can produce it."
     },
     {
       "file": "src/authority/service.ts",
@@ -383,7 +383,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "true",
       "mutated": "this.#marker === null",
-      "proof": "Forcing the first conjunct true leaves the four emptiness tests deciding. A store carrying a marker has been through applyBootstrap, which writes the Tenant, the owner Principal, the built-in Roles, the owner Membership and the materialized Grants before it sets the marker, so its identity map is never empty and the identity conjunct is false either way. restore cannot produce a marked store with an empty identity map either: assertRestoredState demands the whole bootstrapped closure \u2014 Tenant, owner, Membership, Roles, Grants and epoch \u2014 for any marked snapshot."
+      "proof": "Forcing the first conjunct true leaves the four emptiness tests deciding. A store carrying a marker has been through applyBootstrap, which writes the Tenant, the owner Principal, the built-in Roles, the owner Membership and the materialized Grants before it sets the marker, so its identity map is never empty and the identity conjunct is false either way. restore cannot produce a marked store with an empty identity map either: assertRestoredState demands the whole bootstrapped closure — Tenant, owner, Membership, Roles, Grants and epoch — for any marked snapshot."
     },
     {
       "file": "src/authority/memory.ts",
@@ -415,7 +415,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "true",
       "mutated": "candidate !== undefined",
-      "proof": "The finally block clears the candidate's write flag, and the guard exists because candidate is declared before the try. It is assigned by the first statement inside the try, from a restore of this store's own snapshot, and that restore can only throw if this store's snapshot is malformed \u2014 a state assertRestoredState refuses to leave the store in. candidate is therefore defined by the time any later statement can throw, and forcing the test true never dereferences undefined."
+      "proof": "The finally block clears the candidate's write flag, and the guard exists because candidate is declared before the try. It is assigned by the first statement inside the try, from a restore of this store's own snapshot, and that restore can only throw if this store's snapshot is malformed — a state assertRestoredState refuses to leave the store in. candidate is therefore defined by the time any later statement can throw, and forcing the test true never dereferences undefined."
     },
     {
       "file": "src/authority/memory.ts",
@@ -439,7 +439,7 @@
       "mutator": "ArrayDeclaration",
       "replacement": "[]",
       "mutated": "[record]",
-      "proof": "The repository is constructed and immediately discarded; it exists to validate the record before the map takes it, and with an empty record list it validates nothing. Every caller pairs a kind with an id read from the record's own identifier and bytes from that record's encoder \u2014 Tenant.encode with tenant.id.value, Project.encode with project.id.value, and so on for each identity kind \u2014 so the record it would check is well formed by construction. The validation never rejects, and skipping it changes nothing."
+      "proof": "The repository is constructed and immediately discarded; it exists to validate the record before the map takes it, and with an empty record list it validates nothing. Every caller pairs a kind with an id read from the record's own identifier and bytes from that record's encoder — Tenant.encode with tenant.id.value, Project.encode with project.id.value, and so on for each identity kind — so the record it would check is well formed by construction. The validation never rejects, and skipping it changes nothing."
     },
     {
       "file": "src/authority/memory.ts",
@@ -455,7 +455,7 @@
       "mutator": "MethodExpression",
       "replacement": "bootstrap.grants.every(grant => this.grant(grant.id) === undefined)",
       "mutated": "bootstrap.grants.some((grant) => this.grant(grant.id) === undefined)",
-      "proof": "some and every differ only on an array with mixed results or on the empty array. bootstrap.grants is the materialization of OWNER_ROLE over the owner Membership, and OWNER_ROLE is built with exactly one rule, so the array always holds exactly one Grant \u2014 materializeActive emits one record per rule for a non-guest Membership, and the owner Membership is never a guest. On a one-element array the two quantifiers agree by definition."
+      "proof": "some and every differ only on an array with mixed results or on the empty array. bootstrap.grants is the materialization of OWNER_ROLE over the owner Membership, and OWNER_ROLE is built with exactly one rule, so the array always holds exactly one Grant — materializeActive emits one record per rule for a non-guest Membership, and the owner Membership is never a guest. On a one-element array the two quantifiers agree by definition."
     },
     {
       "file": "src/authority/memory.ts",
@@ -479,7 +479,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "actual === undefined",
-      "proof": "Forcing this operand false lets the bytes comparison beside it encode undefined, which would throw a different error. It is never undefined where it runs: the length comparison ahead of it short-circuits whenever a desired record is missing from owned, and when the lengths do agree every desired id is owned \u2014 expected is the desired active records plus the owned records they exclude, so equal lengths force the active ids to be a subset of the owned ids and the lookup always resolves."
+      "proof": "Forcing this operand false lets the bytes comparison beside it encode undefined, which would throw a different error. It is never undefined where it runs: the length comparison ahead of it short-circuits whenever a desired record is missing from owned, and when the lengths do agree every desired id is owned — expected is the desired active records plus the owned records they exclude, so equal lengths force the active ids to be a subset of the owned ids and the lookup always resolves."
     },
     {
       "file": "src/authority/memory.ts",
@@ -519,7 +519,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "marker === null",
-      "proof": "The only caller that could hand this function null is the private constructor, and it tests for null itself and passes null through without calling. snapshot and replace pass a marker they have already tested against null. The operand is constantly false, and forcing it false leaves the typeof test \u2014 which would be false for null in any case, since typeof null is \"object\" \u2014 deciding over values that cannot occur."
+      "proof": "The only caller that could hand this function null is the private constructor, and it tests for null itself and passes null through without calling. snapshot and replace pass a marker they have already tested against null. The operand is constantly false, and forcing it false leaves the typeof test — which would be false for null in any case, since typeof null is \"object\" — deciding over values that cannot occur."
     },
     {
       "file": "src/authority/memory.ts",
@@ -535,7 +535,7 @@
       "mutator": "MethodExpression",
       "replacement": "bytes",
       "mutated": "bytes.slice()",
-      "proof": "The copy keeps the map's own buffer out of the codec. RecordCodec.decode parses the array through decodeCanonicalJson and holds no reference to it afterwards, and the caller receives the decoded record rather than the bytes, so the buffer cannot escape either way. The record maps are private and their other exits \u2014 snapshotRecords and copyMap \u2014 copy on the way out."
+      "proof": "The copy keeps the map's own buffer out of the codec. RecordCodec.decode parses the array through decodeCanonicalJson and holds no reference to it afterwards, and the caller receives the decoded record rather than the bytes, so the buffer cannot escape either way. The record maps are private and their other exits — snapshotRecords and copyMap — copy on the way out."
     },
     {
       "file": "src/authority/memory.ts",
@@ -551,7 +551,7 @@
       "mutator": "BlockStatement",
       "replacement": "{}",
       "mutated": "{ throw corruptMemoryTenantControl(`${name} key does not match codec bytes`); }",
-      "proof": "The block is the corruption throw guarded by a comparison that cannot be true, because the maps only ever accept an entry whose derived key already matched the id it is stored under \u2014 loadRecords and putCanonical both check before writing, and decoding is deterministic. Emptying a block that never runs leaves the return below it reached on exactly the same inputs, carrying exactly the same record."
+      "proof": "The block is the corruption throw guarded by a comparison that cannot be true, because the maps only ever accept an entry whose derived key already matched the id it is stored under — loadRecords and putCanonical both check before writing, and decoding is deterministic. Emptying a block that never runs leaves the return below it reached on exactly the same inputs, carrying exactly the same record."
     },
     {
       "file": "src/authority/memory.ts",
@@ -567,7 +567,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "key(record) !== id",
-      "proof": "putCanonical decodes the bytes it is about to store and checks them against the id. Its three callers pass a record's own identifier alongside that record's encoder output \u2014 Grant.encode with id.value, Binding.encode with key, ScopeEpoch.encode with scopeKey(scope) \u2014 and each codec round-trips the fields those identifiers derive from, so the decoded record always yields the id it was given. Registered apart from decodeRecord's identical comparison because the two sit on opposite sides of the map and one could become reachable alone."
+      "proof": "putCanonical decodes the bytes it is about to store and checks them against the id. Its three callers pass a record's own identifier alongside that record's encoder output — Grant.encode with id.value, Binding.encode with key, ScopeEpoch.encode with scopeKey(scope) — and each codec round-trips the fields those identifiers derive from, so the decoded record always yields the id it was given. Registered apart from decodeRecord's identical comparison because the two sit on opposite sides of the map and one could become reachable alone."
     },
     {
       "file": "src/authority/memory.ts",
@@ -591,7 +591,7 @@
       "mutator": "MethodExpression",
       "replacement": "bytes",
       "mutated": "bytes.slice()",
-      "proof": "The copy keeps the caller's array out of the map. Every caller passes a freshly encoded buffer \u2014 Grant.encode, Binding.encode or ScopeEpoch.encode evaluated in the argument list \u2014 so nothing else holds a reference that could later mutate it, and putCanonical has already handed the same array to decode, which retains nothing. Storing it directly cannot be told from storing a copy of it."
+      "proof": "The copy keeps the caller's array out of the map. Every caller passes a freshly encoded buffer — Grant.encode, Binding.encode or ScopeEpoch.encode evaluated in the argument list — so nothing else holds a reference that could later mutate it, and putCanonical has already handed the same array to decode, which retains nothing. Storing it directly cannot be told from storing a copy of it."
     },
     {
       "file": "src/authority/memory.ts",
@@ -607,7 +607,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "true",
       "mutated": "actual.length === keys.length",
-      "proof": "Forcing the length test true leaves the positional comparison, which differs from the original only when the actual keys are a proper prefix of the expected ones \u2014 a longer actual array already fails at the first index past the expected keys. A proper prefix means the object lacks a suffix of the sorted expected keys, and every caller follows hasExactKeys with a per-field test that rejects exactly that: the anchor and marker copiers check each identifier's type, loadRecords checks the id and the bytes, and requireSnapshot's version test runs ahead of it. Each raises the same error the key test would."
+      "proof": "Forcing the length test true leaves the positional comparison, which differs from the original only when the actual keys are a proper prefix of the expected ones — a longer actual array already fails at the first index past the expected keys. A proper prefix means the object lacks a suffix of the sorted expected keys, and every caller follows hasExactKeys with a per-field test that rejects exactly that: the anchor and marker copiers check each identifier's type, loadRecords checks the id and the bytes, and requireSnapshot's version test runs ahead of it. Each raises the same error the key test would."
     },
     {
       "file": "src/authority/permit-store.ts",
@@ -623,7 +623,7 @@
       "mutator": "MethodExpression",
       "replacement": "record.bytes",
       "mutated": "record.bytes.slice()",
-      "proof": "restore decodes each snapshot record and then stores AuthorityPermit.encode(permit), a freshly built buffer, rather than the caller's array \u2014 so the caller's bytes never become the stored ones whether or not they were copied first. The decode itself retains nothing: the record codec parses the array and keeps only the parsed value. A caller mutating its snapshot afterwards cannot reach the store either way."
+      "proof": "restore decodes each snapshot record and then stores AuthorityPermit.encode(permit), a freshly built buffer, rather than the caller's array — so the caller's bytes never become the stored ones whether or not they were copied first. The decode itself retains nothing: the record codec parses the array and keeps only the parsed value. A caller mutating its snapshot afterwards cannot reach the store either way."
     },
     {
       "file": "src/authority/watermark-store.ts",
@@ -695,7 +695,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "cause === undefined",
-      "proof": "The conditional chooses between spreading nothing and spreading `{ cause }` into the AuditRecordInit literal. Forcing the second branch changes the init object only when cause is undefined, and then only by adding an own property whose value is undefined. AuditRecord's constructor reads that init exactly twice: `init.kind.kind === \"invocation\" && init.cause !== undefined`, which is false either way because init.cause evaluates to undefined in both, and `this.cause = init.cause`, which assigns undefined in both. It never tests for the key's presence with `in` or Object.hasOwn, never enumerates the init, and never re-emits it \u2014 the record it freezes exposes only the fields it assigned. Every record this method returns is therefore identical under the mutation, including the one path where the operands differ at all, invocationAudit passing an undefined cause."
+      "proof": "The conditional chooses between spreading nothing and spreading `{ cause }` into the AuditRecordInit literal. Forcing the second branch changes the init object only when cause is undefined, and then only by adding an own property whose value is undefined. AuditRecord's constructor reads that init exactly twice: `init.kind.kind === \"invocation\" && init.cause !== undefined`, which is false either way because init.cause evaluates to undefined in both, and `this.cause = init.cause`, which assigns undefined in both. It never tests for the key's presence with `in` or Object.hasOwn, never enumerates the init, and never re-emits it — the record it freezes exposes only the fields it assigned. Every record this method returns is therefore identical under the mutation, including the one path where the operands differ at all, invocationAudit passing an undefined cause."
     },
     {
       "file": "src/composition/authored-code.ts",
@@ -703,7 +703,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "parent === undefined",
-      "proof": "The Grant read here is store.grant(source.grantId), where source is the Binding sourceBinding just resolved and refused as absent or non-resolving. A Binding naming a Grant the store does not hold cannot be created: createBinding runs requireBindingAuthority, which requires a live allow Grant matching the Binding's subject and scope, and no operation on the store deletes a Grant \u2014 revokeGrant marks the record through revokeGrantClosure and then reads it back with requireRecord, so the record survives revocation rather than disappearing. The store therefore always answers this read with a Grant, the disjunct is constantly false, and dropping it selects the same branch on every input. Its sibling disjunct !parent.isLive is reachable by exactly that revocation path and is killed by the test for it."
+      "proof": "The Grant read here is store.grant(source.grantId), where source is the Binding sourceBinding just resolved and refused as absent or non-resolving. A Binding naming a Grant the store does not hold cannot be created: createBinding runs requireBindingAuthority, which requires a live allow Grant matching the Binding's subject and scope, and no operation on the store deletes a Grant — revokeGrant marks the record through revokeGrantClosure and then reads it back with requireRecord, so the record survives revocation rather than disappearing. The store therefore always answers this read with a Grant, the disjunct is constantly false, and dropping it selects the same branch on every input. Its sibling disjunct !parent.isLive is reachable by exactly that revocation path and is killed by the test for it."
     },
     {
       "file": "src/composition/authored-code.ts",
@@ -711,7 +711,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "parent.effect !== \"allow\"",
-      "proof": "A deny Grant cannot be the backing of a resolvable Binding. createBinding requires the named Grant to be a live allow through requireBindingAuthority, and a Grant's effect is fixed at construction \u2014 the record exposes it as readonly and no mutation service operation rewrites it, revocation changing liveness rather than effect. The Binding reached here has already been refused unless it resolves, so its Grant was an allow when the Binding was created and is an allow now. The disjunct is therefore constantly false and removing it cannot change which branch runs. The distinction from the sibling disjunct matters: liveness is mutable state that revocation reaches, effect is not, which is why one of these two operands earns a test and this one earns a proof."
+      "proof": "A deny Grant cannot be the backing of a resolvable Binding. createBinding requires the named Grant to be a live allow through requireBindingAuthority, and a Grant's effect is fixed at construction — the record exposes it as readonly and no mutation service operation rewrites it, revocation changing liveness rather than effect. The Binding reached here has already been refused unless it resolves, so its Grant was an allow when the Binding was created and is an allow now. The disjunct is therefore constantly false and removing it cannot change which branch runs. The distinction from the sibling disjunct matters: liveness is mutable state that revocation reaches, effect is not, which is why one of these two operands earns a test and this one earns a proof."
     },
     {
       "file": "src/composition/authored-code.ts",
@@ -727,7 +727,7 @@
       "mutator": "StringLiteral",
       "replacement": "\"\"",
       "mutated": "\"protocol.invalid-state\"",
-      "proof": "This literal is the error code of an AgentCoreError constructed only inside required's undefined guard, whose condition is constantly false because the single call site draws its key from the very capability set it then reads, over a frozen record with no mutator and no suspension point between the two reads. The error is therefore never constructed and its code never reaches a catch, a Receipt, or an assertion. The classifier keeps error codes actionable while tolerating message prose, which is right \u2014 a code is a discriminant callers branch on \u2014 but that reasoning presumes the throw can happen. Here it cannot, so the discriminant has no observation to discriminate."
+      "proof": "This literal is the error code of an AgentCoreError constructed only inside required's undefined guard, whose condition is constantly false because the single call site draws its key from the very capability set it then reads, over a frozen record with no mutator and no suspension point between the two reads. The error is therefore never constructed and its code never reaches a catch, a Receipt, or an assertion. The classifier keeps error codes actionable while tolerating message prose, which is right — a code is a discriminant callers branch on — but that reasoning presumes the throw can happen. Here it cannot, so the discriminant has no observation to discriminate."
     },
     {
       "file": "src/composition/routing.ts",
@@ -735,7 +735,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "true",
       "mutated": "left.byteLength === right.byteLength",
-      "proof": "Dropping the length test changes the result only when left is a strict byte prefix of right: `left.every((value, index) => value === right[index])` already returns false when left is the longer operand, because right[index] is undefined past its end, and agrees with the original whenever the lengths match. So the mutant differs on exactly one class of input, and that class is empty here. Both operands are TurnInboxEntry.codec.encode(...) results, and RecordCodec.encode returns encodeCanonicalJson of a `{kind, version, payload}` object \u2014 a complete canonical JSON document whose final byte is the closing brace of that object. Every proper prefix of such a document is unbalanced and so is not itself an encoding any record could produce, and encode never yields zero bytes. Neither operand can therefore be a strict prefix of the other, and the two conditions agree on every pair this function can receive."
+      "proof": "Dropping the length test changes the result only when left is a strict byte prefix of right: `left.every((value, index) => value === right[index])` already returns false when left is the longer operand, because right[index] is undefined past its end, and agrees with the original whenever the lengths match. So the mutant differs on exactly one class of input, and that class is empty here. Both operands are TurnInboxEntry.codec.encode(...) results, and RecordCodec.encode returns encodeCanonicalJson of a `{kind, version, payload}` object — a complete canonical JSON document whose final byte is the closing brace of that object. Every proper prefix of such a document is unbalanced and so is not itself an encoding any record could produce, and encode never yields zero bytes. Neither operand can therefore be a strict prefix of the other, and the two conditions agree on every pair this function can receive."
     },
     {
       "file": "src/composition/package-runtime.ts",
@@ -743,7 +743,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "true",
       "mutated": "left.byteLength === right.byteLength",
-      "proof": "The length comparison can only decide this conjunction when the surviving operand disagrees with it, and `left.every((value, index) => value === right[index])` disagrees only when left is shorter than right and matches it position for position \u2014 a strict prefix. When left is longer the callback reads undefined past right's end and returns false, and at equal lengths the two forms are identical. This module's two call sites pass SlotDeclaration.encode and SlotEntry.encode results, both RecordCodec.encode, which emits encodeCanonicalJson of a `{kind, version, payload}` envelope. Such a document ends with the brace closing that envelope and is never empty, so truncating it to any proper prefix leaves a byte string no encode call can return. The prefix case is unconstructible and the mutant selects the same value on every pair."
+      "proof": "The length comparison can only decide this conjunction when the surviving operand disagrees with it, and `left.every((value, index) => value === right[index])` disagrees only when left is shorter than right and matches it position for position — a strict prefix. When left is longer the callback reads undefined past right's end and returns false, and at equal lengths the two forms are identical. This module's two call sites pass SlotDeclaration.encode and SlotEntry.encode results, both RecordCodec.encode, which emits encodeCanonicalJson of a `{kind, version, payload}` envelope. Such a document ends with the brace closing that envelope and is never empty, so truncating it to any proper prefix leaves a byte string no encode call can return. The prefix case is unconstructible and the mutant selects the same value on every pair."
     },
     {
       "file": "src/composition/device-consent.ts",
@@ -751,7 +751,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "typeof input !== \"object\"",
-      "proof": "This disjunct rejects a non-object Device input, and the disjunct after it rejects the same inputs anyway. `input` is `request.request.inputs[0]`, typed FacetData, which is an alias of JsonValue \u2014 so at runtime it is an object, an array, a string, a number, a boolean, or null, and nothing else. The earlier disjuncts have already returned for null, for arrays, and (through the length test) for the empty-inputs case where the index read yields undefined. Every remaining non-object is a string, number or boolean primitive, and reading `[\"deviceId\"]` off any of those yields undefined rather than throwing, so `typeof undefined !== \"string\"` makes the following disjunct true and the request is denied with the identical result. The two forms therefore agree on every input this port can be handed."
+      "proof": "This disjunct rejects a non-object Device input, and the disjunct after it rejects the same inputs anyway. `input` is `request.request.inputs[0]`, typed FacetData, which is an alias of JsonValue — so at runtime it is an object, an array, a string, a number, a boolean, or null, and nothing else. The earlier disjuncts have already returned for null, for arrays, and (through the length test) for the empty-inputs case where the index read yields undefined. Every remaining non-object is a string, number or boolean primitive, and reading `[\"deviceId\"]` off any of those yields undefined rather than throwing, so `typeof undefined !== \"string\"` makes the following disjunct true and the request is denied with the identical result. The two forms therefore agree on every input this port can be handed."
     },
     {
       "file": "src/composition/authority-commands.ts",
@@ -759,7 +759,7 @@
       "mutator": "BlockStatement",
       "replacement": "{}",
       "mutated": "{ return undefined; }",
-      "proof": "The body is a single `return undefined;` and the declared return type is `undefined`, so emptying it changes nothing a caller can observe: a JavaScript function that falls off its end and one that returns undefined explicitly both evaluate to undefined, and there is no other statement here to lose \u2014 no argument is read, no field is written, nothing is thrown. The method exists because ProtocolCommandRegistration requires it, and this registration deliberately has no revision to report: Binding validation is a read-only check that pins no record revision, which is exactly what returning undefined states. Emptying the body states the same thing less legibly and no test can tell the two apart."
+      "proof": "The body is a single `return undefined;` and the declared return type is `undefined`, so emptying it changes nothing a caller can observe: a JavaScript function that falls off its end and one that returns undefined explicitly both evaluate to undefined, and there is no other statement here to lose — no argument is read, no field is written, nothing is thrown. The method exists because ProtocolCommandRegistration requires it, and this registration deliberately has no revision to report: Binding validation is a read-only check that pins no record revision, which is exactly what returning undefined states. Emptying the body states the same thing less legibly and no test can tell the two apart."
     },
     {
       "file": "src/composition/authority-commands.ts",
@@ -767,7 +767,7 @@
       "mutator": "BlockStatement",
       "replacement": "{}",
       "mutated": "{ return undefined; }",
-      "proof": "This is the lease half of the same registration's optional-evidence pair, and like its sibling its whole body is `return undefined;` against a declared `undefined` return. An empty body yields undefined by falling off the end, so the two forms produce the same value for every call, and the body contains nothing else \u2014 no parameter is read and no effect is performed \u2014 so there is no second observation to differ on. Binding validation takes no Turn lease, and reporting no lease is the honest answer rather than a stub awaiting implementation; the emptied body gives the identical answer."
+      "proof": "This is the lease half of the same registration's optional-evidence pair, and like its sibling its whole body is `return undefined;` against a declared `undefined` return. An empty body yields undefined by falling off the end, so the two forms produce the same value for every call, and the body contains nothing else — no parameter is read and no effect is performed — so there is no second observation to differ on. Binding validation takes no Turn lease, and reporting no lease is the honest answer rather than a stub awaiting implementation; the emptied body gives the identical answer."
     },
     {
       "file": "src/composition/authority-commands.ts",
@@ -799,7 +799,7 @@
       "mutator": "OptionalChaining",
       "replacement": "prepared.invocation.header.projectionDigest.equals",
       "mutated": "prepared.invocation.header.projectionDigest?.equals",
-      "proof": "Removing the optional call changes behaviour only when projectionDigest is undefined, where the original yields undefined and the mutant throws. That state cannot reach this operand twice over. PreparedInvocationHeader's constructor refuses `(route === undefined) !== (projectionDigest === undefined)`, and every PreparedInvocation is built or decoded through it, so a header carrying a route always carries a digest. And this operand is only evaluated when the disjunct above it was false, which required `header.route?.equals(input.reservation.id)` to be true \u2014 impossible unless route is defined. So by the time control reaches this call the digest is present, the optional check never short-circuits, and the two forms compute the same value on every admission this port can be handed."
+      "proof": "Removing the optional call changes behaviour only when projectionDigest is undefined, where the original yields undefined and the mutant throws. That state cannot reach this operand twice over. PreparedInvocationHeader's constructor refuses `(route === undefined) !== (projectionDigest === undefined)`, and every PreparedInvocation is built or decoded through it, so a header carrying a route always carries a digest. And this operand is only evaluated when the disjunct above it was false, which required `header.route?.equals(input.reservation.id)` to be true — impossible unless route is defined. So by the time control reaches this call the digest is present, the optional check never short-circuits, and the two forms compute the same value on every admission this port can be handed."
     },
     {
       "file": "src/authority/service.ts",
@@ -807,7 +807,7 @@
       "mutator": "OptionalChaining",
       "replacement": "grant.isLive",
       "mutated": "grant?.isLive",
-      "proof": "Dropping the optional chain dereferences an absent Grant, and none is absent here. A root that reaches this line came from revokeGrant, which found the record through requireRecord on the line above the closure call, and nothing removes a Grant from a store \u2014 revocation writes a revoked record in place. reconcile's roots are all in its skip set and never reach the lookup. The store therefore always answers with a record, and the chain never short-circuits."
+      "proof": "Dropping the optional chain dereferences an absent Grant, and none is absent here. A root that reaches this line came from revokeGrant, which found the record through requireRecord on the line above the closure call, and nothing removes a Grant from a store — revocation writes a revoked record in place. reconcile's roots are all in its skip set and never reach the lookup. The store therefore always answers with a record, and the chain never short-circuits."
     },
     {
       "file": "src/agents/runs/ceiling.ts",
@@ -821,7 +821,7 @@
       "file": "src/agents/runs/run.ts",
       "mutated": "this.parent === undefined",
       "mutator": "ConditionalExpression",
-      "proof": "This guard exists for the type checker rather than for the program. RunInit declares `parent?: RunId` and the package compiles with exactOptionalPropertyTypes, so writing `parent: this.parent` \u2014 an expression of type RunId | undefined \u2014 is rejected at this very call site; the conditional spread is the standard way the codebase satisfies that rule. Forcing the test false spreads the key unconditionally, so where the original omitted `parent` the mutant supplies it holding undefined. The literal is an argument to `new Run(...)` and reaches nothing else: Run's constructor assigns `this.parent = init.parent`, never asks whether the key is present, never enumerates init, and never spreads it onward, so a missing key and a key holding undefined are the same read. Everything downstream reads the field, not the literal \u2014 toData emits `this.parent?.value ?? null`. The sibling spreads in Turn.fromData are killed instead of surviving precisely because their else branch constructs an id from the absent value and throws; this one only repeats a value already in hand.",
+      "proof": "This guard exists for the type checker rather than for the program. RunInit declares `parent?: RunId` and the package compiles with exactOptionalPropertyTypes, so writing `parent: this.parent` — an expression of type RunId | undefined — is rejected at this very call site; the conditional spread is the standard way the codebase satisfies that rule. Forcing the test false spreads the key unconditionally, so where the original omitted `parent` the mutant supplies it holding undefined. The literal is an argument to `new Run(...)` and reaches nothing else: Run's constructor assigns `this.parent = init.parent`, never asks whether the key is present, never enumerates init, and never spreads it onward, so a missing key and a key holding undefined are the same read. Everything downstream reads the field, not the literal — toData emits `this.parent?.value ?? null`. The sibling spreads in Turn.fromData are killed instead of surviving precisely because their else branch constructs an id from the absent value and throws; this one only repeats a value already in hand.",
       "replacement": "false",
       "symbol": "Run.transition"
     },
@@ -829,7 +829,7 @@
       "file": "src/agents/runs/run.ts",
       "mutated": "terminal === undefined",
       "mutator": "ConditionalExpression",
-      "proof": "RunInit declares `terminal?: TerminalSnapshot`, and under exactOptionalPropertyTypes a TerminalSnapshot | undefined cannot be assigned to it, so this spread is guarded to keep the key out of the literal rather than to keep undefined out of the Run. With the test forced false the key is always written, carrying whatever the parameter holds. Run's constructor consumes the literal by name three times over \u2014 it assigns this.terminal from init.terminal, it selects the lifecycle by testing `init.terminal === undefined`, and it compares the snapshot's Run against this.id \u2014 and every one of those is a value read that sees undefined whether the key was omitted or written as undefined. No caller counts the literal's keys, tests `in`, or forwards it; the literal is constructed and consumed in one expression. So the two spellings build the same Run, with the same lifecycle kind and the same absent terminal snapshot, and no observation of the returned Run can separate them.",
+      "proof": "RunInit declares `terminal?: TerminalSnapshot`, and under exactOptionalPropertyTypes a TerminalSnapshot | undefined cannot be assigned to it, so this spread is guarded to keep the key out of the literal rather than to keep undefined out of the Run. With the test forced false the key is always written, carrying whatever the parameter holds. Run's constructor consumes the literal by name three times over — it assigns this.terminal from init.terminal, it selects the lifecycle by testing `init.terminal === undefined`, and it compares the snapshot's Run against this.id — and every one of those is a value read that sees undefined whether the key was omitted or written as undefined. No caller counts the literal's keys, tests `in`, or forwards it; the literal is constructed and consumed in one expression. So the two spellings build the same Run, with the same lifecycle kind and the same absent terminal snapshot, and no observation of the returned Run can separate them.",
       "replacement": "false",
       "symbol": "Run.transition"
     },
@@ -869,7 +869,7 @@
       "file": "src/agents/runs/turn.ts",
       "mutated": "this.lease.holder === undefined",
       "mutator": "ConditionalExpression",
-      "proof": "Forcing this conjunct true leaves `if (isTerminal(this.status)) return this`, so original and mutant differ only for a Turn that is terminal and still holds a lease. No such Turn exists. The constructor refuses one outright \u2014 `(this.status.kind === \"suspended\" || isTerminal(this.status)) && this.lease.holder !== undefined` throws \"Suspended and terminal Turns must be unheld\" \u2014 and it is the single gate into the class: TurnCodec decodes through Turn.fromData, which calls the constructor, and every transition rebuilds through new Turn as well. The two predicates are the same isTerminal call against the same status field, so the state the mutated conjunct exists to exclude is exactly the state the constructor has already made unconstructible. On every reachable Turn the conjunct is therefore constantly true and the branch selected is identical, with or without it.",
+      "proof": "Forcing this conjunct true leaves `if (isTerminal(this.status)) return this`, so original and mutant differ only for a Turn that is terminal and still holds a lease. No such Turn exists. The constructor refuses one outright — `(this.status.kind === \"suspended\" || isTerminal(this.status)) && this.lease.holder !== undefined` throws \"Suspended and terminal Turns must be unheld\" — and it is the single gate into the class: TurnCodec decodes through Turn.fromData, which calls the constructor, and every transition rebuilds through new Turn as well. The two predicates are the same isTerminal call against the same status field, so the state the mutated conjunct exists to exclude is exactly the state the constructor has already made unconstructible. On every reachable Turn the conjunct is therefore constantly true and the branch selected is identical, with or without it.",
       "replacement": "true",
       "symbol": "Turn.forceCancel"
     },
@@ -885,7 +885,7 @@
       "file": "src/agents/runs/lease.ts",
       "mutated": "expiresAtTime !== undefined",
       "mutator": "ConditionalExpression",
-      "proof": "This conjunct is the type narrowing that lets the next line compare expiresAtTime against now.getTime(); its runtime effect is subsumed twice over. Control reaches it only after `this.holder !== undefined` has passed, and TurnLease's protected constructor throws \"Held Turn leases require an expiration\" for a held lease with no expiry, so a lease that gets this far always has one and the conjunct is constantly true. Even if it did not, the mutant would compute `undefined > now.getTime()`, and JavaScript's relational comparison sends undefined through ToNumber to NaN, which compares false against every value \u2014 the same answer the short circuit gave. The comparison the mutant additionally evaluates is pure, and now.getTime() is unreachable behind the holder test anyway, so nothing observable changes.",
+      "proof": "This conjunct is the type narrowing that lets the next line compare expiresAtTime against now.getTime(); its runtime effect is subsumed twice over. Control reaches it only after `this.holder !== undefined` has passed, and TurnLease's protected constructor throws \"Held Turn leases require an expiration\" for a held lease with no expiry, so a lease that gets this far always has one and the conjunct is constantly true. Even if it did not, the mutant would compute `undefined > now.getTime()`, and JavaScript's relational comparison sends undefined through ToNumber to NaN, which compares false against every value — the same answer the short circuit gave. The comparison the mutant additionally evaluates is pure, and now.getTime() is unreachable behind the holder test anyway, so nothing observable changes.",
       "replacement": "true",
       "symbol": "ExactTurnLease.admits"
     },
@@ -901,7 +901,7 @@
       "file": "src/agents/runs/lease.ts",
       "mutated": "expiresAtTime === undefined",
       "mutator": "ConditionalExpression",
-      "proof": "Reaching this disjunct means `this.holder === undefined` was false, so the lease is held, and TurnLease's constructor admits no held lease without an expiration \u2014 it throws \"Held Turn leases require an expiration\" before such an instance can exist, and every construction path in the file, including restore, unclaimed, fence, claim, renew and the decoder, goes through it. So on every reachable lease this disjunct is constantly false and the branch is decided by the two around it. The mutant does evaluate `expiresAtTime > now.getTime()` where the original short-circuited, but that state is unreachable, and reclaim has already called ensureFutureExpiration(expiresAt, now), which reads now.getTime() on every call, so even the evaluation would add nothing observable.",
+      "proof": "Reaching this disjunct means `this.holder === undefined` was false, so the lease is held, and TurnLease's constructor admits no held lease without an expiration — it throws \"Held Turn leases require an expiration\" before such an instance can exist, and every construction path in the file, including restore, unclaimed, fence, claim, renew and the decoder, goes through it. So on every reachable lease this disjunct is constantly false and the branch is decided by the two around it. The mutant does evaluate `expiresAtTime > now.getTime()` where the original short-circuited, but that state is unreachable, and reclaim has already called ensureFutureExpiration(expiresAt, now), which reads now.getTime() on every call, so even the evaluation would add nothing observable.",
       "replacement": "false",
       "symbol": "ExactTurnLease.reclaim"
     },
@@ -917,7 +917,7 @@
       "file": "src/agents/runs/lease.ts",
       "mutated": "typeof epoch === \"number\"",
       "mutator": "ConditionalExpression",
-      "proof": "Number.isSafeInteger, the conjunct immediately after this one, performs no coercion: it returns false for every argument that is not a number, so a string, boolean, null, array or object epoch is rejected by it whether or not the typeof test ran first. The mutant therefore computes the same boolean on every payload, and both spellings send a malformed epoch down the same codec.invalid path with the same message. The typeof test earns its place only in the type system, where it narrows JsonValue | undefined to number so that `epoch >= 0` on the following line is accepted \u2014 Number.isSafeInteger is declared as returning boolean rather than as a type predicate, so it cannot do that narrowing itself. Neither operand has a side effect, so nothing else can separate them.",
+      "proof": "Number.isSafeInteger, the conjunct immediately after this one, performs no coercion: it returns false for every argument that is not a number, so a string, boolean, null, array or object epoch is rejected by it whether or not the typeof test ran first. The mutant therefore computes the same boolean on every payload, and both spellings send a malformed epoch down the same codec.invalid path with the same message. The typeof test earns its place only in the type system, where it narrows JsonValue | undefined to number so that `epoch >= 0` on the following line is accepted — Number.isSafeInteger is declared as returning boolean rather than as a type predicate, so it cannot do that narrowing itself. Neither operand has a side effect, so nothing else can separate them.",
       "replacement": "true",
       "symbol": "isTurnLeasePayload"
     },
@@ -933,7 +933,7 @@
       "file": "src/agents/runs/store.ts",
       "mutated": "right !== undefined",
       "mutator": "ConditionalExpression",
-      "proof": "This conjunct guards the else arm, where left is known to be a ContentRef, and forcing it true leaves `left.equals(right)`. The two spellings can differ only when right is undefined, and there TextId.equals \u2014 which ContentRef inherits and does not override \u2014 answers false rather than throwing: its first test is `typeof other === \"object\"`, and typeof undefined is \"undefined\", so it returns before touching a private field. The original returns false by short circuit and the mutant returns the same false from the call, on every pair of arguments. Both operands are already-bound locals, equals is pure and total, and the function's only caller compares a commit's tree checkpoint with a checkpoint's tree inside a boolean chain, so there is nothing else for a difference to leak through. The mutants replacing the same test with its negation, and the whole conjunction with true or false, are all killed by the four tree pairings.",
+      "proof": "This conjunct guards the else arm, where left is known to be a ContentRef, and forcing it true leaves `left.equals(right)`. The two spellings can differ only when right is undefined, and there TextId.equals — which ContentRef inherits and does not override — answers false rather than throwing: its first test is `typeof other === \"object\"`, and typeof undefined is \"undefined\", so it returns before touching a private field. The original returns false by short circuit and the mutant returns the same false from the call, on every pair of arguments. Both operands are already-bound locals, equals is pure and total, and the function's only caller compares a commit's tree checkpoint with a checkpoint's tree inside a boolean chain, so there is nothing else for a difference to leak through. The mutants replacing the same test with its negation, and the whole conjunction with true or false, are all killed by the four tree pairings.",
       "replacement": "true",
       "symbol": "optionalContentRefsEqual"
     },
@@ -949,7 +949,7 @@
       "file": "src/agents/runs/store.ts",
       "mutated": "turn.status.kind !== \"running\"",
       "mutator": "ConditionalExpression",
-      "proof": "By the time this disjunct is evaluated the Turn has already been held to the token: the second statement of the method calls turn.requireToken(token, now), which throws a lease.invalid AgentCoreError unless the status is running and the lease admits the token. The local is a frozen record read once, and nothing between the two points can change it, so the status is \"running\" here on every path that reaches the disjunct and it is constantly false. Removing it therefore selects the same branch always. It reads as the join restating one of its own preconditions rather than as an untested rule, and the complementary mutant that forces it true \u2014 which would refuse every scope \u2014 is killed by the tests that load a scope successfully.",
+      "proof": "By the time this disjunct is evaluated the Turn has already been held to the token: the second statement of the method calls turn.requireToken(token, now), which throws a lease.invalid AgentCoreError unless the status is running and the lease admits the token. The local is a frozen record read once, and nothing between the two points can change it, so the status is \"running\" here on every path that reaches the disjunct and it is constantly false. Removing it therefore selects the same branch always. It reads as the join restating one of its own preconditions rather than as an untested rule, and the complementary mutant that forces it true — which would refuse every scope — is killed by the tests that load a scope successfully.",
       "replacement": "false",
       "symbol": "RunRepository.loadExecutionScope"
     },
@@ -997,7 +997,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "\"Acceptance criteria must declare unique identities\"",
       "mutator": "StringLiteral",
-      "proof": "The literal is the message of an AgentCoreError constructed only inside the unreachable duplicate-identity guard in the genesis loop, and it is never constructed: the store check one line above refuses a repeated criterion id first, so the reserve always returns a changed registry and the throw never runs. Replacing the text with the empty string therefore changes no value any caller, log or assertion can read, which is a stronger claim than the message-text tolerance granted to reachable throw sites \u2014 the string is not merely unasserted, the program cannot produce it.",
+      "proof": "The literal is the message of an AgentCoreError constructed only inside the unreachable duplicate-identity guard in the genesis loop, and it is never constructed: the store check one line above refuses a repeated criterion id first, so the reserve always returns a changed registry and the throw never runs. Replacing the text with the empty string therefore changes no value any caller, log or assertion can read, which is a stronger claim than the message-text tolerance granted to reachable throw sites — the string is not merely unasserted, the program cannot produce it.",
       "replacement": "\"\"",
       "symbol": "RunRuntime.createRunInTransaction"
     },
@@ -1021,7 +1021,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "commit.writer.kind !== \"turn\"",
       "mutator": "ConditionalExpression",
-      "proof": "The first disjunct has already established that the commit's kind is \"message\" or \"verdict\", and validateClosedShape routes both to its final block, which throws \"Turn-authored commit fields are invalid\" unless writer.kind is \"turn\". Since the codec decodes through RunCommit's constructor and nothing else constructs one, a message or verdict commit always has a turn writer, so this test never fires and removing it selects the same branch. The complementary mutant that forces the same test true \u2014 refusing every turn append \u2014 is killed, as are both halves of the kind group beside it, so the door's authority check remains asserted where it can actually decide.",
+      "proof": "The first disjunct has already established that the commit's kind is \"message\" or \"verdict\", and validateClosedShape routes both to its final block, which throws \"Turn-authored commit fields are invalid\" unless writer.kind is \"turn\". Since the codec decodes through RunCommit's constructor and nothing else constructs one, a message or verdict commit always has a turn writer, so this test never fires and removing it selects the same branch. The complementary mutant that forces the same test true — refusing every turn append — is killed, as are both halves of the kind group beside it, so the door's authority check remains asserted where it can actually decide.",
       "replacement": "false",
       "symbol": "RunRuntime.appendTurnCommitInTransaction"
     },
@@ -1029,7 +1029,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "commit.writer.kind !== \"system\"",
       "mutator": "ConditionalExpression",
-      "proof": "By the time this disjunct is evaluated the commit's kind is \"merge\", and validateClosedShape's merge branch throws \"Merge commit fields are invalid\" unless the writer is a system writer with a control cause, along with two parents, a resolution, content and a receipt. Every RunCommit reaches that check on construction and the codec decodes through it, so a merge commit with any other writer cannot exist and this test is constantly false. The kind test beside it is what actually refuses commits at this door, and it is now asserted with a system-authored invocation \u2014 a commit carrying exactly the writer this disjunct looks for \u2014 so the two are told apart rather than shadowed.",
+      "proof": "By the time this disjunct is evaluated the commit's kind is \"merge\", and validateClosedShape's merge branch throws \"Merge commit fields are invalid\" unless the writer is a system writer with a control cause, along with two parents, a resolution, content and a receipt. Every RunCommit reaches that check on construction and the codec decodes through it, so a merge commit with any other writer cannot exist and this test is constantly false. The kind test beside it is what actually refuses commits at this door, and it is now asserted with a system-authored invocation — a commit carrying exactly the writer this disjunct looks for — so the two are told apart rather than shadowed.",
       "replacement": "false",
       "symbol": "RunRuntime.mergeRunInTransaction"
     },
@@ -1053,7 +1053,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "run.lifecycle.kind !== \"terminal\"",
       "mutator": "ConditionalExpression",
-      "proof": "Run derives its lifecycle from its terminal snapshot in the constructor \u2014 active when init.terminal is undefined and terminal otherwise \u2014 and assigns both from the same field of the same frozen init, which is the invariant the class comment states as \"a Run is terminal exactly when it holds its terminal snapshot\". So lifecycle.kind !== \"terminal\" and terminal === undefined are the same predicate, and the disjunct immediately after this one tests the second of them. Removing this one leaves that one to make the identical decision on every Run, including every Run the codec decodes, because Run.fromData builds through the same constructor. The mutant that forces this test true instead, refusing every captured append, is killed.",
+      "proof": "Run derives its lifecycle from its terminal snapshot in the constructor — active when init.terminal is undefined and terminal otherwise — and assigns both from the same field of the same frozen init, which is the invariant the class comment states as \"a Run is terminal exactly when it holds its terminal snapshot\". So lifecycle.kind !== \"terminal\" and terminal === undefined are the same predicate, and the disjunct immediately after this one tests the second of them. Removing this one leaves that one to make the identical decision on every Run, including every Run the codec decodes, because Run.fromData builds through the same constructor. The mutant that forces this test true instead, refusing every captured append, is killed.",
       "replacement": "false",
       "symbol": "RunRuntime.appendCapturedEvidenceInTransaction"
     },
@@ -1069,7 +1069,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "expiresAt === undefined",
       "mutator": "ConditionalExpression",
-      "proof": "Control reaches this disjunct only after the running-status test above it was false, so the Turn is running, and a running Turn holds a lease \u2014 Turn's constructor throws \"Running Turns require a held lease\" otherwise. TurnLease's constructor in turn throws \"Held Turn leases require an expiration\" for a held lease with no expiry, so expiresAt was read from a lease that has one and this test is constantly false. Even where the invariant not to hold, the mutant would go on to compute `undefined > now.getTime()`, which is NaN-false and selects the same branch. The test is written so the comparison below it typechecks against a number.",
+      "proof": "Control reaches this disjunct only after the running-status test above it was false, so the Turn is running, and a running Turn holds a lease — Turn's constructor throws \"Running Turns require a held lease\" otherwise. TurnLease's constructor in turn throws \"Held Turn leases require an expiration\" for a held lease with no expiry, so expiresAt was read from a lease that has one and this test is constantly false. Even where the invariant not to hold, the mutant would go on to compute `undefined > now.getTime()`, which is NaN-false and selects the same branch. The test is written so the comparison below it typechecks against a number.",
       "replacement": "false",
       "symbol": "RunRuntime.timeoutTurnInTransaction"
     },
@@ -1077,7 +1077,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "commit.migration?.from",
       "mutator": "OptionalChaining",
-      "proof": "The optional call cannot short-circuit here. The branch is entered only when commit.kind is \"migration\", and validateClosedShape's migration branch throws \"Migration commit fields are invalid\" unless commit.migration is present \u2014 it also requires the commit's pins to equal the migration target. RunCommit's constructor runs that check on construction and RunCommitCodec decodes through it, so a migration commit always carries its migration record and both spellings read the same RunPins and call the same equals. The chain is written because the field's declared type stays optional for every commit kind, not because this site can meet an absent one.",
+      "proof": "The optional call cannot short-circuit here. The branch is entered only when commit.kind is \"migration\", and validateClosedShape's migration branch throws \"Migration commit fields are invalid\" unless commit.migration is present — it also requires the commit's pins to equal the migration target. RunCommit's constructor runs that check on construction and RunCommitCodec decodes through it, so a migration commit always carries its migration record and both spellings read the same RunPins and call the same equals. The chain is written because the field's declared type stays optional for every commit kind, not because this site can meet an absent one.",
       "replacement": "commit.migration.from",
       "symbol": "RunRuntime.appendInTransaction"
     },
@@ -1085,7 +1085,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "commit.parents.length !== 1",
       "mutator": "ConditionalExpression",
-      "proof": "Every commit that reaches this branch has exactly one parent. The branch is the else of `commit.kind === \"merge\"`, and validateClosedShape gives merge and root their own arities \u2014 two parents and none \u2014 while throwing \"Unary Run commits require one parent\" for every other kind. The only ways into appendInTransaction are the typed doors and the Turn transitions, which pass message, verdict, invocation, eventDelivery, undo, migration, checkpoint and result commits; the root commit is inserted at genesis through insertCommit and never appended. So the length test is constantly false, and the comparison beside it, which the parent-conflict tests do exercise, decides the branch on its own.",
+      "proof": "Every commit that reaches this branch has exactly one parent. The branch is the else of `commit.kind === \"merge\"`, and validateClosedShape gives merge and root their own arities — two parents and none — while throwing \"Unary Run commits require one parent\" for every other kind. The only ways into appendInTransaction are the typed doors and the Turn transitions, which pass message, verdict, invocation, eventDelivery, undo, migration, checkpoint and result commits; the root commit is inserted at genesis through insertCommit and never appended. So the length test is constantly false, and the comparison beside it, which the parent-conflict tests do exercise, decides the branch on its own.",
       "replacement": "false",
       "symbol": "RunRuntime.appendInTransaction"
     },
@@ -1101,7 +1101,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "turn.lease.holder !== undefined",
       "mutator": "ConditionalExpression",
-      "proof": "This conjunct restates the one before it. A Turn holding a lease is a running Turn \u2014 the constructor refuses a queued Turn with any holder and refuses a suspended or terminal Turn with one \u2014 so wherever the running test has already passed, the holder is defined and this test is constantly true. Forcing it true therefore selects the same Turns for the undo fence, and the predicate keeps refusing exactly the in-flight Turns it refused before. It is written because the message it guards is about a held lease, and because the pair reads as the one fact SPEC \u00a75.5 states; the mutant forcing it false is killed by the in-flight undo test.",
+      "proof": "This conjunct restates the one before it. A Turn holding a lease is a running Turn — the constructor refuses a queued Turn with any holder and refuses a suspended or terminal Turn with one — so wherever the running test has already passed, the holder is defined and this test is constantly true. Forcing it true therefore selects the same Turns for the undo fence, and the predicate keeps refusing exactly the in-flight Turns it refused before. It is written because the message it guards is about a held lease, and because the pair reads as the one fact SPEC §5.5 states; the mutant forcing it false is killed by the in-flight undo test.",
       "replacement": "true",
       "symbol": "RunRuntime.appendInTransaction"
     },
@@ -1117,7 +1117,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "commit.content === undefined",
       "mutator": "ConditionalExpression",
-      "proof": "This disjunct cannot fire. It is inside the pick-resolution branch, so the commit's kind is \"merge\", and validateClosedShape's merge branch throws \"Merge commit fields are invalid\" unless content is present \u2014 along with two parents, a system control writer, a resolution and a receipt. Every RunCommit passes that check on construction and the codec decodes through it, so commit.content is a ContentRef here and the test is constantly false. What it earns is the narrowing that lets `picked.content.equals(commit.content)` typecheck; the disjunct before it, about the picked parent's own content, is the one that can refuse and is killed.",
+      "proof": "This disjunct cannot fire. It is inside the pick-resolution branch, so the commit's kind is \"merge\", and validateClosedShape's merge branch throws \"Merge commit fields are invalid\" unless content is present — along with two parents, a system control writer, a resolution and a receipt. Every RunCommit passes that check on construction and the codec decodes through it, so commit.content is a ContentRef here and the test is constantly false. What it earns is the narrowing that lets `picked.content.equals(commit.content)` typecheck; the disjunct before it, about the picked parent's own content, is the one that can refuse and is killed.",
       "replacement": "false",
       "symbol": "RunRuntime.validateMerge"
     },
@@ -1125,7 +1125,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "commit.treeCheckpoint === undefined",
       "mutator": "ConditionalExpression",
-      "proof": "The tree branch is entered only when commit.treeResolution is defined, and validateClosedShape refuses a merge commit whose tree resolution and tree checkpoint do not occur together \u2014 `(treeResolution === undefined) !== (treeCheckpoint === undefined)` throws \"Tree resolution and checkpoint must occur together\". So a commit with a resolution always carries a checkpoint, this test is constantly false, and the disjunct before it, about the selected parent's checkpoint, is what can refuse. The test is written so the equals call below it typechecks against a ContentRef rather than an optional one.",
+      "proof": "The tree branch is entered only when commit.treeResolution is defined, and validateClosedShape refuses a merge commit whose tree resolution and tree checkpoint do not occur together — `(treeResolution === undefined) !== (treeCheckpoint === undefined)` throws \"Tree resolution and checkpoint must occur together\". So a commit with a resolution always carries a checkpoint, this test is constantly false, and the disjunct before it, about the selected parent's checkpoint, is what can refuse. The test is written so the equals call below it typechecks against a ContentRef rather than an optional one.",
       "replacement": "false",
       "symbol": "RunRuntime.validateMerge"
     },
@@ -1205,7 +1205,7 @@
       "file": "src/agents/runs/executor.ts",
       "mutated": "turn.status.kind === \"running\"",
       "mutator": "ConditionalExpression",
-      "proof": "This conjunct is the same fact as the one after it. A Turn that holds a lease is running \u2014 Turn's constructor refuses a holder on a queued, suspended or terminal Turn \u2014 so forcing the status test true cannot admit a Turn the holder test does not also admit. Recovery therefore treats exactly the same Turns as holding the current lease, and the \u00a75.6 rule it implements, that a cancellation delivered against a live lease is the holder's to settle, keeps applying to the same set. The mutant that flips the operator between the two, which does change the grouping of the chain, is killed.",
+      "proof": "This conjunct is the same fact as the one after it. A Turn that holds a lease is running — Turn's constructor refuses a holder on a queued, suspended or terminal Turn — so forcing the status test true cannot admit a Turn the holder test does not also admit. Recovery therefore treats exactly the same Turns as holding the current lease, and the §5.6 rule it implements, that a cancellation delivered against a live lease is the holder's to settle, keeps applying to the same set. The mutant that flips the operator between the two, which does change the grouping of the chain, is killed.",
       "replacement": "true",
       "symbol": "holdsCurrentLease"
     },
@@ -1213,7 +1213,7 @@
       "file": "src/agents/runs/commit.ts",
       "mutated": "this.subjectTurn?.equals",
       "mutator": "OptionalChaining",
-      "proof": "A commit with a turn writer always names a subject Turn. The method returns false immediately unless writer.kind is \"turn\", and validateClosedShape admits a turn writer only from its final block, the one reached by message, checkpoint, result and verdict commits, which throws unless subjectTurn is present \u2014 every other kind is routed to a branch demanding a root or system writer. RunCommit's constructor runs that check and the codec decodes through it, so the optional call never short-circuits and both spellings compare the same TurnId. The chain is written because subjectTurn is optional across the union of kinds.",
+      "proof": "A commit with a turn writer always names a subject Turn. The method returns false immediately unless writer.kind is \"turn\", and validateClosedShape admits a turn writer only from its final block, the one reached by message, checkpoint, result and verdict commits, which throws unless subjectTurn is present — every other kind is routed to a branch demanding a root or system writer. RunCommit's constructor runs that check and the codec decodes through it, so the optional call never short-circuits and both spellings compare the same TurnId. The chain is written because subjectTurn is optional across the union of kinds.",
       "replacement": "this.subjectTurn.equals",
       "symbol": "RunCommit.isTurnAuthored"
     },
@@ -1229,7 +1229,7 @@
       "file": "src/agents/record-data.ts",
       "mutated": "typeof value !== \"number\"",
       "mutator": "ConditionalExpression",
-      "proof": "Number.isSafeInteger, tested immediately after this disjunct, coerces nothing and returns false for every argument that is not a number, so a string, boolean, null, array or object value is rejected by it whether or not the typeof test ran first. The mutant therefore computes the same boolean on every input and raises the same TypeError with the same subject. The typeof test earns its place in the type system, where it narrows JsonValue | undefined to number so that `value < 0` and the number return typecheck \u2014 the standard library declares isSafeInteger as returning boolean rather than as a type predicate, so it cannot narrow on its own.",
+      "proof": "Number.isSafeInteger, tested immediately after this disjunct, coerces nothing and returns false for every argument that is not a number, so a string, boolean, null, array or object value is rejected by it whether or not the typeof test ran first. The mutant therefore computes the same boolean on every input and raises the same TypeError with the same subject. The typeof test earns its place in the type system, where it narrows JsonValue | undefined to number so that `value < 0` and the number return typecheck — the standard library declares isSafeInteger as returning boolean rather than as a type predicate, so it cannot narrow on its own.",
       "replacement": "false",
       "symbol": "requireInteger"
     },
@@ -1240,6 +1240,46 @@
       "proof": "Flipping this operator turns two disjuncts into a conjunction, and both are implied by disjuncts later in the same chain, so the chain's value is unchanged. TurnInboxEntry's constructor makes carrying a cancellation token and being a turn.cancel entry one fact, so where the event test was the true one the token test below still fires; and it requires the token to name the entry's own Turn, so where the Turn test was the true one the leaseTokensEqual test below still fires against a token naming a different Turn. Every operand is a pure comparison, so evaluating more of them changes nothing but the order.",
       "replacement": "entry.event !== \"turn.cancel\" && !entry.turn.equals(turn.id)",
       "symbol": "RunRuntime.appendCancellation"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "sibling.lease.holder !== undefined",
+      "mutator": "ConditionalExpression",
+      "occurrence": 1,
+      "proof": "This is the second half of the screen that refuses to close a Run while any sibling is still live, and forcing it false leaves `!isTerminalTurn(sibling)` selecting the same siblings. The only sibling the disjunct could add is one that is terminal and still holds its lease, and that Turn is not merely unreachable — it is unrepresentable. Turn's constructor throws \"Suspended and terminal Turns must be unheld\" for exactly that pair, and a stored Turn is bytes: listTurns decodes every row through TurnCodec into Turn.fromData and so through that constructor, so no row can carry the state and no store can hand one back. That is what separates this operand from the twenty-nine mutants in this method that a storage port answering later reads with something else does kill: those states are all representable records the store simply got wrong, and this one cannot be written down. The complementary mutant forcing the same test true, which would refuse every terminalization, is killed.",
+      "replacement": "false",
+      "sites": 2,
+      "symbol": "RunRuntime.validateTerminalSiblings"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "sibling.lease.holder !== undefined",
+      "mutator": "ConditionalExpression",
+      "occurrence": 2,
+      "proof": "Control reaches this disjunct only after `sibling.status.kind !== \"cancelled\"` was false, so the sibling is cancelled and therefore terminal, and Turn's constructor refuses a terminal Turn that holds a lease. The record type is what makes this decisive rather than the call order: every sibling here came out of listTurns, which decodes stored bytes through TurnCodec and Turn.fromData into that constructor, so a held cancelled Turn is a value the codec cannot produce however wrong the store is. The clauses on either side of this one are killed by exactly such a store — a sibling handed back succeeded rather than cancelled kills the status test, and one handed back at an epoch the fence never wrote kills the epoch test — which is the sharpest evidence that this operand is the only one of the six with no representable input rather than one nobody thought to stage.",
+      "replacement": "false",
+      "sites": 2,
+      "symbol": "RunRuntime.validateTerminalSiblings"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "commit.resolution?.kind",
+      "mutator": "OptionalChaining",
+      "occurrence": 1,
+      "proof": "The optional call cannot short-circuit here, so it selects the same branch as a plain read. validateMerge has one caller, appendInTransaction, which invokes it only under `commit.kind === \"merge\"`, and validateClosedShape's merge branch throws \"Merge commit fields are invalid\" unless the commit carries a resolution, along with two parents, a system control writer, content and a receipt. RunCommit runs that check on construction and RunCommitCodec decodes through the same constructor, so every merge commit that reaches this line has a resolution and both spellings read the same discriminant off the same object. The chain is written because resolution is optional across the union of commit kinds, not because a merge commit can arrive without one; the pick rules this branch guards are themselves exercised, and the mutants inside them are killed.",
+      "replacement": "commit.resolution.kind",
+      "sites": 2,
+      "symbol": "RunRuntime.validateMerge"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "commit.resolution?.kind",
+      "mutator": "OptionalChaining",
+      "occurrence": 2,
+      "proof": "This site guards the concat check, where the mutant could in principle change more than a value: the conjunct it heads decides whether the merge port's verifyConcat runs at all, so a short circuit that became a throw would replace a skipped verification with a fault. It cannot, because the receiver is present. The commit reached validateMerge only by being a merge commit, and validateClosedShape refuses a merge commit with no resolution before one can be constructed or decoded. Nothing can clear the field between this read and the earlier one either: RunCommit freezes itself at the end of its constructor, so resolution is the same value for the whole call. The optional call therefore always proceeds, verifyConcat is reached on exactly the commits it was reached on before, and the refusal it can raise is unchanged.",
+      "replacement": "commit.resolution.kind",
+      "sites": 2,
+      "symbol": "RunRuntime.validateMerge"
     }
   ]
 }
