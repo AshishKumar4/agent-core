@@ -207,6 +207,15 @@
       "score": 93.4,
       "actionable": 74,
       "tolerated": 12
+    },
+    "mediation-public": {
+      "measuredAt": "08890fb2a8a67fb80ded20198f64b21a01de83da",
+      "fingerprint": "sha256:98180eb6b7d1530cf6c89dccd243441814e5daabf6b1cdd39ce2f686db1bc645",
+      "mutants": 0,
+      "killed": 0,
+      "score": 100,
+      "actionable": 0,
+      "tolerated": 0
     }
   }
 }
