@@ -72,6 +72,54 @@
       "proof": "The mutant leaves `limit > allowance` as the sole test, so it differs from the original only where allowance is undefined, and there the original is false by short-circuit while the mutant evaluates `limit > undefined`. JavaScript's abstract relational comparison takes the string path only when both operands are strings; undefined never is, so both operands go through ToNumber, undefined becomes NaN, and every comparison against NaN is false. The mutant is therefore false wherever the original short-circuited, and identical everywhere else because the conjunct it dropped was already true. No input can separate them: allowance is a plain local read of parentRemainder.limit(dimension) taken before the comparison, so the dropped conjunct guarded no side effect and no throw, and limit arrives from ResourceCeiling's own entries, where the constructor has already established it is a non-negative safe integer. Even a caller passing a hostile subclass whose entries yield a non-number cannot help, because the NaN result holds for every value undefined can be compared against. The complementary mutant replacing this test with false, which would report no child as widening, is killed.",
       "replacement": "true",
       "symbol": "widensResourceCeiling"
+    },
+    {
+      "file": "src/agents/runs/run.ts",
+      "mutated": "this.parent === undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "This guard exists for the type checker rather than for the program. RunInit declares `parent?: RunId` and the package compiles with exactOptionalPropertyTypes, so writing `parent: this.parent` — an expression of type RunId | undefined — is rejected at this very call site; the conditional spread is the standard way the codebase satisfies that rule. Forcing the test false spreads the key unconditionally, so where the original omitted `parent` the mutant supplies it holding undefined. The literal is an argument to `new Run(...)` and reaches nothing else: Run's constructor assigns `this.parent = init.parent`, never asks whether the key is present, never enumerates init, and never spreads it onward, so a missing key and a key holding undefined are the same read. Everything downstream reads the field, not the literal — toData emits `this.parent?.value ?? null`. The sibling spreads in Turn.fromData are killed instead of surviving precisely because their else branch constructs an id from the absent value and throws; this one only repeats a value already in hand.",
+      "replacement": "false",
+      "symbol": "Run.transition"
+    },
+    {
+      "file": "src/agents/runs/run.ts",
+      "mutated": "terminal === undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "RunInit declares `terminal?: TerminalSnapshot`, and under exactOptionalPropertyTypes a TerminalSnapshot | undefined cannot be assigned to it, so this spread is guarded to keep the key out of the literal rather than to keep undefined out of the Run. With the test forced false the key is always written, carrying whatever the parameter holds. Run's constructor consumes the literal by name three times over — it assigns this.terminal from init.terminal, it selects the lifecycle by testing `init.terminal === undefined`, and it compares the snapshot's Run against this.id — and every one of those is a value read that sees undefined whether the key was omitted or written as undefined. No caller counts the literal's keys, tests `in`, or forwards it; the literal is constructed and consumed in one expression. So the two spellings build the same Run, with the same lifecycle kind and the same absent terminal snapshot, and no observation of the returned Run can separate them.",
+      "replacement": "false",
+      "symbol": "Run.transition"
+    },
+    {
+      "file": "src/agents/runs/turn.ts",
+      "mutated": "cacheLineage === undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "The local this guards was already resolved on the lines above, where `object[\"cacheLineage\"] === null` decides between undefined and a decoded lineage, so the else branch here names a bound variable and constructs nothing. Forcing the test false writes the key unconditionally, holding the same undefined the original omitted. TurnInit declares `cacheLineage?: TurnCacheLineage` and exactOptionalPropertyTypes is what forbids the unconditional spelling in the source, which is the only reason the conditional is written at all. Turn's constructor reads init.cacheLineage by name and branches on it being undefined to decide whether to freeze a copy, so both spellings leave this.cacheLineage undefined and the Turn identical. The two neighbouring spreads for checkpoint and result are killed rather than equivalent because their else branches pass an absent string to new RunCheckpointId and new ContentRef, which throw; the contrast is what makes this site's survival a property of the value rather than a gap in the decode tests.",
+      "replacement": "false",
+      "symbol": "Turn.fromData"
+    },
+    {
+      "file": "src/agents/runs/turn.ts",
+      "mutated": "checkpoint === undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "The guarded value is the local `changes.checkpoint ?? this.checkpoint` computed at the top of transition, so the else branch republishes a variable and evaluates no constructor. Under exactOptionalPropertyTypes a RunCheckpointId | undefined cannot be assigned to TurnInit's `checkpoint?: RunCheckpointId`, which is why the spread is conditional in the first place; the mutant writes the key unconditionally and it holds undefined exactly where the original left it out. Turn's constructor assigns this.checkpoint = init.checkpoint and then tests `this.checkpoint === undefined` for the rule that a suspended Turn carries one, and both are reads of the value rather than of the key set. Since the literal is consumed by that constructor alone and never enumerated, spread onward, or probed with `in`, every Turn either spelling can produce is identical, including the throw the suspended rule raises.",
+      "replacement": "false",
+      "symbol": "Turn.transition"
+    },
+    {
+      "file": "src/agents/runs/turn.ts",
+      "mutated": "result === undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "This spread carries the local `changes.result ?? this.result`, already computed, so making its test constantly false writes a key holding undefined where the original wrote no key, and evaluates nothing new. TurnInit declares `result?: ContentRef`; exactOptionalPropertyTypes rejects assigning ContentRef | undefined to it, which is the sole reason the assignment is guarded rather than written plainly. The constructor assigns this.result = init.result and separately tests `this.result === undefined` to refuse a succeeded or failed Turn without one, so a Turn built either way holds the same field and raises the same refusal on the same inputs. Nothing in the package inspects the init literal's key set: it is built and passed to new Turn in a single expression and is unreachable afterwards, so no observation of the resulting Turn, its encoding, or the errors it raises can separate the two.",
+      "replacement": "false",
+      "symbol": "Turn.transition"
+    },
+    {
+      "file": "src/agents/runs/turn.ts",
+      "mutated": "this.cacheLineage === undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "Unlike its two neighbours this spread carries the receiver's own field straight through a transition, so with the test forced false the literal always names cacheLineage and holds whatever this.cacheLineage held, undefined included. The conditional is present because TurnInit declares `cacheLineage?: TurnCacheLineage` and exactOptionalPropertyTypes forbids assigning the optional field to the optional parameter directly. Turn's constructor reads init.cacheLineage and branches on it being undefined, freezing a copy of turn and promptPrefix when it is present and storing undefined when it is not, so the field the new Turn ends up with is the same under either spelling and its encoding, which writes null for an absent lineage, is byte-identical. The literal never escapes the call, is never enumerated and is never tested with `in`, so no test of the transition's result can tell the key apart from its absence.",
+      "replacement": "false",
+      "symbol": "Turn.transition"
     }
   ]
 }
