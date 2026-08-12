@@ -1520,6 +1520,14 @@
       "replacement": "commit.resolution.kind",
       "sites": 2,
       "symbol": "RunRuntime.validateMerge"
+    },
+    {
+      "file": "src/facets/id.ts",
+      "mutated": "value.length === 0",
+      "mutator": "ConditionalExpression",
+      "proof": "requireCanonicalId is module-private and each of its eleven call sites is the body of a TextId subclass constructor, reached only after super(value, subject) has returned. TextId's constructor rejects value.length === 0 before it returns, throwing \"<subject> must contain between 1 and 256 characters\", so control cannot arrive here holding the empty string. The one indirect caller, requireFacetRef, is itself invoked from FacetRef's constructor after that same super call. Every other string this disjunct would catch is all-whitespace and nonempty, and for those value !== value.trim() is already true, so the disjunction selects the throw either way. Replacing the length test with false therefore decides identically on every value that can reach it, while the complementary mutant on the second disjunct is killed by the untrimmed cases in test/facets/id.test.ts.",
+      "replacement": "false",
+      "symbol": "requireCanonicalId"
     }
   ]
 }

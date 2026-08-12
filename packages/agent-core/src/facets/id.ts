@@ -113,15 +113,12 @@ function requireCanonicalId(value: string, subject: string): void {
     }
 }
 
+// The pattern already fixes the separator: exactly one colon, with a canonical segment
+// on each side of it. Restating that as separator arithmetic beforehand decides nothing
+// the pattern does not.
 function requireFacetRef(value: string): void {
     requireCanonicalId(value, "Facet reference");
-    const separator = value.indexOf(":");
-    if (
-        separator <= 0 ||
-        separator !== value.lastIndexOf(":") ||
-        separator === value.length - 1 ||
-        !/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*:[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/u.test(value)
-    ) {
+    if (!/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*:[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/u.test(value)) {
         throw new TypeError(
             "Facet reference must be '<facet-package-id>:<instance>' with canonical segments"
         );
