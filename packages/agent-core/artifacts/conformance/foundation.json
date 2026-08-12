@@ -9,11 +9,16 @@
       "specTextSha256": "sha256:1c91fabba1ef86b01e936edfa9f94afd16e21c8a0f386bb7db9f9f2cbe2e8015",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/protocol/dispatcher.ts#CommandDispatcher"],
+      "sourceSymbols": [
+        "src/protocol/dispatcher.ts#CommandDispatcher"
+      ],
       "testSelectors": [
         "test/actors/actor.test.ts#Memory ActorStore contract [C13-ADV-COMMAND-REJECTIONS] rejects commands after close and invalidates the durable fence"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -23,11 +28,16 @@
       "specTextSha256": "sha256:db347fce47b9f8152a6c4e5f25ac8dd394e19789e2c39ac8385cca23b52a18b5",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/core/codec.ts#RecordCodec"],
+      "sourceSymbols": [
+        "src/core/codec.ts#RecordCodec"
+      ],
       "testSelectors": [
         "test/content/memory.test.ts#MemoryContentStore records [C13-CODEC-VERSIONING] round-trips stat and owner-edge records through versioned codecs"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -41,10 +51,10 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "\u00a78.2's reconciliation stands and the universal quantifier is deliberately not narrowed: an append-only, undeletable kind (Receipt, AuditRecord, RunCommit) simply never fires release, which is consistent rather than a gap. The declaration site is likewise settled \u2014 the \u00a78.4 rule 6 ownership map (artifacts/records/*.json) gains a retention column naming the ContentRef-bearing field and its retention owner, not a new artifact",
-        "The denominator is smaller and sharper than the earlier note's 136: the registry holds 137 rows, but an AST walk of every registered record class (own properties, constructor parameters, and <Symbol>Init shapes) finds 22 that name a ContentRef directly \u2014 W1 content.owner-edge, content.stat, content.transient-lease, command-envelope; W5 run.checkpoint, run.commit, run.spawn-reservation, turn.record, turn.inbox-entry; W7 workspace.event, workspace.route-reservation, workspace.route-projection, workspace.content-retention-reference; W8 environment.snapshot, slate, slate.version, slate.preview, slate.publication, slate.deployment, slate.resource, slate.deployment-reservation, slate.resource-reservation. Inheritance adds more that the own-class walk misses: W6 invocation.receipt names one through AttemptReceipt.result, and W5's agent.revision, agent.policy-revision, and agent.model-revision name one through their shared revision-record shape. So the real scope is roughly 26 record types across W1, W5, W6, W7, and W8 \u2014 bounded, but genuinely five waves wide",
-        "Retention is implemented for W7's five kinds only (ContentOwnerEdge, ContentRetentionReference, ContentRetention.retain/release/collect). No other insert path registers anything: grep of the tree finds no retain call outside src/workspaces and src/content, so Turn results, checkpoints, run commits, spawn root content, receipts, slate sources, and environment snapshots all name ContentRefs that no retainer owns, and collection cannot see them. This is exactly the half the Lean model declines to claim \u2014 AC-CONTENT-001 proves retention-safety-once-registered and explicitly not registration-on-naming, because registration-on-naming is false in the tree today",
-        "Making the universal true is the work, and it is registration-on-naming, not the column: every store that inserts one of those ~26 record types must register retention in the same transaction, and collection must consult every declared retainer rather than ContentOwnerEdge alone. That touches W1, W5, W6, W7, and W8 store insert paths. The retention column on the ownership map is worth landing first \u2014 it makes the obligation machine-checked and gives the collection step its input \u2014 but on its own it declares the gap rather than closing it, so it does not move this atom"
+        "§8.2's reconciliation stands and the universal quantifier is deliberately not narrowed: an append-only, undeletable kind (Receipt, AuditRecord, RunCommit) simply never fires release, which is consistent rather than a gap. The declaration site is likewise settled — the §8.4 rule 6 ownership map (artifacts/records/*.json) gains a retention column naming the ContentRef-bearing field and its retention owner, not a new artifact",
+        "The denominator is smaller and sharper than the earlier note's 136: the registry holds 137 rows, but an AST walk of every registered record class (own properties, constructor parameters, and <Symbol>Init shapes) finds 22 that name a ContentRef directly — W1 content.owner-edge, content.stat, content.transient-lease, command-envelope; W5 run.checkpoint, run.commit, run.spawn-reservation, turn.record, turn.inbox-entry; W7 workspace.event, workspace.route-reservation, workspace.route-projection, workspace.content-retention-reference; W8 environment.snapshot, slate, slate.version, slate.preview, slate.publication, slate.deployment, slate.resource, slate.deployment-reservation, slate.resource-reservation. Inheritance adds more that the own-class walk misses: W6 invocation.receipt names one through AttemptReceipt.result, and W5's agent.revision, agent.policy-revision, and agent.model-revision name one through their shared revision-record shape. So the real scope is roughly 26 record types across W1, W5, W6, W7, and W8 — bounded, but genuinely five waves wide",
+        "Retention is implemented for W7's five kinds only (ContentOwnerEdge, ContentRetentionReference, ContentRetention.retain/release/collect). No other insert path registers anything: grep of the tree finds no retain call outside src/workspaces and src/content, so Turn results, checkpoints, run commits, spawn root content, receipts, slate sources, and environment snapshots all name ContentRefs that no retainer owns, and collection cannot see them. This is exactly the half the Lean model declines to claim — AC-CONTENT-001 proves retention-safety-once-registered and explicitly not registration-on-naming, because registration-on-naming is false in the tree today",
+        "Making the universal true is the work, and it is registration-on-naming, not the column: every store that inserts one of those ~26 record types must register retention in the same transaction, and collection must consult every declared retainer rather than ContentOwnerEdge alone. That touches W1, W5, W6, W7, and W8 store insert paths. The retention column on the ownership map is worth landing first — it makes the obligation machine-checked and gives the collection step its input — but on its own it declares the gap rather than closing it, so it does not move this atom"
       ]
     },
     {
@@ -54,11 +64,16 @@
       "specTextSha256": "sha256:70080ca902cbfb631950d321227bb8e583f128db7ee7dbbbe68dfc2f416232e8",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/content/store.ts#ContentStore"],
+      "sourceSymbols": [
+        "src/content/store.ts#ContentStore"
+      ],
       "testSelectors": [
         "test/content/sqlite.test.ts#SqliteContentStore [C13-CONTENT-RESOLUTION] resolves content and retention edges after an adapter restart"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -68,11 +83,16 @@
       "specTextSha256": "sha256:80fb9bcada9a0d76261521c3eb046aea00961147925f3ee8a894d19d6ab14e0d",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/protocol/dispatcher.ts#CommandDispatcher"],
+      "sourceSymbols": [
+        "src/protocol/dispatcher.ts#CommandDispatcher"
+      ],
       "testSelectors": [
         "test/protocol/ingress.test.ts#[C13-PROTOCOL-ATOMIC-EVIDENCE] oversized submitted payload is deterministic malformed evidence"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -82,11 +102,16 @@
       "specTextSha256": "sha256:3a0b1d19765960642efbeb98fa593244250866930937bb8299e87cca8c35aafb",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/protocol/dispatcher.ts#CommandDispatcher"],
+      "sourceSymbols": [
+        "src/protocol/dispatcher.ts#CommandDispatcher"
+      ],
       "testSelectors": [
         "test/protocol/dispatcher.test.ts#[C13-PROTOCOL-DUPLICATE] rejects a forged prepared payload without running command mutation"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -96,13 +121,18 @@
       "specTextSha256": "sha256:bb23800e6b014023aa04c0dcebfdf5df5a6a92f87e60d291fe7a41f4b1696f32",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/protocol/dispatcher.ts#CommandDispatcher"],
+      "sourceSymbols": [
+        "src/protocol/dispatcher.ts#CommandDispatcher"
+      ],
       "testSelectors": [
         "test/protocol/codec.test.ts#CommandEnvelope codec [C13-PROTOCOL-EXACT-ENVELOPE] [command-envelope] round-trips absent optional fields and every Actor caller kind",
         "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant",
         "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -112,25 +142,35 @@
       "specTextSha256": "sha256:35866391fac7f58b02644ee134ac4648e23f11ec18cd21ff27687d36a0da9812",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/protocol/dispatcher.ts#CommandDispatcher"],
+      "sourceSymbols": [
+        "src/protocol/dispatcher.ts#CommandDispatcher"
+      ],
       "testSelectors": [
         "test/protocol/dispatcher.test.ts#[C13-PROTOCOL-OUTCOMES] [actor-local-store] [protocol-persistence] memory and SQLite Actor/protocol persistence compositions expose identical outcomes"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
       "id": "C13-PROTOCOL-REJECTION-ROOT",
       "owner": "W1",
       "specAnchor": "C13-PROTOCOL-REJECTION-ROOT",
-      "specTextSha256": "sha256:70d0394eba47880f818b628defdc0fdee3e6392965b7c8267f56c8254d604e79",
+      "specTextSha256": "sha256:009f2a8779362518921ccd509e077f1d2771ca5d328906b7c381c5f40a066b38",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/protocol/dispatcher.ts#CommandDispatcher"],
+      "sourceSymbols": [
+        "src/protocol/dispatcher.ts#CommandDispatcher"
+      ],
       "testSelectors": [
         "test/protocol/persistence-memory.test.ts#[C13-PROTOCOL-REJECTION-ROOT] audit values reject nested Invocation roots before persistence"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     },
     {
@@ -140,12 +180,17 @@
       "specTextSha256": "sha256:1623757cc1d51507f7bb4c69223de7bd982d95ba30f70a3f1010a607f4f305fe",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/protocol/dispatcher.ts#CommandDispatcher"],
+      "sourceSymbols": [
+        "src/protocol/dispatcher.ts#CommandDispatcher"
+      ],
       "testSelectors": [
         "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) [C13-PROTOCOL-WRITE-AUDIT-LINK] persists only reciprocal WriteRecord and AuditRecord links",
         "test/protocol/persistence-sqlite.test.ts#ProtocolPersistence (SQLite) [C13-PROTOCOL-WRITE-AUDIT-LINK] persists only reciprocal WriteRecord and AuditRecord links"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
       "remainingEvidence": []
     }
   ]
