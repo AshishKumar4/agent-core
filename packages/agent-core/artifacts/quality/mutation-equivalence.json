@@ -1,0 +1,61 @@
+{
+  "edition": "1.0.0",
+  "entries": [
+    {
+      "file": "src/identity/scope.ts",
+      "symbol": "encodeScopeRef",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "scope.projectId === undefined",
+      "proof": "ScopeRef's constructor is private and every `new ScopeRef(...)` in the module sits inside one of its own static factories, so kind and the optional ids are always assigned together, at four sites and nowhere else. The only site that yields kind \"project\" is ScopeRef.project(tenantId, projectId), whose projectId parameter is a required ProjectId; no factory can build a project scope with an absent projectId, and decodeScopeRef reaches the class only through those same factories. Control arrives at this guard only after the kind \"tenant\" branch has returned, so the scope here is a project scope and scope.projectId === undefined is constantly false. Replacing the test with false therefore selects the identical branch on every input. The complementary mutant that replaces it with true, which would throw for every project scope, is killed — the outward signature of an unreachable guard."
+    },
+    {
+      "file": "src/identity/scope.ts",
+      "symbol": "encodeScopeRef",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ throw new TypeError(\"Project scope requires a Project ID\"); }",
+      "proof": "This block is the throw guarded by scope.projectId === undefined, and that condition is constantly false for the reason recorded against the condition itself: kind \"project\" is reachable only through ScopeRef.project, which requires a ProjectId. A block that never executes contributes no value, no exception, and no effect to any observation, so emptying it cannot change what any caller sees. Stryker reports this mutant as NoCoverage rather than Survived because no test executes it, which is a consequence of the unreachability rather than a coverage gap some future test could close."
+    },
+    {
+      "file": "src/identity/scope.ts",
+      "symbol": "encodeScopeRef",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"Project scope requires a Project ID\"",
+      "proof": "The mutated literal is the message argument of a TypeError constructed only inside the unreachable project-id guard. Because that guard's condition is constantly false, the TypeError is never constructed and the literal is never read, so replacing it with the empty string changes no value any caller, log, or assertion can observe. This is a strictly stronger claim than the message-text tolerance the classifier grants reachable throw sites: the string is not merely unasserted, it is never materialized, and a test that pinned it would be asserting on a value the program cannot produce."
+    },
+    {
+      "file": "src/identity/scope.ts",
+      "symbol": "encodeScopeRef",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "scope.workspaceId === undefined",
+      "proof": "ScopeKind is a closed union of three members, and control reaches this guard only after the tenant and project branches have returned, so scope.kind is \"workspace\" here. The only factory that produces a workspace scope is ScopeRef.workspace, whose implementation passes either requireWorkspace(projectOrWorkspace) — which returns a WorkspaceId or throws — or the workspace argument on the branch where it has already been tested as defined. Neither path can store an absent workspaceId, so the condition is constantly false and replacing it with false selects the same branch on every input. The complementary mutant replacing it with true, which would reject every workspace scope, is killed."
+    },
+    {
+      "file": "src/identity/scope.ts",
+      "symbol": "encodeScopeRef",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ throw new TypeError(\"Workspace scope requires a Workspace ID\"); }",
+      "proof": "The guarded block throws for a workspace scope carrying no workspace id, a state ScopeRef.workspace cannot construct: both of its paths resolve the id through requireWorkspace or through the workspace argument on the branch where it is already known to be defined. The block is therefore unreachable, and emptying an unreachable block cannot change any observable behavior. Stryker reports it as NoCoverage because no test executes it, which is the expected signature of unreachability rather than a missing test."
+    },
+    {
+      "file": "src/identity/scope.ts",
+      "symbol": "encodeScopeRef",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"Workspace scope requires a Workspace ID\"",
+      "proof": "This literal is the message of a TypeError constructed only inside the unreachable workspace-id guard in encodeScopeRef, so it is never materialized and emptying it is unobservable. The identical literal also appears in requireWorkspace, where it is reachable and its own mutant is killed by the tests that drive ScopeRef.workspace with a non-workspace id. The entry is anchored to the enclosing symbol precisely so this proof cannot be read as covering that other site: the two literals are the same text and different facts."
+    },
+    {
+      "file": "src/identity/scope.ts",
+      "symbol": "ScopeRef.equals",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "this.kind === other.kind",
+      "proof": "kind is a function of which optional ids a ScopeRef holds. The private constructor is reached only from the three factories, which produce \"tenant\" with neither id, \"project\" with a projectId and no workspaceId, and \"workspace\" with a workspaceId, so the pair (projectId defined, workspaceId defined) determines kind uniquely: (false, false) is tenant, (true, false) is project, and anything holding a workspaceId is workspace. optionalIdEquals returns true only when its two operands agree on definedness, so the two conjuncts that follow this one force both receivers into the same row of that table and hence to the same kind. The kind comparison is therefore implied by the conjuncts after it, and replacing it with true cannot change the value of the chain. Nor can it change anything else: the conjuncts the original short-circuited away are TextId.equals calls, which are total and pure and return false rather than throwing for a mismatched id type. The mutants replacing this test with false, and the equality operator with !==, are both killed."
+    }
+  ]
+}

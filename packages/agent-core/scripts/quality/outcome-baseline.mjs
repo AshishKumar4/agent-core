@@ -111,8 +111,8 @@ export function verifyOutcomeLedger(resolutions, baseline, root = repositoryRoot
 
 // Rebuilds the baseline from the ledger. New verifiable evidence and restored
 // ratifications re-pin freely; every regression — a rewritten record, a removed
-// record, or a ratification recorded or discovered beyond verification — demands one
-// explicit reason, mirroring the mutation ratchet's --accept-regression.
+// record, or a ratification recorded or discovered beyond verification — is named
+// individually and carries its reason on the record it degraded.
 export function updateOutcomeBaseline(resolutions, previous, reason, root = repositoryRoot) {
     const before = new Map((previous?.outcomes ?? []).map((entry) => [entry.source, entry]));
     const regressions = [];
