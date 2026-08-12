@@ -248,7 +248,7 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "src/authority/materializer.ts#RoleGrantMaterializer already refuses to materialize Grants for a `handshake`-stamped foreign subject, and src/identity/guest-verification.ts#GuestVerification refuses to mint a handshake verification; W2 must cite those symbols and add a test titled with [C13-AUTH-GUEST-HANDSHAKE-BOOTSTRAP] before this atom leaves planned"
+        "The behaviour is implemented and already tested, but under the atom this split it out of: test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane [C13-AUTH-GUEST-VERIFICATION] never materializes a subject still stamped handshake proves exactly this claim, and src/authority/materializer.ts#RoleGrantMaterializer plus src/identity/guest-verification.ts#GuestVerification implement it. W2 should relabel that test to [C13-AUTH-GUEST-HANDSHAKE-BOOTSTRAP], move the selector off C13-AUTH-GUEST-VERIFICATION onto this atom with those source symbols, and then mark it verified"
       ]
     },
     {

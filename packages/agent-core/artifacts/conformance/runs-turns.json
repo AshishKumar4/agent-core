@@ -287,7 +287,7 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "src/agents/runs/ceiling.ts folds each dimension's remainder, src/agents/runs/runtime.ts#remainingResourcesInTransaction walks the spawn lineage for it, and src/agents/runs/run.ts#Run.recordTokens keeps the durable per-Run token total; W5 must cite those symbols and add a test titled with [C13-RUN-CEILING-REMAINDER] that distinguishes a derived remainder from a separately accounted one before this atom leaves planned"
+        "src/agents/runs/ceiling.ts folds each dimension's remainder, src/agents/runs/runtime.ts#remainingResourcesInTransaction walks the spawn lineage for it, and src/agents/runs/run.ts#Run.recordTokens keeps the durable per-Run token total. test/agents/runs/ceiling.test.ts exercises remainingResources today, but only under [C13-RUN-RESOURCE-CEILING], and no test yet distinguishes a derived depth or wall-clock remainder from a separately accounted one. W5 must add a test titled with [C13-RUN-CEILING-REMAINDER] that does, and cite those symbols, before this atom leaves planned"
       ]
     },
     {
