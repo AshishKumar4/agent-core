@@ -8,9 +8,15 @@
       "reason": "Platform callbacks surface thrown values and bindings that Workers types leave open."
     },
     {
+      "file": "packages/agent-core-cloudflare/src/authored-code.ts",
+      "kind": "unknown",
+      "count": 6,
+      "reason": "Agent-authored code is the untyped side of the isolate boundary: its entry point arrives from the platform and is narrowed by a predicate, the value it returns is proved to be data before it leaves, both published entry-point contracts return it, and a dispatch namespace binding's service type is the host's to state."
+    },
+    {
       "file": "packages/agent-core-cloudflare/src/deployment.ts",
       "kind": "unknown",
-      "count": 2,
+      "count": 1,
       "reason": "Platform callbacks surface thrown values and bindings that Workers types leave open."
     },
     {
@@ -34,8 +40,8 @@
     {
       "file": "packages/agent-core-cloudflare/src/loader.ts",
       "kind": "unknown",
-      "count": 17,
-      "reason": "The module loader receives an entrypoint and an environment from the platform's dynamic import, and disposes resources whose types it never learns."
+      "count": 14,
+      "reason": "The module loader receives an entrypoint from the platform's dynamic import and disposes resources whose types it never learns."
     },
     {
       "file": "packages/agent-core-cloudflare/src/queue.ts",

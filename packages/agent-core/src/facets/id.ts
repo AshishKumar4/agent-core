@@ -24,6 +24,18 @@ export class BindingName extends TextId {
     }
 }
 
+// A hosting mechanism for a `dynamic` domain, named by the substrate profile that
+// offers it (SPEC §4.7). The identifier is opaque here on purpose: the SPEC fixes no
+// enum of backings, so a profile may offer any backing it can hold to the same
+// authority semantics.
+export class AuthoredCodeBackingId extends TextId {
+    public constructor(value: string) {
+        super(value, "Agent-authored code backing ID");
+        requireCanonicalId(value, "Agent-authored code backing ID");
+        Object.freeze(this);
+    }
+}
+
 export class OperationName extends TextId {
     public constructor(value: string) {
         super(value, "Operation name");

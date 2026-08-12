@@ -1,14 +1,23 @@
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
+import type { PassedCapabilities } from "./passed-capability.js";
 
 export interface DynamicWorkerSource {
     readonly compatibilityDate: string;
+    readonly compatibilityFlags?: readonly string[];
     readonly mainModule: string;
     readonly modules: Readonly<Record<string, string>>;
 }
 
-export interface DynamicWorkerLoadOptions extends DynamicWorkerSource {
-    readonly env: Readonly<Record<string, unknown>>;
+export interface DynamicWorkerLoadOptions extends Omit<DynamicWorkerSource, "compatibilityFlags"> {
+    // Mutable to match the platform's own binding type, which the host satisfies
+    // structurally; the adapter is the only writer and copies before handing it over.
+    readonly compatibilityFlags?: string[];
+    // An isolate's whole environment is the delegated capability set: one entry per
+    // passed Binding, typed so nothing that is not one can be put there. Worker Loader
+    // serializes `env`, which is why a passed capability is an entrypoint stub built
+    // from data rather than a live host object (see passed-capability.ts).
+    readonly env: PassedCapabilities;
     readonly globalOutbound: null;
 }
 
@@ -26,46 +35,27 @@ export interface DynamicWorkerScope<Entrypoint> extends Disposable {
 }
 
 export class DynamicWorkerLoaderAdapter {
-    readonly #allowedCapabilities: ReadonlySet<string>;
-
     public constructor(
         private readonly loader: WorkerLoaderBindingLike,
-        allowedCapabilities: readonly string[],
         private readonly errors: CloudflareErrorPort
-    ) {
-        if (allowedCapabilities.some((name) => name.length === 0)) {
-            throw new TypeError("Dynamic Worker capability names must be non-empty");
-        }
-        if (new Set(allowedCapabilities).size !== allowedCapabilities.length) {
-            throw new TypeError("Dynamic Worker capability allowlist must not contain duplicates");
-        }
-        this.#allowedCapabilities = new Set(allowedCapabilities);
-    }
+    ) {}
 
     public load<Entrypoint>(
         source: DynamicWorkerSource,
-        capabilities: Readonly<Record<string, unknown>>,
+        capabilities: PassedCapabilities,
         createEntrypoint: (entrypoint: unknown) => Entrypoint
     ): DynamicWorkerScope<Entrypoint> {
         validateSource(source);
-        const env: Record<string, unknown> = {};
-        for (const [name, capability] of Object.entries(capabilities)) {
-            if (!this.#allowedCapabilities.has(name)) {
-                operationalFailure(
-                    this.errors,
-                    "authority.denied",
-                    `Dynamic Worker capability ${name} is not allowlisted`
-                );
-            }
-            env[name] = capability;
-        }
         let worker: DynamicWorkerHandleLike;
         try {
             worker = this.loader.load({
                 compatibilityDate: source.compatibilityDate,
+                ...(source.compatibilityFlags === undefined
+                    ? {}
+                    : { compatibilityFlags: [...source.compatibilityFlags] }),
                 mainModule: source.mainModule,
                 modules: Object.freeze({ ...source.modules }),
-                env: Object.freeze(env),
+                env: Object.freeze({ ...capabilities }),
                 globalOutbound: null
             });
         } catch (cause) {
