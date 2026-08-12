@@ -65,7 +65,7 @@ export class EffectDispatch {
         public readonly idempotencyKey: string,
         public readonly attempt: EffectDispatchAttempt | undefined = undefined
     ) {
-        if (idempotencyKey.trim().length === 0 || idempotencyKey !== idempotencyKey.trim()) {
+        if (idempotencyKey.length === 0 || idempotencyKey !== idempotencyKey.trim()) {
             throw new TypeError("Effect dispatch idempotency key must be canonical");
         }
         if (attempt !== undefined && attempt.constructor !== EffectDispatchAttempt) {
@@ -90,7 +90,7 @@ export class ProfileEffectContext {
         if (!Number.isSafeInteger(itemIndex) || itemIndex < 0) {
             throw new TypeError("Profile effect item index must be a non-negative safe integer");
         }
-        if (idempotencyKey.trim().length === 0 || idempotencyKey !== idempotencyKey.trim()) {
+        if (idempotencyKey.length === 0 || idempotencyKey !== idempotencyKey.trim()) {
             throw new TypeError("Profile effect idempotency key must be canonical");
         }
         const attempted =

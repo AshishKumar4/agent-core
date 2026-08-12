@@ -40,7 +40,7 @@ export class ApprovalGatewayAction {
         public readonly resource: string,
         action: JsonValue
     ) {
-        if (resource.trim().length === 0 || resource !== resource.trim()) {
+        if (resource.length === 0 || resource !== resource.trim()) {
             throw new TypeError("Approved resource must be canonical");
         }
         this.action = canonicalFacetData(action);

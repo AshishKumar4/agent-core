@@ -157,9 +157,7 @@ export class MemoryMcpDiscoveryRegistrationStore extends McpDiscoveryRegistratio
     }
 
     public load(): McpDiscoveryRegistration | undefined {
-        return this.#bytes === undefined
-            ? undefined
-            : McpDiscoveryRegistration.decode(this.#bytes.slice());
+        return this.#bytes === undefined ? undefined : McpDiscoveryRegistration.decode(this.#bytes);
     }
 
     public save(registration: McpDiscoveryRegistration): void {
@@ -555,7 +553,7 @@ export class McpDiscoveryError extends DetailedProfileError<McpDiscoveryErrorCod
 }
 
 function requireUniqueName(name: string, names: Set<string>): void {
-    if (name.trim().length === 0 || name !== name.trim() || names.has(name)) {
+    if (name.length === 0 || name !== name.trim() || names.has(name)) {
         throw new McpDiscoveryError(
             "name.duplicate",
             "MCP operation names must be nonblank and unique"

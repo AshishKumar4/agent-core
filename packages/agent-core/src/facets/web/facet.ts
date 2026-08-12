@@ -306,7 +306,7 @@ export class WebBackend {
     }
 
     public readCached(key: string): WebResponse | undefined {
-        if (key.trim().length === 0 || key !== key.trim()) {
+        if (key.length === 0 || key !== key.trim()) {
             throw new WebPolicyError("cache.invalid", "Web cache key must be canonical");
         }
         const response = this.cache.read(key);

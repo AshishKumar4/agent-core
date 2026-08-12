@@ -700,7 +700,7 @@ function pairKey(deviceId: DeviceId, agentId: PrincipalRef): string {
 }
 
 function requireNonblank(value: string, subject: string): void {
-    if (value.trim().length === 0 || value !== value.trim()) {
+    if (value.length === 0 || value !== value.trim()) {
         throw new DeviceError("command.invalid", `${subject} must be canonical`);
     }
 }

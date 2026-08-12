@@ -268,12 +268,10 @@ function validatePlacements(
             });
         })
     );
-    placements.sort(
-        (left, right) =>
-            compareText(left.packageId, right.packageId) ||
-            compareText(left.facetId, right.facetId) ||
-            compareText(left.facetVersion, right.facetVersion)
-    );
+    // Already canonical by (packageId, facetId, facetVersion): PackageLock sorts its pins
+    // by package ID and PackageRelease sorts its manifests by ID then version, so the
+    // flat map walks those two orders in that order. Re-sorting here would only restate
+    // it, and the placement digest depends on the two sorts either way.
     return Object.freeze(placements);
 }
 
@@ -382,9 +380,7 @@ function validateDeclarations(
     for (const manifest of manifests) {
         for (const contribution of manifest.contributions.entries) {
             for (const [index, value] of contribution.entries.entries()) {
-                if (CORE_SLOT_NAMES.has(contribution.slot.value)) {
-                    validateCoreContribution(contribution.slot.value, value);
-                }
+                validateCoreContribution(contribution.slot.value, value);
                 const slot = slots.get(contribution.slot.value);
                 if (!CORE_SLOT_NAMES.has(contribution.slot.value) && slot === undefined) {
                     throw invalidDefinition(
@@ -410,6 +406,13 @@ function validateDeclarations(
     return Object.freeze(declarations);
 }
 
+// The switch selects the kinds it knows how to check, so it needs no caller-side test
+// against CORE_SLOT_NAMES: a contribution to any other slot matches no case. Two core
+// kinds are absent on purpose. A "settings" contribution is validated by
+// composeConfigSchema, which reads every one of them as a schema fragment before this
+// runs and refuses a non-document with the same words; a "slots" contribution is
+// validated by the SlotDeclaration.fromData pass above, which decodes every one of them
+// to register the slot. Repeating either here would decide nothing.
 function validateCoreContribution(slot: string, value: FacetData): void {
     switch (slot) {
         case "automations":
@@ -432,12 +435,6 @@ function validateCoreContribution(slot: string, value: FacetData): void {
             break;
         case "prompt":
             validatePromptContribution(value);
-            break;
-        case "settings":
-            requireSchemaDocument(value);
-            break;
-        case "slots":
-            SlotDeclaration.fromData(value);
             break;
         case "surfaces":
             SurfaceDescriptor.fromData(value);
@@ -515,14 +512,6 @@ function validateOwnerDeclarations(
             }
         }
     }
-}
-
-function requireSchemaDocument(value: FacetData): void {
-    if (typeof value === "boolean") return;
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw invalidDefinition("Settings contribution must be a JSON Schema object or boolean");
-    }
-    new JsonSchema(value as FacetDataMap);
 }
 
 function compareManifests(left: FacetManifest, right: FacetManifest): number {

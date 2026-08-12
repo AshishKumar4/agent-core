@@ -42,7 +42,7 @@ export class MemoryWorkspaceSlotStore extends WorkspaceSlotStore<MemorySlotState
         const state = emptyState();
         state.revision = snapshot.revision;
         for (const bytes of snapshot.slots) {
-            const declaration = SlotDeclaration.decode(bytes.slice());
+            const declaration = SlotDeclaration.decode(bytes);
             if (state.slots.has(declaration.name.value)) {
                 throw corrupt(
                     "Memory Workspace Slot snapshot contains duplicate Slot declarations"
@@ -51,7 +51,7 @@ export class MemoryWorkspaceSlotStore extends WorkspaceSlotStore<MemorySlotState
             insertImmutable(state.slots, declaration.name.value, bytes, "Slot declaration");
         }
         for (const bytes of snapshot.entries) {
-            const entry = SlotEntry.decode(bytes.slice());
+            const entry = SlotEntry.decode(bytes);
             requireEntryClosure(state, entry);
             if (state.entries.has(entry.id.value)) {
                 throw corrupt("Memory Workspace Slot snapshot contains duplicate Slot entries");
@@ -127,7 +127,7 @@ export class MemoryWorkspaceSlotStore extends WorkspaceSlotStore<MemorySlotState
         this.requireActive(transaction);
         return Object.freeze(
             [...transaction.entries.values()]
-                .map((bytes) => SlotEntry.decode(bytes.slice()))
+                .map((bytes) => SlotEntry.decode(bytes))
                 .filter((entry) => entry.slot.equals(slot))
                 .sort(compareEntries)
         );
@@ -173,14 +173,14 @@ function cloneState(state: MemorySlotState): MemorySlotState {
 }
 
 function decodeSlot(bytes: Uint8Array, key: string): SlotDeclaration {
-    const value = SlotDeclaration.decode(bytes.slice());
+    const value = SlotDeclaration.decode(bytes);
     if (value.name.value !== key)
         throw corrupt("Stored Slot declaration key does not match codec bytes");
     return value;
 }
 
 function decodeEntry(bytes: Uint8Array, key: string): SlotEntry {
-    const value = SlotEntry.decode(bytes.slice());
+    const value = SlotEntry.decode(bytes);
     if (value.id.value !== key) throw corrupt("Stored Slot entry key does not match codec bytes");
     return value;
 }
@@ -201,7 +201,7 @@ function requireEntryClosure(state: MemorySlotState, entry: SlotEntry): void {
 
 function requireUniqueOrigin(state: MemorySlotState, entry: SlotEntry): void {
     const conflict = [...state.entries.values()]
-        .map((bytes) => SlotEntry.decode(bytes.slice()))
+        .map((bytes) => SlotEntry.decode(bytes))
         .find(
             (candidate) =>
                 candidate.slot.equals(entry.slot) &&

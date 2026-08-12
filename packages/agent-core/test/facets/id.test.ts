@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+    AuthoredCodeBackingId,
     BindingName,
     EventKind,
     FacetPackageId,
@@ -65,5 +66,26 @@ describe("Facet identifier vocabulary", () => {
         expect(new FacetRef("ab.cd:ef.gh").value).toBe("ab.cd:ef.gh");
         expect(new FacetRef("a-b2:c-d3").value).toBe("a-b2:c-d3");
         expect(() => new FacetRef("Upper:case")).toThrow(/canonical segments/);
+    });
+
+    test("requires exactly one interior facet reference separator", { tags: "p1" }, () => {
+        const separatorShape = /canonical segments/;
+        expect(() => new FacetRef("noseparator")).toThrow(separatorShape);
+        expect(() => new FacetRef(":instance")).toThrow(separatorShape);
+        expect(() => new FacetRef("facet:")).toThrow(separatorShape);
+        expect(() => new FacetRef("facet:instance:extra")).toThrow(separatorShape);
+        expect(() => new FacetRef(" facet:instance")).toThrow(
+            "Facet reference must be a nonblank canonical string"
+        );
+    });
+
+    test("names the agent-authored code backing subject in its own errors", { tags: "p2" }, () => {
+        expect(() => new AuthoredCodeBackingId("")).toThrow(
+            "Agent-authored code backing ID must contain between 1 and 256 characters"
+        );
+        expect(() => new AuthoredCodeBackingId(" durable-object")).toThrow(
+            "Agent-authored code backing ID must be a nonblank canonical string"
+        );
+        expect(new AuthoredCodeBackingId("durable-object").value).toBe("durable-object");
     });
 });
