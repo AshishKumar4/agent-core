@@ -45,19 +45,40 @@ evidence agree where applicable.
 
 ## P1 — missing normative implementation
 
-- [~] **Implement the concrete Turn host and agent harness.** HOST DONE, HARNESS OPEN.
-  `TurnExecutorHost` binds tools, streams ephemeral output, checkpoints, recovers, and
-  settles the exact leased Turn through canonical Run records. The integration-ledger
-  entry now cites this host and its adversarial tests instead of unrelated Run-frontier
-  evidence. It does NOT call a model: `TurnModelPort` is an abstract class and no
-  implementation of it exists in `src/`, so nothing in this repo reaches a provider.
-  That is correct for the kernel — §5.6 specifies no loop — but it means the harness
-  half of this item is untouched. Binding pi's `runAgentLoop` behind the port is the
-  remaining work, and the item stays open until it exists.
+- [~] **Implement the concrete Turn host and agent harness.** HOST DONE, HARNESS
+  STARTED. `TurnExecutorHost` binds tools, streams ephemeral output, checkpoints,
+  recovers, and settles the exact leased Turn through canonical Run records. The kernel
+  still reaches no provider, which is correct for §5.6. `@agent-core/harness` now
+  supplies the missing side: a `Transcript` record and codec, a `ModelProvider` seam
+  with an OpenAI-compatible implementation for Workers AI and AI Gateway, a
+  `TranscriptTurnModelPort`, and an `AgentLoopTurnExecutor` whose every tool call goes
+  through `TurnInvocationHandle` under a request key derived from Turn, step, and
+  tool-call id. What remains is the mediated half — see the two entries below, which
+  block any tool call from producing a real Receipt outside core's own test tree.
 - [x] **Make the executor boundary typed and public.** `TurnBoundTool` uses the existing
       `OperationDescriptor` source of truth, and the supported Run export exposes
       lease-scoped prompt/content, inbox, invocation, commit, checkpoint, cancellation,
       model-call, usage, and stream contracts.
+- [ ] **Give the mediation pipeline a production assembly.** `CanonicalBatchInvocationPort`
+      is real, but four of its collaborators have implementations only in
+      `test/integration/canonical-batch-harness.ts`: `CanonicalBatchPreparationPort`,
+      `CanonicalBatchRecordPort`, `MediatedInvocationIdentityPort`, and
+      `DirectOperationContextPort`. Nothing in `src/` mints an InvocationId, ItemClaimId,
+      EffectAttemptId, ReceiptId, or the AuditRecord causes that link them. Until those
+      exist beside `composition/permit.ts` and `composition/device-consent.ts`, no
+      Invocation, Receipt, or AuditRecord can be produced outside a test double.
+- [ ] **Make the mediated pipeline constructible by a consumer.** `OperationGatewayHost`,
+      `FacetRuntimeHost`, `TenantOperationAuthority`, and `InvocationComposition` appear
+      on no published subpath, so an external package can implement every mediation port
+      and still be unable to build the `OperationGateway` that `GatewayTurnInvocationPort`
+      requires. Decide which of these is a supported composition surface and publish it,
+      or provide one composition entry point that assembles them.
+- [ ] **Give a running Turn a cancellation entry point.** §5.6 says fencing a Turn
+      delivers the reserved `turn.cancel` inbox Event, but `RunRuntime.deliverEvent`
+      rejects that event outright and `appendCancellation` is reachable only from
+      `cancelHeldTurn` and from system force-cancellation during Run terminalization.
+      An ordinary stop request against a running Turn therefore has no entry point, and
+      `TurnOutcomeHandle.cancel` cannot be reached by a conforming executor.
 - [ ] **Implement all interceptor cut points through one engine.** Only
       `operation.before` and `operation.after` execute. `prompt.assemble`,
       `input.submitted`, and `turn.step` are declarations without runtime behavior.
