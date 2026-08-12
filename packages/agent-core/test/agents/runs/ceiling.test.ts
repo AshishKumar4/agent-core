@@ -334,6 +334,59 @@ describe("Run resource ceilings", () => {
     );
 
     it(
+        "[C13-RUN-RESOURCE-CEILING] refuses to name an exhausted dimension for a Run under no ceiling",
+        { tags: "p0" },
+        () => {
+            // A Run nobody spawned has no declared ceiling anywhere, so it has no remainder
+            // to read a dimension out of. Claiming exhaustion has to be refused as a denial
+            // an operator can act on, rather than faulting on the absent remainder.
+            const root = seedRunningTurn();
+            expect(root.runtime.remainingResources(ids.run, new Date(1_600))).toBeUndefined();
+
+            const terminal = new RunCommit({
+                id: new RunCommitId("commit-unbounded-result"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "result",
+                parents: [ids.root],
+                pins: pins(),
+                writer: { kind: "turn", token: root.token },
+                subjectTurn: root.token.turn,
+                content: content("7")
+            });
+
+            try {
+                root.runtime.terminalizeRun({
+                    run: ids.run,
+                    turn: root.token.turn,
+                    expectedRunRevision: root.repository.transaction(
+                        (tx) => root.repository.loadRun(tx, ids.run)!.revision
+                    ),
+                    expectedTurnRevision: new Revision(1),
+                    expectedBranchRevision: new Revision(0),
+                    token: root.token,
+                    outcome: "cancelled",
+                    commit: terminal,
+                    exhausted: "tokens",
+                    siblingCancellations: new Map(),
+                    now: new Date(1_600)
+                });
+                throw new Error("Expected the terminalization to be refused");
+            } catch (error) {
+                expect(error).toBeInstanceOf(AgentCoreError);
+                expect((error as AgentCoreError).code).toBe("run.invalid-state");
+                expect((error as AgentCoreError).message).toBe(
+                    "Terminal exhaustion names a dimension with allowance left"
+                );
+            }
+            expect(
+                root.repository.transaction((tx) => root.repository.loadRun(tx, ids.run)!).lifecycle
+                    .kind
+            ).toBe("active");
+        }
+    );
+
+    it(
         "[C13-RUN-RESOURCE-CEILING] binds the ceiling to the attenuation content the reservation digests",
         { tags: "p0" },
         () => {
@@ -403,6 +456,63 @@ describe("Run resource ceilings", () => {
         );
         expect(widensResourceCeiling(undefined, new ResourceCeiling({ tokens: 1 }))).toBe(false);
     });
+
+    it(
+        "[C13-RUN-RESOURCE-CEILING] carries exactly the dimensions it declares through data and back",
+        { tags: "p1" },
+        () => {
+            // A ceiling that declares one dimension leaves the other two undeclared, which
+            // is unbounded rather than zero. Everything downstream reads that distinction
+            // off `entries`, so a ceiling that reported an entry per dimension — declared or
+            // not — would encode limits the declarer never wrote.
+            const partial = new ResourceCeiling({ tokens: 5 });
+            expect(partial.entries).toEqual([["tokens", 5]]);
+            expect(partial.declared).toEqual(["tokens"]);
+            expect(partial.toData()).toEqual({ tokens: 5 });
+            expect(ResourceCeiling.fromData(partial.toData()).equals(partial)).toBe(true);
+
+            // Declaration order does not follow the object's key order: entries walk the
+            // declared dimension list, so a ceiling written in any order reads the same.
+            expect(new ResourceCeiling({ wallClockMs: 9, depth: 1 }).declared).toEqual([
+                "depth",
+                "wallClockMs"
+            ]);
+
+            expect(() => ResourceCeiling.fromData({ tokens: "5" } as never)).toThrow(
+                "Resource ceiling tokens must be a non-negative safe integer"
+            );
+            expect(() => ResourceCeiling.fromData({ depth: -1 } as never)).toThrow(
+                "Resource ceiling depth must be a non-negative safe integer"
+            );
+        }
+    );
+
+    it(
+        "[C13-RUN-RESOURCE-CEILING] digests a ceiling only through the exact ceiling class",
+        { tags: "p0" },
+        () => {
+            // The reservation commits to a digest of this record, so a ceiling that could
+            // override how it renders itself would let the attenuation the spawn is checked
+            // against differ from the one it encodes.
+            class WidenedCeiling extends ResourceCeiling {
+                public override limit(): number {
+                    return Number.MAX_SAFE_INTEGER;
+                }
+            }
+            expect(
+                () => new SpawnAttenuation({ ceiling: new WidenedCeiling({ tokens: 1 }) })
+            ).toThrow("Spawn attenuation ceiling must use the exact context class");
+            expect(
+                new SpawnAttenuation({ ceiling: new ResourceCeiling({ tokens: 1 }) }).ceiling
+            ).toBeDefined();
+
+            // The attenuation declares `ceiling` and nothing else, so any other key is
+            // refused whatever it is named.
+            expect(() =>
+                SpawnAttenuation.fromData({ ceiling: null, "Stryker was here": 1 } as never)
+            ).toThrow("Spawn attenuation contains missing or unknown fields");
+        }
+    );
 
     it(
         "[C13-RUN-RESOURCE-CEILING] narrows a child when the parent spends after the spawn",

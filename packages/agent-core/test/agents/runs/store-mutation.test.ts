@@ -1,15 +1,34 @@
 import { describe, expect, test } from "vitest";
+import { ContentRef, Revision } from "../../../src/core";
 import { AgentCoreError } from "../../../src/errors";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
 import { ReceiptId } from "../../../src/invocation-references";
 import { AuditRecordId, EventId } from "../../../src/interaction-references";
 import { RunCommit } from "../../../src/agents/runs/commit";
 import { ForcedTurnCancellation } from "../../../src/agents/runs/forced-cancellation";
-import { RunId, TurnInboxEntryId } from "../../../src/agents/runs/id";
-import { MemoryRunStorage } from "../../../src/agents/runs/memory";
+import {
+    RunCheckpointId,
+    RunId,
+    SpawnReservationId,
+    TurnInboxEntryId
+} from "../../../src/agents/runs/id";
+import { MemoryRunStorage, type MemoryRunStorageSnapshot } from "../../../src/agents/runs/memory";
+import { RunBranch } from "../../../src/agents/runs/run";
+import { SpawnReservation } from "../../../src/agents/runs/spawn";
 import { RunRepository } from "../../../src/agents/runs/store";
-import { TurnInboxEntry } from "../../../src/agents/runs/turn";
-import { content, digest, genesis, harness, ids, pins, refs } from "./fixture";
+import { RunCheckpoint, RunCheckpointCodec, TurnInboxEntry } from "../../../src/agents/runs/turn";
+import {
+    attenuationDigest,
+    content,
+    digest,
+    genesis,
+    harness,
+    ids,
+    pins,
+    refs,
+    seedRunningTurn
+} from "./fixture";
+import { SpawnAttenuation } from "../../../src/agents/runs/ceiling";
 
 function expectCode(
     label: string,
@@ -86,6 +105,346 @@ function cancellation(run: RunId, suffix: string): ForcedTurnCancellation {
     });
 }
 
+const CHECKPOINT = new RunCheckpointId("scope-checkpoint");
+const CHECKPOINT_COMMIT = new RunCommitId("scope-checkpoint-commit");
+const CHECKPOINT_STATE = content("c");
+const SCOPE_NOW = new Date(3_000);
+
+// The state loadExecutionScope exists to join: a Turn that suspended under one lease and
+// was reclaimed under the next. It is also the only state in which a turn-authored
+// checkpoint commit sits on the branch legitimately — the commit names the epoch that
+// wrote it, and the running token is a later one.
+function resumedTurn(tree?: ContentRef) {
+    const seeded = seedRunningTurn();
+    const commit = new RunCommit({
+        id: CHECKPOINT_COMMIT,
+        run: ids.run,
+        branch: ids.branch,
+        kind: "checkpoint",
+        parents: [ids.root],
+        pins: pins(),
+        writer: { kind: "turn", token: seeded.token },
+        subjectTurn: ids.turn,
+        content: CHECKPOINT_STATE,
+        ...(tree === undefined ? {} : { treeCheckpoint: tree })
+    });
+    seeded.runtime.suspendTurn({
+        turn: ids.turn,
+        expectedTurnRevision: seeded.running.revision,
+        expectedBranchRevision: new Revision(0),
+        token: seeded.token,
+        checkpoint: new RunCheckpoint(CHECKPOINT, ids.turn, commit.id, CHECKPOINT_STATE, 0, tree),
+        commit,
+        now: new Date(2_000)
+    });
+    const suspended = seeded.repository.transaction((tx) =>
+        seeded.repository.loadTurn(tx, ids.turn)!
+    );
+    const resumed = seeded.runtime.claimTurn(
+        ids.turn,
+        suspended.revision,
+        ids.holder,
+        new Date(2_500),
+        new Date(8_000)
+    );
+    return {
+        ...seeded,
+        commit,
+        token: Object.freeze({ turn: ids.turn, holder: ids.holder, epoch: resumed.lease.epoch })
+    };
+}
+
+type StoredRecords = MemoryRunStorageSnapshot["records"];
+
+function restored(
+    snapshot: MemoryRunStorageSnapshot,
+    update: (records: StoredRecords) => StoredRecords
+) {
+    return new RunRepository(
+        new MemoryRunStorage({ ...snapshot, records: update(snapshot.records) })
+    );
+}
+
+function withCheckpoint(snapshot: MemoryRunStorageSnapshot, checkpoint: RunCheckpoint) {
+    return restored(snapshot, (records) =>
+        records.map((row) =>
+            row.kind === "checkpoint"
+                ? { ...row, bytes: RunCheckpointCodec.encode(checkpoint) }
+                : row
+        )
+    );
+}
+
+function without(snapshot: MemoryRunStorageSnapshot, kind: string, key: string) {
+    return restored(snapshot, (records) =>
+        records.filter((row) => !(row.kind === kind && row.key === key))
+    );
+}
+
+function expectScopeRefused<Transaction>(
+    label: string,
+    value: RunRepository<Transaction>,
+    token: Parameters<RunRepository<Transaction>["loadExecutionScope"]>[1],
+    message = "Turn executor scope does not match canonical Run state"
+): void {
+    expectCode(
+        label,
+        () => value.transaction((tx) => value.loadExecutionScope(tx, token, SCOPE_NOW)),
+        "turn.invalid-state",
+        message
+    );
+}
+
+describe("Run execution scope join", () => {
+    test("loads the scope a resumed suspended Turn presents", { tags: "p0" }, () => {
+        const resumed = resumedTurn();
+        const scope = resumed.repository.transaction((tx) =>
+            resumed.repository.loadExecutionScope(tx, resumed.token, SCOPE_NOW)
+        );
+
+        expect(scope.turn.id).toEqual(ids.turn);
+        expect(scope.head.id).toEqual(CHECKPOINT_COMMIT);
+        expect(scope.checkpoint?.id).toEqual(CHECKPOINT);
+        expect(scope.effectiveCommit.id).toEqual(ids.root);
+        expect(Object.isFrozen(scope)).toBe(true);
+    });
+
+    test(
+        "refuses a checkpoint or result commit the running token left on the branch",
+        { tags: "p0" },
+        () => {
+            // A checkpoint or result commit and the Turn transition that pairs with it are
+            // written in one transaction. One on the branch under the token that is still
+            // running means the pair came apart, and resuming against it would replay a
+            // transition the Run has already recorded.
+            for (const kind of ["checkpoint", "result"] as const) {
+                const seeded = seedRunningTurn();
+                const orphan = new RunCommit({
+                    id: new RunCommitId(`scope-unpaired-${kind}`),
+                    run: ids.run,
+                    branch: ids.branch,
+                    kind,
+                    parents: [ids.root],
+                    pins: pins(),
+                    writer: { kind: "turn", token: seeded.token },
+                    subjectTurn: ids.turn,
+                    content: content("b")
+                });
+                seeded.repository.transaction((tx) => {
+                    seeded.repository.insertCommit(tx, orphan);
+                    seeded.repository.replaceBranch(
+                        tx,
+                        new Revision(0),
+                        new RunBranch(ids.branch, ids.run, "main", orphan.id, new Revision(1))
+                    );
+                });
+
+                expectScopeRefused(`unpaired ${kind}`, seeded.repository, seeded.token);
+            }
+        }
+    );
+
+    test("admits a message commit the running token left on the branch", { tags: "p1" }, () => {
+        // The pairing rule is about the two commit kinds that carry a Turn transition.
+        // Message commits are appended freely inside a Turn and must not trip it.
+        const seeded = seedRunningTurn();
+        const appended = new RunCommit({
+            id: new RunCommitId("scope-paired-message"),
+            run: ids.run,
+            branch: ids.branch,
+            kind: "message",
+            parents: [ids.root],
+            pins: pins(),
+            writer: { kind: "turn", token: seeded.token },
+            subjectTurn: ids.turn,
+            content: content("b")
+        });
+        seeded.repository.transaction((tx) => {
+            seeded.repository.insertCommit(tx, appended);
+            seeded.repository.replaceBranch(
+                tx,
+                new Revision(0),
+                new RunBranch(ids.branch, ids.run, "main", appended.id, new Revision(1))
+            );
+        });
+
+        expect(
+            seeded.repository.transaction((tx) =>
+                seeded.repository.loadExecutionScope(tx, seeded.token, SCOPE_NOW)
+            ).head.id
+        ).toEqual(appended.id);
+    });
+
+    test("refuses a checkpoint record whose Turn is not the one resuming", { tags: "p0" }, () => {
+        // Every other joined field still agrees, including the commit's own subjectTurn.
+        // Only the checkpoint's own Turn disagrees, which is the single fact that decides
+        // whether this Turn may resume from this state.
+        const resumed = resumedTurn();
+        const foreign = withCheckpoint(
+            resumed.storage.snapshot(),
+            new RunCheckpoint(
+                CHECKPOINT,
+                new TurnId("scope-other-turn"),
+                CHECKPOINT_COMMIT,
+                CHECKPOINT_STATE,
+                0,
+                undefined
+            )
+        );
+
+        expectScopeRefused("foreign checkpoint Turn", foreign, resumed.token);
+    });
+
+    test("refuses a checkpoint whose commit is not a checkpoint commit", { tags: "p0" }, () => {
+        // The substituted commit agrees on Run, branch, pins, subject Turn, content, tree
+        // and ancestry; its kind is the only thing left. A checkpoint that could name any
+        // commit would let a Turn resume from a state no suspension ever wrote.
+        const resumed = resumedTurn();
+        const plain = new RunCommit({
+            id: new RunCommitId("scope-plain-message"),
+            run: ids.run,
+            branch: ids.branch,
+            kind: "message",
+            parents: [CHECKPOINT_COMMIT],
+            pins: pins(),
+            writer: { kind: "turn", token: resumed.token },
+            subjectTurn: ids.turn,
+            content: CHECKPOINT_STATE
+        });
+        resumed.repository.transaction((tx) => {
+            resumed.repository.insertCommit(tx, plain);
+            resumed.repository.replaceBranch(
+                tx,
+                new Revision(1),
+                new RunBranch(ids.branch, ids.run, "main", plain.id, new Revision(2))
+            );
+        });
+        const substituted = withCheckpoint(
+            resumed.storage.snapshot(),
+            new RunCheckpoint(CHECKPOINT, ids.turn, plain.id, CHECKPOINT_STATE, 0, undefined)
+        );
+
+        expectScopeRefused("non-checkpoint commit", substituted, resumed.token);
+    });
+
+    test("pairs the checkpoint's tree with its commit's, present or absent", { tags: "p0" }, () => {
+        // Both sides declare a tree or neither does, and when both do they name the same
+        // content. Each of the four combinations is a distinct verdict, and a comparison
+        // that collapsed any pair of them would let a Turn resume onto a tree its
+        // checkpoint commit never recorded.
+        const withTree = resumedTurn(content("e"));
+        expect(
+            withTree.repository.transaction((tx) =>
+                withTree.repository.loadExecutionScope(tx, withTree.token, SCOPE_NOW)
+            ).checkpoint?.tree
+        ).toEqual(content("e"));
+
+        const treeSnapshot = withTree.storage.snapshot();
+        expectScopeRefused(
+            "different tree",
+            withCheckpoint(
+                treeSnapshot,
+                new RunCheckpoint(
+                    CHECKPOINT,
+                    ids.turn,
+                    CHECKPOINT_COMMIT,
+                    CHECKPOINT_STATE,
+                    0,
+                    content("f")
+                )
+            ),
+            withTree.token
+        );
+        expectScopeRefused(
+            "checkpoint drops the tree",
+            withCheckpoint(
+                treeSnapshot,
+                new RunCheckpoint(
+                    CHECKPOINT,
+                    ids.turn,
+                    CHECKPOINT_COMMIT,
+                    CHECKPOINT_STATE,
+                    0,
+                    undefined
+                )
+            ),
+            withTree.token
+        );
+
+        const withoutTree = resumedTurn();
+        expect(
+            withoutTree.repository.transaction((tx) =>
+                withoutTree.repository.loadExecutionScope(tx, withoutTree.token, SCOPE_NOW)
+            ).checkpoint?.tree
+        ).toBeUndefined();
+        expectScopeRefused(
+            "checkpoint adds a tree",
+            withCheckpoint(
+                withoutTree.storage.snapshot(),
+                new RunCheckpoint(
+                    CHECKPOINT,
+                    ids.turn,
+                    CHECKPOINT_COMMIT,
+                    CHECKPOINT_STATE,
+                    0,
+                    content("e")
+                )
+            ),
+            withoutTree.token
+        );
+    });
+
+    test(
+        "names the joined record that is absent rather than dereferencing it",
+        { tags: "p0" },
+        () => {
+            const resumed = resumedTurn();
+            const snapshot = resumed.storage.snapshot();
+            const cases = [
+                {
+                    kind: "turn",
+                    key: ids.turn.value,
+                    message: "Turn executor target does not exist"
+                },
+                { kind: "run", key: ids.run.value, message: "Turn executor Run does not exist" },
+                {
+                    kind: "branch",
+                    key: ids.branch.value,
+                    message: "Turn executor branch does not exist"
+                },
+                {
+                    kind: "commit",
+                    key: CHECKPOINT_COMMIT.value,
+                    message: "Turn executor branch head does not exist"
+                },
+                {
+                    kind: "commit",
+                    key: ids.root.value,
+                    message: "Turn executor start head does not exist"
+                },
+                {
+                    kind: "placement",
+                    key: ids.turn.value,
+                    message: "Turn executor placement does not exist"
+                },
+                {
+                    kind: "checkpoint",
+                    key: CHECKPOINT.value,
+                    message: "Turn executor checkpoint does not exist"
+                }
+            ] as const;
+            for (const { kind, key, message } of cases) {
+                expectScopeRefused(
+                    `missing ${kind} ${key}`,
+                    without(snapshot, kind, key),
+                    resumed.token,
+                    message
+                );
+            }
+        }
+    );
+});
+
 describe("RunRepository projections", () => {
     test("orders inbox entries by sequence within the addressed Turn", { tags: "p1" }, () => {
         const value = repository();
@@ -126,6 +485,52 @@ describe("RunRepository projections", () => {
                 value.repository.listForcedCancellations(tx, new RunId("store-foreign-run"))
             )
         ).toEqual([foreign]);
+    });
+});
+
+describe("RunRepository spawn reservations", () => {
+    test("refuses to answer with one of several reservations for a child", { tags: "p0" }, () => {
+        // The reservation naming a Run as child is where that Run's declared resource
+        // ceiling lives, so two of them are two different ceilings for one Run and there is
+        // no defensible way to pick between them.
+        const child = new RunId("store-spawn-child");
+        const value = repository();
+        const reserve = (suffix: string, attenuation: SpawnAttenuation) =>
+            new SpawnReservation(
+                new SpawnReservationId(`store-spawn-${suffix}`),
+                ids.run,
+                ids.turn,
+                child,
+                { turn: ids.turn, holder: ids.holder, epoch: 1 },
+                digest("d"),
+                content("4"),
+                refs.invocation,
+                refs.receipt,
+                attenuationDigest(attenuation),
+                new Date(1_000)
+            );
+        const first = reserve("first", new SpawnAttenuation());
+        value.repository.transaction((tx) => value.repository.insertSpawn(tx, first));
+
+        expect(
+            value.repository.transaction((tx) => value.repository.loadSpawnForChild(tx, child))
+        ).toEqual(first);
+        expect(
+            value.repository.transaction((tx) =>
+                value.repository.loadSpawnForChild(tx, new RunId("store-spawn-unspawned"))
+            )
+        ).toBeUndefined();
+
+        value.repository.transaction((tx) =>
+            value.repository.insertSpawn(tx, reserve("second", new SpawnAttenuation()))
+        );
+        expectCode(
+            "two reservations for one child",
+            () =>
+                value.repository.transaction((tx) => value.repository.loadSpawnForChild(tx, child)),
+            "run.invalid-state",
+            "Run has more than one spawn reservation"
+        );
     });
 });
 
@@ -283,28 +688,32 @@ describe("RunRepository corruption detection", () => {
         );
     });
 
-    test("detects a tampered parent edge ordinal with the exact parent value", { tags: "p0" }, () => {
-        const value = repository();
-        const child = message("store-shifted-child", [ids.root]);
-        value.repository.transaction((tx) => {
-            value.repository.insertCommit(tx, rootCommit());
-            value.repository.insertCommit(tx, child);
-        });
-        const snapshot = value.storage.snapshot();
-        const shifted = new RunRepository(
-            new MemoryRunStorage({
-                ...snapshot,
-                parents: snapshot.parents.map((edge) =>
-                    edge.commit === child.id.value ? { ...edge, ordinal: 1 } : edge
-                )
-            })
-        );
+    test(
+        "detects a tampered parent edge ordinal with the exact parent value",
+        { tags: "p0" },
+        () => {
+            const value = repository();
+            const child = message("store-shifted-child", [ids.root]);
+            value.repository.transaction((tx) => {
+                value.repository.insertCommit(tx, rootCommit());
+                value.repository.insertCommit(tx, child);
+            });
+            const snapshot = value.storage.snapshot();
+            const shifted = new RunRepository(
+                new MemoryRunStorage({
+                    ...snapshot,
+                    parents: snapshot.parents.map((edge) =>
+                        edge.commit === child.id.value ? { ...edge, ordinal: 1 } : edge
+                    )
+                })
+            );
 
-        expectCode(
-            "load with shifted edge ordinal",
-            () => shifted.transaction((tx) => shifted.loadCommit(tx, child.id)),
-            "codec.invalid",
-            "Stored Run parents do not match commit bytes"
-        );
-    });
+            expectCode(
+                "load with shifted edge ordinal",
+                () => shifted.transaction((tx) => shifted.loadCommit(tx, child.id)),
+                "codec.invalid",
+                "Stored Run parents do not match commit bytes"
+            );
+        }
+    );
 });

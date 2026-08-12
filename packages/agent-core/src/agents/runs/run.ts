@@ -30,15 +30,11 @@ export abstract class RunLifecycle {
     }
     public abstract readonly kind: "active" | "terminal";
     public abstract readonly exhausted: ResourceDimension | undefined;
-    public abstract terminalize(): RunLifecycle;
 }
 
 class ActiveRun extends RunLifecycle {
     public readonly kind = "active" as const;
     public readonly exhausted = undefined;
-    public terminalize(): RunLifecycle {
-        return RunLifecycle.terminal();
-    }
 }
 
 class TerminalRun extends RunLifecycle {
@@ -46,9 +42,6 @@ class TerminalRun extends RunLifecycle {
     public constructor(public readonly exhausted: ResourceDimension | undefined = undefined) {
         super();
         Object.freeze(this);
-    }
-    public terminalize(): RunLifecycle {
-        throw new AgentCoreError("run.invalid-state", "Terminal Runs cannot transition");
     }
 }
 
@@ -128,7 +121,9 @@ export class Run extends CodecRecord {
                 "Terminal snapshot belongs to another Run"
             );
         }
-        this.lifecycle.terminalize();
+        if (this.lifecycle.kind !== "active") {
+            throw new AgentCoreError("run.invalid-state", "Terminal Runs cannot transition");
+        }
         return this.transition(snapshot);
     }
 

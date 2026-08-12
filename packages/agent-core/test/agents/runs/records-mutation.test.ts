@@ -6,6 +6,7 @@ import { RunCommitId } from "../../../src/execution-references";
 import { AgentId, AgentPolicyId, AgentProfileId, ModelPolicyId } from "../../../src/agents/id";
 import { bytesEqual, requireExactFields, requireString } from "../../../src/agents/record-data";
 import {
+    AcceptanceId,
     RunBranchId,
     RunCheckpointId,
     RunId,
@@ -68,6 +69,7 @@ describe("nominal identifier subjects", () => {
             { label: "Run checkpoint ID", make: () => new RunCheckpointId("") },
             { label: "Turn inbox entry ID", make: () => new TurnInboxEntryId("") },
             { label: "Spawn reservation ID", make: () => new SpawnReservationId("") },
+            { label: "Acceptance ID", make: () => new AcceptanceId("") },
             { label: "Agent ID", make: () => new AgentId("") },
             { label: "Agent profile ID", make: () => new AgentProfileId("") },
             { label: "Agent policy ID", make: () => new AgentPolicyId("") },
@@ -176,6 +178,12 @@ describe("Run lifecycle record", () => {
             "run.invalid-state",
             "Terminal Runs reject configuration migration"
         );
+        expectCode(
+            "record tokens on terminal",
+            () => terminal.recordTokens(1),
+            "run.invalid-state",
+            "Terminal Runs consume no further tokens"
+        );
         const exhausted = new Run({
             id: ids.run,
             agent: ids.agent,
@@ -190,6 +198,45 @@ describe("Run lifecycle record", () => {
             "run.invalid-state",
             "Run revision is exhausted"
         );
+    });
+
+    test("accumulates only whole non-negative token usage", { tags: "p1" }, () => {
+        const active = genesis().run;
+
+        // Zero is a usage a model call can legitimately report, and rejecting it would
+        // fail the very call it is meant to account for.
+        expect(active.recordTokens(0).tokensConsumed).toBe(0);
+        expect(active.recordTokens(7).recordTokens(5).tokensConsumed).toBe(12);
+
+        // Both halves of the guard matter: a fractional count is not a token total, and a
+        // negative one would hand allowance back to a Run that had already spent it.
+        for (const tokens of [-1, 1.5, Number.MAX_SAFE_INTEGER + 2, Number.NaN]) {
+            expectTypeError(
+                `usage ${tokens}`,
+                () => active.recordTokens(tokens),
+                "Run token usage must be a non-negative safe integer"
+            );
+        }
+
+        // The stored total is checked where the Run is built, not only where it is
+        // decoded: Run.fromData reaches this through requireInteger, so a Run constructed
+        // in memory is the only caller that can reach the constructor's own guard.
+        for (const tokensConsumed of [-1, 1.5, Number.MAX_SAFE_INTEGER + 2, Number.NaN]) {
+            expectTypeError(
+                `total ${tokensConsumed}`,
+                () =>
+                    new Run({
+                        id: ids.run,
+                        agent: ids.agent,
+                        configuration: active.configuration,
+                        root: ids.root,
+                        initialBranch: ids.branch,
+                        tokensConsumed,
+                        revision: new Revision(0)
+                    }),
+                "Run token total must be a non-negative safe integer"
+            );
+        }
     });
 
     test("names each Run field in decode errors", { tags: "p2" }, () => {
@@ -451,9 +498,7 @@ describe("placement pins", () => {
             "core:zeta"
         ]);
         expect(Object.isFrozen(snapshot.placements)).toBe(true);
-        const decoded = TurnPlacementSnapshot.fromData(
-            structuredClone(snapshot.toData()) as never
-        );
+        const decoded = TurnPlacementSnapshot.fromData(structuredClone(snapshot.toData()) as never);
         expect(decoded.placements.map((value) => value.facet.value)).toEqual([
             "core:alpha",
             "core:zeta"

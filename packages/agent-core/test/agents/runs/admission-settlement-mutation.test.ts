@@ -130,6 +130,34 @@ describe("Run admission registry integrity", () => {
         );
     });
 
+    test("hands back the reservation that completes each obligation", { tags: "p0" }, () => {
+        const registry = RunAdmissionRegistry.initial(ids.run)
+            .reserve({ kind: "approval", approval })
+            .registry.reserve(item).registry;
+
+        for (const obligation of [{ kind: "approval", approval } as const, item]) {
+            const found = registry.reservation(obligation);
+            if (found === undefined) throw new Error(`${obligation.kind} must resolve`);
+            expect(runObligationKey(found.obligation)).toBe(runObligationKey(obligation));
+            expect(found.run).toEqual(ids.run);
+            expect(found.registryEpoch).toBe(registry.epoch);
+        }
+        expect(registry.reservation({ kind: "route", reservation: route })).toBeUndefined();
+
+        // Closing bumps the epoch, and everything reserved before the close still has to
+        // complete afterwards. So the handle names the epoch the obligation was reserved
+        // under, which is the one the closed registry's own completion check compares
+        // against — an epoch on either side of it discharges nothing.
+        const closed = registry.close();
+        expect(closed.epoch).toBe(registry.epoch + 1);
+        const afterClose = closed.reservation(item);
+        if (afterClose === undefined) throw new Error("a closed registry still resolves");
+        expect(afterClose.registryEpoch).toBe(registry.epoch);
+        expect(closed.complete(afterClose).completed.map(runObligationKey)).toEqual([
+            runObligationKey(item)
+        ]);
+    });
+
     test("names registry fields in decode errors", { tags: "p2" }, () => {
         expectTypeError(
             "registry run",
@@ -368,6 +396,65 @@ describe("settlement obligation integrity", () => {
                     })
                 ),
             "Terminal snapshot contains missing or unknown fields"
+        );
+    });
+
+    test("binds an exhausted dimension to a cancelled outcome", { tags: "p0" }, () => {
+        const obligation = new SettlementObligation({ registryEpoch: 1, obligations: [] });
+        const cancelled = new TerminalSnapshot(
+            ids.run,
+            ids.turn,
+            ids.root,
+            new RunCommitId("asm-terminal-exhausted"),
+            "cancelled",
+            obligation,
+            new Date(3000),
+            "tokens"
+        );
+        expect(TerminalSnapshot.fromData(cancelled.toData()).exhausted).toBe("tokens");
+
+        // SPEC §5.2 spends exhaustion through cancellation alone. A snapshot that recorded
+        // a succeeded or failed Run as having run out of a resource would have the Run both
+        // finish its work and be stopped for lack of it.
+        for (const outcome of ["succeeded", "failed"] as const) {
+            expectTypeError(
+                `${outcome} exhaustion`,
+                () =>
+                    new TerminalSnapshot(
+                        ids.run,
+                        ids.turn,
+                        ids.root,
+                        new RunCommitId(`asm-terminal-${outcome}`),
+                        outcome,
+                        obligation,
+                        new Date(3000),
+                        "tokens"
+                    ),
+                "Resource exhaustion terminalizes a Run as cancelled"
+            );
+            expectTypeError(
+                `${outcome} exhaustion decode`,
+                () =>
+                    TerminalSnapshot.fromData(
+                        mutated(cancelled.toData(), (object) => {
+                            object["outcome"] = outcome;
+                        })
+                    ),
+                "Resource exhaustion terminalizes a Run as cancelled"
+            );
+        }
+
+        // The dimension is drawn from the three SPEC §5.2 declares, and the subject names
+        // where an undeclared one came from.
+        expectTypeError(
+            "undeclared dimension",
+            () =>
+                TerminalSnapshot.fromData(
+                    mutated(cancelled.toData(), (object) => {
+                        object["exhausted"] = "cpu";
+                    })
+                ),
+            "Terminal exhausted dimension is not a declared resource dimension"
         );
     });
 });
