@@ -3,21 +3,34 @@ import AgentCore.Model
 /-!
 # ContentStore custody (SPEC §8.2, C13-CONTENT-CUSTODY)
 
-A ContentStore belongs to exactly one Tenant, and a `ContentRef` resolves only for a
-caller whose authority reaches that Tenant — no cross-Tenant read without a Grant that
-says so. A reference alone keeps nothing alive: every durable record that names a
-`ContentRef` is a retained owner, collection offers only content no record owns, and
-removing a record releases its ownership, so "retention and GC follow Tenant policy
-over unowned content alone" and a record cannot outlive the bytes it names.
+§8.2 states a universal: "every durable record that names a `ContentRef` is a retained
+owner of that content." That claim has two independent halves, and this module proves
+only one of them:
 
-Two promises are proved here:
+* **tenant-bound resolution** (fully modeled). A `ContentRef` resolves only for a
+  caller whose authority reaches the owning Tenant — no cross-Tenant read without an
+  explicit grant.
+* **retention safety, conditional on registration** (the half proved here).
+  `owningRecords` is a primitive relation a step can populate via `own`; nothing in
+  this module derives it from what a concrete record type — a Turn result, a Receipt,
+  a Slate — actually stores in its own fields. What is proved is: *given* an ownership
+  edge exists, `OwnedImpliesStored` holds reachably — collection never fires while any
+  record owns a ref, so a record already registered as an owner cannot be outrun by
+  GC. This is genuinely useful (it is the "GC races collection against retention"
+  safety property), but it is **not** a proof that every record naming a ref gets
+  registered as an owner in the first place — that coverage half of §8.2's universal
+  (call it "naming implies owning") is not modeled and is not claimed. Concretely: a
+  record type that stores a `ContentRef` in its own data without ever taking an `own`
+  step is representable in this model and is not excluded by anything proved here.
 
-* **tenant-bound resolution.** A resolve step admits only the home Tenant the ref's
-  own `tenant` field names, or a Tenant an explicit cross-Tenant grant names — never an
-  arbitrary caller.
-* **unowned-only collection, reachably.** At every reachable ledger state, a ref any
-  record still owns has not been collected — `OwnedImpliesStored`, proved by induction
-  over the step relation, not asserted as a side condition on `collect` alone.
+This narrowing is not academic. The spec's universal is reported false in the
+implementation tree today — Turn results, Receipts, and Slates carry `ContentRef`s but
+never call whatever retention-registration exists. That is an implementation-conformance
+gap the formal package explicitly does not adjudicate
+(`ASM-IMPLEMENTATION-REFINEMENT-SEPARATE`), but it is exactly why the coverage half of
+this claim must not be allowed to sound proved when it is not: the boundary above states
+precisely what is safe (retention-safety-once-registered) and precisely what remains an
+open, unenforced obligation (registration-on-naming, per record type).
 
 Exact resolution transport, ContentStore persistence/retention policy timing, and
 `ContentRef` wire representation stay out of scope (`NC-CONTENTSTORE`).
@@ -42,8 +55,9 @@ def ContentLedger.boot : ContentLedger :=
 
 instance : Inhabited ContentLedger where default := .boot
 
-/-- A ref any record still owns has not been collected — the constructive form of "a
-    record cannot outlive the bytes it names." -/
+/-- A ref any *registered* owner still owns has not been collected. This is the
+    retention-safety half of §8.2's custody claim, not the coverage half: it says
+    nothing about whether every record that names a ref becomes a registered owner. -/
 def OwnedImpliesStored (ledger : ContentLedger) : Prop :=
   ∀ ref record, ledger.owningRecords ref record → ledger.stored ref = true
 
@@ -188,17 +202,19 @@ inductive ContentReachable : ContentLedger → Prop
   | step {before label after} : ContentReachable before → ContentStep before label after →
       ContentReachable after
 
-/-- **"Owned implies stored" holds at every reachable state.** A record cannot outlive
-    the bytes it names, along every trace from boot — not merely as a per-step side
-    condition. -/
+/-- **"Owned implies stored" holds at every reachable state.** A *registered* owner is
+    never outrun by collection, along every trace from boot — not merely as a per-step
+    side condition. Whether every record that names a ref becomes a registered owner
+    in the first place is a separate, unmodeled question (see the module docstring). -/
 theorem reachable_owned_implies_stored {ledger} (reachable : ContentReachable ledger) :
     OwnedImpliesStored ledger := by
   induction reachable with
   | boot => exact boot_owned_implies_stored
   | step _ step ih => exact content_step_preserves_owned_implies_stored ih step
 
-/-- **A collected-yet-owned ledger is unreachable.** The constructive refutation: no
-    reachable ledger ever has a record owning a ref whose content is absent. -/
+/-- **A collected-yet-registered-owned ledger is unreachable.** The constructive
+    refutation: no reachable ledger ever has a record whose ownership is registered
+    for a ref whose content is absent. -/
 theorem collected_owned_content_is_unreachable {ledger ref record}
     (owns : ledger.owningRecords ref record) (collected : ledger.stored ref = false) :
     ¬ ContentReachable ledger := fun reachable => by

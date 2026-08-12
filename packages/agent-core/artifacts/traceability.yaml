@@ -2152,9 +2152,9 @@
     },
     {
       "id": "AC-CONTENT-001",
-      "summary": "ContentStore custody (§8.2, C13-CONTENT-CUSTODY): a resolve step admits only the home Tenant a ContentRef names or an explicitly granted Tenant, and unowned-only collection holds at every reachable ledger state, so a record cannot outlive the bytes it names",
+      "summary": "ContentStore custody (§8.2, C13-CONTENT-CUSTODY), narrowed to its two independently provable halves: tenant-bound resolution (fully modeled) and retention-safety conditional on registration (owned implies never collected while owned) -- not the coverage half (every record that names a ref becomes a registered owner), which is not modeled and is not claimed",
       "status": "proved-safety",
-      "boundary": "A resolve step for a ContentRef is admitted only for the Tenant its own tenant field names, or a Tenant an explicit grantCrossTenant step has named -- never an arbitrary caller -- and only when the content is currently stored. A collect step requires the ref to be currently unowned by every record; content_step_preserves_owned_implies_stored proves the OwnedImpliesStored invariant (a ref any record still owns has not been collected) survives every transition, so reachable_owned_implies_stored gives it at every ContentReachable state, not merely as collect's own side condition, and collected_owned_content_is_unreachable is the constructive refutation form. Exact resolution transport, ContentStore persistence and retention-policy timing, and the ContentRef wire representation are not modeled.",
+      "boundary": "A resolve step for a ContentRef is admitted only for the Tenant its own tenant field names, or a Tenant an explicit grantCrossTenant step has named -- never an arbitrary caller -- and only when the content is currently stored. Separately: owningRecords is a primitive relation a step can populate via own; nothing here derives it from what a concrete record type (a Turn result, a Receipt, a Slate) actually stores in its own fields. content_step_preserves_owned_implies_stored proves that once an ownership edge is registered, collection can never race ahead of it -- OwnedImpliesStored survives every transition -- so reachable_owned_implies_stored gives that retention-safety at every ContentReachable state, and collected_owned_content_is_unreachable is the constructive refutation form. This is the safety half of §8.2's stated universal (\"every durable record that names a ContentRef is a retained owner\") only: the coverage half -- that naming a ref in a record's own data implies an ownership edge gets registered for it -- is not modeled, is not claimed, and is reported false in the implementation tree today (Turn results, Receipts, and Slates carry ContentRefs without ever registering retention), which is an implementation-conformance question this formal package does not adjudicate (ASM-IMPLEMENTATION-REFINEMENT-SEPARATE) but which is exactly why the coverage half must not read as proved here. Exact resolution transport, ContentStore persistence and retention-policy timing, and the ContentRef wire representation are also not modeled.",
       "definitions": [
         "AgentCore.ContentRef",
         "AgentCore.RecordId",
@@ -2214,7 +2214,8 @@
       "remainingEvidence": [
         "concrete ContentStore put/get/stat transport and persistence conformance",
         "retention/GC policy timing and scheduling over unowned content",
-        "the ContentRef wire representation and digest binding to stored bytes"
+        "the ContentRef wire representation and digest binding to stored bytes",
+        "the coverage half of custody: deriving ownership registration from concrete record types' own fields (TurnResult, Receipt, Slate, ...) rather than treating `own` as a primitive action -- currently reported false in the implementation (Turn results, Receipts, and Slates never retain)"
       ]
     },
     {
