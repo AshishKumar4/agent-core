@@ -144,6 +144,30 @@
       "replacement": "\"\"",
       "mutated": "\"protocol.invalid-state\"",
       "proof": "This literal is the error code of an AgentCoreError constructed only inside required's undefined guard, whose condition is constantly false because the single call site draws its key from the very capability set it then reads, over a frozen record with no mutator and no suspension point between the two reads. The error is therefore never constructed and its code never reaches a catch, a Receipt, or an assertion. The classifier keeps error codes actionable while tolerating message prose, which is right \u2014 a code is a discriminant callers branch on \u2014 but that reasoning presumes the throw can happen. Here it cannot, so the discriminant has no observation to discriminate."
+    },
+    {
+      "file": "src/composition/routing.ts",
+      "symbol": "sameBytes",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "left.byteLength === right.byteLength",
+      "proof": "Dropping the length test changes the result only when left is a strict byte prefix of right: `left.every((value, index) => value === right[index])` already returns false when left is the longer operand, because right[index] is undefined past its end, and agrees with the original whenever the lengths match. So the mutant differs on exactly one class of input, and that class is empty here. Both operands are TurnInboxEntry.codec.encode(...) results, and RecordCodec.encode returns encodeCanonicalJson of a `{kind, version, payload}` object \u2014 a complete canonical JSON document whose final byte is the closing brace of that object. Every proper prefix of such a document is unbalanced and so is not itself an encoding any record could produce, and encode never yields zero bytes. Neither operand can therefore be a strict prefix of the other, and the two conditions agree on every pair this function can receive."
+    },
+    {
+      "file": "src/composition/package-runtime.ts",
+      "symbol": "sameBytes",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "left.byteLength === right.byteLength",
+      "proof": "The length comparison can only decide this conjunction when the surviving operand disagrees with it, and `left.every((value, index) => value === right[index])` disagrees only when left is shorter than right and matches it position for position \u2014 a strict prefix. When left is longer the callback reads undefined past right's end and returns false, and at equal lengths the two forms are identical. This module's two call sites pass SlotDeclaration.encode and SlotEntry.encode results, both RecordCodec.encode, which emits encodeCanonicalJson of a `{kind, version, payload}` envelope. Such a document ends with the brace closing that envelope and is never empty, so truncating it to any proper prefix leaves a byte string no encode call can return. The prefix case is unconstructible and the mutant selects the same value on every pair."
+    },
+    {
+      "file": "src/composition/device-consent.ts",
+      "symbol": "DeviceConsentFinalAdmissionPort.admit",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "typeof input !== \"object\"",
+      "proof": "This disjunct rejects a non-object Device input, and the disjunct after it rejects the same inputs anyway. `input` is `request.request.inputs[0]`, typed FacetData, which is an alias of JsonValue \u2014 so at runtime it is an object, an array, a string, a number, a boolean, or null, and nothing else. The earlier disjuncts have already returned for null, for arrays, and (through the length test) for the empty-inputs case where the index read yields undefined. Every remaining non-object is a string, number or boolean primitive, and reading `[\"deviceId\"]` off any of those yields undefined rather than throwing, so `typeof undefined !== \"string\"` makes the following disjunct true and the request is denied with the identical result. The two forms therefore agree on every input this port can be handed."
     }
   ]
 }
