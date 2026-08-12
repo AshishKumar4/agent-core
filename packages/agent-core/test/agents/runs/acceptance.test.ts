@@ -74,6 +74,16 @@ function expectCode(operationUnderTest: () => unknown, code: AgentCoreError["cod
     }
 }
 
+function expectTypeError(label: string, operation: () => unknown, message: string): void {
+    try {
+        operation();
+        throw new Error(`Expected TypeError: ${label}`);
+    } catch (error) {
+        expect(error, label).toBeInstanceOf(TypeError);
+        expect((error as TypeError).message, label).toBe(message);
+    }
+}
+
 function treeMessage(
     id: string,
     parent: RunCommitId,
@@ -616,6 +626,91 @@ describe("Run acceptance criteria", () => {
                     acceptance: ids.run as never
                 })
             ).toThrow(/exact canonical ID/);
+        }
+    );
+
+    it(
+        "[run.acceptance-criterion] [run.acceptance-verdict] names the exact field each malformed acceptance record failed on",
+        { tags: "p1" },
+        () => {
+            // The subject each validator carries is what tells an operator which field of a
+            // corrupt record is at fault. Both records reject every one of these, so a test
+            // asserting only that decoding fails would pass with every subject blanked.
+            expectTypeError(
+                "criterion id",
+                () =>
+                    AcceptanceCriterion.fromData({
+                        id: 42,
+                        operation: operation.value
+                    } as never),
+                "Acceptance criterion ID must be a non-empty string"
+            );
+            expectTypeError(
+                "criterion operation",
+                () => AcceptanceCriterion.fromData({ id: firstId.value, operation: 42 } as never),
+                "Acceptance criterion Operation must be a non-empty string"
+            );
+            const verdictData = verdict(firstId, digest("e"), "codec-receipt").toData() as Record<
+                string,
+                unknown
+            >;
+            const cases = [
+                { label: "acceptance", subject: "Acceptance verdict criterion" },
+                { label: "subject", subject: "Acceptance verdict subject" },
+                { label: "receipt", subject: "Acceptance verdict Receipt" }
+            ] as const;
+            for (const { label, subject } of cases) {
+                expectTypeError(
+                    label,
+                    () => AcceptanceVerdict.fromData({ ...verdictData, [label]: 42 } as never),
+                    `${subject} must be a non-empty string`
+                );
+            }
+            expectTypeError(
+                "acceptance obligation",
+                () => decodeRunObligation({ acceptance: 42, kind: "acceptance" } as never),
+                "Acceptance obligation must be a non-empty string"
+            );
+        }
+    );
+
+    it(
+        "[run.acceptance-criterion] [run.acceptance-verdict] admits no field beyond the ones it declares",
+        { tags: "p1" },
+        () => {
+            // Every acceptance shape declares its fields as required with no optional set,
+            // so an unknown key is refused whatever it is named. The name below is the one
+            // a field-set that had quietly grown by one entry would accept.
+            const unknown = "Stryker was here";
+            expectTypeError(
+                "criterion",
+                () =>
+                    AcceptanceCriterion.fromData({
+                        id: firstId.value,
+                        operation: operation.value,
+                        [unknown]: 1
+                    } as never),
+                "Acceptance criterion contains missing or unknown fields"
+            );
+            expectTypeError(
+                "verdict",
+                () =>
+                    AcceptanceVerdict.fromData({
+                        ...(verdict(firstId, digest("e"), "codec-receipt").toData() as object),
+                        [unknown]: 1
+                    } as never),
+                "Acceptance verdict contains missing or unknown fields"
+            );
+            expectTypeError(
+                "obligation",
+                () =>
+                    decodeRunObligation({
+                        acceptance: firstId.value,
+                        kind: "acceptance",
+                        [unknown]: 1
+                    } as never),
+                "Acceptance obligation contains missing or unknown fields"
+            );
         }
     );
 });

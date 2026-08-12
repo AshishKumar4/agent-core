@@ -6,6 +6,7 @@ import { RunCommitId } from "../../../src/execution-references";
 import { AgentId, AgentPolicyId, AgentProfileId, ModelPolicyId } from "../../../src/agents/id";
 import { bytesEqual, requireExactFields, requireString } from "../../../src/agents/record-data";
 import {
+    AcceptanceId,
     RunBranchId,
     RunCheckpointId,
     RunId,
@@ -68,6 +69,7 @@ describe("nominal identifier subjects", () => {
             { label: "Run checkpoint ID", make: () => new RunCheckpointId("") },
             { label: "Turn inbox entry ID", make: () => new TurnInboxEntryId("") },
             { label: "Spawn reservation ID", make: () => new SpawnReservationId("") },
+            { label: "Acceptance ID", make: () => new AcceptanceId("") },
             { label: "Agent ID", make: () => new AgentId("") },
             { label: "Agent profile ID", make: () => new AgentProfileId("") },
             { label: "Agent policy ID", make: () => new AgentPolicyId("") },
@@ -451,9 +453,7 @@ describe("placement pins", () => {
             "core:zeta"
         ]);
         expect(Object.isFrozen(snapshot.placements)).toBe(true);
-        const decoded = TurnPlacementSnapshot.fromData(
-            structuredClone(snapshot.toData()) as never
-        );
+        const decoded = TurnPlacementSnapshot.fromData(structuredClone(snapshot.toData()) as never);
         expect(decoded.placements.map((value) => value.facet.value)).toEqual([
             "core:alpha",
             "core:zeta"
