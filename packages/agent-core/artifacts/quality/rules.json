@@ -42,6 +42,11 @@
       "description": "Committed live substrate evidence is hash-bound to the exact current sources and fully passing"
     },
     {
+      "id": "ACQ-NORM",
+      "node": "coherence",
+      "description": "Every keyword rule of a normative SPEC section anchors an atom in its own block, list item, or table row, or carries a digest-bound recorded disposition"
+    },
+    {
       "id": "ACQ-OUTCOME",
       "node": "integration",
       "description": "Recorded integration outcomes are bound to their own ratification commits, fingerprinted against the outcome baseline, and never verified fail-open"
