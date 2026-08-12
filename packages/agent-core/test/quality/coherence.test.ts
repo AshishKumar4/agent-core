@@ -114,7 +114,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         const bounded = run(root);
         expect(bounded.status).toBe(1);
         expect(bounded.stderr).toContain(
-            "One prose block is the hash input for 11 atoms: C13-RUN-ADMISSION-REGISTRY"
+            "One prose block is the hash input for 5 atoms: C13-TURN-NO-RETRY"
         );
 
         const relaxed = run(root, ["--max-shared-atoms", "20"]);
@@ -173,7 +173,10 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
             )
         });
         const anchoredResult = run(anchored);
-        expect(anchoredResult.stderr).toContain("ACQ-NORM");
+        expect(anchoredResult.status).toBe(1);
+        // The checker still reached its findings report; the anchored clause is simply
+        // no longer one of them.
+        expect(anchoredResult.stderr).toContain("COH-SHARED-BLOCK");
         expect(anchoredResult.stderr).not.toContain("§6.4");
     });
 
@@ -243,15 +246,27 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
     });
 
     test("gates exactly the sections and keywords §1.3 declares", async () => {
+        // §10 binds only because §1.3 says 2–10, so an unanchored §10.1 obligation is a
+        // finding under the declared range and invisible once the range stops covering it.
+        const injected = original.replace(
+            "![Cloudflare topology](diagrams/cloudflare.svg)",
+            "Every fixture profile obligation MUST hold.\n\n![Cloudflare topology](diagrams/cloudflare.svg)"
+        );
+        const included = run(await fixture({ spec: injected }));
+        expect(included.status).toBe(1);
+        expect(included.stderr).toContain(
+            "Normative §10.1 rule is bound by no atom and no disposition judges it"
+        );
+
         const narrowed = await fixture({
-            spec: original.replace(
+            spec: injected.replace(
                 "Sections 1.4, 1.5, and 2–10 are normative;",
                 "Sections 1.4, 1.5, and 2–9 are normative;"
             )
         });
         const narrowedResult = run(narrowed);
         expect(narrowedResult.status).toBe(1);
-        expect(narrowedResult.stderr).toContain("Normative disposition matches no §10.1 unit");
+        expect(narrowedResult.stderr).not.toContain("Every fixture profile obligation MUST hold.");
 
         const renamed = await fixture({
             spec: original.replace(
