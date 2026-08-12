@@ -3,11 +3,11 @@ import {
     TurnExecutorHost,
     TurnInboxEntry,
     TurnInboxEntryId,
-    TurnMediatedInvocationPort,
+    TurnInvocationPort,
     TurnModelPort,
     TurnStreamPort,
-    type TurnMediatedInvocationRequest,
-    type TurnMediatedInvocationResult,
+    type TurnInvocationRequest,
+    type TurnInvocationResult,
     type TurnModelResult,
     type TurnStreamEvent,
     type TurnStreamPublication
@@ -45,15 +45,14 @@ class ScriptedModelProvider extends ModelProvider {
     }
 }
 
-class RecordingInvocationPort extends TurnMediatedInvocationPort {
-    public readonly requests: TurnMediatedInvocationRequest[] = [];
+class RecordingInvocationPort extends TurnInvocationPort {
+    public readonly requests: TurnInvocationRequest[] = [];
     public outcome: (input: FacetData) => FacetData = (input) => ({ echoed: input });
 
-    public async invoke(
-        request: TurnMediatedInvocationRequest
-    ): Promise<TurnMediatedInvocationResult> {
+    public async invoke(request: TurnInvocationRequest): Promise<TurnInvocationResult> {
         this.requests.push(request);
         return Object.freeze({
+            tier: "mediated",
             output: this.outcome(request.input),
             evidence: { receipt: `receipt-${this.requests.length}` }
         });

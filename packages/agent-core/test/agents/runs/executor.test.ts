@@ -212,7 +212,11 @@ describe("TurnExecutor seam", () => {
                         invocationCalls.push(request.operation);
                         expect(request.token).toEqual(seeded.token);
                         expect(request.input).toEqual({ key: "value" });
-                        return { output: { stored: true }, evidence: { receipt: "receipt-1" } };
+                        return {
+                            tier: "mediated",
+                            output: { stored: true },
+                            evidence: { receipt: "receipt-1" }
+                        };
                     }
                 },
                 model: {
@@ -278,7 +282,11 @@ describe("TurnExecutor seam", () => {
                 input: { key: "value" },
                 signal: new AbortController().signal
             })
-        ).resolves.toEqual({ output: { value: 1 }, evidence: { receipt: "receipt-1" } });
+        ).resolves.toEqual({
+            tier: "mediated",
+            output: { value: 1 },
+            evidence: { receipt: "receipt-1" }
+        });
         expect(resolved.requests).toEqual([
             {
                 requestKey: new OperationRequestKey("gateway-call"),
@@ -326,16 +334,31 @@ describe("TurnExecutor seam", () => {
         }
     );
 
-    it("rejects direct gateway dispatch and cancellation across the gateway boundary", async () => {
+    it(
+        "reports a direct gateway dispatch as the direct tier and carries no evidence",
+        { tags: "p0" },
+        async () => {
+            const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
+            const tool = boundTool("read", "memory.read", "observe", "Read memory.");
+            const direct = new TestResolvedFacet(tool, {
+                kind: "direct",
+                output: { value: 1 }
+            });
+
+            const result = await invocationAdapter(direct).invoke(invocationRequest(seeded, tool));
+
+            // §7.2: a direct call writes nothing durable, so there is no Invocation for
+            // the result to name. The output still reaches the executor.
+            expect(result).toEqual({ tier: "direct", output: { value: 1 } });
+            expect(Object.hasOwn(result, "evidence")).toBe(false);
+            expect(direct.requests).toHaveLength(1);
+            expect(direct.disposed).toBe(true);
+        }
+    );
+
+    it("propagates cancellation across the gateway boundary", async () => {
         const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
         const tool = boundTool("read", "memory.read", "observe", "Read memory.");
-        const direct = new TestResolvedFacet(tool, { kind: "direct", output: { leaked: true } });
-
-        await expect(
-            invocationAdapter(direct).invoke(invocationRequest(seeded, tool))
-        ).rejects.toMatchObject({ code: "authority.denied" });
-        expect(direct.disposed).toBe(true);
-
         const controller = new AbortController();
         const cancelled = new TestResolvedFacet(
             tool,
@@ -1293,7 +1316,7 @@ describe("TurnExecutor seam", () => {
                 context.invocation.invoke(tool, new OperationRequestKey("exact-tool"), {
                     nested: { value: 1 }
                 })
-            ).resolves.toEqual({ output: {}, evidence: { receipt: "test" } });
+            ).resolves.toEqual({ tier: "mediated", output: {}, evidence: { receipt: "test" } });
             return context.outcome.succeed(
                 resultCommit(context, "invocation-result", boundaries.output, ids.root)
             );
@@ -1764,7 +1787,7 @@ class TestBoundaries {
             invocations: {
                 invoke: async (request) => {
                     this.invocationCalls.push(request.operation);
-                    return { output: {}, evidence: { receipt: "test" } };
+                    return { tier: "mediated", output: {}, evidence: { receipt: "test" } };
                 }
             },
             model: {

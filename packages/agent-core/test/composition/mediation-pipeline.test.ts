@@ -588,6 +588,7 @@ describe("the published mediation composition root", () => {
         expect(attemptAudit.cause?.equals(invocationAudit.id)).toBe(true);
         expect(receiptAudit.cause?.equals(attemptAudit.id)).toBe(true);
 
+        if (result.tier !== "mediated") throw new TypeError("expected the mediated tier");
         expect(result.evidence).toEqual({
             invocation: invocation.header.id.value,
             receipts: [receipt.id.value]
@@ -628,35 +629,37 @@ describe("the published mediation composition root", () => {
     });
 
     it(
-        "gives a direct-tier dispatch the Turn's own execution resources",
+        "serves a direct-tier Turn call from memory and writes no durable evidence",
         { tags: "p0" },
         async () => {
-            // The direct tier writes no durable record (§7.2), so the only thing this
-            // composition root hands a direct Operation is its context: the Turn's own
-            // cancellation signal and the content store the pipeline was built with. A
-            // Turn-bound Operation must still travel the mediated path, so the port
-            // refuses the direct result afterwards — but the dispatch has already run,
-            // which is what shows the context was assembled from real resources rather
-            // than from nothing.
+            // §1.1's motivating case: an ordinary observe call the §7.2 floor tiers
+            // direct. It reaches the model as output and leaves no Invocation, claim,
+            // EffectAttempt, Receipt, or AuditRecord behind, so it never enters the §5.2
+            // Settled frontier. The Operation still runs under the Turn's own
+            // cancellation signal and the pipeline's content store.
             const value = await harness();
             value.authority.directEligible = true;
             const live = new AbortController();
 
-            await expect(
-                value.pipeline.invocations.invoke(invocationRequest(live.signal))
-            ).rejects.toMatchObject({
-                code: "authority.denied",
-                message: "Turn Operations require the mediated invocation path"
-            });
+            const result = await value.pipeline.invocations.invoke(invocationRequest(live.signal));
 
+            // A null attempt is the direct tier's signature: no EffectAttempt exists to
+            // name, which no mediated dispatch of this Operation can produce.
+            expect(result).toEqual({ tier: "direct", output: { attempt: null } });
+            expect(Object.hasOwn(result, "evidence")).toBe(false);
             expect(value.observed.calls).toBe(1);
             expect(value.observed.signal).toBe(live.signal);
             expect(value.observed.content).toBe(value.content);
 
             const state = value.transactions.read();
             expect(state.prepared.size).toBe(0);
+            expect(state.claims.size).toBe(0);
             expect(state.attempts.size).toBe(0);
             expect(state.receipts.size).toBe(0);
+            expect(state.audits.size).toBe(0);
+
+            await value.pipeline.outbox.flush();
+            expect(value.observations).toEqual([]);
             await value.pipeline.dispose();
         }
     );
