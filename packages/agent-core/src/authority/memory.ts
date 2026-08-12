@@ -455,7 +455,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
             }
         } else if (
             !previous.scope.equals(membership.scope) ||
-            !sameSubject(previous, membership) ||
+            subjectKey(previous.subject) !== subjectKey(membership.subject) ||
             membership.revision.value !== previous.revision.value + 1
         ) {
             throw new AgentCoreError(
@@ -760,17 +760,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
                 if (
                     membership === undefined ||
                     membership.role.value !== grant.origin.roleName ||
-                    !sameSubject(
-                        membership,
-                        new Membership(
-                            membership.id,
-                            membership.scope,
-                            grant.subject,
-                            membership.role,
-                            membership.state,
-                            membership.revision
-                        )
-                    )
+                    subjectKey(membership.subject) !== subjectKey(grant.subject)
                 ) {
                     throw corruptMemoryTenantControl(
                         "Role Grant references invalid Membership evidence"
@@ -1070,23 +1060,6 @@ function requireLocalTenant(expected: TenantId, actual: TenantId, subject: strin
     if (!actual.equals(expected)) {
         throw new AgentCoreError("protocol.invalid-state", `${subject} belongs to another Tenant`);
     }
-}
-
-function sameSubject(left: Membership, right: Membership): boolean {
-    if (left.subject.kind !== right.subject.kind) return false;
-    if (left.subject.kind === "principal" && right.subject.kind === "principal") {
-        return left.subject.principal.equals(right.subject.principal);
-    }
-    if (left.subject.kind === "team" && right.subject.kind === "team") {
-        return left.subject.teamId.equals(right.subject.teamId);
-    }
-    return (
-        left.subject.kind === "foreign" &&
-        right.subject.kind === "foreign" &&
-        left.subject.homeTenant.equals(right.subject.homeTenant) &&
-        left.subject.principalId.equals(right.subject.principalId) &&
-        left.subject.verifiedVia.equals(right.subject.verifiedVia)
-    );
 }
 
 function anchorsEqual(

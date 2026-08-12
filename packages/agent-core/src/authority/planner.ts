@@ -52,15 +52,6 @@ export class EpochPlanner {
             for (const scope of mutationScopes(mutation)) affected.set(scopeKey(scope), scope);
         }
 
-        for (const [key] of affected) {
-            if (currentByScope.get(key)?.epoch === Number.MAX_SAFE_INTEGER) {
-                throw new AgentCoreError(
-                    "protocol.invalid-state",
-                    `Authority epoch is exhausted for ${key}`
-                );
-            }
-        }
-
         const bumped: ScopeEpoch[] = [];
         for (const [key, scope] of affected) {
             const next = (currentByScope.get(key) ?? ScopeEpoch.initial(scope)).next();
