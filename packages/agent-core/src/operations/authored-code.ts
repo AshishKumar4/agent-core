@@ -211,6 +211,8 @@ export abstract class AuthoredCodeDelegationPort {
 
 export interface AuthoredCodeRunRequest {
     readonly consumer: AuthoredCodeConsumer;
+    /** The one isolate this run is for: §4.7 gives each submission exactly one. */
+    readonly isolate: string;
     readonly entry: string;
     /** Module name to its UTF-8 source, resolved from the submission's content refs. */
     readonly code: ReadonlyMap<string, string>;
@@ -329,6 +331,7 @@ export class AuthoredCodeHost {
         try {
             return await backing.run({
                 consumer,
+                isolate: scope.isolate,
                 entry: submission.source.entry,
                 code,
                 capabilities: delegation.capabilities,

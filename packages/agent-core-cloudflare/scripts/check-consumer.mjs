@@ -68,8 +68,8 @@ try {
 import {
     DurableObjectEnvironmentProvider,
     DynamicWorkerLoaderAdapter,
+    PassedCapabilityRegistry,
     WorkerLoaderAuthoredCodeBacking,
-    createPassedCapabilityFactory,
     type CloudflareErrorPort,
     type DynamicWorkerLoadOptions
 } from "@agent-core/cloudflare";
@@ -97,10 +97,12 @@ const options: DynamicWorkerLoadOptions = {
 const adapter = new DynamicWorkerLoaderAdapter({
     load: (_value: DynamicWorkerLoadOptions) => ({ getEntrypoint: () => ({}) })
 }, errors);
+const registry = new PassedCapabilityRegistry(errors);
 const backing = new WorkerLoaderAuthoredCodeBacking(
     adapter,
     "2026-07-10",
-    createPassedCapabilityFactory(class {}),
+    registry,
+    (props) => ({ invoke: (operation, input) => registry.invoke(props, operation, input) }),
     errors
 );
 const canonicalBacking: AuthoredCodeBacking = backing;

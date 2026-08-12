@@ -11,13 +11,14 @@ import {
     DispatchNamespaceAdapter,
     DispatchNamespaceAuthoredCodeBacking,
     DynamicWorkerLoaderAdapter,
+    PassedCapabilityRegistry,
     WORKER_LOADER_BACKING,
     WorkerLoaderAuthoredCodeBacking,
-    createPassedCapabilityFactory,
     passedCapabilities,
-    type AuthoredCodeCallLike,
     type DynamicWorkerHandleLike,
     type DynamicWorkerLoadOptions,
+    type PassedCapabilities,
+    type PassedCapabilityProps,
     type WorkerLoaderBindingLike
 } from "../src/index.js";
 import { fakeErrors } from "./fakes.js";
@@ -27,19 +28,30 @@ const notesBinding = new BindingName("notes");
 const mailFacet = new FacetRef("mail:instance");
 const notesFacet = new FacetRef("notes:instance");
 
-/** Stands in for the isolate boundary base class the host supplies (RpcTarget). */
-class TestBoundaryTarget {}
+const isolate = "invocation:authored-code-1";
+
+/**
+ * Stands in for `ctx.exports.<Entrypoint>({ props })`: the host builds a stub carrying
+ * only routing data, and every call on it resolves the live port through the registry.
+ */
+function capabilityFactory(registry: PassedCapabilityRegistry) {
+    return (props: PassedCapabilityProps) => ({
+        invoke: (operation: string, input: FacetData) => registry.invoke(props, operation, input)
+    });
+}
 
 describe("Cloudflare backings for §4.7 agent-authored code", () => {
-    test("loads a fresh isolate with an empty environment and no ambient outbound", async () => {
-        const loader = new RecordingWorkerLoader((call) => ({
-            names: Object.keys(call.capabilities).sort(),
-            input: call.input
+    test("loads a fresh isolate whose whole environment is the delegated set", async () => {
+        const registry = new PassedCapabilityRegistry(fakeErrors);
+        const loader = new RecordingWorkerLoader((env, input) => ({
+            names: Object.keys(env).sort(),
+            input
         }));
         const backing = new WorkerLoaderAuthoredCodeBacking(
             new DynamicWorkerLoaderAdapter(loader, fakeErrors),
             "2026-07-10",
-            createPassedCapabilityFactory(TestBoundaryTarget),
+            registry,
+            capabilityFactory(registry),
             fakeErrors
         );
 
@@ -48,27 +60,26 @@ describe("Cloudflare backings for §4.7 agent-authored code", () => {
             input: { folder: "inbox" }
         });
         expect(backing.id.value).toBe(WORKER_LOADER_BACKING.value);
-        expect(loader.calls).toEqual([
-            {
-                compatibilityDate: "2026-07-10",
-                mainModule: "index.js",
-                modules: { "index.js": "export default {}" },
-                env: {},
-                globalOutbound: null
-            }
-        ]);
+        const call = loader.calls[0]!;
+        expect(Object.keys(call.env).sort()).toEqual(["mail", "notes"]);
+        expect(call.globalOutbound).toBe(null);
+        // The reference implementation's own hardening: loaded code that could import
+        // its worker's exports could call around the one channel it was given.
+        expect(call.compatibilityFlags).toEqual(["disallow_importable_env"]);
         expect(loader.disposals).toBe(1);
     });
 
-    test("carries an isolate's call back through the Invocation port it was passed", async () => {
+    test("carries an env binding's call back through the Invocation port", async () => {
+        const registry = new PassedCapabilityRegistry(fakeErrors);
         const invocations = new RecordingInvocations();
-        const loader = new RecordingWorkerLoader((call) =>
-            call.capabilities["mail"]!.invoke("read", { path: "/a" })
+        const loader = new RecordingWorkerLoader((env) =>
+            env["mail"]!.invoke("read", { path: "/a" })
         );
         const backing = new WorkerLoaderAuthoredCodeBacking(
             new DynamicWorkerLoaderAdapter(loader, fakeErrors),
             "2026-07-10",
-            createPassedCapabilityFactory(TestBoundaryTarget),
+            registry,
+            capabilityFactory(registry),
             fakeErrors
         );
 
@@ -77,19 +88,56 @@ describe("Cloudflare backings for §4.7 agent-authored code", () => {
             operation: "read",
             input: { path: "/a" }
         });
-        // A capability the isolate holds is a Binding name and an operation, never a
-        // channel it chose for itself.
+        // The Binding a stub speaks through is the host's, fixed in its props when the
+        // host built it; loaded code chooses only the operation and the input.
         expect(invocations.requests).toEqual([["mail", "read"]]);
     });
 
-    test("refuses code that exposes no entry point or returns a value that is not data", async () => {
+    test("severs a capability whose submission has ended", async () => {
+        const registry = new PassedCapabilityRegistry(fakeErrors);
+        const invocations = new RecordingInvocations();
+        let escaped: PassedCapabilities | undefined;
+        const loader = new RecordingWorkerLoader((env) => {
+            escaped = env;
+            return null;
+        });
+        const backing = new WorkerLoaderAuthoredCodeBacking(
+            new DynamicWorkerLoaderAdapter(loader, fakeErrors),
+            "2026-07-10",
+            registry,
+            capabilityFactory(registry),
+            fakeErrors
+        );
+
+        await backing.run(runRequest(invocations));
+
+        // A stub that outlived its isolate resolves to nothing, not to whatever runs next.
+        await expect(escaped!["mail"]!.invoke("read", null)).rejects.toMatchObject({
+            code: "authority.denied"
+        });
+        expect(invocations.requests).toEqual([]);
+    });
+
+    test("refuses two live isolates under one identity", () => {
+        const registry = new PassedCapabilityRegistry(fakeErrors);
+        const port = new RecordingInvocations();
+        using first = registry.open(isolate, port);
+        void first;
+        expect(() => registry.open(isolate, port)).toThrow(
+            expect.objectContaining({ code: "protocol.invalid-state" })
+        );
+    });
+
+    test("refuses code with no entry point or a returned value that is not data", async () => {
+        const registry = new PassedCapabilityRegistry(fakeErrors);
         const noEntrypoint = new WorkerLoaderAuthoredCodeBacking(
             new DynamicWorkerLoaderAdapter(
                 new StubWorkerLoader(() => "not-an-entrypoint"),
                 fakeErrors
             ),
             "2026-07-10",
-            createPassedCapabilityFactory(TestBoundaryTarget),
+            registry,
+            capabilityFactory(registry),
             fakeErrors
         );
         await expect(noEntrypoint.run(runRequest())).rejects.toMatchObject({
@@ -102,7 +150,8 @@ describe("Cloudflare backings for §4.7 agent-authored code", () => {
                 fakeErrors
             ),
             "2026-07-10",
-            createPassedCapabilityFactory(TestBoundaryTarget),
+            registry,
+            capabilityFactory(registry),
             fakeErrors
         );
         await expect(notData.run(runRequest())).rejects.toMatchObject({
@@ -111,13 +160,15 @@ describe("Cloudflare backings for §4.7 agent-authored code", () => {
     });
 
     test("serves pre-deployed code from the script the platform's naming rule names", async () => {
-        const namespace = new RecordingDispatchNamespace((call) => ({
-            names: Object.keys(call.capabilities).sort()
+        const registry = new PassedCapabilityRegistry(fakeErrors);
+        const namespace = new RecordingDispatchNamespace((capabilities) => ({
+            names: Object.keys(capabilities).sort()
         }));
         const backing = new DispatchNamespaceAuthoredCodeBacking(
             new DispatchNamespaceAdapter(namespace, fakeErrors),
             (request) => `slate-${request.entry}`,
-            createPassedCapabilityFactory(TestBoundaryTarget),
+            registry,
+            capabilityFactory(registry),
             fakeErrors
         );
 
@@ -127,10 +178,12 @@ describe("Cloudflare backings for §4.7 agent-authored code", () => {
     });
 
     test("refuses pre-deployed code that exposes no entry point", async () => {
+        const registry = new PassedCapabilityRegistry(fakeErrors);
         const backing = new DispatchNamespaceAuthoredCodeBacking(
             new DispatchNamespaceAdapter({ get: () => "not-an-entrypoint" as unknown }, fakeErrors),
             () => "slate",
-            createPassedCapabilityFactory(TestBoundaryTarget),
+            registry,
+            capabilityFactory(registry),
             fakeErrors
         );
         await expect(backing.run(runRequest())).rejects.toMatchObject({
@@ -139,21 +192,13 @@ describe("Cloudflare backings for §4.7 agent-authored code", () => {
     });
 
     test("renders exactly the delegated Bindings and nothing else", () => {
-        const invocations = new RecordingInvocations();
-        const rendered = passedCapabilities(
-            capabilitySet(),
-            invocations,
-            createPassedCapabilityFactory(TestBoundaryTarget)
-        );
+        const registry = new PassedCapabilityRegistry(fakeErrors);
+        const rendered = passedCapabilities(capabilitySet(), isolate, capabilityFactory(registry));
 
         expect(Object.keys(rendered).sort()).toEqual(["mail", "notes"]);
-        expect(rendered["mail"]).toBeInstanceOf(TestBoundaryTarget);
+        expect(Object.isFrozen(rendered)).toBe(true);
         expect(
-            passedCapabilities(
-                AuthoredCodeCapabilitySet.none,
-                invocations,
-                createPassedCapabilityFactory(TestBoundaryTarget)
-            )
+            passedCapabilities(AuthoredCodeCapabilitySet.none, isolate, capabilityFactory(registry))
         ).toEqual({});
     });
 });
@@ -168,6 +213,7 @@ function capabilitySet(): AuthoredCodeCapabilitySet {
 function runRequest(invocations: AuthoredCodeInvocationPort = new RecordingInvocations()) {
     return {
         consumer: "programmaticToolCall",
+        isolate,
         entry: "index.js",
         code: new Map([["index.js", "export default {}"]]),
         capabilities: capabilitySet(),
@@ -194,12 +240,16 @@ class RecordingWorkerLoader implements WorkerLoaderBindingLike {
     public readonly calls: DynamicWorkerLoadOptions[] = [];
     public disposals = 0;
 
-    public constructor(private readonly run: (call: AuthoredCodeCallLike) => unknown) {}
+    public constructor(
+        private readonly run: (env: PassedCapabilities, input: FacetData) => unknown
+    ) {}
 
     public load(options: DynamicWorkerLoadOptions): DynamicWorkerHandleLike {
         this.calls.push(options);
         return {
-            getEntrypoint: () => ({ run: (call: AuthoredCodeCallLike) => this.run(call) }),
+            getEntrypoint: () => ({
+                run: (input: FacetData) => this.run(options.env, input)
+            }),
             [Symbol.dispose]: () => {
                 this.disposals += 1;
             }
@@ -218,10 +268,12 @@ class StubWorkerLoader implements WorkerLoaderBindingLike {
 class RecordingDispatchNamespace {
     public readonly scripts: string[] = [];
 
-    public constructor(private readonly run: (call: AuthoredCodeCallLike) => unknown) {}
+    public constructor(private readonly run: (capabilities: PassedCapabilities) => unknown) {}
 
     public get(scriptName: string): unknown {
         this.scripts.push(scriptName);
-        return { run: (call: AuthoredCodeCallLike) => this.run(call) };
+        return {
+            run: (capabilities: PassedCapabilities) => this.run(capabilities)
+        };
     }
 }

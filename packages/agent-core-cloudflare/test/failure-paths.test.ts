@@ -320,6 +320,7 @@ describe("Cloudflare operational failure mapping", () => {
                         mainModule: "index.js",
                         modules: { "index.js": "code" }
                     },
+                    {},
                     identity
                 ),
             "protocol.invalid-state"
@@ -344,6 +345,7 @@ describe("Cloudflare operational failure mapping", () => {
                         mainModule: "index.js",
                         modules: { "index.js": "code" }
                     },
+                    {},
                     identity
                 ),
             "operation.invalid-output"
@@ -371,6 +373,7 @@ describe("Cloudflare operational failure mapping", () => {
                         mainModule: "index.js",
                         modules: { "index.js": "code" }
                     },
+                    {},
                     identity
                 ),
             "protocol.invalid-state"
@@ -396,6 +399,7 @@ describe("Cloudflare operational failure mapping", () => {
                         mainModule: "index.js",
                         modules: { "index.js": "code" }
                     },
+                    {},
                     identity
                 ),
             "operation.invalid-output"
@@ -408,6 +412,7 @@ describe("Cloudflare operational failure mapping", () => {
                     mainModule: "missing.js",
                     modules: { "index.js": "" }
                 },
+                {},
                 identity
             )
         ).toThrow(TypeError);

@@ -242,7 +242,7 @@ describe("Cloudflare runtime integration", () => {
         socket.close(1000, "done");
     });
 
-    it("passes a callable capability through Dynamic Worker env and nothing else", async () => {
+    it("passes a callable capability as a Dynamic Worker env binding and nothing else", async () => {
         const context = createExecutionContext();
         const response = await worker.fetch(new Request("https://test/loader"), env, context);
         expect(await response.json()).toEqual({

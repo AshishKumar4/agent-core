@@ -1,18 +1,23 @@
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
+import type { PassedCapabilities } from "./passed-capability.js";
 
 export interface DynamicWorkerSource {
     readonly compatibilityDate: string;
+    readonly compatibilityFlags?: readonly string[];
     readonly mainModule: string;
     readonly modules: Readonly<Record<string, string>>;
 }
 
-export interface DynamicWorkerLoadOptions extends DynamicWorkerSource {
-    // A §4.7 isolate's environment is empty and the type says so. Worker Loader
-    // structured-clones `env`, so a capability could not ride in it even if the shape
-    // allowed one: the delegated set reaches the isolate as the argument of its single
-    // entry call instead, and nothing else ever reaches it at all.
-    readonly env: Readonly<Record<string, never>>;
+export interface DynamicWorkerLoadOptions extends Omit<DynamicWorkerSource, "compatibilityFlags"> {
+    // Mutable to match the platform's own binding type, which the host satisfies
+    // structurally; the adapter is the only writer and copies before handing it over.
+    readonly compatibilityFlags?: string[];
+    // An isolate's whole environment is the delegated capability set: one entry per
+    // passed Binding, typed so nothing that is not one can be put there. Worker Loader
+    // serializes `env`, which is why a passed capability is an entrypoint stub built
+    // from data rather than a live host object (see passed-capability.ts).
+    readonly env: PassedCapabilities;
     readonly globalOutbound: null;
 }
 
@@ -37,6 +42,7 @@ export class DynamicWorkerLoaderAdapter {
 
     public load<Entrypoint>(
         source: DynamicWorkerSource,
+        capabilities: PassedCapabilities,
         createEntrypoint: (entrypoint: unknown) => Entrypoint
     ): DynamicWorkerScope<Entrypoint> {
         validateSource(source);
@@ -44,9 +50,12 @@ export class DynamicWorkerLoaderAdapter {
         try {
             worker = this.loader.load({
                 compatibilityDate: source.compatibilityDate,
+                ...(source.compatibilityFlags === undefined
+                    ? {}
+                    : { compatibilityFlags: [...source.compatibilityFlags] }),
                 mainModule: source.mainModule,
                 modules: Object.freeze({ ...source.modules }),
-                env: Object.freeze({}),
+                env: Object.freeze({ ...capabilities }),
                 globalOutbound: null
             });
         } catch (cause) {

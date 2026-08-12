@@ -80,16 +80,16 @@ export {
     WorkerLoaderAuthoredCodeBacking
 } from "./authored-code.js";
 export type {
-    AuthoredCodeCallLike,
     AuthoredCodeEntrypointLike,
-    DispatchScriptNaming
+    DispatchScriptNaming,
+    DispatchedAuthoredCodeEntrypointLike
 } from "./authored-code.js";
-export { createPassedCapabilityFactory, passedCapabilities } from "./passed-capability.js";
+export { PassedCapabilityRegistry, passedCapabilities } from "./passed-capability.js";
 export type {
-    IsolateBoundaryTargetClass,
     PassedCapabilities,
     PassedCapabilityFactory,
-    PassedCapabilityLike
+    PassedCapabilityLike,
+    PassedCapabilityProps
 } from "./passed-capability.js";
 export { DynamicWorkerLoaderAdapter } from "./loader.js";
 export type {

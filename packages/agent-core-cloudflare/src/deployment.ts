@@ -34,7 +34,10 @@ export class ExplicitCloudflareDeploymentAdapter {
     public resolve(deployment: CloudflareDeployment): ScopedFetchServiceLike {
         if (deployment.mode === "dynamic") {
             return new DynamicFetchServiceScope(
-                this.dynamic.load(deployment.source, (entrypoint) =>
+                // A deployment resolved here is a fetch surface — a Slate preview or a
+                // published version — not a §4.7 submission, so it is passed no
+                // capabilities at all.
+                this.dynamic.load(deployment.source, {}, (entrypoint) =>
                     this.requireService(entrypoint)
                 )
             );

@@ -7,7 +7,8 @@ import type { DynamicWorkerLoaderAdapter } from "./loader.js";
 import {
     passedCapabilities,
     type PassedCapabilities,
-    type PassedCapabilityFactory
+    type PassedCapabilityFactory,
+    type PassedCapabilityRegistry
 } from "./passed-capability.js";
 
 /** The two backings SPEC §10.2 names for this profile. */
@@ -15,26 +16,31 @@ export const WORKER_LOADER_BACKING = new AuthoredCodeBackingId("workerLoader");
 export const DISPATCH_NAMESPACE_BACKING = new AuthoredCodeBackingId("dispatchNamespace");
 
 /**
- * The one call a §4.7 isolate ever receives. The delegated capability set arrives here
- * and never as an ambient binding: a Worker Loader `env` is structured-cloned and cannot
- * carry a live capability at all, and a dispatch namespace's `env` belongs to its own
- * deployment. So the isolate starts holding nothing, and this argument is the whole of
- * what it is handed.
+ * What code loaded by Worker Loader exports. Its capabilities are its `env` — one entry
+ * per passed Binding, addressed as `env.<name>.invoke(...)` — which is the binding
+ * channel every user of this platform expects and the one the reference implementation
+ * of this pattern uses.
  */
-export interface AuthoredCodeCallLike {
-    readonly capabilities: PassedCapabilities;
-    readonly input: FacetData;
+export interface AuthoredCodeEntrypointLike {
+    run(input: FacetData): unknown;
 }
 
-/** What agent-authored code exports, identically under either backing. */
-export interface AuthoredCodeEntrypointLike {
-    run(call: AuthoredCodeCallLike): unknown;
+/**
+ * What pre-deployed code in a dispatch namespace exports. Its `env` is fixed by its own
+ * deployment and cannot carry a per-submission capability set, so the delegated set
+ * arrives as the call's first argument instead. The stub in it is the same one the
+ * loaded-code path puts in `env`; only the channel differs, because the mechanism
+ * leaves no choice.
+ */
+export interface DispatchedAuthoredCodeEntrypointLike {
+    run(capabilities: PassedCapabilities, input: FacetData): unknown;
 }
 
 /**
  * Worker Loader as a §4.7 backing: a fresh isolate per submission, `globalOutbound:
- * null` so it has no network reach of its own, and an empty `env` so it starts holding
- * nothing at all.
+ * null` so it has no network reach of its own, `disallow_importable_env` so the loaded
+ * code cannot reach its own worker's exports and call back around the membrane, and an
+ * `env` holding the delegated capability set and nothing else.
  */
 export class WorkerLoaderAuthoredCodeBacking extends AuthoredCodeBacking {
     public readonly id = WORKER_LOADER_BACKING;
@@ -42,6 +48,7 @@ export class WorkerLoaderAuthoredCodeBacking extends AuthoredCodeBacking {
     public constructor(
         private readonly loader: DynamicWorkerLoaderAdapter,
         private readonly compatibilityDate: string,
+        private readonly registry: PassedCapabilityRegistry,
         private readonly capabilities: PassedCapabilityFactory,
         private readonly errors: CloudflareErrorPort
     ) {
@@ -49,18 +56,21 @@ export class WorkerLoaderAuthoredCodeBacking extends AuthoredCodeBacking {
     }
 
     public async run(request: AuthoredCodeRunRequest): Promise<FacetData> {
+        using registered = this.registry.open(request.isolate, request.invocations);
+        void registered;
         const scope = this.loader.load(
             {
                 compatibilityDate: this.compatibilityDate,
+                compatibilityFlags: ISOLATE_COMPATIBILITY_FLAGS,
                 mainModule: request.entry,
                 modules: Object.fromEntries(request.code)
             },
+            passedCapabilities(request.capabilities, request.isolate, this.capabilities),
             (entrypoint) => requireEntrypoint(entrypoint, this.errors)
         );
         try {
-            const returned = await scope.entrypoint.run(
-                authoredCodeCall(request, this.capabilities)
-            );
+            const entrypoint: AuthoredCodeEntrypointLike = scope.entrypoint;
+            const returned = await entrypoint.run(request.input);
             if (!isFacetData(returned)) notData(this.errors);
             return returned;
         } finally {
@@ -68,6 +78,11 @@ export class WorkerLoaderAuthoredCodeBacking extends AuthoredCodeBacking {
         }
     }
 }
+
+// `disallow_importable_env` also disallows importable `ctx.exports`, which is what stops
+// loaded code from reaching its own worker's entry points and calling around the one
+// channel it was given.
+const ISOLATE_COMPATIBILITY_FLAGS: readonly string[] = Object.freeze(["disallow_importable_env"]);
 
 /**
  * How a submission names the pre-deployed script that carries its code. A dispatch
@@ -97,6 +112,7 @@ export class DispatchNamespaceAuthoredCodeBacking extends AuthoredCodeBacking {
     public constructor(
         private readonly namespace: DispatchNamespaceAdapter<unknown>,
         private readonly naming: DispatchScriptNaming,
+        private readonly registry: PassedCapabilityRegistry,
         private readonly capabilities: PassedCapabilityFactory,
         private readonly errors: CloudflareErrorPort
     ) {
@@ -104,30 +120,22 @@ export class DispatchNamespaceAuthoredCodeBacking extends AuthoredCodeBacking {
     }
 
     public async run(request: AuthoredCodeRunRequest): Promise<FacetData> {
-        const entrypoint = requireEntrypoint(
+        using registered = this.registry.open(request.isolate, request.invocations);
+        void registered;
+        const entrypoint: DispatchedAuthoredCodeEntrypointLike = requireEntrypoint(
             this.namespace.resolve(this.naming(request)),
             this.errors
         );
-        const returned = await entrypoint.run(authoredCodeCall(request, this.capabilities));
+        const returned = await entrypoint.run(
+            passedCapabilities(request.capabilities, request.isolate, this.capabilities),
+            request.input
+        );
         if (!isFacetData(returned)) notData(this.errors);
         return returned;
     }
 }
 
-function authoredCodeCall(
-    request: AuthoredCodeRunRequest,
-    capabilities: PassedCapabilityFactory
-): AuthoredCodeCallLike {
-    return {
-        capabilities: passedCapabilities(request.capabilities, request.invocations, capabilities),
-        input: request.input
-    };
-}
-
-function requireEntrypoint(
-    value: unknown,
-    errors: CloudflareErrorPort
-): AuthoredCodeEntrypointLike {
+function requireEntrypoint(value: unknown, errors: CloudflareErrorPort): AuthoredCodeRunner {
     if (!isEntrypoint(value)) {
         operationalFailure(
             errors,
@@ -138,10 +146,15 @@ function requireEntrypoint(
     return value;
 }
 
-function isEntrypoint(value: unknown): value is AuthoredCodeEntrypointLike {
+function isEntrypoint(value: unknown): value is AuthoredCodeRunner {
     return (typeof value === "object" && value !== null) || typeof value === "function"
         ? typeof Reflect.get(value, "run") === "function"
         : false;
+}
+
+/** The loose shape the two published entry-point contracts both satisfy. */
+interface AuthoredCodeRunner {
+    run(...args: unknown[]): unknown;
 }
 
 function notData(errors: CloudflareErrorPort): never {

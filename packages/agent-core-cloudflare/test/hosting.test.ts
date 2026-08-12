@@ -31,11 +31,11 @@ const source = Object.freeze({
 });
 
 describe("Cloudflare hosting adapters", () => {
-    test("forces one-time Dynamic Worker load with null outbound and an empty env", () => {
+    test("forces one-time Dynamic Worker load with null outbound and only passed Bindings", () => {
         const loader = new FakeWorkerLoader();
         const adapter = new DynamicWorkerLoaderAdapter(loader, fakeErrors);
 
-        const scope = adapter.load(source, requireFetchService);
+        const scope = adapter.load(source, {}, requireFetchService);
         expect(scope.entrypoint).toBe(loader.service);
         expect(loader.calls).toEqual([
             {
@@ -107,7 +107,7 @@ describe("Cloudflare hosting adapters", () => {
 
         expectOperationalFailure(
             () =>
-                adapter.load(source, () => {
+                adapter.load(source, {}, () => {
                     throw new TypeError("facet failed");
                 }),
             "operation.invalid-output"
@@ -115,7 +115,7 @@ describe("Cloudflare hosting adapters", () => {
         expect(entrypointDisposals).toBe(1);
         expect(workerDisposals).toBe(1);
 
-        const scope = adapter.load(source, requireFetchService);
+        const scope = adapter.load(source, {}, requireFetchService);
         scope[Symbol.dispose]();
         scope[Symbol.dispose]();
         expect(attempts).toBe(2);
@@ -135,7 +135,7 @@ describe("Cloudflare hosting adapters", () => {
             },
             fakeErrors
         );
-        const scope = adapter.load(source, () => ({ fetch: () => new Response("loaded") }));
+        const scope = adapter.load(source, {}, () => ({ fetch: () => new Response("loaded") }));
 
         expectOperationalFailure(() => scope[Symbol.dispose](), "protocol.invalid-state");
     });
