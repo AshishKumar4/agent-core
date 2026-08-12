@@ -159,10 +159,7 @@ export class CanonicalRunSpawnPort<Transaction> extends RunSpawnPort<Transaction
             this.source.durableAttenuation(transaction, reservation)
         );
     }
-    public attenuation(
-        transaction: Transaction,
-        reservation: SpawnReservation
-    ): SpawnAttenuation {
+    public attenuation(transaction: Transaction, reservation: SpawnReservation): SpawnAttenuation {
         return this.source.attenuation(transaction, reservation);
     }
 }

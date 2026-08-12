@@ -66,7 +66,13 @@ function childRecords(name: string, parent: RunId) {
     };
 }
 
-function runningTurn(value: Harness, name: string, run: RunId, branch: RunBranchId, head: RunCommitId): Token {
+function runningTurn(
+    value: Harness,
+    name: string,
+    run: RunId,
+    branch: RunBranchId,
+    head: RunCommitId
+): Token {
     const turn = new TurnId(`turn-${name}`);
     const placement = new TurnPlacementSnapshot(turn, pins(), []);
     value.runtime.createTurn(
@@ -155,18 +161,34 @@ describe("Run resource ceilings", () => {
         { tags: "p0" },
         () => {
             const root = seedRunningTurn();
-            const parent = spawnChild(root, "parent", ids.run, root.token, ceiling({ tokens: 100 }));
+            const parent = spawnChild(
+                root,
+                "parent",
+                ids.run,
+                root.token,
+                ceiling({ tokens: 100 })
+            );
             root.runtime.recordModelTokens(parent.run, 40);
 
-            expect(root.runtime.remainingResources(parent.run, new Date(1_600))?.limit("tokens")).toBe(60);
+            expect(
+                root.runtime.remainingResources(parent.run, new Date(1_600))?.limit("tokens")
+            ).toBe(60);
 
             expectDenied(
                 () => spawnChild(root, "wider", parent.run, parent.token, ceiling({ tokens: 61 })),
                 /exceeds the parent Run's remaining allowance/
             );
 
-            const equal = spawnChild(root, "equal", parent.run, parent.token, ceiling({ tokens: 60 }));
-            expect(root.runtime.remainingResources(equal.run, new Date(1_600))?.limit("tokens")).toBe(60);
+            const equal = spawnChild(
+                root,
+                "equal",
+                parent.run,
+                parent.token,
+                ceiling({ tokens: 60 })
+            );
+            expect(
+                root.runtime.remainingResources(equal.run, new Date(1_600))?.limit("tokens")
+            ).toBe(60);
 
             const narrower = spawnChild(
                 root,
@@ -175,9 +197,9 @@ describe("Run resource ceilings", () => {
                 parent.token,
                 ceiling({ tokens: 10 })
             );
-            expect(root.runtime.remainingResources(narrower.run, new Date(1_600))?.limit("tokens")).toBe(
-                10
-            );
+            expect(
+                root.runtime.remainingResources(narrower.run, new Date(1_600))?.limit("tokens")
+            ).toBe(10);
         }
     );
 
@@ -200,7 +222,13 @@ describe("Run resource ceilings", () => {
 
             // The child declares neither dimension, so both come from the parent's remainder,
             // with depth spent by the one spawn edge it just crossed.
-            const child = spawnChild(root, "silent", parent.run, parent.token, new SpawnAttenuation());
+            const child = spawnChild(
+                root,
+                "silent",
+                parent.run,
+                parent.token,
+                new SpawnAttenuation()
+            );
             const remainder = root.runtime.remainingResources(child.run, new Date(1_600));
             expect(remainder?.limit("tokens")).toBe(75);
             expect(remainder?.limit("depth")).toBe(1);
@@ -213,9 +241,9 @@ describe("Run resource ceilings", () => {
                 child.token,
                 new SpawnAttenuation()
             );
-            expect(root.runtime.remainingResources(grandchild.run, new Date(1_600))?.limit("depth")).toBe(
-                0
-            );
+            expect(
+                root.runtime.remainingResources(grandchild.run, new Date(1_600))?.limit("depth")
+            ).toBe(0);
             expectDenied(
                 () =>
                     spawnChild(
@@ -244,9 +272,9 @@ describe("Run resource ceilings", () => {
                 new Date(2_000)
             );
 
-            expect(root.runtime.remainingResources(child.run, new Date(2_400))?.limit("wallClockMs")).toBe(
-                600
-            );
+            expect(
+                root.runtime.remainingResources(child.run, new Date(2_400))?.limit("wallClockMs")
+            ).toBe(600);
             expect(root.runtime.exhaustedResource(child.run, new Date(2_400))).toBeUndefined();
             expect(root.runtime.exhaustedResource(child.run, new Date(3_000))).toBe("wallClockMs");
         }
@@ -295,7 +323,9 @@ describe("Run resource ceilings", () => {
             expect(snapshot.outcome).toBe("cancelled");
             expect(snapshot.exhausted).toBe("tokens");
 
-            const stored = root.repository.transaction((tx) => root.repository.loadRun(tx, child.run)!);
+            const stored = root.repository.transaction((tx) =>
+                root.repository.loadRun(tx, child.run)!
+            );
             expect(stored.lifecycle.kind).toBe("terminal");
             expect(stored.lifecycle.exhausted).toBe("tokens");
             expect(stored.terminal?.exhausted).toBe("tokens");
@@ -332,13 +362,13 @@ describe("Run resource ceilings", () => {
         expect(SpawnAttenuationCodec.decode(SpawnAttenuationCodec.encode(attenuation))).toEqual(
             attenuation
         );
-        expect(SpawnAttenuationCodec.decode(SpawnAttenuationCodec.encode(new SpawnAttenuation()))).toEqual(
-            new SpawnAttenuation()
-        );
+        expect(
+            SpawnAttenuationCodec.decode(SpawnAttenuationCodec.encode(new SpawnAttenuation()))
+        ).toEqual(new SpawnAttenuation());
         expect(() => new ResourceCeiling({})).toThrow(/at least one dimension/);
         expect(() => new ResourceCeiling({ tokens: -1 })).toThrow(/non-negative safe integer/);
-        expect(() =>
-            SpawnAttenuation.fromData({ ceiling: { cpu: 1 } } as never)
-        ).toThrow(/missing or unknown fields/);
+        expect(() => SpawnAttenuation.fromData({ ceiling: { cpu: 1 } } as never)).toThrow(
+            /missing or unknown fields/
+        );
     });
 });

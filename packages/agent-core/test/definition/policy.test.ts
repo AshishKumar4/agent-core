@@ -297,7 +297,11 @@ describe("policy declaration codec", () => {
         const payload = {
             approvals: [],
             maxDirectRevocationWindowMs: null,
-            placement: { allowed: ["dynamic", "provider", "bundled"], backings: {}, trusted: ["*"] },
+            placement: {
+                allowed: ["dynamic", "provider", "bundled"],
+                backings: {},
+                trusted: ["*"]
+            },
             tiers: {}
         };
 

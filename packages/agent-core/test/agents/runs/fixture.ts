@@ -195,10 +195,7 @@ export class TestSpawnPort<Transaction = object> extends RunSpawnPort<Transactio
     public verify(_transaction: Transaction, _reservation: SpawnReservation): boolean {
         return this.accepts;
     }
-    public attenuation(
-        _transaction: Transaction,
-        reservation: SpawnReservation
-    ): SpawnAttenuation {
+    public attenuation(_transaction: Transaction, reservation: SpawnReservation): SpawnAttenuation {
         return this.attenuations.get(reservation.id.value) ?? new SpawnAttenuation();
     }
 }

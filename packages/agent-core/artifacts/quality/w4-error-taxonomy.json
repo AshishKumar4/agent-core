@@ -1,9 +1,6 @@
 {
   "edition": "1.0.0",
-  "owners": [
-    "W0",
-    "W9"
-  ],
+  "owners": ["W0", "W9"],
   "wave": "W4",
   "inventory": "artifacts/quality/w4-source-inventory.json",
   "checker": "artifacts/quality/check-w4-error-taxonomy.mjs",
@@ -177,9 +174,7 @@
     "src/protocol/materialization-commands.ts:184",
     "src/substrates/sqlite/materialization.ts:1967"
   ],
-  "allowedPreservedRethrows": [
-    "src/definition/loader.ts:251"
-  ],
+  "allowedPreservedRethrows": ["src/definition/loader.ts:251"],
   "expected": {
     "agentCoreOperationalThrows": 237,
     "allowedTypeErrors": 160,

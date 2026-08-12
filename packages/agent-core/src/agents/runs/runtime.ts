@@ -1398,10 +1398,7 @@ export class RunRuntime<Transaction> {
         return turn;
     }
 
-    private requireAttenuation(
-        tx: Transaction,
-        reservation: SpawnReservation
-    ): SpawnAttenuation {
+    private requireAttenuation(tx: Transaction, reservation: SpawnReservation): SpawnAttenuation {
         const attenuation = this.spawn.attenuation(tx, reservation);
         if (
             !Digest.sha256(SpawnAttenuation.codec.encode(attenuation)).equals(
