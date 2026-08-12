@@ -4,7 +4,8 @@ import {
     Grant,
     GrantId,
     ScopeEpoch,
-    createTenantControlBootstrapPlan
+    createTenantControlBootstrapPlan,
+    type AuthorityMutationStore
 } from "../../../src/authority";
 import {
     Revision,
@@ -664,73 +665,86 @@ describe("SQLite Tenant bootstrap marker projection and read faults", () => {
 });
 
 describe("SQLite Tenant control topology and lifecycle guards", () => {
-    test("pins every record type to its own Tenant", { tags: "p0" }, () => {
+    // Every one of these writers has a twin in the shared record closure that raises the
+    // same code and the very same sentence when the transaction commits. What separates
+    // them is only that the writer refuses the record before writing it, so `completed`
+    // stays false; asserting the fault alone passes while the writer's guard is gone and
+    // the closure quietly stands in for it.
+    test("pins every record type to its own Tenant, eagerly", { tags: "p0" }, () => {
         const store = bootstrappedStore(new TestSqlite());
-        expect(() =>
-            store.transaction(() =>
-                store.saveTenant(
-                    new Tenant(foreignTenantId, "organization", "active", Revision.initial())
-                )
-            )
-        ).toThrow(
-            expect.objectContaining({
-                code: "protocol.invalid-state",
-                message: "Tenant record belongs to another Tenant"
-            })
-        );
-        expect(() =>
-            store.transaction((control) =>
-                control.putProject(
-                    new Project(
-                        new ProjectId("alien-project"),
-                        foreignTenantId,
-                        "Alien",
-                        Revision.initial()
+        const writes: readonly (readonly [string, (control: AuthorityMutationStore) => void])[] = [
+            [
+                "Tenant record",
+                () =>
+                    store.saveTenant(
+                        new Tenant(foreignTenantId, "organization", "active", Revision.initial())
                     )
-                )
-            )
-        ).toThrow(
-            expect.objectContaining({
-                code: "protocol.invalid-state",
-                message: "Project belongs to another Tenant"
-            })
-        );
-        expect(() =>
-            store.transaction((control) =>
-                control.putWorkspace(
-                    new Workspace(
-                        new WorkspaceId("alien-workspace"),
-                        foreignTenantId,
-                        undefined,
-                        Revision.initial()
+            ],
+            [
+                "Team",
+                (control) =>
+                    control.putTeam(
+                        new Team(
+                            new TeamId("alien-team"),
+                            foreignTenantId,
+                            "Alien",
+                            [],
+                            Revision.initial()
+                        )
                     )
-                )
-            )
-        ).toThrow(
-            expect.objectContaining({
-                code: "protocol.invalid-state",
-                message: "Workspace belongs to another Tenant"
-            })
-        );
-        expect(() =>
-            store.transaction((control) =>
-                control.putGuestTrust(
-                    new GuestTrust(
-                        new GuestTrustId("alien-trust"),
-                        foreignTenantId,
-                        tenantId,
-                        { kind: "callback", endpoint: "https://home.example/verify" },
-                        "active",
-                        Revision.initial()
+            ],
+            [
+                "Project",
+                (control) =>
+                    control.putProject(
+                        new Project(
+                            new ProjectId("alien-project"),
+                            foreignTenantId,
+                            "Alien",
+                            Revision.initial()
+                        )
                     )
-                )
-            )
-        ).toThrow(
-            expect.objectContaining({
-                code: "protocol.invalid-state",
-                message: "Guest trust belongs to another Tenant"
-            })
-        );
+            ],
+            [
+                "Workspace",
+                (control) =>
+                    control.putWorkspace(
+                        new Workspace(
+                            new WorkspaceId("alien-workspace"),
+                            foreignTenantId,
+                            undefined,
+                            Revision.initial()
+                        )
+                    )
+            ],
+            [
+                "Guest trust",
+                (control) =>
+                    control.putGuestTrust(
+                        new GuestTrust(
+                            new GuestTrustId("alien-trust"),
+                            foreignTenantId,
+                            tenantId,
+                            { kind: "callback", endpoint: "https://home.example/verify" },
+                            "active",
+                            Revision.initial()
+                        )
+                    )
+            ]
+        ];
+
+        for (const [subject, write] of writes) {
+            let completed = false;
+            expect(
+                () =>
+                    store.transaction((control) => {
+                        write(control);
+                        completed = true;
+                    }),
+                subject
+            ).toThrow(foreignOwnerFault(subject));
+            expect(completed, subject).toBe(false);
+        }
     });
 
     test("requires an owned transaction for record writes", { tags: "p0" }, () => {
@@ -1298,6 +1312,34 @@ describe("SQLite Tenant control closure integrity", () => {
         );
     });
 
+    // Reopening re-derives the bootstrap from the anchor and demands every record it
+    // names. Deleting one leaves a store the shared closure would also refuse, but with
+    // its own diagnosis about the record that dangles; the bootstrap sweep has to be the
+    // one that speaks, and it has to speak before the closure gets the chance.
+    test("requires every record the bootstrap plan names on reopen", { tags: "p0" }, () => {
+        const plan = createTenantControlBootstrapPlan(anchor, Revision.initial());
+        const bootstrapGrant = plan.grants[0];
+        if (bootstrapGrant === undefined) throw new Error("bootstrap plan names no Grant");
+        const deletions: readonly (readonly [string, string, string])[] = [
+            ["owner Principal", "DELETE FROM tenant_principals WHERE id = ?", principalId.value],
+            [
+                "owner Membership",
+                "DELETE FROM tenant_memberships WHERE id = ?",
+                plan.ownerMembership.id.value
+            ],
+            ["owner Role Grant", "DELETE FROM tenant_grants WHERE id = ?", bootstrapGrant.id.value]
+        ];
+
+        for (const [subject, statement, id] of deletions) {
+            const database = new TestSqlite();
+            bootstrappedStore(database);
+            database.run(statement, [id]);
+            expect(() => createSqliteTenantControlStore(database), subject).toThrow(
+                expect.objectContaining(corrupt)
+            );
+        }
+    });
+
     test("admits exactly one stored Tenant identity row", { tags: "p0" }, () => {
         const database = new TestSqlite();
         bootstrappedStore(database);
@@ -1309,6 +1351,32 @@ describe("SQLite Tenant control closure integrity", () => {
                 Tenant.encode(new Tenant(tenantId, "organization", "active", Revision.initial()))
             ]
         );
+        expect(() => createSqliteTenantControlStore(database)).toThrow(
+            expect.objectContaining(corrupt)
+        );
+    });
+
+    // The row sweep is the price of opening a store, not of writing to one: a transaction
+    // audits the records it changed and the ones their change can break, and a second
+    // Tenant row breaks neither. Reopening is what finds it.
+    test("sweeps stored rows on reopen and not inside a transaction", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        const store = bootstrappedStore(database);
+        database.run(
+            `INSERT INTO tenant_identities (id, kind, status, revision, record)
+             VALUES (?, 'organization', 'active', 0, ?)`,
+            [
+                "second-tenant-row",
+                Tenant.encode(new Tenant(tenantId, "organization", "active", Revision.initial()))
+            ]
+        );
+
+        expect(() =>
+            store.transaction((control) => {
+                control.putRole(hollowRole);
+            })
+        ).not.toThrow();
+        expect(store.role(hollowRole.name)?.name.value).toBe(hollowRole.name.value);
         expect(() => createSqliteTenantControlStore(database)).toThrow(
             expect.objectContaining(corrupt)
         );
