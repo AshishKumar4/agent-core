@@ -225,7 +225,8 @@ describe("the one channel out of a §4.7 isolate", () => {
         const harness = await MembraneHarness.create();
         harness.cancel();
         await expect(harness.invoke(mailBinding, "read")).rejects.toMatchObject({
-            code: "lease.invalid"
+            code: "lease.invalid",
+            message: "Agent-authored code execution is cancelled"
         });
         expect(harness.executions).toEqual([]);
         await harness.dispose();
@@ -312,10 +313,29 @@ describe("running one submission of agent-authored code", () => {
 
     test("refuses code whose modules are not in the content store", { tags: "p1" }, async () => {
         const harness = await HostHarness.create({ store: false });
-        await expect(harness.run()).rejects.toMatchObject({ code: "content.not-found" });
+        await expect(harness.run()).rejects.toMatchObject({
+            code: "content.not-found",
+            message: "Agent-authored code module index.js is not available"
+        });
         expect(harness.delegations.opened).toBe(0);
         await harness.dispose();
     });
+
+    test(
+        "refuses submitted code the content store cannot decode as UTF-8",
+        { tags: "p1" },
+        async () => {
+            // Modules are addressed by digest and decoded as text before they reach an isolate.
+            // A lone continuation byte is not UTF-8, and decoding it leniently would hand the
+            // isolate a replacement character where the author wrote something else, so the
+            // decoder is strict and the submission fails instead.
+            const harness = await HostHarness.create({ moduleBytes: Uint8Array.of(0x72, 0x80) });
+
+            await expect(harness.run()).rejects.toThrow(TypeError);
+            expect(harness.delegations.opened).toBe(0);
+            await harness.dispose();
+        }
+    );
 
     test("declares programmatic tool calling as a delegate Operation", { tags: "p0" }, async () => {
         const harness = await HostHarness.create();
@@ -336,6 +356,63 @@ describe("running one submission of agent-authored code", () => {
             operation.execute(harness.operationContext(), harness.submissionData())
         ).resolves.toMatchObject({ names: ["mail"] });
         await harness.dispose();
+    });
+
+    // A submission arrives as untrusted Facet data, so every field it names is a place the
+    // wire shape can disagree with the record. Each diagnosis is asserted whole: they differ
+    // only by subject, and matching TypeError alone lets any of them stand in for another.
+    test("reads a submission only from the shape §4.7 defines", { tags: "p1" }, () => {
+        const wellFormed = {
+            capabilities: [],
+            consumer: "slateBackend",
+            input: null,
+            source: { entry: "index.js", modules: { "index.js": contentRef("code").value } }
+        };
+        expect(() => decodeSubmission(wellFormed)).not.toThrow();
+        expect(() => decodeSubmission("not-a-submission")).toThrow(
+            new TypeError("Agent-authored code submission must be an object")
+        );
+        expect(() => decodeSubmission({ ...wellFormed, capabilities: {} })).toThrow(
+            new TypeError("Agent-authored code capabilities must be an array")
+        );
+        expect(() => decodeSubmission({ ...wellFormed, source: "index.js" })).toThrow(
+            new TypeError("Submitted source must be an object")
+        );
+        expect(() => decodeSubmission({ ...wellFormed, capabilities: ["mail"] })).toThrow(
+            new TypeError("Passed capability must be an object")
+        );
+        expect(() =>
+            decodeSubmission({ ...wellFormed, capabilities: [{ facet: mailFacet.value }] })
+        ).toThrow(new TypeError("Passed capability name must be a string"));
+        expect(() =>
+            decodeSubmission({ ...wellFormed, capabilities: [{ binding: "mail", facet: 7 }] })
+        ).toThrow(new TypeError("Passed capability Facet must be a string"));
+    });
+
+    test("carries a passed capability's stated narrowing into the set", { tags: "p1" }, () => {
+        const narrowed = decodeSubmission({
+            capabilities: [
+                {
+                    binding: mailBinding.value,
+                    capability: {
+                        argumentConstraints: {},
+                        facetPattern: mailFacet.value,
+                        impacts: ["observe"],
+                        operations: []
+                    },
+                    facet: mailFacet.value
+                }
+            ],
+            consumer: "slateBackend",
+            input: null,
+            source: { entry: "index.js", modules: { "index.js": contentRef("code").value } }
+        });
+
+        // Dropping the narrowing would widen the passed capability to whatever the delegator
+        // holds, which is the one thing a stated narrowing exists to prevent.
+        expect(narrowed.capabilities.capability(mailBinding)?.capability?.impacts).toEqual([
+            "observe"
+        ]);
     });
 
     test("rejects a submission that is not a §4.7 consumer's", { tags: "p1" }, () => {
@@ -362,6 +439,74 @@ describe("running one submission of agent-authored code", () => {
             () => new AuthoredCodeSource("missing.js", new Map([["index.js", contentRef("code")]]))
         ).toThrow(TypeError);
         expect(() => new AuthoredCodeSource("index.js", new Map())).toThrow(TypeError);
+    });
+});
+
+// Both sets are structural types, so a plain object carrying the right fields satisfies the
+// compiler and reaches the constructor. What the constructor admits is therefore the whole of
+// the check: the passed set is the entire reach of an isolate holding no ambient authority,
+// and the offered set is what a profile will hand a consumer's code to run in.
+describe("the sets a §4.7 isolate is built from", () => {
+    const impostorCapability = {
+        name: impostorBinding,
+        facet: mailFacet,
+        package: new FacetPackageId("core")
+    };
+    const impostorBacking = {
+        id: workerLoader,
+        run: async (): Promise<FacetData> => ({})
+    };
+
+    test("offers an empty passed set as the shared none", { tags: "p1" }, () => {
+        // An isolate given no capabilities still needs a set to be handed, and its reach is
+        // the empty one rather than an absent object the call path would fail to consult.
+        expect(AuthoredCodeCapabilitySet.none.names).toEqual([]);
+        expect(AuthoredCodeCapabilitySet.none.capability(mailBinding)).toBeUndefined();
+    });
+
+    test("passes only capabilities minted as the canonical record", { tags: "p0" }, () => {
+        expect(() => new AuthoredCodeCapabilitySet([impostorCapability])).toThrow(
+            new TypeError("Passed capabilities must use the canonical contract")
+        );
+    });
+
+    test("refuses a passed set that names one capability twice", { tags: "p0" }, () => {
+        expect(
+            () =>
+                new AuthoredCodeCapabilitySet([
+                    new AuthoredCodeCapability(mailBinding, mailFacet),
+                    new AuthoredCodeCapability(mailBinding, mailFacet)
+                ])
+        ).toThrow(new TypeError("Passed capability names must be unique"));
+    });
+
+    test("offers only backings minted as the canonical record", { tags: "p0" }, () => {
+        expect(() => new AuthoredCodeBackingSet([impostorBacking], workerLoader)).toThrow(
+            new TypeError("Offered backings must implement the backing contract")
+        );
+    });
+
+    test("refuses an offered set that names one backing twice", { tags: "p0" }, () => {
+        expect(
+            () =>
+                new AuthoredCodeBackingSet(
+                    [
+                        new RecordingBacking(workerLoader, [], false),
+                        new RecordingBacking(workerLoader, [], false)
+                    ],
+                    workerLoader
+                )
+        ).toThrow(new TypeError("Offered backing identifiers must be unique"));
+    });
+
+    test("refuses a declared default the profile does not offer", { tags: "p0" }, () => {
+        expect(
+            () =>
+                new AuthoredCodeBackingSet(
+                    [new RecordingBacking(workerLoader, [], false)],
+                    dispatchNamespace
+                )
+        ).toThrow(new TypeError("A profile's declared default backing must be one it offers"));
     });
 });
 
@@ -544,6 +689,8 @@ interface HostOptions {
     readonly backings?: AuthoredCodeBackingPolicy;
     readonly fail?: boolean;
     readonly store?: boolean;
+    /** Raw module bytes, for code the content store holds but UTF-8 cannot describe. */
+    readonly moduleBytes?: Uint8Array;
 }
 
 /**
@@ -585,12 +732,16 @@ class HostHarness {
 
     public static async create(options: HostOptions = {}): Promise<HostHarness> {
         const membrane = await MembraneHarness.create();
+        const bytes = options.moduleBytes ?? new TextEncoder().encode("run()");
         const harness = new HostHarness(
             membrane,
-            new AuthoredCodeSource("index.js", new Map([["index.js", contentRef("run()")]])),
+            new AuthoredCodeSource(
+                "index.js",
+                new Map([["index.js", ContentRef.fromDigest(Digest.sha256(bytes))]])
+            ),
             options
         );
-        if (options.store !== false) await harness.content.put(new TextEncoder().encode("run()"));
+        if (options.store !== false) await harness.content.put(bytes);
         return harness;
     }
 
