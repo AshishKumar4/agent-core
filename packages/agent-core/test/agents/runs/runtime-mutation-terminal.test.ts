@@ -1382,6 +1382,16 @@ describe("terminal sibling read-back", () => {
             );
             expectStillActive(repository);
         }
+
+        // The third combination — terminal and still holding — is the one no store can
+        // hand back, however it lies. Rows are bytes, and every Turn the repository
+        // decodes goes through this constructor, so the row cannot be built to begin with.
+        // That is why the held half of each screen stays unreachable rather than untested.
+        const seeded = seedRunningTurn();
+        const held = claimSibling(seeded, "sibling-readback-held");
+        expect(() =>
+            siblingAs(held, { lease: TurnLease.restore(held.id, ids.holder, 2, new Date(5000)) })
+        ).toThrow("Suspended and terminal Turns must be unheld");
     });
 
     test(
