@@ -336,7 +336,8 @@
       "remainingEvidence": [
         "TypeScript CapabilitySpec.covers and matches refinement against the executable decision",
         "canonical JSON encoding and argument path projection",
-        "untrusted pattern, impact, and constraint validation at the trust boundary"
+        "untrusted pattern, impact, and constraint validation at the trust boundary",
+        "TypeScript refinement, for which oracle agreement is empirical only (NC-DIFFERENTIAL-EMPIRICAL)"
       ]
     },
     {
@@ -520,7 +521,8 @@
       },
       "remainingEvidence": [
         "truthful four-set input construction",
-        "runtime isolation-mode enforcement"
+        "runtime isolation-mode enforcement",
+        "TypeScript refinement, for which oracle agreement is empirical only (NC-DIFFERENTIAL-EMPIRICAL)"
       ]
     },
     {
@@ -944,7 +946,8 @@
       },
       "remainingEvidence": [
         "atomic durable lease operations and checks on every concrete writer path",
-        "trusted monotonic clock and full lifecycle conformance"
+        "trusted monotonic clock and full lifecycle conformance",
+        "TypeScript refinement, for which oracle agreement is empirical only (NC-DIFFERENTIAL-EMPIRICAL)"
       ]
     },
     {
@@ -2831,6 +2834,11 @@
       "status": "specified-not-modeled"
     },
     {
+      "id": "NC-DIFFERENTIAL-EMPIRICAL",
+      "summary": "Agreement between an implementation and an executable model definition — the differential oracle suites, property tests, and mutation measurement — is empirical evidence over the inputs actually exercised. It is a refutation instrument: a disagreement is a genuine semantic divergence, while agreement bounds nothing outside the tested domain and is not a refinement proof. No designated theorem depends on any such run, and no proved status anywhere in this ledger is earned by one.",
+      "status": "refinement-non-goal"
+    },
+    {
       "id": "NC-TYPESCRIPT-SUBSTRATE-REFINEMENT",
       "summary": "No TypeScript, adapter, substrate, provider, deployment, profile, or product is proved to refine the Lean model.",
       "status": "refinement-non-goal"
@@ -3088,6 +3096,7 @@
           "AC-TRUST-001"
         ],
         "nonClaimIds": [
+          "NC-DIFFERENTIAL-EMPIRICAL",
           "NC-TYPESCRIPT-SUBSTRATE-REFINEMENT"
         ],
         "assumptionIds": [

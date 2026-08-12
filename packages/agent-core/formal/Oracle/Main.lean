@@ -17,6 +17,12 @@ verified model.
 proves a true answer implies the child admits no intent the parent refuses, so agreeing
 with it is agreeing with SPEC §3.4 rule 2 itself, not with a restatement of the check.
 
+What the suites establish runs one way. A disagreement is a genuine semantic divergence
+between the implementation and a proved model definition. Agreement is empirical evidence
+over the inputs actually exercised and bounds nothing outside them; it is not a refinement
+proof, and no designated theorem depends on any oracle run. That labelling is recorded as
+`NC-DIFFERENTIAL-EMPIRICAL`.
+
 Protocol: one JSON request per stdin line, one JSON response per stdout line.
 Unknown operations and malformed requests produce `{"error": ...}` responses rather
 than crashes, so a harness bug cannot masquerade as a model verdict.
