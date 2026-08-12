@@ -28,11 +28,24 @@
 // proof while any token change does. The enclosing symbol is what separates two
 // identical throw sites in one file — see the two "Workspace scope requires a Workspace
 // ID" literals in src/identity/scope.ts, one unreachable and one killed. A mutant at
-// module scope has no enclosing symbol and so cannot be registered.
+// module scope has no enclosing symbol and so cannot be registered. Two identical sites
+// inside one symbol need `occurrence`/`sites` as well; see POSITION_FIELDS below.
 import ts from "typescript";
 import { assertExactKeys, assertString, assertUniqueIds } from "./project.mjs";
 
 const ENTRY_FIELDS = ["file", "mutated", "mutator", "proof", "replacement", "symbol"];
+
+// Two identical expressions inside one symbol produce a byte-identical anchor, so the
+// register cannot say which one a proof is about — `sibling.lease.holder !== undefined`
+// appears twice in validateTerminalSiblings, and both mutants carry the same mutator and
+// replacement. `occurrence` selects the Nth in source order, and `sites` records how many
+// there were when the proof was written.
+//
+// `sites` is not bookkeeping. Without it, a third identical expression appearing later
+// would silently shift what "occurrence 2" names, leaving a proof anchored, resolving,
+// and about the wrong expression — the one failure this register exists to prevent. With
+// it, any change to the number of identical sites stales every entry that names them.
+const POSITION_FIELDS = ["occurrence", "sites"];
 
 // A proof has to carry the argument, not assert the conclusion. The weak-type permits
 // ask for 24 characters because "the substrate hands back JSON" is a whole reason there;
@@ -53,9 +66,35 @@ export function readEquivalenceRegister(document) {
         throw new TypeError("mutation equivalence entries must be an array");
     }
     for (const entry of document.entries) {
-        assertExactKeys(entry, ENTRY_FIELDS, "mutation equivalence entry");
+        const positioned = POSITION_FIELDS.some((field) => field in entry);
+        assertExactKeys(
+            entry,
+            positioned ? [...ENTRY_FIELDS, ...POSITION_FIELDS] : ENTRY_FIELDS,
+            "mutation equivalence entry"
+        );
         for (const field of ENTRY_FIELDS) assertString(entry[field], `equivalence entry ${field}`);
         const key = equivalenceKey(entry);
+        if (positioned) {
+            for (const field of POSITION_FIELDS) {
+                if (!Number.isSafeInteger(entry[field]) || entry[field] < 1) {
+                    throw new TypeError(
+                        `Equivalence entry ${field} must be a positive integer: ${key}`
+                    );
+                }
+            }
+            // One site needs no ordinal, and admitting one would give a single anchor two
+            // spellings — the drift the register refuses everywhere else.
+            if (entry.sites < 2) {
+                throw new TypeError(
+                    `Equivalence entry names ${entry.sites} site and so must omit occurrence: ${key}`
+                );
+            }
+            if (entry.occurrence > entry.sites) {
+                throw new TypeError(
+                    `Equivalence entry selects occurrence ${entry.occurrence} of ${entry.sites}: ${key}`
+                );
+            }
+        }
         if (!entry.file.startsWith("src/") || entry.file.includes("..")) {
             throw new TypeError(`Equivalence entry names a file outside src/: ${key}`);
         }
@@ -85,7 +124,8 @@ export function readEquivalenceRegister(document) {
 }
 
 export function equivalenceKey(entry) {
-    return `${entry.file}#${entry.symbol} ${entry.mutator} -> ${entry.replacement} @ ${entry.mutated}`;
+    const at = entry.occurrence === undefined ? "" : ` [${entry.occurrence}/${entry.sites}]`;
+    return `${entry.file}#${entry.symbol} ${entry.mutator} -> ${entry.replacement} @ ${entry.mutated}${at}`;
 }
 
 // Whitespace carries no meaning in the anchored source, so a proof survives a reindent
@@ -155,14 +195,17 @@ export function auditEquivalenceAnchors(entries, areas, readSource) {
             failures.push(`equivalence entry names a symbol that no longer exists: ${key}`);
             continue;
         }
-        const sites = declarations.reduce(
-            (total, declaration) =>
-                total + occurrences(normalizeSource(declaration.getText(source)), entry.mutated),
-            0
-        );
-        if (sites !== 1) {
+        const sites = anchoredNodes(source, declarations, entry.mutated).length;
+        if (entry.occurrence === undefined) {
+            if (sites !== 1) {
+                failures.push(
+                    `equivalence entry anchors ${sites} sites in its symbol, not one: ${key}`
+                );
+            }
+        } else if (sites !== entry.sites) {
             failures.push(
-                `equivalence entry anchors ${sites} sites in its symbol, not one: ${key}`
+                `equivalence entry was written against ${entry.sites} identical sites and its ` +
+                    `symbol now has ${sites}: ${key}`
             );
         }
     }
@@ -175,10 +218,35 @@ function anchors(entry, mutant, source, text) {
     }
     const start = offsetOf(source, mutant.location.start);
     const end = offsetOf(source, mutant.location.end);
-    return (
-        normalizeSource(text.slice(start, end)) === entry.mutated &&
-        symbolPathAt(source, start, end) === entry.symbol
-    );
+    if (
+        normalizeSource(text.slice(start, end)) !== entry.mutated ||
+        symbolPathAt(source, start, end) !== entry.symbol
+    ) {
+        return false;
+    }
+    if (entry.occurrence === undefined) return true;
+    // A positioned entry resolves only against the site count it was written for, so a
+    // symbol that gained or lost an identical expression reports stale rather than
+    // silently re-pointing the proof at a different one.
+    const nodes = anchoredNodes(source, declarationsNamed(source, entry.symbol), entry.mutated);
+    if (nodes.length !== entry.sites) return false;
+    const selected = nodes[entry.occurrence - 1];
+    return selected !== undefined && selected.getStart(source) === start;
+}
+
+/**
+ * Every node inside `declarations` whose normalized text is exactly `mutated`, in source
+ * order. Nodes rather than substring matches: a mutant replaces an expression, so text
+ * that happens to appear inside a larger one is not a site a mutant could occupy.
+ */
+function anchoredNodes(source, declarations, mutated) {
+    const found = [];
+    const walk = (node) => {
+        if (normalizeSource(node.getText(source)) === mutated) found.push(node);
+        ts.forEachChild(node, walk);
+    };
+    for (const declaration of declarations) ts.forEachChild(declaration, walk);
+    return found.sort((left, right) => left.getStart(source) - right.getStart(source));
 }
 
 function parseSource(file, text) {
@@ -235,16 +303,4 @@ function declarationName(source, node) {
         return node.name === undefined ? undefined : node.name.getText(source);
     }
     return undefined;
-}
-
-function occurrences(haystack, needle) {
-    let count = 0;
-    for (
-        let index = haystack.indexOf(needle);
-        index !== -1;
-        index = haystack.indexOf(needle, index + 1)
-    ) {
-        count += 1;
-    }
-    return count;
 }

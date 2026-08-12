@@ -5,6 +5,10 @@ export interface EquivalenceEntry {
     replacement: string;
     mutated: string;
     proof: string;
+    /** Which of several identical sites in `symbol`, 1-based in source order. */
+    occurrence?: number;
+    /** How many identical sites existed when the proof was written. Present with `occurrence`. */
+    sites?: number;
 }
 
 export interface ReportMutant {

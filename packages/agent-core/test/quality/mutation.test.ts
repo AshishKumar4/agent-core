@@ -440,6 +440,66 @@ describe("mutation equivalence register", () => {
         expect(collision.equivalent.size).toBe(0);
         expect(collision.ambiguous.map((item) => item.matches.length)).toEqual([2]);
     });
+
+    test("selects one of two identical sites by its position, and only at that count", () => {
+        // Two copies of the same guard inside one symbol. Their anchors are byte-identical
+        // — same file, symbol, mutator, replacement and text — so position is the only
+        // thing that can tell one proof from the other.
+        const duplicated = guardModule.replace(
+            "    return ref.id.value;",
+            '    if (ref.id === undefined) {\n        throw new TypeError("Ref b requires an Id");\n    }\n    return ref.id.value;'
+        );
+        const entries = readEquivalenceRegister({
+            edition: "1.0.0",
+            entries: [
+                { ...guardEntry("encode", "the first guard"), occurrence: 1, sites: 2 },
+                { ...guardEntry("encode", "the second guard"), occurrence: 2, sites: 2 }
+            ]
+        });
+        const report = reportFor(duplicated, [
+            { ...guardMutant, status: "Survived" },
+            { ...guardMutant, status: "Survived", occurrence: 1 }
+        ]);
+        const resolved = reconcileEquivalence(report, entries);
+
+        expect(resolved.ambiguous).toEqual([]);
+        expect(resolved.stale).toEqual([]);
+        // Each entry claims exactly one mutant, and they are different mutants.
+        expect(resolved.equivalent.get("1")).toBe(entries[0]);
+        expect(resolved.equivalent.get("2")).toBe(entries[1]);
+
+        // The same entries against the single-guard module: the count they were written
+        // for is gone, so they report stale instead of re-pointing at whatever now sits
+        // in first position.
+        const moved = reconcileEquivalence(
+            reportFor(guardModule, [{ ...guardMutant, status: "Survived" }]),
+            entries
+        );
+        expect(moved.equivalent.size).toBe(0);
+        expect(moved.stale).toEqual(entries);
+    });
+
+    test("refuses a position that names one site, an absent site, or a bare ordinal", () => {
+        const positioned = (over: Record<string, unknown>) => () =>
+            readEquivalenceRegister({
+                edition: "1.0.0",
+                entries: [{ ...guardEntry("encode", "encode"), occurrence: 1, sites: 2, ...over }]
+            });
+
+        // One site needs no ordinal; admitting one would give a single anchor two spellings.
+        expect(positioned({ sites: 1 })).toThrow(/must omit occurrence/u);
+        expect(positioned({ occurrence: 3 })).toThrow(/selects occurrence 3 of 2/u);
+        expect(positioned({ occurrence: 0 })).toThrow(/must be a positive integer/u);
+        expect(positioned({ sites: 2.5 })).toThrow(/must be a positive integer/u);
+        // Both fields or neither: an ordinal carrying no recorded count could never go
+        // stale, which is the whole reason the count is stored beside it.
+        expect(() =>
+            readEquivalenceRegister({
+                edition: "1.0.0",
+                entries: [{ ...guardEntry("encode", "encode"), occurrence: 1 }]
+            })
+        ).toThrow(/missing or unknown fields/u);
+    });
 });
 
 // The reconciler only speaks when an area is measured. This is what runs on every quality
