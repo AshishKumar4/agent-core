@@ -163,7 +163,10 @@ describe("Run acceptance criteria", () => {
             // be carved out of both: a uniform completion would discharge a criterion with
             // no verdict at all and make "completes exactly when" false.
             expect(() => value.runtime.reserveRunObligation(ids.run, obligations[0]!)).toThrow(
-                /reserved when the Run declares them at open/
+                expect.objectContaining({
+                    code: "run.invalid-state",
+                    message: "Acceptance criteria are reserved when the Run declares them at open"
+                })
             );
             expect(() =>
                 value.runtime.completeRunObligation({
@@ -171,7 +174,12 @@ describe("Run acceptance criteria", () => {
                     registryEpoch: 0,
                     obligation: obligations[0]!
                 })
-            ).toThrow(/discharges only through a recorded verdict/);
+            ).toThrow(
+                expect.objectContaining({
+                    code: "run.invalid-state",
+                    message: "An acceptance obligation discharges only through a recorded verdict"
+                })
+            );
             expect(frontierKeys(value)).toEqual(
                 [...obligations]
                     .map(runObligationKey)

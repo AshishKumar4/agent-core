@@ -334,6 +334,59 @@ describe("Run resource ceilings", () => {
     );
 
     it(
+        "[C13-RUN-RESOURCE-CEILING] refuses to name an exhausted dimension for a Run under no ceiling",
+        { tags: "p0" },
+        () => {
+            // A Run nobody spawned has no declared ceiling anywhere, so it has no remainder
+            // to read a dimension out of. Claiming exhaustion has to be refused as a denial
+            // an operator can act on, rather than faulting on the absent remainder.
+            const root = seedRunningTurn();
+            expect(root.runtime.remainingResources(ids.run, new Date(1_600))).toBeUndefined();
+
+            const terminal = new RunCommit({
+                id: new RunCommitId("commit-unbounded-result"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "result",
+                parents: [ids.root],
+                pins: pins(),
+                writer: { kind: "turn", token: root.token },
+                subjectTurn: root.token.turn,
+                content: content("7")
+            });
+
+            try {
+                root.runtime.terminalizeRun({
+                    run: ids.run,
+                    turn: root.token.turn,
+                    expectedRunRevision: root.repository.transaction(
+                        (tx) => root.repository.loadRun(tx, ids.run)!.revision
+                    ),
+                    expectedTurnRevision: new Revision(1),
+                    expectedBranchRevision: new Revision(0),
+                    token: root.token,
+                    outcome: "cancelled",
+                    commit: terminal,
+                    exhausted: "tokens",
+                    siblingCancellations: new Map(),
+                    now: new Date(1_600)
+                });
+                throw new Error("Expected the terminalization to be refused");
+            } catch (error) {
+                expect(error).toBeInstanceOf(AgentCoreError);
+                expect((error as AgentCoreError).code).toBe("run.invalid-state");
+                expect((error as AgentCoreError).message).toBe(
+                    "Terminal exhaustion names a dimension with allowance left"
+                );
+            }
+            expect(
+                root.repository.transaction((tx) => root.repository.loadRun(tx, ids.run)!).lifecycle
+                    .kind
+            ).toBe("active");
+        }
+    );
+
+    it(
         "[C13-RUN-RESOURCE-CEILING] binds the ceiling to the attenuation content the reservation digests",
         { tags: "p0" },
         () => {

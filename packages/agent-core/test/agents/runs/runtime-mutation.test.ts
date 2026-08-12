@@ -87,6 +87,28 @@ function messageCommit(id: string, over: Partial<RunCommitInit> = {}): RunCommit
     });
 }
 
+function invocationCommit(
+    id: string,
+    parent: RunCommitId,
+    over: Partial<RunCommitInit> = {}
+): RunCommit {
+    return new RunCommit({
+        id: new RunCommitId(id),
+        run: ids.run,
+        branch: ids.branch,
+        kind: "invocation",
+        parents: [parent],
+        pins: pins(),
+        writer: {
+            kind: "system",
+            cause: { kind: "receipt", audit: refs.audit, receipt: refs.receipt }
+        },
+        invocation: refs.invocation,
+        receipt: refs.receipt,
+        ...over
+    });
+}
+
 function migrationCommit(id: string, over: Partial<RunCommitInit> = {}): RunCommit {
     return new RunCommit({
         id: new RunCommitId(id),
@@ -644,28 +666,6 @@ describe("migration guards", () => {
 });
 
 describe("captured evidence guards", () => {
-    function invocationCommit(
-        id: string,
-        parent: RunCommitId,
-        over: Partial<RunCommitInit> = {}
-    ): RunCommit {
-        return new RunCommit({
-            id: new RunCommitId(id),
-            run: ids.run,
-            branch: ids.branch,
-            kind: "invocation",
-            parents: [parent],
-            pins: pins(),
-            writer: {
-                kind: "system",
-                cause: { kind: "receipt", audit: refs.audit, receipt: refs.receipt }
-            },
-            invocation: refs.invocation,
-            receipt: refs.receipt,
-            ...over
-        });
-    }
-
     function terminalized(obligations: readonly string[]) {
         const value = seedRunningTurn();
         for (const commit of obligations) {
@@ -1618,6 +1618,96 @@ describe("append guards", () => {
         withControl(value, undo);
         value.runtime.undoRun(undo, new Revision(0), new Date(1000));
         expect(value.runtime.effectiveCommit(ids.run, ids.branch).equals(ids.root)).toBe(true);
+    });
+
+    test("each typed append door admits only its own commit kinds", { tags: "p0" }, () => {
+        // The four doors were split apart so a caller's authority is checked at the API
+        // rather than downstream. Each one names the kinds it takes, and a commit whose
+        // writer would satisfy the door it is offered to is what tells the kind test apart
+        // from the writer test beside it: a system-authored invocation carries exactly the
+        // writer mergeRun and undoRun demand, and a merge carries the one system evidence
+        // demands.
+        const value = harness();
+        value.runtime.createRun(genesis());
+        withReceipt(value);
+        const invocation = invocationCommit("door-invocation", ids.root);
+        const merge = new RunCommit({
+            id: new RunCommitId("door-merge"),
+            run: ids.run,
+            branch: ids.branch,
+            kind: "merge",
+            parents: [ids.root, new RunCommitId("door-merge-source")],
+            pins: pins(),
+            writer: {
+                kind: "system",
+                cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
+            },
+            content: content("e"),
+            resolution: { kind: "concat" },
+            receipt: refs.receipt
+        });
+
+        expectCode(
+            () => value.runtime.mergeRun(invocation, new Revision(0), new Date(1000)),
+            "run.invalid-state",
+            "Run merge requires a system-authored merge commit"
+        );
+        expectCode(
+            () => value.runtime.undoRun(invocation, new Revision(0), new Date(1000)),
+            "run.invalid-state",
+            "Run undo requires a system-authored undo commit"
+        );
+        expectCode(
+            () => value.runtime.appendSystemEvidenceCommit(merge, new Revision(0), new Date(1000)),
+            "run.invalid-state",
+            "System evidence append requires an invocation or delivery commit"
+        );
+        expectCode(
+            () =>
+                value.runtime.appendSystemEvidenceCommit(
+                    messageCommit("door-message"),
+                    new Revision(0),
+                    new Date(1000)
+                ),
+            "run.invalid-state",
+            "System evidence append requires an invocation or delivery commit"
+        );
+    });
+
+    test("system evidence takes delivery commits as well as invocations", { tags: "p0" }, () => {
+        // Both kinds go through one door, so a door that had narrowed to invocations alone
+        // would refuse every delivered event without any test noticing.
+        const value = harness();
+        value.runtime.createRun(genesis());
+        withReceipt(value);
+        value.evidence.deliveries.set(`${refs.route.value}:${refs.audit.value}`, {
+            kind: "delivery",
+            run: ids.run,
+            reservation: refs.route,
+            audit: refs.audit
+        });
+        const invocation = invocationCommit("door-open-invocation", ids.root);
+        value.runtime.appendSystemEvidenceCommit(invocation, new Revision(0), new Date(1000));
+        const delivery = new RunCommit({
+            id: new RunCommitId("door-open-delivery"),
+            run: ids.run,
+            branch: ids.branch,
+            kind: "eventDelivery",
+            parents: [invocation.id],
+            pins: pins(),
+            writer: {
+                kind: "system",
+                cause: { kind: "delivery", audit: refs.audit, reservation: refs.route }
+            },
+            reservation: refs.route
+        });
+        value.runtime.appendSystemEvidenceCommit(delivery, new Revision(1), new Date(1000));
+
+        expect(
+            value.repository.transaction((tx) =>
+                must(value.repository.loadBranch(tx, ids.branch)).head.equals(delivery.id)
+            )
+        ).toBe(true);
     });
 });
 
