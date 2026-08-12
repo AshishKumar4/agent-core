@@ -7,7 +7,7 @@ import {
     PathEpochEvidence,
     ScopeEpoch
 } from "../../src/authority";
-import { MemoryContentStore } from "../../src/content";
+import { MemoryContentStore, type ContentStore } from "../../src/content";
 import {
     CompatRange,
     ContentRef,
@@ -21,6 +21,7 @@ import {
 import { PackageId, PackagePin, PolicySet } from "../../src/definition";
 import {
     BindingName,
+    CapabilitySpec,
     Contribution,
     Contributions,
     Facet,
@@ -74,6 +75,7 @@ import {
 import { OperationRequestKey } from "../../src/operations";
 import {
     MediatedOperationPipeline,
+    ResolvedOperationAuthority,
     mediationInvocationCodecs,
     mediationPreparedCodecs,
     type FacetActivationPinPort,
@@ -164,12 +166,14 @@ class RecallOperation extends Operation {
     public async execute(context: OperationContext, _input: FacetData): Promise<FacetData> {
         this.observed.calls += 1;
         this.observed.signal = context.signal;
+        this.observed.content = context.content;
         return { attempt: context.attempt?.id.value ?? null };
     }
 }
 
 interface Observed {
     signal: AbortSignal | undefined;
+    content: ContentStore | undefined;
     calls: number;
     stops: number;
 }
@@ -249,6 +253,13 @@ class DemoAuthorityState implements OperationAuthorityStatePort<MediatedTurnCall
     public readonly watermark = InvalidationWatermark.empty(tenant, owner, principal);
     public readonly lease = TurnLease.restore(turnId, principal, 1, new Date(500_000));
     public resolutions = 0;
+    /**
+     * Whether the resolver reports this Binding as direct-tier eligible (§7.2): a
+     * bundled Facet, a local authority projection on the Turn Actor, the Grant-plane
+     * authority captured at resolution, and a configured revocation window. Off by
+     * default because the pipeline's subject is the mediated chain.
+     */
+    public directEligible = false;
 
     public resolve(
         caller: MediatedTurnCaller,
@@ -270,19 +281,21 @@ class DemoAuthorityState implements OperationAuthorityStatePort<MediatedTurnCall
                 digest("f"),
                 digest("1")
             ),
-            placement: new InvocationPlacementPin({
-                manifest: ["provider"],
-                policy: ["provider"],
-                substrate: ["provider"],
-                trust: ["provider"],
-                selected: "provider"
-            }),
+            placement: new InvocationPlacementPin(
+                this.directEligible ? bundledModes : providerModes
+            ),
             owner,
-            policies: [new PolicySet({})],
+            policies: [
+                new PolicySet(this.directEligible ? { maxDirectRevocationWindowMs: 60_000 } : {})
+            ],
             turnOwnedSession: false,
             sessionFilesystemTarget: false,
-            turnActorAuthorityLocal: false,
-            directAuthority: undefined
+            turnActorAuthorityLocal: this.directEligible,
+            directAuthority: this.directEligible
+                ? new ResolvedOperationAuthority(facet, [
+                      new CapabilitySpec({ facetPattern: facet.value, impacts: ["observe"] })
+                  ])
+                : undefined
         };
     }
 
@@ -312,6 +325,22 @@ class DemoAuthorityState implements OperationAuthorityStatePort<MediatedTurnCall
         throw new TypeError("Authority went stale");
     }
 }
+
+const providerModes = {
+    manifest: ["provider"],
+    policy: ["provider"],
+    substrate: ["provider"],
+    trust: ["provider"],
+    selected: "provider"
+} as const;
+
+const bundledModes = {
+    manifest: ["bundled"],
+    policy: ["bundled"],
+    substrate: ["bundled"],
+    trust: ["bundled"],
+    selected: "bundled"
+} as const;
 
 const admissionCodec: StructuralCodec<DemoAdmission> = Object.freeze({
     encode: (value: DemoAdmission): JsonValue => ({
@@ -463,12 +492,19 @@ interface Harness {
     readonly authority: DemoAuthorityState;
     readonly observed: Observed;
     readonly observations: ReceiptObservation[];
+    readonly content: ContentStore;
 }
 
 async function harness(): Promise<Harness> {
     const transactions = new MemoryTransactions();
     const authority = new DemoAuthorityState();
-    const observed: Observed = { signal: undefined, calls: 0, stops: 0 };
+    const observed: Observed = {
+        signal: undefined,
+        content: undefined,
+        calls: 0,
+        stops: 0
+    };
+    const content = new MemoryContentStore();
     const observations: ReceiptObservation[] = [];
     const pipeline = await MediatedOperationPipeline.activate<
         PipelineState,
@@ -490,7 +526,7 @@ async function harness(): Promise<Harness> {
         authentication: new DemoAuthentication(),
         admission: new DemoTargetAdmission(),
         finalAdmission: new DemoFinalAdmission(),
-        content: new MemoryContentStore(),
+        content,
         events: {
             publish: async (_id, observation) => {
                 observations.push(observation);
@@ -504,7 +540,7 @@ async function harness(): Promise<Harness> {
         claimLifetimeMilliseconds: 60_000,
         now: () => new Date(2_000)
     });
-    return { pipeline, transactions, authority, observed, observations };
+    return { pipeline, transactions, authority, observed, observations, content };
 }
 
 function invocationRequest(signal = new AbortController().signal, key = "pipeline-request") {
@@ -591,6 +627,40 @@ describe("the published mediation composition root", () => {
         await value.pipeline.dispose();
     });
 
+    it(
+        "gives a direct-tier dispatch the Turn's own execution resources",
+        { tags: "p0" },
+        async () => {
+            // The direct tier writes no durable record (§7.2), so the only thing this
+            // composition root hands a direct Operation is its context: the Turn's own
+            // cancellation signal and the content store the pipeline was built with. A
+            // Turn-bound Operation must still travel the mediated path, so the port
+            // refuses the direct result afterwards — but the dispatch has already run,
+            // which is what shows the context was assembled from real resources rather
+            // than from nothing.
+            const value = await harness();
+            value.authority.directEligible = true;
+            const live = new AbortController();
+
+            await expect(
+                value.pipeline.invocations.invoke(invocationRequest(live.signal))
+            ).rejects.toMatchObject({
+                code: "authority.denied",
+                message: "Turn Operations require the mediated invocation path"
+            });
+
+            expect(value.observed.calls).toBe(1);
+            expect(value.observed.signal).toBe(live.signal);
+            expect(value.observed.content).toBe(value.content);
+
+            const state = value.transactions.read();
+            expect(state.prepared.size).toBe(0);
+            expect(state.attempts.size).toBe(0);
+            expect(state.receipts.size).toBe(0);
+            await value.pipeline.dispose();
+        }
+    );
+
     it("refuses a Binding the authority plane does not resolve", { tags: "p0" }, async () => {
         const value = await harness();
         const request = {
@@ -650,7 +720,14 @@ describe("the published mediation composition root", () => {
                 evidence: new MemoryInvocationMediationPersistence(),
                 authority: new DemoAuthorityState(),
                 manifests: [manifest()],
-                roots: [new FailingFacet({ signal: undefined, calls: 0, stops: 0 })],
+                roots: [
+                    new FailingFacet({
+                        signal: undefined,
+                        content: undefined,
+                        calls: 0,
+                        stops: 0
+                    })
+                ],
                 activations,
                 permits: new DemoPermits(),
                 authentication: new DemoAuthentication(),

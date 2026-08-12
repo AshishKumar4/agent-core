@@ -10,6 +10,7 @@ import {
     MemoryTenantControlStore,
     PathEpochEvidence,
     ScopeEpoch,
+    subjectKey,
     type AuthenticatedAuthorityPermit
 } from "../../src/authority";
 import {
@@ -670,13 +671,33 @@ describe("single-tenant policy assembly", () => {
         expect(policy.promote().canCreateTenant(1)).toBe(true);
     });
 
+    test(
+        "the owner Membership materializes the one allow Grant the Binding names",
+        { tags: "p0" },
+        () => {
+            // The assembly finds the owner's Grant by searching the bootstrap plan for an
+            // allow whose subject is the owner Membership's. That search is only right
+            // while the plan holds exactly one such Grant, and that is a fact about
+            // OWNER_ROLE — a single allow RoleRule over every impact — rather than about
+            // this file. Pinning it here is what makes the search's absent-Grant branch
+            // genuinely unreachable, and what fails first if the Role gains a rule.
+            const control = MemoryTenantControlStore.create(anchor);
+            const assembly = assembleSingleTenantPolicy(control, init);
+
+            expect(assembly.grants).toHaveLength(1);
+            const [ownerGrant] = assembly.grants;
+            if (ownerGrant === undefined) throw new TypeError("expected an owner Grant");
+            expect(ownerGrant.effect).toBe("allow");
+            expect(subjectKey(ownerGrant.subject)).toBe(
+                subjectKey(assembly.ownerMembership.subject)
+            );
+            expect(assembly.binding.grantId.equals(ownerGrant.id)).toBe(true);
+        }
+    );
+
     test("a second assembly is refused with the exact typed error", { tags: "p0" }, () => {
         const control = MemoryTenantControlStore.create(anchor);
-        const assembly = assembleSingleTenantPolicy(control, init);
-
-        expect(
-            assembly.binding.grantId.equals(assembly.grants[0]?.id ?? assembly.binding.grantId)
-        ).toBe(true);
+        assembleSingleTenantPolicy(control, init);
 
         let failure: unknown;
         try {

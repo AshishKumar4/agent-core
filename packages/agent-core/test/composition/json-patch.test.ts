@@ -98,6 +98,26 @@ describe("detached RFC 6902 composition", () => {
         }
     );
 
+    test("rejects a patch value that cannot be serialized", { tags: "p1" }, () => {
+        // Validation and application are separate calls with separate refusals, and this
+        // is the input that separates them. fast-json-patch's validate clones the
+        // operation sequence through JSON before trying it, so a cyclic value makes it
+        // throw a TypeError rather than report a patch error; the application call is
+        // handed the sequence by reference and applies the cycle without complaint.
+        // Without the refusal on the validation call the engine would answer with a
+        // document no canonical encoder can write.
+        const cyclic: Record<string, JsonValue> = {};
+        cyclic["self"] = cyclic;
+        const patch: readonly JsonValue[] = [{ op: "add", path: "/value", value: cyclic }];
+
+        expect(() => new DetachedJsonPatchEngine().apply({ value: "original" }, patch)).toThrow(
+            expect.objectContaining({
+                code: "codec.invalid",
+                message: "Invalid RFC 6902 patch"
+            })
+        );
+    });
+
     test("rejects prototype modification without polluting global objects", { tags: "p0" }, () => {
         const patch: readonly JsonValue[] = [
             { op: "add", path: "/__proto__/polluted", value: true }

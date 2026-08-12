@@ -1312,6 +1312,176 @@
       "proof": "Dropping the trim here makes the test read value.length === 0, which differs from the original only for a string that is non-empty but trims to empty \u2014 one made of nothing but whitespace. For exactly those strings the operand beside it is true, because a whitespace-only string is never equal to its own trim, so the refusal fires for the same inputs with the same message. The second occurrence is the canonicality test itself and cannot be dropped: without its trim the comparison becomes value !== value, constantly false, and a padded string would be accepted. Its mutant is killed."
     },
     {
+      "file": "src/composition/authority.ts",
+      "symbol": "OperationResolutionState.admitsDirectAt",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "this.#resolutionDeadline !== undefined",
+      "proof": "The presence test guards a numeric comparison that already answers the same way without it. With no deadline the mutant evaluates `at.getTime() < undefined`, and the relational operators coerce the right operand to NaN, so the comparison is false for every Date a caller can pass \u2014 including one whose own getTime() is NaN. The conjunction the mutant leaves is therefore false exactly where the original short-circuited to false, and identical to the original wherever the deadline is present. The field is private, assigned once by a constructor that freezes the instance, and exposed only through this method and the resolutionDeadline getter, so no caller can observe the difference between the guarded form and the coerced one. The complementary mutant, which replaces the whole condition with false and would refuse a live direct call, is killed."
+    },
+    {
+      "file": "src/composition/authority.ts",
+      "symbol": "TenantOperationAuthority.authorizeDirect",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "token === undefined",
+      "proof": "This disjunct narrows resolution.lease to a LeaseToken so ResolutionStamp, which takes it non-optional, can be built below; the refusal it appears to make is made by the disjunct on the next line. deriveResolution assigns resolutionDeadline only inside `if (candidate.lease !== undefined)`, so a resolution without a lease has no deadline either, and there is no other way to obtain an OperationResolutionState \u2014 its constructor throws unless handed a module-private symbol. Dropping this test therefore reaches `deadline === undefined`, which is true for exactly the states this one would have caught, and returns the same undefined. Nothing is evaluated in between, so the absent token is never dereferenced along the way."
+    },
+    {
+      "file": "src/composition/authority.ts",
+      "symbol": "TenantOperationAuthority.authorizeDirect",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "deadline === undefined",
+      "proof": "Control reaches this disjunct only with a lease present, because the disjunct above short-circuits otherwise. Given a lease, deriveResolution sets resolutionDeadline exactly when mergePolicySets(candidate.policies).maxDirectRevocationWindowMs is defined, and tier() puts the same question to the same pure function over the same policies: the state copies the resolver's array and freezes it, and PolicySet instances are frozen, so the two calls cannot disagree. An absent deadline therefore means tier() answers \"mediated\", and the `this.tier(resolution, descriptor, false) !== \"direct\"` disjunct two lines down returns undefined. The operands evaluated in between are the holder comparison and tier itself, both pure, so the mutant refuses the same calls having observed the same things."
+    },
+    {
+      "file": "src/composition/authority.ts",
+      "symbol": "TenantOperationAuthority.authorizeDirect",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "originalLeaseExpiresAt === undefined",
+      "proof": "The disjunct is constantly false where it runs, so forcing it false selects the same branch. It is evaluated only with a lease present, and deriveResolution refuses every candidate whose lease is not accompanied by an original lease carrying an expiration: the pairing test denies `(candidate.lease === undefined) !== (candidate.originalLease === undefined)`, and the guard below it denies `originalLeaseExpiresAt === undefined` outright with \"Authority resolution requires the exact current Turn lease\". That second refusal is not folklore about the stock lease implementation \u2014 test/composition/authority-membrane.test.ts supplies a lease that admits its token while reporting no expiration and asserts the denial. What this disjunct does earn is the narrowing: ResolutionStamp takes the expiration as a Date."
+    },
+    {
+      "file": "src/composition/authority.ts",
+      "symbol": "TenantOperationAuthority.authorizeDirect",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "token === undefined || deadline === undefined",
+      "proof": "Forcing the pair false skips both narrowings at once, and the two states they describe are caught separately below. A resolution with no lease also has no expiration \u2014 deriveResolution assigns originalLeaseExpiresAt only inside its lease branch \u2014 so `originalLeaseExpiresAt === undefined`, the very next disjunct, refuses it before anything dereferences the absent token. A resolution with a lease but no deadline is one whose policy chain declared no maxDirectRevocationWindowMs, and tier() re-derives that absence from the same frozen policy list and answers \"mediated\", so the tier disjunct refuses it. Neither route performs an effect on the way: the holder comparison and tier are pure, and the watermark read happens above the condition either way."
+    },
+    {
+      "file": "src/composition/authority.ts",
+      "symbol": "TenantOperationAuthority.authorizeDirect",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "token === undefined || deadline === undefined || originalLeaseExpiresAt === undefined || !token.holder.equals(resolution.principal)",
+      "proof": "This span adds the lease-holder comparison to the three narrowings, and that comparison cannot be true for a resolution that exists. deriveResolution refuses `candidate.lease !== undefined && !candidate.lease.holder.equals(candidate.principal)`, and the state copies both sides by reference: its frozen lease token carries evidence.lease.holder unchanged, and principal is evidence.principal. So re-running the comparison here re-runs the one already accepted. The other three operands fall to the tier disjunct that follows: tier() tests resolution.lease first and answers \"mediated\" without a lease, and re-derives the revocation window and answers \"mediated\" without one. The mutant therefore reaches tier with nothing dereferenced and returns the same undefined."
+    },
+    {
+      "file": "src/composition/authority.ts",
+      "symbol": "TenantOperationAuthority.authorizeDirect",
+      "mutator": "LogicalOperator",
+      "replacement": "token === undefined && deadline === undefined",
+      "mutated": "token === undefined || deadline === undefined",
+      "proof": "The two operands are not independent: an absent lease forces an absent deadline, because deriveResolution assigns the deadline only inside its lease branch. Under that implication the original disjunction reduces to `deadline === undefined` and the mutant's conjunction to `token === undefined`, so they disagree on exactly one state \u2014 a lease present with no deadline. That is the resolution whose policy chain declared no maxDirectRevocationWindowMs, and tier() re-derives the same absence from the same frozen policy list and answers \"mediated\", so the tier disjunct refuses the call before the deadline is used for anything. The token is present along that path and every operand crossed is pure, so nothing else can differ."
+    },
+    {
+      "file": "src/composition/authority.ts",
+      "symbol": "TenantOperationAuthority.authorizeDirect",
+      "mutator": "LogicalOperator",
+      "replacement": "(token === undefined || deadline === undefined) && originalLeaseExpiresAt === undefined",
+      "mutated": "token === undefined || deadline === undefined || originalLeaseExpiresAt === undefined",
+      "proof": "`originalLeaseExpiresAt === undefined` holds exactly when `token === undefined` does: deriveResolution assigns both inside the same lease branch and refuses an original lease that reports no expiration. Substituting that equivalence, the original three-way disjunction reduces to `token === undefined || deadline === undefined` and the mutant reduces to `token === undefined`. The two therefore disagree on one state only, a lease present with no deadline, which is the windowless resolution tier() answers \"mediated\" for and the tier disjunct refuses. Where the lease is absent both forms are true and both return undefined immediately. Every state selects the same branch, with the same pure evaluations in between."
+    },
+    {
+      "file": "src/composition/authority.ts",
+      "symbol": "TenantOperationAuthority.authorizeDirect",
+      "mutator": "OptionalChaining",
+      "replacement": "resolution.directAuthority.admits",
+      "mutated": "resolution.directAuthority?.admits",
+      "proof": "Removing the optional call changes behaviour only when directAuthority is undefined, where the original yields undefined and so refuses through the `!== true` comparison, and the mutant throws a TypeError. That state cannot reach this operand. tier() returns \"mediated\" whenever `resolution.directAuthority === undefined`, and the `this.tier(resolution, descriptor, false) !== \"direct\"` disjunct six lines above returns undefined before this one is evaluated. tier reads the same field of the same frozen resolution, in the same synchronous condition, so there is no window in which the two reads disagree. By the time the call runs the authority is present, the optional check never short-circuits, and the two forms invoke the identical method."
+    },
+    {
+      "file": "src/composition/authority.ts",
+      "symbol": "TenantOperationAuthority.authorizeMediated",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "resolution.lease !== undefined && !resolution.lease.holder.equals(resolution.principal)",
+      "proof": "The disjunct asks whether the resolution's lease is held by someone other than its principal, and no resolution answers yes. deriveResolution refuses `candidate.lease !== undefined && !candidate.lease.holder.equals(candidate.principal)` with \"Authority resolver returned substituted resolution evidence\", and OperationResolutionState carries both operands over by reference: the frozen lease token holds evidence.lease.holder unchanged and principal is evidence.principal. The instance is frozen, so this line re-runs the exact call deriveResolution already accepted, on the same two objects, and is constantly false. The sibling disjunct below \u2014 the current lease no longer admitting that token \u2014 is the reachable half of the pair, and a test kills its mutants."
+    },
+    {
+      "file": "src/composition/authority.ts",
+      "symbol": "deriveResolution",
+      "mutator": "OptionalChaining",
+      "replacement": "originalLease.expiresAt",
+      "mutated": "originalLease?.expiresAt",
+      "proof": "The optional read differs from the plain one only when originalLease is undefined, and it never is at this statement. The assignment sits inside `if (candidate.lease !== undefined)`, and the guard above has already denied every candidate for which `(candidate.lease === undefined) !== (candidate.originalLease === undefined)`, so a candidate carrying a lease always carries an original lease too. The local was just read out of that same field, nothing between the guard and this line is asynchronous, and candidate is the resolver's own evidence object which is not re-read. The plain member access therefore evaluates the same getter on the same object and yields the same value on every input."
+    },
+    {
+      "file": "src/composition/authority.ts",
+      "symbol": "deriveResolution",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "originalLease === undefined",
+      "proof": "The disjunct is constantly false, and the disjunct after it would catch the state anyway. It is false because the substitution guard above denies any candidate whose lease and original lease disagree about presence, and control is inside the branch taken when the lease is present. And even if an absent original lease could arrive here, originalLeaseExpiresAt was just assigned `originalLease?.expiresAt`, which is undefined for an absent lease, so the next disjunct raises the identical denial. What the test earns is the narrowing for `originalLease.admits(...)` on the line below, which is a compile-time requirement rather than a runtime observation."
+    },
+    {
+      "file": "src/composition/authority-commands.ts",
+      "symbol": "callerIs",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "caller.kind === \"actor\"",
+      "proof": "The conjunct narrows the CommandCaller union so `caller.actor` can be read; the refusal it looks like it makes has already been made upstream. All three call sites are inside the authorize methods of registrations that declare `public readonly caller = anyActorCallerPolicy`, whose admits() is this same kind test, and the dispatcher applies it before authorize runs: `if (!command.caller.admits(envelope.caller))` returns a rejectedAuthentication decision and never calls the command. A principal caller therefore never reaches this function, and for an actor caller the conjunct is already true, so the mutant substitutes a value for the one it would have computed. What refuses a spoofed actor is the surviving conjunct, the ActorRef comparison, whose own mutants tests kill."
+    },
+    {
+      "file": "src/composition/single-tenant.ts",
+      "symbol": "assembleSingleTenantPolicy.ownerGrant",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "grant.effect === \"allow\" && subjectKey(grant.subject) === subjectKey(plan.ownerMembership.subject)",
+      "proof": "The predicate picks the owner's Grant out of the bootstrap plan, and the plan offers exactly one Grant to pick. createTenantControlBootstrapPlan materializes OWNER_ROLE against the owner Membership; OWNER_ROLE is builtInRole(OWNER_NAME, ALL_IMPACTS), which builds a Role holding a single allow RoleRule; and RoleGrantMaterializer emits one Grant per rule, with no existing records to revoke on a first bootstrap. Array.prototype.find over a one-element array returns that element for any predicate that accepts it, and the sole element satisfies both conjuncts, so a predicate that accepts everything returns the same Grant. That one-Grant shape is asserted in test/composition/admission-ports.test.ts, so a second RoleRule fails a test rather than quietly making this proof wrong."
+    },
+    {
+      "file": "src/composition/single-tenant.ts",
+      "symbol": "assembleSingleTenantPolicy.ownerGrant",
+      "mutator": "LogicalOperator",
+      "replacement": "grant.effect === \"allow\" || subjectKey(grant.subject) === subjectKey(plan.ownerMembership.subject)",
+      "mutated": "grant.effect === \"allow\" && subjectKey(grant.subject) === subjectKey(plan.ownerMembership.subject)",
+      "proof": "Widening the conjunction to a disjunction can only change which element find returns when some element satisfies one half and not the other, and the array being searched holds one element that satisfies both. plan.grants is the materialization of OWNER_ROLE against the owner Membership: one allow RoleRule yields one allow Grant, and the materializer stamps that Grant with the Membership's own subject, so `effect === \"allow\"` and the subject comparison are both true of the only candidate. `true && true` and `true || true` select it alike, and there is no second element for the weaker predicate to reach first. The composition suite pins the one-Grant shape so this reasoning cannot rot unnoticed."
+    },
+    {
+      "file": "src/composition/single-tenant.ts",
+      "symbol": "assembleSingleTenantPolicy.ownerGrant",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "grant.effect === \"allow\"",
+      "proof": "Forcing the effect test true would matter only if the plan carried a deny Grant whose subject matched the owner Membership's, since that is the one record the surviving subject comparison would then admit and the original would reject. No such record exists. OWNER_ROLE's single RoleRule has effect \"allow\", the materializer copies each rule's effect onto the Grant it emits, and a first bootstrap has no previously owned Grants to turn into obsolete records \u2014 and revocation would change a Grant's liveness rather than its effect in any case. The array therefore holds no deny Grant at all, and the strict predicate and the relaxed one agree on every element it does hold."
+    },
+    {
+      "file": "src/composition/single-tenant.ts",
+      "symbol": "assembleSingleTenantPolicy.ownerGrant",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "subjectKey(grant.subject) === subjectKey(plan.ownerMembership.subject)",
+      "proof": "Forcing the subject comparison true would matter only if the plan carried an allow Grant belonging to some other subject, because find would then return that record ahead of the owner's. It cannot. A bootstrap plan materializes exactly one Membership, the owner's, and RoleGrantMaterializer stamps every Grant it emits with that Membership's subject while recording the Membership id as the Grant's role origin. There is no second Membership in the plan and so no second subject in its Grants. With one allow Grant carrying the owner's subject, the comparison is true of the only element and the two predicates return the same record."
+    },
+    {
+      "file": "src/composition/single-tenant.ts",
+      "symbol": "assembleSingleTenantPolicy",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "ownerGrant === undefined",
+      "proof": "find answers undefined only when no element satisfies the predicate, and the array it searched holds exactly one element that does: the bootstrap plan materializes OWNER_ROLE, a single allow RoleRule, against the owner Membership, so plan.grants is one allow Grant carrying that Membership's subject \u2014 precisely what the predicate accepts. The guard is therefore constantly false, and forcing it false continues to Binding.active with the same Grant id on every anchor a caller can supply. The guard cannot simply be deleted instead: TypeScript needs it to narrow ownerGrant from `Grant | undefined` before its id is read."
+    },
+    {
+      "file": "src/composition/single-tenant.ts",
+      "symbol": "assembleSingleTenantPolicy",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ throw new AgentCoreError( \"protocol.invalid-state\", \"Single-tenant owner Membership did not materialize an allow Grant\" ); }",
+      "proof": "The block is the body of a guard that never runs, because find cannot answer undefined here: the plan it searched holds one allow Grant carrying the owner Membership's subject, which is what the predicate accepts. Were the block reachable, emptying it would fall through to `ownerGrant.id` and raise a TypeError where the original raises a typed refusal \u2014 a difference any assertion on the error would see \u2014 but no anchor takes that path, so the two forms behave identically for every input. Stryker reports the mutant without coverage for exactly that reason, which is the signature of unreachability rather than of a gap a test could close."
+    },
+    {
+      "file": "src/composition/single-tenant.ts",
+      "symbol": "assembleSingleTenantPolicy",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"protocol.invalid-state\"",
+      "occurrence": 2,
+      "sites": 2,
+      "proof": "This is the error code of an AgentCoreError constructed only inside the owner-Grant guard, and a code is a discriminant callers branch on rather than prose, which is why the classifier keeps such literals actionable. That classification presumes the throw can happen; here it cannot. The bootstrap plan holds one allow Grant carrying the owner Membership's subject, the predicate accepts it, and find never answers undefined, so the error is never constructed and its code never reaches a catch, a Receipt, or an assertion. The ordinal matters: the same literal opens this function's Tenant-already-exists refusal, which is reachable, asserted, and whose mutant tests kill."
+    },
+    {
+      "file": "src/composition/single-tenant.ts",
+      "symbol": "assembleSingleTenantPolicy",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"Single-tenant owner Membership did not materialize an allow Grant\"",
+      "proof": "The literal is the message argument of that same never-constructed AgentCoreError. Nothing evaluates it: the guard enclosing it is constantly false, because the bootstrap plan materializes exactly one Grant and it is the allow whose subject the predicate looks for. Emptying prose the program cannot reach changes nothing observable \u2014 no error carries it, no log prints it, no assertion reads it. This is a stronger claim than the message-text tolerance the classifier grants a reachable throw site, where the string exists but goes unasserted, and it is why the mutant arrives reported as uncovered rather than as an ordinary survivor."
+    },
+    {
       "file": "src/agents/runs/runtime.ts",
       "mutated": "sibling.lease.holder !== undefined",
       "mutator": "ConditionalExpression",
