@@ -169,9 +169,14 @@
       "specTextSha256": "sha256:71d0eb2975f6052ab5af869a9d303bb6b6799da8cd172e352ff6039f78f060de",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/definition/placement.ts#selectPlacement"],
+      "sourceSymbols": [
+        "src/definition/placement.ts#PlacementPolicy.trustedModes",
+        "src/definition/validator.ts#validatePlacements"
+      ],
       "testSelectors": [
-        "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-UNTRUSTED-BUNDLED] derives trust admissibility without ever admitting bundled for untrusted packages"
+        "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-UNTRUSTED-BUNDLED] derives trust admissibility without ever admitting bundled for untrusted packages",
+        "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-UNTRUSTED-BUNDLED] a Blueprint's placement policy derives trust from its own glob patterns",
+        "test/definition/validation.test.ts#Blueprint validation [C13-PLACEMENT-UNTRUSTED-BUNDLED] derives trust from the Blueprint's own policy, not the substrate port"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

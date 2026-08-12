@@ -7,6 +7,8 @@ import {
     absoluteFromRepository,
     artifactRoot,
     fileSha256,
+    parseCanonicalJson,
+    portablePath,
     readCanonicalJson,
     repositoryRoot,
     sha256
@@ -278,8 +280,14 @@ async function verifySourceArtifact(commit, artifact, destination) {
         throw new TypeError(`BOM source digest differs from ${commit}:${artifact.source}`);
     }
     if (artifact.normalization === "canonical-json-v1") {
-        const source = JSON.parse(result.stdout.toString("utf8"));
-        const normalized = JSON.parse(await readFile(destination, "utf8"));
+        const source = parseCanonicalJson(
+            result.stdout.toString("utf8"),
+            `${commit}:${artifact.source}`
+        );
+        const normalized = parseCanonicalJson(
+            await readFile(destination, "utf8"),
+            portablePath(destination)
+        );
         if (JSON.stringify(source) !== JSON.stringify(normalized)) {
             throw new TypeError(
                 `Canonical BOM normalization changed semantics: ${artifact.destination}`
