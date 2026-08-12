@@ -319,7 +319,7 @@
       "mutator": "LogicalOperator",
       "replacement": "membership.subject.kind !== \"foreign\" && membership.guestVerification === undefined",
       "mutated": "membership.subject.kind !== \"foreign\" || membership.guestVerification === undefined",
-      "proof": "The operands are ordered so that the first implies the second \u2014 a non-foreign subject cannot carry a guest verification, because the Membership constructor refuses that pairing \u2014 so they can disagree only where the subject is foreign and the verification absent. The Memory store holds no such Membership: assertRestoredState demands trust evidence for every foreign Membership, and it runs on restore and at the end of every transaction. Where the operands agree, conjunction and disjunction select the same branch."
+      "proof": "The operands are ordered so that the first implies the second \u2014 a non-foreign subject cannot carry a guest verification, because the Membership constructor refuses that pairing \u2014 so they can disagree only where the subject is foreign and the verification absent. No store this service runs against holds such a Membership: assertAuthorityClosure demands trust evidence for every foreign Membership, and both the Memory store and the SQLite ledger run it at the end of every transaction and when a store opens. Where the operands agree, conjunction and disjunction select the same branch."
     },
     {
       "file": "src/authority/service.ts",
@@ -327,7 +327,7 @@
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "membership.guestVerification === undefined",
-      "proof": "Forcing this operand false lets the comparison beside it dereference guestVerification, which would throw for an absent one. It is never absent where this line runs: the operand ahead of it has already continued past every non-foreign Membership, and a foreign Membership without verification cannot be in the store \u2014 assertRestoredState refuses that snapshot and refuses that commit, and assignGuestMembership only ever writes one with verification attached. The operand is constantly false and the mutant dereferences nothing."
+      "proof": "Forcing this operand false lets the comparison beside it dereference guestVerification, which would throw for an absent one. It is never absent where this line runs: the operand ahead of it has already continued past every non-foreign Membership, and a foreign Membership without verification cannot be in the store \u2014 assertAuthorityClosure refuses that commit and refuses that store at open, on either backing, and assignGuestMembership only ever writes one with verification attached. The operand is constantly false and the mutant dereferences nothing."
     },
     {
       "file": "src/authority/service.ts",
@@ -458,28 +458,20 @@
       "proof": "some and every differ only on an array with mixed results or on the empty array. bootstrap.grants is the materialization of OWNER_ROLE over the owner Membership, and OWNER_ROLE is built with exactly one rule, so the array always holds exactly one Grant \u2014 materializeActive emits one record per rule for a non-guest Membership, and the owner Membership is never a guest. On a one-element array the two quantifiers agree by definition."
     },
     {
-      "file": "src/authority/memory.ts",
-      "symbol": "MemoryTenantControlStore.assertRestoredState",
-      "mutator": "ConditionalExpression",
-      "replacement": "true",
-      "mutated": "grant.attenuationOf !== undefined",
-      "proof": "The block this guards seeds a visited set with the Grant's own id and then walks while child.attenuationOf is defined. For a Grant with no attenuation parent that loop condition is false on entry, so the block allocates a set and a variable and does nothing else. Forcing the test true runs the block for every Grant, and for the ones without a parent it walks nothing and throws nothing, so the method reaches the same conclusion on the same snapshots."
-    },
-    {
-      "file": "src/authority/memory.ts",
-      "symbol": "MemoryTenantControlStore.assertRestoredState",
+      "file": "src/authority/closure.ts",
+      "symbol": "AuthorityClosure.#assertMaterialization",
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "expected.length !== owned.length",
-      "proof": "expected is the materializer's desiredRecords: the active records for the Role's rules, plus every owned record those do not cover, revoked. Every owned id is therefore present in expected, and the lengths differ exactly when some desired active id is absent from owned. In that case the lookup inside the some() beside this comparison returns undefined for that record and the disjunction is true anyway. This comparison is never the only reason the guard fires."
+      "proof": "expected is the materializer's desiredRecords: the active records for the Role's rules, plus every owned record those do not cover, revoked. Every owned id is therefore present in expected, and the lengths differ exactly when some desired active id is absent from owned. In that case the lookup inside the some() beside this comparison returns undefined for that record and the disjunction is true anyway. This comparison is never the only reason the guard fires. Which Grants owned holds does not enter that argument: #ownedRoleGrants draws them from the whole store, or from the transaction's own writes for a Membership created inside it, and materialize re-filters whatever it is handed by the same origin and Membership test \u2014 so expected is always computed against exactly this owned, on either backing and under either audit."
     },
     {
-      "file": "src/authority/memory.ts",
-      "symbol": "MemoryTenantControlStore.assertRestoredState",
+      "file": "src/authority/closure.ts",
+      "symbol": "AuthorityClosure.#assertMaterialization",
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "actual === undefined",
-      "proof": "Forcing this operand false lets the bytes comparison beside it encode undefined, which would throw a different error. It is never undefined where it runs: the length comparison ahead of it short-circuits whenever a desired record is missing from owned, and when the lengths do agree every desired id is owned \u2014 expected is the desired active records plus the owned records they exclude, so equal lengths force the active ids to be a subset of the owned ids and the lookup always resolves."
+      "proof": "Forcing this operand false lets the bytes comparison beside it encode undefined, which would throw a different error. It is never undefined where it runs: the length comparison ahead of it short-circuits whenever a desired record is missing from owned, and when the lengths do agree every desired id is owned \u2014 expected is the desired active records plus the owned records they exclude, so equal lengths force the active ids to be a subset of the owned ids and the lookup always resolves. That containment is between expected and the owned it was materialized against, not between owned and the store, so it holds for either set #ownedRoleGrants returns."
     },
     {
       "file": "src/authority/memory.ts",
@@ -1282,14 +1274,14 @@
       "proof": "This label is read only if requireRecord finds nothing, and the second lookup cannot. The same id was resolved by the first requireRecord at the top of the same transaction, and nothing between them removes a Grant: revokeGrantClosure writes revoked records through putGrant and no store operation deletes one. The first occurrence of this literal is the reachable one \u2014 a caller can name a Grant that does not exist \u2014 and its mutant is killed by the assertion on \"Grant does not exist\". Same text, same symbol, one reachable and one not, which is exactly what the ordinal is here to record."
     },
     {
-      "file": "src/authority/memory.ts",
-      "symbol": "MemoryTenantControlStore.assertRestoredState",
+      "file": "src/authority/closure.ts",
+      "symbol": "AuthorityClosure.#assertMembership",
       "mutator": "ConditionalExpression",
       "replacement": "false",
       "mutated": "verification === undefined",
       "occurrence": 2,
       "sites": 2,
-      "proof": "Whenever this operand is true, the ternary on the line above it has already taken its undefined branch, so trust is undefined and the next operand of this same disjunction is true. Forcing this one false therefore cannot change the disjunction's value: a foreign Membership with no verification is still refused, with the same code and the same message. The first occurrence is the ternary's own test, and its mutants are killed, because its two branches assign different values to trust and that difference reaches this guard. This one only restates what that assignment already implies."
+      "proof": "Whenever this operand is true, the ternary on the line above it has already taken its undefined branch, so trust is undefined and the next operand of this same disjunction is true. Forcing this one false therefore cannot change the disjunction's value: a foreign Membership with no verification is still refused, with the same code and the same message. The first occurrence is the ternary's own test, and its mutants are killed, because its two branches assign different values to trust and that difference reaches this guard. This one only restates what that assignment already implies. Both backings reach this line through the one closure, so neither can tell the mutant from the original."
     },
     {
       "file": "src/authority/memory.ts",
