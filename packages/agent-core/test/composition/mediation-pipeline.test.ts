@@ -87,6 +87,10 @@ import {
     type OperationResolutionCandidate
 } from "../../src/composition";
 import {
+    AgentId,
+    AgentPolicyId,
+    BlueprintPin,
+    ModelPolicyId,
     RunBranchId,
     RunCommitId,
     RunPins,
@@ -94,10 +98,8 @@ import {
     TurnBoundOperation,
     TurnLease,
     type LeaseToken
-} from "../../src/agents/runs";
+} from "../../src/agents";
 import { RunId, TurnId } from "../../src/execution-references";
-import { AgentId, AgentPolicyId, ModelPolicyId } from "../../src/agents";
-import { BlueprintPin } from "../../src/agents/runs";
 import { EnvironmentId } from "../../src/environments";
 
 const tenant = new TenantId("pipeline-tenant");
