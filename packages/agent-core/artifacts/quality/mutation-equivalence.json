@@ -240,6 +240,262 @@
       "proof": "The index cannot be out of range. The disjunct before this one returns early unless edges.length equals commit.parents.length, and ordinal is the callback index supplied by edges.some, so it runs from zero to edges.length - 1 and every position it names exists in parents. RunCommit's constructor builds parents with Object.freeze([...init.parents]), a dense copy of a spread, so no position inside that range holds a hole either. The optional chain is written because noUncheckedIndexedAccess types an element access as possibly undefined; at runtime it never short-circuits, and both spellings read the same RunCommitId's value. The tests that prune a parent edge, tamper with its value, and shift its ordinal all exercise this comparison and pin the error it raises.",
       "replacement": "commit.parents[ordinal].value",
       "symbol": "RunRepository.validateParents"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "{ throw invalidRun(\"Acceptance criteria must declare unique identities\"); }",
+      "mutator": "BlockStatement",
+      "proof": "This block is the throw guarded by reserved.registry === registry, and that comparison is constantly false: the loop refuses a repeated criterion id at the store check above it, before the reserve, and distinct ids always give RunAdmissionRegistry.reserve a key it has not seen, which makes it return a new registry rather than the receiver. A block that never executes contributes no exception, no value and no effect to any observation, so emptying it changes nothing a caller, a stored record or an assertion can see. The registry the loop goes on to build is assembled from reserved.registry either way.",
+      "replacement": "{}",
+      "symbol": "RunRuntime.createRunInTransaction"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "\"Acceptance criteria must declare unique identities\"",
+      "mutator": "StringLiteral",
+      "proof": "The literal is the message of an AgentCoreError constructed only inside the unreachable duplicate-identity guard in the genesis loop, and it is never constructed: the store check one line above refuses a repeated criterion id first, so the reserve always returns a changed registry and the throw never runs. Replacing the text with the empty string therefore changes no value any caller, log or assertion can read, which is a stronger claim than the message-text tolerance granted to reachable throw sites — the string is not merely unasserted, the program cannot produce it.",
+      "replacement": "\"\"",
+      "symbol": "RunRuntime.createRunInTransaction"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "reserved.registry === registry",
+      "mutator": "ConditionalExpression",
+      "proof": "The disjunct above this loop body already refuses a repeated identity. Each iteration first tests loadAcceptanceCriterion(tx, criterion.id) !== undefined and throws \"Run genesis identifiers already exist\", and the loop inserts each criterion before moving to the next, so the second declaration of an id is refused there and never reaches the reserve. Criteria whose ids differ produce different acceptance obligation keys, and RunAdmissionRegistry.reserve returns a new registry whenever no reserved obligation carries the candidate's key, returning `this` only when one already does. So on every input that reaches it the comparison is false, and replacing it with false selects the same branch. The rule it states is real and enforced; the throw that states it is shadowed by the store check the loop makes first.",
+      "replacement": "false",
+      "symbol": "RunRuntime.createRunInTransaction"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "commit.writer.kind !== \"system\"",
+      "mutator": "ConditionalExpression",
+      "proof": "Reaching this disjunct means the first one was false, so the commit's kind is \"invocation\" or \"eventDelivery\". validateClosedShape gives each of those its own branch, and both demand a system writer: the invocation branch throws unless writer.kind is \"system\" with a receipt cause, the delivery branch unless it is \"system\" with a delivery cause. RunCommitCodec decodes through RunCommit.fromData and so through that constructor, and RunCommit has no other construction path, so a commit of either kind always carries a system writer and this test is constantly false. It is written because appendInTransaction and the evidence checks below read writer.cause, which the checker only allows once the union is narrowed. The mutants forcing the kind group the other way are killed by the merge and message commits the door now refuses.",
+      "replacement": "false",
+      "symbol": "RunRuntime.appendSystemEvidenceCommitInTransaction"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "commit.writer.kind !== \"turn\"",
+      "mutator": "ConditionalExpression",
+      "proof": "The first disjunct has already established that the commit's kind is \"message\" or \"verdict\", and validateClosedShape routes both to its final block, which throws \"Turn-authored commit fields are invalid\" unless writer.kind is \"turn\". Since the codec decodes through RunCommit's constructor and nothing else constructs one, a message or verdict commit always has a turn writer, so this test never fires and removing it selects the same branch. The complementary mutant that forces the same test true — refusing every turn append — is killed, as are both halves of the kind group beside it, so the door's authority check remains asserted where it can actually decide.",
+      "replacement": "false",
+      "symbol": "RunRuntime.appendTurnCommitInTransaction"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "commit.writer.kind !== \"system\"",
+      "mutator": "ConditionalExpression",
+      "proof": "By the time this disjunct is evaluated the commit's kind is \"merge\", and validateClosedShape's merge branch throws \"Merge commit fields are invalid\" unless the writer is a system writer with a control cause, along with two parents, a resolution, content and a receipt. Every RunCommit reaches that check on construction and the codec decodes through it, so a merge commit with any other writer cannot exist and this test is constantly false. The kind test beside it is what actually refuses commits at this door, and it is now asserted with a system-authored invocation — a commit carrying exactly the writer this disjunct looks for — so the two are told apart rather than shadowed.",
+      "replacement": "false",
+      "symbol": "RunRuntime.mergeRunInTransaction"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "commit.writer.kind !== \"system\"",
+      "mutator": "ConditionalExpression",
+      "proof": "Reaching this disjunct means the commit's kind is \"undo\", and validateClosedShape sends that kind through requireControl before anything else, which admits only a system writer with a control cause. The constructor runs that check on every RunCommit, including every one the codec decodes, so an undo commit with a turn or root writer is unconstructible and the test is constantly false. It is written so the door's refusal reads as one rule rather than two, and because the appendInTransaction path below distinguishes writer kinds; the kind half of the same condition is what does the refusing, and it is now exercised with a system-authored invocation.",
+      "replacement": "false",
+      "symbol": "RunRuntime.undoRunInTransaction"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "run.lifecycle.kind !== \"terminal\" || run.terminal === undefined",
+      "mutator": "LogicalOperator",
+      "proof": "Both operands of this disjunction are the same predicate about the same Run. The constructor sets lifecycle to active exactly when init.terminal is undefined, and stores the snapshot from that same field, so lifecycle.kind !== \"terminal\" holds precisely when terminal === undefined holds. For any predicate P, P || P and P && P have the same value, so flipping the operator between two spellings of one predicate cannot change the chain, and the clauses after it are evaluated on exactly the same inputs. This holds for every Run the package can produce, since Run.fromData constructs through the same constructor and no other path assigns either field.",
+      "replacement": "run.lifecycle.kind !== \"terminal\" && run.terminal === undefined",
+      "symbol": "RunRuntime.appendCapturedEvidenceInTransaction"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "run.lifecycle.kind !== \"terminal\"",
+      "mutator": "ConditionalExpression",
+      "proof": "Run derives its lifecycle from its terminal snapshot in the constructor — active when init.terminal is undefined and terminal otherwise — and assigns both from the same field of the same frozen init, which is the invariant the class comment states as \"a Run is terminal exactly when it holds its terminal snapshot\". So lifecycle.kind !== \"terminal\" and terminal === undefined are the same predicate, and the disjunct immediately after this one tests the second of them. Removing this one leaves that one to make the identical decision on every Run, including every Run the codec decodes, because Run.fromData builds through the same constructor. The mutant that forces this test true instead, refusing every captured append, is killed.",
+      "replacement": "false",
+      "symbol": "RunRuntime.appendCapturedEvidenceInTransaction"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "run.terminal === undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "This disjunct is implied by the one before it for the same reason it implies it: Run's constructor sets lifecycle to terminal exactly when init.terminal is present, and stores both from one field, so a Run whose lifecycle is terminal always holds a snapshot. Where the first disjunct is false the second is false too, and where the first is true the chain has already short-circuited. What the test earns is not a refusal but a narrowing: the clause below it reads run.terminal.obligation.obligations, which the checker will not allow while the field is optional. Nothing observable changes when a redundant narrowing stops being evaluated.",
+      "replacement": "false",
+      "symbol": "RunRuntime.appendCapturedEvidenceInTransaction"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "expiresAt === undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "Control reaches this disjunct only after the running-status test above it was false, so the Turn is running, and a running Turn holds a lease — Turn's constructor throws \"Running Turns require a held lease\" otherwise. TurnLease's constructor in turn throws \"Held Turn leases require an expiration\" for a held lease with no expiry, so expiresAt was read from a lease that has one and this test is constantly false. Even where the invariant not to hold, the mutant would go on to compute `undefined > now.getTime()`, which is NaN-false and selects the same branch. The test is written so the comparison below it typechecks against a number.",
+      "replacement": "false",
+      "symbol": "RunRuntime.timeoutTurnInTransaction"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "commit.migration?.from",
+      "mutator": "OptionalChaining",
+      "proof": "The optional call cannot short-circuit here. The branch is entered only when commit.kind is \"migration\", and validateClosedShape's migration branch throws \"Migration commit fields are invalid\" unless commit.migration is present — it also requires the commit's pins to equal the migration target. RunCommit's constructor runs that check on construction and RunCommitCodec decodes through it, so a migration commit always carries its migration record and both spellings read the same RunPins and call the same equals. The chain is written because the field's declared type stays optional for every commit kind, not because this site can meet an absent one.",
+      "replacement": "commit.migration.from",
+      "symbol": "RunRuntime.appendInTransaction"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "commit.parents.length !== 1",
+      "mutator": "ConditionalExpression",
+      "proof": "Every commit that reaches this branch has exactly one parent. The branch is the else of `commit.kind === \"merge\"`, and validateClosedShape gives merge and root their own arities — two parents and none — while throwing \"Unary Run commits require one parent\" for every other kind. The only ways into appendInTransaction are the typed doors and the Turn transitions, which pass message, verdict, invocation, eventDelivery, undo, migration, checkpoint and result commits; the root commit is inserted at genesis through insertCommit and never appended. So the length test is constantly false, and the comparison beside it, which the parent-conflict tests do exercise, decides the branch on its own.",
+      "replacement": "false",
+      "symbol": "RunRuntime.appendInTransaction"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "turn.status.kind === \"running\"",
+      "mutator": "ConditionalExpression",
+      "proof": "Turn's constructor pins holder to status: a queued Turn requires an unheld epoch-zero lease, a suspended or terminal Turn must be unheld, and a running Turn must hold one. So `status.kind === \"running\"` and `lease.holder !== undefined` are the same predicate over any constructed Turn, and the conjunct after this one already tests the second spelling. Forcing this one true leaves the same set of Turns selected by the undo fence check, on every Turn the repository can return, because TurnCodec decodes through that constructor. The mutant that forces it false instead, which would let undo run past an in-flight Turn, is killed.",
+      "replacement": "true",
+      "symbol": "RunRuntime.appendInTransaction"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "turn.lease.holder !== undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "This conjunct restates the one before it. A Turn holding a lease is a running Turn — the constructor refuses a queued Turn with any holder and refuses a suspended or terminal Turn with one — so wherever the running test has already passed, the holder is defined and this test is constantly true. Forcing it true therefore selects the same Turns for the undo fence, and the predicate keeps refusing exactly the in-flight Turns it refused before. It is written because the message it guards is about a held lease, and because the pair reads as the one fact SPEC §5.5 states; the mutant forcing it false is killed by the in-flight undo test.",
+      "replacement": "true",
+      "symbol": "RunRuntime.appendInTransaction"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "pickedIndex < 0",
+      "mutator": "ConditionalExpression",
+      "proof": "Indexing an array with -1 yields undefined, which is the value the true arm of this conditional supplies, so the mutant computes the same `picked` on the one input the two spellings could differ on. The input is unreachable besides: validateClosedShape refuses a merge commit whose pick resolution does not name one of its own ordered parents, so indexOf over those parents' values always finds the resolution's parent and pickedIndex is 0 or 1 by the time this line runs. Neither arm has a side effect, and the two-element array literal is rebuilt identically either way.",
+      "replacement": "false",
+      "symbol": "RunRuntime.validateMerge.picked"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "commit.content === undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "This disjunct cannot fire. It is inside the pick-resolution branch, so the commit's kind is \"merge\", and validateClosedShape's merge branch throws \"Merge commit fields are invalid\" unless content is present — along with two parents, a system control writer, a resolution and a receipt. Every RunCommit passes that check on construction and the codec decodes through it, so commit.content is a ContentRef here and the test is constantly false. What it earns is the narrowing that lets `picked.content.equals(commit.content)` typecheck; the disjunct before it, about the picked parent's own content, is the one that can refuse and is killed.",
+      "replacement": "false",
+      "symbol": "RunRuntime.validateMerge"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "commit.treeCheckpoint === undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "The tree branch is entered only when commit.treeResolution is defined, and validateClosedShape refuses a merge commit whose tree resolution and tree checkpoint do not occur together — `(treeResolution === undefined) !== (treeCheckpoint === undefined)` throws \"Tree resolution and checkpoint must occur together\". So a commit with a resolution always carries a checkpoint, this test is constantly false, and the disjunct before it, about the selected parent's checkpoint, is what can refuse. The test is written so the equals call below it typechecks against a ContentRef rather than an optional one.",
+      "replacement": "false",
+      "symbol": "RunRuntime.validateMerge"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "entry.event !== \"turn.cancel\" || !entry.turn.equals(turn.id) || entry.cancellationToken === undefined",
+      "mutator": "LogicalOperator",
+      "proof": "This flip makes the first three disjuncts a conjunction with the third, and the chain still refuses exactly what it refused. TurnInboxEntry's constructor forces the event and the cancellation token to agree, so the first and third operands are one fact and their conjunction equals either of them; and it forces the token to name the entry's own Turn, so an entry addressed elsewhere fails the leaseTokensEqual test that closes the chain. Every entry the original refused is still refused, with the same message, and every entry it admitted still passes each operand. All four operands are pure reads and comparisons.",
+      "replacement": "(entry.event !== \"turn.cancel\" || !entry.turn.equals(turn.id)) && entry.cancellationToken === undefined",
+      "symbol": "RunRuntime.appendCancellation"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "entry.event !== \"turn.cancel\"",
+      "mutator": "ConditionalExpression",
+      "proof": "TurnInboxEntry's constructor ties the event to the token: it throws \"Only turn.cancel entries carry an exact cancellation token\" whenever `(event === \"turn.cancel\") !== (cancellationToken !== undefined)`, so being a cancel entry and carrying a token are one fact, and the codec decodes through that constructor. This disjunct therefore holds exactly when the cancellationToken disjunct two lines below holds, and removing it leaves that one to raise the same refusal with the same message. The clause between them is a pure comparison of two TurnIds, so evaluating it where the original short-circuited changes nothing.",
+      "replacement": "false",
+      "symbol": "RunRuntime.appendCancellation"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "entry.event !== \"turn.cancel\" || !entry.turn.equals(turn.id)",
+      "mutator": "ConditionalExpression",
+      "proof": "The two disjuncts this span covers are both implied by what follows. The event test holds exactly when the cancellation-token test one line below holds, because TurnInboxEntry's constructor refuses an entry whose event and token disagree. The Turn test is implied by the token comparison at the end of the chain: the same constructor requires cancellationToken.turn to equal the entry's own turn, and the displaced token names the Turn being cancelled, so an entry addressed to another Turn cannot carry a token equal to it. Forcing the pair false therefore leaves the later disjuncts to raise the same refusal on exactly the same entries.",
+      "replacement": "false",
+      "symbol": "RunRuntime.appendCancellation"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "entry.cancellationToken === undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "This disjunct is the other half of the same constructor invariant that makes the event test redundant: TurnInboxEntry refuses an entry whose event and cancellation token disagree, so an entry with no token is not a turn.cancel entry and has already been caught by the event test at the top of the chain. It is written here for the narrowing that leaseTokensEqual needs, since the field's declared type is optional. Where it would be the first true disjunct the chain has already thrown, and where the entry does carry a token it is false, so no input can separate the two.",
+      "replacement": "false",
+      "symbol": "RunRuntime.appendCancellation"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "sibling.lease.holder !== undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "A terminal Turn never holds a lease. Turn's constructor throws \"Suspended and terminal Turns must be unheld\" for exactly the combination this disjunct looks for, using the same isTerminal predicate the operand before it uses, and TurnCodec decodes through that constructor, so the filter's second test can never be the one that selects a sibling. Forcing it false leaves `!isTerminalTurn(sibling)` choosing the same pending set, and the forced-cancellation evidence the terminalization then demands is unchanged. The test is written because the pending set is about siblings that are still live in either sense.",
+      "replacement": "false",
+      "symbol": "RunRuntime.forceCancelSiblings.pending"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "right !== undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "The conjunct guards the else arm, where left is known to be present, so forcing it true leaves `left.equals(right)`. The two differ only when right is undefined, and there the call answers false rather than throwing: the single call site passes ContentRefs, ContentRef extends TextId, and TextId.equals begins with `typeof other === \"object\"`, which is false for undefined, so it returns before reading a private field. The original's short circuit and the mutant's call therefore both yield false. The helper is a pure comparison of two frozen references and its result feeds a boolean chain, so nothing else can carry a difference.",
+      "replacement": "true",
+      "symbol": "optionalRefsEqual"
+    },
+    {
+      "file": "src/agents/runs/executor.ts",
+      "mutated": "commit.content !== undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "A result commit always carries content. The conjunct before this one is isTurnAuthored(\"result\", token), which returns false unless the commit's kind is \"result\", and validateClosedShape routes that kind to its final block, which throws \"Turn-authored commit fields are invalid\" unless content is present. RunCommitCodec decodes through RunCommit's constructor, so every commit listCommits yields has passed that check, and this test is constantly true wherever it is evaluated. It is written so the comparison after it has a ContentRef to hand rather than an optional one; that comparison, against the Turn's own recorded result, is killed by the unpaired result commit test.",
+      "replacement": "true",
+      "symbol": "LeaseScopedTurn.recover.resultCommits"
+    },
+    {
+      "file": "src/agents/runs/executor.ts",
+      "mutated": "commit.content?.equals",
+      "mutator": "OptionalChaining",
+      "proof": "The optional call cannot short-circuit. The disjunct before it is `!commit.isTurnAuthored(\"checkpoint\", this.token)`, and isTurnAuthored returns true only when the commit's kind is \"checkpoint\", which validateClosedShape admits only with a turn writer, a subject Turn and content present. So reaching this expression means content is a ContentRef, and both spellings call the same ContentRef.equals against the checkpoint's state. The chain is written because RunCommit types content as optional for every kind; a test could only separate the two by producing a checkpoint commit without content, which the record's own constructor refuses.",
+      "replacement": "commit.content.equals",
+      "symbol": "LeaseScopedTurn.recover"
+    },
+    {
+      "file": "src/agents/runs/executor.ts",
+      "mutated": "turn.lease.holder !== undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "Turn's constructor makes holding a lease and running the same fact: it refuses a queued Turn with any holder, refuses a suspended or terminal Turn with one, and refuses a running Turn without one. So wherever the conjunct before this one has already established that the status is running, the holder is defined and this test is constantly true. Forcing it true leaves the token comparison that follows deciding whether the recovered cancellation belongs to the lease this call still holds, on exactly the Turns it decided before, for every Turn TurnCodec can decode.",
+      "replacement": "true",
+      "symbol": "holdsCurrentLease"
+    },
+    {
+      "file": "src/agents/runs/executor.ts",
+      "mutated": "turn.status.kind === \"running\"",
+      "mutator": "ConditionalExpression",
+      "proof": "This conjunct is the same fact as the one after it. A Turn that holds a lease is running — Turn's constructor refuses a holder on a queued, suspended or terminal Turn — so forcing the status test true cannot admit a Turn the holder test does not also admit. Recovery therefore treats exactly the same Turns as holding the current lease, and the §5.6 rule it implements, that a cancellation delivered against a live lease is the holder's to settle, keeps applying to the same set. The mutant that flips the operator between the two, which does change the grouping of the chain, is killed.",
+      "replacement": "true",
+      "symbol": "holdsCurrentLease"
+    },
+    {
+      "file": "src/agents/runs/commit.ts",
+      "mutated": "this.subjectTurn?.equals",
+      "mutator": "OptionalChaining",
+      "proof": "A commit with a turn writer always names a subject Turn. The method returns false immediately unless writer.kind is \"turn\", and validateClosedShape admits a turn writer only from its final block, the one reached by message, checkpoint, result and verdict commits, which throws unless subjectTurn is present — every other kind is routed to a branch demanding a root or system writer. RunCommit's constructor runs that check and the codec decodes through it, so the optional call never short-circuits and both spellings compare the same TurnId. The chain is written because subjectTurn is optional across the union of kinds.",
+      "replacement": "this.subjectTurn.equals",
+      "symbol": "RunCommit.isTurnAuthored"
+    },
+    {
+      "file": "src/agents/runs/commit.ts",
+      "mutated": "right !== undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "Forcing this conjunct true leaves `left.equals(right)` for the case where left is a TurnId and right is undefined, and TurnId inherits TextId.equals, which tests `typeof other === \"object\"` first and so answers false for undefined instead of throwing. That is the same false the short circuit produced. Both call sites pass a commit's subjectTurn against the subject Turn of the evidence backing it, so the operands are frozen ids and the result feeds a refusal chain; no input can make the two spellings disagree, and the helper has no other effect.",
+      "replacement": "true",
+      "symbol": "optionalIdsEqual"
+    },
+    {
+      "file": "src/agents/record-data.ts",
+      "mutated": "typeof value !== \"number\"",
+      "mutator": "ConditionalExpression",
+      "proof": "Number.isSafeInteger, tested immediately after this disjunct, coerces nothing and returns false for every argument that is not a number, so a string, boolean, null, array or object value is rejected by it whether or not the typeof test ran first. The mutant therefore computes the same boolean on every input and raises the same TypeError with the same subject. The typeof test earns its place in the type system, where it narrows JsonValue | undefined to number so that `value < 0` and the number return typecheck — the standard library declares isSafeInteger as returning boolean rather than as a type predicate, so it cannot narrow on its own.",
+      "replacement": "false",
+      "symbol": "requireInteger"
+    },
+    {
+      "file": "src/agents/runs/runtime.ts",
+      "mutated": "entry.event !== \"turn.cancel\" || !entry.turn.equals(turn.id)",
+      "mutator": "LogicalOperator",
+      "proof": "Flipping this operator turns two disjuncts into a conjunction, and both are implied by disjuncts later in the same chain, so the chain's value is unchanged. TurnInboxEntry's constructor makes carrying a cancellation token and being a turn.cancel entry one fact, so where the event test was the true one the token test below still fires; and it requires the token to name the entry's own Turn, so where the Turn test was the true one the leaseTokensEqual test below still fires against a token naming a different Turn. Every operand is a pure comparison, so evaluating more of them changes nothing but the order.",
+      "replacement": "entry.event !== \"turn.cancel\" && !entry.turn.equals(turn.id)",
+      "symbol": "RunRuntime.appendCancellation"
     }
   ]
 }
