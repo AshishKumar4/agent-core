@@ -26,7 +26,7 @@ export abstract class RunLifecycle {
     // SPEC §5.2: the terminal variant records which ceiling dimension exhaustion
     // cancelled the Run, and nothing when the Run ended for any other reason.
     public static terminal(exhausted?: ResourceDimension): RunLifecycle {
-        return exhausted === undefined ? terminalRun : new TerminalRun(exhausted);
+        return new TerminalRun(exhausted);
     }
     public abstract readonly kind: "active" | "terminal";
     public abstract readonly exhausted: ResourceDimension | undefined;
@@ -320,7 +320,6 @@ class BranchCodec extends RecordCodec<RunBranch> {
 export const RunBranchCodec: RecordCodec<RunBranch> = new BranchCodec();
 
 const activeRun = Object.freeze(new ActiveRun());
-const terminalRun = Object.freeze(new TerminalRun());
 
 function requireTokenUsage(tokens: number): number {
     if (!Number.isSafeInteger(tokens) || tokens < 0) {
