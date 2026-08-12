@@ -147,7 +147,7 @@ export const authorityReferenceCodec: StructuralCodec<MediationAuthorityReferenc
         );
         const kind = requireString(object, "kind");
         if (kind !== "initiator" && kind !== "delegated") {
-            throw new TypeError("Invocation authority kind is invalid");
+            throw malformed("Invocation authority kind is invalid");
         }
         return Object.freeze({
             kind,
@@ -176,7 +176,7 @@ export const domainReferenceCodec: StructuralCodec<MediationDomainReference> = O
             (kind !== "frontend" && kind !== "backend") ||
             (secretPolicy !== "no-secrets" && secretPolicy !== "may-hold-secrets")
         ) {
-            throw new TypeError("Protection domain kind or secret policy is invalid");
+            throw malformed("Protection domain kind or secret policy is invalid");
         }
         return Object.freeze({ kind, label: requireString(object, "label"), secretPolicy });
     }
@@ -381,13 +381,13 @@ export class DerivedPreparationAdmission<Transaction> implements InvocationPrepa
 function payload(
     request: CanonicalBatchInvocationRequest<MediatedAuthorityIntent>
 ): UnpreparedPayload {
-    const inputs = request.request.inputs;
+    const [first, ...rest] = request.request.inputs;
+    if (first === undefined) throw invalid("A mediated payload must be nonempty");
     if (request.request.shape.kind === "single") {
-        if (inputs.length !== 1) throw invalid("A single mediated payload carries one item");
-        return { kind: "single", item: inputs[0]! };
+        if (rest.length !== 0) throw invalid("A single mediated payload carries one item");
+        return { kind: "single", item: first };
     }
-    if (inputs.length === 0) throw invalid("A batch mediated payload must be nonempty");
-    return { kind: "batch", items: inputs as readonly [(typeof inputs)[number], ...typeof inputs] };
+    return { kind: "batch", items: [first, ...rest] };
 }
 
 function facetPackage(facet: FacetRef): FacetPackageId {
@@ -398,4 +398,8 @@ function facetPackage(facet: FacetRef): FacetPackageId {
 
 function invalid(message: string): AgentCoreError {
     return new AgentCoreError("invocation.invalid", message);
+}
+
+function malformed(message: string): AgentCoreError {
+    return new AgentCoreError("codec.invalid", message);
 }

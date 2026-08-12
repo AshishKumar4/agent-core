@@ -80,14 +80,8 @@ export type {
     SingleTenantPolicyBinding
 } from "./single-tenant";
 export { DerivedMediationIdentities } from "./mediation-identity";
-export {
-    DerivedDirectOperationContext,
-    ScopedMediationResources
-} from "./mediation-execution";
-export type {
-    OperationExecutionResourcePort,
-    OperationExecutionResources
-} from "./mediation-execution";
+export { DerivedDirectOperationContext } from "./mediation-execution";
+export type { OperationExecutionResources } from "./mediation-execution";
 export {
     CanonicalMediationPreparation,
     DerivedPreparationAdmission,

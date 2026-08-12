@@ -52,6 +52,8 @@ export {
 } from "./runs";
 export { RunCheckpointId } from "./runs/id";
 export { leaseTokensEqual } from "./runs/lease";
+export { GatewayTurnInvocationPort, TurnGatewaySource } from "./runs";
+export type { TurnGatewayScope, TurnMediatedInvocationPort } from "./runs";
 export { RunPins } from "./runs/pins";
 export type { LeaseToken, RunStoragePort, TurnLeaseVerifier } from "./runs";
 export type {

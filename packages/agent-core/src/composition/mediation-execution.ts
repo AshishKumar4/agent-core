@@ -1,29 +1,12 @@
 import type { ContentStore } from "../content";
 import type { OperationContext } from "../facets";
 import type { OperationPayloadShape, OperationRequestKey } from "../operations";
-import type {
-    CanonicalBatchInvocationRequest,
-    CanonicalBatchResourcesPort,
-    DirectOperationContextPort
-} from "../invocations";
+import type { DirectOperationContextPort } from "../invocations";
 import type { DerivedMediationIdentities } from "./mediation-identity";
 
 export interface OperationExecutionResources {
     readonly signal: AbortSignal;
     readonly content: ContentStore;
-}
-
-/**
- * The execution resources an Operation handler runs against: the caller's cancellation
- * signal and the content store its results are addressed in. The pipeline owns identity
- * and evidence; this owns nothing but the resources, so a host that scopes content or
- * cancellation per request states that in one place.
- */
-export interface OperationExecutionResourcePort<Authorization> {
-    resources(
-        request: CanonicalBatchInvocationRequest<Authorization>,
-        itemIndex: number
-    ): OperationExecutionResources;
 }
 
 /**
@@ -60,22 +43,6 @@ export class DerivedDirectOperationContext<Authorization> implements DirectOpera
             signal: execution.signal,
             content: execution.content
         });
-    }
-}
-
-export class ScopedMediationResources<Authorization> implements CanonicalBatchResourcesPort<
-    Authorization
-> {
-    public constructor(
-        private readonly port: OperationExecutionResourcePort<Authorization>
-    ) {}
-
-    public resources(
-        request: CanonicalBatchInvocationRequest<Authorization>,
-        itemIndex: number
-    ): OperationExecutionResources {
-        requireItemIndex(request.request.shape, itemIndex);
-        return this.port.resources(request, itemIndex);
     }
 }
 

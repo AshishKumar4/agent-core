@@ -1,11 +1,11 @@
 import type { ActorRef } from "../actors";
-import type { LeaseToken } from "../agents";
 import {
     GatewayTurnInvocationPort,
     TurnGatewaySource,
+    type LeaseToken,
     type TurnGatewayScope,
     type TurnMediatedInvocationPort
-} from "../agents/runs";
+} from "../agents";
 import type { ContentStore } from "../content";
 import type { Facet, FacetManifest } from "../facets";
 import type { TenantId } from "../identity";
@@ -35,7 +35,7 @@ import {
     type OperationAuthorityStatePort
 } from "./authority";
 import { DerivedMediationIdentities } from "./mediation-identity";
-import { DerivedDirectOperationContext, ScopedMediationResources } from "./mediation-execution";
+import { DerivedDirectOperationContext } from "./mediation-execution";
 import {
     CanonicalMediationPreparation,
     DerivedPreparationAdmission,
@@ -270,7 +270,7 @@ function operations<Transaction, Admission, Authentication>(
             ),
             init.finalAdmission,
             init.evidence,
-            new ScopedMediationResources({ resources: () => resources }),
+            { resources: () => resources },
             init.now
         )
     );
