@@ -247,6 +247,91 @@
       ]
     },
     {
+      "id": "AC-SECRET-001",
+      "summary": "SecretRef custody (§3.5): resolution bound to the exact home Tenant, Binding, and endpoint the Tenant recorded, repointing invalidation, and delegation/guest-Membership/cross-tenant-reservation carriers that hold refs, never raw values",
+      "status": "proved-safety",
+      "boundary": "A resolve step admits only the Tenant a SecretRef's own source names, and only the exact Binding and endpoint the current custody record holds -- not any Binding or endpoint the secret was ever accepted for. Repointing bumps the custody generation, so a resolution current before a repoint is never current after it, without needing to be revoked. Every delegation, guest-grant, and cross-tenant-reservation carrier constructed by a step is a SecretCarrier.ref; SecretCarrier.value is representable but excluded from every reachable ledger, so a carrier holding the raw SecretValue refutes reachability outright. This is custody, not process isolation: nothing here claims a resolved credential cannot be read back once it leaves custody -- that is NC-SECRET-PROCESS-ISOLATION, and the narrower agent-visible-filesystem instance of it is AC-ENVIRONMENT-001's CredentialIsolated. Concrete provider verification of accepted credentials, secret rotation, and the wire representation of SecretRef are not modeled.",
+      "definitions": [
+        "AgentCore.SecretRef",
+        "AgentCore.SecretEndpoint",
+        "AgentCore.SecretValue",
+        "AgentCore.SecretCarrier",
+        "AgentCore.SecretCarrier.secret",
+        "AgentCore.SecretCustody",
+        "AgentCore.SecretResolution",
+        "AgentCore.DelegationId",
+        "AgentCore.GuestGrantId",
+        "AgentCore.SecretLedger",
+        "AgentCore.SecretLedger.boot",
+        "AgentCore.SecretResolution.Current",
+        "AgentCore.SecretLabel",
+        "AgentCore.SecretStep",
+        "AgentCore.CarrierRefOnly",
+        "AgentCore.SecretReachable"
+      ],
+      "theorems": [
+        "AgentCore.secret_resolution_requires_exact_tenant",
+        "AgentCore.foreign_tenant_secret_resolution_rejected",
+        "AgentCore.secret_resolution_requires_current_custody",
+        "AgentCore.mismatched_custody_secret_resolution_rejected",
+        "AgentCore.fresh_resolution_is_current",
+        "AgentCore.repoint_invalidates_prior_resolution",
+        "AgentCore.boot_carriers_ref_only",
+        "AgentCore.secret_step_preserves_carrier_ref_only",
+        "AgentCore.reachable_carriers_ref_only",
+        "AgentCore.secret_value_carrier_is_unreachable",
+        "AgentCore.guest_grant_value_carrier_is_unreachable",
+        "AgentCore.cross_tenant_reservation_value_carrier_is_unreachable"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates",
+        "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable"
+      ],
+      "witnessCoverage": {
+        "AgentCore.secret_resolution_requires_exact_tenant": [
+          "AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates"
+        ],
+        "AgentCore.foreign_tenant_secret_resolution_rejected": [
+          "AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates"
+        ],
+        "AgentCore.secret_resolution_requires_current_custody": [
+          "AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates"
+        ],
+        "AgentCore.mismatched_custody_secret_resolution_rejected": [
+          "AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates"
+        ],
+        "AgentCore.fresh_resolution_is_current": [
+          "AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates"
+        ],
+        "AgentCore.repoint_invalidates_prior_resolution": [
+          "AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates"
+        ],
+        "AgentCore.boot_carriers_ref_only": [
+          "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable"
+        ],
+        "AgentCore.secret_step_preserves_carrier_ref_only": [
+          "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable"
+        ],
+        "AgentCore.reachable_carriers_ref_only": [
+          "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable"
+        ],
+        "AgentCore.secret_value_carrier_is_unreachable": [
+          "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable"
+        ],
+        "AgentCore.guest_grant_value_carrier_is_unreachable": [
+          "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable"
+        ],
+        "AgentCore.cross_tenant_reservation_value_carrier_is_unreachable": [
+          "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable"
+        ]
+      },
+      "remainingEvidence": [
+        "concrete provider verification of an accepted credential and secret rotation semantics",
+        "the wire representation and codec of SecretRef and its provider field",
+        "linking this custody model to the narrower Environment/Session AgentValue.ref usage so the two SecretRef-adjacent models are proved consistent rather than independently sound"
+      ]
+    },
+    {
       "id": "AC-MATERIALIZE-001",
       "summary": "Foreign-subject guest allow attenuation, deny preservation, and epoch-advancing Role rematerialization",
       "status": "proved-component",
@@ -347,9 +432,9 @@
     },
     {
       "id": "AC-SLOT-001",
-      "summary": "Immutable slot declarations, exclusive contribution origins, schema-conformant stored entries, and declared-order arrival-independent slot resolution",
+      "summary": "Immutable slot declarations, exclusive contribution origins, schema-conformant stored entries, declared-order arrival-independent slot resolution, and a contribute-authority gate that excludes an unauthorized contributor's entry from ever landing",
       "status": "proved-safety",
-      "boundary": "Declarations and entry origins are collision-checked in every arrival order, stored entries keep an installed accepting declaration, and resolution presents exactly the stored entries for a slot in (ordinal, contributor) order regardless of arrival order — the declared presentation order is the reference store's canonical order. Slot contribute/visibility authority policy, concrete JSON-Schema semantics, the viewer-filtered SlotCatalog query, and surface-backed rendering are not proved here.",
+      "boundary": "Declarations and entry origins are collision-checked in every arrival order, stored entries keep an installed accepting declaration, and resolution presents exactly the stored entries for a slot in (ordinal, contributor) order regardless of arrival order -- the declared presentation order is the reference store's canonical order. AuthorizedSlotStep adds SPEC §4.2's contribute-authority gate on top of SlotStep without narrowing it: a contribute step whose (slot, contributor) pair the authority policy does not admit is never policy-gated-admissible, whatever its schema or origin -- the prompt-injection admission gate at the `prompt` slot specifically. The contribute-authority policy itself is an abstract Bool predicate; the concrete default policy (\"any installed Facet in scope\") depends on Facet installation state NC-FACET-MANIFEST-RUNTIME does not model, and visibility authority, concrete JSON-Schema semantics, the viewer-filtered SlotCatalog query, and surface-backed rendering are not proved here.",
       "definitions": [
         "AgentCore.SlotDeclaration",
         "AgentCore.SlotEntry",
@@ -359,7 +444,9 @@
         "AgentCore.SlotLedger.OriginsUnique",
         "AgentCore.SlotLedger.EntriesConform",
         "AgentCore.slotEntryLe",
-        "AgentCore.SlotStep"
+        "AgentCore.SlotStep",
+        "AgentCore.SlotContributeAuthority",
+        "AgentCore.AuthorizedSlotStep"
       ],
       "theorems": [
         "AgentCore.occupied_slot_redeclaration_rejected",
@@ -375,7 +462,11 @@
         "AgentCore.resolution_is_complete_and_declared_order",
         "AgentCore.resolution_ignores_arrival_order",
         "AgentCore.resolution_is_unique_declared_order",
-        "AgentCore.resolved_entry_is_stored_and_validates"
+        "AgentCore.resolved_entry_is_stored_and_validates",
+        "AgentCore.authorized_slot_step_is_slot_step",
+        "AgentCore.unauthorized_contributor_never_lands",
+        "AgentCore.authorized_contribution_carries_admission",
+        "AgentCore.non_contribute_step_needs_no_authority"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_slot_contribution_lifecycle",
@@ -386,7 +477,8 @@
         "AgentCore.Examples.nonvacuous_nonvalidating_contribution_rejected",
         "AgentCore.Examples.nonvacuous_conflicting_origin_rejected",
         "AgentCore.Examples.nonvacuous_entry_id_reuse_rejected",
-        "AgentCore.Examples.nonvacuous_slot_noop_reinstallation"
+        "AgentCore.Examples.nonvacuous_slot_noop_reinstallation",
+        "AgentCore.Examples.nonvacuous_prompt_slot_authority_gate"
       ],
       "witnessCoverage": {
         "AgentCore.occupied_slot_redeclaration_rejected": [
@@ -433,18 +525,31 @@
         "AgentCore.resolved_entry_is_stored_and_validates": [
           "AgentCore.Examples.nonvacuous_slot_contribution_lifecycle",
           "AgentCore.Examples.nonvacuous_resolution_reorders_arrivals"
+        ],
+        "AgentCore.authorized_slot_step_is_slot_step": [
+          "AgentCore.Examples.nonvacuous_prompt_slot_authority_gate"
+        ],
+        "AgentCore.unauthorized_contributor_never_lands": [
+          "AgentCore.Examples.nonvacuous_prompt_slot_authority_gate"
+        ],
+        "AgentCore.authorized_contribution_carries_admission": [
+          "AgentCore.Examples.nonvacuous_prompt_slot_authority_gate"
+        ],
+        "AgentCore.non_contribute_step_needs_no_authority": [
+          "AgentCore.Examples.nonvacuous_prompt_slot_authority_gate"
         ]
       },
       "remainingEvidence": [
-        "slot contribute/visibility authority policy enforcement conformance",
+        "the concrete default contribute-authority policy (\"any installed Facet in scope\") over real Facet installation state",
+        "slot visibility authority policy enforcement conformance",
         "concrete entry-schema validation and store transaction conformance"
       ]
     },
     {
       "id": "AC-COMMAND-001",
-      "summary": "Per-surface per-Scope command collision rejection, exact derived-Subscription defaults, install-checked mappings with validated invocation input, and duplicate-submission idempotency",
+      "summary": "Per-surface per-Scope command collision rejection, exact derived-Subscription defaults realized as an actual routed Subscription, install-checked mappings with validated invocation input, and duplicate-submission idempotency",
       "status": "proved-safety",
-      "boundary": "A colliding (Scope, surface, name) contribution rejects in every arrival order, an installed command stores exactly the derived initiator/event-dedupe route with nonempty accepted trust, install admits only mappings that send every schema-valid argument value to schema-valid Operation input so every emitted command.invoked input validates, and a resubmitted (caller, idempotencyKey) envelope yields the recorded outcome as a duplicate write that reserves nothing and mints no Event. The concrete JSON-Schema compatibility algorithm, argument grammar, completion providers, alias configuration, visibility disable, dispatcher gate ordering, and command.completed rendering are not proved here.",
+      "boundary": "A colliding (Scope, surface, name) contribution rejects in every arrival order, an installed command stores exactly the derived initiator/event-dedupe route with nonempty accepted trust, install admits only mappings that send every schema-valid argument value to schema-valid Operation input so every emitted command.invoked input validates, and a resubmitted (caller, idempotencyKey) envelope yields the recorded outcome as a duplicate write that reserves nothing and mints no Event. deriveSubscription bridges the derived CommandRoute to an actual RoutedSubscription in the AC-ROUTING-001 routing LTS -- same tenant, same target InvocationId, and admits exactly the derived accepted-trust set -- and the default accepted-trust set excludes external, so a command declaring no explicit acceptedTrust never derives a Subscription that admits externally-sourced firing. Synthesizing a full InvocationHeader from a CommandRoute alone, the concrete JSON-Schema compatibility algorithm, argument grammar, completion providers, alias configuration, visibility disable, dispatcher gate ordering, and command.completed rendering are not proved here.",
       "definitions": [
         "AgentCore.CommandDecl",
         "AgentCore.CommandRoute",
@@ -458,7 +563,8 @@
         "AgentCore.SubmissionOutcome.Reserves",
         "AgentCore.SubmissionLedger",
         "AgentCore.SubmissionLedger.ReservationConsistent",
-        "AgentCore.SubmissionStep"
+        "AgentCore.SubmissionStep",
+        "AgentCore.deriveSubscription"
       ],
       "theorems": [
         "AgentCore.command_surface_collision_rejected",
@@ -480,7 +586,10 @@
         "AgentCore.duplicate_submission_reserves_and_emits_nothing",
         "AgentCore.duplicate_cites_reserving_original",
         "AgentCore.submission_step_preserves_reservation_consistency",
-        "AgentCore.at_most_one_reserving_write_per_identity"
+        "AgentCore.at_most_one_reserving_write_per_identity",
+        "AgentCore.default_accepted_trust_excludes_external",
+        "AgentCore.deriveSubscription_matches_derived_route",
+        "AgentCore.default_derived_subscription_excludes_external"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_command_installation_and_validated_invocation",
@@ -494,7 +603,8 @@
         "AgentCore.Examples.nonvacuous_invalid_arguments_invocation_rejected",
         "AgentCore.Examples.nonvacuous_duplicate_submission_is_recorded_evidence",
         "AgentCore.Examples.nonvacuous_reserved_identity_recommit_rejected",
-        "AgentCore.Examples.nonvacuous_double_reservation_is_inconsistent"
+        "AgentCore.Examples.nonvacuous_double_reservation_is_inconsistent",
+        "AgentCore.Examples.nonvacuous_derived_subscription_exactness"
       ],
       "witnessCoverage": {
         "AgentCore.command_surface_collision_rejected": [
@@ -557,11 +667,93 @@
         ],
         "AgentCore.at_most_one_reserving_write_per_identity": [
           "AgentCore.Examples.nonvacuous_double_reservation_is_inconsistent"
+        ],
+        "AgentCore.default_accepted_trust_excludes_external": [
+          "AgentCore.Examples.nonvacuous_derived_subscription_exactness"
+        ],
+        "AgentCore.deriveSubscription_matches_derived_route": [
+          "AgentCore.Examples.nonvacuous_derived_subscription_exactness"
+        ],
+        "AgentCore.default_derived_subscription_excludes_external": [
+          "AgentCore.Examples.nonvacuous_derived_subscription_exactness"
         ]
       },
       "remainingEvidence": [
         "syntactic mapping compatibility check soundness against the semantic install guarantee",
-        "dispatcher envelope gate ordering and command.completed conformance"
+        "synthesizing a full InvocationHeader from a CommandRoute so deriveSubscription's target does not need to be supplied externally",
+        "dispatcher envelope gate ordering and command.completed conformance (see AC-DISPATCHER-001 for the generic gate-order and duplicate-never-mutates claims)"
+      ]
+    },
+    {
+      "id": "AC-DISPATCHER-001",
+      "summary": "The §8.5 command protocol dispatcher's fixed gate order, duplicate-never-mutates, and exactly-one linked WriteRecord/AuditRecord per request, with an executable mirror proven sound and complete",
+      "status": "proved-safety",
+      "boundary": "Generic over the family-specific domain state and its authenticate/authority/lifecycle/expected-revision decisions (concrete per protocol command family and out of scope here): every request decodes, authenticates, checks (caller, idempotencyKey) duplication, authorizes, admits lifecycle, matches expected revision, and gates an optional LeaseToken in that fixed order before the committed branch alone mutates the domain. A resubmitted identity never re-runs a later gate or the mutation and reserves nothing new. Every request -- malformed, rejected at any gate, duplicate, or committed -- appends exactly one fresh WriteRecord bijectively linked to one fresh audit id in the same transition as the decision. dispatchExec is the computable mirror, proven sound and complete against DispatchStep. The dispatcher-created audit id is uninterpreted: it is not threaded through AC-AUDIT-001's typed AuditKind/MayCause causal-chain machinery, so the permitted-typed-cause content of a dispatcher AuditRecord is not proved here, only its fresh bijective linkage and atomic commit. Concrete authenticate/authority/lifecycle/revision semantics, the raw envelope decoder, and command.completed rendering are not modeled.",
+      "definitions": [
+        "AgentCore.WriteRecordId",
+        "AgentCore.CommandCaller",
+        "AgentCore.CommandIdentity",
+        "AgentCore.LeaseRequirement",
+        "AgentCore.RawEnvelope",
+        "AgentCore.CommandEnvelope",
+        "AgentCore.CommandEnvelope.identity",
+        "AgentCore.CommandOutcome",
+        "AgentCore.CommandOutcome.Reserves",
+        "AgentCore.WriteRecord",
+        "AgentCore.LeaseGate",
+        "AgentCore.leaseGateBool",
+        "AgentCore.DispatchPolicy",
+        "AgentCore.DispatcherLedger",
+        "AgentCore.DispatcherLedger.boot",
+        "AgentCore.DispatcherLedger.appendWrite",
+        "AgentCore.DispatchLabel",
+        "AgentCore.DispatchStep",
+        "AgentCore.dispatchExec"
+      ],
+      "theorems": [
+        "AgentCore.leaseGateBool_eq_true_iff",
+        "AgentCore.dispatch_appends_exactly_one_linked_write_and_audit",
+        "AgentCore.dispatch_duplicate_never_mutates",
+        "AgentCore.dispatch_nonmutating_outcome_preserves_domain",
+        "AgentCore.dispatch_reserved_identity_only_duplicates",
+        "AgentCore.dispatch_commit_passed_every_gate",
+        "AgentCore.dispatchExec_sound",
+        "AgentCore.dispatchExec_complete"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_dispatch_commit_then_duplicate_never_mutates",
+        "AgentCore.Examples.nonvacuous_dispatchExec_matches_commit_then_duplicate"
+      ],
+      "witnessCoverage": {
+        "AgentCore.leaseGateBool_eq_true_iff": [
+          "AgentCore.Examples.nonvacuous_dispatch_commit_then_duplicate_never_mutates"
+        ],
+        "AgentCore.dispatch_appends_exactly_one_linked_write_and_audit": [
+          "AgentCore.Examples.nonvacuous_dispatch_commit_then_duplicate_never_mutates"
+        ],
+        "AgentCore.dispatch_duplicate_never_mutates": [
+          "AgentCore.Examples.nonvacuous_dispatch_commit_then_duplicate_never_mutates"
+        ],
+        "AgentCore.dispatch_nonmutating_outcome_preserves_domain": [
+          "AgentCore.Examples.nonvacuous_dispatch_commit_then_duplicate_never_mutates"
+        ],
+        "AgentCore.dispatch_reserved_identity_only_duplicates": [
+          "AgentCore.Examples.nonvacuous_dispatch_commit_then_duplicate_never_mutates"
+        ],
+        "AgentCore.dispatch_commit_passed_every_gate": [
+          "AgentCore.Examples.nonvacuous_dispatch_commit_then_duplicate_never_mutates"
+        ],
+        "AgentCore.dispatchExec_sound": [
+          "AgentCore.Examples.nonvacuous_dispatchExec_matches_commit_then_duplicate"
+        ],
+        "AgentCore.dispatchExec_complete": [
+          "AgentCore.Examples.nonvacuous_dispatchExec_matches_commit_then_duplicate"
+        ]
+      },
+      "remainingEvidence": [
+        "concrete family-specific authenticate/authority/lifecycle/revision semantics for each protocol command family (Grant, Binding, RouteReservation, RunPins migration, PreparedInvocation, Approval consumption, EffectAttempt, Receipt, AuditRecord append)",
+        "threading the dispatcher-created audit id through AC-AUDIT-001's typed AuditKind/MayCause causal chain so the permitted-typed-cause rule for callerCause is proved, not just the fresh bijective link",
+        "the raw envelope decoder's concrete shape/schema validation and command.completed rendering"
       ]
     },
     {
@@ -899,9 +1091,9 @@
     },
     {
       "id": "AC-EVENT-ROUTING-001",
-      "summary": "Lease-backed self Event acceptance, hostile asserted-tier publication rejection, exact authenticated route projection, and source Event-audit-bound reservation",
+      "summary": "Lease-backed self Event acceptance, hostile asserted-tier publication rejection, exact authenticated route projection, source Event-audit-bound reservation, route reservation uniqueness per Invocation, and append-only delivery dedupe",
       "status": "proved-safety",
-      "boundary": "Published Events cannot carry caller-asserted trust tiers, self acceptance checks the supplied exact lease, projection copies the reserved projection ID, digest, and target under authenticated evidence, and mediated reservation binds its source Event and source-owner audit. Delivery liveness, Subscription semantics, and concrete transport authenticity are not proved here.",
+      "boundary": "Published Events cannot carry caller-asserted trust tiers, self acceptance checks the supplied exact lease, projection copies the reserved projection ID, digest, and target under authenticated evidence, and mediated reservation binds its source Event and source-owner audit. The reservationFor index and the reservations table stay in bijective agreement across every EventStep and every EventStoreReachable trace, so two stored reservations naming the same Invocation are provably the same reservation -- the reservation-uniqueness claim -- and deliveries are append-only, so a reservation that already has a recorded delivery outcome can never admit a second deliver step -- the delivery-dedupe claim, at the substrate EventStore layer beneath AC-ROUTING-001's Subscription-level at-most-once. Delivery liveness, Subscription semantics, and concrete transport authenticity are not proved here.",
       "definitions": [
         "AgentCore.Event",
         "AgentCore.HostDerivedTrust",
@@ -909,7 +1101,9 @@
         "AgentCore.RouteProjection",
         "AgentCore.EventStore",
         "AgentCore.EventStep",
-        "AgentCore.ReservationSourceAuditValid"
+        "AgentCore.ReservationSourceAuditValid",
+        "AgentCore.EventStore.ReservationForConsistent",
+        "AgentCore.EventStoreReachable"
       ],
       "theorems": [
         "AgentCore.accepted_self_has_live_exact_lease",
@@ -917,14 +1111,23 @@
         "AgentCore.published_event_has_no_asserted_tier",
         "AgentCore.asserted_tier_publish_rejected",
         "AgentCore.target_projection_is_exact_authenticated_reservation_projection",
-        "AgentCore.routed_reservation_binds_source_event_audit"
+        "AgentCore.routed_reservation_binds_source_event_audit",
+        "AgentCore.default_reservation_for_consistent",
+        "AgentCore.event_step_preserves_reservation_for_consistency",
+        "AgentCore.reachable_reservation_for_consistent",
+        "AgentCore.route_reservation_is_unique_per_invocation",
+        "AgentCore.event_step_preserves_deliveries",
+        "AgentCore.delivered_reservation_cannot_redeliver"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_route_delivery",
         "AgentCore.Examples.nonvacuous_stale_self_rejection",
         "AgentCore.Examples.nonvacuous_exact_route_projection",
         "AgentCore.Examples.nonvacuous_source_reservation_audit_binding",
-        "AgentCore.Examples.nonvacuous_hostile_tier_publication_rejected"
+        "AgentCore.Examples.nonvacuous_hostile_tier_publication_rejected",
+        "AgentCore.Examples.nonvacuous_reachable_route_reservation_consistent",
+        "AgentCore.Examples.nonvacuous_double_route_reservation_is_inconsistent",
+        "AgentCore.Examples.nonvacuous_redelivery_of_route_reservation_rejected"
       ],
       "witnessCoverage": {
         "AgentCore.accepted_self_has_live_exact_lease": [
@@ -944,11 +1147,29 @@
         ],
         "AgentCore.routed_reservation_binds_source_event_audit": [
           "AgentCore.Examples.nonvacuous_source_reservation_audit_binding"
+        ],
+        "AgentCore.default_reservation_for_consistent": [
+          "AgentCore.Examples.nonvacuous_reachable_route_reservation_consistent"
+        ],
+        "AgentCore.event_step_preserves_reservation_for_consistency": [
+          "AgentCore.Examples.nonvacuous_reachable_route_reservation_consistent"
+        ],
+        "AgentCore.reachable_reservation_for_consistent": [
+          "AgentCore.Examples.nonvacuous_reachable_route_reservation_consistent"
+        ],
+        "AgentCore.route_reservation_is_unique_per_invocation": [
+          "AgentCore.Examples.nonvacuous_double_route_reservation_is_inconsistent"
+        ],
+        "AgentCore.event_step_preserves_deliveries": [
+          "AgentCore.Examples.nonvacuous_redelivery_of_route_reservation_rejected"
+        ],
+        "AgentCore.delivered_reservation_cannot_redeliver": [
+          "AgentCore.Examples.nonvacuous_redelivery_of_route_reservation_rejected"
         ]
       },
       "remainingEvidence": [
         "source-owned reservation and authenticated projection transport refinement",
-        "Subscription matching, delivery, dedupe, and reconciliation conformance"
+        "Subscription matching and reconciliation conformance"
       ]
     },
     {
@@ -1930,6 +2151,121 @@
       ]
     },
     {
+      "id": "AC-CONTENT-001",
+      "summary": "ContentStore custody (§8.2, C13-CONTENT-CUSTODY), narrowed to its two independently provable halves: tenant-bound resolution (fully modeled) and retention-safety conditional on registration (owned implies never collected while owned) -- not the coverage half (every record that names a ref becomes a registered owner), which is not modeled and is not claimed",
+      "status": "proved-safety",
+      "boundary": "A resolve step for a ContentRef is admitted only for the Tenant its own tenant field names, or a Tenant an explicit grantCrossTenant step has named -- never an arbitrary caller -- and only when the content is currently stored. Separately: owningRecords is a primitive relation a step can populate via own; nothing here derives it from what a concrete record type (a Turn result, a Receipt, a Slate) actually stores in its own fields. content_step_preserves_owned_implies_stored proves that once an ownership edge is registered, collection can never race ahead of it -- OwnedImpliesStored survives every transition -- so reachable_owned_implies_stored gives that retention-safety at every ContentReachable state, and collected_owned_content_is_unreachable is the constructive refutation form. This is the safety half of §8.2's stated universal (\"every durable record that names a ContentRef is a retained owner\") only: the coverage half -- that naming a ref in a record's own data implies an ownership edge gets registered for it -- is not modeled, is not claimed, and is reported false in the implementation tree today (Turn results, Receipts, and Slates carry ContentRefs without ever registering retention), which is an implementation-conformance question this formal package does not adjudicate (ASM-IMPLEMENTATION-REFINEMENT-SEPARATE) but which is exactly why the coverage half must not read as proved here. Exact resolution transport, ContentStore persistence and retention-policy timing, and the ContentRef wire representation are also not modeled.",
+      "definitions": [
+        "AgentCore.ContentRef",
+        "AgentCore.RecordId",
+        "AgentCore.ContentLedger",
+        "AgentCore.ContentLedger.boot",
+        "AgentCore.OwnedImpliesStored",
+        "AgentCore.mark2",
+        "AgentCore.ContentLabel",
+        "AgentCore.ContentStep",
+        "AgentCore.ContentReachable"
+      ],
+      "theorems": [
+        "AgentCore.boot_owned_implies_stored",
+        "AgentCore.content_resolution_requires_home_or_grant",
+        "AgentCore.foreign_tenant_content_resolution_rejected",
+        "AgentCore.missing_content_resolution_rejected",
+        "AgentCore.collect_requires_unowned",
+        "AgentCore.owned_content_cannot_be_collected",
+        "AgentCore.content_step_preserves_owned_implies_stored",
+        "AgentCore.reachable_owned_implies_stored",
+        "AgentCore.collected_owned_content_is_unreachable"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_content_custody_lifecycle",
+        "AgentCore.Examples.nonvacuous_content_cross_tenant_grant_admits_resolution",
+        "AgentCore.Examples.nonvacuous_collected_owned_content_is_unreachable"
+      ],
+      "witnessCoverage": {
+        "AgentCore.boot_owned_implies_stored": [
+          "AgentCore.Examples.nonvacuous_content_custody_lifecycle"
+        ],
+        "AgentCore.content_resolution_requires_home_or_grant": [
+          "AgentCore.Examples.nonvacuous_content_cross_tenant_grant_admits_resolution"
+        ],
+        "AgentCore.foreign_tenant_content_resolution_rejected": [
+          "AgentCore.Examples.nonvacuous_content_custody_lifecycle"
+        ],
+        "AgentCore.missing_content_resolution_rejected": [
+          "AgentCore.Examples.nonvacuous_content_custody_lifecycle"
+        ],
+        "AgentCore.collect_requires_unowned": [
+          "AgentCore.Examples.nonvacuous_content_custody_lifecycle"
+        ],
+        "AgentCore.owned_content_cannot_be_collected": [
+          "AgentCore.Examples.nonvacuous_content_custody_lifecycle"
+        ],
+        "AgentCore.content_step_preserves_owned_implies_stored": [
+          "AgentCore.Examples.nonvacuous_content_custody_lifecycle"
+        ],
+        "AgentCore.reachable_owned_implies_stored": [
+          "AgentCore.Examples.nonvacuous_content_custody_lifecycle"
+        ],
+        "AgentCore.collected_owned_content_is_unreachable": [
+          "AgentCore.Examples.nonvacuous_collected_owned_content_is_unreachable"
+        ]
+      },
+      "remainingEvidence": [
+        "concrete ContentStore put/get/stat transport and persistence conformance",
+        "retention/GC policy timing and scheduling over unowned content",
+        "the ContentRef wire representation and digest binding to stored bytes",
+        "the coverage half of custody: deriving ownership registration from concrete record types' own fields (TurnResult, Receipt, Slate, ...) rather than treating `own` as a primitive action -- currently reported false in the implementation (Turn results, Receipts, and Slates never retain)"
+      ]
+    },
+    {
+      "id": "AC-MATERIALIZER-001",
+      "summary": "Blueprint materializer idempotence for Subscriptions (§9.3): re-materializing an already-installed SubscriptionTemplate is a stored no-op, never a duplicate SubscriptionId, so AC-ROUTING-001's per-Subscription at-most-once is the materialized automation's end-to-end at-most-once",
+      "status": "proved-safety",
+      "boundary": "materialize installs a template never before materialized under its Blueprint at a fresh SubscriptionId, indexed by (blueprint, template.name) and declared in the routing ledger with the exact derived RoutedSubscription. already_materialized_template_cannot_rematerialize proves no materialize step for an already-installed (blueprint, template.name) is ever admissible again, whatever SubscriptionId it would use; reconcile is the only path once installed, and it is a proved stored identity; materialize_step_preserves_installed_mapping shows the installed id is stable across every later transition. Together these mean a declared automation has exactly one SubscriptionId for its entire lifetime, so AC-ROUTING-001's consumed_key_never_refires closes the automation end-to-end, not just one of several Subscriptions that might race to fire it. General Package/Blueprint validation, loading, contribution assembly, and materialization of Facet installs/Bindings/slots/policies/scope scaffolding are not modeled -- only the Subscription-materialization slice.",
+      "definitions": [
+        "AgentCore.SubscriptionTemplateName",
+        "AgentCore.SubscriptionTemplate",
+        "AgentCore.SubscriptionTemplate.materialize",
+        "AgentCore.MaterializerLedger",
+        "AgentCore.MaterializerLedger.boot",
+        "AgentCore.MaterializeLabel",
+        "AgentCore.MaterializeStep"
+      ],
+      "theorems": [
+        "AgentCore.materialize_registers_exact_subscription",
+        "AgentCore.already_materialized_template_cannot_rematerialize",
+        "AgentCore.reconcile_is_stored_identity",
+        "AgentCore.materialize_step_preserves_installed_mapping",
+        "AgentCore.materialized_automation_has_unique_firing_subscription"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_materialize_then_reconcile_never_duplicates"
+      ],
+      "witnessCoverage": {
+        "AgentCore.materialize_registers_exact_subscription": [
+          "AgentCore.Examples.nonvacuous_materialize_then_reconcile_never_duplicates"
+        ],
+        "AgentCore.already_materialized_template_cannot_rematerialize": [
+          "AgentCore.Examples.nonvacuous_materialize_then_reconcile_never_duplicates"
+        ],
+        "AgentCore.reconcile_is_stored_identity": [
+          "AgentCore.Examples.nonvacuous_materialize_then_reconcile_never_duplicates"
+        ],
+        "AgentCore.materialize_step_preserves_installed_mapping": [
+          "AgentCore.Examples.nonvacuous_materialize_then_reconcile_never_duplicates"
+        ],
+        "AgentCore.materialized_automation_has_unique_firing_subscription": [
+          "AgentCore.Examples.nonvacuous_materialize_then_reconcile_never_duplicates"
+        ]
+      },
+      "remainingEvidence": [
+        "general Package/Blueprint validation, loading, and contribution assembly beyond Subscription materialization",
+        "materialization of Facet installs, Bindings, slots, policies, and scope scaffolding",
+        "concrete SubscriptionId derivation/allocation mechanics and Blueprint-managed-record adoption/removal semantics"
+      ]
+    },
+    {
       "id": "AC-ENVIRONMENT-001",
       "summary": "Environment Session lifecycle: Turn-owned fail-closed use, terminal close with child disposal, rotation pinning, explicit egress binding, credential isolation, and fail-closed preview exposure",
       "status": "proved-safety",
@@ -2338,12 +2674,17 @@
     },
     {
       "id": "NC-CONTRIBUTIONS-SLOTS",
-      "summary": "Slot contribute/visibility authority policy, concrete JSON-Schema validation, the viewer-filtered SlotCatalog query path, and surface-backed entry rendering are not modeled; the §4.2 declaration/origin collision rules and declared-order arrival-independent resolution are claimed under AC-SLOT-001.",
+      "summary": "The concrete default contribute-authority policy over real Facet installation state, slot visibility authority, concrete JSON-Schema validation, the viewer-filtered SlotCatalog query path, and surface-backed entry rendering are not modeled; the §4.2 declaration/origin collision rules, declared-order arrival-independent resolution, and the abstract contribute-authority gate itself are claimed under AC-SLOT-001.",
       "status": "specified-not-modeled"
     },
     {
       "id": "NC-COMMANDS",
       "summary": "Concrete JSON-Schema compatibility checking, argument grammar and CLI parsing, completion providers, per-Scope alias and visibility configuration, dispatcher envelope gate ordering, and command.completed result rendering are not modeled; §4.3 collision rejection, derived-Subscription exactness, install-checked mappings, validated invocation input, and submission idempotency are claimed under AC-COMMAND-001.",
+      "status": "specified-not-modeled"
+    },
+    {
+      "id": "NC-SECRET-PROCESS-ISOLATION",
+      "summary": "SecretRef custody is not process isolation: §3.5 states that if plaintext is readable in an agent-visible filesystem, the ref does not protect it, so nothing beyond custody -- who may present a credential -- is claimed once a resolved value leaves the custody boundary. AC-SECRET-001 proves custody; process isolation of a resolved value is not modeled.",
       "status": "specified-not-modeled"
     },
     {
@@ -2363,7 +2704,7 @@
     },
     {
       "id": "NC-CONTENTSTORE",
-      "summary": "Exact ContentStore resolution, persistence, retention, and ContentRef behavior are not modeled.",
+      "summary": "Concrete ContentStore put/get/stat transport and persistence, retention/GC policy timing, and the ContentRef wire representation are not modeled; tenant-bound resolution and the reachable unowned-only-collection invariant (C13-CONTENT-CUSTODY) are claimed under AC-CONTENT-001.",
       "status": "specified-not-modeled"
     },
     {
@@ -2373,12 +2714,12 @@
     },
     {
       "id": "NC-PROTOCOL-DISPATCHER",
-      "summary": "The exact command protocol dispatcher, envelopes, rejection ordering, concurrency checks, and dispatch behavior are not modeled.",
+      "summary": "Concrete per-family authenticate/authority/lifecycle/expected-revision semantics, the raw envelope decoder's schema validation, and command.completed rendering are not modeled; the §8.5 fixed gate order, duplicate-never-mutates, exactly-one linked WriteRecord/AuditRecord per request, and the sound-and-complete executable mirror are claimed under AC-DISPATCHER-001.",
       "status": "specified-not-modeled"
     },
     {
       "id": "NC-BLUEPRINT-MATERIALIZATION",
-      "summary": "Exact Package and Blueprint validation, loading, contribution assembly, and Blueprint materialization are not modeled.",
+      "summary": "General Package and Blueprint validation, loading, contribution assembly, and materialization of Facet installs/Bindings/slots/policies/scope scaffolding are not modeled; Subscription-materialization idempotence -- re-materializing an already-installed template is a stored no-op, never a duplicate SubscriptionId -- is claimed under AC-MATERIALIZER-001.",
       "status": "specified-not-modeled"
     },
     {
@@ -2428,9 +2769,12 @@
           "AC-AUTH-001",
           "AC-AUTH-RESOLUTION-001",
           "AC-MATERIALIZE-001",
-          "AC-COMPOSED-001"
+          "AC-COMPOSED-001",
+          "AC-SECRET-001"
         ],
-        "nonClaimIds": [],
+        "nonClaimIds": [
+          "NC-SECRET-PROCESS-ISOLATION"
+        ],
         "assumptionIds": [
           "ASM-LIVENESS-TIME-INVALIDATION",
           "ASM-TRUTHFUL-VERIFICATION-INPUTS"
@@ -2573,7 +2917,9 @@
         "requirementIds": [
           "AC-AUDIT-001",
           "AC-COMPOSED-001",
-          "AC-GRAPH-WRITER-001"
+          "AC-GRAPH-WRITER-001",
+          "AC-DISPATCHER-001",
+          "AC-CONTENT-001"
         ],
         "nonClaimIds": [
           "NC-CODECS",
@@ -2592,7 +2938,8 @@
         "requirementIds": [
           "AC-MATERIALIZE-001",
           "AC-PLACEMENT-001",
-          "AC-RUN-001"
+          "AC-RUN-001",
+          "AC-MATERIALIZER-001"
         ],
         "nonClaimIds": [
           "NC-BLUEPRINT-MATERIALIZATION"

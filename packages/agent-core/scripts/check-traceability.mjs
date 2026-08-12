@@ -31,10 +31,12 @@ const requiredRequirementIds = [
     "AC-INTERCEPTOR-001",
     "AC-AUTH-001",
     "AC-AUTH-RESOLUTION-001",
+    "AC-SECRET-001",
     "AC-MATERIALIZE-001",
     "AC-PLACEMENT-001",
     "AC-SLOT-001",
     "AC-COMMAND-001",
+    "AC-DISPATCHER-001",
     "AC-ENVIRONMENT-001",
     "AC-SLATE-001",
     "AC-TRUST-001",
@@ -50,7 +52,9 @@ const requiredRequirementIds = [
     "AC-REP-BROKER-001",
     "AC-REP-CONSENT-001",
     "AC-REP-REACTION-001",
-    "AC-REP-MOA-001"
+    "AC-REP-MOA-001",
+    "AC-CONTENT-001",
+    "AC-MATERIALIZER-001"
 ];
 const requiredNonClaimIds = [
     "NC-SURFACE-RUNTIME-ACTIONS",
@@ -59,6 +63,7 @@ const requiredNonClaimIds = [
     "NC-FACET-MANIFEST-RUNTIME",
     "NC-CONTRIBUTIONS-SLOTS",
     "NC-COMMANDS",
+    "NC-SECRET-PROCESS-ISOLATION",
     "NC-INTERCEPTORS",
     "NC-ENVIRONMENT-LIFECYCLE",
     "NC-SLATE-RUNTIME",

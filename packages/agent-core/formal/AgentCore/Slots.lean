@@ -376,4 +376,79 @@ theorem resolved_entry_is_stored_and_validates {schemas} {ledger : SlotLedger}
   rw [slotEq] at lookup
   exact ⟨slotEq, stored, declaration, lookup, accepted⟩
 
+/-! ## Slot contribute-authority (SPEC §4.2)
+
+`SlotDeclaration.authority: SlotAuthorityPolicy` names who may contribute and who may
+see entries; "the materializer (§9.3) rejects contributions that violate the slot's
+contribute-authority." That gate was previously outside this model entirely — `contribute`
+admitted any `(slot, contributor, ordinal)` whose schema validated, with no check on
+*who* the contributor was. For most slots that is a shape-only concern, but for `prompt`
+specifically the contribute-authority check is the prompt-injection admission gate: it
+is the one place that decides whether content from an untrusted Facet can ever land in
+what the model assembles as its own instructions.
+
+`AuthorizedSlotStep` adds that gate on top of `SlotStep` without touching it — every
+existing `SlotStep` theorem still holds unconditionally, since a `SlotStep` step is not
+required to have originated from a policy-checked one. The contribute-authority policy
+itself is abstracted as a `Bool` predicate over `(slot, contributor)`, matching how
+`schemas` is abstracted elsewhere; the concrete default policy — "any installed Facet in
+scope" — depends on Facet installation state this file does not model
+(`NC-FACET-MANIFEST-RUNTIME`). -/
+
+/-- Who may contribute to a slot: `authority slot contributor = true` exactly when that
+    Facet's contribution to that slot is admitted. -/
+abbrev SlotContributeAuthority := SlotName → FacetId → Bool
+
+/-- A policy-gated slot step: identical to `SlotStep` for every label, except that a
+    `contribute` step additionally requires the entry's own `(slot, contributor)` pair
+    to be authority-admitted. -/
+inductive AuthorizedSlotStep (schemas : SchemaId → StructuralValue → Bool)
+    (authority : SlotContributeAuthority) :
+    SlotLedger → SlotLabel → SlotLedger → Prop
+  | step {ledger label after} :
+      (∀ entry, label = .contribute entry → authority entry.slot entry.contributor = true) →
+      SlotStep schemas ledger label after →
+      AuthorizedSlotStep schemas authority ledger label after
+
+/-- **A policy-gated step is a step.** The authority gate only narrows admission; it
+    adds no transition `SlotStep` itself does not already admit. -/
+theorem authorized_slot_step_is_slot_step {schemas authority ledger label after}
+    (step : AuthorizedSlotStep schemas authority ledger label after) :
+    SlotStep schemas ledger label after := by
+  cases step with
+  | step _ underlying => exact underlying
+
+/-- **An unauthorized contributor's entry never lands.** If the contribute-authority
+    policy does not admit an entry's `(slot, contributor)` pair, no policy-gated step
+    contributes it — whatever its schema, origin, or id. Instantiated at the `prompt`
+    slot, this is exactly the prompt-injection admission gate: a Facet the policy has
+    not authorized to contribute to `prompt` can never get content into it through this
+    relation. -/
+theorem unauthorized_contributor_never_lands {schemas authority ledger after entry}
+    (unauthorized : authority entry.slot entry.contributor = false) :
+    ¬ AuthorizedSlotStep schemas authority ledger (.contribute entry) after := by
+  intro step
+  cases step with
+  | step gate _ =>
+      rw [gate entry rfl] at unauthorized
+      contradiction
+
+/-- **Authority admission is required, not merely sufficient.** Every policy-gated
+    contribution carries a proof its own `(slot, contributor)` pair was admitted at the
+    moment it landed. -/
+theorem authorized_contribution_carries_admission {schemas authority ledger after entry}
+    (step : AuthorizedSlotStep schemas authority ledger (.contribute entry) after) :
+    authority entry.slot entry.contributor = true := by
+  cases step with
+  | step gate _ => exact gate entry rfl
+
+/-- **Non-contribute transitions are ungated.** Installing, reinstalling, and
+    recontributing carry no additional authority check beyond `SlotStep`'s own guards —
+    the contribute-authority policy governs only who may add a new entry. -/
+theorem non_contribute_step_needs_no_authority {schemas authority ledger label after}
+    (notContribute : ∀ entry, label ≠ .contribute entry)
+    (step : SlotStep schemas ledger label after) :
+    AuthorizedSlotStep schemas authority ledger label after :=
+  .step (fun entry labelEq => absurd labelEq (notContribute entry)) step
+
 end AgentCore

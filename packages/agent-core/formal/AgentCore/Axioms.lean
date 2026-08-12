@@ -65,6 +65,40 @@ import AgentCore
 #print axioms AgentCore.unowned_execute_floor_is_mediated
 #print axioms AgentCore.direct_execute_requires_bundled_colocation
 
+-- SecretRef custody (SPEC §3.5): exact tenant/Binding/endpoint resolution, repointing
+-- invalidation, and carriers that hold refs, never raw values.
+#print axioms AgentCore.secret_resolution_requires_exact_tenant
+#print axioms AgentCore.foreign_tenant_secret_resolution_rejected
+#print axioms AgentCore.secret_resolution_requires_current_custody
+#print axioms AgentCore.mismatched_custody_secret_resolution_rejected
+#print axioms AgentCore.fresh_resolution_is_current
+#print axioms AgentCore.repoint_invalidates_prior_resolution
+#print axioms AgentCore.boot_carriers_ref_only
+#print axioms AgentCore.secret_step_preserves_carrier_ref_only
+#print axioms AgentCore.reachable_carriers_ref_only
+#print axioms AgentCore.secret_value_carrier_is_unreachable
+#print axioms AgentCore.guest_grant_value_carrier_is_unreachable
+#print axioms AgentCore.cross_tenant_reservation_value_carrier_is_unreachable
+
+-- ContentStore custody (SPEC §8.2, C13-CONTENT-CUSTODY): tenant-bound resolution and
+-- unowned-only collection, reachably.
+#print axioms AgentCore.boot_owned_implies_stored
+#print axioms AgentCore.content_resolution_requires_home_or_grant
+#print axioms AgentCore.foreign_tenant_content_resolution_rejected
+#print axioms AgentCore.missing_content_resolution_rejected
+#print axioms AgentCore.collect_requires_unowned
+#print axioms AgentCore.owned_content_cannot_be_collected
+#print axioms AgentCore.content_step_preserves_owned_implies_stored
+#print axioms AgentCore.reachable_owned_implies_stored
+#print axioms AgentCore.collected_owned_content_is_unreachable
+
+-- Blueprint materializer idempotence for Subscriptions (SPEC §9.3).
+#print axioms AgentCore.materialize_registers_exact_subscription
+#print axioms AgentCore.already_materialized_template_cannot_rematerialize
+#print axioms AgentCore.reconcile_is_stored_identity
+#print axioms AgentCore.materialize_step_preserves_installed_mapping
+#print axioms AgentCore.materialized_automation_has_unique_firing_subscription
+
 -- Environment Sessions: Turn-owned use, fail-closed lifecycle, credential isolation.
 #print axioms AgentCore.session_use_is_turn_owned_and_live
 #print axioms AgentCore.stale_session_admits_nothing
@@ -140,6 +174,14 @@ import AgentCore
 #print axioms AgentCore.published_event_has_no_asserted_tier
 #print axioms AgentCore.asserted_tier_publish_rejected
 #print axioms AgentCore.target_projection_is_exact_authenticated_reservation_projection
+
+-- Route reservation uniqueness and delivery dedupe (§14).
+#print axioms AgentCore.default_reservation_for_consistent
+#print axioms AgentCore.event_step_preserves_reservation_for_consistency
+#print axioms AgentCore.reachable_reservation_for_consistent
+#print axioms AgentCore.route_reservation_is_unique_per_invocation
+#print axioms AgentCore.event_step_preserves_deliveries
+#print axioms AgentCore.delivered_reservation_cannot_redeliver
 
 -- Actor-local, ordered, typed audit.
 #print axioms AgentCore.audit_sequence_is_unique
@@ -349,6 +391,9 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_stale_denial_audit_atomic
 #print axioms AgentCore.Examples.nonvacuous_renewal_preserves_turn_and_resolution_deadline
 #print axioms AgentCore.Examples.nonvacuous_exact_route_projection
+#print axioms AgentCore.Examples.nonvacuous_reachable_route_reservation_consistent
+#print axioms AgentCore.Examples.nonvacuous_double_route_reservation_is_inconsistent
+#print axioms AgentCore.Examples.nonvacuous_redelivery_of_route_reservation_rejected
 #print axioms AgentCore.Examples.nonvacuous_source_reservation_audit_binding
 #print axioms AgentCore.Examples.nonvacuous_graph_freshness_rejection
 #print axioms AgentCore.Examples.nonvacuous_typed_system_writer_audit
@@ -382,6 +427,12 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_expired_held_turn_blocks_undo
 #print axioms AgentCore.Examples.nonvacuous_fenced_undo_redo_trace
 #print axioms AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores
+#print axioms AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates
+#print axioms AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable
+#print axioms AgentCore.Examples.nonvacuous_content_custody_lifecycle
+#print axioms AgentCore.Examples.nonvacuous_content_cross_tenant_grant_admits_resolution
+#print axioms AgentCore.Examples.nonvacuous_collected_owned_content_is_unreachable
+#print axioms AgentCore.Examples.nonvacuous_materialize_then_reconcile_never_duplicates
 #print axioms AgentCore.Examples.nonvacuous_credential_isolated_session_trace
 #print axioms AgentCore.Examples.nonvacuous_plaintext_session_state_unreachable
 #print axioms AgentCore.Examples.nonvacuous_stale_and_closed_session_rejection
@@ -407,6 +458,10 @@ import AgentCore
 #print axioms AgentCore.resolution_ignores_arrival_order
 #print axioms AgentCore.resolution_is_unique_declared_order
 #print axioms AgentCore.resolved_entry_is_stored_and_validates
+#print axioms AgentCore.authorized_slot_step_is_slot_step
+#print axioms AgentCore.unauthorized_contributor_never_lands
+#print axioms AgentCore.authorized_contribution_carries_admission
+#print axioms AgentCore.non_contribute_step_needs_no_authority
 
 -- Commands (SPEC §4.3): per-surface collision rejection, exact derived routes,
 -- install-checked mappings, validated invocation input, and submission idempotency.
@@ -416,6 +471,9 @@ import AgentCore
 #print axioms AgentCore.installation_registers_exact_derived_route
 #print axioms AgentCore.nonderived_route_installation_rejected
 #print axioms AgentCore.installed_route_is_initiator_with_event_dedupe
+#print axioms AgentCore.default_accepted_trust_excludes_external
+#print axioms AgentCore.deriveSubscription_matches_derived_route
+#print axioms AgentCore.default_derived_subscription_excludes_external
 #print axioms AgentCore.empty_trust_installation_rejected
 #print axioms AgentCore.unsafe_mapping_installation_rejected
 #print axioms AgentCore.uninstalled_command_invocation_rejected
@@ -431,6 +489,17 @@ import AgentCore
 #print axioms AgentCore.submission_step_preserves_reservation_consistency
 #print axioms AgentCore.at_most_one_reserving_write_per_identity
 
+-- The command protocol dispatcher (SPEC §8.5): fixed gate order, duplicate-never-
+-- mutates, exactly-one linked WriteRecord and AuditRecord, and the executable mirror.
+#print axioms AgentCore.leaseGateBool_eq_true_iff
+#print axioms AgentCore.dispatch_appends_exactly_one_linked_write_and_audit
+#print axioms AgentCore.dispatch_duplicate_never_mutates
+#print axioms AgentCore.dispatch_nonmutating_outcome_preserves_domain
+#print axioms AgentCore.dispatch_reserved_identity_only_duplicates
+#print axioms AgentCore.dispatch_commit_passed_every_gate
+#print axioms AgentCore.dispatchExec_sound
+#print axioms AgentCore.dispatchExec_complete
+
 -- Contribution, slot, command, and submission witnesses.
 #print axioms AgentCore.Examples.nonvacuous_slot_contribution_lifecycle
 #print axioms AgentCore.Examples.nonvacuous_resolution_reorders_arrivals
@@ -441,7 +510,9 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_conflicting_origin_rejected
 #print axioms AgentCore.Examples.nonvacuous_entry_id_reuse_rejected
 #print axioms AgentCore.Examples.nonvacuous_slot_noop_reinstallation
+#print axioms AgentCore.Examples.nonvacuous_prompt_slot_authority_gate
 #print axioms AgentCore.Examples.nonvacuous_command_installation_and_validated_invocation
+#print axioms AgentCore.Examples.nonvacuous_derived_subscription_exactness
 #print axioms AgentCore.Examples.nonvacuous_command_surface_collision_rejected
 #print axioms AgentCore.Examples.nonvacuous_occupied_command_id_installation_rejected
 #print axioms AgentCore.Examples.nonvacuous_command_reinstallation_identity
@@ -453,6 +524,10 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_duplicate_submission_is_recorded_evidence
 #print axioms AgentCore.Examples.nonvacuous_reserved_identity_recommit_rejected
 #print axioms AgentCore.Examples.nonvacuous_double_reservation_is_inconsistent
+
+-- Dispatcher witnesses (SPEC §8.5).
+#print axioms AgentCore.Examples.nonvacuous_dispatch_commit_then_duplicate_never_mutates
+#print axioms AgentCore.Examples.nonvacuous_dispatchExec_matches_commit_then_duplicate
 
 -- Event → Subscription routing (SPEC §6.2): at-most-once, derived targeting, trust.
 #print axioms AgentCore.fire_consumes_key
