@@ -1514,6 +1514,95 @@ describe("Protected Operation gateway", () => {
     );
 
     test(
+        "[C13-COMMAND-INVOCATION-CORRELATION] emits only an installed Surface's correlation and infers no Subscription relation",
+        { tags: "p0" },
+        async () => {
+            const descriptor = mappedOperationDescriptor();
+            const runtime = new CommandRuntime();
+            const command = mappedCommand();
+            const installed = runtime.install({
+                contributor: facetRef("workspace:commands"),
+                command,
+                target: { package: command.operation.facet, descriptor }
+            });
+            const events = new TestCommandEvents();
+
+            // Invoked from a conversation, the correlation carries the Surface it came
+            // from and the Run and branch it belongs to, unaltered.
+            await runtime.invoke(
+                installed,
+                { amount: 3 },
+                {
+                    surface: new SurfaceId("palette"),
+                    run: Object.freeze({ run: "run-7", branch: "topic" })
+                },
+                events
+            );
+            expect(events.records[0]?.origin).toEqual({
+                surface: new SurfaceId("palette"),
+                run: { run: "run-7", branch: "topic" }
+            });
+
+            // A Surface the Command was never installed on cannot be the origin, and the
+            // refusal emits nothing rather than an Event correlated to a foreign Surface.
+            await expect(
+                runtime.invoke(installed, { amount: 3 }, { surface: new SurfaceId("cli") }, events)
+            ).rejects.toMatchObject({
+                code: "operation.invalid-input",
+                message: expect.stringContaining("not installed for surface")
+            });
+            expect(events.records).toHaveLength(1);
+
+            // No inferred compatibility relation: an omitted mapping is identity, never a
+            // bridge derived from the two schemas, so arguments the Operation input does
+            // not accept are refused instead of being related to it.
+            const unmapped = new Command({
+                name: "unmapped",
+                title: "Unmapped",
+                arguments: command.arguments,
+                operation: command.operation,
+                binding: command.binding,
+                surfaces: [new SlotName("palette")]
+            });
+            const installedUnmapped = runtime.install({
+                contributor: facetRef("workspace:unmapped"),
+                command: unmapped,
+                target: { package: unmapped.operation.facet, descriptor }
+            });
+            await expect(
+                runtime.invoke(
+                    installedUnmapped,
+                    { amount: 3 },
+                    { surface: new SurfaceId("palette") },
+                    events
+                )
+            ).rejects.toMatchObject({
+                code: "operation.invalid-input",
+                message: expect.stringContaining("does not match the installed Operation schema")
+            });
+            expect(events.records).toHaveLength(1);
+            expect(installedUnmapped.subscription.mapping?.toData()).toEqual(
+                installed.subscription.mapping?.toData()
+            );
+
+            // No alternate authority source: the Command record admits no field through
+            // which a contribution could name the derived Subscription's authority,
+            // dedupe, or Event source, so §4.3's fixed defaults are the only ones there are.
+            const declared = requireObject(command.toData());
+            for (const [field, value] of [
+                ["authority", "delegated"],
+                ["dedupe", "none"],
+                ["source", "other.runtime:run"]
+            ] as const) {
+                expect(() => Command.fromData({ ...declared, [field]: value }), field).toThrow(
+                    /unknown fields/u
+                );
+            }
+            expect(installed.subscription.authority).toBe("initiator");
+        }
+    );
+
+    test(
         "submits one homogeneous mediated batch and invalidates resolutions on host disposal",
         { tags: "p1" },
         async () => {

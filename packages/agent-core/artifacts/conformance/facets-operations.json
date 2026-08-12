@@ -95,15 +95,17 @@
       "owner": "W3",
       "specAnchor": "C13-COMMAND-INVOCATION-CORRELATION",
       "specTextSha256": "sha256:58044e1ec3f13b5b254206d27aa5689b1f96440bd61524f79b1146aa46b83c15",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The correlation payload is exercised only by the test C13-COMMAND-RESULT cites; this atom needs evidence of its own that `command.invoked` carries the originating SurfaceId and, from a conversation, the RunRef and branch",
-        "The prohibition half — no inferred compatibility relation and no alternate authority source in the derived Subscription — has no negative test at all"
-      ]
+      "sourceSymbols": [
+        "src/facets/command.ts#Command",
+        "src/operations/command-runtime.ts#CommandRuntime"
+      ],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-INVOCATION-CORRELATION] emits only an installed Surface's correlation and infers no Subscription relation"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-COMMAND-RESULT",
