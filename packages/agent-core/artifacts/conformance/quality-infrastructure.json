@@ -69,9 +69,12 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "Rule 1 is mechanically enforced: the records registry gives every durable record exactly one owning Actor and authoritative store, ACQ-OWNER rejects duplicates, and the W0 checker tests cover it — but those tests run outside the ledger's executed-test lanes, so no citable selector exists yet",
-        "The never-dual-write and rebuildable-index clauses have declaration-level enforcement only: no checker or test proves an index can be dropped and rebuilt from the authoritative store, and no mechanical guard catches a second writer for a declared kind",
-        "No cache abstraction exists, so rule 3 is vacuous in the current tree and should be evidenced as such explicitly rather than silently"
+        "Rule 1 is mechanically enforced and already tested, but the test is not citable: scripts/quality/records.mjs#validateRecordStructure gives every durable record kind exactly one ownerActor and one authoritative store and rejects a duplicate kind or symbol, and test/quality/protocols.test.ts \"rejects duplicate durable owners\" drives that rejection — that file runs in the governance lane (vitest.governance.config.mjs), and the ledger reads only reports/quality/tests/vitest.json and the two cloudflare lanes, so no selector for it exists",
+        "Closing rule 1 needs a record-registry validator a main-lane test can import, the shape scripts/quality/ownership.mjs#validateCompleteOwnership already has for C13-OWNERSHIP-MAP; records.mjs cannot be imported as it stands because it validates at module scope over module-level kind and symbol sets, so a second call in one process would report false duplicates",
+        "Rule 2's Workspace clause has no subject: nothing in src/workspaces or src/agents/runs holds an index over dedicated Runs, so the constraint to { runId, actor locator, pins, terminal outcome, settled } and the prohibition on replayable Run state cannot be shown either way",
+        "Rule 2's rebuildable-index clause is implemented and proved — src/facets/memory/facet.ts#InMemoryMemoryIndexBackend rebuilds a dropped index from canonical content in test/integration/cache-loss.test.ts — but that is the evidence C13-ADV-CACHE-LOSS cites, and this atom needs its own; ownersForPath puts that source in W8, and requireEvidenceOwner admits only W0 and W9 paths for a W0 atom, which is why every implementation symbol behind rules 1-4 (W1, W5, W7, W8) is uncitable here and only the checker scripts and src/composition remain",
+        "Rule 3 is vacuous rather than unmet, and should be evidenced as vacuous: no cache abstraction exists in the tree, the record registry's durability vocabulary is exactly durable and value, and the only derived structure is rule 2's memory index",
+        "Rule 4's never-dual-write is declaration-level only: the registry declares one authoritative store per record kind and the checker rejects a second row for that kind, but nothing catches code that writes a declared kind through another store"
       ]
     }
   ]
