@@ -1242,6 +1242,31 @@ describe("terminal sibling read-back", () => {
         expectStillActive(repository);
     });
 
+    test("refuses a cancellation record for a Turn it never fenced", { tags: "p0" }, () => {
+        // Every fenced sibling does have its record here, so the pairing clause is
+        // satisfied; there is simply one record more than this terminalization wrote.
+        // Counting is what catches a store that carries evidence of a fence nobody made.
+        const { repository, run } = fenced(
+            (sibling, forced) => (kind, rows) =>
+                kind === "forcedCancellation"
+                    ? [
+                          ...rows,
+                          cancellationRow(
+                              recordFor(sibling, forced, {
+                                  turn: new TurnId("sibling-readback-unfenced")
+                              })
+                          )
+                      ]
+                    : rows
+        );
+        expectCode(
+            run,
+            "run.invalid-state",
+            "Every forcibly fenced sibling requires one cancellation record"
+        );
+        expectStillActive(repository);
+    });
+
     test("refuses a record read back naming another terminal Turn", { tags: "p0" }, () => {
         const { repository, run } = fenced((sibling, forced) =>
             replacing(
