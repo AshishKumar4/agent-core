@@ -782,6 +782,26 @@ describe("AuthorityPermit", () => {
             expect(() => new MemoryAuthorityPermitStore(targetActor, snapshot)).toThrow(
                 /another Actor owner/
             );
+            // Same bytes, same wrong owner, but the record's key is not a string. The shape
+            // screen has to refuse it as a malformed snapshot before anything decodes the
+            // record: without it the store decodes first and reports an issuer mismatch —
+            // an authority.denied about a record that was never well formed, which sends an
+            // operator looking for the wrong fault. Only the issued loop re-derives a nonce
+            // it can disagree with; the consumed loop has no second reading of its key.
+            let malformedKey: unknown;
+            try {
+                new MemoryAuthorityPermitStore(targetActor, {
+                    version: 1,
+                    issued: [{ nonce: 5 as never, bytes: snapshot.issued[0]!.bytes }],
+                    consumed: []
+                });
+            } catch (error) {
+                malformedKey = error;
+            }
+            expect(malformedKey).toMatchObject({
+                code: "codec.invalid",
+                message: "Stored authority permit ownership is malformed"
+            });
 
             const wrongTarget = new MemoryAuthorityPermitStore(
                 new ActorRef("run", new ActorId("wrong-target"))
