@@ -84,6 +84,21 @@ const objectSchema = new JsonSchema({ type: "object" });
 // The protection domain this runtime host — and so every cut point it executes — runs in.
 const hostDomain = new ProtectionDomain("backend", "operations-host", "may-hold-secrets");
 
+// A start hook may throw anything; this is a value that is not an Error.
+const refusalReason = Object.freeze({ refused: true });
+
+/** A host that stops issuing leases while still reporting its Facets active. */
+class LeaseRefusingHost extends FacetRuntimeHost {
+    public refuseLeases = false;
+
+    public override acquire(
+        ref: Parameters<FacetRuntimeHost["acquire"]>[0],
+        expected: Parameters<FacetRuntimeHost["acquire"]>[1]
+    ): ReturnType<FacetRuntimeHost["acquire"]> {
+        return this.refuseLeases ? undefined : super.acquire(ref, expected);
+    }
+}
+
 describe("Facet runtime", () => {
     test("rejects correspondence failures before lifecycle code runs", { tags: "p1" }, async () => {
         const descriptor = operationDescriptor("run");
@@ -139,6 +154,12 @@ describe("Facet runtime", () => {
             await Promise.all([host.dispose(), host.dispose()]);
             expect(order).toEqual(["start:parent", "start:child", "stop:child", "stop:parent"]);
             expect(host.facets()).toEqual([]);
+
+            // Disposing again after disposal has settled is not a second disposal. The
+            // concurrent pair above is answered by the in-flight transition and says nothing
+            // about a host that already finished stopping, whose stop hooks must not run twice.
+            await host.dispose();
+            expect(order).toEqual(["start:parent", "start:child", "stop:child", "stop:parent"]);
         }
     );
 
@@ -436,6 +457,70 @@ describe("Facet runtime", () => {
             await host.dispose();
         }
     );
+
+    test(
+        "refuses a dispatch whose Facet went inactive as it was leased",
+        { tags: "p1" },
+        async () => {
+            // The gateway checks the Facet is active and then leases it, and those are two
+            // moments: disposal can land between them. A host that answers the first and refuses
+            // the second is that race, and the lease is the last thing standing.
+            const runManifest = manifest("acme.raced", [operationDescriptor("run")]);
+            const raced = new TestFacet(
+                "workspace:runtime",
+                runManifest,
+                [],
+                new Map([["run", new TestOperation(operationDescriptor("run"), async (i) => i)]]),
+                new Map()
+            );
+            const host = new LeaseRefusingHost([runManifest], [raced]);
+            await host.activate();
+            const gateway = new OperationGatewayHost(
+                { caller: "authenticated" },
+                host,
+                new TestAuthority([], "direct"),
+                new TestInvocations([])
+            );
+            using resolved = await gateway.resolve(new BindingName("runtime"));
+            host.refuseLeases = true;
+
+            await expect(
+                resolved.dispatch({
+                    requestKey: new OperationRequestKey("raced"),
+                    operation: new OperationName("run"),
+                    payload: { kind: "single", input: {} }
+                })
+            ).rejects.toMatchObject({
+                code: "facet.inactive",
+                message: "Resolved Facet is no longer active"
+            });
+            await host.dispose();
+        }
+    );
+
+    test("reports an activation failure that threw no Error plainly", { tags: "p2" }, async () => {
+        const refusingManifest = manifest("acme.refusing", []);
+        const refusing = new TestFacet(
+            "workspace:refusing",
+            refusingManifest,
+            [],
+            new Map(),
+            new Map(),
+            async () => {
+                // A start hook is arbitrary implementor code and may throw anything. What is
+                // not an Error carries no message to quote, and the diagnosis says only what
+                // it knows rather than appending a rendering of an unknown value.
+                throw refusalReason;
+            }
+        );
+        const host = new FacetRuntimeHost([refusingManifest], [refusing]);
+
+        await expect(host.activate()).rejects.toMatchObject({
+            code: "facet.inactive",
+            message: "Facet activation failed"
+        });
+        await host.dispose();
+    });
 
     test(
         "rejects every malformed runtime forest and duplicate declaration shape",
@@ -3590,7 +3675,9 @@ describe("Protected Operation gateway", () => {
             const calls: string[] = [];
             const run = operationDescriptor("run");
             const other = operationDescriptor("other");
-            const samePriority = ["a", "b", "c"].map(
+            // Declared in reverse so the expectation below can only hold if they were
+            // sorted: fed in order, the assertion passes without any ordering at all.
+            const samePriority = ["c", "b", "a"].map(
                 (id) =>
                     new InterceptorDeclaration(
                         new InterceptorId(id),
