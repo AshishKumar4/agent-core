@@ -28,6 +28,7 @@
 // ones the register says nothing about, and the difference is exactly the entries the
 // register carries for that area.
 import { spawnSync } from "node:child_process";
+import ts from "typescript";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { mutationFingerprint, sourceAreas } from "./mutation-inputs.mjs";
@@ -124,21 +125,59 @@ const mutatePattern = existsSync(areaRoot)
       : undefined;
 if (mutatePattern === undefined) throw new TypeError(`Unknown source area: ${options.area}`);
 
-const stryker = spawnSync(
-    "node",
-    [
-        resolve(packageRoot, "node_modules/@stryker-mutator/core/bin/stryker.js"),
-        "run",
-        "--mutate",
-        mutatePattern
-    ],
-    { cwd: packageRoot, encoding: "utf8", stdio: ["ignore", "inherit", "inherit"] }
-);
-if (stryker.status !== 0) throw new TypeError(`Stryker failed for area ${options.area}`);
+/**
+ * An area of pure re-export barrels has nothing to mutate, and Stryker cannot say so:
+ * it instruments zero mutants and then exits non-zero because its dry run finds no
+ * covering test — which happens only when no test in this package imports the file.
+ * src/facets-public.ts survives that by accident, because something imports it, while
+ * src/mediation-public.ts does not and failed the sweep. Deciding it from the source
+ * makes the outcome a property of the area rather than of incidental coverage.
+ *
+ * Deliberately conservative: any statement that is not an import or a re-export means
+ * the file may carry a mutant, so the area runs normally. Skipping an area that has
+ * something to measure would be the expensive mistake.
+ */
+function barrelOnly(files) {
+    return files.every((file) => {
+        const source = ts.createSourceFile(
+            file,
+            readFileSync(file, "utf8"),
+            ts.ScriptTarget.Latest,
+            true,
+            ts.ScriptKind.TS
+        );
+        return source.statements.every(
+            (statement) =>
+                ts.isImportDeclaration(statement) ||
+                (ts.isExportDeclaration(statement) && statement.moduleSpecifier !== undefined)
+        );
+    });
+}
 
-const report = JSON.parse(
-    readFileSync(resolve(packageRoot, "reports/quality/mutation/report.json"), "utf8")
-);
+const areaSources = existsSync(areaRoot) ? typescriptSources(areaRoot) : [areaFile];
+const nothingToMutate = barrelOnly(areaSources);
+
+if (!nothingToMutate) {
+    const stryker = spawnSync(
+        "node",
+        [
+            resolve(packageRoot, "node_modules/@stryker-mutator/core/bin/stryker.js"),
+            "run",
+            "--mutate",
+            mutatePattern
+        ],
+        { cwd: packageRoot, encoding: "utf8", stdio: ["ignore", "inherit", "inherit"] }
+    );
+    if (stryker.status !== 0) throw new TypeError(`Stryker failed for area ${options.area}`);
+}
+
+// An empty report carries a barrel-only area through the same classification, survivor
+// and baseline path as any other, recording the zeros it truly has instead of branching.
+const report = nothingToMutate
+    ? { files: {} }
+    : JSON.parse(
+          readFileSync(resolve(packageRoot, "reports/quality/mutation/report.json"), "utf8")
+      );
 // Kill attribution is the trustworthy direction of a perTest measurement: a test is
 // recorded only because it actually failed while the mutant was applied. The JSON
 // report indexes killedBy into its testFiles section; a test's selector rebuilt from
