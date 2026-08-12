@@ -10,8 +10,8 @@
     {
       "file": "packages/agent-core-cloudflare/src/authored-code.ts",
       "kind": "unknown",
-      "count": 3,
-      "reason": "Agent-authored code is the untyped side of the isolate boundary: its entry point arrives from the platform, its returned value is proved data before it leaves, and a dispatch namespace binding's service type is the host's to state."
+      "count": 6,
+      "reason": "Agent-authored code is the untyped side of the isolate boundary: its entry point arrives from the platform and is narrowed by a predicate, the value it returns is proved to be data before it leaves, both published entry-point contracts return it, and a dispatch namespace binding's service type is the host's to state."
     },
     {
       "file": "packages/agent-core-cloudflare/src/deployment.ts",
