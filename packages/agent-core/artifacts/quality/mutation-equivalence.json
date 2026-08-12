@@ -1576,6 +1576,46 @@
       "proof": "insertImmutable is reached three ways. insertSlot and insertEntry build the bytes inline as SlotDeclaration.encode(declaration) and SlotEntry.encode(entry), so the array has no other holder and copying it buys nothing. MemoryWorkspaceSlotStore.restore is the one path that passes a caller's snapshot array, and it inserts into a local state object which it never installs: its last act is store.#state = cloneState(state), and cloneState rebuilds both maps with a slice of every row. The rows this line wrote are discarded with that local state, so the store's own bytes are copies regardless. No sequence of public calls can therefore reach a stored row that the caller still aliases.",
       "replacement": "bytes",
       "symbol": "insertImmutable"
+    },
+    {
+      "file": "src/operations/lifecycle.ts",
+      "symbol": "FacetRuntimeHost.dispose",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "this.#state === \"disposed\"",
+      "proof": "Reaching this test at all means a disposal already settled, and the only assignment of the disposed state sets it when the stop sweep reported no failures, having just cleared the runtime and stored that empty failure list. A second disposal therefore finds no Facets to stop from either source, so with the test forced to false it takes the long road to the same place: the abort signal is already aborted, no lease can raise the in-flight count once the host stopped answering facet lookups, so the drain wait returns at once, the sweep runs over an empty list and the state is set to disposed again. No stop hook runs a second time and the returned promise resolves either way. Confirmed by disposing a settled host under the mutant and observing the hook order unchanged."
+    },
+    {
+      "file": "src/operations/lifecycle.ts",
+      "symbol": "FacetRuntimeHost.dispose",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"disposed\"",
+      "proof": "Emptying this literal makes the comparison ask whether the host state is the empty string, which no assignment ever produces, so the early return becomes unreachable and every disposal takes the full path. That is the same change of route as forcing the test false, and it arrives at the same place for the same reason: the state this test names is only ever set after the stop sweep cleared the runtime and recorded no failures, leaving a repeat disposal with an empty Facet list, an already aborted signal and no in-flight work to drain. The repeat sweep stops nothing, restores the same state and resolves. Confirmed by disposing a settled host under the mutant and observing the recorded start and stop order unchanged."
+    },
+    {
+      "file": "src/operations/command-runtime.ts",
+      "symbol": "valueHasType",
+      "mutator": "ConditionalExpression",
+      "replacement": "default:",
+      "mutated": "default: return false;",
+      "proof": "Emptying this clause makes the function fall out of its switch and answer undefined instead of false. Its only caller asks whether the value fails the type, negating the answer before using it, and negating undefined gives the same true that negating false gives. Nothing else reads the result, so the two answers are the same answer. The clause is also unreachable to begin with: the documents that arrive here are compiled against the JSON Schema meta-schema before any comparison is made, which admits a string type keyword only from the seven names the clause above enumerate, so a schema naming anything else is refused outright rather than compared. Observed directly: installing a Command whose schema names an unrecognized type raises a schema error, never a compatibility answer."
+    },
+    {
+      "file": "src/operations/command-runtime.ts",
+      "symbol": "valueHasType",
+      "mutator": "BooleanLiteral",
+      "replacement": "true",
+      "mutated": "false",
+      "proof": "This is the answer given to a type keyword outside the JSON Schema vocabulary, and no such keyword reaches it. Both schemas are compiled against the meta-schema before the compatibility comparison runs, and the meta-schema admits a string type only from the seven names the clauses above enumerate; a document naming anything else is rejected as an unsupported schema, so the comparison never happens at all. Confirmed by installing a Command whose argument and destination schemas both name an unrecognized type: the attempt fails with a schema error naming the disallowed value, not with the compatibility verdict this answer would decide. Flipping the answer therefore changes a verdict that is never reached."
+    },
+    {
+      "file": "src/operations/gateway.ts",
+      "symbol": "ProtectedResolvedFacet.releaseAuthority",
+      "mutator": "BooleanLiteral",
+      "replacement": "true",
+      "mutated": "false",
+      "proof": "Clearing this flag is a dead store, because nothing can read it again. Release is only ever taken once the resolved Facet is disposed: one path is disposal itself when no dispatch is in flight, the other is the dispatch epilogue, which consults the flag only after disposal set it. Once disposed, every further dispatch is refused by the active check at the top of dispatch, before the epilogue that reads this flag is installed, and a second disposal returns at its own guard without reading it. Leaving the flag set therefore cannot cause a second release, because no code path that reads it can run again. Verified against the operations suite, where the mutant fails no test including the deferred release cases."
     }
   ]
 }
