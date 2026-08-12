@@ -29,7 +29,9 @@ export interface AgentLoopOptions {
  *
  * Every model reply becomes a message RunCommit before any tool runs, and every tool
  * call goes through `TurnInvocationHandle`, so nothing this loop does reaches a Facet
- * outside mediation.
+ * outside the enforcement §7.2 admits for it. Which tier serves a call is the authority
+ * plane's decision, not the loop's: it commits the tool output either way and never
+ * needs the invocation evidence only a mediated call carries.
  *
  * Request keys are derived from the Turn, the step, and the tool-call id rather than
  * generated, so a re-executed Turn replays a mediated Invocation it already made. That

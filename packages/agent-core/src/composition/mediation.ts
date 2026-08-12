@@ -4,7 +4,7 @@ import {
     TurnGatewaySource,
     type LeaseToken,
     type TurnGatewayScope,
-    type TurnMediatedInvocationPort
+    type TurnInvocationPort
 } from "../agents";
 import type { ContentStore } from "../content";
 import type { Facet, FacetManifest } from "../facets";
@@ -123,8 +123,8 @@ export interface MediatedOperationPipelineInit<Transaction, Admission, Authentic
  * A consumer supplies the substrate — transactions, invocation and evidence persistence,
  * the authority state it resolves Bindings against, the activated Facet runtime, the
  * authority permit plane, and its target admission policy — and receives a
- * `TurnMediatedInvocationPort` it can hand straight to `TurnExecutorHost`, plus the
- * publication outbox that carries Receipt observations onward.
+ * `TurnInvocationPort` it can hand straight to `TurnExecutorHost`, plus the publication
+ * outbox that carries Receipt observations onward.
  *
  * It deliberately exposes none of its parts. `OperationGatewayHost` and
  * `FacetRuntimeHost` stay unexported because a consumer able to build a gateway by hand
@@ -145,7 +145,7 @@ export class MediatedOperationPipeline<
     Admission,
     Authentication
 > implements AsyncDisposable {
-    public readonly invocations: TurnMediatedInvocationPort;
+    public readonly invocations: TurnInvocationPort;
     public readonly outbox: InvocationPublicationDrainer<Transaction>;
     readonly #facets: FacetRuntimeHost;
 

@@ -59,7 +59,7 @@ export abstract class TurnPromptAssembler {
     public abstract assemble(request: TurnPromptAssembly): Promise<ContentRef>;
 }
 
-export interface TurnMediatedInvocationRequest {
+export interface TurnInvocationRequest {
     readonly turn: Turn;
     readonly token: LeaseToken;
     readonly operation: TurnBoundOperation;
@@ -68,15 +68,20 @@ export interface TurnMediatedInvocationRequest {
     readonly signal: AbortSignal;
 }
 
-export interface TurnMediatedInvocationResult {
-    readonly output: FacetData;
-    readonly evidence: FacetData;
-}
+/**
+ * Which enforcement tier served the call (§7.2). Only `mediated` carries evidence: a
+ * direct call performs its authority, lease, watermark, PathEpochEvidence, and deadline
+ * checks in memory and writes nothing durable, so there is no Invocation for it to name.
+ * The tier is on the result rather than the request because policy, not the executor,
+ * decides it — the agent loop that §1.1 motivates the direct tier for makes an ordinary
+ * `observe` call and is served by whichever tier the resolved authority admits.
+ */
+export type TurnInvocationResult =
+    | { readonly tier: "direct"; readonly output: FacetData }
+    | { readonly tier: "mediated"; readonly output: FacetData; readonly evidence: FacetData };
 
-export abstract class TurnMediatedInvocationPort {
-    public abstract invoke(
-        request: TurnMediatedInvocationRequest
-    ): Promise<TurnMediatedInvocationResult>;
+export abstract class TurnInvocationPort {
+    public abstract invoke(request: TurnInvocationRequest): Promise<TurnInvocationResult>;
 }
 
 export interface TurnGatewayScope {
@@ -89,14 +94,12 @@ export abstract class TurnGatewaySource {
     public abstract open(scope: TurnGatewayScope): Promise<OperationGateway>;
 }
 
-export class GatewayTurnInvocationPort extends TurnMediatedInvocationPort {
+export class GatewayTurnInvocationPort extends TurnInvocationPort {
     public constructor(private readonly gateways: TurnGatewaySource) {
         super();
     }
 
-    public async invoke(
-        request: TurnMediatedInvocationRequest
-    ): Promise<TurnMediatedInvocationResult> {
+    public async invoke(request: TurnInvocationRequest): Promise<TurnInvocationResult> {
         requireNotCancelled(request.signal);
         const gateway = await this.gateways.open(
             Object.freeze({
@@ -130,16 +133,11 @@ export class GatewayTurnInvocationPort extends TurnMediatedInvocationPort {
                 payload: { kind: "single", input: canonicalFacetData(request.input) }
             });
             requireNotCancelled(request.signal);
-            if (result.kind !== "mediated") {
-                throw new AgentCoreError(
-                    "authority.denied",
-                    "Turn Operations require the mediated invocation path"
-                );
-            }
-            return Object.freeze({
-                output: canonicalFacetData(result.output),
-                evidence: canonicalFacetData(result.evidence)
-            });
+            return canonicalInvocationResult(
+                result.kind === "mediated"
+                    ? { tier: "mediated", output: result.output, evidence: result.evidence }
+                    : { tier: "direct", output: result.output }
+            );
         } finally {
             resolved[Symbol.dispose]();
         }
@@ -233,7 +231,7 @@ export abstract class TurnInvocationHandle {
         operation: TurnBoundOperation,
         requestKey: OperationRequestKey,
         input: FacetData
-    ): Promise<TurnMediatedInvocationResult>;
+    ): Promise<TurnInvocationResult>;
 }
 
 export abstract class TurnInboxHandle {
@@ -271,7 +269,7 @@ export interface TurnExecutorHostInit<Transaction> {
     readonly content: ContentStore;
     readonly operations: TurnOperationSource;
     readonly prompt: TurnPromptAssembler;
-    readonly invocations: TurnMediatedInvocationPort;
+    readonly invocations: TurnInvocationPort;
     readonly model: TurnModelPort;
     readonly stream: TurnStreamPort;
     readonly now: () => Date;
@@ -564,7 +562,7 @@ class ScopedInvocationHandle<Transaction> extends TurnInvocationHandle {
         requested: TurnBoundOperation,
         requestKey: OperationRequestKey,
         input: FacetData
-    ): Promise<TurnMediatedInvocationResult> {
+    ): Promise<TurnInvocationResult> {
         if (!this.operations.includes(requested)) {
             throw new AgentCoreError(
                 "operation.missing",
@@ -584,10 +582,7 @@ class ScopedInvocationHandle<Transaction> extends TurnInvocationHandle {
                 })
             )
         );
-        return Object.freeze({
-            output: canonicalFacetData(result.output),
-            evidence: canonicalFacetData(result.evidence)
-        });
+        return canonicalInvocationResult(result);
     }
 }
 
@@ -722,6 +717,16 @@ function validateOperations(
         return operation;
     });
     return Object.freeze(canonical);
+}
+
+function canonicalInvocationResult(result: TurnInvocationResult): TurnInvocationResult {
+    return result.tier === "mediated"
+        ? Object.freeze({
+              tier: "mediated",
+              output: canonicalFacetData(result.output),
+              evidence: canonicalFacetData(result.evidence)
+          })
+        : Object.freeze({ tier: "direct", output: canonicalFacetData(result.output) });
 }
 
 function canonicalStreamEvent(event: TurnStreamEvent): TurnStreamEvent {

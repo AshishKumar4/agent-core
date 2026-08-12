@@ -274,6 +274,9 @@ describe("audit chain for one real conversation", () => {
 
             const first = await harness.pipeline.invocations.invoke(request);
             const second = await harness.pipeline.invocations.invoke(request);
+            if (first.tier !== "mediated" || second.tier !== "mediated") {
+                throw new TypeError("this demonstration configures only the mediated tier");
+            }
             expect(second.output).toEqual(first.output);
             expect(second.evidence).toEqual(first.evidence);
 

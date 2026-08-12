@@ -85,7 +85,7 @@ evidence agree where applicable.
       receipt AuditRecord chain.
 - [~] **Make the mediated pipeline constructible by a consumer.** `@agent-core/core/mediation`
       publishes `MediatedOperationPipeline`, a composition root that takes the substrate
-      ports and returns a `TurnMediatedInvocationPort`. `OperationGatewayHost` and
+      ports and returns a `TurnInvocationPort`. `OperationGatewayHost` and
       `FacetRuntimeHost` stay forbidden — now including on the new subpath — because the
       root assembles them itself. What remains: the Tenant authority permit plane
       (`AuthorityPermitIssuer`, `AuthorityPermitAdmissionPort`, `MemoryAuthorityPermitStore`,
