@@ -212,26 +212,34 @@ export function auditEquivalenceAnchors(entries, areas, readSource) {
     return failures;
 }
 
+/**
+ * Both halves of the register have to mean the same thing by "in this symbol", so both
+ * ask `anchoredNodes` — the auditor to count the sites, this to find the one a mutant
+ * occupies. They did not always: this asked whether the mutant's innermost enclosing
+ * declaration path *equalled* the entry's symbol, while the auditor searched *inside* the
+ * named declaration. An entry naming a method whose mutant sat inside a `const` within it
+ * therefore passed the audit and reconciled as stale forever — the symbol path carries
+ * the variable, so `RunRepository.loadExecutionScope` never matched
+ * `RunRepository.loadExecutionScope.unpairedTransition`. Naming the enclosing declaration
+ * is what an author reasonably writes, and scoping is all the symbol was ever for.
+ */
 function anchors(entry, mutant, source, text) {
     if (mutant.mutatorName !== entry.mutator || mutant.replacement !== entry.replacement) {
         return false;
     }
     const start = offsetOf(source, mutant.location.start);
     const end = offsetOf(source, mutant.location.end);
-    if (
-        normalizeSource(text.slice(start, end)) !== entry.mutated ||
-        symbolPathAt(source, start, end) !== entry.symbol
-    ) {
-        return false;
-    }
-    if (entry.occurrence === undefined) return true;
+    if (normalizeSource(text.slice(start, end)) !== entry.mutated) return false;
+    const nodes = anchoredNodes(source, declarationsNamed(source, entry.symbol), entry.mutated);
     // A positioned entry resolves only against the site count it was written for, so a
     // symbol that gained or lost an identical expression reports stale rather than
     // silently re-pointing the proof at a different one.
-    const nodes = anchoredNodes(source, declarationsNamed(source, entry.symbol), entry.mutated);
-    if (nodes.length !== entry.sites) return false;
-    const selected = nodes[entry.occurrence - 1];
-    return selected !== undefined && selected.getStart(source) === start;
+    if (entry.occurrence !== undefined) {
+        if (nodes.length !== entry.sites) return false;
+        const selected = nodes[entry.occurrence - 1];
+        return selected !== undefined && selected.getStart(source) === start;
+    }
+    return nodes.some((node) => node.getStart(source) === start);
 }
 
 /**
@@ -261,22 +269,6 @@ function parseSource(file, text) {
 
 function offsetOf(source, position) {
     return ts.getPositionOfLineAndCharacter(source, position.line - 1, position.column - 1);
-}
-
-// The dotted path of named declarations enclosing a span: `encodeScopeRef` for a function,
-// `ScopeRef.equals` for a method. Empty at module scope.
-function symbolPathAt(source, start, end) {
-    const path = [];
-    let node = source;
-    for (;;) {
-        const child = ts.forEachChild(node, (candidate) =>
-            candidate.getStart(source) <= start && end <= candidate.getEnd() ? candidate : undefined
-        );
-        if (child === undefined) return path.join(".");
-        const name = declarationName(source, child);
-        if (name !== undefined) path.push(name);
-        node = child;
-    }
 }
 
 // Every declaration reachable at exactly `symbol`. Overload signatures share one path, so
