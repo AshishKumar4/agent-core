@@ -1902,23 +1902,26 @@ interface InvocationContinuation {
 }
 ```
 
-A PreparedInvocation has exactly one shared header. A batch is nonempty and ordered;
-homogeneity is structural because operation, impact, target, authority, optional exact
-LeaseToken, and evidence occur only in that header. Every item validates against the shared
-Operation input schema. A single is not encoded as a one-item batch, item order is part
-of identity, and a batch is not atomic.
+A PreparedInvocation MUST have exactly one shared header. A batch is nonempty and
+ordered; homogeneity is structural because operation, impact, target, authority,
+optional exact LeaseToken, and evidence occur only in that header. Every item MUST
+validate against the shared Operation input schema. A single is not encoded as a
+one-item batch, item order is part of identity, and a batch is not atomic. These map to
+**C13-PREPARED-SHARED-HEADER**, **C13-PREPARED-OPTIONAL-LEASE**, and
+**C13-PREPARED-PAYLOAD-SHAPE**.
 
-The host derives, never accepts, each item key from the complete tuple
+The host MUST derive, never accept, each item key from the complete tuple
 `("agent-core.item.v1", structuralDigest(completeSharedHeaderIdentity), payloadShape,
 itemIndex, structuralDigest(arguments), header.idempotencySeed)`. The shared-header
 identity commits every header field, not merely InvocationId; payload shape is `single`
 or `batch(itemCount)`. The derivation is domain-separated and collision resistant;
-index is zero for a single. `intentDigest` covers the canonical structural
+index is zero for a single. `intentDigest` MUST cover the canonical structural
 encoding of the complete header and payload, including shape, order, exact optional
 LeaseToken, authority, evidence, arguments, and every derived key. Invocation identity
 therefore explicitly binds both InvocationId and exact lease epoch. It is not byte
 concatenation and omits no field. Format, derivation, and digest algorithm are
-codec-versioned (§8.3).
+codec-versioned (§8.3). These map to **C13-PREPARED-ITEM-KEYS** and
+**C13-PREPARED-WHOLE-DIGEST**.
 
 Before any mutating interceptor runs, the host atomically looks up the
 `MediatedReplayRecord` by authenticated caller plus `OperationRequestKey`. A miss
@@ -1980,9 +1983,9 @@ proceed on that same normal admission alone. This maps to **C13-PREPARED-APPROVA
 
 ### 7.4 EffectAttempt, Receipt, AuditRecord, reconciliation
 
-An **EffectAttempt** is immutable write-ahead evidence that one item may cross the
+An **EffectAttempt** MUST be immutable write-ahead evidence that one item may cross the
 effect boundary. Retry appends a new ordinal; pre-effect denial or cancellation never
-creates one.
+creates one. This maps to **C13-EFFECT-ATTEMPT-IMMUTABLE**.
 
 ```ts
 type ItemClaimOwner =
@@ -2049,9 +2052,10 @@ allowed only after the prior ordinal is finally `failed`; neither `succeeded` no
 `indeterminate` admits a concurrent retry. These lineage rules map to
 **C13-RECEIPT-IMMUTABLE**.
 
-ReceiptId is allocated from one owning-Actor namespace across both Receipt variants and
-all items; `AttemptReceipt.previous` and `AuditKind.receiptSuperseded`'s `previous` and
-`next` all refer to that same namespace. An id is never reused.
+ReceiptId MUST be allocated from one owning-Actor namespace across both Receipt variants
+and all items; `AttemptReceipt.previous` and `AuditKind.receiptSuperseded`'s `previous`
+and `next` all refer to that same namespace. An id is never reused. This maps to
+**C13-RECEIPT-ID-NAMESPACE**.
 
 Each nonterminal item has at most one live claim. Claiming is an atomic
 compare-and-set over `(InvocationId, itemIndex)`; the first claim uses attempt ordinal 0
@@ -2081,10 +2085,11 @@ Receipt clears the claim; `succeeded` terminalizes the item while `failed` permi
 next ordinal. These rules apply to index 0 of a single too, and prevent two executors
 from continuing one item.
 
-`BatchOutcome` is unavailable until every item has a current Receipt; those Receipts
-need not be final, so the derived outcome may be `indeterminate`. A
-`TerminalBatchOutcome` is available exactly when the derived BatchOutcome is
+`BatchOutcome` MUST be unavailable until every item has a current Receipt; those
+Receipts need not be final, so the derived outcome may be `indeterminate`. A
+`TerminalBatchOutcome` MUST be available exactly when the derived BatchOutcome is
 non-indeterminate. Neither aggregate is a Receipt or substitutes for item evidence.
+These map to **C13-BATCH-OUTCOME-COMPLETE** and **C13-BATCH-OUTCOME-TERMINAL**.
 Aggregate `denied` and
 `cancelled` therefore cannot be confused with the item outcomes `deniedPreEffect` and
 `cancelledPreEffect`. Derivation is the first matching rule: any indeterminate →
@@ -2092,12 +2097,14 @@ Aggregate `denied` and
 otherwise any failed → `failed`; otherwise any cancelledPreEffect → `cancelled`;
 otherwise → `denied`.
 
-For mediated external effects, intent and EffectAttempt evidence precede the effect.
-The call carries the item's idempotency key. If its result is not known, the pipeline
-appends `indeterminate`; reconciliation re-queries that same attempt by idempotency key
-and appends its superseding final Receipt. A resend after final failure is a new
-EffectAttempt through the normal mediated path, never an unrecorded reconciler action. Eventual reconciliation
-depends only on the external liveness assumptions stated in §14.
+For mediated external effects, intent and EffectAttempt evidence MUST precede the
+effect. The call MUST carry the item's idempotency key. If its result is not known, the
+pipeline appends `indeterminate`; reconciliation re-queries that same attempt by
+idempotency key and appends its superseding final Receipt. A resend after final failure
+is a new EffectAttempt through the normal mediated path, never an unrecorded reconciler
+action. Eventual reconciliation depends only on the external liveness assumptions stated
+in §14. These map to **C13-EFFECT-WRITE-AHEAD**, **C13-EFFECT-IDEMPOTENCY**,
+**C13-EFFECT-RECONCILIATION**, and **C13-EFFECT-SUPERSEDING-RECEIPT**.
 
 An **AuditRecord** is one immutable entry in an append-only typed causal chain:
 
@@ -2153,13 +2160,17 @@ command-rejection WriteRecord MAY also be a root only under the §8.5 no-caller-
 rule. These map to **C13-AUDIT-EDGE-RELATION**, **C13-AUDIT-PREEXISTING-CAUSE**, and
 **C13-AUDIT-APPEND-ONLY**.
 
-Cross-Actor causality never points directly into another Audit log. The source-owned
-RouteReservation is the authenticated bridge: it cites the preexisting source Event
-audit cause and authenticates source Actor, target Actor, tenants, projection,
-authority, and stable InvocationId. The target's `routeProjected` entry is a
+Cross-Actor causality MUST NOT point directly into another Audit log. The source-owned
+RouteReservation is the authenticated bridge. The target's `routeProjected` entry is a
 target-local bridge root with no AuditRecord cause; it is admitted only by authenticating
 that reservation projection. Delivery is caused by the target-local projection entry.
+This maps to **C13-AUDIT-ROUTE-BRIDGE**.
+
+The reservation cites the preexisting source Event audit cause and MUST authenticate
+source Actor, target Actor, tenants, projection, authority, and stable InvocationId.
 Cross-tenant delivery also verifies the reservation's explicit cross-tenant Binding.
+These map to **C13-ROUTE-SOURCE-EVENT**, **C13-ROUTE-AUDIT-CAUSE**,
+**C13-ROUTE-TENANT-RELATION**, and **C13-ROUTE-STABLE-INVOCATION**.
 
 Every Receipt outcome has an AuditRecord. Attempted outcomes are caused by their
 EffectAttempt audit; pre-effect outcomes are caused by Invocation or terminal Approval
