@@ -1,0 +1,220 @@
+{
+  "edition": "1.0.0",
+  "dispositions": [
+    {
+      "atom": "C13-AUTH-ROLE-MATERIALIZATION",
+      "disposition": "unanchored",
+      "excerpt": "A `CapabilitySpec` describes one grantable authority: a Facet or Facet pattern, the Operat…",
+      "reason": "Fixes the three built-in Roles every platform provides and lets a platform declare more rules including denies. C13-AUTH-ROLE-MATERIALIZATION is the atom for Role rules becoming Grants, but it is §13-only, so nothing in §13 requires the built-in set or its allow-rule shape and this prose can drop a role without restaling anything.",
+      "section": "3.3",
+      "sha256": "sha256:5467e56d68807e5af91264d88572a90c86ae40de0e1c1c76173cab1ca9016b66"
+    },
+    {
+      "atom": "C13-AUTH-GUEST-ELEVATION",
+      "disposition": "unanchored",
+      "excerpt": "**Sharing** is Membership issuance — there is no second mechanism. Sharing a Project with …",
+      "reason": "States the guest elevation prohibition — no `delegate` or `administer`, no host-credential resolution — which is exactly C13-AUTH-GUEST-ELEVATION's subject. The atom carries no anchor outside §13, so the sentence stating the prohibition is in no atom's hash input.",
+      "section": "3.3",
+      "sha256": "sha256:dc705fec6e5c21dc74cba7c8b9290eb9243657fbb0ede387190247dca910254f"
+    },
+    {
+      "atom": "C13-CONFIG-SECRET-REF",
+      "disposition": "unanchored",
+      "excerpt": "A **SecretRef** `{ source, provider, id }` names a credential held in Tenant custody. Conf…",
+      "reason": "States the SecretRef-only rule for configuration, manifests, and Blueprints, which is C13-CONFIG-SECRET-REF's subject; the SHOULD names the credential-injecting seam §11.9's P11-ENVIRONMENT-CREDENTIAL-SEAM implements. C13-CONFIG-SECRET-CUSTODY anchors §3.5's custody block, not this one, so the ref-only rule itself is hashed by nothing.",
+      "section": "3.5",
+      "sha256": "sha256:057aed4a725894e43275f6401c73e60df4c1e3f6c9dca22267fbf4fa674a60df"
+    },
+    {
+      "atom": "C13-COMMAND-SUBSCRIPTION-DEFAULTS",
+      "disposition": "unanchored",
+      "excerpt": "An automation template defaults `mapping` to root-to-root identity, `dedupe` to `event`, a…",
+      "reason": "Fixes the automation template's default mapping, dedupe, and authority and requires delegated automation to be explicit — the defaults C13-COMMAND-SUBSCRIPTION-DEFAULTS calls deterministic. That atom is §13-only, so the defaults themselves can be changed without restaling it.",
+      "section": "4.3",
+      "sha256": "sha256:75455c20a8d56ea479265df9d5f6ac26a5ecd437fc478f2e2e941b162abec7a0"
+    },
+    {
+      "atom": "C13-COMMAND-COLLISION",
+      "disposition": "unanchored",
+      "excerpt": "1. **Install.** The materializer registers the command in each declared surface slot. Comm…",
+      "reason": "Command lifecycle rule 1: per-slot per-Scope name uniqueness and collision rejection, which is C13-COMMAND-COLLISION's subject, plus the per-Scope visibility permission. The atom is §13-only and §4.3 carries no anchor at all.",
+      "section": "4.3",
+      "sha256": "sha256:b34a068a0929380899f6979995370b183075a6ca50378823f18612f62cd5abba"
+    },
+    {
+      "atom": "none",
+      "disposition": "unanchored",
+      "excerpt": "2. **Discovery.** Surfaces render catalogs via `SlotCatalog.query`. For dynamic argument c…",
+      "reason": "Command lifecycle rule 2 permits the host to call a command's `completion` Operation and constrains it to `observe` impact. §13 has no atom for command completion; the impact constraint is what keeps completion off the mediated tier, so a new atom is needed rather than a nearby one.",
+      "section": "4.3",
+      "sha256": "sha256:15cc0e4f44dc8a0cccfd67edab316e74f1d08205086441c5fb32e54569c87c69"
+    },
+    {
+      "atom": "C13-COMMAND-INSTALL-MAPPING",
+      "disposition": "unanchored",
+      "excerpt": "3. **Argument binding.** A Surface owns its input grammar and produces a `FacetData` value…",
+      "reason": "Command lifecycle rule 3 carries two obligations: the mapping and both schemas are checked at install (C13-COMMAND-INSTALL-MAPPING) and the produced value validates at execution (C13-COMMAND-ARGUMENT-BINDING). Both atoms are §13-only, so neither hashes the rule that states them.",
+      "section": "4.3",
+      "sha256": "sha256:28a976aa5da71c5bb1cfc96a065ce77e1ef90d1d3d3c3615138b95f157cb8b75"
+    },
+    {
+      "atom": "none",
+      "disposition": "unanchored",
+      "excerpt": "4. **Invocation.** The surface emits `Event(command.invoked)` whose correlation MUST carry…",
+      "reason": "Command lifecycle rule 4 requires `Event(command.invoked)` correlation to carry the originating SurfaceId and, in a conversation, the RunRef and branch, and forbids any inferred compatibility relation or alternate authority source. §13's command atoms cover collision, mapping, argument binding, defaults, and result — none states the correlation payload.",
+      "section": "4.3",
+      "sha256": "sha256:3d0c7c45e8ce923f396723cff1cfdccd3a6d9ba71f13b30823c60db8bbb363cd"
+    },
+    {
+      "atom": "C13-COMMAND-RESULT",
+      "disposition": "unanchored",
+      "excerpt": "5. **Result.** The host MUST emit `Event(command.completed)` correlated to the invoking Ev…",
+      "reason": "Command lifecycle rule 5: the host emits a correlated `command.completed` and rendering Surfaces subscribe to it, which is C13-COMMAND-RESULT's subject. The atom is §13-only.",
+      "section": "4.3",
+      "sha256": "sha256:70e9c595ecd96d212e3e5e0da444244ee8abac4e04ad035f91430ff917452b05"
+    },
+    {
+      "atom": "none",
+      "disposition": "unanchored",
+      "excerpt": "1. Interceptors run only within one protection domain; cross-domain interception MUST use …",
+      "reason": "Interceptor rule 1 confines interception to one protection domain and requires asynchronous Events across one. §13's interceptor atoms are order, self-scope, cross-facet opt-in, attribution, frozen retry, throw-block, and replay — none is domain confinement. The rule is hashed by C13-INTERCEPTOR-REPLAY because rules 1-8 share one block, and that atom requires nothing about it.",
+      "section": "4.4",
+      "sha256": "sha256:d722b11534dbc3b87ee53545256ccb677e1d2a5ad691997f9e3e1da9c06ee878"
+    },
+    {
+      "atom": "C13-INTERCEPTOR-ORDER",
+      "disposition": "unanchored",
+      "excerpt": "3. Ordering is total and deterministic: ascending `(priority, facetId, interceptorId)`; in…",
+      "reason": "Interceptor rule 3 states the total order `(priority, facetId, interceptorId)` that C13-INTERCEPTOR-ORDER names, plus the id-uniqueness the order depends on. The atom is §13-only; the rule is hashed only by C13-INTERCEPTOR-REPLAY, which is anchored at rule 8 and requires nothing about ordering.",
+      "section": "4.4",
+      "sha256": "sha256:74ec1ace88bca2fcc0e81e035126d54bee64f0969a0715e8e0b0aaaa118993c6"
+    },
+    {
+      "atom": "C13-RUN-UNDO-FENCE",
+      "disposition": "unanchored",
+      "excerpt": "- Undo targeting a branch with a held Turn MUST first fence that Turn (§5.3), whether or n…",
+      "reason": "States that undo fences a held Turn first regardless of lease expiry, which is C13-RUN-UNDO-FENCE word for word. The atom is §13-only, and this bullet is hashed only by whichever §5.2 atom shares its block.",
+      "section": "5.2",
+      "sha256": "sha256:98c0af4aa8faa9f44dffb722b1854786405837a5d32dac898a46eb376a146889"
+    },
+    {
+      "atom": "C13-RUN-RESOURCE-CEILING",
+      "disposition": "unanchored",
+      "excerpt": "A `delegate`-impact spawn MAY attenuate resources alongside capability, by carrying an opt…",
+      "reason": "States the child-ceiling attenuation rule that C13-RUN-RESOURCE-CEILING's §13 text covers, but the atom's anchor sits in the following exhaustion block, so the sentence carrying `MUST NOT exceed the parent's remaining allowance` is outside its hash input. The anchor belongs in this block, or the atom needs splitting.",
+      "section": "5.2",
+      "sha256": "sha256:a6d80b19bf47f4694e34a700ad318ad56d63b95d439b7f3773474ef4e6ee6b41"
+    },
+    {
+      "atom": "C13-RUN-BINARY-TREE-MERGE",
+      "disposition": "unanchored",
+      "excerpt": "**Tree conflicts.** Tree merge is defined only for the same binary parent pair, over the s…",
+      "reason": "Defines tree merge over one binary parent pair and makes more than two tree inputs invalid, which is C13-RUN-BINARY-TREE-MERGE's subject, and requires the outcome on the merge commit's `treeCheckpoint`. The atom is §13-only; C13-RUN-CHECKPOINT-KINDS anchors §5.4, not here.",
+      "section": "5.2",
+      "sha256": "sha256:fdb13f93e5a43368919f3d1bdd782bd43f0cfb492076db71c87296fde210b492"
+    },
+    {
+      "atom": "C13-RUN-TREE-CONFLICT-EXPLICIT",
+      "disposition": "unanchored",
+      "excerpt": "A platform that never merges over a shared tree (each branch owns a disjoint Environment, …",
+      "reason": "States when `policies.treeMerge` may be omitted and that an omitting platform rejects rather than picks a shared-tree merge — the refusal C13-RUN-TREE-CONFLICT-EXPLICIT states for unresolved conflicts. That atom is anchored one block earlier at the `perPath` bullet, so this restatement is in no atom's hash input and can be weakened into a silent default.",
+      "section": "5.2",
+      "sha256": "sha256:14bf37fac8369f3989d9336596463cf962b601e912d1f9d8b7aeb5c539dcf0c4"
+    },
+    {
+      "disposition": "exempt",
+      "excerpt": "A Turn MAY carry an advisory `cacheLineage` hint identifying the Turn and prompt prefix it…",
+      "reason": "The document denies this field correctness semantics in the same breath it introduces it — `Purely advisory; no correctness semantics.` — so there is no behaviour a conformance atom could require. The MAY is a permission over an optional hint, and the cost figure is rationale for why the hint gets a field at all. If a later edition gives `cacheLineage` any effect on a Turn, this digest stops matching and the exemption reopens.",
+      "section": "5.5",
+      "sha256": "sha256:36f96e9e8d2594b42cb6bf2e86f8beb54110005c518f8132b6b61409d84fac94"
+    },
+    {
+      "atom": "none",
+      "disposition": "unanchored",
+      "excerpt": "Mid-turn input uses `turn.deliverEvent`: a lease-fenced operation appending an Event to th…",
+      "reason": "Defines `turn.deliverEvent` mid-turn delivery and the reserved `turn.cancel` inbox Event, and requires a conforming executor to observe cancellation between steps and stop committing. §13's Turn atoms cover leases, the lifecycle table, the model call, retry absence, and executor writes; none states the cancellation contract the executor seam depends on.",
+      "section": "5.6",
+      "sha256": "sha256:107b9826dd0fe8e8deca0d988651144f8ae5a223e30fd06d066974c50c364231"
+    },
+    {
+      "atom": "none",
+      "disposition": "unanchored",
+      "excerpt": "An executor MAY hand the model a handle instead of a result: a mediated Invocation's tool …",
+      "reason": "Permits an executor to return an admission handle instead of a result and fixes what that changes: nothing about admission, and a spawn's `delegate` Receipt carries the child RunRef and never the child's result. That last clause is a testable prohibition no §13 atom states.",
+      "section": "5.6",
+      "sha256": "sha256:ef565bc6767e43ca6b5e836f50ca70ae2bbd02c89a9d3c98cd0bdcdbfa74567e"
+    },
+    {
+      "atom": "C13-SUBSCRIPTION-AUTHORITY",
+      "disposition": "unanchored",
+      "excerpt": "`initiator` uses the authenticated initiating Principal recorded by the source Actor in th…",
+      "reason": "States how `initiator` and `delegated` Subscription authority resolve and forbids substituting a principal, which is C13-SUBSCRIPTION-AUTHORITY's subject, and requires the cross-tenant Binding C13-ROUTE-CROSS-TENANT-BINDING names. Both atoms are §13-only. C13-AUTH-PRINCIPAL-REF covers exact matching generically but anchors §1.4, so this block's own list of records to match is hashed by nothing.",
+      "section": "6.2",
+      "sha256": "sha256:5b351470affbca67c68421f44d8aef0719a1dd0f45fe452a9234ee2a62c50dc0"
+    },
+    {
+      "atom": "C13-POLICY-DIRECT-COLOCATION",
+      "disposition": "unanchored",
+      "excerpt": "- **direct** — an in-process call. Authority, exact current Turn lease, delivered watermar…",
+      "reason": "Defines the `direct` tier and requires the facet to be `bundled` in the Actor owning the Turn lease, which is C13-POLICY-DIRECT-COLOCATION's subject, and states the in-memory checks C13-AUTH-DIRECT-LEASE, C13-AUTH-DIRECT-DEADLINE, and C13-AUTH-DIRECT-WATERMARK name. Every one of those atoms is §13-only. The bullet also uses REQUIRES, an RFC 2119 keyword §1.3 does not declare, so no keyword gate reads it as an obligation.",
+      "section": "7.2",
+      "sha256": "sha256:7d37e8529844020dbcc01c1abb035b99530486211ef6b014f1d352024c0ef93e"
+    },
+    {
+      "atom": "C13-POLICY-MEDIATION-FLOOR",
+      "disposition": "unanchored",
+      "excerpt": "Enforcement is a floor, not a bidirectional override. The floor is: `observe` → direct; on…",
+      "reason": "States the enforcement floor itself — which impacts are direct, which are mediated, that policy may only tighten, and that it may never lower a mediated floor or remove a required approval. C13-POLICY-MEDIATION-FLOOR and C13-POLICY-APPROVAL-FLOOR are exactly these two prohibitions and both are §13-only, so the most consequential tiering rule in the document is in no atom's hash input.",
+      "section": "7.2",
+      "sha256": "sha256:9325af59faa656bd9a71c2d0e6dfc317842552c808e863772556a66929bd0efa"
+    },
+    {
+      "atom": "C13-PREPARED-ROUTED-PROJECTION",
+      "disposition": "unanchored",
+      "excerpt": "A routed preparation MUST use its RouteReservation's stable InvocationId, authority, proje…",
+      "reason": "States the routed-preparation projection rules (C13-PREPARED-ROUTED-PROJECTION), the no-Turn domain-owner authentication (C13-PREPARED-NO-TURN-OWNER), and the preexisting local audit cause (C13-PREPARED-NO-TURN-AUDIT). All three atoms are §13-only; §7.3's seven anchors are all on replay and approval blocks.",
+      "section": "7.3",
+      "sha256": "sha256:ac7525655abaddbf9d698b9237d11bf6b505dbec66a2f0b7351237ac30d5f79a"
+    },
+    {
+      "atom": "C13-CLAIM-INITIAL-ATOMIC",
+      "disposition": "unanchored",
+      "excerpt": "Each nonterminal item has at most one live claim. Claiming is an atomic compare-and-set ov…",
+      "reason": "States the whole item-claim protocol: atomic first claim (C13-CLAIM-INITIAL-ATOMIC), future expiry (C13-CLAIM-FUTURE-EXPIRY), the four recovery rules (C13-CLAIM-RECOVERY-*), and ordinal advance only after final failure (C13-ATTEMPT-ORDINAL-AFTER-FAILURE). Seven §13-only atoms and no anchor. Anchoring all seven here would exceed the four-atom shared-block bound, so the block needs splitting as part of the fix.",
+      "section": "7.4",
+      "sha256": "sha256:051e30ac1f75aab82936b2940e05d51fba799b80d05a608296b42e7eeba01bf9"
+    },
+    {
+      "atom": "C13-AUDIT-EDGE-RELATION",
+      "disposition": "unanchored",
+      "excerpt": "The permitted local typed edges are exactly: Invocation → Approval, EffectAttempt, pre-eff…",
+      "reason": "Enumerates the permitted local typed audit edges, which is C13-AUDIT-EDGE-RELATION's subject, and requires every cause to preexist (C13-AUDIT-PREEXISTING-CAUSE) with no rewriting (C13-AUDIT-APPEND-ONLY). All three atoms are §13-only; §7.4's two anchors are on Receipt immutability and telemetry exclusion.",
+      "section": "7.4",
+      "sha256": "sha256:5908aafde36741ee2d255b4586f5fc56792b67f2e4fe90bdc14b500285c1e06f"
+    },
+    {
+      "atom": "C13-BLUEPRINT-VALIDATE-BEFORE-LOAD",
+      "disposition": "unanchored",
+      "excerpt": "The composed platform config schema is the spec's base schema plus every installed package…",
+      "reason": "Requires a Blueprint to validate against the composed schema before any package code loads, which is C13-BLUEPRINT-VALIDATE-BEFORE-LOAD stated in the document's own words. The atom is §13-only and §9.2 carries no anchor at all.",
+      "section": "9.2",
+      "sha256": "sha256:f1dd7e90ce85f94efedafb20bf22249d3ad33a72f23f6eb4df80a518619e868a"
+    },
+    {
+      "atom": "none",
+      "disposition": "unanchored",
+      "excerpt": "| Run | Workspace-owned by default; MAY be pinned `dedicated` at start. Its owner retains …",
+      "reason": "The Cloudflare topology row fixes Run hosting: Workspace-owned by default, pinnable `dedicated` at start, with the owner retaining pins, outcome, graph, and Settled obligations. §10 is normative and §10.1 carries no atom of any kind; §13's Cloudflare atoms cover permits, alarms, reconciliation, views, queues, storage, and deployment, none of them Run hosting.",
+      "section": "10.1",
+      "sha256": "sha256:6a72db455c2f14d36faf609456e5594db8624118c3925b71b8183b1f58ae01fe"
+    },
+    {
+      "atom": "C13-AUTH-WATERMARK-MONOTONE",
+      "disposition": "unanchored",
+      "excerpt": "Projects are records in the Tenant DO — grouping adds zero DOs. Authority resolution retur…",
+      "reason": "Requires the profile to deliver invalidation watermarks monotonically (C13-AUTH-WATERMARK-MONOTONE), advance them atomically on mediated stale observation, enforce the exact lease and immutable deadline for direct calls (C13-AUTH-DIRECT-LEASE, C13-AUTH-DIRECT-DEADLINE), and admit locally and cross-DO as §3.4 requires. C13-AUTH-MEDIATED-STALE and C13-AUTH-MEDIATED-ADMISSION anchor §3.4, so the profile's own restatement is hashed by nothing and can drift from the model it profiles.",
+      "section": "10.1",
+      "sha256": "sha256:c285baffef26d31bf4391d948eaee0704a0953299c791857bc465c1306eb80ce"
+    }
+  ]
+}

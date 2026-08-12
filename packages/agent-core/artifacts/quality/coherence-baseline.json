@@ -2,6 +2,188 @@
   "edition": "1.0.0",
   "issues": [
     {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "10.1:6a72db455c2f",
+      "message": "Normative §10.1 rule waits on an atom §13 does not yet state: | Run | Workspace-owned by default; MAY be pinned `dedicated` at start. Its owner retains …",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:10.1:6a72db455c2f:43295c7c93b1"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "10.1:c285baffef26",
+      "message": "Normative §10.1 rule waits on an anchor for C13-AUTH-WATERMARK-MONOTONE: Projects are records in the Tenant DO — grouping adds zero DOs. Authority resolution retur…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:10.1:c285baffef26:4f2080c5402e"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "3.3:5467e56d6880",
+      "message": "Normative §3.3 rule waits on an anchor for C13-AUTH-ROLE-MATERIALIZATION: A `CapabilitySpec` describes one grantable authority: a Facet or Facet pattern, the Operat…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:3.3:5467e56d6880:c567a43c9fef"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "3.3:dc705fec6e5c",
+      "message": "Normative §3.3 rule waits on an anchor for C13-AUTH-GUEST-ELEVATION: **Sharing** is Membership issuance — there is no second mechanism. Sharing a Project with …",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:3.3:dc705fec6e5c:fd5fcf9e256e"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "3.5:057aed4a7258",
+      "message": "Normative §3.5 rule waits on an anchor for C13-CONFIG-SECRET-REF: A **SecretRef** `{ source, provider, id }` names a credential held in Tenant custody. Conf…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:3.5:057aed4a7258:9d7f544da0a4"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "4.3:15cc0e4f44dc",
+      "message": "Normative §4.3 rule waits on an atom §13 does not yet state: 2. **Discovery.** Surfaces render catalogs via `SlotCatalog.query`. For dynamic argument c…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:4.3:15cc0e4f44dc:dc68e4956895"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "4.3:28a976aa5da7",
+      "message": "Normative §4.3 rule waits on an anchor for C13-COMMAND-INSTALL-MAPPING: 3. **Argument binding.** A Surface owns its input grammar and produces a `FacetData` value…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:4.3:28a976aa5da7:a3395350428e"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "4.3:3d0c7c45e8ce",
+      "message": "Normative §4.3 rule waits on an atom §13 does not yet state: 4. **Invocation.** The surface emits `Event(command.invoked)` whose correlation MUST carry…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:4.3:3d0c7c45e8ce:2015a375eb79"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "4.3:70e9c595ecd9",
+      "message": "Normative §4.3 rule waits on an anchor for C13-COMMAND-RESULT: 5. **Result.** The host MUST emit `Event(command.completed)` correlated to the invoking Ev…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:4.3:70e9c595ecd9:7f2920fa8155"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "4.3:75455c20a8d5",
+      "message": "Normative §4.3 rule waits on an anchor for C13-COMMAND-SUBSCRIPTION-DEFAULTS: An automation template defaults `mapping` to root-to-root identity, `dedupe` to `event`, a…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:4.3:75455c20a8d5:f25e75f0e9fb"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "4.3:b34a068a0929",
+      "message": "Normative §4.3 rule waits on an anchor for C13-COMMAND-COLLISION: 1. **Install.** The materializer registers the command in each declared surface slot. Comm…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:4.3:b34a068a0929:fb682629aa06"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "4.4:74ec1ace88bc",
+      "message": "Normative §4.4 rule waits on an anchor for C13-INTERCEPTOR-ORDER: 3. Ordering is total and deterministic: ascending `(priority, facetId, interceptorId)`; in…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:4.4:74ec1ace88bc:5261b1352427"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "4.4:d722b11534db",
+      "message": "Normative §4.4 rule waits on an atom §13 does not yet state: 1. Interceptors run only within one protection domain; cross-domain interception MUST use …",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:4.4:d722b11534db:9e88bf993572"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "5.2:14bf37fac836",
+      "message": "Normative §5.2 rule waits on an anchor for C13-RUN-TREE-CONFLICT-EXPLICIT: A platform that never merges over a shared tree (each branch owns a disjoint Environment, …",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:5.2:14bf37fac836:b5bb5b45b744"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "5.2:98c0af4aa8fa",
+      "message": "Normative §5.2 rule waits on an anchor for C13-RUN-UNDO-FENCE: - Undo targeting a branch with a held Turn MUST first fence that Turn (§5.3), whether or n…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:5.2:98c0af4aa8fa:722d4b4a13fe"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "5.2:a6d80b19bf47",
+      "message": "Normative §5.2 rule waits on an anchor for C13-RUN-RESOURCE-CEILING: A `delegate`-impact spawn MAY attenuate resources alongside capability, by carrying an opt…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:5.2:a6d80b19bf47:ad4f49e224dd"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "5.2:fdb13f93e5a4",
+      "message": "Normative §5.2 rule waits on an anchor for C13-RUN-BINARY-TREE-MERGE: **Tree conflicts.** Tree merge is defined only for the same binary parent pair, over the s…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:5.2:fdb13f93e5a4:540f64821c18"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "5.6:107b9826dd0f",
+      "message": "Normative §5.6 rule waits on an atom §13 does not yet state: Mid-turn input uses `turn.deliverEvent`: a lease-fenced operation appending an Event to th…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:5.6:107b9826dd0f:d523f7333bf1"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "5.6:ef565bc6767e",
+      "message": "Normative §5.6 rule waits on an atom §13 does not yet state: An executor MAY hand the model a handle instead of a result: a mediated Invocation's tool …",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:5.6:ef565bc6767e:77e045677eda"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "6.2:5b351470affb",
+      "message": "Normative §6.2 rule waits on an anchor for C13-SUBSCRIPTION-AUTHORITY: `initiator` uses the authenticated initiating Principal recorded by the source Actor in th…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:6.2:5b351470affb:400efbf37428"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "7.2:7d37e8529844",
+      "message": "Normative §7.2 rule waits on an anchor for C13-POLICY-DIRECT-COLOCATION: - **direct** — an in-process call. Authority, exact current Turn lease, delivered watermar…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:7.2:7d37e8529844:2787c7302363"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "7.2:9325af59faa6",
+      "message": "Normative §7.2 rule waits on an anchor for C13-POLICY-MEDIATION-FLOOR: Enforcement is a floor, not a bidirectional override. The floor is: `observe` → direct; on…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:7.2:9325af59faa6:feb3eb2134b9"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "7.3:ac7525655aba",
+      "message": "Normative §7.3 rule waits on an anchor for C13-PREPARED-ROUTED-PROJECTION: A routed preparation MUST use its RouteReservation's stable InvocationId, authority, proje…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:7.3:ac7525655aba:b3fdcd7e2fb4"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "7.4:051e30ac1f75",
+      "message": "Normative §7.4 rule waits on an anchor for C13-CLAIM-INITIAL-ATOMIC: Each nonterminal item has at most one live claim. Claiming is an atomic compare-and-set ov…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:7.4:051e30ac1f75:244201c310dc"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "7.4:5908aafde367",
+      "message": "Normative §7.4 rule waits on an anchor for C13-AUDIT-EDGE-RELATION: The permitted local typed edges are exactly: Invocation → Approval, EffectAttempt, pre-eff…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:7.4:5908aafde367:844de39ad32f"
+    },
+    {
+      "rule": "ACQ-NORM",
+      "file": "packages/agent-core/SPEC.md",
+      "symbol": "9.2:f1dd7e90ce85",
+      "message": "Normative §9.2 rule waits on an anchor for C13-BLUEPRINT-VALIDATE-BEFORE-LOAD: The composed platform config schema is the spec's base schema plus every installed package…",
+      "fingerprint": "ACQ-NORM:packages/agent-core/SPEC.md:9.2:f1dd7e90ce85:b5aa65f76027"
+    },
+    {
       "rule": "COH-SECTION-NO-ATOM",
       "file": "packages/agent-core/SPEC.md",
       "symbol": "10.1",
