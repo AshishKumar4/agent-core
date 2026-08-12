@@ -405,6 +405,63 @@ describe("Run resource ceilings", () => {
     });
 
     it(
+        "[C13-RUN-RESOURCE-CEILING] carries exactly the dimensions it declares through data and back",
+        { tags: "p1" },
+        () => {
+            // A ceiling that declares one dimension leaves the other two undeclared, which
+            // is unbounded rather than zero. Everything downstream reads that distinction
+            // off `entries`, so a ceiling that reported an entry per dimension — declared or
+            // not — would encode limits the declarer never wrote.
+            const partial = new ResourceCeiling({ tokens: 5 });
+            expect(partial.entries).toEqual([["tokens", 5]]);
+            expect(partial.declared).toEqual(["tokens"]);
+            expect(partial.toData()).toEqual({ tokens: 5 });
+            expect(ResourceCeiling.fromData(partial.toData()).equals(partial)).toBe(true);
+
+            // Declaration order does not follow the object's key order: entries walk the
+            // declared dimension list, so a ceiling written in any order reads the same.
+            expect(new ResourceCeiling({ wallClockMs: 9, depth: 1 }).declared).toEqual([
+                "depth",
+                "wallClockMs"
+            ]);
+
+            expect(() => ResourceCeiling.fromData({ tokens: "5" } as never)).toThrow(
+                "Resource ceiling tokens must be a non-negative safe integer"
+            );
+            expect(() => ResourceCeiling.fromData({ depth: -1 } as never)).toThrow(
+                "Resource ceiling depth must be a non-negative safe integer"
+            );
+        }
+    );
+
+    it(
+        "[C13-RUN-RESOURCE-CEILING] digests a ceiling only through the exact ceiling class",
+        { tags: "p0" },
+        () => {
+            // The reservation commits to a digest of this record, so a ceiling that could
+            // override how it renders itself would let the attenuation the spawn is checked
+            // against differ from the one it encodes.
+            class WidenedCeiling extends ResourceCeiling {
+                public override limit(): number {
+                    return Number.MAX_SAFE_INTEGER;
+                }
+            }
+            expect(
+                () => new SpawnAttenuation({ ceiling: new WidenedCeiling({ tokens: 1 }) })
+            ).toThrow("Spawn attenuation ceiling must use the exact context class");
+            expect(
+                new SpawnAttenuation({ ceiling: new ResourceCeiling({ tokens: 1 }) }).ceiling
+            ).toBeDefined();
+
+            // The attenuation declares `ceiling` and nothing else, so any other key is
+            // refused whatever it is named.
+            expect(() =>
+                SpawnAttenuation.fromData({ ceiling: null, "Stryker was here": 1 } as never)
+            ).toThrow("Spawn attenuation contains missing or unknown fields");
+        }
+    );
+
+    it(
         "[C13-RUN-RESOURCE-CEILING] narrows a child when the parent spends after the spawn",
         { tags: "p0" },
         () => {

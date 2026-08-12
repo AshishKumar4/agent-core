@@ -64,6 +64,14 @@
       "proof": "The only effect of this statement is the assignment remaining[dimension] = left, and current was read from remaining[dimension] on the line immediately above. Original and mutant therefore differ on exactly one class of input: current !== undefined && left === current. There the original skips the assignment and leaves remaining[dimension] holding current, while the mutant performs it and writes left. Because left === current on precisely that branch, and remaining holds primitive numbers with no reference or identity semantics to leak a difference, both leave the same key holding the same value. Assigning a key that already exists also leaves insertion order untouched, and current !== undefined guarantees the key exists on exactly that branch. Order could not matter regardless: ResourceCeiling's constructor iterates the fixed RESOURCE_DIMENSIONS list rather than Object.keys, so neither the Object.keys(remaining).length test in narrowResources nor the ceiling it constructs can vary with it. On every other input the two conditions agree and the same assignment happens or is skipped in both. The claim therefore holds through the whole call chain, not merely inside narrow, and no test written against the resulting ceiling could distinguish the two.",
       "replacement": "left <= current",
       "symbol": "narrow"
+    },
+    {
+      "file": "src/agents/runs/ceiling.ts",
+      "mutated": "allowance !== undefined",
+      "mutator": "ConditionalExpression",
+      "proof": "The mutant leaves `limit > allowance` as the sole test, so it differs from the original only where allowance is undefined, and there the original is false by short-circuit while the mutant evaluates `limit > undefined`. JavaScript's abstract relational comparison takes the string path only when both operands are strings; undefined never is, so both operands go through ToNumber, undefined becomes NaN, and every comparison against NaN is false. The mutant is therefore false wherever the original short-circuited, and identical everywhere else because the conjunct it dropped was already true. No input can separate them: allowance is a plain local read of parentRemainder.limit(dimension) taken before the comparison, so the dropped conjunct guarded no side effect and no throw, and limit arrives from ResourceCeiling's own entries, where the constructor has already established it is a non-negative safe integer. Even a caller passing a hostile subclass whose entries yield a non-number cannot help, because the NaN result holds for every value undefined can be compared against. The complementary mutant replacing this test with false, which would report no child as widening, is killed.",
+      "replacement": "true",
+      "symbol": "widensResourceCeiling"
     }
   ]
 }
