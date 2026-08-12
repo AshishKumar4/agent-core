@@ -2588,7 +2588,7 @@
         "tree": "fd32865cc559459b7ff45c358d5a7a8e6a8a5b54",
         "rationale": "TenantOperationAuthority validates exact resolution state and stale authority before admission.",
         "tests": [
-          "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition fails closed on substituted resolution evidence and only admits same-domain interception"
+          "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition fails closed on substituted resolution evidence and exposes both interception domains"
         ],
         "checks": [],
         "artifacts": [
@@ -2616,7 +2616,7 @@
               "packages/agent-core/test/integration/conformance/w9-composition.test.ts"
             ],
             "tests": [
-              "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition fails closed on substituted resolution evidence and only admits same-domain interception"
+              "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition fails closed on substituted resolution evidence and exposes both interception domains"
             ],
             "checks": []
           }

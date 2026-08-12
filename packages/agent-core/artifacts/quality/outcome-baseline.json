@@ -150,9 +150,9 @@
     {
       "source": "packages/agent-core/artifacts/requests/W3/W2-authority-port.json",
       "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
-      "sha256": "e2fe844824b9bf9aef8ed74f9013ebb679504bf9d816729496b8626a851ea189",
+      "sha256": "f86ed44282698d97ca02d2f22e20f05b67934ec4931253bffc01925653f256a9",
       "ratification": "lost",
-      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+      "reason": "W9's substituted-resolution test was renamed when interceptor domain confinement became its own decision: it now exposes both the cut-point and contributor domains rather than only asserting same-domain admission. The citation follows the title; the review's substance is unchanged."
     },
     {
       "source": "packages/agent-core/artifacts/requests/W3/W4-package-loader.json",
