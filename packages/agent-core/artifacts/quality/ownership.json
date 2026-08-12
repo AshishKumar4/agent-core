@@ -45,6 +45,7 @@
       "packages/agent-core/src/errors.ts",
       "packages/agent-core/src/facets-public.ts",
       "packages/agent-core/src/index.ts",
+      "packages/agent-core/src/mediation-public.ts",
       "packages/agent-core/src/substrates/index.ts",
       "packages/agent-core/src/substrates/sqlite/index.ts",
       "packages/agent-core/test/helpers/**",
