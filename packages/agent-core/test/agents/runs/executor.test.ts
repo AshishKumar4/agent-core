@@ -13,6 +13,7 @@ import {
     RunCheckpoint,
     RunCheckpointId,
     RunBranchId,
+    RunBranch,
     RunCommit,
     RunId,
     RunRuntime,
@@ -343,7 +344,10 @@ describe("TurnExecutor seam", () => {
         );
         await expect(
             invocationAdapter(cancelled).invoke(invocationRequest(seeded, tool, controller.signal))
-        ).rejects.toMatchObject({ code: "lease.invalid" });
+        ).rejects.toMatchObject({
+            code: "lease.invalid",
+            message: "Turn execution is cancelled"
+        });
         expect(cancelled.disposed).toBe(true);
     });
 
@@ -587,6 +591,95 @@ describe("TurnExecutor seam", () => {
             expect(persisted.turn?.status.kind).toBe("running");
             expect(persisted.turn?.lease.holder).toEqual(newHolder);
             expect(persisted.branch?.head).toEqual(ids.root);
+        }
+    );
+
+    it(
+        "refuses to execute against two cancellation entries for one lease",
+        { tags: "p0" },
+        async () => {
+            // A delivered cancellation request and the holder's own settlement name one
+            // entry (SPEC §5.6). Two entries carrying the same token are two versions of
+            // what the Turn was told, and the executor cannot pick between them — it reads
+            // the first match to decide whether the Turn is cancelled at all.
+            const seeded = seedRunningTurn();
+            const boundaries = await TestBoundaries.create();
+            seeded.repository.transaction((transaction) => {
+                seeded.repository.insertInbox(
+                    transaction,
+                    cancellationEntry(
+                        "duplicate-cancel-first",
+                        seeded.token,
+                        boundaries.cancellationPayload,
+                        0
+                    )
+                );
+                seeded.repository.insertInbox(
+                    transaction,
+                    cancellationEntry(
+                        "duplicate-cancel-second",
+                        seeded.token,
+                        boundaries.cancellationPayload,
+                        1
+                    )
+                );
+            });
+            const executor = new FunctionExecutor(async () => {
+                throw new TypeError("executor must not run");
+            });
+
+            await expect(
+                boundaries.host(seeded, executor).execute(seeded.token)
+            ).rejects.toMatchObject({
+                code: "turn.invalid-state",
+                message: "Turn executor cancellation evidence is not canonical"
+            });
+            expect(executor.calls).toBe(0);
+        }
+    );
+
+    it(
+        "refuses to execute against a result commit its own token left unpaired",
+        { tags: "p0" },
+        async () => {
+            // Recovery reads the Turn's own recorded result to decide which commit settled
+            // it. A result commit under the running token with no result on the Turn is the
+            // transition come apart, and the host has to refuse the scope rather than fault
+            // on the Turn's absent result.
+            const seeded = seedRunningTurn();
+            const boundaries = await TestBoundaries.create();
+            const orphan = new RunCommit({
+                id: new RunCommitId("orphan-result"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "result",
+                parents: [ids.root],
+                pins: seeded.running.pins,
+                writer: { kind: "turn", token: seeded.token },
+                subjectTurn: ids.turn,
+                content: boundaries.output
+            });
+            seeded.repository.transaction((transaction) => {
+                seeded.repository.insertCommit(transaction, orphan);
+                seeded.repository.replaceBranch(
+                    transaction,
+                    new Revision(0),
+                    new RunBranch(ids.branch, ids.run, "main", orphan.id, new Revision(1))
+                );
+            });
+            const executor = new FunctionExecutor(async () => {
+                throw new TypeError("executor must not run");
+            });
+
+            await expect(
+                boundaries.host(seeded, executor).execute(seeded.token)
+            ).rejects.toMatchObject({ code: "turn.invalid-state" });
+            expect(executor.calls).toBe(0);
+            expect(
+                seeded.repository.transaction((transaction) =>
+                    seeded.repository.loadTurn(transaction, ids.turn)
+                )?.status.kind
+            ).toBe("running");
         }
     );
 
@@ -1122,7 +1215,10 @@ describe("TurnExecutor seam", () => {
                 boundaries
                     .host(seeded, executor, { content: contentBoundary })
                     .execute(seeded.token)
-            ).rejects.toMatchObject({ code: "content.not-found" });
+            ).rejects.toMatchObject({
+                code: "content.not-found",
+                message: "Turn content is not available"
+            });
             expect(executor.calls).toBe(0);
         }
     });
@@ -1154,7 +1250,8 @@ describe("TurnExecutor seam", () => {
             expect(Object.isFrozen(stored)).toBe(true);
             validPut = false;
             await expect(context.content.put(source)).rejects.toMatchObject({
-                code: "codec.invalid"
+                code: "codec.invalid",
+                message: "Content store returned mismatched identity"
             });
             expect(putBytes).toEqual(source);
             expect(putBytes).not.toBe(source);

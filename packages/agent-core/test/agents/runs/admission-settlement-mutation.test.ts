@@ -130,6 +130,34 @@ describe("Run admission registry integrity", () => {
         );
     });
 
+    test("hands back the reservation that completes each obligation", { tags: "p0" }, () => {
+        const registry = RunAdmissionRegistry.initial(ids.run)
+            .reserve({ kind: "approval", approval })
+            .registry.reserve(item).registry;
+
+        for (const obligation of [{ kind: "approval", approval } as const, item]) {
+            const found = registry.reservation(obligation);
+            if (found === undefined) throw new Error(`${obligation.kind} must resolve`);
+            expect(runObligationKey(found.obligation)).toBe(runObligationKey(obligation));
+            expect(found.run).toEqual(ids.run);
+            expect(found.registryEpoch).toBe(registry.epoch);
+        }
+        expect(registry.reservation({ kind: "route", reservation: route })).toBeUndefined();
+
+        // Closing bumps the epoch, and everything reserved before the close still has to
+        // complete afterwards. So the handle names the epoch the obligation was reserved
+        // under, which is the one the closed registry's own completion check compares
+        // against — an epoch on either side of it discharges nothing.
+        const closed = registry.close();
+        expect(closed.epoch).toBe(registry.epoch + 1);
+        const afterClose = closed.reservation(item);
+        if (afterClose === undefined) throw new Error("a closed registry still resolves");
+        expect(afterClose.registryEpoch).toBe(registry.epoch);
+        expect(closed.complete(afterClose).completed.map(runObligationKey)).toEqual([
+            runObligationKey(item)
+        ]);
+    });
+
     test("names registry fields in decode errors", { tags: "p2" }, () => {
         expectTypeError(
             "registry run",
