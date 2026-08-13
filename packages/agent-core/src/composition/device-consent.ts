@@ -1,4 +1,4 @@
-import { isMember } from "../core";
+import { isJsonObject, isMember } from "../core";
 import {
     DeviceError,
     DeviceId,
@@ -62,13 +62,8 @@ export class DeviceConsentFinalAdmissionPort<
             return denied("Device consent admission rejected an unknown live Operation");
         }
         const input = request.request.inputs[0];
-        if (
-            request.request.inputs.length !== 1 ||
-            input === null ||
-            Array.isArray(input) ||
-            typeof input !== "object" ||
-            typeof (input as Record<string, unknown>)["deviceId"] !== "string"
-        ) {
+        const deviceId = isJsonObject(input) ? input["deviceId"] : undefined;
+        if (request.request.inputs.length !== 1 || typeof deviceId !== "string") {
             return denied("Device consent admission requires one exact Device input");
         }
         try {
@@ -76,7 +71,7 @@ export class DeviceConsentFinalAdmissionPort<
                 kind: "admitted",
                 evidence: this.consent.admit(
                     transaction,
-                    new DeviceId((input as Record<string, string>)["deviceId"]!),
+                    new DeviceId(deviceId),
                     this.agent.agent()
                 )
             };

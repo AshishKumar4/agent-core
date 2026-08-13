@@ -140,6 +140,9 @@ function validateAndDetachVersion(version: RecordVersion): RecordVersion {
     ) {
         throw new TypeError("Record codec version must contain non-negative safe integers");
     }
+    // SAFETY: PropertyDescriptor.value is typed `any`, which would let every check
+    // below pass vacuously. Restating it as `unknown` is a narrowing, not an escape:
+    // it forces the number, safe-integer and range checks that follow to be real.
     const major = majorDescriptor.value as unknown;
     const minor = minorDescriptor.value as unknown;
     if (

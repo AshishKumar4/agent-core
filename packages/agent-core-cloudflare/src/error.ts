@@ -9,6 +9,7 @@ export type CloudflareOperationalErrorCode = Extract<
     | "operation.invalid-output"
     | "protocol.invalid-state"
     | "protocol.revision-conflict"
+    | "run.invalid-state"
 >;
 
 /** Maps substrate failures into the shared AgentCoreError taxonomy. */
