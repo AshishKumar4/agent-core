@@ -6,6 +6,8 @@
  * value itself.
  */
 
+import type { JsonValue } from "./json";
+
 export type Nonempty<Value> = readonly [Value, ...Value[]];
 
 export function isMember<Value extends string>(
@@ -25,7 +27,7 @@ export function isNonempty<Value>(values: readonly Value[]): values is Nonempty<
  * inline keeps no record of what it proved and has to assert each one back to string.
  * Asking this instead carries the answer into the type.
  */
-export function isStringArray(candidate: unknown): candidate is readonly string[] {
+export function isStringArray(candidate: JsonValue | undefined): candidate is readonly string[] {
     return Array.isArray(candidate) && candidate.every((entry) => typeof entry === "string");
 }
 
