@@ -3,11 +3,27 @@ import {
     JsonSchema,
     StrictJsonSchemaValidator,
     encodeCanonicalJson,
+    isJsonObject,
     strictJsonSchemaValidator,
+    type JsonSchemaDocument,
     type JsonSchemaValidator,
     type JsonValue
 } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
+
+/** A document that refers to itself, which the canonical screen has to reject. */
+type SelfReferentialDocument = { self?: unknown };
+
+/** A document the caller keeps mutating after validation, to prove snapshots are taken. */
+type MutatedDocument = { type: string };
+
+/** The validated value, named with the field a defaults-applying validator would inject. */
+type CountedValue = { count: string; added?: string };
+
+/** A validator that answers asynchronously, which the injection seam has to refuse. */
+interface AsynchronousValidator {
+    validate(schema: JsonSchemaDocument, value: JsonValue): Promise<boolean>;
+}
 
 describe("JSON Schema values", () => {
     test("[json-schema-validator] strict memory reference enforces the shared validation contract", { tags: "p1" }, () => {
@@ -33,9 +49,7 @@ describe("JSON Schema values", () => {
         });
         expect(Object.isFrozen(schema)).toBe(true);
         expect(Object.isFrozen(schema.document)).toBe(true);
-        expect(Object.isFrozen((schema.document as { required: readonly string[] }).required)).toBe(
-            true
-        );
+        expect(Object.isFrozen(jsonField(schema.document, "required"))).toBe(true);
     });
 
     test("supports boolean schemas and an injectable validator seam", { tags: "p1" }, () => {
@@ -70,6 +84,8 @@ describe("JSON Schema values", () => {
 
         const mutating: JsonSchemaValidator = {
             validate: (_schema, value) => {
+                // SAFETY: JsonValue members are readonly, so writing one takes an assertion —
+                // and writing it is the test: `accepts` must notice that its input changed.
                 (value as { injected?: boolean }).injected = true;
                 return true;
             }
@@ -79,6 +95,8 @@ describe("JSON Schema values", () => {
         expect(original).toEqual({});
         const throwing: JsonSchemaValidator = {
             validate: (_schema, value) => {
+                // SAFETY: as above, the write is the point — a validator that mutates and then
+                // throws must still be reported as having mutated its input.
                 (value as { injected?: boolean }).injected = true;
                 throw new TypeError("custom failure");
             }
@@ -88,20 +106,28 @@ describe("JSON Schema values", () => {
     });
 
     test("rejects non-JSON and cyclic schema documents", { tags: "p1" }, () => {
-        const cycle: { self?: unknown } = {};
+        const cycle: SelfReferentialDocument = {};
         cycle.self = cycle;
         const accessor = Object.defineProperty({}, "type", {
             enumerable: true,
             get: () => "string"
         });
         const symbolKeyed = { type: "string", [Symbol("hidden")]: true };
+        const nonDocuments: readonly unknown[] = [
+            [],
+            new Date(),
+            cycle,
+            accessor,
+            symbolKeyed,
+            Object.create({ type: "string" })
+        ];
 
-        expect(() => new JsonSchema([] as never)).toThrow(TypeError);
-        expect(() => new JsonSchema(new Date() as never)).toThrow(TypeError);
-        expect(() => new JsonSchema(cycle as never)).toThrow(TypeError);
-        expect(() => new JsonSchema(accessor as never)).toThrow(TypeError);
-        expect(() => new JsonSchema(symbolKeyed as never)).toThrow(TypeError);
-        expect(() => new JsonSchema(Object.create({ type: "string" }) as never)).toThrow(TypeError);
+        for (const candidate of nonDocuments) {
+            // SAFETY: each value is outside the declared document type, which is what the
+            // constructor's screen is for — arrays, host objects, cycles, accessor-backed and
+            // symbol-keyed properties, and inherited keys must all be refused, not stored.
+            expect(() => new JsonSchema(candidate as JsonSchemaDocument)).toThrow(TypeError);
+        }
     });
 
     test("reports a non-document schema as unsupported, not as a read fault", { tags: "p1" }, () => {
@@ -111,14 +137,15 @@ describe("JSON Schema values", () => {
         // non-document for which reading a key throws the engine's own message rather
         // than being carried through to the compiler's verdict.
         const validator = new StrictJsonSchemaValidator();
+        const nonDocument = candidateDocument(null);
 
-        expect(() => validator.assertSchema(null as never)).toThrow(/^Unsupported JSON Schema: /u);
-        expect(() => validator.validate(null as never, 1)).toThrow(/^Unsupported JSON Schema: /u);
+        expect(() => validator.assertSchema(nonDocument)).toThrow(/^Unsupported JSON Schema: /u);
+        expect(() => validator.validate(nonDocument, 1)).toThrow(/^Unsupported JSON Schema: /u);
     });
 
     test("validates draft 2020-12 synchronously without coercion or defaults", { tags: "p1" }, () => {
         const validator = new StrictJsonSchemaValidator();
-        const value: { count: string; added?: string } = { count: "1" };
+        const value: CountedValue = { count: "1" };
         const before = structuredClone(value);
 
         expect(
@@ -282,15 +309,18 @@ describe("JSON Schema values", () => {
                 1
             )
         ).toThrow(/Asynchronous JSON Schema validation/);
-        const asynchronous = {
+        const asynchronous: AsynchronousValidator = {
             validate: () => Promise.resolve(true)
-        } as unknown as JsonSchemaValidator;
-        expect(() => JsonSchema.any().accepts({}, asynchronous)).toThrow(
+        };
+        expect(() => JsonSchema.any().accepts({}, candidateValidator(asynchronous))).toThrow(
             /return a boolean synchronously/
         );
 
         const cyclicMutating: JsonSchemaValidator = {
             validate: (_schema, value) => {
+                // SAFETY: JsonValue members are readonly, so introducing the cycle takes an
+                // assertion — and introducing it is the test: the mutation check must survive a
+                // value it can no longer walk structurally.
                 (value as { self?: unknown }).self = value;
                 return true;
             }
@@ -304,6 +334,8 @@ describe("JSON Schema values", () => {
         };
         expect(() => JsonSchema.any().accepts({}, throwing)).toThrow("validator failure");
 
+        // SAFETY: Object.prototype carries no `admin` field, and planting one there is the
+        // test — a required property satisfied only through the prototype chain must not count.
         const prototype = Object.prototype as { admin?: boolean };
         Object.defineProperty(prototype, "admin", {
             configurable: true,
@@ -328,7 +360,7 @@ describe("JSON Schema values", () => {
     });
 
     test("uses immutable schema snapshots without cross-schema id retention", { tags: "p0" }, () => {
-        const mutable: { type: string } = { type: "string" };
+        const mutable: MutatedDocument = { type: "string" };
         expect(strictJsonSchemaValidator.validate(mutable, "value")).toBe(true);
         mutable.type = "number";
         expect(strictJsonSchemaValidator.validate(mutable, 1)).toBe(true);
@@ -506,14 +538,19 @@ describe("JSON Schema values", () => {
         }
 
         expect(thrown).toBeInstanceOf(TypeError);
-        expect((thrown as Error).message).toMatch(
-            /^Unsupported JSON Schema: strict mode: "prefixItems" is 1-tuple/
-        );
+        expect(thrown).toMatchObject({
+            message: expect.stringMatching(
+                /^Unsupported JSON Schema: strict mode: "prefixItems" is 1-tuple/
+            )
+        });
     });
 
     test("detects length-preserving mutations by an injected validator", { tags: "p0" }, () => {
         const mutating: JsonSchemaValidator = {
             validate: (_schema, value) => {
+                // SAFETY: JsonValue members are readonly, so the write takes an assertion — and
+                // it is the test: a mutation that preserves the encoded length must still be
+                // detected.
                 (value as { count: number }).count = 2;
                 return true;
             }
@@ -529,18 +566,52 @@ describe("JSON Schema values", () => {
 
     test("deeply freezes canonical documents nested inside arrays", { tags: "p0" }, () => {
         const schema = new JsonSchema({ enum: [{ nested: [1] }], type: "object" });
-        const enumeration = (schema.document as { readonly enum: readonly JsonValue[] }).enum;
+        const enumeration = jsonField(schema.document, "enum");
+        const [entry] = jsonEntries(enumeration);
 
         expect(enumeration).toHaveLength(1);
         expect(Object.isFrozen(enumeration)).toBe(true);
-        expect(Object.isFrozen(enumeration[0])).toBe(true);
-        expect(
-            Object.isFrozen((enumeration[0] as { readonly nested: readonly number[] }).nested)
-        ).toBe(true);
+        expect(Object.isFrozen(entry)).toBe(true);
+        expect(Object.isFrozen(jsonField(entry, "nested"))).toBe(true);
     });
 });
 
-function expectTypeFailure(action: () => unknown, message: string): void {
+/**
+ * Offers a value where the validator declares a JSON Schema document. Screening what is
+ * not a document is the behavior under test, so the suite has to be able to offer one.
+ */
+function candidateDocument(value: JsonSchemaDocument | null): JsonSchemaDocument {
+    // SAFETY: the value is a candidate, not a proven document. It reaches the validator only
+    // so the structural walk can report it as unsupported.
+    return value as JsonSchemaDocument;
+}
+
+/**
+ * Offers a validator whose contract the seam declares it will not accept. Refusing an
+ * asynchronous answer is the behavior under test, so it has to be reachable.
+ */
+function candidateValidator(
+    validator: JsonSchemaValidator | AsynchronousValidator
+): JsonSchemaValidator {
+    // SAFETY: the injected validator deliberately answers with a promise. It reaches
+    // `accepts` only so the synchronous-boolean check can reject it.
+    return validator as JsonSchemaValidator;
+}
+
+/** Reads a field off a JSON value this suite just built, failing loudly if it is absent. */
+function jsonField(value: JsonValue | undefined, field: string): JsonValue {
+    const member = isJsonObject(value) ? value[field] : undefined;
+    if (member === undefined) throw new TypeError(`Expected a JSON object carrying ${field}`);
+    return member;
+}
+
+/** Reads a JSON value this suite just built as the array it was written as. */
+function jsonEntries(value: JsonValue): readonly JsonValue[] {
+    if (!Array.isArray(value)) throw new TypeError("Expected a JSON array");
+    return value;
+}
+
+function expectTypeFailure(action: () => void, message: string): void {
     let thrown: unknown;
     try {
         action();
@@ -552,7 +623,7 @@ function expectTypeFailure(action: () => unknown, message: string): void {
 }
 
 function expectCodecFailure(
-    action: () => unknown,
+    action: () => void,
     code: AgentCoreError["code"],
     message: string
 ): void {
@@ -566,7 +637,7 @@ function expectCodecFailure(
     expect(thrown).toMatchObject({ code, message });
 }
 
-function expectCodecError(action: () => unknown, code: AgentCoreError["code"]): void {
+function expectCodecError(action: () => void, code: AgentCoreError["code"]): void {
     try {
         action();
         throw new Error("Expected codec to reject input");

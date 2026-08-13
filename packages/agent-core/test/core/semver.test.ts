@@ -64,14 +64,14 @@ describe("SemVer", () => {
         }
         expect(() => new SemVer(`${Number.MAX_SAFE_INTEGER}0.0.0`)).toThrow(TypeError);
         expect(() => new SemVer(-1, 0, 0)).toThrow(TypeError);
-        expect(() => new SemVer(1, 2, 3, null as unknown as string[])).toThrow(TypeError);
-        expect(() => new SemVer(1, 2, 3, [1 as unknown as string])).toThrow(TypeError);
-        expect(() => new SemVer(null as unknown as string)).toThrow(TypeError);
-        expect(() => new SemVer(1, undefined as unknown as number, 3)).toThrow(TypeError);
+        expect(() => new SemVer(1, 2, 3, candidateIdentifiers(null))).toThrow(TypeError);
+        expect(() => new SemVer(1, 2, 3, candidateIdentifiers([1]))).toThrow(TypeError);
+        expect(() => new SemVer(candidateVersion(null))).toThrow(TypeError);
+        expect(() => new SemVer(1, candidateComponent(undefined), 3)).toThrow(TypeError);
     });
 
     test("rejects a non-string parse input without coercion", { tags: "p2" }, () => {
-        expect(() => SemVer.parse(1 as unknown as string)).toThrow(
+        expect(() => SemVer.parse(candidateVersion(1))).toThrow(
             new TypeError("Semantic version must follow SemVer 2.0.0")
         );
     });
@@ -124,8 +124,8 @@ describe("SemVer", () => {
         const components = "Semantic version requires major, minor, and patch components";
 
         expectTypeFailure(() => new SemVer("nope"), "Semantic version must follow SemVer 2.0.0");
-        expectTypeFailure(() => new SemVer(1, undefined as unknown as number, 3), components);
-        expectTypeFailure(() => new SemVer(1, 2, undefined as unknown as number), components);
+        expectTypeFailure(() => new SemVer(1, candidateComponent(undefined), 3), components);
+        expectTypeFailure(() => new SemVer(1, 2, candidateComponent(undefined)), components);
         expectTypeFailure(
             () => new SemVer(-1, 0, 0),
             "Semantic version major must be a non-negative safe integer"
@@ -180,7 +180,39 @@ describe("SemVer", () => {
     });
 });
 
-function expectTypeFailure(action: () => unknown, message: string): void {
+/**
+ * Offers a value where SemVer declares a version string. Deciding is the parser's job, so
+ * the suite has to be able to offer what the declaration excludes.
+ */
+function candidateVersion(value: string | number | null): string {
+    // SAFETY: the value is a candidate, not a proven version. It reaches SemVer only so the
+    // pattern check can reject it; nothing here reads it as a string.
+    return value as string;
+}
+
+/**
+ * Offers a value where SemVer declares a major, minor, or patch component. Deciding is the
+ * safe-integer validator's job.
+ */
+function candidateComponent(value: number | undefined): number {
+    // SAFETY: an absent component is exactly what the validator must name and reject, and
+    // the declared parameter type is what keeps it out of typed call sites.
+    return value as number;
+}
+
+/**
+ * Offers a value where SemVer declares prerelease or build identifiers. Deciding is the
+ * identifier validator's job, which is why non-string entries have to be reachable.
+ */
+function candidateIdentifiers(
+    value: readonly string[] | readonly number[] | null
+): readonly string[] {
+    // SAFETY: the entries are candidates, not proven identifiers. They reach SemVer only so
+    // the identifier validator can reject the list.
+    return value as readonly string[];
+}
+
+function expectTypeFailure(action: () => void, message: string): void {
     let thrown: unknown;
     try {
         action();
@@ -192,7 +224,7 @@ function expectTypeFailure(action: () => unknown, message: string): void {
 }
 
 function expectCodecFailure(
-    action: () => unknown,
+    action: () => void,
     code: AgentCoreError["code"],
     message: string
 ): void {
@@ -206,7 +238,7 @@ function expectCodecFailure(
     expect(thrown).toMatchObject({ code, message });
 }
 
-function expectCodecError(action: () => unknown, code: AgentCoreError["code"]): void {
+function expectCodecError(action: () => void, code: AgentCoreError["code"]): void {
     let failure: unknown;
     try {
         action();

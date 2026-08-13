@@ -27,9 +27,7 @@ describe("shared narrowing primitives", () => {
         "narrows an untrusted value to a property bag without trusting its members",
         { tags: "p0" },
         () => {
-            const value: unknown = { field: () => undefined };
-
-            expect(isObjectRecord(value)).toBe(true);
+            expect(isObjectRecord({ field: () => undefined })).toBe(true);
             expect(isObjectRecord([])).toBe(false);
             expect(isObjectRecord(null)).toBe(false);
             expect(isObjectRecord("record")).toBe(false);
@@ -50,7 +48,10 @@ describe("shared narrowing primitives", () => {
         // The candidate is the untrusted half, so the verdict must not rest on
         // membership alone: a vocabulary that carries a non-string still admits no
         // non-string candidate.
-        const polluted = Object.freeze([0, "observe"] as unknown as readonly string[]);
+        // SAFETY: the entry `0` is exactly what the declared readonly string[] excludes, and
+        // handing it over anyway is the test — `isMember` must check the candidate itself
+        // rather than trust the vocabulary it was given.
+        const polluted = Object.freeze([0, "observe"]) as readonly string[];
 
         expect(isMember(polluted, 0)).toBe(false);
         expect(isMember(polluted, "observe")).toBe(true);

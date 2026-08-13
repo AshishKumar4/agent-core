@@ -32,10 +32,13 @@ describe("Revision", () => {
     });
 
     test("rejects prototype counterfeits during equality", { tags: "p0" }, () => {
+        // SAFETY: Object.create hands back Revision's prototype without ever running its
+        // constructor, so the counterfeit carries no #value brand. Presenting it as a Revision
+        // is what lets the test reach the brand check that must refuse it.
         const counterfeit = Object.create(Revision.prototype) as Revision;
 
         expect(Revision.initial().equals(counterfeit)).toBe(false);
-        expect(Revision.initial().equals(null as unknown as Revision)).toBe(false);
+        expect(Revision.initial().equals(foreignComparand(null))).toBe(false);
     });
 
     test("recognizes only brands minted by the exact Revision class", { tags: "p0" }, () => {
@@ -51,19 +54,30 @@ describe("Revision", () => {
     });
 
     test("rejects absent comparands without probing brand slots", { tags: "p1" }, () => {
-        expect(Revision.initial().equals(undefined as unknown as Revision)).toBe(false);
-        expect(Revision.initial().equals(1 as unknown as Revision)).toBe(false);
-        expect(Revision.initial().equals("0" as unknown as Revision)).toBe(false);
+        expect(Revision.initial().equals(foreignComparand(undefined))).toBe(false);
+        expect(Revision.initial().equals(foreignComparand(1))).toBe(false);
+        expect(Revision.initial().equals(foreignComparand("0"))).toBe(false);
     });
 });
 
-function expectOperationalError(action: () => unknown, code: AgentCoreError["code"]): void {
+/**
+ * Presents a comparand `equals` declares it will not receive. Its `#value in other` brand
+ * check exists for JavaScript callers who can reach it anyway, so the suite has to cross
+ * the declared parameter type to exercise it; this is the one place it does.
+ */
+function foreignComparand(value: Revision | string | number | null | undefined): Revision {
+    // SAFETY: the argument is deliberately not a Revision. It is only ever handed to
+    // `equals`, whose brand check must answer false for it rather than throw.
+    return value as Revision;
+}
+
+function expectOperationalError(action: () => void, code: AgentCoreError["code"]): void {
     try {
         action();
         throw new Error("Expected operation to fail");
     } catch (error) {
         expect(error).toBeInstanceOf(AgentCoreError);
         expect(error).not.toBeInstanceOf(TypeError);
-        expect((error as AgentCoreError).code).toBe(code);
+        expect(error).toMatchObject({ code });
     }
 }

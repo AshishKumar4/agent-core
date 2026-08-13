@@ -3,6 +3,11 @@ import { ContentRef, Digest } from "../../src/core";
 
 const DIGEST = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
 
+/** The reference's own fields without their readonly modifier, so a write can be attempted. */
+interface WritableContentRef {
+    digest: Digest;
+}
+
 describe("ContentRef", () => {
     test("round-trips a SHA-256 content address through a detached digest", { tags: "p0" }, () => {
         const digest = new Digest(DIGEST);
@@ -16,11 +21,12 @@ describe("ContentRef", () => {
 
     test("is deeply runtime immutable", { tags: "p0" }, () => {
         const ref = new ContentRef(`sha256:${DIGEST}`);
+        const writable: WritableContentRef = ref;
 
         expect(Object.isFrozen(ref)).toBe(true);
         expect(Object.isFrozen(ref.digest)).toBe(true);
         expect(() => {
-            (ref as { digest: Digest }).digest = new Digest("0".repeat(64));
+            writable.digest = new Digest("0".repeat(64));
         }).toThrow(TypeError);
     });
 
@@ -33,6 +39,9 @@ describe("ContentRef", () => {
         ]) {
             expect(() => new ContentRef(value)).toThrow(TypeError);
         }
+        // SAFETY: the literal carries every public field of a Digest but never ran its
+        // constructor, so it is exactly the counterfeit `fromDigest`'s instanceof guard must
+        // refuse; presenting it as a Digest is how the test reaches that guard.
         expect(() =>
             ContentRef.fromDigest({
                 algorithm: "sha256",
@@ -55,7 +64,7 @@ describe("ContentRef", () => {
     });
 });
 
-function expectTypeFailure(action: () => unknown, message: string): void {
+function expectTypeFailure(action: () => void, message: string): void {
     let thrown: unknown;
     try {
         action();
