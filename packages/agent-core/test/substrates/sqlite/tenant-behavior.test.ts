@@ -11,6 +11,8 @@ import {
     Revision,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    isJsonObject,
+    type JsonObject,
     type JsonValue
 } from "../../../src/core";
 import { AgentCoreError } from "../../../src/errors";
@@ -154,7 +156,7 @@ const guestVerifiedAt = 1_700_000_000_000;
 const guestExpiresAt = guestVerifiedAt + 3_600_000;
 const hollowRole = new Role(new RoleName("hollow-role"), []);
 
-interface GuestMembershipShape {
+interface GuestMembershipRecord {
     readonly id: string;
     readonly state: "active" | "suspended" | "revoked";
     readonly revision: number;
@@ -165,32 +167,32 @@ interface GuestMembershipShape {
     readonly verified: boolean;
 }
 
-function guestMembership(shape: GuestMembershipShape): Membership {
+function guestMembership(membership: GuestMembershipRecord): Membership {
     return Membership.decode(
         encodeCanonicalJson({
             kind: "identity.membership",
             payload: {
-                guestVerification: shape.verified
+                guestVerification: membership.verified
                     ? {
                           evidenceDigest: guestEvidenceDigest,
                           expiresAt: guestExpiresAt,
-                          verifiedVia: shape.scheme.value,
+                          verifiedVia: membership.scheme.value,
                           principal: {
                               principal: guestPrincipalId.value,
-                              tenant: shape.homeTenant.value
+                              tenant: membership.homeTenant.value
                           },
-                          trust: shape.trustId.value,
-                          trustRevision: shape.trustRevision,
+                          trust: membership.trustId.value,
+                          trustRevision: membership.trustRevision,
                           verifiedAt: guestVerifiedAt
                       }
                     : null,
-                id: shape.id,
-                revision: shape.revision,
+                id: membership.id,
+                revision: membership.revision,
                 role: hollowRole.name.value,
                 scope: encodeScopeRef(tenantScope),
-                state: shape.state,
+                state: membership.state,
                 subject: encodeSubjectRef(
-                    SubjectRef.foreign(shape.homeTenant, guestPrincipalId, shape.scheme)
+                    SubjectRef.foreign(membership.homeTenant, guestPrincipalId, membership.scheme)
                 )
             },
             version: {
@@ -201,11 +203,16 @@ function guestMembership(shape: GuestMembershipShape): Membership {
     );
 }
 
-/** The pre-qualification wire shape: a Principal subject naming an id and no Tenant. */
+function objectAt(value: JsonValue | undefined, subject: string): JsonObject {
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    return value;
+}
+
+/** The pre-qualification wire record: a Principal subject naming an id and no Tenant. */
 function unqualifiedSubjectRecord(bytes: Uint8Array): Uint8Array {
-    const envelope = decodeCanonicalJson(bytes) as { readonly [key: string]: JsonValue };
-    const payload = envelope["payload"] as { readonly [key: string]: JsonValue };
-    const subject = payload["subject"] as { readonly [key: string]: JsonValue };
+    const envelope = objectAt(decodeCanonicalJson(bytes), "Membership envelope");
+    const payload = objectAt(envelope["payload"], "Membership payload");
+    const subject = objectAt(payload["subject"], "Membership subject");
     return encodeCanonicalJson({
         ...envelope,
         payload: {
@@ -1512,7 +1519,7 @@ describe("SQLite Tenant control closure integrity", () => {
             "revoked",
             new Revision(1)
         );
-        const verified: GuestMembershipShape = {
+        const verified: GuestMembershipRecord = {
             id: "guest-membership",
             state: "active",
             revision: 0,
@@ -1532,42 +1539,42 @@ describe("SQLite Tenant control closure integrity", () => {
         const rejected: readonly {
             readonly reason: string;
             readonly trust: GuestTrust;
-            readonly shape: GuestMembershipShape;
+            readonly membership: GuestMembershipRecord;
         }[] = [
-            { reason: "unverified", trust: activeTrust, shape: { ...verified, verified: false } },
+            { reason: "unverified", trust: activeTrust, membership: { ...verified, verified: false } },
             {
                 reason: "revoked and unverified",
                 trust: activeTrust,
-                shape: { ...verified, state: "revoked", revision: 1, verified: false }
+                membership: { ...verified, state: "revoked", revision: 1, verified: false }
             },
             {
                 reason: "ghost trust",
                 trust: activeTrust,
-                shape: { ...verified, trustId: new GuestTrustId("ghost-trust") }
+                membership: { ...verified, trustId: new GuestTrustId("ghost-trust") }
             },
             {
                 reason: "home Tenant drift",
                 trust: activeTrust,
-                shape: { ...verified, homeTenant: new TenantId("other-home-tenant") }
+                membership: { ...verified, homeTenant: new TenantId("other-home-tenant") }
             },
             {
                 reason: "stale trust revision",
                 trust: activeTrust,
-                shape: { ...verified, trustRevision: 1 }
+                membership: { ...verified, trustRevision: 1 }
             },
             {
                 reason: "verification scheme drift",
                 trust: activeTrust,
-                shape: { ...verified, scheme: GuestVerificationScheme.token }
+                membership: { ...verified, scheme: GuestVerificationScheme.token }
             },
             {
                 reason: "revoked trust",
                 trust: revokedTrust,
-                shape: { ...verified, trustRevision: 1 }
+                membership: { ...verified, trustRevision: 1 }
             }
         ];
-        for (const { reason, trust, shape } of rejected) {
-            const database = guestClosureDatabase(trust, guestMembership(shape));
+        for (const { reason, trust, membership } of rejected) {
+            const database = guestClosureDatabase(trust, guestMembership(membership));
             expect(() => createSqliteTenantControlStore(database), reason).toThrow(
                 closureFault("Guest Membership references invalid trust evidence")
             );

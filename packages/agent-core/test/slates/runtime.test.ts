@@ -569,31 +569,35 @@ describe("SlateRuntime", () => {
     });
 
     test("reports every Slate head CAS loser without replacing the concurrent winner", { tags: "p0" }, async () => {
-        const update = runtimeFixture("cas-update", new RejectingSlateStore());
+        const updateStore = new RejectingSlateStore();
+        const update = runtimeFixture("cas-update", updateStore);
         const updateSlate = await update.runtime.create(update.workspace, ref("initial"));
-        (update.store as RejectingSlateStore).rejectNextCas = true;
+        updateStore.rejectNextCas = true;
         await expect(update.runtime.update(updateSlate.id, ref("loser"))).rejects.toMatchObject({
             code: "protocol.revision-conflict"
         });
 
-        const commit = runtimeFixture("cas-commit", new RejectingSlateStore());
+        const commitStore = new RejectingSlateStore();
+        const commit = runtimeFixture("cas-commit", commitStore);
         const commitSlate = await commit.runtime.create(commit.workspace, ref("source"));
-        (commit.store as RejectingSlateStore).rejectNextCas = true;
+        commitStore.rejectNextCas = true;
         await expect(commit.runtime.commit(commitSlate.id)).rejects.toMatchObject({
             code: "protocol.revision-conflict"
         });
 
-        const publish = runtimeFixture("cas-publish", new RejectingSlateStore());
+        const publishStore = new RejectingSlateStore();
+        const publish = runtimeFixture("cas-publish", publishStore);
         const publishSlate = await publish.runtime.create(publish.workspace, ref("source"));
         const version = await publish.runtime.commit(publishSlate.id);
-        (publish.store as RejectingSlateStore).rejectNextCas = true;
+        publishStore.rejectNextCas = true;
         await expect(publish.runtime.publish(version.id, ref("publication"))).rejects.toMatchObject(
             {
                 code: "protocol.revision-conflict"
             }
         );
 
-        const rollback = runtimeFixture("cas-rollback", new RejectingSlateStore());
+        const rollbackStore = new RejectingSlateStore();
+        const rollback = runtimeFixture("cas-rollback", rollbackStore);
         const { slate, publication } = await publishedSlate(rollback);
         const firstDeployment = await rollback.runtime.deploy(
             publication.id,
@@ -608,7 +612,7 @@ describe("SlateRuntime", () => {
         if (firstDeployment.outcome !== "succeeded" || secondDeployment.outcome !== "succeeded") {
             throw new TypeError("Expected deployments");
         }
-        (rollback.store as RejectingSlateStore).rejectNextCas = true;
+        rollbackStore.rejectNextCas = true;
         await expect(
             rollback.runtime.rollback(slate.id, firstDeployment.deployment.id)
         ).rejects.toMatchObject({ code: "protocol.revision-conflict" });
@@ -788,6 +792,9 @@ class TrackingInvocationSeam extends SlateInvocationSeam {
     ): Promise<SlateInvocationResult<Result>> {
         this.validate(request, invocationId);
         if (this.resultOverride !== undefined) {
+            // SAFETY: the override is a provider result the runtime must reject — a null,
+            // an unknown outcome, an extra field. It is never a well-formed result for the
+            // caller's Result, which is exactly the validation these tests exercise.
             return this.resultOverride as SlateInvocationResult<Result>;
         }
         const outcome = this.invokeOutcomes.shift() ?? "succeeded";
@@ -830,6 +837,9 @@ class TrackingInvocationSeam extends SlateInvocationSeam {
         this.#activeContext = context;
         if (context !== undefined) this.contexts.push(context);
         try {
+            // SAFETY: `contextFor` returns undefined only for the bypass cases these tests
+            // set up deliberately, where the effect is expected to fault on the missing
+            // context rather than read it.
             const value = await effect(context as SlateEffectContext);
             return outcome === "succeeded" ? { outcome, receiptId, value } : { outcome, receiptId };
         } finally {
@@ -878,6 +888,9 @@ class TrackingPreviewValidation extends SlatePreviewValidationSeam {
     }
 }
 
+/** Every provider request the runtime mediates, all carrying the invocation it runs under. */
+type MediatedProviderRequest = SlateProviderDeploymentRequest | SlateProviderResourceRequest;
+
 class TrackingProvider extends SlateProvider {
     public readonly deployRequests: SlateProviderDeploymentRequest[] = [];
     public readonly reconcileDeploymentRequests: SlateProviderDeploymentRequest[] = [];
@@ -908,8 +921,11 @@ class TrackingProvider extends SlateProvider {
         this.deployRequests.push(request);
         this.signal(request.target);
         if (this.throwDeployment) throw new TypeError("deployment provider failed");
-        if (this.deploymentResult !== undefined)
+        if (this.deploymentResult !== undefined) {
+            // SAFETY: the override carries fields SlateProviderDeployment does not
+            // declare, so the runtime's output check is the only thing that turns it away.
             return this.deploymentResult as SlateProviderDeployment;
+        }
         return (
             this.pendingDeployments.get(request.target)?.promise ?? {
                 materialization: ref(`deployment-${request.deploymentId.value}`)
@@ -931,7 +947,11 @@ class TrackingProvider extends SlateProvider {
         this.requireMediated(request);
         this.resourceRequests.push(request);
         if (this.throwResource) throw new TypeError("resource provider failed");
-        if (this.resourceResult !== undefined) return this.resourceResult as SlateProviderResource;
+        if (this.resourceResult !== undefined) {
+            // SAFETY: the override carries fields SlateProviderResource does not declare,
+            // so the runtime's output check is the only thing that turns it away.
+            return this.resourceResult as SlateProviderResource;
+        }
         return { materialization: ref(`resource-${request.resourceId.value}`) };
     }
 
@@ -961,17 +981,13 @@ class TrackingProvider extends SlateProvider {
         called.resolve();
     }
 
-    private requireMediated(request: object): void {
+    private requireMediated(request: MediatedProviderRequest): void {
         expect(Object.isFrozen(request)).toBe(true);
         const context = this.invocations.activeContext;
         if (!this.invocations.inside || context === undefined) {
             throw new TypeError("Provider effect bypassed invocation context");
         }
-        const effectRequest = request as {
-            readonly invocationId: InvocationId;
-            readonly effectContext: SlateEffectContext;
-            readonly idempotencyKey: string;
-        };
+        const effectRequest = request;
         expect(effectRequest.effectContext).toBe(context);
         expect(effectRequest.invocationId.equals(context.invocationId)).toBe(true);
         expect(effectRequest.idempotencyKey).toBe(context.idempotencyKey);

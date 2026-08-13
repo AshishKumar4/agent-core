@@ -5,6 +5,8 @@ import {
     Revision,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    isJsonObject,
+    type JsonObject,
     type JsonValue
 } from "../../src/core";
 import {
@@ -31,10 +33,11 @@ import {
     SlateVersionId,
     freezeSlateInvocationRequest,
     freezeSlateMutationRequest,
-    type SlateInvocationRequest,
-    type SlateMutationRequest
+    type SlateInvocationRequest
 } from "../../src/slates";
 import { WorkspaceId } from "../../src/workspaces";
+import { codecCase } from "../helpers/codec-case";
+import { malformed, violating } from "../helpers/malformed";
 
 describe("Slate records", () => {
     const workspace = new WorkspaceId("workspace-records");
@@ -47,91 +50,74 @@ describe("Slate records", () => {
     const invocation = new InvocationId("invocation-records");
     const receipt = new ReceiptId("receipt-records");
 
+    const slate = Slate.initial(slateId, workspace, source);
+    const version = new SlateVersion(versionId, workspace, slateId, source);
+    const publication = new SlatePublication(
+        publicationId,
+        workspace,
+        slateId,
+        versionId,
+        materialization
+    );
+    const deployment = new SlateDeployment(
+        deploymentId,
+        workspace,
+        slateId,
+        publicationId,
+        "production",
+        materialization,
+        invocation,
+        receipt
+    );
+    const resource = new SlateResource(
+        new SlateResourceId("resource-records"),
+        workspace,
+        slateId,
+        deploymentId,
+        "database",
+        source,
+        materialization,
+        invocation,
+        receipt
+    );
+    const preview = new SlatePreview(
+        new SlatePreviewId("preview-records"),
+        workspace,
+        slateId,
+        new EnvironmentSessionCapability(
+            new EnvironmentId("environment-records"),
+            new EnvironmentSessionId("session-records"),
+            new Revision(3),
+            4
+        ),
+        new PortExposureId("exposure-records"),
+        source,
+        versionId
+    );
+
     const records = [
-        {
-            name: "[slate]",
-            codec: Slate.codec,
-            record: Slate.initial(slateId, workspace, source)
-        },
-        {
-            name: "[slate.version]",
-            codec: SlateVersion.codec,
-            record: new SlateVersion(versionId, workspace, slateId, source)
-        },
-        {
-            name: "[slate.publication]",
-            codec: SlatePublication.codec,
-            record: new SlatePublication(
-                publicationId,
-                workspace,
-                slateId,
-                versionId,
-                materialization
-            )
-        },
-        {
-            name: "[slate.deployment]",
-            codec: SlateDeployment.codec,
-            record: new SlateDeployment(
-                deploymentId,
-                workspace,
-                slateId,
-                publicationId,
-                "production",
-                materialization,
-                invocation,
-                receipt
-            )
-        },
-        {
-            name: "[slate.resource]",
-            codec: SlateResource.codec,
-            record: new SlateResource(
-                new SlateResourceId("resource-records"),
-                workspace,
-                slateId,
-                deploymentId,
-                "database",
-                source,
-                materialization,
-                invocation,
-                receipt
-            )
-        },
-        {
-            name: "[slate.preview]",
-            codec: SlatePreview.codec,
-            record: new SlatePreview(
-                new SlatePreviewId("preview-records"),
-                workspace,
-                slateId,
-                new EnvironmentSessionCapability(
-                    new EnvironmentId("environment-records"),
-                    new EnvironmentSessionId("session-records"),
-                    new Revision(3),
-                    4
-                ),
-                new PortExposureId("exposure-records"),
-                source,
-                versionId
-            )
-        }
+        { name: "[slate]", ...codecCase(Slate.codec, slate) },
+        { name: "[slate.version]", ...codecCase(SlateVersion.codec, version) },
+        { name: "[slate.publication]", ...codecCase(SlatePublication.codec, publication) },
+        { name: "[slate.deployment]", ...codecCase(SlateDeployment.codec, deployment) },
+        { name: "[slate.resource]", ...codecCase(SlateResource.codec, resource) },
+        { name: "[slate.preview]", ...codecCase(SlatePreview.codec, preview) }
     ] as const;
 
-    test.each(records)("$name round-trips a strict codec 1.0 record", { tags: "p1" }, ({ codec, record }) => {
-        const bytes = codec.encode(record as never);
+    test.each(records)("$name round-trips a strict codec 1.0 record", { tags: "p1" }, (subject) => {
+        const bytes = subject.encode();
         const envelope = object(decodeCanonicalJson(bytes));
 
         expect(envelope["version"]).toEqual({ major: 1, minor: 0 });
-        expect(codec.encode(codec.decode(bytes) as never)).toEqual(bytes);
-        expect(Object.isFrozen(codec.decode(bytes))).toBe(true);
+        expect(subject.reencode(bytes)).toEqual(bytes);
+        expect(subject.decodeIsFrozen(bytes)).toBe(true);
     });
 
-    test.each(records)("$name rejects unknown codec majors", { tags: "p1" }, ({ codec, record }) => {
-        const envelope = object(decodeCanonicalJson(codec.encode(record as never)));
+    test.each(records)("$name rejects unknown codec majors", { tags: "p1" }, (subject) => {
+        const envelope = object(decodeCanonicalJson(subject.encode()));
         const future = encodeCanonicalJson({ ...envelope, version: { major: 2, minor: 0 } });
 
-        expect(() => codec.decode(future)).toThrowError(
+        expect(() => subject.decode(future)).toThrowError(
             expect.objectContaining({ code: "codec.unknown-major" })
         );
     });
@@ -195,13 +181,16 @@ describe("Slate records", () => {
     });
 
     test("rejects malformed identities for every Slate durable record", { tags: "p1" }, () => {
+        // Every TextId subclass declares the same members, so TypeScript accepts one
+        // branded identity wherever another is asked for. Nothing but the runtime brand
+        // check separates these calls from correct ones, which is what they exercise.
         expect(
             () =>
                 new Slate({
                     id: slateId,
                     workspaceId: workspace,
                     source,
-                    headVersionId: publicationId as unknown as SlateVersionId,
+                    headVersionId: publicationId,
                     revision: Revision.initial()
                 })
         ).toThrow(TypeError);
@@ -211,7 +200,7 @@ describe("Slate records", () => {
                     id: slateId,
                     workspaceId: workspace,
                     source,
-                    activeDeploymentId: publicationId as unknown as SlateDeploymentId,
+                    activeDeploymentId: publicationId,
                     revision: Revision.initial()
                 })
         ).toThrow(TypeError);
@@ -221,7 +210,7 @@ describe("Slate records", () => {
                     id: slateId,
                     workspaceId: workspace,
                     source,
-                    latestPublicationId: deploymentId as unknown as SlatePublicationId,
+                    latestPublicationId: deploymentId,
                     revision: Revision.initial()
                 })
         ).toThrow(TypeError);
@@ -230,14 +219,14 @@ describe("Slate records", () => {
                 new Slate({
                     id: slateId,
                     workspaceId: workspace,
-                    source: "invalid" as unknown as ContentRef,
+                    source: malformed<ContentRef>("invalid"),
                     revision: Revision.initial()
                 })
         ).toThrow(TypeError);
 
         expect(
             () =>
-                new SlateVersion(versionId, workspace, slateId, "invalid" as unknown as ContentRef)
+                new SlateVersion(versionId, workspace, slateId, malformed<ContentRef>("invalid"))
         ).toThrow(TypeError);
         expect(
             () =>
@@ -246,7 +235,7 @@ describe("Slate records", () => {
                     workspace,
                     slateId,
                     versionId,
-                    "invalid" as unknown as ContentRef
+                    malformed<ContentRef>("invalid")
                 )
         ).toThrow(TypeError);
         expect(
@@ -259,7 +248,7 @@ describe("Slate records", () => {
                     "production",
                     materialization,
                     invocation,
-                    "invalid" as unknown as ReceiptId
+                    malformed<ReceiptId>("invalid")
                 )
         ).toThrow(TypeError);
         expect(
@@ -273,7 +262,7 @@ describe("Slate records", () => {
                     source,
                     materialization,
                     invocation,
-                    "invalid" as unknown as ReceiptId
+                    malformed<ReceiptId>("invalid")
                 )
         ).toThrow(TypeError);
         expect(
@@ -282,7 +271,7 @@ describe("Slate records", () => {
                     new SlatePreviewId("preview-malformed"),
                     workspace,
                     slateId,
-                    {} as EnvironmentSessionCapability,
+                    malformed<EnvironmentSessionCapability>({}),
                     new PortExposureId("exposure-malformed"),
                     source
                 )
@@ -290,7 +279,6 @@ describe("Slate records", () => {
     });
 
     test("rejects non-string deployment targets in codec data", { tags: "p1" }, () => {
-        const deployment = records[3].record as SlateDeployment;
         const envelope = object(decodeCanonicalJson(SlateDeployment.encode(deployment)));
         const payload = object(envelope["payload"]);
         expect(() =>
@@ -320,12 +308,6 @@ describe("Slate records", () => {
     });
 
     test("uses ContentRef values for every source and materialization", { tags: "p1" }, () => {
-        const version = records[1].record as SlateVersion;
-        const publication = records[2].record as SlatePublication;
-        const deployment = records[3].record as SlateDeployment;
-        const resource = records[4].record as SlateResource;
-        const preview = records[5].record as SlatePreview;
-
         expect(version.source).toBeInstanceOf(ContentRef);
         expect(publication.materialization).toBeInstanceOf(ContentRef);
         expect(deployment.materialization).toBeInstanceOf(ContentRef);
@@ -350,6 +332,8 @@ describe("Slate records", () => {
             expectedActiveDeploymentId: undefined
         });
         expect(Object.isFrozen(request)).toBe(true);
+        // SAFETY: a request carrying a field the contract does not declare. The excess is
+        // what freezeSlateInvocationRequest must reject, and no well-typed value has it.
         expect(() =>
             freezeSlateInvocationRequest({
                 ...request,
@@ -361,6 +345,9 @@ describe("Slate records", () => {
                 "Slate intent contains missing or unknown fields"
             )
         );
+        // SAFETY: a request whose Workspace ID is a bare `{ value }` rather than the
+        // branded identity, standing in for one that survived an encoding round trip
+        // without being reconstructed.
         expect(() =>
             freezeSlateInvocationRequest({
                 ...request,
@@ -368,28 +355,26 @@ describe("Slate records", () => {
             } as SlateInvocationRequest)
         ).toThrow(new AgentCoreError("operation.invalid-input", "Slate Workspace ID is invalid"));
         expect(() =>
-            freezeSlateInvocationRequest({
-                ...request,
-                impact: "mutate"
-            } as unknown as SlateInvocationRequest)
+            freezeSlateInvocationRequest(violating(request, { impact: "mutate" }))
         ).toThrow(
             new AgentCoreError(
                 "operation.invalid-input",
                 "Slate deploy invocation impact must be externalSend"
             )
         );
+        const resourceRequest = freezeSlateInvocationRequest({
+            operation: "resource.materialize",
+            impact: "externalSend",
+            workspaceId: workspace,
+            slateId,
+            resourceId: new SlateResourceId("resource-invalid-impact"),
+            deploymentId,
+            deploymentMaterialization: materialization,
+            resourceName: "database",
+            resourceSource: source
+        });
         expect(() =>
-            freezeSlateInvocationRequest({
-                operation: "resource.materialize",
-                impact: "mutate",
-                workspaceId: workspace,
-                slateId,
-                resourceId: new SlateResourceId("resource-invalid-impact"),
-                deploymentId,
-                deploymentMaterialization: materialization,
-                resourceName: "database",
-                resourceSource: source
-            } as unknown as SlateInvocationRequest)
+            freezeSlateInvocationRequest(violating(resourceRequest, { impact: "mutate" }))
         ).toThrow(
             new AgentCoreError(
                 "operation.invalid-input",
@@ -408,14 +393,15 @@ describe("Slate records", () => {
             )
         );
 
+        const createRequest = freezeSlateMutationRequest({
+            operation: "create",
+            impact: "mutate",
+            workspaceId: workspace,
+            slateId,
+            source
+        });
         expect(() =>
-            freezeSlateMutationRequest({
-                operation: "create",
-                impact: "externalSend",
-                workspaceId: workspace,
-                slateId,
-                source
-            } as unknown as SlateMutationRequest)
+            freezeSlateMutationRequest(violating(createRequest, { impact: "externalSend" }))
         ).toThrow(
             new AgentCoreError("operation.invalid-input", "Slate mutation impact must be mutate")
         );
@@ -484,9 +470,9 @@ describe("Slate records", () => {
 
         expect(Object.isFrozen(context)).toBe(true);
         expect(context.sameItem(retry)).toBe(true);
-        expect(() => new SlateEffectContext({} as InvocationId, 0, 0, "item-key")).toThrow(
-            TypeError
-        );
+        expect(() =>
+            new SlateEffectContext(malformed<InvocationId>({}), 0, 0, "item-key")
+        ).toThrow(TypeError);
         expect(() => new SlateEffectContext(invocationId, -1, 0, "item-key")).toThrow(TypeError);
         expect(() => new SlateEffectContext(invocationId, 0, -1, "item-key")).toThrow(TypeError);
         expect(() => new SlateEffectContext(invocationId, 0, 0, " item-key ")).toThrow(TypeError);
@@ -497,14 +483,7 @@ function ref(label: string): ContentRef {
     return ContentRef.fromDigest(Digest.sha256(new TextEncoder().encode(label)));
 }
 
-function object(value: JsonValue | undefined): { readonly [key: string]: JsonValue } {
-    if (
-        value === undefined ||
-        value === null ||
-        Array.isArray(value) ||
-        typeof value !== "object"
-    ) {
-        throw new TypeError("Expected JSON object");
-    }
-    return value as { readonly [key: string]: JsonValue };
+function object(value: JsonValue | undefined): JsonObject {
+    if (!isJsonObject(value)) throw new TypeError("Expected JSON object");
+    return value;
 }

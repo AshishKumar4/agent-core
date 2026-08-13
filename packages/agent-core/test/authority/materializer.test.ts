@@ -519,7 +519,7 @@ describe("RoleGrantMaterialization", () => {
     });
 });
 
-function expectAgentError(action: () => unknown, message: string): void {
+function expectAgentError(action: () => void, message: string): void {
     let thrown: unknown;
     try {
         action();

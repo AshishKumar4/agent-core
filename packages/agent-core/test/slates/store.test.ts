@@ -1,5 +1,6 @@
 let externalKeyCounter = 0;
 import { describe, expect, test } from "vitest";
+import { malformed, violating } from "../helpers/malformed";
 import { ContentRef, Digest, Revision } from "../../src/core";
 import {
     EnvironmentId,
@@ -133,8 +134,8 @@ describe("MemorySlateStore", () => {
                 () =>
                     new MemorySlateStore({
                         ...snapshot,
-                        slates: [{ ...snapshot.slates[0]!, revision: 1 }]
-                    } as MemorySlateSnapshot)
+                        slates: [violating(snapshot.slates[0]!, { revision: 1 })]
+                    })
             ).toThrow(
                 new AgentCoreError(
                     "protocol.invalid-state",
@@ -558,7 +559,7 @@ describe("MemorySlateStore", () => {
                         publicationMaterialization: graph.publication.materialization,
                         target: graph.deployment.target,
                         externalKey: "external-invalid-invocation",
-                        invocationId: "invalid" as unknown as InvocationId
+                        invocationId: malformed<InvocationId>("invalid")
                     })
             ).toThrow(TypeError);
             expect(
@@ -571,7 +572,7 @@ describe("MemorySlateStore", () => {
                         deploymentMaterialization: graph.deployment.materialization,
                         name: graph.resource.name,
                         source: graph.resource.source,
-                        invocationId: "invalid" as unknown as InvocationId
+                        invocationId: malformed<InvocationId>("invalid")
                     })
             ).toThrow(TypeError);
 

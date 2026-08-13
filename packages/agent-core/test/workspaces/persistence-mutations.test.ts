@@ -1,8 +1,9 @@
 import { describe, expect, test } from "vitest";
+import { violating } from "../helpers/malformed";
 import { ACTOR_STATE_SNAPSHOT } from "../../src/actors";
 import { Revision } from "../../src/core";
 import { EventId, RouteReservationId, SubscriptionId } from "../../src/interaction-references";
-import { Event } from "../../src/workspaces/event";
+import { Event, type EventInit } from "../../src/workspaces/event";
 import { MemoryWorkspaceRecords, type MemoryWorkspaceSnapshot } from "../../src/workspaces/memory";
 import {
     WorkspacePersistence,
@@ -62,7 +63,7 @@ function eventVariant(
     source: Event,
     overrides: { readonly id?: EventId; readonly idempotencyKey?: string }
 ): Event {
-    return new Event({
+    const init: EventInit = {
         id: overrides.id ?? source.id,
         scope: source.scope,
         source: source.source,
@@ -71,12 +72,17 @@ function eventVariant(
         payloadDigest: source.payloadDigest,
         idempotencyKey: overrides.idempotencyKey ?? source.idempotencyKey,
         correlation: source.correlation,
-        ...(source.causation === undefined ? {} : { causation: source.causation }),
         provenance: source.provenance,
         trust: source.trust,
-        visibility: source.visibility,
-        ...(source.initiator === undefined ? {} : { initiator: source.initiator })
-    });
+        visibility: source.visibility
+    };
+    const withCausation: EventInit =
+        source.causation === undefined ? init : { ...init, causation: source.causation };
+    return new Event(
+        source.initiator === undefined
+            ? withCausation
+            : { ...withCausation, initiator: source.initiator }
+    );
 }
 
 class DelegatingStorage implements WorkspaceRecordStorage {
@@ -1087,6 +1093,8 @@ describe("storage trust boundary kills", () => {
     test("compaction refuses kinds outside the compactable set", { tags: "p0" }, () => {
         const records = new MemoryWorkspaceRecords();
         records.insertRecord({ kind: "event", id: "event-keep", bytes: Uint8Array.of(1) });
+        // SAFETY: "event" is outside the compactable kinds the parameter admits, which is
+        // what the storage layer must refuse rather than trust its caller for.
         expect(() => records.deleteCompactedRecords("event" as never, ["event-keep"])).toThrow(
             expect.objectContaining({
                 name: "AgentCoreError",
@@ -1100,7 +1108,12 @@ describe("storage trust boundary kills", () => {
     test("insertRecord reports non-buffer bytes as codec corruption", { tags: "p1" }, () => {
         const records = new MemoryWorkspaceRecords();
         expect(() =>
-            records.insertRecord({ kind: "event", id: "event-bad", bytes: "nope" } as never)
+            records.insertRecord(
+                violating(
+                    { kind: "event", id: "event-bad", bytes: Uint8Array.of(1) },
+                    { bytes: "nope" }
+                )
+            )
         ).toThrow(
             expect.objectContaining({
                 name: "AgentCoreError",

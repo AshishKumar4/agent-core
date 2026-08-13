@@ -1,6 +1,12 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
-import { Digest, Revision, encodeCanonicalJson, type JsonValue } from "../../src/core";
+import {
+    Digest,
+    Revision,
+    encodeCanonicalJson,
+    isJsonObject,
+    type JsonValue
+} from "../../src/core";
 import { AgentCoreError, type AgentCoreErrorCode } from "../../src/errors";
 import { BindingName, FacetRef, ProtectionDomain } from "../../src/facets";
 import {
@@ -107,7 +113,7 @@ function validationEvidence(
     );
 }
 
-function expectTypeError(action: () => unknown, message: string): void {
+function expectTypeError(action: () => void, message: string): void {
     try {
         action();
         throw new Error("Expected a TypeError");
@@ -117,7 +123,7 @@ function expectTypeError(action: () => unknown, message: string): void {
     }
 }
 
-function expectAgentError(action: () => unknown, code: AgentCoreErrorCode, message: string): void {
+function expectAgentError(action: () => void, code: AgentCoreErrorCode, message: string): void {
     try {
         action();
         throw new Error("Expected an AgentCoreError");
@@ -468,7 +474,7 @@ describe("canonical argument freezing", () => {
             const canonical = request.intent.arguments;
             expect(canonical).toEqual(argumentsValue);
             expect(Object.isFrozen(canonical)).toBe(true);
-            if (canonical === null || typeof canonical !== "object" || Array.isArray(canonical)) {
+            if (!isJsonObject(canonical)) {
                 throw new Error("Expected canonical object arguments");
             }
             expect(Object.isFrozen(canonical["outer"])).toBe(true);

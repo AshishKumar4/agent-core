@@ -1378,7 +1378,7 @@ function assertTerminalResultWriterBehavior<Transaction>(
     ).toBeUndefined();
 }
 
-function expectCode(operation: () => unknown, code: AgentCoreError["code"]): void {
+function expectCode(operation: () => void, code: AgentCoreError["code"]): void {
     try {
         operation();
         throw new TypeError("Expected operation to fail");
@@ -1783,7 +1783,7 @@ function requiredSql(value: SqliteRow): string {
 }
 
 function expectExactFailure(
-    operation: () => unknown,
+    operation: () => void,
     code: AgentCoreError["code"],
     message: string
 ): void {

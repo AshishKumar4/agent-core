@@ -23,9 +23,11 @@ import {
     SemVer,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    isJsonObject,
     type JsonValue
 } from "../../src/core";
 import { corrupt } from "../helpers/corrupt";
+import { violating } from "../helpers/malformed";
 import { PackageId, PackagePin } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
 import { BindingName, FacetRef, OperationRef, ProtectionDomain } from "../../src/facets";
@@ -434,12 +436,12 @@ describe("AuthorityPermit", () => {
             expect(Object.isFrozen(decoded.target)).toBe(true);
             expect(Object.isFrozen(decoded.reservation.obligation)).toBe(true);
 
-            const envelope = decodeCanonicalJson(AuthorityPermit.encode(permit)) as {
-                kind: string;
-                version: { major: number; minor: number };
-                payload: Record<string, unknown>;
-            };
-            expect(Object.keys(envelope.payload).sort()).toEqual([
+            const envelope = decodeCanonicalJson(AuthorityPermit.encode(permit));
+            if (!isJsonObject(envelope) || !isJsonObject(envelope["payload"])) {
+                throw new TypeError("Permit envelope must carry an object payload");
+            }
+            const payload = envelope["payload"];
+            expect(Object.keys(payload).sort()).toEqual([
                 "argumentsDigest",
                 "attemptOrdinal",
                 "authority",
@@ -466,8 +468,11 @@ describe("AuthorityPermit", () => {
                 "target",
                 "tenant"
             ]);
-            envelope.payload["ambientAuthority"] = true;
-            expect(() => AuthorityPermit.decode(encodeCanonicalJson(envelope as never))).toThrow(
+            const ambient = encodeCanonicalJson({
+                ...envelope,
+                payload: { ...payload, ambientAuthority: true }
+            });
+            expect(() => AuthorityPermit.decode(ambient)).toThrow(
                 /missing or unknown fields/
             );
         }
@@ -551,7 +556,9 @@ describe("AuthorityPermit", () => {
         expect(() => expectation({ target: { ...expectation().target, fence: -1 } })).toThrow(
             /non-negative/
         );
-        expect(() => expectation({ impact: "invalid" as never })).toThrow(/impact is invalid/);
+        expect(() => expectation(violating(expectation(), { impact: "invalid" }))).toThrow(
+            /impact is invalid/
+        );
         expect(
             () =>
                 new AuthorityPermit({
@@ -587,12 +594,10 @@ describe("AuthorityPermit", () => {
                 reservation: {
                     run: new RunId("permit-run"),
                     registryEpoch: 5,
-                    obligation: {
-                        kind: "route" as never,
-                        invocation,
-                        itemIndex: 2,
-                        itemKey
-                    }
+                    obligation: violating(
+                        { kind: "invocationItem", invocation, itemIndex: 2, itemKey } as const,
+                        { kind: "route" }
+                    )
                 }
             })
         ).toThrow(TypeError);
@@ -742,10 +747,7 @@ describe("AuthorityPermit", () => {
             const snapshot = issuerStore.snapshot();
             expect(
                 () =>
-                    new MemoryAuthorityPermitStore(issuerActor, {
-                        ...snapshot,
-                        version: 2
-                    } as never)
+                    new MemoryAuthorityPermitStore(issuerActor, violating(snapshot, { version: 2 }))
             ).toThrow(/malformed/);
             expect(
                 () =>
@@ -792,7 +794,7 @@ describe("AuthorityPermit", () => {
             try {
                 new MemoryAuthorityPermitStore(targetActor, {
                     version: 1,
-                    issued: [{ nonce: 5 as never, bytes: snapshot.issued[0]!.bytes }],
+                    issued: [violating(snapshot.issued[0]!, { nonce: 5 })],
                     consumed: []
                 });
             } catch (error) {
@@ -826,6 +828,9 @@ describe("AuthorityPermit", () => {
         { tags: "p1" },
         () => {
             const digestValue = Digest.sha256(Uint8Array.of(1)).value;
+            // SAFETY: each entry is a stored ownership snapshot no writer can produce — an
+            // absent record, a numeric nonce, a numeric digest. They exist to show the
+            // store re-reads what it loads rather than trusting that it wrote it.
             const snapshots = [
                 { version: 1, issued: [null as never], consumed: [] },
                 { version: 1, issued: [], consumed: [null as never] },
@@ -1829,7 +1834,7 @@ class FixedIssuedRecordSource extends AuthorityPermitIssuedRecordSource {
     }
 }
 
-function caughtAgentCoreError(run: () => unknown): AgentCoreError {
+function caughtAgentCoreError(run: () => void): AgentCoreError {
     let caught: unknown;
     try {
         run();

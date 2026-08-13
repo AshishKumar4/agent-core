@@ -3,6 +3,7 @@ import {
     Digest,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    isJsonObject,
     type JsonValue
 } from "../../../src/core";
 import {
@@ -821,14 +822,17 @@ function supportedRecord(seed: string): ManagedStateRecord {
     );
 }
 
+/** One installed generation with the managed-state record it wrote. */
+type InstalledClosure = {
+    readonly generation: MaterializationGeneration;
+    readonly record: ManagedStateRecord;
+};
+
 function installSupportedClosure(
     store: SqliteMaterializationStore,
     actor: ReturnType<typeof actorRef>,
     seed: string
-): {
-    readonly generation: MaterializationGeneration;
-    readonly record: ManagedStateRecord;
-} {
+): InstalledClosure {
     const plan = supportedPlan(actor, seed);
     const actorPlan = plan.actors[0]!;
     const generation = MaterializationGeneration.fromActorPlan(actorPlan);
@@ -864,16 +868,42 @@ function managedOrigin(seed: string): ManagedOrigin {
     });
 }
 
+/**
+ * Rewrites a record's projection kinds to the pre-rename value, so the store can be shown
+ * refusing a closure written before the vocabulary changed.
+ */
 function withLegacyPlanKind(bytes: Uint8Array): Uint8Array {
-    const envelope = decodeCanonicalJson(bytes) as unknown as MutablePlanEnvelope;
-    envelope.payload.actors[0]!.projections[0]!.recordKind = "binding";
-    return encodeCanonicalJson(envelope as unknown as JsonValue);
+    const envelope = structuredClone(decodeCanonicalJson(bytes));
+    for (const projection of legacyProjections(envelope)) projection["recordKind"] = "binding";
+    return encodeCanonicalJson(envelope);
 }
 
 function withLegacyManagedStateKind(bytes: Uint8Array): Uint8Array {
-    const envelope = decodeCanonicalJson(bytes) as unknown as MutableManagedStateEnvelope;
-    envelope.payload.recordKind = "binding";
-    return encodeCanonicalJson(envelope as unknown as JsonValue);
+    const envelope = structuredClone(decodeCanonicalJson(bytes));
+    payloadOf(envelope)["recordKind"] = "binding";
+    return encodeCanonicalJson(envelope);
+}
+
+function mutableObject(value: JsonValue | undefined, subject: string): MutableJsonObject {
+    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
+    // SAFETY: every value reaching here comes from the structuredClone its caller took, so
+    // this module owns the whole tree. JsonValue models JSON as readonly because callers
+    // usually hold shared values; these writes reach only the private clone.
+    return value as MutableJsonObject;
+}
+
+function payloadOf(envelope: JsonValue): MutableJsonObject {
+    return mutableObject(mutableObject(envelope, "Record envelope")["payload"], "Record payload");
+}
+
+function legacyProjections(envelope: JsonValue): readonly MutableJsonObject[] {
+    const actors = payloadOf(envelope)["actors"];
+    if (!Array.isArray(actors)) throw new TypeError("Plan payload must carry an actor list");
+    return actors.flatMap((actor) => {
+        const projections = mutableObject(actor, "Plan actor")["projections"];
+        if (!Array.isArray(projections)) throw new TypeError("Plan actor must carry projections");
+        return projections.map((projection) => mutableObject(projection, "Plan projection"));
+    });
 }
 
 function normalizedSql(
@@ -885,18 +915,5 @@ function normalizedSql(
     return sql.replaceAll(/\s+/g, " ");
 }
 
-interface MutablePlanEnvelope {
-    readonly kind: string;
-    readonly version: { readonly major: number; readonly minor: number };
-    readonly payload: {
-        readonly actors: Array<{
-            readonly projections: Array<{ recordKind: string }>;
-        }>;
-    };
-}
-
-interface MutableManagedStateEnvelope {
-    readonly kind: string;
-    readonly version: { readonly major: number; readonly minor: number };
-    readonly payload: { recordKind: string };
-}
+/** A decoded JSON object this module owns outright and may write through. */
+type MutableJsonObject = { [key: string]: JsonValue };

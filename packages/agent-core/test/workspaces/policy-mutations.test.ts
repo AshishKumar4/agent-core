@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { JsonValue } from "../../src/core";
+import { isJsonObject, type JsonValue } from "../../src/core";
 import { EventPattern, FieldMove, PayloadMapping } from "../../src/facets";
 import {
     applyPayloadMapping,
@@ -11,17 +11,11 @@ import {
 } from "../../src/workspaces/policy";
 import { eventFixture, principal } from "./fixtures";
 
-type JsonObject = { readonly [key: string]: JsonValue };
-
-function isJsonObject(value: JsonValue): value is JsonObject {
-    return value !== null && !Array.isArray(value) && typeof value === "object";
-}
-
 function mappingOf(...moves: readonly FieldMove[]): PayloadMapping {
     return new PayloadMapping(moves);
 }
 
-function expectSubscriptionInvalid(action: () => unknown, message: string): void {
+function expectSubscriptionInvalid(action: () => void, message: string): void {
     expect(action).toThrow(
         expect.objectContaining({ code: "subscription.invalid", message, name: "AgentCoreError" })
     );
@@ -286,8 +280,7 @@ describe("payload mapping", () => {
         expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
         expect(Object.hasOwn(result, "__proto__")).toBe(true);
         expect(Object.getOwnPropertyDescriptor(result, "__proto__")?.value).toStrictEqual({ x: 1 });
-        const probe: { readonly x?: number } = {};
-        expect(probe.x).toBeUndefined();
+        expect(Object.hasOwn(Object.prototype, "x")).toBe(false);
         expect(Object.hasOwn({}, "x")).toBe(false);
     });
 });

@@ -339,6 +339,9 @@ function crossReservation(suffix: string): RouteReservation {
 
 describe("authenticated projection provenance", () => {
     test("a prototype-forged projection lacks host authentication", { tags: "p0" }, () => {
+        // SAFETY: Object.create returns a bare prototype instance the constructor never
+        // ran on, so it carries none of the host authentication. Only a value that passes
+        // `instanceof` while lacking that evidence reaches the guard under test.
         const forged = Object.create(
             AuthenticatedRouteProjection.prototype
         ) as AuthenticatedRouteProjection;

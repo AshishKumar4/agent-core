@@ -1,10 +1,13 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
+import { malformed } from "../helpers/malformed";
 import {
     Digest,
     Revision,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    isJsonObject,
+    type JsonObject,
     type JsonValue
 } from "../../src/core";
 import { AgentCoreError, type AgentCoreErrorCode } from "../../src/errors";
@@ -31,7 +34,7 @@ import {
 } from "../../src/authority/binding-evidence";
 import { AuthorityCheckEvidence, AuthorityCheckRequest } from "../../src/authority/evidence";
 import { InvalidationWatermark, PathEpochEvidence, ScopeEpoch } from "../../src/authority/epoch";
-import { Grant } from "../../src/authority/grant";
+import { Grant, type GrantEffect } from "../../src/authority/grant";
 import { GrantId } from "../../src/authority/id";
 import { RoleGrantMaterializer } from "../../src/authority/materializer";
 import { EpochPlanner } from "../../src/authority/planner";
@@ -158,6 +161,8 @@ describe("canonical capability hard gates", () => {
         expect(
             () => new CapabilitySpec({ facetPattern: "*", operations: [""], impacts: ["observe"] })
         ).toThrow(TypeError);
+        // SAFETY: the impacts list is typed as non-empty, so an empty one cannot be
+        // written down. The constructor checks it anyway, which is what this asserts.
         expect(() => new CapabilitySpec({ facetPattern: "*", impacts: [] as never })).toThrow(
             TypeError
         );
@@ -248,7 +253,7 @@ describe("Grant and authority identifier hard gates", () => {
                     new GrantId("bad-effect"),
                     workspaceScope,
                     binding.subject,
-                    "bad" as never,
+                    malformed<GrantEffect>("bad"),
                     new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
                     { kind: "direct" }
                 )
@@ -263,7 +268,7 @@ describe("Grant and authority identifier hard gates", () => {
                     new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
                     {
                         kind: "role",
-                        membershipId: "x".repeat(257) as never,
+                        membershipId: malformed<MembershipId>("x".repeat(257)),
                         roleName: "reader",
                         ruleOrdinal: 0,
                         guest: false
@@ -458,6 +463,7 @@ describe("Binding and epoch hard gates", () => {
             () => new ScopeEpoch(tenantScope, Number.MAX_SAFE_INTEGER).next(),
             "protocol.invalid-state"
         );
+        // SAFETY: the evidence list is typed as non-empty; the constructor rechecks it.
         expect(() => new PathEpochEvidence([] as never)).toThrow(TypeError);
         expect(() => new PathEpochEvidence([new ScopeEpoch(projectScope, 1)])).toThrow(TypeError);
         expect(
@@ -699,7 +705,7 @@ describe("typed authority evidence hard gates", () => {
         expectRecordMutationFailure(AuthorityCheckRequest.codec, checkRequest(), (payload) => ({
             ...payload,
             intent: {
-                ...(payload["intent"] as Record<string, JsonValue>),
+                ...intentOf(payload),
                 impact: "unknown"
             }
         }));
@@ -715,7 +721,7 @@ describe("typed authority evidence hard gates", () => {
             expectRecordMutationSuccess(AuthorityCheckRequest.codec, request, (payload) => ({
                 ...payload,
                 intent: {
-                    ...(payload["intent"] as Record<string, JsonValue>),
+                    ...intentOf(payload),
                     impact
                 }
             }));
@@ -803,7 +809,7 @@ describe("materialization and epoch planning operational errors", () => {
             "protocol.invalid-state"
         );
         expectAgentError(
-            () => planner.plan([], [{ kind: "unknown" } as never]),
+            () => planner.plan([], [malformed({ kind: "unknown" })]),
             "protocol.invalid-state"
         );
     });
@@ -903,7 +909,7 @@ function validationEvidence(
     );
 }
 
-function expectAgentError(action: () => unknown, code: AgentCoreErrorCode): void {
+function expectAgentError(action: () => void, code: AgentCoreErrorCode): void {
     try {
         action();
         throw new Error("Expected AgentCoreError");
@@ -913,52 +919,39 @@ function expectAgentError(action: () => unknown, code: AgentCoreErrorCode): void
     }
 }
 
+/** The intent object inside a check-request payload. */
+function intentOf(payload: JsonObject): JsonObject {
+    const intent = payload["intent"];
+    if (!isJsonObject(intent)) throw new TypeError("Check request must carry an object intent");
+    return intent;
+}
+
 function expectRecordMutationFailure<Value>(
     codec: { encode(value: Value): Uint8Array; decode(bytes: Uint8Array): Value },
     value: Value,
-    mutate: (payload: Record<string, JsonValue>) => Record<string, JsonValue>
+    mutate: (payload: JsonObject) => JsonObject
 ): void {
     const envelope = decodeCanonicalJson(codec.encode(value));
-    if (envelope === null || Array.isArray(envelope) || typeof envelope !== "object") {
+    if (!isJsonObject(envelope) || !isJsonObject(envelope["payload"])) {
         throw new TypeError("Expected record envelope");
     }
-    const object = envelope as Record<string, JsonValue>;
-    if (
-        object["payload"] === null ||
-        Array.isArray(object["payload"]) ||
-        typeof object["payload"] !== "object"
-    )
-        throw new TypeError("Expected record envelope");
+    const payload = envelope["payload"];
     expect(() =>
-        codec.decode(
-            encodeCanonicalJson({
-                ...object,
-                payload: mutate(object["payload"] as Record<string, JsonValue>)
-            })
-        )
+        codec.decode(encodeCanonicalJson({ ...envelope, payload: mutate(payload) }))
     ).toThrow();
 }
 
 function expectRecordMutationSuccess<Value>(
     codec: { encode(value: Value): Uint8Array; decode(bytes: Uint8Array): Value },
     value: Value,
-    mutate: (payload: Record<string, JsonValue>) => Record<string, JsonValue>
+    mutate: (payload: JsonObject) => JsonObject
 ): void {
     const envelope = decodeCanonicalJson(codec.encode(value));
-    if (envelope === null || Array.isArray(envelope) || typeof envelope !== "object") {
-        throw new TypeError("Expected record envelope");
-    }
-    const object = envelope as Record<string, JsonValue>;
-    const payload = object["payload"];
-    if (payload === null || Array.isArray(payload) || typeof payload !== "object") {
+    if (!isJsonObject(envelope) || !isJsonObject(envelope["payload"])) {
         throw new TypeError("Expected record payload");
     }
+    const payload = envelope["payload"];
     expect(
-        codec.decode(
-            encodeCanonicalJson({
-                ...object,
-                payload: mutate(payload as Record<string, JsonValue>)
-            })
-        )
+        codec.decode(encodeCanonicalJson({ ...envelope, payload: mutate(payload) }))
     ).toBeDefined();
 }

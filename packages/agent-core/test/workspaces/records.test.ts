@@ -1,6 +1,20 @@
 import { describe, expect, test } from "vitest";
 import { TurnId } from "../../src/agents";
-import { encodeCanonicalJson, type JsonValue } from "../../src/core";
+import {
+    decodeCanonicalJson,
+    encodeCanonicalJson,
+    isJsonObject,
+    type JsonValue
+} from "../../src/core";
+import { requireInteger } from "../../src/workspaces/codec";
+import { codecCase } from "../helpers/codec-case";
+
+function fieldOf(value: JsonValue, field: string): JsonValue {
+    if (!isJsonObject(value)) throw new TypeError(`Expected an object holding ${field}`);
+    const nested = value[field];
+    if (nested === undefined) throw new TypeError(`Expected a ${field} field`);
+    return nested;
+}
 import { EventPattern, FieldMove, PayloadMapping } from "../../src/facets";
 import { Event } from "../../src/workspaces/event";
 import { InboxEventReference } from "../../src/workspaces/inbox";
@@ -39,42 +53,41 @@ describe("workspace durable records", () => {
     const inbox = inboxFixture("codec", 2, 4, new TurnId("turn-codec"));
     const retention = eventRetention(event, "retention-codec");
     const records = [
-        ["Event", Event.codec, event],
-        ["Subscription", Subscription.codec, subscription],
-        ["RouteReservation", RouteReservation.codec, reservation],
-        ["RouteProjection", RouteProjection.codec, projection],
-        ["RouteDelivery", RouteDelivery.codec, delivery],
-        ["View", View.codec, view],
-        ["ViewDelta", ViewDelta.codec, delta],
-        ["InboxEventReference", InboxEventReference.codec, inbox],
-        ["ContentRetentionReference", ContentRetentionReference.codec, retention]
+        ["Event", codecCase(Event.codec, event)],
+        ["Subscription", codecCase(Subscription.codec, subscription)],
+        ["RouteReservation", codecCase(RouteReservation.codec, reservation)],
+        ["RouteProjection", codecCase(RouteProjection.codec, projection)],
+        ["RouteDelivery", codecCase(RouteDelivery.codec, delivery)],
+        ["View", codecCase(View.codec, view)],
+        ["ViewDelta", codecCase(ViewDelta.codec, delta)],
+        ["InboxEventReference", codecCase(InboxEventReference.codec, inbox)],
+        ["ContentRetentionReference", codecCase(ContentRetentionReference.codec, retention)]
     ] as const;
 
-    test.each(records)("round-trips %s through canonical codec bytes", { tags: "p1" }, (_name, codec, record) => {
-        const recordCodec = codec as {
-            encode(value: unknown): Uint8Array;
-            decode(bytes: Uint8Array): unknown;
-        };
-        const encoded = recordCodec.encode(record);
-        const decoded = recordCodec.decode(encoded);
+    test.each(records)("round-trips %s through canonical codec bytes", { tags: "p1" }, (_name, subject) => {
+        const encoded = subject.encode();
 
-        expect(recordCodec.encode(decoded)).toEqual(encoded);
-        expect(Object.isFrozen(decoded)).toBe(true);
+        expect(subject.reencode(encoded)).toEqual(encoded);
+        expect(subject.decodeIsFrozen(encoded)).toBe(true);
     });
 
-    test.each(records)("rejects an unknown major for %s", { tags: "p2" }, (_name, codec, record) => {
-        const recordCodec = codec as {
-            encode(value: unknown): Uint8Array;
-            decode(bytes: Uint8Array): unknown;
-        };
-        const envelope = JSON.parse(new TextDecoder().decode(recordCodec.encode(record))) as {
-            version: { major: number; minor: number };
-        };
-        envelope.version.major += 1;
+    test.each(records)("rejects an unknown major for %s", { tags: "p2" }, (_name, subject) => {
+        const envelope = decodeCanonicalJson(subject.encode());
+        if (!isJsonObject(envelope) || !isJsonObject(envelope["version"])) {
+            throw new TypeError("Record envelope must carry an object version");
+        }
+        const version = envelope["version"];
+        const future = encodeCanonicalJson({
+            ...envelope,
+            version: {
+                ...version,
+                major: requireInteger(version["major"], "Record codec major") + 1
+            }
+        });
 
-        expect(() =>
-            recordCodec.decode(encodeCanonicalJson(envelope as unknown as JsonValue))
-        ).toThrow(expect.objectContaining({ code: "codec.unknown-major" }));
+        expect(() => subject.decode(future)).toThrow(
+            expect.objectContaining({ code: "codec.unknown-major" })
+        );
     });
 
     test("defensively copies and deeply freezes mutable record inputs", { tags: "p1" }, () => {
@@ -88,7 +101,7 @@ describe("workspace durable records", () => {
         claims.groups.push("attacker");
         expect(provenance.claims).toEqual({ groups: ["alpha"], nested: { role: "operator" } });
         expect(Object.isFrozen(provenance.claims)).toBe(true);
-        expect(Object.isFrozen((provenance.claims as { nested: object }).nested)).toBe(true);
+        expect(Object.isFrozen(fieldOf(provenance.claims, "nested"))).toBe(true);
 
         const sourceMoves = [new FieldMove("/value", { literal: { nested: [1] } })];
         const copiedSubscription = subscriptionFixture("immutable", {
@@ -108,7 +121,7 @@ describe("workspace durable records", () => {
         });
         mutableBody.nested.value = 2;
         expect(copiedView.body).toEqual({ nested: { value: 1 } });
-        expect(Object.isFrozen((copiedView.body as { nested: object }).nested)).toBe(true);
+        expect(Object.isFrozen(fieldOf(copiedView.body, "nested"))).toBe(true);
 
         const patch = [{ op: "replace", path: "/body", value: { nested: [1] } }];
         const copiedDelta = new ViewDelta({
@@ -120,7 +133,7 @@ describe("workspace durable records", () => {
         });
         patch[0]!.path = "/forged";
         expect(copiedDelta.patch[0]).toMatchObject({ path: "/body" });
-        expect(Object.isFrozen((copiedDelta.patch[0] as { value: object }).value)).toBe(true);
+        expect(Object.isFrozen(fieldOf(copiedDelta.patch[0]!, "value"))).toBe(true);
 
         for (const record of [
             event,
@@ -149,7 +162,10 @@ describe("workspace durable records", () => {
         expect(view.actions.every(Object.isFrozen)).toBe(true);
         expect(Object.isFrozen(delta.patch)).toBe(true);
         expect(
-            delta.patch.every((value) => typeof value !== "object" || Object.isFrozen(value))
+            delta.patch.every(
+                (value) =>
+                    !(Array.isArray(value) || isJsonObject(value)) || Object.isFrozen(value)
+            )
         ).toBe(true);
         expect(Object.isFrozen(inbox.init)).toBe(true);
         expect(Object.isFrozen(retention.init)).toBe(true);
@@ -300,27 +316,25 @@ describe("event policy", () => {
     });
 
     test("treats prototype names as inert own JSON keys", { tags: "p1" }, () => {
-        delete (Object.prototype as { polluted?: unknown }).polluted;
+        Reflect.deleteProperty(Object.prototype, "polluted");
         try {
             const mapped = applyPayloadMapping(
                 new PayloadMapping([
                     new FieldMove("/__proto__/polluted", { literal: true }),
                     new FieldMove("/constructorValue", { from: "/constructor" })
                 ]),
-                JSON.parse('{"constructor":"source-value"}') as JsonValue
-            ) as {
-                readonly __proto__: { readonly polluted: boolean };
-                readonly constructorValue: string;
-            };
+                { constructor: "source-value" }
+            );
+            if (!isJsonObject(mapped)) throw new TypeError("Mapping result must be an object");
 
-            expect.soft(({} as { polluted?: unknown }).polluted).toBeUndefined();
+            expect.soft(Object.hasOwn(Object.prototype, "polluted")).toBe(false);
             expect.soft(Object.hasOwn(mapped, "__proto__")).toBe(true);
             if (Object.hasOwn(mapped, "__proto__")) {
-                expect.soft(mapped.__proto__).toEqual({ polluted: true });
+                expect.soft(mapped["__proto__"]).toEqual({ polluted: true });
             }
-            expect.soft(mapped.constructorValue).toBe("source-value");
+            expect.soft(mapped["constructorValue"]).toBe("source-value");
         } finally {
-            delete (Object.prototype as { polluted?: unknown }).polluted;
+            Reflect.deleteProperty(Object.prototype, "polluted");
         }
     });
 

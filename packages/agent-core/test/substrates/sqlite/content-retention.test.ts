@@ -83,7 +83,7 @@ class BlobRecordingSqlite extends TestSqlite {
     }
 }
 
-function caught(operation: () => unknown): unknown {
+function caught(operation: () => void): unknown {
     try {
         operation();
     } catch (error) {
@@ -93,7 +93,7 @@ function caught(operation: () => unknown): unknown {
 }
 
 function expectExactError(
-    operation: () => unknown,
+    operation: () => void,
     code: AgentCoreErrorCode,
     message: string
 ): void {
@@ -103,7 +103,7 @@ function expectExactError(
 }
 
 function expectErrorMatching(
-    operation: () => unknown,
+    operation: () => void,
     code: AgentCoreErrorCode,
     pattern: RegExp
 ): void {

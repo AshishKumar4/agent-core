@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { decodeCanonicalJson, encodeCanonicalJson, type JsonValue } from "../../src/core";
+import {
+    decodeCanonicalJson,
+    encodeCanonicalJson,
+    isJsonObject,
+    type JsonObject,
+    type JsonValue
+} from "../../src/core";
 import {
     decodeContent,
     decodeOptionalPrincipalRef,
@@ -16,14 +22,6 @@ import { InboxEventReference } from "../../src/workspaces/inbox";
 import { ContentRetentionReference } from "../../src/workspaces/retention";
 import { Subscription } from "../../src/workspaces/subscription";
 import { content, inboxFixture, retentionFixture, subscriptionFixture } from "./fixtures";
-
-type JsonObject = { readonly [key: string]: JsonValue };
-
-function isJsonObject(value: JsonValue | undefined): value is JsonObject {
-    return (
-        value !== undefined && value !== null && !Array.isArray(value) && typeof value === "object"
-    );
-}
 
 function recordPayload(bytes: Uint8Array): JsonObject {
     const envelope = decodeCanonicalJson(bytes);

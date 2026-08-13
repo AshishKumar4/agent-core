@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { ActorId } from "../../src/actors";
+import { callableRecord, violating } from "../helpers/malformed";
 import { AuthorityMutationService, Binding, Grant, GrantId } from "../../src/authority";
 import {
     MemoryTenantControlStore,
@@ -297,7 +298,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
             () =>
                 MemoryTenantControlStore.restore({
                     ...snapshot,
-                    anchor: { ...snapshot.anchor, tenantKind: "invalid" as never }
+                    anchor: violating(snapshot.anchor, { tenantKind: "invalid" })
                 }),
             "codec.invalid",
             "Memory Tenant control bootstrap Tenant kind is invalid"
@@ -324,14 +325,14 @@ describe("MemoryTenantControlStore mutation gates", () => {
         expectAgentCoreError(
             () =>
                 MemoryTenantControlStore.restore(
-                    Object.assign(() => undefined, { ...snapshot }) as never
+                    callableRecord(Object.assign(() => undefined, { ...snapshot }))
                 ),
             "codec.invalid",
             "Memory Tenant control snapshot is malformed"
         );
 
         expectAgentCoreError(
-            () => MemoryTenantControlStore.restore({ ...snapshot, anchor: null as never }),
+            () => MemoryTenantControlStore.restore(violating(snapshot, { anchor: null })),
             "codec.invalid",
             "Memory Tenant control bootstrap anchor is malformed"
         );
@@ -339,7 +340,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
             () =>
                 MemoryTenantControlStore.restore({
                     ...snapshot,
-                    anchor: Object.assign(() => undefined, { ...snapshot.anchor }) as never
+                    anchor: callableRecord(Object.assign(() => undefined, { ...snapshot.anchor }))
                 }),
             "codec.invalid",
             "Memory Tenant control bootstrap anchor is malformed"
@@ -349,7 +350,9 @@ describe("MemoryTenantControlStore mutation gates", () => {
             () =>
                 MemoryTenantControlStore.restore({
                     ...snapshot,
-                    anchor: { ...anchorRest, renamed: renamedKind } as never
+                    anchor: violating<typeof snapshot.anchor>(anchorRest, {
+                        renamed: renamedKind
+                    })
                 }),
             "codec.invalid",
             "Memory Tenant control bootstrap anchor is malformed"
@@ -364,7 +367,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
             "Memory Tenant control bootstrap anchor is malformed"
         );
         expectAgentCoreError(
-            () => MemoryTenantControlStore.create({ ...anchor, trustAnchor: null as never }),
+            () => MemoryTenantControlStore.create(violating(anchor, { trustAnchor: null })),
             "codec.invalid",
             "Memory Tenant control bootstrap anchor is malformed"
         );
@@ -373,7 +376,9 @@ describe("MemoryTenantControlStore mutation gates", () => {
             () =>
                 MemoryTenantControlStore.restore({
                     ...snapshot,
-                    marker: Object.assign(() => undefined, { ...markerOf(snapshot) }) as never
+                    marker: callableRecord(
+                        Object.assign(() => undefined, { ...markerOf(snapshot) })
+                    )
                 }),
             "codec.invalid",
             "Memory Tenant control snapshot is malformed"
@@ -382,7 +387,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
             () =>
                 MemoryTenantControlStore.restore({
                     ...snapshot,
-                    marker: { ...markerOf(snapshot), extra: true } as never
+                    marker: violating(markerOf(snapshot), { extra: true })
                 }),
             "codec.invalid",
             "Memory Tenant control bootstrap marker is malformed"
@@ -393,10 +398,12 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 MemoryTenantControlStore.restore({
                     ...snapshot,
                     grants: [
-                        Object.assign(() => undefined, {
-                            id: grantRecord.id,
-                            bytes: grantRecord.bytes.slice()
-                        }) as never
+                        callableRecord(
+                            Object.assign(() => undefined, {
+                                id: grantRecord.id,
+                                bytes: grantRecord.bytes.slice()
+                            })
+                        )
                     ]
                 }),
             "codec.invalid",
@@ -406,7 +413,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
             () =>
                 MemoryTenantControlStore.restore({
                     ...snapshot,
-                    grants: [{ id: 5 as never, bytes: grantRecord.bytes.slice() }]
+                    grants: [violating(grantRecord, { id: 5 })]
                 }),
             "codec.invalid",
             "Memory Tenant control Grant snapshot record is malformed"
@@ -937,6 +944,9 @@ describe("MemoryTenantControlStore mutation gates", () => {
             "protocol.invalid-state",
             "Workspace topology is immutable"
         );
+        // SAFETY: the Workspace constructor rejects any revision but zero, so a revised
+        // Workspace cannot be constructed. Assembling one structurally is the only way to
+        // reach the store's own check, which is what this asserts still fires.
         expectEagerRejection(
             store,
             (candidate) =>
@@ -1269,14 +1279,14 @@ describe("MemoryTenantControlStore mutation gates", () => {
             "codec.invalid",
             "Authority Project Scope is not canonical"
         );
-        const projectScopeWithoutId = {
+        const projectScopeWithoutId = violating<ScopeRef>({
             kind: "project",
             tenantId,
             projectId: undefined,
             workspaceId: undefined,
             path: [],
             equals: () => false
-        } as unknown as ScopeRef;
+        });
         expectEagerRejection(
             store,
             (candidate) =>
@@ -1331,14 +1341,14 @@ describe("MemoryTenantControlStore mutation gates", () => {
             "codec.invalid",
             "Authority Workspace Scope is not canonical"
         );
-        const workspaceScopeWithoutId = {
+        const workspaceScopeWithoutId = violating<ScopeRef>({
             kind: "workspace",
             tenantId,
             projectId: undefined,
             workspaceId: undefined,
             path: [],
             equals: () => false
-        } as unknown as ScopeRef;
+        });
         expectEagerRejection(
             store,
             (candidate) =>
@@ -1485,6 +1495,9 @@ describe("MemoryTenantControlStore mutation gates", () => {
         const functionThenable = new Proxy(() => undefined, {
             has: (_target, key) => key === "then"
         });
+        // SAFETY: a callable that answers `"then" in value` without being a promise. The
+        // store detects a deferred result by that probe alone, so no synchronous result
+        // type can stand in for it.
         expect(() => store.transaction(() => functionThenable as never)).toThrow(
             "Memory Tenant control transactions must be synchronous"
         );
@@ -1495,9 +1508,9 @@ describe("MemoryTenantControlStore mutation gates", () => {
         { tags: "p0" },
         async () => {
             const { store } = bootstrapped();
-            const rejections: unknown[] = [];
-            const listener = (reason: unknown): void => {
-                rejections.push(reason);
+            const rejections: string[] = [];
+            const listener: NodeJS.UnhandledRejectionListener = (reason) => {
+                rejections.push(String(reason));
             };
             process.on("unhandledRejection", listener);
             try {
@@ -1689,7 +1702,13 @@ function bindingAt(name: string, grantId: GrantId, generation: number, revision:
     );
 }
 
-function bootstrapped(): { store: MemoryTenantControlStore; service: AuthorityMutationService } {
+/** A bootstrapped Tenant control store with the service that mutates it. */
+type BootstrappedTenantControl = {
+    readonly store: MemoryTenantControlStore;
+    readonly service: AuthorityMutationService;
+};
+
+function bootstrapped(): BootstrappedTenantControl {
     const store = MemoryTenantControlStore.create(anchor);
     store.bootstrapTenant(anchor, Revision.initial());
     const service = new AuthorityMutationService(store);
@@ -1791,7 +1810,7 @@ function expectDefined<Value>(value: Value | undefined, label: string): Value {
 }
 
 function expectAgentCoreError(
-    action: () => unknown,
+    action: () => void,
     code: AgentCoreErrorCode,
     message: string
 ): void {

@@ -61,6 +61,9 @@ class SqliteHarness implements InvocationHarness<TransactionalSqlite> {
     public ledger = createLedger(this.persistence);
 
     public transaction<Result>(operation: (transaction: TransactionalSqlite) => Result): Result {
+        // SAFETY: the guard is a phantom tuple that forces callers to prove their result
+        // is synchronous. This double delegates a result the inner database already
+        // checked, so it has nothing further to prove and passes the empty tuple.
         return this.database.transaction(
             () => operation(this.database),
             ...([] as SynchronousResultGuard<Result>)
@@ -471,7 +474,7 @@ describe("SqliteInvocationPersistence append conflict taxonomy", () => {
         database.fault = () => {
             throw Object.assign(new TypeError("disk io failure"), { code: "SQLITE_IOERR" });
         };
-        let caught: unknown = "unset";
+        let caught: unknown;
         try {
             persistence.insertPrepared(database, prepared("sqlite-io-failure"));
         } catch (error) {
@@ -484,11 +487,11 @@ describe("SqliteInvocationPersistence append conflict taxonomy", () => {
     test("rethrows null substrate failures without conversion", { tags: "p1" }, () => {
         const database = new FaultingSqlite();
         const persistence = createSqliteInvocationPersistence(database);
-        const torn: unknown = null;
+        const torn = null;
         database.fault = () => {
             throw torn;
         };
-        let caught: unknown = "unset";
+        let caught: unknown;
         try {
             persistence.insertPrepared(database, prepared("sqlite-null-failure"));
         } catch (error) {
@@ -504,7 +507,7 @@ describe("SqliteInvocationPersistence append conflict taxonomy", () => {
         database.fault = () => {
             throw torn;
         };
-        let caught: unknown = "unset";
+        let caught: unknown;
         try {
             persistence.insertPrepared(database, prepared("sqlite-undefined-failure"));
         } catch (error) {
@@ -516,11 +519,11 @@ describe("SqliteInvocationPersistence append conflict taxonomy", () => {
     test("keeps substrate failures with a non-text message unclassified", { tags: "p1" }, () => {
         const database = new FaultingSqlite();
         const persistence = createSqliteInvocationPersistence(database);
-        const torn: unknown = { message: ["unique constraint"] };
+        const torn = { message: ["unique constraint"] };
         database.fault = () => {
             throw torn;
         };
-        let caught: unknown = "unset";
+        let caught: unknown;
         try {
             persistence.insertPrepared(database, prepared("sqlite-nontext-message"));
         } catch (error) {
@@ -538,7 +541,7 @@ describe("SqliteInvocationPersistence append conflict taxonomy", () => {
             database.fault = () => {
                 throw new AgentCoreError("codec.invalid", "unique constraint sentinel");
             };
-            let caught: unknown = "unset";
+            let caught: unknown;
             try {
                 persistence.insertPrepared(database, prepared("sqlite-typed-failure"));
             } catch (error) {
@@ -1022,7 +1025,7 @@ function expectInvocationFailure(
     throw new TypeError(`Expected InvocationError ${failure}`);
 }
 
-function expectCorrupt(operation: () => unknown): void {
+function expectCorrupt(operation: () => void): void {
     try {
         operation();
     } catch (error) {

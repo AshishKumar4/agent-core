@@ -362,7 +362,7 @@ function expectation(
 }
 
 function expectExactFailure(
-    operation: () => unknown,
+    operation: () => void,
     code: AgentCoreError["code"],
     message: string
 ): void {

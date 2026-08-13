@@ -47,13 +47,15 @@ export function createSqliteInvocationPersistence(database: TransactionalSqlite)
                 };
             }
             if (record instanceof AttemptReceipt) {
-                return {
+                const projected = {
                     id: record.id.value,
                     variant: record.variant,
                     attempt: record.attempt.value,
-                    ...(record.previous === undefined ? {} : { previous: record.previous.value }),
                     outcome: record.outcome
                 };
+                return record.previous === undefined
+                    ? projected
+                    : { ...projected, previous: record.previous.value };
             }
             throw new TypeError("Unknown Receipt test record");
         },

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { violating } from "../helpers/malformed";
 import { ContentRef, Digest, Revision } from "../../src/core";
 import {
     EnvironmentId,
@@ -447,7 +448,7 @@ describe("MemorySlateStore mutation kills", () => {
             () =>
                 new MemorySlateStore({
                     ...snapshot,
-                    slates: [...snapshot.slates, snapshot.slates[0] as (typeof snapshot.slates)[0]]
+                    slates: [...snapshot.slates, snapshot.slates[0]!]
                 })
         ).toThrowError(
             expect.objectContaining({
@@ -481,7 +482,7 @@ describe("MemorySlateStore mutation kills", () => {
                 () =>
                     new MemorySlateStore({
                         ...snapshot,
-                        [kind]: [...rows, rows[0] as (typeof rows)[0]]
+                        [kind]: [...rows, rows[0]!]
                     })
             ).toThrowError(expect.objectContaining({ code: "protocol.duplicate", message }));
         }
@@ -840,7 +841,7 @@ describe("MemorySlateStore mutation kills", () => {
             )
         );
         const snapshot = store.snapshot();
-        const forged = { value: workspace.value } as unknown as WorkspaceId;
+        const forged = violating<WorkspaceId>({ value: workspace.value });
 
         expect(
             () =>
@@ -854,17 +855,31 @@ describe("MemorySlateStore mutation kills", () => {
 
 let sharedKeyCounter = 0;
 
-function buildGraph(
-    store: MemorySlateStore,
-    workspace: WorkspaceId,
-    label: string
-): {
+/** One Slate with every record that hangs off it, all already stored. */
+type SlateRecordGraph = {
     readonly slate: Slate;
     readonly version: SlateVersion;
     readonly publication: SlatePublication;
     readonly deployment: SlateDeployment;
     readonly resource: SlateResource;
-} {
+};
+
+/** The same graph plus the reservations each record was claimed under. */
+type DetachedSlateRecords = {
+    readonly slate: Slate;
+    readonly version: SlateVersion;
+    readonly publication: SlatePublication;
+    readonly reservation: SlateDeploymentReservation;
+    readonly deployment: SlateDeployment;
+    readonly resourceReservation: SlateResourceReservation;
+    readonly resource: SlateResource;
+};
+
+function buildGraph(
+    store: MemorySlateStore,
+    workspace: WorkspaceId,
+    label: string
+): SlateRecordGraph {
     const slate = Slate.initial(new SlateId(`slate-${label}`), workspace, ref(`${label}-source`));
     expect(store.compareAndSetSlate(undefined, slate)).toBe(true);
     const version = new SlateVersion(
@@ -952,15 +967,7 @@ function buildDetachedRecords(
     store: MemorySlateStore,
     workspace: WorkspaceId,
     label: string
-): {
-    readonly slate: Slate;
-    readonly version: SlateVersion;
-    readonly publication: SlatePublication;
-    readonly reservation: SlateDeploymentReservation;
-    readonly deployment: SlateDeployment;
-    readonly resourceReservation: SlateResourceReservation;
-    readonly resource: SlateResource;
-} {
+): DetachedSlateRecords {
     const slate = Slate.initial(new SlateId(`slate-${label}`), workspace, ref(`${label}-source`));
     expect(store.compareAndSetSlate(undefined, slate)).toBe(true);
     const version = new SlateVersion(

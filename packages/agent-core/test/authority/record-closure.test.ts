@@ -234,10 +234,13 @@ describe.each([
  * because a parent has to exist before its child, so only a store answering with a graph it
  * was never given can present it.
  */
-function cyclicGrants(store: AuthorityMutationStore): {
-    divergent: DivergentAuthorityStore;
-    divergence: AuthorityDivergence;
-} {
+/** A store whose Grant table answers a cycle, with the divergence that produces it. */
+type CyclicGrantClosure = {
+    readonly divergent: DivergentAuthorityStore;
+    readonly divergence: AuthorityDivergence;
+};
+
+function cyclicGrants(store: AuthorityMutationStore): CyclicGrantClosure {
     const service = new AuthorityMutationService(store);
     const first = directGrant("closure-cyclic-first", tenantScope, ownerSubject);
     const second = directGrant("closure-cyclic-second", tenantScope, ownerSubject);

@@ -18,6 +18,7 @@ import {
     type JsonValue
 } from "../../src/core";
 import { corrupt } from "../helpers/corrupt";
+import { malformed, violating } from "../helpers/malformed";
 import { AgentCoreError } from "../../src/errors";
 import {
     GuestTrust,
@@ -138,16 +139,10 @@ describe("MemoryTenantControlStore", () => {
         () => {
             const snapshot = bootstrappedStore().snapshot();
             expect(() =>
-                MemoryTenantControlStore.restore({
-                    ...snapshot,
-                    version: 3
-                } as unknown as typeof snapshot)
+                MemoryTenantControlStore.restore(violating(snapshot, { version: 3 }))
             ).toThrow(/require version 2/);
             expect(() =>
-                MemoryTenantControlStore.restore({
-                    ...snapshot,
-                    extra: true
-                } as unknown as typeof snapshot)
+                MemoryTenantControlStore.restore(violating(snapshot, { extra: true }))
             ).toThrow(/snapshot is malformed/);
             expect(() =>
                 MemoryTenantControlStore.restore({
@@ -175,18 +170,14 @@ describe("MemoryTenantControlStore", () => {
         () => {
             const snapshot = bootstrappedStore().snapshot();
             expect(snapshot.version).toBe(2);
-            const { bindings: _bindings, ...legacyShape } = snapshot;
+            const { bindings: _bindings, ...legacySnapshot } = snapshot;
             expect(() =>
-                MemoryTenantControlStore.restore({
-                    ...legacyShape,
-                    version: 1
-                } as unknown as typeof snapshot)
+                MemoryTenantControlStore.restore(
+                    violating<typeof snapshot>(legacySnapshot, { version: 1 })
+                )
             ).toThrow(/require version 2/);
             expect(() =>
-                MemoryTenantControlStore.restore({
-                    ...snapshot,
-                    version: 1
-                } as unknown as typeof snapshot)
+                MemoryTenantControlStore.restore(violating(snapshot, { version: 1 }))
             ).toThrow(/require version 2/);
         }
     );
@@ -283,6 +274,9 @@ describe("MemoryTenantControlStore", () => {
                 "Memory Tenant control transactions must be synchronous"
             );
             const thenable = new Proxy({}, { has: (_target, key) => key === "then" });
+            // SAFETY: a value that answers `"then" in value` without being a promise. The
+            // store detects a deferred result by that probe alone, so nothing typed as a
+            // synchronous result can stand in for it here.
             expect(() => store.transaction(() => thenable as never)).toThrow(
                 "Memory Tenant control transactions must be synchronous"
             );
@@ -325,7 +319,7 @@ describe("MemoryTenantControlStore", () => {
     );
 
     test("fails closed on malformed anchors and bootstrap requests", { tags: "p0" }, () => {
-        expect(() => MemoryTenantControlStore.create({ ...anchor, actorId: "" as never })).toThrow(
+        expect(() => MemoryTenantControlStore.create(violating(anchor, { actorId: "" }))).toThrow(
             /anchor is malformed/
         );
         expect(() =>
@@ -335,10 +329,7 @@ describe("MemoryTenantControlStore", () => {
             })
         ).toThrow(/anchor is malformed/);
         expect(() =>
-            MemoryTenantControlStore.create({
-                ...anchor,
-                tenantKind: "invalid"
-            } as never)
+            MemoryTenantControlStore.create(violating(anchor, { tenantKind: "invalid" }))
         ).toThrow(/Tenant kind is invalid/);
 
         const fresh = MemoryTenantControlStore.create(anchor);
@@ -363,20 +354,14 @@ describe("MemoryTenantControlStore", () => {
 
     test("rejects malformed marker and anchor snapshot projections", { tags: "p0" }, () => {
         const snapshot = bootstrappedStore().snapshot();
-        expect(() => MemoryTenantControlStore.restore(null as never)).toThrow(
+        expect(() => MemoryTenantControlStore.restore(malformed<typeof snapshot>(null))).toThrow(
             /snapshot is malformed/
         );
         expect(() =>
-            MemoryTenantControlStore.restore({
-                ...snapshot,
-                grants: null
-            } as never)
+            MemoryTenantControlStore.restore(violating(snapshot, { grants: null }))
         ).toThrow(/snapshot is malformed/);
         expect(() =>
-            MemoryTenantControlStore.restore({
-                ...snapshot,
-                marker: "invalid"
-            } as never)
+            MemoryTenantControlStore.restore(violating(snapshot, { marker: "invalid" }))
         ).toThrow(/snapshot is malformed/);
         expect(() =>
             MemoryTenantControlStore.restore({
@@ -387,19 +372,19 @@ describe("MemoryTenantControlStore", () => {
         expect(() =>
             MemoryTenantControlStore.restore({
                 ...snapshot,
-                anchor: { ...snapshot.anchor, tenantId: "" as never }
+                anchor: violating(snapshot.anchor, { tenantId: "" })
             })
         ).toThrow(/anchor is malformed/);
         expectCodecInvalid(() =>
             MemoryTenantControlStore.restore({
                 ...snapshot,
-                anchor: { ...snapshot.anchor, tenantId: "x".repeat(257) as never }
+                anchor: violating(snapshot.anchor, { tenantId: "x".repeat(257) })
             })
         );
         expectCodecInvalid(() =>
             MemoryTenantControlStore.restore({
                 ...snapshot,
-                anchor: { ...snapshot.anchor, actorId: null as never }
+                anchor: violating(snapshot.anchor, { actorId: null })
             })
         );
         expect(() =>
@@ -409,7 +394,7 @@ describe("MemoryTenantControlStore", () => {
             })
         ).toThrow(/duplicate Grant records/);
         expect(() =>
-            MemoryTenantControlStore.restore({ ...snapshot, grants: [null as never] })
+            MemoryTenantControlStore.restore(violating(snapshot, { grants: [null] }))
         ).toThrow(/snapshot record is malformed/);
         expect(() => MemoryTenantControlStore.restore({ ...snapshot, marker: null })).toThrow(
             /not empty/
@@ -807,6 +792,9 @@ describe("MemoryTenantControlStore", () => {
 
     test("rejects direct stale Workspace and revoked Membership rewrites", { tags: "p0" }, () => {
         const store = bootstrappedStore();
+        // SAFETY: the Workspace constructor rejects any revision but zero, so a stale
+        // Workspace cannot be constructed at all. Assembling one structurally is the only
+        // way to reach putWorkspace's own check, which is what this asserts still fires.
         expect(() =>
             store.transaction((candidate) =>
                 candidate.putWorkspace({
@@ -896,7 +884,7 @@ describe("MemoryTenantControlStore", () => {
             const malformed = corrupt(encoded, parentPath, field, value);
             expect(() => Grant.decode(encodeCanonicalJson(malformed))).toThrow();
         }
-        expect(() => PathEpochEvidence.fromData({ path: null } as never)).toThrow(/array/);
+        expect(() => PathEpochEvidence.fromData({ path: null })).toThrow(/array/);
     });
 });
 
@@ -931,7 +919,7 @@ function observeRole(name: string): Role {
     ]);
 }
 
-function expectCodecInvalid(action: () => unknown): void {
+function expectCodecInvalid(action: () => void): void {
     try {
         action();
         throw new Error("Expected codec.invalid");

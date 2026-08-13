@@ -1683,7 +1683,7 @@ class TamperedSqlite extends TransactionalSqlite {
 }
 
 function expectExactFailure(
-    operation: () => unknown,
+    operation: () => void,
     code: AgentCoreError["code"],
     message: string
 ): void {

@@ -1287,7 +1287,7 @@ function attenuated(id: string, parent: GrantId): Grant {
     );
 }
 
-function expectAgentError(action: () => unknown, code: AgentCoreErrorCode, message: string): void {
+function expectAgentError(action: () => void, code: AgentCoreErrorCode, message: string): void {
     try {
         action();
         throw new Error("Expected AgentCoreError");

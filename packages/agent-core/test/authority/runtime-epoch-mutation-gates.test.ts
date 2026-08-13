@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { callableRecord, malformed, violating } from "../helpers/malformed";
 import { ActorId, ActorRef } from "../../src/actors";
 import { Digest, Revision, encodeCanonicalJson } from "../../src/core";
 import { AgentCoreError, type AgentCoreErrorCode } from "../../src/errors";
@@ -547,7 +548,7 @@ describe("memory invalidation watermark store mutation gates", () => {
                 () =>
                     new MemoryInvalidationWatermarkStore(tenantId, owner, {
                         version: 1,
-                        records: [{ key: 5 as never, bytes }]
+                        records: [violating({ key: "watermark", bytes }, { key: 5 })]
                     }),
                 "codec.invalid",
                 "Memory watermark snapshot record is malformed"
@@ -557,7 +558,7 @@ describe("memory invalidation watermark store mutation gates", () => {
 
     test("fails closed on non-object snapshot containers and records", { tags: "p1" }, () => {
         expectAgentError(
-            () => new MemoryInvalidationWatermarkStore(tenantId, owner, null as never),
+            () => new MemoryInvalidationWatermarkStore(tenantId, owner, malformed(null)),
             "codec.invalid",
             "Memory watermark snapshot is malformed"
         );
@@ -566,7 +567,7 @@ describe("memory invalidation watermark store mutation gates", () => {
                 new MemoryInvalidationWatermarkStore(
                     tenantId,
                     owner,
-                    Object.assign(() => undefined, { version: 1, records: [] }) as never
+                    callableRecord(Object.assign(() => undefined, { version: 1, records: [] }))
                 ),
             "codec.invalid",
             "Memory watermark snapshot is malformed"
@@ -577,10 +578,12 @@ describe("memory invalidation watermark store mutation gates", () => {
                 new MemoryInvalidationWatermarkStore(tenantId, owner, {
                     version: 1,
                     records: [
-                        Object.assign(() => undefined, {
-                            key: watermarkKey(saved),
-                            bytes: InvalidationWatermark.encode(saved)
-                        }) as never
+                        callableRecord(
+                            Object.assign(() => undefined, {
+                                key: watermarkKey(saved),
+                                bytes: InvalidationWatermark.encode(saved)
+                            })
+                        )
                     ]
                 }),
             "codec.invalid",
@@ -638,7 +641,7 @@ function evidence(
     );
 }
 
-function expectAgentError(action: () => unknown, code: AgentCoreErrorCode, message: string): void {
+function expectAgentError(action: () => void, code: AgentCoreErrorCode, message: string): void {
     try {
         action();
         throw new Error("Expected AgentCoreError");

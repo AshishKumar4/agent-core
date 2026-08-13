@@ -1,6 +1,13 @@
 import { ActorId, ActorRef } from "../../src/actors";
 import { TurnId } from "../../src/agents";
-import { ContentRef, Digest, JsonSchema, Revision, type JsonValue } from "../../src/core";
+import {
+    ContentRef,
+    Digest,
+    JsonSchema,
+    Revision,
+    isJsonObject,
+    type JsonValue
+} from "../../src/core";
 import {
     BindingName,
     EventKind,
@@ -27,7 +34,8 @@ import {
     RouteProjectionId,
     RouteReservationId
 } from "../../src/interaction-references";
-import { Event } from "../../src/workspaces/event";
+import { requireString } from "../../src/workspaces/codec";
+import { Event, type EventInit } from "../../src/workspaces/event";
 import {
     ActionId,
     ContentRetentionId,
@@ -60,7 +68,12 @@ export const sourceActor = new ActorRef("workspace", new ActorId("workspace-sour
 export const targetActor = new ActorRef("workspace", new ActorId("workspace-target"));
 export const scope = ScopeRef.workspace(tenant, new IdentityWorkspaceId("workspace-scope"));
 
-export function content(label: string): { readonly ref: ContentRef; readonly digest: Digest } {
+export type ContentFixture = {
+    readonly ref: ContentRef;
+    readonly digest: Digest;
+};
+
+export function content(label: string): ContentFixture {
     const digest = Digest.sha256(encoder.encode(label));
     return { digest, ref: ContentRef.fromDigest(digest) };
 }
@@ -82,7 +95,7 @@ export function eventFixture(
         channel: "test-channel",
         claims: { nested: { accepted: true }, roles: ["operator"] }
     });
-    return new Event({
+    const base: EventInit = {
         id: new EventId(`event-${suffix}`),
         scope,
         source:
@@ -94,12 +107,14 @@ export function eventFixture(
         payloadDigest: payload.digest,
         idempotencyKey: `event-key-${suffix}`,
         correlation: new CorrelationId(`correlation-${suffix}`),
-        ...(init.causation === undefined ? {} : { causation: init.causation }),
         provenance,
         trust,
         visibility: "workspace",
         initiator: principal
-    });
+    };
+    return new Event(
+        init.causation === undefined ? base : { ...base, causation: init.causation }
+    );
 }
 
 export function subscriptionFixture(
@@ -308,17 +323,17 @@ export class DeterministicJsonPatchEngine {
 
     public apply(document: JsonValue, patch: readonly JsonValue[]): JsonValue {
         this.calls.push({ document, patch });
-        const result = structuredClone(document) as JsonValue;
+        const result = structuredClone(document);
         for (const operation of patch) {
             if (
-                !isObject(operation) ||
+                !isJsonObject(operation) ||
                 operation["op"] !== "replace" ||
-                typeof operation["path"] !== "string" ||
                 !("value" in operation)
             ) {
                 throw new TypeError("Test JSON Patch engine only supports replace operations");
             }
-            replace(result, operation["path"], structuredClone(operation["value"]));
+            const path = requireString(operation["path"], "Test JSON Patch operation path");
+            replace(result, path, structuredClone(operation["value"]));
         }
         return result;
     }
@@ -332,18 +347,17 @@ function replace(document: JsonValue, pointer: string, value: JsonValue): void {
     let parent = document;
     for (const token of tokens.slice(0, -1)) {
         if (Array.isArray(parent)) parent = parent[Number(token)]!;
-        else if (isObject(parent)) parent = parent[token]!;
+        else if (isJsonObject(parent)) parent = parent[token]!;
         else throw new TypeError("Patch path traverses a scalar");
     }
     const token = tokens.at(-1)!;
     if (Array.isArray(parent)) parent[Number(token)] = value;
-    else if (isObject(parent) && Object.hasOwn(parent, token)) {
+    else if (isJsonObject(parent) && Object.hasOwn(parent, token)) {
+        // SAFETY: `document` is the structuredClone this engine just took, so it owns every
+        // node reached here. JsonValue models JSON as readonly, which is the contract for
+        // values the caller still holds; dropping it writes only into the private clone.
         (parent as { [key: string]: JsonValue })[token] = value;
     } else {
         throw new TypeError("Patch replace path does not exist");
     }
-}
-
-function isObject(value: JsonValue): value is { readonly [key: string]: JsonValue } {
-    return value !== null && !Array.isArray(value) && typeof value === "object";
 }

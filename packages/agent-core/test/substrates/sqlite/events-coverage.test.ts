@@ -1899,7 +1899,7 @@ function capturedAgentCoreErrorCode(operation: () => void): AgentCoreErrorCode {
     throw new TypeError("Expected an AgentCoreError");
 }
 
-function expectCodecInvalid(operation: () => unknown): void {
+function expectCodecInvalid(operation: () => void): void {
     expect(operation).toThrow(expect.objectContaining({ code: "codec.invalid" }));
 }
 

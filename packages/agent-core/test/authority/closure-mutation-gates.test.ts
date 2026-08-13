@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { violating } from "../helpers/malformed";
 import { ActorId } from "../../src/actors";
 import { Digest, Revision } from "../../src/core";
 import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../src/facets";
@@ -454,11 +455,11 @@ describe("Tenant authority closure record evidence", () => {
     });
 });
 
-function corrupt(message: string): unknown {
+function corrupt(message: string): ReturnType<typeof expect.objectContaining> {
     return expect.objectContaining({ code: "codec.invalid", message });
 }
 
-function boundary(message: string): unknown {
+function boundary(message: string): ReturnType<typeof expect.objectContaining> {
     return expect.objectContaining({ code: "protocol.invalid-state", message });
 }
 
@@ -621,14 +622,14 @@ function withGrantScope(scope: ScopeRef): DivergentAuthorityStore {
  * cannot build one, so only a counterfeit reaches the guard that refuses it.
  */
 function idlessScope(kind: "project" | "workspace"): ScopeRef {
-    return {
+    return violating<ScopeRef>({
         kind,
         tenantId,
         projectId: undefined,
         workspaceId: undefined,
         path: [],
         equals: () => false
-    } as unknown as ScopeRef;
+    });
 }
 
 function membership(
@@ -669,11 +670,14 @@ function roleGrantsOf(store: MemoryTenantControlStore, member: Membership): read
         );
 }
 
-function open(): {
-    store: MemoryTenantControlStore;
-    service: AuthorityMutationService;
-    reader: Role;
-} {
+/** A bootstrapped Tenant with its mutation service and a reader Role. */
+type ClosureFixture = {
+    readonly store: MemoryTenantControlStore;
+    readonly service: AuthorityMutationService;
+    readonly reader: Role;
+};
+
+function open(): ClosureFixture {
     const store = MemoryTenantControlStore.create(anchor);
     store.bootstrapTenant(anchor, Revision.initial());
     const service = new AuthorityMutationService(store);
@@ -684,11 +688,14 @@ function open(): {
     return { store, service, reader };
 }
 
-function openGuest(): {
-    store: MemoryTenantControlStore;
-    service: AuthorityMutationService;
-    trust: GuestTrust;
-} {
+/** The same Tenant with a guest trust recorded against it. */
+type GuestClosureFixture = {
+    readonly store: MemoryTenantControlStore;
+    readonly service: AuthorityMutationService;
+    readonly trust: GuestTrust;
+};
+
+function openGuest(): GuestClosureFixture {
     const { store, service } = open();
     const trust = new GuestTrust(
         new GuestTrustId("closure-gate-trust"),
