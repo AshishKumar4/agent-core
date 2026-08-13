@@ -10,7 +10,8 @@ import {
     BindingValidationRequest,
     GrantId,
     PathEpochEvidence,
-    ScopeEpoch
+    ScopeEpoch,
+    type AuthorityPermitExpectationInit
 } from "../../src/authority";
 import {
     TENANT_AUTHORITY_COMMANDS,
@@ -18,7 +19,15 @@ import {
     type ClosedTenantAuthorityComposition,
     type TenantAuthorityCommandBackend
 } from "../../src/composition";
-import { ContentRef, Digest, Revision, SemVer, encodeCanonicalJson } from "../../src/core";
+import {
+    ContentRef,
+    Digest,
+    Revision,
+    SemVer,
+    encodeCanonicalJson,
+    type JsonValue
+} from "../../src/core";
+import { requireInteger, requireString } from "../../src/agents/record-data";
 import { PackageId, PackagePin } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
 import { BindingName, FacetRef, OperationRef, ProtectionDomain } from "../../src/facets";
@@ -44,6 +53,7 @@ import {
     MemoryProtocolRecords,
     type CommandCaller,
     type CommandDispatchResult,
+    type CommandEnvelopeInit,
     type CommandIdentity,
     type ProtocolPersistence
 } from "../../src/protocol";
@@ -52,11 +62,13 @@ import {
     SqliteActorStore,
     SqliteAuthorityPermitStore,
     SqliteProtocolPersistence,
-    TransactionalSqlite
+    TransactionalSqlite,
+    type SqliteValue
 } from "../../src/substrates";
 import { RunId, TurnId } from "../../src/agents";
 import { TestSqlite } from "../helpers/sqlite";
 import { CounterAuthenticator, CounterContentStore } from "../protocol/counter-fixture";
+import type { Assembled } from "./fixture";
 
 const now = new Date("2026-07-12T14:00:00.000Z");
 const tenant = new TenantId("authority-command-tenant");
@@ -390,6 +402,9 @@ test(
     "closed Tenant authority composition rejects a non-Tenant owning Actor",
     { tags: "p0" },
     () => {
+        // SAFETY: ClosedTenantAuthorityCompositionInit requires a store, persistence, backend
+        // and the rest, so an init carrying only an Actor is unreachable through the type. The
+        // Actor check has to run before any of them is read, which is what this pins.
         expect(() =>
             createClosedTenantAuthorityComposition({
                 actor: sourceActor
@@ -424,15 +439,22 @@ const permissiveBackend: Partial<AuthorityBackend> = {
     permitsPermit: () => true
 };
 
+/**
+ * Dispatches a command that must be refused and hands back the refusal it threw. A gate may
+ * refuse with either an AgentCoreError or a TypeError, so the caller reads the class it wants.
+ */
 async function dispatchFailure(
     harness: AuthorityCommandHarness,
     raw: Uint8Array,
     payload: Uint8Array
-): Promise<unknown> {
-    return harness.dispatch(raw, payload).then(
-        () => undefined,
-        (error: unknown) => error
-    );
+): Promise<Error> {
+    try {
+        await harness.dispatch(raw, payload);
+    } catch (error) {
+        if (error instanceof Error) return error;
+        throw new TypeError(`Expected an Error, caught ${String(error)}`, { cause: error });
+    }
+    throw new TypeError("Expected the dispatch to be refused");
 }
 
 describe("closed Tenant authority command gates", () => {
@@ -1123,7 +1145,7 @@ const readBackend = {
     })
 };
 
-function createComposition<Transaction, ReadTransaction>(
+function createComposition<Transaction, ReadTransaction extends AuthorityReadTransaction>(
     store: ActorLocalStore<Transaction, ReadTransaction>,
     persistence: ProtocolPersistence<Transaction>,
     backend: TenantAuthorityCommandBackend<Transaction, AuthorityCommandRead>,
@@ -1160,10 +1182,13 @@ function createComposition<Transaction, ReadTransaction>(
     });
 }
 
-function readTransaction(transaction: unknown): AuthorityCommandRead {
+/** The two read transactions this harness composes over. */
+type AuthorityReadTransaction = ReadableSqlite | MemoryAuthorityState;
+
+function readTransaction(transaction: AuthorityReadTransaction): AuthorityCommandRead {
     return transaction instanceof ReadableSqlite
         ? readSqlite(transaction)
-        : readMemoryState(transaction as MemoryAuthorityState);
+        : readMemoryState(transaction);
 }
 
 function createHarness<Transaction, ReadTransaction>(
@@ -1275,7 +1300,7 @@ function permitRequest(
 ): AuthorityPermitIssuanceRequest {
     const invocation = new AuthorityInvocationId("authority-command-permit-invocation");
     const itemKey = "authority-command-item";
-    const expectation = new AuthorityPermitExpectation({
+    const expectationInit: Assembled<AuthorityPermitExpectationInit> = {
         tenant,
         issuer: tenantActor,
         source: sourceActor,
@@ -1310,9 +1335,10 @@ function permitRequest(
         intentDigest: digest("authority-command-intent"),
         pathEpochs: path,
         authority: { kind: "initiator", principal, binding: bindingName },
-        ...(lease === undefined ? {} : { lease }),
         ...overrides
-    });
+    };
+    if (lease !== undefined) expectationInit.lease = lease;
+    const expectation = new AuthorityPermitExpectation(expectationInit);
     return new AuthorityPermitIssuanceRequest(
         expectation,
         "authority-command-permit",
@@ -1374,16 +1400,15 @@ function envelope(
     lease?: NonNullable<CommandEnvelope["lease"]>
 ): Uint8Array {
     const payloadDigest = Digest.sha256(payload);
-    return CommandEnvelopeCodec.encode(
-        new CommandEnvelope({
-            command,
-            caller,
-            idempotencyKey: key,
-            payload: ContentRef.fromDigest(payloadDigest),
-            payloadDigest,
-            ...(lease === undefined ? {} : { lease })
-        })
-    );
+    const envelopeInit: Assembled<CommandEnvelopeInit> = {
+        command,
+        caller,
+        idempotencyKey: key,
+        payload: ContentRef.fromDigest(payloadDigest),
+        payloadDigest
+    };
+    if (lease !== undefined) envelopeInit.lease = lease;
+    return CommandEnvelopeCodec.encode(new CommandEnvelope(envelopeInit));
 }
 
 function currentPath(epoch: number): PathEpochEvidence {
@@ -1422,9 +1447,9 @@ function readSqlite(database: ReadableSqlite): AuthorityCommandRead {
         []
     )[0]!;
     return Object.freeze({
-        fence: number(row["fence"]),
+        fence: integerColumn(row["fence"]),
         principal: new PrincipalRef(tenant, new PrincipalId(text(row["principal"]))),
-        path: currentPath(number(row["epoch"]))
+        path: currentPath(integerColumn(row["epoch"]))
     });
 }
 
@@ -1446,17 +1471,20 @@ function count(database: ReadableSqlite, table: string): number {
 }
 
 function integer(database: ReadableSqlite, statement: string): number {
-    return number(database.all(statement, [])[0]?.["value"]);
+    return integerColumn(database.all(statement, [])[0]?.["value"]);
 }
 
-function number(value: unknown): number {
-    if (typeof value !== "number" || !Number.isSafeInteger(value))
-        throw new TypeError("Expected integer");
-    return value;
+function integerColumn(value: SqliteValue | undefined): number {
+    return requireInteger(scalar(value), "SQLite integer column");
 }
 
-function text(value: unknown): string {
-    if (typeof value !== "string") throw new TypeError("Expected text");
+function text(value: SqliteValue | undefined): string {
+    return requireString(scalar(value), "SQLite text column");
+}
+
+/** A scalar SQLite column, as the JSON value it decodes to. */
+function scalar(value: SqliteValue | undefined): JsonValue | undefined {
+    if (value instanceof Uint8Array) throw new TypeError("Expected a scalar SQLite column");
     return value;
 }
 

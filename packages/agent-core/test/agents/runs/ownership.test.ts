@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { isJsonValue } from "../../../src/core";
+import { requireArray, requireObject, requireString } from "../../../src/agents/record-data";
 import { RunCommit } from "../../../src/agents/runs/commit";
 import { TurnLease } from "../../../src/agents/runs/lease";
 import { RunConfigurationSnapshot, RunPins } from "../../../src/agents/runs/pins";
@@ -20,6 +22,25 @@ interface OwnershipRow {
     readonly owner: string;
     readonly source: string;
     readonly store: string;
+}
+
+/** Reads the archived ownership rows, naming any field the archive failed to record. */
+function ownershipRows(path: string): readonly OwnershipRow[] {
+    const artifact: unknown = JSON.parse(readFileSync(path, "utf8"));
+    if (!isJsonValue(artifact)) throw new TypeError("Ownership artifact is not JSON");
+    const records = requireArray(
+        requireObject(artifact, "Ownership artifact")["records"],
+        "Ownership records"
+    );
+    return records.map((record, index) => {
+        const row = requireObject(record, `Ownership record ${index}`);
+        return {
+            kind: requireString(row["kind"], `Ownership record ${index} kind`),
+            owner: requireString(row["owner"], `Ownership record ${index} owner`),
+            source: requireString(row["source"], `Ownership record ${index} source`),
+            store: requireString(row["store"], `Ownership record ${index} store`)
+        };
+    });
 }
 
 const durableTypes = [
@@ -43,14 +64,11 @@ const durableTypes = [
 
 describe("W5 ownership isolation", () => {
     it("maps every durable W5 codec to exactly one owner and store", { tags: "p2" }, () => {
-        const artifact = JSON.parse(
-            readFileSync(
-                resolve(process.cwd(), "artifacts/integration/request-archive/W5/ownership.json"),
-                "utf8"
-            )
-        ) as { readonly records: readonly OwnershipRow[] };
-        const byKind = new Map(artifact.records.map((row) => [row.kind, row]));
-        expect(byKind.size).toBe(artifact.records.length);
+        const records = ownershipRows(
+            resolve(process.cwd(), "artifacts/integration/request-archive/W5/ownership.json")
+        );
+        const byKind = new Map(records.map((row) => [row.kind, row]));
+        expect(byKind.size).toBe(records.length);
         for (const type of durableTypes) {
             const row = byKind.get(type.codec.kind);
             expect(row, type.codec.kind).toBeDefined();

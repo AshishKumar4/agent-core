@@ -4,7 +4,7 @@ import { AgentCoreError } from "../../../src/errors";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
 import { ReceiptId } from "../../../src/invocation-references";
 import { AuditRecordId, EventId } from "../../../src/interaction-references";
-import { RunCommit } from "../../../src/agents/runs/commit";
+import { RunCommit, type RunCommitInit } from "../../../src/agents/runs/commit";
 import { ForcedTurnCancellation } from "../../../src/agents/runs/forced-cancellation";
 import {
     RunCheckpointId,
@@ -26,24 +26,21 @@ import {
     ids,
     pins,
     refs,
-    seedRunningTurn
+    seedRunningTurn,
+    thrownBy,
+    type Assembled
 } from "./fixture";
 import { SpawnAttenuation } from "../../../src/agents/runs/ceiling";
 
 function expectCode(
     label: string,
-    operation: () => unknown,
+    operation: () => void,
     code: AgentCoreError["code"],
     message: string
 ): void {
-    try {
-        operation();
-        throw new Error(`Expected AgentCoreError: ${label}`);
-    } catch (error) {
-        expect(error, label).toBeInstanceOf(AgentCoreError);
-        expect((error as AgentCoreError).code, label).toBe(code);
-        expect((error as AgentCoreError).message, label).toBe(message);
-    }
+    const failure = thrownBy(AgentCoreError, operation, label);
+    expect(failure.code, label).toBe(code);
+    expect(failure.message, label).toBe(message);
 }
 
 function repository() {
@@ -116,7 +113,7 @@ const SCOPE_NOW = new Date(3_000);
 // wrote it, and the running token is a later one.
 function resumedTurn(tree?: ContentRef) {
     const seeded = seedRunningTurn();
-    const commit = new RunCommit({
+    const commitInit: Assembled<RunCommitInit> = {
         id: CHECKPOINT_COMMIT,
         run: ids.run,
         branch: ids.branch,
@@ -125,9 +122,10 @@ function resumedTurn(tree?: ContentRef) {
         pins: pins(),
         writer: { kind: "turn", token: seeded.token },
         subjectTurn: ids.turn,
-        content: CHECKPOINT_STATE,
-        ...(tree === undefined ? {} : { treeCheckpoint: tree })
-    });
+        content: CHECKPOINT_STATE
+    };
+    if (tree !== undefined) commitInit.treeCheckpoint = tree;
+    const commit = new RunCommit(commitInit);
     seeded.runtime.suspendTurn({
         turn: ids.turn,
         expectedTurnRevision: seeded.running.revision,

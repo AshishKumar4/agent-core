@@ -15,7 +15,7 @@ import {
     type LeaseToken
 } from "../../../src/agents/runs";
 import { leaseTokenFromData } from "../../../src/agents/runs/lease";
-import { content, digest, seedRunningTurn } from "./fixture";
+import { content, digest, seedRunningTurn, thrownBy } from "./fixture";
 
 const turn = new TurnId("turn-lease-test");
 const otherTurn = new TurnId("turn-lease-other");
@@ -100,19 +100,16 @@ describe("TurnLease", () => {
                 epoch: reclaimed.lease.epoch
             })
         ).toBe(true);
-        try {
+        const staleRenewal = thrownBy(AgentCoreError, () =>
             seeded.runtime.renewTurn(
                 reclaimed.id,
                 reclaimed.revision,
                 seeded.token,
                 at(6_000),
                 at(10_000)
-            );
-            expect.fail("stale lease renewal should fail");
-        } catch (error) {
-            expect(error).toBeInstanceOf(AgentCoreError);
-            expect((error as AgentCoreError).code).toBe("lease.invalid");
-        }
+            )
+        );
+        expect(staleRenewal.code).toBe("lease.invalid");
     });
 
     test("admits only the exact live Turn, holder, and epoch", { tags: "p0" }, () => {
@@ -122,6 +119,9 @@ describe("TurnLease", () => {
         expect(lease.admits(token(otherTurn), at(9))).toBe(false);
         expect(lease.admits(token(turn, otherHolder), at(9))).toBe(false);
         expect(lease.admits(token(turn, sameIdOtherTenant), at(9))).toBe(false);
+        // SAFETY: LeaseToken types `holder` as PrincipalRef, so a bare PrincipalId standing in
+        // for one is unreachable through the token. It proves admits() compares the holder as a
+        // tenant-qualified reference rather than by its principal identifier alone.
         expect(lease.admits({ turn, holder: holderId, epoch: 1 } as never, at(9))).toBe(false);
         expect(lease.admits(token(turn, holder, 0), at(9))).toBe(false);
         expect(lease.admits(token(), at(10))).toBe(false);
@@ -225,6 +225,8 @@ describe("TurnLease", () => {
             new AgentCoreError("codec.unknown-major", "Unsupported turn-lease codec major 1")
         );
         expect(() => TurnLease.restore(turn, holder, 1, undefined)).toThrow(TypeError);
+        // SAFETY: as above, at the restore boundary — restore() declares PrincipalRef, and the
+        // forged holder reaches the `instanceof` check that backs the declaration.
         expect(() => TurnLease.restore(turn, holderId as never, 1, at(10))).toThrow(
             /tenant-qualified PrincipalRef/
         );
@@ -254,6 +256,9 @@ describe("lease admission trust boundary", () => {
         const held = TurnLease.restore(turn, holder, 1, at(5_000));
         expect(held.admits(token(), at(1_000))).toBe(true);
         const forged = { turn, holder: { tenantId: tenant, principalId: holderId }, epoch: 1 };
+        // SAFETY: PrincipalRef is a class, so a structural clone carrying its exact fields
+        // cannot be one. It proves admits() rejects the clone on class rather than on the
+        // tenant and principal values it copied.
         expect(held.admits(forged as never, at(1_000))).toBe(false);
     });
 

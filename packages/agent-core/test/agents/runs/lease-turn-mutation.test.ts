@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { Revision } from "../../../src/core";
+import { Revision, type JsonValue } from "../../../src/core";
 import { AgentCoreError } from "../../../src/errors";
 import { PrincipalId, PrincipalRef, TenantId } from "../../../src/identity";
 import { TurnId } from "../../../src/execution-references";
@@ -22,7 +22,16 @@ import {
     TurnStatus,
     type TurnInit
 } from "../../../src/agents/runs/turn";
-import { content, digest, ids, pins, seedRunningTurn } from "./fixture";
+import {
+    content,
+    digest,
+    ids,
+    mutableData,
+    pins,
+    seedRunningTurn,
+    thrownBy,
+    type MutableRecordData
+} from "./fixture";
 
 const turn = new TurnId("turn-mutation");
 const tenant = new TenantId("tenant-mutation");
@@ -32,31 +41,20 @@ const at = (milliseconds: number): Date => new Date(milliseconds);
 
 function expectError(
     label: string,
-    operation: () => unknown,
+    operation: () => void,
     code: AgentCoreError["code"],
     message: string
 ): void {
-    try {
-        operation();
-        expect.fail(`${label}: expected AgentCoreError ${code} (${message})`);
-    } catch (error) {
-        expect(error, label).toBeInstanceOf(AgentCoreError);
-        expect((error as AgentCoreError).code, label).toBe(code);
-        expect((error as AgentCoreError).message, label).toBe(message);
-    }
+    const failure = thrownBy(AgentCoreError, operation, label);
+    expect(failure.code, label).toBe(code);
+    expect(failure.message, label).toBe(message);
 }
 
-function expectTypeError(label: string, operation: () => unknown, message: string): void {
-    try {
-        operation();
-        expect.fail(`${label}: expected TypeError (${message})`);
-    } catch (error) {
-        expect(error, label).toBeInstanceOf(TypeError);
-        expect((error as TypeError).message, label).toBe(message);
-    }
+function expectTypeError(label: string, operation: () => void, message: string): void {
+    expect(thrownBy(TypeError, operation, label).message, label).toBe(message);
 }
 
-function leasePayload(): Record<string, unknown> {
+function leasePayload(): MutableRecordData {
     return {
         turn: turn.value,
         holder: { principal: "principal-mutation", tenant: "tenant-mutation" },
@@ -210,6 +208,10 @@ describe("TurnLease mutation kills", () => {
             { label: "boolean expiresAt", payload: { ...leasePayload(), expiresAt: true } }
         ];
         for (const { label, payload } of rejected) {
+            // SAFETY: fromData declares JsonValue, and this list deliberately steps outside it —
+            // a function and an array carrying the exact holder keys are values no JSON parser
+            // can produce. fromData reads decoded bytes at a trust boundary, so the list is
+            // only exhaustive if it includes them.
             expectError(
                 label,
                 () => TurnLease.fromData(payload as never),
@@ -222,7 +224,7 @@ describe("TurnLease mutation kills", () => {
         expect(unheld.holder).toBeUndefined();
         expect(unheld.epoch).toBe(0);
         expect(unheld.expiresAt).toBeUndefined();
-        const held = TurnLease.fromData(leasePayload() as never);
+        const held = TurnLease.fromData(leasePayload());
         expect(held.turn.equals(turn)).toBe(true);
         expect(held.holder?.equals(holder)).toBe(true);
         expect(held.epoch).toBe(1);
@@ -230,12 +232,16 @@ describe("TurnLease mutation kills", () => {
     });
 
     test("lease token encoding rejects malformed tokens and preserves epoch zero", { tags: "p0" }, () => {
+        // SAFETY: LeaseToken types `turn` as TurnId and `holder` as PrincipalRef, so a bare
+        // string is unreachable through the token. Forging one proves the encoder checks each
+        // member's class rather than encoding whatever value it is handed.
         expectError(
             "non-TurnId turn",
             () => leaseTokenToData({ turn: "turn-mutation", holder, epoch: 1 } as never),
             "codec.invalid",
             "Lease token is malformed"
         );
+        // SAFETY: as above, for the holder member.
         expectError(
             "non-PrincipalRef holder",
             () => leaseTokenToData({ turn, holder: "principal-mutation", epoch: 1 } as never),
@@ -554,15 +560,15 @@ describe("Turn mutation kills", () => {
     });
 
     test("record codecs reject unknown sentinel fields in every strict shape", { tags: "p1" }, () => {
-        const turnData = structuredClone(queuedTurn().toData()) as Record<string, unknown>;
+        const turnData = mutableData(queuedTurn().toData());
         turnData["Stryker was here"] = 1;
         expectTypeError(
             "Turn sentinel field",
-            () => Turn.fromData(turnData as never),
+            () => Turn.fromData(turnData),
             "Turn contains missing or unknown fields"
         );
 
-        const lineageData = structuredClone(queuedTurn().toData()) as Record<string, unknown>;
+        const lineageData = mutableData(queuedTurn().toData());
         lineageData["cacheLineage"] = {
             turn: "turn-cache",
             promptPrefix: digest("f").value,
@@ -570,11 +576,11 @@ describe("Turn mutation kills", () => {
         };
         expectTypeError(
             "cache lineage sentinel field",
-            () => Turn.fromData(lineageData as never),
+            () => Turn.fromData(lineageData),
             "Turn cache lineage contains missing or unknown fields"
         );
 
-        const checkpointData = structuredClone(
+        const checkpointData = mutableData(
             new RunCheckpoint(
                 new RunCheckpointId("checkpoint-mutation"),
                 ids.turn,
@@ -583,15 +589,15 @@ describe("Turn mutation kills", () => {
                 0,
                 undefined
             ).toData()
-        ) as Record<string, unknown>;
+        );
         checkpointData["Stryker was here"] = 1;
         expectTypeError(
             "checkpoint sentinel field",
-            () => RunCheckpoint.fromData(checkpointData as never),
+            () => RunCheckpoint.fromData(checkpointData),
             "Run checkpoint contains missing or unknown fields"
         );
 
-        const inboxData = structuredClone(
+        const inboxData = mutableData(
             new TurnInboxEntry(
                 new TurnInboxEntryId("inbox-mutation"),
                 ids.turn,
@@ -603,11 +609,11 @@ describe("Turn mutation kills", () => {
                 undefined,
                 at(1)
             ).toData()
-        ) as Record<string, unknown>;
+        );
         inboxData["Stryker was here"] = 1;
         expectTypeError(
             "inbox sentinel field",
-            () => TurnInboxEntry.fromData(inboxData as never),
+            () => TurnInboxEntry.fromData(inboxData),
             "Turn inbox entry contains missing or unknown fields"
         );
     });
@@ -616,7 +622,7 @@ describe("Turn mutation kills", () => {
         const cases: readonly {
             readonly label: string;
             readonly field: string;
-            readonly value: unknown;
+            readonly value: JsonValue;
             readonly message: string;
         }[] = [
             { label: "id", field: "id", value: 5, message: "Turn ID must be a non-empty string" },
@@ -671,15 +677,15 @@ describe("Turn mutation kills", () => {
             }
         ];
         for (const { label, field, value, message } of cases) {
-            const data = structuredClone(queuedTurn().toData()) as Record<string, unknown>;
+            const data = mutableData(queuedTurn().toData());
             data[field] = value;
-            expectTypeError(label, () => Turn.fromData(data as never), message);
+            expectTypeError(label, () => Turn.fromData(data), message);
         }
     });
 
     test("checkpoint record decoding names each malformed field exactly", { tags: "p2" }, () => {
         const base = () =>
-            structuredClone(
+            mutableData(
                 new RunCheckpoint(
                     new RunCheckpointId("checkpoint-mutation"),
                     ids.turn,
@@ -688,7 +694,7 @@ describe("Turn mutation kills", () => {
                     0,
                     undefined
                 ).toData()
-            ) as Record<string, unknown>;
+            );
         const cases: readonly {
             readonly field: string;
             readonly message: string;
@@ -701,7 +707,7 @@ describe("Turn mutation kills", () => {
         for (const { field, message } of cases) {
             const data = base();
             data[field] = 5;
-            expectTypeError(field, () => RunCheckpoint.fromData(data as never), message);
+            expectTypeError(field, () => RunCheckpoint.fromData(data), message);
         }
     });
 });
@@ -736,6 +742,9 @@ describe("TurnInboxEntry mutation kills", () => {
             () => entry("message", "", undefined),
             "Inbox event and key are required"
         );
+        // SAFETY: the inbox cancellation token types `turn` as TurnId and `holder` as
+        // PrincipalRef. Forging each member proves the entry checks the token's classes, not
+        // only that the token names the right Turn and a valid epoch.
         expectTypeError(
             "token turn is not a TurnId",
             () =>
@@ -746,6 +755,7 @@ describe("TurnInboxEntry mutation kills", () => {
                 } as never),
             "Inbox cancellation token must name the exact Turn and valid epoch"
         );
+        // SAFETY: as above, for the holder member.
         expectTypeError(
             "token holder is not a PrincipalRef",
             () =>
@@ -780,8 +790,7 @@ describe("TurnInboxEntry mutation kills", () => {
     });
 
     test("inbox record decoding names each malformed field exactly", { tags: "p2" }, () => {
-        const base = () =>
-            structuredClone(entry("message", "key", undefined).toData()) as Record<string, unknown>;
+        const base = () => mutableData(entry("message", "key", undefined).toData());
         const cases: readonly { readonly field: string; readonly message: string }[] = [
             { field: "id", message: "Inbox entry ID must be a non-empty string" },
             { field: "turn", message: "Inbox Turn must be a non-empty string" },
@@ -793,13 +802,13 @@ describe("TurnInboxEntry mutation kills", () => {
         for (const { field, message } of cases) {
             const data = base();
             data[field] = 5;
-            expectTypeError(field, () => TurnInboxEntry.fromData(data as never), message);
+            expectTypeError(field, () => TurnInboxEntry.fromData(data), message);
         }
         const tokenData = base();
         tokenData["cancellationToken"] = 5;
         expectError(
             "numeric cancellation token",
-            () => TurnInboxEntry.fromData(tokenData as never),
+            () => TurnInboxEntry.fromData(tokenData),
             "codec.invalid",
             "Cancellation token must be an object"
         );

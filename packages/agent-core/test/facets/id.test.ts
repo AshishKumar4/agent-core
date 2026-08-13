@@ -51,11 +51,11 @@ describe("Facet identifier vocabulary", () => {
     });
 
     test("requires exactly one interior operation reference separator", { tags: "p1" }, () => {
-        const separatorShape = "Operation reference must be '<facet-package-id>:<operation-name>'";
-        expect(() => new OperationRef(":run")).toThrow(separatorShape);
-        expect(() => new OperationRef("core.deploy:")).toThrow(separatorShape);
-        expect(() => new OperationRef("a:b:c")).toThrow(separatorShape);
-        expect(() => new OperationRef("run")).toThrow(separatorShape);
+        const separatorRefusal = "Operation reference must be '<facet-package-id>:<operation-name>'";
+        expect(() => new OperationRef(":run")).toThrow(separatorRefusal);
+        expect(() => new OperationRef("core.deploy:")).toThrow(separatorRefusal);
+        expect(() => new OperationRef("a:b:c")).toThrow(separatorRefusal);
+        expect(() => new OperationRef("run")).toThrow(separatorRefusal);
 
         const reference = new OperationRef("acme.deploy:run");
         expect(reference.facet.value).toBe("acme.deploy");
@@ -69,11 +69,11 @@ describe("Facet identifier vocabulary", () => {
     });
 
     test("requires exactly one interior facet reference separator", { tags: "p1" }, () => {
-        const separatorShape = /canonical segments/;
-        expect(() => new FacetRef("noseparator")).toThrow(separatorShape);
-        expect(() => new FacetRef(":instance")).toThrow(separatorShape);
-        expect(() => new FacetRef("facet:")).toThrow(separatorShape);
-        expect(() => new FacetRef("facet:instance:extra")).toThrow(separatorShape);
+        const separatorRefusal = /canonical segments/;
+        expect(() => new FacetRef("noseparator")).toThrow(separatorRefusal);
+        expect(() => new FacetRef(":instance")).toThrow(separatorRefusal);
+        expect(() => new FacetRef("facet:")).toThrow(separatorRefusal);
+        expect(() => new FacetRef("facet:instance:extra")).toThrow(separatorRefusal);
         expect(() => new FacetRef(" facet:instance")).toThrow(
             "Facet reference must be a nonblank canonical string"
         );

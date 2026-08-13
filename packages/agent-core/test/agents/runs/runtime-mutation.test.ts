@@ -12,11 +12,11 @@ import {
 } from "../../../src/agents/runs/id";
 import { RunPins } from "../../../src/agents/runs/pins";
 import { TurnPlacementSnapshot } from "../../../src/agents/runs/placement";
-import { Run, RunBranch } from "../../../src/agents/runs/run";
+import { Run, RunBranch, type RunInit } from "../../../src/agents/runs/run";
 import { RunAdmissionRegistry } from "../../../src/agents/runs/admission";
 import { SpawnReservation } from "../../../src/agents/runs/spawn";
 import { SettlementObligation, TerminalSnapshot } from "../../../src/agents/runs/settlement";
-import { TurnLease } from "../../../src/agents/runs/lease";
+import { TurnLease, type LeaseToken } from "../../../src/agents/runs/lease";
 import {
     RunCheckpoint,
     Turn,
@@ -31,28 +31,26 @@ import {
     configuration,
     content,
     digest,
+    forgedCommit,
     genesis,
     harness,
     ids,
     pins,
     refs,
-    seedRunningTurn
+    seedRunningTurn,
+    thrownBy,
+    turnWithForgedLease,
+    type Assembled
 } from "./fixture";
 
 function expectCode(
-    operation: () => unknown,
+    operation: () => void,
     code: AgentCoreError["code"],
     message?: string
 ): void {
-    try {
-        operation();
-    } catch (error) {
-        expect(error).toBeInstanceOf(AgentCoreError);
-        expect((error as AgentCoreError).code).toBe(code);
-        if (message !== undefined) expect((error as AgentCoreError).message).toBe(message);
-        return;
-    }
-    expect.fail("expected operation to throw");
+    const failure = thrownBy(AgentCoreError, operation);
+    expect(failure.code).toBe(code);
+    if (message !== undefined) expect(failure.message).toBe(message);
 }
 
 function must<Value>(value: Value | undefined): Value {
@@ -60,11 +58,7 @@ function must<Value>(value: Value | undefined): Value {
     return value;
 }
 
-function leaseToken(over: Partial<{ turn: TurnId; holder: PrincipalRef; epoch: number }> = {}): {
-    turn: TurnId;
-    holder: PrincipalRef;
-    epoch: number;
-} {
+function leaseToken(over: Partial<LeaseToken> = {}): LeaseToken {
     return {
         turn: over.turn ?? ids.turn,
         holder: over.holder ?? ids.holder,
@@ -173,10 +167,7 @@ function terminalRun(): Run {
     });
 }
 
-function turnGenesis(
-    id: string,
-    over: Partial<TurnInit> = {}
-): { turn: Turn; placement: TurnPlacementSnapshot } {
+function turnGenesis(id: string, over: Partial<TurnInit> = {}) {
     const turnId = new TurnId(id);
     const placement = new TurnPlacementSnapshot(turnId, pins(), []);
     const turn = new Turn({
@@ -200,26 +191,28 @@ describe("spawn reservation guards", () => {
         const childId = new RunId("run-child");
         const childBranchId = new RunBranchId("branch-child");
         const childRootId = new RunCommitId("commit-child-root");
-        const root = new RunCommit({
+        const rootInit: Assembled<RunCommitInit> = {
             id: childRootId,
             run: childId,
             branch: childBranchId,
             kind: "root",
             parents: [],
             pins: snapshot.pins,
-            writer: { kind: "root" },
-            ...(over.rootContent === false ? {} : { content: content("5") })
-        });
+            writer: { kind: "root" }
+        };
+        if (over.rootContent !== false) rootInit.content = content("5");
+        const root = new RunCommit(rootInit);
         const parent = "parent" in over ? over.parent : ids.run;
-        const run = new Run({
+        const runInit: Assembled<RunInit> = {
             id: childId,
             agent: ids.agent,
             configuration: snapshot.id,
             root: childRootId,
             initialBranch: childBranchId,
-            ...(parent === undefined ? {} : { parent }),
             revision: new Revision(0)
-        });
+        };
+        if (parent !== undefined) runInit.parent = parent;
+        const run = new Run(runInit);
         return {
             run,
             configuration: snapshot,
@@ -388,24 +381,21 @@ describe("Run genesis guards", () => {
             (base) => ({ ...base, run: terminalRun() }),
             (base) => {
                 const { parent, terminal, ...required } = base.run;
-                return {
-                    ...base,
-                    run: new Run({
-                        ...required,
-                        ...(parent === undefined ? {} : { parent }),
-                        ...(terminal === undefined ? {} : { terminal }),
-                        revision: new Revision(1)
-                    })
-                };
+                const revised: Assembled<RunInit> = { ...required, revision: new Revision(1) };
+                if (parent !== undefined) revised.parent = parent;
+                if (terminal !== undefined) revised.terminal = terminal;
+                return { ...base, run: new Run(revised) };
             },
             (base) => ({
                 ...base,
                 branch: new RunBranch(ids.branch, ids.run, "main", ids.root, new Revision(1))
             }),
-            (base) => ({ ...base, root: { ...base.root, kind: "message" } as RunCommit }),
+            (base) => ({ ...base, root: forgedCommit(base.root, { kind: "message" }) }),
             (base) => ({
                 ...base,
-                root: { ...base.root, writer: { kind: "turn", token: leaseToken() } } as RunCommit
+                root: forgedCommit(base.root, {
+                    writer: { kind: "turn", token: leaseToken() }
+                })
             })
         ];
         for (const mutate of cases) {
@@ -422,12 +412,12 @@ describe("Run genesis guards", () => {
         const value = harness();
         const base = genesis();
         const { parent, terminal, ...required } = base.run;
-        const forged = new Run({
-            ...required,
-            agent: ids.policy as never,
-            ...(parent === undefined ? {} : { parent }),
-            ...(terminal === undefined ? {} : { terminal })
-        });
+        // SAFETY: RunInit types `agent` as AgentId, so only a forged identifier can reach the
+        // runtime check that a Run's Agent matches the Agent its configuration snapshot pins.
+        const init: Assembled<RunInit> = { ...required, agent: ids.policy as never };
+        if (parent !== undefined) init.parent = parent;
+        if (terminal !== undefined) init.terminal = terminal;
+        const forged = new Run(init);
         expectCode(
             () => value.runtime.createRun({ ...base, run: forged }),
             "run.invalid-state",
@@ -597,7 +587,7 @@ describe("migration guards", () => {
     test("migrateRun rejects a commit that is not a migration", { tags: "p1" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
-        const forgedKind = { ...messageCommit("forged-migration"), kind: "migration" } as RunCommit;
+        const forgedKind = forgedCommit(messageCommit("forged-migration"), { kind: "migration" });
         expectCode(
             () =>
                 value.runtime.migrateRun(
@@ -609,10 +599,9 @@ describe("migration guards", () => {
             "run.invalid-state",
             "Migration target does not resolve an exact authoritative configuration"
         );
-        const forgedMessage = {
-            ...migrationCommit("forged-message"),
+        const forgedMessage = forgedCommit(migrationCommit("forged-message"), {
             kind: "message"
-        } as RunCommit;
+        });
         expectCode(
             () =>
                 value.runtime.migrateRun(
@@ -790,10 +779,10 @@ describe("captured evidence guards", () => {
     test("rejects forged writer and commit kinds for captured obligations", { tags: "p0" }, () => {
         const forgedWriter = terminalized(["captured-commit"]);
         withReceipt(forgedWriter.value);
-        const turnWritten = {
-            ...invocationCommit("captured-commit", forgedWriter.head),
-            writer: { kind: "turn", token: forgedWriter.value.token }
-        } as RunCommit;
+        const turnWritten = forgedCommit(
+            invocationCommit("captured-commit", forgedWriter.head),
+            { writer: { kind: "turn", token: forgedWriter.value.token } }
+        );
         expectCode(
             () =>
                 forgedWriter.value.runtime.appendCapturedEvidence(
@@ -807,10 +796,9 @@ describe("captured evidence guards", () => {
 
         const forgedKind = terminalized(["captured-commit"]);
         withReceipt(forgedKind.value);
-        const messageKind = {
-            ...invocationCommit("captured-commit", forgedKind.head),
+        const messageKind = forgedCommit(invocationCommit("captured-commit", forgedKind.head), {
             kind: "message"
-        } as RunCommit;
+        });
         expectCode(
             () =>
                 forgedKind.value.runtime.appendCapturedEvidence(
@@ -889,45 +877,36 @@ describe("Turn genesis guards", () => {
                 const base = turnGenesis("turn-held-lease");
                 return {
                     ...base,
-                    turn: {
-                        ...base.turn,
-                        lease: {
-                            turn: base.turn.id,
-                            holder: ids.holder,
-                            epoch: 0,
-                            expiresAt: undefined
-                        }
-                    } as never
+                    turn: turnWithForgedLease(base.turn, {
+                        turn: base.turn.id,
+                        holder: ids.holder,
+                        epoch: 0,
+                        expiresAt: undefined
+                    })
                 };
             },
             () => {
                 const base = turnGenesis("turn-advanced-epoch");
                 return {
                     ...base,
-                    turn: {
-                        ...base.turn,
-                        lease: {
-                            turn: base.turn.id,
-                            holder: undefined,
-                            epoch: 1,
-                            expiresAt: undefined
-                        }
-                    } as never
+                    turn: turnWithForgedLease(base.turn, {
+                        turn: base.turn.id,
+                        holder: undefined,
+                        epoch: 1,
+                        expiresAt: undefined
+                    })
                 };
             },
             () => {
                 const base = turnGenesis("turn-expiring-lease");
                 return {
                     ...base,
-                    turn: {
-                        ...base.turn,
-                        lease: {
-                            turn: base.turn.id,
-                            holder: undefined,
-                            epoch: 0,
-                            expiresAt: new Date(2000)
-                        }
-                    } as never
+                    turn: turnWithForgedLease(base.turn, {
+                        turn: base.turn.id,
+                        holder: undefined,
+                        epoch: 0,
+                        expiresAt: new Date(2000)
+                    })
                 };
             },
             () =>
@@ -1052,7 +1031,7 @@ describe("event delivery", () => {
 describe("suspension guards", () => {
     function suspendFixture(tree?: ReturnType<typeof content>) {
         const value = seedRunningTurn();
-        const commit = new RunCommit({
+        const commitInit: Assembled<RunCommitInit> = {
             id: new RunCommitId("suspend-commit"),
             run: ids.run,
             branch: ids.branch,
@@ -1061,9 +1040,10 @@ describe("suspension guards", () => {
             pins: pins(),
             writer: { kind: "turn", token: value.token },
             subjectTurn: ids.turn,
-            content: content("d"),
-            ...(tree === undefined ? {} : { treeCheckpoint: tree })
-        });
+            content: content("d")
+        };
+        if (tree !== undefined) commitInit.treeCheckpoint = tree;
+        const commit = new RunCommit(commitInit);
         const checkpoint = new RunCheckpoint(
             new RunCheckpointId("suspend-checkpoint"),
             ids.turn,
@@ -1150,29 +1130,26 @@ describe("suspension guards", () => {
                 };
             },
             (fixture) => ({
-                commit: { ...fixture.commit, subjectTurn: undefined } as RunCommit
+                commit: forgedCommit(fixture.commit, { subjectTurn: undefined })
             }),
             (fixture) => ({
-                commit: {
-                    ...fixture.commit,
+                commit: forgedCommit(fixture.commit, {
                     subjectTurn: new TurnId("turn-elsewhere")
-                } as RunCommit
+                })
             }),
             (fixture) => ({
-                commit: { ...fixture.commit, writer: { kind: "root" } } as RunCommit
+                commit: forgedCommit(fixture.commit, { writer: { kind: "root" } })
             }),
             (fixture) => ({
-                commit: {
-                    ...fixture.commit,
+                commit: forgedCommit(fixture.commit, {
                     writer: {
                         kind: "turn",
                         token: leaseToken({ turn: new TurnId("turn-elsewhere") })
                     }
-                } as RunCommit
+                })
             }),
             (fixture) => ({
-                commit: {
-                    ...fixture.commit,
+                commit: forgedCommit(fixture.commit, {
                     writer: {
                         kind: "turn",
                         token: leaseToken({
@@ -1182,22 +1159,21 @@ describe("suspension guards", () => {
                             )
                         })
                     }
-                } as RunCommit
+                })
             }),
             (fixture) => ({
-                commit: {
-                    ...fixture.commit,
+                commit: forgedCommit(fixture.commit, {
                     writer: { kind: "turn", token: leaseToken({ epoch: 2 }) }
-                } as RunCommit
+                })
             }),
             (fixture) => ({
-                commit: { ...fixture.commit, content: undefined } as RunCommit
+                commit: forgedCommit(fixture.commit, { content: undefined })
             }),
             (fixture) => ({
-                commit: { ...fixture.commit, content: content("9") } as RunCommit
+                commit: forgedCommit(fixture.commit, { content: content("9") })
             }),
             (fixture) => ({
-                commit: { ...fixture.commit, treeCheckpoint: content("7") } as RunCommit
+                commit: forgedCommit(fixture.commit, { treeCheckpoint: content("7") })
             }),
             (fixture) => ({
                 checkpoint: new RunCheckpoint(
@@ -1309,16 +1285,15 @@ describe("completion guards", () => {
                 messageCommit("complete-not-result", {
                     writer: { kind: "turn", token: fixture.value.token }
                 }),
-            (fixture) => ({ ...fixture.commit, content: undefined }) as RunCommit,
-            (fixture) => ({ ...fixture.commit, subjectTurn: undefined }) as RunCommit,
+            (fixture) => forgedCommit(fixture.commit, { content: undefined }),
+            (fixture) => forgedCommit(fixture.commit, { subjectTurn: undefined }),
             (fixture) =>
-                ({ ...fixture.commit, subjectTurn: new TurnId("turn-elsewhere") }) as RunCommit,
-            (fixture) => ({ ...fixture.commit, writer: { kind: "root" } }) as RunCommit,
+                forgedCommit(fixture.commit, { subjectTurn: new TurnId("turn-elsewhere") }),
+            (fixture) => forgedCommit(fixture.commit, { writer: { kind: "root" } }),
             (fixture) =>
-                ({
-                    ...fixture.commit,
+                forgedCommit(fixture.commit, {
                     writer: { kind: "turn", token: leaseToken({ epoch: 2 }) }
-                }) as RunCommit
+                })
         ];
         for (const build of cases) {
             const fixture = completeFixture();
@@ -1786,10 +1761,9 @@ describe("merge validation", () => {
         expectCode(
             () =>
                 value.runtime.mergeRun(
-                    {
-                        ...mergeCommit("merge-single", sourceHead.id),
+                    forgedCommit(mergeCommit("merge-single", sourceHead.id), {
                         parents: [ids.root]
-                    } as never,
+                    }),
                     new Revision(0),
                     new Date(1000)
                 ),
@@ -1799,10 +1773,7 @@ describe("merge validation", () => {
         expectCode(
             () =>
                 value.runtime.mergeRun(
-                    {
-                        ...mergeCommit("merge-empty", sourceHead.id),
-                        parents: []
-                    } as never,
+                    forgedCommit(mergeCommit("merge-empty", sourceHead.id), { parents: [] }),
                     new Revision(0),
                     new Date(1000)
                 ),
@@ -1812,10 +1783,9 @@ describe("merge validation", () => {
         expectCode(
             () =>
                 value.runtime.mergeRun(
-                    {
-                        ...mergeCommit("merge-equal", sourceHead.id),
+                    forgedCommit(mergeCommit("merge-equal", sourceHead.id), {
                         parents: [ids.root, ids.root]
-                    } as never,
+                    }),
                     new Revision(0),
                     new Date(1000)
                 ),
@@ -1936,10 +1906,9 @@ describe("merge validation", () => {
         expectCode(
             () =>
                 neither.value.runtime.mergeRun(
-                    {
-                        ...base,
+                    forgedCommit(base, {
                         resolution: { kind: "pick", parent: new RunCommitId("commit-neither") }
-                    } as RunCommit,
+                    }),
                     new Revision(0),
                     new Date(1000)
                 ),
@@ -1951,13 +1920,13 @@ describe("merge validation", () => {
         expectCode(
             () =>
                 empty.value.runtime.mergeRun(
-                    {
-                        ...mergeCommit("merge-pick-no-content", empty.sourceHead.id, {
+                    forgedCommit(
+                        mergeCommit("merge-pick-no-content", empty.sourceHead.id, {
                             resolution: { kind: "pick", parent: ids.root },
                             content: content("4")
                         }),
-                        content: undefined
-                    } as RunCommit,
+                        { content: undefined }
+                    ),
                     new Revision(0),
                     new Date(1000)
                 ),
@@ -2007,15 +1976,14 @@ describe("merge validation", () => {
         expectCode(
             () =>
                 ours.value.runtime.mergeRun(
-                    {
-                        ...oursBase,
+                    forgedCommit(oursBase, {
                         treeResolution: {
                             policy: "ours",
                             side: ours.sourceHead.id,
                             base: content("e"),
                             environment: ids.environment.value
                         }
-                    } as RunCommit,
+                    }),
                     new Revision(0),
                     new Date(1000)
                 ),
@@ -2036,15 +2004,14 @@ describe("merge validation", () => {
         expectCode(
             () =>
                 theirs.value.runtime.mergeRun(
-                    {
-                        ...theirsBase,
+                    forgedCommit(theirsBase, {
                         treeResolution: {
                             policy: "theirs",
                             side: ids.root,
                             base: content("e"),
                             environment: ids.environment.value
                         }
-                    } as RunCommit,
+                    }),
                     new Revision(0),
                     new Date(1000)
                 ),
@@ -2068,8 +2035,7 @@ describe("merge validation", () => {
         expectCode(
             () =>
                 perPath.value.runtime.mergeRun(
-                    {
-                        ...perPathBase,
+                    forgedCommit(perPathBase, {
                         treeResolution: {
                             policy: "perPath",
                             base: content("e"),
@@ -2079,7 +2045,7 @@ describe("merge validation", () => {
                                 { path: "right", side: new RunCommitId("commit-intruder") }
                             ]
                         }
-                    } as never,
+                    }),
                     new Revision(0),
                     new Date(1000)
                 ),
@@ -2155,7 +2121,7 @@ describe("merge validation", () => {
         expectCode(
             () =>
                 missing.value.runtime.mergeRun(
-                    { ...missingCheckpoint, treeCheckpoint: undefined } as RunCommit,
+                    forgedCommit(missingCheckpoint, { treeCheckpoint: undefined }),
                     new Revision(0),
                     new Date(1000)
                 ),

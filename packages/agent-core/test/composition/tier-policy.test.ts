@@ -42,6 +42,7 @@ import {
 } from "../../src/identity";
 import { InvocationPlacementPin } from "../../src/invocations";
 import { RouteReservationId } from "../../src/interaction-references";
+import { forwarded } from "./fixture";
 
 const tenant = new TenantId("tier-tenant");
 const principal = new PrincipalRef(tenant, new PrincipalId("tier-principal"));
@@ -65,7 +66,7 @@ const pin = new PackagePin(new PackageId("tier-package"), new SemVer("1.0.0"), d
 const lease = TurnLease.restore(new TurnId("tier-turn"), principal, 1, new Date(100));
 const leaseToken = { turn: lease.turn, holder: principal, epoch: lease.epoch };
 
-const IMPACTS: readonly Impact[] = [
+const IMPACTS: readonly [Impact, ...Impact[]] = [
     "observe",
     "mutate",
     "externalSend",
@@ -111,7 +112,7 @@ function resolution(init: {
             ? new ResolvedOperationAuthority(facet, [
                   new CapabilitySpec({
                       facetPattern: facet.value,
-                      impacts: [...IMPACTS] as [Impact, ...Impact[]]
+                      impacts: IMPACTS
                   })
               ])
             : undefined
@@ -122,14 +123,8 @@ function descriptorFor(impact: Impact): OperationDescriptor {
     return new OperationDescriptor(new OperationName("op"), impact, schema, schema);
 }
 
-// tier() never consults the state port, so the port is unused here.
-const unusedState: OperationAuthorityStatePort<PrincipalRef> = new Proxy(
-    {} as OperationAuthorityStatePort<PrincipalRef>,
-    {
-        get() {
-            throw new Error("tier() must not touch the authority state port");
-        }
-    }
+const unusedState = forwarded<OperationAuthorityStatePort<PrincipalRef>>(
+    "The authority state port tier() must not consult"
 );
 const authority = new TenantOperationAuthority(unusedState, () => new Date(10));
 

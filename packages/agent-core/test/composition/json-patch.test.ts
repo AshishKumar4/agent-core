@@ -126,6 +126,6 @@ describe("detached RFC 6902 composition", () => {
         expect(() => new DetachedJsonPatchEngine().apply({}, patch)).toThrow(
             expect.objectContaining({ code: "codec.invalid" })
         );
-        expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
+        expect("polluted" in {}).toBe(false);
     });
 });

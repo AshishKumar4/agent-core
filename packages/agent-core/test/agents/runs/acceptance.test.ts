@@ -17,7 +17,8 @@ import {
     runObligationKey,
     type RunObligation
 } from "../../../src/agents/runs/admission";
-import { RunCommit } from "../../../src/agents/runs/commit";
+import { RunCommit, type RunCommitInit } from "../../../src/agents/runs/commit";
+import type { LeaseToken } from "../../../src/agents/runs/lease";
 import type { AcceptanceReceiptEvidence } from "../../../src/agents/runs/evidence";
 import { AcceptanceId, RunBranchId, RunId } from "../../../src/agents/runs/id";
 import { Run, RunBranch } from "../../../src/agents/runs/run";
@@ -28,8 +29,11 @@ import {
     genesis,
     harness,
     ids,
+    objectAt,
     pins,
-    seedRunningTurn
+    seedRunningTurn,
+    thrownBy,
+    type Assembled
 } from "./fixture";
 
 const operation = new OperationRef("verifier-package:verify");
@@ -64,33 +68,21 @@ function frontierKeys(value: ReturnType<typeof harness>): readonly string[] {
         .map(runObligationKey);
 }
 
-function expectCode(operationUnderTest: () => unknown, code: AgentCoreError["code"]): void {
-    try {
-        operationUnderTest();
-        throw new Error("Expected operation to fail");
-    } catch (error) {
-        expect(error).toBeInstanceOf(AgentCoreError);
-        expect((error as AgentCoreError).code).toBe(code);
-    }
+function expectCode(operationUnderTest: () => void, code: AgentCoreError["code"]): void {
+    expect(thrownBy(AgentCoreError, operationUnderTest).code).toBe(code);
 }
 
-function expectTypeError(label: string, operation: () => unknown, message: string): void {
-    try {
-        operation();
-        throw new Error(`Expected TypeError: ${label}`);
-    } catch (error) {
-        expect(error, label).toBeInstanceOf(TypeError);
-        expect((error as TypeError).message, label).toBe(message);
-    }
+function expectTypeError(label: string, operation: () => void, message: string): void {
+    expect(thrownBy(TypeError, operation, label).message, label).toBe(message);
 }
 
 function treeMessage(
     id: string,
     parent: RunCommitId,
-    token: { turn: typeof ids.turn; holder: typeof ids.holder; epoch: number },
+    token: LeaseToken,
     tree?: string
 ): RunCommit {
-    return new RunCommit({
+    const init: Assembled<RunCommitInit> = {
         id: new RunCommitId(id),
         run: ids.run,
         branch: ids.branch,
@@ -99,9 +91,10 @@ function treeMessage(
         pins: pins(),
         writer: { kind: "turn", token },
         subjectTurn: token.turn,
-        content: content("1"),
-        ...(tree === undefined ? {} : { treeCheckpoint: content(tree) })
-    });
+        content: content("1")
+    };
+    if (tree !== undefined) init.treeCheckpoint = content(tree);
+    return new RunCommit(init);
 }
 
 function otherRunGenesis() {
@@ -564,12 +557,18 @@ describe("Run acceptance criteria", () => {
             expect(decodedVerdict).toEqual(recorded);
             expect(Object.isFrozen(decodedVerdict)).toBe(true);
 
+            // SAFETY: every acceptance record types its identifiers with their own classes —
+            // AcceptanceId, OperationId, Digest, ReceiptId. Each forged value below is
+            // unreachable through the init, and reaches the exact-context-class check that
+            // rejects a structurally identical identifier minted for another subject.
             expect(() => new AcceptanceCriterion({ id: ids.run as never, operation })).toThrow(
                 /exact context classes/
             );
+            // SAFETY: as above.
             expect(
                 () => new AcceptanceCriterion({ id: firstId, operation: ids.run as never })
             ).toThrow(/exact context classes/);
+            // SAFETY: as above.
             expect(
                 () =>
                     new AcceptanceVerdict({
@@ -578,6 +577,7 @@ describe("Run acceptance criteria", () => {
                         receipt: new ReceiptId("codec-receipt")
                     })
             ).toThrow(/exact context classes/);
+            // SAFETY: as above.
             expect(
                 () =>
                     new AcceptanceVerdict({
@@ -586,6 +586,7 @@ describe("Run acceptance criteria", () => {
                         receipt: new ReceiptId("codec-receipt")
                     })
             ).toThrow(/exact context classes/);
+            // SAFETY: as above.
             expect(
                 () =>
                     new AcceptanceVerdict({
@@ -594,7 +595,7 @@ describe("Run acceptance criteria", () => {
                         receipt: ids.run as never
                     })
             ).toThrow(/exact context classes/);
-            expect(() => AcceptanceCriterion.fromData({ id: firstId.value } as never)).toThrow(
+            expect(() => AcceptanceCriterion.fromData({ id: firstId.value })).toThrow(
                 /missing or unknown fields/
             );
             expect(() =>
@@ -602,14 +603,14 @@ describe("Run acceptance criteria", () => {
                     id: firstId.value,
                     operation: operation.value,
                     extra: true
-                } as never)
+                })
             ).toThrow(/missing or unknown fields/);
             expect(() =>
                 AcceptanceVerdict.fromData({
                     acceptance: firstId.value,
                     receipt: "codec-receipt",
                     subject: "not-a-digest"
-                } as never)
+                })
             ).toThrow(/lowercase SHA-256/);
 
             const obligation: RunObligation = { kind: "acceptance", acceptance: firstId };
@@ -626,9 +627,10 @@ describe("Run acceptance criteria", () => {
                     acceptance: firstId.value,
                     kind: "acceptance",
                     extra: 1
-                } as never)
+                })
             ).toThrow(/missing or unknown fields/);
             expect(() =>
+                // SAFETY: as above, for the acceptance obligation's own identifier.
                 RunAdmissionRegistry.initial(ids.run).reserve({
                     kind: "acceptance",
                     acceptance: ids.run as never
@@ -650,18 +652,18 @@ describe("Run acceptance criteria", () => {
                     AcceptanceCriterion.fromData({
                         id: 42,
                         operation: operation.value
-                    } as never),
+                    }),
                 "Acceptance criterion ID must be a non-empty string"
             );
             expectTypeError(
                 "criterion operation",
-                () => AcceptanceCriterion.fromData({ id: firstId.value, operation: 42 } as never),
+                () => AcceptanceCriterion.fromData({ id: firstId.value, operation: 42 }),
                 "Acceptance criterion Operation must be a non-empty string"
             );
-            const verdictData = verdict(firstId, digest("e"), "codec-receipt").toData() as Record<
-                string,
-                unknown
-            >;
+            const verdictData = objectAt(
+                verdict(firstId, digest("e"), "codec-receipt").toData(),
+                "acceptance verdict"
+            );
             const cases = [
                 { label: "acceptance", subject: "Acceptance verdict criterion" },
                 { label: "subject", subject: "Acceptance verdict subject" },
@@ -670,13 +672,13 @@ describe("Run acceptance criteria", () => {
             for (const { label, subject } of cases) {
                 expectTypeError(
                     label,
-                    () => AcceptanceVerdict.fromData({ ...verdictData, [label]: 42 } as never),
+                    () => AcceptanceVerdict.fromData({ ...verdictData, [label]: 42 }),
                     `${subject} must be a non-empty string`
                 );
             }
             expectTypeError(
                 "acceptance obligation",
-                () => decodeRunObligation({ acceptance: 42, kind: "acceptance" } as never),
+                () => decodeRunObligation({ acceptance: 42, kind: "acceptance" }),
                 "Acceptance obligation must be a non-empty string"
             );
         }
@@ -697,16 +699,19 @@ describe("Run acceptance criteria", () => {
                         id: firstId.value,
                         operation: operation.value,
                         [unknown]: 1
-                    } as never),
+                    }),
                 "Acceptance criterion contains missing or unknown fields"
             );
             expectTypeError(
                 "verdict",
                 () =>
                     AcceptanceVerdict.fromData({
-                        ...(verdict(firstId, digest("e"), "codec-receipt").toData() as object),
+                        ...objectAt(
+                            verdict(firstId, digest("e"), "codec-receipt").toData(),
+                            "acceptance verdict"
+                        ),
                         [unknown]: 1
-                    } as never),
+                    }),
                 "Acceptance verdict contains missing or unknown fields"
             );
             expectTypeError(
@@ -716,7 +721,7 @@ describe("Run acceptance criteria", () => {
                         acceptance: firstId.value,
                         kind: "acceptance",
                         [unknown]: 1
-                    } as never),
+                    }),
                 "Acceptance obligation contains missing or unknown fields"
             );
         }
