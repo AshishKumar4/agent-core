@@ -28,7 +28,7 @@ export type {
     JsonValue,
     ObjectRecord
 } from "./json";
-export { isMember, isNonempty, requireNonempty } from "./narrow";
+export { isMember, isNonempty, isStringArray, requireNonempty } from "./narrow";
 export type { Nonempty } from "./narrow";
 export { CompatRange } from "./compat-range";
 export { SemVer } from "./semver";

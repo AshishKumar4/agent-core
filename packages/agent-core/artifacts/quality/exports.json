@@ -377,6 +377,7 @@
       "isNonempty",
       "isObjectRecord",
       "isSecretRefData",
+      "isStringArray",
       "jsonDataParser",
       "managedResourceId",
       "managedStateRecordId",
@@ -543,6 +544,7 @@
       "isMember",
       "isNonempty",
       "isObjectRecord",
+      "isStringArray",
       "jsonDataParser",
       "requireNonempty",
       "strictJsonSchemaValidator"
@@ -1505,6 +1507,7 @@
       "isNonempty",
       "isObjectRecord",
       "isSecretRefData",
+      "isStringArray",
       "jsonDataParser",
       "managedResourceId",
       "managedStateRecordId",
@@ -1749,6 +1752,7 @@
       "isMember",
       "isNonempty",
       "isObjectRecord",
+      "isStringArray",
       "jsonDataParser",
       "requireNonempty",
       "strictJsonSchemaValidator"

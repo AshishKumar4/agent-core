@@ -16,7 +16,7 @@ export class DetachedJsonPatchEngine implements JsonPatchEngine {
             throw invalidPatch();
         }
         try {
-            return applyPatch(document, operations, false, false, true).newDocument as JsonValue;
+            return applyPatch(document, operations, false, false, true).newDocument;
         } catch {
             throw invalidPatch();
         }

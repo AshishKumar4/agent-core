@@ -292,7 +292,7 @@
     {
       "file": "packages/agent-core/src/composition/json-patch.ts",
       "kind": "assertion",
-      "count": 3,
+      "count": 2,
       "reason": "fast-json-patch declares its Operation union as interfaces and demands the post-validation type as the input to its own validator, so the boundary cannot be crossed without an assertion; validate() runs on the result before any patch is applied."
     },
     {
@@ -453,12 +453,6 @@
     },
     {
       "file": "packages/agent-core/src/definition/memory.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Package, blueprint, and plan records decode from canonical JSON into closed vocabularies and nonempty tuples that the surrounding validation establishes a statement earlier."
-    },
-    {
-      "file": "packages/agent-core/src/definition/memory.ts",
       "kind": "non-null",
       "count": 1,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
@@ -479,12 +473,6 @@
       "file": "packages/agent-core/src/definition/placement.ts",
       "kind": "assertion",
       "count": 2,
-      "reason": "Package, blueprint, and plan records decode from canonical JSON into closed vocabularies and nonempty tuples that the surrounding validation establishes a statement earlier."
-    },
-    {
-      "file": "packages/agent-core/src/definition/plan.ts",
-      "kind": "assertion",
-      "count": 8,
       "reason": "Package, blueprint, and plan records decode from canonical JSON into closed vocabularies and nonempty tuples that the surrounding validation establishes a statement earlier."
     },
     {
@@ -780,12 +768,6 @@
       "kind": "non-null",
       "count": 1,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
-    },
-    {
-      "file": "packages/agent-core/src/identity/team.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Identity records decode canonical JSON into the membership and trust shapes their exact-field checks established."
     },
     {
       "file": "packages/agent-core/src/invocations/approval.ts",

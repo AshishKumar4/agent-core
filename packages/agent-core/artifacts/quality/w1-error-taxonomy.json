@@ -684,7 +684,7 @@
         {
             "id": "w1.core.codec.validateanddetachversion.b25bb6acb8",
             "file": "src/core/codec.ts",
-            "line": 153,
+            "line": 156,
             "source": "src/core/codec.ts",
             "sourceAnchor": {
                 "container": "validateAndDetachVersion",

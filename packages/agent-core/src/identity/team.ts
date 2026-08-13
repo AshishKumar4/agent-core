@@ -1,4 +1,4 @@
-import { RecordCodec, Revision, type JsonValue } from "../core";
+import { RecordCodec, Revision, isStringArray, type JsonValue } from "../core";
 import { AgentCoreError } from "../errors";
 import {
     compareIdentityText,
@@ -33,17 +33,14 @@ class TeamRecordCodec extends RecordCodec<Team> {
             "Team payload"
         );
         const principals = object["principals"];
-        if (
-            !Array.isArray(principals) ||
-            principals.some((principal) => typeof principal !== "string")
-        ) {
+        if (!isStringArray(principals)) {
             throw invalid("Team principals must be an array of Principal IDs");
         }
         return new Team(
             new TeamId(requireIdentityString(object["id"], "Team ID")),
             new TenantId(requireIdentityString(object["tenant"], "Team tenant")),
             requireIdentityString(object["name"], "Team name"),
-            principals.map((principal) => new PrincipalId(principal as string)),
+            principals.map((principal) => new PrincipalId(principal)),
             requireIdentityRevision(object["revision"], "Team revision")
         );
     }
