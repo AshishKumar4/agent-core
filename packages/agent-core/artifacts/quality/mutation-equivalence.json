@@ -51,14 +51,6 @@
     },
     {
       "file": "src/actors/fence.ts",
-      "mutated": "typeof epoch === \"number\"",
-      "mutator": "ConditionalExpression",
-      "proof": "The type test decides nothing that survives. A non-number epoch admitted here is passed to ActorRecoveryState, and Number.isSafeInteger in its constructor answers false for any argument that is not a Number without coercing, so the construction throws a TypeError inside the try and its catch reports the same malformed-recovery-state error. The test remains as the narrowing that lets the field be handed over as a number, which the compiler requires.",
-      "replacement": "true",
-      "symbol": "isActorRecoveryStatePayload"
-    },
-    {
-      "file": "src/actors/fence.ts",
       "mutated": "typeof recoveries === \"number\"",
       "mutator": "ConditionalExpression",
       "proof": "As with the epoch, this type test is shadowed by the constructor. A non-number recovery count admitted here reaches ActorRecoveryState, whose guard calls Number.isSafeInteger — specified to answer false for any non-Number without coercion — and throws a TypeError inside the try, whose catch reports the identical malformed-recovery-state error. What the test earns is the narrowing that lets the field be passed as a number rather than a rejection the constructor does not already make.",
@@ -98,14 +90,6 @@
       "symbol": "MemoryActorStore.activateActor"
     },
     {
-      "file": "src/agents/record-data.ts",
-      "mutated": "typeof value !== \"number\"",
-      "mutator": "ConditionalExpression",
-      "proof": "Number.isSafeInteger, tested immediately after this disjunct, coerces nothing and returns false for every argument that is not a number, so a string, boolean, null, array or object value is rejected by it whether or not the typeof test ran first. The mutant therefore computes the same boolean on every input and raises the same TypeError with the same subject. The typeof test earns its place in the type system, where it narrows JsonValue | undefined to number so that `value < 0` and the number return typecheck — the standard library declares isSafeInteger as returning boolean rather than as a type predicate, so it cannot narrow on its own.",
-      "replacement": "false",
-      "symbol": "requireInteger"
-    },
-    {
       "file": "src/agents/runs/ceiling.ts",
       "mutated": "left < current",
       "mutator": "EqualityOperator",
@@ -125,7 +109,7 @@
       "file": "src/agents/runs/commit.ts",
       "mutated": "this.subjectTurn?.equals",
       "mutator": "OptionalChaining",
-      "proof": "A commit with a turn writer always names a subject Turn. The method returns false immediately unless writer.kind is \"turn\", and validateClosedShape admits a turn writer only from its final block, the one reached by message, checkpoint, result and verdict commits, which throws unless subjectTurn is present — every other kind is routed to a branch demanding a root or system writer. RunCommit's constructor runs that check and the codec decodes through it, so the optional call never short-circuits and both spellings compare the same TurnId. The chain is written because subjectTurn is optional across the union of kinds.",
+      "proof": "A commit with a turn writer always names a subject Turn. The method returns false immediately unless writer.kind is \"turn\", and validateClosedKind admits a turn writer only from its final block, the one reached by message, checkpoint, result and verdict commits, which throws unless subjectTurn is present — every other kind is routed to a branch demanding a root or system writer. RunCommit's constructor runs that check and the codec decodes through it, so the optional call never short-circuits and both spellings compare the same TurnId. The chain is written because subjectTurn is optional across the union of kinds.",
       "replacement": "this.subjectTurn.equals",
       "symbol": "RunCommit.isTurnAuthored"
     },
@@ -149,7 +133,7 @@
       "file": "src/agents/runs/executor.ts",
       "mutated": "commit.content?.equals",
       "mutator": "OptionalChaining",
-      "proof": "The optional call cannot short-circuit. The disjunct before it is `!commit.isTurnAuthored(\"checkpoint\", this.token)`, and isTurnAuthored returns true only when the commit's kind is \"checkpoint\", which validateClosedShape admits only with a turn writer, a subject Turn and content present. So reaching this expression means content is a ContentRef, and both spellings call the same ContentRef.equals against the checkpoint's state. The chain is written because RunCommit types content as optional for every kind; a test could only separate the two by producing a checkpoint commit without content, which the record's own constructor refuses.",
+      "proof": "The optional call cannot short-circuit. The disjunct before it is `!commit.isTurnAuthored(\"checkpoint\", this.token)`, and isTurnAuthored returns true only when the commit's kind is \"checkpoint\", which validateClosedKind admits only with a turn writer, a subject Turn and content present. So reaching this expression means content is a ContentRef, and both spellings call the same ContentRef.equals against the checkpoint's state. The chain is written because RunCommit types content as optional for every kind; a test could only separate the two by producing a checkpoint commit without content, which the record's own constructor refuses.",
       "replacement": "commit.content.equals",
       "symbol": "LeaseScopedTurn.recover"
     },
@@ -157,7 +141,7 @@
       "file": "src/agents/runs/executor.ts",
       "mutated": "commit.content !== undefined",
       "mutator": "ConditionalExpression",
-      "proof": "A result commit always carries content. The conjunct before this one is isTurnAuthored(\"result\", token), which returns false unless the commit's kind is \"result\", and validateClosedShape routes that kind to its final block, which throws \"Turn-authored commit fields are invalid\" unless content is present. RunCommitCodec decodes through RunCommit's constructor, so every commit listCommits yields has passed that check, and this test is constantly true wherever it is evaluated. It is written so the comparison after it has a ContentRef to hand rather than an optional one; that comparison, against the Turn's own recorded result, is killed by the unpaired result commit test.",
+      "proof": "A result commit always carries content. The conjunct before this one is isTurnAuthored(\"result\", token), which returns false unless the commit's kind is \"result\", and validateClosedKind routes that kind to its final block, which throws \"Turn-authored commit fields are invalid\" unless content is present. RunCommitCodec decodes through RunCommit's constructor, so every commit listCommits yields has passed that check, and this test is constantly true wherever it is evaluated. It is written so the comparison after it has a ContentRef to hand rather than an optional one; that comparison, against the Turn's own recorded result, is killed by the unpaired result commit test.",
       "replacement": "true",
       "symbol": "LeaseScopedTurn.recover.resultCommits"
     },
@@ -216,38 +200,6 @@
       "proof": "Forcing this true leaves `holder === null || isPrincipalRefData(holder)`, and isPrincipalRefData answers false for undefined on its own: its first line rejects anything whose typeof is not \"object\", and typeof undefined is \"undefined\". So the mutant returns the same false the short circuit produced. The conjunct is present for the checker, because noUncheckedIndexedAccess types object[\"holder\"] as JsonValue | undefined while isPrincipalRefData takes JsonValue. It is doubly redundant at runtime: hasExactJsonKeys has already established the payload carries exactly the four named keys before this conjunct is reached, and a value decoded from JSON is never undefined regardless. Nothing here can throw or record anything, so no input distinguishes the two.",
       "replacement": "true",
       "symbol": "isTurnLeasePayload"
-    },
-    {
-      "file": "src/agents/runs/lease.ts",
-      "mutated": "typeof epoch === \"number\"",
-      "mutator": "ConditionalExpression",
-      "proof": "Number.isSafeInteger, the conjunct immediately after this one, performs no coercion: it returns false for every argument that is not a number, so a string, boolean, null, array or object epoch is rejected by it whether or not the typeof test ran first. The mutant therefore computes the same boolean on every payload, and both spellings send a malformed epoch down the same codec.invalid path with the same message. The typeof test earns its place only in the type system, where it narrows JsonValue | undefined to number so that `epoch >= 0` on the following line is accepted — Number.isSafeInteger is declared as returning boolean rather than as a type predicate, so it cannot do that narrowing itself. Neither operand has a side effect, so nothing else can separate them.",
-      "replacement": "true",
-      "symbol": "isTurnLeasePayload"
-    },
-    {
-      "file": "src/agents/runs/lease.ts",
-      "mutated": "typeof epoch !== \"number\"",
-      "mutator": "ConditionalExpression",
-      "proof": "This disjunct is subsumed by `!Number.isSafeInteger(epoch)` two lines below it, which is true for every value that is not a number because Number.isSafeInteger coerces nothing. Any epoch the removed test would have rejected is rejected by the surviving one, and the codec.invalid error raised carries the same `${name} is malformed` text either way, so a caller sees an identical failure. Where epoch is a number the disjunct is false and contributes nothing. It is written for the narrowing: under strict typing epoch is JsonValue | undefined, and both `epoch < 0` and the epoch field of the frozen token that is returned require it to be a number, which a boolean-returning helper cannot establish. The mutant's extra evaluations are pure.",
-      "replacement": "false",
-      "symbol": "leaseTokenFromData"
-    },
-    {
-      "file": "src/agents/runs/run.ts",
-      "mutated": "terminal === undefined",
-      "mutator": "ConditionalExpression",
-      "proof": "RunInit declares `terminal?: TerminalSnapshot`, and under exactOptionalPropertyTypes a TerminalSnapshot | undefined cannot be assigned to it, so this spread is guarded to keep the key out of the literal rather than to keep undefined out of the Run. With the test forced false the key is always written, carrying whatever the parameter holds. Run's constructor consumes the literal by name three times over — it assigns this.terminal from init.terminal, it selects the lifecycle by testing `init.terminal === undefined`, and it compares the snapshot's Run against this.id — and every one of those is a value read that sees undefined whether the key was omitted or written as undefined. No caller counts the literal's keys, tests `in`, or forwards it; the literal is constructed and consumed in one expression. So the two spellings build the same Run, with the same lifecycle kind and the same absent terminal snapshot, and no observation of the returned Run can separate them.",
-      "replacement": "false",
-      "symbol": "Run.transition"
-    },
-    {
-      "file": "src/agents/runs/run.ts",
-      "mutated": "this.parent === undefined",
-      "mutator": "ConditionalExpression",
-      "proof": "This guard exists for the type checker rather than for the program. RunInit declares `parent?: RunId` and the package compiles with exactOptionalPropertyTypes, so writing `parent: this.parent` — an expression of type RunId | undefined — is rejected at this very call site; the conditional spread is the standard way the codebase satisfies that rule. Forcing the test false spreads the key unconditionally, so where the original omitted `parent` the mutant supplies it holding undefined. The literal is an argument to `new Run(...)` and reaches nothing else: Run's constructor assigns `this.parent = init.parent`, never asks whether the key is present, never enumerates init, and never spreads it onward, so a missing key and a key holding undefined are the same read. Everything downstream reads the field, not the literal — toData emits `this.parent?.value ?? null`. The sibling spreads in Turn.fromData are killed instead of surviving precisely because their else branch constructs an id from the absent value and throws; this one only repeats a value already in hand.",
-      "replacement": "false",
-      "symbol": "Run.transition"
     },
     {
       "file": "src/agents/runs/runtime.ts",
@@ -317,7 +269,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "commit.parents.length !== 1",
       "mutator": "ConditionalExpression",
-      "proof": "Every commit that reaches this branch has exactly one parent. The branch is the else of `commit.kind === \"merge\"`, and validateClosedShape gives merge and root their own arities — two parents and none — while throwing \"Unary Run commits require one parent\" for every other kind. The only ways into appendInTransaction are the typed doors and the Turn transitions, which pass message, verdict, invocation, eventDelivery, undo, migration, checkpoint and result commits; the root commit is inserted at genesis through insertCommit and never appended. So the length test is constantly false, and the comparison beside it, which the parent-conflict tests do exercise, decides the branch on its own.",
+      "proof": "Every commit that reaches this branch has exactly one parent. The branch is the else of `commit.kind === \"merge\"`, and validateClosedKind gives merge and root their own arities — two parents and none — while throwing \"Unary Run commits require one parent\" for every other kind. The only ways into appendInTransaction are the typed doors and the Turn transitions, which pass message, verdict, invocation, eventDelivery, undo, migration, checkpoint and result commits; the root commit is inserted at genesis through insertCommit and never appended. So the length test is constantly false, and the comparison beside it, which the parent-conflict tests do exercise, decides the branch on its own.",
       "replacement": "false",
       "symbol": "RunRuntime.appendInTransaction"
     },
@@ -341,7 +293,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "commit.migration?.from",
       "mutator": "OptionalChaining",
-      "proof": "The optional call cannot short-circuit here. The branch is entered only when commit.kind is \"migration\", and validateClosedShape's migration branch throws \"Migration commit fields are invalid\" unless commit.migration is present — it also requires the commit's pins to equal the migration target. RunCommit's constructor runs that check on construction and RunCommitCodec decodes through it, so a migration commit always carries its migration record and both spellings read the same RunPins and call the same equals. The chain is written because the field's declared type stays optional for every commit kind, not because this site can meet an absent one.",
+      "proof": "The optional call cannot short-circuit here. The branch is entered only when commit.kind is \"migration\", and validateClosedKind's migration branch throws \"Migration commit fields are invalid\" unless commit.migration is present — it also requires the commit's pins to equal the migration target. RunCommit's constructor runs that check on construction and RunCommitCodec decodes through it, so a migration commit always carries its migration record and both spellings read the same RunPins and call the same equals. The chain is written because the field's declared type stays optional for every commit kind, not because this site can meet an absent one.",
       "replacement": "commit.migration.from",
       "symbol": "RunRuntime.appendInTransaction"
     },
@@ -349,7 +301,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "commit.writer.kind !== \"system\"",
       "mutator": "ConditionalExpression",
-      "proof": "Reaching this disjunct means the first one was false, so the commit's kind is \"invocation\" or \"eventDelivery\". validateClosedShape gives each of those its own branch, and both demand a system writer: the invocation branch throws unless writer.kind is \"system\" with a receipt cause, the delivery branch unless it is \"system\" with a delivery cause. RunCommitCodec decodes through RunCommit.fromData and so through that constructor, and RunCommit has no other construction path, so a commit of either kind always carries a system writer and this test is constantly false. It is written because appendInTransaction and the evidence checks below read writer.cause, which the checker only allows once the union is narrowed. The mutants forcing the kind group the other way are killed by the merge and message commits the door now refuses.",
+      "proof": "Reaching this disjunct means the first one was false, so the commit's kind is \"invocation\" or \"eventDelivery\". validateClosedKind gives each of those its own branch, and both demand a system writer: the invocation branch throws unless writer.kind is \"system\" with a receipt cause, the delivery branch unless it is \"system\" with a delivery cause. RunCommitCodec decodes through RunCommit.fromData and so through that constructor, and RunCommit has no other construction path, so a commit of either kind always carries a system writer and this test is constantly false. It is written because appendInTransaction and the evidence checks below read writer.cause, which the checker only allows once the union is narrowed. The mutants forcing the kind group the other way are killed by the merge and message commits the door now refuses.",
       "replacement": "false",
       "symbol": "RunRuntime.appendSystemEvidenceCommitInTransaction"
     },
@@ -357,7 +309,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "commit.writer.kind !== \"turn\"",
       "mutator": "ConditionalExpression",
-      "proof": "The first disjunct has already established that the commit's kind is \"message\" or \"verdict\", and validateClosedShape routes both to its final block, which throws \"Turn-authored commit fields are invalid\" unless writer.kind is \"turn\". Since the codec decodes through RunCommit's constructor and nothing else constructs one, a message or verdict commit always has a turn writer, so this test never fires and removing it selects the same branch. The complementary mutant that forces the same test true — refusing every turn append — is killed, as are both halves of the kind group beside it, so the door's authority check remains asserted where it can actually decide.",
+      "proof": "The first disjunct has already established that the commit's kind is \"message\" or \"verdict\", and validateClosedKind routes both to its final block, which throws \"Turn-authored commit fields are invalid\" unless writer.kind is \"turn\". Since the codec decodes through RunCommit's constructor and nothing else constructs one, a message or verdict commit always has a turn writer, so this test never fires and removing it selects the same branch. The complementary mutant that forces the same test true — refusing every turn append — is killed, as are both halves of the kind group beside it, so the door's authority check remains asserted where it can actually decide.",
       "replacement": "false",
       "symbol": "RunRuntime.appendTurnCommitInTransaction"
     },
@@ -397,7 +349,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "commit.writer.kind !== \"system\"",
       "mutator": "ConditionalExpression",
-      "proof": "By the time this disjunct is evaluated the commit's kind is \"merge\", and validateClosedShape's merge branch throws \"Merge commit fields are invalid\" unless the writer is a system writer with a control cause, along with two parents, a resolution, content and a receipt. Every RunCommit reaches that check on construction and the codec decodes through it, so a merge commit with any other writer cannot exist and this test is constantly false. The kind test beside it is what actually refuses commits at this door, and it is now asserted with a system-authored invocation — a commit carrying exactly the writer this disjunct looks for — so the two are told apart rather than shadowed.",
+      "proof": "By the time this disjunct is evaluated the commit's kind is \"merge\", and validateClosedKind's merge branch throws \"Merge commit fields are invalid\" unless the writer is a system writer with a control cause, along with two parents, a resolution, content and a receipt. Every RunCommit reaches that check on construction and the codec decodes through it, so a merge commit with any other writer cannot exist and this test is constantly false. The kind test beside it is what actually refuses commits at this door, and it is now asserted with a system-authored invocation — a commit carrying exactly the writer this disjunct looks for — so the two are told apart rather than shadowed.",
       "replacement": "false",
       "symbol": "RunRuntime.mergeRunInTransaction"
     },
@@ -413,7 +365,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "commit.writer.kind !== \"system\"",
       "mutator": "ConditionalExpression",
-      "proof": "Reaching this disjunct means the commit's kind is \"undo\", and validateClosedShape sends that kind through requireControl before anything else, which admits only a system writer with a control cause. The constructor runs that check on every RunCommit, including every one the codec decodes, so an undo commit with a turn or root writer is unconstructible and the test is constantly false. It is written so the door's refusal reads as one rule rather than two, and because the appendInTransaction path below distinguishes writer kinds; the kind half of the same condition is what does the refusing, and it is now exercised with a system-authored invocation.",
+      "proof": "Reaching this disjunct means the commit's kind is \"undo\", and validateClosedKind sends that kind through requireControl before anything else, which admits only a system writer with a control cause. The constructor runs that check on every RunCommit, including every one the codec decodes, so an undo commit with a turn or root writer is unconstructible and the test is constantly false. It is written so the door's refusal reads as one rule rather than two, and because the appendInTransaction path below distinguishes writer kinds; the kind half of the same condition is what does the refusing, and it is now exercised with a system-authored invocation.",
       "replacement": "false",
       "symbol": "RunRuntime.undoRunInTransaction"
     },
@@ -421,7 +373,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "commit.content === undefined",
       "mutator": "ConditionalExpression",
-      "proof": "This disjunct cannot fire. It is inside the pick-resolution branch, so the commit's kind is \"merge\", and validateClosedShape's merge branch throws \"Merge commit fields are invalid\" unless content is present — along with two parents, a system control writer, a resolution and a receipt. Every RunCommit passes that check on construction and the codec decodes through it, so commit.content is a ContentRef here and the test is constantly false. What it earns is the narrowing that lets `picked.content.equals(commit.content)` typecheck; the disjunct before it, about the picked parent's own content, is the one that can refuse and is killed.",
+      "proof": "This disjunct cannot fire. It is inside the pick-resolution branch, so the commit's kind is \"merge\", and validateClosedKind's merge branch throws \"Merge commit fields are invalid\" unless content is present — along with two parents, a system control writer, a resolution and a receipt. Every RunCommit passes that check on construction and the codec decodes through it, so commit.content is a ContentRef here and the test is constantly false. What it earns is the narrowing that lets `picked.content.equals(commit.content)` typecheck; the disjunct before it, about the picked parent's own content, is the one that can refuse and is killed.",
       "replacement": "false",
       "symbol": "RunRuntime.validateMerge"
     },
@@ -429,7 +381,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "commit.treeCheckpoint === undefined",
       "mutator": "ConditionalExpression",
-      "proof": "The tree branch is entered only when commit.treeResolution is defined, and validateClosedShape refuses a merge commit whose tree resolution and tree checkpoint do not occur together — `(treeResolution === undefined) !== (treeCheckpoint === undefined)` throws \"Tree resolution and checkpoint must occur together\". So a commit with a resolution always carries a checkpoint, this test is constantly false, and the disjunct before it, about the selected parent's checkpoint, is what can refuse. The test is written so the equals call below it typechecks against a ContentRef rather than an optional one.",
+      "proof": "The tree branch is entered only when commit.treeResolution is defined, and validateClosedKind refuses a merge commit whose tree resolution and tree checkpoint do not occur together — `(treeResolution === undefined) !== (treeCheckpoint === undefined)` throws \"Tree resolution and checkpoint must occur together\". So a commit with a resolution always carries a checkpoint, this test is constantly false, and the disjunct before it, about the selected parent's checkpoint, is what can refuse. The test is written so the equals call below it typechecks against a ContentRef rather than an optional one.",
       "replacement": "false",
       "symbol": "RunRuntime.validateMerge"
     },
@@ -438,7 +390,7 @@
       "mutated": "commit.resolution?.kind",
       "mutator": "OptionalChaining",
       "occurrence": 1,
-      "proof": "The optional call cannot short-circuit here, so it selects the same branch as a plain read. validateMerge has one caller, appendInTransaction, which invokes it only under `commit.kind === \"merge\"`, and validateClosedShape's merge branch throws \"Merge commit fields are invalid\" unless the commit carries a resolution, along with two parents, a system control writer, content and a receipt. RunCommit runs that check on construction and RunCommitCodec decodes through the same constructor, so every merge commit that reaches this line has a resolution and both spellings read the same discriminant off the same object. The chain is written because resolution is optional across the union of commit kinds, not because a merge commit can arrive without one; the pick rules this branch guards are themselves exercised, and the mutants inside them are killed.",
+      "proof": "The optional call cannot short-circuit here, so it selects the same branch as a plain read. validateMerge has one caller, appendInTransaction, which invokes it only under `commit.kind === \"merge\"`, and validateClosedKind's merge branch throws \"Merge commit fields are invalid\" unless the commit carries a resolution, along with two parents, a system control writer, content and a receipt. RunCommit runs that check on construction and RunCommitCodec decodes through the same constructor, so every merge commit that reaches this line has a resolution and both spellings read the same discriminant off the same object. The chain is written because resolution is optional across the union of commit kinds, not because a merge commit can arrive without one; the pick rules this branch guards are themselves exercised, and the mutants inside them are killed.",
       "replacement": "commit.resolution.kind",
       "sites": 2,
       "symbol": "RunRuntime.validateMerge"
@@ -448,7 +400,7 @@
       "mutated": "commit.resolution?.kind",
       "mutator": "OptionalChaining",
       "occurrence": 2,
-      "proof": "This site guards the concat check, where the mutant could in principle change more than a value: the conjunct it heads decides whether the merge port's verifyConcat runs at all, so a short circuit that became a throw would replace a skipped verification with a fault. It cannot, because the receiver is present. The commit reached validateMerge only by being a merge commit, and validateClosedShape refuses a merge commit with no resolution before one can be constructed or decoded. Nothing can clear the field between this read and the earlier one either: RunCommit freezes itself at the end of its constructor, so resolution is the same value for the whole call. The optional call therefore always proceeds, verifyConcat is reached on exactly the commits it was reached on before, and the refusal it can raise is unchanged.",
+      "proof": "This site guards the concat check, where the mutant could in principle change more than a value: the conjunct it heads decides whether the merge port's verifyConcat runs at all, so a short circuit that became a throw would replace a skipped verification with a fault. It cannot, because the receiver is present. The commit reached validateMerge only by being a merge commit, and validateClosedKind refuses a merge commit with no resolution before one can be constructed or decoded. Nothing can clear the field between this read and the earlier one either: RunCommit freezes itself at the end of its constructor, so resolution is the same value for the whole call. The optional call therefore always proceeds, verifyConcat is reached on exactly the commits it was reached on before, and the refusal it can raise is unchanged.",
       "replacement": "commit.resolution.kind",
       "sites": 2,
       "symbol": "RunRuntime.validateMerge"
@@ -457,7 +409,7 @@
       "file": "src/agents/runs/runtime.ts",
       "mutated": "pickedIndex < 0",
       "mutator": "ConditionalExpression",
-      "proof": "Indexing an array with -1 yields undefined, which is the value the true arm of this conditional supplies, so the mutant computes the same `picked` on the one input the two spellings could differ on. The input is unreachable besides: validateClosedShape refuses a merge commit whose pick resolution does not name one of its own ordered parents, so indexOf over those parents' values always finds the resolution's parent and pickedIndex is 0 or 1 by the time this line runs. Neither arm has a side effect, and the two-element array literal is rebuilt identically either way.",
+      "proof": "Indexing an array with -1 yields undefined, which is the value the true arm of this conditional supplies, so the mutant computes the same `picked` on the one input the two spellings could differ on. The input is unreachable besides: validateClosedKind refuses a merge commit whose pick resolution does not name one of its own ordered parents, so indexOf over those parents' values always finds the resolution's parent and pickedIndex is 0 or 1 by the time this line runs. Neither arm has a side effect, and the two-element array literal is rebuilt identically either way.",
       "replacement": "false",
       "symbol": "RunRuntime.validateMerge.picked"
     },
@@ -509,7 +461,7 @@
       "file": "src/agents/runs/store.ts",
       "mutated": "commit.writer.kind === \"turn\"",
       "mutator": "ConditionalExpression",
-      "proof": "The conjunct before this one has already established that the commit's kind is \"checkpoint\" or \"result\", and RunCommit's validateClosedShape refuses either of those without a turn writer: neither kind is handled by the root, merge, invocation, eventDelivery, undo or migration branches, so both fall through to the final block, which throws \"Turn-authored commit fields are invalid\" unless writer.kind is \"turn\". That check runs on construction, and RunCommitCodec decodes through RunCommit.fromData, which builds through the same constructor, so every commit listCommits can yield satisfies it. The conjunct is therefore constantly true wherever it is evaluated, and it is written because the three token comparisons after it read commit.writer.token, which the checker only permits once the writer union has been narrowed. The mutant replacing the same comparison with !== is killed, as is the string mutant emptying \"turn\".",
+      "proof": "The conjunct before this one has already established that the commit's kind is \"checkpoint\" or \"result\", and RunCommit's validateClosedKind refuses either of those without a turn writer: neither kind is handled by the root, merge, invocation, eventDelivery, undo or migration branches, so both fall through to the final block, which throws \"Turn-authored commit fields are invalid\" unless writer.kind is \"turn\". That check runs on construction, and RunCommitCodec decodes through RunCommit.fromData, which builds through the same constructor, so every commit listCommits can yield satisfies it. The conjunct is therefore constantly true wherever it is evaluated, and it is written because the three token comparisons after it read commit.writer.token, which the checker only permits once the writer union has been narrowed. The mutant replacing the same comparison with !== is killed, as is the string mutant emptying \"turn\".",
       "replacement": "true",
       "symbol": "RunRepository.loadExecutionScope"
     },
@@ -517,7 +469,7 @@
       "file": "src/agents/runs/store.ts",
       "mutated": "checkpointCommit.content?.equals",
       "mutator": "OptionalChaining",
-      "proof": "Control reaches this clause only after the kind, Run, branch, subject Turn and pins clauses have all been false, and the kind clause being false means the commit's kind is \"checkpoint\". validateClosedShape sends that kind to its final block, which throws \"Turn-authored commit fields are invalid\" unless content is defined, and every stored commit passes through it because the codec decodes through the constructor. So content is a ContentRef whenever this expression is evaluated, the optional call and the plain call invoke the same ContentRef.equals, and the guard against undefined is a type-level obligation rather than a runtime possibility. The tree-checkpoint comparison one line below is the genuinely optional one, and its mutants are killed by the four pairings; this one names a field the commit's shape rules require.",
+      "proof": "Control reaches this clause only after the kind, Run, branch, subject Turn and pins clauses have all been false, and the kind clause being false means the commit's kind is \"checkpoint\". validateClosedKind sends that kind to its final block, which throws \"Turn-authored commit fields are invalid\" unless content is defined, and every stored commit passes through it because the codec decodes through the constructor. So content is a ContentRef whenever this expression is evaluated, the optional call and the plain call invoke the same ContentRef.equals, and the guard against undefined is a type-level obligation rather than a runtime possibility. The tree-checkpoint comparison one line below is the genuinely optional one, and its mutants are killed by the four pairings; this one names a field the commit's shape rules require.",
       "replacement": "checkpointCommit.content.equals",
       "symbol": "RunRepository.loadExecutionScope"
     },
@@ -525,7 +477,7 @@
       "file": "src/agents/runs/store.ts",
       "mutated": "checkpointCommit.subjectTurn?.equals",
       "mutator": "OptionalChaining",
-      "proof": "The optional call can only differ from a plain one if subjectTurn is undefined here, and it cannot be. Two clauses earlier the chain short-circuits unless checkpointCommit.kind is \"checkpoint\", and a commit of that kind reaches validateClosedShape's final block, which throws unless subjectTurn is defined; RunCommitCodec decodes through RunCommit.fromData and so through that constructor, so no stored commit escapes it. Reaching this clause therefore means subjectTurn is a TurnId and both spellings call TurnId.equals with the same receiver and argument. The chain is written because the declared type stays TurnId | undefined for the whole class, not because this site can see an absent one. A test could only tell the two apart by producing a checkpoint commit without a subject Turn, which the record's own constructor makes unconstructible.",
+      "proof": "The optional call can only differ from a plain one if subjectTurn is undefined here, and it cannot be. Two clauses earlier the chain short-circuits unless checkpointCommit.kind is \"checkpoint\", and a commit of that kind reaches validateClosedKind's final block, which throws unless subjectTurn is defined; RunCommitCodec decodes through RunCommit.fromData and so through that constructor, so no stored commit escapes it. Reaching this clause therefore means subjectTurn is a TurnId and both spellings call TurnId.equals with the same receiver and argument. The chain is written because the declared type stays TurnId | undefined for the whole class, not because this site can see an absent one. A test could only tell the two apart by producing a checkpoint commit without a subject Turn, which the record's own constructor makes unconstructible.",
       "replacement": "checkpointCommit.subjectTurn.equals",
       "symbol": "RunRepository.loadExecutionScope"
     },
@@ -555,43 +507,11 @@
     },
     {
       "file": "src/agents/runs/turn.ts",
-      "mutated": "cacheLineage === undefined",
-      "mutator": "ConditionalExpression",
-      "proof": "The local this guards was already resolved on the lines above, where `object[\"cacheLineage\"] === null` decides between undefined and a decoded lineage, so the else branch here names a bound variable and constructs nothing. Forcing the test false writes the key unconditionally, holding the same undefined the original omitted. TurnInit declares `cacheLineage?: TurnCacheLineage` and exactOptionalPropertyTypes is what forbids the unconditional spelling in the source, which is the only reason the conditional is written at all. Turn's constructor reads init.cacheLineage by name and branches on it being undefined to decide whether to freeze a copy, so both spellings leave this.cacheLineage undefined and the Turn identical. The two neighbouring spreads for checkpoint and result are killed rather than equivalent because their else branches pass an absent string to new RunCheckpointId and new ContentRef, which throw; the contrast is what makes this site's survival a property of the value rather than a gap in the decode tests.",
-      "replacement": "false",
-      "symbol": "Turn.fromData"
-    },
-    {
-      "file": "src/agents/runs/turn.ts",
       "mutated": "this.status.kind !== \"running\"",
       "mutator": "ConditionalExpression",
       "proof": "Dropping this disjunct leaves the refusal resting on the lease alone, and the lease already refuses every Turn the status test would have caught. The constructor pins holder to status: a queued Turn requires an unheld epoch-zero lease, a suspended or terminal Turn must be unheld, and only a running Turn may hold one. ExactTurnLease.admits requires `this.holder !== undefined` before it can return true, so for any Turn whose status is not running admits is false, !admits is true, and the same lease.invalid error is raised with the same message. For a running Turn the disjunct is false and contributes nothing. The extra evaluation the mutant performs is harmless: admits reads frozen fields and calls instanceof, TextId.equals and PrincipalRef.equals, all total and pure, and it cannot reach now.getTime() because that conjunct sits behind the holder test that no non-running Turn passes.",
       "replacement": "false",
       "symbol": "Turn.requireToken"
-    },
-    {
-      "file": "src/agents/runs/turn.ts",
-      "mutated": "checkpoint === undefined",
-      "mutator": "ConditionalExpression",
-      "proof": "The guarded value is the local `changes.checkpoint ?? this.checkpoint` computed at the top of transition, so the else branch republishes a variable and evaluates no constructor. Under exactOptionalPropertyTypes a RunCheckpointId | undefined cannot be assigned to TurnInit's `checkpoint?: RunCheckpointId`, which is why the spread is conditional in the first place; the mutant writes the key unconditionally and it holds undefined exactly where the original left it out. Turn's constructor assigns this.checkpoint = init.checkpoint and then tests `this.checkpoint === undefined` for the rule that a suspended Turn carries one, and both are reads of the value rather than of the key set. Since the literal is consumed by that constructor alone and never enumerated, spread onward, or probed with `in`, every Turn either spelling can produce is identical, including the throw the suspended rule raises.",
-      "replacement": "false",
-      "symbol": "Turn.transition"
-    },
-    {
-      "file": "src/agents/runs/turn.ts",
-      "mutated": "result === undefined",
-      "mutator": "ConditionalExpression",
-      "proof": "This spread carries the local `changes.result ?? this.result`, already computed, so making its test constantly false writes a key holding undefined where the original wrote no key, and evaluates nothing new. TurnInit declares `result?: ContentRef`; exactOptionalPropertyTypes rejects assigning ContentRef | undefined to it, which is the sole reason the assignment is guarded rather than written plainly. The constructor assigns this.result = init.result and separately tests `this.result === undefined` to refuse a succeeded or failed Turn without one, so a Turn built either way holds the same field and raises the same refusal on the same inputs. Nothing in the package inspects the init literal's key set: it is built and passed to new Turn in a single expression and is unreachable afterwards, so no observation of the resulting Turn, its encoding, or the errors it raises can separate the two.",
-      "replacement": "false",
-      "symbol": "Turn.transition"
-    },
-    {
-      "file": "src/agents/runs/turn.ts",
-      "mutated": "this.cacheLineage === undefined",
-      "mutator": "ConditionalExpression",
-      "proof": "Unlike its two neighbours this spread carries the receiver's own field straight through a transition, so with the test forced false the literal always names cacheLineage and holds whatever this.cacheLineage held, undefined included. The conditional is present because TurnInit declares `cacheLineage?: TurnCacheLineage` and exactOptionalPropertyTypes forbids assigning the optional field to the optional parameter directly. Turn's constructor reads init.cacheLineage and branches on it being undefined, freezing a copy of turn and promptPrefix when it is present and storing undefined when it is not, so the field the new Turn ends up with is the same under either spelling and its encoding, which writes null for an absent lineage, is byte-identical. The literal never escapes the call, is never enumerated and is never tested with `in`, so no test of the transition's result can tell the key apart from its absence.",
-      "replacement": "false",
-      "symbol": "Turn.transition"
     },
     {
       "file": "src/authority/binding.ts",
@@ -634,14 +554,6 @@
       "occurrence": 2,
       "sites": 2,
       "proof": "Whenever this operand is true, the ternary on the line above it has already taken its undefined branch, so trust is undefined and the next operand of this same disjunction is true. Forcing this one false therefore cannot change the disjunction's value: a foreign Membership with no verification is still refused, with the same code and the same message. The first occurrence is the ternary's own test, and its mutants are killed, because its two branches assign different values to trust and that difference reaches this guard. This one only restates what that assignment already implies. Both backings reach this line through the one closure, so neither can tell the mutant from the original."
-    },
-    {
-      "file": "src/authority/data.ts",
-      "symbol": "requireSafeInteger",
-      "mutator": "ConditionalExpression",
-      "replacement": "false",
-      "mutated": "typeof value !== \"number\"",
-      "proof": "Number.isSafeInteger performs no coercion and returns false for every value that is not a number, so the negated call beside this operand is true for every input that makes this one true. Forcing this operand false therefore leaves that test rejecting exactly the same set of values, with the same TypeError and the same message. The typeof test earns its place as the reason the narrowing to number holds for the returned value, not as a test that decides anything the guard has not already decided."
     },
     {
       "file": "src/authority/epoch.ts",
@@ -1458,14 +1370,6 @@
       "proof": "The optional read differs from the plain one only when originalLease is undefined, and it never is at this statement. The assignment sits inside `if (candidate.lease !== undefined)`, and the guard above has already denied every candidate for which `(candidate.lease === undefined) !== (candidate.originalLease === undefined)`, so a candidate carrying a lease always carries an original lease too. The local was just read out of that same field, nothing between the guard and this line is asynchronous, and candidate is the resolver's own evidence object which is not re-read. The plain member access therefore evaluates the same getter on the same object and yields the same value on every input."
     },
     {
-      "file": "src/composition/device-consent.ts",
-      "symbol": "DeviceConsentFinalAdmissionPort.admit",
-      "mutator": "ConditionalExpression",
-      "replacement": "false",
-      "mutated": "typeof input !== \"object\"",
-      "proof": "This disjunct rejects a non-object Device input, and the disjunct after it rejects the same inputs anyway. `input` is `request.request.inputs[0]`, typed FacetData, which is an alias of JsonValue — so at runtime it is an object, an array, a string, a number, a boolean, or null, and nothing else. The earlier disjuncts have already returned for null, for arrays, and (through the length test) for the empty-inputs case where the index read yields undefined. Every remaining non-object is a string, number or boolean primitive, and reading `[\"deviceId\"]` off any of those yields undefined rather than throwing, so `typeof undefined !== \"string\"` makes the following disjunct true and the request is denied with the identical result. The two forms therefore agree on every input this port can be handed."
-    },
-    {
       "file": "src/composition/mediation-preparation.ts",
       "symbol": "DerivedPreparationAdmission.admits",
       "mutator": "ConditionalExpression",
@@ -2240,14 +2144,6 @@
       "symbol": "compareIdentityText"
     },
     {
-      "file": "src/identity/codec.ts",
-      "mutated": "typeof value !== \"number\"",
-      "mutator": "ConditionalExpression",
-      "proof": "The type test decides nothing at run time. Number.isSafeInteger, tested in the next disjunct, is specified to return false for any argument that is not a Number without coercing it, so every non-number the removed test would have caught still reaches the same throw with the same message. The test survives because it is what narrows the parameter for the Revision construction below it, which is a compiler obligation rather than a behavioural one. The mutant that removes the whole guard is killed.",
-      "replacement": "false",
-      "symbol": "requireIdentityRevision"
-    },
-    {
       "file": "src/identity/guest-trust.ts",
       "mutated": "{ return revokedGuestTrust; }",
       "mutator": "BlockStatement",
@@ -2459,7 +2355,9 @@
       "mutator": "BooleanLiteral",
       "replacement": "true",
       "mutated": "false",
-      "proof": "This is the answer given to a type keyword outside the JSON Schema vocabulary, and no such keyword reaches it. Both schemas are compiled against the meta-schema before the compatibility comparison runs, and the meta-schema admits a string type only from the seven names the clauses above enumerate; a document naming anything else is rejected as an unsupported schema, so the comparison never happens at all. Confirmed by installing a Command whose argument and destination schemas both name an unrecognized type: the attempt fails with a schema error naming the disallowed value, not with the compatibility verdict this answer would decide. Flipping the answer therefore changes a verdict that is never reached."
+      "proof": "This is the answer given to a type keyword outside the JSON Schema vocabulary, and no such keyword reaches it. Both schemas are compiled against the meta-schema before the compatibility comparison runs, and the meta-schema admits a string type only from the seven names the clauses above enumerate; a document naming anything else is rejected as an unsupported schema, so the comparison never happens at all. Confirmed by installing a Command whose argument and destination schemas both name an unrecognized type: the attempt fails with a schema error naming the disallowed value, not with the compatibility verdict this answer would decide. Flipping the answer therefore changes a verdict that is never reached.",
+      "occurrence": 2,
+      "sites": 2
     },
     {
       "file": "src/operations/command-runtime.ts",
