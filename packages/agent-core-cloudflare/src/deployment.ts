@@ -6,6 +6,7 @@ import type {
     DynamicWorkerScope,
     DynamicWorkerSource
 } from "./loader.js";
+import { answersPlatformMethod } from "./platform-value.js";
 
 export interface FetchServiceLike {
     fetch(request: Request): Response | Promise<Response>;
@@ -69,12 +70,7 @@ export class ExplicitCloudflareDeploymentAdapter {
 }
 
 function isFetchService(value: unknown): value is FetchServiceLike {
-    return (
-        typeof value === "object" &&
-        value !== null &&
-        "fetch" in value &&
-        typeof value.fetch === "function"
-    );
+    return answersPlatformMethod<FetchServiceLike>(value, (service) => service.fetch);
 }
 
 class DynamicFetchServiceScope implements ScopedFetchServiceLike {

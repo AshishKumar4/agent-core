@@ -6,6 +6,7 @@ import {
 import type { SynchronousResultGuard as CoreSynchronousResultGuard } from "@agent-core/core/actors";
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
+import { answersPlatformMethod } from "./platform-value.js";
 
 export type SqliteValue = CoreSqliteValue;
 export type SqliteRow = CoreSqliteRow;
@@ -215,9 +216,7 @@ function normalizeValue(value: CloudflareSqlValue, errors: CloudflareErrorPort):
 }
 
 function isThenable(value: unknown): value is PromiseLike<unknown> {
-    return (typeof value === "object" && value !== null) || typeof value === "function"
-        ? typeof (value as { readonly then?: unknown }).then === "function"
-        : false;
+    return answersPlatformMethod<PromiseLike<unknown>>(value, (pending) => pending.then);
 }
 
 function noop(): void {}
