@@ -418,10 +418,7 @@ describe("MemoryMaterializationControlStore integrity", () => {
     });
 });
 
-function storeWithDeployment(): {
-    store: MemoryMaterializationControlStore;
-    deployment: DeploymentRecord;
-} {
+function storeWithDeployment() {
     const store = new MemoryMaterializationControlStore();
     const deployment = DeploymentRecord.initial(tenantId, deploymentKey);
     store.transaction((transaction) => {
