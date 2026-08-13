@@ -218,6 +218,9 @@ export class ProtectedProfileRuntimePort<Receipt> {
             if (result.kind !== "receipt") {
                 throw invalidOutput("Protected Operation port omitted the operation Receipt");
             }
+            // SAFETY: contract.resultMode is the runtime witness of Mode, and this branch
+            // runs only where it equals "receipt", so Mode is "receipt" and the conditional
+            // return type is Receipt — which the kind check above has just established.
             return result.receipt as Mode extends "receipt" ? Receipt : Output;
         }
         if (result.kind !== "output") {
@@ -230,6 +233,9 @@ export class ProtectedProfileRuntimePort<Receipt> {
             contract.descriptor.output,
             "output"
         );
+        // SAFETY: contract.resultMode is the runtime witness of Mode and the receipt branch
+        // above returned, so Mode is "output" here and the conditional return type is Output —
+        // which is what contract.outputCodec decodes.
         return decode(contract.outputCodec, encodedOutput, "output") as Mode extends "receipt"
             ? Receipt
             : Output;

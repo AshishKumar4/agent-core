@@ -6,12 +6,14 @@ import { RunCommit } from "../../../src/agents/runs/commit";
 import { RunBranchId, RunCheckpointId, RunId, TurnInboxEntryId } from "../../../src/agents/runs/id";
 import { RunPins } from "../../../src/agents/runs/pins";
 import { TurnPlacementSnapshot } from "../../../src/agents/runs/placement";
-import { Run, RunBranch } from "../../../src/agents/runs/run";
+import { Run, RunBranch, type RunInit } from "../../../src/agents/runs/run";
 import { RunCheckpoint, Turn, TurnInboxEntry } from "../../../src/agents/runs/turn";
 import { ReceiptId } from "../../../src/invocation-references";
 import { AuditRecordId, EventId } from "../../../src/interaction-references";
 import {
+    type Assembled,
     configuration,
+    forgedEvidence,
     content,
     digest,
     genesis,
@@ -19,17 +21,12 @@ import {
     ids,
     pins,
     refs,
-    seedRunningTurn
+    seedRunningTurn,
+    thrownBy
 } from "./fixture";
 
-function expectCode(operation: () => unknown, code: AgentCoreError["code"]): void {
-    try {
-        operation();
-        throw new Error("Expected operation to fail");
-    } catch (error) {
-        expect(error).toBeInstanceOf(AgentCoreError);
-        expect((error as AgentCoreError).code).toBe(code);
-    }
+function expectCode(operation: () => void, code: AgentCoreError["code"]): void {
+    expect(thrownBy(AgentCoreError, operation).code).toBe(code);
 }
 
 function message(
@@ -137,15 +134,12 @@ describe("RunRuntime rejection matrix", () => {
         expectCode(() => value.runtime.createRun(malformed), "run.invalid-state");
         expectCode(() => {
             const { parent, terminal, ...required } = valid.run;
-            value.runtime.createRun({
-                ...valid,
-                run: new Run({
-                    ...required,
-                    agent: ids.policy as never,
-                    ...(parent === undefined ? {} : { parent }),
-                    ...(terminal === undefined ? {} : { terminal })
-                })
-            });
+            // SAFETY: RunInit types `agent` as AgentId, so only a forged identifier can reach
+            // the runtime check that a Run's agent matches the configuration it pins.
+            const init: Assembled<RunInit> = { ...required, agent: ids.policy as never };
+            if (parent !== undefined) init.parent = parent;
+            if (terminal !== undefined) init.terminal = terminal;
+            value.runtime.createRun({ ...valid, run: new Run(init) });
         }, "run.invalid-state");
         value.runtime.createRun(valid);
         expectCode(() => value.runtime.createRun(valid), "run.invalid-state");
@@ -948,10 +942,9 @@ describe("Turn and terminalization rejection matrix", () => {
             const forced = forcedCancellation(value, ids.turn, sibling, variant);
             if (variant === "control") {
                 const key = `${forced.control.receipt.value}:${forced.control.audit.value}`;
-                value.evidence.administers.set(key, {
-                    ...value.evidence.administers.get(key)!,
-                    outcome: "failed"
-                } as never);
+                const stored = value.evidence.administers.get(key);
+                if (stored === undefined) throw new Error("Expected administer evidence");
+                value.evidence.administers.set(key, forgedEvidence(stored, "outcome", "failed"));
             } else {
                 const key = `${forced.evidence.event.value}:${forced.evidence.audit.value}`;
                 value.evidence.cancellations.set(key, {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
+import { requireInteger, requireObject, requireString } from "../../src/agents/record-data";
 import {
     Binding,
     GrantId,
@@ -349,11 +350,14 @@ const admissionCodec: StructuralCodec<DemoAdmission> = Object.freeze({
         itemIndex: value.itemIndex
     }),
     decode: (value: JsonValue): DemoAdmission => {
-        const object = value as { readonly [key: string]: JsonValue };
+        const object = requireObject(value, "Demo admission");
         return Object.freeze({
-            invocation: object["invocation"] as string,
-            itemIndex: object["itemIndex"] as number,
-            attemptOrdinal: object["attemptOrdinal"] as number
+            invocation: requireString(object["invocation"], "Demo admission Invocation"),
+            itemIndex: requireInteger(object["itemIndex"], "Demo admission item index"),
+            attemptOrdinal: requireInteger(
+                object["attemptOrdinal"],
+                "Demo admission attempt ordinal"
+            )
         });
     }
 });

@@ -24,7 +24,7 @@ import {
     TurnPlacementSnapshot,
     TurnPlacementSnapshotCodec
 } from "../../../src/agents/runs/placement";
-import { Run, RunBranch, RunCodec } from "../../../src/agents/runs/run";
+import { Run, RunBranch, RunCodec, type RunInit } from "../../../src/agents/runs/run";
 import { SpawnReservation, SpawnReservationCodec } from "../../../src/agents/runs/spawn";
 import { SettlementObligation } from "../../../src/agents/runs/settlement";
 import { RunCheckpoint, Turn, TurnInboxEntry } from "../../../src/agents/runs/turn";
@@ -42,10 +42,13 @@ import {
     genesis,
     harness,
     ids,
+    mutableData,
+    objectAt,
     pins,
     refs,
     settlementAuditKey,
-    sourceRecords
+    sourceRecords,
+    type Assembled
 } from "./fixture";
 
 describe("Agent and Run records", () => {
@@ -97,6 +100,9 @@ describe("Agent and Run records", () => {
                     environment: value.environment
                 })
         ).toThrow();
+        // SAFETY: the Agent pin types `id` as AgentId, so a policy identifier standing in for
+        // one is unreachable through RunPins. It proves the pin checks the exact identity class
+        // rather than accepting any identifier with a matching string value.
         expect(
             () =>
                 new RunPins({
@@ -140,19 +146,17 @@ describe("Agent and Run records", () => {
     );
 
     it("rejects bare-revision and duplicated snapshot source fields", { tags: "p2" }, () => {
-        const legacyPins = structuredClone(pins().toData()) as Record<string, unknown>;
+        const legacyPins = mutableData(pins().toData());
         delete legacyPins["environment"];
         legacyPins["environmentRevision"] = 3;
-        expect(() => RunPins.fromData(legacyPins as never)).toThrow(/fields/);
+        expect(() => RunPins.fromData(legacyPins)).toThrow(/fields/);
 
         const duplicatedSnapshot = {
-            ...(configuration().toData() as object),
+            ...objectAt(configuration().toData(), "Run configuration snapshot"),
             agent: ids.agent.value,
             agentDigest: digest("a").value
         };
-        expect(() => RunConfigurationSnapshot.fromData(duplicatedSnapshot as never)).toThrow(
-            /fields/
-        );
+        expect(() => RunConfigurationSnapshot.fromData(duplicatedSnapshot)).toThrow(/fields/);
     });
 
     it(
@@ -166,15 +170,10 @@ describe("Agent and Run records", () => {
                 [digest("f")],
                 [run.configuration, run.configuration]
             ]) {
-                expect(
-                    () =>
-                        new Run({
-                            ...required,
-                            configurations,
-                            ...(parent === undefined ? {} : { parent }),
-                            ...(terminal === undefined ? {} : { terminal })
-                        })
-                ).toThrow(/configuration history/);
+                const init: Assembled<RunInit> = { ...required, configurations };
+                if (parent !== undefined) init.parent = parent;
+                if (terminal !== undefined) init.terminal = terminal;
+                expect(() => new Run(init)).toThrow(/configuration history/);
             }
         }
     );
@@ -598,7 +597,7 @@ describe("memory Run runtime", () => {
             expect("retryTurn" in value.runtime).toBe(false);
             expect("retryTurnInTransaction" in value.runtime).toBe(false);
             expect("retryOf" in turn).toBe(false);
-            expect("retryOf" in (turn.toData() as object)).toBe(false);
+            expect("retryOf" in objectAt(turn.toData(), "Turn")).toBe(false);
             expect("retryOf" in Turn.decode(Turn.encode(turn))).toBe(false);
         }
     );
@@ -994,15 +993,13 @@ describe("memory Run runtime", () => {
                 /configuration migration/
             );
             const { parent, terminal: snapshot, ...required } = terminal;
-            expect(
-                () =>
-                    new Run({
-                        ...required,
-                        id: new RunId("other-terminal-run"),
-                        ...(parent === undefined ? {} : { parent }),
-                        ...(snapshot === undefined ? {} : { terminal: snapshot })
-                    })
-            ).toThrow(/different Run/);
+            const relabelled: Assembled<RunInit> = {
+                ...required,
+                id: new RunId("other-terminal-run")
+            };
+            if (parent !== undefined) relabelled.parent = parent;
+            if (snapshot !== undefined) relabelled.terminal = snapshot;
+            expect(() => new Run(relabelled)).toThrow(/different Run/);
             const postTerminalMessage = new RunCommit({
                 id: new RunCommitId("post-terminal-message"),
                 run: ids.run,

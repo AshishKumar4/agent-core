@@ -4,6 +4,8 @@ import {
     assertExactKeys,
     assertString,
     assertUniqueStrings,
+    canonicalJson,
+    isNonEmptyString,
     readCanonicalJson,
     sha256
 } from "./project.mjs";
@@ -56,7 +58,7 @@ export function validateSourceRemovalApprovals(document, context) {
     const digests = new Set();
     const tests = new Set();
     for (const approval of document.approvals) {
-        validateApprovalShape(approval);
+        validateApproval(approval);
         if (removals.has(approval.path)) {
             throw new TypeError(`Duplicate source-removal approval: ${approval.path}`);
         }
@@ -137,10 +139,10 @@ export function validateSourceRemovalApprovals(document, context) {
 export function sourceRemovalDigest(approval) {
     const evidence = { ...approval };
     delete evidence.digest;
-    return sha256(JSON.stringify(canonicalValue(evidence)));
+    return sha256(JSON.stringify(canonicalJson(evidence)));
 }
 
-function validateApprovalShape(approval) {
+function validateApproval(approval) {
     assertExactKeys(
         approval,
         ["path", "owner", "replacements", "rationale", "original", "review", "tests", "digest"],
@@ -272,19 +274,7 @@ function exactOwner(path, patterns, kind) {
 }
 
 function assertHash(value, owner) {
-    if (typeof value !== "string" || !hashPattern.test(value)) {
+    if (!isNonEmptyString(value) || !hashPattern.test(value)) {
         throw new TypeError(`${owner} must be a lowercase SHA-256 digest`);
     }
-}
-
-function canonicalValue(value) {
-    if (Array.isArray(value)) return value.map(canonicalValue);
-    if (value !== null && typeof value === "object") {
-        return Object.fromEntries(
-            Object.keys(value)
-                .sort()
-                .map((key) => [key, canonicalValue(value[key])])
-        );
-    }
-    return value;
 }

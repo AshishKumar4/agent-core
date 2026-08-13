@@ -1,5 +1,5 @@
 import { requireSynchronousResult } from "../actors";
-import { Digest, encodeCanonicalJson } from "../core";
+import { Digest, encodeCanonicalJson, isObjectRecord } from "../core";
 import { AgentCoreError } from "../errors";
 import {
     InterceptorDeclaration,
@@ -12,7 +12,7 @@ import {
 } from "../facets";
 import type { FacetRuntimeHost } from "./lifecycle";
 import type { ValidatedFacet } from "./correspondence";
-import type { InterceptContext, Interceptor, Operation } from "./runtime";
+import type { InterceptContext, InterceptResult, Interceptor, Operation } from "./runtime";
 
 export interface InterceptorTrace {
     readonly itemIndex: number;
@@ -87,11 +87,7 @@ export class OperationInterceptorRunner<Resolution> {
             } catch (error) {
                 throw blocked(candidate.declaration, error);
             }
-            if (
-                typeof result !== "object" ||
-                result === null ||
-                typeof result.proceed !== "boolean"
-            ) {
+            if (!isInterceptResult(result)) {
                 throw blocked(
                     candidate.declaration,
                     new TypeError("Interceptor returned an invalid result")
@@ -220,6 +216,12 @@ function matches(
 
 function prefixMatches(pattern: string, value: string): boolean {
     return pattern.endsWith("*") ? value.startsWith(pattern.slice(0, -1)) : value === pattern;
+}
+
+// A contributed Interceptor is third-party code, so its answer is checked rather than
+// trusted: `result` carries the declared union's type without its guarantee.
+function isInterceptResult(value: InterceptResult): boolean {
+    return isObjectRecord(value) && (value["proceed"] === true || value["proceed"] === false);
 }
 
 function blocked(declaration: InterceptorDeclaration, cause: unknown): AgentCoreError {

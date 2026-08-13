@@ -12,7 +12,8 @@ import {
     type SettlementAuditObligation
 } from "../../../src/agents/runs/settlement";
 import { AcceptanceId } from "../../../src/agents/runs/id";
-import { content, genesis, ids, pins, refs } from "./fixture";
+import { requireArray } from "../../../src/agents/record-data";
+import { content, genesis, ids, mutableData, objectAt, pins, refs } from "./fixture";
 
 function roundTrip(commit: RunCommit): RunCommit {
     return RunCommitCodec.decode(RunCommitCodec.encode(commit));
@@ -159,32 +160,32 @@ describe("Run commit codec matrix", () => {
     });
 });
 
-class MatrixSettlementPort extends SettlementEvidencePort<object> {
+class MatrixSettlementPort<Transaction = object> extends SettlementEvidencePort<Transaction> {
     public readonly missing = new Set<string>();
-    public approvalResolved(_tx: object, value: ApprovalId): boolean {
+    public approvalResolved(_tx: Transaction, value: ApprovalId): boolean {
         return !this.missing.has(`approval:${value.value}`);
     }
     public invocationItemTerminal(
-        _tx: object,
+        _tx: Transaction,
         value: InvocationId,
         itemIndex: number,
         itemKey: string
     ): boolean {
         return !this.missing.has(`invocation:${value.value}:${itemIndex}:${itemKey}`);
     }
-    public routeTerminal(_tx: object, value: RouteReservationId): boolean {
+    public routeTerminal(_tx: Transaction, value: RouteReservationId): boolean {
         return !this.missing.has(`route:${value.value}`);
     }
-    public reconciliationSuperseded(_tx: object, value: EffectAttemptId): boolean {
+    public reconciliationSuperseded(_tx: Transaction, value: EffectAttemptId): boolean {
         return !this.missing.has(`reconciliation:${value.value}`);
     }
-    public commitExists(_tx: object, value: RunCommitId): boolean {
+    public commitExists(_tx: Transaction, value: RunCommitId): boolean {
         return !this.missing.has(`commit:${value.value}`);
     }
-    public acceptanceSatisfied(_tx: object, value: AcceptanceId): boolean {
+    public acceptanceSatisfied(_tx: Transaction, value: AcceptanceId): boolean {
         return !this.missing.has(`acceptance:${value.value}`);
     }
-    public auditSatisfied(_tx: object, value: SettlementAuditObligation): boolean {
+    public auditSatisfied(_tx: Transaction, value: SettlementAuditObligation): boolean {
         return !this.missing.has(`audit:${auditKey(value)}`);
     }
 }
@@ -261,14 +262,16 @@ describe("Settlement codec and lifecycle", () => {
             expect(SettlementObligation.decode(SettlementObligation.encode(obligation))).toEqual(
                 obligation
             );
-            const invalidObligation = structuredClone(obligation.toData()) as {
-                obligations: Array<{ kind: string }>;
-            };
-            invalidObligation.obligations[0]!.kind = "unknown";
-            expect(() => SettlementObligation.fromData(invalidObligation as never)).toThrow(/kind/);
-            const invalidOutcome = structuredClone(snapshot.toData()) as Record<string, unknown>;
+            const invalidObligation = mutableData(obligation.toData());
+            const obligations = requireArray(
+                invalidObligation["obligations"],
+                "Settlement obligations"
+            );
+            objectAt(obligations[0], "settlement obligation")["kind"] = "unknown";
+            expect(() => SettlementObligation.fromData(invalidObligation)).toThrow(/kind/);
+            const invalidOutcome = mutableData(snapshot.toData());
             invalidOutcome["outcome"] = "unknown";
-            expect(() => TerminalSnapshot.fromData(invalidOutcome as never)).toThrow(/outcome/);
+            expect(() => TerminalSnapshot.fromData(invalidOutcome)).toThrow(/outcome/);
             expect(
                 () =>
                     new TerminalSnapshot(
@@ -276,6 +279,9 @@ describe("Settlement codec and lifecycle", () => {
                         ids.turn,
                         ids.root,
                         new RunCommitId("invalid-outcome"),
+                        // SAFETY: RunTerminalOutcome is a closed union, so an unknown outcome is
+                        // unreachable through the constructor's declared parameter. It proves
+                        // the snapshot validates the outcome instead of storing what it is told.
                         "unknown" as never,
                         obligation,
                         new Date(1)

@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { verifyCompletionArtifacts } from "../../scripts/quality/completion.mjs";
+import type { Completion } from "../../scripts/quality/completion.mjs";
 import {
     outcomeFingerprint,
     surveyOutcomes,
@@ -49,7 +50,20 @@ const fixture = (() => {
     };
 })();
 
-function outcome(overrides: Record<string, unknown> = {}) {
+// The record shape the resolutions ledger actually stores: a completion record —
+// commit, tree, and artifact pins — carried alongside the review fields that
+// ratified it. Overriding a field here overrides it at the same type the ledger
+// holds, so a fixture cannot drift into a shape the checker never sees on disk.
+interface RecordedReview extends Completion {
+    readonly kind: string;
+    readonly treatment: string;
+    readonly rationale: string;
+    readonly tests: readonly string[];
+    readonly checks: readonly string[];
+    readonly items: readonly string[];
+}
+
+function outcome(overrides: Partial<RecordedReview> = {}): RecordedReview {
     return {
         kind: "applied",
         treatment: "accepted",
@@ -64,7 +78,7 @@ function outcome(overrides: Record<string, unknown> = {}) {
     };
 }
 
-function ledger(...outcomes: Array<Record<string, unknown>>) {
+function ledger(...outcomes: readonly RecordedReview[]) {
     return {
         entries: outcomes.map((value, index) => ({
             source: `requests/w${index}.json`,

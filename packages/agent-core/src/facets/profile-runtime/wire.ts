@@ -74,10 +74,10 @@ export function versionedProfileWireCodec<Value>(
     return new VersionedProfileWireCodec(encode, decode);
 }
 
-export function facetDataWireCodec<Value extends FacetData>(): ProfileWireCodec<Value> {
+export function facetDataWireCodec(): ProfileWireCodec<FacetData> {
     return profileWireCodec(
         (value) => value,
-        (data) => data as Value
+        (data) => data
     );
 }
 

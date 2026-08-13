@@ -2,12 +2,14 @@ import { isNonempty, JsonSchema } from "../core";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
+    dataRecord,
     compareText,
     requireArray,
     requireDataObject,
     requireExactFields,
     requireNonblank,
     requireOptionalString,
+    requireSchemaDocument,
     requireString
 } from "./data";
 import { canonicalTrustTiers, type TrustTier } from "./event";
@@ -18,13 +20,13 @@ import { BoundOperationRef } from "./operation";
 export interface CommandInit {
     readonly name: string;
     readonly title: string;
-    readonly help?: string;
+    readonly help?: string | undefined;
     readonly arguments: JsonSchema;
     readonly operation: OperationRef;
     readonly binding: BindingName;
-    readonly mapping?: FieldMapping;
-    readonly acceptedTrust?: readonly [TrustTier, ...TrustTier[]];
-    readonly completion?: OperationRef;
+    readonly mapping?: FieldMapping | undefined;
+    readonly acceptedTrust?: readonly [TrustTier, ...TrustTier[]] | undefined;
+    readonly completion?: OperationRef | undefined;
     readonly surfaces: readonly SlotName[];
 }
 
@@ -93,16 +95,18 @@ export class Command {
         return new Command({
             name: requireString(object["name"], "Command name"),
             title: requireString(object["title"], "Command title"),
-            arguments: new JsonSchema(requireSchemaDocument(object["arguments"])),
+            arguments: new JsonSchema(
+                requireSchemaDocument(object["arguments"], "Command arguments schema")
+            ),
             operation: new OperationRef(requireString(object["operation"], "Command operation")),
             binding: new BindingName(requireString(object["binding"], "Command binding")),
             surfaces: requireArray(object["surfaces"], "Command surfaces").map(
                 (value) => new SlotName(requireString(value, "Command surface"))
             ),
-            ...(help === undefined ? {} : { help }),
-            ...(mapping === undefined ? {} : { mapping }),
-            ...(acceptedTrust === undefined ? {} : { acceptedTrust }),
-            ...(completion === undefined ? {} : { completion: new OperationRef(completion) })
+            help,
+            mapping,
+            acceptedTrust,
+            completion: completion === undefined ? undefined : new OperationRef(completion)
         });
     }
 
@@ -115,18 +119,18 @@ export class Command {
     }
 
     public toData(): FacetData {
-        return {
+        return dataRecord({
             arguments: this.arguments.document,
             binding: this.binding.value,
             name: this.name,
             operation: this.operation.value,
             surfaces: this.surfaces.map((surface) => surface.value),
             title: this.title,
-            ...(this.acceptedTrust === undefined ? {} : { acceptedTrust: this.acceptedTrust }),
-            ...(this.completion === undefined ? {} : { completion: this.completion.value }),
-            ...(this.help === undefined ? {} : { help: this.help }),
-            ...(this.mapping === undefined ? {} : { mapping: this.mapping.toData() })
-        };
+            acceptedTrust: this.acceptedTrust,
+            completion: this.completion?.value,
+            help: this.help,
+            mapping: this.mapping?.toData()
+        });
     }
 }
 
@@ -154,21 +158,4 @@ function requireTrustTier(value: FacetData): TrustTier {
         return value;
     }
     throw new TypeError("Command trust tier is invalid");
-}
-
-function requireSchemaDocument(
-    value: FacetData | undefined
-): boolean | { readonly [key: string]: FacetData } {
-    if (typeof value === "boolean") {
-        return value;
-    }
-    if (
-        value === undefined ||
-        value === null ||
-        Array.isArray(value) ||
-        typeof value !== "object"
-    ) {
-        throw new TypeError("Command arguments schema must be an object or boolean");
-    }
-    return value as { readonly [key: string]: FacetData };
 }

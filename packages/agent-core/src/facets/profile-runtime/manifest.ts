@@ -57,7 +57,7 @@ export function createStandardProfileManifest(
         isolation: definition.isolation,
         bindings: init.bindings,
         contributions: definition.contributions,
-        ...(configSchema === undefined ? {} : { configSchema })
+        configSchema
     });
 }
 

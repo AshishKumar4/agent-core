@@ -41,6 +41,11 @@ const ACTOR_REF = new ActorRef("run", ACTOR_ID);
 const OTHER_ACTOR_REF = new ActorRef("workspace", new ActorId("actor-other"));
 const ACTOR_KINDS: readonly ActorKind[] = ["tenant", "workspace", "run", "environment", "slate"];
 const IMMUTABLE_READ_MESSAGE = "Actor read views are immutable";
+
+/** What a clone-owned snapshot member hands back; the store must never walk into it. */
+interface OwnedSnapshot {
+    readonly tracked: boolean;
+}
 const MALFORMED_SNAPSHOT_MESSAGE = "Memory Actor snapshot is malformed";
 const ASYNCHRONOUS_RESULT_MESSAGE = "Actor transaction callbacks must be synchronous";
 
@@ -1350,7 +1355,7 @@ describe("MemoryActorStore isolation", () => {
                 this.nested.value += 1;
             }
 
-            public [ACTOR_STATE_SNAPSHOT](): unknown {
+            public [ACTOR_STATE_SNAPSHOT](): { nested: { value: number } } {
                 return { nested: this.nested };
             }
         }
@@ -1857,7 +1862,7 @@ describe("MemoryActorStore readonly view members", () => {
                 return `box:${this.nested.value}`;
             }
 
-            public [ACTOR_STATE_SNAPSHOT](): unknown {
+            public [ACTOR_STATE_SNAPSHOT](): { nested: { value: number } } {
                 return { nested: this.nested };
             }
         }
@@ -2261,7 +2266,7 @@ describe("MemoryActorStore ownership walk", () => {
                 return this.#nested.value;
             }
 
-            public [ACTOR_STATE_SNAPSHOT](): unknown {
+            public [ACTOR_STATE_SNAPSHOT](): { value: number } {
                 return this.#nested;
             }
         }
@@ -2282,9 +2287,9 @@ describe("MemoryActorStore ownership walk", () => {
     test("keeps clone-owned snapshot members out of the state graph", { tags: "p0" }, () => {
         interface State {
             readonly value: number;
-            [ACTOR_STATE_SNAPSHOT](): unknown;
+            [ACTOR_STATE_SNAPSHOT](): OwnedSnapshot;
         }
-        const owned = (): unknown => ({ tracked: true });
+        const owned = (): OwnedSnapshot => ({ tracked: true });
         const store = new MemoryActorStore<State>(
             { value: 1, [ACTOR_STATE_SNAPSHOT]: owned },
             (state) => ({ value: state.value, [ACTOR_STATE_SNAPSHOT]: owned })
@@ -2300,7 +2305,7 @@ describe("MemoryActorStore ownership walk", () => {
     });
 
     test("detects aliases held beside a callable snapshot key", { tags: "p0" }, () => {
-        const owned = (): unknown => ({ tracked: true });
+        const owned = (): OwnedSnapshot => ({ tracked: true });
 
         expect(
             () =>
@@ -2865,15 +2870,25 @@ const expiredTransactionReflections: readonly ((transaction: object) => unknown)
     (transaction) => Reflect.setPrototypeOf(transaction, null)
 ];
 
-function throwsOperationalError(code: AgentCoreError["code"]): (action: () => unknown) => boolean {
+/**
+ * The operational failure an action threw. A TypeError is a defect in the store
+ * rather than an outcome it reports, so it is refused here as loudly as a value
+ * that is no failure at all — the distinction every caller below asserts on.
+ */
+function operationalError(cause: unknown): AgentCoreError {
+    if (cause instanceof TypeError || !(cause instanceof AgentCoreError)) {
+        throw new TypeError(`Expected an operational failure, got ${String(cause)}`);
+    }
+    return cause;
+}
+
+function throwsOperationalError(code: AgentCoreError["code"]): (action: () => void) => boolean {
     return (action) => {
         try {
             action();
             return false;
         } catch (error) {
-            expect(error).toBeInstanceOf(AgentCoreError);
-            expect(error).not.toBeInstanceOf(TypeError);
-            expect((error as AgentCoreError).code).toBe(code);
+            expect(operationalError(error).code).toBe(code);
             return true;
         }
     };
@@ -2890,27 +2905,24 @@ function expectDeniedMember(owner: object, property: PropertyKey): void {
 }
 
 function expectOperationalFailure(
-    action: () => unknown,
+    action: () => void,
     code: AgentCoreError["code"],
     message: string
 ): void {
     try {
         action();
     } catch (error) {
-        expect(error).toBeInstanceOf(AgentCoreError);
-        expect(error).not.toBeInstanceOf(TypeError);
-        expect((error as AgentCoreError).code).toBe(code);
-        expect((error as AgentCoreError).message).toBe(message);
+        const failure = operationalError(error);
+        expect(failure.code).toBe(code);
+        expect(failure.message).toBe(message);
         return;
     }
     throw new TypeError(`Expected an operational failure: ${code} ${message}`);
 }
 
-function isOperationalError(code: AgentCoreError["code"]): (error: unknown) => boolean {
-    return (error) => {
-        expect(error).toBeInstanceOf(AgentCoreError);
-        expect(error).not.toBeInstanceOf(TypeError);
-        expect((error as AgentCoreError).code).toBe(code);
+function isOperationalError(code: AgentCoreError["code"]): (cause: unknown) => boolean {
+    return (cause) => {
+        expect(operationalError(cause).code).toBe(code);
         return true;
     };
 }

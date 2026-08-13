@@ -3,6 +3,7 @@ import { Contributions, Contribution, OperationDescriptor } from "../contributio
 import type { FacetData } from "../data";
 import {
     canonicalFacetData,
+    dataRecord,
     requireArray,
     requireDataObject,
     requireSafeInteger,
@@ -103,13 +104,14 @@ const entrySchema = schema({
     additionalProperties: false
 });
 const entryCodec = profileWireCodec<MemoryEntry>(
-    (entry) => ({
-        id: entry.id,
-        content: entry.content.value,
-        authority: entry.authority,
-        createdAt: entry.createdAt,
-        ...(entry.retainUntil === undefined ? {} : { retainUntil: entry.retainUntil })
-    }),
+    (entry) =>
+        dataRecord({
+            id: entry.id,
+            content: entry.content.value,
+            authority: entry.authority,
+            createdAt: entry.createdAt,
+            retainUntil: entry.retainUntil
+        }),
     decodeMemoryEntry
 );
 
@@ -131,27 +133,27 @@ export const MEMORY_OPERATION_CONTRACTS = Object.freeze({
             entrySchema
         ),
         profileWireCodec(
-            (input) => ({
-                id: input.id,
-                content: input.content.value,
-                createdAt: input.createdAt,
-                ...(input.retainUntil === undefined ? {} : { retainUntil: input.retainUntil })
-            }),
+            (input) =>
+                dataRecord({
+                    id: input.id,
+                    content: input.content.value,
+                    createdAt: input.createdAt,
+                    retainUntil: input.retainUntil
+                }),
             (data) => {
                 const object = requireDataObject(data, "Remember input");
-                return {
+                const retainUntil = object["retainUntil"];
+                const input: RememberInput = {
                     id: requireString(object["id"], "Memory ID"),
                     content: new ContentRef(requireString(object["content"], "Memory content")),
-                    createdAt: requireSafeInteger(object["createdAt"], "Memory created time"),
-                    ...(object["retainUntil"] === undefined
-                        ? {}
-                        : {
-                              retainUntil: requireSafeInteger(
-                                  object["retainUntil"],
-                                  "Memory retention"
-                              )
-                          })
+                    createdAt: requireSafeInteger(object["createdAt"], "Memory created time")
                 };
+                return retainUntil === undefined
+                    ? input
+                    : {
+                          ...input,
+                          retainUntil: requireSafeInteger(retainUntil, "Memory retention")
+                      };
             }
         ),
         entryCodec,
@@ -467,20 +469,14 @@ function tokenize(value: string): string[] {
 
 function recallInputCodec() {
     return profileWireCodec<RecallInput | MemoryPromptInput>(
-        (input) => ({
-            query: input.query,
-            ...(input.limit === undefined ? {} : { limit: input.limit })
-        }),
+        (input) => dataRecord({ query: input.query, limit: input.limit }),
         (data) => {
             const object = requireDataObject(data, "Memory query input");
-            return {
-                query: requireString(object["query"], "Memory query"),
-                ...(object["limit"] === undefined
-                    ? {}
-                    : {
-                          limit: requireSafeInteger(object["limit"], "Memory query limit")
-                      })
-            };
+            const limit = object["limit"];
+            const input: RecallInput = { query: requireString(object["query"], "Memory query") };
+            return limit === undefined
+                ? input
+                : { ...input, limit: requireSafeInteger(limit, "Memory query limit") };
         }
     );
 }

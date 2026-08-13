@@ -332,6 +332,7 @@
       "canonicalFacetData",
       "canonicalFacetDataMap",
       "canonicalIsolationModes",
+      "canonicalJsonCopy",
       "canonicalPackageRange",
       "canonicalTrustTiers",
       "cloneInvocationMediationMemoryState",
@@ -360,6 +361,7 @@
       "expectedOutboxEntries",
       "findBuiltInRole",
       "forwardRollbackPlan",
+      "frozenCanonicalJson",
       "hasExactJsonKeys",
       "immutableReference",
       "invariant",
@@ -375,6 +377,8 @@
       "isNonempty",
       "isObjectRecord",
       "isSecretRefData",
+      "isStringArray",
+      "jsonDataParser",
       "managedResourceId",
       "managedStateRecordId",
       "materializationGenerationId",
@@ -415,7 +419,7 @@
       "validDate",
       "validateAuditAppend",
       "validateBlueprint",
-      "validateStoredAuditShape"
+      "validateStoredAuditLinkage"
     ],
     "@agent-core/core/actors": [
       "ACTOR_STATE_SNAPSHOT",
@@ -528,16 +532,20 @@
       "SemVer",
       "StrictJsonSchemaValidator",
       "TextId",
+      "canonicalJsonCopy",
       "decodeBase64",
       "decodeCanonicalJson",
       "encodeBase64",
       "encodeCanonicalJson",
+      "frozenCanonicalJson",
       "hasExactJsonKeys",
       "isJsonObject",
       "isJsonValue",
       "isMember",
       "isNonempty",
       "isObjectRecord",
+      "isStringArray",
+      "jsonDataParser",
       "requireNonempty",
       "strictJsonSchemaValidator"
     ],
@@ -823,7 +831,7 @@
       "terminalBatchOutcome",
       "validDate",
       "validateAuditAppend",
-      "validateStoredAuditShape"
+      "validateStoredAuditLinkage"
     ],
     "@agent-core/core/operations": [
       "AuthoredCodeBacking",
@@ -1172,6 +1180,7 @@
       "ItemClaimCodec",
       "ItemClaimId",
       "ItemClaimOwner",
+      "JsonDataParser",
       "JsonFields",
       "JsonObject",
       "JsonPrimitive",
@@ -1453,6 +1462,7 @@
       "canonicalFacetData",
       "canonicalFacetDataMap",
       "canonicalIsolationModes",
+      "canonicalJsonCopy",
       "canonicalPackageRange",
       "canonicalTrustTiers",
       "cloneInvocationMediationMemoryState",
@@ -1481,6 +1491,7 @@
       "expectedOutboxEntries",
       "findBuiltInRole",
       "forwardRollbackPlan",
+      "frozenCanonicalJson",
       "hasExactJsonKeys",
       "immutableReference",
       "invariant",
@@ -1496,6 +1507,8 @@
       "isNonempty",
       "isObjectRecord",
       "isSecretRefData",
+      "isStringArray",
+      "jsonDataParser",
       "managedResourceId",
       "managedStateRecordId",
       "materializationGenerationId",
@@ -1536,7 +1549,7 @@
       "validDate",
       "validateAuditAppend",
       "validateBlueprint",
-      "validateStoredAuditShape"
+      "validateStoredAuditLinkage"
     ],
     "@agent-core/core/actors": [
       "ACTOR_STATE_SNAPSHOT",
@@ -1709,6 +1722,7 @@
       "ContentRef",
       "Digest",
       "DigestAlgorithm",
+      "JsonDataParser",
       "JsonFields",
       "JsonObject",
       "JsonPrimitive",
@@ -1726,16 +1740,20 @@
       "SemVer",
       "StrictJsonSchemaValidator",
       "TextId",
+      "canonicalJsonCopy",
       "decodeBase64",
       "decodeCanonicalJson",
       "encodeBase64",
       "encodeCanonicalJson",
+      "frozenCanonicalJson",
       "hasExactJsonKeys",
       "isJsonObject",
       "isJsonValue",
       "isMember",
       "isNonempty",
       "isObjectRecord",
+      "isStringArray",
+      "jsonDataParser",
       "requireNonempty",
       "strictJsonSchemaValidator"
     ],
@@ -2213,7 +2231,7 @@
       "terminalBatchOutcome",
       "validDate",
       "validateAuditAppend",
-      "validateStoredAuditShape"
+      "validateStoredAuditLinkage"
     ],
     "@agent-core/core/operations": [
       "AuthoredCodeBacking",

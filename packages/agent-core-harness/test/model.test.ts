@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { MemoryContentStore } from "@agent-core/core/content";
+import type { JsonValue } from "@agent-core/core/core";
 import {
     AssistantMessage,
     AssistantMessageCodec,
@@ -11,11 +12,12 @@ import {
     TranscriptMessage,
     TranscriptTurnModelPort,
     ToolResultMessage,
+    ModelProvider,
     UserMessage,
     aiGatewayEndpoint,
     workersAiEndpoint
 } from "../src/index";
-import { boundOperation, ids } from "./fixture";
+import { boundOperation, ids, modelCall } from "./fixture";
 import {
     BindingName,
     OperationDescriptor,
@@ -24,11 +26,23 @@ import {
 } from "@agent-core/core/facets";
 import { JsonSchema } from "@agent-core/core/core";
 import { TurnBoundOperation } from "@agent-core/core/agents/runs";
-import type { TurnModelCall } from "@agent-core/core/agents/runs";
-import type { ModelRequest } from "../src/index";
+import type { ModelCompletion, ModelRequest, ModelToolSpec } from "../src/index";
+
+/** The one seam a port test needs from a provider: the completion it returns. */
+class StubModelProvider extends ModelProvider {
+    public constructor(
+        private readonly respond: (request: ModelRequest) => Promise<ModelCompletion>
+    ) {
+        super();
+    }
+
+    public async complete(request: ModelRequest): Promise<ModelCompletion> {
+        return this.respond(request);
+    }
+}
 
 function respondWith(body: string, status = 200): typeof globalThis.fetch {
-    return (async () => new Response(body, { status })) as typeof globalThis.fetch;
+    return async () => new Response(body, { status });
 }
 
 function provider(fetch: typeof globalThis.fetch): OpenAiCompatibleModelProvider {
@@ -172,8 +186,7 @@ describe("OpenAI-compatible model provider", () => {
             code: "model.rejected"
         });
         await expect(
-            provider((() =>
-                Promise.reject(new TypeError("dns"))) as typeof globalThis.fetch).complete(request)
+            provider(() => Promise.reject(new TypeError("dns"))).complete(request)
         ).rejects.toMatchObject({ code: "model.unavailable" });
     });
 
@@ -204,11 +217,11 @@ describe("OpenAI-compatible model provider", () => {
     });
 
     test("renders the whole transcript, including tool results", { tags: "p1" }, async () => {
-        let body: unknown;
-        const capture = (async (_url: string, init: RequestInit) => {
-            body = JSON.parse(String(init.body));
+        let body: JsonValue = null;
+        const capture: typeof globalThis.fetch = async (_url, init) => {
+            body = JSON.parse(String(init?.body));
             return new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] }));
-        }) as unknown as typeof globalThis.fetch;
+        };
 
         await new OpenAiCompatibleModelProvider({
             endpoint: aiGatewayEndpoint("account-1", "gateway-1", "workers-ai"),
@@ -284,18 +297,13 @@ describe("Transcript model port", () => {
             )
         ).ref;
         const port = new TranscriptTurnModelPort(
-            {
-                complete: async () => ({ message, usage: { inputTokens: 1, outputTokens: 1 } })
-            } as never,
+            new StubModelProvider(async () => ({
+                message,
+                usage: { inputTokens: 1, outputTokens: 1 }
+            })),
             content
         );
-        const call = {
-            turn: { id: ids.turn } as never,
-            token: { turn: ids.turn } as never,
-            prompt,
-            operations,
-            signal: new AbortController().signal
-        } as unknown as TurnModelCall;
+        const call = modelCall(prompt, operations, new AbortController().signal);
         return { content, result: await port.call(call) };
     }
 
@@ -320,25 +328,17 @@ describe("Transcript model port", () => {
                     new JsonSchema({ type: "object" })
                 )
             );
-            let seen: readonly { readonly description: string }[] = [];
+            let seen: readonly ModelToolSpec[] = [];
             await new TranscriptTurnModelPort(
-                {
-                    complete: async (request: ModelRequest) => {
-                        seen = request.tools;
-                        return {
-                            message: new AssistantMessage("ok"),
-                            usage: { inputTokens: 1, outputTokens: 1 }
-                        };
-                    }
-                } as never,
+                new StubModelProvider(async (request: ModelRequest) => {
+                    seen = request.tools;
+                    return {
+                        message: new AssistantMessage("ok"),
+                        usage: { inputTokens: 1, outputTokens: 1 }
+                    };
+                }),
                 content
-            ).call({
-                turn: { id: ids.turn } as never,
-                token: { turn: ids.turn } as never,
-                prompt,
-                operations: [helpless],
-                signal: new AbortController().signal
-            } as unknown as TurnModelCall);
+            ).call(modelCall(prompt, [helpless], new AbortController().signal));
             expect(seen[0]?.description).toBe("recall");
         }
     );

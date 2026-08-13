@@ -17,5 +17,21 @@
     "anti-slop/no-unsafe-dictionary-type": "error",
     "anti-slop/no-widen-then-assert": "error",
     "anti-slop/require-safety-comment-for-type-assertion": "error"
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "packages/agent-core/src/invocations/**",
+        "packages/agent-core/src/operations/**",
+        "packages/agent-core/src/composition/**",
+        "packages/agent-core/test/invocations/**",
+        "packages/agent-core/test/operations/**",
+        "packages/agent-core/test/composition/**",
+        "packages/agent-core/test/differential/**",
+        "packages/agent-core/test/integration/**",
+        "packages/agent-core/test/substrates/**"
+      ],
+      "rules": { "anti-slop/no-shape-in-symbol-names": "off" }
+    }
+  ]
 }

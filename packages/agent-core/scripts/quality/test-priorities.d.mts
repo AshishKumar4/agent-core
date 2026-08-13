@@ -1,4 +1,5 @@
 import type { TestPriority } from "./test-priority-evidence.mjs";
+import type { JsonValue } from "./project.mjs";
 
 export type { TestPriority } from "./test-priority-evidence.mjs";
 
@@ -14,10 +15,10 @@ export interface PriorityEvidenceCounts extends PriorityCounts {
 
 export function discoverPriorityTestFiles(): Promise<Record<TestPriority, string[]>>;
 
-export function validatePriorityLanes(lanes: Record<TestPriority, unknown>): PriorityCounts;
+export function validatePriorityLanes(lanes: Record<TestPriority, JsonValue>): PriorityCounts;
 
 export function validatePriorityEvidence(
-    fullReport: unknown,
-    lanes: Record<TestPriority, unknown>,
+    fullReport: JsonValue,
+    lanes: Record<TestPriority, JsonValue>,
     stage: "building" | "final"
 ): PriorityEvidenceCounts;

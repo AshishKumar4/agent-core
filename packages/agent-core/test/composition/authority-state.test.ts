@@ -184,10 +184,7 @@ class StateHarness implements ActorAuthorityHost {
         this.log.audits.push(audit);
     }
 
-    public denialEvidence(resolution: OperationResolutionState): {
-        readonly receipt: PreEffectReceipt;
-        readonly audit: AuditRecord;
-    } {
+    public denialEvidence(resolution: OperationResolutionState) {
         const ordinal = this.log.receipts.length;
         const invocation = new InvocationId(`authority-state:${ordinal}`);
         const receipt = new PreEffectReceipt(
@@ -323,9 +320,12 @@ class IdentityCacheHarness implements ActorAuthorityHost {
         return undefined;
     }
     public currentPath(binding: Binding): PathEpochEvidence {
-        return new PathEpochEvidence(
-            binding.scope.path.map(ScopeEpoch.initial) as [ScopeEpoch, ...ScopeEpoch[]]
-        );
+        const [root, ...rest] = binding.scope.path;
+        if (root === undefined) throw new TypeError("Binding scope carries no Workspace path");
+        return new PathEpochEvidence([
+            ScopeEpoch.initial(root),
+            ...rest.map((scope) => ScopeEpoch.initial(scope))
+        ]);
     }
     public currentLease(): TurnLease | undefined {
         return undefined;
@@ -603,10 +603,7 @@ class RecordingWatermarkStore implements InvalidationWatermarkStore {
 }
 
 class MiscastDenialHarness extends StateHarness {
-    public override denialEvidence(resolution: OperationResolutionState): {
-        readonly receipt: PreEffectReceipt;
-        readonly audit: AuditRecord;
-    } {
+    public override denialEvidence(resolution: OperationResolutionState) {
         const evidence = super.denialEvidence(resolution);
         return {
             receipt: new PreEffectReceipt(

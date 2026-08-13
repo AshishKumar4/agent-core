@@ -4,6 +4,7 @@ import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
+import type { JsonValue } from "../../scripts/quality/project.mjs";
 import { runQualitySubprocess, subprocessTestOptions } from "./subprocess";
 import { extractRequestObligations } from "../../scripts/quality/request-obligations.mjs";
 
@@ -602,7 +603,7 @@ async function fixture(): Promise<string> {
     return root;
 }
 
-async function write(root: string, path: string, value: unknown): Promise<void> {
+async function write(root: string, path: string, value: JsonValue): Promise<void> {
     const target = resolve(root, path);
     await mkdir(resolve(target, ".."), { recursive: true });
     await writeFile(target, `${JSON.stringify(value, null, 2)}\n`, "utf8");

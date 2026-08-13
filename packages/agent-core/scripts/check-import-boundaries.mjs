@@ -3,7 +3,7 @@ import { readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
-import { parseCanonicalJson } from "./quality/project.mjs";
+import { isJsonObject, isNonEmptyString, parseCanonicalJson } from "./quality/project.mjs";
 
 const CROSS_CONTEXT_RULE = "cross-context-import";
 const RUNTIME_CYCLE_RULE = "runtime-import-cycle";
@@ -527,20 +527,14 @@ async function directoryEntries(directory) {
     try {
         return await readdir(directory, { withFileTypes: true });
     } catch (error) {
-        if (
-            error !== null &&
-            typeof error === "object" &&
-            "code" in error &&
-            error.code === "ENOENT"
-        )
-            return [];
+        if (error instanceof Error && "code" in error && error.code === "ENOENT") return [];
         throw error;
     }
 }
 
 function parseBaseline(source, baselinePath) {
     const parsed = parseCanonicalJson(source, baselinePath);
-    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    if (!isJsonObject(parsed)) {
         throw new TypeError(`Invalid import boundary baseline object: ${baselinePath}`);
     }
     if (parsed.version !== BASELINE_VERSION || !Array.isArray(parsed.grandfatheredViolations)) {
@@ -564,9 +558,9 @@ function validateBaselineEntry(entry, baselinePath) {
         entry.position.column > 0;
     if (
         !validRule ||
-        typeof entry.file !== "string" ||
+        !isNonEmptyString(entry.file) ||
         !/^[a-f\d]{64}$/.test(entry.sha256) ||
-        typeof entry.specifier !== "string" ||
+        !isNonEmptyString(entry.specifier) ||
         !validPosition
     ) {
         throw new TypeError(`Invalid import boundary baseline entry in ${baselinePath}`);

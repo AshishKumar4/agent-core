@@ -1,6 +1,9 @@
 import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
+import { objectAt, objectsAt, readArtifactSync, stringAt, stringsAt } from "./artifacts";
+import { isJsonObject } from "../../scripts/quality/project.mjs";
+import type { JsonObject } from "../../scripts/quality/project.mjs";
 
 const packageRoot = resolve(import.meta.dirname, "../..");
 const repositoryRoot = resolve(packageRoot, "../..");
@@ -20,18 +23,12 @@ describe("request outcome reconciliation", () => {
     });
 
     test("subsumes W2, W5, and W6 detached coverage evidence under owner-complete global coverage", () => {
-        const policy = json("artifacts/quality/policy.json") as {
-            coverage: { threshold: number; sourceUniverses: Array<{ root: string }> };
-        };
-        const w2 = JSON.parse(
-            readFileSync(resolve(archiveRoot, "W2/coverage-manifest.json"), "utf8")
-        ) as { sourceFiles: string[]; testFiles: string[] };
-        const w5 = JSON.parse(readFileSync(resolve(archiveRoot, "W5/coverage.json"), "utf8")) as {
-            minimumPercent: number;
-            metrics: Record<string, { covered: number; total: number }>;
-        };
+        const coverage = objectAt(readArtifactSync("artifacts/quality/policy.json"), "coverage");
+        const w2 = archivedArtifact("W2/coverage-manifest.json");
+        const w5 = archivedArtifact("W5/coverage.json");
+        const w5Minimum = numberAt(w5, "minimumPercent");
         const w6 = readFileSync(resolve(archiveRoot, "W6/coverage.md"), "utf8");
-        expect(policy.coverage.threshold).toBe(95);
+        expect(coverage["threshold"]).toBe(95);
         // The universe set is the workspace package set, derived rather than listed, so
         // a new package cannot be covered by nothing and still satisfy this evidence.
         const workspaceRoots = readdirSync(resolve(repositoryRoot, "packages"), {
@@ -40,67 +37,51 @@ describe("request outcome reconciliation", () => {
             .filter((entry) => entry.isDirectory())
             .map((entry) => `packages/${entry.name}/src`)
             .sort();
-        expect(policy.coverage.sourceUniverses.map(({ root }) => root).sort()).toEqual(
-            workspaceRoots
-        );
-        expect(w2.sourceFiles.length).toBeGreaterThan(30);
-        expect(w2.testFiles.length).toBeGreaterThan(10);
         expect(
-            Object.values(w5.metrics).every(
-                ({ covered, total }) => covered * 100 >= w5.minimumPercent * total
-            )
+            objectsAt(coverage, "sourceUniverses")
+                .map((universe) => stringAt(universe, "root"))
+                .sort()
+        ).toEqual(workspaceRoots);
+        expect(stringsAt(w2, "sourceFiles").length).toBeGreaterThan(30);
+        expect(stringsAt(w2, "testFiles").length).toBeGreaterThan(10);
+        expect(
+            Object.values(objectAt(w5, "metrics")).every((metric) => {
+                const counts = isJsonObject(metric) ? metric : {};
+                return numberAt(counts, "covered") * 100 >= w5Minimum * numberAt(counts, "total");
+            })
         ).toBe(true);
         expect(w6).toContain("covered * 100 >= 95 * total");
     });
 
     test("keeps interceptor public export closed until exact Turn-bound context exists", () => {
-        const packageJson = json("package.json") as { exports: Record<string, unknown> };
-        const exportsRegistry = json("artifacts/quality/exports.json") as {
-            runtime: Record<string, string[]>;
-            declarations: Record<string, string[]>;
-        };
-        expect(Object.keys(packageJson.exports)).not.toContain("./interceptors");
-        expect(
-            Object.values(exportsRegistry.runtime)
-                .flat()
-                .some((name) => name === "InterceptorContext")
-        ).toBe(false);
-        expect(
-            Object.values(exportsRegistry.declarations)
-                .flat()
-                .some((name) => name === "InterceptorContext")
-        ).toBe(false);
+        const packageJson = readArtifactSync("package.json");
+        const exportsRegistry = readArtifactSync("artifacts/quality/exports.json");
+        expect(Object.keys(objectAt(packageJson, "exports"))).not.toContain("./interceptors");
+        for (const section of ["runtime", "declarations"]) {
+            expect(
+                Object.values(objectAt(exportsRegistry, section))
+                    .flatMap((names) => (Array.isArray(names) ? names : []))
+                    .some((name) => name === "InterceptorContext")
+            ).toBe(false);
+        }
     });
 
     test("normalizes W8 package scripts into aggregate lanes while retaining exact dependencies", () => {
-        const request = JSON.parse(
-            readFileSync(resolve(archiveRoot, "W8/shared-integration.json"), "utf8")
-        ) as {
-            requests: Array<{
-                id: string;
-                exactDependencies?: Record<string, Record<string, string>>;
-            }>;
-        };
-        const dependencyRequest = request.requests.find(({ id }) => id === "W8-W0-DEPENDENCIES");
-        const packageJson = JSON.parse(
-            readFileSync(
-                resolve(repositoryRoot, "packages/agent-core-cloudflare/package.json"),
-                "utf8"
-            )
-        ) as {
-            dependencies: Record<string, string>;
-            devDependencies: Record<string, string>;
-            scripts: Record<string, string>;
-        };
+        const request = archivedArtifact("W8/shared-integration.json");
+        const dependencyRequest = objectsAt(request, "requests").find(
+            (entry) => stringAt(entry, "id") === "W8-W0-DEPENDENCIES"
+        );
+        const exactDependencies = objectAt(dependencyRequest!, "exactDependencies");
+        const packageJson = readArtifactSync("../../packages/agent-core-cloudflare/package.json");
         // The archived request is byte-frozen evidence of what W8 asked for; the live
         // package may gain dependencies afterwards, but every requested pin must hold.
-        expect(packageJson.dependencies).toEqual(
-            expect.objectContaining(dependencyRequest?.exactDependencies?.["dependencies"] ?? {})
+        expect(objectAt(packageJson, "dependencies")).toEqual(
+            expect.objectContaining(objectAt(exactDependencies, "dependencies"))
         );
-        expect(packageJson.devDependencies).toEqual(
-            expect.objectContaining(dependencyRequest?.exactDependencies?.["devDependencies"] ?? {})
+        expect(objectAt(packageJson, "devDependencies")).toEqual(
+            expect.objectContaining(objectAt(exactDependencies, "devDependencies"))
         );
-        expect(packageJson.scripts).toEqual(
+        expect(objectAt(packageJson, "scripts")).toEqual(
             expect.objectContaining({
                 build: expect.any(String),
                 "check:cloudflare-types": expect.any(String),
@@ -117,6 +98,14 @@ describe("request outcome reconciliation", () => {
     });
 });
 
-function json(path: string): unknown {
-    return JSON.parse(readFileSync(resolve(packageRoot, path), "utf8"));
+function archivedArtifact(path: string): JsonObject {
+    return readArtifactSync(`artifacts/integration/request-archive/${path}`);
+}
+
+function numberAt(owner: JsonObject, field: string): number {
+    const value = owner[field];
+    if (!Number.isFinite(value)) {
+        throw new TypeError(`${field} must be a number`);
+    }
+    return Number(value);
 }

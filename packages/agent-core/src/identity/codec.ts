@@ -1,14 +1,13 @@
 import { AgentCoreError } from "../errors";
-import { type JsonFields, Revision, hasExactJsonKeys, type JsonValue } from "../core";
+import { type JsonFields, Revision, jsonDataParser, type JsonValue } from "../core";
 
 export type IdentityData = JsonValue;
 export type IdentityDataMap = { readonly [key: string]: IdentityData };
 
+const parse = jsonDataParser(invalid);
+
 export function requireIdentityObject(value: IdentityData, subject: string): IdentityDataMap {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw invalid(`${subject} must be an object`);
-    }
-    return value as IdentityDataMap;
+    return parse.object(value, subject);
 }
 
 export function requireIdentityFields<Field extends string>(
@@ -16,26 +15,18 @@ export function requireIdentityFields<Field extends string>(
     fields: readonly Field[],
     subject: string
 ): asserts value is IdentityDataMap & JsonFields<Field> {
-    if (!hasExactJsonKeys(value, fields)) {
-        throw invalid(`${subject} contains missing or unknown fields`);
-    }
+    parse.exact(value, fields, subject);
 }
 
 export function requireIdentityString(value: IdentityData | undefined, subject: string): string {
-    if (typeof value !== "string") {
-        throw invalid(`${subject} must be a string`);
-    }
-    return value;
+    return parse.string(value, subject);
 }
 
 export function requireIdentityRevision(
     value: IdentityData | undefined,
     subject: string
 ): Revision {
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
-        throw invalid(`${subject} must be a non-negative safe integer`);
-    }
-    return new Revision(value);
+    return new Revision(parse.safeInteger(value, subject));
 }
 
 export function compareIdentityText(left: string, right: string): number {

@@ -33,33 +33,39 @@ export function requireExactObject<Field extends string>(
     return object;
 }
 
-export function requireString(object: { readonly [key: string]: JsonValue }, key: string): string {
+export function requireString(
+    object: { readonly [key: string]: JsonValue },
+    key: string,
+    subject = key
+): string {
     const value = object[key];
     if (typeof value !== "string") {
-        throw new TypeError(`${key} must be a string`);
+        throw new TypeError(`${subject} must be a string`);
     }
     return value;
 }
 
 export function requireNullableString(
     object: { readonly [key: string]: JsonValue },
-    key: string
+    key: string,
+    subject = key
 ): string | undefined {
     const value = object[key];
     if (value === null) return undefined;
     if (typeof value !== "string") {
-        throw new TypeError(`${key} must be a string or null`);
+        throw new TypeError(`${subject} must be a string or null`);
     }
     return value;
 }
 
 export function requireSafeInteger(
     object: { readonly [key: string]: JsonValue },
-    key: string
+    key: string,
+    subject = key
 ): number {
     const value = object[key];
     if (typeof value !== "number" || !Number.isSafeInteger(value)) {
-        throw new TypeError(`${key} must be a safe integer`);
+        throw new TypeError(`${subject} must be a safe integer`);
     }
     return value;
 }

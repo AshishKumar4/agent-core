@@ -329,7 +329,7 @@ class DelegationFixture {
         return this.requireBinding(loaderDomain);
     }
 
-    public check(binding: Binding): { readonly allowed: boolean; readonly reason: string } {
+    public check(binding: Binding) {
         const evidence = this.runtime.check(
             new AuthorityCheckRequest({
                 ownerTenant: tenantId,

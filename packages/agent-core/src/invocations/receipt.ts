@@ -1,5 +1,13 @@
 import { ContentRef, RecordCodec, isMember, type JsonValue, type RecordVersion } from "../core";
-import { requireDate, requireExactObject, requireString, validDate } from "./codec";
+import {
+    requireDate,
+    requireExactObject,
+    requireNullableString,
+    requireObject,
+    requireSafeInteger,
+    requireString,
+    validDate
+} from "./codec";
 import { EffectAttemptId, ReceiptId } from "./id";
 import { InvocationId } from "../interaction-references";
 
@@ -7,10 +15,12 @@ export type PreEffectReceiptOutcome = "deniedPreEffect" | "cancelledPreEffect";
 const ATTEMPT_RECEIPT_OUTCOMES = Object.freeze(["succeeded", "failed", "indeterminate"] as const);
 export type AttemptReceiptOutcome = (typeof ATTEMPT_RECEIPT_OUTCOMES)[number];
 
+type ReceiptProperties = PreEffectReceiptProperties | AttemptReceiptProperties;
+
 export abstract class Receipt {
     readonly #recordedAt: number;
 
-    protected constructor(recordedAt: Date, properties: object) {
+    protected constructor(recordedAt: Date, properties: ReceiptProperties) {
         this.#recordedAt = validDate(recordedAt, "Receipt time");
         Object.assign(this, properties);
         Object.freeze(this);
@@ -163,24 +173,17 @@ class ReceiptCodecV1 extends RecordCodec<Receipt> {
     }
 
     protected decodePayload(payload: JsonValue, _version: RecordVersion): Receipt {
-        if (payload === null || Array.isArray(payload) || typeof payload !== "object") {
-            throw new TypeError("Receipt payload must be an object");
-        }
-        const variant = requireString(payload as { readonly [key: string]: JsonValue }, "variant");
+        const variant = requireString(requireObject(payload, "Receipt payload"), "variant");
         if (variant === "preEffect") {
             const object = requireExactObject(
                 payload,
                 ["id", "invocation", "itemIndex", "outcome", "reason", "recordedAt", "variant"],
                 "Pre-effect Receipt"
             );
-            const itemIndex = object["itemIndex"];
-            if (typeof itemIndex !== "number" || !Number.isSafeInteger(itemIndex)) {
-                throw new TypeError("Receipt item index must be a safe integer");
-            }
             return new PreEffectReceipt(
                 new ReceiptId(requireString(object, "id")),
                 new InvocationId(requireString(object, "invocation")),
-                itemIndex,
+                requireSafeInteger(object, "itemIndex", "Receipt item index"),
                 requirePreEffectOutcome(requireString(object, "outcome")),
                 requireDate(object, "recordedAt"),
                 requireString(object, "reason")
@@ -192,21 +195,23 @@ class ReceiptCodecV1 extends RecordCodec<Receipt> {
                 ["attempt", "id", "outcome", "previous", "recordedAt", "result", "variant"],
                 "Attempt Receipt"
             );
-            const previous = object["previous"];
-            const result = object["result"];
-            if (
-                (previous !== null && typeof previous !== "string") ||
-                (result !== null && typeof result !== "string")
-            ) {
-                throw new TypeError("Attempt Receipt references are malformed");
-            }
+            const previous = requireNullableString(
+                object,
+                "previous",
+                "Attempt Receipt previous reference"
+            );
+            const result = requireNullableString(
+                object,
+                "result",
+                "Attempt Receipt result reference"
+            );
             return new AttemptReceipt(
                 new ReceiptId(requireString(object, "id")),
                 new EffectAttemptId(requireString(object, "attempt")),
                 requireAttemptOutcome(requireString(object, "outcome")),
-                previous === null ? undefined : new ReceiptId(previous as string),
+                previous === undefined ? undefined : new ReceiptId(previous),
                 requireDate(object, "recordedAt"),
-                result === null ? undefined : new ContentRef(result as string)
+                result === undefined ? undefined : new ContentRef(result)
             );
         }
         throw new TypeError("Receipt variant is invalid");

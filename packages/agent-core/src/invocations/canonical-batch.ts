@@ -275,7 +275,7 @@ export class CanonicalBatchInvocationPort<
     public async invoke(
         request: CanonicalBatchInvocationRequest<Authorization>
     ): Promise<CanonicalBatchInvocationResult> {
-        requireRequestShape(request.request);
+        requireRequestCardinality(request.request);
         const prepared = this.preparation.prepare(request);
         requirePreparedRequest(prepared, request);
         this.transactions.transact((transaction) => {
@@ -628,7 +628,7 @@ export class CanonicalBatchInvocationPort<
     }
 }
 
-function requireRequestShape<Authorization>(
+function requireRequestCardinality<Authorization>(
     request: MediatedInvocationRequest<Authorization>
 ): void {
     const expected = request.shape.kind === "single" ? 1 : request.shape.itemCount;

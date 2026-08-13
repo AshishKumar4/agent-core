@@ -3,6 +3,7 @@ import {
     Digest,
     RecordCodec,
     encodeCanonicalJson,
+    requireNonempty,
     type JsonValue,
     type RecordVersion
 } from "../core";
@@ -12,6 +13,7 @@ import {
     requireCanonicalText,
     requireDigest,
     requireExactObject,
+    requireNullableString,
     requireObject,
     requireString,
     sameJson,
@@ -40,9 +42,9 @@ export interface PreparedInvocationHeaderInit<Lease, Authority, Domain, PathEpoc
     readonly actor: ActorRef;
     readonly authority: Authority;
     readonly pathEpochs: PathEpochs;
-    readonly lease?: Lease;
-    readonly route?: RouteReservationId;
-    readonly projectionDigest?: Digest;
+    readonly lease?: Lease | undefined;
+    readonly route?: RouteReservationId | undefined;
+    readonly projectionDigest?: Digest | undefined;
     readonly auditCause: AuditRecordId;
     readonly idempotencySeed: string;
 }
@@ -131,7 +133,7 @@ export class PreparedInvocation<Lease, Authority, Domain, PathEpochs> {
         const header = canonicalHeader(init, codecs);
         const headerData = encodeHeader(header, codecs);
         const headerDigest = structuralDigest(HEADER_DIGEST_DOMAIN, headerData);
-        const shape: JsonValue =
+        const payloadCardinality: JsonValue =
             payload.kind === "single"
                 ? { kind: "single" }
                 : { itemCount: payload.items.length, kind: "batch" };
@@ -143,7 +145,7 @@ export class PreparedInvocation<Lease, Authority, Domain, PathEpochs> {
                 encodeCanonicalJson([
                     ITEM_KEY_DOMAIN,
                     headerDigest.value,
-                    shape,
+                    payloadCardinality,
                     itemIndex,
                     argumentDigest.value,
                     header.idempotencySeed
@@ -156,10 +158,7 @@ export class PreparedInvocation<Lease, Authority, Domain, PathEpochs> {
                 ? Object.freeze({ kind: "single", item: items[0]! })
                 : Object.freeze({
                       kind: "batch",
-                      items: Object.freeze(items) as unknown as readonly [
-                          PreparedItem,
-                          ...PreparedItem[]
-                      ]
+                      items: requireNonempty(Object.freeze(items), "Prepared invocation batch")
                   });
         const intentData = {
             domain: INTENT_DIGEST_DOMAIN,
@@ -235,9 +234,10 @@ export class PreparedInvocationCodec<Lease, Authority, Domain, PathEpochs> exten
                 ? { kind: "single", item: encodedPayload.item.arguments }
                 : {
                       kind: "batch",
-                      items: encodedPayload.items.map(
-                          (item) => item.arguments
-                      ) as unknown as readonly [FacetData, ...FacetData[]]
+                      items: requireNonempty(
+                          encodedPayload.items.map((item) => item.arguments),
+                          "Prepared invocation batch"
+                      )
                   };
         const record = PreparedInvocation.create(
             {
@@ -247,13 +247,9 @@ export class PreparedInvocationCodec<Lease, Authority, Domain, PathEpochs> exten
                 actor: header.actor,
                 authority: header.authority,
                 pathEpochs: header.pathEpochs,
-                ...(header.lease === undefined ? {} : { lease: header.lease }),
-                ...(header.route === undefined
-                    ? {}
-                    : {
-                          route: header.route,
-                          projectionDigest: header.projectionDigest!
-                      }),
+                lease: header.lease,
+                route: header.route,
+                projectionDigest: header.projectionDigest,
                 auditCause: header.auditCause,
                 idempotencySeed: header.idempotencySeed
             },
@@ -338,13 +334,9 @@ function decodeHeader<Lease, Authority, Domain, PathEpochs>(
     );
     const actor = requireExactObject(object["actor"], ["id", "kind"], "Prepared invocation actor");
     const lease = object["lease"];
-    const route = object["route"];
-    const projectionDigest = object["projectionDigest"];
-    if (
-        (route === null) !== (projectionDigest === null) ||
-        (route !== null && typeof route !== "string") ||
-        (projectionDigest !== null && typeof projectionDigest !== "string")
-    ) {
+    const route = requireNullableString(object, "route");
+    const projectionDigest = requireNullableString(object, "projectionDigest");
+    if ((route === undefined) !== (projectionDigest === undefined)) {
         throw new TypeError("Prepared invocation route evidence is malformed");
     }
     return new PreparedInvocationHeader(
@@ -358,8 +350,8 @@ function decodeHeader<Lease, Authority, Domain, PathEpochs>(
         codecs.authority.decode(object["authority"]!),
         codecs.pathEpochs.decode(object["pathEpochs"]!),
         lease === null ? undefined : codecs.lease.decode(lease!),
-        route === null ? undefined : new RouteReservationId(route as string),
-        projectionDigest === null ? undefined : new Digest(projectionDigest as string),
+        route === undefined ? undefined : new RouteReservationId(route),
+        projectionDigest === undefined ? undefined : new Digest(projectionDigest),
         new AuditRecordId(requireString(object, "auditCause")),
         requireString(object, "idempotencySeed")
     );
@@ -385,13 +377,12 @@ function decodePayload(value: JsonValue): PreparedPayload {
     if (kind === "batch") {
         const exact = requireExactObject(object, ["items", "kind"], "Batch invocation payload");
         const values = requireArray(exact, "items");
-        if (values.length === 0) throw new TypeError("Prepared invocation batch must be nonempty");
         return Object.freeze({
             kind,
-            items: Object.freeze(values.map(decodeItem)) as unknown as readonly [
-                PreparedItem,
-                ...PreparedItem[]
-            ]
+            items: requireNonempty(
+                Object.freeze(values.map(decodeItem)),
+                "Prepared invocation batch"
+            )
         });
     }
     throw new TypeError("Prepared invocation payload kind is invalid");

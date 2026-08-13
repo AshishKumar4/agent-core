@@ -334,7 +334,7 @@ class MediatedReplayRecordCodecV1 extends RecordCodec<MediatedReplayRecord> {
             requireDigest(object, "authorityIdentity"),
             requireDigest(object, "packageOperationPin"),
             decodeExecution(object["execution"]),
-            decodeShape(object["shape"]),
+            decodeCardinality(object["shape"]),
             requireArray(object, "items").map(decodeItem),
             invocation === null ? undefined : new InvocationId(invocation),
             new Revision(requireNonnegativeInteger(object, "revision"))
@@ -565,7 +565,7 @@ function decodeTrace(value: JsonValue): InvocationInterceptorTrace {
     };
 }
 
-function decodeShape(value: JsonValue): MediatedReplayShape {
+function decodeCardinality(value: JsonValue): MediatedReplayShape {
     const candidate = requireObject(value, "Replay shape");
     if (candidate["kind"] === "single") {
         requireExactObject(value, ["kind"], "Single replay shape");

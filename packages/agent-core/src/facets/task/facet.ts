@@ -8,7 +8,7 @@ import {
 } from "../contribution";
 import { canonicalFacetData } from "../data";
 import type { FacetData } from "../data";
-import { requireArray, requireDataObject, requireString } from "../data";
+import { dataRecord, requireArray, requireDataObject, requireString } from "../data";
 import { EventDeclaration, EventPattern } from "../event";
 import { EventKind, OperationName, SlotName, SurfaceId } from "../id";
 import type { FacetManifest } from "../manifest";
@@ -388,34 +388,37 @@ export function validateTaskHierarchy(tasks: ReadonlyMap<string, TaskEntry>): vo
     }
 }
 
+// An update field carries three states: absent leaves the task alone, null clears it, and
+// a value sets it. dataRecord drops only the absent ones, so null survives the round trip.
 function encodeTaskUpdate(update: TaskUpdate): FacetData {
-    return {
-        ...(update.parentId === undefined ? {} : { parentId: update.parentId?.value ?? null }),
-        ...(update.runId === undefined ? {} : { runId: update.runId?.value ?? null }),
-        ...(update.attributes === undefined ? {} : { attributes: update.attributes })
-    };
+    return dataRecord({
+        parentId: update.parentId === null ? null : update.parentId?.value,
+        runId: update.runId === null ? null : update.runId?.value,
+        attributes: update.attributes
+    });
 }
 
 function decodeTaskUpdate(data: FacetData): TaskUpdate {
     const object = requireDataObject(data, "Task update");
     const parentId = object["parentId"];
     const runId = object["runId"];
-    return {
-        ...(parentId === undefined
-            ? {}
-            : {
-                  parentId:
-                      parentId === null
-                          ? null
-                          : new TaskId(requireString(parentId, "Task parent ID"))
-              }),
-        ...(runId === undefined
-            ? {}
-            : {
-                  runId: runId === null ? null : new RunId(requireString(runId, "Task Run ID"))
-              }),
-        ...(object["attributes"] === undefined ? {} : { attributes: object["attributes"] })
-    };
+    const attributes = object["attributes"];
+    let update: TaskUpdate = {};
+    if (parentId !== undefined) {
+        update = {
+            ...update,
+            parentId:
+                parentId === null ? null : new TaskId(requireString(parentId, "Task parent ID"))
+        };
+    }
+    if (runId !== undefined) {
+        update = {
+            ...update,
+            runId: runId === null ? null : new RunId(requireString(runId, "Task Run ID"))
+        };
+    }
+    if (attributes !== undefined) update = { ...update, attributes };
+    return update;
 }
 
 function decodeTaskEntry(data: FacetData): TaskEntry {

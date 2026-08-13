@@ -98,12 +98,16 @@ describe("durable Run admission registry", () => {
                 run: new RunId("other-admission-run")
             })
         ).toBe(false);
+        // SAFETY: the approval obligation types `approval` as ApprovalId, so a Run ID standing
+        // in for one is unreachable through the type. It proves acceptance and completion match
+        // on the obligation's exact identity class, not merely on its `kind` and string value.
         expect(
             first.registry.accepts({
                 ...first.reservation,
                 obligation: { kind: "approval", approval: ids.run } as never
             })
         ).toBe(false);
+        // SAFETY: as above, on the completion path.
         expect(() =>
             first.registry.complete({
                 ...first.reservation,
@@ -202,6 +206,9 @@ describe("durable Run admission registry", () => {
     });
 
     it("rejects malformed registry and reservation identities before admission", { tags: "p2" }, () => {
+        // SAFETY: RunAdmissionRegistryInit types `run` as RunId, `accepting` as boolean and both
+        // obligation lists as arrays. Each forged value below is unreachable through the init,
+        // and reaches the constructor guard that names that field on its own.
         expect(
             () =>
                 new RunAdmissionRegistry({
@@ -222,6 +229,7 @@ describe("durable Run admission registry", () => {
                     completed: []
                 })
         ).toThrow(/non-negative/);
+        // SAFETY: as above, for the accepting flag.
         expect(
             () =>
                 new RunAdmissionRegistry({
@@ -249,8 +257,9 @@ describe("durable Run admission registry", () => {
                 epoch: 0,
                 reserved: [],
                 run: ids.run.value
-            } as never)
+            })
         ).toThrow(/accepting state/);
+        // SAFETY: as above, for the reserved list.
         expect(
             () =>
                 new RunAdmissionRegistry({
@@ -262,6 +271,9 @@ describe("durable Run admission registry", () => {
                 })
         ).toThrow(/array/);
 
+        // SAFETY: RunObligation is a closed union whose members type each identifier with its
+        // own class. Every forged entry here is unreachable through it, and proves reserve()
+        // validates the obligation rather than trusting the union it declares.
         const malformed: readonly RunObligation[] = [
             { kind: "invocationItem", invocation: ids.run as never, itemIndex: 0, itemKey: "key" },
             { kind: "invocationItem", invocation, itemIndex: -1, itemKey: "key" },
@@ -276,7 +288,7 @@ describe("durable Run admission registry", () => {
                 TypeError
             );
         }
-        expect(() => decodeRunObligation({ kind: "unknown" } as never)).toThrow(/kind/);
+        expect(() => decodeRunObligation({ kind: "unknown" })).toThrow(/kind/);
 
         const registry = RunAdmissionRegistry.initial(ids.run).reserve(item).registry;
         expect(() =>
@@ -450,6 +462,8 @@ describe("transactional terminal frontier", () => {
                 )
         ).toThrow(/Terminal time/);
 
+        // SAFETY: as above — a settlement obligation types each identifier with its own class,
+        // so only a forged one reaches the exact-identity check inside SettlementObligation.
         for (const malformed of [
             {
                 kind: "invocationItem" as const,

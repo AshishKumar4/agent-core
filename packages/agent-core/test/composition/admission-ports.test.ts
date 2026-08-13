@@ -58,6 +58,7 @@ import {
     type CanonicalBatchInvocationRequest
 } from "../../src/invocations";
 import { OperationRequestKey } from "../../src/operations";
+import { forwarded, reaching } from "./fixture";
 
 const tenant = new TenantId("ports-tenant");
 const tenantActor = new ActorRef("tenant", new ActorId("ports-tenant"));
@@ -152,10 +153,10 @@ class FixedExpectations implements AuthorityPermitExpectationFactory<
     }
 }
 
-class RecordingDenial implements AuthorityPermitDenialPort<object> {
+class RecordingDenial<Transaction = object> implements AuthorityPermitDenialPort<Transaction> {
     public readonly denials: (AuthorityPermitExpectation | undefined)[] = [];
 
-    public deny(_transaction: object, value: AuthorityPermitExpectation | undefined): void {
+    public deny(_transaction: Transaction, value: AuthorityPermitExpectation | undefined): void {
         this.denials.push(value);
     }
 }
@@ -182,11 +183,17 @@ const admissionContext: AuthorityAdmissionContext<string, string, string, string
     itemKey
 };
 
-async function captured(action: () => Promise<unknown>): Promise<unknown> {
-    return action().then(
-        () => undefined,
-        (error: unknown) => error
-    );
+/** Runs an action that must be refused and hands back the refusal it threw. */
+async function captured<Result>(action: () => Promise<Result>): Promise<AgentCoreError> {
+    try {
+        await action();
+    } catch (error) {
+        if (error instanceof AgentCoreError) return error;
+        throw new TypeError(`Expected an AgentCoreError, caught ${String(error)}`, {
+            cause: error
+        });
+    }
+    throw new TypeError("Expected the action to be refused");
 }
 
 describe("authority permit composition ports", () => {
@@ -207,8 +214,8 @@ describe("authority permit composition ports", () => {
 
             const malformed = await captured(() =>
                 port.authenticate(
-                    {} as never,
-                    {} as never,
+                    forwarded(),
+                    forwarded(),
                     new AuthorityAdmissionReference<AuthorityPermitReference>(
                         { substituted: true },
                         permit.digest()
@@ -223,8 +230,8 @@ describe("authority permit composition ports", () => {
 
             const mismatched = await captured(() =>
                 port.authenticate(
-                    {} as never,
-                    {} as never,
+                    forwarded(),
+                    forwarded(),
                     new AuthorityAdmissionReference<AuthorityPermitReference>(
                         permit.toData(),
                         digestOf("ports-substituted-digest")
@@ -238,8 +245,8 @@ describe("authority permit composition ports", () => {
             });
 
             const authenticated = await port.authenticate(
-                {} as never,
-                {} as never,
+                forwarded(),
+                forwarded(),
                 new AuthorityAdmissionReference<AuthorityPermitReference>(
                     permit.toData(),
                     permit.digest()
@@ -325,17 +332,7 @@ describe("authority permit composition ports", () => {
                 permit.toData(),
                 permit.digest()
             );
-            const build = (): {
-                readonly port: ConsumedAuthorityAdmissionPort<
-                    object,
-                    string,
-                    string,
-                    string,
-                    string
-                >;
-                readonly admission: ScriptedAdmission;
-                readonly denial: RecordingDenial;
-            } => {
+            const build = () => {
                 const denial = new RecordingDenial();
                 const admission = new ScriptedAdmission();
                 return {
@@ -396,8 +393,8 @@ describe("authority permit composition ports", () => {
 
             const error = await captured(() =>
                 port.authenticate(
-                    {} as never,
-                    {} as never,
+                    forwarded(),
+                    forwarded(),
                     new AuthorityAdmissionReference<AuthorityPermitReference>(
                         permit.toData(),
                         permit.digest()
@@ -505,7 +502,7 @@ describe("device consent final admission", () => {
                         impact: "observe",
                         inputs: [{ key: "last" }]
                     }),
-                    {} as never
+                    forwarded()
                 )
             ).toEqual({ kind: "admitted" });
             expect(consent.calls).toBe(0);
@@ -517,7 +514,7 @@ describe("device consent final admission", () => {
                     impact: "externalSend",
                     inputs: [{ deviceId: "ports-device" }]
                 }),
-                {} as never
+                forwarded()
             );
             expect(live).toMatchObject({ kind: "admitted" });
             expect(consent.calls).toBe(1);
@@ -606,7 +603,7 @@ describe("device consent final admission", () => {
                 string,
                 string
             >(deviceFacet, new FixedDeviceAgent(), consent);
-            expect(port.admit({}, deviceRequest(init), {} as never), reason).toEqual({
+            expect(port.admit({}, deviceRequest(init), forwarded()), reason).toEqual({
                 kind: "denied",
                 reason: expectedReason
             });
@@ -631,14 +628,14 @@ describe("device consent final admission", () => {
         });
 
         consent.failure = new DeviceError("consent.denied", "Device consent was revoked");
-        expect(port.admit({}, request, {} as never)).toEqual({
+        expect(port.admit({}, request, forwarded())).toEqual({
             kind: "denied",
             reason: "Device consent was revoked"
         });
 
         const crash = new TypeError("device consent store crashed");
         consent.failure = crash;
-        expect(() => port.admit({}, request, {} as never)).toThrow(crash);
+        expect(() => port.admit({}, request, forwarded())).toThrow(crash);
     });
 });
 
@@ -826,9 +823,9 @@ describe("durable Run admission validation", () => {
                 completed: []
             });
             let stored: RunAdmissionRegistry | undefined;
-            const port = new DurableRunAdmissionPort<object>({
-                loadAdmission: () => stored
-            } as unknown as RunRepository<object>);
+            const port = new DurableRunAdmissionPort<object>(
+                reaching<RunRepository<object>>({ loadAdmission: () => stored })
+            );
 
             expect(port.accepts({}, reservation)).toBe(false);
 

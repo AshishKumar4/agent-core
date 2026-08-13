@@ -1,7 +1,7 @@
 import Ajv2020 from "ajv/dist/2020.js";
 import { fullFormats } from "ajv-formats/dist/formats.js";
 import { AgentCoreError } from "../errors";
-import { decodeCanonicalJson, encodeCanonicalJson } from "./canonical";
+import { canonicalJsonCopy, encodeCanonicalJson, frozenCanonicalJson } from "./canonical";
 import { RecordCodec, type RecordVersion } from "./codec";
 import { hasExactJsonKeys, isJsonValue, type JsonValue } from "./json";
 
@@ -26,16 +26,16 @@ export class StrictJsonSchemaValidator implements JsonSchemaValidator {
     }
 
     public assertSupportedSchema(schema: JsonSchemaDocument): void {
-        assertSupportedSchema(canonicalCopy(schema) as JsonSchemaDocument);
+        assertSupportedSchema(frozenCanonicalJson(schema));
     }
 
     public validate(schema: JsonSchemaDocument, value: JsonValue): boolean {
         const validate = this.validateAndCompile(schema);
-        return validate(canonicalCopy(value));
+        return validate(frozenCanonicalJson(value));
     }
 
     private validateAndCompile(schema: JsonSchemaDocument): (value: unknown) => boolean {
-        const canonical = canonicalCopy(schema) as JsonSchemaDocument;
+        const canonical = frozenCanonicalJson(schema);
         const key = new TextDecoder().decode(encodeCanonicalJson(canonical));
         const memoized = this.#compiled.get(key);
         if (memoized !== undefined) return memoized;
@@ -93,7 +93,7 @@ export class JsonSchema {
                 "JSON Schema document must be canonical JSON object or boolean data"
             );
         }
-        this.document = canonicalCopy(document) as JsonSchemaDocument;
+        this.document = frozenCanonicalJson(document);
         Object.freeze(this);
     }
 
@@ -117,7 +117,7 @@ export class JsonSchema {
             return false;
         }
         if (validator === strictJsonSchemaValidator) return true;
-        const candidate = mutableCanonicalCopy(value);
+        const candidate = canonicalJsonCopy(value);
         const before = encodeCanonicalJson(candidate);
         let accepted: boolean;
         try {
@@ -143,30 +143,6 @@ export class JsonSchema {
     public assertSupported(): void {
         strictJsonSchemaValidator.assertSupportedSchema(this.document);
     }
-}
-
-function canonicalCopy(value: JsonValue): JsonValue {
-    return freezeJson(mutableCanonicalCopy(value));
-}
-
-function mutableCanonicalCopy(value: JsonValue): JsonValue {
-    return decodeCanonicalJson(encodeCanonicalJson(value));
-}
-
-function freezeJson(value: JsonValue): JsonValue {
-    if (Array.isArray(value)) {
-        for (const entry of value) {
-            freezeJson(entry);
-        }
-        return Object.freeze(value);
-    }
-    if (isObject(value)) {
-        for (const entry of Object.values(value)) {
-            freezeJson(entry);
-        }
-        return Object.freeze(value);
-    }
-    return value;
 }
 
 function isSchemaDocument(value: unknown): value is JsonSchemaDocument {

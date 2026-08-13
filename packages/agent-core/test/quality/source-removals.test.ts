@@ -247,6 +247,10 @@ async function loadFixture(): Promise<{
     };
 }
 
-async function json<T>(path: string): Promise<T> {
-    return JSON.parse(await readFile(resolve(artifactRoot, path), "utf8")) as T;
+/**
+ * The artifacts feed the checker under test, which is what actually validates
+ * them; the declared type here says which contract each read is standing in for.
+ */
+async function json<Document>(path: string): Promise<Document> {
+    return JSON.parse(await readFile(resolve(artifactRoot, path), "utf8"));
 }

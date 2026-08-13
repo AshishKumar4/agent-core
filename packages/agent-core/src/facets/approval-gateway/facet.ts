@@ -104,7 +104,7 @@ export const APPROVAL_GATEWAY_OPERATION_CONTRACTS = Object.freeze({
             schema({})
         ),
         inputCodec,
-        facetDataWireCodec<JsonValue>(),
+        facetDataWireCodec(),
         "output"
     ),
     applyAction: new ProfileOperationContract<"applyAction", GatewayActionInput, JsonValue>(
@@ -116,7 +116,7 @@ export const APPROVAL_GATEWAY_OPERATION_CONTRACTS = Object.freeze({
             schema({})
         ),
         inputCodec,
-        facetDataWireCodec<JsonValue>(),
+        facetDataWireCodec(),
         "output"
     )
 });

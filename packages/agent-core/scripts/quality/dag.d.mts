@@ -1,6 +1,7 @@
 export interface QualityGraph {
     readonly edition: string;
     readonly nodes: Readonly<Record<string, readonly string[]>>;
+    readonly hermetic: Readonly<Record<string, boolean>>;
     readonly stages: {
         readonly building: readonly string[];
         readonly final: readonly string[];

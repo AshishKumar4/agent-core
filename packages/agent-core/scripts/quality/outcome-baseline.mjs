@@ -1,5 +1,5 @@
 import { verifyCompletionArtifacts } from "./completion.mjs";
-import { repositoryRoot, sha256 } from "./project.mjs";
+import { isNonEmptyString, repositoryRoot, sha256 } from "./project.mjs";
 
 // The outcome baseline makes the resolutions ledger tamper-evident. Every recorded
 // outcome is the immutable history of one ratified review: its artifact pins are bound
@@ -88,7 +88,7 @@ export function verifyOutcomeLedger(resolutions, baseline, root = repositoryRoot
                           `re-pin the baseline with ${updateCommand}`
             );
         }
-        if (entry.ratification === "lost" && !nonemptyString(pinned.reason)) {
+        if (entry.ratification === "lost" && !isNonEmptyString(pinned.reason)) {
             throw new TypeError(
                 `${entry.source} outcome is unverifiable without a recorded reason; ` +
                     `acknowledge it with ${updateCommand} ${acknowledgeFlag}`
@@ -138,12 +138,12 @@ export function updateOutcomeBaseline(resolutions, previous, reason, root = repo
         if (restored) restorations.push(entry.source);
         if (rewritten || newlyLost) return { ...entry, reason };
         if (restored) return entry;
-        return nonemptyString(prior.reason) ? { ...entry, reason: prior.reason } : entry;
+        return isNonEmptyString(prior.reason) ? { ...entry, reason: prior.reason } : entry;
     });
     for (const source of before.keys()) {
         regressions.push(`${source}: recorded outcome removed`);
     }
-    if (regressions.length > 0 && !nonemptyString(reason)) {
+    if (regressions.length > 0 && !isNonEmptyString(reason)) {
         throw new TypeError(
             `Outcome baseline update destroys or weakens recorded evidence:\n` +
                 `${regressions.join("\n")}\n` +
@@ -152,8 +152,4 @@ export function updateOutcomeBaseline(resolutions, previous, reason, root = repo
     }
     outcomes.sort((left, right) => left.source.localeCompare(right.source));
     return { baseline: { edition: "1.0.0", outcomes }, additions, restorations, regressions };
-}
-
-function nonemptyString(value) {
-    return typeof value === "string" && value.trim().length > 0;
 }

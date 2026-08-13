@@ -228,7 +228,7 @@ class UnexpiringLease extends TurnLease {
 function membrane(
     candidate: OperationResolutionCandidate | undefined,
     now: () => Date = () => RESOLVED_AT
-): { readonly state: MembraneState; readonly authority: TenantOperationAuthority<PrincipalRef> } {
+) {
     const state = new MembraneState(candidate);
     return { state, authority: new TenantOperationAuthority(state, now) };
 }
@@ -246,15 +246,20 @@ async function resolveOf(
     return { state, authority, resolution };
 }
 
-async function captured(action: () => Promise<unknown>): Promise<unknown> {
-    return action().then(
-        () => undefined,
-        (error: unknown) => error
-    );
+/** Runs an action that must be refused and hands back the refusal it threw. */
+async function captured<Result>(action: () => Promise<Result>): Promise<AgentCoreError> {
+    try {
+        await action();
+    } catch (error) {
+        if (error instanceof AgentCoreError) return error;
+        throw new TypeError(`Expected an AgentCoreError, caught ${String(error)}`, {
+            cause: error
+        });
+    }
+    throw new TypeError("Expected the action to be refused");
 }
 
-function expectDenied(error: unknown, message: string, reason: string): void {
-    expect(error, reason).toBeInstanceOf(AgentCoreError);
+function expectDenied(error: AgentCoreError, message: string, reason: string): void {
     expect(error, reason).toMatchObject({ code: "authority.denied", message });
 }
 

@@ -1,3 +1,17 @@
+/** The BOM closure `validateArchivedRequestDeletions` reads: each archived request's
+ * pinned source and destination digests, attributed to the wave that produced them. */
+export interface ArchivedRequestBom {
+    readonly entries: readonly {
+        readonly owner: string;
+        readonly artifacts: readonly {
+            readonly source: string;
+            readonly sourceSha256: string;
+            readonly destination: string;
+            readonly sha256: string;
+        }[];
+    }[];
+}
+
 export function loadOwnership(): Promise<{
     readonly ownership: unknown;
     readonly patterns: ReadonlyMap<string, string>;
@@ -34,7 +48,7 @@ export function loadTransitionAuthorization(
     patterns: ReadonlyMap<string, string>,
     paths?: readonly string[],
     base?: string,
-    bom?: unknown
+    bom?: ArchivedRequestBom
 ): Promise<TransitionAuthorization>;
 export interface CandidateManifestEntry {
     readonly path: string;
@@ -62,7 +76,7 @@ export function validateClosureManifest(
 export function validateArchivedRequestDeletions(
     entries: readonly CandidateManifestEntry[],
     patterns: ReadonlyMap<string, string>,
-    bom: unknown,
+    bom: ArchivedRequestBom,
     closureCommit: string
 ): Promise<ReadonlySet<string>>;
 export function validateRemediationManifest(
