@@ -201,8 +201,8 @@ function boundOperation(
     return operation;
 }
 
-function toolFailure(error: unknown): FacetData {
-    return { error: error instanceof Error ? error.message : String(error) };
+function toolFailure(cause: unknown): FacetData {
+    return { error: cause instanceof Error ? cause.message : String(cause) };
 }
 
 function messageCommit(

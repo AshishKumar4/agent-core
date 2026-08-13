@@ -201,6 +201,11 @@ class TranscriptRecordCodec extends RecordCodec<Transcript> {
 
 export const TranscriptCodec: RecordCodec<Transcript> = new TranscriptRecordCodec();
 
+/** A JSON string is exactly the value that is its own string rendering. */
+function isJsonString(value: JsonValue | undefined): value is string {
+    return value === String(value);
+}
+
 function requireObject(value: JsonValue | undefined, subject: string): JsonObject {
     if (!isJsonObject(value)) {
         throw new HarnessError("transcript.invalid", `${subject} must be an object`);
@@ -209,14 +214,14 @@ function requireObject(value: JsonValue | undefined, subject: string): JsonObjec
 }
 
 function requireString(value: JsonValue | undefined, subject: string): string {
-    if (typeof value !== "string") {
+    if (!isJsonString(value)) {
         throw new HarnessError("transcript.invalid", `${subject} must be a string`);
     }
     return value;
 }
 
 function requireBoolean(value: JsonValue | undefined, subject: string): boolean {
-    if (typeof value !== "boolean") {
+    if (value !== true && value !== false) {
         throw new HarnessError("transcript.invalid", `${subject} must be a boolean`);
     }
     return value;

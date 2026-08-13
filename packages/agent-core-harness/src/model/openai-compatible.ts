@@ -29,12 +29,15 @@ export class OpenAiCompatibleModelProvider extends ModelProvider {
     }
 
     public async complete(request: ModelRequest): Promise<ModelCompletion> {
-        const body = {
+        const base: JsonValue = {
             model: this.options.model,
-            messages: renderMessages(request.transcript),
-            ...(request.tools.length === 0
-                ? {}
+            messages: renderMessages(request.transcript)
+        };
+        const body: JsonValue =
+            request.tools.length === 0
+                ? base
                 : {
+                      ...base,
                       tools: request.tools.map((tool) => ({
                           type: "function",
                           function: {
@@ -43,8 +46,7 @@ export class OpenAiCompatibleModelProvider extends ModelProvider {
                               parameters: tool.input
                           }
                       }))
-                  })
-        };
+                  };
         const response = await this.send(body, request.signal);
         if (!response.ok) {
             throw new HarnessError(
@@ -99,12 +101,12 @@ function renderMessages(transcript: Transcript): readonly JsonValue[] {
             continue;
         }
         if (message instanceof AssistantMessage) {
-            messages.push({
-                role: "assistant",
-                content: message.text,
-                ...(message.toolCalls.length === 0
-                    ? {}
+            const assistant: JsonValue = { role: "assistant", content: message.text };
+            messages.push(
+                message.toolCalls.length === 0
+                    ? assistant
                     : {
+                          ...assistant,
                           tool_calls: message.toolCalls.map((call) => ({
                               id: call.id.value,
                               type: "function",
@@ -113,8 +115,8 @@ function renderMessages(transcript: Transcript): readonly JsonValue[] {
                                   arguments: JSON.stringify(call.input)
                               }
                           }))
-                      })
-            });
+                      }
+            );
             continue;
         }
         if (!(message instanceof ToolResultMessage)) {
@@ -135,7 +137,7 @@ function readCompletion(text: string): ModelCompletion {
     const message = field(choice, "message", isJsonObject);
     const rawContent = message["content"];
     const content = rawContent === null || rawContent === undefined ? "" : rawContent;
-    if (typeof content !== "string") {
+    if (!isString(content)) {
         throw malformed("Model message content must be a string");
     }
     return Object.freeze({
@@ -174,10 +176,15 @@ function readUsage(value: JsonValue | undefined): TurnModelUsage {
 
 function countOf(value: JsonValue | undefined): number {
     if (value === undefined || value === null) return 0;
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    if (!isJsonNumber(value) || !Number.isSafeInteger(value) || value < 0) {
         throw malformed("Model usage counts must be non-negative integers");
     }
     return value;
+}
+
+/** JSON carries no NaN or infinity, so a finite value is exactly a JSON number. */
+function isJsonNumber(value: JsonValue | undefined): value is number {
+    return Number.isFinite(value);
 }
 
 function firstChoice(root: { readonly [key: string]: JsonValue }): {
@@ -216,8 +223,9 @@ function field<Value extends JsonValue>(
     return value;
 }
 
+/** A JSON string is exactly the value that is its own string rendering. */
 function isString(value: JsonValue | undefined): value is string {
-    return typeof value === "string";
+    return value === String(value);
 }
 
 function requireObject(
@@ -232,6 +240,6 @@ function malformed(message: string): HarnessError {
     return new HarnessError("model.malformed-response", message);
 }
 
-function errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
+function errorMessage(cause: unknown): string {
+    return cause instanceof Error ? cause.message : String(cause);
 }
