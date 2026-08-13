@@ -14,16 +14,19 @@ import {
     RouteReservationId
 } from "../../../src/interaction-references";
 import { RunId } from "../../../src/agents/runs/id";
-import { content, harness, ids, pins, refs } from "./fixture";
+import {
+    content,
+    harness,
+    ids,
+    mutableData,
+    pins,
+    refs,
+    thrownBy,
+    type MutableRecordData
+} from "./fixture";
 
-function expectCode(operation: () => unknown, code: AgentCoreError["code"]): void {
-    try {
-        operation();
-        throw new Error("Expected operation to fail");
-    } catch (error) {
-        expect(error).toBeInstanceOf(AgentCoreError);
-        expect((error as AgentCoreError).code).toBe(code);
-    }
+function expectCode(operation: () => void, code: AgentCoreError["code"]): void {
+    expect(thrownBy(AgentCoreError, operation).code).toBe(code);
 }
 
 function turnWriter(): CommitWriter {
@@ -139,6 +142,10 @@ describe("closed commit writer matrix", () => {
             value.repository.transaction((tx) =>
                 validateCommitWriter(tx, message(), value.evidence)
             );
+            // SAFETY: the RunCommit constructor already rejects a message commit written by
+            // the root writer, and rejects a subject Turn that does not own the commit. Only a
+            // record that never passed that constructor can prove validateCommitWriter checks
+            // the writer itself rather than trusting the record it is handed.
             expectCode(
                 () =>
                     value.repository.transaction((tx) =>
@@ -150,6 +157,8 @@ describe("closed commit writer matrix", () => {
                     ),
                 "run.invalid-state"
             );
+            // SAFETY: as above — a Turn-written commit whose subject Turn is a different Turn
+            // cannot be built through the RunCommit constructor.
             expectCode(
                 () =>
                     value.repository.transaction((tx) =>
@@ -487,7 +496,7 @@ describe("closed commit writer matrix", () => {
 });
 
 describe("closed RunCommit shapes", () => {
-    const expectShapeError = (init: RunCommitInit): void => {
+    const expectInvalidCommit = (init: RunCommitInit): void => {
         expect(() => new RunCommit(init)).toThrow(TypeError);
     };
 
@@ -495,7 +504,7 @@ describe("closed RunCommit shapes", () => {
         "[C13-RUN-GRAPH-ARITY] rejects invalid root, merge, and unary arities",
         { tags: "p0" },
         () => {
-            expectShapeError({
+            expectInvalidCommit({
                 id: new RunCommitId("bad-root"),
                 run: ids.run,
                 branch: ids.branch,
@@ -504,7 +513,7 @@ describe("closed RunCommit shapes", () => {
                 pins: pins(),
                 writer: { kind: "root" }
             });
-            expectShapeError({
+            expectInvalidCommit({
                 id: new RunCommitId("bad-merge"),
                 run: ids.run,
                 branch: ids.branch,
@@ -513,7 +522,7 @@ describe("closed RunCommit shapes", () => {
                 pins: pins(),
                 writer: turnWriter()
             });
-            expectShapeError({
+            expectInvalidCommit({
                 id: new RunCommitId("bad-unary"),
                 run: ids.run,
                 branch: ids.branch,
@@ -579,19 +588,19 @@ describe("closed RunCommit shapes", () => {
                     content: content("4")
                 }
             ];
-            cases.forEach(expectShapeError);
+            cases.forEach(expectInvalidCommit);
         }
     );
 
     it("rejects malformed serialized writer and resolution variants", { tags: "p2" }, () => {
         const mutate = (
             base: RunCommit,
-            update: (data: Record<string, unknown>) => void,
+            update: (data: MutableRecordData) => void,
             expected: ErrorConstructor | AgentCoreError = TypeError
         ): void => {
-            const data = structuredClone(base.toData()) as Record<string, unknown>;
+            const data = mutableData(base.toData());
             update(data);
-            expect(() => RunCommit.fromData(data as never)).toThrow(expected);
+            expect(() => RunCommit.fromData(data)).toThrow(expected);
         };
         mutate(message("serialized-writer"), (data) => {
             data["writer"] = { kind: "unknown" };

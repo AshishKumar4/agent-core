@@ -7,16 +7,10 @@ import { RunCommit } from "../../../src/agents/runs/commit";
 import { MemoryRunStorage } from "../../../src/agents/runs/memory";
 import { RunId } from "../../../src/agents/runs/id";
 import { RunRepository, type StoredRunRecord } from "../../../src/agents/runs/store";
-import { content, genesis, harness, ids, pins, seedRunningTurn } from "./fixture";
+import { content, genesis, harness, ids, pins, seedRunningTurn, thrownBy } from "./fixture";
 
-function expectCode(operation: () => unknown, code: AgentCoreError["code"]): void {
-    try {
-        operation();
-        throw new Error("Expected operation to fail");
-    } catch (error) {
-        expect(error).toBeInstanceOf(AgentCoreError);
-        expect((error as AgentCoreError).code).toBe(code);
-    }
+function expectCode(operation: () => void, code: AgentCoreError["code"]): void {
+    expect(thrownBy(AgentCoreError, operation).code).toBe(code);
 }
 
 function rawRecord(overrides: Partial<StoredRunRecord> = {}): StoredRunRecord {
@@ -32,6 +26,9 @@ function rawRecord(overrides: Partial<StoredRunRecord> = {}): StoredRunRecord {
 describe("MemoryRunStorage exhaustive behavior", () => {
     it("rejects async and nested transactions with stable codes", { tags: "p1" }, () => {
         const storage = new MemoryRunStorage();
+        // SAFETY: SynchronousResultGuard already rejects a Promise-returning callback at
+        // compile time. Defeating that guard is the only way to reach the runtime check that
+        // backs it, which is what this case pins.
         expectCode(
             () => storage.transaction(() => Promise.resolve() as never),
             "run.invalid-state"
@@ -79,6 +76,9 @@ describe("MemoryRunStorage exhaustive behavior", () => {
 
     it("rejects every malformed raw record and snapshot projection", { tags: "p2" }, () => {
         const storage = new MemoryRunStorage();
+        // SAFETY: StoredRunRecord already constrains `bytes` to Uint8Array and `kind` to the
+        // known record kinds, so a caller respecting the type cannot produce these. The forged
+        // fields prove storage validates each field rather than trusting its declared type.
         for (const record of [
             rawRecord({ key: "" }),
             rawRecord({ revision: -1 }),

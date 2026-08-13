@@ -7,9 +7,18 @@ import { RunCheckpointId, TurnInboxEntryId } from "../../../src/agents/runs/id";
 import { TurnLease } from "../../../src/agents/runs/lease";
 import { TurnPlacementSnapshot } from "../../../src/agents/runs/placement";
 import { RunCheckpoint, Turn, TurnInboxEntry, TurnStatus } from "../../../src/agents/runs/turn";
-import { content, digest, ids, pins } from "./fixture";
+import {
+    content,
+    digest,
+    ids,
+    mutableData,
+    objectAt,
+    pins,
+    thrownBy,
+    type TurnOverrides
+} from "./fixture";
 
-function queued(overrides: Partial<ConstructorParameters<typeof Turn>[0]> = {}): Turn {
+function queued(overrides: TurnOverrides = {}): Turn {
     const placement = new TurnPlacementSnapshot(overrides.id ?? ids.turn, pins(), []);
     return new Turn({
         id: ids.turn,
@@ -25,14 +34,8 @@ function queued(overrides: Partial<ConstructorParameters<typeof Turn>[0]> = {}):
     });
 }
 
-function expectCode(operation: () => unknown, code: AgentCoreError["code"]): void {
-    try {
-        operation();
-        throw new Error("Expected operation to fail");
-    } catch (error) {
-        expect(error).toBeInstanceOf(AgentCoreError);
-        expect((error as AgentCoreError).code).toBe(code);
-    }
+function expectCode(operation: () => void, code: AgentCoreError["code"]): void {
+    expect(thrownBy(AgentCoreError, operation).code).toBe(code);
 }
 
 describe("TurnStatus complete transition matrix", () => {
@@ -130,9 +133,9 @@ describe("Turn aggregate exhaustive behavior", () => {
     it("[C13-TURN-NO-RETRY] rejects retry linkage in the Turn record codec", { tags: "p0" }, () => {
         const value = queued();
         expect("retryOf" in value).toBe(false);
-        expect("retryOf" in (value.toData() as object)).toBe(false);
-        const data = { ...(value.toData() as object), retryOf: "prior" };
-        expect(() => Turn.fromData(data as never)).toThrow(/fields/);
+        expect("retryOf" in objectAt(value.toData(), "Turn")).toBe(false);
+        const data = { ...objectAt(value.toData(), "Turn"), retryOf: "prior" };
+        expect(() => Turn.fromData(data)).toThrow(/fields/);
     });
 
     it("round-trips optional checkpoint, result, lease, and every status", { tags: "p1" }, () => {
@@ -149,17 +152,15 @@ describe("Turn aggregate exhaustive behavior", () => {
                 status.kind === "queued"
                     ? TurnLease.unclaimed(ids.turn)
                     : TurnLease.restore(ids.turn, undefined, 2, new Date(10));
-            const value = queued({
-                status,
-                lease,
-                ...(status.kind === "queued" ? {} : { checkpoint }),
-                ...(status.kind === "succeeded" || status.kind === "failed" ? { result } : {})
-            });
+            const overrides: TurnOverrides = { status, lease };
+            if (status.kind !== "queued") overrides.checkpoint = checkpoint;
+            if (status.kind === "succeeded" || status.kind === "failed") overrides.result = result;
+            const value = queued(overrides);
             expect(Turn.decode(Turn.encode(value)).status.kind).toBe(status.kind);
         }
-        const data = structuredClone(queued().toData()) as Record<string, unknown>;
+        const data = mutableData(queued().toData());
         data["status"] = "unknown";
-        expect(() => Turn.fromData(data as never)).toThrow(/status/);
+        expect(() => Turn.fromData(data)).toThrow(/status/);
     });
 
     it("round-trips advisory cache lineage without affecting transitions", { tags: "p1" }, () => {
@@ -322,13 +323,17 @@ describe("decode and constructor trust boundaries", () => {
         { tags: "p1" },
         () => {
             const forged = { turn: ids.turn, holder: ids.holder, epoch: 0, expiresAt: undefined };
+            // SAFETY: TurnLease guards "held leases require an expiration" in its own
+            // constructor, so this combination is unreachable through the real class. Only a
+            // forged stand-in can prove Turn re-checks the queued-lease invariant itself
+            // instead of trusting the lease it is handed.
             expect(() => queued({ lease: forged as never })).toThrow(TypeError);
         }
     );
 
     it("rejects an unknown Turn status on decode", { tags: "p2" }, () => {
-        const data = { ...(queued().toData() as object), status: "bogus" };
-        expect(() => Turn.fromData(data as never)).toThrow(TypeError);
+        const data = { ...objectAt(queued().toData(), "Turn"), status: "bogus" };
+        expect(() => Turn.fromData(data)).toThrow(TypeError);
     });
 
     it("rejects a negative inbox timestamp on decode", { tags: "p2" }, () => {
@@ -343,7 +348,7 @@ describe("decode and constructor trust boundaries", () => {
             undefined,
             new Date(1)
         );
-        const data = { ...(entry.toData() as object), recordedAt: -1 };
-        expect(() => TurnInboxEntry.fromData(data as never)).toThrow(TypeError);
+        const data = { ...objectAt(entry.toData(), "Turn inbox entry"), recordedAt: -1 };
+        expect(() => TurnInboxEntry.fromData(data)).toThrow(TypeError);
     });
 });

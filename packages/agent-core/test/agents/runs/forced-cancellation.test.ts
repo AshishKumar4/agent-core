@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeCanonicalJson, encodeCanonicalJson, type JsonValue } from "../../../src/core";
+import { decodeCanonicalJson, encodeCanonicalJson } from "../../../src/core";
 import { AgentCoreError } from "../../../src/errors";
 import { TurnId } from "../../../src/execution-references";
 import {
@@ -10,7 +10,7 @@ import { MemoryRunStorage } from "../../../src/agents/runs/memory";
 import { RunRepository } from "../../../src/agents/runs/store";
 import { ReceiptId } from "../../../src/invocation-references";
 import { AuditRecordId, EventId } from "../../../src/interaction-references";
-import { ids } from "./fixture";
+import { ids, objectAt, thrownBy } from "./fixture";
 
 function cancellation(overrides: { readonly audit?: string } = {}): ForcedTurnCancellation {
     return new ForcedTurnCancellation({
@@ -26,14 +26,8 @@ function cancellation(overrides: { readonly audit?: string } = {}): ForcedTurnCa
     });
 }
 
-function expectCode(operation: () => unknown, code: AgentCoreError["code"]): void {
-    try {
-        operation();
-        throw new Error("Expected operation to fail");
-    } catch (error) {
-        expect(error).toBeInstanceOf(AgentCoreError);
-        expect((error as AgentCoreError).code).toBe(code);
-    }
+function expectCode(operation: () => void, code: AgentCoreError["code"]): void {
+    expect(thrownBy(AgentCoreError, operation).code).toBe(code);
 }
 
 describe("ForcedTurnCancellation record", () => {
@@ -83,20 +77,15 @@ describe("ForcedTurnCancellation record", () => {
                 })
         ).toThrow(TypeError);
 
-        const envelope = decodeCanonicalJson(
-            ForcedTurnCancellationCodec.encode(cancellation())
-        ) as {
-            readonly kind: string;
-            readonly version: { readonly major: number; readonly minor: number };
-            readonly payload: { readonly [key: string]: JsonValue };
-        };
+        const envelope = objectAt(
+            decodeCanonicalJson(ForcedTurnCancellationCodec.encode(cancellation())),
+            "record envelope"
+        );
+        const payload = objectAt(envelope["payload"], "record payload");
         expectCode(
             () =>
                 ForcedTurnCancellationCodec.decode(
-                    encodeCanonicalJson({
-                        ...envelope,
-                        payload: { ...envelope.payload, extra: true }
-                    })
+                    encodeCanonicalJson({ ...envelope, payload: { ...payload, extra: true } })
                 ),
             "codec.invalid"
         );

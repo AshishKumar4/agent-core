@@ -1,5 +1,12 @@
 import { ActorId, ActorRef } from "../../../src/actors";
-import { ContentRef, Digest, Revision, SemVer } from "../../../src/core";
+import {
+    ContentRef,
+    Digest,
+    isJsonObject,
+    Revision,
+    SemVer,
+    type JsonValue
+} from "../../../src/core";
 import { PackageId, PackagePin } from "../../../src/definition";
 import { PrincipalId, PrincipalRef, TenantId } from "../../../src/identity";
 import { AgentId, AgentPolicyId, AgentProfileId, ModelPolicyId } from "../../../src/agents/id";
@@ -327,3 +334,63 @@ export const refs = Object.freeze({
     receipt: new ReceiptId("receipt-1"),
     route: new RouteReservationId("route-1")
 });
+
+/**
+ * Runs an operation that must fail and hands back the failure as the named error class,
+ * so a test reads `code` and `message` off a real error instead of asserting one into
+ * existence. A success, or a failure of another class, fails here rather than at the
+ * caller's field comparison.
+ */
+export function thrownBy<Failure extends Error>(
+    kind: abstract new (...parameters: never[]) => Failure,
+    operation: () => void,
+    label = "operation"
+): Failure {
+    try {
+        operation();
+    } catch (error) {
+        if (error instanceof kind) return error;
+        throw new TypeError(`${label}: expected ${kind.name}, caught ${String(error)}`, {
+            cause: error
+        });
+    }
+    throw new TypeError(`${label}: expected ${kind.name}, but the operation returned`);
+}
+
+/**
+ * A record's own fields, writable, so a test can assemble an init one field at a time and
+ * add an optional field only when it is present. Writing an absent field as `undefined` is
+ * not the same thing under `exactOptionalPropertyTypes`.
+ */
+export type Assembled<Fields> = { -readonly [Field in keyof Fields]: Fields[Field] };
+
+/** Turn fields a test overrides on the shared queued-Turn builders. */
+export type TurnOverrides = Assembled<Partial<TurnInit>>;
+
+/** The encoded form of a record, owned by the test that is about to corrupt it. */
+export type MutableRecordData = { [field: string]: JsonValue };
+
+/**
+ * Structured-clones a record's encoded form so a test may corrupt named fields in place
+ * and watch the decoder reject the result. The clone is owned by the caller, so writing
+ * through it cannot reach the record it was taken from.
+ */
+export function mutableData(value: JsonValue): MutableRecordData {
+    return objectAt(structuredClone(value), "record");
+}
+
+/** Reads a nested object on a corruption path, keeping the caller's write in place. */
+export function objectAt(value: JsonValue | undefined, field: string): MutableRecordData {
+    if (!isJsonObject(value)) {
+        throw new TypeError(`Corruption path field ${field} is not an object`);
+    }
+    return value;
+}
+
+/** Reads a nested array of objects on a corruption path, keeping the caller's write in place. */
+export function objectsAt(value: JsonValue | undefined, field: string): MutableRecordData[] {
+    if (!Array.isArray(value)) {
+        throw new TypeError(`Corruption path field ${field} is not an array`);
+    }
+    return value.map((entry, index) => objectAt(entry, `${field}[${index}]`));
+}
