@@ -245,8 +245,8 @@ function manifestEntries(paths, owner) {
     });
 }
 
-/** Exactly the recorded paths, in the diff's own order, with no id shadowing another. */
-function assertExactSortedPaths(entries, expected, owner) {
+/** Exactly the named diff's paths, sorted, with no path shadowing another. */
+function assertExactSortedPaths(entries, expected, owner, diff) {
     const paths = entries.map((entry) => entry.path);
     if (
         new Set(paths).size !== paths.length ||
@@ -255,7 +255,7 @@ function assertExactSortedPaths(entries, expected, owner) {
         throw new TypeError(`${owner} paths are not exact and sorted`);
     }
     if (JSON.stringify(paths) !== JSON.stringify([...expected].sort())) {
-        throw new TypeError(`${owner} paths differ from the recorded diff`);
+        throw new TypeError(`${owner} paths differ from the ${diff}`);
     }
     return paths;
 }
@@ -270,7 +270,12 @@ export function validateClosureManifest(transition, patterns) {
     ) {
         throw new TypeError(`${transition.id} closure manifest is stale`);
     }
-    assertExactSortedPaths(entries, changedPathsBetween(manifest.base, manifest.commit), owner);
+    assertExactSortedPaths(
+        entries,
+        changedPathsBetween(manifest.base, manifest.commit),
+        owner,
+        "candidate diff"
+    );
     const participants = new Set(transition.inputs.map((input) => input.owner));
     const tree = spawnSync("git", ["show", "-s", "--format=%T", manifest.commit], {
         cwd: repositoryRoot,
@@ -316,7 +321,12 @@ export function validateRemediationManifest(transition, patterns) {
     ) {
         throw new TypeError(`${transition.id} remediation manifest is stale`);
     }
-    assertExactSortedPaths(entries, changedPathsBetween(manifest.base, manifest.commit), owner);
+    assertExactSortedPaths(
+        entries,
+        changedPathsBetween(manifest.base, manifest.commit),
+        owner,
+        "exact diff"
+    );
     const tree = spawnSync("git", ["show", "-s", "--format=%T", manifest.commit], {
         cwd: repositoryRoot,
         encoding: "utf8"
@@ -419,7 +429,7 @@ export function validateCandidateChangeManifest(transition, paths, patterns, bas
     if (candidateManifestSha256(entries) !== manifest.sha256) {
         throw new TypeError(`${transition.id} candidate manifest digest is stale`);
     }
-    assertExactSortedPaths(entries, paths, owner);
+    assertExactSortedPaths(entries, paths, owner, "base diff");
     const participants = new Set(transition.inputs.map((input) => input.owner));
     const sourceBlobs = blobsAtCommit(base);
     for (const entry of entries) {
