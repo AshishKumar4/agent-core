@@ -1,7 +1,6 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
 import { TurnId, type LeaseToken } from "../agents";
 import {
-    isJsonObject,
     ContentRef,
     Digest,
     RecordCodec,
@@ -11,6 +10,14 @@ import {
 } from "../core";
 import { PrincipalId, PrincipalRef, TenantId } from "../identity";
 import { AuditRecordId } from "../invocations";
+import {
+    requireKeys,
+    requireNonnegativeInteger,
+    requireObject,
+    requireString,
+    requireStringValue,
+    type MutableJsonObject
+} from "./codec";
 
 export type { LeaseToken } from "../agents";
 
@@ -22,9 +29,9 @@ export interface CommandEnvelopeInit {
     readonly command: string;
     readonly caller: CommandCaller;
     readonly idempotencyKey: string;
-    readonly expectedRevision?: Revision;
-    readonly lease?: LeaseToken;
-    readonly callerCause?: AuditRecordId;
+    readonly expectedRevision?: Revision | undefined;
+    readonly lease?: LeaseToken | undefined;
+    readonly callerCause?: AuditRecordId | undefined;
     readonly payload: ContentRef;
     readonly payloadDigest: Digest;
 }
@@ -35,31 +42,30 @@ class CommandEnvelopeCodecV1 extends RecordCodec<CommandEnvelope> {
     }
 
     protected encodePayload(envelope: CommandEnvelope): JsonValue {
-        return {
+        const encoded: MutableJsonObject = {
             command: envelope.command,
             caller: encodeCommandCaller(envelope.caller),
             idempotencyKey: envelope.idempotencyKey,
-            ...(envelope.expectedRevision === undefined
-                ? {}
-                : { expectedRevision: envelope.expectedRevision.value }),
-            ...(envelope.lease === undefined
-                ? {}
-                : {
-                      lease: {
-                          turn: envelope.lease.turn.value,
-                          holder: {
-                              principal: envelope.lease.holder.principalId.value,
-                              tenant: envelope.lease.holder.tenantId.value
-                          },
-                          epoch: envelope.lease.epoch
-                      }
-                  }),
-            ...(envelope.callerCause === undefined
-                ? {}
-                : { callerCause: envelope.callerCause.value }),
             payload: envelope.payload.value,
             payloadDigest: envelope.payloadDigest.value
         };
+        if (envelope.expectedRevision !== undefined) {
+            encoded["expectedRevision"] = envelope.expectedRevision.value;
+        }
+        if (envelope.lease !== undefined) {
+            encoded["lease"] = {
+                turn: envelope.lease.turn.value,
+                holder: {
+                    principal: envelope.lease.holder.principalId.value,
+                    tenant: envelope.lease.holder.tenantId.value
+                },
+                epoch: envelope.lease.epoch
+            };
+        }
+        if (envelope.callerCause !== undefined) {
+            encoded["callerCause"] = envelope.callerCause.value;
+        }
+        return encoded;
     }
 
     protected decodePayload(payload: JsonValue, _version: RecordVersion): CommandEnvelope {
@@ -67,7 +73,8 @@ class CommandEnvelopeCodecV1 extends RecordCodec<CommandEnvelope> {
         requireKeys(
             object,
             ["command", "caller", "idempotencyKey", "payload", "payloadDigest"],
-            ["expectedRevision", "lease", "callerCause"]
+            ["expectedRevision", "lease", "callerCause"],
+            "Command envelope"
         );
         const expectedRevision = object["expectedRevision"];
         const lease = object["lease"];
@@ -76,19 +83,15 @@ class CommandEnvelopeCodecV1 extends RecordCodec<CommandEnvelope> {
             command: requireString(object, "command"),
             caller: decodeCommandCaller(object["caller"]),
             idempotencyKey: requireString(object, "idempotencyKey"),
-            ...(expectedRevision === undefined
-                ? {}
-                : {
-                      expectedRevision: new Revision(
-                          requireSafeInteger(expectedRevision, "expectedRevision")
-                      )
-                  }),
-            ...(lease === undefined ? {} : { lease: decodeLease(lease) }),
-            ...(callerCause === undefined
-                ? {}
-                : {
-                      callerCause: new AuditRecordId(requireStringValue(callerCause, "callerCause"))
-                  }),
+            expectedRevision:
+                expectedRevision === undefined
+                    ? undefined
+                    : new Revision(requireNonnegativeInteger(expectedRevision, "expectedRevision")),
+            lease: lease === undefined ? undefined : decodeLease(lease),
+            callerCause:
+                callerCause === undefined
+                    ? undefined
+                    : new AuditRecordId(requireStringValue(callerCause, "callerCause")),
             payload: new ContentRef(requireString(object, "payload")),
             payloadDigest: new Digest(requireString(object, "payloadDigest"))
         });
@@ -190,9 +193,9 @@ export function decodeCommandCaller(value: JsonValue | undefined): CommandCaller
     const object = requireObject(value, "Command caller");
     const kind = requireString(object, "kind");
     if (kind === "principal") {
-        requireKeys(object, ["kind", "principal"], []);
+        requireKeys(object, ["kind", "principal"], [], "Command envelope");
         const principal = requireObject(object["principal"], "Command caller principal");
-        requireKeys(principal, ["id", "tenant"], []);
+        requireKeys(principal, ["id", "tenant"], [], "Command envelope");
         return {
             kind,
             principal: new PrincipalRef(
@@ -202,9 +205,9 @@ export function decodeCommandCaller(value: JsonValue | undefined): CommandCaller
         };
     }
     if (kind === "actor") {
-        requireKeys(object, ["kind", "actor"], []);
+        requireKeys(object, ["kind", "actor"], [], "Command envelope");
         const actor = requireObject(object["actor"], "Command caller actor");
-        requireKeys(actor, ["kind", "id"], []);
+        requireKeys(actor, ["kind", "id"], [], "Command envelope");
         return {
             kind,
             actor: new ActorRef(
@@ -218,11 +221,11 @@ export function decodeCommandCaller(value: JsonValue | undefined): CommandCaller
 
 function decodeLease(value: JsonValue): LeaseToken {
     const object = requireObject(value, "Lease token");
-    requireKeys(object, ["turn", "holder", "epoch"], []);
+    requireKeys(object, ["turn", "holder", "epoch"], [], "Command envelope");
     return {
         turn: new TurnId(requireString(object, "turn")),
         holder: decodePrincipalRef(object["holder"], "Lease holder"),
-        epoch: requireSafeInteger(object["epoch"], "epoch")
+        epoch: requireNonnegativeInteger(object["epoch"], "epoch")
     };
 }
 
@@ -252,7 +255,7 @@ function copyLeaseToken(lease: LeaseToken): LeaseToken {
 
 function decodePrincipalRef(value: JsonValue | undefined, name: string): PrincipalRef {
     const object = requireObject(value, name);
-    requireKeys(object, ["principal", "tenant"], []);
+    requireKeys(object, ["principal", "tenant"], [], "Command envelope");
     return new PrincipalRef(
         new TenantId(requireString(object, "tenant")),
         new PrincipalId(requireString(object, "principal"))
@@ -297,46 +300,6 @@ function requirePlainDataValue(value: unknown, field: string, name: string): unk
         throw new TypeError(`${name} must contain enumerable data fields`);
     }
     return descriptor.value as unknown;
-}
-
-function requireObject(
-    value: JsonValue | undefined,
-    name: string
-): { readonly [key: string]: JsonValue } {
-    if (!isJsonObject(value)) throw new TypeError(`${name} must be an object`);
-    return value;
-}
-
-function requireKeys(
-    object: { readonly [key: string]: JsonValue },
-    required: readonly string[],
-    optional: readonly string[]
-): void {
-    const admitted = new Set([...required, ...optional]);
-    if (
-        required.some((key) => !(key in object)) ||
-        Object.keys(object).some((key) => !admitted.has(key))
-    ) {
-        throw new TypeError("Command envelope contains missing or unknown fields");
-    }
-}
-
-function requireString(object: { readonly [key: string]: JsonValue }, key: string): string {
-    return requireStringValue(object[key], key);
-}
-
-function requireStringValue(value: JsonValue | undefined, name: string): string {
-    if (typeof value !== "string") {
-        throw new TypeError(`${name} must be a string`);
-    }
-    return value;
-}
-
-function requireSafeInteger(value: JsonValue | undefined, name: string): number {
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
-        throw new TypeError(`${name} must be a non-negative safe integer`);
-    }
-    return value;
 }
 
 function requireActorKind(value: JsonValue | undefined): ActorKind {
