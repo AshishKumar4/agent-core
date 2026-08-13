@@ -9,6 +9,8 @@ import {
     Revision,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    isJsonObject,
+    type JsonObject,
     type JsonValue
 } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
@@ -73,15 +75,7 @@ import {
 } from "../../src/workspaces/view";
 import { content, principal, scope, sourceActor, tenant } from "./fixtures";
 
-type JsonObject = { readonly [key: string]: JsonValue };
-
 const otherPrincipal = new PrincipalRef(tenant, new PrincipalId("principal-other"));
-
-function isJsonObject(value: JsonValue | undefined): value is JsonObject {
-    return (
-        value !== undefined && value !== null && !Array.isArray(value) && typeof value === "object"
-    );
-}
 
 function recordPayload(bytes: Uint8Array): JsonObject {
     const envelope = decodeCanonicalJson(bytes);

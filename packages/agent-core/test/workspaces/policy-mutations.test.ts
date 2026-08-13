@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { JsonValue } from "../../src/core";
+import { isJsonObject, type JsonValue } from "../../src/core";
 import { EventPattern, FieldMove, PayloadMapping } from "../../src/facets";
 import {
     applyPayloadMapping,
@@ -10,12 +10,6 @@ import {
     validatePayloadMapping
 } from "../../src/workspaces/policy";
 import { eventFixture, principal } from "./fixtures";
-
-type JsonObject = { readonly [key: string]: JsonValue };
-
-function isJsonObject(value: JsonValue): value is JsonObject {
-    return value !== null && !Array.isArray(value) && typeof value === "object";
-}
 
 function mappingOf(...moves: readonly FieldMove[]): PayloadMapping {
     return new PayloadMapping(moves);

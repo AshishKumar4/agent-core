@@ -1,18 +1,16 @@
 import { describe, expect, test } from "vitest";
-import { decodeCanonicalJson, encodeCanonicalJson, type JsonValue } from "../../src/core";
+import {
+    decodeCanonicalJson,
+    encodeCanonicalJson,
+    isJsonObject,
+    type JsonObject,
+    type JsonValue
+} from "../../src/core";
 import { EventKind, FacetPackageId } from "../../src/facets";
 import { CorrelationId, EventId } from "../../src/interaction-references";
 import { Event, type EventInit } from "../../src/workspaces/event";
 import { EventProvenance, EventVerification } from "../../src/workspaces/value";
 import { content, eventFixture, principal, scope } from "./fixtures";
-
-type JsonObject = { readonly [key: string]: JsonValue };
-
-function isJsonObject(value: JsonValue | undefined): value is JsonObject {
-    return (
-        value !== undefined && value !== null && !Array.isArray(value) && typeof value === "object"
-    );
-}
 
 function eventPayload(event: Event): JsonObject {
     const envelope = decodeCanonicalJson(Event.encode(event));

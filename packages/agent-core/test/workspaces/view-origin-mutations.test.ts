@@ -6,6 +6,8 @@ import {
     Revision,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    isJsonObject,
+    type JsonObject,
     type JsonValue
 } from "../../src/core";
 import { EventKind, FacetPackageId, SurfaceId } from "../../src/facets";
@@ -34,14 +36,6 @@ import {
     viewDeltaFixture,
     viewFixture
 } from "./fixtures";
-
-type JsonObject = { readonly [key: string]: JsonValue };
-
-function isJsonObject(value: JsonValue | undefined): value is JsonObject {
-    return (
-        value !== undefined && value !== null && !Array.isArray(value) && typeof value === "object"
-    );
-}
 
 function recordPayload(bytes: Uint8Array): JsonObject {
     const envelope = decodeCanonicalJson(bytes);

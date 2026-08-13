@@ -2,8 +2,8 @@ import { describe, expect, test } from "vitest";
 import {
     decodeCanonicalJson,
     encodeCanonicalJson,
-    Revision,
-    type JsonValue
+    isJsonObject,
+    Revision
 } from "../../../src/core";
 import { MetadataSnapshot, PackageLock } from "../../../src/definition";
 import { SqlitePackageStore, type SqliteRow, type SqliteValue } from "../../../src/substrates";
@@ -17,10 +17,6 @@ class RowTamperSqlite extends TestSqlite {
         const rows = super.all(statement, bindings);
         return this.tamper === undefined ? rows : this.tamper(statement, rows);
     }
-}
-
-function isJsonObject(value: JsonValue | undefined): value is { readonly [key: string]: JsonValue } {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
