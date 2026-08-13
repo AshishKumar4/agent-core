@@ -3,8 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
 import { TurnId } from "../../src/agents";
-import { ActorId, ActorRef } from "../../src/actors";
-import { MemoryTenantControlStore } from "../../src/authority";
+import { ActorId, ActorRef, type MemoryActorStoreSnapshot } from "../../src/actors";
+import {
+    MemoryTenantControlStore,
+    type MemoryTenantControlSnapshot
+} from "../../src/authority";
 import { ContentRef, Digest, Revision, encodeCanonicalJson, type JsonValue } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import { PrincipalId, PrincipalRef, RoleName, ScopeRef, TenantId } from "../../src/identity";
@@ -15,6 +18,7 @@ import {
     CommandEnvelopeCodec,
     CommandAuthenticator,
     TenantBootstrapAnchorRecord,
+    type CommandEnvelopeInit,
     createTenantBootstrapCommand,
     createMemoryTenantBootstrap as createMemoryTenantBootstrapComposition,
     tenantBootstrapPayload,
@@ -33,6 +37,7 @@ import {
     type SqliteValue
 } from "../../src/substrates";
 import { FileSqlite, TestSqlite } from "../helpers/sqlite";
+import { MemoryProtocolRecords } from "../../src/protocol/memory";
 import { CounterContentStore } from "./counter-fixture";
 import { expectAgentCoreError } from "./error-assertion";
 
@@ -391,10 +396,7 @@ describe("tenant.bootstrap concrete compositions", () => {
     test("memory bootstrap rejects deep snapshot corruption and ID exhaustion", { tags: "p0" }, async () => {
         const content = new CounterContentStore(() => undefined);
         const composition = createMemoryTenantBootstrap({ actor, anchor, content });
-        const snapshot = composition.snapshot();
-        const opaque = snapshot.opaque as {
-            readonly state: { readonly protocol: unknown; readonly nextId: number };
-        };
+        const opaque = opaqueOf(composition.snapshot());
         try {
             createMemoryTenantBootstrap({
                 actor,
@@ -402,10 +404,7 @@ describe("tenant.bootstrap concrete compositions", () => {
                 content,
                 snapshot: {
                     version: 1,
-                    opaque: {
-                        ...(snapshot.opaque as object),
-                        state: { ...opaque.state, protocol: {} }
-                    }
+                    opaque: { ...opaque, state: { ...opaque.state, protocol: unclonableRecords() } }
                 }
             });
             throw new Error("Expected corrupt snapshot rejection");
@@ -421,7 +420,7 @@ describe("tenant.bootstrap concrete compositions", () => {
             snapshot: {
                 version: 1,
                 opaque: {
-                    ...(snapshot.opaque as object),
+                    ...opaque,
                     state: { ...opaque.state, nextId: Number.MAX_SAFE_INTEGER }
                 }
             }
@@ -440,25 +439,16 @@ describe("tenant.bootstrap concrete compositions", () => {
         const content = new CounterContentStore(() => undefined);
         const composition = createMemoryTenantBootstrap({ actor, anchor, content });
         const snapshot = composition.snapshot();
-        const opaque = snapshot.opaque as {
-            readonly actor: unknown;
-            readonly recoveryState: Uint8Array | null;
-            readonly state: { readonly control: { readonly version: number } };
-        };
-        const restore = (value: unknown) =>
-            createMemoryTenantBootstrap({
-                actor,
-                anchor,
-                content,
-                snapshot: value as MemoryTenantBootstrapSnapshot
-            });
+        const opaque = opaqueOf(snapshot);
+        const restore = (value: MemoryTenantBootstrapSnapshot) =>
+            createMemoryTenantBootstrap({ actor, anchor, content, snapshot: value });
 
-        expect(() => restore(null)).toThrow(AgentCoreError);
+        expect(() => restore(forgedSnapshot(null))).toThrow(AgentCoreError);
         expect(() =>
             restore({
                 version: 1,
                 opaque: {
-                    ...(snapshot.opaque as object),
+                    ...opaque,
                     state: {
                         ...opaque.state,
                         control: { ...opaque.state.control, version: 1 }
@@ -469,18 +459,14 @@ describe("tenant.bootstrap concrete compositions", () => {
         expect(() =>
             restore({
                 version: 1,
-                opaque: {
-                    ...(snapshot.opaque as object),
-                    actor: null,
-                    recoveryState: Uint8Array.of(0)
-                }
+                opaque: { ...opaque, actor: null, recoveryState: Uint8Array.of(0) }
             })
         ).toThrow(AgentCoreError);
         expect(() =>
             restore({
                 version: 1,
                 opaque: {
-                    ...(snapshot.opaque as object),
+                    ...opaque,
                     actor: { kind: "tenant", id: "x".repeat(257) },
                     recoveryState: null
                 }
@@ -489,10 +475,7 @@ describe("tenant.bootstrap concrete compositions", () => {
         expect(() =>
             restore({
                 version: 1,
-                opaque: {
-                    ...(snapshot.opaque as object),
-                    state: { ...opaque.state, nextId: -1 }
-                }
+                opaque: { ...opaque, state: { ...opaque.state, nextId: -1 } }
             })
         ).toThrow(AgentCoreError);
         expect(() =>
@@ -523,9 +506,9 @@ describe("tenant.bootstrap concrete compositions", () => {
                 })
             )
         ).toThrow(AgentCoreError);
-        expect(() => new TenantBootstrapAnchorRecord({ ...anchor, actorId: "" as never })).toThrow(
-            TypeError
-        );
+        expect(() =>
+            new TenantBootstrapAnchorRecord({ ...anchor, actorId: forgedActorId("") })
+        ).toThrow(TypeError);
 
         const service = TenantBootstrapAnchorRecord.decode(
             anchorEnvelope({
@@ -541,7 +524,7 @@ describe("tenant.bootstrap concrete compositions", () => {
 
     test("typed bootstrap reply and observation codecs reject malformed wire values", { tags: "p1" }, () => {
         let currentAnchor: TenantBootstrapAnchor | undefined = anchor;
-        const store = {
+        const store: BootstrapProbeStore = {
             anchor: () => currentAnchor,
             anchorInTransaction: () => currentAnchor,
             eligible: () => true,
@@ -581,7 +564,7 @@ describe("tenant.bootstrap concrete compositions", () => {
                 tenant: tenantId.value
             }
         ]) {
-            expect(() => replyCodec.decode(encodeCanonicalJson(malformed as never))).toThrow(
+            expect(() => replyCodec.decode(encodeCanonicalJson(malformed))).toThrow(
                 TypeError
             );
         }
@@ -590,9 +573,7 @@ describe("tenant.bootstrap concrete compositions", () => {
             { at: "not-a-date", reply: "AA==" },
             { at: new Date(1_000).toISOString(), reply: "AA==", extra: true }
         ]) {
-            expect(() =>
-                observationCodec.decode(encodeCanonicalJson(malformed as never))
-            ).toThrow();
+            expect(() => observationCodec.decode(encodeCanonicalJson(malformed))).toThrow();
         }
     });
 
@@ -748,16 +729,12 @@ test("bootstrap execution validates the transactional anchor exactly", { tags: "
     const content = new CounterContentStore(() => undefined);
     const applied: { tenant: string; revision: number }[] = [];
     let transactionAnchor: TenantBootstrapAnchor | undefined = anchor;
-    const store = {
-        anchor: (): TenantBootstrapAnchor | undefined => anchor,
+    const store: BootstrapProbeStore = {
+        anchor: () => anchor,
         anchorInTransaction: () => transactionAnchor,
         eligible: () => true,
         currentRevision: () => Revision.initial(),
-        bootstrapTenant: (
-            _transaction: unknown,
-            verified: TenantBootstrapAnchorRecord,
-            revision: Revision
-        ) => {
+        bootstrapTenant: (_transaction, verified, revision) => {
             applied.push({ tenant: verified.tenantId.value, revision: revision.value });
         }
     };
@@ -809,9 +786,9 @@ test("bootstrap execution validates the transactional anchor exactly", { tags: "
 });
 
 test("bootstrap reply and observation codecs name malformed values exactly", { tags: "p1" }, () => {
-    const store = {
-        anchor: (): TenantBootstrapAnchor | undefined => anchor,
-        anchorInTransaction: (): TenantBootstrapAnchor | undefined => anchor,
+    const store: BootstrapProbeStore = {
+        anchor: () => anchor,
+        anchorInTransaction: () => anchor,
         eligible: () => true,
         currentRevision: () => Revision.initial(),
         bootstrapTenant: () => undefined
@@ -925,11 +902,11 @@ test("memory bootstrap Actor snapshot faults surface the codec failure code", { 
                 snapshot: {
                     version: 1,
                     opaque: {
-                        ...(snapshot.opaque as object),
+                        ...opaqueOf(snapshot),
                         actor: { kind: "tenant", id: "x".repeat(257) },
                         recoveryState: null
                     }
-                } as MemoryTenantBootstrapSnapshot
+                }
             }),
         "codec.invalid"
     );
@@ -939,9 +916,9 @@ test("memory bootstrap snapshot containers are validated exactly", { tags: "p1" 
     const content = new CounterContentStore(() => undefined);
     const composition = createMemoryTenantBootstrap({ actor, anchor, content });
     const snapshot = composition.snapshot();
-    const malformed = [
-        { version: 1, opaque: snapshot.opaque, extra: true },
-        { version: 2, opaque: snapshot.opaque },
+    const malformed: readonly MemoryTenantBootstrapSnapshot[] = [
+        forgedSnapshot({ version: 1, opaque: snapshot.opaque, extra: true }),
+        forgedSnapshot({ version: 2, opaque: snapshot.opaque }),
         { version: 1, opaque: null },
         { version: 1, opaque: "opaque" }
     ];
@@ -951,7 +928,7 @@ test("memory bootstrap snapshot containers are validated exactly", { tags: "p1" 
                 actor,
                 anchor,
                 content,
-                snapshot: candidate as unknown as MemoryTenantBootstrapSnapshot
+                snapshot: candidate
             });
             throw new TypeError("Expected snapshot container rejection");
         } catch (error) {
@@ -962,9 +939,7 @@ test("memory bootstrap snapshot containers are validated exactly", { tags: "p1" 
         }
     }
 
-    const opaque = snapshot.opaque as {
-        readonly state: { readonly control: { readonly version: number } };
-    };
+    const opaque = opaqueOf(snapshot);
     try {
         createMemoryTenantBootstrap({
             actor,
@@ -973,7 +948,7 @@ test("memory bootstrap snapshot containers are validated exactly", { tags: "p1" 
             snapshot: {
                 version: 1,
                 opaque: {
-                    ...(snapshot.opaque as object),
+                    ...opaque,
                     state: {
                         ...opaque.state,
                         control: { ...opaque.state.control, version: 1 }
@@ -1002,11 +977,7 @@ test("memory bootstrap records carry typed identifier prefixes", { tags: "p2" },
     expect(committed.write.id.value).toMatch(/^write-\d+$/u);
     expect(committed.write.audit.value).toMatch(/^audit-\d+$/u);
 
-    const opaque = composition.snapshot().opaque as {
-        readonly state: {
-            readonly protocol: { snapshot(): { readonly audits: readonly { bytes: Uint8Array }[] } };
-        };
-    };
+    const opaque = opaqueOf(composition.snapshot());
     const audits = opaque.state.protocol
         .snapshot()
         .audits.map((audit) => AuditRecordCodec.decode(audit.bytes));
@@ -1047,14 +1018,14 @@ test("anchor codec names each malformed payload container and field", { tags: "p
 });
 
 test("bootstrap command construction and payload codec fail closed exactly", { tags: "p1" }, () => {
-    const store = {
-        anchor: (): TenantBootstrapAnchor | undefined => anchor,
-        anchorInTransaction: (): TenantBootstrapAnchor | undefined => anchor,
+    const store: BootstrapProbeStore = {
+        anchor: () => anchor,
+        anchorInTransaction: () => anchor,
         eligible: () => true,
         currentRevision: () => Revision.initial(),
         bootstrapTenant: () => undefined
     };
-    const nonTenant = (): unknown =>
+    const nonTenant = () =>
         createTenantBootstrapCommand(store, {
             actor: new ActorRef("run", new ActorId("bootstrap-run")),
             tenantId
@@ -1065,7 +1036,7 @@ test("bootstrap command construction and payload codec fail closed exactly", { t
     const command = createTenantBootstrapCommand(store, { actor, tenantId });
     const malformed: readonly JsonValue[] = [null, [], "payload", 5, { extra: true }];
     for (const payload of malformed) {
-        const decode = (): unknown => command.payload.decode(encodeCanonicalJson(payload));
+        const decode = () => command.payload.decode(encodeCanonicalJson(payload));
         expectAgentCoreError(decode, "protocol.invalid-envelope");
         expect(decode).toThrow("Tenant bootstrap payload must be an empty object");
     }
@@ -1073,9 +1044,9 @@ test("bootstrap command construction and payload codec fail closed exactly", { t
 });
 
 test("bootstrap typed codecs reject non-object containers exactly", { tags: "p1" }, () => {
-    const store = {
-        anchor: (): TenantBootstrapAnchor | undefined => anchor,
-        anchorInTransaction: (): TenantBootstrapAnchor | undefined => anchor,
+    const store: BootstrapProbeStore = {
+        anchor: () => anchor,
+        anchorInTransaction: () => anchor,
         eligible: () => true,
         currentRevision: () => Revision.initial(),
         bootstrapTenant: () => undefined
@@ -1107,54 +1078,38 @@ test("memory bootstrap names every snapshot rejection exactly", { tags: "p1" }, 
     const content = new CounterContentStore(() => undefined);
     const composition = createMemoryTenantBootstrap({ actor, anchor, content });
     const snapshot = composition.snapshot();
-    const opaque = snapshot.opaque as {
-        readonly state: { readonly protocol: unknown; readonly nextId: number };
-    };
-    const restore =
-        (value: unknown) =>
-        (): unknown =>
-            createMemoryTenantBootstrap({
-                actor,
-                anchor,
-                content,
-                snapshot: value as MemoryTenantBootstrapSnapshot
-            });
+    const opaque = opaqueOf(snapshot);
+    const restore = (value: MemoryTenantBootstrapSnapshot) => () =>
+        createMemoryTenantBootstrap({ actor, anchor, content, snapshot: value });
 
-    const actorEnvelope = restore({
-        version: 1,
-        opaque: { ...(snapshot.opaque as object), version: 2 }
-    });
+    const actorEnvelope = restore(
+        forgedSnapshot({ version: 1, opaque: { ...opaque, version: 2 } })
+    );
     expectAgentCoreError(actorEnvelope, "codec.invalid");
     expect(actorEnvelope).toThrow("Memory Actor snapshot is malformed");
 
     const negativeId = restore({
         version: 1,
-        opaque: {
-            ...(snapshot.opaque as object),
-            state: { ...opaque.state, nextId: -1 }
-        }
+        opaque: { ...opaque, state: { ...opaque.state, nextId: -1 } }
     });
     expectAgentCoreError(negativeId, "codec.invalid");
     expect(negativeId).toThrow("Memory Tenant bootstrap snapshot is malformed");
 
     const unclonableProtocol = restore({
         version: 1,
-        opaque: {
-            ...(snapshot.opaque as object),
-            state: { ...opaque.state, protocol: {} }
-        }
+        opaque: { ...opaque, state: { ...opaque.state, protocol: unclonableRecords() } }
     });
     expectAgentCoreError(unclonableProtocol, "codec.invalid");
     expect(unclonableProtocol).toThrow("Memory Tenant bootstrap snapshot is malformed");
 });
 
 test("memory bootstrap wraps non-protocol composition failures", { tags: "p1" }, () => {
-    const compose = (): unknown =>
+    const compose = () =>
         createMemoryTenantBootstrapComposition({
             actor,
             anchor,
             content: new CounterContentStore(() => undefined),
-            authenticator: {} as unknown as CommandAuthenticator<symbol>
+            authenticator: forgedAuthenticator({})
         });
 
     expectAgentCoreError(compose, "protocol.invalid-state");
@@ -1164,8 +1119,7 @@ test("memory bootstrap wraps non-protocol composition failures", { tags: "p1" },
 test("memory bootstrap protocol identifiers are exhaustible exactly", { tags: "p1" }, async () => {
     const content = new CounterContentStore(() => undefined);
     const composition = createMemoryTenantBootstrap({ actor, anchor, content });
-    const snapshot = composition.snapshot();
-    const opaque = snapshot.opaque as { readonly state: { readonly nextId: number } };
+    const opaque = opaqueOf(composition.snapshot());
     const exhausted = createMemoryTenantBootstrap({
         actor,
         anchor,
@@ -1173,7 +1127,7 @@ test("memory bootstrap protocol identifiers are exhaustible exactly", { tags: "p
         snapshot: {
             version: 1,
             opaque: {
-                ...(snapshot.opaque as object),
+                ...opaque,
                 state: { ...opaque.state, nextId: Number.MAX_SAFE_INTEGER }
             }
         }
@@ -1186,6 +1140,82 @@ test("memory bootstrap protocol identifiers are exhaustible exactly", { tags: "p
         message: "Memory bootstrap protocol ID is exhausted"
     });
 });
+
+/**
+ * The value MemoryTenantBootstrap keeps behind its snapshot's `opaque` field. Production types
+ * that field as `unknown` even though it is always MemoryActorStore's snapshot of the bootstrap
+ * state, and the state interface is not exported, so these tests restate it here. Corrupting one
+ * field of a real snapshot is how they prove restore validates all the others.
+ */
+interface BootstrapState {
+    readonly control: MemoryTenantControlSnapshot;
+    readonly protocol: MemoryProtocolRecords;
+    readonly nextId: number;
+}
+
+type BootstrapOpaque = MemoryActorStoreSnapshot<BootstrapState>;
+
+function opaqueOf(snapshot: MemoryTenantBootstrapSnapshot): BootstrapOpaque {
+    // SAFETY: `opaque` is only ever the value MemoryTenantBootstrap.snapshot() put there. Every
+    // snapshot reaching this function came from a live composition in the same test; the corrupted
+    // ones are built from its result and handed straight back to restore, never re-read here.
+    return snapshot.opaque as BootstrapOpaque;
+}
+
+/**
+ * Stands in for a protocol record store that survives the snapshot's structural checks but cannot
+ * be cloned back into one, which is the failure the restore path must name.
+ */
+function unclonableRecords(): MemoryProtocolRecords {
+    // SAFETY: a bare object is not a MemoryProtocolRecords. Restore is required to reject it with
+    // "Memory Tenant bootstrap snapshot is malformed" rather than trust the field's declared type.
+    return {} as MemoryProtocolRecords;
+}
+
+/**
+ * Types a deliberately malformed snapshot container as the contract it violates. `opaque` is
+ * already `unknown`, so only corruptions of the container itself — an unknown field, an
+ * unsupported version — need this; the guard under test is the only thing that can reject them.
+ */
+function forgedSnapshot<TActual>(value: TActual): MemoryTenantBootstrapSnapshot {
+    // SAFETY: the value is not a valid snapshot container, which is exactly what restore must
+    // detect. Nothing reads the result except the restore call asserted to throw.
+    return value as TActual & MemoryTenantBootstrapSnapshot;
+}
+
+/**
+ * ActorId rejects an empty value, so the only way to reach TenantBootstrapAnchorRecord's own guard
+ * with an empty Actor ID is to hand it a bare string wearing ActorId's type. That guard is what
+ * the caller asserts on.
+ */
+function forgedActorId<TActual>(value: TActual): ActorId {
+    // SAFETY: the value is not an ActorId. Nothing reads it except the record constructor that
+    // must reject it.
+    return value as TActual & ActorId;
+}
+
+function forgedAuthenticator<TActual>(value: TActual): CommandAuthenticator<symbol> {
+    // SAFETY: an object with no authenticate method is not a CommandAuthenticator. Composition
+    // must fail while wiring it and report that failure as a protocol error, rather than let a
+    // TypeError escape from the composed ingress.
+    return value as TActual & CommandAuthenticator<symbol>;
+}
+
+/**
+ * The store the bootstrap command is built against in these probes. It is passed as its own
+ * transaction, which is why the contract has to be named rather than inferred.
+ */
+interface BootstrapProbeStore {
+    anchor(): TenantBootstrapAnchor | undefined;
+    anchorInTransaction(): TenantBootstrapAnchor | undefined;
+    eligible(): boolean;
+    currentRevision(): Revision;
+    bootstrapTenant(
+        transaction: BootstrapProbeStore,
+        anchor: TenantBootstrapAnchorRecord,
+        expectedRevision: Revision
+    ): void;
+}
 
 interface EnvelopeInit {
     readonly caller?: CommandCaller;
@@ -1200,16 +1230,18 @@ function envelope(content: CounterContentStore, init: EnvelopeInit): Uint8Array 
     const digest = Digest.sha256(payload);
     const ref = ContentRef.fromDigest(digest);
     content.install(ref.value, payload);
+    const required: CommandEnvelopeInit = {
+        command: "tenant.bootstrap",
+        caller: init.caller ?? caller,
+        idempotencyKey: init.key ?? "tenant-bootstrap-key",
+        expectedRevision: init.expectedRevision ?? Revision.initial(),
+        payload: ref,
+        payloadDigest: digest
+    };
     return CommandEnvelopeCodec.encode(
-        new CommandEnvelope({
-            command: "tenant.bootstrap",
-            caller: init.caller ?? caller,
-            idempotencyKey: init.key ?? "tenant-bootstrap-key",
-            expectedRevision: init.expectedRevision ?? Revision.initial(),
-            ...(init.lease === undefined ? {} : { lease: init.lease }),
-            payload: ref,
-            payloadDigest: digest
-        })
+        new CommandEnvelope(
+            init.lease === undefined ? required : { ...required, lease: init.lease }
+        )
     );
 }
 
@@ -1222,10 +1254,9 @@ function anchorEnvelope(payload: JsonValue): Uint8Array {
 }
 
 function memoryClosure(composition: MemoryTenantBootstrap<symbol>) {
-    const snapshot = composition.snapshot().opaque as {
-        readonly state: { readonly control: ReturnType<MemoryTenantControlStore["snapshot"]> };
-    };
-    const control = MemoryTenantControlStore.restore(snapshot.state.control);
+    const control = MemoryTenantControlStore.restore(
+        opaqueOf(composition.snapshot()).state.control
+    );
     return {
         tenant: control.tenant(tenantId) !== undefined,
         owner: control.principal(principalId) !== undefined,
@@ -1241,18 +1272,7 @@ function memoryClosure(composition: MemoryTenantBootstrap<symbol>) {
 }
 
 function memoryEvidence(composition: MemoryTenantBootstrap<symbol>) {
-    const snapshot = composition.snapshot().opaque as {
-        readonly state: {
-            readonly protocol: {
-                snapshot(): {
-                    readonly audits: readonly unknown[];
-                    readonly identities: readonly unknown[];
-                    readonly writes: readonly unknown[];
-                };
-            };
-        };
-    };
-    const records = snapshot.state.protocol.snapshot();
+    const records = opaqueOf(composition.snapshot()).state.protocol.snapshot();
     return {
         audits: records.audits.length,
         identities: records.identities.length,
@@ -1285,8 +1305,12 @@ function sqliteEvidence(database: FileSqlite) {
 
 function count(database: FileSqlite, table: string): number {
     const value = database.all(`SELECT COUNT(*) AS count FROM ${table}`, [])[0]?.["count"];
-    if (typeof value !== "number") throw new TypeError(`Expected count from ${table}`);
+    if (!isRowCount(value)) throw new TypeError(`Expected count from ${table}`);
     return value;
+}
+
+function isRowCount(value: SqliteValue | undefined): value is number {
+    return Number.isSafeInteger(value) && Number(value) >= 0;
 }
 
 function completeClosure() {
