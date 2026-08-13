@@ -7,6 +7,7 @@ import {
     SemVer,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    isJsonObject,
     type JsonValue
 } from "../../src/core";
 import { PackageId, PackagePin } from "../../src/definition";
@@ -245,16 +246,13 @@ describe("authority protocol evidence", () => {
         );
         const encoded = decodeCanonicalJson(
             AuthorityCheckReply.encode(new AuthorityCheckReply(evidence))
-        ) as Record<string, JsonValue>;
+        );
+        if (!isJsonObject(encoded)) throw new TypeError("Expected an encoded reply record");
+        const payload = encoded["payload"];
+        if (!isJsonObject(payload)) throw new TypeError("Expected an encoded reply payload");
         expect(() =>
             AuthorityCheckReply.decode(
-                encodeCanonicalJson({
-                    ...encoded,
-                    payload: {
-                        ...(encoded["payload"] as Record<string, JsonValue>),
-                        extra: true
-                    }
-                })
+                encodeCanonicalJson({ ...encoded, payload: { ...payload, extra: true } })
             )
         ).toThrow(AgentCoreError);
     });
@@ -266,20 +264,20 @@ describe("authority protocol evidence", () => {
             expect(
                 () =>
                     new AuthorityPermitIssuanceRequest(
-                        {} as never,
+                        permitExpectation(),
                         " noncanonical ",
                         new Date(1_000)
                     )
             ).toThrow(/nonce/);
             expect(
                 () =>
-                    new AuthorityPermitIssuanceRequest({} as never, "permit", new Date(Number.NaN))
+                    new AuthorityPermitIssuanceRequest(permitExpectation(), "permit", new Date(Number.NaN))
             ).toThrow(/expiry/);
             expect(
-                () => new AuthorityPermitIssuanceRequest({} as never, "permit", new Date(-1))
+                () => new AuthorityPermitIssuanceRequest(permitExpectation(), "permit", new Date(-1))
             ).toThrow(/expiry/);
             expect(
-                new AuthorityPermitIssuanceRequest({} as never, "permit", new Date(0)).expiresAt
+                new AuthorityPermitIssuanceRequest(permitExpectation(), "permit", new Date(0)).expiresAt
             ).toEqual(new Date(0));
 
             const envelope = (payload: JsonValue) =>
@@ -288,14 +286,15 @@ describe("authority protocol evidence", () => {
                     version: { major: 1, minor: 0 },
                     payload
                 });
-            for (const payload of [
+            const malformedPayloads: readonly JsonValue[] = [
                 null,
                 [],
                 {},
                 { expectation: null, expiresAt: 1_000, nonce: "permit", extra: true },
                 { expectation: null, expiresAt: "soon", nonce: "permit" },
                 { expectation: null, expiresAt: 1_000, nonce: 4 }
-            ] as JsonValue[]) {
+            ];
+            for (const payload of malformedPayloads) {
                 expect(() => AuthorityPermitIssuanceRequest.decode(envelope(payload))).toThrow(
                     AgentCoreError
                 );
@@ -389,10 +388,10 @@ test("permit issuance codec diagnostics are exact", { tags: "p1" }, () => {
         );
     }
 
-    expect(() => new AuthorityPermitIssuanceRequest({} as never, "", new Date(0))).toThrow(
+    expect(() => new AuthorityPermitIssuanceRequest(permitExpectation(), "", new Date(0))).toThrow(
         "Authority permit issuance nonce must be canonical and nonblank"
     );
-    const request = new AuthorityPermitIssuanceRequest({} as never, "permit", new Date(2_000));
+    const request = new AuthorityPermitIssuanceRequest(permitExpectation(), "permit", new Date(2_000));
     expect(Object.isFrozen(request)).toBe(true);
     const exposed = request.expiresAt;
     exposed.setTime(0);
@@ -459,6 +458,14 @@ test("permit issuance replies and payload codecs round-trip frozen permits", { t
     expect(decoded.nonce).toBe("permit-nonce");
     expect(decoded.expiresAt).toEqual(new Date(2_000));
 });
+
+/**
+ * A real expectation for the cases that validate the request's nonce and expiry. The constructor
+ * does not inspect the expectation, but building one keeps the fixture honest about its type.
+ */
+function permitExpectation(): AuthorityPermitExpectation {
+    return new AuthorityPermitExpectation(permitExpectationInit());
+}
 
 function permitExpectationInit(): AuthorityPermitExpectationInit {
     const invocation = new InvocationId("permit-invocation");

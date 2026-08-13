@@ -5,7 +5,7 @@ type ErrorCode = AgentCoreError["code"] | RegExp;
 type ErrorMessage = string | RegExp;
 
 export function expectAgentCoreError(
-    operation: () => unknown,
+    operation: () => void,
     code: ErrorCode,
     message?: ErrorMessage
 ): void {
@@ -33,16 +33,19 @@ export async function expectAgentCoreRejection(
 }
 
 export function expectAgentCoreErrorValue(
-    failure: unknown,
+    cause: unknown,
     code: ErrorCode,
     message?: ErrorMessage
 ): void {
-    expect(failure).toBeInstanceOf(AgentCoreError);
-    expect(failure).not.toBeInstanceOf(TypeError);
-    expect(failure).toMatchObject({
-        code: code instanceof RegExp ? expect.stringMatching(code) : code,
-        ...(message === undefined
-            ? {}
-            : { message: message instanceof RegExp ? expect.stringMatching(message) : message })
+    expect(cause).toBeInstanceOf(AgentCoreError);
+    expect(cause).not.toBeInstanceOf(TypeError);
+    const expectedCode = code instanceof RegExp ? expect.stringMatching(code) : code;
+    if (message === undefined) {
+        expect(cause).toMatchObject({ code: expectedCode });
+        return;
+    }
+    expect(cause).toMatchObject({
+        code: expectedCode,
+        message: message instanceof RegExp ? expect.stringMatching(message) : message
     });
 }
