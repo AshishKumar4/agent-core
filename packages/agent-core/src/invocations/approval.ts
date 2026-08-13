@@ -1,4 +1,11 @@
-import { Digest, RecordCodec, Revision, type JsonValue, type RecordVersion } from "../core";
+import {
+    Digest,
+    RecordCodec,
+    Revision,
+    isJsonObject,
+    type JsonValue,
+    type RecordVersion
+} from "../core";
 import { AgentCoreError } from "../errors";
 import { PrincipalId } from "../identity";
 import {
@@ -293,15 +300,10 @@ function decodeState(value: JsonValue): ApprovalState {
 }
 
 function requireExactObjectForState(value: JsonValue): { readonly [key: string]: JsonValue } {
-    const object =
-        value === null || Array.isArray(value) || typeof value !== "object" ? undefined : value;
-    if (
-        object === undefined ||
-        requireNullableString(object as { readonly [key: string]: JsonValue }, "kind") === undefined
-    ) {
+    if (!isJsonObject(value) || requireNullableString(value, "kind") === undefined) {
         throw new TypeError("Approval state is malformed");
     }
-    return object as { readonly [key: string]: JsonValue };
+    return value;
 }
 
 function copyState(state: ApprovalState): ApprovalState {

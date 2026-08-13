@@ -5,6 +5,7 @@ import {
     requireDate,
     requireExactObject,
     requireNonnegativeInteger,
+    requireObject,
     requireString,
     validDate,
     immutableReference,
@@ -145,10 +146,7 @@ function decodeOwner<Lease>(
     value: JsonValue,
     lease: StructuralCodec<Lease>
 ): ItemClaimOwner<Lease> {
-    const object =
-        value === null || Array.isArray(value) || typeof value !== "object" ? undefined : value;
-    if (object === undefined) throw new TypeError("Claim owner must be an object");
-    const kind = requireString(object as { readonly [key: string]: JsonValue }, "kind");
+    const kind = requireString(requireObject(value, "Claim owner"), "kind");
     if (kind === "executor") {
         const exact = requireExactObject(
             value,
