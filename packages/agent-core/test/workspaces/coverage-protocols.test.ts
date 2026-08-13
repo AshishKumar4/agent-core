@@ -6,8 +6,11 @@ import {
     Digest,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    isJsonObject,
+    isJsonValue,
     type JsonValue
 } from "../../src/core";
+import { violating } from "../helpers/malformed";
 import {
     BindingName,
     EventKind,
@@ -390,9 +393,9 @@ describe("policy branch coverage", () => {
         "maps roots, objects, arrays, append, replace, escapes, and prototype names",
         { tags: "p1" },
         () => {
-            const source = JSON.parse(
+            const source = parsedJson(
                 '{"items":[{"name":"first"},{"name":"second"}],"a/b":{"~name":7},"constructor":"safe"}'
-            ) as JsonValue;
+            );
             expect(
                 applyPayloadMapping(
                     new PayloadMapping([new FieldMove("", { from: "/items" })]),
@@ -408,11 +411,12 @@ describe("policy branch coverage", () => {
                     new FieldMove("/constructorValue", { from: "/constructor" })
                 ]),
                 source
-            ) as { readonly rows: readonly JsonValue[]; readonly __proto__: JsonValue };
-            expect(mapped.rows).toEqual([{ name: "second" }]);
-            expect(mapped.__proto__).toEqual({ polluted: true });
+            );
+            if (!isJsonObject(mapped)) throw new TypeError("Mapping result must be an object");
+            expect(mapped["rows"]).toEqual([{ name: "second" }]);
+            expect(mapped["__proto__"]).toEqual({ polluted: true });
             expect(Object.hasOwn(mapped, "__proto__")).toBe(true);
-            expect(({} as { polluted?: boolean }).polluted).toBeUndefined();
+            expect(Object.hasOwn(Object.prototype, "polluted")).toBe(false);
 
             expect(
                 applyPayloadMapping(
@@ -732,12 +736,15 @@ describe("route records and authentication", () => {
                 )
             ).toThrow(/cannot assert target authentication/);
             expect(() =>
-                requireAuthenticatedRouteProjection({
-                    envelope
-                } as unknown as AuthenticatedRouteProjection)
+                requireAuthenticatedRouteProjection(
+                    violating<AuthenticatedRouteProjection>({ envelope })
+                )
             ).toThrow(/lacks host authentication/);
 
-            const Constructor = AuthenticatedRouteProjection as unknown as new (
+            // SAFETY: the constructor is host-only, so its signature is unreachable by
+            // design. Naming it is the only way to call it with a forged token, which is
+            // the guard under test.
+            const Constructor = AuthenticatedRouteProjection as new (
                 token: symbol,
                 value: RouteProjectionEnvelope
             ) => AuthenticatedRouteProjection;
@@ -847,21 +854,23 @@ describe("source protocol adversarial coverage", () => {
             expect(anonymous.event.initiator).toBeUndefined();
             expect(anonymous.lease).toBeUndefined();
 
-            const assertedTrust = {
-                ...draft("snapshot-asserted-trust"),
+            const assertedTrust = violating<EventDraft>(draft("snapshot-asserted-trust"), {
                 trust: "self"
-            } as EventDraft;
+            });
             expect(() =>
                 setup.protocol.snapshot(
                     setup.state,
-                    assertedTrust as unknown as AuthenticatedEventIntent
+                    unminted<AuthenticatedEventIntent>(assertedTrust)
                 )
             ).toThrow(/lacks host authentication/);
             expect(() =>
-                setup.protocol.snapshot(setup.state, {
-                    intent: assertedTrust,
-                    digest: Digest.sha256(eventIntentBytes(assertedTrust))
-                } as unknown as AuthenticatedEventIntent)
+                setup.protocol.snapshot(
+                    setup.state,
+                    violating<AuthenticatedEventIntent>({
+                        intent: assertedTrust,
+                        digest: Digest.sha256(eventIntentBytes(assertedTrust))
+                    })
+                )
             ).toThrow(/lacks host authentication/);
 
             const authenticator = new ExactEventIntentAuthenticator();
@@ -895,9 +904,10 @@ describe("source protocol adversarial coverage", () => {
         () => {
             const setup = sourceSetup("forged-intent-trust");
             expect(() =>
-                setup.protocol.snapshot(setup.state, {
-                    intent: draft("forged-intent-trust")
-                } as unknown as AuthenticatedEventIntent)
+                setup.protocol.snapshot(
+                    setup.state,
+                    violating<AuthenticatedEventIntent>({ intent: draft("forged-intent-trust") })
+                )
             ).toThrow(expect.objectContaining({ code: "authority.denied" }));
         }
     );
@@ -940,9 +950,12 @@ describe("source protocol adversarial coverage", () => {
                 code: "protocol.invalid-state"
             });
 
-            const Constructor = PreparedEventRouting as unknown as new (
+            // SAFETY: the constructor is host-only, so its signature is unreachable by
+            // design. Naming it is the only way to call it with a forged token, which is
+            // the guard under test.
+            const Constructor = PreparedEventRouting as new (
                 token: symbol,
-                owner: object,
+                owner: SourceEventProtocol<State>,
                 snapshot: EventRoutingSnapshot,
                 routes: readonly []
             ) => PreparedEventRouting;
@@ -1239,7 +1252,7 @@ describe("source protocol adversarial coverage", () => {
                     authenticateIntent(draft("foreign-actor"))
                 )
             );
-            (actorMutation.protocol as unknown as { actor: ActorRef }).actor = targetActor;
+            writableActor<{ actor: ActorRef }>(actorMutation.protocol).actor = targetActor;
             expect(() => actorMutation.protocol.commit(actorMutation.state, actorPrepared)).toThrow(
                 /another Actor/
             );
@@ -1513,9 +1526,9 @@ describe("target protocol and port outcomes", () => {
             expect(() =>
                 setup.protocol.admit(setup.state, {
                     ...admission,
-                    projection: {
+                    projection: violating<AuthenticatedRouteProjection>({
                         envelope: admission.projection.envelope
-                    } as AuthenticatedRouteProjection
+                    })
                 })
             ).toThrow(/lacks host authentication/);
 
@@ -1759,11 +1772,26 @@ class FixedInbox implements RunInboxPort<object> {
     }
 }
 
-function forgedMapping(moves: readonly unknown[]): PayloadMapping {
-    return { moves } as unknown as PayloadMapping;
+/**
+ * A mapping whose moves never went through FieldMove's constructor, so the pointer and
+ * one-of checks it performs have not run on any of them.
+ */
+function forgedMapping(moves: readonly Partial<FieldMove>[]): PayloadMapping {
+    // SAFETY: the moves are missing the members the constructor would have set. Reaching
+    // validatePayloadMapping with them is the only way to show it rechecks rather than
+    // trusting that a PayloadMapping was built through the real path.
+    return { moves } as PayloadMapping;
 }
 
-function dynamicTarget(validated: string, actual: string, literal: JsonValue): unknown {
+/**
+ * A move whose target answers one path when validated and another when applied. Only a
+ * getter can differ between two reads, which is what makes the recheck observable.
+ */
+function dynamicTarget(
+    validated: string,
+    actual: string,
+    literal: JsonValue
+): Partial<FieldMove> {
     let reads = 0;
     return {
         get to(): string {
@@ -1779,13 +1807,36 @@ function mutatePayload(
     bytes: Uint8Array,
     mutate: (payload: { [key: string]: JsonValue }) => void
 ): Uint8Array {
-    const envelope = decodeCanonicalJson(bytes) as {
-        kind: string;
-        version: { major: number; minor: number };
-        payload: { [key: string]: JsonValue };
-    };
-    mutate(envelope.payload);
-    return encodeCanonicalJson(envelope as unknown as JsonValue);
+    const envelope = structuredClone(decodeCanonicalJson(bytes));
+    if (!isJsonObject(envelope) || !isJsonObject(envelope["payload"])) {
+        throw new TypeError("Record envelope must contain an object payload");
+    }
+    // SAFETY: the envelope is the clone taken one line above, so this method owns every
+    // node in it. JsonValue models JSON as readonly for values the caller still holds;
+    // the mutation below reaches only the private clone.
+    mutate(envelope["payload"] as { [key: string]: JsonValue });
+    return encodeCanonicalJson(envelope);
+}
+
+/**
+ * The protocol's Actor field, opened for writing.
+ *
+ * The Actor is fixed at construction, so a protocol whose Actor changed after a
+ * projection was prepared cannot be produced through the API at all. Writing the field is
+ * the only way to reach the commit-time recheck that compares them.
+ */
+function writableActor<Field>(protocol: SourceEventProtocol<State>): Field {
+    // SAFETY: the field is declared read-only and private to the protocol. This write
+    // targets the instance a single test owns, and the next assertion is that commit
+    // refuses to act on it.
+    return protocol as Field;
+}
+
+/** Parses fixture text at its boundary, so nothing downstream assumes it is JSON. */
+function parsedJson(text: string): JsonValue {
+    const value = JSON.parse(text);
+    if (!isJsonValue(value)) throw new TypeError("Fixture text must be JSON");
+    return value;
 }
 
 function emptyState(): State {
@@ -1800,19 +1851,51 @@ function persistence(
     return new WorkspacePersistence((state) => state.records, retention, actor, actorTenant);
 }
 
-function sourceSetup(
-    suffix: string,
-    subscription = subscriptionFixture(suffix)
-): {
+/** A source-side protocol with the ports a test drives it through. */
+type SourceSetup = {
     readonly state: State;
     readonly persistence: WorkspacePersistence<State>;
     readonly retention: MutableRetention;
     readonly trust: MutableTrust;
     readonly routes: ConfigurableSourceRoutes;
     readonly audit: RecordingAudit;
-    readonly subscription: typeof subscription;
+    readonly subscription: Subscription;
     readonly protocol: SourceEventProtocol<State>;
-} {
+};
+
+/** A target-side protocol with the ports a test drives it through. */
+type TargetSetup = {
+    readonly state: State;
+    readonly persistence: WorkspacePersistence<State>;
+    readonly retention: MutableRetention;
+    readonly authority: ConfigurableTargetAuthority;
+    readonly invocations: ConfigurableInvocations;
+    readonly protocol: TargetProjectionProtocol<State>;
+};
+
+/** A projection the host authenticator minted, with the retention that admits it. */
+type AdmittedProjection = {
+    readonly projection: AuthenticatedRouteProjection;
+    readonly retention: ContentRetentionReference;
+};
+
+/**
+ * A value handed to a host-only boundary as though the authenticator had minted it.
+ *
+ * Authenticated intents and projections are nominal so only the host can produce one. A
+ * test that the runtime check fires as well has to present a value that never went
+ * through it, which no well-typed expression can name.
+ */
+function unminted<Target>(value: EventDraft): Target {
+    // SAFETY: the value is deliberately not a Target — it carries none of the evidence the
+    // authenticator attaches. It reaches only boundaries asserted to reject it.
+    return value as Target;
+}
+
+function sourceSetup(
+    suffix: string,
+    subscription = subscriptionFixture(suffix)
+): SourceSetup {
     const state = emptyState();
     const retention = new MutableRetention();
     const records = persistence(retention);
@@ -1842,14 +1925,7 @@ function sourceSetup(
     };
 }
 
-function targetSetup(actorTenant = tenant): {
-    readonly state: State;
-    readonly persistence: WorkspacePersistence<State>;
-    readonly retention: MutableRetention;
-    readonly authority: ConfigurableTargetAuthority;
-    readonly invocations: ConfigurableInvocations;
-    readonly protocol: TargetProjectionProtocol<State>;
-} {
+function targetSetup(actorTenant = tenant): TargetSetup {
     const state = emptyState();
     const retention = new MutableRetention();
     const records = persistence(retention, targetActor, actorTenant);
@@ -1969,13 +2045,7 @@ function authenticate(
     );
 }
 
-function authenticatedAdmission(
-    suffix: string,
-    target = targetActor
-): {
-    readonly projection: AuthenticatedRouteProjection;
-    readonly retention: ContentRetentionReference;
-} {
+function authenticatedAdmission(suffix: string, target = targetActor): AdmittedProjection {
     const reservation = reservationFixture(suffix, { target });
     const projection = projectionFixture(reservation);
     return {
