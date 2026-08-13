@@ -52,8 +52,8 @@
     {
       "file": "packages/agent-core-cloudflare/src/platform-value.ts",
       "kind": "unknown",
-      "count": 1,
-      "reason": "This is the parse boundary itself: the value has just crossed from the Workers runtime and nothing is known about it until this function answers."
+      "count": 2,
+      "reason": "This is the parse boundary itself: the value has just crossed from the Workers runtime and nothing is known about it until the member read answers, and the callable question layered over that read takes the same value."
     },
     {
       "file": "packages/agent-core-cloudflare/src/queue.ts",
