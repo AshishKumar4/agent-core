@@ -464,7 +464,7 @@
       "specTextSha256": "sha256:d3c4e75dd18d886fe40bc9ea4817a8466ed89664bae6cb6e7e23aad00da5e6cb",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/facets/filesystem/facet.ts#FilesystemFacet"],
+      "sourceSymbols": ["src/facets/filesystem/facet.ts#FILESYSTEM_OPERATION_CONTRACTS"],
       "testSelectors": [
         "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-BASE-NAMES] executes a platform alias without changing impact or invariants"
       ],
@@ -492,7 +492,7 @@
       "specTextSha256": "sha256:633cde3565d3f463853964a4360eed7931d4affab5c36eeadadbeb16a6f07343",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/device/facet.ts#DeviceFacet"],
+      "sourceSymbols": ["src/facets/device/facet.ts#DeviceBackend"],
       "testSelectors": [
         "test/profiles/facets/device.test.ts#Device transport admission and declarations [P11-DEVICE-CACHED-READ] remains observe and requires no live admission"
       ],
@@ -590,7 +590,7 @@
       "specTextSha256": "sha256:2ec4a8fcbbd4c528aed4ad4ad9057775959aa6e0472e11c2a206cc932877fb36",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/device/facet.ts#DeviceFacet"],
+      "sourceSymbols": ["src/facets/device/facet.ts#MemoryDeviceConsentBackend"],
       "testSelectors": [
         "test/integration/device-consent-admission.test.ts#Device target-local consent admission [P11-DEVICE-CONSENT-LIVE] rejects exact-pair consent at its expiration boundary"
       ],
@@ -604,7 +604,10 @@
       "specTextSha256": "sha256:8a6eafbbc5e464d1a8a0e10c50db92b76c12d0593c8f4ea653b24fb0bbf540c1",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/device/facet.ts#DeviceFacet"],
+      "sourceSymbols": [
+        "src/facets/device/facet.ts#pairKey",
+        "src/composition/device-consent.ts#DeviceConsentFinalAdmissionPort"
+      ],
       "testSelectors": [
         "test/integration/device-consent-admission.test.ts#Device target-local consent admission [P11-DEVICE-CONSENT-PAIR] admits only live consent for the exact Device and Agent pair"
       ],
@@ -772,7 +775,7 @@
       "specTextSha256": "sha256:5fe49507963cb5c7238de925379d10cc31159e1abc1ec05bf109fe9640552902",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/environment/facet.ts#EnvironmentFacet"],
+      "sourceSymbols": ["src/facets/environment/facet.ts#EnvironmentControllerBackend"],
       "testSelectors": [
         "test/profiles/facets/environment.test.ts#Environment protected control profile [P11-ENVIRONMENT-CHILD-CONTRACTS] adapts typed EnvironmentController lease, IDs, children, preview, and credentials"
       ],
@@ -786,7 +789,7 @@
       "specTextSha256": "sha256:f19522d5faba07de056ff316f2c070503d5ba3de92b470d744533befc134010f",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/environment/facet.ts#EnvironmentFacet"],
+      "sourceSymbols": ["src/facets/environment/facet.ts#EnvironmentSessionBinding"],
       "testSelectors": [
         "test/profiles/facets/environment.test.ts#Environment protected control profile [P11-ENVIRONMENT-CHILD-FACETS] validates canonical session bindings and freezes child capabilities"
       ],
@@ -800,7 +803,7 @@
       "specTextSha256": "sha256:954ad7d191eb4361a534ed5fc25d6b7760c69fcf2da839e976fc4ed31f595c7b",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/environment/facet.ts#EnvironmentFacet"],
+      "sourceSymbols": ["src/environments/runtime.ts#EnvironmentController"],
       "testSelectors": [
         "test/environments/runtime.test.ts#EnvironmentController [P11-ENVIRONMENT-CLOSE] reconciles an indeterminate close after controller restart"
       ],
@@ -814,7 +817,7 @@
       "specTextSha256": "sha256:438273aead09a41b117f1309b8e2cb87bc9e17679697435a8aff585b44f0df43",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/environment/facet.ts#EnvironmentFacet"],
+      "sourceSymbols": ["src/environments/provider.ts#EnvironmentCredentialProxyCapability"],
       "testSelectors": [
         "test/environments/records.test.ts#Environment records [P11-ENVIRONMENT-CREDENTIAL-SEAM] credential isolation passes only a bound capability and content references"
       ],
@@ -828,7 +831,7 @@
       "specTextSha256": "sha256:97f7fb32a13d0382a5cdf3cd1fb647a95c3d1bf776f7e1ebc866ac8932b001c4",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/environment/facet.ts#EnvironmentFacet"],
+      "sourceSymbols": ["src/environments/runtime.ts#EnvironmentController"],
       "testSelectors": [
         "test/environments/runtime.test.ts#EnvironmentController [P11-ENVIRONMENT-DISPOSE] cleans up an open callback that arrives after close"
       ],
@@ -921,7 +924,7 @@
       "specTextSha256": "sha256:8bfac4b2d7ac9cb31f9e7c62a0a4f1e8bf733d04fe5925b8accdf7481cac89cb",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/environment/facet.ts#EnvironmentFacet"],
+      "sourceSymbols": ["src/environments/runtime.ts#EnvironmentController"],
       "testSelectors": [
         "test/environments/runtime.test.ts#EnvironmentController [P11-ENVIRONMENT-OPEN] reconciles an indeterminate open after controller restart"
       ],
@@ -953,7 +956,7 @@
       "specTextSha256": "sha256:83ac74cfed670995074bc69241ca43cbce9db3e19b54de6ef5bbf6f8b86c32af",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/environment/facet.ts#EnvironmentFacet"],
+      "sourceSymbols": ["src/environments/runtime.ts#EnvironmentController"],
       "testSelectors": [
         "test/environments/runtime.test.ts#EnvironmentController [P11-ENVIRONMENT-ROTATION] surfaces rotation and resource CAS loss without reporting provider success"
       ],
@@ -1000,7 +1003,7 @@
       "specTextSha256": "sha256:5346f8b87bf197208cf8c8d311d83ceeafcabff5f1e019cd1e8d2d592527b35c",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/environment/facet.ts#EnvironmentFacet"],
+      "sourceSymbols": ["src/environments/runtime.ts#EnvironmentController"],
       "testSelectors": [
         "test/environments/runtime.test.ts#EnvironmentController [P11-ENVIRONMENT-USE] rehydrates open provider handles after restart without reopening"
       ],
@@ -1014,7 +1017,7 @@
       "specTextSha256": "sha256:155cd16c9468c461a798d35a820d29f4b7268cbc9394617382246d89950edd0f",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/filesystem/facet.ts#FilesystemFacet"],
+      "sourceSymbols": ["src/facets/filesystem/memory.ts#MemoryFilesystemBackend"],
       "testSelectors": [
         "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-ATOMIC-WRITE] rejects oversized replacements and destructive moves without partial changes"
       ],
@@ -1042,7 +1045,12 @@
       "specTextSha256": "sha256:7ca002c22bef54e9082d59025b83a6e41103ef27e2a42e4e79da297cf7490f6b",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/filesystem/facet.ts#FilesystemFacet"],
+      "sourceSymbols": [
+        "src/facets/filesystem/memory.ts#MemoryFilesystemBackend",
+        "src/facets/filesystem/mount.ts#MountFilesystemBackend",
+        "src/facets/filesystem/observed.ts#ObservedFilesystemBackend",
+        "src/facets/filesystem/readonly.ts#ReadonlyFilesystemBackend"
+      ],
       "testSelectors": [
         "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-BACKINGS] runs the shared suite against every backing and wrapper"
       ],
@@ -1070,7 +1078,7 @@
       "specTextSha256": "sha256:9b0600261478deda5ece58b9073411ce41394490ebe83455badb46df502182b9",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/filesystem/facet.ts#FilesystemFacet"],
+      "sourceSymbols": ["src/facets/filesystem/error.ts#FilesystemError"],
       "testSelectors": [
         "test/profiles/facets/conformance-ledger.test.ts#[P11-FILESYSTEM-ERROR-BRANCHING] exact profile manifest or runtime contract"
       ],
@@ -1140,7 +1148,7 @@
       "specTextSha256": "sha256:d4a90810214ba7cff9e5198e10da312fbb630c5a20108aeed7d31b26606cc622",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/filesystem/facet.ts#FilesystemFacet"],
+      "sourceSymbols": ["src/facets/filesystem/memory.ts#MemoryFilesystemBackend"],
       "testSelectors": [
         "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-MOVE] handles root, recursive creation, idempotent moves, and destination conflicts"
       ],
@@ -1154,7 +1162,7 @@
       "specTextSha256": "sha256:34229921764fe9862445487b0b10326c3d0f4e2b5746b7bcf24ff58382b01df6",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/filesystem/facet.ts#FilesystemFacet"],
+      "sourceSymbols": ["src/facets/filesystem/mount.ts#MountFilesystemBackend"],
       "testSelectors": [
         "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-MOVE-ASSERTIONS] rejects moves across mounts without changing either backend"
       ],
@@ -1182,7 +1190,10 @@
       "specTextSha256": "sha256:5b654d34028e2709ade913104ee45c4f79bd49f13de4e973b81a7e8151b0cd27",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/filesystem/facet.ts#FilesystemFacet"],
+      "sourceSymbols": [
+        "src/facets/filesystem/path.ts#normalizeFilesystemPath",
+        "src/facets/filesystem/error.ts#FilesystemError"
+      ],
       "testSelectors": [
         "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-PATHS] normalizes inside the root and publishes the fixed branchable detail codes"
       ],
@@ -1196,7 +1207,7 @@
       "specTextSha256": "sha256:09dcc44109955eb7147120c09a0f275bdd302a6042509e87c41a50d22de720fa",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/filesystem/facet.ts#FilesystemFacet"],
+      "sourceSymbols": ["src/facets/filesystem/memory.ts#MemoryFilesystemBackend"],
       "testSelectors": [
         "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-RANGES] rejects malformed ranges, paging, write modes, and node-kind conflicts"
       ],
@@ -1294,7 +1305,7 @@
       "specTextSha256": "sha256:395ad43c54e251e867f55a67576806d4a7df24b65fa5810c29e0742fb1d31f02",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/filesystem/facet.ts#FilesystemFacet"],
+      "sourceSymbols": ["src/facets/filesystem/memory.ts#MemoryFilesystemBackend"],
       "testSelectors": [
         "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-SUITE] uses one complete reader/mutator contract"
       ],
@@ -1336,7 +1347,7 @@
       "specTextSha256": "sha256:06812e367df8e1ef8815854b9bca679eb905efd1b4f4526d2cf273c8d0f5e9a8",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/mcp/facet.ts#McpFacet"],
+      "sourceSymbols": ["src/facets/mcp/facet.ts#toolImpact"],
       "testSelectors": [
         "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-IMPACT-ANNOTATION] [P11-MCP-IMPACT-DEFAULT-REMOTE] [P11-MCP-IMPACT-DEFAULT-LOCAL] maps only exact impact metadata and defaults unannotated remote/local tools"
       ],
@@ -1350,7 +1361,7 @@
       "specTextSha256": "sha256:503e9b8b2be8a7cb888bde64373f0d03a5d711000a9b8f680008ca1233ab9242",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/mcp/facet.ts#McpFacet"],
+      "sourceSymbols": ["src/facets/mcp/facet.ts#toolImpact"],
       "testSelectors": [
         "test/profiles/facets/conformance-ledger.test.ts#[P11-MCP-IMPACT-DEFAULT-LOCAL] exact profile manifest or runtime contract"
       ],
@@ -1378,7 +1389,7 @@
       "specTextSha256": "sha256:c4160c5326ae8b77d72130920fc3add4196f9abb9d394a9abd299c84a2b573c9",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/mcp/facet.ts#McpFacet"],
+      "sourceSymbols": ["src/facets/mcp/facet.ts#requireImpact"],
       "testSelectors": [
         "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-IMPACT-UNKNOWN] rejects malformed or unknown impact metadata"
       ],
@@ -1420,7 +1431,7 @@
       "specTextSha256": "sha256:3f2ba9a19f0a4a0617c12f539569d71b478007b5c21d47fb8a8e4b23e509208b",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/mcp/facet.ts#McpFacet"],
+      "sourceSymbols": ["src/facets/mcp/facet.ts#requireDiscoveryDocument"],
       "testSelectors": [
         "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-MALFORMED-SCHEMA] [P11-MCP-NO-LATE-SCHEMA] rejects malformed discovery metadata and schemas before registration"
       ],
@@ -1448,7 +1459,7 @@
       "specTextSha256": "sha256:10cc7d1fabee71506c31227217b86f0b500f6dc7f61d0c60992ee1a54a77ecc8",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/mcp/facet.ts#McpFacet"],
+      "sourceSymbols": ["src/facets/mcp/facet.ts#McpPromptMaterializationContract"],
       "testSelectors": [
         "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-POSITIVE-BOUNDS] [P11-MCP-PROMPT-COUNT] [P11-MCP-PROMPT-BYTES] enforces positive finite normative prompt item and canonical byte bounds"
       ],
@@ -1462,7 +1473,7 @@
       "specTextSha256": "sha256:1c06afd81b9ba380efefff472c85f8e4553d9c15351f1ec7387aa47a1546eeec",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/mcp/facet.ts#McpFacet"],
+      "sourceSymbols": ["src/facets/mcp/facet.ts#McpPromptMaterializationContract"],
       "testSelectors": [
         "test/profiles/facets/conformance-ledger.test.ts#[P11-MCP-PROMPT-BYTES] exact profile manifest or runtime contract"
       ],
@@ -1476,7 +1487,7 @@
       "specTextSha256": "sha256:d1f407d43632f2647dd26d9926a41276e066a2034f8287b9d4b1578d622c3d0e",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/mcp/facet.ts#McpFacet"],
+      "sourceSymbols": ["src/facets/mcp/facet.ts#McpPromptMaterializationContract"],
       "testSelectors": [
         "test/profiles/facets/conformance-ledger.test.ts#[P11-MCP-PROMPT-COUNT] exact profile manifest or runtime contract"
       ],
@@ -1490,7 +1501,7 @@
       "specTextSha256": "sha256:2592fade089581c4fd93ed63899a98f31deba0e62d2829a9bd71b30279949d5b",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/mcp/facet.ts#McpFacet"],
+      "sourceSymbols": ["src/facets/mcp/facet.ts#McpDiscoveryBackend"],
       "testSelectors": [
         "test/profiles/facets/conformance-ledger.test.ts#[P11-MCP-PROMPTS] exact profile manifest or runtime contract"
       ],
@@ -1518,7 +1529,7 @@
       "specTextSha256": "sha256:295c00e4cbc66345b02dfe6286b2f53edd966d2eae26a548be5bb7dfd9b3cc34",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/mcp/facet.ts#McpFacet"],
+      "sourceSymbols": ["src/facets/mcp/facet.ts#requireDiscoveryDocument"],
       "testSelectors": [
         "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-REVISION] enforces the edition's exact protocol revision"
       ],
@@ -1532,7 +1543,7 @@
       "specTextSha256": "sha256:d338435ff6fd50ac99df13d9d2454916c6a94dd264b9729474b61863ddef27dc",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/mcp/facet.ts#McpFacet"],
+      "sourceSymbols": ["src/facets/mcp/facet.ts#McpDiscoveryBackend"],
       "testSelectors": [
         "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-SCHEMA-BOUNDARY] validates discovered schemas before projecting Operations"
       ],
@@ -1546,7 +1557,7 @@
       "specTextSha256": "sha256:6b5887f21f138d4b9a8ff102a998afd77635b067a53ba1e7ab18d076b2366ca7",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/mcp/facet.ts#McpFacet"],
+      "sourceSymbols": ["src/facets/mcp/facet.ts#McpDiscoveryBackend"],
       "testSelectors": [
         "test/profiles/facets/conformance-ledger.test.ts#[P11-MCP-TOOLS] exact profile manifest or runtime contract"
       ],
@@ -1602,7 +1613,7 @@
       "specTextSha256": "sha256:b02a2e0944ba15b3ed4474f5bcddc2e60367e8f23b4749d89aa4ab4bd495fa1d",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/memory/facet.ts#MemoryFacet"],
+      "sourceSymbols": ["src/facets/memory/facet.ts#MEMORY_OPERATION_CONTRACTS"],
       "testSelectors": [
         "test/profiles/facets/memory.test.ts#Memory backends [P11-MEMORY-FORGET] validates entries, duplicate IDs, limits, time, and forget authority"
       ],
@@ -1616,7 +1627,7 @@
       "specTextSha256": "sha256:ada33a6233622b7e4bc06405d6c3fedfa77ce022277cf1b8e14970b275074f13",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/memory/facet.ts#MemoryFacet"],
+      "sourceSymbols": ["src/facets/memory/facet.ts#InMemoryMemoryIndexBackend"],
       "testSelectors": [
         "test/profiles/facets/conformance-ledger.test.ts#[P11-MEMORY-INDEXES] exact profile manifest or runtime contract"
       ],
@@ -1644,7 +1655,7 @@
       "specTextSha256": "sha256:c681792c34720f7d2475b75f6029e4f2e9bde1342317250cb9bef99b432c4649",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/memory/facet.ts#MemoryFacet"],
+      "sourceSymbols": ["src/facets/memory/facet.ts#MemoryBackend"],
       "testSelectors": [
         "test/profiles/facets/conformance-ledger.test.ts#[P11-MEMORY-PRUNE-PAST] exact profile manifest or runtime contract"
       ],
@@ -1658,7 +1669,7 @@
       "specTextSha256": "sha256:dfe02bb90c1b07b18ef118fc77f093b08e972f6b24ac023ec17e971084cb7784",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/memory/facet.ts#MemoryFacet"],
+      "sourceSymbols": ["src/facets/memory/facet.ts#MemoryBackend"],
       "testSelectors": [
         "test/profiles/facets/conformance-ledger.test.ts#[P11-MEMORY-PRUNE-WITHIN] exact profile manifest or runtime contract"
       ],
@@ -1672,7 +1683,7 @@
       "specTextSha256": "sha256:47f60812cfdaa610c630a5c76aa4d5b933497775838756d2490df0519bf3dc5c",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/memory/facet.ts#MemoryFacet"],
+      "sourceSymbols": ["src/facets/memory/facet.ts#InMemoryMemoryIndexBackend"],
       "testSelectors": [
         "test/profiles/facets/memory.test.ts#Memory backends [P11-MEMORY-REBUILD] prunes only elapsed retention and keeps derived index rebuild invisible"
       ],
@@ -2008,7 +2019,7 @@
       "specTextSha256": "sha256:ba5ec64cd9b28547783f8a7d7875f8e0ccd854424e5a0c5535434f8ac1e5d1c8",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/shell/facet.ts#ShellFacet"],
+      "sourceSymbols": ["src/facets/shell/facet.ts#tokenizeShellCommand"],
       "testSelectors": [
         "test/profiles/facets/shell.test.ts#Shell backends [P11-SHELL-PARSER] tokenizes explicitly and rejects duplicate or malformed commands"
       ],
@@ -2307,7 +2318,7 @@
       "specTextSha256": "sha256:1e9b5460cc182fdcd370f4ae10099cadae6fb46e84187ced086b776e9e06f6ba",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/slate/facet.ts#SlateFacet"],
+      "sourceSymbols": ["src/slates/store.ts#verifySlateTransition"],
       "testSelectors": [
         "test/slates/store.test.ts#MemorySlateStore [P11-SLATE-IMMUTABLE-PUBLICATION] [slate] [slate.version] [slate.publication] [slate.deployment] [slate.resource] [slate.preview] retains immutable Slate history and restores detached codec bytes"
       ],
@@ -2395,7 +2406,7 @@
       "specTextSha256": "sha256:38bbb4cff2b2d7a8977730061ba54d84a8f614733cbe120e222ae738a1244aaf",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/slate/facet.ts#SlateFacet"],
+      "sourceSymbols": ["src/slates/runtime.ts#SlateRuntime"],
       "testSelectors": [
         "test/slates/runtime.test.ts#SlateRuntime [P11-SLATE-ROLLBACK-POINTER] rolls back by local active-pointer selection without provider or invocation calls"
       ],
@@ -2409,7 +2420,7 @@
       "specTextSha256": "sha256:0fc71cf3988323309e81a05fb837dd95c2917326feddb9c1de49a7e3bdff65e5",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/slate/facet.ts#SlateFacet"],
+      "sourceSymbols": ["src/slates/slate.ts#Slate"],
       "testSelectors": [
         "test/slates/runtime.test.ts#SlateRuntime [P11-SLATE-SOURCE] preserves content-addressed source and immutable version lineage"
       ],
@@ -2423,7 +2434,7 @@
       "specTextSha256": "sha256:cb9e0f797df286bfa63977b53b6d5ab67346c2ee6567529e184a91c318bfc233",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/slate/facet.ts#SlateFacet"],
+      "sourceSymbols": ["src/slates/runtime.ts#SlateRuntime"],
       "testSelectors": [
         "test/slates/runtime.test.ts#SlateRuntime [P11-SLATE-SPECIFICATION] executes the complete section 4.6 source, version, fork, and publication contract"
       ],
@@ -2479,7 +2490,7 @@
       "specTextSha256": "sha256:420bf545ed0ee959516f452d8d497fc438e94096fc5ecd976e1d2f3979fa7b9f",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/task/facet.ts#TaskFacet"],
+      "sourceSymbols": ["src/facets/task/facet.ts#validateTaskHierarchy"],
       "testSelectors": [
         "test/profiles/facets/task.test.ts#Task declarations and backend [P11-TASK-CYCLE-REJECTION] rejects hierarchy cycles without changing the task"
       ],
@@ -2507,7 +2518,7 @@
       "specTextSha256": "sha256:49e02d7b244522e79142ce914554cc67de37815674c640469abf96716cb9b066",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/task/facet.ts#TaskFacet"],
+      "sourceSymbols": ["src/facets/task/facet.ts#validateTaskHierarchy"],
       "testSelectors": [
         "test/profiles/facets/task.test.ts#Task declarations and backend [P11-TASK-HIERARCHY] validates task identity, parents, duplicates, and missing targets"
       ],
@@ -2619,7 +2630,7 @@
       "specTextSha256": "sha256:ad270887cb5bef94b004ba58db1a6d657ac0cacc95f293e141380ffd5302af1c",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/web/facet.ts#WebFacet"],
+      "sourceSymbols": ["src/facets/web/facet.ts#WebBackend"],
       "testSelectors": [
         "test/profiles/facets/web.test.ts#Web policy backend [P11-WEB-BLOCK] rejects an oversized response instead of returning truncated bytes"
       ],
@@ -2633,7 +2644,7 @@
       "specTextSha256": "sha256:d75d19578068547f42f7fe30de521ab00bf5027c9942ba012178566c60c66aad",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/web/facet.ts#WebFacet"],
+      "sourceSymbols": ["src/facets/web/facet.ts#WebBackend"],
       "testSelectors": [
         "test/profiles/facets/web.test.ts#Web policy backend [P11-WEB-BOUNDS] rechecks redirects and enforces response/rate bounds"
       ],
@@ -2661,7 +2672,7 @@
       "specTextSha256": "sha256:20dd6e745649e0b2594262bc4ca78097227cb0d55c21d1d51bad43d84e384228",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/web/facet.ts#WebFacet"],
+      "sourceSymbols": ["src/facets/web/facet.ts#WebBackend"],
       "testSelectors": [
         "test/profiles/facets/web.test.ts#Web policy backend [P11-WEB-CREDENTIAL-ATTACHMENT] attaches policy credentials only to the authorized target"
       ],
@@ -2675,7 +2686,7 @@
       "specTextSha256": "sha256:ea3370dcb3af1e509c1210a4040cad18e3d79c83adf024ac7f760b420dba165a",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/web/facet.ts#WebFacet"],
+      "sourceSymbols": ["src/facets/web/facet.ts#WebBackend"],
       "testSelectors": [
         "test/profiles/facets/web.test.ts#Web policy backend [P11-WEB-CREDENTIAL-POLICY] rejects caller credentials before transport"
       ],
@@ -2717,7 +2728,7 @@
       "specTextSha256": "sha256:9a7b1ca9f121886731e47515b8faf6656bb49a341244ff23570b7699ce434ea3",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/web/facet.ts#WebFacet"],
+      "sourceSymbols": ["src/facets/web/facet.ts#WebBackend"],
       "testSelectors": [
         "test/profiles/facets/web.test.ts#Web policy backend [P11-WEB-LIMIT-POLICY] enforces request and rate limits before transport"
       ],
@@ -2745,7 +2756,7 @@
       "specTextSha256": "sha256:f16c27c4c6e081084c6ac745b5085628baa8fc43e5064ecb75d1133aa979ff35",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/web/facet.ts#WebFacet"],
+      "sourceSymbols": ["src/facets/web/facet.ts#WebBackend"],
       "testSelectors": [
         "test/profiles/facets/web.test.ts#Web policy backend [P11-WEB-URL-SAFETY] rejects unsafe and disallowed URLs before transport"
       ],
