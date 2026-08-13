@@ -1,7 +1,7 @@
 {
   "edition": "3.1.0",
   "formalScope": "abstract-model-only",
-  "checkerBoundary": "AgentCore/Axioms.lean is the explicit reviewed theorem allowlist. This ledger states ownership and narrow claim boundaries; the checker proves syntactic consistency, complete witness-family mapping, allowed axiom dependencies, and definition existence, but is not a semantic oracle for theorem adequacy or implementation conformance.",
+  "checkerBoundary": "AgentCore/Axioms.lean is the explicit reviewed theorem allowlist. This ledger states ownership and narrow claim boundaries; the checker proves syntactic consistency, complete witness-family mapping, allowed axiom dependencies, and definition existence, and, for the release chain, that each recorded link's named artifact actually contains its named evidence; it is not a semantic oracle for theorem adequacy or implementation conformance.",
   "statusVocabulary": {
     "proved-safety": "A theorem in the reviewed Axioms allowlist proves the stated narrow safety property of the abstract relation under listed assumptions; this status does not imply full-SPEC or implementation conformance.",
     "proved-component": "A theorem in the reviewed Axioms allowlist proves a local structural or component property only; the checker verifies consistency, not semantic sufficiency.",
@@ -3296,6 +3296,225 @@
         "assumptionIds": [
           "ASM-IMPLEMENTATION-REFINEMENT-SEPARATE"
         ]
+      }
+    ]
+  },
+  "releaseChain": {
+    "summary": "SPEC requirement -> Lean claims and assumptions -> executable decision -> TypeScript refinement evidence -> Memory/SQLite contract -> Cloudflare live scenario -> deployed bundle, for the requirements that carry an executable decision plus one that carries live evidence instead. Each link is either recorded, and then the checker verifies the named artifact actually contains the named evidence, or open, and then it carries a reason and no evidence. No entry is closed end to end today: the executable decisions have no live scenario because the Cloudflare live harness never constructs a core Actor, lease, or capability path, and the requirement that does have live evidence has no executable decision. Making that visible per link is the point of the artifact.",
+    "entries": [
+      {
+        "requirementId": "AC-PERSISTENCE-001",
+        "specAtoms": [
+          "C13-OWNERSHIP-ACTOR-CONTRACT"
+        ],
+        "theorems": [
+          "AgentCore.durable_state_refines_the_atomic_actor",
+          "AgentCore.reachable_transaction_anchored",
+          "AgentCore.pre_restart_fence_never_readmitted",
+          "AgentCore.reactivation_resolves_commit_unknown"
+        ],
+        "assumptions": [
+          "ASM-ACTOR-LOCAL-ATOMICITY",
+          "NC-DIFFERENTIAL-EMPIRICAL"
+        ],
+        "executableDecision": {
+          "status": "recorded",
+          "reason": "",
+          "leanDefinitions": [
+            "AgentCore.activateExec",
+            "AgentCore.admitsCommand"
+          ],
+          "oracleOps": [
+            "actor.activate",
+            "actor.admits"
+          ]
+        },
+        "refinementEvidence": {
+          "status": "recorded",
+          "reason": "",
+          "paths": [
+            "test/differential/persistence.differential.test.ts"
+          ]
+        },
+        "substrateContract": {
+          "status": "recorded",
+          "reason": "",
+          "paths": [
+            "test/actors/actor.test.ts"
+          ],
+          "backings": [
+            "Memory",
+            "SQLite"
+          ]
+        },
+        "liveScenario": {
+          "status": "open",
+          "reason": "The Cloudflare live harness never constructs an ActorStore: no package under packages/agent-core-cloudflare imports SqliteActorStore, MemoryActorStore, or the protocol dispatcher, so no live scenario exercises this decision.",
+          "report": "",
+          "atoms": []
+        },
+        "deployedBundle": {
+          "status": "open",
+          "reason": "No live scenario, so no deployed bundle carries this decision.",
+          "run": "",
+          "versionIds": []
+        }
+      },
+      {
+        "requirementId": "AC-LEASE-001",
+        "specAtoms": [
+          "C13-TURN-EXACT-LEASE",
+          "C13-TURN-LEASE-EXPIRY"
+        ],
+        "theorems": [
+          "AgentCore.leaseStepExec_sound",
+          "AgentCore.leaseStepExec_complete",
+          "AgentCore.stale_token_rejects",
+          "AgentCore.expired_lease_rejects"
+        ],
+        "assumptions": [
+          "ASM-LIVENESS-TIME-INVALIDATION",
+          "NC-DIFFERENTIAL-EMPIRICAL"
+        ],
+        "executableDecision": {
+          "status": "recorded",
+          "reason": "",
+          "leanDefinitions": [
+            "AgentCore.leaseStepExec"
+          ],
+          "oracleOps": [
+            "lease.step",
+            "lease.admits"
+          ]
+        },
+        "refinementEvidence": {
+          "status": "recorded",
+          "reason": "",
+          "paths": [
+            "test/differential/lease.differential.test.ts"
+          ]
+        },
+        "substrateContract": {
+          "status": "open",
+          "reason": "The Turn lease persists inside the Turn record, and no contract runs the same lease transitions against a Memory and a SQLite run store; test/substrates/sqlite/run.test.ts exercises SQLite only.",
+          "paths": [],
+          "backings": []
+        },
+        "liveScenario": {
+          "status": "open",
+          "reason": "No live scenario exercises Turn lease admission.",
+          "report": "",
+          "atoms": []
+        },
+        "deployedBundle": {
+          "status": "open",
+          "reason": "No live scenario, so no deployed bundle carries this decision.",
+          "run": "",
+          "versionIds": []
+        }
+      },
+      {
+        "requirementId": "AC-CAPABILITY-001",
+        "specAtoms": [
+          "C13-AUTH-ISOLATE-DELEGATION"
+        ],
+        "theorems": [
+          "AgentCore.capability_covering_is_sound",
+          "AgentCore.glob_covering_iff_containment",
+          "AgentCore.covering_chain_never_widens"
+        ],
+        "assumptions": [
+          "ASM-TRUTHFUL-VERIFICATION-INPUTS",
+          "NC-DIFFERENTIAL-EMPIRICAL"
+        ],
+        "executableDecision": {
+          "status": "recorded",
+          "reason": "",
+          "leanDefinitions": [
+            "AgentCore.Capability.coversBool",
+            "AgentCore.Capability.matchesBool"
+          ],
+          "oracleOps": [
+            "capability.covers",
+            "capability.matches"
+          ]
+        },
+        "refinementEvidence": {
+          "status": "recorded",
+          "reason": "",
+          "paths": [
+            "test/differential/capability.differential.test.ts"
+          ]
+        },
+        "substrateContract": {
+          "status": "open",
+          "reason": "Grant attenuation and lineage validation are exercised against memory authority stores only (test/authority/*); no contract runs them against the SQLite authority ledger.",
+          "paths": [],
+          "backings": []
+        },
+        "liveScenario": {
+          "status": "open",
+          "reason": "No live scenario exercises capability attenuation.",
+          "report": "",
+          "atoms": []
+        },
+        "deployedBundle": {
+          "status": "open",
+          "reason": "No live scenario, so no deployed bundle carries this decision.",
+          "run": "",
+          "versionIds": []
+        }
+      },
+      {
+        "requirementId": "AC-ENVIRONMENT-001",
+        "specAtoms": [
+          "P11-ENVIRONMENT-EPHEMERAL-DURABILITY",
+          "P11-ENVIRONMENT-SNAPSHOT"
+        ],
+        "theorems": [
+          "AgentCore.rotation_does_not_retarget_open_sessions",
+          "AgentCore.stale_session_admits_nothing",
+          "AgentCore.closed_session_is_terminal"
+        ],
+        "assumptions": [
+          "NC-ENVIRONMENT-LIFECYCLE",
+          "NC-CLOUDFLARE-BEHAVIOR"
+        ],
+        "executableDecision": {
+          "status": "open",
+          "reason": "The Session LTS has no executable decision and no oracle operation; its admission rules are relational only.",
+          "leanDefinitions": [],
+          "oracleOps": []
+        },
+        "refinementEvidence": {
+          "status": "open",
+          "reason": "No executable decision, so no differential suite compares one.",
+          "paths": []
+        },
+        "substrateContract": {
+          "status": "open",
+          "reason": "Session state is provider-held, not Memory/SQLite record storage.",
+          "paths": [],
+          "backings": []
+        },
+        "liveScenario": {
+          "status": "recorded",
+          "reason": "",
+          "report": "artifacts/conformance/live-evidence/phase-1.vitest.json",
+          "atoms": [
+            "P11-ENVIRONMENT-EPHEMERAL-DURABILITY",
+            "P11-ENVIRONMENT-SNAPSHOT"
+          ]
+        },
+        "deployedBundle": {
+          "status": "recorded",
+          "reason": "",
+          "run": "artifacts/conformance/live-evidence/run.json",
+          "versionIds": [
+            "ff52e00d-7f8f-4ca4-9997-2d35232a7e0b",
+            "55a2e65b-29be-48e1-832a-8f4a80c68c10"
+          ]
+        }
       }
     ]
   }
