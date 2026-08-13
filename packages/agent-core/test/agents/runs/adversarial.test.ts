@@ -283,7 +283,7 @@ describe("W5 adversarial invariants", () => {
     );
 
     it(
-        "delivers reserved cancellation to the exact live lease without fencing it",
+        "[C13-TURN-CANCEL-INBOX] delivers reserved cancellation to the exact live lease without fencing it",
         { tags: "p0" },
         () => {
             const value = runningHarness();
@@ -309,7 +309,7 @@ describe("W5 adversarial invariants", () => {
     );
 
     it(
-        "rejects delivered cancellation that names a lease other than the caller's",
+        "[C13-TURN-CANCEL-INBOX] rejects delivered cancellation that names a lease other than the caller's",
         { tags: "p0" },
         () => {
             const value = runningHarness();

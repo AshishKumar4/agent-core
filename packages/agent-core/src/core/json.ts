@@ -27,9 +27,7 @@ export function isJsonValue(value: unknown): value is JsonValue {
 }
 
 export function isJsonObject(value: JsonValue | undefined): value is JsonObject {
-    return (
-        value !== undefined && value !== null && !Array.isArray(value) && typeof value === "object"
-    );
+    return value !== null && !Array.isArray(value) && typeof value === "object";
 }
 
 /**

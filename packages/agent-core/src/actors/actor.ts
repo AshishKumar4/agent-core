@@ -1,3 +1,4 @@
+import { isObjectRecord } from "../core";
 import { AgentCoreError, type AgentCoreErrorCode } from "../errors";
 import { createActorContext, type ActorContext } from "./context";
 import { ActorRecoveryState } from "./fence";
@@ -214,11 +215,7 @@ function isStaleFence(error: unknown): boolean {
 }
 
 function isActorCommitUnknown(error: unknown): boolean {
-    return (
-        error !== null &&
-        (typeof error === "object" || typeof error === "function") &&
-        actorCommitUnknownErrors.has(error)
-    );
+    return isObjectRecord(error) && actorCommitUnknownErrors.has(error);
 }
 
 function rejectCallbackCommitUnknown(error: unknown): unknown {

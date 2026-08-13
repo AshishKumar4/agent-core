@@ -524,6 +524,18 @@ describe("Canonical codecs", () => {
         }
     });
 
+    test("rejects an absent codec version with the same message", { tags: "p1" }, () => {
+        // FixtureCodec defaults its version parameter, so an absent version can only
+        // reach RecordCodec through a subclass that forwards whatever it was handed.
+        // It is the one malformed version the `typeof version !== "object"` clause has
+        // to itself: every other non-object is rejected by the prototype comparison
+        // that follows, which for undefined throws its own TypeError instead.
+        expectTypeFailure(
+            () => new VerbatimVersionCodec(undefined),
+            "Record codec version must contain non-negative safe integers"
+        );
+    });
+
     test("rejects codec versions clause by clause with one message", { tags: "p1" }, () => {
         class PrototypedVersion {
             public readonly major = 1;
@@ -947,6 +959,20 @@ function hostileBase64(): fc.Arbitrary<string> {
         padded,
         fc.string({ unit: fc.constantFrom("A", "B", "z", "9", "+", "/", "=", "!") })
     );
+}
+
+class VerbatimVersionCodec extends RecordCodec<FixtureRecord> {
+    public constructor(version: RecordVersion | undefined) {
+        super("test.verbatim-version", version as RecordVersion);
+    }
+
+    protected encodePayload(record: FixtureRecord): JsonValue {
+        return { enabled: record.enabled, label: record.label };
+    }
+
+    protected decodePayload(_payload: JsonValue, _version: RecordVersion): FixtureRecord {
+        return { label: "", enabled: false };
+    }
 }
 
 class RejectingFixtureCodec extends RecordCodec<FixtureRecord> {

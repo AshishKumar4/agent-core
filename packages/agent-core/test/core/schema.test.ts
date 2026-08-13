@@ -104,6 +104,18 @@ describe("JSON Schema values", () => {
         expect(() => new JsonSchema(Object.create({ type: "string" }) as never)).toThrow(TypeError);
     });
 
+    test("reports a non-document schema as unsupported, not as a read fault", { tags: "p1" }, () => {
+        // JsonSchema screens its own document, so this is the shape that reaches the
+        // validator only through its public entry points. The structural walk runs before
+        // anything compiles and reads keys off whatever it is handed; null is the one
+        // non-document for which reading a key throws the engine's own message rather
+        // than being carried through to the compiler's verdict.
+        const validator = new StrictJsonSchemaValidator();
+
+        expect(() => validator.assertSchema(null as never)).toThrow(/^Unsupported JSON Schema: /u);
+        expect(() => validator.validate(null as never, 1)).toThrow(/^Unsupported JSON Schema: /u);
+    });
+
     test("validates draft 2020-12 synchronously without coercion or defaults", { tags: "p1" }, () => {
         const validator = new StrictJsonSchemaValidator();
         const value: { count: string; added?: string } = { count: "1" };

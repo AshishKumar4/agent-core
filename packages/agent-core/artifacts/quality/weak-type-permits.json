@@ -508,7 +508,7 @@
     {
       "file": "packages/agent-core/src/definition/resolver.ts",
       "kind": "non-null",
-      "count": 8,
+      "count": 6,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
@@ -717,12 +717,6 @@
     },
     {
       "file": "packages/agent-core/src/facets/self/facet.ts",
-      "kind": "unknown",
-      "count": 1,
-      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
-    },
-    {
-      "file": "packages/agent-core/src/facets/shell/facet.ts",
       "kind": "unknown",
       "count": 1,
       "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
@@ -1071,12 +1065,6 @@
     },
     {
       "file": "packages/agent-core/src/protocol/payload.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
-    },
-    {
-      "file": "packages/agent-core/src/protocol/payload.ts",
       "kind": "unknown",
       "count": 2,
       "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
@@ -1140,12 +1128,6 @@
       "kind": "unknown",
       "count": 1,
       "reason": "The SQLite adapter carries opaque snapshot state and inspects thenables to keep the storage seam synchronous."
-    },
-    {
-      "file": "packages/agent-core/src/substrates/sqlite/identity.ts",
-      "kind": "non-null",
-      "count": 3,
-      "reason": "A row read back at an index the query's own limit or ordering established, and a state field the record's variant guarantees, are present by those facts."
     },
     {
       "file": "packages/agent-core/src/substrates/sqlite/invocations/persistence.ts",

@@ -8,6 +8,7 @@ import {
     type AuditAppendContext,
     type AuditKind,
     type AuditRecordId,
+    type AuditRecordLookup,
     type WriteRecordId,
     validateAuditAppend,
     validateStoredAuditShape
@@ -28,6 +29,14 @@ export interface ProtocolIdentityProjection {
 export interface ProtocolWriteIdentityProjection {
     readonly writeId: WriteRecordId;
     readonly identity: ProtocolIdentityProjection;
+}
+
+// The lineage rules read writes by id, and the two callers hold them differently: the
+// graph walk has already decoded every write into a map, while the record-at-a-time
+// callers must load each one through storage. Naming the read is what lets one
+// implementation serve both, the way AuditRecordLookup already does for audits.
+interface WriteRecordLookup {
+    get(id: WriteRecordId): WriteRecord | undefined;
 }
 
 export interface StoredProtocolAudit {
@@ -210,24 +219,10 @@ export abstract class ProtocolPersistenceAdapter<
     }
 
     private validateStoredDuplicate(storage: ProtocolRecordStorage, write: WriteRecord): void {
-        if (write.outcome !== "duplicate") return;
-        const originalId = write.duplicateOf;
-        const original =
-            originalId === undefined ? undefined : this.loadWrite(storage, originalId.value);
-        const originalIdentity = original === undefined ? undefined : identityForWrite(original);
-        const duplicateIdentity = identityForWrite(write);
-        if (
-            original === undefined ||
-            !writeReservesIdentity(original) ||
-            originalIdentity === undefined ||
-            duplicateIdentity === undefined ||
-            !identitiesEqual(originalIdentity, duplicateIdentity) ||
-            !write.actor.equals(original.actor) ||
-            !bytesEqual(write.reply, original.reply)
-        ) {
-            throw corruptProtocol("Duplicate write does not name a valid original write");
-        }
-        this.requireReciprocalAudit(storage, original);
+        const original = validateDuplicateLineage(write, {
+            get: (id) => this.loadWrite(storage, id.value)
+        });
+        if (original !== undefined) this.requireReciprocalAudit(storage, original);
     }
 
     private originalIdentityEntries(
@@ -244,6 +239,7 @@ export abstract class ProtocolPersistenceAdapter<
         storage: ProtocolRecordStorage
     ): readonly ProtocolWriteIdentityProjection[] {
         const audits = new Map<string, AuditRecord>();
+        const auditLookup: AuditRecordLookup = { get: (id) => audits.get(id.value) };
         const evidence = new Set<string>();
         for (const stored of storage.scanAudits()) {
             if (audits.has(stored.id)) {
@@ -261,9 +257,7 @@ export abstract class ProtocolPersistenceAdapter<
         }
         for (const audit of audits.values()) {
             try {
-                validateStoredAuditShape(audit, {
-                    get: (id) => audits.get(id.value)
-                });
+                validateStoredAuditShape(audit, auditLookup);
             } catch (error) {
                 if (error instanceof AgentCoreError) {
                     throw corruptProtocol(`Stored audit graph is invalid: ${error.message}`);
@@ -273,6 +267,7 @@ export abstract class ProtocolPersistenceAdapter<
         }
 
         const writes = new Map<string, WriteRecord>();
+        const writeLookup: WriteRecordLookup = { get: (id) => writes.get(id.value) };
         for (const stored of storage.scanWrites()) {
             if (writes.has(stored.id)) {
                 throw corruptProtocol("Stored protocol contains duplicate write identifiers");
@@ -286,8 +281,8 @@ export abstract class ProtocolPersistenceAdapter<
                 throw corruptProtocol("Write record points to a missing audit record");
             }
             validateReciprocalRecords(audit, write);
-            validateWriteAuditCause(audit, audits);
-            validateDuplicateLineage(write, writes);
+            validateWriteAuditCause(audit, auditLookup);
+            validateDuplicateLineage(write, writeLookup);
         }
         for (const audit of audits.values()) {
             if (audit.kind.kind !== "write") continue;
@@ -296,7 +291,7 @@ export abstract class ProtocolPersistenceAdapter<
                 throw corruptProtocol("Write audit points to a missing write record");
             }
             validateReciprocalRecords(audit, write);
-            validateWriteAuditCause(audit, audits);
+            validateWriteAuditCause(audit, auditLookup);
         }
 
         return identityEntries(writes.values());
@@ -359,26 +354,7 @@ export abstract class ProtocolPersistenceAdapter<
         storage: ProtocolRecordStorage,
         audit: AuditRecord
     ): void {
-        if (audit.kind.kind !== "write") {
-            throw corruptProtocol("Write audit evidence kind is invalid");
-        }
-        if (audit.cause === undefined) {
-            if (!audit.kind.outcome.startsWith("rejected")) {
-                throw corruptProtocol("Only rejected writes may have a cause-free audit root");
-            }
-            return;
-        }
-        const cause = this.loadAudit(storage, audit.cause.value);
-        if (
-            cause === undefined ||
-            cause.kind.kind !== "invocation" ||
-            cause.cause !== undefined ||
-            !cause.actor.equals(audit.actor) ||
-            !cause.tenant.equals(audit.tenant) ||
-            !cause.correlation.equals(audit.correlation)
-        ) {
-            throw corruptProtocol("Write audit cause is not a matching local Invocation root");
-        }
+        validateWriteAuditCause(audit, { get: (id) => this.loadAudit(storage, id.value) });
     }
 }
 
@@ -442,10 +418,7 @@ function identityProjectionKey(identity: ProtocolIdentityProjection): string {
     );
 }
 
-function validateWriteAuditCause(
-    audit: AuditRecord,
-    audits: ReadonlyMap<string, AuditRecord>
-): void {
+function validateWriteAuditCause(audit: AuditRecord, audits: AuditRecordLookup): void {
     if (audit.kind.kind !== "write") {
         throw corruptProtocol("Write audit evidence kind is invalid");
     }
@@ -455,7 +428,7 @@ function validateWriteAuditCause(
         }
         return;
     }
-    const cause = audits.get(audit.cause.value);
+    const cause = audits.get(audit.cause);
     if (
         cause === undefined ||
         cause.kind.kind !== "invocation" ||
@@ -468,13 +441,17 @@ function validateWriteAuditCause(
     }
 }
 
+/**
+ * The original a duplicate write names, or undefined when the write is not a duplicate
+ * and so names none. Returning it is what lets the storage-backed caller carry on to the
+ * reciprocal audit without repeating the lineage rules or reloading the record.
+ */
 function validateDuplicateLineage(
     write: WriteRecord,
-    writes: ReadonlyMap<string, WriteRecord>
-): void {
-    if (write.outcome !== "duplicate") return;
-    const original =
-        write.duplicateOf === undefined ? undefined : writes.get(write.duplicateOf.value);
+    writes: WriteRecordLookup
+): WriteRecord | undefined {
+    if (write.outcome !== "duplicate") return undefined;
+    const original = write.duplicateOf === undefined ? undefined : writes.get(write.duplicateOf);
     const originalIdentity = original === undefined ? undefined : identityForWrite(original);
     const duplicateIdentity = identityForWrite(write);
     if (
@@ -488,6 +465,7 @@ function validateDuplicateLineage(
     ) {
         throw corruptProtocol("Duplicate write does not name a valid original write");
     }
+    return original;
 }
 
 function projectIdentity(identity: CommandIdentity): ProtocolIdentityProjection {
