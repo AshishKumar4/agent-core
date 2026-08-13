@@ -1,12 +1,17 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
 import { Digest, Revision, encodeCanonicalJson } from "../../src/core";
-import { Binding } from "../../src/authority/binding";
-import { PathEpochEvidence, ScopeEpoch } from "../../src/authority/epoch";
-import { AuthorityCheckEvidence, AuthorityCheckRequest } from "../../src/authority/evidence";
-import { Grant, GrantState } from "../../src/authority/grant";
-import { GrantId } from "../../src/authority/id";
-import { TenantAuthorityRuntime, type TenantAuthorityReadStore } from "../../src/authority/runtime";
+import {
+    AuthorityCheckRequest,
+    Binding,
+    Grant,
+    GrantId,
+    PathEpochEvidence,
+    ScopeEpoch,
+    TenantAuthorityRuntime,
+    type AuthorityCheckEvidence,
+    type TenantAuthorityReadStore
+} from "../../src/authority";
 import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../src/facets";
 import {
     Principal,
@@ -310,16 +315,16 @@ function competingShapes(): readonly GrantShape[] {
 }
 
 function grantOf(shape: GrantShape): Grant {
-    return new Grant(
+    const grant = new Grant(
         new GrantId(shape.id),
         shape.scope,
         shape.subject,
         shape.effect,
         shape.capability,
         { kind: "direct" },
-        shape.attenuationOf === undefined ? undefined : new GrantId(shape.attenuationOf),
-        shape.live ? GrantState.active : GrantState.revoked
+        shape.attenuationOf === undefined ? undefined : new GrantId(shape.attenuationOf)
     );
+    return shape.live ? grant : grant.revoke();
 }
 
 /**

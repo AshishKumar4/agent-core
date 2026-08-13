@@ -643,7 +643,24 @@ import AgentCore
 #print axioms AgentCore.prefix_scan_selects_exact_identifier
 #print axioms AgentCore.prefix_scan_admits_foreign_identifier
 
+-- Canonical JSON as a representation relation: the escape code, the encoder's injectivity,
+-- and the composite key scheme ASM-CANONICAL-KEY-INJECTIVE used to assume.
+#print axioms AgentCore.unescapeOne_escapeChar
+#print axioms AgentCore.quoted_prefix_free
+#print axioms AgentCore.encodeJson_not_delimited
+#print axioms AgentCore.canonical_encode_injective
+#print axioms AgentCore.authorityKey_injective
+#print axioms AgentCore.scope_key_injective
+#print axioms AgentCore.subject_key_injective
+#print axioms AgentCore.foreign_subject_key_separates_verification_schemes
+
 -- Composite key nonvacuity witnesses.
+#print axioms AgentCore.Examples.nonvacuous_canonical_escape_discriminates
+#print axioms AgentCore.Examples.nonvacuous_canonical_quoting_separates
+#print axioms AgentCore.Examples.nonvacuous_canonical_key_separates_delimiter_collision
+#print axioms AgentCore.Examples.nonvacuous_canonical_scope_key_discriminates
+#print axioms AgentCore.Examples.nonvacuous_canonical_subject_key_separates_schemes
+#print axioms AgentCore.Examples.nonvacuous_canonical_encoding_discriminates
 #print axioms AgentCore.Examples.nonvacuous_delimiter_free_discriminates
 #print axioms AgentCore.Examples.nonvacuous_free_left_keys_separate
 #print axioms AgentCore.Examples.nonvacuous_free_right_keys_separate

@@ -1,4 +1,5 @@
 import AgentCore.Model
+import AgentCore.CanonicalJson
 import AgentCore.Capability
 import AgentCore.Authority
 import AgentCore.Keys

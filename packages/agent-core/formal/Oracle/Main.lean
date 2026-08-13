@@ -143,6 +143,59 @@ def parseCapabilityIntent (json : Json) : Except String CapabilityIntent := do
   let arguments ← parseProjection (← json.getObjVal? "arguments")
   pure ⟨facet.data, operation, impact, arguments⟩
 
+/-! ## Canonical JSON
+
+`encodeJson` is the modeled encoder and `canonical_encode_injective` is proved about it, so
+agreeing with `encodeCanonicalJson` here is what ties that theorem to the implementation.
+Number tokens cross the boundary already rendered — the model represents a number by its
+token, and rendering a JavaScript number to one is the obligation the model does not carry —
+so the number leg checks only that a token is placed correctly among the delimiters. -/
+
+partial def parseJsonTree (json : Json) : Except String JsonTree := do
+  let kind ← (← json.getObjVal? "kind").getStr?
+  match kind with
+  | "null" => pure .null
+  | "bool" => do pure (.bool (← (← json.getObjVal? "value").getBool?))
+  | "num" => do pure (.num (← (← json.getObjVal? "token").getStr?).data)
+  | "str" => do pure (.str (← (← json.getObjVal? "value").getStr?).data)
+  | "arr" => do
+      let items ← (← (← json.getObjVal? "items").getArr?).toList.mapM parseJsonTree
+      pure (.arr items)
+  | "obj" => do
+      let entries ← (← (← json.getObjVal? "entries").getArr?).toList.mapM fun entry => do
+        let key ← (← entry.getObjVal? "key").getStr?
+        let value ← parseJsonTree (← entry.getObjVal? "value")
+        pure (key.data, value)
+      pure (.obj entries)
+  | other => throw s!"unknown JSON tree kind {other}"
+
+def parseScopeRefText (json : Json) : Except String ScopeRefText := do
+  let kind ← (← json.getObjVal? "kind").getStr?
+  let tenant ← (← json.getObjVal? "tenant").getStr?
+  match kind with
+  | "tenant" => pure (.tenant tenant.data)
+  | "project" => do
+      pure (.project tenant.data (← (← json.getObjVal? "project").getStr?).data)
+  | "workspace" => do
+      let projectField ← json.getObjVal? "project"
+      let project ← if projectField.isNull then pure none
+        else do pure (some (← projectField.getStr?).data)
+      pure (.workspace tenant.data project (← (← json.getObjVal? "workspace").getStr?).data)
+  | other => throw s!"unknown scope kind {other}"
+
+def parseSubjectRefText (json : Json) : Except String SubjectRefText := do
+  let kind ← (← json.getObjVal? "kind").getStr?
+  match kind with
+  | "principal" => do
+      pure (.principal (← (← json.getObjVal? "tenant").getStr?).data
+        (← (← json.getObjVal? "principal").getStr?).data)
+  | "team" => do pure (.team (← (← json.getObjVal? "team").getStr?).data)
+  | "foreign" => do
+      pure (.foreign (← (← json.getObjVal? "homeTenant").getStr?).data
+        (← (← json.getObjVal? "principal").getStr?).data
+        (← (← json.getObjVal? "verifiedVia").getStr?).data)
+  | other => throw s!"unknown subject kind {other}"
+
 /-! ## Deny precedence and Grant resolution
 
 `evaluateExec` is the modeled decision itself. `authority_decision_is_sound` proves an
@@ -318,6 +371,15 @@ where
         let parent ← parseCapability (← request.getObjVal? "parent")
         let child ← parseCapability (← request.getObjVal? "child")
         pure (Json.mkObj [("covers", Json.bool (parent.coversBool child))])
+    | "json.canonical" => do
+        let tree ← parseJsonTree (← request.getObjVal? "value")
+        pure (Json.mkObj [("encoded", Json.str (String.mk (encodeJson tree)))])
+    | "authority.scopeKey" => do
+        let scope ← parseScopeRefText (← request.getObjVal? "scope")
+        pure (Json.mkObj [("key", Json.str (String.mk (scopeKeyText scope)))])
+    | "authority.subjectKey" => do
+        let subject ← parseSubjectRefText (← request.getObjVal? "subject")
+        pure (Json.mkObj [("key", Json.str (String.mk (subjectKeyText subject)))])
     | "authority.evaluate" => do
         let grants ← (← (← request.getObjVal? "grants").getArr?).toList.mapM parseAuthorityGrant
         let evaluated ← parseAuthorityRequest (← request.getObjVal? "request")

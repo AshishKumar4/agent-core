@@ -1,5 +1,6 @@
 import AgentCore.Proofs.CanonicalMediatedTrace
 import AgentCore.Authority
+import AgentCore.CanonicalJson
 import AgentCore.Capability
 import AgentCore.Keys
 import AgentCore.Persistence
@@ -5753,6 +5754,66 @@ theorem nonvacuous_nul_prefix_scan_admits_foreign :
   rintro ⟨rest, shape⟩
   simp [keyPrefix, pairKey] at shape
 
+
+/-! ## Canonical JSON keys (SPEC §3.4, §8.1)
+
+The same U+0000 that makes the delimiter join collide, carried through the canonical-JSON
+key scheme the authority plane actually uses. -/
+
+private def hostileTenant : List Char := ['a', nul, 'b']
+private def hostileProject : List Char := ['b', nul, 'c']
+private def plainTenant : List Char := ['a']
+private def plainProject : List Char := ['c']
+
+/-- The escape table discriminates, and it escapes exactly what the grammar needs: the quote,
+the backslash, and a control point, while an ordinary character passes through. -/
+theorem nonvacuous_canonical_escape_discriminates :
+    escapeChar '"' = ['\\', '"'] ∧ escapeChar '\\' = ['\\', '\\'] ∧
+      escapeChar nul = ['\\', 'u', '0', '0', '0', '0'] ∧ escapeChar 'a' = ['a'] := by decide
+
+/-- A quoted string literal separates contents that a raw concatenation would not: the
+closing quote is found in one place only. -/
+theorem nonvacuous_canonical_quoting_separates :
+    quoted ['a', nul, 'b'] ≠ quoted ['a'] ++ quoted [nul, 'b'] ∧
+      quoted ['a'] ≠ quoted ['a', '"'] := by decide
+
+/-- **The key collision AC-KEY-001 exhibits does not survive canonical encoding.** The two
+component tuples that share one delimiter-joined key keep two canonical-JSON keys, and the
+proof is the injectivity theorem rather than the computation. -/
+theorem nonvacuous_canonical_key_separates_delimiter_collision :
+    pairKey nul plainTenant hostileProject = pairKey nul hostileTenant plainProject ∧
+      scopeKeyText (.project plainTenant hostileProject) ≠
+        scopeKeyText (.project hostileTenant plainProject) := by
+  refine ⟨rfl, fun equal => ?_⟩
+  exact absurd (scope_key_injective equal) (by decide)
+
+/-- A Scope key determines its Scope even when every identifier is the same hostile text, and
+the three Scope kinds stay apart. -/
+theorem nonvacuous_canonical_scope_key_discriminates :
+    scopeKeyText (.tenant hostileTenant) ≠ scopeKeyText (.project hostileTenant hostileTenant) ∧
+      scopeKeyText (.workspace hostileTenant none hostileTenant) ≠
+        scopeKeyText (.workspace hostileTenant (some hostileTenant) hostileTenant) := by
+  constructor <;> intro equal
+  · exact absurd (scope_key_injective equal) (by decide)
+  · exact absurd (scope_key_injective equal) (by decide)
+
+/-- **A guest's verification stamp is inside its Subject key.** The same foreign Principal
+under two schemes is two subjects to every key comparison the resolver makes. -/
+theorem nonvacuous_canonical_subject_key_separates_schemes :
+    subjectKeyText (.foreign plainTenant plainTenant "token".data) ≠
+        subjectKeyText (.foreign plainTenant plainTenant "callback".data) ∧
+      subjectKeyText (.principal plainTenant plainTenant) ≠
+        subjectKeyText (.team plainTenant) :=
+  ⟨foreign_subject_key_separates_verification_schemes _ _,
+   fun equal => absurd (subject_key_injective equal) (by decide)⟩
+
+/-- The encoder is not injective by accident: a number token really can sit beside a string
+that renders the same characters, and the two trees stay apart. -/
+theorem nonvacuous_canonical_encoding_discriminates :
+    encodeJson (.arr [.num ['1'], .num ['2']]) = "[1,2]".data ∧
+      encodeJson (.num ['1', '2']) = "12".data ∧
+      encodeJson (.str ['1', '2']) ≠ encodeJson (.num ['1', '2']) ∧
+      numbersValid (.arr [.num ['1'], .num ['2']]) = true := by decide
 
 /-! ## Actor-local persistence -/
 
