@@ -607,6 +607,13 @@ describe("Invocation evidence records", () => {
         expect(() =>
             build(1, { kind: "denied", by: principal, at: time(2), reason: "  " })
         ).toThrow(/must not be blank/);
+        expect(() =>
+            Approval.pending(id, invocation, digest, time(1), time(10)).deny(
+                principal,
+                time(2),
+                "  "
+            )
+        ).toThrow(/must not be blank/);
     });
 
     test("reports the exact subject for every invalid Approval time input", { tags: "p2" }, () => {

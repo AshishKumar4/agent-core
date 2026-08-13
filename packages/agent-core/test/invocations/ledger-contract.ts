@@ -3988,6 +3988,88 @@ export function invocationLedgerContract<Transaction>(
             });
         });
 
+        test(
+            "rejects a system-claimed continuation recorded under an executor owner",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const invocation = prepared("system-continuation-forged", [
+                    { item: 0 },
+                    { item: 1 }
+                ]);
+                const pending = Approval.pending(
+                    new ApprovalId("approval:system-continuation-forged"),
+                    invocation.header.id,
+                    invocation.intentDigest,
+                    time(1),
+                    time(20)
+                );
+                const approved = pending.approve(new PrincipalId("approver"), time(2));
+                const claim0 = systemClaim(
+                    invocation,
+                    0,
+                    0,
+                    "claim:system-continuation-forged:0",
+                    "worker:system-continuation-forged",
+                    time(10)
+                );
+                const attempt0 = systemAttempt(
+                    invocation,
+                    claim0,
+                    "attempt:system-continuation-forged:0",
+                    time(3)
+                );
+                const claim1 = systemClaim(
+                    invocation,
+                    1,
+                    0,
+                    "claim:system-continuation-forged:1",
+                    "worker:system-continuation-forged:1",
+                    time(10)
+                );
+                const attempt1 = systemAttempt(
+                    invocation,
+                    claim1,
+                    "attempt:system-continuation-forged:1",
+                    time(4)
+                );
+                harness.transaction((transaction) => {
+                    harness.ledger.prepare(transaction, invocation);
+                    harness.persistence.appendApproval(transaction, pending);
+                    harness.persistence.appendApproval(transaction, approved);
+                    harness.persistence.appendApproval(
+                        transaction,
+                        approved.consume(attempt0.id, time(3))
+                    );
+                    harness.persistence.appendClaim(transaction, claim0);
+                    harness.persistence.appendAttempt(transaction, attempt0);
+                    harness.persistence.insertContinuation(
+                        transaction,
+                        new InvocationContinuation<string>(
+                            invocation.header.id,
+                            invocation.intentDigest,
+                            pending.id,
+                            attempt0.id,
+                            attempt0.itemIndex,
+                            attempt0.ordinal,
+                            claim0.id,
+                            { kind: "executor", token: "lease:1", worker: claim0.owner.worker },
+                            attempt0.idempotencyKey,
+                            time(3)
+                        )
+                    );
+                    harness.ledger.claimItem(transaction, claim1, time(3));
+                });
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.admitAttempt(transaction, attempt1, time(4))
+                        ),
+                    /first EffectAttempt identity is invalid/
+                );
+            }
+        );
+
         test("recovers an expired system claim under a new worker", { tags: "p1" }, () => {
             const harness = open();
             const invocation = prepared("system-recovery");

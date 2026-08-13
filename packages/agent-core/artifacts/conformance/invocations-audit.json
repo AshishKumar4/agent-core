@@ -9,7 +9,10 @@
       "specTextSha256": "sha256:267526fd33ceaf1250e7efef5b4ec52957ffde0b6874472128c1d3b28f15f2fc",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/approval.ts#Approval"],
+      "sourceSymbols": [
+        "src/invocations/approval.ts#Approval",
+        "src/invocations/operation-mediation.ts#ReplayOperationInvocationPort"
+      ],
       "testSelectors": [
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-ADV-APPROVAL-REPLAY] rejects noncanonical replay scopes, attempted direct contexts, and unprepared invocation"
       ],
@@ -52,7 +55,10 @@
       "specTextSha256": "sha256:ae9d14a81a383458756e12dbee3757c4030552120c7b585684a7f4fd6d256ed6",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/outcome.ts#deriveBatchOutcome"],
+      "sourceSymbols": [
+        "src/invocations/command.ts#createInvocationProtocolCommands",
+        "src/invocations/outcome.ts#deriveBatchOutcome"
+      ],
       "testSelectors": [
         "test/invocations/command.test.ts#Invocation protocol command families [C13-ADV-EARLY-AGGREGATE] pins the executor/system lease matrix and forbids aggregate revisions"
       ],
@@ -66,7 +72,10 @@
       "specTextSha256": "sha256:68aa08a4ec7e32d1b84571d2177ee1c05e51ea4a6d42d098d79b69aef9b9dea4",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
+      "sourceSymbols": [
+        "src/invocations/prepared.ts#PreparedInvocation",
+        "src/invocations/prepared.ts#requireNonemptyPayload"
+      ],
       "testSelectors": [
         "test/invocations/prepared.test.ts#PreparedInvocation canonical identity [C13-ADV-EMPTY-BATCH] rejects an empty batch"
       ],
@@ -95,7 +104,10 @@
       "specTextSha256": "sha256:d9b2d686e7fbd1966149914d125326861addcb5d2cf5d67a8744e1088a848e6e",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
+      "sourceSymbols": [
+        "src/invocations/prepared.ts#PreparedInvocation",
+        "src/invocations/replay.ts#MediatedReplayRecord"
+      ],
       "testSelectors": [
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-ADV-NONHOMOGENEOUS-BATCH] enforces replay phase immutability and nonempty exact batch shape"
       ],
@@ -138,7 +150,7 @@
       "specTextSha256": "sha256:c99f40b90e446dc2ac326910b3236859754bf58dcd855980cd86e67c86a8466d",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
+      "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-PREMATURE-RECOVERY] rejects recovery before the current claim expires",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-PREMATURE-RECOVERY] rejects recovery before the current claim expires"
@@ -167,7 +179,10 @@
       "specTextSha256": "sha256:3314c35cc95c3904d2f8018294093a18355772cc5f7590c5ca7ac671daf1ddbe",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/receipt.ts#Receipt"],
+      "sourceSymbols": [
+        "src/invocations/publication.ts#InvocationPublicationOutbox",
+        "src/invocations/publisher.ts#InvocationPublicationDrainer"
+      ],
       "testSelectors": [
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-ADV-RECEIPT-CANCELLED] [invocation.publication-outbox] [invocation-evidence-persistence] durably drains Receipt publication without fire-and-forget"
       ],
@@ -181,7 +196,11 @@
       "specTextSha256": "sha256:2a20460f480ae79a2fe2fb3ddde78c3b96ca4a025005055e10529ccefee537f6",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/receipt.ts#Receipt"],
+      "sourceSymbols": [
+        "src/invocations/ledger.ts#InvocationLedger.recordPreEffect",
+        "src/invocations/memory.ts#MemoryInvocationPersistence",
+        "src/invocations/receipt.ts#Receipt"
+      ],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-RECEIPT-DENIED] keeps denied pre-effect Receipts outside attempted lineage",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-RECEIPT-DENIED] keeps denied pre-effect Receipts outside attempted lineage"
@@ -211,8 +230,8 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
-        "src/invocations/ledger.ts#InvocationLedger.prepareWithAudit",
         "src/invocations/ledger.ts#InvocationLedger.admitAttemptWithAudit",
+        "src/invocations/ledger.ts#InvocationLedger.prepareWithAudit",
         "src/invocations/ledger.ts#InvocationLedger.recordAttemptReceiptWithAudit",
         "src/invocations/ledger.ts#InvocationLedger.supersedeReceiptWithAudit"
       ],
@@ -230,6 +249,7 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
+        "src/invocations/ledger.ts#InvocationLedger.recordAttemptReceipt",
         "src/invocations/ledger.ts#InvocationLedger.supersedeReceiptWithAudit",
         "src/invocations/receipt.ts#Receipt"
       ],
@@ -248,8 +268,11 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
+        "src/invocations/ledger.ts#InvocationLedger.currentReceiptForAttempt",
+        "src/invocations/ledger.ts#InvocationLedger.supersedeReceiptUnchecked",
         "src/invocations/ledger.ts#InvocationLedger.supersedeReceiptWithAudit",
-        "src/invocations/receipt.ts#Receipt"
+        "src/invocations/receipt.ts#Receipt",
+        "src/invocations/receipt.ts#ReceiptCodecV1"
       ],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-RECEIPT-SUPERSESSION] [invocation.receipt] supersedes one indeterminate Receipt exactly once and derives batch outcomes",
@@ -280,7 +303,10 @@
       "specTextSha256": "sha256:fa82de08a72e3d123cc86b582361256724f1eea7338be6fa1c815607773b3b27",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
+      "sourceSymbols": [
+        "src/invocations/command.ts#InvocationPayloadCodec",
+        "src/invocations/prepared.ts#PreparedInvocation"
+      ],
       "testSelectors": [
         "test/invocations/command.test.ts#Invocation protocol command families [C13-ADV-REORDERED-INTENT] uses strict canonical payloads and delegates synchronously"
       ],
@@ -336,7 +362,10 @@
       "specTextSha256": "sha256:b12ca4d5f4bbee2081c45363178c325c10235df6c1e2704df076a4afeb8d29d0",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/audit.ts#AuditRecord"],
+      "sourceSymbols": [
+        "src/invocations/audit.ts#AuditRecord",
+        "src/invocations/audit.ts#validateStoredAuditShape"
+      ],
       "testSelectors": [
         "test/invocations/audit.test.ts#AuditRecord append validation [C13-ADV-UNBRIDGED-CROSS-ACTOR-AUDIT] rejects a direct cross-Actor audit cause"
       ],
@@ -378,7 +407,11 @@
       "specTextSha256": "sha256:6af0e810ad8fd6775a1a7c7114ddeb07850ec0e7659ab3f136579ec4f88480a2",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/audit.ts#AuditRecord"],
+      "sourceSymbols": [
+        "src/invocations/audit.ts#AuditRecord",
+        "src/invocations/audit.ts#validateAuditAppend",
+        "src/invocations/audit.ts#validateRoot"
+      ],
       "testSelectors": [
         "test/invocations/audit.test.ts#AuditRecord append validation [C13-AUDIT-APPEND-ONLY] admits ordinary invocation roots"
       ],
@@ -392,7 +425,10 @@
       "specTextSha256": "sha256:6af0e810ad8fd6775a1a7c7114ddeb07850ec0e7659ab3f136579ec4f88480a2",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/audit.ts#AuditRecord"],
+      "sourceSymbols": [
+        "src/invocations/audit.ts#AuditRecord",
+        "src/invocations/audit.ts#isSubstantiatedEdge"
+      ],
       "testSelectors": [
         "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-EDGE-RELATION] fails closed for evidence substitutions across every mediation edge"
       ],
@@ -406,7 +442,10 @@
       "specTextSha256": "sha256:6af0e810ad8fd6775a1a7c7114ddeb07850ec0e7659ab3f136579ec4f88480a2",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/audit.ts#AuditRecord"],
+      "sourceSymbols": [
+        "src/invocations/audit.ts#AuditRecord",
+        "src/invocations/audit.ts#validateStoredAuditShape"
+      ],
       "testSelectors": [
         "test/invocations/audit.test.ts#AuditRecord append validation [C13-AUDIT-PREEXISTING-CAUSE] requires a preexisting cause"
       ],
@@ -422,6 +461,7 @@
       "prerequisites": [],
       "sourceSymbols": [
         "src/invocations/audit.ts#AuditRecord",
+        "src/invocations/audit.ts#isSubstantiatedEdge",
         "src/invocations/profile-mediation.ts#InvocationProtectedOperationPort"
       ],
       "testSelectors": [
@@ -451,7 +491,11 @@
       "specTextSha256": "sha256:da4ad8edc4634a444aaad53f34f1c4551566e3b0acd47371153ea511ac3e9dc7",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/audit.ts#AuditRecord"],
+      "sourceSymbols": [
+        "src/invocations/audit.ts#AuditRecord",
+        "src/invocations/audit.ts#projectionMatches",
+        "src/invocations/audit.ts#validateRoot"
+      ],
       "testSelectors": [
         "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-SETTLED-OBLIGATION] admits only evidence-backed route projection roots"
       ],
@@ -465,7 +509,10 @@
       "specTextSha256": "sha256:143fdd0a5965a0ad27c6b9d25efa5d3582de1e34c5c614de084ab465f5f8ecfd",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/audit.ts#AuditRecord"],
+      "sourceSymbols": [
+        "src/invocations/audit.ts#AuditRecord",
+        "src/invocations/audit.ts#isSubstantiatedEdge"
+      ],
       "testSelectors": [
         "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-SYSTEM-WRITER] admits direct, denied, expired, and Receipt-caused local edges"
       ],
@@ -498,7 +545,10 @@
       "specTextSha256": "sha256:401e7dd6decc1a004ee754b5d0b52618cd45dc5c2562937af7d7fc9027576fbc",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/outcome.ts#deriveBatchOutcome"],
+      "sourceSymbols": [
+        "src/invocations/outcome.ts#deriveBatchOutcome",
+        "src/invocations/profile-mediation.ts#InvocationProtectedOperationPort"
+      ],
       "testSelectors": [
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-BATCH-OUTCOME-COMPLETE] maps profile receipt mode and terminal outcomes without leaking batch shapes"
       ],
@@ -512,7 +562,11 @@
       "specTextSha256": "sha256:401e7dd6decc1a004ee754b5d0b52618cd45dc5c2562937af7d7fc9027576fbc",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/outcome.ts#deriveBatchOutcome"],
+      "sourceSymbols": [
+        "src/invocations/operation-mediation.ts#ReplayOperationInvocationPort",
+        "src/invocations/outcome.ts#deriveBatchOutcome",
+        "src/invocations/replay.ts#MediatedReplayRecord"
+      ],
       "testSelectors": [
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-BATCH-OUTCOME-TERMINAL] persists terminal batch evidence and fails closed on every replay"
       ],
@@ -541,7 +595,10 @@
       "specTextSha256": "sha256:6cfb8687c4a904f23aa50c77c864a6c8eaf125a31610c67842d444aea66b1798",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
+      "sourceSymbols": [
+        "src/invocations/canonical-batch.ts#CanonicalBatchInvocationPort",
+        "src/invocations/claim.ts#ItemClaim"
+      ],
       "testSelectors": [
         "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-CLAIM-INITIAL-ATOMIC] claims before async permit issuance and returns one output only for success"
       ],
@@ -693,7 +750,10 @@
       "specTextSha256": "sha256:bf3a4bce573c6bf89de55a9ff61a4ceefc8b33997a7c12deb45cf26ca8a8218c",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/attempt.ts#EffectAttempt"],
+      "sourceSymbols": [
+        "src/invocations/attempt.ts#EffectAttempt",
+        "src/invocations/canonical-batch.ts#CanonicalBatchInvocationPort"
+      ],
       "testSelectors": [
         "test/invocations/reconciliation.test.ts#InvocationReconciler persists the exact attempt before the provider and atomically finalizes complete reconciliation evidence"
       ],
@@ -707,7 +767,10 @@
       "specTextSha256": "sha256:74cb61d0368381a14955a71dee6726dc894cd1f7258fbcabd0779839a340668a",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/approval.ts#Approval"],
+      "sourceSymbols": [
+        "src/invocations/approval.ts#Approval",
+        "src/invocations/operation-mediation.ts#ReplayOperationInvocationPort"
+      ],
       "testSelectors": [
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-PREPARED-APPROVAL-BINDING] binds presentation to exact invocation evidence, item count, and persisted outputs"
       ],
@@ -752,7 +815,11 @@
       "specTextSha256": "sha256:42b24d7cd50498d0ad292c19aa649b3b908d3d37123d450f8c316b4dd1f346c6",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/approval.ts#Approval"],
+      "sourceSymbols": [
+        "src/invocations/approval.ts#Approval",
+        "src/invocations/ledger.ts#InvocationLedger.admitAttemptInternal",
+        "src/invocations/memory.ts#MemoryInvocationPersistence"
+      ],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-PREPARED-APPROVAL-SINGLE-USE] consumes one Approval only on the first admitted attempt",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-PREPARED-APPROVAL-SINGLE-USE] consumes one Approval only on the first admitted attempt"
@@ -767,7 +834,10 @@
       "specTextSha256": "sha256:306d0e189ffc72180a931e223468287fb0f47732c9927c660a730b8419489a88",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/approval.ts#Approval"],
+      "sourceSymbols": [
+        "src/invocations/approval.ts#Approval",
+        "src/invocations/ledger.ts#InvocationLedger.requestApproval"
+      ],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-PREPARED-APPROVAL-UNIQUE] reserves one Approval identity per invocation",
         "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-PREPARED-APPROVAL-UNIQUE] reserves one Approval identity per invocation"
@@ -797,7 +867,10 @@
       "specTextSha256": "sha256:79cc5167f958c46eb1efd9480f7ace74ec515b184785102749b612b14fc64c4b",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
+      "sourceSymbols": [
+        "src/invocations/prepared.ts#PreparedInvocation",
+        "src/invocations/prepared.ts#PreparedInvocationCodec"
+      ],
       "testSelectors": [
         "test/invocations/prepared.test.ts#PreparedInvocation canonical identity [C13-PREPARED-ITEM-KEYS] rejects supplied key or digest substitution during decode"
       ],
@@ -811,7 +884,10 @@
       "specTextSha256": "sha256:a15ebbac122e3a5b369a2b5e2eb9981a4e44ff39f4802f3dfac9f2722e5d6805",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/audit.ts#AuditRecord"],
+      "sourceSymbols": [
+        "src/invocations/audit.ts#AuditRecord",
+        "src/invocations/audit.ts#isSubstantiatedEdge"
+      ],
       "testSelectors": [
         "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-PREPARED-NO-TURN-AUDIT] requires exact Write evidence when an evidence resolver is supplied"
       ],
@@ -825,7 +901,10 @@
       "specTextSha256": "sha256:a15ebbac122e3a5b369a2b5e2eb9981a4e44ff39f4802f3dfac9f2722e5d6805",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
+      "sourceSymbols": [
+        "src/invocations/continuation.ts#InvocationContinuation",
+        "src/invocations/prepared.ts#PreparedInvocation"
+      ],
       "testSelectors": [
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-PREPARED-NO-TURN-OWNER] rejects substituted continuation identifiers, owner kinds, actor kinds, and indexes"
       ],
@@ -886,7 +965,11 @@
       "specTextSha256": "sha256:ef01fcb4e20440e3ca5f6dadc8538d23637f4e528cff43a779a416dbad0d6259",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
+      "sourceSymbols": [
+        "src/invocations/operation-mediation.ts#ReplayOperationInvocationPort",
+        "src/invocations/prepared.ts#PreparedInvocation",
+        "src/invocations/replay.ts#MediatedReplayRecord"
+      ],
       "testSelectors": [
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-PREPARED-REPLAY-POST] [invocation.mediated-replay] [invocation-replay-persistence] reserves before interception and reuses durable before/after presentation"
       ],
@@ -900,7 +983,11 @@
       "specTextSha256": "sha256:ef01fcb4e20440e3ca5f6dadc8538d23637f4e528cff43a779a416dbad0d6259",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
+      "sourceSymbols": [
+        "src/invocations/operation-mediation.ts#ReplayOperationInvocationPort",
+        "src/invocations/prepared.ts#PreparedInvocation",
+        "src/invocations/replay.ts#replayId"
+      ],
       "testSelectors": [
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-PREPARED-REPLAY-PRE] commits raw replay identity before mutating interception and rejects conflicts first"
       ],
@@ -942,7 +1029,10 @@
       "specTextSha256": "sha256:79cc5167f958c46eb1efd9480f7ace74ec515b184785102749b612b14fc64c4b",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
+      "sourceSymbols": [
+        "src/invocations/prepared.ts#PreparedInvocation",
+        "src/invocations/prepared.ts#PreparedInvocationHeader"
+      ],
       "testSelectors": [
         "test/invocations/immutability.test.ts#invocation record immutability [C13-PREPARED-WHOLE-DIGEST] detaches PreparedInvocation structural references before digesting"
       ],
@@ -1019,6 +1109,7 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
+        "src/invocations/canonical-batch.ts#CanonicalBatchInvocationPort",
         "src/invocations/ledger.ts#InvocationLedger.prepareWithAudit",
         "src/invocations/ledger.ts#InvocationLedger.recordClaimedAuthorityDenialWithAudit"
       ],
