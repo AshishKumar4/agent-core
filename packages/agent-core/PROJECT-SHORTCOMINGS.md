@@ -32,21 +32,30 @@ evidence agree where applicable.
       `subject_key_injective` apply it to the keys the resolver compares, with a
       differential sweep over hostile identifiers including U+0000. A similar key in
       definition planning still requires review.
-- [ ] **A guest deny does not survive a verification-scheme change.** `subjectKey`
-      encodes a `ForeignPrincipalRef` including its `verifiedVia` stamp, and for a guest
-      request `AuthorityRuntime.effectiveSubjects` returns exactly one subject key — the
-      Binding's own stamped subject. A live deny-Grant recorded for the same foreign
-      Principal under a different scheme therefore has a different subject key, is filtered
-      out of `relevant`, and never reaches the deny sweep. SPEC §3.3 makes `verifiedVia`
-      part of `ForeignPrincipalRef` and also lets it change — `handshake` "downgrades all
-      future verifications to `token`" — so the two stamps are reachable for one guest, and
-      `Grant.assertCanReplace` compares `subjectKey`, so an existing deny cannot be
-      restamped in place. `foreign_subject_key_separates_verification_schemes` proves the
-      keys differ and the differential suite asserts it against the implementation; what
-      the formal package does not settle is whether §3.3's precedence sentence intends
-      subject identity for matching to include the stamp. Decide that, then either exclude
-      `verifiedVia` from the matching identity or require restamping to carry existing
-      denies forward.
+- [x] **A guest deny does not survive a verification-scheme change.** `subjectKey` encodes
+      a `ForeignPrincipalRef` including its `verifiedVia` stamp, and for a guest request
+      the effective subject set held exactly the Binding's own stamped subject, so a live
+      deny-Grant recorded for the same foreign Principal under another scheme had a
+      different key, was filtered out before the deny sweep, and never applied. The state
+      needs no rotation to reach: a host that trusts one home Tenant under both
+      steady-state schemes admits the same guest twice, and `Grant.assertCanReplace`
+      compares `subjectKey`, so the older deny cannot be restamped to follow.
+      §3.3's reading this turned on: a deny names who is refused while `verifiedVia` names
+      only how a guest proved who they are, so deny matching ignores the stamp and allow
+      matching keeps it — denies match broadly, allows narrowly for least privilege.
+      `EffectiveSubjects` in `src/authority/runtime.ts` owns both rules over one subject
+      list, and states the deny side by matching the same Principal under §3.3's closed
+      scheme vocabulary, so `subjectKey` stays the resolver's only subject comparison. The
+      model now carries the stamp: `AuthorityGrant.MatchesDeny` reads `Subject.identity`,
+      `deny_survives_verification_scheme_change` is the case that was open,
+      `allow_requires_exact_verification_scheme` is its converse, and
+      `matches_deny_of_matches_request` proves the deny side is the coarser of the two, so
+      the asymmetry can only refuse more. `foreign_subject_key_separates_verification_schemes`
+      keeps its proof; what was wrong was its narrative, which read the key separation as
+      settling which comparison the resolver should make.
+      SPEC §3.3 is still silent on the asymmetry, so a reader implementing from it would
+      reproduce the hole. The amendment is drafted and waits on the coordinated
+      atom-digest operation.
 - [ ] **Connect formal claims to production behavior.** The current Lean package proves
       properties of an abstract model only. It does not prove that TypeScript, Cloudflare
       adapters, Memory/SQLite storage, provider calls, codecs, bundles, configuration, or
