@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef, type ActorStartOperation } from "../../src/actors";
 import { TurnId } from "../../src/agents";
+import type { MaterializationPlan } from "../../src/definition";
 import { Digest, Revision, decodeCanonicalJson, encodeCanonicalJson } from "../../src/core";
-import { ActorPlan, DesiredProjection, MaterializationPlan } from "../../src/definition";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 import {
     MaterializationApplyLocalCommand,
@@ -10,6 +10,7 @@ import {
     type CommandEnvelope,
     type MaterializationCommandBackend
 } from "../../src/protocol";
+import { tamperedRecord } from "../definition/record-data";
 import {
     MaterializationHarness,
     MaterializationHarnessStore,
@@ -289,7 +290,7 @@ describe("materialization.applyLocal protocol command", () => {
         const substituted = harness.plan(harness.actor, [projection("substituted")], 2);
         harness.persistApplyPlan(
             authorized.id,
-            tamperedRecord(MaterializationPlan, substituted, { id: authorized.id })
+            tamperedRecord(substituted, { id: authorized.id })
         );
 
         await expect(harness.dispatch(raw)).rejects.toThrow(/ID does not match/);
@@ -540,31 +541,15 @@ function asynchronousActivation(): ActorStartOperation<MaterializationHarnessSta
     return (() => Promise.resolve()) as ActorStartOperation<MaterializationHarnessState>;
 }
 
-/**
- * Clones an already validated record onto a bare prototype with fields replaced. Each of these
- * record classes enforces its invariants in its constructor, so tampering with an accepted plan is
- * only possible by skipping it — and the persisted-plan checks exist to catch exactly that.
- */
-function tamperedRecord<TRecord extends object>(
-    recordClass: { readonly prototype: TRecord },
-    source: TRecord,
-    overrides: Partial<TRecord>
-): TRecord {
-    // SAFETY: the clone wears TRecord's prototype and copies its fields, but never ran its
-    // constructor, so its invariants are unchecked. Callers hand it straight to the code asserted
-    // to reject it.
-    const bare = Object.create(recordClass.prototype) as TRecord;
-    return Object.assign(bare, source, overrides);
-}
 
 function forgePlanKind(plan: MaterializationPlan, recordKind: string): MaterializationPlan {
     const actorPlan = plan.actors[0]!;
     const projection = actorPlan.projections[0]!;
-    const unsupported = tamperedRecord(DesiredProjection, projection, { recordKind });
-    const forgedActor = tamperedRecord(ActorPlan, actorPlan, {
+    const unsupported = tamperedRecord(projection, { recordKind });
+    const forgedActor = tamperedRecord(actorPlan, {
         projections: Object.freeze([unsupported])
     });
-    return tamperedRecord(MaterializationPlan, plan, {
+    return tamperedRecord(plan, {
         actors: Object.freeze([forgedActor])
     });
 }

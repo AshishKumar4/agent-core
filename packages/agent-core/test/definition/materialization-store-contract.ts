@@ -24,6 +24,7 @@ import {
 } from "../../src/definition";
 import { materializeActorPlan, type LocalMaterialization } from "../../src/definition/materializer";
 import { TenantId } from "../../src/identity";
+import { tamperedRecord } from "./record-data";
 
 const encoder = new TextEncoder();
 const tenantId = new TenantId("tenant");
@@ -666,9 +667,7 @@ export function materializationStoreContract<TTransaction>(
             const orphan = materializationState(actor, 2, "orphan").materialization.records[0]!;
             installGeneration(store, installed);
             let reads = 0;
-            const stateful = Object.assign(
-                Object.create(ManagedStateRecord.prototype) as ManagedStateRecord,
-                installed.materialization.records[0]!,
+            const stateful = tamperedRecord(installed.materialization.records[0]!,
                 {
                     toData: () => {
                         reads += 1;
@@ -850,17 +849,21 @@ function policyForSeed(seed: string): PolicySet {
 }
 
 function forgeManagedStateKind(record: ManagedStateRecord, recordKind: string): ManagedStateRecord {
-    return Object.assign(
-        Object.create(ManagedStateRecord.prototype) as ManagedStateRecord,
-        record,
+    return tamperedRecord(record,
         { recordKind }
     );
 }
 
+/**
+ * A record that reads as one value but encodes as another, so a store can be shown re-reading
+ * what it actually wrote instead of trusting the record it was handed.
+ */
 function encodeAs<Value extends { toData(): JsonValue }>(visible: Value, encoded: Value): Value {
-    return Object.assign(Object.create(Object.getPrototypeOf(visible)) as Value, visible, {
-        toData: () => encoded.toData()
-    });
+    // SAFETY: the copy carries Value's prototype and fields but never ran its constructor, and
+    // its toData deliberately disagrees with the rest of it. Only the store check asserted to
+    // reject the mismatch ever reads it.
+    const bare = Object.create(Object.getPrototypeOf(visible)) as Value;
+    return Object.assign(bare, visible, { toData: () => encoded.toData() });
 }
 
 export function actorRef(id: string, kind: "tenant" | "workspace" = "tenant"): ActorRef {

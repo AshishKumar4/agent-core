@@ -30,7 +30,7 @@ import {
 } from "../../src/definition/memory";
 import { TenantId } from "../../src/identity";
 import { SqliteMaterializationStore } from "../../src/substrates";
-import { recordData } from "./record-data";
+import { recordData, tamperedRecord } from "./record-data";
 import { TestSqlite } from "../helpers/sqlite";
 
 const encoder = new TextEncoder();
@@ -372,11 +372,7 @@ describe("materialization rollout and outbox", () => {
         expect(() => requireExactOutboxClosure(rollout, [...expected, expected[0]!])).toThrow(
             /exact target closure/
         );
-        const forgedTarget = Object.assign(
-            Object.create(MaterializationOutboxEntry.prototype) as MaterializationOutboxEntry,
-            expected[0],
-            { target: new ActorRef("workspace", new ActorId("forged")) }
-        );
+        const forgedTarget = tamperedRecord(expected[0]!, { target: new ActorRef("workspace", new ActorId("forged")) });
         expect(() => requireExactOutboxClosure(rollout, [forgedTarget])).toThrow(
             /exact target closure/
         );
@@ -1177,19 +1173,11 @@ describe("materialization rollout mutation boundaries", () => {
     test("detects forged outbox identities that keep matching targets", { tags: "p1" }, () => {
         const rollout = new MaterializationRollout({ plan: plan(1, ["a"]) });
         const expected = expectedOutboxEntries(rollout);
-        const forgedId = Object.assign(
-            Object.create(MaterializationOutboxEntry.prototype) as MaterializationOutboxEntry,
-            expected[0],
-            { id: digest("forged-outbox-id") }
-        );
+        const forgedId = tamperedRecord(expected[0]!, { id: digest("forged-outbox-id") });
         expect(() => requireExactOutboxClosure(rollout, [forgedId])).toThrow(
             /exact target closure/
         );
-        const forgedRollout = Object.assign(
-            Object.create(MaterializationOutboxEntry.prototype) as MaterializationOutboxEntry,
-            expected[0],
-            { rolloutId: digest("forged-rollout-id") }
-        );
+        const forgedRollout = tamperedRecord(expected[0]!, { rolloutId: digest("forged-rollout-id") });
         expect(() => requireExactOutboxClosure(rollout, [forgedRollout])).toThrow(
             /exact target closure/
         );
@@ -1202,12 +1190,7 @@ describe("materialization rollout mutation boundaries", () => {
         const forge = (
             base: MaterializationOutboxEntry,
             patch: Partial<Pick<MaterializationOutboxEntry, "attempts" | "revision">>
-        ): MaterializationOutboxEntry =>
-            Object.assign(
-                Object.create(MaterializationOutboxEntry.prototype) as MaterializationOutboxEntry,
-                base,
-                patch
-            );
+        ): MaterializationOutboxEntry => tamperedRecord<MaterializationOutboxEntry>(base, patch);
 
         const pendingNext = forge(entry.attempted(), { attempts: entry.attempts });
         expect(isLegalOutboxTransition(entry, pendingNext)).toBe(false);
@@ -1226,9 +1209,7 @@ describe("materialization rollout mutation boundaries", () => {
     test("rejects deployment transitions whose derived identity was forged", { tags: "p1" }, () => {
         const initial = DeploymentRecord.initial(tenantId, deploymentKey);
         const begun = initial.begin(digest("rollout"), 1);
-        const forgedId = Object.assign(
-            Object.create(DeploymentRecord.prototype) as DeploymentRecord,
-            begun,
+        const forgedId = tamperedRecord(begun,
             { id: DeploymentId.derive(new TenantId("tenant-b"), deploymentKey) }
         );
         expect(isLegalDeploymentTransition(initial, forgedId)).toBe(false);

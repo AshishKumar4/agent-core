@@ -58,7 +58,7 @@ import {
     SlotName
 } from "../../src/facets";
 import { TenantId } from "../../src/identity";
-import { recordData, requireObject } from "./record-data";
+import { recordData, requireObject, tamperedRecord } from "./record-data";
 
 const encoder = new TextEncoder();
 const target = new PlatformCompatibility({ spec: new SemVer("1.0.0"), host: new SemVer("1.0.0") });
@@ -498,9 +498,7 @@ describe("materialization planning", () => {
         expectCodecError(() => ActorPlan.decode(ActorPlan.encode(forgedActor)), "codec.invalid");
 
         const materialization = new MaterializationPlan({ origin, actors: [actorPlan] });
-        const forgedMaterialization = Object.assign(
-            Object.create(MaterializationPlan.prototype) as MaterializationPlan,
-            materialization,
+        const forgedMaterialization = tamperedRecord(materialization,
             { actors: Object.freeze([forgedActor]) }
         );
         expectCodecError(
@@ -1071,9 +1069,7 @@ function digestOf(value: string): Digest {
 }
 
 function forgeProjectionKind(projection: DesiredProjection, recordKind: string): DesiredProjection {
-    return Object.assign(
-        Object.create(DesiredProjection.prototype) as DesiredProjection,
-        projection,
+    return tamperedRecord(projection,
         { recordKind }
     );
 }
@@ -1082,7 +1078,7 @@ function forgeActorPlanProjections(
     plan: ActorPlan,
     projections: readonly DesiredProjection[]
 ): ActorPlan {
-    return Object.assign(Object.create(ActorPlan.prototype) as ActorPlan, plan, {
+    return tamperedRecord(plan, {
         projections: Object.freeze([...projections])
     });
 }

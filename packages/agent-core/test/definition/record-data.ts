@@ -20,3 +20,19 @@ export function requireObject(value: JsonValue, subject = "value"): JsonObject {
     if (!isJsonObject(value)) throw new TypeError(`Expected ${subject} to be an object`);
     return value;
 }
+
+/**
+ * Copies an already validated record onto a bare instance of its own class with fields replaced.
+ * These records enforce their invariants in their constructors, so a value that violates one can
+ * only be built by skipping it — and the codecs and store checks that re-validate on the way back
+ * out exist precisely to catch a record that did.
+ */
+export function tamperedRecord<TRecord extends object>(
+    source: TRecord,
+    overrides: Partial<TRecord>
+): TRecord {
+    // SAFETY: the copy carries the source's prototype and fields but never ran its constructor,
+    // so its invariants are unchecked. Callers hand it straight to the code asserted to reject it.
+    const bare = Object.create(Object.getPrototypeOf(source)) as TRecord;
+    return Object.assign(bare, source, overrides);
+}
