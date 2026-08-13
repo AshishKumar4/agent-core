@@ -16,6 +16,7 @@ import {
 import { RunId } from "../../../src/agents/runs/id";
 import {
     content,
+    forgedCommit,
     harness,
     ids,
     mutableData,
@@ -142,32 +143,25 @@ describe("closed commit writer matrix", () => {
             value.repository.transaction((tx) =>
                 validateCommitWriter(tx, message(), value.evidence)
             );
-            // SAFETY: the RunCommit constructor already rejects a message commit written by
-            // the root writer, and rejects a subject Turn that does not own the commit. Only a
-            // record that never passed that constructor can prove validateCommitWriter checks
-            // the writer itself rather than trusting the record it is handed.
             expectCode(
                 () =>
                     value.repository.transaction((tx) =>
                         validateCommitWriter(
                             tx,
-                            { ...message("forged-root"), writer: { kind: "root" } } as RunCommit,
+                            forgedCommit(message("forged-root"), { writer: { kind: "root" } }),
                             value.evidence
                         )
                     ),
                 "run.invalid-state"
             );
-            // SAFETY: as above — a Turn-written commit whose subject Turn is a different Turn
-            // cannot be built through the RunCommit constructor.
             expectCode(
                 () =>
                     value.repository.transaction((tx) =>
                         validateCommitWriter(
                             tx,
-                            {
-                                ...message("forged-turn"),
+                            forgedCommit(message("forged-turn"), {
                                 subjectTurn: new TurnId("other")
-                            } as RunCommit,
+                            }),
                             value.evidence
                         )
                     ),

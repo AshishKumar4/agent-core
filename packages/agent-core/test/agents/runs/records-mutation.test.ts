@@ -25,38 +25,40 @@ import {
     AgentRevisionRecord,
     ModelPolicyRevisionRecord
 } from "../../../src/agents/source";
-import { configuration, content, digest, genesis, ids, pins, refs, sourceRecords } from "./fixture";
+import {
+    configuration,
+    content,
+    digest,
+    genesis,
+    ids,
+    mutableData,
+    objectAt,
+    pins,
+    refs,
+    sourceRecords,
+    thrownBy,
+    type MutableRecordData
+} from "./fixture";
 
-function expectTypeError(label: string, operation: () => unknown, message: string): void {
-    try {
-        operation();
-        throw new Error(`Expected TypeError: ${label}`);
-    } catch (error) {
-        expect(error, label).toBeInstanceOf(TypeError);
-        expect((error as TypeError).message, label).toBe(message);
-    }
+function expectTypeError(label: string, operation: () => void, message: string): void {
+    expect(thrownBy(TypeError, operation, label).message, label).toBe(message);
 }
 
 function expectCode(
     label: string,
-    operation: () => unknown,
+    operation: () => void,
     code: AgentCoreError["code"],
     message: string
 ): void {
-    try {
-        operation();
-        throw new Error(`Expected AgentCoreError: ${label}`);
-    } catch (error) {
-        expect(error, label).toBeInstanceOf(AgentCoreError);
-        expect((error as AgentCoreError).code, label).toBe(code);
-        expect((error as AgentCoreError).message, label).toBe(message);
-    }
+    const failure = thrownBy(AgentCoreError, operation, label);
+    expect(failure.code, label).toBe(code);
+    expect(failure.message, label).toBe(message);
 }
 
-function mutated(data: JsonValue, update: (object: Record<string, unknown>) => void): never {
-    const clone = structuredClone(data) as Record<string, unknown>;
+function mutated(data: JsonValue, update: (object: MutableRecordData) => void): MutableRecordData {
+    const clone = mutableData(data);
     update(clone);
-    return clone as never;
+    return clone;
 }
 
 describe("nominal identifier subjects", () => {
@@ -96,7 +98,7 @@ describe("record data helpers", () => {
     test("rejects non-string values distinctly from empty strings", { tags: "p1" }, () => {
         expectTypeError(
             "numeric string",
-            () => requireString(42 as never, "Numeric subject"),
+            () => requireString(42, "Numeric subject"),
             "Numeric subject must be a non-empty string"
         );
         expect(requireString("ok", "Numeric subject")).toBe("ok");
@@ -409,11 +411,15 @@ describe("placement pins", () => {
     });
 
     test("rejects unknown modes before preference selection", { tags: "p1" }, () => {
+        // SAFETY: IsolationMode is a closed union, so an unknown mode cannot be written
+        // through PlacementPinInit. Forging one proves the constructor validates every entry
+        // instead of trusting the union it declares.
         expectTypeError(
             "unknown manifest mode",
             () => placementPin({ manifest: ["dynamic", "unknown" as never] }),
             "Manifest modes contains an unknown mode"
         );
+        // SAFETY: as above, for the trust source set.
         expectTypeError(
             "unknown trust mode",
             () => placementPin({ trust: ["dynamic", "unknown" as never] }),
@@ -430,7 +436,7 @@ describe("placement pins", () => {
             trust: only,
             selected: "bundled"
         });
-        const decoded = PlacementPin.fromData(structuredClone(bundled.toData()) as never);
+        const decoded = PlacementPin.fromData(structuredClone(bundled.toData()));
 
         expect(decoded.selected).toBe("bundled");
         expect(decoded.manifest).toEqual(["bundled"]);
@@ -498,7 +504,7 @@ describe("placement pins", () => {
             "core:zeta"
         ]);
         expect(Object.isFrozen(snapshot.placements)).toBe(true);
-        const decoded = TurnPlacementSnapshot.fromData(structuredClone(snapshot.toData()) as never);
+        const decoded = TurnPlacementSnapshot.fromData(structuredClone(snapshot.toData()));
         expect(decoded.placements.map((value) => value.facet.value)).toEqual([
             "core:alpha",
             "core:zeta"
@@ -586,7 +592,7 @@ describe("Run pins", () => {
             () =>
                 RunPins.fromData(
                     mutated(data, (object) => {
-                        (object["agent"] as Record<string, unknown>)["id"] = 42;
+                        objectAt(object["agent"], "agent pin")["id"] = 42;
                     })
                 ),
             "Agent pin ID must be a non-empty string"
@@ -596,7 +602,7 @@ describe("Run pins", () => {
             () =>
                 RunPins.fromData(
                     mutated(data, (object) => {
-                        (object["agent"] as Record<string, unknown>)["revision"] = "x";
+                        objectAt(object["agent"], "agent pin")["revision"] = "x";
                     })
                 ),
             "Agent pin revision must be a non-negative safe integer"
@@ -606,7 +612,7 @@ describe("Run pins", () => {
             () =>
                 RunPins.fromData(
                     mutated(data, (object) => {
-                        (object["agent"] as Record<string, unknown>)["digest"] = 42;
+                        objectAt(object["agent"], "agent pin")["digest"] = 42;
                     })
                 ),
             "Agent pin digest must be a non-empty string"
@@ -629,7 +635,7 @@ describe("Run pins", () => {
             () =>
                 RunPins.fromData(
                     mutated(pins().toData(), (object) => {
-                        (object["agent"] as Record<string, unknown>)["Stryker was here"] = true;
+                        objectAt(object["agent"], "agent pin")["Stryker was here"] = true;
                     })
                 ),
             "Agent pin contains missing or unknown fields"
@@ -721,6 +727,8 @@ describe("spawn reservations", () => {
                     ids.run,
                     ids.turn,
                     new RunId("records-spawn-child"),
+                    // SAFETY: LeaseToken types `holder` as PrincipalRef, so only a forged
+                    // identifier reaches the reservation's own `instanceof` check on it.
                     { turn: ids.turn, holder: new TurnId("not-a-holder") as never, epoch: 1 },
                     configuration().id,
                     content("d"),
@@ -842,12 +850,12 @@ describe("source revision records", () => {
     test("names policy and model revision subjects in decode errors", { tags: "p2" }, () => {
         expectTypeError(
             "policy object",
-            () => AgentPolicyRevisionRecord.fromData(42 as never),
+            () => AgentPolicyRevisionRecord.fromData(42),
             "Agent policy revision must be an object"
         );
         expectTypeError(
             "model object",
-            () => ModelPolicyRevisionRecord.fromData(42 as never),
+            () => ModelPolicyRevisionRecord.fromData(42),
             "Model policy revision must be an object"
         );
         const data = sourceRecords().model.toData();

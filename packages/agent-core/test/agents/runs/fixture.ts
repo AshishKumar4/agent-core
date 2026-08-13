@@ -367,6 +367,20 @@ export type Assembled<Fields> = { -readonly [Field in keyof Fields]: Fields[Fiel
 /** Turn fields a test overrides on the shared queued-Turn builders. */
 export type TurnOverrides = Assembled<Partial<TurnInit>>;
 
+/**
+ * Builds a Run commit record that RunCommit's own constructor would refuse: a root writer on
+ * a message commit, a commit kind that contradicts its writer cause, a missing own reference.
+ * Nothing produced here could have come from the class, which is exactly what lets a test
+ * reach the checks that run downstream of the constructor and confirm they re-derive the
+ * invariant rather than trusting the record they are handed.
+ */
+export function forgedCommit(base: RunCommit, overrides: Partial<RunCommit>): RunCommit {
+    // SAFETY: the result is deliberately not a record the constructor would produce; that is
+    // the point of every caller. Nothing downstream may assume it satisfies RunCommit's own
+    // invariants — only the one the caller is about to assert on.
+    return { ...base, ...overrides } as RunCommit;
+}
+
 /** The encoded form of a record, owned by the test that is about to corrupt it. */
 export type MutableRecordData = { [field: string]: JsonValue };
 
@@ -387,10 +401,3 @@ export function objectAt(value: JsonValue | undefined, field: string): MutableRe
     return value;
 }
 
-/** Reads a nested array of objects on a corruption path, keeping the caller's write in place. */
-export function objectsAt(value: JsonValue | undefined, field: string): MutableRecordData[] {
-    if (!Array.isArray(value)) {
-        throw new TypeError(`Corruption path field ${field} is not an array`);
-    }
-    return value.map((entry, index) => objectAt(entry, `${field}[${index}]`));
-}
