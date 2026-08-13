@@ -25,28 +25,34 @@ import {
     Turn,
     TurnCodec,
     TurnInboxEntry,
-    TurnStatus
+    TurnStatus,
+    type TurnInit
 } from "../../../src/agents/runs/turn";
 import type { SynchronousResultGuard } from "../../../src/actors";
 import { PrincipalId, PrincipalRef } from "../../../src/identity";
 import { ReceiptId } from "../../../src/invocation-references";
 import { AuditRecordId, EventId } from "../../../src/interaction-references";
-import { content, digest, harness, ids, pins, seedRunningTurn } from "./fixture";
+import {
+    content,
+    digest,
+    forgedCommit,
+    forgedEvidence,
+    harness,
+    ids,
+    pins,
+    seedRunningTurn,
+    thrownBy,
+    type Assembled
+} from "./fixture";
 
 function expectCode(
-    operation: () => unknown,
+    operation: () => void,
     code: AgentCoreError["code"],
     message?: string
 ): void {
-    try {
-        operation();
-    } catch (error) {
-        expect(error).toBeInstanceOf(AgentCoreError);
-        expect((error as AgentCoreError).code).toBe(code);
-        if (message !== undefined) expect((error as AgentCoreError).message).toBe(message);
-        return;
-    }
-    expect.fail("expected operation to throw");
+    const failure = thrownBy(AgentCoreError, operation);
+    expect(failure.code).toBe(code);
+    if (message !== undefined) expect(failure.message).toBe(message);
 }
 
 function must<Value>(value: Value | undefined): Value {
@@ -530,10 +536,10 @@ describe("terminalization guards", () => {
         );
 
         const unnamed = seedRunningTurn();
-        const forged = {
-            ...resultCommit("terminal-unnamed", ids.turn, ids.root, unnamed.token),
-            subjectTurn: undefined
-        } as RunCommit;
+        const forged = forgedCommit(
+            resultCommit("terminal-unnamed", ids.turn, ids.root, unnamed.token),
+            { subjectTurn: undefined }
+        );
         expectCode(
             () => unnamed.runtime.terminalizeRun(terminalRequest(unnamed, { commit: forged })),
             "run.invalid-state",
@@ -686,17 +692,17 @@ describe("forced sibling cancellation", () => {
             (value, forced) => value.evidence.administers.delete(forced.administerKey),
             (value, forced) => {
                 const stored = must(value.evidence.administers.get(forced.administerKey));
-                value.evidence.administers.set(forced.administerKey, {
-                    ...stored,
-                    kind: "control"
-                } as never);
+                value.evidence.administers.set(
+                    forced.administerKey,
+                    forgedEvidence(stored, "kind", "control")
+                );
             },
             (value, forced) => {
                 const stored = must(value.evidence.administers.get(forced.administerKey));
-                value.evidence.administers.set(forced.administerKey, {
-                    ...stored,
-                    outcome: "failed"
-                } as never);
+                value.evidence.administers.set(
+                    forced.administerKey,
+                    forgedEvidence(stored, "outcome", "failed")
+                );
             },
             (value, forced) => {
                 const stored = must(value.evidence.administers.get(forced.administerKey));
@@ -760,17 +766,17 @@ describe("forced sibling cancellation", () => {
             (value, forced) => value.evidence.cancellations.delete(forced.cancellationKey),
             (value, forced) => {
                 const stored = must(value.evidence.cancellations.get(forced.cancellationKey));
-                value.evidence.cancellations.set(forced.cancellationKey, {
-                    ...stored,
-                    kind: "administer"
-                } as never);
+                value.evidence.cancellations.set(
+                    forced.cancellationKey,
+                    forgedEvidence(stored, "kind", "administer")
+                );
             },
             (value, forced) => {
                 const stored = must(value.evidence.cancellations.get(forced.cancellationKey));
-                value.evidence.cancellations.set(forced.cancellationKey, {
-                    ...stored,
-                    eventKind: "turn.message"
-                } as never);
+                value.evidence.cancellations.set(
+                    forced.cancellationKey,
+                    forgedEvidence(stored, "eventKind", "turn.message")
+                );
             },
             (value, forced) => {
                 const stored = must(value.evidence.cancellations.get(forced.cancellationKey));
@@ -1113,7 +1119,7 @@ function siblingAs(
         readonly result?: ReturnType<typeof content>;
     }
 ): Turn {
-    return new Turn({
+    const init: Assembled<TurnInit> = {
         id: sibling.id,
         run: sibling.run,
         branch: sibling.branch,
@@ -1124,10 +1130,11 @@ function siblingAs(
         input: sibling.input,
         status: over.status ?? TurnStatus.cancelled,
         lease: over.lease,
-        ...(over.checkpoint === undefined ? {} : { checkpoint: over.checkpoint }),
-        ...(over.result === undefined ? {} : { result: over.result }),
         revision: sibling.revision.next()
-    });
+    };
+    if (over.checkpoint !== undefined) init.checkpoint = over.checkpoint;
+    if (over.result !== undefined) init.result = over.result;
+    return new Turn(init);
 }
 
 // Replaces, or drops, the one row a case is about and passes every other row through.

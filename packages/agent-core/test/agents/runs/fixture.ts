@@ -381,6 +381,41 @@ export function forgedCommit(base: RunCommit, overrides: Partial<RunCommit>): Ru
     return { ...base, ...overrides } as RunCommit;
 }
 
+/**
+ * Overrides one field of stored port evidence with a value its interface does not admit — an
+ * administer record claiming to be a control, a cancellation naming another event kind. The
+ * port contracts pin these fields to single literals, so only a forged record can prove the
+ * runtime reads the field rather than trusting the map the evidence came from.
+ */
+export function forgedEvidence<Evidence, Field extends keyof Evidence>(
+    stored: Evidence,
+    field: Field,
+    value: string
+): Evidence {
+    // SAFETY: the value is deliberately outside the literal type the port pins to this field.
+    // That is what the caller is proving the runtime rejects; nothing else may read it.
+    return { ...stored, [field]: value } as Evidence;
+}
+
+/**
+ * Builds a Turn record carrying a lease its own constructor refuses: held with no expiration,
+ * unheld past epoch zero, or unheld yet expiring. A queued Turn cannot hold any of these, so
+ * only a forged record can prove the runtime re-checks the lease it is handed instead of
+ * trusting the Turn it arrives on.
+ */
+export function turnWithForgedLease(base: Turn, lease: ForgedLease): Turn {
+    // SAFETY: the lease is deliberately one TurnLease refuses to construct, so the result is
+    // not a Turn the constructor would produce. Only the lease check under test may read it.
+    return { ...base, lease } as never;
+}
+
+export interface ForgedLease {
+    readonly turn: TurnId;
+    readonly holder: PrincipalRef | undefined;
+    readonly epoch: number;
+    readonly expiresAt: Date | undefined;
+}
+
 /** The encoded form of a record, owned by the test that is about to corrupt it. */
 export type MutableRecordData = { [field: string]: JsonValue };
 

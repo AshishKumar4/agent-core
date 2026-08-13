@@ -13,6 +13,7 @@ import { AuditRecordId, EventId } from "../../../src/interaction-references";
 import {
     type Assembled,
     configuration,
+    forgedEvidence,
     content,
     digest,
     genesis,
@@ -941,13 +942,9 @@ describe("Turn and terminalization rejection matrix", () => {
             const forced = forcedCancellation(value, ids.turn, sibling, variant);
             if (variant === "control") {
                 const key = `${forced.control.receipt.value}:${forced.control.audit.value}`;
-                // SAFETY: AdministerControlEvidence pins `outcome` to the literal "succeeded",
-                // so a failed administer control is unrepresentable in the port contract. The
-                // forged outcome proves the runtime reads the field instead of assuming it.
-                value.evidence.administers.set(key, {
-                    ...value.evidence.administers.get(key)!,
-                    outcome: "failed"
-                } as never);
+                const stored = value.evidence.administers.get(key);
+                if (stored === undefined) throw new Error("Expected administer evidence");
+                value.evidence.administers.set(key, forgedEvidence(stored, "outcome", "failed"));
             } else {
                 const key = `${forced.evidence.event.value}:${forced.evidence.audit.value}`;
                 value.evidence.cancellations.set(key, {
