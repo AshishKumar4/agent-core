@@ -508,10 +508,12 @@ export class ConfirmedOperationFailure extends AgentCoreError {
     }
 }
 
-function operationPayload(payload: OperationPayload): {
+interface DispatchedPayload {
     readonly shape: OperationPayloadShape;
     readonly items: readonly FacetData[];
-} {
+}
+
+function operationPayload(payload: OperationPayload): DispatchedPayload {
     if (payload.kind === "single") {
         return { shape: Object.freeze({ kind: "single" }), items: [payload.input] };
     }

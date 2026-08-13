@@ -206,6 +206,6 @@ function isSafeInteger(value: FacetData | undefined): value is number {
     return Number.isSafeInteger(value);
 }
 
-function isNumber(value: FacetData | undefined): value is number {
+export function isNumber(value: FacetData | undefined): value is number {
     return typeof value === "number";
 }
