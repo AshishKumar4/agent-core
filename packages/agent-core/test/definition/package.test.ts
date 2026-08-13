@@ -25,6 +25,7 @@ import {
 } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
 import { Contributions, FacetManifest, FacetPackageId } from "../../src/facets";
+import { recordData } from "./record-data";
 
 const encoder = new TextEncoder();
 const target = new PlatformCompatibility({ spec: new SemVer("1.0.0"), host: new SemVer("20.0.0") });
@@ -142,7 +143,7 @@ describe("package releases", () => {
             ).toThrow(/exactly match/);
             expect(() =>
                 PackageRelease.fromData({
-                    ...(release.toData() as object),
+                    ...recordData(release),
                     id: 7
                 })
             ).toThrow(/must be a string/);

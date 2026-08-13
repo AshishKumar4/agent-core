@@ -58,6 +58,7 @@ import {
     SlotName
 } from "../../src/facets";
 import { TenantId } from "../../src/identity";
+import { recordData } from "./record-data";
 
 const encoder = new TextEncoder();
 const target = new PlatformCompatibility({ spec: new SemVer("1.0.0"), host: new SemVer("1.0.0") });
@@ -191,7 +192,7 @@ describe("materialization planning", () => {
         ).toThrow(/requires a ValidatedBlueprint/);
         expect(() =>
             DesiredProjection.fromData({
-                ...(projection.toData() as object),
+                ...recordData(projection),
                 logicalKey: 7
             })
         ).toThrow(/string/);

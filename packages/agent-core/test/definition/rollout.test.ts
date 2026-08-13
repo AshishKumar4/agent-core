@@ -30,6 +30,7 @@ import {
 } from "../../src/definition/memory";
 import { TenantId } from "../../src/identity";
 import { SqliteMaterializationStore } from "../../src/substrates";
+import { recordData } from "./record-data";
 import { TestSqlite } from "../helpers/sqlite";
 
 const encoder = new TextEncoder();
@@ -246,7 +247,7 @@ describe("materialization rollout and outbox", () => {
         expect(() => MaterializationRollout.fromData(null)).toThrow(/object/);
         expect(() =>
             MaterializationRollout.fromData({
-                ...(rollout.toData() as object),
+                ...recordData(rollout),
                 plan: undefined
             } as never)
         ).toThrow(/required|missing|object/);
@@ -312,45 +313,45 @@ describe("materialization rollout and outbox", () => {
         ).toThrow(/outbox ID/);
         expect(() =>
             MaterializationOutboxEntry.fromData({
-                ...(entry.toData() as object),
+                ...recordData(entry),
                 status: "invalid"
             })
         ).toThrow(/status/);
         expect(() =>
             MaterializationOutboxEntry.fromData({
-                ...(entry.toData() as object),
+                ...recordData(entry),
                 target: { id: "target", kind: "invalid" }
             })
         ).toThrow(/Actor kind/);
         expect(() => MaterializationOutboxEntry.fromData(null)).toThrow(/object/);
         expect(() =>
             MaterializationOutboxEntry.fromData({
-                ...(entry.toData() as object),
+                ...recordData(entry),
                 attempts: "bad"
             })
         ).toThrow(/non-negative/);
         expect(() =>
             MaterializationOutboxEntry.fromData({
-                ...(entry.toData() as object),
+                ...recordData(entry),
                 target: null
             })
         ).toThrow(/Actor.*object/);
         expect(() =>
             MaterializationOutboxEntry.fromData({
-                ...(entry.toData() as object),
+                ...recordData(entry),
                 target: { id: 7, kind: "workspace" }
             })
         ).toThrow(/must be a string/);
         expect(() => DeploymentRecord.fromData(null)).toThrow(/object/);
         expect(() =>
             DeploymentRecord.fromData({
-                ...(DeploymentRecord.initial(tenantId, deploymentKey).toData() as object),
+                ...recordData(DeploymentRecord.initial(tenantId, deploymentKey)),
                 nextGeneration: "bad"
             })
         ).toThrow(/non-negative/);
         expect(() =>
             DeploymentRecord.fromData({
-                ...(DeploymentRecord.initial(tenantId, deploymentKey).toData() as object),
+                ...recordData(DeploymentRecord.initial(tenantId, deploymentKey)),
                 unknown: true
             })
         ).toThrow(/missing or unknown/);
@@ -623,7 +624,7 @@ describe("materialization rollout mutation boundaries", () => {
     });
 
     test("labels deployment rollout and outbox decode subjects", { tags: "p2" }, () => {
-        const deploymentData = DeploymentRecord.initial(tenantId, deploymentKey).toData() as object;
+        const deploymentData = recordData(DeploymentRecord.initial(tenantId, deploymentKey));
         const deploymentCases = [
             [{ id: 7 }, /Deployment ID must be a string/],
             [{ tenantId: 7 }, /Deployment Tenant ID must be a string/],
@@ -645,7 +646,7 @@ describe("materialization rollout mutation boundaries", () => {
             previousPlanId: digest("previous"),
             compensates: digest("failed")
         });
-        const rolloutData = linked.toData() as object;
+        const rolloutData = recordData(linked);
         const rolloutCases = [
             [{ id: 7 }, /Materialization rollout ID must be a string/],
             [{ previousPlanId: 7 }, /Previous plan ID must be a string/],
@@ -664,7 +665,7 @@ describe("materialization rollout mutation boundaries", () => {
             linked.id,
             linked.plan.actors[0]!
         ).acknowledge(digest("reply"));
-        const entryData = entry.toData() as object;
+        const entryData = recordData(entry);
         const entryCases = [
             [{ status: 7 }, /Materialization outbox status must be a string/],
             [{ rolloutId: 7 }, /Materialization outbox rollout ID must be a string/],

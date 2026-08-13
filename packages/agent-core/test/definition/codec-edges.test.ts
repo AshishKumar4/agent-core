@@ -36,6 +36,7 @@ import {
 } from "../../src/definition";
 import { Contributions, FacetManifest, FacetPackageId } from "../../src/facets";
 import { TenantId } from "../../src/identity";
+import { recordData } from "./record-data";
 
 const encoder = new TextEncoder();
 const tenantId = new TenantId("tenant");
@@ -48,14 +49,14 @@ describe("definition codec adversarial edges", () => {
         const materializationOrigin = origin(1);
         expect(() => ManagedOrigin.fromData(null)).toThrow(/object/);
         expect(() =>
-            ManagedOrigin.fromData({ ...(materializationOrigin.toData() as object), extra: true })
+            ManagedOrigin.fromData({ ...recordData(materializationOrigin), extra: true })
         ).toThrow(/missing or unknown/);
         expect(() =>
-            ManagedOrigin.fromData({ ...(materializationOrigin.toData() as object), tenantId: 1 })
+            ManagedOrigin.fromData({ ...recordData(materializationOrigin), tenantId: 1 })
         ).toThrow(/string/);
         expect(() =>
             ManagedOrigin.fromData({
-                ...(materializationOrigin.toData() as object),
+                ...recordData(materializationOrigin),
                 generation: -1
             })
         ).toThrow(/non-negative/);
@@ -63,21 +64,21 @@ describe("definition codec adversarial edges", () => {
         const plan = actorPlan(materializationOrigin);
         expect(() => ActorPlan.fromData(null)).toThrow(/object/);
         expect(() =>
-            ActorPlan.fromData({ ...(plan.toData() as object), projections: null })
+            ActorPlan.fromData({ ...recordData(plan), projections: null })
         ).toThrow(/array/);
         expect(() =>
-            ActorPlan.fromData({ ...(plan.toData() as object), actor: { id: "x", kind: "bad" } })
+            ActorPlan.fromData({ ...recordData(plan), actor: { id: "x", kind: "bad" } })
         ).toThrow(/Actor kind/);
         const materialization = new MaterializationPlan({
             origin: materializationOrigin,
             actors: [plan]
         });
         expect(() =>
-            MaterializationPlan.fromData({ ...(materialization.toData() as object), actors: null })
+            MaterializationPlan.fromData({ ...recordData(materialization), actors: null })
         ).toThrow(/array/);
         expect(() =>
             MaterializationPlan.fromData({
-                ...(materialization.toData() as object),
+                ...recordData(materialization),
                 origin: undefined
             } as never)
         ).toThrow(/required|missing/);
@@ -103,13 +104,13 @@ describe("definition codec adversarial edges", () => {
         );
         expect(() =>
             ManagedStateRecord.fromData({
-                ...(record.toData() as object),
+                ...recordData(record),
                 desired: undefined
             } as never)
         ).toThrow(/required|missing/);
         expect(() =>
             ManagedStateRecord.fromData({
-                ...(record.toData() as object),
+                ...recordData(record),
                 actor: { id: "workspace", kind: "bad" }
             })
         ).toThrow(/Actor kind/);
@@ -133,13 +134,13 @@ describe("definition codec adversarial edges", () => {
         ).toThrow(/unique/);
         expect(() =>
             MaterializationGeneration.fromData({
-                ...(generation.toData() as object),
+                ...recordData(generation),
                 managedRecordIds: null
             })
         ).toThrow(/array/);
         expect(() =>
             MaterializationGeneration.fromData({
-                ...(generation.toData() as object),
+                ...recordData(generation),
                 managedRecordIds: [7]
             })
         ).toThrow(/string/);
@@ -151,13 +152,13 @@ describe("definition codec adversarial edges", () => {
         );
         expect(() =>
             MaterializationGenerationPointer.fromData({
-                ...(pointer.toData() as object),
+                ...recordData(pointer),
                 revision: -1
             })
         ).toThrow(/non-negative/);
         expect(() =>
             MaterializationGenerationPointer.fromData({
-                ...(pointer.toData() as object),
+                ...recordData(pointer),
                 actor: { id: "workspace", kind: "bad" }
             })
         ).toThrow(/Actor kind/);
@@ -188,7 +189,7 @@ describe("definition codec adversarial edges", () => {
     });
 
     test("names every malformed managed origin field in its codec error", { tags: "p2" }, () => {
-        const data = new ManagedOrigin(originInit()).toData() as object;
+        const data = recordData(new ManagedOrigin(originInit()));
         expect(() => ManagedOrigin.fromData({ ...data, tenantId: 7 })).toThrow(
             "Managed origin Tenant ID must be a string"
         );
@@ -215,7 +216,7 @@ describe("definition codec adversarial edges", () => {
     });
 
     test("rejects every malformed managed origin generation shape", { tags: "p1" }, () => {
-        const data = new ManagedOrigin(originInit()).toData() as object;
+        const data = recordData(new ManagedOrigin(originInit()));
         // Decoding narrows the field; the range belongs to the constructor, and the two
         // answer separately so neither can stand in for the other.
         for (const generation of [-1, -0.5, 1.5, Number.MAX_SAFE_INTEGER + 2]) {
@@ -241,7 +242,7 @@ describe("definition codec adversarial edges", () => {
         );
         expect(Object.isFrozen(pin)).toBe(true);
 
-        const pinData = pin.toData() as object;
+        const pinData = recordData(pin);
         expect(() => PackagePin.fromData({ ...pinData, id: 7 })).toThrow(
             "Package pin ID must be a string"
         );
@@ -258,13 +259,15 @@ describe("definition codec adversarial edges", () => {
         expect(() => PackagePin.fromData([])).toThrow("Package pin must be an object");
         expect(() => PackagePin.fromData("payload")).toThrow("Package pin must be an object");
 
-        const lockData = new PackageLock({
-            target,
-            roots: [],
-            snapshotRevision: Revision.initial(),
-            snapshotDigest: digest("snapshot"),
-            packages: [pin]
-        }).toData() as object;
+        const lockData = recordData(
+            new PackageLock({
+                target,
+                roots: [],
+                snapshotRevision: Revision.initial(),
+                snapshotDigest: digest("snapshot"),
+                packages: [pin]
+            })
+        );
         expect(() => PackageLock.fromData({ ...lockData, snapshotDigest: 7 })).toThrow(
             "Package lock snapshot digest must be a string"
         );
@@ -297,14 +300,14 @@ describe("definition codec adversarial edges", () => {
                 })
         ).toThrow(/roots/);
         expect(() => PackageLock.fromData(null)).toThrow(/object/);
-        expect(() => PackageLock.fromData({ ...(lock.toData() as object), roots: null })).toThrow(
+        expect(() => PackageLock.fromData({ ...recordData(lock), roots: null })).toThrow(
             /array/
         );
         expect(() =>
-            PackageLock.fromData({ ...(lock.toData() as object), snapshotRevision: -1 })
+            PackageLock.fromData({ ...recordData(lock), snapshotRevision: -1 })
         ).toThrow(/non-negative/);
         expect(() =>
-            PackageLock.fromData({ ...(lock.toData() as object), snapshotDigest: 7 })
+            PackageLock.fromData({ ...recordData(lock), snapshotDigest: 7 })
         ).toThrow(/string/);
 
         const release = packageRelease();
@@ -322,14 +325,14 @@ describe("definition codec adversarial edges", () => {
                 })
         ).toThrow(/manifests must be unique/);
         expect(() =>
-            PackageRelease.fromData({ ...(release.toData() as object), provenance: null })
+            PackageRelease.fromData({ ...recordData(release), provenance: null })
         ).toThrow(/provenance/);
         expect(() =>
-            PackageRelease.fromData({ ...(release.toData() as object), manifests: [] })
+            PackageRelease.fromData({ ...recordData(release), manifests: [] })
         ).toThrow(/at least one manifest/);
         expect(() =>
             PackageRelease.fromData({
-                ...(release.toData() as object),
+                ...recordData(release),
                 compatibility: { host: "*", spec: "*", unknown: true }
             })
         ).toThrow(/missing or unknown/);
@@ -345,10 +348,10 @@ describe("definition codec adversarial edges", () => {
         });
         expect(() => MetadataSnapshot.fromData(null)).toThrow(/object/);
         expect(() =>
-            MetadataSnapshot.fromData({ ...(snapshot.toData() as object), releases: null })
+            MetadataSnapshot.fromData({ ...recordData(snapshot), releases: null })
         ).toThrow(/array/);
         expect(() =>
-            MetadataSnapshot.fromData({ ...(snapshot.toData() as object), revision: -1 })
+            MetadataSnapshot.fromData({ ...recordData(snapshot), revision: -1 })
         ).toThrow(/non-negative/);
     });
 });

@@ -14,6 +14,7 @@ import {
     policyProjection
 } from "../../src/definition";
 import { TenantId } from "../../src/identity";
+import { recordData } from "./record-data";
 
 const encoder = new TextEncoder();
 const tenantId = new TenantId("tenant");
@@ -91,30 +92,30 @@ describe("materialization generation identity and canonicalization", () => {
             generation.id,
             policyProjection("policy:stable", PolicySet.empty())
         );
-        const recordData = record.toData() as object;
-        expect(() => ManagedStateRecord.fromData({ ...recordData, desiredDigest: 7 })).toThrow(
+        const stateData = recordData(record);
+        expect(() => ManagedStateRecord.fromData({ ...stateData, desiredDigest: 7 })).toThrow(
             "Managed state desired digest must be a string"
         );
-        expect(() => ManagedStateRecord.fromData({ ...recordData, id: 7 })).toThrow(
+        expect(() => ManagedStateRecord.fromData({ ...stateData, id: 7 })).toThrow(
             "Managed state ID must be a string"
         );
-        expect(() => ManagedStateRecord.fromData({ ...recordData, resourceId: 7 })).toThrow(
+        expect(() => ManagedStateRecord.fromData({ ...stateData, resourceId: 7 })).toThrow(
             "Managed resource ID must be a string"
         );
-        expect(() => ManagedStateRecord.fromData({ ...recordData, logicalKey: 7 })).toThrow(
+        expect(() => ManagedStateRecord.fromData({ ...stateData, logicalKey: 7 })).toThrow(
             "Managed state logical key must be a string"
         );
-        expect(() => ManagedStateRecord.fromData({ ...recordData, recordKind: 7 })).toThrow(
+        expect(() => ManagedStateRecord.fromData({ ...stateData, recordKind: 7 })).toThrow(
             "Managed state record kind must be a string"
         );
         expect(() =>
-            ManagedStateRecord.fromData({ ...recordData, origin: undefined } as never)
+            ManagedStateRecord.fromData({ ...stateData, origin: undefined } as never)
         ).toThrow("Managed state origin is required");
         expect(() =>
-            ManagedStateRecord.fromData({ ...recordData, actor: { id: 7, kind: "workspace" } })
+            ManagedStateRecord.fromData({ ...stateData, actor: { id: 7, kind: "workspace" } })
         ).toThrow("Actor ID must be a string");
 
-        const generationData = generation.toData() as object;
+        const generationData = recordData(generation);
         expect(() => MaterializationGeneration.fromData({ ...generationData, id: 7 })).toThrow(
             "Materialization generation ID must be a string"
         );
@@ -125,7 +126,7 @@ describe("materialization generation identity and canonicalization", () => {
         const pointer = MaterializationGenerationPointer.initial(actor, deploymentId, generation.id);
         expect(() =>
             MaterializationGenerationPointer.fromData({
-                ...(pointer.toData() as object),
+                ...recordData(pointer),
                 deploymentId: 7
             })
         ).toThrow("Generation pointer deployment ID must be a string");
@@ -142,7 +143,7 @@ describe("materialization generation identity and canonicalization", () => {
     test("rejects malformed pointer revisions with the exact subject", { tags: "p2" }, () => {
         const generation = MaterializationGeneration.fromActorPlan(actorPlan(origin(1)));
         const pointer = MaterializationGenerationPointer.initial(actor, deploymentId, generation.id);
-        const data = pointer.toData() as object;
+        const data = recordData(pointer);
         for (const revision of ["1", -1, 0.5]) {
             expect(() =>
                 MaterializationGenerationPointer.fromData({ ...data, revision })

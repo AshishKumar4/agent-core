@@ -26,6 +26,7 @@ import { TenantId } from "../../src/identity";
 import { AgentCoreError } from "../../src/errors";
 import { definitionRevisionConflict, invalidDefinition } from "../../src/definition/error";
 import { compareText } from "../../src/definition/order";
+import { recordData } from "./record-data";
 
 describe("definition value boundaries", () => {
     test("orders canonical text without locale-dependent collation", { tags: "p0" }, () => {
@@ -145,7 +146,7 @@ describe("definition value boundaries", () => {
             expect(() => BlueprintMeta.fromData(null)).toThrow(/object/);
             expect(() => BlueprintMeta.fromData({ name: 7, version: "1.0.0" })).toThrow(/string/);
             expect(() =>
-                Blueprint.fromData({ ...(blueprint.toData() as object), agents: null })
+                Blueprint.fromData({ ...recordData(blueprint), agents: null })
             ).toThrow(/array/);
         }
     );

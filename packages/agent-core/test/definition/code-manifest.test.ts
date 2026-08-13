@@ -7,6 +7,7 @@ import {
     PackageCodeModule
 } from "../../src/definition";
 import { FacetPackageId } from "../../src/facets";
+import { recordData } from "./record-data";
 
 const encoder = new TextEncoder();
 
@@ -183,12 +184,12 @@ describe("PackageCodeManifest", () => {
         expect(() => PackageCodeManifest.fromData(null)).toThrow(/object/);
         expect(() =>
             PackageCodeManifest.fromData({
-                ...(manifest.toData() as object),
+                ...recordData(manifest),
                 unknown: true
             })
         ).toThrow(/missing or unknown/);
         expect(() =>
-            PackageCodeManifest.fromData({ ...(manifest.toData() as object), modules: [] })
+            PackageCodeManifest.fromData({ ...recordData(manifest), modules: [] })
         ).toThrow(/requires modules/);
         expect(() => PackageCodeModule.fromData(null)).toThrow(/object/);
         expect(() =>
@@ -404,7 +405,7 @@ describe("PackageCodeManifest", () => {
             entrypoints: [entry("facet", "./main.js")]
         });
         expect(() =>
-            PackageCodeManifest.fromData({ ...(manifest.toData() as object), digest: 7 })
+            PackageCodeManifest.fromData({ ...recordData(manifest), digest: 7 })
         ).toThrow(/Package code digest must be a string/);
     });
 });
