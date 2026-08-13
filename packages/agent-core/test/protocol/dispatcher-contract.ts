@@ -5,7 +5,8 @@ import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 import { AuditRecordId } from "../../src/invocations";
 import { TurnId } from "../../src/agents";
 import { CommandEnvelopeCodec, type LeaseToken } from "../../src/protocol/envelope";
-import type { PreDispatchFailure } from "../../src/protocol/ingress";
+import type { CommandIngressResult, PreDispatchFailure } from "../../src/protocol/ingress";
+import type { CommandDispatchResult } from "../../src/protocol/dispatcher";
 import { CommandCallerPolicy } from "../../src/protocol/policy";
 import { WriteRecordCodec } from "../../src/protocol/write";
 import { testContentRef } from "../helpers/content";
@@ -398,12 +399,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(harness.snapshot().audits.size).toBe(0);
         });
 
-        test.each<
-            readonly [
-                string,
-                (harness: ReturnType<CounterFixtureFactory>, raw: Uint8Array) => Promise<unknown>
-            ]
-        >([
+        test.each<readonly [string, PayloadRejectionRun]>([
             [
                 "confirmed missing",
                 async (harness, raw) => {
@@ -422,9 +418,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             const harness = create();
             const raw = harness.envelope({ key: `malformed-${_case}` });
 
-            const result = (await run(harness, raw)) as Awaited<
-                ReturnType<typeof harness.dispatch>
-            >;
+            const result = await run(harness, raw);
 
             expect(result.outcome).toBe("rejectedMalformed");
             expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 1 });
@@ -478,10 +472,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             const harness = create();
 
             const result = await harness.accept(
-                harness.envelope({
-                    key: "decoder-malformed",
-                    amount: "bad" as unknown as number
-                })
+                harness.envelope({ key: "decoder-malformed", amount: forgedAmount("bad") })
             );
 
             expect(result).toMatchObject({ kind: "commandOutcome", outcome: "rejectedMalformed" });
@@ -940,10 +931,11 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             expect(
                 (
                     await harness.dispatch(
-                        harness.envelope({
-                            key: `lease-${_case}`,
-                            ...(supplied === undefined ? {} : { lease: supplied })
-                        })
+                        harness.envelope(
+                            supplied === undefined
+                                ? { key: `lease-${_case}` }
+                                : { key: `lease-${_case}`, lease: supplied }
+                        )
                     )
                 ).outcome
             ).toBe("rejectedLease");
@@ -1007,9 +999,25 @@ type InvalidCallerCauseFactory = (
     harness: CounterFixture
 ) => AuditRecordId | Promise<AuditRecordId>;
 
-function requirePreDispatchFailure(result: { readonly kind: string }): PreDispatchFailure {
+function requirePreDispatchFailure(result: CommandIngressResult): PreDispatchFailure {
     if (result.kind !== "preDispatchFailure") {
         throw new TypeError("Expected a pre-dispatch failure");
     }
-    return result as PreDispatchFailure;
+    return result;
+}
+
+/** One deterministic payload rejection: run it against a fixture and report the outcome. */
+type PayloadRejectionRun = (
+    harness: ReturnType<CounterFixtureFactory>,
+    raw: Uint8Array
+) => Promise<CommandDispatchResult>;
+
+/**
+ * The counter payload codec decodes an amount from canonical JSON. Proving it rejects a
+ * non-numeric amount means encoding one, which CounterEnvelopeInit's type forbids.
+ */
+function forgedAmount<TActual>(value: TActual): number {
+    // SAFETY: not a number. The payload decoder must reject the encoded envelope as malformed
+    // rather than admit a command whose amount it never validated.
+    return value as TActual & number;
 }

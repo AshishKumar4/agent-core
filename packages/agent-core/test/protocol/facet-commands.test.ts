@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { ActorId, ActorRef, MemoryActorStore } from "../../src/actors";
+import {
+    ActorId,
+    ActorRef,
+    MemoryActorStore,
+    type SynchronousResultGuard,
+    type TransactionOperation
+} from "../../src/actors";
 import { ProvenanceFacetSlotBackend, createClosedCommandDispatcher } from "../../src/composition";
 import {
     ContentRef,
@@ -7,7 +13,8 @@ import {
     JsonSchema,
     Revision,
     SemVer,
-    encodeCanonicalJson
+    encodeCanonicalJson,
+    type JsonValue
 } from "../../src/core";
 import {
     DeploymentId,
@@ -17,7 +24,7 @@ import {
     PackagePin,
     type AuthenticatedPackageInstallation
 } from "../../src/definition";
-import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
+import { PrincipalId, PrincipalRef, TenantId, WorkspaceId } from "../../src/identity";
 import {
     FacetPackageId,
     FacetRef,
@@ -26,7 +33,7 @@ import {
     SlotDeclaration,
     SlotEntry,
     SlotName,
-    type WorkspaceSlotStore
+    WorkspaceSlotStore
 } from "../../src/facets";
 import {
     FACET_SLOT_COMMANDS,
@@ -41,7 +48,6 @@ import {
     type CommandCaller,
     type CommandDispatchResult,
     type FacetSlotCommandBackend,
-    type ProtocolCommand,
     type SlotContributionRequest
 } from "../../src/protocol";
 import { CounterAuthenticator, CounterContentStore, CounterIds } from "./counter-fixture";
@@ -269,15 +275,16 @@ describe("Facet Slot protocol commands", () => {
         const command = new FacetSlotInstallCommand(new Backend(), actor("workspace"));
         const codec = command.replyCodec!;
         expect(codec.decode(codec.encode({ revision: new Revision(3) })).revision.value).toBe(3);
-        for (const malformed of [
+        const malformedReplies: readonly JsonValue[] = [
             null,
             {},
             { revision: 0, extra: true },
             { revision: "0" },
             { revision: -1 },
             { revision: 1.5 }
-        ]) {
-            expect(() => codec.decode(encodeCanonicalJson(malformed as never))).toThrow(TypeError);
+        ];
+        for (const malformed of malformedReplies) {
+            expect(() => codec.decode(encodeCanonicalJson(malformed))).toThrow(TypeError);
         }
         expect(() =>
             command.payload.decode(encodeCanonicalJson({ record: "AA==", extra: true }))
@@ -327,7 +334,7 @@ describe("Facet Slot protocol commands", () => {
                 install.execute(
                     backend,
                     envelope(install.command, target),
-                    {} as never,
+                    forgedDeclaration({}),
                     decisionAt
                 ),
             "protocol.invalid-state"
@@ -337,7 +344,7 @@ describe("Facet Slot protocol commands", () => {
                 contribute.execute(
                     backend,
                     envelope(contribute.command, target),
-                    {} as never,
+                    forgedContribution({}),
                     decisionAt
                 ),
             "protocol.invalid-state"
@@ -381,11 +388,7 @@ describe("Facet Slot protocol commands", () => {
         for (const ordinal of ["zero", -1, 1.5]) {
             expect(() =>
                 contribute.payload.decode(
-                    encodeCanonicalJson({
-                        ordinal,
-                        slot: "slot",
-                        value: null
-                    } as never)
+                    encodeCanonicalJson({ ordinal, slot: "slot", value: null })
                 )
             ).toThrow(/ordinal/);
         }
@@ -402,7 +405,7 @@ describe("Facet Slot protocol commands", () => {
                     contribute.execute(
                         backend,
                         envelope(contribute.command, target),
-                        malformed as never,
+                        forgedContribution(malformed),
                         decisionAt
                     ),
                 "protocol.invalid-state"
@@ -584,6 +587,8 @@ class Backend implements FacetSlotCommandBackend<Backend, Backend> {
     }
 }
 
+const slotStoreOwner = new WorkspaceId("facet-commands-workspace");
+
 interface SlotState {
     revision: Revision;
     slots: Map<string, SlotDeclaration>;
@@ -603,23 +608,50 @@ class MutableInstallationProvenance<State = SlotState> extends PackageInstallati
     }
 }
 
+/**
+ * A real slot store over in-memory state. These tests drive its data methods with a transaction
+ * they already hold, so its transactional entry points are never reached; implementing the class
+ * rather than asserting an object literal into it keeps that difference visible.
+ */
+class TestSlotStore<State extends SlotState> extends WorkspaceSlotStore<State> {
+    public override transaction<Result>(
+        _operation: TransactionOperation<State, Result>,
+        ..._guard: SynchronousResultGuard<Result>
+    ): Result {
+        throw new TypeError("Slot store transactions are driven by the command under test");
+    }
+
+    public override loadRevision(state: State): Revision {
+        return state.revision;
+    }
+
+    public override saveRevision(state: State, revision: Revision): void {
+        state.revision = revision;
+    }
+
+    public override loadSlot(state: State, name: SlotName): SlotDeclaration | undefined {
+        return state.slots.get(name.value);
+    }
+
+    public override insertSlot(state: State, declaration: SlotDeclaration): void {
+        state.slots.set(declaration.name.value, declaration);
+    }
+
+    public override loadEntry(state: State, id: SlotEntry["id"]): SlotEntry | undefined {
+        return state.entries.get(id.value);
+    }
+
+    public override listEntries(state: State, name: SlotName): readonly SlotEntry[] {
+        return [...state.entries.values()].filter((candidate) => candidate.slot.equals(name));
+    }
+
+    public override insertEntry(state: State, candidate: SlotEntry): void {
+        state.entries.set(candidate.id.value, candidate);
+    }
+}
+
 function slotStore<State extends SlotState = SlotState>(): WorkspaceSlotStore<State> {
-    return {
-        loadRevision: (state: State) => state.revision,
-        saveRevision: (state: State, revision: Revision) => {
-            state.revision = revision;
-        },
-        loadSlot: (state: State, name: SlotName) => state.slots.get(name.value),
-        insertSlot: (state: State, declaration: SlotDeclaration) => {
-            state.slots.set(declaration.name.value, declaration);
-        },
-        loadEntry: (state: State, id: SlotEntry["id"]) => state.entries.get(id.value),
-        listEntries: (state: State, name: SlotName) =>
-            [...state.entries.values()].filter((candidate) => candidate.slot.equals(name)),
-        insertEntry: (state: State, candidate: SlotEntry) => {
-            state.entries.set(candidate.id.value, candidate);
-        }
-    } as unknown as WorkspaceSlotStore<State>;
+    return new TestSlotStore<State>(slotStoreOwner);
 }
 
 interface ClosedSlotView {
@@ -633,13 +665,12 @@ interface ClosedSlotState extends ClosedSlotView {
     nextId: number;
 }
 
-function closedSlotFixture(
-    installedFacet: string,
-    allowedFacet: string
-): {
+interface ClosedSlotHarness {
     dispatch(payload: Uint8Array, key: string): Promise<CommandDispatchResult>;
     entries(): readonly SlotEntry[];
-} {
+}
+
+function closedSlotFixture(installedFacet: string, allowedFacet: string): ClosedSlotHarness {
     const tenant = new TenantId("tenant");
     const target = actor("closed-slot-workspace");
     const declaration = new SlotDeclaration(
@@ -704,12 +735,7 @@ function closedSlotFixture(
             entries: new Map([...state.entries].map(([key, bytes]) => [key, bytes.slice()]))
         }),
         commands: {
-            facets: [
-                new FacetSlotContributeCommand(backend, target) as unknown as ProtocolCommand<
-                    ClosedSlotState,
-                    ClosedSlotView
-                >
-            ]
+            facets: [new FacetSlotContributeCommand(backend, target)]
         },
         limits: { envelopeBytes: 16_384, payloadBytes: 16_384 },
         now: () => decisionAt
@@ -746,31 +772,56 @@ function closedSlotFixture(
     };
 }
 
+/** The closed-slot variant keeps its records encoded, the way a substrate store does. */
+class ClosedTestSlotStore extends WorkspaceSlotStore<ClosedSlotState> {
+    public override transaction<Result>(
+        _operation: TransactionOperation<ClosedSlotState, Result>,
+        ..._guard: SynchronousResultGuard<Result>
+    ): Result {
+        throw new TypeError("Slot store transactions are driven by the dispatcher under test");
+    }
+
+    public override loadRevision(state: ClosedSlotState): Revision {
+        return new Revision(state.revision);
+    }
+
+    public override saveRevision(state: ClosedSlotState, revision: Revision): void {
+        state.revision = revision.value;
+    }
+
+    public override loadSlot(
+        state: ClosedSlotState,
+        name: SlotName
+    ): SlotDeclaration | undefined {
+        const bytes = state.slots.get(name.value);
+        return bytes === undefined ? undefined : SlotDeclaration.decode(bytes);
+    }
+
+    public override insertSlot(state: ClosedSlotState, candidate: SlotDeclaration): void {
+        state.slots.set(candidate.name.value, SlotDeclaration.encode(candidate));
+    }
+
+    public override loadEntry(
+        state: ClosedSlotState,
+        id: SlotEntry["id"]
+    ): SlotEntry | undefined {
+        const bytes = state.entries.get(id.value);
+        return bytes === undefined ? undefined : SlotEntry.decode(bytes);
+    }
+
+    public override listEntries(state: ClosedSlotState, name: SlotName): readonly SlotEntry[] {
+        return [...state.entries.values()]
+            .map((bytes) => SlotEntry.decode(bytes))
+            .filter((candidate) => candidate.slot.equals(name));
+    }
+
+    public override insertEntry(state: ClosedSlotState, candidate: SlotEntry): void {
+        state.entries.set(candidate.id.value, SlotEntry.encode(candidate));
+    }
+}
+
 function closedSlotStore(): WorkspaceSlotStore<ClosedSlotState> {
-    return {
-        loadRevision: (state: ClosedSlotState) => new Revision(state.revision),
-        saveRevision: (state: ClosedSlotState, revision: Revision) => {
-            state.revision = revision.value;
-        },
-        loadSlot: (state: ClosedSlotState, name: SlotName) => {
-            const bytes = state.slots.get(name.value);
-            return bytes === undefined ? undefined : SlotDeclaration.decode(bytes);
-        },
-        insertSlot: (state: ClosedSlotState, candidate: SlotDeclaration) => {
-            state.slots.set(candidate.name.value, SlotDeclaration.encode(candidate));
-        },
-        loadEntry: (state: ClosedSlotState, id: SlotEntry["id"]) => {
-            const bytes = state.entries.get(id.value);
-            return bytes === undefined ? undefined : SlotEntry.decode(bytes);
-        },
-        listEntries: (state: ClosedSlotState, name: SlotName) =>
-            [...state.entries.values()]
-                .map((bytes) => SlotEntry.decode(bytes))
-                .filter((candidate) => candidate.slot.equals(name)),
-        insertEntry: (state: ClosedSlotState, candidate: SlotEntry) => {
-            state.entries.set(candidate.id.value, SlotEntry.encode(candidate));
-        }
-    } as unknown as WorkspaceSlotStore<ClosedSlotState>;
+    return new ClosedTestSlotStore(slotStoreOwner);
 }
 
 function cloneClosedSlotState(state: ClosedSlotState): ClosedSlotState {
@@ -866,7 +917,25 @@ function contribution(candidate: SlotEntry): SlotContributionRequest {
     };
 }
 
-function expectAgentCoreError(action: () => unknown, code: string): void {
+/**
+ * A contribution request the command's payload codec never produced. The command re-checks that
+ * its request came from its own decoder before acting on it, and that check is what these callers
+ * assert on.
+ */
+function forgedDeclaration<TActual>(value: TActual): SlotDeclaration {
+    // SAFETY: not a decoded SlotDeclaration. The install command must refuse it as an invalid
+    // state rather than install a slot whose schema and authority it never validated.
+    return value as TActual & SlotDeclaration;
+}
+
+function forgedContribution<TActual>(value: TActual): SlotContributionRequest {
+    // SAFETY: not a decoded SlotContributionRequest — either absent, or carrying a slot name,
+    // ordinal, or value the codec would have rejected. The command must refuse it as an invalid
+    // state rather than contribute an entry it never validated.
+    return value as TActual & SlotContributionRequest;
+}
+
+function expectAgentCoreError(action: () => void, code: string): void {
     try {
         action();
         throw new TypeError("Expected AgentCoreError");

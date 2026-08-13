@@ -22,7 +22,8 @@ import {
     type ProtocolIdentityProjection,
     type ProtocolWriteIdentityProjection,
     type StoredProtocolAudit,
-    type StoredProtocolWrite
+    type StoredProtocolWrite,
+    type WriteRecordInit
 } from "../../src/protocol";
 import { expectAgentCoreError } from "./error-assertion";
 import { appendProtocolTestRecords, protocolTestRecords } from "./persistence-contract";
@@ -153,7 +154,7 @@ test("audit evidence lookup fails closed on a mismatched stored projection", { t
         }
     })(records);
 
-    const lookup = (): unknown =>
+    const lookup = () =>
         persistence.findAuditByEvidence(facade, expected.root.actor, expected.root.kind);
     expectAgentCoreError(lookup, "codec.invalid");
     expect(lookup).toThrow("Stored audit evidence lookup returned a mismatched projection");
@@ -251,7 +252,7 @@ test("stored duplicate reads fail closed when the original write is missing", { 
         writes: snapshot.writes.filter((write) => write.id !== original.write.id.value)
     });
 
-    const read = (): unknown => persistence.findWriteById(restored, duplicate.write.id);
+    const read = () => persistence.findWriteById(restored, duplicate.write.id);
     expectAgentCoreError(read, "protocol.invalid-state");
     expect(read).toThrow("Duplicate write does not name a valid original write");
 });
@@ -292,7 +293,7 @@ test("committed write audits require a cause on read and repair", { tags: "p1" }
         identities: []
     });
 
-    const read = (): unknown => persistence.findWriteById(records, committed.write.id);
+    const read = () => persistence.findWriteById(records, committed.write.id);
     expectAgentCoreError(read, "protocol.invalid-state");
     expect(read).toThrow("Only rejected writes may have a cause-free audit root");
     expect(() => persistence.repair(records)).toThrow("Stored audit graph is invalid");
@@ -336,7 +337,7 @@ test("stored record key aliasing fails closed for audits and writes", { tags: "p
                 : super.findAudit(id);
         }
     })(records);
-    const readAlias = (): unknown => persistence.findAudit(auditAlias, expected.root.id);
+    const readAlias = () => persistence.findAudit(auditAlias, expected.root.id);
     expectAgentCoreError(readAlias, "codec.invalid");
     expect(readAlias).toThrow("Stored audit key or projection does not match its codec bytes");
 
@@ -370,7 +371,7 @@ test("stored byte containers must be genuine byte arrays", { tags: "p2" }, () =>
     const persistence = new StoragePersistence();
     const expected = protocolTestRecords("adapter-bytes");
     appendProtocolTestRecords(persistence, records, expected);
-    const nonBytes = "not bytes" as unknown as Uint8Array;
+    const nonBytes = forgedBytes("not bytes");
 
     const corruptAudit = new (class extends FacadeStorage {
         public override findAudit(id: string): StoredProtocolAudit | undefined {
@@ -378,7 +379,7 @@ test("stored byte containers must be genuine byte arrays", { tags: "p2" }, () =>
             return stored === undefined ? undefined : { ...stored, bytes: nonBytes };
         }
     })(records);
-    const readAudit = (): unknown => persistence.findAudit(corruptAudit, expected.root.id);
+    const readAudit = () => persistence.findAudit(corruptAudit, expected.root.id);
     expectAgentCoreError(readAudit, "codec.invalid");
     expect(readAudit).toThrow("Stored audit bytes are malformed");
 
@@ -567,7 +568,7 @@ test("duplicate lineage must name an identity-reserving original", { tags: "p0" 
         identities: snapshot.identities
     });
 
-    const read = (): unknown => persistence.findWriteById(chained, second.write.id);
+    const read = () => persistence.findWriteById(chained, second.write.id);
     expectAgentCoreError(read, "protocol.invalid-state");
     expect(read).toThrow("Duplicate write does not name a valid original write");
     expect(() => persistence.repair(chained)).toThrow(
@@ -589,7 +590,7 @@ test("stored audit write projections must match their codec bytes", { tags: "p1"
         }
     })(records);
 
-    const read = (): unknown => persistence.findAudit(phantom, expected.root.id);
+    const read = () => persistence.findAudit(phantom, expected.root.id);
     expectAgentCoreError(read, "codec.invalid");
     expect(read).toThrow("Stored audit key or projection does not match its codec bytes");
 });
@@ -636,14 +637,28 @@ test("stored write audits must retain their write id projection", { tags: "p1" }
         }
     })(records);
 
-    const read = (): unknown => persistence.findAudit(stripped, expected.audit.id);
+    const read = () => persistence.findAudit(stripped, expected.audit.id);
     expectAgentCoreError(read, "codec.invalid");
 });
 
-function causeFreeWriteRecords(
-    prefix: string,
-    outcome: "committed" | "rejectedMalformed"
-): { readonly audit: AuditRecord; readonly write: WriteRecord } {
+type CauseFreeOutcome = "committed" | "rejectedMalformed";
+
+interface CauseFreeRecords {
+    readonly audit: AuditRecord;
+    readonly write: WriteRecord;
+}
+
+/**
+ * Stored bytes are supposed to hold an encoded record. Proving the read path rejects a stored
+ * value that is not bytes means putting one there, which the projection types forbid.
+ */
+function forgedBytes<TActual>(value: TActual): Uint8Array {
+    // SAFETY: not a Uint8Array. The adapter must report the stored record as malformed rather
+    // than hand it to a codec that would fail somewhere less specific.
+    return value as TActual & Uint8Array;
+}
+
+function causeFreeWriteRecords(prefix: string, outcome: CauseFreeOutcome): CauseFreeRecords {
     const writeId = new WriteRecordId(`${prefix}-write`);
     const audit = new AuditRecord({
         id: new AuditRecordId(`${prefix}-audit`),
@@ -652,25 +667,26 @@ function causeFreeWriteRecords(
         correlation: new CorrelationId(`${prefix}-correlation`),
         kind: { kind: "write", id: writeId, outcome }
     });
-    const write = new WriteRecord({
+    const required: WriteRecordInit = {
         id: writeId,
         actor: adapterActor,
         envelopeDigest: Digest.sha256(new TextEncoder().encode(prefix)),
-        ...(outcome === "committed"
-            ? {
-                  caller: {
-                      kind: "actor",
-                      actor: adapterActor
-                  },
-                  command: "adapter.command",
-                  idempotencyKey: `${prefix}-key`
-              }
-            : {}),
         at: new Date("2026-07-07T12:00:00.000Z"),
         outcome,
         audit: audit.id,
         reply: new TextEncoder().encode(`${prefix}-reply`)
-    });
+    };
+    // Only a committed write carries the decoded envelope fields; a malformed one may omit them.
+    const write = new WriteRecord(
+        outcome === "committed"
+            ? {
+                  ...required,
+                  caller: { kind: "actor", actor: adapterActor },
+                  command: "adapter.command",
+                  idempotencyKey: `${prefix}-key`
+              }
+            : required
+    );
     return { audit, write };
 }
 
