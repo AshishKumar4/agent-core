@@ -356,23 +356,7 @@ export class MemorySlateStore extends SlateStore {
 
     public constructor(snapshot: MemorySlateSnapshot = EMPTY_SNAPSHOT) {
         super();
-        this.installSlateRows(snapshot.slates);
-        installRows(this.#versions, snapshot.versions, "Slate versions");
-        installRows(this.#publications, snapshot.publications, "Slate publications");
-        installRows(this.#deployments, snapshot.deployments, "Slate deployments");
-        installRows(this.#resources, snapshot.resources, "Slate resources");
-        installRows(this.#previews, snapshot.previews, "Slate previews");
-        installRows(
-            this.#deploymentReservations,
-            snapshot.deploymentReservations,
-            "Slate deployment reservations"
-        );
-        installRows(
-            this.#resourceReservations,
-            snapshot.resourceReservations,
-            "Slate resource reservations"
-        );
-        this.verifyAll();
+        this.install(snapshot);
     }
 
     public transaction<Result>(operation: (store: SlateStore) => Result): Result {
@@ -664,6 +648,10 @@ export class MemorySlateStore extends SlateStore {
         this.#previews.clear();
         this.#deploymentReservations.clear();
         this.#resourceReservations.clear();
+        this.install(snapshot);
+    }
+
+    private install(snapshot: MemorySlateSnapshot): void {
         this.installSlateRows(snapshot.slates);
         installRows(this.#versions, snapshot.versions, "Slate versions");
         installRows(this.#publications, snapshot.publications, "Slate publications");

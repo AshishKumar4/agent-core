@@ -255,16 +255,34 @@ evidence agree where applicable.
       kernel is generated: the executable definitions are written in Lean and extracted
       by no tool, so the oracle binary and the TypeScript remain two implementations
       whose agreement is sampled, not one artifact derived from the other.
-- [ ] Prove Actor-local persistence refinement over transaction, uniqueness,
+- [~] Prove Actor-local persistence refinement over transaction, uniqueness,
       rollback, restart, and commit-unknown states. Keep SQLite itself in the documented
-      trusted base unless it is independently verified.
+      trusted base unless it is independently verified. DONE for one Actor's own storage
+      (`AC-PERSISTENCE-001`, 19 theorems). The concrete machine carries an open
+      transaction holding the storage it opened against and the writes staged so far, and
+      `durable_state_refines_the_atomic_actor` proves every reachable concrete storage is
+      one the atomic Actor also reaches — so no partially applied transaction is ever
+      durable, which is what every other module here assumes when it reads an Actor's
+      storage as a value. That rests on `reachable_transaction_anchored`, which holds only
+      because a transaction cannot open over an open one. `activateExec` is the modeled
+      activation decision and the LTS admits an activation exactly when it succeeds; the
+      differential suite runs it against both stores over all nine storage shapes the
+      decision distinguishes. SQLite stays in the trusted base: the two-branch reading of
+      an unknown commit is registered as `ASM-ACTOR-LOCAL-ATOMICITY`, and every theorem
+      inherits it. What it buys is proved — `serving_past_commit_unknown_is_branch_dependent`
+      exhibits a fence that is current in one branch and stale in the other, and
+      `reactivation_resolves_commit_unknown` shows closing and re-activating lands where
+      both branches agree. Remaining: the mailbox is not modeled, so serialization,
+      command ordering, and the closing-before-closed latch are not results; the record log
+      is opaque identifiers, so append-only is proved for the log's shape only; cross-Actor
+      atomicity stays excluded by `ASM-TRANSITION-ATOMICITY`.
 - [x] Model the target-owned request, Tenant Actor permit issuance, typed transport,
       target Actor authentication/consumption, monotonic time, restart/reset, replay, and
       commit-unknown observations separately. The abstract safety theorems cover
       loss/duplication/reorder/replay/reset and historical issuance; no liveness theorem
       is claimed without explicit fairness/eventual-delivery assumptions. Route transport
       remains owned by the separate routing LTS.
-- [ ] Build the release assurance chain:
+- [~] Build the release assurance chain:
 
     ```text
     SPEC requirement
@@ -275,6 +293,26 @@ evidence agree where applicable.
       -> Cloudflare live scenario
       -> exact deployed bundle/config/migrations
     ```
+
+    MACHINE-CHECKED for four requirements, not diagrammed for all of them.
+    `traceability.releaseChain` carries one entry per requirement with a status for every
+    link, and `npm run check:traceability` verifies each recorded link against the artifact
+    it names: a SPEC atom must appear in SPEC.md, a theorem must be one that requirement
+    owns, an executable decision must be a definition the oracle runs and an operation it
+    serves, refinement evidence must be a suite that asks the oracle for that operation, a
+    substrate contract must be a file that runs against both named backings, a live
+    scenario must have a passing assertion for its atom in the named report, and a deployed
+    bundle must name a version the run record contains. Fabricating any of those fails the
+    check; an open link must instead carry a reason and no evidence.
+
+    The result is that **no entry is closed end to end**, and the artifact now says exactly
+    where each one stops. `AC-PERSISTENCE-001`, `AC-LEASE-001`, and `AC-CAPABILITY-001`
+    reach TypeScript refinement evidence; only persistence also has a Memory/SQLite
+    contract. None has a live scenario, because the Cloudflare live harness never
+    constructs an ActorStore, a Turn lease, or a capability path — it exercises the
+    provider surfaces. `AC-ENVIRONMENT-001` is the mirror image: a recorded live scenario
+    and deployed bundle, no executable decision at all. Closing a chain end to end needs
+    live coverage of a core decision path, which does not exist today.
 
 ## Behavioral and dynamical test requirements
 
