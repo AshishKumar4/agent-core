@@ -2,7 +2,7 @@ import { AgentCoreError } from "@agent-core/core";
 import type { CloudflareOperationalErrorCode } from "../src/index.js";
 
 export function expectOperationalFailure(
-    operation: () => unknown,
+    operation: () => void,
     code: CloudflareOperationalErrorCode
 ): void {
     try {

@@ -1,6 +1,7 @@
 import { AgentCoreError } from "@agent-core/core";
 import { CloudflareSqlite } from "../src/index.js";
-import { FakeDurableObjectStorage, FakeSqlStorage, fakeErrors } from "./fakes.js";
+import type { CloudflareSqlValue } from "../src/index.js";
+import { FakeDurableObjectStorage, FakeSqlStorage, boundInteger, fakeErrors } from "./fakes.js";
 
 describe("CloudflareSqlite", () => {
     test("fully consumes cursors and normalizes detached BLOB values", () => {
@@ -25,16 +26,21 @@ describe("CloudflareSqlite", () => {
 
         expect(consumed).toBe(2);
         expect(rows).toEqual([{ value: new Uint8Array([3, 4, 5]), count: 2 }]);
-        expect(sql.calls[0]?.bindings[0]).toBeInstanceOf(ArrayBuffer);
-        expect(new Uint8Array(sql.calls[0]?.bindings[0] as ArrayBuffer)).toEqual(
+        const recorded = sql.calls[0]?.bindings[0];
+        expect(recorded).toBeInstanceOf(ArrayBuffer);
+        expect(recorded instanceof ArrayBuffer ? new Uint8Array(recorded) : recorded).toEqual(
             new Uint8Array([1, 2])
         );
     });
 
     test("maps an unsupported collaborator row value to invalid output", () => {
-        const sql = new FakeSqlStorage(() => ({
-            rows: [{ invalid: true } as unknown as Record<string, never>]
-        }));
+        // SAFETY: a boolean is outside every value type the platform declares for a SQL
+        // column, which is exactly the collaborator misbehavior under test. Widening to
+        // `unknown` first is what makes the conversion legal at all; there is no narrower
+        // route to a value the declared types exist to exclude, and the assertion buys
+        // only the ability to reach the rejection this test then asserts.
+        const unsupported = true as unknown as CloudflareSqlValue;
+        const sql = new FakeSqlStorage(() => ({ rows: [{ invalid: unsupported }] }));
         const database = new CloudflareSqlite(new FakeDurableObjectStorage(sql), fakeErrors);
 
         try {
@@ -50,16 +56,15 @@ describe("CloudflareSqlite", () => {
         const values: number[] = [];
         const sql = new FakeSqlStorage((_statement, bindings) => ({
             onConsumed: () => {
-                values.push(bindings[0] as number);
+                values.push(boundInteger(bindings, 0));
             }
         }));
-        const storage = new FakeDurableObjectStorage(
-            sql,
-            () => [...values],
-            (snapshot) => {
-                values.splice(0, values.length, ...(snapshot as number[]));
+        const storage = new FakeDurableObjectStorage(sql, {
+            capture: () => [...values],
+            restore: (snapshot) => {
+                values.splice(0, values.length, ...snapshot);
             }
-        );
+        });
         const database = new CloudflareSqlite(storage, fakeErrors);
 
         expect(() =>
@@ -75,17 +80,16 @@ describe("CloudflareSqlite", () => {
         const values: number[] = [];
         const sql = new FakeSqlStorage((_statement, bindings) => ({
             onConsumed: () => {
-                values.push(bindings[0] as number);
+                values.push(boundInteger(bindings, 0));
             }
         }));
         const database = new CloudflareSqlite(
-            new FakeDurableObjectStorage(
-                sql,
-                () => [...values],
-                (snapshot) => {
-                    values.splice(0, values.length, ...(snapshot as number[]));
+            new FakeDurableObjectStorage(sql, {
+                capture: () => [...values],
+                restore: (snapshot) => {
+                    values.splice(0, values.length, ...snapshot);
                 }
-            ),
+            }),
             fakeErrors
         );
 
@@ -102,17 +106,16 @@ describe("CloudflareSqlite", () => {
         const values: number[] = [];
         const sql = new FakeSqlStorage((_statement, bindings) => ({
             onConsumed: () => {
-                values.push(bindings[0] as number);
+                values.push(boundInteger(bindings, 0));
             }
         }));
         const database = new CloudflareSqlite(
-            new FakeDurableObjectStorage(
-                sql,
-                () => [...values],
-                (snapshot) => {
-                    values.splice(0, values.length, ...(snapshot as number[]));
+            new FakeDurableObjectStorage(sql, {
+                capture: () => [...values],
+                restore: (snapshot) => {
+                    values.splice(0, values.length, ...snapshot);
                 }
-            ),
+            }),
             fakeErrors
         );
 
@@ -156,9 +159,11 @@ describe("CloudflareSqlite", () => {
             new FakeDurableObjectStorage(new FakeSqlStorage(() => ({}))),
             fakeErrors
         );
+        // A thenable only a property get can see: `in` and getOwnPropertyDescriptor both
+        // report `then` as absent, so an adapter that probed either way would call this
+        // asynchronous callback synchronous.
         const thenable = new Proxy(() => undefined, {
-            get: (target, property) =>
-                property === "then" ? () => undefined : Reflect.get(target, property)
+            get: (_target, property) => (property === "then" ? () => undefined : undefined)
         });
         expect(() => database.transaction(() => thenable)).toThrow("must be synchronous");
         expect(() => database.run("UPDATE", [])).toThrow("adapter is poisoned");
