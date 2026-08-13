@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { malformed } from "../helpers/malformed";
 import { ContentRef, Digest, Revision } from "../../src/core";
 import {
     EnvironmentId,
@@ -53,7 +54,7 @@ describe("SlateRuntime mutation kills", () => {
             error
         );
         await expect(
-            fixture.runtime.deploy(publication.id, "production", 7 as unknown as string)
+            fixture.runtime.deploy(publication.id, "production", malformed<string>(7))
         ).rejects.toEqual(error);
         expect(fixture.provider.deployRequests).toHaveLength(0);
         expect(fixture.store.snapshot().deploymentReservations).toHaveLength(0);
@@ -231,15 +232,7 @@ describe("SlateRuntime mutation kills", () => {
         const version = await fixture.runtime.commit(slate.id);
         store.doctorSlate = (current) =>
             current.id.equals(slate.id)
-                ? new Slate({
-                      id: current.id,
-                      workspaceId: new WorkspaceId("workspace-fork-elsewhere"),
-                      source: current.source,
-                      ...(current.headVersionId === undefined
-                          ? {}
-                          : { headVersionId: current.headVersionId }),
-                      revision: current.revision
-                  })
+                ? doctoredSlate(current)
                 : current;
 
         await expect(fixture.runtime.fork(version.id, fixture.workspace)).rejects.toMatchObject({
@@ -417,6 +410,8 @@ class StubInvocationSeam extends SlateInvocationSeam {
         effect: (context: SlateEffectContext) => Promise<Result>
     ): Promise<SlateInvocationResult<Result>> {
         if (this.resultOverride !== undefined) {
+            // SAFETY: the override is a provider result the runtime must reject; it is
+            // never a well-formed result for the caller's Result, which is the check here.
             return this.resultOverride as SlateInvocationResult<Result>;
         }
         const receiptId = new ReceiptId(`receipt-${this.#sequence++}`);
@@ -442,6 +437,8 @@ class StubProvider extends SlateProvider {
     public deploy(request: SlateProviderDeploymentRequest): Promise<SlateProviderDeployment> {
         this.deployRequests.push(request);
         if (this.deploymentResult !== undefined) {
+            // SAFETY: the override carries fields SlateProviderDeployment does not
+            // declare, so the runtime's output check is the only thing that turns it away.
             return Promise.resolve(this.deploymentResult as SlateProviderDeployment);
         }
         return Promise.resolve({ materialization: ref(`deployment-${request.deploymentId.value}`) });
@@ -459,6 +456,8 @@ class StubProvider extends SlateProvider {
         request: SlateProviderResourceRequest
     ): Promise<SlateProviderResource> {
         if (this.resourceResult !== undefined) {
+            // SAFETY: the override carries fields SlateProviderResource does not declare,
+            // so the runtime's output check is the only thing that turns it away.
             return Promise.resolve(this.resourceResult as SlateProviderResource);
         }
         return Promise.resolve({ materialization: ref(`resource-${request.resourceId.value}`) });
@@ -513,12 +512,30 @@ function sessionCapability(label: string, revision: number, epoch: number) {
     );
 }
 
-function inactiveDeploymentStore(label: string): {
+/** A store holding one Slate whose deployment was never made active. */
+type InactiveDeploymentStore = {
     readonly store: MemorySlateStore;
     readonly workspace: WorkspaceId;
     readonly slate: Slate;
     readonly deployment: SlateDeployment;
-} {
+};
+
+/** The same Slate re-homed to another Workspace, which fork revalidation must catch. */
+function doctoredSlate(current: Slate): Slate {
+    const init = {
+        id: current.id,
+        workspaceId: new WorkspaceId("workspace-fork-elsewhere"),
+        source: current.source,
+        revision: current.revision
+    };
+    return new Slate(
+        current.headVersionId === undefined
+            ? init
+            : { ...init, headVersionId: current.headVersionId }
+    );
+}
+
+function inactiveDeploymentStore(label: string): InactiveDeploymentStore {
     const store = new MemorySlateStore();
     const workspace = new WorkspaceId(`workspace-${label}`);
     const slate = Slate.initial(new SlateId(`slate-${label}`), workspace, ref(`${label}-source`));
