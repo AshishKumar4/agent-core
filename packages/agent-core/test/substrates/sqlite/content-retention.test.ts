@@ -70,6 +70,19 @@ class SharedBlobRowSqlite extends TestSqlite {
     }
 }
 
+/** Keeps the array the store bound, so a caller's later edit to its own array is visible. */
+class BlobRecordingSqlite extends TestSqlite {
+    public lastBlob: Uint8Array | undefined;
+
+    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+        super.run(statement, bindings);
+        if (!statement.includes("INTO content_blobs")) return;
+        for (const binding of bindings) {
+            if (binding instanceof Uint8Array) this.lastBlob = binding;
+        }
+    }
+}
+
 function caught(operation: () => unknown): unknown {
     try {
         operation();
@@ -971,6 +984,34 @@ describe("SQLite transient lease contract", () => {
         expect(first).toEqual(encode("detached-read"));
         first.fill(0);
         expect(lease.read()).toEqual(encode("detached-read"));
+    });
+
+    test("hands the substrate lease bytes detached from the caller", { tags: "p0" }, async () => {
+        const database = new BlobRecordingSqlite();
+        const store = new SqliteContentStore(database);
+        const owner = contentOwner();
+        const access = store.transient(owner.tenant, owner.actor, () => at(10));
+        const source = encode("caller-owned-lease");
+
+        const lease = await access.acquire(
+            bindingFor("caller-owned-lease", "caller-owned-lease-envelope", at(30)),
+            source
+        );
+        expect(lease).toBeDefined();
+        source.fill(0);
+
+        expect(database.lastBlob).toEqual(encode("caller-owned-lease"));
+    });
+
+    test("acquires and reads a transient lease over empty content", { tags: "p0" }, async () => {
+        const { access } = harness();
+
+        const lease = await access.acquire(
+            bindingFor("", "empty-content-envelope", at(30)),
+            new Uint8Array(0)
+        );
+
+        expect(lease?.read()).toEqual(new Uint8Array(0));
     });
 
     test("reports the exact missing transient lease row", { tags: "p1" }, async () => {
