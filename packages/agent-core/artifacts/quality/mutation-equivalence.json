@@ -2468,6 +2468,70 @@
       "replacement": "typeof value !== \"number\" && !Number.isSafeInteger(value)",
       "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value)",
       "proof": "This guard has only two operands and the second subsumes the first, so replacing `||` with `&&` reduces the whole condition to `typeof value !== \"number\"`: fractional, unsafe and NaN revisions now pass. Both call sites compare the result against a Revision's value on a decoded MediatedReplayRecord or InvocationPublicationOutbox, and a Revision is always a non-negative safe integer, so those admitted columns fail the comparison and reach the same corrupt() the accessor calls."
+    },
+    {
+      "file": "src/substrates/sqlite/materialization.ts",
+      "symbol": "requireControlSchema",
+      "mutator": "OptionalChaining",
+      "replacement": "rows[0][\"version\"]",
+      "mutated": "rows[0]?.[\"version\"]",
+      "proof": "The chain begins `rows.length !== 1 ||`, so control only reaches this operand when the query returned exactly one row and rows[0] is present. The optional call can therefore never short-circuit, and removing it evaluates the same property of the same object. It is written because tsconfig sets noUncheckedIndexedAccess, which types rows[0] as possibly undefined and does not track the length test three tokens earlier; without the `?.` the file does not compile. That makes the operator a compile-time obligation with no runtime effect."
+    },
+    {
+      "file": "src/substrates/sqlite/materialization.ts",
+      "symbol": "requireControlSchema",
+      "mutator": "OptionalChaining",
+      "replacement": "rows[0][\"owner_kind\"]",
+      "mutated": "rows[0]?.[\"owner_kind\"]",
+      "proof": "This operand is the third in a disjunction whose first is `rows.length !== 1`, and the `||` short-circuits out of the whole condition when that is true. Reaching the owner_kind read therefore means the control schema table held exactly one row, so rows[0] is an object and the optional call always proceeds to the index. Dropping the `?.` changes nothing at run time; it is present only because noUncheckedIndexedAccess widens every array index to include undefined and cannot use the length test as a narrowing."
+    },
+    {
+      "file": "src/substrates/sqlite/materialization.ts",
+      "symbol": "requireControlSchema",
+      "mutator": "OptionalChaining",
+      "replacement": "rows[0][\"owner_id\"]",
+      "mutated": "rows[0]?.[\"owner_id\"]",
+      "proof": "The last operand of the control-schema check reads owner_id from the same row the two operands above it read, and all three sit behind `rows.length !== 1 ||`. A disjunction stops at its first true operand, so this expression runs only when the row count is exactly one and the index is populated. The mutant removes a short-circuit that can never fire. The operator exists to satisfy noUncheckedIndexedAccess, which types the index as possibly undefined regardless of the length test beside it."
+    },
+    {
+      "file": "src/substrates/sqlite/materialization.ts",
+      "symbol": "requireSchemaVersion",
+      "mutator": "OptionalChaining",
+      "replacement": "rows[0][\"version\"]",
+      "mutated": "rows[0]?.[\"version\"]",
+      "proof": "Here the guard is a conjunction rather than a disjunction — `rows.length === 1 && rows[0]?.[\"version\"] === ...` — and `&&` stops at its first false operand, so the version read happens only when the schema table held exactly one row. rows[0] is then defined and the optional call is indistinguishable from a plain index. The surrounding try/catch would convert a thrown TypeError into the malformed-marker reset, but no throw is reachable: the length test has already decided."
+    },
+    {
+      "file": "src/substrates/sqlite/materialization.ts",
+      "symbol": "requireSchemaVersion",
+      "mutator": "OptionalChaining",
+      "replacement": "rows[0][\"owner_kind\"]",
+      "mutated": "rows[0]?.[\"owner_kind\"]",
+      "proof": "The owner_kind comparison is the third conjunct after `rows.length === 1`, so it is evaluated only when the row exists and the two conjuncts before it were true. The optional call can never take its undefined branch, and the plain index the mutant substitutes reads the same property from the same object. The `?.` is required by noUncheckedIndexedAccess, which types an array index as possibly undefined and cannot see that a preceding conjunct constrained the array's length."
+    },
+    {
+      "file": "src/substrates/sqlite/materialization.ts",
+      "symbol": "requireSchemaVersion",
+      "mutator": "OptionalChaining",
+      "replacement": "rows[0][\"owner_id\"]",
+      "mutated": "rows[0]?.[\"owner_id\"]",
+      "proof": "The final conjunct of the materialization schema-marker check reads owner_id from a row whose existence `rows.length === 1` has already established at the head of the same `&&` chain. Conjunction evaluation guarantees the length test ran first and was true, so the index is populated and the optional call always dereferences. Nothing about which schemas are accepted, or about the reset-required error raised for the rest, can change when the operator is removed."
+    },
+    {
+      "file": "src/substrates/sqlite/protocol.ts",
+      "symbol": "validateSchema",
+      "mutator": "OptionalChaining",
+      "replacement": "versionRows[0][\"singleton\"]",
+      "mutated": "versionRows[0]?.[\"singleton\"]",
+      "proof": "validateSchema reads the protocol_schema row behind `versionRows.length !== 1 ||`, which throws the unsupported-version error and never reaches this operand when the table is empty or holds more than one row. So versionRows[0] is defined wherever the singleton comparison runs, and the optional call has no undefined branch to take. It is written because noUncheckedIndexedAccess types the index as possibly undefined; the length test three tokens earlier is invisible to that check."
+    },
+    {
+      "file": "src/substrates/sqlite/protocol.ts",
+      "symbol": "validateSchema",
+      "mutator": "OptionalChaining",
+      "replacement": "versionRows[0][\"version\"]",
+      "mutated": "versionRows[0]?.[\"version\"]",
+      "proof": "The version comparison is the last operand of the same disjunction, so it runs only after `versionRows.length !== 1` was false and the singleton comparison matched — both of which require the row to exist. The plain index the mutant substitutes therefore reads a defined object every time, and the protocol schema is accepted and rejected on exactly the same tables. The operator's only role is satisfying the index-access strictness the project compiles under."
     }
   ]
 }
