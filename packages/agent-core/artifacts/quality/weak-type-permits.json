@@ -1071,12 +1071,6 @@
     },
     {
       "file": "packages/agent-core/src/protocol/payload.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
-    },
-    {
-      "file": "packages/agent-core/src/protocol/payload.ts",
       "kind": "unknown",
       "count": 2,
       "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
