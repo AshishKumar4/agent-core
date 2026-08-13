@@ -66,7 +66,7 @@ function operation<
                     [property]: requireDataObject(data, `Self ${name} input`)[property]
                 }) as unknown as Input
         ),
-        facetDataWireCodec<JsonValue>(),
+        facetDataWireCodec(),
         "output"
     );
 }

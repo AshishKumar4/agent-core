@@ -66,7 +66,7 @@ export function requireSchemaDocument(
     value: FacetData | undefined,
     subject: string
 ): JsonSchemaDocument {
-    if (typeof value === "boolean") {
+    if (value === true || value === false) {
         return value;
     }
     if (!isJsonObject(value)) {
@@ -84,11 +84,11 @@ export function requireSchemaDocument(
 export function dataRecord(fields: {
     readonly [name: string]: FacetData | undefined;
 }): FacetDataMap {
-    const record: { [name: string]: FacetData } = {};
-    for (const [name, value] of Object.entries(fields)) {
-        if (value !== undefined) record[name] = value;
-    }
-    return record;
+    return Object.fromEntries(
+        Object.entries(fields).filter(
+            (entry): entry is [string, FacetData] => entry[1] !== undefined
+        )
+    );
 }
 
 export function requireExactFields(
@@ -120,7 +120,7 @@ export function requireOptionalString(
 }
 
 export function requireBoolean(value: FacetData | undefined, subject: string): boolean {
-    if (typeof value !== "boolean") {
+    if (value !== true && value !== false) {
         throw new TypeError(`${subject} must be a boolean`);
     }
     return value;

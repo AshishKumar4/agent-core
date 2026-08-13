@@ -512,8 +512,8 @@ export class McpFacet<Receipt> {
                     new ProfileOperationContract(
                         descriptor.name.value,
                         descriptor,
-                        facetDataWireCodec<JsonValue>(),
-                        facetDataWireCodec<JsonValue>(),
+                        facetDataWireCodec(),
+                        facetDataWireCodec(),
                         "output"
                     )
                 ] as const

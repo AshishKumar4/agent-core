@@ -550,7 +550,7 @@
     {
       "file": "packages/agent-core/src/facets/device/facet.ts",
       "kind": "assertion",
-      "count": 2,
+      "count": 1,
       "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
     },
     {
@@ -620,12 +620,6 @@
       "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
     },
     {
-      "file": "packages/agent-core/src/facets/profile-runtime/facet.ts",
-      "kind": "unknown",
-      "count": 3,
-      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
-    },
-    {
       "file": "packages/agent-core/src/facets/profile-runtime/runtime.ts",
       "kind": "assertion",
       "count": 2,
@@ -636,12 +630,6 @@
       "kind": "unknown",
       "count": 2,
       "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
-    },
-    {
-      "file": "packages/agent-core/src/facets/profile-runtime/wire.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "The profile runtime is generic over each Operation's input, output, and receipt, and a conditional return type cannot be proven from inside the branch that produces it."
     },
     {
       "file": "packages/agent-core/src/facets/runtime.ts",
