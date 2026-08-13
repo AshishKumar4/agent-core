@@ -18,19 +18,32 @@ import {
     CanonicalRunSpawnPort,
     CanonicalSettlementEvidencePort,
     InvocationInteractionAuditPort,
+    type InteractionAuditMetadataPort,
     PackageFacetRuntime,
     ProvenanceFacetSlotBackend,
     RoutedInvocationAdmissionPort,
     RuntimeRunInboxPort,
+    type CanonicalSettlementSource,
     type RoutedInvocationProjection
 } from "../../src/composition";
 import { SpawnReservationId } from "../../src/agents";
-import { CompatRange, ContentRef, Digest, JsonSchema, Revision, SemVer } from "../../src/core";
+import {
+    CompatRange,
+    ContentRef,
+    Digest,
+    isJsonValue,
+    JsonSchema,
+    Revision,
+    SemVer
+} from "../../src/core";
 import {
     PackageId,
+    PackageInstallationProvenancePort,
     type Blueprint,
     type BlueprintLoader,
-    type LoadedBlueprint
+    type LoadedBlueprint,
+    type PackageRelease,
+    type ValidatedBlueprint
 } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
 import {
@@ -55,7 +68,10 @@ import {
     type SurfaceId,
     type WorkspaceSlotStore
 } from "../../src/facets";
+import { requireObject, requireString } from "../../src/agents/record-data";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
+import { forwarded, reaching, type Assembled } from "./fixture";
+import type { CommandEnvelope } from "../../src/protocol/public";
 import {
     AuditRecord,
     AuditRecordId,
@@ -64,8 +80,11 @@ import {
     OperationPin,
     PreparedInvocation,
     ReceiptId,
+    type PreparedInvocationHeaderInit,
+    type AuditEvidenceResolver,
     type InvocationLedger,
-    type InvocationPersistence
+    type InvocationPersistence,
+    type RouteAuditEvidence
 } from "../../src/invocations";
 import {
     InvocationId,
@@ -228,14 +247,18 @@ describe("W9 composition behavior branches", () => {
                 kind: "event",
                 id: event.id
             });
-            const appended: Array<{ record: AuditRecord; admission?: unknown }> = [];
-            let routeEvidence = event;
+            const appended: AppendedAudit[] = [];
+            let routeEvidence: RouteAuditEvidence | undefined = {
+                event: reservation.event,
+                invocation: reservation.invocation,
+                projection: reservation.projection
+            };
             let causeEvidence: AuditRecord | undefined = sourceCause;
             const port = new InvocationInteractionAuditPort({
                 actor: reservation.targetActor,
                 tenant,
-                records: () => ({ get: () => causeEvidence }) as never,
-                evidence: () => ({ route: () => routeEvidence }) as never,
+                records: () => ({ get: () => causeEvidence }),
+                evidence: () => routeOnlyEvidence(() => routeEvidence),
                 eventCause: () => sourceCause.id,
                 correlationForProjection: () => new CorrelationId("projection-correlation"),
                 correlationForDelivery: () => new CorrelationId("delivery-correlation"),
@@ -264,7 +287,7 @@ describe("W9 composition behavior branches", () => {
                 reservation: reservation.id
             });
 
-            routeEvidence = undefined as never;
+            routeEvidence = undefined;
             expect(() =>
                 port.appendReservation({}, reservation, new AuditRecordId("missing-route"))
             ).toThrow(
@@ -273,7 +296,11 @@ describe("W9 composition behavior branches", () => {
                     "Route reservation audit evidence is unavailable"
                 )
             );
-            routeEvidence = event;
+            routeEvidence = {
+                event: reservation.event,
+                invocation: reservation.invocation,
+                projection: reservation.projection
+            };
             causeEvidence = undefined;
             let missingCause: unknown;
             try {
@@ -303,14 +330,16 @@ describe("W9 composition behavior branches", () => {
             const expected = inboxEntry(reference, "expected");
             let material = expected;
             let existing: TurnInboxEntry | undefined;
-            let failure: unknown;
-            const runtime = {
-                repository: { loadInbox: () => existing },
+            let failure: AgentCoreError | undefined;
+            const runtime = reaching<RunRuntime<object>>({
+                repository: reaching<RunRuntime<object>["repository"]>({
+                    loadInbox: () => existing
+                }),
                 deliverEventInTransaction: () => {
                     if (failure !== undefined) throw failure;
                     existing = material;
                 }
-            } as unknown as RunRuntime<object>;
+            });
             const port = new RuntimeRunInboxPort(runtime, {
                 materialize: () => ({
                     entry: material,
@@ -402,7 +431,7 @@ describe("W9 composition behavior branches", () => {
             const stops: string[] = [];
             const loaded = loadedBlueprint(
                 manifest,
-                vi.fn(async () => stops.push("module"))
+                vi.fn(async () => void stops.push("module"))
             );
             const runtime = new PackageFacetRuntime(loaderReturning(loaded), {
                 roots: () => [
@@ -413,9 +442,9 @@ describe("W9 composition behavior branches", () => {
             });
 
             expect(runtime.host).toBeUndefined();
-            await runtime.activate({} as Blueprint);
+            await runtime.activate(reaching<Blueprint>({}));
             expect(runtime.host).toBeDefined();
-            await expect(runtime.activate({} as Blueprint)).rejects.toMatchObject({
+            await expect(runtime.activate(reaching<Blueprint>({}))).rejects.toMatchObject({
                 code: "facet.inactive",
                 message: "Package Facet runtime is already active"
             });
@@ -434,7 +463,7 @@ describe("W9 composition behavior branches", () => {
                     ]
                 }
             );
-            await expect(failedActivation.activate({} as Blueprint)).rejects.toThrow(
+            await expect(failedActivation.activate(reaching<Blueprint>({}))).rejects.toThrow(
                 "start failed"
             );
             expect(activationCleanup).toHaveBeenCalledOnce();
@@ -453,7 +482,7 @@ describe("W9 composition behavior branches", () => {
                     ]
                 }
             );
-            await failedCleanup.activate({} as Blueprint);
+            await failedCleanup.activate(reaching<Blueprint>({}));
             await expect(failedCleanup.dispose()).rejects.toThrow(/Facet stop hook/);
             await expect(failedCleanup.dispose()).resolves.toBeUndefined();
 
@@ -467,7 +496,7 @@ describe("W9 composition behavior branches", () => {
                 ),
                 { roots: () => [new LifecycleFacet(manifest, undefined)] }
             );
-            await failedModuleCleanup.activate({} as Blueprint);
+            await failedModuleCleanup.activate(reaching<Blueprint>({}));
             await expect(failedModuleCleanup.dispose()).rejects.toBe(moduleCleanupFailure);
             await expect(failedModuleCleanup.dispose()).resolves.toBeUndefined();
         }
@@ -482,7 +511,7 @@ describe("W9 composition behavior branches", () => {
                 slots: new Map<string, SlotDeclaration>(),
                 entries: new Map<string, SlotEntry>()
             };
-            const store = {
+            const store = reaching<WorkspaceSlotStore<typeof state>>({
                 loadRevision: () => state.revision,
                 saveRevision: (_transaction: typeof state, revision: Revision) =>
                     (state.revision = revision),
@@ -494,7 +523,7 @@ describe("W9 composition behavior branches", () => {
                     state.entries.get(id.value),
                 insertEntry: (_transaction: typeof state, value: SlotEntry) =>
                     state.entries.set(value.id.value, value)
-            } as unknown as WorkspaceSlotStore<typeof state>;
+            });
             const declaration = slotDeclaration({ type: "object" });
             const conflictingDeclaration = slotDeclaration({ type: "string" });
             const entry = SlotEntry.create(declaration.name, "workspace:facet", 0, { value: 1 });
@@ -503,14 +532,17 @@ describe("W9 composition behavior branches", () => {
                 entry.contributor,
                 packageFacet
             );
+            // applyContribution passes the envelope straight to the provenance port, which the
+            // stand-in above answers without reading it.
+            const commandEnvelope = reaching<CommandEnvelope>({});
             let installation: PackageInstallationRef | undefined = expectedInstallation;
             let contributionAllowed = true;
             const backend = new ProvenanceFacetSlotBackend(
                 store,
-                {
+                reaching<PackageInstallationProvenancePort<typeof state, CommandEnvelope>>({
                     prepareContribution: () => undefined,
                     resolveContributionForApply: () => installation
-                } as never,
+                }),
                 {
                     permitsInstall: () => true,
                     permitsContribution: () => contributionAllowed
@@ -522,7 +554,7 @@ describe("W9 composition behavior branches", () => {
             );
 
             installation = undefined;
-            expect(() => backend.applyContribution(state, {} as never, {}, entry)).toThrow(
+            expect(() => backend.applyContribution(state, commandEnvelope, {}, entry)).toThrow(
                 new AgentCoreError(
                     "authority.denied",
                     "Slot contributor installation provenance changed before apply"
@@ -532,7 +564,7 @@ describe("W9 composition behavior branches", () => {
                 new FacetRef("workspace:substituted"),
                 packageFacet
             );
-            expect(() => backend.applyContribution(state, {} as never, {}, entry)).toThrow(
+            expect(() => backend.applyContribution(state, commandEnvelope, {}, entry)).toThrow(
                 new AgentCoreError(
                     "authority.denied",
                     "Slot contributor installation provenance changed before apply"
@@ -540,14 +572,14 @@ describe("W9 composition behavior branches", () => {
             );
             installation = expectedInstallation;
             contributionAllowed = false;
-            expect(() => backend.applyContribution(state, {} as never, {}, entry)).toThrow(
+            expect(() => backend.applyContribution(state, commandEnvelope, {}, entry)).toThrow(
                 new AgentCoreError(
                     "authority.denied",
                     "Current authority does not admit the Slot contributor"
                 )
             );
             contributionAllowed = true;
-            expect(() => backend.applyContribution(state, {} as never, {}, entry)).toThrow(
+            expect(() => backend.applyContribution(state, commandEnvelope, {}, entry)).toThrow(
                 new AgentCoreError(
                     "facet.inactive",
                     `Slot ${declaration.name.value} is not installed`
@@ -567,7 +599,9 @@ describe("W9 composition behavior branches", () => {
                 1,
                 "invalid"
             );
-            expect(() => backend.applyContribution(state, {} as never, {}, invalidEntry)).toThrow(
+            expect(() =>
+                backend.applyContribution(state, commandEnvelope, {}, invalidEntry)
+            ).toThrow(
                 new AgentCoreError(
                     "operation.invalid-input",
                     `Slot entry ${invalidEntry.id.value} does not match the entry schema`
@@ -576,7 +610,7 @@ describe("W9 composition behavior branches", () => {
             const appliedEntry = SlotEntry.create(declaration.name, entry.contributor.value, 2, {
                 applied: true
             });
-            expect(backend.applyContribution(state, {} as never, {}, appliedEntry)).toBe(true);
+            expect(backend.applyContribution(state, commandEnvelope, {}, appliedEntry)).toBe(true);
             expect(backend.contribute(state, entry)).toBe(true);
             expect(backend.contribute(state, entry)).toBe(false);
             state.entries.set(
@@ -613,26 +647,26 @@ describe("W9 composition behavior branches", () => {
                 administer: () => (calls.push("administer"), undefined),
                 forcedCancellation: () => (calls.push("forced-cancellation"), undefined)
             });
-            receipt.receipt({}, {} as never, {} as never);
-            receipt.delivery({}, {} as never, {} as never);
-            receipt.control({}, {} as never, {} as never);
-            receipt.synthesis({}, {} as never);
-            receipt.administer({}, {} as never, {} as never);
-            receipt.forcedCancellation({}, {} as never, {} as never);
+            receipt.receipt({}, forwarded(), forwarded());
+            receipt.delivery({}, forwarded(), forwarded());
+            receipt.control({}, forwarded(), forwarded());
+            receipt.synthesis({}, forwarded());
+            receipt.administer({}, forwarded(), forwarded());
+            receipt.forcedCancellation({}, forwarded(), forwarded());
 
             const merge = new CanonicalRunMergePort({
                 concat: () => (calls.push("concat"), true),
                 tree: () => (calls.push("tree"), true)
             });
-            expect(merge.verifyConcat({}, {} as never, {} as never, {} as never)).toBe(true);
-            expect(merge.verifyTree({}, {} as never, {} as never, {} as never)).toBe(true);
+            expect(merge.verifyConcat({}, forwarded(), forwarded(), forwarded())).toBe(true);
+            expect(merge.verifyTree({}, forwarded(), forwarded(), forwarded())).toBe(true);
 
             const source = new CanonicalRunSourceRevisionPort({
                 verify: () => (calls.push("source"), true),
                 verifyPackageClosure: () => (calls.push("closure"), true)
             });
-            expect(source.verify({}, {} as never)).toBe(true);
-            expect(source.verifyPackageClosure({}, {} as never)).toBe(true);
+            expect(source.verify({}, forwarded())).toBe(true);
+            expect(source.verifyPackageClosure({}, forwarded())).toBe(true);
 
             const delegate = vi.fn(() => true);
             const attenuation = vi.fn(() => true);
@@ -641,9 +675,9 @@ describe("W9 composition behavior branches", () => {
                 durableAttenuation: attenuation,
                 attenuation: () => new SpawnAttenuation()
             });
-            expect(spawn.verify({}, {} as never)).toBe(true);
+            expect(spawn.verify({}, forwarded())).toBe(true);
             delegate.mockReturnValue(false);
-            expect(spawn.verify({}, {} as never)).toBe(false);
+            expect(spawn.verify({}, forwarded())).toBe(false);
             expect(attenuation).toHaveBeenCalledOnce();
 
             // administer and forcedCancellation are optional on the source: a source that omits
@@ -654,8 +688,8 @@ describe("W9 composition behavior branches", () => {
                 control: () => undefined,
                 synthesis: () => undefined
             });
-            expect(partial.administer({}, {} as never, {} as never)).toBeUndefined();
-            expect(partial.forcedCancellation({}, {} as never, {} as never)).toBeUndefined();
+            expect(partial.administer({}, forwarded(), forwarded())).toBeUndefined();
+            expect(partial.forcedCancellation({}, forwarded(), forwarded())).toBeUndefined();
 
             expect(calls).toEqual([
                 "receipt",
@@ -715,17 +749,21 @@ describe("W9 composition behavior branches", () => {
             expect(present.acceptance({}, receipt)).toBe(evidence);
 
             const settlement = (
-                acceptanceSatisfied?: (transaction: object, id: AcceptanceId) => boolean
-            ) =>
-                new CanonicalSettlementEvidencePort<object>({
+                acceptanceSatisfied?: CanonicalSettlementSource<object>["acceptanceSatisfied"]
+            ) => {
+                const source: CanonicalSettlementSource<object> = {
                     approvalResolved: () => true,
                     invocationItemTerminal: () => true,
                     routeTerminal: () => true,
                     reconciliationSuperseded: () => true,
                     commitExists: () => true,
-                    auditSatisfied: () => true,
-                    ...(acceptanceSatisfied === undefined ? {} : { acceptanceSatisfied })
-                });
+                    auditSatisfied: () => true
+                };
+                if (acceptanceSatisfied !== undefined) {
+                    source.acceptanceSatisfied = acceptanceSatisfied;
+                }
+                return new CanonicalSettlementEvidencePort<object>(source);
+            };
             expect(settlement().acceptanceSatisfied({}, acceptance)).toBe(false);
             expect(settlement(() => false).acceptanceSatisfied({}, acceptance)).toBe(false);
             expect(settlement(() => true).acceptanceSatisfied({}, acceptance)).toBe(true);
@@ -777,9 +815,11 @@ function routedAdmissionHarness(
         audits: new Map<string, AuditRecord>()
     };
     let preparations = 0;
-    const persistence = {
-        prepared: (_transaction: typeof state, id: InvocationId) => state.prepared.get(id.value)
-    } as unknown as InvocationPersistence<typeof state, string, string, string, string, string>;
+    const persistence = reaching<
+        InvocationPersistence<typeof state, string, string, string, string, string>
+    >({
+        prepared: (_transaction, id) => state.prepared.get(id.value)
+    });
     const requireAudit = (record: AuditRecord): void => {
         const persisted = state.audits.get(record.id.value);
         if (
@@ -791,22 +831,16 @@ function routedAdmissionHarness(
             throw new TypeError("exact route projection audit is unavailable");
         }
     };
-    const ledger = {
-        requirePreparedAudit: (
-            _transaction: typeof state,
-            _record: ReturnType<typeof routedPrepared>,
-            audit: AuditRecord
-        ) => requireAudit(audit),
-        prepareWithAudit: (
-            _transaction: typeof state,
-            record: ReturnType<typeof routedPrepared>,
-            audit: AuditRecord
-        ) => {
-            requireAudit(audit);
-            preparations += 1;
-            state.prepared.set(record.header.id.value, record);
+    const ledger = reaching<InvocationLedger<typeof state, string, string, string, string, string>>(
+        {
+            requirePreparedAudit: (_transaction, _record, audit) => requireAudit(audit),
+            prepareWithAudit: (_transaction, record, audit) => {
+                requireAudit(audit);
+                preparations += 1;
+                state.prepared.set(record.header.id.value, record);
+            }
         }
-    } as unknown as InvocationLedger<typeof state, string, string, string, string, string>;
+    );
     const port = new RoutedInvocationAdmissionPort(
         ledger,
         persistence,
@@ -850,18 +884,16 @@ function routedAdmissionHarness(
  */
 const routedProjection: RoutedInvocationProjection<string, string, string, string> = {
     identify(header) {
-        const authority = JSON.parse(header.authority) as {
-            readonly binding: string;
-            readonly tenant: string;
-            readonly principal: string;
-        };
+        const parsed: unknown = JSON.parse(header.authority);
+        if (!isJsonValue(parsed)) throw new TypeError("Invocation authority is not JSON");
+        const authority = requireObject(parsed, "Invocation authority");
         return {
             operation: header.operation.operation,
             targetActor: header.actor,
-            binding: new BindingName(authority.binding),
+            binding: new BindingName(requireString(authority["binding"], "Authority binding")),
             principal: new PrincipalRef(
-                new TenantId(authority.tenant),
-                new PrincipalId(authority.principal)
+                new TenantId(requireString(authority["tenant"], "Authority tenant")),
+                new PrincipalId(requireString(authority["principal"], "Authority principal"))
             )
         };
     }
@@ -972,23 +1004,24 @@ function routedPrepared(
         readonly principal: string;
     }
 ) {
+    const header: Assembled<PreparedInvocationHeaderInit<string, string, string, string>> = {
+        id,
+        operation: routedOperationPin(identity.operation),
+        domain: `domain:${id.value}`,
+        actor: identity.actor,
+        authority: JSON.stringify({
+            binding: identity.binding,
+            tenant: identity.tenant,
+            principal: identity.principal
+        }),
+        pathEpochs: `epochs:${id.value}`,
+        auditCause,
+        idempotencySeed: `seed:${id.value}`
+    };
+    if (route !== undefined) header.route = route;
+    if (projectionDigest !== undefined) header.projectionDigest = projectionDigest;
     return PreparedInvocation.create(
-        {
-            id,
-            operation: routedOperationPin(identity.operation),
-            domain: `domain:${id.value}`,
-            actor: identity.actor,
-            authority: JSON.stringify({
-                binding: identity.binding,
-                tenant: identity.tenant,
-                principal: identity.principal
-            }),
-            pathEpochs: `epochs:${id.value}`,
-            ...(route === undefined ? {} : { route }),
-            ...(projectionDigest === undefined ? {} : { projectionDigest }),
-            auditCause,
-            idempotencySeed: `seed:${id.value}`
-        },
+        header,
         { kind: "single", item: payload },
         preparedReferenceCodecs
     );
@@ -1022,19 +1055,50 @@ function routedDigest(label: string): Digest {
     return Digest.sha256(new TextEncoder().encode(`routed-${label}`));
 }
 
+interface AppendedAudit {
+    readonly record: AuditRecord;
+    readonly admission?: RouteProjectionAdmission;
+}
+
+/** The projection admission the audit port passes alongside a routeProjected record. */
+type RouteProjectionAdmission = Parameters<InteractionAuditMetadataPort<unknown>["append"]>[2];
+
+/**
+ * An evidence resolver that answers only the route lookup the reservation path makes. Every
+ * other member throws rather than answering `undefined`, so a path that grows a new evidence
+ * lookup fails here instead of quietly taking the absent-evidence branch.
+ */
+function routeOnlyEvidence(route: () => RouteAuditEvidence | undefined): AuditEvidenceResolver {
+    const unreached = (member: string) => (): never => {
+        throw new Error(`The reservation audit path resolves no ${member} evidence`);
+    };
+    return {
+        route,
+        approval: unreached("approval"),
+        attempt: unreached("attempt"),
+        receipt: unreached("receipt"),
+        event: unreached("event"),
+        projection: unreached("projection"),
+        delivery: unreached("delivery"),
+        commit: unreached("commit"),
+        write: unreached("write")
+    };
+}
+
 function auditRecord(
     id: AuditRecordId,
     cause: AuditRecordId | undefined,
     kind: ConstructorParameters<typeof AuditRecord>[0]["kind"]
 ): AuditRecord {
-    return new AuditRecord({
+    const init: Assembled<ConstructorParameters<typeof AuditRecord>[0]> = {
         id,
         actor: new ActorRef("workspace", new ActorId("routed-target")),
         tenant: new TenantId("tenant-test"),
         correlation: new CorrelationId(`correlation:${id.value}`),
-        ...(cause === undefined ? {} : { cause }),
         kind
-    });
+    };
+    if (cause !== undefined) init.cause = cause;
+    return new AuditRecord(init);
 }
 
 function emptyManifest(id: string): FacetManifest {
@@ -1081,10 +1145,12 @@ class LifecycleFacet extends Facet {
 
 function loadedBlueprint(
     manifest: FacetManifest,
-    dispose: () => Promise<unknown>
+    dispose: () => Promise<void>
 ): LoadedBlueprint<unknown> {
     return {
-        validated: { releases: [{ manifests: [manifest] }] } as never,
+        validated: reaching<ValidatedBlueprint>({
+            releases: [reaching<PackageRelease>({ manifests: [manifest] })]
+        }),
         modules: [],
         dispose: async () => {
             await dispose();
@@ -1096,7 +1162,7 @@ function loadedBlueprint(
 }
 
 function loaderReturning(value: LoadedBlueprint<unknown>): BlueprintLoader<unknown> {
-    return { load: async () => value } as unknown as BlueprintLoader<unknown>;
+    return reaching<BlueprintLoader<unknown>>({ load: async () => value });
 }
 
 function slotDeclaration(schema: Record<string, string>): SlotDeclaration {
