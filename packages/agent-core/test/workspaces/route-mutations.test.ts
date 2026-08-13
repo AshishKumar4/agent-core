@@ -266,6 +266,35 @@ describe("route record mutation kills", () => {
         }
     );
 
+    test(
+        "[C13-ADV-MISSING-CROSS-TENANT-BINDING] a cross-tenant relation without its authority Binding does not decode",
+        { tags: "p0" },
+        () => {
+            const encoded = RouteReservation.encode(crossReservation("missing-cross-binding"));
+            const decoded = RouteReservation.decode(encoded);
+            expect(
+                decoded.tenants.kind === "cross" ? decoded.tenants.authority.value : undefined
+            ).toBe("binding.cross");
+            expect(() =>
+                RouteReservation.decode(
+                    withPayload(encoded, {
+                        tenants: {
+                            kind: "cross",
+                            source: tenant.value,
+                            target: "tenant-cross-target"
+                        }
+                    })
+                )
+            ).toThrow(
+                expect.objectContaining({
+                    message: reservationDecodeError(
+                        "Cross-tenant relation contains missing or unknown fields"
+                    )
+                })
+            );
+        }
+    );
+
     test("reservation codec round-trips initiator presence exactly", { tags: "p1" }, () => {
         const decodedCross = RouteReservation.decode(
             RouteReservation.encode(crossReservation("initiator-absent"))
