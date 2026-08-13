@@ -1,4 +1,6 @@
-export interface EquivalenceEntry {
+import type { JsonValue } from "./project.mjs";
+
+export type EquivalenceEntry = {
     file: string;
     symbol: string;
     mutator: string;
@@ -9,7 +11,7 @@ export interface EquivalenceEntry {
     occurrence?: number;
     /** How many identical sites existed when the proof was written. Present with `occurrence`. */
     sites?: number;
-}
+};
 
 export interface ReportMutant {
     id: string;
@@ -33,7 +35,7 @@ export interface EquivalenceReconciliation {
     ambiguous: { entry: EquivalenceEntry; matches: ReportMutant[] }[];
 }
 
-export function readEquivalenceRegister(document: unknown): EquivalenceEntry[];
+export function readEquivalenceRegister(document: JsonValue): EquivalenceEntry[];
 
 export function equivalenceKey(entry: EquivalenceEntry): string;
 

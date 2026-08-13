@@ -1,3 +1,5 @@
+import type { Completion } from "./completion.mjs";
+
 export type Ratification = "commit" | "lost" | "signature";
 export interface OutcomeEntry {
     readonly source: string;
@@ -22,10 +24,13 @@ export interface OutcomeBaselineUpdate {
     readonly restorations: readonly string[];
     readonly regressions: readonly string[];
 }
+/** A ratified review's recorded outcome: a completion record, or an external waiver,
+ * which is signed rather than committed and so carries no ratification commit. */
+export type RecordedOutcome = Completion | { readonly kind: "external-waiver" };
 export interface ResolutionLedger {
     readonly entries: readonly unknown[];
 }
-export function outcomeFingerprint(outcome: unknown): string;
+export function outcomeFingerprint(outcome: RecordedOutcome): string;
 export function surveyOutcomes(resolutions: ResolutionLedger, root?: string): OutcomeEntry[];
 export function verifyOutcomeLedger(
     resolutions: ResolutionLedger,
