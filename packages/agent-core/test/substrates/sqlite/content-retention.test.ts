@@ -121,15 +121,17 @@ async function expectExactRejection(
     code: AgentCoreErrorCode,
     message: string
 ): Promise<void> {
-    const failure = await operation.then(
-        () => undefined,
-        (error: unknown) => error
-    );
-    expect(failure).toBeInstanceOf(AgentCoreError);
-    if (failure instanceof AgentCoreError) {
-        expect(failure.code).toBe(code);
-        expect(failure.message).toBe(message);
+    try {
+        await operation;
+    } catch (error) {
+        expect(error).toBeInstanceOf(AgentCoreError);
+        if (error instanceof AgentCoreError) {
+            expect(error.code).toBe(code);
+            expect(error.message).toBe(message);
+        }
+        return;
     }
+    throw new TypeError(`Expected AgentCoreError ${code}`);
 }
 
 function collectAll(
