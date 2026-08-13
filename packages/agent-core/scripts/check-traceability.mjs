@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,6 +7,8 @@ import { parseCanonicalJson } from "./quality/project.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const formalRoot = join(packageRoot, "formal");
+const oraclePath = join(formalRoot, "Oracle", "Main.lean");
+const specPath = join(packageRoot, "SPEC.md");
 const traceabilityPath = join(packageRoot, "artifacts", "traceability.yaml");
 const lakeCommand = process.env.LEAN_LAKE?.trim() || "lake";
 
@@ -33,6 +35,7 @@ const requiredRequirementIds = [
     "AC-AUTH-RESOLUTION-001",
     "AC-CAPABILITY-001",
     "AC-KEY-001",
+    "AC-PERSISTENCE-001",
     "AC-SECRET-001",
     "AC-MATERIALIZE-001",
     "AC-PLACEMENT-001",
@@ -85,6 +88,7 @@ const requiredAssumptionIds = [
     "ASM-CANONICAL-KEY-INJECTIVE",
     "ASM-LIVENESS-TIME-INVALIDATION",
     "ASM-TRANSITION-ATOMICITY",
+    "ASM-ACTOR-LOCAL-ATOMICITY",
     "ASM-SOURCE-PROJECTION-AUTHENTICITY",
     "ASM-CLOSED-WORLD-TRANSITIONS",
     "ASM-IMPLEMENTATION-REFINEMENT-SEPARATE"
@@ -115,6 +119,14 @@ const requiredWitnessFamilyIds = [
     "WF-ROUTING-REACTION"
 ];
 const requiredNonClaimBoundaryAreas = new Map();
+const chainLinkCounts = { recorded: 0, open: 0 };
+const requiredChainRequirementIds = [
+    "AC-PERSISTENCE-001",
+    "AC-LEASE-001",
+    "AC-CAPABILITY-001",
+    "AC-ENVIRONMENT-001"
+];
+const chainLinkStatuses = new Set(["recorded", "open"]);
 const witnessPrefix = "AgentCore.Examples.nonvacuous_";
 const qualifiedLeanName = /^AgentCore(?:\.[A-Za-z_][A-Za-z0-9_]*)+$/;
 const failures = [];
@@ -266,7 +278,8 @@ checkExactKeys(
         "requirements",
         "assumptions",
         "nonClaims",
-        "formalBoundary"
+        "formalBoundary",
+        "releaseChain"
     ],
     "traceability"
 );
@@ -593,6 +606,238 @@ if (checkExactKeys(boundary, ["requiredAreaIds", "areas"], "formalBoundary")) {
     }
 }
 
+/**
+ * The release assurance chain. Each link is recorded or open: a recorded link names an
+ * artifact and the checker confirms that artifact actually contains the named evidence, so
+ * a link cannot be closed by assertion; an open link names a reason and carries no
+ * evidence, so a gap cannot be closed by silence either.
+ */
+function checkReleaseChain() {
+    const chain = traceability.releaseChain;
+    if (!checkExactKeys(chain, ["summary", "entries"], "releaseChain")) return;
+    checkString(chain.summary, "releaseChain.summary");
+    if (!Array.isArray(chain.entries)) {
+        fail("releaseChain.entries must be an array");
+        return;
+    }
+    const specSource = readFileSync(specPath, "utf8");
+    const oracleSource = readFileSync(oraclePath, "utf8");
+    checkExactIds(
+        chain.entries.map((entry) => entry?.requirementId),
+        requiredChainRequirementIds,
+        "releaseChain.entries"
+    );
+
+    const linkStatus = (entry, field, keys) => {
+        const location = `releaseChain ${entry.requirementId}.${field}`;
+        const link = entry[field];
+        if (!checkExactKeys(link, ["status", "reason", ...keys], location)) return undefined;
+        if (!chainLinkStatuses.has(link.status)) {
+            fail(`${location}.status must be recorded or open`);
+            return undefined;
+        }
+        if (link.status === "open") {
+            checkString(link.reason, `${location}.reason`);
+            for (const key of keys) {
+                const value = link[key];
+                if (Array.isArray(value) ? value.length > 0 : value !== "") {
+                    fail(`${location} is open but carries ${key} evidence`);
+                }
+            }
+            chainLinkCounts.open += 1;
+            return "open";
+        }
+        if (link.reason !== "") fail(`${location} is recorded but carries a reason`);
+        chainLinkCounts.recorded += 1;
+        return "recorded";
+    };
+
+    const readEvidence = (path, location) => {
+        if (!path.startsWith("test/") && !path.startsWith("artifacts/")) {
+            fail(`${location} must name a path under test/ or artifacts/: ${path}`);
+            return undefined;
+        }
+        const resolved = join(packageRoot, path);
+        if (!existsSync(resolved)) {
+            fail(`${location} names a missing artifact: ${path}`);
+            return undefined;
+        }
+        return readFileSync(resolved, "utf8");
+    };
+
+    for (const entry of chain.entries) {
+        if (
+            !checkExactKeys(
+                entry,
+                [
+                    "requirementId",
+                    "specAtoms",
+                    "theorems",
+                    "assumptions",
+                    "executableDecision",
+                    "refinementEvidence",
+                    "substrateContract",
+                    "liveScenario",
+                    "deployedBundle"
+                ],
+                `releaseChain entry ${entry?.requirementId ?? "<unknown>"}`
+            )
+        )
+            continue;
+        const location = `releaseChain ${entry.requirementId}`;
+        const requirement = requirementIndex.get(entry.requirementId);
+        if (requirement === undefined) {
+            fail(`${location} references an unknown requirement`);
+            continue;
+        }
+
+        for (const atom of checkStringArray(entry.specAtoms, `${location}.specAtoms`, {
+            nonempty: true
+        })) {
+            if (!specSource.includes(`**${atom}**`)) {
+                fail(`${location}.specAtoms names an atom absent from SPEC.md: ${atom}`);
+            }
+        }
+        const owned = new Set(requirement.theorems);
+        for (const theorem of checkStringArray(entry.theorems, `${location}.theorems`, {
+            nonempty: true
+        })) {
+            if (!owned.has(theorem)) {
+                fail(
+                    `${location}.theorems names a theorem ${entry.requirementId} does not own: ${theorem}`
+                );
+            }
+        }
+        for (const assumption of checkStringArray(entry.assumptions, `${location}.assumptions`, {
+            nonempty: true
+        })) {
+            if (!assumptionIndex.has(assumption) && !nonClaimIndex.has(assumption)) {
+                fail(`${location}.assumptions names an unregistered id: ${assumption}`);
+            }
+        }
+
+        const decision = linkStatus(entry, "executableDecision", ["leanDefinitions", "oracleOps"]);
+        const declaredDefinitions = new Set(requirement.definitions);
+        if (decision === "recorded") {
+            const field = `${location}.executableDecision`;
+            for (const definition of checkStringArray(
+                entry.executableDecision.leanDefinitions,
+                `${field}.leanDefinitions`,
+                { nonempty: true }
+            )) {
+                if (!declaredDefinitions.has(definition)) {
+                    fail(
+                        `${field} names a definition ${entry.requirementId} does not declare: ${definition}`
+                    );
+                }
+                const local = definition.split(".").pop();
+                if (!oracleSource.includes(local)) {
+                    fail(`${field} names a definition the oracle never runs: ${definition}`);
+                }
+            }
+            for (const op of checkStringArray(
+                entry.executableDecision.oracleOps,
+                `${field}.oracleOps`,
+                { nonempty: true }
+            )) {
+                if (!oracleSource.includes(`"${op}"`)) {
+                    fail(`${field} names an operation the oracle does not serve: ${op}`);
+                }
+            }
+        }
+
+        const refinement = linkStatus(entry, "refinementEvidence", ["paths"]);
+        if (refinement === "recorded") {
+            const field = `${location}.refinementEvidence`;
+            if (decision !== "recorded")
+                fail(`${field} is recorded without an executable decision`);
+            for (const path of checkStringArray(entry.refinementEvidence.paths, `${field}.paths`, {
+                nonempty: true
+            })) {
+                const source = readEvidence(path, `${field}.paths`);
+                if (source === undefined) continue;
+                for (const op of entry.executableDecision.oracleOps ?? []) {
+                    if (!source.includes(op)) {
+                        fail(
+                            `${field} names a suite that never asks the oracle for ${op}: ${path}`
+                        );
+                    }
+                }
+            }
+        }
+
+        const substrate = linkStatus(entry, "substrateContract", ["paths", "backings"]);
+        if (substrate === "recorded") {
+            const field = `${location}.substrateContract`;
+            const backings = checkStringArray(
+                entry.substrateContract.backings,
+                `${field}.backings`,
+                {
+                    nonempty: true
+                }
+            );
+            if (backings.length < 2) fail(`${field} must name at least two backings`);
+            for (const path of checkStringArray(entry.substrateContract.paths, `${field}.paths`, {
+                nonempty: true
+            })) {
+                const source = readEvidence(path, `${field}.paths`);
+                if (source === undefined) continue;
+                for (const backing of backings) {
+                    if (!source.includes(`"${backing}"`)) {
+                        fail(
+                            `${field} names a contract that never runs against ${backing}: ${path}`
+                        );
+                    }
+                }
+            }
+        }
+
+        const live = linkStatus(entry, "liveScenario", ["report", "atoms"]);
+        if (live === "recorded") {
+            const field = `${location}.liveScenario`;
+            const source = readEvidence(entry.liveScenario.report, `${field}.report`);
+            const atoms = checkStringArray(entry.liveScenario.atoms, `${field}.atoms`, {
+                nonempty: true
+            });
+            if (source !== undefined) {
+                let passing = [];
+                try {
+                    const report = JSON.parse(source);
+                    passing = (report.testResults ?? [])
+                        .flatMap((result) => result.assertionResults ?? [])
+                        .filter((assertion) => assertion.status === "passed")
+                        .map((assertion) => String(assertion.fullName ?? assertion.title ?? ""));
+                } catch (error) {
+                    fail(`${field}.report is not a readable vitest report: ${error.message}`);
+                }
+                for (const atom of atoms) {
+                    if (!passing.some((name) => name.includes(`[${atom}]`))) {
+                        fail(`${field} names an atom with no passing live assertion: ${atom}`);
+                    }
+                }
+            }
+        }
+
+        const bundle = linkStatus(entry, "deployedBundle", ["run", "versionIds"]);
+        if (bundle === "recorded") {
+            const field = `${location}.deployedBundle`;
+            if (live !== "recorded") fail(`${field} is recorded without a live scenario`);
+            const source = readEvidence(entry.deployedBundle.run, `${field}.run`);
+            for (const versionId of checkStringArray(
+                entry.deployedBundle.versionIds,
+                `${field}.versionIds`,
+                { nonempty: true }
+            )) {
+                if (source !== undefined && !source.includes(versionId)) {
+                    fail(`${field} names a version the run record does not contain: ${versionId}`);
+                }
+            }
+        }
+    }
+}
+
+checkReleaseChain();
+
 if (failures.length > 0) reportFailures();
 
 runLakeOrExit(["build", "AgentCore"], "lake build AgentCore");
@@ -661,5 +906,7 @@ console.log(
     `traceability verified: ${reported.size} designated (${substantiveTheoremCount} claims, ${witnessCount} witnesses), ` +
         `${witnessCoverageCount} witness links, ${definitions.size} definitions, ${observedAxioms.size} built-in axioms, ` +
         `${requirements.length} requirements, ` +
-        `${nonClaims.length} non-claims, ${assumptions.length} assumptions, ${requiredBoundaryAreaIds.length} boundary areas`
+        `${nonClaims.length} non-claims, ${assumptions.length} assumptions, ${requiredBoundaryAreaIds.length} boundary areas, ` +
+        `${requiredChainRequirementIds.length} release chains ` +
+        `(${chainLinkCounts.recorded} links recorded, ${chainLinkCounts.open} open)`
 );
