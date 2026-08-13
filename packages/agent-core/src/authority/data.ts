@@ -1,7 +1,7 @@
 import {
     type JsonFields,
-    decodeCanonicalJson,
     encodeCanonicalJson,
+    frozenCanonicalJson,
     jsonDataParser,
     type JsonValue
 } from "../core";
@@ -39,7 +39,7 @@ export function requireArray(value: JsonValue | undefined, name: string): readon
 }
 
 export function canonicalJson<Value extends JsonValue>(value: Value): Value {
-    return deepFreeze(decodeCanonicalJson(encodeCanonicalJson(value)) as Value);
+    return frozenCanonicalJson(value);
 }
 
 export function canonicalJsonEqual(left: JsonValue, right: JsonValue): boolean {
@@ -50,14 +50,4 @@ export function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
     return (
         left.byteLength === right.byteLength && left.every((value, index) => value === right[index])
     );
-}
-
-function deepFreeze<Value>(value: Value): Value {
-    if (value !== null && typeof value === "object") {
-        Object.freeze(value);
-        for (const child of Object.values(value)) {
-            deepFreeze(child);
-        }
-    }
-    return value;
 }

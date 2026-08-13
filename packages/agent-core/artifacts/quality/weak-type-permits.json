@@ -200,12 +200,6 @@
       "reason": "Run and Turn records decode into closed commit-kind and outcome vocabularies, and the base record spread reaches a JSON object the codec already produced."
     },
     {
-      "file": "packages/agent-core/src/authority/data.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Authority records decode into closed impact and reason vocabularies and into path-epoch tuples whose nonemptiness the validation above establishes."
-    },
-    {
       "file": "packages/agent-core/src/authority/epoch.ts",
       "kind": "non-null",
       "count": 6,
@@ -339,6 +333,12 @@
     },
     {
       "file": "packages/agent-core/src/core/canonical.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "A canonical round trip reproduces exactly the members it was given, so the detached copy inhabits its input's type; TypeScript cannot carry that identity across encode and decode."
+    },
+    {
+      "file": "packages/agent-core/src/core/canonical.ts",
       "kind": "unknown",
       "count": 2,
       "reason": "Core value types decode from untrusted bytes and report failures whose thrown value JavaScript does not type."
@@ -370,8 +370,8 @@
     {
       "file": "packages/agent-core/src/core/schema.ts",
       "kind": "assertion",
-      "count": 4,
-      "reason": "A canonical round trip returns the value it was given, and a frozen copy is the same data; TypeScript keeps neither identity across encode and decode."
+      "count": 1,
+      "reason": "Ajv returns a compiled validator typed only as a generic function; the narrowed call is the one Ajv documents for a compiled schema."
     },
     {
       "file": "packages/agent-core/src/core/schema.ts",

@@ -224,7 +224,7 @@
             "source": "src/actors/store.ts",
             "sourceAnchor": {
                 "container": "requireSynchronousResult",
-                "guard": "hasUnstableOrThenableShape(result)",
+                "guard": "isUnstableOrThenable(result)",
                 "expression": "new TypeError(ASYNC_TRANSACTION_MESSAGE)"
             },
             "classification": "programmer-contract",
@@ -844,7 +844,7 @@
         {
             "id": "w1.core.schema.assertsupportedschema.b6dac1bd55",
             "file": "src/core/schema.ts",
-            "line": 190,
+            "line": 166,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "assertSupportedSchema",
@@ -860,7 +860,7 @@
         {
             "id": "w1.core.schema.assertsupportedschema.5f1516d9e3",
             "file": "src/core/schema.ts",
-            "line": 193,
+            "line": 169,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "assertSupportedSchema",
@@ -876,7 +876,7 @@
         {
             "id": "w1.core.schema.assertsupportedschema.a80ba3d24d",
             "file": "src/core/schema.ts",
-            "line": 196,
+            "line": 172,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "assertSupportedSchema",
@@ -892,7 +892,7 @@
         {
             "id": "w1.core.schema.assertsupportedschema.23a5701d60",
             "file": "src/core/schema.ts",
-            "line": 202,
+            "line": 178,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "assertSupportedSchema",
@@ -908,7 +908,7 @@
         {
             "id": "w1.core.schema.requirelocalreference.725b14e43c",
             "file": "src/core/schema.ts",
-            "line": 259,
+            "line": 235,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "requireLocalReference",
@@ -924,7 +924,7 @@
         {
             "id": "w1.core.schema.requiredynamicreference.699d11bc4e",
             "file": "src/core/schema.ts",
-            "line": 265,
+            "line": 241,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "requireDynamicReference",
@@ -940,7 +940,7 @@
         {
             "id": "w1.core.schema.requireunchanged.4a676921f0",
             "file": "src/core/schema.ts",
-            "line": 291,
+            "line": 267,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "requireUnchanged",
@@ -956,7 +956,7 @@
         {
             "id": "w1.core.schema.requirebooleanvalidationresult.485e91946b",
             "file": "src/core/schema.ts",
-            "line": 296,
+            "line": 272,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "requireBooleanValidationResult",
