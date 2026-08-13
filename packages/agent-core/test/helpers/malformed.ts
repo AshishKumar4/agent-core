@@ -31,6 +31,19 @@ export function malformed<Target>(value: JsonValue): Target {
  * down. Starting from a record that does type-check keeps everything else checked against
  * the real contract, and leaves the test reading as the deviation it is asserting on.
  */
+/**
+ * A record's fields carried on a function rather than on a plain object.
+ *
+ * A decoder that reads fields without first establishing what it was handed accepts one
+ * of these, because a function carries properties and answers `typeof` as its own kind.
+ * Nothing well-typed can supply one where a record is required.
+ */
+export function callableRecord<Target>(container: () => void): Target {
+    // SAFETY: a function is not the record type it stands in for. It reaches only decoders
+    // asserted to reject it, and is never read as a Target.
+    return container as Target;
+}
+
 export function violating<Target>(
     base: Partial<Target>,
     violations: Readonly<Record<string, JsonValue>> = {}
