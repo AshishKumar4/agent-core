@@ -24,6 +24,13 @@ export function requireString(object: JsonObject, key: string, subject = key): s
     return requireStringValue(object[key], subject);
 }
 
+export function requireNonemptyString(value: JsonValue | undefined, subject: string): string {
+    if (typeof value !== "string" || value.length === 0) {
+        throw new TypeError(`${subject} must be a non-empty string`);
+    }
+    return value;
+}
+
 export function requireNullableString(
     object: JsonObject,
     key: string,
