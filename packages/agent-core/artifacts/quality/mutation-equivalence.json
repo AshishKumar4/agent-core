@@ -1650,6 +1650,232 @@
       "replacement": "true",
       "mutated": "false",
       "proof": "Clearing this flag is a dead store, because nothing can read it again. Release is only ever taken once the resolved Facet is disposed: one path is disposal itself when no dispatch is in flight, the other is the dispatch epilogue, which consults the flag only after disposal set it. Once disposed, every further dispatch is refused by the active check at the top of dispatch, before the epilogue that reads this flag is installed, and a second disposal returns at its own guard without reading it. Leaving the flag set therefore cannot cause a second release, because no code path that reads it can run again. Verified against the operations suite, where the mutant fails no test including the deferred release cases."
+    },
+    {
+      "file": "src/workspaces/persistence.ts",
+      "symbol": "durableRecordId",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "record instanceof Event",
+      "proof": "durableRecordId has exactly one caller, decodeStored, which passes the kind it already handed findRecord together with the codec its own caller chose for that kind. Every load, requireLoad and decodeStored site in this file pairs \"event\" with Event.codec, and that codec's decodePayload returns a value built by new Event or throws, so on the \"event\" branch record is an Event and this test is constantly true. Forcing it true selects the branch it already selects. The complementary mutant, which would send every stored Event to the wrong-codec throw, is killed."
+    },
+    {
+      "file": "src/workspaces/persistence.ts",
+      "symbol": "durableRecordId",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "record instanceof Subscription",
+      "proof": "The switch has already matched kind \"subscription\", and the three sites that read that kind \u2014 the current-pointer load, the listing walk, and their shared decodeStored \u2014 all pass Subscription.codec. A codec cannot return another class: its decodePayload constructs a Subscription or throws, and a stored record holding another kind's bytes fails inside RecordCodec.decode on the envelope kind before this line runs. The test is therefore constantly true and forcing it true changes no branch, while the false form, which would reject every subscription, is killed."
+    },
+    {
+      "file": "src/workspaces/persistence.ts",
+      "symbol": "durableRecordId",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "record instanceof RouteReservation",
+      "proof": "Reaching this line means the switch matched \"routeReservation\", which the three reservation reads \u2014 by id, by dedupe index, and the listing walk \u2014 each request alongside RouteReservation.codec. Decoding yields a RouteReservation or raises, since the envelope kind check in RecordCodec.decode rejects bytes written under a different record kind before decodePayload runs. So the guard is constantly true here and forcing it true preserves every result; its complement, which would report a valid reservation as the wrong codec kind, is killed."
+    },
+    {
+      "file": "src/workspaces/persistence.ts",
+      "symbol": "durableRecordId",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "record instanceof RouteProjection",
+      "proof": "Both projection reads, the one by id and the one through the reservation index, name kind \"routeProjection\" with RouteProjection.codec, and this branch is reached only when the switch matched that kind. RouteProjection.codec.decode either returns an instance its own decodePayload constructed or throws, so nothing else can arrive here and the test never decides anything. Forcing it true leaves every call returning the same projection id, and the false form, which would refuse every stored projection, is killed."
+    },
+    {
+      "file": "src/workspaces/persistence.ts",
+      "symbol": "durableRecordId",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "record instanceof RouteDelivery",
+      "proof": "The single delivery read requests kind \"routeDelivery\" with RouteDelivery.codec, and the switch has matched that kind before control arrives. That codec constructs a RouteDelivery or throws, and bytes stored under another kind cannot decode through it because RecordCodec.decode compares the envelope kind first. The instanceof test is constantly true, so forcing it true returns the same reservation-derived key every time; the complementary mutant, which would treat every delivery as the wrong kind, is killed."
+    },
+    {
+      "file": "src/workspaces/persistence.ts",
+      "symbol": "durableRecordId",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "record instanceof View",
+      "proof": "Views are read by the current-pointer loader, by explicit revision, and by the compaction walk, and all three pair kind \"view\" with View.codec. Control reaches this line only under that kind, and the codec returns a View or throws. The test therefore cannot be false, and forcing it true yields the same surface-and-revision key for every stored View. Its complement, which would send every View to the wrong-codec throw, is killed \u2014 the shape an unreachable guard always has."
+    },
+    {
+      "file": "src/workspaces/persistence.ts",
+      "symbol": "durableRecordId",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "record instanceof ViewDelta",
+      "proof": "The delta listing and the compaction walk both decode with ViewDelta.codec under kind \"viewDelta\", which is the only way this branch is entered. A codec yields its own class or throws, so record is a ViewDelta wherever this runs and the guard is constantly true. Forcing it true keeps every call returning the same surface-and-revision delta key, while the false form, which would reject a delta the store wrote itself, is killed."
+    },
+    {
+      "file": "src/workspaces/persistence.ts",
+      "symbol": "durableRecordId",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "record instanceof ContentRetentionReference",
+      "proof": "Retention references are decoded in the listing-by-record walk and in the compaction release walk, both under kind \"contentRetention\" with ContentRetentionReference.codec. The switch has matched that kind before this line, and the codec constructs its own class or throws. So the test is constantly true and forcing it true returns the same retention id on every call; the complementary mutant, which would refuse every stored retention reference, is killed."
+    },
+    {
+      "file": "src/workspaces/persistence.ts",
+      "symbol": "durableRecordId",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"Stored workspace record has the wrong codec kind\"",
+      "proof": "This literal is the message of the throw that closes durableRecordId, reached only by falling out of the switch or by an instanceof test failing. WorkspaceRecordKind is a closed union of the eight kinds the switch lists, so no kind falls through, and each instanceof is constantly true because every caller pairs a kind with that kind's own codec and a codec returns its own class or throws. The throw is therefore unreachable, the AgentCoreError is never constructed, and the literal is never read by any caller, log or assertion."
+    },
+    {
+      "file": "src/protocol/persistence.ts",
+      "symbol": "ProtocolPersistenceAdapter.appendWrite",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "identity === undefined",
+      "occurrence": 1,
+      "sites": 2,
+      "proof": "This guard runs only when writeReservesIdentity(decoded) is true, which requires decoded.idempotencyKey to be defined. WriteRecord's constructor refuses any record that carries an idempotency key without both caller and command, so a reserving write always has a caller, and identityForWrite returns undefined only when caller or idempotencyKey is absent. The condition is therefore constantly false wherever it runs, and forcing it false selects the same branch. It is written because the findWrite call on the next line needs identity narrowed to CommandIdentity; the complementary true mutant, which would refuse every original write, is killed."
+    },
+    {
+      "file": "src/protocol/persistence.ts",
+      "symbol": "ProtocolPersistenceAdapter.appendWrite",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ throw corruptProtocol(\"An original write requires its canonical command identity\"); }",
+      "proof": "This block is the body of the identity guard inside the reserving branch, and that condition is constantly false: writeReservesIdentity implies a defined idempotency key, and WriteRecord's constructor rejects an idempotency key without a caller, so identityForWrite cannot return undefined there. A block that never executes contributes no exception, no value and no effect to any observation, so emptying it cannot change what a caller sees. Stryker reports it survived rather than uncovered because the surrounding branch runs on every original write while the block itself never does."
+    },
+    {
+      "file": "src/protocol/persistence.ts",
+      "symbol": "ProtocolPersistenceAdapter.appendWrite",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"An original write requires its canonical command identity\"",
+      "proof": "The literal is the message argument of a corruptProtocol call inside a guard that cannot fire. A write reserves identity only with an idempotency key present, and WriteRecord's constructor refuses an idempotency key unless caller and command are present too, which is exactly what identityForWrite requires to return a value. The AgentCoreError is therefore never constructed and its message never read, so replacing the text with the empty string changes nothing any caller, log or assertion could observe."
+    },
+    {
+      "file": "src/protocol/persistence.ts",
+      "symbol": "ProtocolPersistenceAdapter.appendWrite",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "identity !== undefined",
+      "proof": "This else-if is reached when the write does not reserve identity and is not a duplicate, which the branch above already returned for. writeReservesIdentity is false there for exactly two reasons: no idempotency key, in which case identityForWrite returns undefined; or outcome rejectedAuthentication, which WriteRecord's constructor forbids from carrying an idempotency key at all, so identityForWrite returns undefined again. The condition is constantly false and forcing it false selects the same branch; the true form, which would refuse every unindexable write, is killed."
+    },
+    {
+      "file": "src/protocol/persistence.ts",
+      "symbol": "ProtocolPersistenceAdapter.appendWrite",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ throw corruptProtocol(\"Unindexable writes cannot contain an idempotency key\"); }",
+      "proof": "The block belongs to the unindexable-write guard, whose condition cannot be true: a write reaching it either has no idempotency key, so it has no command identity, or is rejectedAuthentication, an outcome WriteRecord's constructor forbids from carrying an idempotency key. With the condition constantly false the throw never runs, and an empty body is indistinguishable from a body that never executes \u2014 no exception is raised either way and control continues to the insert below."
+    },
+    {
+      "file": "src/protocol/persistence.ts",
+      "symbol": "ProtocolPersistenceAdapter.appendWrite",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"Unindexable writes cannot contain an idempotency key\"",
+      "proof": "This text is the message of an error the unindexable branch cannot raise. Reaching that branch means writeReservesIdentity was false, and both ways for that to happen \u2014 an absent idempotency key, or the rejectedAuthentication outcome that WriteRecord's constructor bars from holding one \u2014 leave identityForWrite returning undefined, so the guard never fires. The message is never materialized into an AgentCoreError, and a literal no program run can read cannot be pinned by a test."
+    },
+    {
+      "file": "src/protocol/persistence.ts",
+      "symbol": "ProtocolPersistenceAdapter.validateDuplicate",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "identity === undefined",
+      "proof": "validateDuplicate is called only for a write whose outcome is duplicate. WriteRecord's constructor treats every outcome other than rejectedMalformed and rejectedAuthentication as requiring an idempotency key, so a duplicate always has one, and it further refuses an idempotency key without caller and command. identityForWrite therefore returns a CommandIdentity for every duplicate, the guard is constantly false, and forcing it false selects the branch already taken. It is written because the findWrite call below needs the narrowing; the true form, which would refuse every duplicate, is killed."
+    },
+    {
+      "file": "src/protocol/persistence.ts",
+      "symbol": "ProtocolPersistenceAdapter.validateDuplicate",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ throw corruptProtocol(\"Duplicate writes require their original command identity\"); }",
+      "proof": "The block is the throw guarded by a condition no duplicate can satisfy: the duplicate outcome is one of those WriteRecord's constructor requires an idempotency key for, and that constructor also refuses a key without a caller, which together are exactly what identityForWrite needs. The guard never fires, so the block never executes, and replacing it with an empty body removes an exception the program cannot raise. No caller, audit record or stored projection changes."
+    },
+    {
+      "file": "src/protocol/persistence.ts",
+      "symbol": "ProtocolPersistenceAdapter.validateDuplicate",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"Duplicate writes require their original command identity\"",
+      "proof": "This message belongs to the unreachable identity guard at the head of validateDuplicate. Every duplicate write carries an idempotency key, because WriteRecord's constructor demands one for that outcome, and carries a caller, because the same constructor refuses a key without one; identityForWrite therefore never returns undefined for the record this method is given. The error is never constructed, so the literal never reaches an assertion, a log line or a reply."
+    },
+    {
+      "file": "src/protocol/persistence.ts",
+      "symbol": "ProtocolPersistenceAdapter.validateDuplicate",
+      "mutator": "OptionalChaining",
+      "replacement": "duplicate.duplicateOf.equals",
+      "mutated": "duplicate.duplicateOf?.equals",
+      "proof": "The optional link can only matter when duplicate.duplicateOf is undefined, and it never is here: validateDuplicate runs only for a write whose outcome is duplicate, and WriteRecord's constructor throws unless a duplicate names an original. Removing the short circuit therefore leaves the same call on the same defined WriteRecordId for every input, and the comparison it feeds keeps deciding the surrounding disjunction exactly as before. No path exists on which the mutant could throw where the original returned."
+    },
+    {
+      "file": "src/protocol/persistence.ts",
+      "symbol": "identityEntries",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "identity === undefined",
+      "proof": "The loop has already skipped every write for which writeReservesIdentity is false, so each write reaching this line carries an idempotency key. WriteRecord's constructor refuses an idempotency key unless caller and command are present, and those are precisely the fields identityForWrite requires, so it returns a CommandIdentity for every remaining write. The condition is constantly false and forcing it false selects the same branch. The guard earns its place by narrowing identity for the projectIdentity call below; the true form, which would abort every rebuild, is killed."
+    },
+    {
+      "file": "src/protocol/persistence.ts",
+      "symbol": "identityEntries",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ throw corruptProtocol(\"An original write is missing its canonical command identity\"); }",
+      "proof": "This body is guarded by a test that cannot be true after the continue above it: a write that reserves identity has an idempotency key, and WriteRecord's constructor will not build such a record without a caller, so identityForWrite always answers. The throw never runs, and emptying a block that never runs leaves the identity projection rebuilt from exactly the same writes, in the same order, with the same conflict detection downstream."
+    },
+    {
+      "file": "src/protocol/persistence.ts",
+      "symbol": "identityEntries",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"An original write is missing its canonical command identity\"",
+      "proof": "The literal is the message of a corruptProtocol error raised only when a write that reserves identity has none. Reserving requires an idempotency key, and WriteRecord's constructor requires caller and command alongside any idempotency key, which is exactly what identityForWrite reads. No stored or in-memory WriteRecord can therefore reach this throw, the error is never constructed, and the text is never observable to a caller or a test."
+    },
+    {
+      "file": "src/protocol/persistence.ts",
+      "symbol": "identityForWrite",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "write.caller === undefined",
+      "proof": "This disjunct is subsumed by the one beside it. WriteRecord's constructor throws when an idempotency key is present without a caller, so every record with a caller-free field also lacks an idempotency key, and write.idempotencyKey === undefined is true for every input that would make this operand true. Forcing it false therefore leaves the same undefined returned for the same records and the same CommandIdentity for the rest. The operand is written because the object literal below needs caller narrowed to CommandCaller, which the sibling test cannot do."
+    },
+    {
+      "file": "src/protocol/persistence.ts",
+      "symbol": "validateWriteAuditCause",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "cause.cause !== undefined",
+      "proof": "This operand is evaluated only after the one before it has established that cause.kind.kind is \"invocation\", and AuditRecord's constructor throws \"Invocation audit roots cannot have a cause\" for exactly that combination. Every AuditRecord in the process passes that constructor, including those the codec produces, because AuditRecordCodec's decodePayload builds its result with new AuditRecord. An invocation audit carrying a cause therefore cannot exist, the operand is constantly false, and forcing it false leaves the same disjunction rejecting the same audit graphs."
+    },
+    {
+      "file": "src/workspaces/source-protocol.ts",
+      "symbol": "equalBytes",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "left.byteLength === right.byteLength",
+      "proof": "Dropping the length test only matters when the shorter argument is a prefix of the longer one, because every over-long index reads undefined out of right and fails the strict comparison inside every. Both call sites here pass Event.encode results, and RecordCodec.encode emits one canonical JSON document whose final byte closes the top-level object. Two documents sharing a prefix reach depth zero at the same offset, so the longer one would carry bytes after its own closing brace and could not be valid JSON. No pair of encodings can stand in that relation, so the mutant computes the same verdict on every input."
+    },
+    {
+      "file": "src/workspaces/target-protocol.ts",
+      "symbol": "equalBytes",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "left.byteLength === right.byteLength",
+      "proof": "The single caller compares two RouteProjection.codec.encode results while deciding whether a retry matches the admitted projection. Without the length test the answer changes only for a strict prefix, since any index past the shorter array yields undefined and fails the byte comparison. A codec encoding is a complete canonical JSON document that ends at its top-level closing brace, and a document sharing another's prefix would have to continue past that brace, which no valid JSON does. The two spellings therefore agree on every pair this function can be handed."
+    },
+    {
+      "file": "src/workspaces/view-replay.ts",
+      "symbol": "equalBytes",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "left.byteLength === right.byteLength",
+      "proof": "Replay compares View.codec.encode of the replayed View against the same encoding of the durable one. The length test can only decide a case the element comparison does not, namely a shorter array that matches the longer one position for position, because any index beyond the shorter length reads undefined and fails. Canonical JSON encodings cannot be prefixes of one another: both end at the closing brace of their top-level object, and a longer document sharing the shorter one's prefix would place bytes after that brace. The fallback therefore triggers on exactly the same divergences."
+    },
+    {
+      "file": "src/workspaces/memory.ts",
+      "symbol": "MemoryWorkspaceRecords.deleteCompactedRecords",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "records.size === 0",
+      "proof": "Skipping this delete leaves an empty inner map under the kind instead of removing the kind, and nothing this class exposes can tell the two apart. findRecord and listRecords read through the inner map and answer undefined and an empty array either way; insertRecord goes through nested, which reuses an existing map and creates one otherwise; snapshot flattens the values, and an empty map contributes no entries; clone and the actor state hook are built from that same snapshot. The line only releases memory, so no observation distinguishes the mutant."
     }
   ]
 }
