@@ -22,20 +22,21 @@ export function malformed<Target>(value: JsonValue): Target {
 }
 
 /**
- * A valid record with named fields replaced by values its contract forbids.
+ * A record that deviates from its contract in exactly the ways named: fields holding
+ * values the contract forbids, fields it never declared, or — by passing a base that is
+ * missing them — fields it requires.
  *
- * Discriminated intent unions pin fields such as `impact` to one literal per member, so a
- * record carrying the wrong one names no member and cannot be written down. Starting from
- * a record that does type-check and naming only the fields to violate keeps the rest of it
- * checked against the real contract, and leaves the test reading as the single deviation
- * it is asserting on.
+ * Discriminated unions pin fields such as `impact` or a snapshot `version` to one literal
+ * per member, so a record carrying the wrong one names no member and cannot be written
+ * down. Starting from a record that does type-check keeps everything else checked against
+ * the real contract, and leaves the test reading as the deviation it is asserting on.
  */
 export function violating<Target>(
-    base: Target,
-    violations: Partial<Record<keyof Target & string, JsonValue>>
+    base: Partial<Target>,
+    violations: Readonly<Record<string, JsonValue>> = {}
 ): Target {
-    // SAFETY: the result is a Target in every field except the ones just overwritten with
-    // values the contract forbids. It exists to be handed to the validator that must
-    // reject it, and is never read as a well-formed Target.
+    // SAFETY: the result is a Target apart from the deviations just named, which the
+    // contract forbids. It exists to be handed to the validator that must reject it, and
+    // is never read as a well-formed Target.
     return { ...base, ...violations } as Target;
 }
