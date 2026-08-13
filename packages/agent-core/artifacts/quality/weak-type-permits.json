@@ -272,24 +272,6 @@
       "reason": "A binding or route read back through the store that just produced it is present by that write."
     },
     {
-      "file": "packages/agent-core/src/composition/device-consent.ts",
-      "kind": "assertion",
-      "count": 2,
-      "reason": "Composition asserts the shape a validated request already established when the check and the use sit either side of a seam."
-    },
-    {
-      "file": "packages/agent-core/src/composition/device-consent.ts",
-      "kind": "non-null",
-      "count": 1,
-      "reason": "A binding or route read back through the store that just produced it is present by that write."
-    },
-    {
-      "file": "packages/agent-core/src/composition/device-consent.ts",
-      "kind": "unknown",
-      "count": 1,
-      "reason": "Composition wires substrate-supplied transactions and transports it never inspects, so their types stay open to the host that closes them."
-    },
-    {
       "file": "packages/agent-core/src/composition/json-patch.ts",
       "kind": "assertion",
       "count": 2,
