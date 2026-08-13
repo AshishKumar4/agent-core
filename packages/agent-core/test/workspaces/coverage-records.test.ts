@@ -11,6 +11,7 @@ import {
     encodeCanonicalJson,
     isJsonObject,
     type JsonObject,
+    type JsonSchemaDocument,
     type JsonValue
 } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
@@ -122,14 +123,24 @@ function provenance(
         readonly claims?: JsonValue;
     } = {}
 ): EventProvenance {
-    return new EventProvenance({
-        verification: init.verification ?? EventVerification.verified(),
-        ...(init.principal === undefined ? {} : { principal: init.principal }),
-        ...(init.channel === undefined ? {} : { channel: init.channel }),
-        ...(init.group === undefined ? {} : { group: init.group }),
-        ...(init.claims === undefined ? {} : { claims: init.claims })
-    });
+    const fields: ProvenanceFields = {
+        verification: init.verification ?? EventVerification.verified()
+    };
+    if (init.principal !== undefined) fields.principal = init.principal;
+    if (init.channel !== undefined) fields.channel = init.channel;
+    if (init.group !== undefined) fields.group = init.group;
+    if (init.claims !== undefined) fields.claims = init.claims;
+    return new EventProvenance(fields);
 }
+
+/** The provenance fields a fixture fills in, before the absent ones are dropped. */
+type ProvenanceFields = {
+    verification: EventVerification;
+    principal?: PrincipalRef;
+    channel?: string;
+    group?: string;
+    claims?: JsonValue;
+};
 
 function eventInit(
     suffix: string,
@@ -152,7 +163,7 @@ function eventInit(
             claims: { nested: [true, null] }
         });
     const initiator = options.initiator === undefined ? principal : options.initiator;
-    return {
+    const base: EventInit = {
         id: new EventId(`event-coverage-${suffix}`),
         scope,
         source:
@@ -164,12 +175,14 @@ function eventInit(
         payloadDigest: payload.digest,
         idempotencyKey: options.idempotencyKey ?? `key-${suffix}`,
         correlation: new CorrelationId(`correlation-coverage-${suffix}`),
-        ...(options.causation === undefined ? {} : { causation: options.causation }),
         provenance: eventProvenance,
         trust: options.trust ?? "authenticated",
-        visibility: "workspace",
-        ...(initiator === null ? {} : { initiator })
+        visibility: "workspace"
     };
+    const withInitiator: EventInit = initiator === null ? base : { ...base, initiator };
+    return options.causation === undefined
+        ? withInitiator
+        : { ...withInitiator, causation: options.causation };
 }
 
 function eventIntent(
@@ -185,7 +198,7 @@ function eventIntent(
     } = {}
 ): EventIntentInput {
     const payload = options.payload ?? content(`coverage-intent-${suffix}`);
-    return {
+    const intent: EventIntentInput = {
         id: new EventId(`event-intent-${suffix}`),
         scope: options.scope ?? scope,
         sourceActor,
@@ -207,7 +220,6 @@ function eventIntent(
         }),
         idempotencyKey: options.idempotencyKey ?? `intent-key-${suffix}`,
         correlation: new CorrelationId(`correlation-intent-${suffix}`),
-        ...(options.causation === undefined ? {} : { causation: options.causation }),
         provenance:
             options.provenance ??
             provenance({
@@ -216,9 +228,13 @@ function eventIntent(
                 group: "group",
                 claims: { nested: [true, null] }
             }),
-        visibility: "workspace",
-        ...(options.lease === undefined ? {} : { lease: options.lease })
+        visibility: "workspace"
     };
+    const withLease: EventIntentInput =
+        options.lease === undefined ? intent : { ...intent, lease: options.lease };
+    return options.causation === undefined
+        ? withLease
+        : { ...withLease, causation: options.causation };
 }
 
 function subscription(
@@ -263,12 +279,16 @@ function inbox(sequence = 0, leaseEpoch = 0): InboxEventReference {
 }
 
 function action(id = "submit", argumentsSchema?: JsonSchema): ActionDescriptor {
-    return new ActionDescriptor({
+    const descriptor = {
         id: new ActionId(id),
         label: "Submit",
-        emits: new EventKind("coverage.submitted"),
-        ...(argumentsSchema === undefined ? {} : { arguments: argumentsSchema })
-    });
+        emits: new EventKind("coverage.submitted")
+    };
+    return new ActionDescriptor(
+        argumentsSchema === undefined
+            ? descriptor
+            : { ...descriptor, arguments: argumentsSchema }
+    );
 }
 
 function view(
@@ -1041,10 +1061,10 @@ describe("views and deltas", () => {
             ).toThrow(/Action label must be a nonblank canonical string/);
         }
 
-        const schemaDocument: { type: string; properties: { value: { type: string } } } = {
+        const schemaDocument = {
             type: "object",
             properties: { value: { type: "string" } }
-        };
+        } satisfies JsonSchemaDocument;
         const schema = new JsonSchema(schemaDocument);
         const withArguments = action("with-arguments", schema);
         schemaDocument.properties.value.type = "number";
@@ -1079,11 +1099,9 @@ describe("views and deltas", () => {
             expect(decoded.body).toEqual(body);
             expect(decoded.actions[0]?.arguments).toBeUndefined();
             expect(decoded.actions[1]?.arguments?.document).toBe(false);
-            expect(
-                Object.isFrozen(decoded.body) ||
-                    typeof decoded.body !== "object" ||
-                    decoded.body === null
-            ).toBe(true);
+            const decodedBody = decoded.body;
+            const composite = Array.isArray(decodedBody) || isJsonObject(decodedBody);
+            expect(!composite || Object.isFrozen(decodedBody)).toBe(true);
         }
         expectUniformCodec(view(), View);
     });
@@ -1235,10 +1253,10 @@ describe("views and deltas", () => {
 
         const viewDelta = delta(previous);
         const deltaPayload = recordPayload(ViewDelta.encode(viewDelta));
-        const baseRevision = deltaPayload["baseRevision"];
-        if (typeof baseRevision !== "number") {
-            throw new TypeError("View delta revision fixture changed shape");
-        }
+        const baseRevision = requireInteger(
+            deltaPayload["baseRevision"],
+            "View delta base revision"
+        );
         const { patch, ...missingPatch } = deltaPayload;
         expect(Array.isArray(patch)).toBe(true);
         expectCodecInvalid(() => ViewDelta.decode(recordBytes(ViewDelta.codec.kind, null)));
