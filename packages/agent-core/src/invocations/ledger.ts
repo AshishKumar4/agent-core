@@ -247,7 +247,7 @@ export class InvocationLedger<
             replacement.expiresAt,
             now
         );
-        if (!sameClaim(expected, replacement, this.lease)) {
+        if (!sameSchedulingIdentity(expected, replacement)) {
             throw invalid("Recovered claim changed immutable scheduling identity");
         }
         this.validateClaimOwner(
@@ -263,24 +263,21 @@ export class InvocationLedger<
         now: Date,
         authentication?: Authentication
     ): Approval | undefined {
-        const admitted = this.admitAttemptInternal(
-            transaction,
-            attempt,
-            now,
-            false,
-            authentication
-        );
+        const admitted = this.admitAttemptInternal(transaction, attempt, now, authentication);
         if (admitted === false) {
             throw invalid("AuthorityAdmission does not authorize this exact EffectAttempt");
         }
         return admitted;
     }
 
+    /**
+     * `false` reports an AuthorityAdmission denial, the one refusal a caller may record as
+     * evidence instead of raising. Every other refusal is a caller error and throws here.
+     */
     private admitAttemptInternal(
         transaction: Transaction,
         attempt: EffectAttempt<Lease, Admission>,
         now: Date,
-        returnAuthorityDenial: boolean,
         authentication: Authentication | undefined
     ): Approval | undefined | false {
         const nowTime = this.requireTime(transaction, now);
@@ -349,8 +346,7 @@ export class InvocationLedger<
                 )
             )
         ) {
-            if (returnAuthorityDenial) return false;
-            throw invalid("AuthorityAdmission does not authorize this exact EffectAttempt");
+            return false;
         }
         let consumed: Approval | undefined;
         const approval = this.persistence.approvalForInvocation(transaction, prepared.header.id);
@@ -434,7 +430,7 @@ export class InvocationLedger<
         evidence: InvocationEvidencePersistence<Transaction>,
         authentication?: Authentication
     ): boolean {
-        const admitted = this.admitAttemptInternal(transaction, attempt, now, true, authentication);
+        const admitted = this.admitAttemptInternal(transaction, attempt, now, authentication);
         if (admitted === false) {
             this.recordClaimedAuthorityDenialWithAudit(
                 transaction,
@@ -830,28 +826,14 @@ function isLegalApprovalTransition(current: Approval, next: Approval): boolean {
     return false;
 }
 
-function sameClaim<Lease>(
-    left: ItemClaim<Lease>,
-    right: ItemClaim<Lease>,
-    lease: StructuralCodec<Lease>
-): boolean {
-    if (
-        !left.id.equals(right.id) ||
-        !left.invocation.equals(right.invocation) ||
-        left.itemIndex !== right.itemIndex ||
-        left.attemptOrdinal !== right.attemptOrdinal ||
-        left.expiresAt.getTime() !== right.expiresAt.getTime() ||
-        left.owner.kind !== right.owner.kind ||
-        !left.owner.worker.equals(right.owner.worker)
-    )
-        return false;
-    if (left.owner.kind === "executor" && right.owner.kind === "executor") {
-        return structuralEquals(lease, left.owner.token, right.owner.token);
-    }
+// ItemClaim.recover builds the expected claim from the caller's id, owner, and expiry, so
+// those three are equal by construction and only the scheduling identity the recovered
+// claim inherits from its predecessor can disagree.
+function sameSchedulingIdentity<Lease>(left: ItemClaim<Lease>, right: ItemClaim<Lease>): boolean {
     return (
-        left.owner.kind === "system" &&
-        right.owner.kind === "system" &&
-        left.owner.actor.equals(right.owner.actor)
+        left.invocation.equals(right.invocation) &&
+        left.itemIndex === right.itemIndex &&
+        left.attemptOrdinal === right.attemptOrdinal
     );
 }
 
@@ -868,10 +850,10 @@ function sameOwner<Lease>(
     left: ItemClaimOwner<Lease>,
     right: ItemClaimOwner<Lease>
 ): boolean {
-    if (left.kind !== right.kind || !left.worker.equals(right.worker)) return false;
-    return left.kind === "executor" && right.kind === "executor"
-        ? structuralEquals(lease, left.token, right.token)
-        : left.kind === "system" && right.kind === "system" && left.actor.equals(right.actor);
+    if (!left.worker.equals(right.worker)) return false;
+    return left.kind === "executor"
+        ? right.kind === "executor" && structuralEquals(lease, left.token, right.token)
+        : right.kind === "system" && left.actor.equals(right.actor);
 }
 
 function sameAudit(left: AuditRecord, right: AuditRecord): boolean {
