@@ -5,6 +5,7 @@ import { PackageLock } from "../../src/definition/package-lock";
 import { PackageId } from "../../src/definition/id";
 import { MetadataSnapshot, PackageRelease } from "../../src/definition/package";
 import { SqlitePackageStore } from "../../src/substrates";
+import { forged } from "./record-data";
 import { TestSqlite } from "../helpers/sqlite";
 import {
     digestOf,
@@ -192,7 +193,7 @@ describe("MemoryPackageStore persistence", () => {
             () =>
                 new MemoryPackageStore({
                     ...snapshot,
-                    releases: [{ ...snapshot.releases[0]!, version: 7 as never }]
+                    releases: [{ ...snapshot.releases[0]!, version: forged<string>(7) }]
                 })
         ).toThrow(/Memory package snapshot package version is malformed/);
     });
@@ -314,7 +315,7 @@ describe("MemoryPackageStore persistence", () => {
             () =>
                 new MemoryPackageStore({
                     ...snapshot,
-                    snapshots: [{ ...snapshot.snapshots[0]!, bytes: "bad" as never }]
+                    snapshots: [{ ...snapshot.snapshots[0]!, bytes: forged<Uint8Array>("bad") }]
                 })
         ).toThrow(/Memory package snapshot metadata snapshot bytes are malformed/);
 
@@ -323,14 +324,14 @@ describe("MemoryPackageStore persistence", () => {
             () =>
                 new MemoryPackageStore({
                     ...releaseRows,
-                    releases: [{ ...releaseRows.releases[0]!, packageId: "" as never }]
+                    releases: [{ ...releaseRows.releases[0]!, packageId: forged<PackageId>("") }]
                 })
         ).toThrow(/package ID is malformed/);
         expect(
             () =>
                 new MemoryPackageStore({
                     ...releaseRows,
-                    releases: [{ ...releaseRows.releases[0]!, bytes: "bad" as never }]
+                    releases: [{ ...releaseRows.releases[0]!, bytes: forged<Uint8Array>("bad") }]
                 })
         ).toThrow(/Memory package snapshot package release bytes are malformed/);
         const lockRows = lockSnapshot();

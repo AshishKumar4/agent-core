@@ -19,13 +19,21 @@ import {
     RunPinEvidence,
     canonicalCompatibilityRange,
     compatibilityAdmits,
-    evaluatePolicy
+    evaluatePolicy,
+    type EnforcementTierOverrides,
 } from "../../src/definition";
-import { SlotAuthorityPolicy, SlotDeclaration, SlotName } from "../../src/facets";
+import {
+    SlotAuthorityPolicy,
+    SlotDeclaration,
+    SlotName,
+    type Impact,
+    type IsolationMode
+} from "../../src/facets";
 import { TenantId } from "../../src/identity";
 import { AgentCoreError } from "../../src/errors";
 import { definitionRevisionConflict, invalidDefinition } from "../../src/definition/error";
 import { compareText } from "../../src/definition/order";
+import { forged, recordData } from "./record-data";
 
 describe("definition value boundaries", () => {
     test("orders canonical text without locale-dependent collation", { tags: "p0" }, () => {
@@ -135,7 +143,7 @@ describe("definition value boundaries", () => {
                     new Blueprint({
                         meta: blueprint.meta,
                         packages: [],
-                        policies: {} as never,
+                        policies: forged<PolicySet>({}),
                         agents: []
                     })
             ).toThrow(/PolicySet/);
@@ -145,7 +153,7 @@ describe("definition value boundaries", () => {
             expect(() => BlueprintMeta.fromData(null)).toThrow(/object/);
             expect(() => BlueprintMeta.fromData({ name: 7, version: "1.0.0" })).toThrow(/string/);
             expect(() =>
-                Blueprint.fromData({ ...(blueprint.toData() as object), agents: null })
+                Blueprint.fromData({ ...recordData(blueprint), agents: null })
             ).toThrow(/array/);
         }
     );
@@ -229,7 +237,7 @@ describe("definition value boundaries", () => {
             expect(
                 PlacementPolicy.fromData({ allowed: ["bundled"], backings: {}, trusted: ["*"] }).allowed
             ).toEqual(["bundled"]);
-            expect(() => new PlacementPolicy(["invalid" as never])).toThrow(/unknown/);
+            expect(() => new PlacementPolicy([forged<IsolationMode>("invalid")])).toThrow(/unknown/);
             expect(() =>
                 PolicySet.fromData({
                     approvals: [],
@@ -248,9 +256,9 @@ describe("definition value boundaries", () => {
                     tiers: {}
                 })
             ).toThrow(/array/);
-            expect(() => new PolicySet({ approvals: ["invalid" as never] })).toThrow(/impact/);
+            expect(() => new PolicySet({ approvals: [forged<Impact>("invalid")] })).toThrow(/impact/);
             expect(() => PolicySet.fromData(null)).toThrow(/object/);
-            expect(() => new PolicySet({ tiers: { unknown: "direct" } as never })).toThrow(
+            expect(() => new PolicySet({ tiers: forged<EnforcementTierOverrides>({ unknown: "direct" }) })).toThrow(
                 /unknown impact/
             );
             expect(() =>
@@ -258,7 +266,7 @@ describe("definition value boundaries", () => {
                     impact: "observe",
                     turnOwnedSession: true,
                     sessionFilesystemTarget: false,
-                    placement: "invalid" as never
+                    placement: forged<IsolationMode>("invalid")
                 })
             ).toThrow(/placement/);
         }

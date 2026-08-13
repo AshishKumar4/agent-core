@@ -14,7 +14,15 @@ import {
     TransientContentLease,
     type TransientContentBinding
 } from "../../src/content";
-import { ContentRef, decodeCanonicalJson, Digest, encodeCanonicalJson } from "../../src/core";
+import {
+    ContentRef,
+    decodeCanonicalJson,
+    Digest,
+    encodeCanonicalJson,
+    hasExactJsonKeys,
+    isJsonObject,
+    type JsonValue
+} from "../../src/core";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 import { AgentCoreError } from "../../src/errors";
 import {
@@ -30,6 +38,7 @@ import {
     CommandCommitUnknownError,
     CommandDispatcher,
     type CommandDispatchResult,
+    type CommandDispatcherInit,
     type CommandIdentity,
     type CurrentLease,
     type ExpectedRevisionPolicy,
@@ -40,11 +49,16 @@ import {
 } from "../../src/protocol/dispatcher";
 import type { ProtocolCommandExecution, ProtocolValueCodec } from "../../src/protocol/registration";
 import { MemoryProtocolPersistence, MemoryProtocolRecords } from "../../src/protocol/memory";
-import { CommandIngress, type CommandIngressResult } from "../../src/protocol/ingress";
+import {
+    CommandIngress,
+    type CommandIngressInit,
+    type CommandIngressResult
+} from "../../src/protocol/ingress";
 import {
     CommandEnvelope,
     CommandEnvelopeCodec,
     type CommandCaller,
+    type CommandEnvelopeInit,
     type LeaseToken
 } from "../../src/protocol/envelope";
 import { WriteRecordCodec, type WriteRecord } from "../../src/protocol/write";
@@ -54,25 +68,33 @@ import { Revision } from "../../src/core";
 import { TurnId } from "../../src/agents";
 import { CommandAuthenticator } from "../../src/protocol/authentication";
 
-export type FaultBoundary =
-    | "gateMutation"
-    | "readSnapshot"
-    | "payloadValidation"
-    | "mutation"
-    | "forgedUnknown"
-    | "forgedActorUnknown"
-    | "unreadableInvocationAudit"
-    | "invocationAudit"
-    | "writeAudit"
-    | "writeRecord"
-    | "contentGet"
-    | "contentPut"
-    | "contentUnknown"
-    | "authUnknown"
-    | "replyEncoding"
-    | "observationEncoding"
-    | "unknownUnindexed"
-    | "unknownAck";
+/**
+ * Every boundary a counter command can be told to fail at. Kept as a value so a fixture that
+ * stores the choice outside the type system — the SQLite harness keeps it in a TEXT column —
+ * can decode it back through isMember rather than asserting it.
+ */
+export const faultBoundaries = [
+    "gateMutation",
+    "readSnapshot",
+    "payloadValidation",
+    "mutation",
+    "forgedUnknown",
+    "forgedActorUnknown",
+    "unreadableInvocationAudit",
+    "invocationAudit",
+    "writeAudit",
+    "writeRecord",
+    "contentGet",
+    "contentPut",
+    "contentUnknown",
+    "authUnknown",
+    "replyEncoding",
+    "observationEncoding",
+    "unknownUnindexed",
+    "unknownAck"
+] as const;
+
+export type FaultBoundary = (typeof faultBoundaries)[number];
 
 const counterTenant = new TenantId("counter-tenant");
 
@@ -93,6 +115,12 @@ export interface CounterEnvelopeInit {
     readonly omitRevision?: boolean;
     readonly lease?: LeaseToken;
     readonly callerCause?: AuditRecordId;
+}
+
+/** A paused content read, held open until the test releases it. */
+export interface PayloadGetPause {
+    readonly started: Promise<void>;
+    release(): void;
 }
 
 export interface CounterFixture {
@@ -132,7 +160,7 @@ export interface CounterFixture {
     installPayload(ref: string, payload: Uint8Array): void;
     removePayload(ref: string): void;
     payloadBytes(amount?: number): Uint8Array;
-    pauseNextPayloadGet(): { readonly started: Promise<void>; release(): void };
+    pauseNextPayloadGet(): PayloadGetPause;
     snapshot(): CounterSnapshot;
     restart(): CounterFixture;
     recovery(): ActorRecoveryState | undefined;
@@ -180,7 +208,7 @@ export interface CounterOperations<TTransaction> {
 export class CounterCommand<TTransaction> implements ProtocolCommand<
     TTransaction,
     CounterReadCapability,
-    unknown,
+    CounterPayload,
     CounterReply,
     CounterObservation
 > {
@@ -219,9 +247,7 @@ export class CounterCommand<TTransaction> implements ProtocolCommand<
             Reflect.set(envelope.caller, "kind", "actor");
             if (envelope.lease !== undefined) Reflect.set(envelope.lease, "epoch", 999);
         }
-        return this.asynchronousGate
-            ? (Promise.resolve(read.authorized) as unknown as boolean)
-            : read.authorized;
+        return this.asynchronousGate ? asynchronousImposter(read.authorized) : read.authorized;
     }
 
     public permitsLifecycle(read: CounterReadCapability): boolean {
@@ -235,7 +261,7 @@ export class CounterCommand<TTransaction> implements ProtocolCommand<
     public currentLease(
         read: CounterReadCapability,
         _envelope: CommandEnvelope,
-        _payload: unknown,
+        _payload: CounterPayload,
         _at: Date
     ): CurrentLease | undefined {
         return read.lease;
@@ -244,32 +270,35 @@ export class CounterCommand<TTransaction> implements ProtocolCommand<
     public execute(
         transaction: TTransaction,
         _envelope: CommandEnvelope,
-        payload: unknown,
+        payload: CounterPayload,
         _at: Date
     ): Uint8Array | ProtocolCommandExecution<CounterReply, CounterObservation> {
-        const decoded = requireCounterPayload(payload);
-        const result = this.operations.increment(transaction, decoded.amount);
-        const reply = {
-            value: result.value,
-            revision: result.revision.value,
-            ...(result.fault === undefined ? {} : { encodingFault: result.fault })
-        };
-        return this.typedExecution
-            ? {
-                  reply,
-                  ...(this.typedObservation
-                      ? {
-                            observation: {
-                                amount: decoded.amount,
-                                ...(result.fault === undefined
-                                    ? {}
-                                    : { encodingFault: result.fault })
-                            }
-                        }
-                      : {})
-              }
-            : encodeCanonicalJson({ value: reply.value, revision: reply.revision });
+        const result = this.operations.increment(transaction, payload.amount);
+        const reply = counterReply(result.value, result.revision.value, result.fault);
+        if (!this.typedExecution) {
+            return encodeCanonicalJson({ value: reply.value, revision: reply.revision });
+        }
+        return this.typedObservation
+            ? { reply, observation: counterObservation(payload.amount, result.fault) }
+            : { reply };
     }
+}
+
+function counterReply(
+    value: number,
+    revision: number,
+    encodingFault: FaultBoundary | undefined
+): CounterReply {
+    return encodingFault === undefined
+        ? { value, revision }
+        : { value, revision, encodingFault };
+}
+
+function counterObservation(
+    amount: number,
+    encodingFault: FaultBoundary | undefined
+): CounterObservation {
+    return encodingFault === undefined ? { amount } : { amount, encodingFault };
 }
 
 class CounterPayloadCodec {
@@ -284,7 +313,7 @@ class CounterPayloadCodec {
             throw new AgentCoreError("protocol.invalid-state", "Injected payload decoder failure");
         }
         if (this.failure === "programmer") throw new RangeError("Injected payload decoder failure");
-        let decoded: ReturnType<typeof decodeCanonicalJson>;
+        let decoded: JsonValue;
         try {
             decoded = decodeCanonicalJson(bytes);
         } catch (error) {
@@ -293,23 +322,32 @@ class CounterPayloadCodec {
             }
             throw error;
         }
-        if (
-            decoded === null ||
-            Array.isArray(decoded) ||
-            typeof decoded !== "object" ||
-            Object.keys(decoded).length !== 1
-        ) {
+        if (!isJsonObject(decoded) || !hasExactJsonKeys(decoded, ["amount"])) {
             throw new CommandPayloadMalformedError("Counter payload is invalid");
         }
-        const amount = (decoded as { readonly [key: string]: unknown })["amount"];
-        if (typeof amount !== "number" || !Number.isSafeInteger(amount)) {
+        const amount = decoded["amount"];
+        if (!isSafeInteger(amount)) {
             throw new CommandPayloadMalformedError("Counter payload is invalid");
         }
         const payload = { amount };
-        return this.asynchronous
-            ? (Promise.resolve(payload) as unknown as CounterPayload)
-            : payload;
+        return this.asynchronous ? asynchronousImposter(payload) : payload;
     }
+}
+
+/**
+ * A command's gate and payload decoder are synchronous by contract, so no honestly typed
+ * fixture can hand the dispatcher a thenable. These fixtures need to, in order to prove the
+ * dispatcher rejects an asynchronous command instead of silently awaiting it.
+ */
+function asynchronousImposter<TDeclared>(value: TDeclared): TDeclared {
+    // SAFETY: deliberately violates the synchronous contract. The returned promise never
+    // satisfies TDeclared; the dispatcher is required to detect the thenable and fail the
+    // command, so every caller of this helper asserts on that rejection.
+    return Promise.resolve(value) as TDeclared;
+}
+
+function isSafeInteger(value: JsonValue): value is number {
+    return Number.isSafeInteger(value);
 }
 
 interface CounterPayload {
@@ -349,43 +387,24 @@ const counterObservationCodec: ProtocolValueCodec<CounterObservation> = {
     decode: (bytes) => requireCounterObservation(decodeCanonicalJson(bytes))
 };
 
-function requireCounterPayload(payload: unknown): CounterPayload {
-    if (
-        payload === null ||
-        typeof payload !== "object" ||
-        typeof (payload as { readonly amount?: unknown }).amount !== "number"
-    ) {
-        throw new TypeError("Counter payload was not decoded");
-    }
-    return payload as CounterPayload;
-}
-
-function requireCounterReply(value: unknown): CounterReply {
-    if (
-        value === null ||
-        typeof value !== "object" ||
-        Object.keys(value).sort().join(",") !== "revision,value"
-    ) {
+function requireCounterReply(value: JsonValue): CounterReply {
+    if (!isJsonObject(value) || !hasExactJsonKeys(value, ["revision", "value"])) {
         throw new TypeError("Counter reply is invalid");
     }
-    const reply = value as { readonly revision?: unknown; readonly value?: unknown };
-    if (
-        typeof reply.value !== "number" ||
-        !Number.isSafeInteger(reply.value) ||
-        typeof reply.revision !== "number" ||
-        !Number.isSafeInteger(reply.revision)
-    ) {
+    const revision = value["revision"];
+    const replyValue = value["value"];
+    if (!isSafeInteger(revision) || !isSafeInteger(replyValue)) {
         throw new TypeError("Counter reply is invalid");
     }
-    return { value: reply.value, revision: reply.revision };
+    return { value: replyValue, revision };
 }
 
-function requireCounterObservation(value: unknown): CounterObservation {
-    if (value === null || typeof value !== "object" || Object.keys(value).join(",") !== "amount") {
+function requireCounterObservation(value: JsonValue): CounterObservation {
+    if (!isJsonObject(value) || !hasExactJsonKeys(value, ["amount"])) {
         throw new TypeError("Counter observation is invalid");
     }
-    const amount = (value as { readonly amount?: unknown }).amount;
-    if (typeof amount !== "number" || !Number.isSafeInteger(amount)) {
+    const amount = value["amount"];
+    if (!isSafeInteger(amount)) {
         throw new TypeError("Counter observation is invalid");
     }
     return { amount };
@@ -588,7 +607,7 @@ export class CounterContentStore extends TransientContentAccess {
         this.#content.delete(ref);
     }
 
-    public pauseNextGet(): { readonly started: Promise<void>; release(): void } {
+    public pauseNextGet(): PayloadGetPause {
         const barrier = new PayloadGetBarrier();
         this.#nextGetBarrier = barrier;
         return { started: barrier.started, release: () => barrier.release() };
@@ -738,7 +757,7 @@ export class CounterHarness implements CounterFixture {
             options.mutateEnvelope ?? false,
             options.commandName ?? "counter.increment"
         );
-        this.dispatcher = new CommandDispatcher({
+        const dispatch: CommandDispatcherInit<CounterState, CounterReadCapability> = {
             store: this.store,
             persistence: this.#persistence,
             ids: new CounterIds(nextId),
@@ -746,40 +765,50 @@ export class CounterHarness implements CounterFixture {
             tenant: this.tenant,
             readOnly: memoryReadCapability,
             commands: options.duplicateCommand === true ? [command, command] : [command],
-            limits: options.limits ?? { envelopeBytes: 4096, payloadBytes: 1024 },
-            ...(options.useDefaultNow === true
-                ? {}
-                : { now: options.now ?? (() => CounterHarness.now) })
-        });
-        this.ingress = new CommandIngress({
+            limits: options.limits ?? { envelopeBytes: 4096, payloadBytes: 1024 }
+        };
+        this.dispatcher = new CommandDispatcher(
+            options.useDefaultNow === true
+                ? dispatch
+                : { ...dispatch, now: options.now ?? (() => CounterHarness.now) }
+        );
+        const accept: CommandIngressInit<
+            CounterState,
+            CounterReadCapability,
+            CounterState,
+            CommandCaller | undefined
+        > = {
             dispatcher: this.dispatcher,
             content: this.content,
             authenticator: new CounterAuthenticator(this.tenant, () => this.state().fault),
-            leaseForMilliseconds: 60_000,
-            ...(options.useDefaultNow === true ? {} : { now: () => CounterHarness.now })
-        });
+            leaseForMilliseconds: 60_000
+        };
+        this.ingress = new CommandIngress(
+            options.useDefaultNow === true ? accept : { ...accept, now: () => CounterHarness.now }
+        );
     }
 
     public envelope(init: CounterEnvelopeInit = {}): Uint8Array {
         const amount = init.amount ?? 1;
-        const key = init.key ?? "counter-key";
         const payload = encodeCanonicalJson({ amount });
         const ref = ContentRef.fromDigest(Digest.sha256(payload));
         this.installPayload(ref.value, payload);
-        return CommandEnvelopeCodec.encode(
-            new CommandEnvelope({
-                command: "counter.increment",
-                caller: this.caller,
-                idempotencyKey: key,
-                ...(init.omitRevision === true
-                    ? {}
-                    : { expectedRevision: init.expectedRevision ?? this.state().revision }),
-                ...(init.lease === undefined ? {} : { lease: init.lease }),
-                ...(init.callerCause === undefined ? {} : { callerCause: init.callerCause }),
-                payload: ref,
-                payloadDigest: Digest.sha256(payload)
-            })
-        );
+        const required: CommandEnvelopeInit = {
+            command: "counter.increment",
+            caller: this.caller,
+            idempotencyKey: init.key ?? "counter-key",
+            payload: ref,
+            payloadDigest: Digest.sha256(payload)
+        };
+        const revised: CommandEnvelopeInit =
+            init.omitRevision === true
+                ? required
+                : { ...required, expectedRevision: init.expectedRevision ?? this.state().revision };
+        const leased: CommandEnvelopeInit =
+            init.lease === undefined ? revised : { ...revised, lease: init.lease };
+        const caused: CommandEnvelopeInit =
+            init.callerCause === undefined ? leased : { ...leased, callerCause: init.callerCause };
+        return CommandEnvelopeCodec.encode(new CommandEnvelope(caused));
     }
 
     public async dispatch(
@@ -865,9 +894,11 @@ export class CounterHarness implements CounterFixture {
             const lease = transaction.lease;
             if (lease === undefined) throw new TypeError("Expected a stored counter lease");
             transaction.lease = {
-                ...lease,
-                ...(omit.holder === true ? { holderTenant: undefined, holder: undefined } : {}),
-                ...(omit.expiresAt === true ? { expiresAt: undefined } : {})
+                turn: lease.turn,
+                holderTenant: omit.holder === true ? undefined : lease.holderTenant,
+                holder: omit.holder === true ? undefined : lease.holder,
+                epoch: lease.epoch,
+                expiresAt: omit.expiresAt === true ? undefined : lease.expiresAt
             };
         });
         return token;
@@ -903,7 +934,7 @@ export class CounterHarness implements CounterFixture {
         return encodeCanonicalJson({ amount });
     }
 
-    public pauseNextPayloadGet(): { readonly started: Promise<void>; release(): void } {
+    public pauseNextPayloadGet(): PayloadGetPause {
         return this.content.pauseNextGet();
     }
 
@@ -945,11 +976,8 @@ const memoryCounterOperations: CounterOperations<CounterState> = {
         if (transaction.fault === "forgedUnknown") throw new CommandCommitUnknownError();
         if (transaction.fault === "forgedActorUnknown") throw new ActorCommitUnknownError();
         fail(transaction, "mutation");
-        return {
-            value: transaction.value,
-            revision: transaction.revision,
-            ...(transaction.fault === undefined ? {} : { fault: transaction.fault })
-        };
+        const { value, revision, fault } = transaction;
+        return fault === undefined ? { value, revision } : { value, revision, fault };
     }
 };
 

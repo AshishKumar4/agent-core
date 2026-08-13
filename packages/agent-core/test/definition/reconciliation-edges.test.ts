@@ -16,6 +16,7 @@ import {
     type ManagedResourceSnapshot
 } from "../../src/definition";
 import { TenantId } from "../../src/identity";
+import { forged } from "./record-data";
 import {
     MemoryManagedResourcePort,
     type MemoryManagedResourceState
@@ -94,7 +95,7 @@ describe("reconciliation adversarial boundaries", () => {
             const malformed =
                 new (class extends MemoryManagedResourcePort<MemoryManagedResourceState> {
                     public override pinEvidence(): import("../../src/definition").RunPinEvidence {
-                        return {} as import("../../src/definition").RunPinEvidence;
+                        return forged<RunPinEvidence>({});
                     }
                 })();
             expect(() =>

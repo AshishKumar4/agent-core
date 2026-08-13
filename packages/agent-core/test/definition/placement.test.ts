@@ -12,6 +12,7 @@ import {
     selectPlacement,
     trustPlacementModes
 } from "../../src/definition/placement";
+import { forged, requireObject } from "./record-data";
 
 describe("four-set placement", () => {
     test("[C13-PLACEMENT-INTERSECTION] matches the exact reference intersection and preference for all 8^4 source combinations", { tags: "p1" }, () => {
@@ -92,7 +93,7 @@ describe("four-set placement", () => {
         expect(
             () =>
                 new PlacementInput({
-                    manifest: ["unknown" as IsolationMode],
+                    manifest: [forged<IsolationMode>("unknown")],
                     policy: ["dynamic"],
                     substrate: ["dynamic"],
                     trust: ["dynamic"]
@@ -147,10 +148,10 @@ describe("placement policy trust patterns", () => {
             /nonblank canonical string/
         );
         expect(() =>
-            PlacementPolicy.fromData({ allowed: ["dynamic"], backings: {}, trusted: "core.*" as never })
+            PlacementPolicy.fromData({ allowed: ["dynamic"], backings: {}, trusted: forged<readonly string[]>("core.*") })
         ).toThrow(/array/);
         expect(() =>
-            PlacementPolicy.fromData({ allowed: ["dynamic"], backings: {}, trusted: [1 as never] })
+            PlacementPolicy.fromData({ allowed: ["dynamic"], backings: {}, trusted: [forged<string>(1)] })
         ).toThrow(/nonblank canonical string/);
     });
 
@@ -177,7 +178,7 @@ describe("placement policy declaration", () => {
     test("[C13-ADV-EMPTY-PLACEMENT] rejects empty, duplicate, unknown, and unknown codec fields", { tags: "p1" }, () => {
         expectPlacementUnavailable(() => new PlacementPolicy([]));
         expect(() => new PlacementPolicy(["dynamic", "dynamic"])).toThrow(/unique/);
-        expect(() => new PlacementPolicy(["other" as IsolationMode])).toThrow(/unknown/);
+        expect(() => new PlacementPolicy([forged<IsolationMode>("other")])).toThrow(/unknown/);
 
         const policy = new PlacementPolicy(["provider"]);
         const envelope = requireObject(decodeCanonicalJson(PlacementPolicy.encode(policy)));
@@ -226,13 +227,13 @@ describe("placement adversarial boundaries", () => {
         expect(
             () =>
                 new PlacementInput({
-                    manifest: ["dynamic", "martian" as IsolationMode],
+                    manifest: ["dynamic", forged<IsolationMode>("martian")],
                     policy: ["dynamic"],
                     substrate: ["dynamic"],
                     trust: ["dynamic"]
                 })
         ).toThrow(/Manifest placement source contains an unknown isolation mode/);
-        expect(() => new PlacementPolicy(["dynamic", "martian" as IsolationMode])).toThrow(
+        expect(() => new PlacementPolicy(["dynamic", forged<IsolationMode>("martian")])).toThrow(
             /Placement policy contains an unknown isolation mode/
         );
     });
@@ -269,7 +270,8 @@ describe("placement adversarial boundaries", () => {
     });
 
     test("rejects non-object placement policy payloads with the object subject", { tags: "p1" }, () => {
-        for (const payload of [null, ["dynamic"], "dynamic"] as JsonValue[]) {
+        const malformedPayloads: readonly JsonValue[] = [null, ["dynamic"], "dynamic"];
+        for (const payload of malformedPayloads) {
             expect(() => PlacementPolicy.fromData(payload)).toThrow(
                 /Placement policy must be an object/
             );
@@ -291,7 +293,7 @@ function canonical(modes: readonly IsolationMode[]): readonly IsolationMode[] {
     return PLACEMENT_PREFERENCE.filter((mode) => modes.includes(mode));
 }
 
-function expectPlacementUnavailable(action: () => unknown): void {
+function expectPlacementUnavailable(action: () => void): void {
     try {
         action();
         throw new Error("Expected placement to be unavailable");
@@ -301,14 +303,8 @@ function expectPlacementUnavailable(action: () => unknown): void {
     }
 }
 
-function requireObject(value: JsonValue): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError("Expected object");
-    }
-    return value as { readonly [key: string]: JsonValue };
-}
 
-function expectCodecError(action: () => unknown, code: AgentCoreError["code"]): void {
+function expectCodecError(action: () => void, code: AgentCoreError["code"]): void {
     try {
         action();
         throw new Error("Expected codec error");

@@ -17,12 +17,21 @@ interface ReadState {
     readonly revision: Revision;
 }
 
+/**
+ * The port's transaction is never touched: these tests exercise its decision methods, so the
+ * commands are executed against an empty one.
+ */
+interface UnusedTransaction {
+    readonly transaction?: never;
+}
+
 interface RunObservation {
-    readonly kind: RunProtocolRequest["kind"];
+    // The wire form is `kind:timestamp` text, so decoding recovers a string, not the literal union.
+    readonly kind: string;
     readonly at: Date;
 }
 
-class TestPort extends RunProtocolPort<object, ReadState, string, RunObservation> {
+class TestPort extends RunProtocolPort<UnusedTransaction, ReadState, string, RunObservation> {
     public readonly replyCodec: ProtocolValueCodec<string> = {
         encode: (value) => new TextEncoder().encode(value),
         decode: (bytes) => new TextDecoder().decode(bytes)
@@ -31,7 +40,7 @@ class TestPort extends RunProtocolPort<object, ReadState, string, RunObservation
         encode: (value) => new TextEncoder().encode(`${value.kind}:${value.at.toISOString()}`),
         decode: (bytes) => {
             const [kind, at] = new TextDecoder().decode(bytes).split(":", 2);
-            return { kind: kind as RunProtocolRequest["kind"], at: new Date(at!) };
+            return { kind: kind ?? "", at: new Date(at!) };
         }
     };
     public executed: RunProtocolRequest | undefined;
@@ -60,11 +69,43 @@ class TestPort extends RunProtocolPort<object, ReadState, string, RunObservation
             expiresAt: undefined
         };
     }
-    public execute(_tx: object, _envelope: CommandEnvelope, request: RunProtocolRequest, at: Date) {
+    public execute(
+        _tx: UnusedTransaction,
+        _envelope: CommandEnvelope,
+        request: RunProtocolRequest,
+        at: Date
+    ) {
         this.executed = request;
         this.decisionAt = at;
         return { reply: request.kind, observation: { kind: request.kind, at } };
     }
+}
+
+/**
+ * The port's gates never read the envelope — they decide from the decoded request — so these tests
+ * hand them an empty stand-in rather than build an envelope no assertion depends on.
+ */
+function unusedEnvelope(): CommandEnvelope {
+    // SAFETY: not a CommandEnvelope. Every call below passes it to a gate that ignores its
+    // argument; if a gate started reading the envelope, these tests would fail loudly rather
+    // than pass on a wrong value.
+    return {} as CommandEnvelope;
+}
+
+/**
+ * A request the payload codec never produced. The port re-checks that its request came from its
+ * own decoder before trusting the discriminant, and that check is what these callers assert on.
+ */
+function forgedRequest<TActual>(value: TActual): RunProtocolRequest {
+    // SAFETY: the value is not a decoded RunProtocolRequest — it is either absent or a decoded
+    // one whose kind has been rewritten — so the port must reject it as "not decoded".
+    return value as TActual & RunProtocolRequest;
+}
+
+function forgedPrincipalRef<TActual>(value: TActual): PrincipalRef {
+    // SAFETY: a plain object wearing PrincipalRef's field name is not a PrincipalRef. The caller
+    // policy identifies principals by class, so this is the case it must refuse to admit.
+    return value as TActual & PrincipalRef;
 }
 
 const owner = new ActorRef("workspace", new ActorId("workspace-1"));
@@ -169,9 +210,7 @@ describe("Run protocol family", () => {
     it("round-trips exact canonical payloads through command-specific codecs", { tags: "p1" }, () => {
         const commands = createRunProtocolCommands(new TestPort(), owner);
         for (const [index, request] of requests.entries()) {
-            const decoded = commands[index]!.payload.decode(
-                RunCommandPayload.encode(request)
-            ) as RunProtocolRequest;
+            const decoded = commands[index]!.payload.decode(RunCommandPayload.encode(request));
             expect(decoded.kind).toBe(request.kind);
             expect(RunCommandPayload.encode(decoded)).toEqual(RunCommandPayload.encode(request));
         }
@@ -191,7 +230,10 @@ describe("Run protocol family", () => {
             })
         ).toBe(false);
         expect(
-            system.caller.admits({ kind: "principal", principal: { value: "principal" } as never })
+            system.caller.admits({
+                kind: "principal",
+                principal: forgedPrincipalRef({ value: "principal" })
+            })
         ).toBe(false);
     });
 
@@ -203,7 +245,7 @@ describe("Run protocol family", () => {
         const request = requests[0]!;
         const payload = command.payload.decode(RunCommandPayload.encode(request));
         const at = new Date("2026-07-12T12:00:00.000Z");
-        const result = command.execute({}, {} as CommandEnvelope, payload, at);
+        const result = command.execute({}, unusedEnvelope(), payload, at);
         if (result instanceof Uint8Array) throw new TypeError("Expected typed command execution");
         expect(result.reply).toBe("createRun");
         expect(result.observation?.at).toBe(at);
@@ -218,7 +260,7 @@ describe("Run protocol family", () => {
         )!;
         const request = requests.find((candidate) => candidate.kind === "claimTurn")!;
         const payload = command.payload.decode(RunCommandPayload.encode(request));
-        const envelope = {} as CommandEnvelope;
+        const envelope = unusedEnvelope();
         const read = { revision: new Revision(7) };
         expect(command.authorize(read, envelope, payload)).toBe(true);
         expect(command.permitsLifecycle(read, envelope, payload)).toBe(true);
@@ -284,13 +326,13 @@ describe("Run protocol family", () => {
             RunCommandPayload.encode(requests.find((request) => request.kind === "claimTurn")!)
         );
         expect(() =>
-            claim.authorize({ revision: new Revision(0) }, {} as CommandEnvelope, null as never)
+            claim.authorize({ revision: new Revision(0) }, unusedEnvelope(), forgedRequest(null))
         ).toThrow(/not decoded/);
         expect(() =>
             claim.authorize(
                 { revision: new Revision(0) },
-                {} as CommandEnvelope,
-                { ...(valid as object), kind: "renewTurn" } as never
+                unusedEnvelope(),
+                forgedRequest({ ...valid, kind: "renewTurn" })
             )
         ).toThrow(/not decoded/);
     });

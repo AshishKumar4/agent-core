@@ -24,7 +24,10 @@ import {
     WriteRecord,
     WriteRecordCodec,
     type MemoryProtocolSnapshot,
-    type ProtocolPersistenceAdapter
+    type ProtocolPersistenceAdapter,
+    type StoredProtocolAudit,
+    type StoredProtocolWrite,
+    type WriteRecordInit
 } from "../../src/protocol";
 import {
     appendProtocolTestRecords,
@@ -203,23 +206,22 @@ test.each(["audit", "write"] as const)("memory reads reject non-byte %s storage"
     const expected = protocolTestRecords(`memory-non-byte-${kind}`);
     appendProtocolTestRecords(persistence, records, expected);
     const snapshot = records.snapshot();
-    const nonBytes = "not bytes" as unknown as Uint8Array;
-    expectAgentCoreError(
-        () =>
-            new MemoryProtocolRecords({
-                ...snapshot,
-                ...(kind === "audit"
-                    ? {
-                          audits: snapshot.audits.map((audit) =>
-                              audit.id === expected.audit.id.value
-                                  ? { ...audit, bytes: nonBytes }
-                                  : audit
-                          )
-                      }
-                    : { writes: snapshot.writes.map((write) => ({ ...write, bytes: nonBytes })) })
-            }),
-        "codec.invalid"
-    );
+    const nonBytes = forgedBytes("not bytes");
+    const corrupted: MemoryProtocolSnapshot =
+        kind === "audit"
+            ? {
+                  ...snapshot,
+                  audits: snapshot.audits.map((audit) =>
+                      audit.id === expected.audit.id.value
+                          ? { ...audit, bytes: nonBytes }
+                          : audit
+                  )
+              }
+            : {
+                  ...snapshot,
+                  writes: snapshot.writes.map((write) => ({ ...write, bytes: nonBytes }))
+              };
+    expectAgentCoreError(() => new MemoryProtocolRecords(corrupted), "codec.invalid");
 });
 
 test("memory fails closed when canonical snapshot writes reserve one identity", { tags: "p0" }, () => {
@@ -317,21 +319,7 @@ test.each(["evidenceIdentity", "evidenceKind", "writeId", "writeOutcome"] as con
             ...snapshot,
             audits: snapshot.audits.map((audit) =>
                 audit.id === expected.audit.id.value
-                    ? {
-                          ...audit,
-                          ...(projection === "evidenceIdentity"
-                              ? { evidenceIdentity: "0".repeat(64) }
-                              : {}),
-                          ...(projection === "evidenceKind"
-                              ? { evidenceKind: "commit" as const }
-                              : {}),
-                          ...(projection === "writeId"
-                              ? { writeId: new WriteRecordId("other-write") }
-                              : {}),
-                          ...(projection === "writeOutcome"
-                              ? { writeOutcome: "rejectedAuthority" as const }
-                              : {})
-                      }
+                    ? corruptAuditProjection(audit, projection)
                     : audit
             )
         });
@@ -493,14 +481,7 @@ test.each(["identity", "actor", "reply", "unreserved-original"] as const)(
                 return storedProjection(replacement);
             }
             if (stored.id !== duplicate.write.id.value) return stored;
-            const replacement = copyStoredWrite(duplicate.write, {
-                ...(corruption === "identity" ? { idempotencyKey: "other-key" } : {}),
-                ...(corruption === "actor"
-                    ? { actor: new ActorRef("workspace", new ActorId("other-duplicate-actor")) }
-                    : {}),
-                ...(corruption === "reply" ? { reply: Uint8Array.of(9) } : {})
-            });
-            return storedProjection(replacement);
+            return storedProjection(copyStoredWrite(duplicate.write, duplicateOverride(corruption)));
         });
         const corruptedActor = new ActorRef("workspace", new ActorId("other-duplicate-actor"));
         const corruptedAudits =
@@ -627,8 +608,7 @@ test("memory snapshot construction rejects malformed snapshot containers", { tag
         Object.assign(() => undefined, { audits: [], writes: [] })
     ];
     for (const snapshot of malformed) {
-        const restore = (): unknown =>
-            new MemoryProtocolRecords(snapshot as unknown as MemoryProtocolSnapshot);
+        const restore = () => new MemoryProtocolRecords(forgedSnapshot(snapshot));
         expectAgentCoreError(restore, "codec.invalid");
         expect(restore).toThrow("Memory protocol snapshot is malformed");
     }
@@ -656,11 +636,8 @@ test("memory snapshot copies reject each malformed stored record shape", { tags:
         { ...audit, bytes: "bytes" }
     ];
     for (const corrupt of malformedAudits) {
-        const restore = (): unknown =>
-            new MemoryProtocolRecords({
-                ...snapshot,
-                audits: [corrupt as unknown as MemoryProtocolSnapshot["audits"][number]]
-            });
+        const restore = () =>
+            new MemoryProtocolRecords({ ...snapshot, audits: [forgedStoredAudit(corrupt)] });
         expectAgentCoreError(restore, "codec.invalid");
         expect(restore).toThrow("Memory protocol snapshot contains a malformed audit record");
     }
@@ -674,11 +651,8 @@ test("memory snapshot copies reject each malformed stored record shape", { tags:
         { ...write, bytes: "bytes" }
     ];
     for (const corrupt of malformedWrites) {
-        const restore = (): unknown =>
-            new MemoryProtocolRecords({
-                ...snapshot,
-                writes: [corrupt as unknown as MemoryProtocolSnapshot["writes"][number]]
-            });
+        const restore = () =>
+            new MemoryProtocolRecords({ ...snapshot, writes: [forgedStoredWrite(corrupt)] });
         expectAgentCoreError(restore, "codec.invalid");
         expect(restore).toThrow("Memory protocol snapshot contains a malformed write record");
     }
@@ -816,10 +790,7 @@ function persistenceForRecords(): ProtocolPersistenceAdapter<MemoryProtocolRecor
 function corruptSnapshot(
     snapshot: MemoryProtocolSnapshot,
     projection: "audit" | "write"
-): {
-    readonly snapshot: MemoryProtocolSnapshot;
-    readonly auditId: AuditRecordId;
-} {
+): CorruptedSnapshot {
     if (projection === "audit") {
         const corruptId = new AuditRecordId("memory-corrupt-audit-key");
         return {
@@ -848,51 +819,130 @@ function replaceAudit(
     audits: MemoryProtocolSnapshot["audits"],
     record: AuditRecord
 ): MemoryProtocolSnapshot["audits"] {
-    return audits.map((audit) =>
-        audit.id === record.id.value
-            ? {
-                  id: record.id.value,
-                  evidenceIdentity: auditEvidenceIdentity(record.actor, record.kind).value,
-                  evidenceKind: record.kind.kind,
-                  ...(record.kind.kind === "write"
-                      ? { writeId: record.kind.id, writeOutcome: record.kind.outcome }
-                      : {}),
-                  bytes: AuditRecordCodec.encode(record)
-              }
-            : audit
-    );
+    return audits.map((audit) => (audit.id === record.id.value ? storedAudit(record) : audit));
 }
 
 function copyStoredWrite(
     write: WriteRecord,
-    overrides: {
-        readonly actor?: ActorRef;
-        readonly idempotencyKey?: string | undefined;
-        readonly outcome?: "rejectedAuthentication";
-        readonly reply?: Uint8Array;
-    }
+    overrides: StoredWriteOverride
 ): WriteRecord {
     const outcome = overrides.outcome ?? write.outcome;
     const idempotencyKey =
         "idempotencyKey" in overrides ? overrides.idempotencyKey : write.idempotencyKey;
-    return new WriteRecord({
+    const required: WriteRecordInit = {
         id: write.id,
         actor: overrides.actor ?? write.actor,
         envelopeDigest: write.envelopeDigest,
-        ...(write.caller === undefined ? {} : { caller: write.caller }),
-        ...(write.command === undefined ? {} : { command: write.command }),
-        ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
         at: write.at,
         outcome,
         audit: write.audit,
-        ...(write.duplicateOf === undefined || outcome !== "duplicate"
-            ? {}
-            : { duplicateOf: write.duplicateOf }),
         reply: overrides.reply ?? write.reply
-    });
+    };
+    const called: WriteRecordInit =
+        write.caller === undefined ? required : { ...required, caller: write.caller };
+    const commanded: WriteRecordInit =
+        write.command === undefined ? called : { ...called, command: write.command };
+    const keyed: WriteRecordInit =
+        idempotencyKey === undefined ? commanded : { ...commanded, idempotencyKey };
+    const duplicated: WriteRecordInit =
+        write.duplicateOf === undefined || outcome !== "duplicate"
+            ? keyed
+            : { ...keyed, duplicateOf: write.duplicateOf };
+    return new WriteRecord(duplicated);
 }
 
-function storedProjection(write: WriteRecord): MemoryProtocolSnapshot["writes"][number] {
+type AuditProjection = "evidenceIdentity" | "evidenceKind" | "writeId" | "writeOutcome";
+
+type DuplicateCorruption = "unreserved-original" | "identity" | "actor" | "reply";
+
+interface CorruptedSnapshot {
+    readonly snapshot: MemoryProtocolSnapshot;
+    readonly auditId: AuditRecordId;
+}
+
+interface StoredWriteOverride {
+    readonly actor?: ActorRef;
+    readonly idempotencyKey?: string | undefined;
+    readonly outcome?: "rejectedAuthentication";
+    readonly reply?: Uint8Array;
+}
+
+/**
+ * Each corruption replaces exactly one projected field of a stored write-audit, so the read path
+ * can be shown checking that field against the record's own bytes.
+ */
+function corruptAuditProjection(
+    audit: StoredProtocolAudit,
+    projection: AuditProjection
+): StoredProtocolAudit {
+    switch (projection) {
+        case "evidenceIdentity":
+            return { ...audit, evidenceIdentity: "0".repeat(64) };
+        case "evidenceKind":
+            return { ...audit, evidenceKind: "commit" };
+        case "writeId":
+            return { ...audit, writeId: new WriteRecordId("other-write") };
+        case "writeOutcome":
+            return { ...audit, writeOutcome: "rejectedAuthority" };
+    }
+}
+
+/** The one field each duplicate-copy corruption changes before the write is re-projected. */
+function duplicateOverride(corruption: DuplicateCorruption): StoredWriteOverride {
+    switch (corruption) {
+        case "identity":
+            return { idempotencyKey: "other-key" };
+        case "actor":
+            return { actor: new ActorRef("workspace", new ActorId("other-duplicate-actor")) };
+        case "reply":
+            return { reply: Uint8Array.of(9) };
+        case "unreserved-original":
+            return {};
+    }
+}
+
+function storedAudit(record: AuditRecord): StoredProtocolAudit {
+    const projected: StoredProtocolAudit = {
+        id: record.id.value,
+        evidenceIdentity: auditEvidenceIdentity(record.actor, record.kind).value,
+        evidenceKind: record.kind.kind,
+        bytes: AuditRecordCodec.encode(record)
+    };
+    return record.kind.kind === "write"
+        ? { ...projected, writeId: record.kind.id, writeOutcome: record.kind.outcome }
+        : projected;
+}
+
+/**
+ * The forged* helpers hand MemoryProtocolRecords values its snapshot types forbid. Restoring a
+ * snapshot is a decoding boundary — the values arrive from storage, where a type is only a claim —
+ * so proving the constructor rejects a malformed one means handing it a value TypeScript would
+ * refuse. Every call site sits inside an expectation that the restore throws.
+ */
+function forgedSnapshot<TActual>(value: TActual): MemoryProtocolSnapshot {
+    // SAFETY: not a snapshot container. The constructor must name it "malformed" rather than
+    // trust the declared type and read fields off it.
+    return value as TActual & MemoryProtocolSnapshot;
+}
+
+function forgedStoredAudit<TActual>(value: TActual): StoredProtocolAudit {
+    // SAFETY: not a stored audit projection. The constructor must reject the record rather than
+    // admit it and fail later when the bytes are decoded.
+    return value as TActual & StoredProtocolAudit;
+}
+
+function forgedStoredWrite<TActual>(value: TActual): StoredProtocolWrite {
+    // SAFETY: not a stored write projection, for the same reason as forgedStoredAudit.
+    return value as TActual & StoredProtocolWrite;
+}
+
+function forgedBytes<TActual>(value: TActual): Uint8Array {
+    // SAFETY: not a Uint8Array. Stored records carry their encoded bytes, and the read path must
+    // reject a snapshot whose bytes column holds something else instead of decoding it.
+    return value as TActual & Uint8Array;
+}
+
+function storedProjection(write: WriteRecord): StoredProtocolWrite {
     return {
         id: write.id.value,
         auditId: write.audit,

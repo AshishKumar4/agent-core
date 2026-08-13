@@ -14,6 +14,7 @@ import { PackageDependency } from "../../src/definition/package";
 import { PlacementPolicy } from "../../src/definition/placement";
 import { PolicySet } from "../../src/definition/policy";
 import { SlotAuthorityPolicy, SlotDeclaration, SlotName } from "../../src/facets";
+import { requireObject } from "./record-data";
 
 describe("Blueprint", () => {
     test("[definition.blueprint] [definition.package-install] round-trips strict canonical declaration data", { tags: "p0" }, () => {
@@ -223,12 +224,6 @@ function install(
     });
 }
 
-function requireObject(value: JsonValue): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError("Expected object");
-    }
-    return value as { readonly [key: string]: JsonValue };
-}
 
 function expectCodecError(action: () => unknown): void {
     try {

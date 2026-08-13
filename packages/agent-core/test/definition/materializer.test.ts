@@ -24,7 +24,8 @@ import {
     MaterializationGenerationPointer,
     MaterializationPlan,
     PolicySet,
-    policyProjection
+    policyProjection,
+    type PolicySetInit
 } from "../../src/definition";
 import {
     LocalMaterializationStore,
@@ -34,6 +35,7 @@ import {
 import { AgentCoreError } from "../../src/errors";
 import { TenantId } from "../../src/identity";
 import { RunPinEvidence, type ManagedResourceSnapshot } from "../../src/definition/reconciliation";
+import { tamperedRecord } from "./record-data";
 import {
     MemoryManagedResourcePort,
     cloneManagedResources,
@@ -550,9 +552,7 @@ describe("same-Actor additive materialization", () => {
         const record = requireOne(desired.records);
 
         const recordStore = new MemoryMaterializationStore(actor);
-        const forgedRecord = Object.assign(
-            Object.create(ManagedStateRecord.prototype) as ManagedStateRecord,
-            record,
+        const forgedRecord = tamperedRecord(record,
             { desired: { forged: true } }
         );
         recordStore.transaction((transaction) => {
@@ -567,9 +567,7 @@ describe("same-Actor additive materialization", () => {
             actor,
             actorPlan(actor, origin(1, "other"), [projection("policy:other", { value: 3 })])
         );
-        const forgedGeneration = Object.assign(
-            Object.create(MaterializationGeneration.prototype) as MaterializationGeneration,
-            other.generation,
+        const forgedGeneration = tamperedRecord(other.generation,
             { id: desired.generation.id }
         );
         generationStore.transaction((transaction) => {
@@ -664,7 +662,7 @@ class MemoryMaterializationStore extends LocalMaterializationStore<StoreState> {
         const generation = transaction.generations.get(id.value);
         return generation === undefined || !this.returnForeignGeneration
             ? generation
-            : Object.assign(Object.create(MaterializationGeneration.prototype), generation, {
+            : tamperedRecord(generation, {
                   actor: actorRef("foreign")
               });
     }
@@ -799,28 +797,24 @@ function actorPlan(
     return new ActorPlan({
         actor,
         origin: materializationOrigin,
-        projections: projections as [DesiredProjection, ...DesiredProjection[]]
+        projections
     });
 }
 
 function projection(logicalKey: string, desired: { readonly value: number }): DesiredProjection {
-    return policyProjection(
-        logicalKey,
-        new PolicySet({
-            ...(desired.value % 2 === 0 ? { tiers: { execute: "mediated" as const } } : {}),
-            ...(desired.value % 3 === 0 ? { approvals: ["externalSend" as const] } : {})
-        })
-    );
+    const tiered: PolicySetInit =
+        desired.value % 2 === 0 ? { tiers: { execute: "mediated" } } : {};
+    const approved: PolicySetInit =
+        desired.value % 3 === 0 ? { ...tiered, approvals: ["externalSend"] } : tiered;
+    return policyProjection(logicalKey, new PolicySet(approved));
 }
 
 function forgeActorPlanKind(plan: ActorPlan, recordKind: string): ActorPlan {
     const projection = plan.projections[0]!;
-    const unsupported = Object.assign(
-        Object.create(DesiredProjection.prototype) as DesiredProjection,
-        projection,
+    const unsupported = tamperedRecord(projection,
         { recordKind }
     );
-    return Object.assign(Object.create(ActorPlan.prototype) as ActorPlan, plan, {
+    return tamperedRecord(plan, {
         projections: Object.freeze([unsupported])
     });
 }
@@ -900,7 +894,7 @@ function jsonObjectValue(value: JsonValue | undefined): { readonly [key: string]
     return value as { readonly [key: string]: JsonValue };
 }
 
-function expectCodecError(action: () => unknown, code: AgentCoreError["code"]): void {
+function expectCodecError(action: () => void, code: AgentCoreError["code"]): void {
     try {
         action();
         throw new Error("Expected codec error");

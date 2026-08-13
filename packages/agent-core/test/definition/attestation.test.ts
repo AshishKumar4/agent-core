@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { Digest, SemVer } from "../../src/core";
 import { PlatformCompatibility, ValidationAttestation } from "../../src/definition";
+import { recordData } from "./record-data";
 
 const encoder = new TextEncoder();
 
@@ -40,20 +41,20 @@ describe("ValidationAttestation", () => {
         expect(() => ValidationAttestation.fromData(null)).toThrow(/must be an object/);
         expect(() =>
             ValidationAttestation.fromData({
-                ...(attestation.toData() as object),
+                ...recordData(attestation),
                 unknown: true
             })
         ).toThrow(/missing or unknown/);
         expect(() =>
             ValidationAttestation.fromData({
-                ...(attestation.toData() as object),
+                ...recordData(attestation),
                 definitionDigest: 7
             })
         ).toThrow(/must be a string/);
     });
 
     test("names every attestation field subject when decoding malformed data", { tags: "p2" }, () => {
-        const data = createAttestation().toData() as object;
+        const data = recordData(createAttestation());
         const subjects: readonly (readonly [string, string])[] = [
             ["id", "Validation attestation ID"],
             ["definitionDigest", "Definition digest"],

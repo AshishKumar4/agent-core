@@ -36,14 +36,13 @@ describe("Package installation contribution provenance", () => {
 
     test("rejects noncanonical authenticated installation evidence", { tags: "p0" }, () => {
         const authenticated = installation("workspace:installed.facet");
-        const forged = {
-            ...authenticated,
-            package: {}
-        } as AuthenticatedPackageInstallation;
+        const forged = forgedInstallation({ ...authenticated, package: {} });
         expect(() => new TestInstallationPort(forged).prepareContribution({}, {})).toThrow(
             /canonical pin/
         );
-        expect(() => new PackageInstallationRef(authenticated.facet, {} as FacetPackageId)).toThrow(
+        expect(() =>
+            new PackageInstallationRef(authenticated.facet, forgedPackageId({}))
+        ).toThrow(
             TypeError
         );
     });
@@ -175,4 +174,20 @@ function installation(facet: string): AuthenticatedPackageInstallation {
             generation: 1
         })
     });
+}
+
+/**
+ * An installation whose package pin is not canonical, and a Facet package ID that is not one at
+ * all. Installation evidence crosses a trust boundary, so its port re-validates the values it is
+ * given rather than trusting their declared types.
+ */
+function forgedInstallation<TActual>(value: TActual): AuthenticatedPackageInstallation {
+    // SAFETY: the package field is not a canonical pin. The port must reject the evidence.
+    return value as TActual & AuthenticatedPackageInstallation;
+}
+
+function forgedPackageId<TActual>(value: TActual): FacetPackageId {
+    // SAFETY: not a FacetPackageId. PackageInstallationRef identifies its Facet by class, so this
+    // is the case its constructor must refuse.
+    return value as TActual & FacetPackageId;
 }

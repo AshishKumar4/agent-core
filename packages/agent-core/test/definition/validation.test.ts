@@ -11,9 +11,10 @@ import {
     encodeCanonicalJson,
     strictJsonSchemaValidator,
     type JsonSchemaValidator,
+    requireNonempty,
     type JsonValue
 } from "../../src/core";
-import { Blueprint, PackageInstall } from "../../src/definition/blueprint";
+import { Blueprint, PackageInstall, type BlueprintInit } from "../../src/definition/blueprint";
 import {
     PackageCodeEntrypoint,
     PackageCodeManifest,
@@ -29,7 +30,12 @@ import {
 } from "../../src/definition/config";
 import { PackageId } from "../../src/definition/id";
 import { PackageLock, PackagePin } from "../../src/definition/package-lock";
-import { MetadataSnapshot, PackageDependency, PackageRelease } from "../../src/definition/package";
+import {
+    MetadataSnapshot,
+    PackageDependency,
+    PackageRelease,
+    type PackageReleaseInit
+} from "../../src/definition/package";
 import {
     BlueprintValidator,
     ValidatedBlueprint,
@@ -447,7 +453,8 @@ describe("Blueprint validation", () => {
                 schemaValidator
             })
         ).toThrow(/Prompt contribution must be an array/);
-        for (const setting of [7, null, []] as JsonValue[]) {
+        const malformedSettings: readonly JsonValue[] = [7, null, []];
+        for (const setting of malformedSettings) {
             const badSettings = packageRelease(`bad-settings-${String(setting)}`, {
                 contributions: new Contributions([
                     new Contribution(new SlotName("settings"), [setting])
@@ -1171,13 +1178,15 @@ function blueprint(
     packages: readonly PackageInstall[],
     overrides: BlueprintOverrides = {}
 ): Blueprint {
-    return new Blueprint({
+    const required: BlueprintInit = {
         meta: { name: "test", version: new SemVer("1.0.0") },
         packages,
         policies: overrides.policies ?? PolicySet.empty(),
-        agents: [],
-        ...(overrides.slots === undefined ? {} : { slots: overrides.slots })
-    });
+        agents: []
+    };
+    return new Blueprint(
+        overrides.slots === undefined ? required : { ...required, slots: overrides.slots }
+    );
 }
 
 function install(
@@ -1193,7 +1202,7 @@ function install(
 
 function packageRelease(id: string, overrides: ReleaseOverrides = {}): PackageRelease {
     const version = new SemVer(overrides.version ?? "1.0.0");
-    const manifests = [
+    const manifests = requireNonempty([
         new FacetManifest({
             id: new FacetPackageId(`${id}.facet`),
             version,
@@ -1202,7 +1211,7 @@ function packageRelease(id: string, overrides: ReleaseOverrides = {}): PackageRe
             bindings: [],
             contributions: overrides.contributions ?? Contributions.empty()
         })
-    ] as [FacetManifest];
+    ], "Facet manifests");
     const codeManifest = new PackageCodeManifest({
         compatibilityDate: "2026-07-10",
         modules: [
@@ -1220,16 +1229,20 @@ function packageRelease(id: string, overrides: ReleaseOverrides = {}): PackageRe
             })
         ]
     });
-    return new PackageRelease({
+    const required: PackageReleaseInit = {
         id: new PackageId(id),
         version,
         compatibility: CompatRange.any(),
         dependencies: overrides.dependencies ?? [],
         manifests,
         codeManifest,
-        provenance: { registry: "test" },
-        ...(overrides.configSchema === undefined ? {} : { configSchema: overrides.configSchema })
-    });
+        provenance: { registry: "test" }
+    };
+    return new PackageRelease(
+        overrides.configSchema === undefined
+            ? required
+            : { ...required, configSchema: overrides.configSchema }
+    );
 }
 
 function facetManifest(
@@ -1261,21 +1274,22 @@ function releaseWith(
                 media: new MediaHint("application/javascript")
             })
         ],
-        entrypoints: manifests.map(
+        entrypoints: requireNonempty(
+            manifests.map(
             (manifest) =>
                 new PackageCodeEntrypoint({
                     facet: manifest.id,
                     version: manifest.version,
                     module: "./main.js"
                 })
-        ) as [PackageCodeEntrypoint, ...PackageCodeEntrypoint[]]
+        ), "code entrypoints")
     });
     return new PackageRelease({
         id: new PackageId(id),
         version: new SemVer("1.0.0"),
         compatibility: CompatRange.any(),
         dependencies: [],
-        manifests: manifests as [FacetManifest, ...FacetManifest[]],
+        manifests: requireNonempty(manifests, "Facet manifests"),
         codeManifest,
         provenance: { registry: "test" }
     });

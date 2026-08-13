@@ -27,7 +27,7 @@ import {
     PackageCodeModule
 } from "../../src/definition/code-manifest";
 import { PackageId } from "../../src/definition/id";
-import { PackageRelease } from "../../src/definition/package";
+import { PackageRelease, type PackageReleaseInit } from "../../src/definition/package";
 import {
     Contribution,
     Contributions,
@@ -35,6 +35,7 @@ import {
     FacetPackageId,
     SlotName
 } from "../../src/facets";
+import { requireObject } from "./record-data";
 
 const encoder = new TextEncoder();
 
@@ -65,11 +66,11 @@ describe("Blueprint config", () => {
                 z: 2
             });
             expect(
-                decodeSecretRef(encodeSecretRef(reference) as unknown as JsonValue).equals(
+                decodeSecretRef(encodeSecretRef(reference)).equals(
                     reference
                 )
             ).toBe(true);
-            expect(isSecretRefData(encodeSecretRef(reference) as unknown as JsonValue)).toBe(true);
+            expect(isSecretRefData(encodeSecretRef(reference))).toBe(true);
             expect(Config.encode(Config.decode(Config.encode(config)))).toEqual(
                 Config.encode(config)
             );
@@ -86,7 +87,7 @@ describe("Blueprint config", () => {
             expect(
                 strictJsonSchemaValidator.validate(
                     SECRET_REF_SCHEMA.document,
-                    tagged as unknown as JsonValue
+                    tagged
                 )
             ).toBe(true);
             expect(
@@ -138,7 +139,7 @@ describe("Blueprint config", () => {
                 }
             };
 
-            expect(strictJsonSchemaValidator.validate(schema.document, valid as JsonValue)).toBe(
+            expect(strictJsonSchemaValidator.validate(schema.document, valid)).toBe(
                 true
             );
             expect(
@@ -153,13 +154,13 @@ describe("Blueprint config", () => {
             expect(
                 strictJsonSchemaValidator.validate(schema.document, {
                     "acme.deploy": { region: "wnam", token: secret }
-                } as JsonValue)
+                })
             ).toBe(false);
             expect(
                 strictJsonSchemaValidator.validate(schema.document, {
                     "acme.deploy": valid["acme.deploy"],
                     unknown: {}
-                } as JsonValue)
+                })
             ).toBe(false);
             expect(composeConfigSchema(BASE_CONFIG_SCHEMA, [release]).document).toEqual(
                 composeConfigSchema(BASE_CONFIG_SCHEMA, [release]).document
@@ -365,24 +366,20 @@ function releaseFromManifest(
             })
         ]
     });
-    return new PackageRelease({
+    const required: PackageReleaseInit = {
         id: new PackageId(id),
         version: manifest.version,
         compatibility: CompatRange.any(),
         dependencies: [],
         manifests: [manifest],
         codeManifest,
-        provenance: { registry: "test" },
-        ...(configSchema === undefined ? {} : { configSchema })
-    });
+        provenance: { registry: "test" }
+    };
+    return new PackageRelease(
+        configSchema === undefined ? required : { ...required, configSchema }
+    );
 }
 
-function requireObject(value: JsonValue): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError("Expected object");
-    }
-    return value as { readonly [key: string]: JsonValue };
-}
 
 function requireArray(value: JsonValue): readonly JsonValue[] {
     if (!Array.isArray(value)) {

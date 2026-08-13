@@ -10,6 +10,7 @@ import {
     SemVer,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    requireNonempty,
     type JsonValue
 } from "../../src/core";
 import {
@@ -42,7 +43,8 @@ import {
     placementProjection,
     policyProjection,
     selectPlacement,
-    planMaterialization
+    planMaterialization,
+    type BlueprintInit
 } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
 import {
@@ -58,6 +60,7 @@ import {
     SlotName
 } from "../../src/facets";
 import { TenantId } from "../../src/identity";
+import { forged, recordData, requireObject, tamperedRecord } from "./record-data";
 
 const encoder = new TextEncoder();
 const target = new PlatformCompatibility({ spec: new SemVer("1.0.0"), host: new SemVer("1.0.0") });
@@ -136,7 +139,7 @@ describe("materialization planning", () => {
                 generation: 5,
                 topology: new (class extends MaterializationTopologyPort {
                     public actorFor(): ActorRef {
-                        return {} as ActorRef;
+                        return forged<ActorRef>({});
                     }
                 })()
             })
@@ -162,7 +165,7 @@ describe("materialization planning", () => {
             tiers: {}
         });
         expect(Object.isFrozen(projection.desired)).toBe(true);
-        expect(Object.isFrozen((projection.desired as { placement: JsonValue }).placement)).toBe(
+        expect(Object.isFrozen(requireObject(projection.desired)["placement"])).toBe(
             true
         );
         expect(ManagedOrigin.encode(ManagedOrigin.decode(ManagedOrigin.encode(origin)))).toEqual(
@@ -182,7 +185,7 @@ describe("materialization planning", () => {
         ).toHaveLength(1);
         expect(() =>
             planMaterialization({
-                validatedBlueprint: {} as ValidatedBlueprint,
+                validatedBlueprint: forged<ValidatedBlueprint>({}),
                 tenantId,
                 deploymentKey,
                 generation: 1,
@@ -191,7 +194,7 @@ describe("materialization planning", () => {
         ).toThrow(/requires a ValidatedBlueprint/);
         expect(() =>
             DesiredProjection.fromData({
-                ...(projection.toData() as object),
+                ...recordData(projection),
                 logicalKey: 7
             })
         ).toThrow(/string/);
@@ -277,7 +280,7 @@ describe("materialization planning", () => {
         ).toThrow(/Unsupported materialization record kind/);
     });
 
-    test.each([
+    test.each<MalformedProjection>([
         {
             label: "facet-install with unknown fields",
             recordKind: "facet-install",
@@ -286,13 +289,13 @@ describe("materialization planning", () => {
                 facetVersion: "1.0.0",
                 packageId: "acme.tools",
                 extra: "field"
-            } as JsonValue,
+            },
             message: /Facet install contains missing or unknown fields/
         },
         {
             label: "scope-scaffold with an empty declaration",
             recordKind: "scope-scaffold",
-            desired: {} as JsonValue,
+            desired: {},
             message: /declaration must not be empty/
         },
         {
@@ -303,7 +306,7 @@ describe("materialization planning", () => {
                 slot: "chat.composer",
                 index: -1,
                 value: { command: "deploy" }
-            } as JsonValue,
+            },
             message: /Slot entry index must be a non-negative safe integer/
         }
     ])("rejects malformed desired state: $label", { tags: "p1" }, ({ recordKind, desired, message }) => {
@@ -497,9 +500,7 @@ describe("materialization planning", () => {
         expectCodecError(() => ActorPlan.decode(ActorPlan.encode(forgedActor)), "codec.invalid");
 
         const materialization = new MaterializationPlan({ origin, actors: [actorPlan] });
-        const forgedMaterialization = Object.assign(
-            Object.create(MaterializationPlan.prototype) as MaterializationPlan,
-            materialization,
+        const forgedMaterialization = tamperedRecord(materialization,
             { actors: Object.freeze([forgedActor]) }
         );
         expectCodecError(
@@ -886,7 +887,7 @@ describe("materialization planning mutation boundaries", () => {
             /Actor plan ID must be a string/
         );
         expect(() =>
-            ActorPlan.fromData({ ...actorPlanData, origin: undefined } as never)
+            ActorPlan.fromData({ ...actorPlanData, origin: forged<JsonValue>(undefined) })
         ).toThrow(/Actor plan origin is required/);
         expect(() =>
             ActorPlan.fromData({ ...actorPlanData, actor: { id: 7, kind: "workspace" } })
@@ -910,7 +911,8 @@ describe("materialization planning mutation boundaries", () => {
                     })
             ).toThrow(/Desired projection logical key must be a nonblank canonical string/);
         }
-        for (const payload of [null, ["entry"], "text"] as JsonValue[]) {
+        const malformedPayloads: readonly JsonValue[] = [null, ["entry"], "text"];
+        for (const payload of malformedPayloads) {
             expect(() => DesiredProjection.fromData(payload)).toThrow(
                 /Desired projection must be an object/
             );
@@ -941,7 +943,7 @@ interface CustomDefinitionInit {
 function validatedCustom(init: CustomDefinitionInit): ValidatedBlueprint {
     const id = init.packageId ?? "alpha";
     const release = packageRelease(id, "1.0.0", init.contributions);
-    const source = new Blueprint({
+    const required: BlueprintInit = {
         meta: { name: "platform", version: new SemVer("1.0.0") },
         packages: [
             new PackageInstall({
@@ -950,10 +952,15 @@ function validatedCustom(init: CustomDefinitionInit): ValidatedBlueprint {
             })
         ],
         policies: PolicySet.empty(),
-        agents: init.agents ?? [],
-        ...(init.slots === undefined ? {} : { slots: init.slots }),
-        ...(init.environments === undefined ? {} : { environments: init.environments })
-    });
+        agents: init.agents ?? []
+    };
+    const slotted: BlueprintInit =
+        init.slots === undefined ? required : { ...required, slots: init.slots };
+    const source = new Blueprint(
+        init.environments === undefined
+            ? slotted
+            : { ...slotted, environments: init.environments }
+    );
     return ValidatedBlueprint.validate(source, {
         lock: packageLock([release]),
         releases: [release],
@@ -1027,7 +1034,7 @@ function packageRelease(
     version: string,
     contributions: Contributions = new Contributions([])
 ): PackageRelease {
-    const manifests = [
+    const manifests = requireNonempty([
         new FacetManifest({
             id: new FacetPackageId(`${id}.facet`),
             version: new SemVer(version),
@@ -1036,7 +1043,7 @@ function packageRelease(
             bindings: [],
             contributions
         })
-    ] as [FacetManifest];
+    ], "Facet manifests");
     const codeManifest = new PackageCodeManifest({
         compatibilityDate: "2026-07-10",
         modules: [
@@ -1065,14 +1072,20 @@ function packageRelease(
     });
 }
 
+/** One desired-state payload a projection must reject, with the diagnostic it must name. */
+interface MalformedProjection {
+    readonly label: string;
+    readonly recordKind: string;
+    readonly desired: JsonValue;
+    readonly message: RegExp;
+}
+
 function digestOf(value: string): Digest {
     return Digest.sha256(encoder.encode(value));
 }
 
 function forgeProjectionKind(projection: DesiredProjection, recordKind: string): DesiredProjection {
-    return Object.assign(
-        Object.create(DesiredProjection.prototype) as DesiredProjection,
-        projection,
+    return tamperedRecord(projection,
         { recordKind }
     );
 }
@@ -1081,19 +1094,13 @@ function forgeActorPlanProjections(
     plan: ActorPlan,
     projections: readonly DesiredProjection[]
 ): ActorPlan {
-    return Object.assign(Object.create(ActorPlan.prototype) as ActorPlan, plan, {
+    return tamperedRecord(plan, {
         projections: Object.freeze([...projections])
     });
 }
 
-function requireObject(value: JsonValue): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError("Expected object");
-    }
-    return value as { readonly [key: string]: JsonValue };
-}
 
-function expectCodecError(action: () => unknown, code: AgentCoreError["code"]): void {
+function expectCodecError(action: () => void, code: AgentCoreError["code"]): void {
     try {
         action();
         throw new Error("Expected codec error");

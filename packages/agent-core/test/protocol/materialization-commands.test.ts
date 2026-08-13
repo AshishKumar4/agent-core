@@ -1,8 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { ActorId, ActorRef } from "../../src/actors";
+import { ActorId, ActorRef, type ActorStartOperation } from "../../src/actors";
 import { TurnId } from "../../src/agents";
+import type { MaterializationPlan } from "../../src/definition";
 import { Digest, Revision, decodeCanonicalJson, encodeCanonicalJson } from "../../src/core";
-import { ActorPlan, DesiredProjection, MaterializationPlan } from "../../src/definition";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 import {
     MaterializationApplyLocalCommand,
@@ -10,11 +10,13 @@ import {
     type CommandEnvelope,
     type MaterializationCommandBackend
 } from "../../src/protocol";
+import { tamperedRecord } from "../definition/record-data";
 import {
     MaterializationHarness,
     MaterializationHarnessStore,
     projection,
-    type FakeRunUsage
+    type FakeRunUsage,
+    type MaterializationHarnessState
 } from "../definition/materialization-harness";
 import { expectAgentCoreError } from "./error-assertion";
 
@@ -22,9 +24,7 @@ describe("materialization.applyLocal protocol command", () => {
     test("rolls back failed asynchronous Actor activation", { tags: "p0" }, () => {
         const actor = new ActorRef("tenant", new ActorId("materialization-target"));
         const store = new MaterializationHarnessStore(actor);
-        expect(() => store.activateActor(actor, (() => Promise.resolve()) as never)).toThrow(
-            /synchronous/
-        );
+        expect(() => store.activateActor(actor, asynchronousActivation())).toThrow(/synchronous/);
         expect(store.state.recovery.size).toBe(0);
         expect(() => new MaterializationHarness(store)).not.toThrow();
     });
@@ -169,7 +169,7 @@ describe("materialization.applyLocal protocol command", () => {
         const payload = command.payload.decode(
             MaterializationCommandPayload.applyLocal(multi.id)
         );
-        const commandEnvelope = {} as CommandEnvelope;
+        const commandEnvelope = unusedEnvelope();
         const at = MaterializationHarness.now;
 
         expectAgentCoreError(
@@ -290,11 +290,7 @@ describe("materialization.applyLocal protocol command", () => {
         const substituted = harness.plan(harness.actor, [projection("substituted")], 2);
         harness.persistApplyPlan(
             authorized.id,
-            Object.assign(
-                Object.create(MaterializationPlan.prototype) as MaterializationPlan,
-                substituted,
-                { id: authorized.id }
-            )
+            tamperedRecord(substituted, { id: authorized.id })
         );
 
         await expect(harness.dispatch(raw)).rejects.toThrow(/ID does not match/);
@@ -387,7 +383,7 @@ describe("materialization.applyLocal protocol command", () => {
         };
         const tenant = new TenantId("tenant");
         const command = new MaterializationApplyLocalCommand(backend, target, controller, tenant);
-        const envelope = { caller: { kind: "actor", actor: controller } } as CommandEnvelope;
+        const envelope = callerEnvelope(controller);
         const payload = { planId: new Digest("0".repeat(64)) };
         expect(command.permitsLifecycle({}, envelope, payload)).toBe(false);
         expect(command.currentRevision({}, envelope, payload)).toBeUndefined();
@@ -462,7 +458,7 @@ test("materialization canonical targeting is validated per field", { tags: "p1" 
     const harness = new MaterializationHarness();
     const plan = harness.plan();
     const failureMessage = "Persisted local materialization plan is missing or has a foreign target";
-    const envelope = { caller: { kind: "actor", actor: harness.actor } } as CommandEnvelope;
+    const envelope = callerEnvelope(harness.actor);
     const commandFor = (
         applyPlan: MaterializationPlan,
         tenant = harness.tenant
@@ -518,20 +514,42 @@ test("materialization canonical targeting is validated per field", { tags: "p1" 
     ).toThrow(failureMessage);
 });
 
+/**
+ * These commands decide from their decoded payload and the envelope's caller; nothing else on the
+ * envelope is read, so the tests supply only what the decision needs.
+ */
+function unusedEnvelope(): CommandEnvelope {
+    // SAFETY: not a CommandEnvelope. The command under test never reads it — if that changed,
+    // these tests would fail rather than assert against a fabricated value.
+    return {} as CommandEnvelope;
+}
+
+function callerEnvelope(actor: ActorRef): CommandEnvelope {
+    // SAFETY: carries only the caller the command's target check reads. The rest of the envelope
+    // is absent because no assertion here depends on it.
+    return { caller: { kind: "actor", actor } } as CommandEnvelope;
+}
+
+/**
+ * An Actor activation callback that returns a promise. The store's contract is synchronous, so
+ * TypeScript will not let a fixture return one honestly; the store must detect it at runtime and
+ * roll the activation back, which is what the caller asserts.
+ */
+function asynchronousActivation(): ActorStartOperation<MaterializationHarnessState> {
+    // SAFETY: deliberately violates the synchronous contract. The returned promise is never
+    // awaited — the store is required to reject the callback before it could be.
+    return (() => Promise.resolve()) as ActorStartOperation<MaterializationHarnessState>;
+}
+
+
 function forgePlanKind(plan: MaterializationPlan, recordKind: string): MaterializationPlan {
     const actorPlan = plan.actors[0]!;
     const projection = actorPlan.projections[0]!;
-    const unsupported = Object.assign(
-        Object.create(DesiredProjection.prototype) as DesiredProjection,
-        projection,
-        { recordKind }
-    );
-    const forgedActor = Object.assign(Object.create(ActorPlan.prototype) as ActorPlan, actorPlan, {
+    const unsupported = tamperedRecord(projection, { recordKind });
+    const forgedActor = tamperedRecord(actorPlan, {
         projections: Object.freeze([unsupported])
     });
-    return Object.assign(
-        Object.create(MaterializationPlan.prototype) as MaterializationPlan,
-        plan,
-        { actors: Object.freeze([forgedActor]) }
-    );
+    return tamperedRecord(plan, {
+        actors: Object.freeze([forgedActor])
+    });
 }

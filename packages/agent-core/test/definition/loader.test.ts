@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import { MediaHint } from "../../src/content";
-import { CompatRange, ContentRef, Digest, JsonSchema, Revision, SemVer } from "../../src/core";
+import { CompatRange, ContentRef, Digest, JsonSchema, Revision, SemVer, requireNonempty } from "../../src/core";
 import {
     Blueprint,
     BlueprintLoader,
@@ -102,7 +102,7 @@ describe("production Blueprint validation-before-load", () => {
         const inspect = vi.fn(async (module: PackageCodeModule) => module.imports);
         const loader = blueprintLoader(
             fixture,
-            async () => "not-bytes" as never,
+            async () => forgedContent("not-bytes"),
             evaluate,
             inspect
         );
@@ -320,12 +320,12 @@ describe("Blueprint loader byte custody and placement selection", () => {
         const loader = blueprintLoader(
             fixture,
             async (reference) =>
-                ({
+                forgedContent({
                     slice: () =>
                         reference.equals(fixture.mainRef)
                             ? fixture.mainBytes.slice()
                             : fixture.dependencyBytes.slice()
-                }) as never,
+                }),
             evaluate
         );
 
@@ -524,7 +524,7 @@ describe("Blueprint loader byte custody and placement selection", () => {
 
         const failure = await loader
             .load(blueprint(fixture.release, { enabled: true }))
-            .then(() => "resolved", (error: unknown) => error);
+            .then(() => "resolved", (cause: unknown) => cause);
 
         expect(failure).toBeInstanceOf(TypeError);
         expect(failure).toMatchObject({ message: "correspondence failed" });
@@ -566,7 +566,7 @@ describe("Blueprint loader byte custody and placement selection", () => {
         );
         const loaded = await loader.load(blueprint(fixture.release, { enabled: true }));
 
-        const failure = await loaded.dispose().then(() => "resolved", (error: unknown) => error);
+        const failure = await loaded.dispose().then(() => "resolved", (cause: unknown) => cause);
         expect(failure).toBeInstanceOf(TypeError);
         expect(failure).toMatchObject({ message: "dispose failed" });
         await expect(loaded.dispose()).resolves.toBeUndefined();
@@ -801,7 +801,8 @@ function releaseWithContent(
         manifests: [firstManifest, ...manifests.slice(1)],
         codeManifest: new PackageCodeManifest({
             compatibilityDate: "2026-07-10",
-            modules: content.map(
+            modules: requireNonempty(
+            content.map(
                 ([module, bytes]) =>
                     new PackageCodeModule({
                         specifier: module.specifier,
@@ -809,15 +810,16 @@ function releaseWithContent(
                         media: new MediaHint("application/javascript"),
                         imports: module.imports ?? []
                     })
-            ) as [PackageCodeModule, ...PackageCodeModule[]],
-            entrypoints: facets.map(
+            ), "code modules"),
+            entrypoints: requireNonempty(
+            facets.map(
                 (entry, index) =>
                     new PackageCodeEntrypoint({
                         facet: manifests[index]?.id ?? firstManifest.id,
                         version: new SemVer("1.0.0"),
                         module: entry.module
                     })
-            ) as [PackageCodeEntrypoint, ...PackageCodeEntrypoint[]]
+            ), "code entrypoints")
         }),
         provenance: { registry: "test" }
     });
@@ -935,4 +937,15 @@ function releaseLoader(
             public async validate(): Promise<void> {}
         })()
     });
+}
+
+/**
+ * A content reader result that is not the bytes the loader's contract promises. Package content
+ * arrives from a store the loader does not control, so it re-checks what it was handed; that check
+ * is what these callers assert on.
+ */
+function forgedContent<TActual>(value: TActual): Uint8Array {
+    // SAFETY: not a Uint8Array. The loader must reject the content rather than hand a non-buffer
+    // to the module evaluator.
+    return value as TActual & Uint8Array;
 }

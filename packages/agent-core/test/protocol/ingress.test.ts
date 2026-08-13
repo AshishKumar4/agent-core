@@ -111,8 +111,8 @@ test("transport authentication absence and faults remain typed pre-dispatch outc
 
 test("authentications retain the issued caller instead of a mutable transport object", { tags: "p0" }, async () => {
     const tenant = new TenantId("issued-tenant");
-    const caller: { kind: "principal"; principal: PrincipalRef } = {
-        kind: "principal",
+    const caller = {
+        kind: "principal" as const,
         principal: new PrincipalRef(tenant, new PrincipalId("issued-principal"))
     };
     const authenticator = new MutableCallerAuthenticator(caller);
@@ -148,7 +148,7 @@ test("forged heldContentVerifier cannot replace transport authentication", { tag
     const forgedInit = {
         dispatcher: harness.dispatcher,
         content: harness.content,
-        authenticator: undefined as unknown as CommandAuthenticator<unknown>,
+        authenticator: missingAuthenticator(undefined),
         leaseForMilliseconds: 60_000,
         heldContentVerifier: harness.content
     };
@@ -218,14 +218,18 @@ test.each([undefined, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
     "rejects invalid payload lease duration %s", { tags: "p1" },
     (leaseForMilliseconds) => {
         const harness = new CounterHarness();
+        const required = {
+            dispatcher: harness.dispatcher,
+            content: harness.content,
+            authenticator: new TokenAuthenticator(harness.tenant, harness.caller)
+        };
         expect(
             () =>
-                new CommandIngress({
-                    dispatcher: harness.dispatcher,
-                    content: harness.content,
-                    authenticator: new TokenAuthenticator(harness.tenant, harness.caller),
-                    leaseForMilliseconds: leaseForMilliseconds as number
-                })
+                new CommandIngress(
+                    leaseForMilliseconds === undefined
+                        ? required
+                        : { ...required, leaseForMilliseconds }
+                )
         ).toThrow("positive safe integer");
     }
 );
@@ -437,4 +441,14 @@ class MutableCallerAuthenticator extends CommandAuthenticator<undefined> {
     protected authenticateTransport(): CommandCaller {
         return this.caller;
     }
+}
+
+/**
+ * Ingress composition must reject an init with no authenticator rather than build a pipeline that
+ * accepts every caller, so this supplies the absent one the type forbids.
+ */
+function missingAuthenticator<TActual>(value: TActual): CommandAuthenticator<unknown> {
+    // SAFETY: there is no authenticator. The constructor is required to fail while composing;
+    // nothing here ever calls a method on the result.
+    return value as TActual & CommandAuthenticator<unknown>;
 }

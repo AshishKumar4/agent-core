@@ -7,26 +7,37 @@ import {
     type SynchronousResultGuard,
     type TransactionOperation
 } from "../../src/actors";
-import { ContentRef, Digest, Revision, encodeCanonicalJson } from "../../src/core";
+import { ContentRef, Digest, Revision, encodeCanonicalJson, isMember } from "../../src/core";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 import { AuditRecord, AuditRecordId, CorrelationId, InvocationId } from "../../src/invocations";
 import {
     CommandDispatcher,
     CommandCommitUnknownError,
     type CommandDispatchResult,
+    type CommandDispatcherInit,
     type CurrentLease,
     type ProtocolPersistence
 } from "../../src/protocol/dispatcher";
-import { CommandIngress, type CommandIngressResult } from "../../src/protocol/ingress";
+import {
+    CommandIngress,
+    type CommandIngressInit,
+    type CommandIngressResult
+} from "../../src/protocol/ingress";
 import { CommandCallerPolicy } from "../../src/protocol/policy";
 import {
     CommandEnvelope,
     CommandEnvelopeCodec,
     type CommandCaller,
+    type CommandEnvelopeInit,
     type LeaseToken
 } from "../../src/protocol/envelope";
 import { WriteRecordCodec } from "../../src/protocol/write";
-import type { ReadableSqlite, SqliteRow, TransactionalSqlite } from "../../src/substrates";
+import type {
+    ReadableSqlite,
+    SqliteRow,
+    SqliteValue,
+    TransactionalSqlite
+} from "../../src/substrates";
 import { SqliteActorStore, SqliteProtocolPersistence } from "../../src/substrates";
 import { TurnId } from "../../src/agents";
 import { TestSqlite } from "../helpers/sqlite";
@@ -37,13 +48,15 @@ import {
     CounterHarness,
     CounterIds,
     FaultingCounterPersistence,
+    faultBoundaries,
     type CounterEnvelopeInit,
     type CounterFixture,
     type CounterHarnessOptions,
     type CounterOperations,
     type CounterReadCapability,
     type CounterSnapshot,
-    type FaultBoundary
+    type FaultBoundary,
+    type PayloadGetPause
 } from "./counter-fixture";
 
 const CREATE_COUNTER = `CREATE TABLE IF NOT EXISTS protocol_counter (
@@ -69,13 +82,10 @@ class FaultingSqliteActorStore implements ActorLocalStore<TransactionalSqlite, R
 
     public transaction<TResult>(
         operation: TransactionOperation<TransactionalSqlite, TResult>,
-        ..._guard: SynchronousResultGuard<TResult>
+        ...guard: SynchronousResultGuard<TResult>
     ): TResult {
         const before = writeCount(this.database);
-        const result = this.store.transaction(
-            operation,
-            ...([] as SynchronousResultGuard<TResult>)
-        );
+        const result = this.store.transaction(operation, ...guard);
         const fault = faultValue(this.database);
         if (
             (fault === "unknownAck" || fault === "unknownUnindexed") &&
@@ -177,7 +187,11 @@ export class SqliteCounterHarness implements CounterFixture {
             options.mutateEnvelope ?? false,
             options.commandName ?? "counter.increment"
         );
-        this.#dispatcher = new CommandDispatcher({
+        const dispatch: CommandDispatcherInit<
+            TransactionalSqlite,
+            CounterReadCapability,
+            ReadableSqlite
+        > = {
             store: this.#store,
             persistence: this.#persistence,
             ids: new CounterIds(nextId),
@@ -185,40 +199,50 @@ export class SqliteCounterHarness implements CounterFixture {
             tenant: this.tenant,
             readOnly: sqliteReadCapability,
             commands: options.duplicateCommand === true ? [command, command] : [command],
-            limits: options.limits ?? { envelopeBytes: 4096, payloadBytes: 1024 },
-            ...(options.useDefaultNow === true
-                ? {}
-                : { now: options.now ?? (() => CounterHarness.now) })
-        });
-        this.#ingress = new CommandIngress({
+            limits: options.limits ?? { envelopeBytes: 4096, payloadBytes: 1024 }
+        };
+        this.#dispatcher = new CommandDispatcher(
+            options.useDefaultNow === true
+                ? dispatch
+                : { ...dispatch, now: options.now ?? (() => CounterHarness.now) }
+        );
+        const accept: CommandIngressInit<
+            TransactionalSqlite,
+            CounterReadCapability,
+            ReadableSqlite,
+            CommandCaller | undefined
+        > = {
             dispatcher: this.#dispatcher,
             content: this.#content,
             authenticator: new CounterAuthenticator(this.tenant, () => faultValue(this.#database)),
-            leaseForMilliseconds: 60_000,
-            ...(options.useDefaultNow === true ? {} : { now: () => CounterHarness.now })
-        });
+            leaseForMilliseconds: 60_000
+        };
+        this.#ingress = new CommandIngress(
+            options.useDefaultNow === true ? accept : { ...accept, now: () => CounterHarness.now }
+        );
     }
 
     public envelope(init: CounterEnvelopeInit = {}): Uint8Array {
         const amount = init.amount ?? 1;
-        const key = init.key ?? "counter-key";
         const payload = encodeCanonicalJson({ amount });
         const ref = ContentRef.fromDigest(Digest.sha256(payload));
         this.installPayload(ref.value, payload);
-        return CommandEnvelopeCodec.encode(
-            new CommandEnvelope({
-                command: "counter.increment",
-                caller: this.caller,
-                idempotencyKey: key,
-                ...(init.omitRevision === true
-                    ? {}
-                    : { expectedRevision: init.expectedRevision ?? this.currentRevision() }),
-                ...(init.lease === undefined ? {} : { lease: init.lease }),
-                ...(init.callerCause === undefined ? {} : { callerCause: init.callerCause }),
-                payload: ref,
-                payloadDigest: Digest.sha256(payload)
-            })
-        );
+        const required: CommandEnvelopeInit = {
+            command: "counter.increment",
+            caller: this.caller,
+            idempotencyKey: init.key ?? "counter-key",
+            payload: ref,
+            payloadDigest: Digest.sha256(payload)
+        };
+        const revised: CommandEnvelopeInit =
+            init.omitRevision === true
+                ? required
+                : { ...required, expectedRevision: init.expectedRevision ?? this.currentRevision() };
+        const leased: CommandEnvelopeInit =
+            init.lease === undefined ? revised : { ...revised, lease: init.lease };
+        const caused: CommandEnvelopeInit =
+            init.callerCause === undefined ? leased : { ...leased, callerCause: init.callerCause };
+        return CommandEnvelopeCodec.encode(new CommandEnvelope(caused));
     }
 
     public async dispatch(
@@ -325,7 +349,7 @@ export class SqliteCounterHarness implements CounterFixture {
         return encodeCanonicalJson({ amount });
     }
 
-    public pauseNextPayloadGet(): { readonly started: Promise<void>; release(): void } {
+    public pauseNextPayloadGet(): PayloadGetPause {
         return this.#content.pauseNextGet();
     }
 
@@ -390,11 +414,10 @@ const sqliteCounterOperations: CounterOperations<TransactionalSqlite> = {
         }
         fail(transaction, "mutation");
         const state = singleton(transaction);
-        return {
-            value: integer(state, "value"),
-            revision: new Revision(integer(state, "revision")),
-            ...(state["fault"] === null ? {} : { fault: state["fault"] as FaultBoundary })
-        };
+        const value = integer(state, "value");
+        const revision = new Revision(integer(state, "revision"));
+        const fault = faultColumn(state);
+        return fault === undefined ? { value, revision } : { value, revision, fault };
     }
 };
 
@@ -436,8 +459,8 @@ function sqliteLease(state: SqliteRow): CurrentLease | undefined {
         typeof turn !== "string" ||
         typeof holderTenant !== "string" ||
         typeof holder !== "string" ||
-        typeof epoch !== "number" ||
-        typeof expiresAt !== "number"
+        !isSafeIntegerColumn(epoch) ||
+        !isSafeIntegerColumn(expiresAt)
     ) {
         throw new TypeError("SQLite counter lease is malformed");
     }
@@ -469,8 +492,16 @@ function singleton(database: ReadableSqlite): SqliteRow {
 }
 
 function faultValue(database: ReadableSqlite): FaultBoundary | undefined {
-    const value = singleton(database)["fault"];
-    return value === null ? undefined : (value as FaultBoundary);
+    return faultColumn(singleton(database));
+}
+
+function faultColumn(row: SqliteRow): FaultBoundary | undefined {
+    const value = row["fault"];
+    if (value === null || value === undefined) return undefined;
+    if (!isMember(faultBoundaries, value)) {
+        throw new TypeError(`Expected a fault boundary column: ${String(value)}`);
+    }
+    return value;
 }
 
 function writeCount(database: ReadableSqlite): number {
@@ -492,14 +523,18 @@ function integer(row: SqliteRow, column: string): number {
     return integerValue(row[column], column);
 }
 
-function integerValue(value: unknown, column: string): number {
-    if (typeof value !== "number" || !Number.isSafeInteger(value)) {
+function integerValue(value: SqliteValue | undefined, column: string): number {
+    if (!isSafeIntegerColumn(value)) {
         throw new TypeError(`Expected integer column: ${column}`);
     }
     return value;
 }
 
-function bytes(value: unknown, column: string): Uint8Array {
+function isSafeIntegerColumn(value: SqliteValue | undefined): value is number {
+    return Number.isSafeInteger(value);
+}
+
+function bytes(value: SqliteValue | undefined, column: string): Uint8Array {
     if (!(value instanceof Uint8Array)) {
         throw new TypeError(`Expected bytes column: ${column}`);
     }

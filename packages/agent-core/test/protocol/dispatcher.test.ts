@@ -35,7 +35,8 @@ import {
     CommandPayloadMalformedError,
     PayloadLeaseBinding,
     issueLeasedCommandPayload,
-    issueMalformedCommandPayload
+    issueMalformedCommandPayload,
+    type PreparedCommandPayload
 } from "../../src/protocol/payload";
 import { CommandCallerPolicy } from "../../src/protocol/policy";
 import type { ProtocolCommand } from "../../src/protocol/registration";
@@ -140,7 +141,7 @@ test("[C13-PROTOCOL-DUPLICATE] rejects a forged prepared payload without running
     const admission = await harness.dispatcher.admit(raw, authentication);
     if (admission.kind !== "prepare") throw new TypeError("Expected command preparation");
 
-    const result = await admission.dispatch({} as never);
+    const result = await admission.dispatch(forgedPreparedPayload({}));
 
     expect(result.outcome).toBe("rejectedMalformed");
     expect(harness.snapshot()).toMatchObject({ value: 0, identityCount: 1 });
@@ -737,10 +738,10 @@ test("dispatchers require an Actor activation store exactly", { tags: "p0" }, ()
         expect(
             () =>
                 new CommandDispatcher(
-                    probeDispatcherInit({
-                        records: new MemoryProtocolRecords(),
-                        store: store as unknown as MemoryActorStore<ProbeState>
-                    })
+                    probeDispatcherInitOver(
+                        new MemoryProtocolRecords(),
+                        forgedActorStore(store)
+                    )
                 )
         ).toThrow(new TypeError("Command dispatcher requires an Actor activation store"));
     }
@@ -750,7 +751,7 @@ test("typed executions must be objects that carry a reply", { tags: "p1" }, asyn
     for (const execution of [null, 42] as const) {
         const records = new MemoryProtocolRecords();
         const dispatcher = new CommandDispatcher(
-            probeDispatcherInit({ records, execution: execution as unknown as Uint8Array })
+            probeDispatcherInit({ records, execution: forgedExecution(execution) })
         );
         const content = new CounterContentStore(() => undefined);
         const payload = encodeCanonicalJson({ probe: true });
@@ -930,10 +931,7 @@ test("function-typed Actor activation stores are admitted", { tags: "p2" }, asyn
         saveRecoveryState: base.saveRecoveryState.bind(base)
     });
     const dispatcher = new CommandDispatcher(
-        probeDispatcherInit({
-            records: state.records,
-            store: store as unknown as MemoryActorStore<ProbeState>
-        })
+        probeDispatcherInitOver(state.records, forgedActorStore(store))
     );
 
     const admission = await dispatcher.admit(Uint8Array.of(0xff), undefined);
@@ -986,7 +984,7 @@ class ProbeCommand implements ProtocolCommand<ProbeState, ProbeRead> {
     public readonly caller = CommandCallerPolicy.principal();
     public readonly expectedRevision = "forbidden" as const;
     public readonly lease = "forbidden" as const;
-    public readonly payload = { decode: (bytes: Uint8Array): unknown => decodeCanonicalJson(bytes) };
+    public readonly payload = { decode: (bytes: Uint8Array) => decodeCanonicalJson(bytes) };
     public readonly replyCodec = {
         encode: (reply: Uint8Array): Uint8Array => reply.slice(),
         decode: (bytes: Uint8Array): Uint8Array => bytes.slice()
@@ -1020,7 +1018,7 @@ class OptionalRevisionProbeCommand implements ProtocolCommand<ProbeState, ProbeR
     public readonly caller = CommandCallerPolicy.principal();
     public readonly expectedRevision = "optional" as const;
     public readonly lease = "forbidden" as const;
-    public readonly payload = { decode: (bytes: Uint8Array): unknown => decodeCanonicalJson(bytes) };
+    public readonly payload = { decode: (bytes: Uint8Array) => decodeCanonicalJson(bytes) };
 
     public authorize(): boolean {
         return true;
@@ -1043,22 +1041,30 @@ class OptionalRevisionProbeCommand implements ProtocolCommand<ProbeState, ProbeR
     }
 }
 
+/**
+ * Composes a dispatcher over a caller-supplied store, including the invalid ones these tests
+ * forge. Absence is not expressible here on purpose: a store passed as null or undefined is a
+ * store the dispatcher must reject, not a request for the default one.
+ */
+function probeDispatcherInitOver(
+    records: MemoryProtocolRecords,
+    store: MemoryActorStore<ProbeState>
+): CommandDispatcherInit<ProbeState, ProbeRead> {
+    return { ...probeDispatcherInit({ records }), store };
+}
+
 function probeDispatcherInit(init: {
     readonly records: MemoryProtocolRecords;
-    readonly store?: MemoryActorStore<ProbeState>;
     readonly persistence?: ProtocolPersistence<ProbeState>;
     readonly execution?: Uint8Array;
     readonly command?: ProtocolCommand<ProbeState, ProbeRead>;
 }): CommandDispatcherInit<ProbeState, ProbeRead> {
     const state: ProbeState = { records: init.records, nextId: 0 };
     return {
-        store:
-            "store" in init
-                ? (init.store as MemoryActorStore<ProbeState>)
-                : new MemoryActorStore<ProbeState>(state, (value) => ({
-                      records: value.records.clone(),
-                      nextId: value.nextId
-                  })),
+        store: new MemoryActorStore<ProbeState>(state, (value) => ({
+            records: value.records.clone(),
+            nextId: value.nextId
+        })),
         persistence:
             init.persistence ?? new MemoryProtocolPersistence<ProbeState>((value) => value.records),
         ids: new CounterIds<ProbeState>((transaction, prefix) => {
@@ -1071,9 +1077,9 @@ function probeDispatcherInit(init: {
         commands: [
             init.command ??
                 new ProbeCommand(
-                    "execution" in init
-                        ? (init.execution as Uint8Array)
-                        : encodeCanonicalJson({ probe: "reply" })
+                    init.execution === undefined
+                        ? encodeCanonicalJson({ probe: "reply" })
+                        : init.execution
                 )
         ],
         limits: { envelopeBytes: 4096, payloadBytes: 1024 },
@@ -1081,7 +1087,7 @@ function probeDispatcherInit(init: {
     };
 }
 
-const commandOutcomes: Record<CommandOutcome, true> = {
+const commandOutcomes = {
     committed: true,
     rejectedMalformed: true,
     rejectedAuthentication: true,
@@ -1090,6 +1096,29 @@ const commandOutcomes: Record<CommandOutcome, true> = {
     rejectedRevision: true,
     rejectedLease: true,
     duplicate: true
-};
+} satisfies Record<CommandOutcome, true>;
 
 void commandOutcomes;
+
+/**
+ * The forged* helpers below hand the dispatcher values its contracts forbid, so a runtime guard
+ * can be shown rejecting them. Each names the contract it violates; nothing reads the result
+ * except the call asserted to fail.
+ */
+function forgedPreparedPayload<TActual>(value: TActual): PreparedCommandPayload {
+    // SAFETY: not a payload this dispatcher prepared. Admission must reject it as malformed
+    // rather than dispatch a command whose payload it never issued.
+    return value as TActual & PreparedCommandPayload;
+}
+
+function forgedActorStore<TActual>(value: TActual): MemoryActorStore<ProbeState> {
+    // SAFETY: a store without activateActor. The dispatcher requires an activation store and
+    // must say so while composing, instead of failing later on the first command.
+    return value as TActual & MemoryActorStore<ProbeState>;
+}
+
+function forgedExecution<TActual>(value: TActual): Uint8Array {
+    // SAFETY: not encoded reply bytes. A command that returns one must be reported as an invalid
+    // execution rather than written to the record as if it were a reply.
+    return value as TActual & Uint8Array;
+}
