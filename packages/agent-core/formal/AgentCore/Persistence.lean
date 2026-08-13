@@ -122,7 +122,10 @@ def activateExec (storage : ActorStorage) (actor : ActorRef) :
   | none, none =>
       .ok (storage.activated actor (ActorRecovery.initial actor),
         ⟨.created, ActorRecovery.initial actor⟩)
-  | none, some _ => .error .unboundRecoveryState
+  | none, some previous =>
+      -- The record's provenance is checked where it is read, so a record whose payload
+      -- disagrees with the key it was read under is refused before the binding is.
+      if previous.actor = actor then .error .unboundRecoveryState else .error .foreignRecovery
   | some bound, none =>
       if bound = actor then .error .missingRecoveryState else .error .foreignActor
   | some bound, some previous =>
@@ -148,9 +151,15 @@ theorem activateExec_recovered {storage : ActorStorage} {actor : ActorRef}
 
 theorem activateExec_unbound_recovery {storage : ActorStorage} {actor : ActorRef}
     {previous : ActorRecovery} (identity : storage.identity = none)
-    (recovery : storage.recovery = some previous) :
+    (recovery : storage.recovery = some previous) (owned : previous.actor = actor) :
     activateExec storage actor = .error .unboundRecoveryState := by
-  unfold activateExec; rw [identity, recovery]
+  unfold activateExec; rw [identity, recovery]; simp [owned]
+
+theorem activateExec_unbound_foreign_recovery {storage : ActorStorage} {actor : ActorRef}
+    {previous : ActorRecovery} (identity : storage.identity = none)
+    (recovery : storage.recovery = some previous) (foreign : previous.actor ≠ actor) :
+    activateExec storage actor = .error .foreignRecovery := by
+  unfold activateExec; rw [identity, recovery]; simp [foreign]
 
 theorem activateExec_missing_recovery {storage : ActorStorage} {actor : ActorRef}
     (identity : storage.identity = some actor) (recovery : storage.recovery = none) :
@@ -188,8 +197,11 @@ theorem activateExec_ok {storage next : ActorStorage} {actor : ActorRef} {activa
           simp only [Except.ok.injEq, Prod.mk.injEq] at activated
           exact .inl ⟨rfl, rfl, activated.1.symm, activated.2.symm⟩
       | some previous =>
-          rw [activateExec_unbound_recovery identity recovery] at activated
-          simp at activated
+          by_cases owned : previous.actor = actor
+          · rw [activateExec_unbound_recovery identity recovery owned] at activated
+            simp at activated
+          · rw [activateExec_unbound_foreign_recovery identity recovery owned] at activated
+            simp at activated
   | some bound =>
       by_cases same : bound = actor
       · subst same

@@ -5658,7 +5658,9 @@ theorem nonvacuous_actor_persistence_trace :
 
 /-- Every activation outcome is reachable by some storage, and the decision separates them:
 first start, restart, and the four refusals are six distinct answers, not one answer dressed
-six ways. -/
+six ways. The last pair is the precedence the record's provenance check takes over the
+binding consistency check — a record whose payload disagrees with the key it was read under
+is refused as foreign whether or not the identity row is present. -/
 theorem nonvacuous_actor_activation_discriminates :
     activateExec ⟨none, none, []⟩ actorOne =
         .ok (⟨some actorOne, some ⟨actorOne, 0, 1⟩, []⟩, ⟨.created, ⟨actorOne, 0, 1⟩⟩) ∧
@@ -5666,9 +5668,10 @@ theorem nonvacuous_actor_activation_discriminates :
         .ok (⟨some actorOne, some ⟨actorOne, 4, 3⟩, []⟩, ⟨.recovered, ⟨actorOne, 4, 3⟩⟩) ∧
       activateExec ⟨some actorOne, none, []⟩ actorOne = .error .missingRecoveryState ∧
       activateExec ⟨none, some ⟨actorOne, 0, 1⟩, []⟩ actorOne = .error .unboundRecoveryState ∧
+      activateExec ⟨some actorTwo, some ⟨actorTwo, 0, 1⟩, []⟩ actorOne = .error .foreignActor ∧
       activateExec ⟨some actorOne, some ⟨actorTwo, 0, 1⟩, []⟩ actorOne = .error .foreignRecovery ∧
-      activateExec ⟨some actorTwo, some ⟨actorTwo, 0, 1⟩, []⟩ actorOne = .error .foreignActor :=
-  ⟨rfl, rfl, rfl, rfl, rfl, rfl⟩
+      activateExec ⟨none, some ⟨actorTwo, 0, 1⟩, []⟩ actorOne = .error .foreignRecovery :=
+  ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
 
 /-- The command gate separates a current fence from a stale one, from a foreign holder, and
 from a stale explicit fence, and refuses an un-activated store outright. -/
