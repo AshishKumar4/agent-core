@@ -1,6 +1,12 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
-import { Digest, Revision, encodeCanonicalJson, type JsonValue } from "../../src/core";
+import {
+    Digest,
+    Revision,
+    encodeCanonicalJson,
+    isJsonObject,
+    type JsonValue
+} from "../../src/core";
 import { AgentCoreError, type AgentCoreErrorCode } from "../../src/errors";
 import { BindingName, FacetRef, ProtectionDomain } from "../../src/facets";
 import {
@@ -468,7 +474,7 @@ describe("canonical argument freezing", () => {
             const canonical = request.intent.arguments;
             expect(canonical).toEqual(argumentsValue);
             expect(Object.isFrozen(canonical)).toBe(true);
-            if (canonical === null || typeof canonical !== "object" || Array.isArray(canonical)) {
+            if (!isJsonObject(canonical)) {
                 throw new Error("Expected canonical object arguments");
             }
             expect(Object.isFrozen(canonical["outer"])).toBe(true);

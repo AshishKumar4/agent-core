@@ -730,11 +730,14 @@ describe("canonical authority keys", () => {
     });
 });
 
-function fixture(): {
+/** A bootstrapped Tenant with the service and runtime that answer for it. */
+type TenantControlFixture = {
     readonly store: MemoryTenantControlStore;
     readonly service: AuthorityMutationService;
     readonly runtime: TenantAuthorityRuntime;
-} {
+};
+
+function fixture(): TenantControlFixture {
     const anchor = {
         actorId: tenantActor.id,
         tenantId,
@@ -755,12 +758,15 @@ function fixture(): {
  * runtime with path evidence read at that moment, since admitting a Membership bumps the
  * Scope epoch and stale evidence would answer before precedence ever runs.
  */
-function guestSchemeFixture(label: string): {
+/** A host Tenant trusting one home Tenant under both steady-state guest schemes. */
+type GuestSchemeFixture = {
     readonly store: MemoryTenantControlStore;
     admit(id: string, scheme: GuestVerificationScheme, role: RoleName): Membership;
     bind(membership: Membership): Binding;
     check(binding: Binding): AuthorityCheckEvidence;
-} {
+};
+
+function guestSchemeFixture(label: string): GuestSchemeFixture {
     const { store, service, runtime } = fixture();
     const trusts = new Map(
         guestSchemePairs.map(({ deny }) => [
@@ -822,6 +828,9 @@ function guestSchemeFixture(label: string): {
                 checkRequest(
                     binding,
                     new PrincipalRef(guestHome, guestPrincipal),
+                    // SAFETY: a Scope path is non-empty by construction, so mapping it
+                    // yields at least one epoch; `map` erases that and returns a plain
+                    // array, which PathEpochEvidence's non-empty tuple will not accept.
                     new PathEpochEvidence(
                         workspaceScope.path.map((scope) => store.epoch(scope)) as [
                             ScopeEpoch,

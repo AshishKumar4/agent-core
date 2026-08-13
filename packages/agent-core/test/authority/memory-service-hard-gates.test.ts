@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { violating } from "../helpers/malformed";
 import { ActorId } from "../../src/actors";
 import { Digest, Revision, SecretRef } from "../../src/core";
 import { AgentCoreError, type AgentCoreErrorCode } from "../../src/errors";
@@ -250,14 +251,14 @@ describe("AuthorityMutationService hard gates", () => {
                 ),
             "protocol.invalid-state"
         );
-        const missingProjectId = {
-            kind: "project" as const,
+        const missingProjectId = violating<ScopeRef>({
+            kind: "project",
             tenantId,
             projectId: undefined,
             workspaceId: undefined,
             path: [],
             equals: () => false
-        } as unknown as ScopeRef;
+        });
         expectAgentError(
             () =>
                 service.assignMembership(
@@ -272,14 +273,14 @@ describe("AuthorityMutationService hard gates", () => {
                 ),
             "protocol.invalid-state"
         );
-        const missingWorkspaceId = {
-            kind: "workspace" as const,
+        const missingWorkspaceId = violating<ScopeRef>({
+            kind: "workspace",
             tenantId,
             projectId: undefined,
             workspaceId: undefined,
             path: [],
             equals: () => false
-        } as unknown as ScopeRef;
+        });
         expectAgentError(
             () =>
                 service.assignMembership(
@@ -633,7 +634,7 @@ describe("MemoryTenantControlStore operational taxonomy", () => {
         expectAgentError(
             () =>
                 createTenantControlBootstrapPlan(
-                    { ...anchor, actorId: "" as never },
+                    violating(anchor, { actorId: "" }),
                     Revision.initial()
                 ),
             "protocol.invalid-state"
@@ -927,17 +928,20 @@ describe("MemoryTenantControlStore operational taxonomy", () => {
             () =>
                 fresh.bootstrap({
                     ...plan,
-                    roles: [plan.roles[0]!, plan.roles[0]!, plan.roles[1]!] as never
+                    roles: [plan.roles[0]!, plan.roles[0]!, plan.roles[1]!]
                 }),
             "protocol.invalid-state"
         );
     });
 });
 
-function fixture(withWorkspace = true): {
-    store: MemoryTenantControlStore;
-    service: AuthorityMutationService;
-} {
+/** A bootstrapped Tenant with the service that mutates it. */
+type ServiceFixture = {
+    readonly store: MemoryTenantControlStore;
+    readonly service: AuthorityMutationService;
+};
+
+function fixture(withWorkspace = true): ServiceFixture {
     const store = MemoryTenantControlStore.create(anchor);
     store.bootstrapTenant(anchor, Revision.initial());
     const service = new AuthorityMutationService(store);

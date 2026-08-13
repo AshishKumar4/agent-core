@@ -1342,7 +1342,13 @@ function attenuating(grant: Grant, parent: GrantId): Grant {
     );
 }
 
-function fixture(): { store: MemoryTenantControlStore; service: AuthorityMutationService } {
+/** A bootstrapped Tenant with the service that mutates it. */
+type MutationFixture = {
+    readonly store: MemoryTenantControlStore;
+    readonly service: AuthorityMutationService;
+};
+
+function fixture(): MutationFixture {
     const store = MemoryTenantControlStore.create(anchor);
     store.bootstrapTenant(anchor, Revision.initial());
     const service = new AuthorityMutationService(store);
@@ -1350,12 +1356,13 @@ function fixture(): { store: MemoryTenantControlStore; service: AuthorityMutatio
     return { store, service };
 }
 
-function guestFixture(): {
-    store: MemoryTenantControlStore;
-    service: AuthorityMutationService;
-    trust: GuestTrust;
-    reader: Role;
-} {
+/** The same Tenant with a guest trust and a reader Role recorded against it. */
+type GuestMutationFixture = MutationFixture & {
+    readonly trust: GuestTrust;
+    readonly reader: Role;
+};
+
+function guestFixture(): GuestMutationFixture {
     const { store, service } = fixture();
     const trust = callbackTrust("membrane-trust");
     const reader = role("membrane-reader");

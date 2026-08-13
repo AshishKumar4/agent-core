@@ -5,6 +5,8 @@ import {
     Revision,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    isJsonObject,
+    type JsonObject,
     type JsonValue
 } from "../../src/core";
 import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../src/facets";
@@ -282,11 +284,14 @@ describe("tenant-qualified Principal subjects", () => {
     );
 });
 
-function bootstrapped(): {
+/** A bootstrapped host Tenant with the service and runtime that answer for it. */
+type TenantControlFixture = {
     readonly store: MemoryTenantControlStore;
     readonly service: AuthorityMutationService;
     readonly runtime: TenantAuthorityRuntime;
-} {
+};
+
+function bootstrapped(): TenantControlFixture {
     const anchor = {
         actorId: tenantActor.id,
         tenantId: hostTenantId,
@@ -364,14 +369,7 @@ function withUnqualifiedSubject(bytes: Uint8Array): Uint8Array {
     });
 }
 
-function requireObject(value: JsonValue | undefined): { readonly [key: string]: JsonValue } {
-    if (
-        value === null ||
-        value === undefined ||
-        typeof value !== "object" ||
-        Array.isArray(value)
-    ) {
-        throw new TypeError("Expected a JSON object");
-    }
-    return value as { readonly [key: string]: JsonValue };
+function requireObject(value: JsonValue | undefined): JsonObject {
+    if (!isJsonObject(value)) throw new TypeError("Expected a JSON object");
+    return value;
 }
