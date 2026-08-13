@@ -1,3 +1,5 @@
+import { assertExactKeys, isJsonObject } from "./project.mjs";
+
 export const HARD_COVERAGE_THRESHOLD = 95;
 export const REQUIRED_COVERAGE_METRICS = ["statements", "branches", "functions", "lines"];
 
@@ -89,24 +91,22 @@ export function assertCoverageAgreement(summary, raw, owner) {
 }
 
 export function validateCoverageSeed(seed) {
-    exactKeys(seed, ["edition", "baseCommit", "files"], "Coverage seed");
+    assertExactKeys(seed, ["edition", "baseCommit", "files"], "Coverage seed");
     if (
         seed.edition !== "1.0.0" ||
         !/^[a-f0-9]{40}$/u.test(seed.baseCommit) ||
-        seed.files === null ||
-        Array.isArray(seed.files) ||
-        typeof seed.files !== "object"
+        !isJsonObject(seed.files)
     ) {
         throw new TypeError("Coverage seed is malformed");
     }
     for (const [path, value] of Object.entries(seed.files)) {
-        exactKeys(value, ["sha256", "metrics"], `Coverage seed ${path}`);
+        assertExactKeys(value, ["sha256", "metrics"], `Coverage seed ${path}`);
         if (!/^[a-f0-9]{64}$/u.test(value.sha256)) {
             throw new TypeError(`Coverage seed has invalid source digest: ${path}`);
         }
-        exactKeys(value.metrics, ["statements", "branches", "functions", "lines"], path);
+        assertExactKeys(value.metrics, ["statements", "branches", "functions", "lines"], path);
         for (const metric of Object.values(value.metrics)) {
-            exactKeys(metric, ["covered", "total"], `Coverage seed metric ${path}`);
+            assertExactKeys(metric, ["covered", "total"], `Coverage seed metric ${path}`);
             if (
                 !Number.isSafeInteger(metric.covered) ||
                 !Number.isSafeInteger(metric.total) ||
@@ -125,13 +125,4 @@ function rawCounts(values) {
         throw new TypeError("Raw coverage contains invalid counters");
     }
     return { covered: values.filter((value) => value > 0).length, total: values.length };
-}
-
-function exactKeys(value, expected, owner) {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError(`${owner} must be an object`);
-    }
-    if (JSON.stringify(Object.keys(value).sort()) !== JSON.stringify([...expected].sort())) {
-        throw new TypeError(`${owner} has missing or unknown fields`);
-    }
 }

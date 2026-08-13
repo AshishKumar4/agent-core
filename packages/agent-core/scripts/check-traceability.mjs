@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseCanonicalJson } from "./quality/project.mjs";
+import { isJsonObject, isNonEmptyString, parseCanonicalJson } from "./quality/project.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const formalRoot = join(packageRoot, "formal");
@@ -140,12 +140,8 @@ function reportFailures() {
     process.exit(1);
 }
 
-function isObject(value) {
-    return value !== null && typeof value === "object" && !Array.isArray(value);
-}
-
 function checkExactKeys(value, expected, location) {
-    if (!isObject(value)) {
+    if (!isJsonObject(value)) {
         fail(`${location} must be an object`);
         return false;
     }
@@ -159,7 +155,7 @@ function checkExactKeys(value, expected, location) {
 }
 
 function checkString(value, location) {
-    if (typeof value !== "string" || value.length === 0) {
+    if (!isNonEmptyString(value)) {
         fail(`${location} must be a nonempty string`);
         return false;
     }
@@ -167,10 +163,7 @@ function checkString(value, location) {
 }
 
 function checkStringArray(value, location, { nonempty = false } = {}) {
-    if (
-        !Array.isArray(value) ||
-        value.some((item) => typeof item !== "string" || item.length === 0)
-    ) {
+    if (!Array.isArray(value) || !value.every(isNonEmptyString)) {
         fail(`${location} must be an array of nonempty strings`);
         return [];
     }
@@ -196,7 +189,7 @@ function checkExactIds(actual, expected, location) {
 function indexEntries(entries, location) {
     const index = new Map();
     for (const entry of entries) {
-        if (!isObject(entry) || !checkString(entry.id, `${location} entry id`)) continue;
+        if (!isJsonObject(entry) || !checkString(entry.id, `${location} entry id`)) continue;
         if (index.has(entry.id)) fail(`${location} contains duplicate id ${entry.id}`);
         index.set(entry.id, entry);
     }
@@ -283,7 +276,7 @@ checkExactKeys(
     ],
     "traceability"
 );
-if (!isObject(traceability)) reportFailures();
+if (!isJsonObject(traceability)) reportFailures();
 checkString(traceability.edition, "edition");
 checkString(traceability.checkerBoundary, "checkerBoundary");
 if (traceability.formalScope !== "abstract-model-only")
@@ -416,7 +409,7 @@ for (const requirement of requirements) {
         ownTheorem(witness, requirement.id, "nonVacuity");
         witnessCount += 1;
     }
-    if (!isObject(requirement.witnessCoverage)) {
+    if (!isJsonObject(requirement.witnessCoverage)) {
         fail(`${location}.witnessCoverage must be an object`);
         continue;
     }

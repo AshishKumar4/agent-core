@@ -1,4 +1,4 @@
-import { isMember, type JsonValue } from "../../core";
+import { isMember, isObjectRecord, type JsonValue } from "../../core";
 import type { PrincipalRef } from "../../identity";
 import { Command } from "../command";
 import {
@@ -8,7 +8,7 @@ import {
     SurfaceDescriptor
 } from "../contribution";
 import type { FacetDataMap } from "../data";
-import { canonicalFacetData, requireDataObject, requireString } from "../data";
+import { canonicalFacetData, dataRecord, requireDataObject, requireString } from "../data";
 import { EventDeclaration } from "../event";
 import { BindingName, EventKind, OperationName, OperationRef, SlotName, SurfaceId } from "../id";
 import { DeviceCommandId, DeviceId } from "./id";
@@ -248,13 +248,19 @@ function liveOperation<Name extends LiveDeviceOperation, Input extends DeviceLiv
             (input) => ({ deviceId: input.deviceId.value, arguments: input.arguments }),
             (data) => {
                 const object = requireDataObject(data, `Device ${name} input`);
-                return {
+                const decoded = {
                     deviceId: new DeviceId(requireString(object["deviceId"], "Device ID")),
                     arguments: requireDataObject(object["arguments"]!, `Device ${name} arguments`)
-                } as Input;
+                };
+                // SAFETY: Input differs from `decoded` only in the arguments record, and
+                // ProfileOperationRuntime.execute accepts a payload against inputSchema —
+                // built here from this operation's own argumentsSchema — before handing it
+                // to this decoder, so the arguments have already been checked against the
+                // schema form of Input["arguments"].
+                return decoded as Input;
             }
         ),
-        facetDataWireCodec<JsonValue>(),
+        facetDataWireCodec(),
         "output"
     );
 }
@@ -437,25 +443,27 @@ export const DEVICE_COMMAND_EVENT_CONTRACTS = Object.freeze({
         "command.completed",
         DEVICE_COMMAND_EVENTS.completed,
         profileWireCodec(
-            (event) => ({
-                commandId: event.commandId.value,
-                succeeded: event.succeeded,
-                ...(event.result === undefined ? {} : { result: event.result })
-            }),
+            (event) =>
+                dataRecord({
+                    commandId: event.commandId.value,
+                    succeeded: event.succeeded,
+                    result: event.result
+                }),
             (data) => {
                 const event = requireDataObject(data, "Device command completed Event");
                 const succeeded = requireBoolean(
                     event["succeeded"],
                     "Device command completion state"
                 );
-                return {
+                const result = event["result"];
+                const completed: DeviceCommandCompleted = {
                     kind: "command.completed",
                     commandId: new DeviceCommandId(
                         requireString(event["commandId"], "Device command ID")
                     ),
-                    succeeded,
-                    ...(event["result"] === undefined ? {} : { result: event["result"] })
+                    succeeded
                 };
+                return result === undefined ? completed : { ...completed, result };
             }
         )
     )
@@ -635,7 +643,9 @@ export class DeviceFacet<Receipt> {
     }
 }
 
-export class MemoryDeviceConsentBackend extends DeviceConsentBackend {
+export class MemoryDeviceConsentBackend<
+    Transaction = unknown
+> extends DeviceConsentBackend<Transaction> {
     readonly #consents = new Map<string, number>();
 
     public constructor(private readonly now: () => number = Date.now) {
@@ -656,7 +666,11 @@ export class MemoryDeviceConsentBackend extends DeviceConsentBackend {
         this.#consents.delete(pairKey(deviceId, agentId));
     }
 
-    protected assertLive(_transaction: unknown, deviceId: DeviceId, agentId: PrincipalRef): number {
+    protected assertLive(
+        _transaction: Transaction,
+        deviceId: DeviceId,
+        agentId: PrincipalRef
+    ): number {
         const now = this.now();
         const expiration = this.#consents.get(pairKey(deviceId, agentId));
         if (expiration === undefined || expiration <= now) {
@@ -671,13 +685,9 @@ export class MemoryDeviceConsentBackend extends DeviceConsentBackend {
 
 function isDeviceAdmission(value: unknown): value is DeviceAdmission {
     return (
-        typeof value === "object" &&
-        value !== null &&
-        "deviceId" in value &&
-        value.deviceId instanceof DeviceId &&
-        "agentId" in value &&
-        typeof value.agentId === "object" &&
-        value.agentId !== null
+        isObjectRecord(value) &&
+        value["deviceId"] instanceof DeviceId &&
+        isObjectRecord(value["agentId"])
     );
 }
 
@@ -706,13 +716,11 @@ function requireNonblank(value: string, subject: string): void {
 }
 
 function requireBoolean(value: JsonValue | undefined, subject: string): boolean {
-    if (typeof value !== "boolean") throw new TypeError(`${subject} is invalid`);
+    if (value !== true && value !== false) throw new TypeError(`${subject} is invalid`);
     return value;
 }
 
 function requireLiveOperation(value: JsonValue | undefined): LiveDeviceOperation {
-    if (isMember(LIVE_DEVICE_OPERATIONS, value)) {
-        return value as LiveDeviceOperation;
-    }
+    if (isMember(LIVE_DEVICE_OPERATIONS, value)) return value;
     throw new TypeError("Device command operation is invalid");
 }

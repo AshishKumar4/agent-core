@@ -281,10 +281,10 @@ describe("durable invocation record codecs", () => {
                 ...overrides
             });
         expect(() => Receipt.decode(attempt({ previous: false }))).toThrow(
-            /Attempt Receipt references are malformed/
+            /Attempt Receipt previous reference must be a string or null/
         );
         expect(() => Receipt.decode(attempt({ result: 5 }))).toThrow(
-            /Attempt Receipt references are malformed/
+            /Attempt Receipt result reference must be a string or null/
         );
     });
 });

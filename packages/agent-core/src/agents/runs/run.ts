@@ -52,8 +52,8 @@ export interface RunInit {
     readonly configurations?: readonly Digest[];
     readonly root: RunCommitId;
     readonly initialBranch: RunBranchId;
-    readonly parent?: RunId;
-    readonly terminal?: TerminalSnapshot;
+    readonly parent?: RunId | undefined;
+    readonly terminal?: TerminalSnapshot | undefined;
     readonly tokensConsumed?: number;
     readonly revision: Revision;
 }
@@ -219,10 +219,11 @@ export class Run extends CodecRecord {
             initialBranch: new RunBranchId(
                 requireString(object["initialBranch"], "Initial branch")
             ),
-            ...(parent === undefined ? {} : { parent: new RunId(parent) }),
-            ...(object["terminal"] === null
-                ? {}
-                : { terminal: TerminalSnapshot.fromData(object["terminal"]) }),
+            parent: parent === undefined ? undefined : new RunId(parent),
+            terminal:
+                object["terminal"] === null
+                    ? undefined
+                    : TerminalSnapshot.fromData(object["terminal"]),
             tokensConsumed: requireInteger(object["tokensConsumed"], "Run token total"),
             revision: revisionFromData(object["revision"], "Run revision")
         });
@@ -240,8 +241,8 @@ export class Run extends CodecRecord {
             configurations,
             root: this.root,
             initialBranch: this.initialBranch,
-            ...(this.parent === undefined ? {} : { parent: this.parent }),
-            ...(terminal === undefined ? {} : { terminal }),
+            parent: this.parent,
+            terminal,
             tokensConsumed,
             revision: nextRunRevision(this.revision)
         });

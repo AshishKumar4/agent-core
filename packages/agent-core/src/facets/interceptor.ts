@@ -24,15 +24,14 @@ export class InterceptorDeclaration {
         ...selection: [appliesTo: OperationSelector, priority: number] | [priority: number]
     ) {
         const [appliesToOrPriority, priority] = selection;
-        const resolvedPriority =
-            typeof appliesToOrPriority === "number" ? appliesToOrPriority : priority;
+        const selected = appliesToOrPriority instanceof OperationSelector;
+        const resolvedPriority = selected ? priority : appliesToOrPriority;
         if (resolvedPriority === undefined || !Number.isSafeInteger(resolvedPriority)) {
             throw new TypeError("Interceptor priority must be a safe integer");
         }
         this.id = id;
         this.cutPoint = cutPoint;
-        this.appliesTo =
-            typeof appliesToOrPriority === "number" ? OperationSelector.own() : appliesToOrPriority;
+        this.appliesTo = selected ? appliesToOrPriority : OperationSelector.own();
         this.priority = resolvedPriority;
         Object.freeze(this);
     }

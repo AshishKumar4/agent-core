@@ -11,7 +11,7 @@ const STORM_AMOUNT = 7;
 const DISTINCT_PREFIX = "distinct-";
 const STRESS_TIMEOUT = 90_000;
 
-interface StormShape {
+interface StormLoad {
     /** Concurrent submissions that all carry the single contended idempotency key. */
     readonly duplicates: number;
     /** Distinct keys interleaved into the same concurrent wave. */
@@ -36,11 +36,11 @@ function keyAmount(key: string): number {
     return key === STORM_KEY ? STORM_AMOUNT : Number(key.slice(DISTINCT_PREFIX.length)) + 1;
 }
 
-function stormKeys(shape: StormShape): readonly string[] {
+function stormKeys(load: StormLoad): readonly string[] {
     return [
         STORM_KEY,
         ...Array.from(
-            { length: shape.distinctKeys },
+            { length: load.distinctKeys },
             (_value, index) => `${DISTINCT_PREFIX}${index}`
         )
     ];
@@ -59,21 +59,21 @@ function submit(harness: CounterFixture, key: string): Submission {
  */
 async function runStorm(
     harness: CounterFixture,
-    shape: StormShape,
+    load: StormLoad,
     seed: string
 ): Promise<Storm> {
     const planned: Submission[] = [];
-    for (let index = 0; index < shape.duplicates; index += 1) {
+    for (let index = 0; index < load.duplicates; index += 1) {
         planned.push(submit(harness, STORM_KEY));
     }
-    for (const key of stormKeys(shape).slice(1)) {
+    for (const key of stormKeys(load).slice(1)) {
         planned.push(submit(harness, key));
     }
     const submissions = new StressRandom(seed).shuffle(planned);
     const results = await Promise.all(
         submissions.map((submission) => harness.dispatch(submission.raw))
     );
-    return { harness, keys: stormKeys(shape), submissions, results };
+    return { harness, keys: stormKeys(load), submissions, results };
 }
 
 function resultsForKey(storm: Storm, key: string): readonly CommandDispatchResult[] {
@@ -114,17 +114,17 @@ function writeAuditBijection(
 function dedupStormContract(
     title: string,
     seed: string,
-    shape: StormShape,
+    load: StormLoad,
     create: () => CounterFixture
 ): void {
     describe(title, () => {
-        const total = shape.duplicates + shape.distinctKeys;
+        const total = load.duplicates + load.distinctKeys;
 
         test(
             "commits exactly one write per idempotency key under a concurrent storm",
             { tags: "p0", timeout: STRESS_TIMEOUT },
             async () => {
-                const storm = await runStorm(create(), shape, `${seed}-commit`);
+                const storm = await runStorm(create(), load, `${seed}-commit`);
                 const snapshot = storm.harness.snapshot();
 
                 for (const key of storm.keys) {
@@ -135,10 +135,10 @@ function dedupStormContract(
                     );
                 }
 
-                const distinctSum = (shape.distinctKeys * (shape.distinctKeys + 1)) / 2;
+                const distinctSum = (load.distinctKeys * (load.distinctKeys + 1)) / 2;
                 expect(snapshot.value).toBe(STORM_AMOUNT + distinctSum);
-                expect(snapshot.revision.value).toBe(shape.distinctKeys + 1);
-                expect(snapshot.identityCount).toBe(shape.distinctKeys + 1);
+                expect(snapshot.revision.value).toBe(load.distinctKeys + 1);
+                expect(snapshot.identityCount).toBe(load.distinctKeys + 1);
                 expect(snapshot.writes).toHaveLength(total);
                 expect(snapshot.contentPuts).toBe(0);
                 expect(writeAuditBijection(snapshot.writes, snapshot.audits)).toEqual({
@@ -152,7 +152,7 @@ function dedupStormContract(
             "replays every duplicate byte-identically against its original write",
             { tags: "p0", timeout: STRESS_TIMEOUT },
             async () => {
-                const storm = await runStorm(create(), shape, `${seed}-replay`);
+                const storm = await runStorm(create(), load, `${seed}-replay`);
 
                 for (const key of storm.keys) {
                     const committed = committedFor(storm, key);
@@ -177,14 +177,14 @@ function dedupStormContract(
             "reserves no further identity and fetches no content when a settled storm is replayed",
             { tags: "p0", timeout: STRESS_TIMEOUT },
             async () => {
-                const storm = await runStorm(create(), shape, `${seed}-quiescent`);
+                const storm = await runStorm(create(), load, `${seed}-quiescent`);
                 const settled = storm.harness.snapshot();
                 const originals = new Map(
                     storm.keys.map((key) => [key, committedFor(storm, key)] as const)
                 );
                 const random = new StressRandom(`${seed}-quiescent-replay`);
 
-                for (let round = 0; round < shape.replayRounds; round += 1) {
+                for (let round = 0; round < load.replayRounds; round += 1) {
                     const replayed = random.shuffle(storm.keys);
                     const results = await Promise.all(
                         replayed.map((key) =>
@@ -206,7 +206,7 @@ function dedupStormContract(
                 expect(after.value).toBe(settled.value);
                 expect(after.revision.value).toBe(settled.revision.value);
                 expect(after.writes).toHaveLength(
-                    total + shape.replayRounds * storm.keys.length
+                    total + load.replayRounds * storm.keys.length
                 );
                 expect(writeAuditBijection(after.writes, after.audits)).toEqual({
                     covered: after.writes.length,

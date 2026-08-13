@@ -246,7 +246,7 @@ export function validateAuditRelation(
         return;
     }
 
-    validateStoredAuditShape(record, records);
+    validateStoredAuditLinkage(record, records);
 
     if (rootAdmission !== undefined) {
         throw invocationError(
@@ -264,7 +264,7 @@ export function validateAuditRelation(
     }
 }
 
-export function validateStoredAuditShape(record: AuditRecord, records: AuditRecordLookup): void {
+export function validateStoredAuditLinkage(record: AuditRecord, records: AuditRecordLookup): void {
     if (record.cause === undefined) {
         const permittedRoot =
             record.kind.kind === "invocation" ||

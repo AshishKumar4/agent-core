@@ -4,6 +4,7 @@ import ts from "typescript";
 import {
     artifactRoot,
     collectFiles,
+    isNonEmptyString,
     packageRoot,
     portable,
     readCanonicalJson,
@@ -173,7 +174,7 @@ function inspectNode(node, source, file, aliases) {
         node.expression !== undefined &&
         ts.isNewExpression(node.expression) &&
         resolveAlias(node.expression.expression.getText(source), aliases) === "TypeError" &&
-        !isShapeValidation(node, source)
+        !isDecodingBoundary(node, source)
     ) {
         issue(
             "ACQ-ERR",
@@ -367,10 +368,10 @@ function validateSpecVocabulary(document) {
     }
     const foreign = new Map();
     for (const entry of document.foreign) {
-        if (typeof entry.word !== "string" || !/^[a-z][a-z0-9]*$/u.test(entry.word)) {
+        if (!isNonEmptyString(entry.word) || !/^[a-z][a-z0-9]*$/u.test(entry.word)) {
             throw new TypeError("Foreign vocabulary entries must record a lowercase word");
         }
-        if (typeof entry.specTerm !== "string" || entry.specTerm.trim().length === 0) {
+        if (!isNonEmptyString(entry.specTerm)) {
             throw new TypeError(`Foreign vocabulary "${entry.word}" must name the SPEC's term`);
         }
         if (foreign.has(entry.word)) {
@@ -380,10 +381,10 @@ function validateSpecVocabulary(document) {
     }
     const reviewed = new Map();
     for (const entry of document.reviewed) {
-        if (typeof entry.word !== "string" || !/^[a-z][a-z0-9]*$/u.test(entry.word)) {
+        if (!isNonEmptyString(entry.word) || !/^[a-z][a-z0-9]*$/u.test(entry.word)) {
             throw new TypeError("Reviewed vocabulary entries must record a lowercase word");
         }
-        if (typeof entry.reason !== "string" || entry.reason.trim().length < 24) {
+        if (!isNonEmptyString(entry.reason) || entry.reason.trim().length < 24) {
             throw new TypeError(
                 `Reviewed vocabulary "${entry.word}" must record why the word stands`
             );
@@ -549,7 +550,7 @@ function symbolAt(node, source) {
     return `offset:${node.pos}`;
 }
 
-function isShapeValidation(node, source) {
+function isDecodingBoundary(node, source) {
     let current = node.parent;
     while (current !== undefined) {
         if (ts.isConstructorDeclaration(current)) return true;
@@ -605,7 +606,7 @@ async function loadPermits(path) {
         if (!Number.isSafeInteger(permit.count) || permit.count < 1) {
             throw new TypeError(`Weak-type permit ${key} must record a positive count`);
         }
-        if (typeof permit.reason !== "string" || permit.reason.trim().length < 24) {
+        if (!isNonEmptyString(permit.reason) || permit.reason.trim().length < 24) {
             throw new TypeError(`Weak-type permit ${key} must record why the escape stands`);
         }
     }

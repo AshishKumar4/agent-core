@@ -450,7 +450,7 @@ function sortedObject(map) {
 // `current === undefined || left < current`, triage cannot tell the surviving operand
 // from the killed whole condition, and reproducing the wrong one invents a phantom.
 function survivorRecord(path, mutant, source, classification, proof) {
-    return {
+    const record = {
         file: path,
         line: mutant.location.start.line,
         column: mutant.location.start.column,
@@ -465,9 +465,10 @@ function survivorRecord(path, mutant, source, classification, proof) {
         // entry written from the clipped text can never match a real mutant, leaving a
         // proof permanently stale. `source` is a reading aid and stays bounded.
         replacement: mutant.replacement ?? "",
-        source: (source[mutant.location.start.line - 1] ?? "").trim().slice(0, 160),
-        ...(proof === undefined ? {} : { proof })
+        source: (source[mutant.location.start.line - 1] ?? "").trim().slice(0, 160)
     };
+    if (proof === undefined) return record;
+    return { ...record, proof };
 }
 
 function gitHead() {

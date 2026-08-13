@@ -11,7 +11,7 @@ import {
     type AuditRecordLookup,
     type WriteRecordId,
     validateAuditAppend,
-    validateStoredAuditShape
+    validateStoredAuditLinkage
 } from "../invocations";
 import type { CommandIdentity, ProtocolPersistence } from "./dispatcher";
 import { commandCallersEqual, type CommandCaller } from "./envelope";
@@ -257,7 +257,7 @@ export abstract class ProtocolPersistenceAdapter<
         }
         for (const audit of audits.values()) {
             try {
-                validateStoredAuditShape(audit, auditLookup);
+                validateStoredAuditLinkage(audit, auditLookup);
             } catch (error) {
                 if (error instanceof AgentCoreError) {
                     throw corruptProtocol(`Stored audit graph is invalid: ${error.message}`);

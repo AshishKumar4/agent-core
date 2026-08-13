@@ -81,10 +81,8 @@ export class MemoryFilesystemBackend extends FilesystemBackend {
         const pageEntries = entries.slice(pageStart, pageStart + limit);
         const next =
             pageStart + pageEntries.length < entries.length ? pageEntries.at(-1)?.path : undefined;
-        return Object.freeze({
-            entries: Object.freeze(pageEntries),
-            ...(next === undefined ? {} : { cursor: next })
-        });
+        const page = { entries: Object.freeze(pageEntries) };
+        return Object.freeze(next === undefined ? page : { ...page, cursor: next });
     }
 
     public write(path: string, content: Uint8Array, mode: FilesystemWriteMode = "upsert"): void {

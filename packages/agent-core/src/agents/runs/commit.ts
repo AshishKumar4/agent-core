@@ -1,4 +1,12 @@
-import { ContentRef, Digest, RecordCodec, encodeCanonicalJson, type JsonValue } from "../../core";
+import {
+    ContentRef,
+    Digest,
+    RecordCodec,
+    encodeCanonicalJson,
+    isMember,
+    type JsonObject,
+    type JsonValue
+} from "../../core";
 import { requireSynchronousResult } from "../../actors";
 import { AgentCoreError } from "../../errors";
 import { PrincipalRef } from "../../identity";
@@ -18,18 +26,6 @@ import { leaseTokenFromData, leaseTokenToData, leaseTokensEqual, type LeaseToken
 import { RunPins } from "./pins";
 import type { RunEvidencePort } from "./evidence";
 
-export type RunCommitKind =
-    | "root"
-    | "message"
-    | "checkpoint"
-    | "invocation"
-    | "eventDelivery"
-    | "result"
-    | "merge"
-    | "verdict"
-    | "undo"
-    | "migration";
-
 export type SystemCause =
     | { readonly kind: "receipt"; readonly audit: AuditRecordId; readonly receipt: ReceiptId }
     | {
@@ -38,6 +34,35 @@ export type SystemCause =
           readonly reservation: RouteReservationId;
       }
     | { readonly kind: "control"; readonly audit: AuditRecordId; readonly receipt: ReceiptId };
+
+export interface RunMigration {
+    readonly from: RunPins;
+    readonly to: RunPins;
+}
+
+/** Every Run commit kind, in the order the record vocabulary lists them. */
+export const RUN_COMMIT_KINDS = [
+    "root",
+    "message",
+    "checkpoint",
+    "invocation",
+    "eventDelivery",
+    "result",
+    "merge",
+    "verdict",
+    "undo",
+    "migration"
+] as const;
+
+export type RunCommitKind = (typeof RUN_COMMIT_KINDS)[number];
+
+/** The kinds a Turn's own lease may append. */
+const TURN_AUTHORED_KINDS: readonly RunCommitKind[] = [
+    "message",
+    "checkpoint",
+    "result",
+    "verdict"
+];
 
 export type CommitWriter =
     | { readonly kind: "root" }
@@ -76,16 +101,16 @@ export interface RunCommitInit {
     readonly parents: readonly RunCommitId[];
     readonly pins: RunPins;
     readonly writer: CommitWriter;
-    readonly subjectTurn?: TurnId;
-    readonly content?: ContentRef;
-    readonly selects?: RunCommitId;
-    readonly treeCheckpoint?: ContentRef;
-    readonly resolution?: MergeResolution;
-    readonly treeResolution?: TreeMergeResolution;
-    readonly invocation?: InvocationId;
-    readonly receipt?: ReceiptId;
-    readonly reservation?: RouteReservationId;
-    readonly migration?: { readonly from: RunPins; readonly to: RunPins };
+    readonly subjectTurn?: TurnId | undefined;
+    readonly content?: ContentRef | undefined;
+    readonly selects?: RunCommitId | undefined;
+    readonly treeCheckpoint?: ContentRef | undefined;
+    readonly resolution?: MergeResolution | undefined;
+    readonly treeResolution?: TreeMergeResolution | undefined;
+    readonly invocation?: InvocationId | undefined;
+    readonly receipt?: ReceiptId | undefined;
+    readonly reservation?: RouteReservationId | undefined;
+    readonly migration?: RunMigration | undefined;
 }
 
 export class RunCommit extends CodecRecord {
@@ -138,7 +163,7 @@ export class RunCommit extends CodecRecord {
                       from: RunPins.fromData(init.migration.from.toData()),
                       to: RunPins.fromData(init.migration.to.toData())
                   });
-        validateClosedShape(this);
+        validateClosedKind(this);
         this.proposalDigest = Digest.sha256(encodeCanonicalJson(this.proposalData()));
         Object.freeze(this);
     }
@@ -153,13 +178,10 @@ export class RunCommit extends CodecRecord {
     }
 
     public toData(): JsonValue {
-        return {
-            ...(this.proposalData() as object),
-            writer: writerData(this.writer)
-        } as JsonValue;
+        return { ...this.proposalData(), writer: writerData(this.writer) };
     }
 
-    public proposalData(): JsonValue {
+    public proposalData(): JsonObject {
         return {
             branch: this.branch.value,
             id: this.id.value,
@@ -211,6 +233,8 @@ export class RunCommit extends CodecRecord {
             "Run commit"
         );
         const migration = object["migration"];
+        const resolution = object["resolution"];
+        const treeResolution = object["treeResolution"];
         return new RunCommit({
             id: new RunCommitId(requireString(object["id"], "Run commit ID")),
             run: new RunId(requireString(object["run"], "Run commit Run")),
@@ -221,57 +245,40 @@ export class RunCommit extends CodecRecord {
             ),
             pins: RunPins.fromData(object["pins"]!),
             writer: requireCommitWriter(object["writer"]!),
-            ...optionalId(
+            subjectTurn: optionalId(
                 object["subjectTurn"],
                 (value) => new TurnId(value),
-                "Run subject Turn",
-                "subjectTurn"
+                "Run subject Turn"
             ),
-            ...optionalId(
-                object["content"],
-                (value) => new ContentRef(value),
-                "Run content",
-                "content"
-            ),
-            ...optionalId(
+            content: optionalId(object["content"], (value) => new ContentRef(value), "Run content"),
+            selects: optionalId(
                 object["selects"],
                 (value) => new RunCommitId(value),
-                "Run selection",
-                "selects"
+                "Run selection"
             ),
-            ...optionalId(
+            treeCheckpoint: optionalId(
                 object["treeCheckpoint"],
                 (value) => new ContentRef(value),
-                "Tree checkpoint",
-                "treeCheckpoint"
+                "Tree checkpoint"
             ),
-            ...(object["resolution"] === null
-                ? {}
-                : { resolution: requireMergeResolution(object["resolution"]!) }),
-            ...(object["treeResolution"] === null
-                ? {}
-                : { treeResolution: requireTreeMergeResolution(object["treeResolution"]!) }),
-            ...optionalId(
+            resolution: resolution === null ? undefined : requireMergeResolution(resolution),
+            treeResolution:
+                treeResolution === null ? undefined : requireTreeMergeResolution(treeResolution),
+            invocation: optionalId(
                 object["invocation"],
                 (value) => new InvocationId(value),
-                "Run Invocation",
-                "invocation"
+                "Run Invocation"
             ),
-            ...optionalId(
-                object["receipt"],
-                (value) => new ReceiptId(value),
-                "Run Receipt",
-                "receipt"
-            ),
-            ...optionalId(
+            receipt: optionalId(object["receipt"], (value) => new ReceiptId(value), "Run Receipt"),
+            reservation: optionalId(
                 object["reservation"],
                 (value) => new RouteReservationId(value),
-                "Run reservation",
-                "reservation"
+                "Run reservation"
             ),
-            ...(migration === null || migration === undefined
-                ? {}
-                : { migration: migrationFromData(migration) })
+            migration:
+                migration === null || migration === undefined
+                    ? undefined
+                    : migrationFromData(migration)
         });
     }
 }
@@ -303,9 +310,7 @@ export function validateCommitWriter<Transaction>(
     }
     if (commit.writer.kind === "turn") {
         if (
-            !(["message", "checkpoint", "result", "verdict"] as RunCommitKind[]).includes(
-                commit.kind
-            ) ||
+            !TURN_AUTHORED_KINDS.includes(commit.kind) ||
             !commit.subjectTurn?.equals(commit.writer.token.turn)
         ) {
             throw invalidWriter("Turn writer is incompatible with the Run commit");
@@ -380,7 +385,8 @@ export function validateCommitWriter<Transaction>(
     }
 }
 
-function validateClosedShape(commit: RunCommit): void {
+// Each commit kind admits an exact set of fields; every other field must be absent.
+function validateClosedKind(commit: RunCommit): void {
     const forbidden = (...values: readonly unknown[]): boolean =>
         values.every((value) => value === undefined);
     if (commit.kind === "root") {
@@ -544,8 +550,8 @@ function copyWriter(writer: CommitWriter): CommitWriter {
     if (writer.kind === "root") return Object.freeze({ kind: "root" });
     if (writer.kind === "turn")
         return Object.freeze({ kind: "turn", token: copyToken(writer.token) });
-    const cause = writer.cause;
-    return Object.freeze({ kind: "system", cause: Object.freeze({ ...cause }) }) as CommitWriter;
+    const cause: SystemCause = Object.freeze({ ...writer.cause });
+    return Object.freeze({ kind: "system", cause });
 }
 
 function writerData(writer: CommitWriter): JsonValue {
@@ -720,7 +726,7 @@ function requireTreeMergeResolution(value: JsonValue): TreeMergeResolution {
     };
 }
 
-function migrationFromData(value: JsonValue): { readonly from: RunPins; readonly to: RunPins } {
+function migrationFromData(value: JsonValue): RunMigration {
     const object = requireObject(value, "Run migration");
     requireExactFields(object, ["from", "to"], [], "Run migration");
     return { from: RunPins.fromData(object["from"]!), to: RunPins.fromData(object["to"]!) };
@@ -760,30 +766,15 @@ function deniedEvidence(message: string): AgentCoreError {
 }
 
 function requireCommitKind(value: JsonValue | undefined): RunCommitKind {
-    const kinds: readonly RunCommitKind[] = [
-        "root",
-        "message",
-        "checkpoint",
-        "invocation",
-        "eventDelivery",
-        "result",
-        "merge",
-        "verdict",
-        "undo",
-        "migration"
-    ];
-    if (kinds.includes(value as RunCommitKind)) return value as RunCommitKind;
+    if (isMember(RUN_COMMIT_KINDS, value)) return value;
     throw new TypeError("Run commit kind is invalid");
 }
 
-function optionalId<Key extends string, Value>(
+function optionalId<Value>(
     value: JsonValue | undefined,
     create: (value: string) => Value,
-    subject: string,
-    key: Key
-): { readonly [P in Key]?: Value } {
+    subject: string
+): Value | undefined {
     const decoded = requireOptionalString(value, subject);
-    return decoded === undefined
-        ? {}
-        : ({ [key]: create(decoded) } as { readonly [P in Key]?: Value });
+    return decoded === undefined ? undefined : create(decoded);
 }

@@ -35,6 +35,7 @@ import {
     SettlementEvidencePort,
     Turn,
     TurnBoundOperation,
+    type TurnModelCall,
     TurnId,
     TurnPlacementSnapshot,
     type LeaseToken
@@ -71,16 +72,29 @@ function pins(): RunPins {
     });
 }
 
-class AcceptingSourcePort extends RunSourceRevisionPort<object, RunConfigurationSnapshot> {
+/**
+ * MemoryRunStorage keeps the state it hands each transaction private, so the fixture
+ * names that state through the storage's own signature rather than erasing it to
+ * `object`. The ports below then declare the transaction they are actually given.
+ */
+type MemoryTransaction = Parameters<Parameters<MemoryRunStorage["transaction"]>[0]>[0];
+
+class AcceptingSourcePort extends RunSourceRevisionPort<
+    MemoryTransaction,
+    RunConfigurationSnapshot
+> {
     public verify(): boolean {
         return true;
     }
-    public verifyPackageClosure(_transaction: object, snapshot: RunConfigurationSnapshot): boolean {
+    public verifyPackageClosure(
+        _transaction: MemoryTransaction,
+        snapshot: RunConfigurationSnapshot
+    ): boolean {
         return snapshot.pins.packages.length > 0;
     }
 }
 
-class EmptyEvidencePort extends RunEvidencePort<object> {
+class EmptyEvidencePort extends RunEvidencePort<MemoryTransaction> {
     public receipt() {
         return undefined;
     }
@@ -104,7 +118,7 @@ class EmptyEvidencePort extends RunEvidencePort<object> {
     }
 }
 
-class EmptySettlementPort extends SettlementEvidencePort<object> {
+class EmptySettlementPort extends SettlementEvidencePort<MemoryTransaction> {
     public approvalResolved(): boolean {
         return false;
     }
@@ -128,7 +142,7 @@ class EmptySettlementPort extends SettlementEvidencePort<object> {
     }
 }
 
-class RejectingSpawnPort extends RunSpawnPort<object> {
+class RejectingSpawnPort extends RunSpawnPort<MemoryTransaction> {
     public verify(): boolean {
         return false;
     }
@@ -139,7 +153,7 @@ class RejectingSpawnPort extends RunSpawnPort<object> {
     }
 }
 
-class RejectingMergePort extends RunMergePort<object> {
+class RejectingMergePort extends RunMergePort<MemoryTransaction> {
     public verifyConcat(): boolean {
         return false;
     }
@@ -149,8 +163,8 @@ class RejectingMergePort extends RunMergePort<object> {
 }
 
 export interface RunFixture {
-    readonly runtime: RunRuntime<object>;
-    readonly repository: RunRepository<object>;
+    readonly runtime: RunRuntime<MemoryTransaction>;
+    readonly repository: RunRepository<MemoryTransaction>;
     readonly content: MemoryContentStore;
     readonly token: LeaseToken;
     readonly input: ContentRef;
@@ -249,4 +263,36 @@ export function boundOperation(binding: string, operation: string): TurnBoundOpe
             `Perform ${operation}.`
         )
     );
+}
+
+/**
+ * A TurnModelCall carrying a real Turn and lease token rather than stand-ins: the
+ * port under test reads only the prompt, operations, and signal, but a call built
+ * from the kernel's own constructors cannot quietly diverge from the record the
+ * runtime hands it.
+ */
+export function modelCall(
+    prompt: ContentRef,
+    operations: readonly TurnBoundOperation[],
+    signal: AbortSignal
+): TurnModelCall {
+    const snapshot = new RunConfigurationSnapshot({ pins: pins() });
+    const placement = new TurnPlacementSnapshot(ids.turn, snapshot.pins, []);
+    return Object.freeze({
+        turn: new Turn({
+            id: ids.turn,
+            run: ids.run,
+            branch: ids.branch,
+            startHead: ids.root,
+            effectiveInput: ids.root,
+            pins: snapshot.pins,
+            placement: placement.digest,
+            input: prompt,
+            revision: new Revision(0)
+        }),
+        token: Object.freeze({ turn: ids.turn, holder: ids.holder, epoch: 1 }),
+        prompt,
+        operations,
+        signal
+    });
 }

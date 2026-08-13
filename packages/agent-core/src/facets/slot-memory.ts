@@ -2,6 +2,7 @@ import { Revision } from "../core";
 import type { SynchronousResultGuard, TransactionOperation } from "../actors";
 import { AgentCoreError } from "../errors";
 import type { WorkspaceId } from "../identity";
+import { isString } from "./data";
 import { SlotName, type SlotEntryId } from "./id";
 import { SlotDeclaration } from "./slot";
 import { SlotEntry } from "./slot-entry";
@@ -252,7 +253,7 @@ function requireSnapshot(snapshot: MemoryWorkspaceSlotSnapshot): void {
         JSON.stringify(Object.keys(snapshot).sort()) !==
             JSON.stringify(["entries", "owner", "revision", "slots", "version"]) ||
         snapshot.version !== 1 ||
-        typeof snapshot.owner !== "string" ||
+        !isString(snapshot.owner) ||
         !Number.isSafeInteger(snapshot.revision) ||
         snapshot.revision < 0 ||
         !Array.isArray(snapshot.slots) ||

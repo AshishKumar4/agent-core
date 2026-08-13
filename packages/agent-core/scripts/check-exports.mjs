@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import ts from "typescript";
-import { artifactRoot, packageRoot, readCanonicalJson } from "./quality/project.mjs";
+import {
+    artifactRoot,
+    isNonEmptyString,
+    packageRoot,
+    readCanonicalJson
+} from "./quality/project.mjs";
 
 const packageJson = JSON.parse(await readFile(resolve(packageRoot, "package.json"), "utf8"));
 const registry = await readCanonicalJson(resolve(artifactRoot, "quality/exports.json"));
@@ -112,7 +117,7 @@ try {
     const pack = runPackageManager(["pack", "--pack-destination", consumer, "--json"], packageRoot);
     const packed = JSON.parse(pack.stdout);
     const result = Array.isArray(packed) ? packed[0] : packed;
-    if (typeof result?.filename !== "string" || !Array.isArray(result.files)) {
+    if (!isNonEmptyString(result?.filename) || !Array.isArray(result.files)) {
         throw new TypeError("pnpm pack did not report its exact manifest");
     }
     if (

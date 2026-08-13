@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { parseCanonicalJson } from "./project.mjs";
+import { canonicalJson, isNonEmptyString, parseCanonicalJson } from "./project.mjs";
 
 export function extractRequestObligations(source, sourceSha256, bytes) {
     if (source.endsWith(".md")) {
@@ -24,8 +24,8 @@ export function extractRequestObligations(source, sourceSha256, bytes) {
     }
     if (
         document.edition === "1.0.0" &&
-        typeof document.owner === "string" &&
-        typeof document.kind === "string" &&
+        isNonEmptyString(document.owner) &&
+        isNonEmptyString(document.kind) &&
         Array.isArray(document.requests)
     ) {
         return collection(source, sourceSha256, document.kind, document.requests, (item) =>
@@ -125,7 +125,7 @@ function obligation(source, sourceSha256, family, key, anchor, value) {
         source,
         sourceSha256,
         anchor,
-        atomSha256: sha256(typeof value === "string" ? value : JSON.stringify(canonical(value)))
+        atomSha256: sha256(isNonEmptyString(value) ? value : JSON.stringify(canonicalJson(value)))
     });
 }
 
@@ -135,18 +135,6 @@ function naturalKey(kind, item) {
     if (kind === "exports") return `${item.specifier}:${item.symbol}`;
     if (kind === "source-removals") return item.path;
     throw new TypeError(`Unsupported request fragment kind: ${kind}`);
-}
-
-function canonical(value) {
-    if (Array.isArray(value)) return value.map(canonical);
-    if (value !== null && typeof value === "object") {
-        return Object.fromEntries(
-            Object.keys(value)
-                .sort()
-                .map((key) => [key, canonical(value[key])])
-        );
-    }
-    return value;
 }
 
 function sha256(value) {

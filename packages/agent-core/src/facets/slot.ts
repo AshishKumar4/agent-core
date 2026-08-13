@@ -7,6 +7,7 @@ import {
     requireDataObject,
     requireExactFields,
     requireNonblank,
+    requireSchemaDocument,
     requireString
 } from "./data";
 import { SlotName } from "./id";
@@ -67,7 +68,7 @@ export class SlotDeclaration {
         requireExactFields(object, ["authority", "entrySchema", "name"]);
         return new SlotDeclaration(
             new SlotName(requireString(object["name"], "Slot name")),
-            new JsonSchema(requireSchemaDocument(object["entrySchema"])),
+            new JsonSchema(requireSchemaDocument(object["entrySchema"], "Slot entry schema")),
             SlotAuthorityPolicy.fromData(object["authority"]!)
         );
     }
@@ -107,21 +108,4 @@ function canonicalSelectors(values: readonly string[], subject: string): readonl
         throw new TypeError(`${subject} selectors must be unique`);
     }
     return Object.freeze(ordered);
-}
-
-function requireSchemaDocument(
-    value: FacetData | undefined
-): boolean | { readonly [key: string]: FacetData } {
-    if (typeof value === "boolean") {
-        return value;
-    }
-    if (
-        value === undefined ||
-        value === null ||
-        Array.isArray(value) ||
-        typeof value !== "object"
-    ) {
-        throw new TypeError("Slot entry schema must be an object or boolean");
-    }
-    return value as { readonly [key: string]: FacetData };
 }

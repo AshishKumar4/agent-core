@@ -1,6 +1,13 @@
+import { isObjectRecord } from "../../core";
 import { Contributions, Contribution, OperationDescriptor } from "../contribution";
 import type { FacetData } from "../data";
-import { requireDataObject, requireSafeInteger, requireString } from "../data";
+import {
+    dataRecord,
+    requireBytes,
+    requireDataObject,
+    requireSafeInteger,
+    requireString
+} from "../data";
 import { OperationName, SlotName } from "../id";
 import type { FacetManifest } from "../manifest";
 import {
@@ -47,7 +54,7 @@ export interface WebTransportRequest {
     readonly authorization: WebTransportAuthorization;
     readonly method: string;
     readonly headers: WebHeaders;
-    readonly body?: Uint8Array;
+    readonly body?: Uint8Array | undefined;
 }
 
 export interface WebTransportResponse {
@@ -142,12 +149,13 @@ export const WEB_OPERATION_CONTRACTS = Object.freeze({
             responseSchema
         ),
         profileWireCodec(
-            (request) => ({
-                url: request.url,
-                ...(request.method === undefined ? {} : { method: request.method }),
-                ...(request.headers === undefined ? {} : { headers: { ...request.headers } }),
-                ...(request.body === undefined ? {} : { body: [...request.body] })
-            }),
+            (request) =>
+                dataRecord({
+                    url: request.url,
+                    method: request.method,
+                    headers: request.headers === undefined ? undefined : { ...request.headers },
+                    body: request.body === undefined ? undefined : [...request.body]
+                }),
             decodeWebRequest
         ),
         profileWireCodec(encodeWebResponse, decodeWebResponse),
@@ -168,20 +176,16 @@ export const WEB_OPERATION_CONTRACTS = Object.freeze({
             responseSchema
         ),
         profileWireCodec(
-            (input) => ({
-                query: input.query,
-                ...(input.limit === undefined ? {} : { limit: input.limit })
-            }),
+            (input) => dataRecord({ query: input.query, limit: input.limit }),
             (data) => {
                 const object = requireDataObject(data, "Web search input");
-                return {
-                    query: requireString(object["query"], "Web search query"),
-                    ...(object["limit"] === undefined
-                        ? {}
-                        : {
-                              limit: requireSafeInteger(object["limit"], "Web search limit")
-                          })
+                const limit = object["limit"];
+                const input: WebSearchInput = {
+                    query: requireString(object["query"], "Web search query")
                 };
+                return limit === undefined
+                    ? input
+                    : { ...input, limit: requireSafeInteger(limit, "Web search limit") };
             }
         ),
         profileWireCodec(encodeWebResponse, decodeWebResponse),
@@ -232,13 +236,9 @@ export class WebBackend {
         private readonly transport: WebTransport,
         private readonly cache: WebResponseCache
     ) {
-        for (const [name, value] of Object.entries(config)) {
-            if (
-                name !== "searchEndpoint" &&
-                (!Number.isSafeInteger(value) || (value as number) < 0)
-            ) {
-                throw new TypeError("Web limits must be non-negative safe integers");
-            }
+        const limits = [config.maxRequestBytes, config.maxResponseBytes, config.maxRedirects];
+        if (limits.some((limit) => !Number.isSafeInteger(limit) || limit < 0)) {
+            throw new TypeError("Web limits must be non-negative safe integers");
         }
         this.safeUrl(config.searchEndpoint);
     }
@@ -270,7 +270,7 @@ export class WebBackend {
                     authorization,
                     method: request.method ?? "GET",
                     headers: Object.freeze({ ...callerHeaders, ...policyHeaders }),
-                    ...(body === undefined ? {} : { body: body.slice() })
+                    body: body?.slice()
                 },
                 Object.freeze({ maxResponseBytes: this.config.maxResponseBytes }),
                 dispatch
@@ -338,8 +338,7 @@ export class WebBackend {
         if (
             authorization.requestedUrl !== url.href ||
             authorization.resolvedTarget.trim().length === 0 ||
-            authorization.token === null ||
-            typeof authorization.token !== "object"
+            !isObjectRecord(authorization.token)
         ) {
             throw new WebPolicyError(
                 "url.denied",
@@ -446,7 +445,7 @@ export class FixedWindowRatePolicy implements WebRatePolicy {
     }
 }
 
-function normalizeHeaders(headers: WebHeaders): Record<string, string> {
+function normalizeHeaders(headers: WebHeaders) {
     const normalized: Record<string, string> = {};
     for (const [name, value] of Object.entries(headers))
         normalized[name.toLocaleLowerCase()] = value;
@@ -455,14 +454,16 @@ function normalizeHeaders(headers: WebHeaders): Record<string, string> {
 
 function decodeWebRequest(data: FacetData): WebRequest {
     const object = requireDataObject(data, "Web request");
-    return {
-        url: requireString(object["url"], "Web request URL"),
-        ...(object["method"] === undefined
-            ? {}
-            : { method: requireString(object["method"], "Web method") }),
-        ...(object["headers"] === undefined ? {} : { headers: decodeHeaders(object["headers"]) }),
-        ...(object["body"] === undefined ? {} : { body: decodeBytes(object["body"]) })
-    };
+    const method = object["method"];
+    const headers = object["headers"];
+    const body = object["body"];
+    let request: WebRequest = { url: requireString(object["url"], "Web request URL") };
+    if (method !== undefined) {
+        request = { ...request, method: requireString(method, "Web method") };
+    }
+    if (headers !== undefined) request = { ...request, headers: decodeHeaders(headers) };
+    if (body !== undefined) request = { ...request, body: decodeBytes(body) };
+    return request;
 }
 
 function encodeWebResponse(response: WebResponse): FacetData {
@@ -497,8 +498,5 @@ function decodeHeaders(data: FacetData): WebHeaders {
 }
 
 function decodeBytes(data: FacetData): Uint8Array {
-    if (!Array.isArray(data) || data.some((value) => typeof value !== "number")) {
-        throw new TypeError("Web body must be bytes");
-    }
-    return new Uint8Array(data as number[]);
+    return requireBytes(data, "Web body must be bytes");
 }

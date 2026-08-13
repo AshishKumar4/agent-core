@@ -4,6 +4,42 @@ import { resolve } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import { specRequirements } from "../../scripts/quality/spec.mjs";
 import { runQualitySubprocess, subprocessTestOptions } from "./subprocess";
+import { objectsAt, readArtifact, stringAt, stringsAt } from "./artifacts";
+
+/**
+ * One conformance requirement as the fragments on disk record it. The ledger
+ * fixtures rewrite these records field by field to drive the checker into each
+ * refusal, so naming the record is what keeps a fixture from inventing a field
+ * the checker never reads or silently dropping one it does.
+ */
+interface ConformanceRequirement {
+    id: string;
+    owner: string;
+    specAnchor: string;
+    specTextSha256: string;
+    status: string;
+    prerequisites: string[];
+    sourceSymbols: string[];
+    testSelectors: string[];
+    checkerInvariants: string[];
+    remainingEvidence: string[];
+}
+
+interface ConformanceFragment {
+    edition: string;
+    owner: string;
+    requirements: ConformanceRequirement[];
+}
+
+interface ConformanceIndex {
+    fragments: string[];
+    pendingFragments?: string[];
+    [field: string]: string | string[] | undefined;
+}
+
+async function readFixtureJson<Document>(path: string): Promise<Document> {
+    return JSON.parse(await readFile(path, "utf8"));
+}
 
 const packageRoot = resolve(import.meta.dirname, "../..");
 const checker = resolve(packageRoot, "scripts/quality/ledger.mjs");
@@ -25,24 +61,18 @@ afterEach(async () => {
 
 describe("atomic SPEC ledger", subprocessTestOptions, () => {
     test("limits external conformance to explicitly declared W8 remote gates", async () => {
-        const remoteGates = JSON.parse(
-            await readFile(
-                resolve(packageRoot, "artifacts/integration/request-archive/W8/remote-gates.json"),
-                "utf8"
-            )
-        ) as { gates: Array<{ id: string }> };
-        const index = JSON.parse(
-            await readFile(resolve(packageRoot, "artifacts/conformance/index.json"), "utf8")
-        ) as { externalGates: string[] };
-        const profiles = JSON.parse(
-            await readFile(
-                resolve(packageRoot, "artifacts/conformance/profiles-cloudflare.json"),
-                "utf8"
-            )
-        ) as {
-            requirements: Array<{ id: string; status: string; checkerInvariants: string[] }>;
-        };
-        const declaredGateIds = remoteGates.gates.map((gate) => gate.id).sort();
+        const remoteGates = await readArtifact(
+            "artifacts/integration/request-archive/W8/remote-gates.json"
+        );
+        const index = await readArtifact("artifacts/conformance/index.json");
+        const externalGates = stringsAt(index, "externalGates");
+        const profiles = objectsAt(
+            await readArtifact("artifacts/conformance/profiles-cloudflare.json"),
+            "requirements"
+        );
+        const declaredGateIds = objectsAt(remoteGates, "gates")
+            .map((gate) => stringAt(gate, "id"))
+            .sort();
         const expectedGateIds = Object.keys(externalRequirementsByConsentGate).sort();
         const expectedRequirements: string[] = Object.values(externalRequirementsByConsentGate)
             .flat()
@@ -51,24 +81,22 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         expect(declaredGateIds).toEqual(expectedGateIds);
         // The index and the fragment must agree exactly on what remains gated, and
         // only explicitly consent-declared requirements may ever be external-gated.
-        expect([...index.externalGates].sort()).toEqual(
-            profiles.requirements
-                .filter((requirement) => requirement.status === "external-gated")
-                .map((requirement) => requirement.id)
+        expect([...externalGates].sort()).toEqual(
+            profiles
+                .filter((requirement) => stringAt(requirement, "status") === "external-gated")
+                .map((requirement) => stringAt(requirement, "id"))
                 .sort()
         );
-        for (const gated of index.externalGates) {
+        for (const gated of externalGates) {
             expect(expectedRequirements).toContain(gated);
         }
         // A consent-gated requirement resolves only through the consented live
         // substrate lane: verified, with hash-bound live evidence demanded.
-        for (const requirement of profiles.requirements) {
-            if (
-                expectedRequirements.includes(requirement.id) &&
-                !index.externalGates.includes(requirement.id)
-            ) {
-                expect(requirement.status).toBe("verified");
-                expect(requirement.checkerInvariants).toContain("ACQ-LIVE");
+        for (const requirement of profiles) {
+            const id = stringAt(requirement, "id");
+            if (expectedRequirements.includes(id) && !externalGates.includes(id)) {
+                expect(stringAt(requirement, "status")).toBe("verified");
+                expect(stringsAt(requirement, "checkerInvariants")).toContain("ACQ-LIVE");
             }
         }
     });
@@ -312,26 +340,28 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
     });
 
     test("declares every SPEC/formal impact without extending formal claims", async () => {
-        const traceability = JSON.parse(
-            await readFile(resolve(packageRoot, "artifacts/traceability.yaml"), "utf8")
-        ) as {
-            requirements: Array<{
-                id: string;
-                definitions: string[];
-                theorems: string[];
-                boundary: string;
-            }>;
-            nonClaims: Array<{ id: string; summary: string }>;
-        };
-        const run = traceability.requirements.find((item) => item.id === "AC-RUN-001");
-        const approval = traceability.requirements.find((item) => item.id === "AC-APPROVAL-001");
-        const authority = traceability.requirements.find(
-            (item) => item.id === "AC-AUTH-RESOLUTION-001"
+        const traceability = await readArtifact("artifacts/traceability.yaml");
+        const claims = new Map(
+            objectsAt(traceability, "requirements").map((item) => [
+                stringAt(item, "id"),
+                {
+                    definitions: stringsAt(item, "definitions"),
+                    theorems: stringsAt(item, "theorems"),
+                    boundary: stringAt(item, "boundary")
+                }
+            ])
         );
-        const composed = traceability.requirements.find((item) => item.id === "AC-COMPOSED-001");
-        const structural = traceability.requirements.find(
-            (item) => item.id === "AC-STRUCTURAL-001"
+        const nonClaims = new Map(
+            objectsAt(traceability, "nonClaims").map((item) => [
+                stringAt(item, "id"),
+                stringAt(item, "summary")
+            ])
         );
+        const run = claims.get("AC-RUN-001");
+        const approval = claims.get("AC-APPROVAL-001");
+        const authority = claims.get("AC-AUTH-RESOLUTION-001");
+        const composed = claims.get("AC-COMPOSED-001");
+        const structural = claims.get("AC-STRUCTURAL-001");
         expect(run?.definitions).toContain("AgentCore.CompleteAdmittedFrontier");
         expect(run?.definitions).toContain("AgentCore.RunAdmissionRegistry");
         expect(run?.theorems).toContain("AgentCore.forced_cancellation_is_system_fence");
@@ -368,20 +398,16 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         expect(composed?.boundary).toContain("No Actor-local boolean or claimed authority");
         expect(composed?.boundary).toContain("Live authority administration");
         expect(structural?.theorems).toContain("AgentCore.replay_preserves_item_order_and_keys");
-        const interceptor = traceability.requirements.find(
-            (item) => item.id === "AC-INTERCEPTOR-001"
-        );
+        const interceptor = claims.get("AC-INTERCEPTOR-001");
         expect(interceptor?.theorems).toContain("AgentCore.run_attributes_last_rewriter");
         expect(interceptor?.theorems).toContain(
             "AgentCore.direct_admission_has_no_applicable_interceptor"
         );
         expect(interceptor?.boundary).toContain("are not modeled");
-        expect(
-            traceability.nonClaims.find((item) => item.id === "NC-INTERCEPTORS")?.summary
-        ).toContain("durable trace persistence");
-        expect(
-            traceability.nonClaims.find((item) => item.id === "NC-CLOUDFLARE-BEHAVIOR")?.summary
-        ).toContain("not the concrete Cloudflare record");
+        expect(nonClaims.get("NC-INTERCEPTORS")).toContain("durable trace persistence");
+        expect(nonClaims.get("NC-CLOUDFLARE-BEHAVIOR")).toContain(
+            "not the concrete Cloudflare record"
+        );
 
         const runGraph = await readFile(
             resolve(packageRoot, "formal/AgentCore/RunGraph.lean"),
@@ -414,15 +440,15 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         const fixture = await ledgerFixture();
         const seedPath = resolve(fixture, "conformance/seed.json");
         const originalSeed = await readFile(seedPath, "utf8");
-        const missing = JSON.parse(originalSeed);
+        const missing: ConformanceFragment = JSON.parse(originalSeed);
         missing.requirements.shift();
         await writeFile(seedPath, `${JSON.stringify(missing, null, 2)}\n`, "utf8");
         let result = runFixture(fixture);
         expect(result.status).toBe(1);
         expect(result.stderr).toContain("denominator mismatch");
 
-        const stale = JSON.parse(originalSeed);
-        stale.requirements[0].specTextSha256 = `sha256:${"0".repeat(64)}`;
+        const stale: ConformanceFragment = JSON.parse(originalSeed);
+        stale.requirements[0]!.specTextSha256 = `sha256:${"0".repeat(64)}`;
         await writeFile(seedPath, `${JSON.stringify(stale, null, 2)}\n`, "utf8");
         result = runFixture(fixture);
         expect(result.status).toBe(1);
@@ -431,10 +457,10 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
 
     test("admits exclusive W9 composition sources for cross-context requirement evidence", async () => {
         const fixture = await ledgerFixture();
-        const seed = JSON.parse(await readFile(resolve(fixture, "conformance/seed.json"), "utf8"));
-        const requirement = seed.requirements.find(
-            (item: Record<string, unknown>) => item["id"] === "C13-AUTH-PRINCIPAL-REF"
+        const seed = await readFixtureJson<ConformanceFragment>(
+            resolve(fixture, "conformance/seed.json")
         );
+        const requirement = seed.requirements.find((item) => item.id === "C13-AUTH-PRINCIPAL-REF")!;
         const selector =
             "test/composition/authority-state.test.ts#production authority state seams (memory) [C13-AUTH-PRINCIPAL-REF] rejects an exact cross-Tenant NUL collision without consulting or poisoning the local cache";
         markVerified(
@@ -458,10 +484,8 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
     test("rejects stale source symbols and tests that did not execute", async () => {
         const fixture = await ledgerFixture();
         const seedPath = resolve(fixture, "conformance/seed.json");
-        const seed = JSON.parse(await readFile(seedPath, "utf8"));
-        const requirement = seed.requirements.find(
-            (item: Record<string, unknown>) => item["owner"] === "W1"
-        );
+        const seed = await readFixtureJson<ConformanceFragment>(seedPath);
+        const requirement = seed.requirements.find((item) => item.owner === "W1")!;
         markVerified(
             requirement,
             "src/core/id.ts#MissingSymbol",
@@ -491,32 +515,28 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
  */
 async function planOneRequirement(root: string): Promise<void> {
     const indexPath = resolve(root, "conformance/index.json");
-    const index = JSON.parse(await readFile(indexPath, "utf8")) as { fragments: string[] };
+    const index = await readFixtureJson<ConformanceIndex>(indexPath);
     const fragments = await Promise.all(
         index.fragments.map(async (name) => ({
             name,
-            document: JSON.parse(await readFile(resolve(root, "conformance", name), "utf8")) as {
-                requirements: Record<string, unknown>[];
-            }
+            document: await readFixtureJson<ConformanceFragment>(resolve(root, "conformance", name))
         }))
     );
     const prerequisites = new Set(
         fragments.flatMap(({ document }) =>
-            document.requirements.flatMap((requirement) => requirement["prerequisites"] as string[])
+            document.requirements.flatMap((requirement) => requirement.prerequisites)
         )
     );
     for (const { name, document } of fragments) {
         const leaf = document.requirements.find(
-            (requirement) =>
-                requirement["status"] === "verified" &&
-                !prerequisites.has(requirement["id"] as string)
+            (requirement) => requirement.status === "verified" && !prerequisites.has(requirement.id)
         );
         if (leaf === undefined) continue;
-        leaf["status"] = "planned";
-        leaf["sourceSymbols"] = [];
-        leaf["testSelectors"] = [];
-        leaf["checkerInvariants"] = [];
-        leaf["remainingEvidence"] = ["Fixture demotes this requirement to exercise incompleteness"];
+        leaf.status = "planned";
+        leaf.sourceSymbols = [];
+        leaf.testSelectors = [];
+        leaf.checkerInvariants = [];
+        leaf.remainingEvidence = ["Fixture demotes this requirement to exercise incompleteness"];
         await writeFile(
             resolve(root, "conformance", name),
             `${JSON.stringify(document, null, 4)}\n`,
@@ -534,10 +554,7 @@ async function ledgerFixture(preserveActiveFragments = false): Promise<string> {
         recursive: true
     });
     const indexPath = resolve(root, "conformance/index.json");
-    const index = JSON.parse(await readFile(indexPath, "utf8")) as {
-        fragments: string[];
-        pendingFragments?: string[];
-    };
+    const index = await readFixtureJson<ConformanceIndex>(indexPath);
     if (!preserveActiveFragments) {
         await Promise.all(
             [...index.fragments, ...(index.pendingFragments ?? [])].map((name) =>
@@ -563,8 +580,11 @@ async function ledgerFixture(preserveActiveFragments = false): Promise<string> {
               await Promise.all(
                   index.fragments.map(
                       async (name) =>
-                          JSON.parse(await readFile(resolve(root, "conformance", name), "utf8"))
-                              .requirements
+                          (
+                              await readFixtureJson<ConformanceFragment>(
+                                  resolve(root, "conformance", name)
+                              )
+                          ).requirements
                   )
               )
           )
@@ -596,9 +616,9 @@ async function ledgerFixture(preserveActiveFragments = false): Promise<string> {
         )}\n`,
         "utf8"
     );
-    const rules = JSON.parse(await readFile(resolve(root, "quality/rules.json"), "utf8")) as {
-        rules: Array<{ id: string }>;
-    };
+    const rules = await readFixtureJson<{ rules: Array<{ id: string }> }>(
+        resolve(root, "quality/rules.json")
+    );
     await writeFile(
         resolve(root, "invariants.json"),
         `${JSON.stringify({ passed: rules.rules.map((rule) => rule.id) }, null, 2)}\n`,
@@ -611,10 +631,10 @@ async function addFragment(
     root: string,
     name: string,
     owner: string,
-    requirement: Record<string, unknown>
+    requirement: ConformanceRequirement
 ): Promise<void> {
     const indexPath = resolve(root, "conformance/index.json");
-    const index = JSON.parse(await readFile(indexPath, "utf8"));
+    const index = await readFixtureJson<ConformanceIndex>(indexPath);
     index.fragments = [name];
     await writeFile(indexPath, `${JSON.stringify(index, null, 2)}\n`, "utf8");
     await writeFile(
@@ -677,13 +697,13 @@ function runFixture(
 }
 
 function markVerified(
-    requirement: Record<string, unknown>,
+    requirement: ConformanceRequirement,
     source: string,
     testSelector: string
 ): void {
-    requirement["status"] = "verified";
-    requirement["sourceSymbols"] = [source];
-    requirement["testSelectors"] = [testSelector];
-    requirement["checkerInvariants"] = ["ACQ-ID"];
-    requirement["remainingEvidence"] = [];
+    requirement.status = "verified";
+    requirement.sourceSymbols = [source];
+    requirement.testSelectors = [testSelector];
+    requirement.checkerInvariants = ["ACQ-ID"];
+    requirement.remainingEvidence = [];
 }

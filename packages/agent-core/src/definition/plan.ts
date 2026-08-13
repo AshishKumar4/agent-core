@@ -153,7 +153,7 @@ function slotEntryProjection(logicalKey: string, entry: ValidatedContribution): 
             contributor: entry.contributor,
             index: entry.index,
             slot: entry.slot,
-            value: entry.value as JsonValue
+            value: entry.value
         }
     });
 }
@@ -443,16 +443,14 @@ function attestedProjections(validated: ValidatedBlueprint): readonly DesiredPro
             projections.push(
                 subscriptionProjection(
                     `subscription:automation:${declaration.contributor}:${declaration.index}`,
-                    declaration.value as JsonValue
+                    declaration.value
                 )
             );
         }
     }
 
     (blueprint.subscriptions ?? []).forEach((template, index) => {
-        projections.push(
-            subscriptionProjection(`subscription:blueprint:${index}`, template as JsonValue)
-        );
+        projections.push(subscriptionProjection(`subscription:blueprint:${index}`, template));
     });
 
     (blueprint.slots ?? []).forEach((slot, index) => {
@@ -468,26 +466,18 @@ function attestedProjections(validated: ValidatedBlueprint): readonly DesiredPro
 
     if (blueprint.scopes !== undefined) {
         projections.push(
-            declarationProjection("scope-scaffold", "scope:platform", blueprint.scopes as JsonValue)
+            declarationProjection("scope-scaffold", "scope:platform", blueprint.scopes)
         );
     }
     blueprint.agents.forEach((agent, index) => {
-        projections.push(
-            declarationProjection("agent-profile", `agent:${index}`, agent as JsonValue)
-        );
+        projections.push(declarationProjection("agent-profile", `agent:${index}`, agent));
     });
     (blueprint.environments ?? []).forEach((environment, index) => {
-        projections.push(
-            declarationProjection("environment", `environment:${index}`, environment as JsonValue)
-        );
+        projections.push(declarationProjection("environment", `environment:${index}`, environment));
     });
     if (blueprint.surfaces !== undefined) {
         projections.push(
-            declarationProjection(
-                "surface-layout",
-                "surface:platform",
-                blueprint.surfaces as JsonValue
-            )
+            declarationProjection("surface-layout", "surface:platform", blueprint.surfaces)
         );
     }
 
@@ -534,7 +524,7 @@ function slotContributeAuthority(
         const slot = SlotDeclaration.fromData(data);
         map.set(slot.name.value, slot.authority.contribute);
     };
-    for (const data of validated.blueprint.slots ?? []) add(data as JsonValue);
+    for (const data of validated.blueprint.slots ?? []) add(data);
     for (const declaration of validated.declarations) {
         if (declaration.slot === "slots") add(declaration.value);
     }
