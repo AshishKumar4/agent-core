@@ -140,9 +140,9 @@
     },
     {
       "id": "AC-AUTH-001",
-      "summary": "Tenant-qualified PrincipalRef identity, canonical deny override, Binding-to-operation-facet match, and contained non-widening allow delegation",
+      "summary": "Tenant-qualified PrincipalRef identity, canonical deny override, Binding-to-operation-facet match, contained non-widening allow delegation, and the executable deny-precedence decision the Grant resolver runs",
       "status": "proved-safety",
-      "boundary": "Coverage includes structural tenant-qualified PrincipalRef inequality plus abstract Grant/Binding ledger relations and the designated delegation transition; it does not prove concrete authentication, serialization, storage, or resolver correctness.",
+      "boundary": "Two layers. The abstract ledger carries structural tenant-qualified PrincipalRef inequality, the Grant/Binding relations, and the designated delegation transition. On top of it, evaluateExec is the executable resolution decision, following AuthorityRuntime.evaluate's own gate order over the Grant plane, and authority_decision_is_sound proves an allowed answer implies SPEC §3.3's precedence condition stated as itself — at least one live matching allow-Grant reaches the target Scope and no live matching deny-Grant does — where \"matching\" is Capability.Matches over the whole infinite intent domain and \"reaches\" is §3.2's chain relation ScopeReaches, both defined independently of the check. The resolver decides reach twice, by Scope-path membership and by comparing positions on the exact Tenant-to-target path; scope_reaches_iff_mem_path and path_index_le_iff_reaches prove both are that chain relation, and path_index_defined_of_reaches proves the position test refuses no containment the membership test admits. lineage_ok_ancestor_covers lifts the resolver's pairwise attenuation walk to §3.4 rule 2's \"at every depth\". The decision begins where the resolver has already established the effective subject set, the exact Scope path, the intent, and the Binding's backing Grant id: Binding canonicality, path-epoch staleness, Principal liveness, and the Binding-to-Facet match are earlier fail-closed gates, so omitting them can only make the model more permissive than the implementation and soundness carries; completeness (authority_decision_iff_effective) is stated relative to them and to a sound backing Grant. Guest requests are modeled only through the elevation prohibition — Grant origin provenance and Membership/GuestTrust verification currency are not modeled and are not driven differentially. Subjects and Scopes are compared as values while the implementation compares canonical-JSON keys; AC-KEY-001's authorityKey_injective is what makes that value comparison, with no side condition on identifier text. The lineage walk is budgeted by the Grant count and refuses on exhaustion, matching the implementation's refusal of a repeated Grant; that the budget never binds for an acyclic lineage is not proved. Concrete authentication, serialization, storage, and resolver-external correctness remain outside.",
       "definitions": [
         "AgentCore.Grant",
         "AgentCore.Binding",
@@ -152,21 +152,60 @@
         "AgentCore.AuthorityLedger.LiveGrant",
         "AgentCore.AuthorityLedger.Denied",
         "AgentCore.AuthorityLedger.Authorized",
-        "AgentCore.AuthorityLedger.AuthorityStep"
+        "AgentCore.AuthorityLedger.AuthorityStep",
+        "AgentCore.ScopeReaches",
+        "AgentCore.indexIn",
+        "AgentCore.pathIndex",
+        "AgentCore.AuthorityGrant",
+        "AgentCore.AuthorityRequest",
+        "AgentCore.AuthorityGrant.MatchesRequest",
+        "AgentCore.AuthorityGrant.matchesRequestBool",
+        "AgentCore.LiveMatching",
+        "AgentCore.EffectiveAuthority",
+        "AgentCore.LineageVerdict",
+        "AgentCore.lookupGrant",
+        "AgentCore.lineageStep",
+        "AgentCore.lineageExec",
+        "AgentCore.LineageAncestor",
+        "AgentCore.AuthorityDecision",
+        "AgentCore.InvocationImpact.elevating",
+        "AgentCore.AuthorityInput",
+        "AgentCore.AuthorityInput.denials",
+        "AgentCore.evaluateExec",
+        "AgentCore.BackingSound"
       ],
       "theorems": [
         "AgentCore.AuthorityLedger.deny_overrides",
         "AgentCore.AuthorityLedger.authorized_binding_matches_operation_facet",
         "AgentCore.AuthorityLedger.delegated_allow_is_contained_and_not_wider",
         "AgentCore.principal_ref_tenant_is_identity",
-        "AgentCore.AuthorityLedger.acts_under_principal_is_tenant_qualified"
+        "AgentCore.AuthorityLedger.acts_under_principal_is_tenant_qualified",
+        "AgentCore.scope_reaches_iff_mem_path",
+        "AgentCore.path_index_le_iff_reaches",
+        "AgentCore.path_index_defined_of_reaches",
+        "AgentCore.authority_grant_matches_iff",
+        "AgentCore.ancestor_deny_defeats_descendant_allow",
+        "AgentCore.lineage_ok_ancestor_covers",
+        "AgentCore.lineage_ok_ancestors_live",
+        "AgentCore.authority_decision_is_sound",
+        "AgentCore.authority_decision_is_deny_precedence",
+        "AgentCore.authority_decision_iff_effective",
+        "AgentCore.guest_elevation_is_refused",
+        "AgentCore.admitted_intent_is_admitted_by_every_ancestor"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_authorized_resolution_issue",
         "AgentCore.Examples.nonvacuous_delegation_containment",
         "AgentCore.Examples.nonvacuous_live_deny_override",
         "AgentCore.Examples.nonvacuous_qualified_principal_identity",
-        "AgentCore.Examples.nonvacuous_foreign_tenant_principal_never_acts_under"
+        "AgentCore.Examples.nonvacuous_foreign_tenant_principal_never_acts_under",
+        "AgentCore.Examples.nonvacuous_authority_scope_reach_discriminates",
+        "AgentCore.Examples.nonvacuous_authority_path_index_orders_chain",
+        "AgentCore.Examples.nonvacuous_authority_grant_matches_discriminates",
+        "AgentCore.Examples.nonvacuous_authority_allows_without_matching_deny",
+        "AgentCore.Examples.nonvacuous_authority_ancestor_deny_overrides",
+        "AgentCore.Examples.nonvacuous_authority_guest_elevation_refused",
+        "AgentCore.Examples.nonvacuous_authority_lineage_walks_and_refuses"
       ],
       "witnessCoverage": {
         "AgentCore.AuthorityLedger.deny_overrides": [
@@ -183,11 +222,52 @@
         ],
         "AgentCore.AuthorityLedger.acts_under_principal_is_tenant_qualified": [
           "AgentCore.Examples.nonvacuous_foreign_tenant_principal_never_acts_under"
+        ],
+        "AgentCore.scope_reaches_iff_mem_path": [
+          "AgentCore.Examples.nonvacuous_authority_scope_reach_discriminates"
+        ],
+        "AgentCore.path_index_le_iff_reaches": [
+          "AgentCore.Examples.nonvacuous_authority_path_index_orders_chain",
+          "AgentCore.Examples.nonvacuous_authority_scope_reach_discriminates"
+        ],
+        "AgentCore.path_index_defined_of_reaches": [
+          "AgentCore.Examples.nonvacuous_authority_path_index_orders_chain"
+        ],
+        "AgentCore.authority_grant_matches_iff": [
+          "AgentCore.Examples.nonvacuous_authority_grant_matches_discriminates"
+        ],
+        "AgentCore.ancestor_deny_defeats_descendant_allow": [
+          "AgentCore.Examples.nonvacuous_authority_ancestor_deny_overrides"
+        ],
+        "AgentCore.lineage_ok_ancestor_covers": [
+          "AgentCore.Examples.nonvacuous_authority_lineage_walks_and_refuses"
+        ],
+        "AgentCore.lineage_ok_ancestors_live": [
+          "AgentCore.Examples.nonvacuous_authority_lineage_walks_and_refuses"
+        ],
+        "AgentCore.authority_decision_is_sound": [
+          "AgentCore.Examples.nonvacuous_authority_allows_without_matching_deny",
+          "AgentCore.Examples.nonvacuous_authority_ancestor_deny_overrides"
+        ],
+        "AgentCore.authority_decision_is_deny_precedence": [
+          "AgentCore.Examples.nonvacuous_authority_ancestor_deny_overrides",
+          "AgentCore.Examples.nonvacuous_authority_allows_without_matching_deny"
+        ],
+        "AgentCore.authority_decision_iff_effective": [
+          "AgentCore.Examples.nonvacuous_authority_allows_without_matching_deny"
+        ],
+        "AgentCore.guest_elevation_is_refused": [
+          "AgentCore.Examples.nonvacuous_authority_guest_elevation_refused"
+        ],
+        "AgentCore.admitted_intent_is_admitted_by_every_ancestor": [
+          "AgentCore.Examples.nonvacuous_authority_lineage_walks_and_refuses"
         ]
       },
       "remainingEvidence": [
         "concrete canonical Grant/Binding storage and resolver refinement",
-        "authenticated Principal, Team, foreign-principal, and tenant inputs"
+        "authenticated Principal, Team, foreign-principal, and tenant inputs",
+        "guest Grant origin provenance and Membership/GuestTrust verification currency",
+        "TypeScript refinement, for which oracle agreement is empirical only (NC-DIFFERENTIAL-EMPIRICAL)"
       ]
     },
     {

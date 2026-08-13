@@ -1,4 +1,5 @@
 import AgentCore.Proofs.CanonicalMediatedTrace
+import AgentCore.Authority
 import AgentCore.Capability
 import AgentCore.Keys
 import AgentCore.Persistence
@@ -5582,6 +5583,126 @@ theorem nonvacuous_covering_chain_reaches_leaf :
       acmeMailSend ∈ [anyFacetObserve, acmeObserve, acmeMailSend] ∧
       anyFacetObserve.coversBool acmeMailSend = true :=
   ⟨⟨by decide, by decide, trivial⟩, by simp, by decide⟩
+
+/-! ## Deny precedence and Grant resolution (SPEC §3.3, §3.4)
+
+One Tenant, one Project inside it, one Workspace inside that Project, and one Principal who
+also belongs to a Team. Every witness below runs the same executable decision the oracle
+serves. -/
+
+private def homeTenant : TenantId := ⟨1⟩
+private def rootScope : Scope := .tenant homeTenant
+private def projectScope : Scope := .project homeTenant ⟨2⟩
+private def targetScope : Scope := .workspace homeTenant (some ⟨2⟩) ⟨3⟩
+private def siblingScope : Scope := .workspace homeTenant (some ⟨2⟩) ⟨4⟩
+
+private def actingPrincipal : Subject := .principal ⟨homeTenant, ⟨5⟩⟩
+private def actingTeam : Subject := .team ⟨6⟩
+private def strangerPrincipal : Subject := .principal ⟨homeTenant, ⟨7⟩⟩
+
+private def mailIntent : CapabilityIntent := ⟨"acme.mail".data, "send", .observe, []⟩
+private def delegateIntent : CapabilityIntent := ⟨"acme.mail".data, "send", .delegate, []⟩
+
+private def broadCapability : Capability := ⟨"*".data, [], [.observe, .mutate, .delegate], []⟩
+private def mailCapability : Capability := ⟨"acme.*".data, [], [.observe], []⟩
+private def widerCapability : Capability := ⟨"*".data, [], [.observe, .administer], []⟩
+private def otherCapability : Capability := ⟨"other.*".data, [], [.observe], []⟩
+
+private def rootGrant : AuthorityGrant :=
+  ⟨.manual 1, actingPrincipal, rootScope, .allow, broadCapability, none, true⟩
+private def bindingGrant : AuthorityGrant :=
+  ⟨.manual 2, actingPrincipal, targetScope, .allow, mailCapability, some (.manual 1), true⟩
+private def projectDeny : AuthorityGrant :=
+  ⟨.manual 3, actingPrincipal, projectScope, .deny, mailCapability, none, true⟩
+private def siblingDeny : AuthorityGrant :=
+  ⟨.manual 4, actingTeam, siblingScope, .deny, mailCapability, none, true⟩
+private def strangerDeny : AuthorityGrant :=
+  ⟨.manual 5, strangerPrincipal, rootScope, .deny, mailCapability, none, true⟩
+private def revokedRoot : AuthorityGrant := { rootGrant with live := false }
+private def wideningChild : AuthorityGrant := { bindingGrant with capability := widerCapability }
+
+private def mailRequest : AuthorityRequest :=
+  ⟨[actingPrincipal, actingTeam], targetScope, mailIntent⟩
+
+private def cleanInput : AuthorityInput := ⟨[rootGrant, bindingGrant], mailRequest, false, .manual 2⟩
+private def deniedInput : AuthorityInput :=
+  ⟨[rootGrant, bindingGrant, projectDeny], mailRequest, false, .manual 2⟩
+private def irrelevantDeniesInput : AuthorityInput :=
+  ⟨[rootGrant, bindingGrant, siblingDeny, strangerDeny], mailRequest, false, .manual 2⟩
+private def revokedRootInput : AuthorityInput :=
+  ⟨[revokedRoot, bindingGrant], mailRequest, false, .manual 2⟩
+private def wideningInput : AuthorityInput :=
+  ⟨[rootGrant, wideningChild], mailRequest, false, .manual 2⟩
+private def delegateRequest : AuthorityRequest :=
+  ⟨[actingPrincipal, actingTeam], targetScope, delegateIntent⟩
+private def hostDelegateInput : AuthorityInput :=
+  ⟨[rootGrant, { bindingGrant with capability := broadCapability }], delegateRequest, false,
+    .manual 2⟩
+private def guestDelegateInput : AuthorityInput := { hostDelegateInput with guest := true }
+
+/-- The chain relation separates real Scopes, and it is exactly the path membership the
+resolver tests: a Project reaches its Workspace, and never the other way round. -/
+theorem nonvacuous_authority_scope_reach_discriminates :
+    ScopeReaches projectScope targetScope ∧ ¬ ScopeReaches targetScope projectScope ∧
+      projectScope ∈ targetScope.path ∧ siblingScope ∉ targetScope.path := by
+  refine ⟨scope_reaches_iff_mem_path.mpr (by decide), fun reaches => ?_, by decide, by decide⟩
+  exact absurd (scope_reaches_iff_mem_path.mp reaches) (by decide)
+
+/-- Positions on the exact Tenant-to-target path order the chain, and a Scope off the path
+has no position at all — which is the case `validateLineage` refuses. -/
+theorem nonvacuous_authority_path_index_orders_chain :
+    pathIndex targetScope rootScope = some 0 ∧ pathIndex targetScope projectScope = some 1 ∧
+      pathIndex targetScope targetScope = some 2 ∧
+      pathIndex targetScope siblingScope = none := by decide
+
+/-- Grant matching separates: the same request is matched by the Grant at the Workspace and
+refused by a deny at a sibling Workspace, by a stranger's Grant, and by a Grant whose
+capability admits another Facet. -/
+theorem nonvacuous_authority_grant_matches_discriminates :
+    bindingGrant.MatchesRequest mailRequest ∧ ¬ siblingDeny.MatchesRequest mailRequest ∧
+      ¬ strangerDeny.MatchesRequest mailRequest ∧
+      ¬ ({ bindingGrant with capability := otherCapability } :
+          AuthorityGrant).MatchesRequest mailRequest :=
+  ⟨authority_grant_matches_iff.mp (by decide),
+   fun matched => absurd (authority_grant_matches_iff.mpr matched) (by decide),
+   fun matched => absurd (authority_grant_matches_iff.mpr matched) (by decide),
+   fun matched => absurd (authority_grant_matches_iff.mpr matched) (by decide)⟩
+
+/-- **The decision admits, and §3.3 agrees.** Denies that do not reach the target or do not
+name a subject the Principal acts under leave the answer untouched. -/
+theorem nonvacuous_authority_allows_without_matching_deny :
+    evaluateExec cleanInput = .allowed ∧
+      EffectiveAuthority cleanInput.grants cleanInput.request ∧
+      evaluateExec irrelevantDeniesInput = .allowed := by
+  refine ⟨by decide, authority_decision_is_sound (by decide), by decide⟩
+
+/-- **An ancestor deny defeats the Workspace allow.** The deny sits at the Project, the
+allow at the Workspace below it, and §3.3 genuinely fails — this is the re-widening the
+precedence rule forbids. -/
+theorem nonvacuous_authority_ancestor_deny_overrides :
+    evaluateExec deniedInput = .matchingDeny ∧
+      ¬ EffectiveAuthority deniedInput.grants deniedInput.request := by
+  refine ⟨by decide, ancestor_deny_defeats_descendant_allow (denyGrant := projectDeny)
+    (middle := projectScope) (by decide) rfl rfl (by decide) (.same _)
+    (scope_reaches_iff_mem_path.mpr (by decide)) ?_⟩
+  exact capability_matches_iff.mp (by decide)
+
+/-- A guest never reaches `delegate`, and the same request from a host Principal does. -/
+theorem nonvacuous_authority_guest_elevation_refused :
+    evaluateExec guestDelegateInput = .guestElevation ∧
+      evaluateExec hostDelegateInput = .allowed := by decide
+
+/-- **The lineage walk separates three answers, and admits a real containment.** The clean
+chain is admitted and its root covers the leaf; revoking the root refuses the whole chain;
+and a child that widens the root's capability is refused as an invalid delegation. -/
+theorem nonvacuous_authority_lineage_walks_and_refuses :
+    lineageExec cleanInput.grants targetScope bindingGrant = .ok ∧
+      LineageAncestor cleanInput.grants bindingGrant rootGrant ∧
+      rootGrant.capability.Covers bindingGrant.capability ∧
+      evaluateExec revokedRootInput = .revokedGrant ∧
+      evaluateExec wideningInput = .invalidDelegation := by
+  refine ⟨by decide, .parent (parentId := .manual 1) rfl (by decide) (.self _),
+    capability_covering_is_sound (by decide), by decide, by decide⟩
 
 /-! ## Composite key representation (SPEC §3.4, §8.1)
 

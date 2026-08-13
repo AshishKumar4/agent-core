@@ -143,6 +143,79 @@ def parseCapabilityIntent (json : Json) : Except String CapabilityIntent := do
   let arguments ← parseProjection (← json.getObjVal? "arguments")
   pure ⟨facet.data, operation, impact, arguments⟩
 
+/-! ## Deny precedence and Grant resolution
+
+`evaluateExec` is the modeled decision itself. `authority_decision_is_sound` proves an
+`allowed` answer implies SPEC §3.3's precedence condition over the whole intent domain, so
+agreeing with it is agreeing with §3.3 rather than with a restatement of the check. Scope
+and Subject identifiers cross this boundary as numbers: the implementation compares
+canonical-JSON keys, and `authorityKey_injective` is what makes value comparison the right
+model of that. -/
+
+def parseScopeValue (json : Json) : Except String Scope := do
+  let kind ← (← json.getObjVal? "kind").getStr?
+  let tenant ← (← json.getObjVal? "tenant").getNat?
+  match kind with
+  | "tenant" => pure (.tenant ⟨tenant⟩)
+  | "project" => do
+      let project ← (← json.getObjVal? "project").getNat?
+      pure (.project ⟨tenant⟩ ⟨project⟩)
+  | "workspace" => do
+      let projectField ← json.getObjVal? "project"
+      let project ← if projectField.isNull then pure none
+        else do pure (some (ProjectId.mk (← projectField.getNat?)))
+      let workspace ← (← json.getObjVal? "workspace").getNat?
+      pure (.workspace ⟨tenant⟩ project ⟨workspace⟩)
+  | other => throw s!"unknown scope kind {other}"
+
+def parseSubject (json : Json) : Except String Subject := do
+  let kind ← (← json.getObjVal? "kind").getStr?
+  match kind with
+  | "principal" => do
+      let tenant ← (← json.getObjVal? "tenant").getNat?
+      let principal ← (← json.getObjVal? "principal").getNat?
+      pure (.principal ⟨⟨tenant⟩, ⟨principal⟩⟩)
+  | "team" => do
+      let team ← (← json.getObjVal? "team").getNat?
+      pure (.team ⟨team⟩)
+  | "foreign" => do
+      let home ← (← json.getObjVal? "homeTenant").getNat?
+      let principal ← (← json.getObjVal? "principal").getNat?
+      pure (.foreign ⟨home⟩ ⟨principal⟩)
+  | other => throw s!"unknown subject kind {other}"
+
+def parseGrantEffect : String → Except String GrantEffect
+  | "allow" => pure .allow
+  | "deny" => pure .deny
+  | other => throw s!"unknown grant effect {other}"
+
+def parseAuthorityGrant (json : Json) : Except String AuthorityGrant := do
+  let id ← (← json.getObjVal? "id").getNat?
+  let subject ← parseSubject (← json.getObjVal? "subject")
+  let scope ← parseScopeValue (← json.getObjVal? "scope")
+  let effect ← parseGrantEffect (← (← json.getObjVal? "effect").getStr?)
+  let capability ← parseCapability (← json.getObjVal? "capability")
+  let parentField ← json.getObjVal? "attenuationOf"
+  let parent ← if parentField.isNull then pure none
+    else do pure (some (GrantId.manual (← parentField.getNat?)))
+  let live ← (← json.getObjVal? "live").getBool?
+  pure ⟨.manual id, subject, scope, effect, capability, parent, live⟩
+
+def parseAuthorityRequest (json : Json) : Except String AuthorityRequest := do
+  let subjects ← (← (← json.getObjVal? "subjects").getArr?).toList.mapM parseSubject
+  let target ← parseScopeValue (← json.getObjVal? "target")
+  let intent ← parseCapabilityIntent (← json.getObjVal? "intent")
+  pure ⟨subjects, target, intent⟩
+
+def decisionName : AuthorityDecision → String
+  | .allowed => "allowed"
+  | .matchingDeny => "matchingDeny"
+  | .guestElevation => "guestElevation"
+  | .missingGrant => "missingGrant"
+  | .revokedGrant => "revokedGrant"
+  | .invalidDelegation => "invalidDelegation"
+  | .noMatchingAllow => "noMatchingAllow"
+
 /-! ## Actor-local persistence
 
 `activateExec` and `admitsCommand` are the modeled decisions themselves, not mirrors of a
@@ -245,6 +318,13 @@ where
         let parent ← parseCapability (← request.getObjVal? "parent")
         let child ← parseCapability (← request.getObjVal? "child")
         pure (Json.mkObj [("covers", Json.bool (parent.coversBool child))])
+    | "authority.evaluate" => do
+        let grants ← (← (← request.getObjVal? "grants").getArr?).toList.mapM parseAuthorityGrant
+        let evaluated ← parseAuthorityRequest (← request.getObjVal? "request")
+        let guest ← (← request.getObjVal? "guest").getBool?
+        let backing ← (← request.getObjVal? "backing").getNat?
+        pure (Json.mkObj [("decision",
+          Json.str (decisionName (evaluateExec ⟨grants, evaluated, guest, .manual backing⟩)))])
     | "actor.activate" => do
         let storage ← parseActorStorage (← request.getObjVal? "storage")
         let actor ← parseActorRef (← request.getObjVal? "actor")
