@@ -368,12 +368,15 @@ function expectExactFailure(
 ): void {
     try {
         operation();
-        throw new TypeError("Expected operation to fail");
     } catch (error) {
         expect(error).toBeInstanceOf(AgentCoreError);
-        expect((error as AgentCoreError).code).toBe(code);
-        expect((error as AgentCoreError).message).toBe(message);
+        if (error instanceof AgentCoreError) {
+            expect(error.code).toBe(code);
+            expect(error.message).toBe(message);
+        }
+        return;
     }
+    throw new TypeError(`Expected AgentCoreError ${code}`);
 }
 
 function digest(value: string): Digest {

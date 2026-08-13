@@ -1382,11 +1382,12 @@ function assertTerminalResultWriterBehavior<Transaction>(
 function expectCode(operation: () => void, code: AgentCoreError["code"]): void {
     try {
         operation();
-        throw new TypeError("Expected operation to fail");
     } catch (error) {
         expect(error).toBeInstanceOf(AgentCoreError);
-        expect((error as AgentCoreError).code).toBe(code);
+        if (error instanceof AgentCoreError) expect(error.code).toBe(code);
+        return;
     }
+    throw new TypeError(`Expected AgentCoreError ${code}`);
 }
 
 function assertStorageContract<Transaction>(storage: RunStoragePort<Transaction>): void {
@@ -1784,10 +1785,13 @@ function expectExactFailure(
 ): void {
     try {
         operation();
-        throw new TypeError("Expected operation to fail");
     } catch (error) {
         expect(error).toBeInstanceOf(AgentCoreError);
-        expect((error as AgentCoreError).code).toBe(code);
-        expect((error as AgentCoreError).message).toBe(message);
+        if (error instanceof AgentCoreError) {
+            expect(error.code).toBe(code);
+            expect(error.message).toBe(message);
+        }
+        return;
     }
+    throw new TypeError(`Expected AgentCoreError ${code}`);
 }

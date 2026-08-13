@@ -915,9 +915,7 @@ function expectAgentCoreError(operation: () => void, code: AgentCoreError["code"
         operation();
     } catch (error) {
         expect(error).toBeInstanceOf(AgentCoreError);
-        // SAFETY: the line above established the value is an AgentCoreError; vitest's
-        // matcher does not narrow, so the code read needs the type restated.
-        expect((error as AgentCoreError).code).toBe(code);
+        if (error instanceof AgentCoreError) expect(error.code).toBe(code);
         return;
     }
     throw new TypeError(`Expected AgentCoreError ${code}`);

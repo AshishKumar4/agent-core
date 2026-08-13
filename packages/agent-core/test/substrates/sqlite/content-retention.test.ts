@@ -84,13 +84,16 @@ class BlobRecordingSqlite extends TestSqlite {
     }
 }
 
-function caught(operation: () => void): unknown {
+/** The AgentCoreError the operation raised, so a caller can read its code and message. */
+function caught(operation: () => void): AgentCoreError {
     try {
         operation();
     } catch (error) {
-        return error;
+        expect(error).toBeInstanceOf(AgentCoreError);
+        if (error instanceof AgentCoreError) return error;
+        throw error;
     }
-    return undefined;
+    throw new TypeError("Expected the operation to raise an AgentCoreError");
 }
 
 function expectExactError(
@@ -99,8 +102,8 @@ function expectExactError(
     message: string
 ): void {
     const failure = caught(operation);
-    expect(failure).toBeInstanceOf(AgentCoreError);
-    expect(failure).toMatchObject({ code, message });
+    expect(failure.code).toBe(code);
+    expect(failure.message).toBe(message);
 }
 
 function expectErrorMatching(
@@ -109,8 +112,8 @@ function expectErrorMatching(
     pattern: RegExp
 ): void {
     const failure = caught(operation);
-    expect(failure).toBeInstanceOf(AgentCoreError);
-    expect(failure).toMatchObject({ code, message: expect.stringMatching(pattern) });
+    expect(failure.code).toBe(code);
+    expect(failure.message).toMatch(pattern);
 }
 
 async function expectExactRejection(
@@ -118,14 +121,15 @@ async function expectExactRejection(
     code: AgentCoreErrorCode,
     message: string
 ): Promise<void> {
-    let failure: unknown;
-    try {
-        await operation;
-    } catch (error) {
-        failure = error;
-    }
+    const failure = await operation.then(
+        () => undefined,
+        (error: unknown) => error
+    );
     expect(failure).toBeInstanceOf(AgentCoreError);
-    expect(failure).toMatchObject({ code, message });
+    if (failure instanceof AgentCoreError) {
+        expect(failure.code).toBe(code);
+        expect(failure.message).toBe(message);
+    }
 }
 
 function collectAll(
