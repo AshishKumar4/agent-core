@@ -117,9 +117,7 @@ export function inspectPreparedCommandPayload(
     // that was never a key and never throws, so the guard could only ever agree with it.
     // Narrowing on the class instead makes the cast unnecessary and leaves the map the
     // single decider of whether this value was issued here.
-    return value instanceof PreparedCommandPayload
-        ? preparedPayloadStates.get(value)
-        : undefined;
+    return value instanceof PreparedCommandPayload ? preparedPayloadStates.get(value) : undefined;
 }
 
 function requirePreparedState(value: PreparedCommandPayload): PreparedPayloadState {
