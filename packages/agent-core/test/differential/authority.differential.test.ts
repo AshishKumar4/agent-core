@@ -1,6 +1,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
-import { Digest, Revision, SecretRef, encodeCanonicalJson } from "../../src/core";
+import {
+    Digest,
+    Revision,
+    SecretRef,
+    encodeCanonicalJson,
+    requireNonempty,
+    type JsonObject
+} from "../../src/core";
 import {
     AuthorityCheckRequest,
     Binding,
@@ -45,7 +52,7 @@ import { LeanOracle } from "./oracle";
  * therefore agreement with the precedence rule, not with a restatement of
  * `AuthorityRuntime.evaluate`.
  *
- * The sweeps are exhaustive over the shapes the decision distinguishes, not random. Deny
+ * The sweeps are exhaustive over the cases the decision distinguishes, not random. Deny
  * precedence is a filter over a conjunction, and random Grants miss on subject or Facet long
  * before effect and Scope are compared — the same masking that once let a capability
  * covering bug survive a passing property suite. So the extra Grant is enumerated over every
@@ -110,7 +117,7 @@ const WIDER = new CapabilitySpec({
     impacts: ["observe", "administer"]
 });
 
-interface GrantShape {
+interface GrantCase {
     readonly label: string;
     readonly id: string;
     readonly scope: ScopeRef;
@@ -220,11 +227,11 @@ describe("deny precedence agrees with the verified model", () => {
         async () => {
             let allowed = 0;
             let denied = 0;
-            for (const backing of backingShapes()) {
-                for (const other of competingShapes()) {
-                    const shapes = [backing, other];
-                    const reason = runtimeReason(shapes, backing.id);
-                    const model = await modelDecision(shapes, backing.id);
+            for (const backing of backingGrantCases()) {
+                for (const other of competingGrantCases()) {
+                    const grantCases = [backing, other];
+                    const reason = runtimeReason(grantCases, backing.id);
+                    const model = await modelDecision(grantCases, backing.id);
                     expect(reason, `${backing.label} against ${other.label}`).toBe(model);
                     if (reason === "allowed") allowed += 1;
                     if (reason === "matchingDeny") denied += 1;
@@ -245,7 +252,7 @@ describe("deny precedence agrees with the verified model", () => {
             // Team.
             for (const deny of SCOPES) {
                 for (const subject of SUBJECTS) {
-                    const shapes: GrantShape[] = [
+                    const grantCases: GrantCase[] = [
                         {
                             label: "backing",
                             id: "backing",
@@ -265,9 +272,9 @@ describe("deny precedence agrees with the verified model", () => {
                             capability: CAPABILITIES[0].spec
                         }
                     ];
-                    const reason = runtimeReason(shapes, "backing");
+                    const reason = runtimeReason(grantCases, "backing");
                     expect(reason, `deny at ${deny.name} for ${subject.name}`).toBe(
-                        await modelDecision(shapes, "backing")
+                        await modelDecision(grantCases, "backing")
                     );
                     const onPath = deny.name !== "sibling";
                     const acting = subject.name !== "stranger";
@@ -287,7 +294,7 @@ describe("deny precedence agrees with the verified model", () => {
                 for (const live of [true, false]) {
                     for (const effect of ["allow", "deny"] as const) {
                         for (const capability of [CAPABILITIES[0].spec, WIDER]) {
-                            const shapes: GrantShape[] = [
+                            const grantCases: GrantCase[] = [
                                 {
                                     label: "root",
                                     id: "root",
@@ -309,8 +316,8 @@ describe("deny precedence agrees with the verified model", () => {
                                 }
                             ];
                             const label = `${parent.name}/${effect}/${live}/${capability.impacts.join("+")}`;
-                            expect(runtimeReason(shapes, "backing"), label).toBe(
-                                await modelDecision(shapes, "backing")
+                            expect(runtimeReason(grantCases, "backing"), label).toBe(
+                                await modelDecision(grantCases, "backing")
                             );
                         }
                     }
@@ -332,7 +339,7 @@ describe("deny precedence agrees with the verified model", () => {
             // apart from matching on nothing.
             for (const scheme of GUEST_SCHEMES) {
                 const requester = guestRequester(scheme);
-                const backing: GrantShape = {
+                const backing: GrantCase = {
                     label: `guest backing ${scheme.value}`,
                     id: "backing",
                     scope: TARGET_SCOPE,
@@ -348,7 +355,7 @@ describe("deny precedence agrees with the verified model", () => {
                 expect(admitted, scheme.value).toBe("allowed");
 
                 for (const denySubject of guestDenySubjects()) {
-                    const shapes: GrantShape[] = [
+                    const grantCases: GrantCase[] = [
                         backing,
                         {
                             label: `deny for ${subjectLabel(denySubject)}`,
@@ -361,9 +368,9 @@ describe("deny precedence agrees with the verified model", () => {
                         }
                     ];
                     const label = `${subjectLabel(denySubject)} against ${scheme.value}`;
-                    const reason = runtimeReason(shapes, "backing", "observe", requester);
+                    const reason = runtimeReason(grantCases, "backing", "observe", requester);
                     expect(reason, label).toBe(
-                        await modelDecision(shapes, "backing", "observe", requester)
+                        await modelDecision(grantCases, "backing", "observe", requester)
                     );
                     const sameGuest =
                         denySubject.kind === "foreign" && denySubject.principalId.equals(GUEST);
@@ -384,7 +391,7 @@ describe("deny precedence agrees with the verified model", () => {
             // witnessed in Lean by `nonvacuous_authority_guest_elevation_refused`.
             for (const impact of ["observe", "mutate", "delegate", "administer"] as const) {
                 for (const requested of ["observe", "delegate"] as const) {
-                    const shapes: GrantShape[] = [
+                    const grantCases: GrantCase[] = [
                         {
                             label: `backing ${impact}`,
                             id: "backing",
@@ -399,8 +406,8 @@ describe("deny precedence agrees with the verified model", () => {
                         }
                     ];
                     const label = `${impact} capability against ${requested} intent`;
-                    expect(runtimeReason(shapes, "backing", requested), label).toBe(
-                        await modelDecision(shapes, "backing", requested)
+                    expect(runtimeReason(grantCases, "backing", requested), label).toBe(
+                        await modelDecision(grantCases, "backing", requested)
                     );
                 }
             }
@@ -408,13 +415,13 @@ describe("deny precedence agrees with the verified model", () => {
     );
 });
 
-/** Every shape the Binding's own backing Grant can take. */
-function backingShapes(): readonly GrantShape[] {
-    const shapes: GrantShape[] = [];
+/** Every case the Binding's own backing Grant can take. */
+function backingGrantCases(): readonly GrantCase[] {
+    const grantCases: GrantCase[] = [];
     for (const scope of SCOPES) {
         for (const live of [true, false]) {
             for (const capability of CAPABILITIES) {
-                shapes.push({
+                grantCases.push({
                     label: `backing ${scope.name}/${live ? "live" : "revoked"}/${capability.name}`,
                     id: "backing",
                     scope: scope.scope,
@@ -426,18 +433,18 @@ function backingShapes(): readonly GrantShape[] {
             }
         }
     }
-    return shapes;
+    return grantCases;
 }
 
-/** Every shape a second Grant in the same plane can take. */
-function competingShapes(): readonly GrantShape[] {
-    const shapes: GrantShape[] = [];
+/** Every case a second Grant in the same plane can take. */
+function competingGrantCases(): readonly GrantCase[] {
+    const grantCases: GrantCase[] = [];
     for (const scope of SCOPES) {
         for (const effect of ["allow", "deny"] as const) {
             for (const live of [true, false]) {
                 for (const subject of SUBJECTS) {
                     for (const capability of CAPABILITIES) {
-                        shapes.push({
+                        grantCases.push({
                             label:
                                 `other ${scope.name}/${effect}/${live ? "live" : "revoked"}/` +
                                 `${subject.name}/${capability.name}`,
@@ -453,17 +460,17 @@ function competingShapes(): readonly GrantShape[] {
             }
         }
     }
-    return shapes;
+    return grantCases;
 }
 
-function grantOf(shape: GrantShape): Grant {
-    const guest = GUEST_MEMBERSHIPS.get(subjectLabel(shape.subject));
+function grantOf(grantCase: GrantCase): Grant {
+    const guest = GUEST_MEMBERSHIPS.get(subjectLabel(grantCase.subject));
     const grant = new Grant(
-        new GrantId(shape.id),
-        shape.scope,
-        shape.subject,
-        shape.effect,
-        shape.capability,
+        new GrantId(grantCase.id),
+        grantCase.scope,
+        grantCase.subject,
+        grantCase.effect,
+        grantCase.capability,
         guest === undefined
             ? { kind: "direct" }
             : {
@@ -473,9 +480,9 @@ function grantOf(shape: GrantShape): Grant {
                   ruleOrdinal: 0,
                   guest: true
               },
-        shape.attenuationOf === undefined ? undefined : new GrantId(shape.attenuationOf)
+        grantCase.attenuationOf === undefined ? undefined : new GrantId(grantCase.attenuationOf)
     );
-    return shape.live ? grant : grant.revoke();
+    return grantCase.live ? grant : grant.revoke();
 }
 
 /**
@@ -521,13 +528,13 @@ function bindingOf(backingId: string, requester: Requester): Binding {
 }
 
 function runtimeReason(
-    shapes: readonly GrantShape[],
+    grantCases: readonly GrantCase[],
     backingId: string,
     impact: "observe" | "mutate" | "delegate" | "administer" = "observe",
     requester: Requester = HOST
 ): string {
     const binding = bindingOf(backingId, requester);
-    const grants = shapes.map(grantOf);
+    const grants = grantCases.map(grantOf);
     const store = storeOf(grants, binding);
     const runtime = new TenantAuthorityRuntime(
         store,
@@ -548,10 +555,10 @@ function runtimeReason(
                 argumentsDigest: Digest.sha256(encodeCanonicalJson(ARGUMENTS))
             },
             expectedPath: new PathEpochEvidence(
-                TARGET_SCOPE.path.map((scope) => new ScopeEpoch(scope, 1)) as [
-                    ScopeEpoch,
-                    ...ScopeEpoch[]
-                ]
+                requireNonempty(
+                    TARGET_SCOPE.path.map((scope) => new ScopeEpoch(scope, 1)),
+                    "Target Scope path"
+                )
             ),
             invocationDigest: Digest.sha256(Uint8Array.of(3)),
             itemIndex: 0,
@@ -574,14 +581,14 @@ function runtimeReason(
 }
 
 async function modelDecision(
-    shapes: readonly GrantShape[],
+    grantCases: readonly GrantCase[],
     backingId: string,
     impact: "observe" | "mutate" | "delegate" | "administer" = "observe",
     requester: Requester = HOST
 ): Promise<string> {
     const response = await oracle.ask({
         op: "authority.evaluate",
-        grants: shapes.map(modelGrant),
+        grants: grantCases.map(modelGrant),
         request: {
             subjects: requester.subjects.map(modelSubject),
             target: modelScope(TARGET_SCOPE),
@@ -603,24 +610,24 @@ function grantNumber(id: string): number {
     return id === "backing" ? 1 : id === "other" ? 2 : 3;
 }
 
-function modelGrant(shape: GrantShape): Record<string, unknown> {
+function modelGrant(grantCase: GrantCase): JsonObject {
     return {
-        id: grantNumber(shape.id),
-        subject: modelSubject(shape.subject),
-        scope: modelScope(shape.scope),
-        effect: shape.effect,
+        id: grantNumber(grantCase.id),
+        subject: modelSubject(grantCase.subject),
+        scope: modelScope(grantCase.scope),
+        effect: grantCase.effect,
         capability: {
-            facetPattern: shape.capability.facetPattern,
-            operations: shape.capability.operations,
-            impacts: shape.capability.impacts,
+            facetPattern: grantCase.capability.facetPattern,
+            operations: grantCase.capability.operations,
+            impacts: grantCase.capability.impacts,
             constraints: []
         },
-        attenuationOf: shape.attenuationOf === undefined ? null : grantNumber(shape.attenuationOf),
-        live: shape.live
+        attenuationOf: grantCase.attenuationOf === undefined ? null : grantNumber(grantCase.attenuationOf),
+        live: grantCase.live
     };
 }
 
-function modelSubject(subject: SubjectRef): Record<string, unknown> {
+function modelSubject(subject: SubjectRef): JsonObject {
     if (subject.kind === "principal") {
         return {
             kind: "principal",
@@ -639,7 +646,7 @@ function modelSubject(subject: SubjectRef): Record<string, unknown> {
     };
 }
 
-function modelScope(scope: ScopeRef): Record<string, unknown> {
+function modelScope(scope: ScopeRef): JsonObject {
     if (scope.kind === "tenant") {
         return { kind: "tenant", tenant: identityNumber(scope.tenantId.value) };
     }

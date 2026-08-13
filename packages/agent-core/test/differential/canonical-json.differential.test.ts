@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { encodeCanonicalJson, type JsonValue } from "../../src/core";
+import { encodeCanonicalJson, type JsonObject, type JsonValue } from "../../src/core";
 import { scopeKey, subjectKey } from "../../src/authority";
 import {
     GuestVerificationScheme,
@@ -67,11 +67,6 @@ const HOSTILE_IDENTIFIERS: readonly string[] = [
     "é\u{1f600}"
 ];
 
-interface JsonTreeWire {
-    readonly kind: string;
-    readonly [field: string]: unknown;
-}
-
 let oracle: LeanOracle;
 beforeAll(() => {
     oracle = LeanOracle.start();
@@ -86,8 +81,8 @@ describe("canonical JSON encoding agrees with the verified model", () => {
         { tags: "p0", timeout: 300_000 },
         async () => {
             for (const character of ESCAPE_DOMAIN) {
-                for (const shape of [character, `a${character}b`, `${character}${character}`]) {
-                    await expectAgreement(shape);
+                for (const text of [character, `a${character}b`, `${character}${character}`]) {
+                    await expectAgreement(text);
                 }
             }
         }
@@ -196,7 +191,7 @@ async function expectSubjectKey(subject: SubjectRef): Promise<void> {
     expect(String(model["key"]), `subject ${subject.kind}`).toBe(subjectKey(subject));
 }
 
-function subjectWire(subject: SubjectRef): Record<string, unknown> {
+function subjectWire(subject: SubjectRef): JsonObject {
     if (subject.kind === "principal") {
         return {
             kind: "principal",
@@ -218,7 +213,7 @@ function subjectWire(subject: SubjectRef): Record<string, unknown> {
  * over in the sorted order `canonicalString` produces, since the model encodes the entry list
  * it is given and canonicality of that order is a separate property.
  */
-function toWire(value: JsonValue): JsonTreeWire {
+function toWire(value: JsonValue): JsonObject {
     if (value === null) return { kind: "null" };
     if (typeof value === "boolean") return { kind: "bool", value };
     if (typeof value === "number") {

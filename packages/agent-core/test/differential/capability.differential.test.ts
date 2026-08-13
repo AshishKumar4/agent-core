@@ -1,6 +1,12 @@
 import fc from "fast-check";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { encodeCanonicalJson, type JsonValue } from "../../src/core";
+import {
+    encodeCanonicalJson,
+    isJsonObject,
+    requireNonempty,
+    type JsonObject,
+    type JsonValue
+} from "../../src/core";
 import { CapabilitySpec, type CapabilityIntent, type Impact } from "../../src/facets";
 import { LeanOracle } from "./oracle";
 
@@ -49,10 +55,10 @@ const SWEEP_PATTERNS = enumerate(["a", "b", "*"], 4);
 /** Every Facet name over `{a, b}` up to four characters, including the empty one. */
 const SWEEP_FACETS = ["", ...enumerate(["a", "b"], 4)];
 
-interface ProjectionEntry {
+type ProjectionEntry = {
     readonly path: readonly string[];
     readonly value: string;
-}
+};
 
 let oracle: LeanOracle;
 beforeAll(() => {
@@ -233,7 +239,7 @@ const capabilityArbitrary = fc
             new CapabilitySpec({
                 facetPattern: init.facetPattern,
                 operations: init.operations,
-                impacts: init.impacts as [Impact, ...Impact[]],
+                impacts: requireNonempty(init.impacts, "Capability impacts"),
                 argumentConstraints: Object.fromEntries(init.constraints)
             })
     );
@@ -251,22 +257,13 @@ function canonical(value: JsonValue): string {
 }
 
 /** Build the arguments object that satisfies a list of dotted path constraints. */
-function nestPaths(
-    entries: readonly (readonly [string, JsonValue])[]
-): Readonly<Record<string, JsonValue>> {
-    const root: Record<string, JsonValue> = {};
+function nestPaths(entries: readonly (readonly [string, JsonValue])[]): JsonObject {
+    const root: MutableArguments = {};
     for (const [path, value] of entries) {
         const segments = path.split(".");
         let cursor = root;
         for (const segment of segments.slice(0, -1)) {
-            const existing = cursor[segment];
-            const child =
-                existing !== undefined &&
-                existing !== null &&
-                typeof existing === "object" &&
-                !Array.isArray(existing)
-                    ? (existing as Record<string, JsonValue>)
-                    : {};
+            const child = ownedRecord(cursor[segment]) ?? {};
             cursor[segment] = child;
             cursor = child;
         }
@@ -275,26 +272,31 @@ function nestPaths(
     return root;
 }
 
+/** An arguments object under construction, before it is handed over as JSON. */
+type MutableArguments = { [key: string]: JsonValue };
+
+/** Reads a nested arguments object this builder created on an earlier path, if it made one. */
+function ownedRecord(value: JsonValue | undefined): MutableArguments | undefined {
+    if (!isJsonObject(value)) return undefined;
+    // SAFETY: every object reachable under `root` was created by `nestPaths` itself on an
+    // earlier path and has never left this function, so continuing to write into it cannot
+    // reach a value the caller owns.
+    return value as MutableArguments;
+}
+
 /** Resolve a dotted constraint path against an arguments object; undefined when absent. */
-function resolvePath(
-    args: Readonly<Record<string, JsonValue>>,
-    path: string
-): JsonValue | undefined {
+function resolvePath(args: JsonObject, path: string): JsonValue | undefined {
     let current: JsonValue = args;
     for (const segment of path.split(".")) {
-        if (current === null || typeof current !== "object" || Array.isArray(current)) {
-            return undefined;
-        }
-        const next: JsonValue | undefined = (
-            current as { readonly [key: string]: JsonValue | undefined }
-        )[segment];
+        if (!isJsonObject(current)) return undefined;
+        const next: JsonValue | undefined = current[segment];
         if (next === undefined) return undefined;
         current = next;
     }
     return current;
 }
 
-function modelCapability(spec: CapabilitySpec): Record<string, unknown> {
+function modelCapability(spec: CapabilitySpec): JsonObject {
     const constraints: ProjectionEntry[] = Object.entries(spec.argumentConstraints).map(
         ([path, value]) => ({ path: path.split("."), value: canonical(value) })
     );
@@ -307,7 +309,7 @@ function modelCapability(spec: CapabilitySpec): Record<string, unknown> {
 }
 
 /** The intent's projection at exactly the paths the capability constrains. */
-function modelIntent(spec: CapabilitySpec, intent: CapabilityIntent): Record<string, unknown> {
+function modelIntent(spec: CapabilitySpec, intent: CapabilityIntent): JsonObject {
     const projection: ProjectionEntry[] = [];
     for (const path of Object.keys(spec.argumentConstraints)) {
         const resolved = resolvePath(intent.arguments, path);

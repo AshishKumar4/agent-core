@@ -1,4 +1,5 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { isJsonObject, isJsonValue, isMember, type JsonObject } from "../../src/core";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -27,7 +28,7 @@ const buildLock = resolve(
 export class LeanOracle {
     readonly #child: ChildProcess;
     readonly #pending: Array<{
-        resolve: (value: Record<string, unknown>) => void;
+        resolve: (value: JsonObject) => void;
         reject: (reason: Error) => void;
     }> = [];
     #buffer = "";
@@ -48,7 +49,7 @@ export class LeanOracle {
                 const waiter = this.#pending.shift();
                 if (waiter === undefined) continue;
                 try {
-                    waiter.resolve(JSON.parse(line) as Record<string, unknown>);
+                    waiter.resolve(decodeResponse(line));
                 } catch (error) {
                     waiter.reject(error instanceof Error ? error : new Error(String(error)));
                 }
@@ -79,13 +80,16 @@ export class LeanOracle {
         return new LeanOracle(spawn(oracleBinary, [], { stdio: ["pipe", "pipe", "inherit"] }));
     }
 
-    public async ask(request: Record<string, unknown>): Promise<Record<string, unknown>> {
-        const response = await new Promise<Record<string, unknown>>((resolvePromise, reject) => {
+    public async ask(request: JsonObject): Promise<JsonObject> {
+        const response = await new Promise<JsonObject>((resolvePromise, reject) => {
             this.#pending.push({ resolve: resolvePromise, reject });
             this.#child.stdin?.write(`${JSON.stringify(request)}\n`);
         });
-        if (typeof response["error"] === "string") {
-            throw new Error(`Lean oracle rejected the request: ${response["error"]}`);
+        // The model answers a verdict object or an `error` object, never both, so an `error`
+        // field present at all means the request never reached the relation under comparison.
+        const error = response["error"];
+        if (error !== undefined) {
+            throw new Error(`Lean oracle rejected the request: ${String(error)}`);
         }
         return response;
     }
@@ -94,6 +98,64 @@ export class LeanOracle {
         this.#child.stdin?.end();
         this.#child.kill();
     }
+}
+
+/**
+ * Reads a field of a model answer as the boolean the oracle protocol defines for it. The
+ * readers below all fail loudly rather than assume: an answer that does not carry the field
+ * the protocol promises is a broken oracle, not a disagreement worth reporting.
+ */
+export function modelFlag(answer: JsonObject, field: string): boolean {
+    const value = answer[field];
+    if (value !== true && value !== false) {
+        throw new TypeError(`The Lean oracle answered a non-boolean ${field}`);
+    }
+    return value;
+}
+
+/** Reads a field of a model answer as the number the oracle protocol defines for it. */
+export function modelNumber(answer: JsonObject, field: string): number {
+    const value = answer[field];
+    // Number.isFinite answers true only for actual numbers, so the conversion is the identity.
+    if (!Number.isFinite(value)) {
+        throw new TypeError(`The Lean oracle answered a non-numeric ${field}`);
+    }
+    return Number(value);
+}
+
+/** Reads a field of a model answer as the nested object the oracle protocol defines for it. */
+export function modelObject(answer: JsonObject, field: string): JsonObject {
+    const value = answer[field];
+    if (!isJsonObject(value)) {
+        throw new TypeError(`The Lean oracle answered a non-object ${field}`);
+    }
+    return value;
+}
+
+/** Reads a field of a model answer as one of the names the oracle protocol defines for it. */
+export function modelName<Name extends string>(
+    answer: JsonObject,
+    field: string,
+    names: readonly Name[]
+): Name {
+    const value = answer[field];
+    if (!isMember(names, value)) {
+        throw new TypeError(`The Lean oracle answered an unknown ${field}: ${String(value)}`);
+    }
+    return value;
+}
+
+/**
+ * Reads one line of the oracle's output as the JSON object its protocol defines. This is the
+ * process boundary: nothing about the bytes is known until they are parsed here, and a line
+ * that is not a JSON object is a broken oracle rather than a disagreement to report.
+ */
+function decodeResponse(line: string): JsonObject {
+    const decoded: unknown = JSON.parse(line);
+    if (!isJsonValue(decoded) || !isJsonObject(decoded)) {
+        throw new TypeError(`The Lean oracle answered with a non-object line: ${line}`);
+    }
+    return decoded;
 }
 
 function acquireBuildLock(): void {

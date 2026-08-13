@@ -1,8 +1,9 @@
 import fc from "fast-check";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { TurnId, TurnLease, type LeaseToken } from "../../src/agents";
+import { type JsonObject } from "../../src/core";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
-import { LeanOracle } from "./oracle";
+import { LeanOracle, modelNumber, modelObject } from "./oracle";
 
 /*
  * Differential testing of the Turn-lease algebra (SPEC §5.3) against the verified
@@ -45,7 +46,7 @@ function liveToken(model: { turn: number; principal: number; epoch: number }): L
     };
 }
 
-function modelLeaseJson(model: ModelLease): Record<string, unknown> {
+function modelLeaseJson(model: ModelLease): JsonObject {
     return {
         turn: model.turn,
         holder: model.holder === null ? null : { tenant: TENANT, principal: model.holder },
@@ -67,8 +68,7 @@ function observedLease(lease: TurnLease): ModelLease {
 }
 
 function leaseExpiry(lease: TurnLease): number {
-    const payload = TurnLease.toData(lease) as { readonly expiresAt: number | null };
-    return payload.expiresAt ?? -1;
+    return lease.expiresAt?.getTime() ?? -1;
 }
 
 const leaseArbitrary = fc.record({
@@ -218,7 +218,7 @@ describe("lease algebra agrees with the verified model", () => {
 
 async function compareStep(
     lease: ModelLease,
-    label: Record<string, unknown>,
+    label: JsonObject,
     run: () => TurnLease,
     comparable = true
 ): Promise<void> {
@@ -241,12 +241,11 @@ async function compareStep(
         model["ok"],
         `implementation admits a step the model rejects: ${JSON.stringify({ lease, label })}`
     ).toBe(true);
-    const after = model["after"] as {
-        holder: { principal: number } | null;
-        epoch: number;
-        expiresAt: number;
-    };
-    expect(implementation.holder).toBe(after.holder === null ? null : after.holder.principal);
-    expect(implementation.epoch).toBe(after.epoch);
-    expect(implementation.expiresAt).toBe(after.expiresAt);
+    const after = modelObject(model, "after");
+    const holder = after["holder"];
+    expect(implementation.holder).toBe(
+        holder === null ? null : modelNumber(modelObject(after, "holder"), "principal")
+    );
+    expect(implementation.epoch).toBe(modelNumber(after, "epoch"));
+    expect(implementation.expiresAt).toBe(modelNumber(after, "expiresAt"));
 }

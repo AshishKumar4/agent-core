@@ -9,10 +9,11 @@ import {
     type ActorContext,
     type ActorKind
 } from "../../src/actors";
+import { type JsonObject } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import { SqliteActorStore } from "../../src/substrates";
 import { TestSqlite } from "../helpers/sqlite";
-import { LeanOracle } from "./oracle";
+import { LeanOracle, modelFlag, modelName, modelNumber, modelObject } from "./oracle";
 
 /*
  * Differential testing of Actor-local activation and the command fence gate (SPEC §8.1)
@@ -43,7 +44,7 @@ const selfActor = new ActorRef(SELF_KIND, new ActorId(SELF_ID));
 const otherActor = new ActorRef(SELF_KIND, new ActorId(OTHER_ID));
 
 /** The Lean `ActorRef` this suite exercises: one tenant, `run` actors keyed by a number. */
-function modelActor(actor: ActorRef): Record<string, unknown> {
+function modelActor(actor: ActorRef): JsonObject {
     return {
         kind: actor.kind,
         tenant: TENANT,
@@ -51,7 +52,7 @@ function modelActor(actor: ActorRef): Record<string, unknown> {
     };
 }
 
-function modelRecovery(state: ActorRecoveryState | null): Record<string, unknown> | null {
+function modelRecovery(state: ActorRecoveryState | null): JsonObject | null {
     return state === null
         ? null
         : {
@@ -61,13 +62,16 @@ function modelRecovery(state: ActorRecoveryState | null): Record<string, unknown
           };
 }
 
-interface StorageShape {
+interface StoredActorState {
     readonly identity: ActorRef | null;
     readonly recovery: ActorRecoveryState | null;
 }
 
 /** Every combination the decision distinguishes, with no shape left to chance. */
-function storageShapes(): readonly { readonly name: string; readonly shape: StorageShape }[] {
+function storedActorStates(): readonly {
+    readonly name: string;
+    readonly stored: StoredActorState;
+}[] {
     const identities: readonly (readonly [string, ActorRef | null])[] = [
         ["unbound", null],
         ["self", selfActor],
@@ -81,7 +85,7 @@ function storageShapes(): readonly { readonly name: string; readonly shape: Stor
     return identities.flatMap(([identityName, identity]) =>
         recoveries.map(([recoveryName, recovery]) => ({
             name: `identity=${identityName} recovery=${recoveryName}`,
-            shape: { identity, recovery }
+            stored: { identity, recovery }
         }))
     );
 }
@@ -106,21 +110,21 @@ const SQLITE_FAULTS = new Map<string, string>([
     ["Unbound Actor storage cannot contain recovery state", "unbound-recovery-state"]
 ]);
 
-function sqliteActivation(shape: StorageShape): Outcome {
+function sqliteActivation(stored: StoredActorState): Outcome {
     const database = new TestSqlite();
     const store = new SqliteActorStore(database);
-    if (shape.identity !== null) {
+    if (stored.identity !== null) {
         database.run(
             "INSERT INTO actor_identity (singleton, actor_kind, actor_id) VALUES (1, ?, ?)",
-            [shape.identity.kind, shape.identity.id.value]
+            [stored.identity.kind, stored.identity.id.value]
         );
     }
-    if (shape.recovery !== null) {
+    if (stored.recovery !== null) {
         // Keyed under the Actor being activated, so a payload naming another Actor is the
         // key/payload disagreement the store checks for rather than a row it never reads.
         database.run(
             "INSERT INTO actor_recovery_state (actor_kind, actor_id, state) VALUES (?, ?, ?)",
-            [selfActor.kind, selfActor.id.value, ActorRecoveryState.codec.encode(shape.recovery)]
+            [selfActor.kind, selfActor.id.value, ActorRecoveryState.codec.encode(stored.recovery)]
         );
     }
     try {
@@ -134,18 +138,18 @@ function sqliteActivation(shape: StorageShape): Outcome {
     }
 }
 
-function memoryActivationAdmitted(shape: StorageShape): Outcome {
+function memoryActivationAdmitted(stored: StoredActorState): Outcome {
     try {
         const store = MemoryActorStore.restore<{ value: number }>(
             {
                 version: 1,
                 state: { value: 0 },
                 actor:
-                    shape.identity === null
+                    stored.identity === null
                         ? null
-                        : { kind: shape.identity.kind, id: shape.identity.id.value },
+                        : { kind: stored.identity.kind, id: stored.identity.id.value },
                 recoveryState:
-                    shape.recovery === null ? null : ActorRecoveryState.codec.encode(shape.recovery)
+                    stored.recovery === null ? null : ActorRecoveryState.codec.encode(stored.recovery)
             },
             structuredClone
         );
@@ -157,24 +161,35 @@ function memoryActivationAdmitted(shape: StorageShape): Outcome {
     }
 }
 
-async function modelActivation(shape: StorageShape): Promise<Outcome> {
+/** The activation faults the model names, from `activationFaultName` in the Lean oracle. */
+const ACTIVATION_FAULTS = [
+    "foreign-actor",
+    "foreign-recovery",
+    "missing-recovery-state",
+    "unbound-recovery-state"
+] as const;
+
+/** The activation kinds the model names, from `ActivationKind` in the Lean oracle. */
+const ACTIVATION_KINDS = ["created", "recovered"] as const;
+
+async function modelActivation(stored: StoredActorState): Promise<Outcome> {
     const answer = await oracle.ask({
         op: "actor.activate",
         storage: {
-            identity: shape.identity === null ? null : modelActor(shape.identity),
-            recovery: modelRecovery(shape.recovery)
+            identity: stored.identity === null ? null : modelActor(stored.identity),
+            recovery: modelRecovery(stored.recovery)
         },
         actor: modelActor(selfActor)
     });
-    if (answer["ok"] !== true) {
-        return { ok: false, fault: answer["fault"] as string };
+    if (!modelFlag(answer, "ok")) {
+        return { ok: false, fault: modelName(answer, "fault", ACTIVATION_FAULTS) };
     }
-    const recovery = answer["recovery"] as { epoch: number; recoveries: number };
+    const recovery = modelObject(answer, "recovery");
     return {
         ok: true,
-        kind: answer["kind"] as "created" | "recovered",
-        epoch: recovery.epoch,
-        recoveries: recovery.recoveries
+        kind: modelName(answer, "kind", ACTIVATION_KINDS),
+        epoch: modelNumber(recovery, "epoch"),
+        recoveries: modelNumber(recovery, "recoveries")
     };
 }
 
@@ -208,9 +223,9 @@ describe("Actor activation agrees with the verified model", () => {
         "[C13-OWNERSHIP-ACTOR-CONTRACT] SQLite reproduces the model's activation on every storage shape",
         { tags: "p0" },
         async () => {
-            for (const { name, shape } of storageShapes()) {
-                const model = await modelActivation(shape);
-                const implementation = sqliteActivation(shape);
+            for (const { name, stored } of storedActorStates()) {
+                const model = await modelActivation(stored);
+                const implementation = sqliteActivation(stored);
                 expect(implementation.ok, `${name}: admission disagrees`).toBe(model.ok);
                 if (!model.ok) {
                     expect(implementation.fault, `${name}: refusal disagrees`).toBe(model.fault);
@@ -221,7 +236,7 @@ describe("Actor activation agrees with the verified model", () => {
                     model.recoveries
                 );
                 expect(model.kind).toBe(
-                    shape.recovery === null && shape.identity === null ? "created" : "recovered"
+                    stored.recovery === null && stored.identity === null ? "created" : "recovered"
                 );
             }
         }
@@ -231,9 +246,9 @@ describe("Actor activation agrees with the verified model", () => {
         "[C13-OWNERSHIP-ACTOR-CONTRACT] Memory admits exactly the shapes the model admits",
         { tags: "p0" },
         async () => {
-            for (const { name, shape } of storageShapes()) {
-                const model = await modelActivation(shape);
-                const implementation = memoryActivationAdmitted(shape);
+            for (const { name, stored } of storedActorStates()) {
+                const model = await modelActivation(stored);
+                const implementation = memoryActivationAdmitted(stored);
                 expect(implementation.ok, `${name}: admission disagrees`).toBe(model.ok);
                 if (!model.ok) continue;
                 expect(implementation.epoch, `${name}: epoch disagrees`).toBe(model.epoch);
