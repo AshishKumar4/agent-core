@@ -221,6 +221,22 @@ describe("the one channel out of a §4.7 isolate", () => {
         await harness.dispose();
     });
 
+    test(
+        "refuses a batch result for the single call the isolate made",
+        { tags: "p0" },
+        async () => {
+            // A `single` payload has one answer. A backing that replies with a batch is
+            // offering the isolate results it never asked for, and canonicalizing that
+            // array would hand loaded code another call's output as if it were its own.
+            const harness = await MembraneHarness.create({ output: [{ folder: "inbox" }] });
+            await expect(harness.invoke(mailBinding, "read")).rejects.toMatchObject({
+                code: "operation.invalid-output",
+                message: "Single agent-authored code Invocation returned a batch result"
+            });
+            await harness.dispose();
+        }
+    );
+
     test("stops carrying calls once the submission is cancelled", { tags: "p1" }, async () => {
         const harness = await MembraneHarness.create();
         harness.cancel();
@@ -357,6 +373,29 @@ describe("running one submission of agent-authored code", () => {
         ).resolves.toMatchObject({ names: ["mail"] });
         await harness.dispose();
     });
+
+    test(
+        "runs as the programmatic-tool-call consumer whatever the submission declares",
+        { tags: "p0" },
+        async () => {
+            // The consumer is what a Blueprint routes on, so it is the Operation's to name
+            // and not the submission's. Were it read from the payload, loaded code could
+            // choose the backing that hosts it by declaring a different consumer.
+            const harness = await HostHarness.create({
+                backings: new AuthoredCodeBackingPolicy(
+                    new Map([["programmaticToolCall", dispatchNamespace]])
+                )
+            });
+            const operation = new AuthoredCodeOperation(new OperationName("run"), harness.host);
+            await operation.execute(harness.operationContext(), {
+                ...requireDataMap(harness.submissionData()),
+                consumer: "slateBackend"
+            });
+
+            expect(harness.served).toEqual([dispatchNamespace.value]);
+            await harness.dispose();
+        }
+    );
 
     // A submission arrives as untrusted Facet data, so every field it names is a place the
     // wire shape can disagree with the record. Each diagnosis is asserted whole: they differ
@@ -521,6 +560,12 @@ function contentRef(text: string): ContentRef {
 
 interface MembraneOptions {
     readonly passed?: readonly AuthoredCodeCapability[];
+    /**
+     * What every stub Operation answers with. Declaring it moves every Operation to an
+     * unconstrained output schema, so the gateway admits the value and the isolate
+     * channel is the only thing left that could refuse it.
+     */
+    readonly output?: FacetData;
 }
 
 /**
@@ -541,14 +586,27 @@ class MembraneHarness {
     private constructor(options: MembraneOptions) {
         // The Package `vault` answers for a Facet whose reference claims `mail`, so a
         // resolution's Facet and its Package are independently substitutable here.
-        const manifests = [facetManifest("mail"), facetManifest("secrets"), facetManifest("vault")];
+        // An Operation may legitimately declare an output schema that admits arrays; what
+        // the isolate channel refuses is a batch answer to a single call, not the schema.
+        const output = options.output === undefined ? objectSchema : JsonSchema.any();
+        const manifests = [
+            facetManifest("mail", output),
+            facetManifest("secrets", output),
+            facetManifest("vault", output)
+        ];
         const refs = [mailFacet, secretsFacet, impostorFacet];
         const facets = refs.map(
             (ref, index) =>
-                new StubFacet(ref, manifests[index]!, (name, input) => {
-                    this.executions.push(`${ref.value}:${name.value}`);
-                    return { ...requireDataMap(input), facet: ref.value };
-                })
+                new StubFacet(
+                    ref,
+                    manifests[index]!,
+                    (name, input) => {
+                        this.executions.push(`${ref.value}:${name.value}`);
+                        if (options.output !== undefined) return options.output;
+                        return { ...requireDataMap(input), facet: ref.value };
+                    },
+                    output
+                )
         );
         this.#host = new FacetRuntimeHost(manifests, facets);
         this.gateway = new OperationGatewayHost<
@@ -845,7 +903,8 @@ class StubFacet extends Facet {
     public constructor(
         public readonly ref: FacetRef,
         public readonly manifest: FacetManifest,
-        private readonly handler: (name: OperationName, input: FacetData) => FacetData
+        private readonly handler: (name: OperationName, input: FacetData) => FacetData,
+        private readonly output: JsonSchema = objectSchema
     ) {
         super();
     }
@@ -853,7 +912,7 @@ class StubFacet extends Facet {
     public operation(name: OperationName): Operation | undefined {
         if (!name.equals(readName)) return undefined;
         return new StubOperation(
-            new OperationDescriptor(readName, "observe", objectSchema, objectSchema),
+            new OperationDescriptor(readName, "observe", objectSchema, this.output),
             (input) => this.handler(name, input)
         );
     }
@@ -933,7 +992,7 @@ function operationContext(requestKey: OperationRequestKey, itemIndex: number): O
     });
 }
 
-function facetManifest(id: string): FacetManifest {
+function facetManifest(id: string, output: JsonSchema = objectSchema): FacetManifest {
     return new FacetManifest({
         id: new FacetPackageId(id),
         version: new SemVer("1.0.0"),
@@ -942,7 +1001,7 @@ function facetManifest(id: string): FacetManifest {
         bindings: [],
         contributions: new Contributions([
             new Contribution(new SlotName("operations"), [
-                new OperationDescriptor(readName, "observe", objectSchema, objectSchema).toData()
+                new OperationDescriptor(readName, "observe", objectSchema, output).toData()
             ])
         ])
     });

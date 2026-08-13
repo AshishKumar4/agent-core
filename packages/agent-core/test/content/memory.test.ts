@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import type { SynchronousResultGuard } from "../../src/actors";
+import { ActorId, ActorRef, type SynchronousResultGuard } from "../../src/actors";
 import * as content from "../../src/content";
 import { MemoryContentRetentionState, MemoryContentStore } from "../../src/content/memory";
 import { ByteRange } from "../../src/content/range";
@@ -7,6 +7,7 @@ import { ContentOwnerEdge } from "../../src/content/retention";
 import { ContentStat } from "../../src/content/stat";
 import { TransientContentLeaseState } from "../../src/content/transient";
 import { decodeCanonicalJson, encodeCanonicalJson } from "../../src/core";
+import { TenantId } from "../../src/identity";
 import { contentStoreContract } from "./contract";
 import { at, bindingFor, contentOwner, contentRetentionContract } from "./retention-contract";
 import { expectAgentCoreError, expectAgentCoreRejection } from "../protocol/error-assertion";
@@ -651,6 +652,43 @@ describe("MemoryContentStore collection and lease generations", () => {
 
             expectAgentCoreError(
                 () => lease.read(),
+                "protocol.invalid-state",
+                "Transient content lease handle refers to a replaced generation"
+            );
+        }
+    });
+
+    test("rejects lease handles carrying a foreign Tenant or Actor", { tags: "p0" }, async () => {
+        const store = new MemoryContentStore();
+        const owner = contentOwner();
+        store.retention(owner.tenant, owner.actor);
+        const access = store.transient(owner.tenant, owner.actor, () => at(10));
+        const binding = bindingFor("foreign-handle", "foreign-handle", at(30));
+        const lease = defined(await access.acquire(binding, encode("foreign-handle")));
+        expect(lease.read()).toEqual(encode("foreign-handle"));
+
+        const handle = (tenant: TenantId, actor: ActorRef): TransientContentLeaseState =>
+            new TransientContentLeaseState(
+                tenant,
+                actor,
+                binding.envelopeDigest,
+                binding.ref,
+                binding.digest,
+                at(10),
+                binding.expiresAt
+            );
+
+        // The handle differs from the stored lease in exactly one identity field, so each
+        // rejection names the conjunct under test rather than a neighbour catching it.
+        for (const expected of [
+            handle(new TenantId("tenant-foreign"), owner.actor),
+            handle(owner.tenant, new ActorRef("workspace", new ActorId("actor-foreign")))
+        ]) {
+            expectAgentCoreError(
+                () =>
+                    store.transaction((transaction) =>
+                        access.readInTransaction(transaction, expected)
+                    ),
                 "protocol.invalid-state",
                 "Transient content lease handle refers to a replaced generation"
             );

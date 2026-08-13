@@ -97,7 +97,7 @@ export class ManagedOrigin {
                 requireString(object["packageLockDigest"], "Package lock digest")
             ),
             configDigest: new Digest(requireString(object["configDigest"], "Config digest")),
-            generation: requireNonnegativeInteger(object["generation"], "Managed origin generation")
+            generation: requireNumber(object["generation"], "Managed origin generation")
         });
     }
 
@@ -148,9 +148,13 @@ function requireString(value: JsonValue | undefined, subject: string): string {
     return value;
 }
 
-function requireNonnegativeInteger(value: JsonValue | undefined, subject: string): number {
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
-        throw new TypeError(`${subject} must be a non-negative safe integer`);
+// Decoding narrows the field to a number and stops there. The constructor states the
+// generation's range for every caller in the same words, so repeating it here left that
+// rule unfalsifiable through this path: no decoded value could reach the constructor's
+// check without passing an identical one first.
+function requireNumber(value: JsonValue | undefined, subject: string): number {
+    if (typeof value !== "number") {
+        throw new TypeError(`${subject} must be a number`);
     }
     return value;
 }

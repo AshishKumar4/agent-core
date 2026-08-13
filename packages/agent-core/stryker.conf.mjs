@@ -19,6 +19,15 @@ export default {
     // coverage, at the price of leaving them out of the measurement: 19 of the 1044
     // mutants in actors, 4 of which the suite does not kill.
     ignoreStatic: true,
+    // Record every test that kills a mutant, not just the first. The vitest runner sets
+    // `bail: disableBail ? 0 : 1`, so the default stops at the first failure and
+    // `killedBy` becomes a lower bound on which tests discriminate a symbol. The
+    // discrimination gate reads it as complete, which systematically penalises anything
+    // widely covered: 73% of recorded kill sites had exactly one claimant, and 14 of the
+    // 65 atoms that gate reported as citing non-discriminating evidence were this
+    // artifact rather than a real citation defect. Full attribution costs run time and
+    // buys a signal the gate was already claiming to have.
+    disableBail: true,
     reporters: ["clear-text", "json"],
     jsonReporter: { fileName: "reports/quality/mutation/report.json" },
     thresholds: { high: 90, low: 80, break: null },

@@ -475,7 +475,7 @@ describe("materialization planning", () => {
         ).toThrow(/Unsupported materialization record kind/);
     });
 
-    test("[C13-POLICY-EPOCH-RECHECK] rechecks supported kinds while assembling Actor and materialization plans", { tags: "p1" }, () => {
+    test("rechecks supported kinds while assembling Actor and materialization plans", { tags: "p1" }, () => {
         const origin = managedOrigin();
         const actor = new ActorRef("tenant", new ActorId("tenant-a"));
         const valid = policyProjection("policy:tenant", PolicySet.empty());
