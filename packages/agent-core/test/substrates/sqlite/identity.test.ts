@@ -346,12 +346,35 @@ describe("SQLite identity reader", () => {
             corruptRecord
         );
     });
+
+    test("rejects an enumerated identifier that resolves to no record", { tags: "p0" }, () => {
+        const enumerations: readonly EnumerationCase[] = [
+            { title: "teams", list: (reader) => reader.teams() },
+            { title: "projects", list: (reader) => reader.projects() },
+            { title: "workspaces", list: (reader) => reader.workspaces() },
+            { title: "memberships", list: (reader) => reader.memberships() },
+            { title: "guest trusts", list: (reader) => reader.guestTrusts() }
+        ];
+
+        for (const item of enumerations) {
+            const database = seed(new PhantomEnumerationSqlite());
+            const reader = new SqliteIdentityReader(database);
+            expect(item.list(reader), item.title).toHaveLength(1);
+            database.phantomId = "enumerated-but-absent";
+            expect(() => item.list(reader), item.title).toThrow(corruptRecord);
+        }
+    });
 });
 
 interface KeyDriftCase {
     readonly title: string;
     readonly column: string;
     readonly load: (reader: SqliteIdentityReader) => unknown;
+}
+
+interface EnumerationCase {
+    readonly title: string;
+    readonly list: (reader: SqliteIdentityReader) => readonly unknown[];
 }
 
 function seededDatabase(): TestSqlite {
@@ -442,6 +465,19 @@ class TamperedProjectionSqlite extends TestSqlite {
             );
             return replacement === undefined ? kept : { ...kept, [replacement[0]]: replacement[1] };
         });
+    }
+}
+
+/** Answers the enumeration query with one more identifier than the point reads can resolve. */
+class PhantomEnumerationSqlite extends TestSqlite {
+    public phantomId: string | undefined;
+
+    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.all(statement, bindings);
+        const phantom = this.phantomId;
+        return phantom === undefined || !statement.includes("ORDER BY")
+            ? rows
+            : [...rows, { id: phantom }];
     }
 }
 
