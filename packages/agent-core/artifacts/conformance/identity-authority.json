@@ -113,6 +113,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/authority/grant.ts#Grant"],
       "testSelectors": [
+        "test/authority/hard-gates.test.ts#Grant and authority identifier hard gates strictly validates Grant construction and replacement",
         "test/authority/hard-gates.test.ts#canonical capability hard gates [C13-AUTH-DENY-PATH] [authority.capability-spec] covers matching, narrowing, wildcards, and argument paths"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
@@ -215,7 +216,7 @@
       "specTextSha256": "sha256:f301377ed6476de98a2613ea30f3d645d6e53a59376110eb751e9d96d2a8cba0",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/authority/epoch.ts#InvalidationWatermark"],
+      "sourceSymbols": ["src/authority/service.ts#AuthorityMutationService"],
       "testSelectors": [
         "test/authority/memory.test.ts#MemoryTenantControlStore [C13-AUTH-EPOCH-ADVANCEMENT] memory advances durable path epochs for allow and deny changes",
         "test/authority/sqlite-ledger.test.ts#SQLite Tenant authority mutation storage [C13-AUTH-EPOCH-ADVANCEMENT] SQLite advances durable path epochs for allow and deny changes"
@@ -258,7 +259,10 @@
       "specTextSha256": "sha256:65ce465c8bf7ea4152916c87170b1c2326537196590cb8c5fd7d4ca729407329",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
+      "sourceSymbols": [
+        "src/authority/materializer.ts#materializeActive",
+        "src/authority/runtime.ts#TenantAuthorityRuntime"
+      ],
       "testSelectors": [
         "test/authority/materializer.test.ts#RoleGrantMaterializer [C13-AUTH-GUEST-SUBJECT] materializes verified guest allows and denies while removing elevated allows"
       ],
@@ -318,9 +322,10 @@
       "specTextSha256": "sha256:b96c2188d9cf58292de59d29740554bc75a754833daa5f628b6db96c3437ec8e",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
+      "sourceSymbols": ["src/authority/permit.ts#AuthorityPermit"],
       "testSelectors": [
-        "test/authority/memory-service-hard-gates.test.ts#AuthorityMutationService hard gates [C13-AUTH-MEDIATED-ADMISSION] covers Grant admission, delegation, and revocation errors"
+        "test/authority/memory-service-hard-gates.test.ts#AuthorityMutationService hard gates [C13-AUTH-MEDIATED-ADMISSION] covers Grant admission, delegation, and revocation errors",
+        "test/authority/permit.test.ts#[authority-permit-owner-store] memory issues and consumes exactly once across owner-store restart"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -356,8 +361,12 @@
       "specTextSha256": "sha256:c69e2b8de81c63d42bb2fce158ebf55d5e3fd5fa5674cb4c1853930abcb76f60",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
+      "sourceSymbols": [
+        "src/authority/epoch.ts#PathEpochEvidence",
+        "src/authority/runtime.ts#TenantAuthorityRuntime"
+      ],
       "testSelectors": [
+        "test/authority/binding-mutation-gates.test.ts#Binding validation request and evidence gates [C13-AUTH-PATH-EVIDENCE] accepts exact boundary values and rejects noncanonical inputs",
         "test/authority/hard-gates.test.ts#typed authority evidence hard gates [C13-AUTH-PATH-EVIDENCE] enforces evidence issuer, time, path, and grant matrices"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
@@ -370,8 +379,9 @@
       "specTextSha256": "sha256:149400fd03440427b2925005e6ec980281acce02d306676a13fbd8ae8e1322e7",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
+      "sourceSymbols": ["src/authority/epoch.ts#validatePath"],
       "testSelectors": [
+        "test/authority/runtime-epoch-mutation-gates.test.ts#Scope epoch and path evidence mutation gates accepts every canonical Scope chain and rejects malformed paths with exact reasons",
         "test/protocol/authority-evidence.test.ts#authority protocol evidence [C13-AUTH-PATH-ORDER] rejects evidence with inconsistent issuer, path, reason, or matched Grants"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
@@ -464,7 +474,8 @@
       "prerequisites": [],
       "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
       "testSelectors": [
-        "test/authority/memory-service-hard-gates.test.ts#AuthorityMutationService hard gates [C13-AUTH-TEAM-SUBJECT] covers Principal, Team, Project, and Workspace lifecycle errors"
+        "test/authority/memory-service-hard-gates.test.ts#AuthorityMutationService hard gates [C13-AUTH-TEAM-SUBJECT] covers Principal, Team, Project, and Workspace lifecycle errors",
+        "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates checks Team closure and rejects foreign identity substitution"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
