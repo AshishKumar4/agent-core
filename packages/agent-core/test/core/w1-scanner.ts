@@ -137,10 +137,9 @@ function collectBindings(
             const property = ts.isObjectBindingPattern(name)
                 ? bindingPropertyName(element.propertyName ?? element.name)
                 : undefined;
-            registerName(element.name, owner, {
-                ...binding,
-                ...(property === undefined ? {} : { destructuredProperty: property })
-            });
+            const elementBinding: Binding =
+                property === undefined ? binding : { ...binding, destructuredProperty: property };
+            registerName(element.name, owner, elementBinding);
         }
     };
 
