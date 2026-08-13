@@ -1,6 +1,7 @@
 import AgentCore.Proofs.CanonicalMediatedTrace
 import AgentCore.Capability
 import AgentCore.Keys
+import AgentCore.Persistence
 import AgentCore.Slates
 import AgentCore.Subscriptions
 import AgentCore.Commands
@@ -5630,5 +5631,105 @@ theorem nonvacuous_nul_prefix_scan_admits_foreign :
   refine ⟨by decide, ⟨['b', nul, '1'], rfl⟩, ?_⟩
   rintro ⟨rest, shape⟩
   simp [keyPrefix, pairKey] at shape
+
+
+/-! ## Actor-local persistence -/
+
+def actorOne : ActorRef := .run ⟨1⟩ ⟨7⟩
+def actorTwo : ActorRef := .run ⟨1⟩ ⟨8⟩
+
+/-- **The Actor machine moves.** One activation, a transaction that appends a record and
+rotates the fence, a commit, a crash, and a second activation — the durable state that
+survives carries the committed record and an epoch two activations above where it began.
+Every reachability theorem is quantified over states like this one. -/
+theorem nonvacuous_actor_persistence_trace :
+    ∃ node : ActorNode, ActorReachable node ∧ node.storage.journal = [5] ∧
+      node.storage.recovery = some ⟨actorOne, 2, 2⟩ ∧ node.phase = .serving ⟨actorOne, 2⟩ := by
+  have started := ActorReachable.step ActorReachable.boot
+    (ActorStep.activate (node := ActorNode.boot) (actor := actorOne) rfl (by decide) rfl)
+  have opened := ActorReachable.step started (ActorStep.begin rfl (by decide))
+  have appended := ActorReachable.step opened (ActorStep.stage (write := .append 5) rfl)
+  have rotated := ActorReachable.step appended (ActorStep.stage (write := .advanceFence) rfl)
+  have committed := ActorReachable.step rotated (ActorStep.commit rfl)
+  have crashed := ActorReachable.step committed ActorStep.crash
+  have restarted := ActorReachable.step crashed
+    (ActorStep.activate (actor := actorOne) rfl (by decide) rfl)
+  exact ⟨_, restarted, rfl, rfl, rfl⟩
+
+/-- Every activation outcome is reachable by some storage, and the decision separates them:
+first start, restart, and the four refusals are six distinct answers, not one answer dressed
+six ways. The last pair is the precedence the record's provenance check takes over the
+binding consistency check — a record whose payload disagrees with the key it was read under
+is refused as foreign whether or not the identity row is present. -/
+theorem nonvacuous_actor_activation_discriminates :
+    activateExec ⟨none, none, []⟩ actorOne =
+        .ok (⟨some actorOne, some ⟨actorOne, 0, 1⟩, []⟩, ⟨.created, ⟨actorOne, 0, 1⟩⟩) ∧
+      activateExec ⟨some actorOne, some ⟨actorOne, 3, 2⟩, []⟩ actorOne =
+        .ok (⟨some actorOne, some ⟨actorOne, 4, 3⟩, []⟩, ⟨.recovered, ⟨actorOne, 4, 3⟩⟩) ∧
+      activateExec ⟨some actorOne, none, []⟩ actorOne = .error .missingRecoveryState ∧
+      activateExec ⟨none, some ⟨actorOne, 0, 1⟩, []⟩ actorOne = .error .unboundRecoveryState ∧
+      activateExec ⟨some actorTwo, some ⟨actorTwo, 0, 1⟩, []⟩ actorOne = .error .foreignActor ∧
+      activateExec ⟨some actorOne, some ⟨actorTwo, 0, 1⟩, []⟩ actorOne = .error .foreignRecovery ∧
+      activateExec ⟨none, some ⟨actorTwo, 0, 1⟩, []⟩ actorOne = .error .foreignRecovery :=
+  ⟨rfl, rfl, rfl, rfl, rfl, rfl, rfl⟩
+
+/-- The command gate separates a current fence from a stale one, from a foreign holder, and
+from a stale explicit fence, and refuses an un-activated store outright. -/
+theorem nonvacuous_actor_command_gate_discriminates :
+    admitsCommand actorOne ⟨actorOne, 4⟩ none (some ⟨actorOne, 4, 3⟩) = true ∧
+      admitsCommand actorOne ⟨actorOne, 3⟩ none (some ⟨actorOne, 4, 3⟩) = false ∧
+      admitsCommand actorOne ⟨actorTwo, 4⟩ none (some ⟨actorOne, 4, 3⟩) = false ∧
+      admitsCommand actorOne ⟨actorOne, 4⟩ (some ⟨actorOne, 3⟩) (some ⟨actorOne, 4, 3⟩) = false ∧
+      admitsCommand actorOne ⟨actorOne, 4⟩ none none = false := by decide
+
+/-- A commit carries the whole staged sequence: the record is appended and the fence rotated,
+and neither half arrives without the other. -/
+theorem nonvacuous_actor_commit_applies_every_write :
+    applyWrites ⟨some actorOne, some ⟨actorOne, 0, 1⟩, [1]⟩ [.append 2, .advanceFence] =
+      ⟨some actorOne, some ⟨actorOne, 1, 1⟩, [1, 2]⟩ := by decide
+
+/-- **The two branches of an unknown commit are distinguishable, and the incarnation's own
+fence is what distinguishes them.** The rotation is staged, so the fence the incarnation still
+holds is current if the commit was lost and stale if it landed. -/
+theorem nonvacuous_actor_commit_unknown_branches_differ :
+    (⟨⟨some actorOne, some ⟨actorOne, 4, 3⟩, []⟩, [.advanceFence]⟩ : ActorTransaction).base ≠
+        (⟨⟨some actorOne, some ⟨actorOne, 4, 3⟩, []⟩, [.advanceFence]⟩ :
+          ActorTransaction).working ∧
+      admitsCommand actorOne ⟨actorOne, 4⟩ none
+          (⟨⟨some actorOne, some ⟨actorOne, 4, 3⟩, []⟩, [.advanceFence]⟩ :
+            ActorTransaction).base.recovery = true ∧
+      admitsCommand actorOne ⟨actorOne, 4⟩ none
+          (⟨⟨some actorOne, some ⟨actorOne, 4, 3⟩, []⟩, [.advanceFence]⟩ :
+            ActorTransaction).working.recovery = false := by
+  decide
+
+/-- Re-activating over either branch retires the fence held before the unknown commit: the
+rolled-back branch recovers to epoch 5, the committed branch to epoch 6, and neither answers
+to epoch 4. -/
+theorem nonvacuous_actor_reactivation_retires_both_branches :
+    activateExec ⟨some actorOne, some ⟨actorOne, 4, 3⟩, []⟩ actorOne =
+        .ok (⟨some actorOne, some ⟨actorOne, 5, 4⟩, []⟩, ⟨.recovered, ⟨actorOne, 5, 4⟩⟩) ∧
+      activateExec ⟨some actorOne, some ⟨actorOne, 5, 3⟩, []⟩ actorOne =
+        .ok (⟨some actorOne, some ⟨actorOne, 6, 4⟩, []⟩, ⟨.recovered, ⟨actorOne, 6, 4⟩⟩) ∧
+      admitsCommand actorOne ⟨actorOne, 4⟩ none (some ⟨actorOne, 5, 4⟩) = false ∧
+      admitsCommand actorOne ⟨actorOne, 4⟩ none (some ⟨actorOne, 6, 4⟩) = false := by
+  refine ⟨rfl, rfl, ?_, ?_⟩ <;> decide
+
+/-- **What the nesting guard buys, as arithmetic.** If a second transaction could snapshot a
+base the first had not yet committed, committing it would discard the first's write —
+`reachable_transaction_anchored` is what excludes that state. -/
+theorem nonvacuous_actor_nested_commit_loses_a_write :
+    applyWrites (applyWrites ⟨none, none, []⟩ [.append 1]) [.append 2] ≠
+      applyWrites ⟨none, none, []⟩ [.append 2] := by decide
+
+/-- A fence rotation does not look like a restart to the next activation: `recoveries` stays
+put across any number of rotations, so a store that rotated twice still activates as the
+second incarnation, not the fourth. -/
+theorem nonvacuous_actor_rotation_is_not_a_restart :
+    applyWrites ⟨some actorOne, some ⟨actorOne, 0, 1⟩, []⟩ [.advanceFence, .advanceFence] =
+        ⟨some actorOne, some ⟨actorOne, 2, 1⟩, []⟩ ∧
+      activateExec ⟨some actorOne, some ⟨actorOne, 2, 1⟩, []⟩ actorOne =
+        .ok (⟨some actorOne, some ⟨actorOne, 3, 2⟩, []⟩, ⟨.recovered, ⟨actorOne, 3, 2⟩⟩) :=
+  ⟨by decide, rfl⟩
 
 end AgentCore.Examples
