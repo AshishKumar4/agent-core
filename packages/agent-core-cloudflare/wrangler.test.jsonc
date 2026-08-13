@@ -11,7 +11,9 @@
       { "name": "SLATES", "class_name": "SlateProviderDurableObject" },
       { "name": "PERMIT_TENANTS", "class_name": "PermitTenantDurableObject" },
       { "name": "PERMIT_TARGETS", "class_name": "PermitTargetDurableObject" },
-      { "name": "PLACEMENTS", "class_name": "PlacementRegistryDurableObject" }
+      { "name": "PLACEMENTS", "class_name": "PlacementRegistryDurableObject" },
+      { "name": "RUN_WORKSPACES", "class_name": "RunWorkspaceDurableObject" },
+      { "name": "RUN_OBJECTS", "class_name": "RunDurableObject" }
     ]
   },
   "migrations": [
@@ -25,7 +27,11 @@
       "tag": "v4",
       "new_sqlite_classes": ["PermitTenantDurableObject", "PermitTargetDurableObject"]
     },
-    { "tag": "v5", "new_sqlite_classes": ["PlacementRegistryDurableObject"] }
+    { "tag": "v5", "new_sqlite_classes": ["PlacementRegistryDurableObject"] },
+    {
+      "tag": "v6",
+      "new_sqlite_classes": ["RunWorkspaceDurableObject", "RunDurableObject"]
+    }
   ],
   "r2_buckets": [{ "binding": "CONTENT", "bucket_name": "agent-core-cloudflare-test-content" }],
   "queues": {
