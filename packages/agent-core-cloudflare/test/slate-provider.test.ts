@@ -22,7 +22,7 @@ import {
     SqliteApplicationMigrator,
     slateProviderMigration
 } from "../src/index.js";
-import { expectOperationalFailure } from "./assertions.js";
+import { expectOperationalFailure, malformedInput } from "./assertions.js";
 import { FakeR2Bucket, fakeErrors } from "./fakes.js";
 import { NodeSqlite } from "./node-sqlite.js";
 
@@ -95,12 +95,7 @@ function resourceRequest(
     });
 }
 
-function createProvider(bucket: FakeR2Bucket = new FakeR2Bucket()): {
-    readonly provider: DurableObjectSlateProvider;
-    readonly bucket: FakeR2Bucket;
-    readonly sqlite: NodeSqlite;
-    readonly repository: R2ContentObjectRepository;
-} {
+function createProvider(bucket: FakeR2Bucket = new FakeR2Bucket()) {
     const sqlite = new NodeSqlite();
     new SqliteApplicationMigrator(sqlite, fakeErrors, [slateProviderMigration(1)]).migrate();
     const repository = new R2ContentObjectRepository(bucket, fakeErrors);
@@ -240,17 +235,16 @@ describe("DurableObjectSlateProvider", () => {
         const { provider, sqlite, repository } = createProvider();
         expectOperationalFailure(
             () =>
-                Reflect.construct(DurableObjectSlateProvider, [
+                new DurableObjectSlateProvider(
                     sqlite,
                     repository,
-                    "slate-tests",
+                    malformedInput("slate-tests"),
                     fakeErrors
-                ]),
+                ),
             "operation.invalid-input"
         );
 
-        const call = (request: unknown): Promise<unknown> =>
-            Reflect.apply(provider.deploy, provider, [request]);
+        const call = <Request>(request: Request) => provider.deploy(malformedInput(request));
         const valid = deploymentRequest("dep-1");
         await expect(call({ ...valid, operation: "publish" })).rejects.toMatchObject({
             code: "operation.invalid-input"
@@ -286,8 +280,8 @@ describe("DurableObjectSlateProvider", () => {
             code: "operation.invalid-input"
         });
 
-        const callResource = (request: unknown): Promise<unknown> =>
-            Reflect.apply(provider.materializeResource, provider, [request]);
+        const callResource = <Request>(request: Request) =>
+            provider.materializeResource(malformedInput(request));
         const validResource = resourceRequest("res-1");
         await expect(callResource({ ...validResource, operation: "deploy" })).rejects.toMatchObject(
             { code: "operation.invalid-input" }
@@ -310,7 +304,7 @@ describe("DurableObjectSlateProvider", () => {
         const arm = (
             match: string,
             rows: readonly Record<string, string | number | Uint8Array | null>[]
-        ): { readonly provider: DurableObjectSlateProvider; trigger: () => void } => {
+        ) => {
             let armed = false;
             const sqlite = new (class extends NodeSqlite {
                 public override all(
@@ -377,10 +371,7 @@ class GatedPutR2Bucket extends FakeR2Bucket {
     }
 }
 
-function deferred(): {
-    readonly promise: Promise<void>;
-    readonly resolve: () => void;
-} {
+function deferred() {
     let settle: (() => void) | undefined;
     const promise = new Promise<void>((resolve) => {
         settle = resolve;

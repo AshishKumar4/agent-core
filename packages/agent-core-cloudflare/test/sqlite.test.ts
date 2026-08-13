@@ -1,6 +1,6 @@
 import { AgentCoreError } from "@agent-core/core";
 import { CloudflareSqlite } from "../src/index.js";
-import type { CloudflareSqlValue } from "../src/index.js";
+import { malformedInput } from "./assertions.js";
 import { FakeDurableObjectStorage, FakeSqlStorage, boundInteger, fakeErrors } from "./fakes.js";
 
 describe("CloudflareSqlite", () => {
@@ -34,13 +34,9 @@ describe("CloudflareSqlite", () => {
     });
 
     test("maps an unsupported collaborator row value to invalid output", () => {
-        // SAFETY: a boolean is outside every value type the platform declares for a SQL
-        // column, which is exactly the collaborator misbehavior under test. Widening to
-        // `unknown` first is what makes the conversion legal at all; there is no narrower
-        // route to a value the declared types exist to exclude, and the assertion buys
-        // only the ability to reach the rejection this test then asserts.
-        const unsupported = true as unknown as CloudflareSqlValue;
-        const sql = new FakeSqlStorage(() => ({ rows: [{ invalid: unsupported }] }));
+        // A boolean is outside every value type the platform declares for a SQL column,
+        // which is exactly the collaborator misbehavior under test.
+        const sql = new FakeSqlStorage(() => ({ rows: [{ invalid: malformedInput(true) }] }));
         const database = new CloudflareSqlite(new FakeDurableObjectStorage(sql), fakeErrors);
 
         try {

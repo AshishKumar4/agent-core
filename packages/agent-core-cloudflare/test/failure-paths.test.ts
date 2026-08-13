@@ -14,9 +14,11 @@ import {
     contentRepositoryFromR2Binding,
     operationalFailure,
     parseActorObjectName,
+    type DueReconciliation,
+    type QueueTargetResult,
     type SynchronousSqlitePort
 } from "../src/index.js";
-import { expectOperationalFailure } from "./assertions.js";
+import { expectOperationalFailure, malformedInput } from "./assertions.js";
 import {
     FakeAlarmStorage,
     FakeDurableObjectStorage,
@@ -126,7 +128,7 @@ describe("Cloudflare operational failure mapping", () => {
         ]);
 
         const invalidSql = new FakeSqlStorage(() => ({
-            rows: [{ invalid: true } as unknown as Record<string, never>]
+            rows: [{ invalid: malformedInput(true) }]
         }));
         const invalid = new CloudflareSqlite(new FakeDurableObjectStorage(invalidSql), fakeErrors);
         expectOperationalFailure(() => invalid.all("SELECT", []), "operation.invalid-output");
@@ -157,7 +159,7 @@ describe("Cloudflare operational failure mapping", () => {
             code: "protocol.invalid-state"
         });
         expectOperationalFailure(
-            () => contentRepositoryFromR2Binding({}, () => null as never, fakeErrors),
+            () => contentRepositoryFromR2Binding({}, () => malformedInput(null), fakeErrors),
             "operation.invalid-output"
         );
         expectOperationalFailure(
@@ -191,7 +193,7 @@ describe("Cloudflare operational failure mapping", () => {
         ).toThrow(TypeError);
 
         const malformedOutbox = {
-            dueIds: async () => ["" as never],
+            dueIds: async (): Promise<readonly DueReconciliation[]> => [malformedInput("")],
             nextDueAt: async () => -1,
             acknowledge: async () => {},
             reschedule: async () => {}
@@ -287,7 +289,10 @@ describe("Cloudflare operational failure mapping", () => {
         await expect(invalidTime.nextDueAt()).rejects.toMatchObject({
             code: "operation.invalid-output"
         });
-        expectOperationalFailure(() => outbox.enqueue("" as never, 0), "operation.invalid-input");
+        expectOperationalFailure(
+            () => outbox.enqueue(malformedInput(""), 0),
+            "operation.invalid-input"
+        );
         expectOperationalFailure(
             () => outbox.enqueue(new ReconciliationOutboxId("id"), -1),
             "operation.invalid-input"
@@ -295,7 +300,7 @@ describe("Cloudflare operational failure mapping", () => {
         await expect(outbox.dueIds(0, 0)).rejects.toMatchObject({
             code: "operation.invalid-input"
         });
-        await expect(outbox.acknowledge("" as never)).rejects.toMatchObject({
+        await expect(outbox.acknowledge(malformedInput(""))).rejects.toMatchObject({
             code: "operation.invalid-input"
         });
         await expect(
@@ -329,11 +334,11 @@ describe("Cloudflare operational failure mapping", () => {
         const invalidHandle = new DynamicWorkerLoaderAdapter(
             {
                 load: () =>
-                    ({
+                    malformedInput({
                         [Symbol.dispose]: () => {
                             invalidHandleDisposals += 1;
                         }
-                    }) as never
+                    })
             },
             fakeErrors
         );
@@ -445,11 +450,11 @@ describe("Cloudflare operational failure mapping", () => {
         const invalidDeployment = new ExplicitCloudflareDeploymentAdapter(
             new DynamicWorkerLoaderAdapter(
                 {
-                    load: () => ({ getEntrypoint: () => ({}) as never })
+                    load: () => ({ getEntrypoint: () => malformedInput({}) })
                 },
                 fakeErrors
             ),
-            new DispatchNamespaceAdapter({ get: () => ({}) as never }, fakeErrors),
+            new DispatchNamespaceAdapter({ get: () => malformedInput({}) }, fakeErrors),
             fakeErrors
         );
         expectOperationalFailure(
@@ -477,10 +482,10 @@ describe("Cloudflare operational failure mapping", () => {
         ).handle({ messages: [retry] });
         expect(retry.retries).toEqual([undefined]);
 
-        const invalid = (result: unknown) =>
+        const invalid = <Result>(result: Result) =>
             new AtLeastOnceQueueAdapter(
                 {
-                    deliver: async () => result as never
+                    deliver: async () => malformedInput<QueueTargetResult, Result>(result)
                 },
                 queueCodecs,
                 fakeErrors
