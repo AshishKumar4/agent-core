@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { decodeCanonicalJson, encodeCanonicalJson, type JsonValue } from "../../src/core";
+import { decodeCanonicalJson, encodeCanonicalJson } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import type { Impact } from "../../src/facets";
 import {
@@ -16,6 +16,7 @@ import {
     PlacementUnavailableError,
     selectPlacement
 } from "../../src/definition/placement";
+import { requireObject } from "./record-data";
 
 describe("pure policy floors", () => {
     test(
@@ -396,14 +397,8 @@ function maximumTier(...tiers: readonly EnforcementTier[]): EnforcementTier {
     return tiers.includes("mediated") ? "mediated" : "direct";
 }
 
-function requireObject(value: JsonValue): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError("Expected object");
-    }
-    return value as { readonly [key: string]: JsonValue };
-}
 
-function expectCodecError(action: () => unknown, code: AgentCoreError["code"]): void {
+function expectCodecError(action: () => void, code: AgentCoreError["code"]): void {
     try {
         action();
         throw new Error("Expected codec error");

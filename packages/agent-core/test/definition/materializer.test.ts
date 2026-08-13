@@ -900,7 +900,7 @@ function jsonObjectValue(value: JsonValue | undefined): { readonly [key: string]
     return value as { readonly [key: string]: JsonValue };
 }
 
-function expectCodecError(action: () => unknown, code: AgentCoreError["code"]): void {
+function expectCodecError(action: () => void, code: AgentCoreError["code"]): void {
     try {
         action();
         throw new Error("Expected codec error");

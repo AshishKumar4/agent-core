@@ -12,9 +12,11 @@ export interface CanonicalRecord {
  * the fixture instead of silently spreading nothing into the corrupted copy.
  */
 export function recordData(record: CanonicalRecord): JsonObject {
-    const data = record.toData();
-    if (!isJsonObject(data)) {
-        throw new TypeError("Expected canonical record data to be an object");
-    }
-    return data;
+    return requireObject(record.toData(), "canonical record data");
+}
+
+/** Narrows one field of already decoded data so a nested field can be read or replaced. */
+export function requireObject(value: JsonValue, subject = "value"): JsonObject {
+    if (!isJsonObject(value)) throw new TypeError(`Expected ${subject} to be an object`);
+    return value;
 }

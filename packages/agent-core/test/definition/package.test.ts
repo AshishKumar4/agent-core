@@ -8,8 +8,7 @@ import {
     Revision,
     SemVer,
     decodeCanonicalJson,
-    encodeCanonicalJson,
-    type JsonValue
+    encodeCanonicalJson
 } from "../../src/core";
 import {
     MetadataSnapshot,
@@ -25,7 +24,7 @@ import {
 } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
 import { Contributions, FacetManifest, FacetPackageId } from "../../src/facets";
-import { recordData } from "./record-data";
+import { recordData, requireObject } from "./record-data";
 
 const encoder = new TextEncoder();
 const target = new PlatformCompatibility({ spec: new SemVer("1.0.0"), host: new SemVer("20.0.0") });
@@ -548,14 +547,8 @@ function contentRef(value: string): ContentRef {
     return ContentRef.fromDigest(digestOf(value));
 }
 
-function requireObject(value: JsonValue): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError("Expected object");
-    }
-    return value as { readonly [key: string]: JsonValue };
-}
 
-function expectCodecError(action: () => unknown, code: AgentCoreError["code"]): void {
+function expectCodecError(action: () => void, code: AgentCoreError["code"]): void {
     try {
         action();
         throw new Error("Expected codec error");

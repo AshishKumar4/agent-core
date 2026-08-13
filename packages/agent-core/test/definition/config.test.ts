@@ -35,6 +35,7 @@ import {
     FacetPackageId,
     SlotName
 } from "../../src/facets";
+import { requireObject } from "./record-data";
 
 const encoder = new TextEncoder();
 
@@ -377,12 +378,6 @@ function releaseFromManifest(
     });
 }
 
-function requireObject(value: JsonValue): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError("Expected object");
-    }
-    return value as { readonly [key: string]: JsonValue };
-}
 
 function requireArray(value: JsonValue): readonly JsonValue[] {
     if (!Array.isArray(value)) {

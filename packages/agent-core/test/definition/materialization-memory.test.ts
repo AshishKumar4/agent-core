@@ -4,8 +4,7 @@ import {
     Revision,
     SemVer,
     decodeCanonicalJson,
-    encodeCanonicalJson,
-    type JsonValue
+    encodeCanonicalJson
 } from "../../src/core";
 import {
     MemoryMaterializationStore,
@@ -18,6 +17,7 @@ import {
     MaterializationPlan
 } from "../../src/definition";
 import { SqliteMaterializationStore } from "../../src/substrates";
+import { requireObject } from "./record-data";
 import { TestSqlite } from "../helpers/sqlite";
 import {
     actorRef,
@@ -634,9 +634,3 @@ function completeSnapshot(): MemoryMaterializationSnapshot {
     return store.snapshot();
 }
 
-function requireObject(value: JsonValue): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError("Expected JSON object");
-    }
-    return value as { readonly [key: string]: JsonValue };
-}

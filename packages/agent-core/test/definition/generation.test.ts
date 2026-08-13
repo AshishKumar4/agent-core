@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
-import { Digest, type JsonValue } from "../../src/core";
+import { Digest } from "../../src/core";
 import {
     ActorPlan,
     DeploymentId,
@@ -14,7 +14,7 @@ import {
     policyProjection
 } from "../../src/definition";
 import { TenantId } from "../../src/identity";
-import { recordData } from "./record-data";
+import { recordData, requireObject } from "./record-data";
 
 const encoder = new TextEncoder();
 const tenantId = new TenantId("tenant");
@@ -172,12 +172,6 @@ function origin(generation: number): ManagedOrigin {
     });
 }
 
-function requireObject(value: JsonValue): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError("Expected object");
-    }
-    return value as { readonly [key: string]: JsonValue };
-}
 
 function digest(value: string): Digest {
     return Digest.sha256(encoder.encode(value));

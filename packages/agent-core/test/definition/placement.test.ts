@@ -12,6 +12,7 @@ import {
     selectPlacement,
     trustPlacementModes
 } from "../../src/definition/placement";
+import { requireObject } from "./record-data";
 
 describe("four-set placement", () => {
     test("[C13-PLACEMENT-INTERSECTION] matches the exact reference intersection and preference for all 8^4 source combinations", { tags: "p1" }, () => {
@@ -291,7 +292,7 @@ function canonical(modes: readonly IsolationMode[]): readonly IsolationMode[] {
     return PLACEMENT_PREFERENCE.filter((mode) => modes.includes(mode));
 }
 
-function expectPlacementUnavailable(action: () => unknown): void {
+function expectPlacementUnavailable(action: () => void): void {
     try {
         action();
         throw new Error("Expected placement to be unavailable");
@@ -301,14 +302,8 @@ function expectPlacementUnavailable(action: () => unknown): void {
     }
 }
 
-function requireObject(value: JsonValue): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError("Expected object");
-    }
-    return value as { readonly [key: string]: JsonValue };
-}
 
-function expectCodecError(action: () => unknown, code: AgentCoreError["code"]): void {
+function expectCodecError(action: () => void, code: AgentCoreError["code"]): void {
     try {
         action();
         throw new Error("Expected codec error");
