@@ -22,7 +22,7 @@ import {
     type SqliteRow,
     type SqliteValue
 } from "../src/index.js";
-import { expectOperationalFailure } from "./assertions.js";
+import { expectOperationalFailure, malformedInput } from "./assertions.js";
 import { NodeDurableObjectStorage } from "./node-sqlite.js";
 import {
     errors,
@@ -515,7 +515,7 @@ describe("Cloudflare Run record storage", () => {
                     { kind: "commit", key: "bad-revision", revision: -1, bytes: new Uint8Array(1) },
                     // The port is public API; a JavaScript caller can present any kind.
                     {
-                        kind: "unknown" as RunRecordKind,
+                        kind: malformedInput<RunRecordKind, string>("unknown"),
                         key: "bad-kind",
                         revision: null,
                         bytes: new Uint8Array(1)
@@ -889,7 +889,7 @@ describe("Cloudflare Run hosting identity", () => {
                     new CloudflareRunHosting(
                         ids.run,
                         ids.workspace,
-                        "shared" as unknown as RunHostingMode
+                        malformedInput<RunHostingMode, string>("shared")
                     )
             ).toThrow(TypeError);
         }

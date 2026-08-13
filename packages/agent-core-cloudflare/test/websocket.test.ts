@@ -24,9 +24,7 @@ describe("HibernatingViewSocketAdapter", () => {
             channel: "channel",
             ackedRevision: 0
         });
-        expect(
-            socket.sent.map((message) => decodeViewStreamFrame(message as string))
-        ).toMatchObject([
+        expect(socket.sentText().map((message) => decodeViewStreamFrame(message))).toMatchObject([
             { kind: "snapshot", revision: 1, payload: "CQ==" },
             { kind: "delta", revision: 2, payload: "Ag==" }
         ]);
@@ -93,7 +91,7 @@ describe("HibernatingViewSocketAdapter", () => {
             0
         );
 
-        const frame = decodeViewStreamFrame(socket.sent[0] as string);
+        const frame = decodeViewStreamFrame(socket.sentTextAt(0));
         expect(
             Uint8Array.from(atob(frame.payload), (character) => character.charCodeAt(0))
         ).toEqual(payload);

@@ -2,7 +2,14 @@ import fc from "fast-check";
 import { env } from "cloudflare:workers";
 import { evictDurableObject, runInDurableObject } from "cloudflare:test";
 import { expect, test } from "vitest";
-import { ContentRef, Digest, Revision, encodeBase64, encodeCanonicalJson } from "@agent-core/core";
+import {
+    AgentCoreError,
+    ContentRef,
+    Digest,
+    Revision,
+    encodeBase64,
+    encodeCanonicalJson
+} from "@agent-core/core";
 import {
     EnvironmentId,
     EnvironmentSessionId,
@@ -10,6 +17,7 @@ import {
     PortExposureId,
     type ExposePortRequest,
     type OpenSessionRequest,
+    type ProviderResourceOutcome,
     type SnapshotEnvironmentRequest
 } from "@agent-core/core/environment-provider";
 import type { DurableObjectEnvironmentProvider } from "../../src/index.js";
@@ -830,13 +838,14 @@ function openRequest(
               ContentRef.fromDigest(
                   Digest.sha256(encodeCanonicalJson({ missingSnapshot: restore }))
               ));
-    return Object.freeze({
+    const request = {
         environmentId: ENVIRONMENT,
         environmentRevision: new Revision(PINS[pin]!.revision),
         generation: PINS[pin]!.generation,
-        sessionId: new EnvironmentSessionId(sessionId(session)),
-        ...(reference === undefined ? {} : { restore: reference })
-    });
+        sessionId: new EnvironmentSessionId(sessionId(session))
+    };
+    // An absent restore pin is absent, not present-and-undefined.
+    return Object.freeze(reference === undefined ? request : { ...request, restore: reference });
 }
 
 function snapshotRequest(
@@ -1003,18 +1012,23 @@ async function withProvider<Result>(
     return runInDurableObject(runtime.stub, (instance) => operation(instance.environments));
 }
 
-function projectResource(outcome: { readonly name: string; readonly value?: unknown }): {
+/** An outcome reduced to what two runs of the model can be compared on. */
+interface ProjectedResource {
     readonly name: string;
     readonly value?: string;
-} {
-    if (!("value" in outcome)) return { name: outcome.name };
-    if (typeof outcome.value === "string") return { name: outcome.name, value: outcome.value };
-    if (outcome.value instanceof ContentRef)
-        return { name: outcome.name, value: outcome.value.value };
-    return { name: outcome.name };
 }
 
-async function captureFailure(operation: () => Promise<unknown>): Promise<string> {
+function projectResource<Value>(outcome: ProviderResourceOutcome<Value>): ProjectedResource {
+    if (outcome.name !== "ready") return { name: outcome.name };
+    if (outcome.value instanceof ContentRef) {
+        return { name: outcome.name, value: outcome.value.value };
+    }
+    return typeof outcome.value === "string"
+        ? { name: outcome.name, value: outcome.value }
+        : { name: outcome.name };
+}
+
+async function captureFailure<Result>(operation: () => Promise<Result>): Promise<string> {
     try {
         await operation();
         return "succeeded";
@@ -1023,7 +1037,7 @@ async function captureFailure(operation: () => Promise<unknown>): Promise<string
     }
 }
 
-function captureSynchronousFailure(operation: () => unknown): string {
+function captureSynchronousFailure(operation: () => void): string {
     try {
         operation();
         return "succeeded";
@@ -1033,13 +1047,6 @@ function captureSynchronousFailure(operation: () => unknown): string {
 }
 
 function errorCode(error: unknown): string {
-    if (
-        typeof error === "object" &&
-        error !== null &&
-        "code" in error &&
-        typeof error.code === "string"
-    ) {
-        return error.code;
-    }
+    if (error instanceof AgentCoreError) return error.code;
     throw error;
 }

@@ -1,4 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
+import { isObjectRecord } from "@agent-core/core";
 import type {
     CloudflareDurableObjectStorage,
     CloudflareSqlBinding,
@@ -16,25 +17,10 @@ export class NodeSqlite implements SynchronousSqlitePort {
     readonly #database = new DatabaseSync(":memory:");
 
     public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const rows = this.#database.prepare(statement).all(...bindings);
-        return rows.map((row) => {
-            if (typeof row !== "object" || row === null) {
-                throw new TypeError("node:sqlite returned a non-object row");
-            }
-            const values: Record<string, SqliteValue> = {};
-            for (const [column, value] of Object.entries(row)) {
-                if (
-                    value !== null &&
-                    typeof value !== "string" &&
-                    typeof value !== "number" &&
-                    !(value instanceof Uint8Array)
-                ) {
-                    throw new TypeError(`Unsupported SQLite value in column ${column}`);
-                }
-                values[column] = value;
-            }
-            return values;
-        });
+        return this.#database
+            .prepare(statement)
+            .all(...bindings)
+            .map(storedRow);
     }
 
     public run(statement: string, bindings: readonly SqliteValue[]): void {
@@ -99,28 +85,33 @@ export class NodeDurableObjectStorage implements CloudflareDurableObjectStorage 
         bindings: readonly CloudflareSqlBinding[]
     ): CloudflareSqlCursor<Record<string, CloudflareSqlValue>> {
         const prepared = this.#database.prepare(statement);
-        const rows = prepared.all(...bindings.map(nodeBinding));
-        return rows.map((row) => {
-            if (typeof row !== "object" || row === null) {
-                throw new TypeError("node:sqlite returned a non-object row");
-            }
-            const values: Record<string, CloudflareSqlValue> = {};
-            for (const [column, value] of Object.entries(row)) {
-                if (
-                    value !== null &&
-                    typeof value !== "string" &&
-                    typeof value !== "number" &&
-                    !(value instanceof Uint8Array)
-                ) {
-                    throw new TypeError(`Unsupported SQLite value in column ${column}`);
-                }
-                values[column] = value;
-            }
-            return values;
-        });
+        return prepared.all(...bindings.map(nodeBinding)).map(storedRow);
     }
 }
 
 function nodeBinding(value: CloudflareSqlBinding): string | number | Uint8Array | null {
     return value instanceof ArrayBuffer ? new Uint8Array(value) : value;
+}
+
+/**
+ * node:sqlite types a row by what SQLite can store, not by what this package accepts, so
+ * both seams read one back the same way: a Uint8Array is what a BLOB comes out as, and
+ * anything outside the column types this package declares is the substrate disagreeing
+ * with the schema rather than data to carry.
+ */
+function storedRow(row: unknown): SqliteRow {
+    if (!isObjectRecord(row)) throw new TypeError("node:sqlite returned a non-object row");
+    const values: Record<string, SqliteValue> = {};
+    for (const [column, value] of Object.entries(row)) {
+        if (
+            value !== null &&
+            typeof value !== "string" &&
+            typeof value !== "number" &&
+            !(value instanceof Uint8Array)
+        ) {
+            throw new TypeError(`Unsupported SQLite value in column ${column}`);
+        }
+        values[column] = value;
+    }
+    return values;
 }

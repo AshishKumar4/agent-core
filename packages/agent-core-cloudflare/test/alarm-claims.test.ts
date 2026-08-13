@@ -1,40 +1,10 @@
 import { AlarmOutboxReconciler, DurableAlarmClaims, ReconciliationOutboxId } from "../src/index.js";
-import { DatabaseSync } from "node:sqlite";
-import type { SynchronousSqlitePort } from "../src/migration.js";
-import type { SqliteRow, SqliteValue } from "../src/sqlite.js";
-import type { SynchronousResultGuard } from "@agent-core/core";
 import { SqliteApplicationMigrator } from "../src/migration.js";
 import { FakeAlarmStorage, fakeErrors } from "./fakes.js";
+import { NodeSqlite } from "./node-sqlite.js";
 
 /** A real database: the claim ledger's value is in the SQL it runs. */
-class NodeSqlite implements SynchronousSqlitePort {
-    readonly #database = new DatabaseSync(":memory:");
-
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        return this.#database.prepare(statement).all(...(bindings as never[])) as SqliteRow[];
-    }
-
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
-        this.#database.prepare(statement).run(...(bindings as never[]));
-    }
-
-    public transaction<Result>(
-        operation: () => Result,
-        ..._guard: SynchronousResultGuard<Result>
-    ): Result {
-        this.#database.exec("BEGIN");
-        try {
-            const result = operation();
-            this.#database.exec("COMMIT");
-            return result;
-        } catch (error) {
-            this.#database.exec("ROLLBACK");
-            throw error;
-        }
-    }
-}
-
-function claims(): { readonly claims: DurableAlarmClaims; readonly alarms: FakeAlarmStorage } {
+function claims() {
     const database = new NodeSqlite();
     new SqliteApplicationMigrator(database, fakeErrors).migrate();
     return { claims: new DurableAlarmClaims(database, fakeErrors), alarms: new FakeAlarmStorage() };

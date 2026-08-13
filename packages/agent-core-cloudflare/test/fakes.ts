@@ -369,6 +369,26 @@ export class FakeWebSocket implements HibernatingWebSocketLike {
     public send(message: string | ArrayBuffer | ArrayBufferView): void {
         this.sent.push(message);
     }
+
+    /**
+     * What this socket was sent, as text. The view stream is a text protocol, so a binary
+     * frame — or a missing one — is the adapter misbehaving rather than something a test
+     * should decode.
+     */
+    public sentText(): readonly string[] {
+        return this.sent.map((message) => {
+            if (typeof message !== "string") {
+                throw new TypeError("Fake WebSocket was sent a binary frame");
+            }
+            return message;
+        });
+    }
+
+    public sentTextAt(index: number): string {
+        const message = this.sentText()[index];
+        if (message === undefined) throw new TypeError(`Fake WebSocket sent no frame ${index}`);
+        return message;
+    }
 }
 
 export class FakeWebSocketContext implements HibernatingWebSocketContextLike {

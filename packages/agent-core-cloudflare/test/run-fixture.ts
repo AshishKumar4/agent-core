@@ -138,8 +138,8 @@ export function resultCommit(
 }
 
 /** The Run's source of authoritative revisions; migration targets resolve through it. */
-export class TestSourcePort extends RunSourceRevisionPort<
-    unknown,
+export class TestSourcePort<Transaction> extends RunSourceRevisionPort<
+    Transaction,
     RunConfigurationSnapshot
 > {
     public accepts = true;
@@ -149,7 +149,7 @@ export class TestSourcePort extends RunSourceRevisionPort<
     }
 
     public verifyPackageClosure(
-        _transaction: unknown,
+        _transaction: Transaction,
         snapshot: RunConfigurationSnapshot
     ): boolean {
         return snapshot.pins.packages.length > 0;
@@ -157,7 +157,7 @@ export class TestSourcePort extends RunSourceRevisionPort<
 }
 
 /** Only `control` carries evidence here; the other seams have no scenario in this suite. */
-export class TestEvidencePort extends RunEvidencePort<unknown> {
+export class TestEvidencePort<Transaction> extends RunEvidencePort<Transaction> {
     public readonly controls = new Map<string, ControlCommitEvidence>();
 
     public receipt(): undefined {
@@ -169,7 +169,7 @@ export class TestEvidencePort extends RunEvidencePort<unknown> {
     }
 
     public control(
-        _transaction: unknown,
+        _transaction: Transaction,
         receipt: ReceiptId,
         audit: AuditRecordId
     ): ControlCommitEvidence | undefined {
@@ -194,10 +194,10 @@ export class TestEvidencePort extends RunEvidencePort<unknown> {
 }
 
 /** Settlement evidence the Run does not hold: only resolved Approvals are modelled. */
-export class TestSettlementPort extends SettlementEvidencePort<unknown> {
+export class TestSettlementPort<Transaction> extends SettlementEvidencePort<Transaction> {
     public readonly approvals = new Set<string>();
 
-    public approvalResolved(_transaction: unknown, approval: ApprovalId): boolean {
+    public approvalResolved(_transaction: Transaction, approval: ApprovalId): boolean {
         return this.approvals.has(approval.value);
     }
 
@@ -249,19 +249,19 @@ export class TestMergePort extends RunMergePort<unknown> {
 export interface RunHarness<Transaction> {
     readonly storage: RunStoragePort<Transaction>;
     readonly repository: RunRepository<Transaction>;
-    readonly sources: TestSourcePort;
-    readonly evidence: TestEvidencePort;
-    readonly settlement: TestSettlementPort;
+    readonly sources: TestSourcePort<Transaction>;
+    readonly evidence: TestEvidencePort<Transaction>;
+    readonly settlement: TestSettlementPort<Transaction>;
     readonly runtime: RunRuntime<Transaction>;
 }
 
 export function runHarness<Transaction>(
     storage: RunStoragePort<Transaction>,
-    settlement = new TestSettlementPort()
+    settlement: TestSettlementPort<Transaction> = new TestSettlementPort()
 ): RunHarness<Transaction> {
     const repository = new RunRepository(storage);
-    const sources = new TestSourcePort();
-    const evidence = new TestEvidencePort();
+    const sources = new TestSourcePort<Transaction>();
+    const evidence = new TestEvidencePort<Transaction>();
     return {
         storage,
         repository,

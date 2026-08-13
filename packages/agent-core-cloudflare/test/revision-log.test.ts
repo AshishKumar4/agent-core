@@ -110,7 +110,9 @@ describe("DurableViewRevisionLog", () => {
         });
         const fails = (
             database: SynchronousSqlitePort,
-            operation: (log: DurableViewRevisionLog) => unknown = (log) => log.replay("surface", 0)
+            operation: (log: DurableViewRevisionLog) => void = (log) => {
+                log.replay("surface", 0);
+            }
         ): void =>
             expectOperationalFailure(
                 () => operation(new DurableViewRevisionLog(database, fakeErrors)),
