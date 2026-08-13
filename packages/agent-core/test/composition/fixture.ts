@@ -18,16 +18,16 @@ export function reaching<Port>(reached: Partial<Port>): Port {
 }
 
 /**
- * A placeholder for an argument a port only forwards. A delegation test asserts which source
- * method ran, not what it was handed; reading any property of one throws, so a port that starts
- * inspecting a forwarded argument fails there instead of passing on an undefined field.
+ * A placeholder for a value the code under test must not read: an argument a port only forwards,
+ * or a collaborator a path is asserted never to consult. Reading any property throws, so a path
+ * that starts inspecting one fails there instead of passing on an undefined field.
  */
-export function forwarded<Value>(): Value {
+export function forwarded<Value>(role = "A forwarded argument"): Value {
     const unread = new Proxy(
         {},
         {
             get(_target, property) {
-                throw new TypeError(`A forwarded argument was read: ${String(property)}`);
+                throw new TypeError(`${role} was read: ${String(property)}`);
             }
         }
     );

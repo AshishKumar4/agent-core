@@ -16,6 +16,23 @@ import {
 } from "../../src/slates";
 import { describe, expect, test } from "vitest";
 
+/** Every runtime argument SlateRuntimeBackend maps a wire field into. */
+type MappedSlateArgument =
+    | ContentRef
+    | Revision
+    | SlateDeploymentId
+    | SlateId
+    | SlatePublicationId
+    | SlateVersionId
+    | WorkspaceId
+    | string
+    | undefined;
+
+interface SlateRuntimeCall {
+    readonly operation: string;
+    readonly values: readonly MappedSlateArgument[];
+}
+
 let dispatchCounter = 0;
 function dispatchFixture(): EffectDispatch {
     dispatchCounter += 1;
@@ -24,10 +41,9 @@ function dispatchFixture(): EffectDispatch {
 
 describe("Slate profile composition", () => {
     test("maps profile wire DTOs to typed SlateRuntime arguments", { tags: "p1" }, async () => {
-        const calls: Array<{ readonly operation: string; readonly values: readonly unknown[] }> =
-            [];
+        const calls: SlateRuntimeCall[] = [];
         const stopped = new TypeError("stop after mapping");
-        const capture = (operation: string, values: readonly unknown[]): never => {
+        const capture = (operation: string, values: readonly MappedSlateArgument[]): never => {
             calls.push({ operation, values });
             throw stopped;
         };
@@ -69,21 +85,43 @@ describe("Slate profile composition", () => {
             })
         ).rejects.toBe(stopped);
 
-        expect(
-            calls.map((call) => [
-                call.operation,
-                ...call.values.map((value) =>
-                    typeof value === "string" ? value : (value as { value?: unknown })?.value
-                )
-            ])
-        ).toEqual([
-            ["update", "slate", source, 2],
-            ["commit", "slate", 2],
-            ["fork", "version", "workspace"],
-            ["publish", "version", source],
-            ["deploy", "publication", "production", "dispatch-mapping-key"],
-            ["rollback", "slate", "deployment", undefined],
-            ["rollback", "slate", "deployment", "expected-deployment"]
+        // Each wire field maps to one runtime argument of a named class. Comparing the
+        // arguments themselves rather than their string values is what keeps a mapping that
+        // reached for the right string through the wrong reference class from passing.
+        expect(calls).toStrictEqual([
+            {
+                operation: "update",
+                values: [new SlateId("slate"), new ContentRef(source), new Revision(2)]
+            },
+            { operation: "commit", values: [new SlateId("slate"), new Revision(2)] },
+            {
+                operation: "fork",
+                values: [new SlateVersionId("version"), new WorkspaceId("workspace")]
+            },
+            {
+                operation: "publish",
+                values: [new SlateVersionId("version"), new ContentRef(source)]
+            },
+            {
+                operation: "deploy",
+                values: [
+                    new SlatePublicationId("publication"),
+                    "production",
+                    "dispatch-mapping-key"
+                ]
+            },
+            {
+                operation: "rollback",
+                values: [new SlateId("slate"), new SlateDeploymentId("deployment"), undefined]
+            },
+            {
+                operation: "rollback",
+                values: [
+                    new SlateId("slate"),
+                    new SlateDeploymentId("deployment"),
+                    new SlateDeploymentId("expected-deployment")
+                ]
+            }
         ]);
     });
 
