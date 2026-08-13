@@ -35,8 +35,8 @@ export interface FilesystemStat {
 }
 
 export interface FilesystemReadRange {
-    readonly offset?: number | undefined;
-    readonly length?: number | undefined;
+    readonly offset?: number;
+    readonly length?: number;
 }
 
 export interface FilesystemPage {
@@ -46,7 +46,7 @@ export interface FilesystemPage {
 
 export interface FilesystemReadInput extends PublicProfileInput {
     readonly path: string;
-    readonly range?: FilesystemReadRange | undefined;
+    readonly range?: FilesystemReadRange;
 }
 
 export interface FilesystemStatInput extends PublicProfileInput {
@@ -55,14 +55,14 @@ export interface FilesystemStatInput extends PublicProfileInput {
 
 export interface FilesystemListInput extends PublicProfileInput {
     readonly path: string;
-    readonly cursor?: string | undefined;
-    readonly limit?: number | undefined;
+    readonly cursor?: string;
+    readonly limit?: number;
 }
 
 export interface FilesystemWriteInput extends PublicProfileInput {
     readonly path: string;
     readonly content: Uint8Array;
-    readonly mode?: FilesystemWriteMode | undefined;
+    readonly mode?: FilesystemWriteMode;
 }
 
 export interface FilesystemRemoveInput extends PublicProfileInput {
@@ -76,7 +76,7 @@ export interface FilesystemMoveInput extends PublicProfileInput {
 
 export interface FilesystemMkdirInput extends PublicProfileInput {
     readonly path: string;
-    readonly recursive?: boolean | undefined;
+    readonly recursive?: boolean;
 }
 
 const pathProperty = { type: "string", minLength: 1 } as const;
@@ -148,10 +148,10 @@ export const FILESYSTEM_OPERATION_CONTRACTS = Object.freeze({
             (data) => {
                 const object = requireDataObject(data, "Filesystem read input");
                 const range = object["range"];
-                return {
-                    path: requireString(object["path"], "Filesystem read path"),
-                    range: range === undefined ? undefined : decodeRange(range)
+                const input: FilesystemReadInput = {
+                    path: requireString(object["path"], "Filesystem read path")
                 };
+                return range === undefined ? input : { ...input, range: decodeRange(range) };
             }
         ),
         byteCodec(),
@@ -188,17 +188,19 @@ export const FILESYSTEM_OPERATION_CONTRACTS = Object.freeze({
                 const object = requireDataObject(data, "Filesystem list input");
                 const cursor = object["cursor"];
                 const limit = object["limit"];
-                return {
-                    path: requireString(object["path"], "Filesystem list path"),
-                    cursor:
-                        cursor === undefined
-                            ? undefined
-                            : requireString(cursor, "Filesystem list cursor"),
-                    limit:
-                        limit === undefined
-                            ? undefined
-                            : requireSafeInteger(limit, "Filesystem list limit")
+                let input: FilesystemListInput = {
+                    path: requireString(object["path"], "Filesystem list path")
                 };
+                if (cursor !== undefined) {
+                    input = { ...input, cursor: requireString(cursor, "Filesystem list cursor") };
+                }
+                if (limit !== undefined) {
+                    input = {
+                        ...input,
+                        limit: requireSafeInteger(limit, "Filesystem list limit")
+                    };
+                }
+                return input;
             }
         ),
         pageCodec(),
@@ -268,10 +270,12 @@ export const FILESYSTEM_OPERATION_CONTRACTS = Object.freeze({
             (data) => {
                 const object = requireDataObject(data, "Filesystem mkdir input");
                 const recursive = object["recursive"];
-                return {
-                    path: requireString(object["path"], "Filesystem mkdir path"),
-                    recursive: recursive === undefined ? undefined : recursive === true
+                const input: FilesystemMkdirInput = {
+                    path: requireString(object["path"], "Filesystem mkdir path")
                 };
+                return recursive === undefined
+                    ? input
+                    : { ...input, recursive: recursive === true };
             }
         ),
         voidProfileWireCodec,
@@ -424,20 +428,24 @@ function decodeRange(data: FacetData): FilesystemReadRange {
     const object = requireDataObject(data, "Filesystem read range");
     const offset = object["offset"];
     const length = object["length"];
-    return {
-        offset: offset === undefined ? undefined : requireSafeInteger(offset, "Read offset"),
-        length: length === undefined ? undefined : requireSafeInteger(length, "Read length")
-    };
+    let range: FilesystemReadRange = {};
+    if (offset !== undefined) {
+        range = { ...range, offset: requireSafeInteger(offset, "Read offset") };
+    }
+    if (length !== undefined) {
+        range = { ...range, length: requireSafeInteger(length, "Read length") };
+    }
+    return range;
 }
 
 function decodeWriteInput(data: FacetData): FilesystemWriteInput {
     const object = requireDataObject(data, "Filesystem write input");
     const mode = object["mode"];
-    return {
+    const input: FilesystemWriteInput = {
         path: requireString(object["path"], "Filesystem write path"),
-        content: decodeBytes(object["content"]!),
-        mode: mode === undefined ? undefined : requireWriteMode(mode)
+        content: decodeBytes(object["content"]!)
     };
+    return mode === undefined ? input : { ...input, mode: requireWriteMode(mode) };
 }
 
 function decodeBytes(data: FacetData): Uint8Array {
