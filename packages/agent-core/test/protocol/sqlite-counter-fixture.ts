@@ -7,7 +7,15 @@ import {
     type SynchronousResultGuard,
     type TransactionOperation
 } from "../../src/actors";
-import { ContentRef, Digest, Revision, encodeCanonicalJson, isMember } from "../../src/core";
+import {
+    ContentRef,
+    Digest,
+    Revision,
+    encodeCanonicalJson,
+    isMember,
+    jsonDataParser,
+    type JsonValue
+} from "../../src/core";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 import { AuditRecord, AuditRecordId, CorrelationId, InvocationId } from "../../src/invocations";
 import {
@@ -441,34 +449,24 @@ function sqliteReadCapability(transaction: ReadableSqlite): CounterReadCapabilit
 }
 
 function sqliteLease(state: SqliteRow): CurrentLease | undefined {
-    const turn = state["lease_turn"];
-    const holderTenant = state["lease_holder_tenant"];
-    const holder = state["lease_holder"];
-    const epoch = state["lease_epoch"];
-    const expiresAt = state["lease_expires_at"];
-    if (
-        turn === null &&
-        holderTenant === null &&
-        holder === null &&
-        epoch === null &&
-        expiresAt === null
-    ) {
+    const columns = [
+        "lease_turn",
+        "lease_holder_tenant",
+        "lease_holder",
+        "lease_epoch",
+        "lease_expires_at"
+    ];
+    if (columns.every((column) => state[column] === null)) {
         return undefined;
     }
-    if (
-        typeof turn !== "string" ||
-        typeof holderTenant !== "string" ||
-        typeof holder !== "string" ||
-        !isSafeIntegerColumn(epoch) ||
-        !isSafeIntegerColumn(expiresAt)
-    ) {
-        throw new TypeError("SQLite counter lease is malformed");
-    }
     return Object.freeze({
-        turn: new TurnId(turn),
-        holder: new PrincipalRef(new TenantId(holderTenant), new PrincipalId(holder)),
-        epoch,
-        expiresAt: new Date(expiresAt)
+        turn: new TurnId(text(state, "lease_turn")),
+        holder: new PrincipalRef(
+            new TenantId(text(state, "lease_holder_tenant")),
+            new PrincipalId(text(state, "lease_holder"))
+        ),
+        epoch: integer(state, "lease_epoch"),
+        expiresAt: new Date(integer(state, "lease_expires_at"))
     });
 }
 
@@ -511,12 +509,15 @@ function writeCount(database: ReadableSqlite): number {
     );
 }
 
+const columnParser = jsonDataParser((message) => new TypeError(message));
+
 function text(row: SqliteRow, column: string): string {
-    const value = row[column];
-    if (typeof value !== "string") {
-        throw new TypeError(`Expected text column: ${column}`);
-    }
-    return value;
+    return columnParser.string(jsonColumn(row[column]), `text column: ${column}`);
+}
+
+/** SQLite's blob columns fall outside the JSON vocabulary the column parser reads. */
+function jsonColumn(value: SqliteValue | undefined): JsonValue | undefined {
+    return value instanceof Uint8Array ? undefined : value;
 }
 
 function integer(row: SqliteRow, column: string): number {
