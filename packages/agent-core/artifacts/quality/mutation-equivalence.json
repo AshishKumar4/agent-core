@@ -2180,6 +2180,294 @@
       "replacement": "false",
       "mutated": "scope.workspaceId === undefined",
       "proof": "Control reaches this ternary only inside `if (scope.kind === \"workspace\")`, and both overloads of ScopeRef.workspace resolve a WorkspaceId before constructing — one through requireWorkspace, the other from the explicit third argument — so a workspace scope always carries one. Forcing the test false therefore always selects the loadWorkspace branch, which is the branch already taken. The test exists to narrow the optional field for that call; the undefined arm it guards would fail the canonicality check on the next line in any case."
+    },
+    {
+      "file": "src/substrates/sqlite/authority.ts",
+      "symbol": "nullableText",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "typeof value !== \"string\" || value.length === 0",
+      "proof": "nullableText has one consumer, decodeGrant's `(grant.attenuationOf?.value ?? null) !== nullableText(row, \"parent_grant_id\")`, and the null column has already returned on the line above. Removing the guard hands that comparison the raw column. Its left side is either null or a GrantId's value, which TextId forces to be a non-empty string, and the values this guard would have rejected are exactly the non-strings and the empty string — none of which is `===` to null or to a non-empty string. The comparison is therefore true wherever the guard would have thrown, and it throws corruptAuthority(), the identical error from the identical helper."
+    },
+    {
+      "file": "src/substrates/sqlite/authority.ts",
+      "symbol": "nullableText",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "value.length === 0",
+      "proof": "This mutant only lets the empty string through; every non-string still throws. An empty parent_grant_id then reaches decodeGrant's comparison against `grant.attenuationOf?.value ?? null`, whose two possible shapes are null and a GrantId value. GrantId extends TextId, which refuses an empty constructor argument, so neither shape can equal \"\" and the comparison is true. decodeGrant answers with corruptAuthority(), which is what nullableText would have thrown. The empty string is the only input separating the two forms and it produces the same refusal."
+    },
+    {
+      "file": "src/substrates/sqlite/authority.ts",
+      "symbol": "integer",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value)",
+      "proof": "Forcing the left pair false leaves `value < 0`, so the accessor now returns any non-negative or non-numeric column. Every consumer compares the result against a field its record type pins to a non-negative safe integer: ScopeEpoch's constructor for epoch, Binding's for generation, and Revision's for the binding revision. A value that would have tripped this guard is either not a number, and so `!==` every number, or a number that is not a non-negative safe integer, and so `!==` every one that is. The enclosing disjunction is true and throws corruptAuthority(), the accessor's own error."
+    },
+    {
+      "file": "src/substrates/sqlite/authority.ts",
+      "symbol": "integer",
+      "mutator": "LogicalOperator",
+      "replacement": "typeof value !== \"number\" && !Number.isSafeInteger(value)",
+      "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value)",
+      "proof": "Because Number.isSafeInteger returns false for every non-Number, the conjunction this substitutes reduces to its left operand, and the guard becomes `typeof value !== \"number\" || value < 0`. It therefore admits fractional, unsafe and NaN columns it used to reject, and rejects nothing new. Each such column is then compared in loadSqliteEpoch, listSqliteEpochs or decodeBinding against an epoch, generation or revision that its record type has already forced to be a non-negative safe integer, so the comparison is unequal and corruptAuthority() is raised from the enclosing if instead of from here."
+    },
+    {
+      "file": "src/substrates/sqlite/authority.ts",
+      "symbol": "integer",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value) || value < 0",
+      "proof": "The whole condition forced false makes integer() a pass-through that returns the column untouched. Nothing downstream consumes it except four `!==` comparisons against record fields, and the record types behind them — ScopeEpoch's epoch, Binding's generation, and the Revision behind binding.revision — all refuse anything but a non-negative safe integer at construction, including on the decode path. Strict inequality against such a field is therefore true for every column this guard would have refused, and the surrounding if answers with the same corruptAuthority() instance shape."
+    },
+    {
+      "file": "src/substrates/sqlite/authority.ts",
+      "symbol": "integer",
+      "mutator": "LogicalOperator",
+      "replacement": "(typeof value !== \"number\" || !Number.isSafeInteger(value)) && value < 0",
+      "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value) || value < 0",
+      "proof": "Turning the final `||` into `&&` narrows the guard to columns that are both malformed and negative, so it throws on a strict subset of what it threw on before and never on anything new. On the difference — a non-number, a fractional number, or a non-negative unsafe one — the column flows out to the epoch, generation and revision comparisons, none of which can match a value outside the non-negative safe integers their record types enforce. Those comparisons raise corruptAuthority(), and no observation distinguishes which statement raised it."
+    },
+    {
+      "file": "src/substrates/sqlite/authority.ts",
+      "symbol": "integer",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "value < 0",
+      "proof": "This operand alone catches the negative safe integers, and forcing it false lets them through. A negative epoch column then meets `epoch.epoch !== integer(row, \"epoch\")`, and ScopeEpoch's constructor rejects a negative epoch, so the decoded record's epoch is non-negative and cannot equal it; the same holds for Binding's generation and for the Revision behind its revision column. Every negative column the guard would have refused is refused one line later, by the same corruptAuthority() the guard would have thrown."
+    },
+    {
+      "file": "src/substrates/sqlite/authority.ts",
+      "symbol": "integer",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ throw corruptAuthority(); }",
+      "proof": "Emptying the block leaves the condition evaluated and its result discarded, which is behaviourally the pass-through the whole-condition mutant produces. The four consumers each compare the returned column against a record field their type pins to a non-negative safe integer — ScopeEpoch's epoch, Binding's generation, and the Revision behind binding.revision — so a malformed column is unequal to it and the enclosing if throws corruptAuthority(). The refusal moves one statement later and keeps its code, message and class."
+    },
+    {
+      "file": "src/substrates/sqlite/identity.ts",
+      "symbol": "text",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "typeof value !== \"string\" || value.length === 0",
+      "proof": "text() feeds two kinds of consumer here and both refuse a malformed column with corruptIdentity(). Most sites compare the result against a decoded record field — an id, a tenant id, a kind, a status, a canonical scope or subject key — every one of which is a non-empty string, so a non-string or empty column is unequal and the enclosing if throws. The rest wrap it in projectedId, whose TextId constructor refuses a non-string or empty argument and whose catch converts that TypeError into the very same corruptIdentity(). The mutant's only effect is which statement raises it."
+    },
+    {
+      "file": "src/substrates/sqlite/identity.ts",
+      "symbol": "text",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "value.length === 0",
+      "proof": "With the length test forced false the accessor accepts an empty column and nothing else new. An empty id, kind, status, tenant id, role name, scope key or subject key then meets a comparison against the decoded record's own value, and none of those can be empty: TextId refuses an empty constructor argument, the kind and status unions have no empty member, and a canonical JSON key is never the empty string. Where the column instead feeds projectedId, TextId throws and projectedId's catch returns corruptIdentity() — the same error, from the same reader call."
+    },
+    {
+      "file": "src/substrates/sqlite/identity.ts",
+      "symbol": "nullableText",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "typeof value !== \"string\" || value.length === 0",
+      "proof": "The single consumer is loadWorkspace's `(workspace.projectId?.value ?? null) !== nullableText(row, \"project_id\")`, reached only after the explicit null column has returned above. The left side is null or a ProjectId value, which TextId forces to be a non-empty string. Every column this guard would refuse is a non-string or the empty string, neither of which is strictly equal to null or to a non-empty string, so the comparison is true and loadWorkspace throws corruptIdentity() — the error the guard would have thrown, one statement later."
+    },
+    {
+      "file": "src/substrates/sqlite/identity.ts",
+      "symbol": "nullableText",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "value.length === 0",
+      "proof": "This narrower mutant admits only the empty project_id column. loadWorkspace compares it against `workspace.projectId?.value ?? null`, which is null when the Workspace has no project and otherwise a ProjectId value — and ProjectId inherits TextId's refusal of an empty string, so it is never \"\". The comparison is therefore true, corruptIdentity() is thrown from loadWorkspace, and the only input that separates the mutant from the original produces the identical failure."
+    },
+    {
+      "file": "src/substrates/sqlite/identity.ts",
+      "symbol": "integer",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value)",
+      "proof": "Reducing the guard to `value < 0` lets every non-numeric and every non-negative unsafe column through. Each of the six readers that call integer() does so as the last operand of its projection check, comparing the result against a Revision's value — the tenant's authorizationRevision, or the team, project, workspace, guest trust or membership revision. Revision's constructor admits only non-negative safe integers, so no such field equals a value this guard would have refused, and the reader throws corruptIdentity() exactly where the guard would have."
+    },
+    {
+      "file": "src/substrates/sqlite/identity.ts",
+      "symbol": "integer",
+      "mutator": "LogicalOperator",
+      "replacement": "typeof value !== \"number\" && !Number.isSafeInteger(value)",
+      "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value)",
+      "proof": "The conjunction collapses to its left operand, because a non-Number always makes Number.isSafeInteger false, so the guard becomes `typeof value !== \"number\" || value < 0` and now admits fractions, unsafe magnitudes and NaN. Those all reach a `revision.value !== integer(row, \"revision\")` comparison whose left side comes from a Revision, a class whose constructor rejects everything but a non-negative safe integer. Strict inequality holds, and the identity reader raises corruptIdentity() rather than the accessor."
+    },
+    {
+      "file": "src/substrates/sqlite/identity.ts",
+      "symbol": "integer",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value) || value < 0",
+      "proof": "With the whole condition false the accessor returns the revision column unchecked. It has exactly one shape of consumer in this file: a final disjunct comparing it against a decoded record's Revision value. Because Revision's constructor is the only way to build one and it refuses anything but a non-negative safe integer, and because every identity codec routes its revision through requireIdentityRevision into that constructor, the comparison is unequal for precisely the columns the guard rejected, and corruptIdentity() is raised from the enclosing if."
+    },
+    {
+      "file": "src/substrates/sqlite/identity.ts",
+      "symbol": "integer",
+      "mutator": "LogicalOperator",
+      "replacement": "(typeof value !== \"number\" || !Number.isSafeInteger(value)) && value < 0",
+      "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value) || value < 0",
+      "proof": "Requiring the column to be both malformed and negative shrinks the set the accessor refuses; it never grows it, because the mutated condition implies the original. On the shrunken difference the column travels to a revision comparison, and the Revision on the other side is a non-negative safe integer by construction, so the comparison is true and corruptIdentity() is thrown. Whether the tenant, team, project, workspace, guest trust or membership reader is running, its last projection operand is the one that fires."
+    },
+    {
+      "file": "src/substrates/sqlite/identity.ts",
+      "symbol": "integer",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "value < 0",
+      "proof": "Only the negative safe integers separate this mutant from the original. A negative revision column reaches a comparison against a Revision's value, and Revision refuses a negative argument outright — \"Revision must be a non-negative safe integer\" — so the decoded record cannot carry one to match it. The comparison is therefore true for every negative column the operand would have caught, and the reader answers with corruptIdentity(), the same error from the same load call."
+    },
+    {
+      "file": "src/substrates/sqlite/identity.ts",
+      "symbol": "integer",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ throw corruptIdentity(); }",
+      "proof": "An emptied block evaluates the condition and ignores it, so the accessor returns the raw revision column. That column is compared, in every one of the six readers that reads it, against a Revision value the record type has already constrained to the non-negative safe integers. Any column the block would have refused fails that comparison, and the reader throws corruptIdentity(). The observable difference is the stack frame the error is built in, which no assertion in this suite or any possible one inspects."
+    },
+    {
+      "file": "src/substrates/sqlite/watermark.ts",
+      "symbol": "text",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "typeof value !== \"string\" || value.length === 0",
+      "proof": "Every call to text() in this file sits inside decodeWatermark's projection check, comparing the column against the watermark key, the owner tenant id, the owner kind and id, or the holder's tenant and principal ids. Each of those is a non-empty string: TextId refuses empty ids, an ActorRef kind is a non-empty union member, and watermarkKey builds a canonical key. A column that is not a non-empty string is therefore unequal to it, and decodeWatermark throws corruptWatermark(), which is what text() would have thrown."
+    },
+    {
+      "file": "src/substrates/sqlite/watermark.ts",
+      "symbol": "text",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "value.length === 0",
+      "proof": "This mutant relaxes the guard only for the empty string. An empty watermark_key, owner_tenant_id, owner_kind, owner_id, holder_tenant_id or holder_principal_id column is then compared against the decoded watermark's corresponding value, and none of those values can be empty — the ids are TextIds, the owner kind is a non-empty literal, and watermarkKey never returns the empty string. The comparison is true, and decodeWatermark's own corruptWatermark() is raised in place of the accessor's."
+    },
+    {
+      "file": "src/substrates/sqlite/watermark.ts",
+      "symbol": "integer",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value)",
+      "proof": "The guard reduces to `value < 0`, admitting strings, blobs, fractions and NaN in the revision column. That column has one reader: decodeWatermark's final operand, `watermark.revision.value !== integer(row, \"revision\")`. The left side is a Revision's value and Revision's constructor accepts only non-negative safe integers, so it never equals a column the full guard would have refused. decodeWatermark raises corruptWatermark() on exactly those columns, which is the error the accessor raises."
+    },
+    {
+      "file": "src/substrates/sqlite/watermark.ts",
+      "symbol": "integer",
+      "mutator": "LogicalOperator",
+      "replacement": "typeof value !== \"number\" && !Number.isSafeInteger(value)",
+      "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value)",
+      "proof": "Since a non-Number always makes Number.isSafeInteger false, the substituted conjunction equals its left operand and the guard becomes a type test plus the negativity test. The columns it now admits — non-integral or unsafe numbers — reach the revision comparison in decodeWatermark, where the stored watermark's Revision value is a non-negative safe integer and therefore unequal. The projection check fails and corruptWatermark() is thrown, so the store still refuses the row and still names the same fault."
+    },
+    {
+      "file": "src/substrates/sqlite/watermark.ts",
+      "symbol": "integer",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value) || value < 0",
+      "proof": "A pass-through integer() hands decodeWatermark the raw revision column, which the reader immediately compares against watermark.revision.value. The watermark was decoded through InvalidationWatermark's codec, so its revision is a Revision and its value is a non-negative safe integer; nothing outside that set is strictly equal to it. The projection check therefore fails for every column the guard would have rejected and throws corruptWatermark(), leaving the store's answer to a malformed row unchanged."
+    },
+    {
+      "file": "src/substrates/sqlite/watermark.ts",
+      "symbol": "integer",
+      "mutator": "LogicalOperator",
+      "replacement": "(typeof value !== \"number\" || !Number.isSafeInteger(value)) && value < 0",
+      "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value) || value < 0",
+      "proof": "The mutated condition implies the original, so the accessor refuses a subset and never anything extra. On the difference — a malformed but non-negative column, or a negative one that is a proper safe integer — the value reaches decodeWatermark's revision comparison against a Revision value that is by construction a non-negative safe integer, so the comparison is true and corruptWatermark() is raised there instead. No test can see which of the two statements built the error."
+    },
+    {
+      "file": "src/substrates/sqlite/watermark.ts",
+      "symbol": "integer",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "value < 0",
+      "proof": "Dropping the negativity operand admits a negative safe integer in the revision column. decodeWatermark compares that column against watermark.revision.value, and Revision's constructor throws \"Revision must be a non-negative safe integer\" for any negative argument, so the decoded watermark cannot present a negative revision to match. The comparison is true, the projection check fails, and corruptWatermark() is thrown — the same refusal the operand would have produced."
+    },
+    {
+      "file": "src/substrates/sqlite/watermark.ts",
+      "symbol": "integer",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ throw corruptWatermark(); }",
+      "proof": "With the block emptied the guard computes a value nobody uses and the accessor returns the column as it stands. Its one consumer is the last operand of decodeWatermark's projection check, which compares it to the decoded watermark's Revision value. That value is a non-negative safe integer by the Revision constructor every decode path runs through, so any column the block would have refused makes the comparison true and decodeWatermark throws corruptWatermark() instead."
+    },
+    {
+      "file": "src/substrates/sqlite/tenant.ts",
+      "symbol": "text",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "typeof value !== \"string\" || value.length === 0",
+      "proof": "Tenant control reads text columns in three places, and all three refuse a malformed one with corruptTenantControl(). bootstrapMarker and loadBootstrapAnchor compare the column against the decoded record's TenantId, PrincipalId, ActorId or TenantKind, none of which can be a non-string or empty. assertStoredRows instead feeds the column to a TenantId, PrincipalId or RoleName constructor, whose TypeError assertCompleteClosure catches and rewrites as corruptTenantControl(). Either way the guard's own error is what the caller sees."
+    },
+    {
+      "file": "src/substrates/sqlite/tenant.ts",
+      "symbol": "text",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "value.length === 0",
+      "proof": "Only the empty column separates this mutant from the original. An empty tenant_id, owner_principal_id, actor_id, principal_id or tenant_kind read by bootstrapMarker or loadBootstrapAnchor is compared against a TextId value or a TenantKind literal, neither of which is ever \"\", so the projection check fails with corruptTenantControl(). An empty id or name read by assertStoredRows goes into a TextId constructor, which refuses it, and assertCompleteClosure converts that TypeError to the same corruptTenantControl()."
+    },
+    {
+      "file": "src/substrates/sqlite/tenant.ts",
+      "symbol": "integer",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value)",
+      "proof": "The guard shrinks to `value < 0`, so a string, blob, fraction or NaN in the bootstrap marker's revision column now passes. bootstrapMarker's only use of it is the last operand of its projection check, `marker.revision.value !== integer(row, \"revision\")`. The marker was decoded through a codec that builds `new Revision(payload.revision)`, and Revision refuses anything but a non-negative safe integer, so the comparison is true for exactly the columns the full guard rejected and corruptTenantControl() is thrown from there."
+    },
+    {
+      "file": "src/substrates/sqlite/tenant.ts",
+      "symbol": "integer",
+      "mutator": "LogicalOperator",
+      "replacement": "typeof value !== \"number\" && !Number.isSafeInteger(value)",
+      "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value)",
+      "proof": "The substituted conjunction is equal to its left operand, because Number.isSafeInteger answers false for every non-Number, so the guard becomes a type test plus the negativity test and admits fractional and unsafe revisions. Those reach bootstrapMarker's comparison against the decoded marker's Revision value, which the marker codec constructed and Revision therefore pinned to the non-negative safe integers. The comparison is unequal, and the marker read fails with corruptTenantControl() exactly as before."
+    },
+    {
+      "file": "src/substrates/sqlite/tenant.ts",
+      "symbol": "integer",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value) || value < 0",
+      "proof": "Forced false, the guard never fires and integer() returns the bootstrap marker's revision column verbatim. bootstrapMarker compares it against marker.revision.value and throws corruptTenantControl() when they differ. Because the marker's revision is a Revision built by BootstrapMarkerCodec's decodePayload, its value is a non-negative safe integer, and no column outside that set is strictly equal to it. The store therefore refuses the same marker rows and reports the same corruption."
+    },
+    {
+      "file": "src/substrates/sqlite/tenant.ts",
+      "symbol": "integer",
+      "mutator": "LogicalOperator",
+      "replacement": "(typeof value !== \"number\" || !Number.isSafeInteger(value)) && value < 0",
+      "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value) || value < 0",
+      "proof": "Demanding that the column be both malformed and negative makes the guard fire on a strict subset of its original inputs and on nothing new, since the mutated condition implies the original. Columns in the difference reach the marker projection check, where the decoded Revision's value is a non-negative safe integer and cannot equal them, so corruptTenantControl() is thrown one statement later. Nothing between the two statements has an effect, so no ordering difference is observable either."
+    },
+    {
+      "file": "src/substrates/sqlite/tenant.ts",
+      "symbol": "integer",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "value < 0",
+      "proof": "This operand catches a negative safe integer in the marker's revision column, and the schema's own `CHECK (revision >= 0)` makes that unreachable through SQLite in any case. Even from a substrate that ignores the check, the column meets `marker.revision.value !== integer(row, \"revision\")`, and the decoded marker's Revision cannot be negative because Revision's constructor refuses it. The comparison is true and corruptTenantControl() is raised from bootstrapMarker."
+    },
+    {
+      "file": "src/substrates/sqlite/tenant.ts",
+      "symbol": "integer",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ throw corruptTenantControl(); }",
+      "proof": "An empty block turns the accessor into a pass-through while still evaluating its condition. The only column it reads is the bootstrap marker's revision, and bootstrapMarker immediately compares that column against the decoded marker's Revision value before returning. Revision admits only non-negative safe integers, so a column the block would have refused makes the comparison true and the marker read throws corruptTenantControl() — the same error the block held, from the caller's point of view at the same call."
+    },
+    {
+      "file": "src/substrates/sqlite/invocations/mediation.ts",
+      "symbol": "integer",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value)",
+      "proof": "Mediation reads one integer column, revision, in two places, and both compare it against `record.revision.value` — the replay record's and the publication outbox record's, each declared as a Revision. Revision's constructor accepts only non-negative safe integers, so a column that this guard would have refused is never strictly equal to one. With the guard forced false, the comparison is true instead and the enclosing check calls corrupt(), which throws the same codec.invalid \"Stored invocation mediation projection is corrupt\" the accessor would have."
+    },
+    {
+      "file": "src/substrates/sqlite/invocations/mediation.ts",
+      "symbol": "integer",
+      "mutator": "LogicalOperator",
+      "replacement": "typeof value !== \"number\" && !Number.isSafeInteger(value)",
+      "mutated": "typeof value !== \"number\" || !Number.isSafeInteger(value)",
+      "proof": "This guard has only two operands and the second subsumes the first, so replacing `||` with `&&` reduces the whole condition to `typeof value !== \"number\"`: fractional, unsafe and NaN revisions now pass. Both call sites compare the result against a Revision's value on a decoded MediatedReplayRecord or InvocationPublicationOutbox, and a Revision is always a non-negative safe integer, so those admitted columns fail the comparison and reach the same corrupt() the accessor calls."
     }
   ]
 }
