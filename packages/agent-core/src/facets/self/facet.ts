@@ -1,6 +1,6 @@
 import type { JsonValue } from "../../core";
 import { Contributions, Contribution, OperationDescriptor } from "../contribution";
-import { requireDataObject } from "../data";
+import { requireDataObject, type FacetData, type FacetDataMap } from "../data";
 import { OperationName, SlotName } from "../id";
 import type { FacetManifest } from "../manifest";
 import {
@@ -42,48 +42,73 @@ export abstract class SelfRunDependency {
     public abstract proposeMigration(input: SelfMigrationInput): Promise<JsonValue>;
 }
 
-// The wire property is the single field the Operation's input carries, so binding it to
-// keyof Input is what stops a contract from describing one field and decoding another.
-// A computed key still widens to an index signature, which is why the decoded literal
-// needs an assertion the encode side does not.
+// The wire property is the single field the Operation's input carries. Constraining Input
+// to carry that exact property is what stops a contract from describing one field and
+// decoding another: the caller's own builder has to produce the Input, so a contract whose
+// schema names one field and whose builder writes a different one does not compile.
 function operation<
     Name extends string,
-    Input extends PublicProfileInput,
-    Property extends Extract<keyof Input, string> = Extract<keyof Input, string>
+    Property extends string,
+    Input extends PublicProfileInput & { readonly [Key in Property]: JsonValue }
 >(
     name: Name,
     impact: "mutate" | "delegate" | "administer",
-    property: Property
+    property: Property,
+    build: (value: JsonValue) => Input
 ): ProfileOperationContract<Name, Input, JsonValue> {
     const input = strictObjectSchema({ [property]: {} }, [property]);
     return new ProfileOperationContract(
         name,
         new OperationDescriptor(new OperationName(name), impact, input, schema({})),
         profileWireCodec(
-            (value) => ({ [property]: value[property] as JsonValue }),
+            (value) => ({ [property]: value[property] }),
             (data) =>
-                ({
-                    [property]: requireDataObject(data, `Self ${name} input`)[property]
-                }) as unknown as Input
+                build(
+                    requireField(
+                        requireDataObject(data, `Self ${name} input`),
+                        property,
+                        `Self ${name} input`
+                    )
+                )
         ),
-        facetDataWireCodec<JsonValue>(),
+        facetDataWireCodec(),
         "output"
     );
 }
 
+function requireField(input: FacetDataMap, property: string, subject: string): FacetData {
+    const value = input[property];
+    if (value === undefined) throw new TypeError(`${subject} must carry ${property}`);
+    return value;
+}
+
 export const SELF_OPERATION_CONTRACTS = Object.freeze({
-    checkpoint: operation<"checkpoint", SelfCheckpointInput>("checkpoint", "mutate", "checkpoint"),
-    commitMessage: operation<"commitMessage", SelfCommitMessageInput>(
+    checkpoint: operation<"checkpoint", "checkpoint", SelfCheckpointInput>(
+        "checkpoint",
+        "mutate",
+        "checkpoint",
+        (checkpoint) => ({ checkpoint })
+    ),
+    commitMessage: operation<"commitMessage", "message", SelfCommitMessageInput>(
         "commitMessage",
         "mutate",
-        "message"
+        "message",
+        (message) => ({ message })
     ),
-    spawn: operation<"spawn", SelfSpawnInput>("spawn", "delegate", "child"),
-    finish: operation<"finish", SelfFinishInput>("finish", "mutate", "result"),
-    proposeMigration: operation<"proposeMigration", SelfMigrationInput>(
+    spawn: operation<"spawn", "child", SelfSpawnInput>("spawn", "delegate", "child", (child) => ({
+        child
+    })),
+    finish: operation<"finish", "result", SelfFinishInput>(
+        "finish",
+        "mutate",
+        "result",
+        (result) => ({ result })
+    ),
+    proposeMigration: operation<"proposeMigration", "migration", SelfMigrationInput>(
         "proposeMigration",
         "administer",
-        "migration"
+        "migration",
+        (migration) => ({ migration })
     )
 });
 

@@ -6,7 +6,6 @@ import {
     decodeCanonicalJson,
     encodeCanonicalJson,
     hasExactJsonKeys,
-    isJsonObject,
     TextId,
     type JsonValue,
     type Revision
@@ -16,6 +15,7 @@ import type { CommandCaller, CommandEnvelope } from "./envelope";
 import type { CommandPayloadCodec } from "./payload";
 import { CommandCallerPolicy } from "./policy";
 import type { ProtocolCommandExecution, ProtocolValueCodec } from "./registration";
+import { requireNonemptyString, requireObject } from "./codec";
 
 export const RUN_COMMANDS = Object.freeze({
     create: "run.create",
@@ -444,17 +444,22 @@ function requestData(request: RunProtocolRequest): JsonValue {
 }
 
 function requestFromData(kind: RunProtocolRequest["kind"], value: JsonValue): RunProtocolRequest {
-    const object = requireObject(value);
+    const object = requireObject(value, "Run command payload");
     switch (kind) {
         case "createRun":
             requireKeys(object, ["run"]);
-            return Object.freeze({ kind, run: new RunId(requireString(object["run"])) });
+            return Object.freeze({
+                kind,
+                run: new RunId(requireNonemptyString(object["run"], "Run command value"))
+            });
         case "createBranch":
             requireKeys(object, ["branch", "run"]);
             return Object.freeze({
                 kind,
-                run: new RunId(requireString(object["run"])),
-                branch: new RunBranchId(requireString(object["branch"]))
+                run: new RunId(requireNonemptyString(object["run"], "Run command value")),
+                branch: new RunBranchId(
+                    requireNonemptyString(object["branch"], "Run command value")
+                )
             });
         case "appendSystem":
         case "appendTurn":
@@ -464,35 +469,46 @@ function requestFromData(kind: RunProtocolRequest["kind"], value: JsonValue): Ru
             requireKeys(object, ["branch", "commit", "run"]);
             return Object.freeze({
                 kind,
-                run: new RunId(requireString(object["run"])),
-                branch: new RunBranchId(requireString(object["branch"])),
-                commit: new RunCommitId(requireString(object["commit"]))
+                run: new RunId(requireNonemptyString(object["run"], "Run command value")),
+                branch: new RunBranchId(
+                    requireNonemptyString(object["branch"], "Run command value")
+                ),
+                commit: new RunCommitId(
+                    requireNonemptyString(object["commit"], "Run command value")
+                )
             });
         case "terminalize":
             requireKeys(object, ["commit", "outcome", "run", "turn"]);
             return Object.freeze({
                 kind,
-                run: new RunId(requireString(object["run"])),
-                turn: new TurnId(requireString(object["turn"])),
-                commit: new RunCommitId(requireString(object["commit"])),
+                run: new RunId(requireNonemptyString(object["run"], "Run command value")),
+                turn: new TurnId(requireNonemptyString(object["turn"], "Run command value")),
+                commit: new RunCommitId(
+                    requireNonemptyString(object["commit"], "Run command value")
+                ),
                 outcome: requireOutcome(object["outcome"])
             });
         case "spawn":
             requireKeys(object, ["child", "reservation", "run", "turn"]);
             return Object.freeze({
                 kind,
-                run: new RunId(requireString(object["run"])),
-                turn: new TurnId(requireString(object["turn"])),
-                child: new RunId(requireString(object["child"])),
-                reservation: new RunProtocolRecordRef("spawn", requireString(object["reservation"]))
+                run: new RunId(requireNonemptyString(object["run"], "Run command value")),
+                turn: new TurnId(requireNonemptyString(object["turn"], "Run command value")),
+                child: new RunId(requireNonemptyString(object["child"], "Run command value")),
+                reservation: new RunProtocolRecordRef(
+                    "spawn",
+                    requireNonemptyString(object["reservation"], "Run command value")
+                )
             });
         case "createTurn":
             requireKeys(object, ["branch", "run", "turn"]);
             return Object.freeze({
                 kind,
-                run: new RunId(requireString(object["run"])),
-                branch: new RunBranchId(requireString(object["branch"])),
-                turn: new TurnId(requireString(object["turn"]))
+                run: new RunId(requireNonemptyString(object["run"], "Run command value")),
+                branch: new RunBranchId(
+                    requireNonemptyString(object["branch"], "Run command value")
+                ),
+                turn: new TurnId(requireNonemptyString(object["turn"], "Run command value"))
             });
         case "claimTurn":
         case "renewTurn":
@@ -500,34 +516,44 @@ function requestFromData(kind: RunProtocolRequest["kind"], value: JsonValue): Ru
             requireKeys(object, ["expiresAt", "turn"]);
             return Object.freeze({
                 kind,
-                turn: new TurnId(requireString(object["turn"])),
+                turn: new TurnId(requireNonemptyString(object["turn"], "Run command value")),
                 expiresAt: requireDate(object["expiresAt"])
             });
         case "suspendTurn":
             requireKeys(object, ["commit", "turn"]);
             return Object.freeze({
                 kind,
-                turn: new TurnId(requireString(object["turn"])),
-                commit: new RunCommitId(requireString(object["commit"]))
+                turn: new TurnId(requireNonemptyString(object["turn"], "Run command value")),
+                commit: new RunCommitId(
+                    requireNonemptyString(object["commit"], "Run command value")
+                )
             });
         case "completeTurn":
             requireKeys(object, ["commit", "outcome", "turn"]);
             return Object.freeze({
                 kind,
-                turn: new TurnId(requireString(object["turn"])),
-                commit: new RunCommitId(requireString(object["commit"])),
+                turn: new TurnId(requireNonemptyString(object["turn"], "Run command value")),
+                commit: new RunCommitId(
+                    requireNonemptyString(object["commit"], "Run command value")
+                ),
                 outcome: requireOutcome(object["outcome"])
             });
         case "cancelHeldTurn":
         case "cancelUnheldTurn":
             requireKeys(object, ["turn"]);
-            return Object.freeze({ kind, turn: new TurnId(requireString(object["turn"])) });
+            return Object.freeze({
+                kind,
+                turn: new TurnId(requireNonemptyString(object["turn"], "Run command value"))
+            });
         case "deliverTurnEvent":
             requireKeys(object, ["entry", "turn"]);
             return Object.freeze({
                 kind,
-                turn: new TurnId(requireString(object["turn"])),
-                entry: new RunProtocolRecordRef("inbox", requireString(object["entry"]))
+                turn: new TurnId(requireNonemptyString(object["turn"], "Run command value")),
+                entry: new RunProtocolRecordRef(
+                    "inbox",
+                    requireNonemptyString(object["entry"], "Run command value")
+                )
             });
     }
 }
@@ -550,23 +576,12 @@ function requireRunProtocolOwner(owner: ActorRef): ActorRef {
     return owner;
 }
 
-function requireObject(value: JsonValue): { readonly [key: string]: JsonValue } {
-    if (!isJsonObject(value)) throw new TypeError("Run command payload must be an object");
-    return value;
-}
-
 function requireKeys<Field extends string>(
     value: JsonObject,
     keys: readonly Field[]
 ): asserts value is JsonFields<Field> {
     if (!hasExactJsonKeys(value, keys))
         throw new TypeError("Run command payload fields are invalid");
-}
-
-function requireString(value: JsonValue | undefined): string {
-    if (typeof value !== "string" || value.length === 0)
-        throw new TypeError("Run command value must be a non-empty string");
-    return value;
 }
 
 function requireDate(value: JsonValue | undefined): Date {

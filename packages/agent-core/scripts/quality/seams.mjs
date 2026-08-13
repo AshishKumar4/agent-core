@@ -4,6 +4,8 @@ import {
     assertFlatFragmentNames,
     assertUniqueStrings,
     collectFiles,
+    isJsonObject,
+    isNonEmptyString,
     readCanonicalJson,
     reportRoot,
     writeCanonicalJson
@@ -41,13 +43,11 @@ const files = activeFragments.map((name) => resolve(selectedArtifactRoot, "seams
 const pendingRequired = assertUniqueStrings(index.pendingRequired ?? [], "Pending required seams");
 const discoveredDispositions = index.discoveredDispositions ?? {};
 if (
-    discoveredDispositions === null ||
-    Array.isArray(discoveredDispositions) ||
-    typeof discoveredDispositions !== "object" ||
+    !isJsonObject(discoveredDispositions) ||
     Object.entries(discoveredDispositions).some(
         ([contract, disposition]) =>
             !contract.startsWith("src/") ||
-            typeof disposition !== "string" ||
+            !isNonEmptyString(disposition) ||
             !index.required.includes(disposition)
     )
 ) {
@@ -88,7 +88,7 @@ for (const path of files) {
     const fragment = await readCanonicalJson(path);
     if (
         fragment.edition !== "1.0.0" ||
-        typeof fragment.owner !== "string" ||
+        !isNonEmptyString(fragment.owner) ||
         !Array.isArray(fragment.seams)
     ) {
         throw new TypeError("Seam fragment is malformed");
@@ -189,21 +189,16 @@ function validateSeamStructure(seam, ids) {
     }
     if (
         ids.has(seam.id) ||
-        [seam.id, seam.contract].some((value) => typeof value !== "string" || value.length === 0) ||
+        ![seam.id, seam.contract].every(isNonEmptyString) ||
         seam.disposition !== "verified" ||
         !Array.isArray(seam.implementations) ||
         seam.implementations.length === 0 ||
         new Set(seam.implementations).size !== seam.implementations.length ||
-        seam.implementations.some((value) => typeof value !== "string" || value.length === 0)
+        !seam.implementations.every(isNonEmptyString)
     ) {
         throw new TypeError(`Seam ${seam.id ?? "<unknown>"} is duplicated or malformed`);
     }
-    if (
-        typeof seam.memoryReference !== "string" ||
-        seam.memoryReference.length === 0 ||
-        typeof seam.contractTest !== "string" ||
-        seam.contractTest.length === 0
-    ) {
+    if (!isNonEmptyString(seam.memoryReference) || !isNonEmptyString(seam.contractTest)) {
         throw new TypeError(`Seam ${seam.id} lacks a memory reference or shared contract`);
     }
     if (!seam.implementations.includes(seam.memoryReference)) {

@@ -7,7 +7,7 @@ export {
     AuditRecordCodec,
     auditEvidenceIdentity,
     validateAuditAppend,
-    validateStoredAuditShape
+    validateStoredAuditLinkage
 } from "./audit";
 export type {
     ApprovalAuditEvidence,

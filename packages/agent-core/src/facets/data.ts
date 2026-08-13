@@ -2,8 +2,12 @@ import {
     RecordCodec,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    isJsonObject,
     isJsonValue,
+    requireNonempty,
+    type JsonSchemaDocument,
     type JsonValue,
+    type Nonempty,
     type RecordVersion
 } from "../core";
 
@@ -15,7 +19,7 @@ export function isFacetData(value: unknown): value is FacetData {
 }
 
 export function isFacetDataMap(value: unknown): value is FacetDataMap {
-    return isFacetData(value) && isDataObject(value);
+    return isFacetData(value) && isJsonObject(value);
 }
 
 export function canonicalFacetData(value: FacetData): FacetData {
@@ -23,7 +27,7 @@ export function canonicalFacetData(value: FacetData): FacetData {
 }
 
 export function canonicalFacetDataMap(value: FacetDataMap): FacetDataMap {
-    return canonicalFacetData(value) as FacetDataMap;
+    return requireDataObject(canonicalFacetData(value), "Canonical data map");
 }
 
 export class DataRecordCodec<Record> extends RecordCodec<Record> {
@@ -48,10 +52,43 @@ export class DataRecordCodec<Record> extends RecordCodec<Record> {
 }
 
 export function requireDataObject(value: FacetData | undefined, subject: string): FacetDataMap {
-    if (!isDataObject(value)) {
+    if (!isJsonObject(value)) {
         throw new TypeError(`${subject} must be an object`);
     }
     return value;
+}
+
+/**
+ * A declaration's schema field, which JSON Schema states either as a document or as the
+ * boolean that admits or rejects everything.
+ */
+export function requireSchemaDocument(
+    value: FacetData | undefined,
+    subject: string
+): JsonSchemaDocument {
+    if (value === true || value === false) {
+        return value;
+    }
+    if (!isJsonObject(value)) {
+        throw new TypeError(`${subject} must be an object or boolean`);
+    }
+    return value;
+}
+
+/**
+ * Builds a data record from named fields, dropping every field whose value is absent. An
+ * optional field has to be missing rather than null: `requireExactFields` admits only the
+ * fields a declaration names, and canonical JSON distinguishes an omitted key from an
+ * explicit null, so encoding an absent field as null would change the record's identity.
+ */
+export function dataRecord(fields: {
+    readonly [name: string]: FacetData | undefined;
+}): FacetDataMap {
+    return Object.fromEntries(
+        Object.entries(fields).filter(
+            (entry): entry is [string, FacetData] => entry[1] !== undefined
+        )
+    );
 }
 
 export function requireExactFields(
@@ -68,8 +105,12 @@ export function requireExactFields(
     }
 }
 
+export function isString(value: FacetData | undefined): value is string {
+    return typeof value === "string";
+}
+
 export function requireString(value: FacetData | undefined, subject: string): string {
-    if (typeof value !== "string") {
+    if (!isString(value)) {
         throw new TypeError(`${subject} must be a string`);
     }
     return value;
@@ -83,7 +124,7 @@ export function requireOptionalString(
 }
 
 export function requireBoolean(value: FacetData | undefined, subject: string): boolean {
-    if (typeof value !== "boolean") {
+    if (value !== true && value !== false) {
         throw new TypeError(`${subject} must be a boolean`);
     }
     return value;
@@ -103,6 +144,40 @@ export function requireArray(value: FacetData | undefined, subject: string): rea
     return value;
 }
 
+/**
+ * Reads the array of numbers that carries binary content through canonical JSON. The
+ * caller supplies the whole message because the profile owning the field names it, not
+ * this parser.
+ */
+export function requireBytes(value: FacetData | undefined, message: string): Uint8Array {
+    if (!Array.isArray(value)) throw new TypeError(message);
+    const bytes = new Uint8Array(value.length);
+    for (const [index, entry] of value.entries()) {
+        if (!isNumber(entry)) throw new TypeError(message);
+        bytes[index] = entry;
+    }
+    return bytes;
+}
+
+/**
+ * Restates a chosen set of vocabulary values in the vocabulary's own canonical order, so
+ * that two declarations naming the same values encode identically. Unknown, repeated, and
+ * empty selections are rejected here rather than reaching a comparison downstream.
+ */
+export function canonicalOrder<Value extends string>(
+    values: readonly Value[],
+    order: readonly Value[],
+    subject: string
+): Nonempty<Value> {
+    if (values.length === 0 || values.some((value) => !order.includes(value))) {
+        throw new TypeError(`${subject} must contain known values`);
+    }
+    if (new Set(values).size !== values.length) {
+        throw new TypeError(`${subject} must be unique`);
+    }
+    return requireNonempty(Object.freeze(order.filter((value) => values.includes(value))), subject);
+}
+
 export function compareText(left: string, right: string): number {
     return left < right ? -1 : left > right ? 1 : 0;
 }
@@ -113,18 +188,13 @@ export function requireNonblank(value: string, subject: string): void {
     }
 }
 
-function freezeFacetData(value: FacetData): FacetData {
-    if (Array.isArray(value)) {
-        for (const entry of value) {
-            freezeFacetData(entry);
-        }
-        return Object.freeze(value);
-    }
-    if (isDataObject(value)) {
+/** Freezes a data value and everything beneath it in place, keeping the caller's type. */
+export function freezeFacetData<Value extends FacetData>(value: Value): Value {
+    if (Array.isArray(value) || isJsonObject(value)) {
         for (const entry of Object.values(value)) {
             freezeFacetData(entry);
         }
-        return Object.freeze(value);
+        Object.freeze(value);
     }
     return value;
 }
@@ -132,10 +202,10 @@ function freezeFacetData(value: FacetData): FacetData {
 // Number.isSafeInteger is already the complete check — it is false for every non-number —
 // but it carries no type predicate, so a paired `typeof` test would be a guard no test
 // could ever reach. This gives the check the narrowing it lacks instead.
-function isSafeInteger(value: unknown): value is number {
+function isSafeInteger(value: FacetData | undefined): value is number {
     return Number.isSafeInteger(value);
 }
 
-function isDataObject(value: FacetData | undefined): value is FacetDataMap {
-    return value !== null && !Array.isArray(value) && typeof value === "object";
+export function isNumber(value: FacetData | undefined): value is number {
+    return typeof value === "number";
 }

@@ -3,11 +3,22 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 import {
+    assertObject,
+    assertString,
     assertUniqueIds,
     parseCanonicalJson,
     readCanonicalJson,
     readJson
 } from "../../scripts/quality/project.mjs";
+import type { JsonValue } from "../../scripts/quality/project.mjs";
+import { objectsAt } from "./artifacts";
+
+/** The rule ids a document carries, read the way a checker reads them. */
+function ruleIds(document: JsonValue): readonly string[] {
+    return objectsAt(assertObject(document, "rules document"), "rules").map((rule) =>
+        assertString(rule["id"], "rule id")
+    );
+}
 
 // The ACQ-OUTCOME incident: a merge that kept both sides of a conflicted hunk
 // produced two top-level "edition" keys and two top-level "rules" arrays in
@@ -62,8 +73,7 @@ describe("strict canonical JSON parsing", () => {
         const conflicted = conflictedRulesDocument();
         // Confirms the fixture really does reproduce the incident against the
         // native parser first: JSON.parse resolves it and silently drops ACQ-OUTCOME.
-        const lastWins = JSON.parse(conflicted) as { rules: Array<{ id: string }> };
-        expect(lastWins.rules.map((rule) => rule.id)).toEqual(["ACQ-OTHER"]);
+        expect(ruleIds(JSON.parse(conflicted))).toEqual(["ACQ-OTHER"]);
 
         expect(() => parseCanonicalJson(conflicted, "artifacts/quality/rules.json")).toThrow(
             /Duplicate key "edition" .* in artifacts\/quality\/rules\.json/
@@ -72,8 +82,7 @@ describe("strict canonical JSON parsing", () => {
 
     test("names the rules key itself when only the rules array is duplicated", () => {
         const conflicted = conflictedRulesArrayOnlyDocument();
-        const lastWins = JSON.parse(conflicted) as { rules: Array<{ id: string }> };
-        expect(lastWins.rules.map((rule) => rule.id)).toEqual(["ACQ-OTHER"]);
+        expect(ruleIds(JSON.parse(conflicted))).toEqual(["ACQ-OTHER"]);
 
         expect(() => parseCanonicalJson(conflicted, "artifacts/quality/rules.json")).toThrow(
             /Duplicate key "rules" .* in artifacts\/quality\/rules\.json/
@@ -82,10 +91,8 @@ describe("strict canonical JSON parsing", () => {
 
     test("passes once the duplicate is resolved, keeping every rule", () => {
         const resolved = resolvedRulesDocument();
-        const value = parseCanonicalJson(resolved, "artifacts/quality/rules.json") as {
-            rules: Array<{ id: string }>;
-        };
-        expect(value.rules.map((rule) => rule.id)).toEqual(["ACQ-OUTCOME", "ACQ-OTHER"]);
+        const value = parseCanonicalJson(resolved, "artifacts/quality/rules.json");
+        expect(ruleIds(value)).toEqual(["ACQ-OUTCOME", "ACQ-OTHER"]);
     });
 
     test("names the file for a duplicated top-level key", () => {
@@ -129,8 +136,7 @@ describe("readCanonicalJson and readJson refuse duplicate keys on disk", () => {
             );
 
             await writeFile(path, resolvedRulesDocument(), "utf8");
-            const value = (await readCanonicalJson(path)) as { rules: Array<{ id: string }> };
-            expect(value.rules.map((rule) => rule.id)).toEqual(["ACQ-OUTCOME", "ACQ-OTHER"]);
+            expect(ruleIds(await readCanonicalJson(path))).toEqual(["ACQ-OUTCOME", "ACQ-OTHER"]);
         } finally {
             await rm(root, { recursive: true, force: true });
         }

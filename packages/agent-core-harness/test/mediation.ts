@@ -13,6 +13,7 @@ import {
     JsonSchema,
     SemVer,
     encodeCanonicalJson,
+    isJsonObject,
     type JsonValue
 } from "@agent-core/core/core";
 import { PackageId, PackagePin, PolicySet } from "@agent-core/core/definition";
@@ -131,12 +132,9 @@ class RecallOperation extends Operation {
     }
 
     public async execute(context: OperationContext, input: FacetData): Promise<FacetData> {
-        const query =
-            input !== null && !Array.isArray(input) && typeof input === "object"
-                ? (input as { readonly [key: string]: FacetData })["query"]
-                : undefined;
+        const query = isFacetRecord(input) ? input["query"] : undefined;
         return {
-            answer: this.answers.get(typeof query === "string" ? query : "") ?? "unknown",
+            answer: this.answers.get(isFacetString(query) ? query : "") ?? "unknown",
             attempt: context.attempt?.id.value ?? null
         };
     }
@@ -310,17 +308,16 @@ export const demoAdmissionCodec: StructuralCodec<DemoAdmissionReference> = Objec
         itemIndex: value.itemIndex
     }),
     decode: (value: JsonValue): DemoAdmissionReference => {
-        if (value === null || Array.isArray(value) || typeof value !== "object") {
+        if (!isJsonObject(value)) {
             throw new TypeError("Admission reference must be an object");
         }
-        const object = value as { readonly [key: string]: JsonValue };
-        const invocation = object["invocation"];
-        const itemIndex = object["itemIndex"];
-        const attemptOrdinal = object["attemptOrdinal"];
+        const invocation = value["invocation"];
+        const itemIndex = value["itemIndex"];
+        const attemptOrdinal = value["attemptOrdinal"];
         if (
-            typeof invocation !== "string" ||
-            typeof itemIndex !== "number" ||
-            typeof attemptOrdinal !== "number"
+            !isJsonString(invocation) ||
+            !isJsonNumber(itemIndex) ||
+            !isJsonNumber(attemptOrdinal)
         ) {
             throw new TypeError("Admission reference fields are malformed");
         }
@@ -494,4 +491,23 @@ export async function mediationHarness(
         now: () => new Date(2_000)
     });
     return { pipeline, transactions, persistence, evidence, authority, permits, observations };
+}
+
+/** A JSON string is exactly the value that is its own string rendering. */
+function isJsonString(value: JsonValue | undefined): value is string {
+    return value === String(value);
+}
+
+/** JSON carries no NaN or infinity, so a finite value is exactly a JSON number. */
+function isJsonNumber(value: JsonValue | undefined): value is number {
+    return Number.isFinite(value);
+}
+
+function isFacetString(value: FacetData | undefined): value is string {
+    return value === String(value);
+}
+
+/** A facet record is a non-primitive that is neither null nor a list of values. */
+function isFacetRecord(value: FacetData): value is { readonly [key: string]: FacetData } {
+    return value !== null && !Array.isArray(value) && value === Object(value);
 }

@@ -43,6 +43,18 @@ export interface TenantAuthorityReadStore {
     epoch(scope: ScopeRef): ScopeEpoch;
 }
 
+/**
+ * What one authority check decided and the Grants that decided it: the reason the
+ * evidence will carry, the allow Grants that reached the request, and the deny Grants
+ * that stopped it. Every path out of the check produces one of these, so a refusal
+ * names the Grants behind it exactly as an admission does.
+ */
+interface AuthorityEvaluation {
+    readonly reason: AuthorityDecisionReason;
+    readonly allow: readonly Grant[];
+    readonly deny: readonly Grant[];
+}
+
 export class TenantAuthorityRuntime {
     public constructor(
         private readonly store: TenantAuthorityReadStore,
@@ -96,10 +108,10 @@ export class TenantAuthorityRuntime {
                 ? binding
                 : undefined;
         const stale = !request.expectedPath.equals(currentPath);
-        const result = stale
-            ? { reason: "stalePath" as const, allow: [] as Grant[], deny: [] as Grant[] }
+        const result: AuthorityEvaluation = stale
+            ? { reason: "stalePath", allow: [], deny: [] }
             : canonicalBinding === undefined
-              ? { reason: "invalidBinding" as const, allow: [] as Grant[], deny: [] as Grant[] }
+              ? { reason: "invalidBinding", allow: [], deny: [] }
               : this.evaluate(request, canonicalBinding, workspace.scope.path, now);
         return new AuthorityCheckEvidence(
             this.store.tenantId,
@@ -121,11 +133,7 @@ export class TenantAuthorityRuntime {
         binding: Binding,
         exactPath: readonly ScopeRef[],
         now: Date
-    ): {
-        readonly reason: AuthorityDecisionReason;
-        readonly allow: readonly Grant[];
-        readonly deny: readonly Grant[];
-    } {
+    ): AuthorityEvaluation {
         if (!binding.resolves || !binding.scope.equals(exactPath[exactPath.length - 1]!)) {
             return { reason: "invalidBinding", allow: [], deny: [] };
         }
@@ -221,6 +229,10 @@ export class TenantAuthorityRuntime {
 
     private currentPath(workspace: Workspace): PathEpochEvidence {
         const epochs = workspace.scope.path.map((scope) => this.store.epoch(scope));
+        // SAFETY: nonemptiness is established by the constructor below, whose
+        // validatePath rejects any path outside one to three Scopes before the value is
+        // kept. Asserting the tuple here only reaches that check; narrowing first would
+        // replace its message, which names the permitted Scope chain.
         return new PathEpochEvidence(epochs as [ScopeEpoch, ...ScopeEpoch[]]);
     }
 

@@ -229,8 +229,7 @@ function requireTiers(value: JsonValue | undefined): EnforcementTierOverrides {
     const object = requireObject(value, "Policy tiers");
     const tiers: Partial<Record<Impact, EnforcementTier>> = {};
     for (const [impact, tier] of Object.entries(object)) {
-        requireImpact(impact, "Policy tier impact");
-        tiers[impact as Impact] = requireTier(tier);
+        tiers[requireImpact(impact, "Policy tier impact")] = requireTier(tier);
     }
     return tiers;
 }

@@ -1667,7 +1667,7 @@ describe("W6 invocation publication outbox", () => {
                         mutableObject(payload["state"])["commitAppendedAt"] = 42;
                     })
                 )
-            ).toThrow(/must be strings or null/);
+            ).toThrow(/commitAppendedAt must be a string/);
             expect(() =>
                 InvocationPublicationOutbox.decode(
                     mutateRecord(bytes, (payload) => {

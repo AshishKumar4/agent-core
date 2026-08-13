@@ -2,6 +2,7 @@ import { JsonSchema } from "../core";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
+    dataRecord,
     canonicalFacetData,
     compareText,
     requireArray,
@@ -10,6 +11,7 @@ import {
     requireExactFields,
     requireNonblank,
     requireOptionalString,
+    requireSchemaDocument,
     requireString
 } from "./data";
 import { OperationName, SlotName, SurfaceId } from "./id";
@@ -111,14 +113,14 @@ export class OperationDescriptor {
     }
 
     public toData(): FacetData {
-        return {
+        return dataRecord({
             impact: this.impact,
             input: this.input.document,
             interceptable: this.interceptable,
             name: this.name.value,
             output: this.output.document,
-            ...(this.help === undefined ? {} : { help: this.help })
-        };
+            help: this.help
+        });
     }
 }
 
@@ -163,11 +165,11 @@ export class SurfaceDescriptor {
     }
 
     public toData(): FacetData {
-        return {
+        return dataRecord({
             id: this.id.value,
             title: this.title,
-            ...(this.help === undefined ? {} : { help: this.help })
-        };
+            help: this.help
+        });
     }
 }
 
@@ -295,24 +297,6 @@ function requireImpact(value: FacetData | undefined): Impact {
         return value;
     }
     throw new TypeError("Operation impact is invalid");
-}
-
-function requireSchemaDocument(
-    value: FacetData | undefined,
-    subject: string
-): boolean | { readonly [key: string]: FacetData } {
-    if (typeof value === "boolean") {
-        return value;
-    }
-    if (
-        value === undefined ||
-        value === null ||
-        Array.isArray(value) ||
-        typeof value !== "object"
-    ) {
-        throw new TypeError(`${subject} must be an object or boolean`);
-    }
-    return value as { readonly [key: string]: FacetData };
 }
 
 const emptyContributions = new Contributions([]);

@@ -3,9 +3,11 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import {
     artifactRoot,
+    assertBoolean,
     assertExactKeys,
     assertString,
     collectFiles,
+    isNonEmptyString,
     readCanonicalJson,
     reportRoot,
     repositoryRoot,
@@ -93,8 +95,8 @@ for (const path of files) {
     }
     if (
         document.edition === "1.0.0" &&
-        typeof document.request === "string" &&
-        typeof document.status === "string"
+        isNonEmptyString(document.request) &&
+        isNonEmptyString(document.status)
     ) {
         if (directoryOwner !== document.request.slice(0, 2)) {
             throw new TypeError(
@@ -136,13 +138,12 @@ for (const path of files) {
         assertExactKeys(entry, fields, `${document.kind} request`);
         for (const field of fields) {
             if (field === "typeOnly") {
-                if (typeof entry[field] !== "boolean")
-                    throw new TypeError("typeOnly must be boolean");
+                assertBoolean(entry[field], "typeOnly");
             } else if (field === "tests") {
                 if (
                     !Array.isArray(entry[field]) ||
                     entry[field].length === 0 ||
-                    entry[field].some((test) => typeof test !== "string" || test.length === 0) ||
+                    !entry[field].every(isNonEmptyString) ||
                     new Set(entry[field]).size !== entry[field].length
                 )
                     throw new TypeError("Error/export requests require tests");
@@ -230,10 +231,10 @@ function validateIntegrationDocument(document, directoryOwner, source) {
     }
     for (const request of document.requests) {
         if (
-            typeof request?.id !== "string" ||
+            !isNonEmptyString(request?.id) ||
             !request.id.startsWith(`${directoryOwner}-`) ||
-            typeof request.owner !== "string" ||
-            typeof request.kind !== "string" ||
+            !isNonEmptyString(request.owner) ||
+            !isNonEmptyString(request.kind) ||
             !["requested", "integration-dependent"].includes(request.state)
         ) {
             throw new TypeError(`Integration request entry is malformed: ${source}`);
@@ -248,7 +249,7 @@ function validateConsentDocument(document, directoryOwner, source) {
         document.gates.length === 0 ||
         document.gates.some(
             (gate) =>
-                typeof gate?.id !== "string" ||
+                !isNonEmptyString(gate?.id) ||
                 !gate.id.startsWith(`${directoryOwner}-`) ||
                 gate.status !== "consent-gated" ||
                 gate.localSubstitute !== false

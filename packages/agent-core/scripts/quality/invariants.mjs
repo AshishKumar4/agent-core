@@ -27,11 +27,9 @@ for (const rule of rules.rules) {
     }
     passed.push(rule.id);
 }
-await writeCanonicalJson(resolve(reportRoot, "invariants.json"), {
-    edition: "1.0.0",
-    passed: [...new Set(passed)].sort(),
-    ...(hermetic ? { deferredToGovernance: [...new Set(deferred)].sort() } : {})
-});
+const invariants = { edition: "1.0.0", passed: [...new Set(passed)].sort() };
+if (hermetic) invariants.deferredToGovernance = [...new Set(deferred)].sort();
+await writeCanonicalJson(resolve(reportRoot, "invariants.json"), invariants);
 console.log(
     `executed checker invariants verified: ${passed.length}` +
         (deferred.length > 0 ? ` (${deferred.length} deferred to governance)` : "")

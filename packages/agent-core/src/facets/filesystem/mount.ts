@@ -54,14 +54,16 @@ export class MountFilesystemBackend extends FilesystemBackend {
         const translatedCursor =
             cursor === undefined ? undefined : this.resolveForMount(cursor, resolved.mount).path;
         const page = resolved.mount.backend.list(resolved.path, translatedCursor, limit);
-        return Object.freeze({
+        const external = {
             entries: Object.freeze(
                 page.entries.map((entry) => this.externalStat(resolved.mount, entry))
-            ),
-            ...(page.cursor === undefined
-                ? {}
-                : { cursor: this.externalPath(resolved.mount, page.cursor) })
-        });
+            )
+        };
+        return Object.freeze(
+            page.cursor === undefined
+                ? external
+                : { ...external, cursor: this.externalPath(resolved.mount, page.cursor) }
+        );
     }
 
     public write(path: string, content: Uint8Array, mode?: FilesystemWriteMode): void {

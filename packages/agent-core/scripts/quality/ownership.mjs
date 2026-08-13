@@ -3,6 +3,11 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import {
     artifactRoot,
+    assertArray,
+    assertExactKeys,
+    assertObject,
+    assertOneOf,
+    assertString,
     globMatches,
     parseCanonicalJson,
     readCanonicalJson,
@@ -220,36 +225,57 @@ export function candidateManifestSha256(entries) {
     return sha256(JSON.stringify(entries));
 }
 
-export function validateClosureManifest(transition, patterns) {
-    const manifest = transition.closureManifest;
+const MANIFEST_ENTRY_FIELDS = ["path", "owner", "sourceBlob", "candidateBlob", "disposition"];
+const MANIFEST_DISPOSITIONS = ["added", "modified", "deleted"];
+
+/**
+ * The candidate, closure, and remediation manifests are the same record read at three
+ * points of one transition, and each used to re-state its own field checks inline. A
+ * path binding is decoded here once, so no one manifest can be admitted on a weaker
+ * reading of the record than the others enforce.
+ */
+function manifestEntries(paths, owner) {
+    return assertArray(paths, `${owner} paths`).map((entry) => {
+        assertExactKeys(entry, MANIFEST_ENTRY_FIELDS, `${owner} path binding`);
+        for (const field of ["path", "owner", "sourceBlob", "candidateBlob"]) {
+            assertString(entry[field], `${owner} path binding ${field}`);
+        }
+        assertOneOf(entry.disposition, MANIFEST_DISPOSITIONS, `${owner} path binding disposition`);
+        return entry;
+    });
+}
+
+/** Exactly the named diff's paths, sorted, with no path shadowing another. */
+function assertExactSortedPaths(entries, expected, owner, diff) {
+    const paths = entries.map((entry) => entry.path);
     if (
-        manifest === null ||
-        typeof manifest !== "object" ||
-        !Array.isArray(manifest.paths) ||
+        new Set(paths).size !== paths.length ||
+        JSON.stringify(paths) !== JSON.stringify([...paths].sort())
+    ) {
+        throw new TypeError(`${owner} paths are not exact and sorted`);
+    }
+    if (JSON.stringify(paths) !== JSON.stringify([...expected].sort())) {
+        throw new TypeError(`${owner} paths differ from the ${diff}`);
+    }
+    return paths;
+}
+
+export function validateClosureManifest(transition, patterns) {
+    const owner = `${transition.id} closure`;
+    const manifest = assertObject(transition.closureManifest, `${owner} manifest`);
+    const entries = manifestEntries(manifest.paths, owner);
+    if (
         manifest.base !== transition.completion?.commit ||
-        candidateManifestSha256(manifest.paths) !== manifest.sha256
+        candidateManifestSha256(entries) !== manifest.sha256
     ) {
         throw new TypeError(`${transition.id} closure manifest is stale`);
     }
-    const manifestPaths = manifest.paths.map((entry) => entry?.path);
-    if (
-        manifest.paths.some(
-            (entry) =>
-                entry === null ||
-                typeof entry !== "object" ||
-                typeof entry.path !== "string" ||
-                typeof entry.owner !== "string" ||
-                typeof entry.sourceBlob !== "string" ||
-                typeof entry.candidateBlob !== "string" ||
-                !["added", "modified", "deleted"].includes(entry.disposition)
-        ) ||
-        new Set(manifestPaths).size !== manifestPaths.length ||
-        JSON.stringify(manifestPaths) !== JSON.stringify([...manifestPaths].sort()) ||
-        JSON.stringify(manifestPaths) !==
-            JSON.stringify(changedPathsBetween(manifest.base, manifest.commit))
-    ) {
-        throw new TypeError(`${transition.id} closure paths differ from the candidate diff`);
-    }
+    assertExactSortedPaths(
+        entries,
+        changedPathsBetween(manifest.base, manifest.commit),
+        owner,
+        "candidate diff"
+    );
     const participants = new Set(transition.inputs.map((input) => input.owner));
     const tree = spawnSync("git", ["show", "-s", "--format=%T", manifest.commit], {
         cwd: repositoryRoot,
@@ -260,7 +286,7 @@ export function validateClosureManifest(transition, patterns) {
     }
     const sourceBlobs = blobsAtCommit(manifest.base);
     const closureBlobs = blobsAtCommit(manifest.commit);
-    for (const entry of manifest.paths) {
+    for (const entry of entries) {
         validateCandidateDisposition(transition.id, entry);
         if (entry.sourceBlob !== (sourceBlobs.get(entry.path) ?? "absent")) {
             throw new TypeError(`${transition.id} closure source blob is stale: ${entry.path}`);
@@ -275,46 +301,32 @@ export function validateClosureManifest(transition, patterns) {
             );
         }
     }
-    return manifest.paths;
+    return entries;
 }
 
 export function validateRemediationManifest(transition, patterns) {
-    const manifest = transition.remediationManifest;
+    const owner = `${transition.id} remediation`;
+    const manifest = assertObject(transition.remediationManifest, `${owner} manifest`);
+    const entries = manifestEntries(manifest.paths, owner);
     const expected = {
         base: "5c288fa5dacf536c3ed3e57d6dadf4ace7d99fd2",
         commit: "3c4f4db6be759a14933addd7819cde4a67f05d71",
         sha256: "5451010d7fc1ddda9541383eed6d904a4b00bfd481b85966d0f7dbc95d074a85"
     };
     if (
-        manifest === null ||
-        typeof manifest !== "object" ||
-        !Array.isArray(manifest.paths) ||
-        candidateManifestSha256(manifest.paths) !== manifest.sha256 ||
+        candidateManifestSha256(entries) !== manifest.sha256 ||
         manifest.base !== expected.base ||
         manifest.commit !== expected.commit ||
         manifest.sha256 !== expected.sha256
     ) {
         throw new TypeError(`${transition.id} remediation manifest is stale`);
     }
-    const manifestPaths = manifest.paths.map((entry) => entry?.path);
-    if (
-        manifest.paths.some(
-            (entry) =>
-                entry === null ||
-                typeof entry !== "object" ||
-                typeof entry.path !== "string" ||
-                typeof entry.owner !== "string" ||
-                typeof entry.sourceBlob !== "string" ||
-                typeof entry.candidateBlob !== "string" ||
-                !["added", "modified", "deleted"].includes(entry.disposition)
-        ) ||
-        new Set(manifestPaths).size !== manifestPaths.length ||
-        JSON.stringify(manifestPaths) !== JSON.stringify([...manifestPaths].sort()) ||
-        JSON.stringify(manifestPaths) !==
-            JSON.stringify(changedPathsBetween(manifest.base, manifest.commit))
-    ) {
-        throw new TypeError(`${transition.id} remediation paths differ from the exact diff`);
-    }
+    assertExactSortedPaths(
+        entries,
+        changedPathsBetween(manifest.base, manifest.commit),
+        owner,
+        "exact diff"
+    );
     const tree = spawnSync("git", ["show", "-s", "--format=%T", manifest.commit], {
         cwd: repositoryRoot,
         encoding: "utf8"
@@ -331,7 +343,7 @@ export function validateRemediationManifest(transition, patterns) {
     const participants = new Set(transition.inputs.map((input) => input.owner));
     const sourceBlobs = blobsAtCommit(manifest.base);
     const candidateBlobs = blobsAtCommit(manifest.commit);
-    for (const entry of manifest.paths) {
+    for (const entry of entries) {
         validateCandidateDisposition(transition.id, entry);
         if (
             entry.sourceBlob !== (sourceBlobs.get(entry.path) ?? "absent") ||
@@ -346,7 +358,7 @@ export function validateRemediationManifest(transition, patterns) {
             );
         }
     }
-    return manifest.paths;
+    return entries;
 }
 
 export async function validateArchivedRequestDeletions(entries, patterns, bom, closureCommit) {
@@ -401,47 +413,23 @@ async function fileSha256AtCommit(commit, path) {
 }
 
 export function validateCandidateChangeManifest(transition, paths, patterns, base) {
-    const manifest = transition.changeManifest;
-    if (
-        manifest === null ||
-        typeof manifest !== "object" ||
-        !Array.isArray(manifest.paths) ||
-        typeof manifest.sha256 !== "string"
-    ) {
-        throw new TypeError(`${transition.id} lacks an exact candidate change manifest`);
-    }
+    const owner = `${transition.id} candidate`;
+    const manifest = assertObject(
+        transition.changeManifest,
+        `${transition.id} candidate change manifest`
+    );
+    assertString(manifest.sha256, `${owner} manifest digest`);
     if (manifest.base !== base) {
         throw new TypeError(`${transition.id} candidate base is stale`);
     }
-    const entries = manifest.paths.map((entry) => {
-        if (
-            entry === null ||
-            typeof entry !== "object" ||
-            typeof entry.path !== "string" ||
-            typeof entry.owner !== "string" ||
-            typeof entry.sourceBlob !== "string" ||
-            typeof entry.candidateBlob !== "string" ||
-            !["added", "modified", "deleted"].includes(entry.disposition)
-        ) {
-            throw new TypeError(`${transition.id} candidate path binding is malformed`);
-        }
-        return entry;
-    });
-    const manifestPaths = entries.map((entry) => entry.path);
-    const sortedPaths = [...manifestPaths].sort();
-    if (
-        entries.length === 0 ||
-        new Set(manifestPaths).size !== manifestPaths.length ||
-        JSON.stringify(manifestPaths) !== JSON.stringify(sortedPaths)
-    ) {
+    const entries = manifestEntries(manifest.paths, owner);
+    if (entries.length === 0) {
         throw new TypeError(`${transition.id} candidate paths are not exact and sorted`);
     }
     if (candidateManifestSha256(entries) !== manifest.sha256) {
         throw new TypeError(`${transition.id} candidate manifest digest is stale`);
     }
-    if (JSON.stringify(manifestPaths) !== JSON.stringify([...paths].sort())) {
-        throw new TypeError(`${transition.id} candidate paths differ from the base diff`);
-    }
+    assertExactSortedPaths(entries, paths, owner, "base diff");
     const participants = new Set(transition.inputs.map((input) => input.owner));
     const sourceBlobs = blobsAtCommit(base);
     for (const entry of entries) {

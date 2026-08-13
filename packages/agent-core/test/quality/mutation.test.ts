@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative, resolve } from "node:path";
 import { describe, expect, test } from "vitest";
+import type { JsonValue } from "../../scripts/quality/project.mjs";
 import {
     auditEquivalenceAnchors,
     readEquivalenceRegister,
@@ -24,9 +25,14 @@ function portable(path: string): string {
     return relative(packageRoot, path).replaceAll("\\", "/");
 }
 
+interface SourcePosition {
+    readonly line: number;
+    readonly column: number;
+}
+
 function gateFixture(
     stage: "building" | "final",
-    areas: Record<string, unknown>,
+    areas: Readonly<Record<string, JsonValue>>,
     entries: readonly EquivalenceEntry[] = []
 ): string[] {
     const directory = mkdtempSync(join(tmpdir(), "mutation-gate-"));
@@ -203,7 +209,7 @@ function guardEntry(symbol: string, subject: string): EquivalenceEntry {
     };
 }
 
-function position(source: string, offset: number): { line: number; column: number } {
+function position(source: string, offset: number): SourcePosition {
     const consumed = source.slice(0, offset).split("\n");
     return { line: consumed.length, column: (consumed.at(-1) ?? "").length + 1 };
 }
@@ -516,7 +522,7 @@ describe("mutation equivalence register", () => {
     });
 
     test("refuses a position that names one site, an absent site, or a bare ordinal", () => {
-        const positioned = (over: Record<string, unknown>) => () =>
+        const positioned = (over: Readonly<Record<string, JsonValue>>) => () =>
             readEquivalenceRegister({
                 edition: "1.0.0",
                 entries: [{ ...guardEntry("encode", "encode"), occurrence: 1, sites: 2, ...over }]

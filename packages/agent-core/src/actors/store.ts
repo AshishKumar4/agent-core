@@ -312,7 +312,7 @@ export class MemoryActorStore<TTransaction extends object>
 }
 
 export function requireSynchronousResult<TResult>(result: TResult): TResult {
-    if (hasUnstableOrThenableShape(result)) {
+    if (isUnstableOrThenable(result)) {
         if (result instanceof Promise) {
             void result.catch(noop);
         }
@@ -321,7 +321,7 @@ export function requireSynchronousResult<TResult>(result: TResult): TResult {
     return result;
 }
 
-function hasUnstableOrThenableShape(value: unknown): value is PromiseLike<unknown> {
+function isUnstableOrThenable(value: unknown): value is PromiseLike<unknown> {
     if ((typeof value !== "object" || value === null) && typeof value !== "function") {
         return false;
     }

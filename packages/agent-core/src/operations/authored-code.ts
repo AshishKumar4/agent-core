@@ -7,16 +7,16 @@ import {
     CapabilitySpec,
     FacetPackageId,
     FacetRef,
-    isFacetDataMap,
     Operation,
     OperationDescriptor,
     requireAuthoredCodeConsumer,
+    requireDataObject,
+    requireString,
     schema,
     strictObjectSchema,
     type AuthoredCodeBackingId,
     type AuthoredCodeConsumer,
     type FacetData,
-    type FacetDataMap,
     type OperationContext,
     type OperationName
 } from "../facets";
@@ -419,37 +419,29 @@ export class AuthoredCodeOperation extends Operation {
 }
 
 export function decodeSubmission(input: FacetData): AuthoredCodeSubmission {
-    const object = requireObject(input, "Agent-authored code submission");
+    const object = requireDataObject(input, "Agent-authored code submission");
     requireAuthoredCodeConsumer(object["consumer"], "Agent-authored code consumer");
     const capabilities = object["capabilities"];
     if (!Array.isArray(capabilities)) {
         throw new TypeError("Agent-authored code capabilities must be an array");
     }
     return Object.freeze({
-        source: AuthoredCodeSource.fromData(requireObject(object["source"], "Submitted source")),
+        source: AuthoredCodeSource.fromData(
+            requireDataObject(object["source"], "Submitted source")
+        ),
         capabilities: new AuthoredCodeCapabilitySet(
             capabilities.map((entry) => {
-                const passed = requireObject(entry, "Passed capability");
+                const passed = requireDataObject(entry, "Passed capability");
                 const narrowing = passed["capability"];
                 return new AuthoredCodeCapability(
-                    new BindingName(requireText(passed["binding"], "Passed capability name")),
-                    new FacetRef(requireText(passed["facet"], "Passed capability Facet")),
+                    new BindingName(requireString(passed["binding"], "Passed capability name")),
+                    new FacetRef(requireString(passed["facet"], "Passed capability Facet")),
                     narrowing === undefined ? undefined : CapabilitySpec.fromData(narrowing)
                 );
             })
         ),
         input: canonicalFacetData(object["input"] ?? null)
     });
-}
-
-function requireObject(value: FacetData | undefined, subject: string): FacetDataMap {
-    if (!isFacetDataMap(value)) throw new TypeError(`${subject} must be an object`);
-    return value;
-}
-
-function requireText(value: FacetData | undefined, subject: string): string {
-    if (typeof value !== "string") throw new TypeError(`${subject} must be a string`);
-    return value;
 }
 
 async function resolveCode(

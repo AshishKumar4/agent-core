@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import type { JsonValue } from "@agent-core/core/core";
 import {
     TurnExecutorHost,
     TurnStreamPort,
@@ -177,11 +178,10 @@ describe("audit chain for one real conversation", () => {
             expect(receipt.result).toBeDefined();
 
             // The Receipt's result content is the tool output the model actually saw.
-            const stored = JSON.parse(
+            const stored: JsonValue = JSON.parse(
                 new TextDecoder().decode(await fixture.content.get(receipt.result!))
-            ) as { readonly answer: string; readonly attempt: string };
-            expect(stored.answer).toBe("level 3");
-            expect(stored.attempt).toBe(attempt.id.value);
+            );
+            expect(stored).toEqual({ answer: "level 3", attempt: attempt.id.value });
 
             // --- The chain ---------------------------------------------------------
             const audits = new Map(

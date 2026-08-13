@@ -43,8 +43,16 @@ export function requireExactFields<Field extends string>(
     }
 }
 
+export function isString(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
+}
+
+export function isNumber(value: JsonValue | undefined): value is number {
+    return typeof value === "number";
+}
+
 export function requireString(value: JsonValue | undefined, subject: string): string {
-    if (typeof value !== "string" || value.length === 0) {
+    if (!isString(value) || value.length === 0) {
         throw new TypeError(`${subject} must be a non-empty string`);
     }
     return value;
@@ -58,7 +66,7 @@ export function requireOptionalString(
 }
 
 export function requireInteger(value: JsonValue | undefined, subject: string): number {
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    if (!isNumber(value) || !Number.isSafeInteger(value) || value < 0) {
         throw new TypeError(`${subject} must be a non-negative safe integer`);
     }
     return value;

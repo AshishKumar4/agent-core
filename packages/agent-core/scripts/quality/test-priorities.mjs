@@ -5,6 +5,8 @@ import { pathToFileURL } from "node:url";
 import ts from "typescript";
 import {
     collectFiles,
+    isJsonObject,
+    isNonEmptyString,
     packageRoot,
     parseCanonicalJson,
     portable,
@@ -161,7 +163,7 @@ function reportAssertions(report, selectedPriority) {
     let passed = 0;
     let pending = 0;
     for (const result of report.testResults) {
-        if (typeof result?.name !== "string" || !Array.isArray(result.assertionResults)) {
+        if (!isNonEmptyString(result?.name) || !Array.isArray(result.assertionResults)) {
             throw new TypeError("Priority evidence report has malformed test results");
         }
         const path = reportPath(result.name);
@@ -169,8 +171,7 @@ function reportAssertions(report, selectedPriority) {
             total += 1;
             if (
                 (assertion?.status !== "passed" && assertion?.status !== "skipped") ||
-                typeof assertion.fullName !== "string" ||
-                assertion.fullName.length === 0 ||
+                !isNonEmptyString(assertion.fullName) ||
                 !Array.isArray(assertion.tags) ||
                 assertion.tags.some((tag) => !priorities.includes(tag)) ||
                 new Set(assertion.tags).size !== assertion.tags.length
@@ -217,7 +218,7 @@ function reportPath(path) {
 }
 
 function requireExactLaneKeys(lanes) {
-    if (lanes === null || typeof lanes !== "object" || Array.isArray(lanes)) {
+    if (!isJsonObject(lanes)) {
         throw new TypeError("Priority lanes must be an object");
     }
     const actual = Object.keys(lanes).sort();

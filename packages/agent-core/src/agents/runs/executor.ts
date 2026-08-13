@@ -440,13 +440,14 @@ class LeaseScopedTurn<Transaction> {
                 // request the holder must settle itself (§5.6); only a displaced or
                 // fenced lease makes the cancellation the Turn's recorded outcome.
                 if (holdsCurrentLease(turn, this.token)) return undefined;
-                return Object.freeze({
-                    kind: "cancelled",
-                    ...(resultCommit?.content === undefined
-                        ? {}
-                        : { result: resultCommit.content }),
-                    ...(resultCommit === undefined ? {} : { commit: resultCommit.id })
-                });
+                let cancelled: TurnOutcome = { kind: "cancelled" };
+                if (resultCommit?.content !== undefined) {
+                    cancelled = { ...cancelled, result: resultCommit.content };
+                }
+                if (resultCommit !== undefined) {
+                    cancelled = { ...cancelled, commit: resultCommit.id };
+                }
+                return Object.freeze(cancelled);
             }
             return undefined;
         });
@@ -760,14 +761,17 @@ function totalTokens(usage: TurnModelUsage): number {
 }
 
 function freezeUsage(usage: TurnModelUsage): TurnModelUsage {
-    return Object.freeze({
+    let frozen: TurnModelUsage = {
         inputTokens: usage.inputTokens,
-        outputTokens: usage.outputTokens,
-        ...(usage.cacheReadTokens === undefined ? {} : { cacheReadTokens: usage.cacheReadTokens }),
-        ...(usage.cacheWriteTokens === undefined
-            ? {}
-            : { cacheWriteTokens: usage.cacheWriteTokens })
-    });
+        outputTokens: usage.outputTokens
+    };
+    if (usage.cacheReadTokens !== undefined) {
+        frozen = { ...frozen, cacheReadTokens: usage.cacheReadTokens };
+    }
+    if (usage.cacheWriteTokens !== undefined) {
+        frozen = { ...frozen, cacheWriteTokens: usage.cacheWriteTokens };
+    }
+    return Object.freeze(frozen);
 }
 
 function findCancellation(

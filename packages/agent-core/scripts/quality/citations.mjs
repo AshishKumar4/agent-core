@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
+import { isNonEmptyString } from "./project.mjs";
 
 export async function citedText(citation, owner, root) {
     const match = /^(.*):(\d+)(?:-(\d+))?$/.exec(citation);
@@ -19,7 +20,7 @@ export async function requireCitedText(citations, expected, owner, root) {
     const text = (
         await Promise.all(citations.map((citation) => citedText(citation, owner, root)))
     ).join("\n");
-    if (typeof expected !== "string" || !text.includes(expected)) {
+    if (!isNonEmptyString(expected) || !text.includes(expected)) {
         throw new TypeError(`${owner} instruction citations do not contain ${expected}`);
     }
 }

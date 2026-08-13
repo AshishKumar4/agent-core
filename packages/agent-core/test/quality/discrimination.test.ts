@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
+import { objectAt, readArtifact, stringsAt } from "./artifacts";
 import { sourceSymbolLines } from "../../scripts/quality/evidence.mjs";
 import { runQualitySubprocess, subprocessTestOptions } from "./subprocess";
 
@@ -237,15 +238,17 @@ describe("discrimination gate", subprocessTestOptions, () => {
         const undiscriminated = await fixtureRoot([verifiedAtom()], []);
         const failing = runChecker(undiscriminated);
         expect(failing.status).toBe(1);
-        const fingerprint = /DISC-STALE:\S+/u.exec(failing.stderr)?.[0];
-        expect(fingerprint).toBeDefined();
+        const reported = /DISC-STALE:\S+/u.exec(failing.stderr);
+        if (reported === null) {
+            throw new TypeError("Discrimination checker did not report a stale fingerprint");
+        }
 
         const baselineIssue = {
             rule: "DISC-ATOM",
             file: "wave.json",
             symbol: "C13-FIXTURE-DISCRIMINATION",
             message: "baselined",
-            fingerprint: fingerprint as string
+            fingerprint: reported[0]
         };
         const baselined = await fixtureRoot([verifiedAtom()], [], [baselineIssue]);
         const passing = runChecker(baselined);
@@ -291,12 +294,10 @@ describe("discrimination gate", subprocessTestOptions, () => {
 
         expect(result.stderr).toBe("");
         expect(result.status).toBe(0);
-        const report = JSON.parse(
-            await readFile(resolve(packageRoot, "reports/quality/discrimination.json"), "utf8")
-        ) as { atoms: { live: string[]; infrastructure: string[]; mutation: number } };
-        expect(report.atoms.live).toEqual(["C13-FIXTURE-LIVE"]);
-        expect(report.atoms.infrastructure).toEqual(["C13-FIXTURE-INFRASTRUCTURE"]);
-        expect(report.atoms.mutation).toBe(0);
+        const atoms = objectAt(await readArtifact("reports/quality/discrimination.json"), "atoms");
+        expect(stringsAt(atoms, "live")).toEqual(["C13-FIXTURE-LIVE"]);
+        expect(stringsAt(atoms, "infrastructure")).toEqual(["C13-FIXTURE-INFRASTRUCTURE"]);
+        expect(atoms["mutation"]).toBe(0);
     });
 
     test("flags evidence that lives only in lanes mutation never executes", async () => {
