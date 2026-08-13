@@ -24,7 +24,8 @@ import {
     MaterializationGenerationPointer,
     MaterializationPlan,
     PolicySet,
-    policyProjection
+    policyProjection,
+    type PolicySetInit
 } from "../../src/definition";
 import {
     LocalMaterializationStore,
@@ -801,13 +802,11 @@ function actorPlan(
 }
 
 function projection(logicalKey: string, desired: { readonly value: number }): DesiredProjection {
-    return policyProjection(
-        logicalKey,
-        new PolicySet({
-            ...(desired.value % 2 === 0 ? { tiers: { execute: "mediated" as const } } : {}),
-            ...(desired.value % 3 === 0 ? { approvals: ["externalSend" as const] } : {})
-        })
-    );
+    const tiered: PolicySetInit =
+        desired.value % 2 === 0 ? { tiers: { execute: "mediated" } } : {};
+    const approved: PolicySetInit =
+        desired.value % 3 === 0 ? { ...tiered, approvals: ["externalSend"] } : tiered;
+    return policyProjection(logicalKey, new PolicySet(approved));
 }
 
 function forgeActorPlanKind(plan: ActorPlan, recordKind: string): ActorPlan {

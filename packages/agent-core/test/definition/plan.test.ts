@@ -42,7 +42,8 @@ import {
     placementProjection,
     policyProjection,
     selectPlacement,
-    planMaterialization
+    planMaterialization,
+    type BlueprintInit
 } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
 import {
@@ -941,7 +942,7 @@ interface CustomDefinitionInit {
 function validatedCustom(init: CustomDefinitionInit): ValidatedBlueprint {
     const id = init.packageId ?? "alpha";
     const release = packageRelease(id, "1.0.0", init.contributions);
-    const source = new Blueprint({
+    const required: BlueprintInit = {
         meta: { name: "platform", version: new SemVer("1.0.0") },
         packages: [
             new PackageInstall({
@@ -950,10 +951,15 @@ function validatedCustom(init: CustomDefinitionInit): ValidatedBlueprint {
             })
         ],
         policies: PolicySet.empty(),
-        agents: init.agents ?? [],
-        ...(init.slots === undefined ? {} : { slots: init.slots }),
-        ...(init.environments === undefined ? {} : { environments: init.environments })
-    });
+        agents: init.agents ?? []
+    };
+    const slotted: BlueprintInit =
+        init.slots === undefined ? required : { ...required, slots: init.slots };
+    const source = new Blueprint(
+        init.environments === undefined
+            ? slotted
+            : { ...slotted, environments: init.environments }
+    );
     return ValidatedBlueprint.validate(source, {
         lock: packageLock([release]),
         releases: [release],

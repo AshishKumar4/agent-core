@@ -13,7 +13,7 @@ import {
     type JsonSchemaValidator,
     type JsonValue
 } from "../../src/core";
-import { Blueprint, PackageInstall } from "../../src/definition/blueprint";
+import { Blueprint, PackageInstall, type BlueprintInit } from "../../src/definition/blueprint";
 import {
     PackageCodeEntrypoint,
     PackageCodeManifest,
@@ -29,7 +29,12 @@ import {
 } from "../../src/definition/config";
 import { PackageId } from "../../src/definition/id";
 import { PackageLock, PackagePin } from "../../src/definition/package-lock";
-import { MetadataSnapshot, PackageDependency, PackageRelease } from "../../src/definition/package";
+import {
+    MetadataSnapshot,
+    PackageDependency,
+    PackageRelease,
+    type PackageReleaseInit
+} from "../../src/definition/package";
 import {
     BlueprintValidator,
     ValidatedBlueprint,
@@ -1172,13 +1177,15 @@ function blueprint(
     packages: readonly PackageInstall[],
     overrides: BlueprintOverrides = {}
 ): Blueprint {
-    return new Blueprint({
+    const required: BlueprintInit = {
         meta: { name: "test", version: new SemVer("1.0.0") },
         packages,
         policies: overrides.policies ?? PolicySet.empty(),
-        agents: [],
-        ...(overrides.slots === undefined ? {} : { slots: overrides.slots })
-    });
+        agents: []
+    };
+    return new Blueprint(
+        overrides.slots === undefined ? required : { ...required, slots: overrides.slots }
+    );
 }
 
 function install(
@@ -1221,16 +1228,20 @@ function packageRelease(id: string, overrides: ReleaseOverrides = {}): PackageRe
             })
         ]
     });
-    return new PackageRelease({
+    const required: PackageReleaseInit = {
         id: new PackageId(id),
         version,
         compatibility: CompatRange.any(),
         dependencies: overrides.dependencies ?? [],
         manifests,
         codeManifest,
-        provenance: { registry: "test" },
-        ...(overrides.configSchema === undefined ? {} : { configSchema: overrides.configSchema })
-    });
+        provenance: { registry: "test" }
+    };
+    return new PackageRelease(
+        overrides.configSchema === undefined
+            ? required
+            : { ...required, configSchema: overrides.configSchema }
+    );
 }
 
 function facetManifest(

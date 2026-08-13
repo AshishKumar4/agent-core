@@ -38,6 +38,7 @@ import {
     MemoryProtocolRecords,
     type CommandCaller,
     type CommandDispatchResult,
+    type CommandEnvelopeInit,
     type MaterializationCommandBackend
 } from "../../src/protocol";
 import { CounterContentStore, CounterIds } from "../protocol/counter-fixture";
@@ -384,17 +385,18 @@ export class MaterializationHarness {
         const ref = ContentRef.fromDigest(digest);
         this.#content.install(ref.value, payload);
         const revision = init.revision ?? currentPlanRevision(this.store.state, this.actor);
-        return CommandEnvelopeCodec.encode(
-            new CommandEnvelope({
-                command: MATERIALIZATION_COMMANDS.applyLocal,
-                caller,
-                idempotencyKey: init.key ?? "materialization-key",
-                ...(init.omitRevision === true ? {} : { expectedRevision: revision }),
-                ...(init.lease === undefined ? {} : { lease: init.lease }),
-                payload: ref,
-                payloadDigest: digest
-            })
-        );
+        const required: CommandEnvelopeInit = {
+            command: MATERIALIZATION_COMMANDS.applyLocal,
+            caller,
+            idempotencyKey: init.key ?? "materialization-key",
+            payload: ref,
+            payloadDigest: digest
+        };
+        const revised: CommandEnvelopeInit =
+            init.omitRevision === true ? required : { ...required, expectedRevision: revision };
+        const leased: CommandEnvelopeInit =
+            init.lease === undefined ? revised : { ...revised, lease: init.lease };
+        return CommandEnvelopeCodec.encode(new CommandEnvelope(leased));
     }
 
     public async dispatch(

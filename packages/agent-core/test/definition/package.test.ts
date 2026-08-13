@@ -20,7 +20,8 @@ import {
     PackageLock,
     PackagePin,
     PackageRelease,
-    PlatformCompatibility
+    PlatformCompatibility,
+    type PackageReleaseInit
 } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
 import { Contributions, FacetManifest, FacetPackageId } from "../../src/facets";
@@ -507,16 +508,20 @@ function packageRelease(
             })
         ]
     });
-    return new PackageRelease({
+    const required: PackageReleaseInit = {
         id: new PackageId(id),
         version: new SemVer(version),
         compatibility: new CompatRange("^1.0.0", ">=20.0.0"),
         dependencies,
         manifests,
         codeManifest,
-        provenance: overrides.provenance ?? { source: { registry: "test" }, signed: true },
-        ...(overrides.configSchema === undefined ? {} : { configSchema: overrides.configSchema })
-    });
+        provenance: overrides.provenance ?? { source: { registry: "test" }, signed: true }
+    };
+    return new PackageRelease(
+        overrides.configSchema === undefined
+            ? required
+            : { ...required, configSchema: overrides.configSchema }
+    );
 }
 
 function manifest(id: string, version: string): FacetManifest {

@@ -27,7 +27,7 @@ import {
     PackageCodeModule
 } from "../../src/definition/code-manifest";
 import { PackageId } from "../../src/definition/id";
-import { PackageRelease } from "../../src/definition/package";
+import { PackageRelease, type PackageReleaseInit } from "../../src/definition/package";
 import {
     Contribution,
     Contributions,
@@ -366,16 +366,18 @@ function releaseFromManifest(
             })
         ]
     });
-    return new PackageRelease({
+    const required: PackageReleaseInit = {
         id: new PackageId(id),
         version: manifest.version,
         compatibility: CompatRange.any(),
         dependencies: [],
         manifests: [manifest],
         codeManifest,
-        provenance: { registry: "test" },
-        ...(configSchema === undefined ? {} : { configSchema })
-    });
+        provenance: { registry: "test" }
+    };
+    return new PackageRelease(
+        configSchema === undefined ? required : { ...required, configSchema }
+    );
 }
 
 
