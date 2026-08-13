@@ -1650,6 +1650,92 @@
       "replacement": "true",
       "mutated": "false",
       "proof": "Clearing this flag is a dead store, because nothing can read it again. Release is only ever taken once the resolved Facet is disposed: one path is disposal itself when no dispatch is in flight, the other is the dispatch epilogue, which consults the flag only after disposal set it. Once disposed, every further dispatch is refused by the active check at the top of dispatch, before the epilogue that reads this flag is installed, and a second disposal returns at its own guard without reading it. Leaving the flag set therefore cannot cause a second release, because no code path that reads it can run again. Verified against the operations suite, where the mutant fails no test including the deferred release cases."
+    },
+    {
+      "file": "src/content/memory.ts",
+      "symbol": "restoreBackend",
+      "mutator": "MethodExpression",
+      "replacement": "bytes",
+      "mutated": "bytes.slice()",
+      "occurrence": 1,
+      "sites": 2,
+      "proof": "The copy hands ContentOwnerEdge.decode a private array rather than the snapshot's own. Decoding runs the bytes through RecordCodec.decode, which reads them with decodeCanonicalJson, and that copies its argument into a fresh Uint8Array before JSON.parse sees anything; the edge is then rebuilt from the parsed object and holds no reference to either array. What restoreBackend stores in the edges map is ContentOwnerEdge.encode output, a newly allocated buffer, so the snapshot's array never reaches the backend whether or not it was copied here. The second occurrence is the lease loop below, the same seam over a different codec, and carries its own entry."
+    },
+    {
+      "file": "src/content/memory.ts",
+      "symbol": "restoreBackend",
+      "mutator": "MethodExpression",
+      "replacement": "bytes",
+      "mutated": "bytes.slice()",
+      "occurrence": 2,
+      "sites": 2,
+      "proof": "The lease half of the same restore loop. TransientContentLeaseState.decode parses the array through its record codec, and decodeCanonicalJson allocates its own Uint8Array from the argument before decoding any text, so the lease that comes back is assembled entirely from parsed values. The snapshot row itself is discarded once the loop stores TransientContentLeaseState.encode(lease), which is a fresh buffer, so no observer can reach the array this expression either copied or passed through. Nothing between the two mutants shares state, which is why each needs its own proof."
+    },
+    {
+      "file": "src/content/memory.ts",
+      "symbol": "decodeStoredEdge",
+      "mutator": "MethodExpression",
+      "replacement": "bytes",
+      "mutated": "bytes.slice()",
+      "proof": "These bytes come from the backend's own edges map and go straight into ContentOwnerEdge.decode, which reads them through decodeCanonicalJson; that copies into a fresh Uint8Array and parses, and the edge is reconstructed from the parsed object. decodeStoredEdge returns the edge and never the buffer, and its callers — validateBackend, hasOwner, retain and release — read only decoded fields. Entries in the edges map are replaced wholesale by ContentOwnerEdge.encode output rather than mutated in place, so handing decode the stored array instead of a copy of it cannot be told apart by any caller."
+    },
+    {
+      "file": "src/content/memory.ts",
+      "symbol": "decodeMemoryLease",
+      "mutator": "MethodExpression",
+      "replacement": "bytes",
+      "mutated": "bytes.slice()",
+      "proof": "The stored lease buffer is handed to TransientContentLeaseState.decode and to nothing else. That parses it with decodeCanonicalJson, which allocates its own Uint8Array from the argument before decoding text, so the returned lease shares no memory with the map entry. Every caller — normalizeMemoryLeases, deleteMemoryContent, loadLease and validateBackend — uses the decoded lease's fields, and the leases map is only ever written with freshly encoded buffers. Dropping the copy therefore changes no value that any observer can reach."
+    },
+    {
+      "file": "src/content/memory.ts",
+      "symbol": "validateBackend",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "backend.edges.size > 0",
+      "proof": "requireBinding fires here only for a backend carrying retention state without an Actor and Tenant, and a backend holding an owner edge is never in that state. Inside a live store the only writer of the edges map is retain, which reaches the backend through requireState and so has already passed requireSameBinding. The only other writer is restoreBackend's edge loop, which calls requireSnapshotBinding on every decoded edge and rejects an unbound snapshot before the edge is stored, under its own diagnosis rather than this one. So whenever edges.size is positive the binding is present, the relations operand beside it is what decides the unbound case, and reading this operand as false selects the same branch on every reachable backend."
+    },
+    {
+      "file": "src/content/memory.ts",
+      "symbol": "validateBackend",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "backend.leases.size > 0",
+      "proof": "The lease half of the same test, and unreachable for its own reason. A lease enters the map either through acquireInTransaction, which obtains its backend via requireState and therefore after requireSameBinding has confirmed one, or through restoreBackend's lease loop, which calls requireSnapshotBinding on each decoded lease and refuses an unbound snapshot before storing it. A backend holding a lease but no binding is thus not constructible through any entry point, requireBinding cannot throw on this operand's account, and treating it as false leaves every reachable call taking the branch it already took."
+    },
+    {
+      "file": "src/environments/runtime.ts",
+      "symbol": "sameReservation",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "right.restoreFrom !== undefined",
+      "proof": "This operand guards only the call beside it, and that call is already total. Control reaches it just on the branch where left.restoreFrom is defined. If right.restoreFrom is undefined the original short-circuits to false and the mutant instead evaluates left.restoreFrom.equals(undefined); TextId.equals tests typeof other === \"object\" before reading a field, so it answers false rather than throwing, and the conjunction is false either way. When right.restoreFrom is defined, both forms evaluate the same comparison. The operand earns its place by narrowing an optional field for TypeScript, not by changing an outcome, so it cannot simply be deleted."
+    },
+    {
+      "file": "src/slates/store.ts",
+      "symbol": "MemorySlateStore.installSlateRows",
+      "mutator": "EqualityOperator",
+      "replacement": "row.revision >= latest",
+      "mutated": "row.revision > latest",
+      "proof": "Widening this to >= could only matter for a row whose revision equals the one already recorded for its Slate, and installSlateRows cannot see one. The duplicate check above it keys #slates by slateRevisionKey(row.id, row.revision) and throws on a second row carrying that id and revision, so the row that set #latest for this id cannot arrive again in the same install. Were it somehow to arrive, the branch would assign #latest the number it already holds, which no later read can distinguish from not assigning at all. Both operands are plain numbers, so there is no coercion for the widened comparison to differ over."
+    },
+    {
+      "file": "src/slates/store.ts",
+      "symbol": "MemorySlateStore.findDeploymentReservationByExternalKey",
+      "mutator": "OptionalChaining",
+      "replacement": "reservation.externalKey",
+      "mutated": "reservation?.externalKey",
+      "proof": "The optional chain can never short-circuit here. The key being read comes from this.#deploymentReservations.keys(), so the map lookup inside getRecord is a hit by construction, and getRecord returns undefined only on that miss — past it the codec either yields a reservation or throws. The loop therefore always compares a defined record's externalKey, and reading the property without the chain evaluates the same access on the same object. The chain states the type getRecord declares for callers that may miss, not a case this loop can reach."
+    },
+    {
+      "file": "src/slates/seams.ts",
+      "symbol": "SlateEffectContext.constructor",
+      "mutator": "MethodExpression",
+      "replacement": "idempotencyKey",
+      "mutated": "idempotencyKey.trim()",
+      "occurrence": 1,
+      "sites": 2,
+      "proof": "Dropping this trim makes the operand read idempotencyKey.length === 0, which differs from the original only for a string that is non-empty but trims away — one made of nothing but whitespace. For exactly those strings the operand beside it is true, because a whitespace-only string never equals its own trim, so the constructor refuses the same keys with the same TypeError about canonicality. The second occurrence is that canonicality test itself and cannot lose its trim: the comparison would become idempotencyKey !== idempotencyKey, constantly false, and a padded key would be accepted. Its mutant is killed."
     }
   ]
 }
