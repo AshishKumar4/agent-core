@@ -10,6 +10,7 @@ import {
     SemVer,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    requireNonempty,
     type JsonValue
 } from "../../src/core";
 import {
@@ -1033,7 +1034,7 @@ function packageRelease(
     version: string,
     contributions: Contributions = new Contributions([])
 ): PackageRelease {
-    const manifests = [
+    const manifests = requireNonempty([
         new FacetManifest({
             id: new FacetPackageId(`${id}.facet`),
             version: new SemVer(version),
@@ -1042,7 +1043,7 @@ function packageRelease(
             bindings: [],
             contributions
         })
-    ] as [FacetManifest];
+    ], "Facet manifests");
     const codeManifest = new PackageCodeManifest({
         compatibilityDate: "2026-07-10",
         modules: [

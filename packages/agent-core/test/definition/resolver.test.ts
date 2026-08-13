@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { MediaHint } from "../../src/content";
-import { CompatRange, ContentRef, Digest, Revision, SemVer } from "../../src/core";
+import { CompatRange, ContentRef, Digest, Revision, SemVer, requireNonempty } from "../../src/core";
 import {
     MetadataSnapshot,
     PackageCodeEntrypoint,
@@ -240,10 +240,10 @@ describe("deterministic package resolution", () => {
         "excludes a release when any of its Facet manifests is incompatible",
         { tags: "p1" },
         () => {
-            const manifests = [
+            const manifests = requireNonempty([
                 manifest("dual.compatible", "1.0.0"),
                 manifest("dual.incompatible", "1.0.0", new CompatRange("*", ">=2"))
-            ] as [FacetManifest, FacetManifest];
+            ], "Facet manifests");
             const dual = new PackageRelease({
                 id: new PackageId("dual"),
                 version: new SemVer("1.0.0"),
@@ -259,14 +259,15 @@ describe("deterministic package resolution", () => {
                             media: new MediaHint("application/javascript")
                         })
                     ],
-                    entrypoints: manifests.map(
+                    entrypoints: requireNonempty(
+                        manifests.map(
                         (facet) =>
                             new PackageCodeEntrypoint({
                                 facet: facet.id,
                                 version: facet.version,
                                 module: "./main.js"
                             })
-                    ) as [PackageCodeEntrypoint, PackageCodeEntrypoint]
+                    ), "code entrypoints")
                 }),
                 provenance: { registry: "test" }
             });

@@ -797,7 +797,7 @@ function actorPlan(
     return new ActorPlan({
         actor,
         origin: materializationOrigin,
-        projections: projections as [DesiredProjection, ...DesiredProjection[]]
+        projections
     });
 }
 

@@ -459,10 +459,7 @@ function materializationPlan(
     const origin = testOrigin(generation);
     return new MaterializationPlan({
         origin,
-        actors: actors.map((actor) => actorPlan(actor, origin, projections)) as [
-            ActorPlan,
-            ...ActorPlan[]
-        ]
+        actors: actors.map((actor) => actorPlan(actor, origin, projections))
     });
 }
 
@@ -475,7 +472,7 @@ function actorPlan(
     return new ActorPlan({
         actor,
         origin,
-        projections: projections as [DesiredProjection, ...DesiredProjection[]]
+        projections
     });
 }
 

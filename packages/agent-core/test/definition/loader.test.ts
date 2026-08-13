@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import { MediaHint } from "../../src/content";
-import { CompatRange, ContentRef, Digest, JsonSchema, Revision, SemVer } from "../../src/core";
+import { CompatRange, ContentRef, Digest, JsonSchema, Revision, SemVer, requireNonempty } from "../../src/core";
 import {
     Blueprint,
     BlueprintLoader,
@@ -801,7 +801,8 @@ function releaseWithContent(
         manifests: [firstManifest, ...manifests.slice(1)],
         codeManifest: new PackageCodeManifest({
             compatibilityDate: "2026-07-10",
-            modules: content.map(
+            modules: requireNonempty(
+            content.map(
                 ([module, bytes]) =>
                     new PackageCodeModule({
                         specifier: module.specifier,
@@ -809,15 +810,16 @@ function releaseWithContent(
                         media: new MediaHint("application/javascript"),
                         imports: module.imports ?? []
                     })
-            ) as [PackageCodeModule, ...PackageCodeModule[]],
-            entrypoints: facets.map(
+            ), "code modules"),
+            entrypoints: requireNonempty(
+            facets.map(
                 (entry, index) =>
                     new PackageCodeEntrypoint({
                         facet: manifests[index]?.id ?? firstManifest.id,
                         version: new SemVer("1.0.0"),
                         module: entry.module
                     })
-            ) as [PackageCodeEntrypoint, ...PackageCodeEntrypoint[]]
+            ), "code entrypoints")
         }),
         provenance: { registry: "test" }
     });

@@ -14,6 +14,7 @@ import {
     Revision,
     SemVer,
     strictJsonSchemaValidator,
+    requireNonempty,
     type JsonValue
 } from "../../src/core";
 import {
@@ -402,7 +403,7 @@ function applyActor(actorPlan: ActorPlan, stores: Map<string, TestStore>) {
 
 function packageRelease(id: string, contributions: Contributions): PackageRelease {
     const version = new SemVer("1.0.0");
-    const manifests = [
+    const manifests = requireNonempty([
         new FacetManifest({
             id: new FacetPackageId(`${id}.facet`),
             version,
@@ -411,7 +412,7 @@ function packageRelease(id: string, contributions: Contributions): PackageReleas
             bindings: [],
             contributions
         })
-    ] as [FacetManifest];
+    ], "Facet manifests");
     const codeManifest = new PackageCodeManifest({
         compatibilityDate: "2026-07-10",
         modules: [

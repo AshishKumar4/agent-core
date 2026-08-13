@@ -8,7 +8,8 @@ import {
     Revision,
     SemVer,
     decodeCanonicalJson,
-    encodeCanonicalJson
+    encodeCanonicalJson,
+    requireNonempty,
 } from "../../src/core";
 import {
     MetadataSnapshot,
@@ -111,7 +112,7 @@ describe("package releases", () => {
                         version: release.version,
                         compatibility: release.compatibility,
                         dependencies: release.dependencies,
-                        manifests: [] as unknown as [FacetManifest, ...FacetManifest[]],
+                        manifests: forgedManifests([]),
                         codeManifest: release.codeManifest,
                         manifestDigest: release.manifestDigest,
                         codeDigest: release.codeDigest,
@@ -236,22 +237,24 @@ describe("package releases", () => {
                     })
             ).toThrow(/exactly match/);
 
-            const twoManifests = [
-                manifest("root.facet", "1.0.0"),
-                manifest("root.other", "1.0.0")
-            ] as [FacetManifest, FacetManifest];
+            const rootManifest = manifest("root.facet", "1.0.0");
+            const otherManifest = manifest("root.other", "1.0.0");
+            const twoManifests = requireNonempty(
+                [rootManifest, otherManifest],
+                "Facet manifests"
+            );
             const partiallyMatching = new PackageCodeManifest({
                 compatibilityDate: release.codeManifest.compatibilityDate,
                 modules: [mainModule],
                 entrypoints: [
                     new PackageCodeEntrypoint({
                         facet: twoManifests[0].id,
-                        version: twoManifests[0].version,
+                        version: rootManifest.version,
                         module: mainModule.specifier
                     }),
                     new PackageCodeEntrypoint({
                         facet: new FacetPackageId("root.unrelated"),
-                        version: twoManifests[1].version,
+                        version: otherManifest.version,
                         module: mainModule.specifier
                     })
                 ]
@@ -485,7 +488,8 @@ function packageRelease(
             ContentRef.fromDigest(overrides.codeDigest ?? digestOf(`code:${id}:${version}`))
         ])
     ].sort((left, right) => left.value.localeCompare(right.value));
-    const modules = references.map(
+    const modules = requireNonempty(
+        references.map(
         (reference, index) =>
             new PackageCodeModule({
                 specifier: `./module-${index}.js`,
@@ -496,7 +500,7 @@ function packageRelease(
                         ? references.slice(1).map((_, child) => `./module-${child + 1}.js`)
                         : []
             })
-    ) as [PackageCodeModule, ...PackageCodeModule[]];
+    ), "code modules");
     const codeManifest = new PackageCodeManifest({
         compatibilityDate: "2026-07-10",
         modules,
@@ -522,6 +526,16 @@ function packageRelease(
             ? required
             : { ...required, configSchema: overrides.configSchema }
     );
+}
+
+/**
+ * An empty manifest list, typed as the non-empty one PackageRelease requires. A release with no
+ * Facet manifests cannot be built honestly, and rejecting it is what the constructor is for.
+ */
+function forgedManifests<TActual>(value: TActual): readonly [FacetManifest, ...FacetManifest[]] {
+    // SAFETY: the list is empty. PackageRelease must reject it rather than construct a release
+    // that claims manifests it does not have.
+    return value as TActual & readonly [FacetManifest, ...FacetManifest[]];
 }
 
 function manifest(id: string, version: string): FacetManifest {

@@ -11,6 +11,7 @@ import {
     encodeCanonicalJson,
     strictJsonSchemaValidator,
     type JsonSchemaValidator,
+    requireNonempty,
     type JsonValue
 } from "../../src/core";
 import { Blueprint, PackageInstall, type BlueprintInit } from "../../src/definition/blueprint";
@@ -1201,7 +1202,7 @@ function install(
 
 function packageRelease(id: string, overrides: ReleaseOverrides = {}): PackageRelease {
     const version = new SemVer(overrides.version ?? "1.0.0");
-    const manifests = [
+    const manifests = requireNonempty([
         new FacetManifest({
             id: new FacetPackageId(`${id}.facet`),
             version,
@@ -1210,7 +1211,7 @@ function packageRelease(id: string, overrides: ReleaseOverrides = {}): PackageRe
             bindings: [],
             contributions: overrides.contributions ?? Contributions.empty()
         })
-    ] as [FacetManifest];
+    ], "Facet manifests");
     const codeManifest = new PackageCodeManifest({
         compatibilityDate: "2026-07-10",
         modules: [
@@ -1273,21 +1274,22 @@ function releaseWith(
                 media: new MediaHint("application/javascript")
             })
         ],
-        entrypoints: manifests.map(
+        entrypoints: requireNonempty(
+            manifests.map(
             (manifest) =>
                 new PackageCodeEntrypoint({
                     facet: manifest.id,
                     version: manifest.version,
                     module: "./main.js"
                 })
-        ) as [PackageCodeEntrypoint, ...PackageCodeEntrypoint[]]
+        ), "code entrypoints")
     });
     return new PackageRelease({
         id: new PackageId(id),
         version: new SemVer("1.0.0"),
         compatibility: CompatRange.any(),
         dependencies: [],
-        manifests: manifests as [FacetManifest, ...FacetManifest[]],
+        manifests: requireNonempty(manifests, "Facet manifests"),
         codeManifest,
         provenance: { registry: "test" }
     });

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { MediaHint } from "../../src/content";
-import { CompatRange, ContentRef, Digest, Revision, SemVer } from "../../src/core";
+import { CompatRange, ContentRef, Digest, Revision, SemVer, requireNonempty } from "../../src/core";
 import {
     PackageCodeEntrypoint,
     PackageCodeManifest,
@@ -186,7 +186,7 @@ export function packageRelease(
     version: string,
     codeDigest = digestOf(`code:${id}:${version}`)
 ): PackageRelease {
-    const manifests = [
+    const manifests = requireNonempty([
         new FacetManifest({
             id: new FacetPackageId(`${id}.facet`),
             version: new SemVer(version),
@@ -195,7 +195,7 @@ export function packageRelease(
             bindings: [],
             contributions: Contributions.empty()
         })
-    ] as [FacetManifest];
+    ], "Facet manifests");
     const codeManifest = new PackageCodeManifest({
         compatibilityDate: "2026-07-10",
         modules: [
