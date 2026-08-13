@@ -8,6 +8,7 @@ import {
     Revision,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    isJsonObject,
     type JsonValue
 } from "../../src/core";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
@@ -34,7 +35,7 @@ import {
 } from "../../src/protocol/payload";
 import * as protocol from "../../src/protocol";
 import { CommandCallerPolicy } from "../../src/protocol/policy";
-import { WriteRecord, WriteRecordCodec } from "../../src/protocol/write";
+import { WriteRecord, WriteRecordCodec, type WriteRecordInit } from "../../src/protocol/write";
 import { expectAgentCoreError } from "./error-assertion";
 
 const actor = new ActorRef("run", new ActorId("codec-actor"));
@@ -75,73 +76,73 @@ describe("CommandEnvelope codec", () => {
     test.each([
         [
             "non-object payload",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 record["payload"] = null;
             }
         ],
         [
             "missing field",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 delete payloadOf(record)["command"];
             }
         ],
         [
             "unknown field",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["unknown"] = true;
             }
         ],
         [
             "non-string command",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["command"] = 1;
             }
         ],
         [
             "non-object caller",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["caller"] = null;
             }
         ],
         [
             "unknown caller",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 callerOf(record)["kind"] = "system";
             }
         ],
         [
             "missing principal",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 delete callerOf(record)["principal"];
             }
         ],
         [
             "extra principal field",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 callerOf(record)["extra"] = true;
             }
         ],
         [
             "non-string principal",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 callerOf(record)["principal"] = 1;
             }
         ],
         [
             "non-object actor",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["caller"] = { kind: "actor", actor: null };
             }
         ],
         [
             "incomplete actor",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["caller"] = { kind: "actor", actor: { kind: "run" } };
             }
         ],
         [
             "unknown actor field",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["caller"] = {
                     kind: "actor",
                     actor: { kind: "run", id: "actor", extra: true }
@@ -150,7 +151,7 @@ describe("CommandEnvelope codec", () => {
         ],
         [
             "invalid actor kind",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["caller"] = {
                     kind: "actor",
                     actor: { kind: "principal", id: "actor" }
@@ -159,79 +160,79 @@ describe("CommandEnvelope codec", () => {
         ],
         [
             "non-string actor id",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["caller"] = { kind: "actor", actor: { kind: "run", id: 1 } };
             }
         ],
         [
             "non-string idempotency key",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["idempotencyKey"] = 1;
             }
         ],
         [
             "non-integer revision",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["expectedRevision"] = 1.5;
             }
         ],
         [
             "negative revision",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["expectedRevision"] = -1;
             }
         ],
         [
             "non-object lease",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["lease"] = null;
             }
         ],
         [
             "incomplete lease",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 delete leaseOf(record)["holder"];
             }
         ],
         [
             "unknown lease field",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 leaseOf(record)["extra"] = true;
             }
         ],
         [
             "non-string lease turn",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 leaseOf(record)["turn"] = 1;
             }
         ],
         [
             "non-string lease holder",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 leaseOf(record)["holder"] = 1;
             }
         ],
         [
             "unsafe lease epoch",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 leaseOf(record)["epoch"] = Number.MAX_SAFE_INTEGER + 1;
             }
         ],
         [
             "non-string caller cause",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["callerCause"] = 1;
             }
         ],
         [
             "non-string payload ref",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["payload"] = 1;
             }
         ],
         [
             "non-string payload digest",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["payloadDigest"] = 1;
             }
         ]
@@ -298,7 +299,7 @@ describe("protocol callers and authentication", () => {
                 }
             }
         );
-        const subclassLookalike = Object.create(CommandAuthentication.prototype) as object;
+        const subclassLookalike: object = Object.create(CommandAuthentication.prototype);
 
         expect(commandAuthenticationMatches(authentication, envelopeDigest, envelope, tenant)).toBe(
             true
@@ -326,10 +327,7 @@ describe("protocol callers and authentication", () => {
     });
 
     test("envelopes deeply detach and freeze authenticated caller and lease state", { tags: "p0" }, () => {
-        const mutable: { kind: "principal"; principal: PrincipalRef } = {
-            kind: "principal",
-            principal: principalRef
-        };
+        const mutable = { kind: "principal" as const, principal: principalRef };
         const mutableLease = {
             turn: new TurnId("mutable-turn"),
             holder: principalRef,
@@ -366,17 +364,14 @@ describe("protocol callers and authentication", () => {
             () =>
                 new CommandEnvelope({
                     ...envelopeInit(),
-                    caller: { ...principalCaller, extra: true } as CommandCaller
+                    caller: forgedCaller({ ...principalCaller, extra: true })
                 })
         ).toThrow(TypeError);
         expect(
             () =>
                 new CommandEnvelope({
                     ...envelopeInit(),
-                    lease: {
-                        ...envelopeInit().lease,
-                        extra: true
-                    } as LeaseToken
+                    lease: forgedLease({ ...envelopeInit().lease, extra: true })
                 })
         ).toThrow(TypeError);
         const accessorLease = Object.defineProperty(
@@ -394,16 +389,16 @@ describe("protocol callers and authentication", () => {
             () =>
                 new CommandEnvelope({
                     ...envelopeInit(),
-                    lease: accessorLease as LeaseToken
+                    lease: forgedLease(accessorLease)
                 })
         ).toThrow(TypeError);
     });
 
     test("rejects exact-shape callers with invalid identity values", { tags: "p1" }, () => {
-        const invalidCaller = {
+        const invalidCaller = forgedCaller({
             kind: "principal",
             principal: { value: principal.value }
-        } as unknown as CommandCaller;
+        });
 
         expect(() => new CommandEnvelope({ ...envelopeInit(), caller: invalidCaller })).toThrow(
             new TypeError("Command caller is invalid")
@@ -412,15 +407,18 @@ describe("protocol callers and authentication", () => {
 
     test("rejects exact-shape leases with invalid values", { tags: "p1" }, () => {
         const validLease = envelopeInit().lease!;
+        // SAFETY: each stand-in copies the field values of a real TurnId or PrincipalRef but is a
+        // plain object, not an instance. The lease guard identifies its turn and holder by class,
+        // so a structural copy is exactly the case it exists to reject.
+        const structuralTurn = { value: validLease.turn.value } as TurnId;
+        // SAFETY: as above — a plain object wearing PrincipalRef's field names.
+        const structuralHolder = {
+            tenantId: validLease.holder.tenantId,
+            principalId: validLease.holder.principalId
+        } as PrincipalRef;
         const invalidLeases = [
-            { ...validLease, turn: { value: validLease.turn.value } as TurnId },
-            {
-                ...validLease,
-                holder: {
-                    tenantId: validLease.holder.tenantId,
-                    principalId: validLease.holder.principalId
-                } as PrincipalRef
-            },
+            { ...validLease, turn: structuralTurn },
+            { ...validLease, holder: structuralHolder },
             { ...validLease, epoch: -1 },
             { ...validLease, epoch: 1.5 }
         ];
@@ -437,8 +435,8 @@ describe("protocol callers and authentication", () => {
     });
 
     test("rejects non-plain caller and lease values", { tags: "p1" }, () => {
-        const caller = Object.assign(Object.create(null), principalCaller) as CommandCaller;
-        const lease = Object.assign(Object.create(null), envelopeInit().lease) as LeaseToken;
+        const caller = forgedCaller(Object.assign(Object.create(null), principalCaller));
+        const lease = forgedLease(Object.assign(Object.create(null), envelopeInit().lease));
 
         expect(() => new CommandEnvelope({ ...envelopeInit(), caller })).toThrow(
             new TypeError("Command caller must be a plain object with exact fields")
@@ -450,14 +448,18 @@ describe("protocol callers and authentication", () => {
 
     test("rejects non-enumerable and accessor caller fields without invoking accessors", { tags: "p1" }, () => {
         const accessor = vi.fn(() => "principal");
-        const hiddenKind = Object.defineProperty({ principal: principalRef }, "kind", {
-            enumerable: false,
-            value: "principal"
-        }) as CommandCaller;
-        const accessorKind = Object.defineProperty({ principal: principalRef }, "kind", {
-            enumerable: true,
-            get: accessor
-        }) as CommandCaller;
+        const hiddenKind = forgedCaller(
+            Object.defineProperty({ principal: principalRef }, "kind", {
+                enumerable: false,
+                value: "principal"
+            })
+        );
+        const accessorKind = forgedCaller(
+            Object.defineProperty({ principal: principalRef }, "kind", {
+                enumerable: true,
+                get: accessor
+            })
+        );
 
         for (const caller of [hiddenKind, accessorKind]) {
             expect(() => new CommandEnvelope({ ...envelopeInit(), caller })).toThrow(
@@ -500,9 +502,7 @@ describe("payload preparation values", () => {
             malformedReason: "missing"
         });
         expect(protocol).not.toHaveProperty("PreparedCommandPayload");
-        expect(
-            (PreparedCommandPayload as unknown as { readonly leased?: unknown }).leased
-        ).toBeUndefined();
+        expect(Object.getOwnPropertyDescriptor(PreparedCommandPayload, "leased")).toBeUndefined();
     });
 
     test("rejects forged prepared payloads without invoking attacker properties", { tags: "p0" }, () => {
@@ -519,13 +519,17 @@ describe("payload preparation values", () => {
         expect(
             inspectPreparedCommandPayload(Object.create(PreparedCommandPayload.prototype))
         ).toBeUndefined();
-        const forged = Object.create(PreparedCommandPayload.prototype) as PreparedCommandPayload;
-        expectAgentCoreError(() => forged.lease, "protocol.invalid-state");
-        const constructor = PreparedCommandPayload as unknown as new (
-            issuer: symbol,
-            state: object
-        ) => PreparedCommandPayload;
-        expectAgentCoreError(() => new constructor(Symbol("forged"), {}), "protocol.invalid-state");
+        // SAFETY: this instance carries the prototype but never passed through the constructor,
+        // so it has no entry in the module's state WeakMap. Reading a property must raise
+        // protocol.invalid-state rather than return undefined.
+        const stateless = Object.create(
+            PreparedCommandPayload.prototype
+        ) as PreparedCommandPayload;
+        expectAgentCoreError(() => stateless.lease, "protocol.invalid-state");
+        expectAgentCoreError(
+            () => new PreparedCommandPayload(Symbol("wrong-issuer"), {}),
+            "protocol.invalid-state"
+        );
     });
 });
 
@@ -545,7 +549,7 @@ describe("WriteRecord codec and invariants", () => {
         delete payloadOf(record)["observation"];
 
         expectAgentCoreError(
-            () => WriteRecordCodec.decode(encodeCanonicalJson(record as JsonValue)),
+            () => WriteRecordCodec.decode(encodeCanonicalJson(record)),
             "codec.unknown-major"
         );
     });
@@ -553,98 +557,98 @@ describe("WriteRecord codec and invariants", () => {
     test.each([
         [
             "non-object payload",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 record["payload"] = null;
             }
         ],
         [
             "non-object actor",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["actor"] = null;
             }
         ],
         [
             "missing field",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 delete payloadOf(record)["id"];
             }
         ],
         [
             "unknown field",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["unknown"] = true;
             }
         ],
         [
             "unknown actor field",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 actorOf(record)["extra"] = true;
             }
         ],
         [
             "invalid actor kind",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 actorOf(record)["kind"] = "principal";
             }
         ],
         [
             "non-string actor id",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 actorOf(record)["id"] = 1;
             }
         ],
         [
             "invalid caller",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["caller"] = true;
             }
         ],
         [
             "non-string command",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["command"] = 1;
             }
         ],
         [
             "non-string duplicate",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["duplicateOf"] = 1;
             }
         ],
         [
             "non-string identity",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["idempotencyKey"] = 1;
             }
         ],
         [
             "non-string observation",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["observation"] = 1;
             }
         ],
         [
             "invalid timestamp",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["at"] = "invalid";
             }
         ],
         [
             "invalid outcome",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["outcome"] = "unknown";
             }
         ],
         [
             "non-string id",
-            (record: MutableObject) => {
+            (record: MutableRecord) => {
                 payloadOf(record)["id"] = 1;
             }
         ]
     ])("rejects a %s", { tags: "p1" }, (_case, mutate) => {
         const record = mutableRecord(WriteRecordCodec.encode(writeFixture()));
         mutate(record);
-        expect(() => WriteRecordCodec.decode(encodeCanonicalJson(record as JsonValue))).toThrow();
+        expect(() => WriteRecordCodec.decode(encodeCanonicalJson(record))).toThrow();
     });
 
     test("[write-record] round-trips every Actor kind", { tags: "p1" }, () => {
@@ -694,7 +698,7 @@ describe("WriteRecord codec and invariants", () => {
         );
         payloadOf(record)["command"] = null;
         payloadOf(record)["idempotencyKey"] = "malformed-identity";
-        const decode = () => WriteRecordCodec.decode(encodeCanonicalJson(record as JsonValue));
+        const decode = () => WriteRecordCodec.decode(encodeCanonicalJson(record));
 
         expectAgentCoreError(decode, "codec.invalid");
         expect(decode).toThrow("Write idempotency keys require decoded envelope fields");
@@ -743,26 +747,28 @@ describe("envelope and write record boundaries", () => {
             () =>
                 new CommandEnvelope({
                     ...envelopeInit(),
-                    caller: { kind: "principal", actor } as unknown as CommandCaller
+                    caller: forgedCaller({ kind: "principal", actor })
                 })
         ).toThrow(new TypeError("Command caller must be a plain object with exact fields"));
 
         const accessor = vi.fn(() => principalRef);
-        const accessorCaller = Object.defineProperty(
-            { kind: "principal" },
-            "principal",
-            { enumerable: true, get: accessor }
-        ) as unknown as CommandCaller;
+        const accessorCaller = forgedCaller(
+            Object.defineProperty({ kind: "principal" }, "principal", {
+                enumerable: true,
+                get: accessor
+            })
+        );
         expect(() => new CommandEnvelope({ ...envelopeInit(), caller: accessorCaller })).toThrow(
             new TypeError("Command caller must contain enumerable data fields")
         );
         expect(accessor).not.toHaveBeenCalled();
 
-        const accessorLease = Object.defineProperty(
-            { turn: new TurnId("hidden-lease-turn"), epoch: 1 },
-            "holder",
-            { enumerable: true, get: () => principalRef }
-        ) as unknown as LeaseToken;
+        const accessorLease = forgedLease(
+            Object.defineProperty({ turn: new TurnId("hidden-lease-turn"), epoch: 1 }, "holder", {
+                enumerable: true,
+                get: () => principalRef
+            })
+        );
         expect(() => new CommandEnvelope({ ...envelopeInit(), lease: accessorLease })).toThrow(
             new TypeError("Lease token must contain enumerable data fields")
         );
@@ -771,10 +777,10 @@ describe("envelope and write record boundaries", () => {
             () =>
                 new CommandEnvelope({
                     ...envelopeInit(),
-                    caller: {
+                    caller: forgedCaller({
                         kind: "actor",
                         actor: { kind: "run", id: "plain-actor" }
-                    } as unknown as CommandCaller
+                    })
                 })
         ).toThrow(new TypeError("Command caller is invalid"));
     });
@@ -850,10 +856,10 @@ describe("envelope and write record boundaries", () => {
 
     test("envelope construction rejects null caller and lease containers", { tags: "p1" }, () => {
         expect(
-            () => new CommandEnvelope({ ...envelopeInit(), caller: null as unknown as CommandCaller })
+            () => new CommandEnvelope({ ...envelopeInit(), caller: forgedCaller(null) })
         ).toThrow(new TypeError("Command caller must be a plain object with exact fields"));
         expect(
-            () => new CommandEnvelope({ ...envelopeInit(), lease: null as unknown as LeaseToken })
+            () => new CommandEnvelope({ ...envelopeInit(), lease: forgedLease(null) })
         ).toThrow(new TypeError("Lease token must be a plain object with exact fields"));
     });
 
@@ -1033,7 +1039,35 @@ test("authentication matching rejects every non-issued value shape", { tags: "p1
     }
 });
 
-type MutableObject = Record<string, unknown>;
+/** A decoded record this file owns outright, so its fields can be corrupted in place. */
+type MutableRecord = { [key: string]: JsonValue };
+
+/**
+ * The forged* helpers below each type a deliberately invalid value as the contract it violates.
+ * CommandEnvelope and WriteRecord validate these contracts at runtime because callers reach them
+ * across a decoding boundary where types are only a claim, so proving a guard rejects a value
+ * requires handing it one TypeScript would refuse. Every call site sits inside an expectation
+ * that the rejection happens, and nothing reads the result.
+ */
+function forgedCaller<TActual>(caller: TActual): CommandCaller {
+    // SAFETY: `caller` does not satisfy CommandCaller. The envelope must reject it for its kind,
+    // its identity class, its prototype, or its property descriptors — the runtime guard under
+    // test is the only thing that can, so the value has to arrive typed as the contract.
+    return caller as TActual & CommandCaller;
+}
+
+function forgedLease<TActual>(lease: TActual): LeaseToken {
+    // SAFETY: `lease` does not satisfy LeaseToken, for the same reason forgedCaller exists: the
+    // envelope's lease guard is what these tests assert on, and it only runs on a typed lease.
+    return lease as TActual & LeaseToken;
+}
+
+function forgedText<TActual>(value: TActual): string {
+    // SAFETY: `value` is not a string. CommandEnvelope re-checks the runtime type of its name and
+    // idempotency key because decoded envelopes carry no type evidence; this supplies the
+    // non-string those checks exist for.
+    return value as TActual & string;
+}
 
 class CodecAuthenticator extends CommandAuthenticator<undefined> {
     public constructor() {
@@ -1047,10 +1081,10 @@ class CodecAuthenticator extends CommandAuthenticator<undefined> {
 
 test("rejects non-string command names and idempotency keys", { tags: "p2" }, () => {
     expect(
-        () => new CommandEnvelope({ ...envelopeInit(), command: 42 as unknown as string })
+        () => new CommandEnvelope({ ...envelopeInit(), command: forgedText(42) })
     ).toThrow(new TypeError("Command name must contain between 1 and 256 characters"));
     expect(
-        () => new CommandEnvelope({ ...envelopeInit(), idempotencyKey: 42 as unknown as string })
+        () => new CommandEnvelope({ ...envelopeInit(), idempotencyKey: forgedText(42) })
     ).toThrow(new TypeError("Command idempotency key must contain between 1 and 512 characters"));
 });
 
@@ -1059,14 +1093,14 @@ test("rejects callers whose identity contradicts their declared kind", { tags: "
         () =>
             new CommandEnvelope({
                 ...envelopeInit(),
-                caller: { kind: "actor", actor: principalRef } as unknown as CommandCaller
+                caller: forgedCaller({ kind: "actor", actor: principalRef })
             })
     ).toThrow(new TypeError("Command caller is invalid"));
     expect(
         () =>
             new CommandEnvelope({
                 ...envelopeInit(),
-                caller: { kind: "principal", principal: actor } as unknown as CommandCaller
+                caller: forgedCaller({ kind: "principal", principal: actor })
             })
     ).toThrow(new TypeError("Command caller is invalid"));
 });
@@ -1088,16 +1122,16 @@ function envelopeFixture(caller: CommandCaller = principalCaller): CommandEnvelo
     return new CommandEnvelope(envelopeInit(caller));
 }
 
-function mutateEnvelope(mutate: (record: MutableObject) => void): Uint8Array {
+function mutateEnvelope(mutate: (record: MutableRecord) => void): Uint8Array {
     const record = mutableRecord(CommandEnvelopeCodec.encode(envelopeFixture()));
     mutate(record);
-    return encodeCanonicalJson(record as JsonValue);
+    return encodeCanonicalJson(record);
 }
 
-function mutateWriteRecord(mutate: (record: MutableObject) => void): Uint8Array {
+function mutateWriteRecord(mutate: (record: MutableRecord) => void): Uint8Array {
     const record = mutableRecord(WriteRecordCodec.encode(writeFixture()));
     mutate(record);
-    return encodeCanonicalJson(record as JsonValue);
+    return encodeCanonicalJson(record);
 }
 
 function writeFixture(
@@ -1121,44 +1155,61 @@ function writeFixture(
     const command = "command" in overrides ? overrides.command : "codec.write";
     const idempotencyKey =
         "idempotencyKey" in overrides ? overrides.idempotencyKey : "codec-write-key";
-    return new WriteRecord({
+    const required: WriteRecordInit = {
         id: new WriteRecordId("codec-write"),
         actor: overrides.actor ?? actor,
         envelopeDigest: digest,
-        ...(caller === undefined ? {} : { caller }),
-        ...(command === undefined ? {} : { command }),
-        ...(idempotencyKey === undefined ? {} : { idempotencyKey }),
         at: overrides.at ?? new Date("2026-07-07T12:00:00.000Z"),
         outcome: overrides.outcome ?? "committed",
         audit: new AuditRecordId("codec-write-audit"),
-        ...(overrides.duplicateOf === undefined ? {} : { duplicateOf: overrides.duplicateOf }),
-        reply: Uint8Array.of(1, 2, 3),
-        ...(overrides.observation === undefined ? {} : { observation: overrides.observation })
-    });
+        reply: Uint8Array.of(1, 2, 3)
+    };
+    const called: WriteRecordInit = caller === undefined ? required : { ...required, caller };
+    const commanded: WriteRecordInit = command === undefined ? called : { ...called, command };
+    const keyed: WriteRecordInit =
+        idempotencyKey === undefined ? commanded : { ...commanded, idempotencyKey };
+    const duplicated: WriteRecordInit =
+        overrides.duplicateOf === undefined
+            ? keyed
+            : { ...keyed, duplicateOf: overrides.duplicateOf };
+    const observed: WriteRecordInit =
+        overrides.observation === undefined
+            ? duplicated
+            : { ...duplicated, observation: overrides.observation };
+    return new WriteRecord(observed);
 }
 
-function mutableRecord(bytes: Uint8Array): MutableObject {
-    return structuredClone(decodeCanonicalJson(bytes)) as MutableObject;
+function mutableRecord(bytes: Uint8Array): MutableRecord {
+    return owned(structuredClone(decodeCanonicalJson(bytes)), "record");
 }
 
-function payloadOf(record: MutableObject): MutableObject {
+function payloadOf(record: MutableRecord): MutableRecord {
     return objectAt(record, "payload");
 }
 
-function callerOf(record: MutableObject): MutableObject {
+function callerOf(record: MutableRecord): MutableRecord {
     return objectAt(payloadOf(record), "caller");
 }
 
-function actorOf(record: MutableObject): MutableObject {
+function actorOf(record: MutableRecord): MutableRecord {
     return objectAt(payloadOf(record), "actor");
 }
 
-function leaseOf(record: MutableObject): MutableObject {
+function leaseOf(record: MutableRecord): MutableRecord {
     return objectAt(payloadOf(record), "lease");
 }
 
-function objectAt(object: MutableObject, key: string): MutableObject {
-    return object[key] as MutableObject;
+function objectAt(object: MutableRecord, key: string): MutableRecord {
+    return owned(object[key], key);
+}
+
+function owned(value: JsonValue | undefined, subject: string): MutableRecord {
+    if (!isJsonObject(value)) throw new TypeError(`Expected an object at ${subject}`);
+    // SAFETY: JsonObject marks its fields readonly because decoded records are shared. Every
+    // value reaching here is reachable only from the structuredClone mutableRecord just made,
+    // which no codec and no other test holds, so writing through it corrupts nothing but the
+    // copy these tests exist to corrupt.
+    return value as MutableRecord;
 }
 
 class CodecContentLease extends TransientContentLease {
