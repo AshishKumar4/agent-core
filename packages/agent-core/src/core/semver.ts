@@ -1,6 +1,6 @@
 import { AgentCoreError } from "../errors";
 import { RecordCodec, type RecordVersion } from "./codec";
-import { hasExactJsonKeys, type JsonValue } from "./json";
+import { hasExactJsonKeys, isJsonObject, type JsonValue } from "./json";
 
 const SEMVER_PATTERN =
     /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
@@ -16,7 +16,7 @@ class SemVerCodec extends RecordCodec<SemVer> {
 
     protected decodePayload(payload: JsonValue, _version: RecordVersion): SemVer {
         if (
-            !isObject(payload) ||
+            !isJsonObject(payload) ||
             !hasExactJsonKeys(payload, ["value"]) ||
             typeof payload["value"] !== "string"
         ) {
@@ -186,8 +186,4 @@ function comparePrerelease(left: readonly string[], right: readonly string[]): n
 
 function compareNumericIdentifier(left: string, right: string): number {
     return compareNumber(left.length, right.length) || (left < right ? -1 : left > right ? 1 : 0);
-}
-
-function isObject(value: JsonValue): value is { readonly [key: string]: JsonValue } {
-    return value !== null && !Array.isArray(value) && typeof value === "object";
 }

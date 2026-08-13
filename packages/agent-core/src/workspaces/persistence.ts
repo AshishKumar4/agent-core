@@ -822,9 +822,9 @@ function collectContentRefs(value: unknown, refs = new Set<string>()): Set<strin
         } catch {}
         return refs;
     }
-    if (Array.isArray(value)) {
-        for (const entry of value) collectContentRefs(entry, refs);
-    } else if (value !== null && typeof value === "object") {
+    // Arrays need no branch of their own: they are objects, and Object.values yields
+    // exactly their elements.
+    if (value !== null && typeof value === "object") {
         for (const entry of Object.values(value)) collectContentRefs(entry, refs);
     }
     return refs;

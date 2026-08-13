@@ -143,6 +143,132 @@ def parseCapabilityIntent (json : Json) : Except String CapabilityIntent := do
   let arguments ← parseProjection (← json.getObjVal? "arguments")
   pure ⟨facet.data, operation, impact, arguments⟩
 
+/-! ## Canonical JSON
+
+`encodeJson` is the modeled encoder and `canonical_encode_injective` is proved about it, so
+agreeing with `encodeCanonicalJson` here is what ties that theorem to the implementation.
+Number tokens cross the boundary already rendered — the model represents a number by its
+token, and rendering a JavaScript number to one is the obligation the model does not carry —
+so the number leg checks only that a token is placed correctly among the delimiters. -/
+
+partial def parseJsonTree (json : Json) : Except String JsonTree := do
+  let kind ← (← json.getObjVal? "kind").getStr?
+  match kind with
+  | "null" => pure .null
+  | "bool" => do pure (.bool (← (← json.getObjVal? "value").getBool?))
+  | "num" => do pure (.num (← (← json.getObjVal? "token").getStr?).data)
+  | "str" => do pure (.str (← (← json.getObjVal? "value").getStr?).data)
+  | "arr" => do
+      let items ← (← (← json.getObjVal? "items").getArr?).toList.mapM parseJsonTree
+      pure (.arr items)
+  | "obj" => do
+      let entries ← (← (← json.getObjVal? "entries").getArr?).toList.mapM fun entry => do
+        let key ← (← entry.getObjVal? "key").getStr?
+        let value ← parseJsonTree (← entry.getObjVal? "value")
+        pure (key.data, value)
+      pure (.obj entries)
+  | other => throw s!"unknown JSON tree kind {other}"
+
+def parseScopeRefText (json : Json) : Except String ScopeRefText := do
+  let kind ← (← json.getObjVal? "kind").getStr?
+  let tenant ← (← json.getObjVal? "tenant").getStr?
+  match kind with
+  | "tenant" => pure (.tenant tenant.data)
+  | "project" => do
+      pure (.project tenant.data (← (← json.getObjVal? "project").getStr?).data)
+  | "workspace" => do
+      let projectField ← json.getObjVal? "project"
+      let project ← if projectField.isNull then pure none
+        else do pure (some (← projectField.getStr?).data)
+      pure (.workspace tenant.data project (← (← json.getObjVal? "workspace").getStr?).data)
+  | other => throw s!"unknown scope kind {other}"
+
+def parseSubjectRefText (json : Json) : Except String SubjectRefText := do
+  let kind ← (← json.getObjVal? "kind").getStr?
+  match kind with
+  | "principal" => do
+      pure (.principal (← (← json.getObjVal? "tenant").getStr?).data
+        (← (← json.getObjVal? "principal").getStr?).data)
+  | "team" => do pure (.team (← (← json.getObjVal? "team").getStr?).data)
+  | "foreign" => do
+      pure (.foreign (← (← json.getObjVal? "homeTenant").getStr?).data
+        (← (← json.getObjVal? "principal").getStr?).data
+        (← (← json.getObjVal? "verifiedVia").getStr?).data)
+  | other => throw s!"unknown subject kind {other}"
+
+/-! ## Deny precedence and Grant resolution
+
+`evaluateExec` is the modeled decision itself. `authority_decision_is_sound` proves an
+`allowed` answer implies SPEC §3.3's precedence condition over the whole intent domain, so
+agreeing with it is agreeing with §3.3 rather than with a restatement of the check. Scope
+and Subject identifiers cross this boundary as numbers: the implementation compares
+canonical-JSON keys, and `authorityKey_injective` is what makes value comparison the right
+model of that. -/
+
+def parseScopeValue (json : Json) : Except String Scope := do
+  let kind ← (← json.getObjVal? "kind").getStr?
+  let tenant ← (← json.getObjVal? "tenant").getNat?
+  match kind with
+  | "tenant" => pure (.tenant ⟨tenant⟩)
+  | "project" => do
+      let project ← (← json.getObjVal? "project").getNat?
+      pure (.project ⟨tenant⟩ ⟨project⟩)
+  | "workspace" => do
+      let projectField ← json.getObjVal? "project"
+      let project ← if projectField.isNull then pure none
+        else do pure (some (ProjectId.mk (← projectField.getNat?)))
+      let workspace ← (← json.getObjVal? "workspace").getNat?
+      pure (.workspace ⟨tenant⟩ project ⟨workspace⟩)
+  | other => throw s!"unknown scope kind {other}"
+
+def parseSubject (json : Json) : Except String Subject := do
+  let kind ← (← json.getObjVal? "kind").getStr?
+  match kind with
+  | "principal" => do
+      let tenant ← (← json.getObjVal? "tenant").getNat?
+      let principal ← (← json.getObjVal? "principal").getNat?
+      pure (.principal ⟨⟨tenant⟩, ⟨principal⟩⟩)
+  | "team" => do
+      let team ← (← json.getObjVal? "team").getNat?
+      pure (.team ⟨team⟩)
+  | "foreign" => do
+      let home ← (← json.getObjVal? "homeTenant").getNat?
+      let principal ← (← json.getObjVal? "principal").getNat?
+      pure (.foreign ⟨home⟩ ⟨principal⟩)
+  | other => throw s!"unknown subject kind {other}"
+
+def parseGrantEffect : String → Except String GrantEffect
+  | "allow" => pure .allow
+  | "deny" => pure .deny
+  | other => throw s!"unknown grant effect {other}"
+
+def parseAuthorityGrant (json : Json) : Except String AuthorityGrant := do
+  let id ← (← json.getObjVal? "id").getNat?
+  let subject ← parseSubject (← json.getObjVal? "subject")
+  let scope ← parseScopeValue (← json.getObjVal? "scope")
+  let effect ← parseGrantEffect (← (← json.getObjVal? "effect").getStr?)
+  let capability ← parseCapability (← json.getObjVal? "capability")
+  let parentField ← json.getObjVal? "attenuationOf"
+  let parent ← if parentField.isNull then pure none
+    else do pure (some (GrantId.manual (← parentField.getNat?)))
+  let live ← (← json.getObjVal? "live").getBool?
+  pure ⟨.manual id, subject, scope, effect, capability, parent, live⟩
+
+def parseAuthorityRequest (json : Json) : Except String AuthorityRequest := do
+  let subjects ← (← (← json.getObjVal? "subjects").getArr?).toList.mapM parseSubject
+  let target ← parseScopeValue (← json.getObjVal? "target")
+  let intent ← parseCapabilityIntent (← json.getObjVal? "intent")
+  pure ⟨subjects, target, intent⟩
+
+def decisionName : AuthorityDecision → String
+  | .allowed => "allowed"
+  | .matchingDeny => "matchingDeny"
+  | .guestElevation => "guestElevation"
+  | .missingGrant => "missingGrant"
+  | .revokedGrant => "revokedGrant"
+  | .invalidDelegation => "invalidDelegation"
+  | .noMatchingAllow => "noMatchingAllow"
+
 /-! ## Actor-local persistence
 
 `activateExec` and `admitsCommand` are the modeled decisions themselves, not mirrors of a
@@ -245,6 +371,22 @@ where
         let parent ← parseCapability (← request.getObjVal? "parent")
         let child ← parseCapability (← request.getObjVal? "child")
         pure (Json.mkObj [("covers", Json.bool (parent.coversBool child))])
+    | "json.canonical" => do
+        let tree ← parseJsonTree (← request.getObjVal? "value")
+        pure (Json.mkObj [("encoded", Json.str (String.mk (encodeJson tree)))])
+    | "authority.scopeKey" => do
+        let scope ← parseScopeRefText (← request.getObjVal? "scope")
+        pure (Json.mkObj [("key", Json.str (String.mk (scopeKeyText scope)))])
+    | "authority.subjectKey" => do
+        let subject ← parseSubjectRefText (← request.getObjVal? "subject")
+        pure (Json.mkObj [("key", Json.str (String.mk (subjectKeyText subject)))])
+    | "authority.evaluate" => do
+        let grants ← (← (← request.getObjVal? "grants").getArr?).toList.mapM parseAuthorityGrant
+        let evaluated ← parseAuthorityRequest (← request.getObjVal? "request")
+        let guest ← (← request.getObjVal? "guest").getBool?
+        let backing ← (← request.getObjVal? "backing").getNat?
+        pure (Json.mkObj [("decision",
+          Json.str (decisionName (evaluateExec ⟨grants, evaluated, guest, .manual backing⟩)))])
     | "actor.activate" => do
         let storage ← parseActorStorage (← request.getObjVal? "storage")
         let actor ← parseActorRef (← request.getObjVal? "actor")

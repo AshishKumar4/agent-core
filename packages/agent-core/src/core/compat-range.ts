@@ -1,6 +1,6 @@
 import { AgentCoreError } from "../errors";
 import { RecordCodec, type RecordVersion } from "./codec";
-import { hasExactJsonKeys, type JsonValue } from "./json";
+import { hasExactJsonKeys, isJsonObject, type JsonValue } from "./json";
 import { hasOnlyUnicodeScalarValues } from "./unicode";
 
 class CompatRangeCodec extends RecordCodec<CompatRange> {
@@ -14,7 +14,7 @@ class CompatRangeCodec extends RecordCodec<CompatRange> {
 
     protected decodePayload(payload: JsonValue, _version: RecordVersion): CompatRange {
         if (
-            !isObject(payload) ||
+            !isJsonObject(payload) ||
             !hasExactJsonKeys(payload, ["host", "spec"]) ||
             typeof payload["host"] !== "string" ||
             typeof payload["spec"] !== "string"
@@ -65,10 +65,6 @@ function requireRange(value: string, name: string): void {
     ) {
         throw new TypeError(`${name} must be a nonblank canonical string`);
     }
-}
-
-function isObject(value: JsonValue): value is { readonly [key: string]: JsonValue } {
-    return value !== null && !Array.isArray(value) && typeof value === "object";
 }
 
 const anyCompatRange = new CompatRange("*", "*");

@@ -168,6 +168,7 @@ interface ActorHarness {
     failNextCommitUnknown(): void;
     failCommitUnknownAfter(transactions: number): void;
     failNextCommitWith(error: unknown): void;
+    loseNextCommit(): void;
 }
 
 type HarnessFactory = () => ActorHarness;
@@ -337,6 +338,31 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
             const restarted = harness.restart();
             expect((await restarted.currentFence()).epoch).toBe(previousFence.epoch + 1);
             await expect(restarted.increment()).resolves.toBe(2);
+        });
+
+        // The other branch an unknown commit leaves open, and the one the design exists
+        // for: the callback ran and the write was lost. A fence taken before the fault is
+        // current in this branch and stale in the committed one, so an incarnation that
+        // kept serving would admit on evidence that decides nothing. Closing is what makes
+        // the two branches agree again, which is only observable once the fence held
+        // beforehand is refused and a fresh incarnation resolves to the base state.
+        test("closes the incarnation when an unknown commit lost its write", { tags: "p0" }, async () => {
+            const harness = create();
+            const previousFence = await harness.actor.currentFence();
+            harness.loseNextCommit();
+
+            const uncertain = harness.actor.increment();
+
+            await expect(uncertain).rejects.toBeInstanceOf(ActorCommitUnknownError);
+            expect(harness.value()).toBe(0);
+            expect(harness.recovery()?.epoch).toBe(previousFence.epoch);
+            await expect(harness.actor.incrementFenced(previousFence)).rejects.toMatchObject({
+                code: "actor.closed"
+            });
+
+            const restarted = harness.restart();
+            expect((await restarted.currentFence()).epoch).toBe(previousFence.epoch + 1);
+            await expect(restarted.increment()).resolves.toBe(1);
         });
 
         test("keeps an unknown close commit poisoned after FIFO prior work", { tags: "p0" }, async () => {
@@ -2607,6 +2633,7 @@ function harness<TTransaction>(
         failNextCommitUnknown: () => store.failNextCommitUnknown(),
         failCommitUnknownAfter: (transactions) => store.failCommitUnknownAfter(transactions),
         failNextCommitWith: (error) => store.failNextCommitWith(error),
+        loseNextCommit: () => store.loseNextCommit(),
         recovery: () =>
             store.transaction((transaction) => store.loadRecoveryState(transaction, ACTOR_REF))
     };
@@ -2621,14 +2648,32 @@ class StartActor<TTransaction> extends Actor<TTransaction> {
     }
 }
 
+// The sentinel that abandons a transaction from outside the Actor's own callback, so
+// the store rolls back without the Actor ever seeing a commit-unknown error raised
+// inside its command — which it would reject as a programmer fault instead.
+const ABANDON_TRANSACTION = Symbol("abandon-transaction");
+
 class FaultingActorStore<TTransaction> implements ActorActivationStore<TTransaction> {
     #failure: unknown;
     #transactionsUntilFailure = 0;
+    #loseNextCommit = false;
 
     public constructor(private readonly store: ActorActivationStore<TTransaction>) {}
 
     public failNextCommitUnknown(): void {
         this.failNextCommitWith(new ActorCommitUnknownError());
+    }
+
+    /**
+     * Reports an unknown commit on the branch where the write was lost: the command
+     * callback runs to completion inside a real transaction, the transaction is then
+     * abandoned so the store rolls it back, and only then is the caller told the
+     * outcome is unknown. failNextCommitWith reports the other branch — it lets the
+     * inner transaction commit first — so between them the two cover both branches an
+     * unknown commit leaves open.
+     */
+    public loseNextCommit(): void {
+        this.#loseNextCommit = true;
     }
 
     public failCommitUnknownAfter(transactions: number): void {
@@ -2659,6 +2704,18 @@ class FaultingActorStore<TTransaction> implements ActorActivationStore<TTransact
         operation: TransactionOperation<TTransaction, TResult>,
         ...guard: SynchronousResultGuard<TResult>
     ): TResult {
+        if (this.#loseNextCommit) {
+            this.#loseNextCommit = false;
+            try {
+                this.store.transaction<TResult>((transaction): TResult => {
+                    operation(transaction);
+                    throw ABANDON_TRANSACTION;
+                }, ...guard);
+            } catch (error) {
+                if (error !== ABANDON_TRANSACTION) throw error;
+            }
+            throw new ActorCommitUnknownError();
+        }
         const result = this.store.transaction(operation, ...guard);
         if (this.#transactionsUntilFailure > 0) {
             this.#transactionsUntilFailure -= 1;

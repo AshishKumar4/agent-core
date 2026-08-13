@@ -90,7 +90,7 @@ export function requireBoolean(value: FacetData | undefined, subject: string): b
 }
 
 export function requireSafeInteger(value: FacetData | undefined, subject: string): number {
-    if (typeof value !== "number" || !Number.isSafeInteger(value)) {
+    if (!isSafeInteger(value)) {
         throw new TypeError(`${subject} must be a safe integer`);
     }
     return value;
@@ -129,8 +129,13 @@ function freezeFacetData(value: FacetData): FacetData {
     return value;
 }
 
+// Number.isSafeInteger is already the complete check — it is false for every non-number —
+// but it carries no type predicate, so a paired `typeof` test would be a guard no test
+// could ever reach. This gives the check the narrowing it lacks instead.
+function isSafeInteger(value: unknown): value is number {
+    return Number.isSafeInteger(value);
+}
+
 function isDataObject(value: FacetData | undefined): value is FacetDataMap {
-    return (
-        value !== undefined && value !== null && !Array.isArray(value) && typeof value === "object"
-    );
+    return value !== null && !Array.isArray(value) && typeof value === "object";
 }

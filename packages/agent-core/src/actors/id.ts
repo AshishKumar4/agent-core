@@ -1,4 +1,4 @@
-import { TextId } from "../core";
+import { TextId, isObjectRecord } from "../core";
 
 const exactActorIds = new WeakSet<object>();
 
@@ -11,5 +11,5 @@ export class ActorId extends TextId {
 }
 
 export function isExactActorId(value: unknown): value is ActorId {
-    return value !== null && typeof value === "object" && exactActorIds.has(value);
+    return isObjectRecord(value) && exactActorIds.has(value);
 }

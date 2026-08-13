@@ -140,9 +140,9 @@
     },
     {
       "id": "AC-AUTH-001",
-      "summary": "Tenant-qualified PrincipalRef identity, canonical deny override, Binding-to-operation-facet match, and contained non-widening allow delegation",
+      "summary": "Tenant-qualified PrincipalRef identity, canonical deny override, Binding-to-operation-facet match, contained non-widening allow delegation, and the executable deny-precedence decision the Grant resolver runs",
       "status": "proved-safety",
-      "boundary": "Coverage includes structural tenant-qualified PrincipalRef inequality plus abstract Grant/Binding ledger relations and the designated delegation transition; it does not prove concrete authentication, serialization, storage, or resolver correctness.",
+      "boundary": "Two layers. The abstract ledger carries structural tenant-qualified PrincipalRef inequality, the Grant/Binding relations, and the designated delegation transition. On top of it, evaluateExec is the executable resolution decision, following AuthorityRuntime.evaluate's own gate order over the Grant plane, and authority_decision_is_sound proves an allowed answer implies SPEC §3.3's precedence condition stated as itself — at least one live matching allow-Grant reaches the target Scope and no live matching deny-Grant does — where \"matching\" is Capability.Matches over the whole infinite intent domain and \"reaches\" is §3.2's chain relation ScopeReaches, both defined independently of the check. The resolver decides reach twice, by Scope-path membership and by comparing positions on the exact Tenant-to-target path; scope_reaches_iff_mem_path and path_index_le_iff_reaches prove both are that chain relation, and path_index_defined_of_reaches proves the position test refuses no containment the membership test admits. lineage_ok_ancestor_covers lifts the resolver's pairwise attenuation walk to §3.4 rule 2's \"at every depth\". The decision begins where the resolver has already established the effective subject set, the exact Scope path, the intent, and the Binding's backing Grant id: Binding canonicality, path-epoch staleness, Principal liveness, and the Binding-to-Facet match are earlier fail-closed gates, so omitting them can only make the model more permissive than the implementation and soundness carries; completeness (authority_decision_iff_effective) is stated relative to them and to a sound backing Grant. Guest requests are modeled only through the elevation prohibition — Grant origin provenance and Membership/GuestTrust verification currency are not modeled and are not driven differentially. Subjects and Scopes are compared as values while the implementation compares canonical-JSON keys; AC-KEY-001's authorityKey_injective is what makes that value comparison, with no side condition on identifier text. The lineage walk is budgeted by the Grant count and refuses on exhaustion, matching the implementation's refusal of a repeated Grant; that the budget never binds for an acyclic lineage is not proved. Concrete authentication, serialization, storage, and resolver-external correctness remain outside.",
       "definitions": [
         "AgentCore.Grant",
         "AgentCore.Binding",
@@ -152,21 +152,60 @@
         "AgentCore.AuthorityLedger.LiveGrant",
         "AgentCore.AuthorityLedger.Denied",
         "AgentCore.AuthorityLedger.Authorized",
-        "AgentCore.AuthorityLedger.AuthorityStep"
+        "AgentCore.AuthorityLedger.AuthorityStep",
+        "AgentCore.ScopeReaches",
+        "AgentCore.indexIn",
+        "AgentCore.pathIndex",
+        "AgentCore.AuthorityGrant",
+        "AgentCore.AuthorityRequest",
+        "AgentCore.AuthorityGrant.MatchesRequest",
+        "AgentCore.AuthorityGrant.matchesRequestBool",
+        "AgentCore.LiveMatching",
+        "AgentCore.EffectiveAuthority",
+        "AgentCore.LineageVerdict",
+        "AgentCore.lookupGrant",
+        "AgentCore.lineageStep",
+        "AgentCore.lineageExec",
+        "AgentCore.LineageAncestor",
+        "AgentCore.AuthorityDecision",
+        "AgentCore.InvocationImpact.elevating",
+        "AgentCore.AuthorityInput",
+        "AgentCore.AuthorityInput.denials",
+        "AgentCore.evaluateExec",
+        "AgentCore.BackingSound"
       ],
       "theorems": [
         "AgentCore.AuthorityLedger.deny_overrides",
         "AgentCore.AuthorityLedger.authorized_binding_matches_operation_facet",
         "AgentCore.AuthorityLedger.delegated_allow_is_contained_and_not_wider",
         "AgentCore.principal_ref_tenant_is_identity",
-        "AgentCore.AuthorityLedger.acts_under_principal_is_tenant_qualified"
+        "AgentCore.AuthorityLedger.acts_under_principal_is_tenant_qualified",
+        "AgentCore.scope_reaches_iff_mem_path",
+        "AgentCore.path_index_le_iff_reaches",
+        "AgentCore.path_index_defined_of_reaches",
+        "AgentCore.authority_grant_matches_iff",
+        "AgentCore.ancestor_deny_defeats_descendant_allow",
+        "AgentCore.lineage_ok_ancestor_covers",
+        "AgentCore.lineage_ok_ancestors_live",
+        "AgentCore.authority_decision_is_sound",
+        "AgentCore.authority_decision_is_deny_precedence",
+        "AgentCore.authority_decision_iff_effective",
+        "AgentCore.guest_elevation_is_refused",
+        "AgentCore.admitted_intent_is_admitted_by_every_ancestor"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_authorized_resolution_issue",
         "AgentCore.Examples.nonvacuous_delegation_containment",
         "AgentCore.Examples.nonvacuous_live_deny_override",
         "AgentCore.Examples.nonvacuous_qualified_principal_identity",
-        "AgentCore.Examples.nonvacuous_foreign_tenant_principal_never_acts_under"
+        "AgentCore.Examples.nonvacuous_foreign_tenant_principal_never_acts_under",
+        "AgentCore.Examples.nonvacuous_authority_scope_reach_discriminates",
+        "AgentCore.Examples.nonvacuous_authority_path_index_orders_chain",
+        "AgentCore.Examples.nonvacuous_authority_grant_matches_discriminates",
+        "AgentCore.Examples.nonvacuous_authority_allows_without_matching_deny",
+        "AgentCore.Examples.nonvacuous_authority_ancestor_deny_overrides",
+        "AgentCore.Examples.nonvacuous_authority_guest_elevation_refused",
+        "AgentCore.Examples.nonvacuous_authority_lineage_walks_and_refuses"
       ],
       "witnessCoverage": {
         "AgentCore.AuthorityLedger.deny_overrides": [
@@ -183,11 +222,52 @@
         ],
         "AgentCore.AuthorityLedger.acts_under_principal_is_tenant_qualified": [
           "AgentCore.Examples.nonvacuous_foreign_tenant_principal_never_acts_under"
+        ],
+        "AgentCore.scope_reaches_iff_mem_path": [
+          "AgentCore.Examples.nonvacuous_authority_scope_reach_discriminates"
+        ],
+        "AgentCore.path_index_le_iff_reaches": [
+          "AgentCore.Examples.nonvacuous_authority_path_index_orders_chain",
+          "AgentCore.Examples.nonvacuous_authority_scope_reach_discriminates"
+        ],
+        "AgentCore.path_index_defined_of_reaches": [
+          "AgentCore.Examples.nonvacuous_authority_path_index_orders_chain"
+        ],
+        "AgentCore.authority_grant_matches_iff": [
+          "AgentCore.Examples.nonvacuous_authority_grant_matches_discriminates"
+        ],
+        "AgentCore.ancestor_deny_defeats_descendant_allow": [
+          "AgentCore.Examples.nonvacuous_authority_ancestor_deny_overrides"
+        ],
+        "AgentCore.lineage_ok_ancestor_covers": [
+          "AgentCore.Examples.nonvacuous_authority_lineage_walks_and_refuses"
+        ],
+        "AgentCore.lineage_ok_ancestors_live": [
+          "AgentCore.Examples.nonvacuous_authority_lineage_walks_and_refuses"
+        ],
+        "AgentCore.authority_decision_is_sound": [
+          "AgentCore.Examples.nonvacuous_authority_allows_without_matching_deny",
+          "AgentCore.Examples.nonvacuous_authority_ancestor_deny_overrides"
+        ],
+        "AgentCore.authority_decision_is_deny_precedence": [
+          "AgentCore.Examples.nonvacuous_authority_ancestor_deny_overrides",
+          "AgentCore.Examples.nonvacuous_authority_allows_without_matching_deny"
+        ],
+        "AgentCore.authority_decision_iff_effective": [
+          "AgentCore.Examples.nonvacuous_authority_allows_without_matching_deny"
+        ],
+        "AgentCore.guest_elevation_is_refused": [
+          "AgentCore.Examples.nonvacuous_authority_guest_elevation_refused"
+        ],
+        "AgentCore.admitted_intent_is_admitted_by_every_ancestor": [
+          "AgentCore.Examples.nonvacuous_authority_lineage_walks_and_refuses"
         ]
       },
       "remainingEvidence": [
         "concrete canonical Grant/Binding storage and resolver refinement",
-        "authenticated Principal, Team, foreign-principal, and tenant inputs"
+        "authenticated Principal, Team, foreign-principal, and tenant inputs",
+        "guest Grant origin provenance and Membership/GuestTrust verification currency",
+        "TypeScript refinement, for which oracle agreement is empirical only (NC-DIFFERENTIAL-EMPIRICAL)"
       ]
     },
     {
@@ -342,15 +422,37 @@
     },
     {
       "id": "AC-KEY-001",
-      "summary": "When a stored delimiter-joined composite key determines the identity it was built from",
+      "summary": "When a stored composite key determines the identity it was built from: proved for the canonical-JSON scheme outright, and for the delimiter join only under a delimiter-free side",
       "status": "proved-safety",
-      "boundary": "Two-component delimiter joins only. Injectivity is proved for a delimiter-free left component and, separately, for a delimiter-free right one; the join is proved not injective when neither side is constrained, and the prefix scan built from it is proved to admit a foreign identifier's key under the same condition — both by explicit construction, for every delimiter. What this does not do is decide any particular stored key: it states the obligation an implementation must discharge per key by naming the delimiter-free side and showing its component domain excludes the delimiter. Canonical-JSON composite keys are a different scheme whose injectivity rests on the encoder's escaping rules; those are not modeled here and stand as ASM-CANONICAL-KEY-INJECTIVE. Joins of more than two components, ordering, and storage behavior are outside this requirement.",
+      "boundary": "Two key schemes, with opposite answers. The delimiter join is injective for a delimiter-free left component and, separately, for a delimiter-free right one; it is proved not injective when neither side is constrained, and the prefix scan built from it is proved to admit a foreign identifier's key under the same condition -- both by explicit construction, for every delimiter. That states an obligation an implementation must discharge per key by naming the delimiter-free side and showing its component domain excludes the delimiter; no particular stored key is decided here. The canonical-JSON scheme carries no such obligation: encodeJson models canonicalString's grammar including JSON.stringify's escape table, canonical_encode_injective proves the encoding determines the tree, and authorityKey_injective proves the composite key determines the tuple it was built from -- for arbitrary identifier text, including the U+0000 that makes the delimiter join collide. scope_key_injective and subject_key_injective apply that to the keys AuthorityRuntime compares, which is what makes AC-AUTH-001's value-level Scope and Subject comparison the comparison the resolver runs. This discharges ASM-CANONICAL-KEY-INJECTIVE for every key whose components are strings or null; what remains registered is the number leg -- the model represents a number by its rendered token, so tree injectivity is conditional on distinct JavaScript numbers rendering to distinct tokens, which the shortest-round-trip algorithm behind Number.prototype.toString provides and this package does not prove. Also not carried: UTF-8 byte encoding, since the implementation compares encoder bytes and TextEncoder injectivity on scalar-value sequences stays an implementation obligation; the lone-surrogate escape branch, which isJsonValue makes unreachable; and object key sortedness, which is what makes the encoding canonical rather than what makes it injective, and is a separate property. foreign_subject_key_separates_verification_schemes records a consequence rather than a guarantee: verifiedVia sits inside the encoded Subject, so one foreign Principal under two verification schemes is two subjects to every key comparison. Joins of more than two components, ordering, and storage behavior remain outside.",
       "definitions": [
         "AgentCore.pairKey",
         "AgentCore.keyPrefix",
         "AgentCore.HasPrefix",
         "AgentCore.DelimiterFree",
-        "AgentCore.delimiterFree"
+        "AgentCore.delimiterFree",
+        "AgentCore.hexDigit",
+        "AgentCore.hexValue",
+        "AgentCore.escapeChar",
+        "AgentCore.unescapeOne",
+        "AgentCore.escapeString",
+        "AgentCore.quoted",
+        "AgentCore.numberChar",
+        "AgentCore.numberToken",
+        "AgentCore.JsonTree",
+        "AgentCore.encodeJson",
+        "AgentCore.encodeItems",
+        "AgentCore.encodeEntries",
+        "AgentCore.numbersValid",
+        "AgentCore.Delimited",
+        "AgentCore.authorityKeyTag",
+        "AgentCore.authorityKey",
+        "AgentCore.ScopeRefText",
+        "AgentCore.SubjectRefText",
+        "AgentCore.encodeScopeRefText",
+        "AgentCore.encodeSubjectRefText",
+        "AgentCore.scopeKeyText",
+        "AgentCore.subjectKeyText"
       ],
       "theorems": [
         "AgentCore.delimiterFree_iff",
@@ -358,14 +460,28 @@
         "AgentCore.pair_key_injective_of_free_right",
         "AgentCore.pair_key_not_injective",
         "AgentCore.prefix_scan_selects_exact_identifier",
-        "AgentCore.prefix_scan_admits_foreign_identifier"
+        "AgentCore.prefix_scan_admits_foreign_identifier",
+        "AgentCore.unescapeOne_escapeChar",
+        "AgentCore.quoted_prefix_free",
+        "AgentCore.encodeJson_not_delimited",
+        "AgentCore.canonical_encode_injective",
+        "AgentCore.authorityKey_injective",
+        "AgentCore.scope_key_injective",
+        "AgentCore.subject_key_injective",
+        "AgentCore.foreign_subject_key_separates_verification_schemes"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_delimiter_free_discriminates",
         "AgentCore.Examples.nonvacuous_free_left_keys_separate",
         "AgentCore.Examples.nonvacuous_free_right_keys_separate",
         "AgentCore.Examples.nonvacuous_nul_key_collision",
-        "AgentCore.Examples.nonvacuous_nul_prefix_scan_admits_foreign"
+        "AgentCore.Examples.nonvacuous_nul_prefix_scan_admits_foreign",
+        "AgentCore.Examples.nonvacuous_canonical_escape_discriminates",
+        "AgentCore.Examples.nonvacuous_canonical_quoting_separates",
+        "AgentCore.Examples.nonvacuous_canonical_key_separates_delimiter_collision",
+        "AgentCore.Examples.nonvacuous_canonical_scope_key_discriminates",
+        "AgentCore.Examples.nonvacuous_canonical_subject_key_separates_schemes",
+        "AgentCore.Examples.nonvacuous_canonical_encoding_discriminates"
       ],
       "witnessCoverage": {
         "AgentCore.delimiterFree_iff": [
@@ -385,12 +501,40 @@
         ],
         "AgentCore.prefix_scan_admits_foreign_identifier": [
           "AgentCore.Examples.nonvacuous_nul_prefix_scan_admits_foreign"
+        ],
+        "AgentCore.unescapeOne_escapeChar": [
+          "AgentCore.Examples.nonvacuous_canonical_escape_discriminates"
+        ],
+        "AgentCore.quoted_prefix_free": [
+          "AgentCore.Examples.nonvacuous_canonical_quoting_separates"
+        ],
+        "AgentCore.encodeJson_not_delimited": [
+          "AgentCore.Examples.nonvacuous_canonical_encoding_discriminates"
+        ],
+        "AgentCore.canonical_encode_injective": [
+          "AgentCore.Examples.nonvacuous_canonical_encoding_discriminates",
+          "AgentCore.Examples.nonvacuous_canonical_quoting_separates"
+        ],
+        "AgentCore.authorityKey_injective": [
+          "AgentCore.Examples.nonvacuous_canonical_key_separates_delimiter_collision"
+        ],
+        "AgentCore.scope_key_injective": [
+          "AgentCore.Examples.nonvacuous_canonical_key_separates_delimiter_collision",
+          "AgentCore.Examples.nonvacuous_canonical_scope_key_discriminates"
+        ],
+        "AgentCore.subject_key_injective": [
+          "AgentCore.Examples.nonvacuous_canonical_subject_key_separates_schemes"
+        ],
+        "AgentCore.foreign_subject_key_separates_verification_schemes": [
+          "AgentCore.Examples.nonvacuous_canonical_subject_key_separates_schemes"
         ]
       },
       "remainingEvidence": [
         "per-key discharge of the delimiter-free side across every record store",
-        "canonical-JSON key injectivity (ASM-CANONICAL-KEY-INJECTIVE)",
-        "identifier validation excluding the delimiter at the trust boundary"
+        "distinct JavaScript numbers rendering to distinct tokens (ASM-CANONICAL-KEY-INJECTIVE)",
+        "UTF-8 byte encoding of the canonical string",
+        "identifier validation excluding the delimiter at the trust boundary",
+        "TypeScript refinement, for which oracle agreement is empirical only (NC-DIFFERENTIAL-EMPIRICAL)"
       ]
     },
     {
@@ -2907,7 +3051,7 @@
     },
     {
       "id": "ASM-CANONICAL-KEY-INJECTIVE",
-      "summary": "Composite keys built by canonical-JSON encoding a component tuple are injective on that tuple. The encoder's quoting and escaping rules are not modeled, so this stands as an assumption rather than a result; the delimiter-join scheme is modeled and proved separately under AC-KEY-001.",
+      "summary": "Distinct JavaScript numbers render to distinct canonical JSON number tokens. This is what remains of the original assumption. The encoder's quoting, escaping, and grammar are now modeled under AC-KEY-001, and canonical_encode_injective plus authorityKey_injective prove that a canonical-JSON composite key determines its component tuple whenever every component is a string or null -- which covers every Scope and Subject key the authority plane builds, so those are unconditional. A key carrying a number inherits this assumption, as does any digest taken over a value containing one. UTF-8 byte encoding of the canonical string is a separate implementation obligation.",
       "status": "operational-assumption"
     },
     {

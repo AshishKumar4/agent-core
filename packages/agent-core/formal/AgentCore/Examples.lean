@@ -1,4 +1,6 @@
 import AgentCore.Proofs.CanonicalMediatedTrace
+import AgentCore.Authority
+import AgentCore.CanonicalJson
 import AgentCore.Capability
 import AgentCore.Keys
 import AgentCore.Persistence
@@ -5583,6 +5585,126 @@ theorem nonvacuous_covering_chain_reaches_leaf :
       anyFacetObserve.coversBool acmeMailSend = true :=
   ⟨⟨by decide, by decide, trivial⟩, by simp, by decide⟩
 
+/-! ## Deny precedence and Grant resolution (SPEC §3.3, §3.4)
+
+One Tenant, one Project inside it, one Workspace inside that Project, and one Principal who
+also belongs to a Team. Every witness below runs the same executable decision the oracle
+serves. -/
+
+private def homeTenant : TenantId := ⟨1⟩
+private def rootScope : Scope := .tenant homeTenant
+private def projectScope : Scope := .project homeTenant ⟨2⟩
+private def targetScope : Scope := .workspace homeTenant (some ⟨2⟩) ⟨3⟩
+private def siblingScope : Scope := .workspace homeTenant (some ⟨2⟩) ⟨4⟩
+
+private def actingPrincipal : Subject := .principal ⟨homeTenant, ⟨5⟩⟩
+private def actingTeam : Subject := .team ⟨6⟩
+private def strangerPrincipal : Subject := .principal ⟨homeTenant, ⟨7⟩⟩
+
+private def mailIntent : CapabilityIntent := ⟨"acme.mail".data, "send", .observe, []⟩
+private def delegateIntent : CapabilityIntent := ⟨"acme.mail".data, "send", .delegate, []⟩
+
+private def broadCapability : Capability := ⟨"*".data, [], [.observe, .mutate, .delegate], []⟩
+private def mailCapability : Capability := ⟨"acme.*".data, [], [.observe], []⟩
+private def widerCapability : Capability := ⟨"*".data, [], [.observe, .administer], []⟩
+private def otherCapability : Capability := ⟨"other.*".data, [], [.observe], []⟩
+
+private def rootGrant : AuthorityGrant :=
+  ⟨.manual 1, actingPrincipal, rootScope, .allow, broadCapability, none, true⟩
+private def bindingGrant : AuthorityGrant :=
+  ⟨.manual 2, actingPrincipal, targetScope, .allow, mailCapability, some (.manual 1), true⟩
+private def projectDeny : AuthorityGrant :=
+  ⟨.manual 3, actingPrincipal, projectScope, .deny, mailCapability, none, true⟩
+private def siblingDeny : AuthorityGrant :=
+  ⟨.manual 4, actingTeam, siblingScope, .deny, mailCapability, none, true⟩
+private def strangerDeny : AuthorityGrant :=
+  ⟨.manual 5, strangerPrincipal, rootScope, .deny, mailCapability, none, true⟩
+private def revokedRoot : AuthorityGrant := { rootGrant with live := false }
+private def wideningChild : AuthorityGrant := { bindingGrant with capability := widerCapability }
+
+private def mailRequest : AuthorityRequest :=
+  ⟨[actingPrincipal, actingTeam], targetScope, mailIntent⟩
+
+private def cleanInput : AuthorityInput := ⟨[rootGrant, bindingGrant], mailRequest, false, .manual 2⟩
+private def deniedInput : AuthorityInput :=
+  ⟨[rootGrant, bindingGrant, projectDeny], mailRequest, false, .manual 2⟩
+private def irrelevantDeniesInput : AuthorityInput :=
+  ⟨[rootGrant, bindingGrant, siblingDeny, strangerDeny], mailRequest, false, .manual 2⟩
+private def revokedRootInput : AuthorityInput :=
+  ⟨[revokedRoot, bindingGrant], mailRequest, false, .manual 2⟩
+private def wideningInput : AuthorityInput :=
+  ⟨[rootGrant, wideningChild], mailRequest, false, .manual 2⟩
+private def delegateRequest : AuthorityRequest :=
+  ⟨[actingPrincipal, actingTeam], targetScope, delegateIntent⟩
+private def hostDelegateInput : AuthorityInput :=
+  ⟨[rootGrant, { bindingGrant with capability := broadCapability }], delegateRequest, false,
+    .manual 2⟩
+private def guestDelegateInput : AuthorityInput := { hostDelegateInput with guest := true }
+
+/-- The chain relation separates real Scopes, and it is exactly the path membership the
+resolver tests: a Project reaches its Workspace, and never the other way round. -/
+theorem nonvacuous_authority_scope_reach_discriminates :
+    ScopeReaches projectScope targetScope ∧ ¬ ScopeReaches targetScope projectScope ∧
+      projectScope ∈ targetScope.path ∧ siblingScope ∉ targetScope.path := by
+  refine ⟨scope_reaches_iff_mem_path.mpr (by decide), fun reaches => ?_, by decide, by decide⟩
+  exact absurd (scope_reaches_iff_mem_path.mp reaches) (by decide)
+
+/-- Positions on the exact Tenant-to-target path order the chain, and a Scope off the path
+has no position at all — which is the case `validateLineage` refuses. -/
+theorem nonvacuous_authority_path_index_orders_chain :
+    pathIndex targetScope rootScope = some 0 ∧ pathIndex targetScope projectScope = some 1 ∧
+      pathIndex targetScope targetScope = some 2 ∧
+      pathIndex targetScope siblingScope = none := by decide
+
+/-- Grant matching separates: the same request is matched by the Grant at the Workspace and
+refused by a deny at a sibling Workspace, by a stranger's Grant, and by a Grant whose
+capability admits another Facet. -/
+theorem nonvacuous_authority_grant_matches_discriminates :
+    bindingGrant.MatchesRequest mailRequest ∧ ¬ siblingDeny.MatchesRequest mailRequest ∧
+      ¬ strangerDeny.MatchesRequest mailRequest ∧
+      ¬ ({ bindingGrant with capability := otherCapability } :
+          AuthorityGrant).MatchesRequest mailRequest :=
+  ⟨authority_grant_matches_iff.mp (by decide),
+   fun matched => absurd (authority_grant_matches_iff.mpr matched) (by decide),
+   fun matched => absurd (authority_grant_matches_iff.mpr matched) (by decide),
+   fun matched => absurd (authority_grant_matches_iff.mpr matched) (by decide)⟩
+
+/-- **The decision admits, and §3.3 agrees.** Denies that do not reach the target or do not
+name a subject the Principal acts under leave the answer untouched. -/
+theorem nonvacuous_authority_allows_without_matching_deny :
+    evaluateExec cleanInput = .allowed ∧
+      EffectiveAuthority cleanInput.grants cleanInput.request ∧
+      evaluateExec irrelevantDeniesInput = .allowed := by
+  refine ⟨by decide, authority_decision_is_sound (by decide), by decide⟩
+
+/-- **An ancestor deny defeats the Workspace allow.** The deny sits at the Project, the
+allow at the Workspace below it, and §3.3 genuinely fails — this is the re-widening the
+precedence rule forbids. -/
+theorem nonvacuous_authority_ancestor_deny_overrides :
+    evaluateExec deniedInput = .matchingDeny ∧
+      ¬ EffectiveAuthority deniedInput.grants deniedInput.request := by
+  refine ⟨by decide, ancestor_deny_defeats_descendant_allow (denyGrant := projectDeny)
+    (middle := projectScope) (by decide) rfl rfl (by decide) (.same _)
+    (scope_reaches_iff_mem_path.mpr (by decide)) ?_⟩
+  exact capability_matches_iff.mp (by decide)
+
+/-- A guest never reaches `delegate`, and the same request from a host Principal does. -/
+theorem nonvacuous_authority_guest_elevation_refused :
+    evaluateExec guestDelegateInput = .guestElevation ∧
+      evaluateExec hostDelegateInput = .allowed := by decide
+
+/-- **The lineage walk separates three answers, and admits a real containment.** The clean
+chain is admitted and its root covers the leaf; revoking the root refuses the whole chain;
+and a child that widens the root's capability is refused as an invalid delegation. -/
+theorem nonvacuous_authority_lineage_walks_and_refuses :
+    lineageExec cleanInput.grants targetScope bindingGrant = .ok ∧
+      LineageAncestor cleanInput.grants bindingGrant rootGrant ∧
+      rootGrant.capability.Covers bindingGrant.capability ∧
+      evaluateExec revokedRootInput = .revokedGrant ∧
+      evaluateExec wideningInput = .invalidDelegation := by
+  refine ⟨by decide, .parent (parentId := .manual 1) rfl (by decide) (.self _),
+    capability_covering_is_sound (by decide), by decide, by decide⟩
+
 /-! ## Composite key representation (SPEC §3.4, §8.1)
 
 The delimiter every record store joins with is U+0000, and `TextId` admits it: the only
@@ -5632,6 +5754,66 @@ theorem nonvacuous_nul_prefix_scan_admits_foreign :
   rintro ⟨rest, shape⟩
   simp [keyPrefix, pairKey] at shape
 
+
+/-! ## Canonical JSON keys (SPEC §3.4, §8.1)
+
+The same U+0000 that makes the delimiter join collide, carried through the canonical-JSON
+key scheme the authority plane actually uses. -/
+
+private def hostileTenant : List Char := ['a', nul, 'b']
+private def hostileProject : List Char := ['b', nul, 'c']
+private def plainTenant : List Char := ['a']
+private def plainProject : List Char := ['c']
+
+/-- The escape table discriminates, and it escapes exactly what the grammar needs: the quote,
+the backslash, and a control point, while an ordinary character passes through. -/
+theorem nonvacuous_canonical_escape_discriminates :
+    escapeChar '"' = ['\\', '"'] ∧ escapeChar '\\' = ['\\', '\\'] ∧
+      escapeChar nul = ['\\', 'u', '0', '0', '0', '0'] ∧ escapeChar 'a' = ['a'] := by decide
+
+/-- A quoted string literal separates contents that a raw concatenation would not: the
+closing quote is found in one place only. -/
+theorem nonvacuous_canonical_quoting_separates :
+    quoted ['a', nul, 'b'] ≠ quoted ['a'] ++ quoted [nul, 'b'] ∧
+      quoted ['a'] ≠ quoted ['a', '"'] := by decide
+
+/-- **The key collision AC-KEY-001 exhibits does not survive canonical encoding.** The two
+component tuples that share one delimiter-joined key keep two canonical-JSON keys, and the
+proof is the injectivity theorem rather than the computation. -/
+theorem nonvacuous_canonical_key_separates_delimiter_collision :
+    pairKey nul plainTenant hostileProject = pairKey nul hostileTenant plainProject ∧
+      scopeKeyText (.project plainTenant hostileProject) ≠
+        scopeKeyText (.project hostileTenant plainProject) := by
+  refine ⟨rfl, fun equal => ?_⟩
+  exact absurd (scope_key_injective equal) (by decide)
+
+/-- A Scope key determines its Scope even when every identifier is the same hostile text, and
+the three Scope kinds stay apart. -/
+theorem nonvacuous_canonical_scope_key_discriminates :
+    scopeKeyText (.tenant hostileTenant) ≠ scopeKeyText (.project hostileTenant hostileTenant) ∧
+      scopeKeyText (.workspace hostileTenant none hostileTenant) ≠
+        scopeKeyText (.workspace hostileTenant (some hostileTenant) hostileTenant) := by
+  constructor <;> intro equal
+  · exact absurd (scope_key_injective equal) (by decide)
+  · exact absurd (scope_key_injective equal) (by decide)
+
+/-- **A guest's verification stamp is inside its Subject key.** The same foreign Principal
+under two schemes is two subjects to every key comparison the resolver makes. -/
+theorem nonvacuous_canonical_subject_key_separates_schemes :
+    subjectKeyText (.foreign plainTenant plainTenant "token".data) ≠
+        subjectKeyText (.foreign plainTenant plainTenant "callback".data) ∧
+      subjectKeyText (.principal plainTenant plainTenant) ≠
+        subjectKeyText (.team plainTenant) :=
+  ⟨foreign_subject_key_separates_verification_schemes _ _,
+   fun equal => absurd (subject_key_injective equal) (by decide)⟩
+
+/-- The encoder is not injective by accident: a number token really can sit beside a string
+that renders the same characters, and the two trees stay apart. -/
+theorem nonvacuous_canonical_encoding_discriminates :
+    encodeJson (.arr [.num ['1'], .num ['2']]) = "[1,2]".data ∧
+      encodeJson (.num ['1', '2']) = "12".data ∧
+      encodeJson (.str ['1', '2']) ≠ encodeJson (.num ['1', '2']) ∧
+      numbersValid (.arr [.num ['1'], .num ['2']]) = true := by decide
 
 /-! ## Actor-local persistence -/
 

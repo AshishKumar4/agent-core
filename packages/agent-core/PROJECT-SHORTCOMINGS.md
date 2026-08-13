@@ -26,9 +26,27 @@ evidence agree where applicable.
       effect is a legitimate Approval reported as store corruption and a revision order
       sorted on `NaN`, not an authority escalation. Remaining: give the scan an exact parse
       or exclude the delimiter from the identifier domain, record the discharged side per
-      key, and add the Unicode/NUL adversarial tests. Canonical-JSON keys rest on
-      `ASM-CANONICAL-KEY-INJECTIVE`, which is assumed and not proved. A similar key in
+      key, and add the Unicode/NUL adversarial tests. Canonical-JSON keys no longer rest
+      on an assumption: `authorityKey_injective` proves the scheme determines its
+      component tuple for arbitrary identifier text, and `scope_key_injective` and
+      `subject_key_injective` apply it to the keys the resolver compares, with a
+      differential sweep over hostile identifiers including U+0000. A similar key in
       definition planning still requires review.
+- [ ] **A guest deny does not survive a verification-scheme change.** `subjectKey`
+      encodes a `ForeignPrincipalRef` including its `verifiedVia` stamp, and for a guest
+      request `AuthorityRuntime.effectiveSubjects` returns exactly one subject key — the
+      Binding's own stamped subject. A live deny-Grant recorded for the same foreign
+      Principal under a different scheme therefore has a different subject key, is filtered
+      out of `relevant`, and never reaches the deny sweep. SPEC §3.3 makes `verifiedVia`
+      part of `ForeignPrincipalRef` and also lets it change — `handshake` "downgrades all
+      future verifications to `token`" — so the two stamps are reachable for one guest, and
+      `Grant.assertCanReplace` compares `subjectKey`, so an existing deny cannot be
+      restamped in place. `foreign_subject_key_separates_verification_schemes` proves the
+      keys differ and the differential suite asserts it against the implementation; what
+      the formal package does not settle is whether §3.3's precedence sentence intends
+      subject identity for matching to include the stamp. Decide that, then either exclude
+      `verifiedVia` from the matching identity or require restamping to carry existing
+      denies forward.
 - [ ] **Connect formal claims to production behavior.** The current Lean package proves
       properties of an abstract model only. It does not prove that TypeScript, Cloudflare
       adapters, Memory/SQLite storage, provider calls, codecs, bundles, configuration, or
@@ -233,20 +251,43 @@ evidence agree where applicable.
       lineage. That work found and fixed a live escalation: `CapabilitySpec.covers`
       approximated containment by prefix and suffix and admitted `a*a` over `a`.
       Completeness at the capability level is relative to argument paths being treated
-      as independent, which soundness does not rely on. Remaining: deny precedence and
-      the rest of Grant resolution (`AuthorityRuntime.evaluate`) have no executable
-      definition — `deny_overrides` is proved over the abstract ledger only.
+      as independent, which soundness does not rely on. Deny precedence and Grant
+      resolution are now DONE too (`AC-AUTH-001`). `evaluateExec` follows
+      `AuthorityRuntime.evaluate`'s gate order over the Grant plane, and
+      `authority_decision_is_sound` proves an `allowed` answer implies SPEC §3.3's own
+      condition — at least one live matching allow-Grant reaches the target Scope and no
+      live matching deny does — with "matching" meaning `Capability.Matches` over the
+      whole intent domain and "reaches" meaning §3.2's chain relation, both defined
+      without reference to the check. The resolver decides reach twice, by Scope-path
+      membership and by position on the exact Tenant-to-target path;
+      `scope_reaches_iff_mem_path` and `path_index_le_iff_reaches` prove both are that
+      chain relation and `path_index_defined_of_reaches` proves the position test is not
+      the stricter one it looks like. `lineage_ok_ancestor_covers` lifts the pairwise
+      attenuation walk to §3.4 rule 2's "at every depth". Remaining: the guest path is
+      modeled only through the elevation prohibition — Grant origin provenance and
+      Membership/GuestTrust verification currency are not modeled and are not driven
+      differentially — and the lineage walk's Grant-count budget is fail-closed but is
+      not proved never to bind.
 - [~] Define concrete representation relations for typed IDs, time, integers,
-      canonical JSON, codecs, digests, errors, and validated inputs. STARTED. Typed IDs
-      have one: `AC-KEY-001` proves when a stored delimiter-joined key determines the
-      identity it was built from, proves it does not when neither component side
-      excludes the delimiter, and proves the prefix scan built from it admits a foreign
-      identifier under that condition. Validated inputs have one where the capability
-      decision needs it (`PatternValid`, `CapabilityValid`), and constraint values are
-      represented by the canonical encoding the implementation actually compares.
-      Remaining: time, integers, canonical JSON itself (assumed injective as
-      `ASM-CANONICAL-KEY-INJECTIVE`), codecs, digests, and errors have none, and no
-      stored key has yet discharged its per-key obligation.
+      canonical JSON, codecs, digests, errors, and validated inputs. Typed IDs and
+      canonical JSON both have one. `AC-KEY-001` now covers two key schemes with opposite
+      answers: the delimiter join is injective only under a delimiter-free side, is proved
+      not injective otherwise, and its prefix scan is proved to admit a foreign
+      identifier; the canonical-JSON scheme needs no such condition, because
+      `encodeJson` models `canonicalString`'s grammar including `JSON.stringify`'s escape
+      table and `canonical_encode_injective` proves the encoding determines the tree.
+      `authorityKey_injective`, `scope_key_injective`, and `subject_key_injective` carry
+      that to the keys `AuthorityRuntime` compares, for arbitrary identifier text
+      including the U+0000 that makes the delimiter join collide — which is what makes
+      `AC-AUTH-001`'s value-level Scope and Subject comparison the comparison the resolver
+      runs. That discharges most of `ASM-CANONICAL-KEY-INJECTIVE`: what stays registered
+      is the number leg, since the model represents a number by its rendered token and
+      distinct JavaScript numbers rendering to distinct tokens is not proved here.
+      Validated inputs have a relation where the capability decision needs it
+      (`PatternValid`, `CapabilityValid`). Remaining: time, integers, codecs, digests,
+      and errors have none; UTF-8 byte encoding of the canonical string is a separate
+      obligation; and no stored delimiter-joined key has yet discharged its per-key
+      obligation.
 - [~] Generate or run the small verified decision kernel where practical; otherwise
       label differential/property/mutation evidence as empirical, not proof. LABELLED.
       `NC-DIFFERENTIAL-EMPIRICAL` records that oracle agreement, property runs, and

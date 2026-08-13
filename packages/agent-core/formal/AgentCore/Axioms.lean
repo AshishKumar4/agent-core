@@ -610,6 +610,30 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_capability_validity_holds
 #print axioms AgentCore.Examples.nonvacuous_covering_chain_reaches_leaf
 
+-- Executable deny precedence and Grant resolution (SPEC §3.3, §3.4): the reach relation
+-- both containment checks decide, the matching relation, and the decision itself.
+#print axioms AgentCore.scope_reaches_iff_mem_path
+#print axioms AgentCore.path_index_le_iff_reaches
+#print axioms AgentCore.path_index_defined_of_reaches
+#print axioms AgentCore.authority_grant_matches_iff
+#print axioms AgentCore.ancestor_deny_defeats_descendant_allow
+#print axioms AgentCore.lineage_ok_ancestor_covers
+#print axioms AgentCore.lineage_ok_ancestors_live
+#print axioms AgentCore.authority_decision_is_sound
+#print axioms AgentCore.authority_decision_is_deny_precedence
+#print axioms AgentCore.authority_decision_iff_effective
+#print axioms AgentCore.guest_elevation_is_refused
+#print axioms AgentCore.admitted_intent_is_admitted_by_every_ancestor
+
+-- Deny precedence nonvacuity witnesses.
+#print axioms AgentCore.Examples.nonvacuous_authority_scope_reach_discriminates
+#print axioms AgentCore.Examples.nonvacuous_authority_path_index_orders_chain
+#print axioms AgentCore.Examples.nonvacuous_authority_grant_matches_discriminates
+#print axioms AgentCore.Examples.nonvacuous_authority_allows_without_matching_deny
+#print axioms AgentCore.Examples.nonvacuous_authority_ancestor_deny_overrides
+#print axioms AgentCore.Examples.nonvacuous_authority_guest_elevation_refused
+#print axioms AgentCore.Examples.nonvacuous_authority_lineage_walks_and_refuses
+
 -- Composite key representation (SPEC §3.4, §8.1): when a stored delimiter-joined key
 -- determines the identity it was built from, and when it does not.
 #print axioms AgentCore.delimiterFree_iff
@@ -619,7 +643,24 @@ import AgentCore
 #print axioms AgentCore.prefix_scan_selects_exact_identifier
 #print axioms AgentCore.prefix_scan_admits_foreign_identifier
 
+-- Canonical JSON as a representation relation: the escape code, the encoder's injectivity,
+-- and the composite key scheme ASM-CANONICAL-KEY-INJECTIVE used to assume.
+#print axioms AgentCore.unescapeOne_escapeChar
+#print axioms AgentCore.quoted_prefix_free
+#print axioms AgentCore.encodeJson_not_delimited
+#print axioms AgentCore.canonical_encode_injective
+#print axioms AgentCore.authorityKey_injective
+#print axioms AgentCore.scope_key_injective
+#print axioms AgentCore.subject_key_injective
+#print axioms AgentCore.foreign_subject_key_separates_verification_schemes
+
 -- Composite key nonvacuity witnesses.
+#print axioms AgentCore.Examples.nonvacuous_canonical_escape_discriminates
+#print axioms AgentCore.Examples.nonvacuous_canonical_quoting_separates
+#print axioms AgentCore.Examples.nonvacuous_canonical_key_separates_delimiter_collision
+#print axioms AgentCore.Examples.nonvacuous_canonical_scope_key_discriminates
+#print axioms AgentCore.Examples.nonvacuous_canonical_subject_key_separates_schemes
+#print axioms AgentCore.Examples.nonvacuous_canonical_encoding_discriminates
 #print axioms AgentCore.Examples.nonvacuous_delimiter_free_discriminates
 #print axioms AgentCore.Examples.nonvacuous_free_left_keys_separate
 #print axioms AgentCore.Examples.nonvacuous_free_right_keys_separate

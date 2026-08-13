@@ -79,11 +79,16 @@ function search(
         };
     }
 
-    const unresolved = [...constraints.keys()].filter((id) => !selected.has(id)).sort(compareText);
-    const id = unresolved[0];
-    if (id === undefined) {
+    const unresolved = [...constraints]
+        .filter(([id]) => !selected.has(id))
+        .sort(([left], [right]) => compareText(left, right));
+    const next = unresolved[0];
+    if (next === undefined) {
         return { complete: true, selected };
     }
+    // The ranges travel with the id they were looked up under, so there is no second
+    // lookup here and no absent-key branch that this loop could never take.
+    const [id, ranges] = next;
 
     const releases = snapshot.releasesFor(new PackageId(id));
     if (releases.length === 0) {
@@ -92,7 +97,6 @@ function search(
             failure: { kind: "missing", message: `Missing package ${id}` }
         };
     }
-    const ranges = constraints.get(id) ?? [];
     const candidates = releases
         .filter((release) => admittedByAll(release, ranges) && compatibleWith(release, target))
         .sort(compareCandidates);
@@ -210,24 +214,19 @@ function dependencyCycle(selected: Selection): readonly string[] | undefined {
     return undefined;
 }
 
+// The reported cycle is the smallest of its rotations, so that one cycle has one
+// spelling whichever member the walk entered it from. Every rotation holds the same
+// members and a cycle's members are distinct, so the rotations differ at their first
+// element and the smallest is the one starting at the smallest member. Building and
+// sorting all n rotations decided nothing this does not.
 function canonicalCycle(cycle: readonly string[]): readonly string[] {
     const members = cycle.slice(0, -1);
-    const rotations = members.map((_, index) => [
-        ...members.slice(index),
-        ...members.slice(0, index)
-    ]);
-    rotations.sort(comparePackageIdSequences);
-    const canonical = rotations[0]!;
-    return [...canonical, canonical[0]!];
-}
-
-function comparePackageIdSequences(left: readonly string[], right: readonly string[]): number {
-    const sharedLength = Math.min(left.length, right.length);
-    for (let index = 0; index < sharedLength; index += 1) {
-        const comparison = compareText(left[index]!, right[index]!);
-        if (comparison !== 0) return comparison;
+    let start = 0;
+    for (const [index, member] of members.entries()) {
+        if (compareText(member, members[start]!) < 0) start = index;
     }
-    return left.length - right.length;
+    const canonical = [...members.slice(start), ...members.slice(0, start)];
+    return [...canonical, canonical[0]!];
 }
 
 function failedConflict(id: string, ranges: readonly string[]): SearchResult {

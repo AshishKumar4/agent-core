@@ -40,6 +40,19 @@ class InterceptingSqlite extends TransactionalSqlite {
     }
 }
 
+/** Keeps the array the store bound, so a caller's later edit to its own array is visible. */
+class BlobRecordingSqlite extends TestSqlite {
+    public lastBlob: Uint8Array | undefined;
+
+    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+        super.run(statement, bindings);
+        if (!statement.includes("INTO content_blobs")) return;
+        for (const binding of bindings) {
+            if (binding instanceof Uint8Array) this.lastBlob = binding;
+        }
+    }
+}
+
 async function expectExactRejection(
     operation: Promise<unknown>,
     code: AgentCoreErrorCode,
@@ -75,6 +88,17 @@ describe("SQLite content store", () => {
                     : rows;
             await expectExactRejection(store.get(stored.ref), "codec.invalid", message);
         }
+    });
+
+    test("hands the substrate bytes detached from the caller", { tags: "p0" }, async () => {
+        const database = new BlobRecordingSqlite();
+        const store = new SqliteContentStore(database);
+        const source = encode("caller-owned");
+
+        await store.put(source);
+        source.fill(0);
+
+        expect(database.lastBlob).toEqual(encode("caller-owned"));
     });
 
     test("round-trips empty content with the exact address", { tags: "p2" }, async () => {

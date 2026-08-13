@@ -465,6 +465,29 @@ describe("guest verification gates", () => {
         );
     });
 
+    test("restores guest verification only under a minting scheme", { tags: "p1" }, () => {
+        const minted = mintVerification();
+        // handshake is a real scheme GuestVerificationScheme.from accepts, so a restore
+        // that merely forwarded the value would still be turned away — by the
+        // constructor's handshake guard, under a different account of what is wrong.
+        // The refusal belongs to the restore: a stored record naming handshake was never
+        // minted, whatever the constructor would go on to say about it.
+        for (const scheme of ["handshake", "bogus"]) {
+            expectIdentityError(
+                () =>
+                    GuestVerification.decode(
+                        repayload(GuestVerification.codec, minted, (payload) => ({
+                            ...payload,
+                            verifiedVia: scheme
+                        }))
+                    ),
+                "codec.invalid",
+                "Invalid identity.guest-verification record: Guest verification is only " +
+                    "minted via the token or callback scheme"
+            );
+        }
+    });
+
     test("restores guest verification instants only from safe integers", { tags: "p1" }, () => {
         const minted = mintVerification();
         expectIdentityError(
