@@ -10,6 +10,7 @@ import {
     hasExactJsonKeys,
     isJsonObject,
     isJsonValue,
+    jsonDataParser,
     type JsonObject,
     type JsonValue,
     type RecordVersion
@@ -40,6 +41,10 @@ interface WritableVersion {
 /** A value that refers to itself, which the canonical screen has to reject. */
 type SelfReferentialValue = { self?: unknown };
 
+const fixturePayload = jsonDataParser(
+    (message) => new AgentCoreError("codec.invalid", `${message}; fixture payload is malformed`)
+);
+
 class FixtureCodec extends RecordCodec<FixtureRecord> {
     public decodedVersion: RecordVersion | undefined;
 
@@ -53,14 +58,13 @@ class FixtureCodec extends RecordCodec<FixtureRecord> {
 
     protected decodePayload(payload: JsonValue, version: RecordVersion): FixtureRecord {
         this.decodedVersion = version;
-        if (!isJsonObject(payload) || typeof payload["label"] !== "string") {
-            throw new AgentCoreError("codec.invalid", "Fixture payload is malformed");
-        }
-        const enabled = payload["enabled"];
+        const object = fixturePayload.object(payload, "Fixture payload");
+        const label = fixturePayload.string(object["label"], "Fixture payload label");
+        const enabled = object["enabled"];
         if (version.minor > 0 && enabled !== true && enabled !== false) {
             throw new AgentCoreError("codec.invalid", "Fixture enabled flag is malformed");
         }
-        return { label: payload["label"], enabled: enabled === true };
+        return { label, enabled: enabled === true };
     }
 }
 
