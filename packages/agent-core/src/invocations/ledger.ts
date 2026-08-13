@@ -130,15 +130,15 @@ export class InvocationLedger<
         record: PreparedInvocation<Lease, Authority, Domain, PathEpochs>,
         audit: AuditRecord
     ): void {
+        // PreparedInvocationHeader admits a route and a projection digest only together,
+        // so the route alone says which of the two bindings the record asks for.
         const route = record.header.route;
         const local =
             route === undefined &&
-            record.header.projectionDigest === undefined &&
             audit.kind.kind === "invocation" &&
             audit.kind.id.equals(record.header.id);
         const routed =
             route !== undefined &&
-            record.header.projectionDigest !== undefined &&
             audit.kind.kind === "routeProjected" &&
             audit.kind.reservation.equals(route);
         if (
