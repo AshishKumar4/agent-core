@@ -2,6 +2,7 @@ import type { TransactionalSqlite } from "@agent-core/core/substrates/sqlite";
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
 import type { SqliteRow } from "./sqlite.js";
+import { storedRowReader } from "./sqlite.js";
 
 const CREATE_MIGRATION_TABLE = `CREATE TABLE IF NOT EXISTS agent_core_migrations (
     version INTEGER PRIMARY KEY,
@@ -133,17 +134,13 @@ function validateMigrations(
 }
 
 function readApplied(rows: readonly SqliteRow[], errors: CloudflareErrorPort): Map<number, string> {
+    const marker = storedRowReader(() =>
+        operationalFailure(errors, "codec.invalid", "SQLite migration marker is corrupt")
+    );
     const applied = new Map<number, string>();
     for (const row of rows) {
-        const { version, name } = row;
-        if (
-            typeof version !== "number" ||
-            !Number.isSafeInteger(version) ||
-            typeof name !== "string" ||
-            name.length === 0
-        ) {
-            operationalFailure(errors, "codec.invalid", "SQLite migration marker is corrupt");
-        }
+        const version = marker.integer(row, "version");
+        const name = marker.text(row, "name");
         if (applied.has(version)) {
             operationalFailure(errors, "codec.invalid", "SQLite migration marker is duplicated");
         }

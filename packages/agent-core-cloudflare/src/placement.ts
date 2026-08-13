@@ -8,6 +8,7 @@ import {
     type ActorNamespaceLocation,
     type DurableObjectNamespaceLike
 } from "./namespace.js";
+import { storedRowReader } from "./sqlite.js";
 import { isWellFormedUnicode } from "./unicode.js";
 
 const CORRUPT_PLACEMENT = "Stored Actor placement is corrupt";
@@ -101,6 +102,10 @@ export interface PlacementRegistry {
  * address two physically different objects.
  */
 export class SqlitePlacementRegistry implements PlacementRegistry {
+    private readonly rows = storedRowReader(() =>
+        operationalFailure(this.errors, "codec.invalid", CORRUPT_PLACEMENT)
+    );
+
     public constructor(
         private readonly database: SynchronousSqlitePort,
         private readonly errors: CloudflareErrorPort
@@ -127,16 +132,9 @@ export class SqlitePlacementRegistry implements PlacementRegistry {
     private read(actorName: string): ActorPlacement | undefined {
         const row = this.database.all(READ_PLACEMENT, [actorName])[0];
         if (row === undefined) return undefined;
-        const jurisdiction = row.jurisdiction;
-        const pinnedAt = row.pinned_at;
-        const epoch = row.epoch;
-        if (
-            (jurisdiction !== null && typeof jurisdiction !== "string") ||
-            typeof pinnedAt !== "number" ||
-            typeof epoch !== "number"
-        ) {
-            operationalFailure(this.errors, "codec.invalid", CORRUPT_PLACEMENT);
-        }
+        const jurisdiction = this.rows.nullableText(row, "jurisdiction");
+        const pinnedAt = this.rows.integer(row, "pinned_at");
+        const epoch = this.rows.integer(row, "epoch");
         try {
             return new ActorPlacement(actorName, jurisdiction ?? undefined, pinnedAt, epoch);
         } catch (cause) {
