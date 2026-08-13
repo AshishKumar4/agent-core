@@ -1,5 +1,5 @@
 import { ActorId, ActorRef } from "../../src/actors";
-import { Digest, SemVer, type JsonValue } from "../../src/core";
+import { Digest, SemVer, requireNonempty, type JsonValue } from "../../src/core";
 import { OperationRef } from "../../src/facets";
 import { PackageId } from "../../src/definition";
 import {
@@ -18,7 +18,8 @@ import {
     PreparedInvocationCodec,
     ReceiptCodec,
     type InvocationPersistence,
-    type StructuralCodec
+    type StructuralCodec,
+    type UnpreparedPayload
 } from "../../src/invocations";
 
 export type TestReference = string;
@@ -149,25 +150,32 @@ export function prepared(
         readonly approvalRequired?: boolean;
     } = {}
 ): PreparedInvocation<string, string, string, string> {
+    const header = {
+        id: new InvocationId(id),
+        operation: operationPin(id, options.approvalRequired ?? false),
+        domain: `domain:${id}`,
+        actor: new ActorRef("run", new ActorId(`actor:${id}`)),
+        authority: `authority:${id}`,
+        pathEpochs: `epochs:${id}`,
+        auditCause: new AuditRecordId(`audit:${id}`),
+        idempotencySeed: options.seed ?? `seed:${id}`
+    };
     return PreparedInvocation.create(
-        {
-            id: new InvocationId(id),
-            operation: operationPin(id, options.approvalRequired ?? false),
-            domain: `domain:${id}`,
-            actor: new ActorRef("run", new ActorId(`actor:${id}`)),
-            authority: `authority:${id}`,
-            pathEpochs: `epochs:${id}`,
-            ...(options.lease === undefined ? {} : { lease: options.lease }),
-            auditCause: new AuditRecordId(`audit:${id}`),
-            idempotencySeed: options.seed ?? `seed:${id}`
-        },
-        Array.isArray(payload)
-            ? { kind: "batch", items: payload as unknown as readonly [JsonValue, ...JsonValue[]] }
-            : { kind: "single", item: payload as JsonValue },
+        options.lease === undefined ? header : { ...header, lease: options.lease },
+        unpreparedPayload(payload),
         {
             ...preparedReferenceCodecs
         }
     );
+}
+
+/** Reads a fixture payload as the single or batch request PreparedInvocation.create takes. */
+function unpreparedPayload(
+    payload: JsonValue | readonly [JsonValue, ...JsonValue[]]
+): UnpreparedPayload {
+    const items: readonly JsonValue[] | undefined = Array.isArray(payload) ? payload : undefined;
+    if (items === undefined) return { kind: "single", item: payload };
+    return { kind: "batch", items: requireNonempty(items, "Prepared batch payload") };
 }
 
 export function operationPin(id: string, approvalRequired = false): OperationPin {

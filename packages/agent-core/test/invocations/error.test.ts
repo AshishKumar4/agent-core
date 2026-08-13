@@ -53,13 +53,12 @@ describe("invocation operational error taxonomy", () => {
     });
 });
 
-function expectFailure(operation: () => unknown, failure: InvocationError["failure"]): void {
+function expectFailure(operation: () => void, failure: InvocationError["failure"]): void {
     try {
         operation();
         throw new TypeError("Expected InvocationError");
     } catch (error) {
         expect(error).toBeInstanceOf(InvocationError);
-        expect((error as InvocationError).code).toBe("invocation.invalid");
-        expect((error as InvocationError).failure).toBe(failure);
+        expect(error).toMatchObject({ code: "invocation.invalid", failure });
     }
 }

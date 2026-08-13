@@ -18,18 +18,21 @@ import {
 import { PrincipalId } from "../../src/identity";
 import { operationPin } from "./fixture";
 
-interface MutableReference {
+type MutableReference = {
     value: string;
     nested: { value: string };
-}
+};
 
 const referenceCodec: StructuralCodec<MutableReference> = {
     encode(value): JsonValue {
         return { nested: { value: value.nested.value }, value: value.value };
     },
     decode(value): MutableReference {
-        const object = value as { value: string; nested: { value: string } };
-        return { value: object.value, nested: { value: object.nested.value } };
+        // SAFETY: the value is this codec's own encoding read back inside one test, and the
+        // records under test are what produce it. The suite asks whether they detach and
+        // freeze the reference, not whether an untrusted payload decodes.
+        const reference = value as MutableReference;
+        return { value: reference.value, nested: { value: reference.nested.value } };
     }
 };
 

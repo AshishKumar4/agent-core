@@ -3,10 +3,13 @@ import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 import { InvocationId } from "../../src/invocations";
 import {
     CommandCallerPolicy,
-    type CommandEnvelope,
+    CommandEnvelope,
     type CurrentLease,
     type ProtocolValueCodec
 } from "../../src/protocol";
+import { TurnId } from "../../src/agents";
+import { isMember } from "../../src/core";
+import { testContentRef, testDigest } from "../helpers/content";
 import {
     INVOCATION_COMMANDS,
     InvocationCommandPayload,
@@ -46,8 +49,8 @@ describe("Invocation protocol command families", () => {
                 itemIndex: 0
             })
         );
-        expect(Object.isFrozen((payload as InvocationCommandPayloadValue).body)).toBe(true);
-        const envelope = {} as CommandEnvelope;
+        expect(Object.isFrozen(payload.body)).toBe(true);
+        const envelope = commandEnvelope(INVOCATION_COMMANDS.claimExecutor);
         const at = new Date("2026-07-12T12:00:00.000Z");
         expect(command.authorize({}, envelope, payload)).toBe(true);
         expect(command.permitsLifecycle({}, envelope, payload)).toBe(true);
@@ -68,7 +71,12 @@ describe("Invocation protocol command families", () => {
                 new TextEncoder().encode('{"body":{},"extra":true,"invocation":"x"}')
             )
         ).toThrow();
-        expect(() => command.authorize({}, envelope, {} as never)).toThrow(/not decoded/);
+        // SAFETY: an empty object never went through the command's payload codec, which is
+        // precisely what the check under test looks for — a command must refuse a payload it
+        // did not decode itself, however well-formed it looks.
+        expect(() => command.authorize({}, envelope, {} as InvocationCommandPayloadValue)).toThrow(
+            /not decoded/
+        );
         for (const malformed of [
             "null",
             "[]",
@@ -88,7 +96,7 @@ describe("Invocation protocol command families", () => {
         const command = protocolCommand(backend, INVOCATION_COMMANDS.attemptExecutor);
         expect(command.replyCodec).toBe(backend.replyCodec);
         expect(command.observationCodec).toBe(backend.observationCodec);
-        const envelope = {} as CommandEnvelope;
+        const envelope = commandEnvelope(INVOCATION_COMMANDS.attemptExecutor);
         const carrier = Object.assign(() => undefined, {
             invocation: new InvocationId("bypassed-payload"),
             body: {}
@@ -100,7 +108,12 @@ describe("Invocation protocol command families", () => {
             carrier
         ];
         for (const payload of undecoded) {
-            expect(() => command.authorize({}, envelope, payload as never)).toThrow(/not decoded/);
+            // SAFETY: none of these went through the command's payload codec, which is what the
+            // check under test looks for — an absent value, a structural twin, a partial one,
+            // and a callable carrier must all be refused as undecoded.
+            expect(() =>
+                command.authorize({}, envelope, payload as InvocationCommandPayloadValue)
+            ).toThrow(/not decoded/);
         }
         expect(backend.calls).toEqual([]);
     });
@@ -118,9 +131,17 @@ interface InvocationObservation {
     readonly at: Date;
 }
 
+/**
+ * The transaction and read handles the protocol hands a backend. This one records the calls
+ * it receives and never looks at either handle, so the type only has to name that.
+ */
+interface UnusedHandle {
+    readonly unused?: never;
+}
+
 class Backend implements InvocationCommandBackend<
-    object,
-    object,
+    UnusedHandle,
+    UnusedHandle,
     Uint8Array,
     InvocationObservation
 > {
@@ -133,7 +154,10 @@ class Backend implements InvocationCommandBackend<
         encode: (value) => new TextEncoder().encode(`${value.command}\n${value.at.toISOString()}`),
         decode: (bytes) => {
             const [command, at] = new TextDecoder().decode(bytes).split("\n");
-            return { command: command as InvocationCommandName, at: new Date(at!) };
+            if (!isMember(Object.values(INVOCATION_COMMANDS), command) || at === undefined) {
+                throw new TypeError("Invocation observation is malformed");
+            }
+            return { command, at: new Date(at) };
         }
     };
 
@@ -149,14 +173,14 @@ class Backend implements InvocationCommandBackend<
 
     public currentLease(
         _command: InvocationCommandName,
-        _read: object,
+        _read: UnusedHandle,
         _envelope: CommandEnvelope,
         _payload: InvocationCommandPayloadValue,
         _at: Date
     ): CurrentLease {
         this.calls.push(`lease:${_command}`);
         return {
-            turn: { value: "turn" } as CurrentLease["turn"],
+            turn: new TurnId("turn"),
             holder: new PrincipalRef(tenant, new PrincipalId("holder")),
             epoch: 1,
             expiresAt: new Date(10_000)
@@ -165,7 +189,7 @@ class Backend implements InvocationCommandBackend<
 
     public execute(
         command: InvocationCommandName,
-        _transaction: object,
+        _transaction: UnusedHandle,
         _envelope: CommandEnvelope,
         _payload: InvocationCommandPayloadValue,
         at: Date
@@ -186,3 +210,16 @@ const callers = {
 };
 
 const tenant = new TenantId("invocation-command-tenant");
+
+function commandEnvelope(command: InvocationCommandName): CommandEnvelope {
+    return new CommandEnvelope({
+        command,
+        caller: {
+            kind: "principal",
+            principal: new PrincipalRef(tenant, new PrincipalId("executor"))
+        },
+        idempotencyKey: `${command}:key`,
+        payload: testContentRef(command),
+        payloadDigest: testDigest(command)
+    });
+}

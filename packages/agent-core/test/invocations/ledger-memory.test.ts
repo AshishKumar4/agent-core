@@ -36,7 +36,7 @@ import {
 import { invocationLedgerContract } from "./ledger-contract";
 
 function rejects<Failure>(
-    operation: () => unknown,
+    operation: () => void,
     kind: abstract new (...args: never[]) => Failure
 ): Failure {
     try {
@@ -735,7 +735,7 @@ test(
             );
         persistence.appendAttempt(state, attemptFor("a", 0, "memory-duplicate-failure-claim"));
 
-        const duplicates: readonly (() => unknown)[] = [
+        const duplicates: readonly (() => void)[] = [
             () => persistence.insertPrepared(state, invocation),
             () =>
                 persistence.appendApproval(

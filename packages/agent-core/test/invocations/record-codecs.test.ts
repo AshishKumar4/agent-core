@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
-import { encodeCanonicalJson } from "../../src/core";
+import { encodeCanonicalJson, type JsonObject, type JsonValue } from "../../src/core";
 import { PrincipalId, TenantId } from "../../src/identity";
 import {
     Approval,
@@ -137,7 +137,7 @@ describe("durable invocation record codecs", () => {
     });
 
     test("rejects malformed Approval states with their precise errors", { tags: "p2" }, () => {
-        const envelope = (state: unknown) =>
+        const envelope = (state: JsonValue) =>
             encodeCanonicalJson({
                 kind: "invocation.approval",
                 version: { major: 1, minor: 0 },
@@ -148,7 +148,7 @@ describe("durable invocation record codecs", () => {
                     invocation: "wire-approval-invocation",
                     requestedAt: new Date(1000).toISOString(),
                     revision: 0,
-                    state: state as never
+                    state
                 }
             });
         for (const state of [null, [], "approved", { kind: null }]) {
@@ -161,7 +161,7 @@ describe("durable invocation record codecs", () => {
     });
 
     test("decodes every claim owner Actor kind and rejects malformed owners precisely", { tags: "p1" }, () => {
-        const envelope = (owner: unknown) =>
+        const envelope = (owner: JsonValue) =>
             encodeCanonicalJson({
                 kind: "invocation.item-claim",
                 version: { major: 1, minor: 0 },
@@ -171,7 +171,7 @@ describe("durable invocation record codecs", () => {
                     id: "wire-owner-claim",
                     invocation: "wire-owner-invocation",
                     itemIndex: 0,
-                    owner: owner as never
+                    owner
                 }
             });
         for (const owner of [null, [], "executor"]) {
@@ -200,7 +200,7 @@ describe("durable invocation record codecs", () => {
     });
 
     test("decodes every continuation owner Actor kind and rejects unknown kinds precisely", { tags: "p1" }, () => {
-        const envelope = (owner: unknown) =>
+        const envelope = (owner: JsonValue) =>
             encodeCanonicalJson({
                 kind: "invocation.continuation",
                 version: { major: 1, minor: 0 },
@@ -209,7 +209,7 @@ describe("durable invocation record codecs", () => {
                     approval: "wire-continuation-approval",
                     firstAttempt: "wire-continuation-attempt",
                     firstClaim: "wire-continuation-claim",
-                    firstClaimOwner: owner as never,
+                    firstClaimOwner: owner,
                     firstItemIndex: 0,
                     firstItemKey: "agent-core.item.v1:wire",
                     firstOrdinal: 0,
@@ -235,11 +235,11 @@ describe("durable invocation record codecs", () => {
     });
 
     test("rejects malformed Receipt payloads with their precise errors", { tags: "p2" }, () => {
-        const envelope = (payload: unknown) =>
+        const envelope = (payload: JsonValue) =>
             encodeCanonicalJson({
                 kind: "invocation.receipt",
                 version: { major: 1, minor: 0 },
-                payload: payload as never
+                payload
             });
         for (const payload of [null, [], "receipt"]) {
             expect(() => Receipt.decode(envelope(payload))).toThrow(
@@ -249,7 +249,7 @@ describe("durable invocation record codecs", () => {
         expect(() => Receipt.decode(envelope({ variant: "unknown" }))).toThrow(
             /Receipt variant is invalid/
         );
-        const preEffect = (overrides: { readonly [key: string]: unknown }) =>
+        const preEffect = (overrides: JsonObject) =>
             envelope({
                 id: "wire-pre-receipt",
                 invocation: "wire-pre-invocation",
@@ -269,7 +269,7 @@ describe("durable invocation record codecs", () => {
         expect(() => Receipt.decode(preEffect({ outcome: "invalid" }))).toThrow(
             /Pre-effect Receipt outcome is invalid/
         );
-        const attempt = (overrides: { readonly [key: string]: unknown }) =>
+        const attempt = (overrides: JsonObject) =>
             envelope({
                 attempt: "wire-attempt",
                 id: "wire-attempt-receipt",

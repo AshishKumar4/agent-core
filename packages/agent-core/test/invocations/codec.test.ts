@@ -16,6 +16,9 @@ import {
     sameJson
 } from "../../src/invocations";
 
+/** A value that refers to itself, which the immutability screen has to reject. */
+type SelfReferentialValue = { self?: unknown };
+
 describe("invocation codec helpers", () => {
     test("decodes optional, numeric, array, and structural values exactly", { tags: "p1" }, () => {
         const object = {
@@ -99,7 +102,7 @@ describe("invocation codec helpers", () => {
         expect(immutableReference(value)).toBe(value);
         expect(Object.isFrozen(value)).toBe(true);
         expect(Object.isFrozen(value.nested)).toBe(true);
-        const cyclic: { self?: unknown } = {};
+        const cyclic: SelfReferentialValue = {};
         cyclic.self = cyclic;
         expect(() => immutableReference(cyclic)).toThrow(/cycles/);
         expect(() => immutableReference(new Date())).toThrow(/immutable codec values/);
