@@ -5,6 +5,7 @@ import {
     artifactRoot,
     assertFlatFragmentNames,
     collectFiles,
+    isNonEmptyString,
     readCanonicalJson,
     reportRoot,
     writeCanonicalJson
@@ -75,7 +76,7 @@ for (const path of files.filter((path) => activeFragmentNames.includes(basename(
     const fragment = await readCanonicalJson(path);
     if (
         fragment.edition !== "1.0.0" ||
-        typeof fragment.owner !== "string" ||
+        !isNonEmptyString(fragment.owner) ||
         !Array.isArray(fragment.records)
     ) {
         throw new TypeError("Durable record fragment is malformed");
@@ -116,17 +117,6 @@ if (records.length > 0) {
             throw new TypeError(
                 `Record ${record.source} kind ${record.kind} does not match its actual RecordCodec kind ${discoveredCodecs.get(record.source)}`
             );
-        }
-        if (record.durability === "durable") {
-            if (typeof record.ownerActor !== "string" || typeof record.store !== "string") {
-                throw new TypeError(`Durable record ${record.kind} requires one Actor and store`);
-            }
-        } else if (
-            record.durability !== "value" ||
-            record.ownerActor !== null ||
-            record.store !== null
-        ) {
-            throw new TypeError(`Value record ${record.kind} must not claim durable ownership`);
         }
         for (const selector of [record.source, record.codec, record.store].filter(Boolean)) {
             resolveSourceSymbol(program, selector);
@@ -295,9 +285,7 @@ function validateRecordStructure(record) {
         );
     }
     if (
-        [record.symbol, record.kind, record.source, record.codec].some(
-            (value) => typeof value !== "string" || value.length === 0
-        ) ||
+        ![record.symbol, record.kind, record.source, record.codec].every(isNonEmptyString) ||
         kinds.has(record.kind) ||
         symbols.has(record.symbol)
     ) {
@@ -310,18 +298,13 @@ function validateRecordStructure(record) {
         record.tests.length === 0 ||
         new Set(record.tests).size !== record.tests.length ||
         record.tests.some(
-            (selector) => typeof selector !== "string" || !selector.includes(`[${record.kind}]`)
+            (selector) => !isNonEmptyString(selector) || !selector.includes(`[${record.kind}]`)
         )
     ) {
         throw new TypeError(`Record ${record.kind} requires unique kind-bearing ownership tests`);
     }
     if (record.durability === "durable") {
-        if (
-            typeof record.ownerActor !== "string" ||
-            record.ownerActor.length === 0 ||
-            typeof record.store !== "string" ||
-            record.store.length === 0
-        ) {
+        if (!isNonEmptyString(record.ownerActor) || !isNonEmptyString(record.store)) {
             throw new TypeError(`Durable record ${record.kind} requires one Actor and store`);
         }
     } else if (

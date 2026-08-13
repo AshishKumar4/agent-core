@@ -1,12 +1,11 @@
+import { isJsonObject, jsonKind } from "./project.mjs";
+
 export function validateGraph(graph) {
     if (
         graph.edition !== "1.0.0" ||
-        graph.nodes === null ||
-        typeof graph.nodes !== "object" ||
-        graph.hermetic === null ||
-        typeof graph.hermetic !== "object" ||
-        graph.stages === null ||
-        typeof graph.stages !== "object"
+        !isJsonObject(graph.nodes) ||
+        !isJsonObject(graph.hermetic) ||
+        !isJsonObject(graph.stages)
     ) {
         throw new TypeError("Quality DAG is malformed");
     }
@@ -50,7 +49,7 @@ function validateHermeticClassification(graph) {
         throw new TypeError("Quality DAG hermetic classification must cover every node exactly");
     }
     for (const [node, value] of Object.entries(graph.hermetic)) {
-        if (typeof value !== "boolean")
+        if (jsonKind(value) !== "boolean")
             throw new TypeError(`Quality node ${node} has a non-boolean hermetic flag`);
     }
     const edges = hermeticEdges(graph);

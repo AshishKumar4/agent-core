@@ -6,6 +6,8 @@ import addFormats from "ajv-formats";
 import {
     artifactRoot,
     collectFiles,
+    isJsonObject,
+    isNonEmptyString,
     parseCanonicalJson,
     portablePath,
     readCanonicalJson,
@@ -452,7 +454,7 @@ for (const disposition of dispositions.waves) {
             disposition.tree === null ||
             disposition.clean !== true ||
             disposition.artifacts.length === 0 ||
-            disposition.artifacts.some((artifact) => typeof artifact !== "string")
+            !disposition.artifacts.every(isNonEmptyString)
         ) {
             throw new TypeError(`${disposition.owner} accepted disposition is incomplete`);
         }
@@ -474,7 +476,7 @@ for (const disposition of dispositions.waves) {
             disposition.tree === null ||
             disposition.clean !== true ||
             disposition.artifacts.length === 0 ||
-            disposition.artifacts.some((artifact) => typeof artifact !== "object") ||
+            !disposition.artifacts.every(isJsonObject) ||
             disposition.blockers.length > 0
         ) {
             throw new TypeError(`${disposition.owner} completed disposition is malformed`);
@@ -490,7 +492,7 @@ for (const disposition of dispositions.waves) {
             disposition.tree === null ||
             disposition.clean !== true ||
             disposition.artifacts.length === 0 ||
-            disposition.artifacts.some((artifact) => typeof artifact !== "string") ||
+            !disposition.artifacts.every(isNonEmptyString) ||
             disposition.blockers.length > 0
         ) {
             throw new TypeError("W0 governance disposition is incomplete");
@@ -804,7 +806,7 @@ async function verifyDecisionAnchor(decision, archiveBySource) {
         let value = parseCanonicalJson(source, portablePath(resolve(repositoryRoot, sourcePath)));
         for (const raw of decision.anchor.slice(2).split("/")) {
             const key = raw.replaceAll("~1", "/").replaceAll("~0", "~");
-            if (value === null || typeof value !== "object" || !(key in value)) {
+            if (!(isJsonObject(value) || Array.isArray(value)) || !(key in value)) {
                 throw new TypeError(`${decision.id} JSON pointer does not resolve`);
             }
             value = value[key];
@@ -837,7 +839,7 @@ function verifyDispositionBomSets(selectedStage, selectedBom, dispositionsByOwne
             )
             .sort();
         const actual = disposition.artifacts.map((artifact) =>
-            typeof artifact === "string" ? artifact : artifact.path
+            isNonEmptyString(artifact) ? artifact : artifact.path
         );
         if (useArchive || (selectedStage === "final" && selectedBom.stage === "final")) {
             if (JSON.stringify(actual.sort()) !== JSON.stringify(expected)) {

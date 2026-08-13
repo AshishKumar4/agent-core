@@ -1,7 +1,14 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { artifactRoot, packageRoot, parseCanonicalJson, portablePath } from "./project.mjs";
+import {
+    artifactRoot,
+    assertExactKeys,
+    isNonEmptyString,
+    packageRoot,
+    parseCanonicalJson,
+    portablePath
+} from "./project.mjs";
 
 const repositoryRoot = resolve(packageRoot, "../..");
 
@@ -40,7 +47,7 @@ export function validateLiveEvidence(root = resolve(artifactRoot, "conformance/l
         throw new TypeError("Live evidence was produced from dirty sources");
     }
     for (const field of ["accountId", "worker", "bucket", "url"]) {
-        if (typeof manifest[field] !== "string" || manifest[field].length === 0) {
+        if (!isNonEmptyString(manifest[field])) {
             throw new TypeError(`Live evidence manifest needs ${field}`);
         }
     }
@@ -49,7 +56,7 @@ export function validateLiveEvidence(root = resolve(artifactRoot, "conformance/l
     }
     const versions = manifest.deployments.map((deployment) => {
         assertExactKeys(deployment, ["url", "versionId", "at"], "Live evidence deployment");
-        if (typeof deployment.versionId !== "string" || deployment.versionId.length === 0) {
+        if (!isNonEmptyString(deployment.versionId)) {
             throw new TypeError("Live evidence deployment needs a version ID");
         }
         return deployment.versionId;
@@ -136,13 +143,4 @@ function sha256(bytes) {
     return createHash("sha256").update(bytes).digest("hex");
 }
 
-function assertExactKeys(value, keys, name) {
-    if (value === null || typeof value !== "object" || Array.isArray(value)) {
-        throw new TypeError(`${name} must be an object`);
-    }
-    const actual = Object.keys(value).sort();
-    if (JSON.stringify(actual) !== JSON.stringify([...keys].sort())) {
-        throw new TypeError(`${name} has unexpected fields: ${actual.join(", ")}`);
-    }
-}
 
