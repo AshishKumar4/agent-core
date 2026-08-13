@@ -405,7 +405,7 @@ describe("EnvironmentController mutation kills", () => {
             lease,
             snapshotId
         );
-        masking.maskSnapshotContent = true;
+        masking.snapshotMask = "content";
 
         await expect(controller.openSession(restored.capability, lease)).rejects.toEqual(
             expect.objectContaining({
@@ -681,7 +681,7 @@ describe("EnvironmentController mutation kills", () => {
             const verifier: TurnLeaseVerifier = { permits: (candidate) => candidate === lease };
             const controller = new EnvironmentController(masking, registry, verifier);
             controller.provision(initialRevision(provider.descriptor), lease);
-            masking.rejectEnvironmentCas = true;
+            masking.rejectCas = "environment";
             masking.revisionMask = "hidden";
 
             expect(() =>
@@ -748,7 +748,7 @@ describe("EnvironmentController mutation kills", () => {
 
                 // The replayed record matches the head's revision and generation, so the
                 // conflict reaches the comparator instead of the head checks above it.
-                masking.rejectEnvironmentCas = true;
+                masking.rejectCas = "environment";
                 masking.revisionMask = mask;
                 expect(() =>
                     controller.provision(initialRevision(provider.descriptor), lease)
@@ -756,6 +756,87 @@ describe("EnvironmentController mutation kills", () => {
                     expect.objectContaining({
                         code: "protocol.revision-conflict",
                         message: "Environment was provisioned concurrently"
+                    })
+                );
+            }
+        }
+    );
+
+    test(
+        "tells a replayed reservation from the session the store answers with",
+        { tags: "p0" },
+        () => {
+            const inner = new MemoryEnvironmentStore();
+            const masking = new MaskingEnvironmentStore(inner);
+            const provider = new TestProvider(descriptor("provider-replay-reservation", "e"));
+            const registry = new MemoryEnvironmentProviderRegistry([provider]);
+            const verifier: TurnLeaseVerifier = { permits: (candidate) => candidate === lease };
+            const controller = new EnvironmentController(masking, registry, verifier);
+            controller.provision(initialRevision(provider.descriptor), lease);
+            const sessionId = new EnvironmentSessionId("session-replay-generation");
+            controller.reserveSession(environmentId, sessionId, lease);
+
+            // Rotation moves a session's environment revision and generation together, so
+            // only an answered record leaves the generation as the single difference.
+            masking.rejectCas = "session";
+            masking.sessionMask = "generation";
+            expect(() => controller.reserveSession(environmentId, sessionId, lease)).toThrowError(
+                expect.objectContaining({
+                    code: "environment.invalid-session",
+                    message: "Environment session ID is already reserved for another generation"
+                })
+            );
+        }
+    );
+
+    test(
+        "tells a replayed snapshot and exposure from the record the store answers with",
+        { tags: "p0" },
+        async () => {
+            // The store pins a stored snapshot and exposure to their session's generation
+            // and epoch, so a request replayed against its own session agrees on both by
+            // construction. Each mask leaves exactly one of them differing.
+            for (const mask of ["generation", "epoch"] as const) {
+                const inner = new MemoryEnvironmentStore();
+                const masking = new MaskingEnvironmentStore(inner);
+                const provider = new TestProvider(descriptor(`provider-replay-pin-${mask}`, "f"));
+                const registry = new MemoryEnvironmentProviderRegistry([provider]);
+                const verifier: TurnLeaseVerifier = { permits: (candidate) => candidate === lease };
+                const controller = new EnvironmentController(masking, registry, verifier);
+                controller.provision(initialRevision(provider.descriptor), lease);
+                const reserved = controller.reserveSession(
+                    environmentId,
+                    new EnvironmentSessionId(`session-replay-pin-${mask}`),
+                    lease
+                );
+                await controller.openSession(reserved.capability, lease);
+
+                const snapshotId = new EnvironmentSnapshotId(`snapshot-replay-pin-${mask}`);
+                await controller.snapshot(reserved.capability, snapshotId, lease);
+                masking.rejectCas = "snapshot";
+                masking.snapshotMask = mask;
+                await expect(
+                    controller.snapshot(reserved.capability, snapshotId, lease)
+                ).rejects.toEqual(
+                    expect.objectContaining({
+                        code: "environment.invalid-session",
+                        message:
+                            "Environment snapshot ID is already used by another session generation"
+                    })
+                );
+
+                const exposureId = new PortExposureId(`exposure-replay-pin-${mask}`);
+                masking.rejectCas = undefined;
+                masking.snapshotMask = undefined;
+                await controller.expose(reserved.capability, exposureId, 4173, lease);
+                masking.rejectCas = "exposure";
+                masking.exposureMask = mask;
+                await expect(
+                    controller.expose(reserved.capability, exposureId, 4173, lease)
+                ).rejects.toEqual(
+                    expect.objectContaining({
+                        code: "environment.invalid-session",
+                        message: "Port exposure ID is already used by another session generation"
                     })
                 );
             }
@@ -878,10 +959,11 @@ class TestProvider extends EnvironmentProvider {
  * over the inner store, so there is no walk to bound.
  */
 class MaskingEnvironmentStore extends EnvironmentStore {
-    public maskSnapshotContent = false;
-    public rejectEnvironmentCas = false;
+    public rejectCas: "environment" | "session" | "snapshot" | "exposure" | undefined;
     public revisionMask: "hidden" | "generation" | "environment" | "revision" | undefined;
-    public sessionMask: "hidden" | "failed-state" | "epoch-drift" | undefined;
+    public sessionMask: "hidden" | "failed-state" | "epoch-drift" | "generation" | undefined;
+    public snapshotMask: "content" | "generation" | "epoch" | undefined;
+    public exposureMask: "generation" | "epoch" | undefined;
 
     public constructor(private readonly inner: MemoryEnvironmentStore) {
         super();
@@ -913,7 +995,7 @@ class MaskingEnvironmentStore extends EnvironmentStore {
         revision: EnvironmentRevisionRecord,
         environment: Environment
     ): boolean {
-        if (this.rejectEnvironmentCas) return false;
+        if (this.rejectCas === "environment") return false;
         return this.inner.compareAndSetEnvironment(expected, revision, environment);
     }
 
@@ -925,7 +1007,7 @@ class MaskingEnvironmentStore extends EnvironmentStore {
             session.id,
             session.environmentId,
             session.environmentRevision,
-            session.generation,
+            this.sessionMask === "generation" ? session.generation + 1 : session.generation,
             this.sessionMask === "epoch-drift" ? session.epoch + 1 : session.epoch,
             this.sessionMask === "failed-state" ? EnvironmentSessionState.failed : session.state,
             session.restoreFrom,
@@ -937,21 +1019,22 @@ class MaskingEnvironmentStore extends EnvironmentStore {
         expected: Revision | undefined,
         session: EnvironmentSession
     ): boolean {
+        if (this.rejectCas === "session") return false;
         return this.inner.compareAndSetSession(expected, session);
     }
 
     public getSnapshot(id: EnvironmentSnapshotId): EnvironmentSnapshot | undefined {
         const snapshot = this.inner.getSnapshot(id);
-        if (snapshot === undefined || !this.maskSnapshotContent) return snapshot;
+        if (snapshot === undefined || this.snapshotMask === undefined) return snapshot;
         return new EnvironmentSnapshot(
             snapshot.id,
             snapshot.environmentId,
             snapshot.sessionId,
             snapshot.environmentRevision,
-            snapshot.generation,
-            snapshot.sessionEpoch,
-            EnvironmentSnapshotState.creating,
-            undefined,
+            this.snapshotMask === "generation" ? snapshot.generation + 1 : snapshot.generation,
+            this.snapshotMask === "epoch" ? snapshot.sessionEpoch + 1 : snapshot.sessionEpoch,
+            this.snapshotMask === "content" ? EnvironmentSnapshotState.creating : snapshot.state,
+            this.snapshotMask === "content" ? undefined : snapshot.content,
             snapshot.recordRevision
         );
     }
@@ -960,11 +1043,25 @@ class MaskingEnvironmentStore extends EnvironmentStore {
         expected: Revision | undefined,
         snapshot: EnvironmentSnapshot
     ): boolean {
+        if (this.rejectCas === "snapshot") return false;
         return this.inner.compareAndSetSnapshot(expected, snapshot);
     }
 
     public getExposure(id: PortExposureId): PortExposure | undefined {
-        return this.inner.getExposure(id);
+        const exposure = this.inner.getExposure(id);
+        if (exposure === undefined || this.exposureMask === undefined) return exposure;
+        return new PortExposure(
+            exposure.id,
+            exposure.environmentId,
+            exposure.sessionId,
+            exposure.environmentRevision,
+            this.exposureMask === "generation" ? exposure.generation + 1 : exposure.generation,
+            this.exposureMask === "epoch" ? exposure.sessionEpoch + 1 : exposure.sessionEpoch,
+            exposure.port,
+            exposure.state,
+            exposure.url,
+            exposure.recordRevision
+        );
     }
 
     public listExposures(sessionId: EnvironmentSessionId): readonly PortExposure[] {
@@ -972,6 +1069,7 @@ class MaskingEnvironmentStore extends EnvironmentStore {
     }
 
     public compareAndSetExposure(expected: Revision | undefined, exposure: PortExposure): boolean {
+        if (this.rejectCas === "exposure") return false;
         return this.inner.compareAndSetExposure(expected, exposure);
     }
 }
