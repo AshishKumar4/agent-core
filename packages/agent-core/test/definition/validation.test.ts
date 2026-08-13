@@ -447,7 +447,8 @@ describe("Blueprint validation", () => {
                 schemaValidator
             })
         ).toThrow(/Prompt contribution must be an array/);
-        for (const setting of [7, null, []] as JsonValue[]) {
+        const malformedSettings: readonly JsonValue[] = [7, null, []];
+        for (const setting of malformedSettings) {
             const badSettings = packageRelease(`bad-settings-${String(setting)}`, {
                 contributions: new Contributions([
                     new Contribution(new SlotName("settings"), [setting])

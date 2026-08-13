@@ -270,7 +270,8 @@ describe("placement adversarial boundaries", () => {
     });
 
     test("rejects non-object placement policy payloads with the object subject", { tags: "p1" }, () => {
-        for (const payload of [null, ["dynamic"], "dynamic"] as JsonValue[]) {
+        const malformedPayloads: readonly JsonValue[] = [null, ["dynamic"], "dynamic"];
+        for (const payload of malformedPayloads) {
             expect(() => PlacementPolicy.fromData(payload)).toThrow(
                 /Placement policy must be an object/
             );

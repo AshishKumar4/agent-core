@@ -66,11 +66,11 @@ describe("Blueprint config", () => {
                 z: 2
             });
             expect(
-                decodeSecretRef(encodeSecretRef(reference) as unknown as JsonValue).equals(
+                decodeSecretRef(encodeSecretRef(reference)).equals(
                     reference
                 )
             ).toBe(true);
-            expect(isSecretRefData(encodeSecretRef(reference) as unknown as JsonValue)).toBe(true);
+            expect(isSecretRefData(encodeSecretRef(reference))).toBe(true);
             expect(Config.encode(Config.decode(Config.encode(config)))).toEqual(
                 Config.encode(config)
             );
@@ -87,7 +87,7 @@ describe("Blueprint config", () => {
             expect(
                 strictJsonSchemaValidator.validate(
                     SECRET_REF_SCHEMA.document,
-                    tagged as unknown as JsonValue
+                    tagged
                 )
             ).toBe(true);
             expect(
@@ -139,7 +139,7 @@ describe("Blueprint config", () => {
                 }
             };
 
-            expect(strictJsonSchemaValidator.validate(schema.document, valid as JsonValue)).toBe(
+            expect(strictJsonSchemaValidator.validate(schema.document, valid)).toBe(
                 true
             );
             expect(
@@ -154,13 +154,13 @@ describe("Blueprint config", () => {
             expect(
                 strictJsonSchemaValidator.validate(schema.document, {
                     "acme.deploy": { region: "wnam", token: secret }
-                } as JsonValue)
+                })
             ).toBe(false);
             expect(
                 strictJsonSchemaValidator.validate(schema.document, {
                     "acme.deploy": valid["acme.deploy"],
                     unknown: {}
-                } as JsonValue)
+                })
             ).toBe(false);
             expect(composeConfigSchema(BASE_CONFIG_SCHEMA, [release]).document).toEqual(
                 composeConfigSchema(BASE_CONFIG_SCHEMA, [release]).document

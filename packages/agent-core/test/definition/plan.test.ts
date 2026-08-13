@@ -278,7 +278,7 @@ describe("materialization planning", () => {
         ).toThrow(/Unsupported materialization record kind/);
     });
 
-    test.each([
+    test.each<MalformedProjection>([
         {
             label: "facet-install with unknown fields",
             recordKind: "facet-install",
@@ -287,13 +287,13 @@ describe("materialization planning", () => {
                 facetVersion: "1.0.0",
                 packageId: "acme.tools",
                 extra: "field"
-            } as JsonValue,
+            },
             message: /Facet install contains missing or unknown fields/
         },
         {
             label: "scope-scaffold with an empty declaration",
             recordKind: "scope-scaffold",
-            desired: {} as JsonValue,
+            desired: {},
             message: /declaration must not be empty/
         },
         {
@@ -304,7 +304,7 @@ describe("materialization planning", () => {
                 slot: "chat.composer",
                 index: -1,
                 value: { command: "deploy" }
-            } as JsonValue,
+            },
             message: /Slot entry index must be a non-negative safe integer/
         }
     ])("rejects malformed desired state: $label", { tags: "p1" }, ({ recordKind, desired, message }) => {
@@ -909,7 +909,8 @@ describe("materialization planning mutation boundaries", () => {
                     })
             ).toThrow(/Desired projection logical key must be a nonblank canonical string/);
         }
-        for (const payload of [null, ["entry"], "text"] as JsonValue[]) {
+        const malformedPayloads: readonly JsonValue[] = [null, ["entry"], "text"];
+        for (const payload of malformedPayloads) {
             expect(() => DesiredProjection.fromData(payload)).toThrow(
                 /Desired projection must be an object/
             );
@@ -1062,6 +1063,14 @@ function packageRelease(
         codeManifest,
         provenance: { registry: "test" }
     });
+}
+
+/** One desired-state payload a projection must reject, with the diagnostic it must name. */
+interface MalformedProjection {
+    readonly label: string;
+    readonly recordKind: string;
+    readonly desired: JsonValue;
+    readonly message: RegExp;
 }
 
 function digestOf(value: string): Digest {
