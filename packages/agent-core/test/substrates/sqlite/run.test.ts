@@ -33,6 +33,7 @@ import { PrincipalId, PrincipalRef, TenantId } from "../../../src/identity";
 import { RunCommitId } from "../../../src/execution-references";
 import { ApprovalId, ReceiptId } from "../../../src/invocation-references";
 import { AuditRecordId, EventId, InvocationId } from "../../../src/interaction-references";
+import { sqliteText } from "../../../src/substrates/sqlite/content";
 import { SqliteRunStorage, type SqliteStoredRunRecord } from "../../../src/substrates/sqlite/run";
 import { TransactionalSqlite, type SqliteRow, type SqliteValue } from "../../../src/substrates";
 import type { SynchronousResultGuard } from "../../../src/actors";
@@ -1726,7 +1727,7 @@ describe("SQLite Run storage exact projections", () => {
             new SqliteRunStorage(database, owner);
             database.mutate = (statement, rows) =>
                 statement.includes("FROM sqlite_schema")
-                    ? rows.map((value) => ({ ...value, sql: rewrite(requiredSql(value)) }))
+                    ? rows.map((value) => ({ ...value, sql: rewrite(sqliteText(value, "sql")) }))
                     : rows;
             const reopened = new SqliteRunStorage(database, owner);
             expect(reopened.transaction((tx) => reopened.list(tx, "commit"))).toEqual([]);
@@ -1738,7 +1739,7 @@ describe("SQLite Run storage exact projections", () => {
             statement.includes("FROM sqlite_schema")
                 ? rows.map((value) => ({
                       ...value,
-                      sql: requiredSql(value).replaceAll(" >= ", ">=")
+                      sql: sqliteText(value, "sql").replaceAll(" >= ", ">=")
                   }))
                 : rows;
         expectExactFailure(
@@ -1774,12 +1775,6 @@ class BlobRecordingSqlite extends TestSqlite {
             if (binding instanceof Uint8Array) this.lastRecordBlob = binding;
         }
     }
-}
-
-function requiredSql(value: SqliteRow): string {
-    const sql = value["sql"];
-    if (typeof sql !== "string") throw new TypeError("Expected SQLite schema DDL text");
-    return sql;
 }
 
 function expectExactFailure(

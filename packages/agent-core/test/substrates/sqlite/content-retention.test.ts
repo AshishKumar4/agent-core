@@ -15,6 +15,7 @@ import {
     type SqliteRow,
     type SqliteValue
 } from "../../../src/substrates/sqlite";
+import { sqliteText } from "../../../src/substrates/sqlite/content";
 import { at, bindingFor, contentOwner } from "../../content/retention-contract";
 import { TestSqlite } from "../../helpers/sqlite";
 
@@ -42,9 +43,9 @@ class InterceptingSqlite extends TransactionalSqlite {
 
     public transaction<Result>(
         operation: () => Result,
-        ..._guard: SynchronousResultGuard<Result>
+        ...guard: SynchronousResultGuard<Result>
     ): Result {
-        return this.inner.transaction(operation, ...([] as SynchronousResultGuard<Result>));
+        return this.inner.transaction(operation, ...guard);
     }
 }
 
@@ -53,10 +54,10 @@ class SharedBlobRowSqlite extends TestSqlite {
     readonly #rows = new Map<string, readonly SqliteRow[]>();
 
     public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const key = bindings[0];
-        if (!statement.includes("FROM content_blobs WHERE ref") || typeof key !== "string") {
+        if (!statement.includes("FROM content_blobs WHERE ref")) {
             return super.all(statement, bindings);
         }
+        const key = sqliteText({ ref: bindings[0] ?? null }, "ref");
         const cached = this.#rows.get(key);
         if (cached !== undefined) return cached;
         const rows = super.all(statement, bindings);

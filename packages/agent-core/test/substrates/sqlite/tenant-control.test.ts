@@ -31,6 +31,7 @@ import {
     type SqliteRow,
     type SqliteValue
 } from "../../../src/substrates/sqlite";
+import { sqliteBytes, sqliteText } from "../../../src/substrates/sqlite/content";
 import { createSqliteTenantControlStore } from "../../../src/substrates/sqlite/tenant";
 
 const tenantId = new TenantId("tenant-control");
@@ -314,7 +315,7 @@ describe("SQLite Tenant control storage", () => {
             "SELECT id, record FROM tenant_grants ORDER BY id LIMIT 1",
             []
         )[0]!;
-        const decodedGrant = Grant.decode(storedGrant["record"] as Uint8Array);
+        const decodedGrant = Grant.decode(sqliteBytes(storedGrant, "record"));
         relationDatabase.run("UPDATE tenant_grants SET subject_key = ?, record = ? WHERE id = ?", [
             "principal:missing",
             Grant.encode(
@@ -558,7 +559,7 @@ function allowGrant(id: string): Grant {
 function tableNames(database: TransactionalSqlite): readonly string[] {
     return database
         .all("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name", [])
-        .flatMap((row) => (typeof row["name"] === "string" ? [row["name"]] : []));
+        .map((row) => sqliteText(row, "name"));
 }
 
 class TestSqlite extends TransactionalSqlite {
