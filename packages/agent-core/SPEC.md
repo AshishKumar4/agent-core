@@ -294,7 +294,14 @@ ordered Tenant-to-target path. Direct and team Grants are considered together. A
 descendant allow MUST NOT re-widen an ancestor deny; this deny-overrides precedence
 maps to **C13-AUTH-DENY-PRECEDENCE**. Example: Team A holds `reader` on
 Project P, so its members read every Workspace in P; a deny-Grant for W2 removes W2
-without touching W1.
+without touching W1. A guest subject is matched by effect: an allow-Grant matches a
+`ForeignPrincipalRef` exactly, `verifiedVia` included, so an allow issued to a guest
+verified under one scheme is authority under that scheme only, while a deny-Grant
+matches on `{ homeTenant, principalId }` alone. A deny names who is refused and
+`verifiedVia` names only how that guest proved it, so a deny MUST NOT be escapable by
+re-verifying under another scheme — and the stamp does change, both because a
+`handshake` link downgrades to `token` and because one home Tenant may hold several
+trusts at once.
 
 **Sharing** is Membership issuance — there is no second mechanism. Sharing a Project
 with a user is a Membership at that Project; a team owning a Project is a Team
