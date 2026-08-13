@@ -1,20 +1,13 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { describe, expect, test } from "vitest";
-import { requireSynchronousResult, type SynchronousResultGuard } from "../../src/actors";
 import { Digest, Revision } from "../../src/core";
 import { PackageId } from "../../src/definition/id";
 import { PackageLock } from "../../src/definition/package-lock";
 import { MetadataSnapshot, PackageRelease } from "../../src/definition/package";
-import {
-    SqlitePackageStore,
-    TransactionalSqlite,
-    type SqliteRow,
-    type SqliteValue
-} from "../../src/substrates";
-import { TestSqlite } from "../helpers/sqlite";
+import { SqlitePackageStore, type SqliteValue } from "../../src/substrates";
+import { FileSqlite, TestSqlite } from "../helpers/sqlite";
 import {
     digestOf,
     packageLock,
@@ -251,41 +244,5 @@ class DropInsertSqlite extends TestSqlite {
     public override run(statement: string, bindings: readonly SqliteValue[]): void {
         if (this.dropInserts && /^\s*INSERT OR IGNORE INTO definition_/u.test(statement)) return;
         super.run(statement, bindings);
-    }
-}
-
-class FileSqlite extends TransactionalSqlite {
-    readonly #database: DatabaseSync;
-
-    public constructor(path: string) {
-        super();
-        this.#database = new DatabaseSync(path);
-    }
-
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        return this.#database.prepare(statement).all(...bindings) as readonly SqliteRow[];
-    }
-
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
-        this.#database.prepare(statement).run(...bindings);
-    }
-
-    public transaction<Result>(
-        operation: () => Result,
-        ..._guard: SynchronousResultGuard<Result>
-    ): Result {
-        this.#database.exec("BEGIN");
-        try {
-            const result = requireSynchronousResult(operation());
-            this.#database.exec("COMMIT");
-            return result;
-        } catch (error) {
-            this.#database.exec("ROLLBACK");
-            throw error;
-        }
-    }
-
-    public close(): void {
-        this.#database.close();
     }
 }

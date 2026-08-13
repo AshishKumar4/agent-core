@@ -1,9 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { describe, expect, test } from "vitest";
-import { requireSynchronousResult, type SynchronousResultGuard } from "../../src/actors";
 import { SemVer } from "../../src/core";
 import {
     ActorPlan,
@@ -24,10 +22,9 @@ import {
     SqliteActorStore,
     SqliteMaterializationStore,
     TransactionalSqlite,
-    type SqliteRow,
     type SqliteValue
 } from "../../src/substrates";
-import { TestSqlite } from "../helpers/sqlite";
+import { FileSqlite, TestSqlite } from "../helpers/sqlite";
 import {
     actorRef,
     blueprint,
@@ -466,40 +463,4 @@ function supportedMaterializationState(
 
 function record(database: TestSqlite, table: string): SqliteValue | undefined {
     return database.all(`SELECT record FROM ${table}`, [])[0]?.["record"];
-}
-
-class FileSqlite extends TransactionalSqlite {
-    readonly #database: DatabaseSync;
-
-    public constructor(path: string) {
-        super();
-        this.#database = new DatabaseSync(path);
-    }
-
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        return this.#database.prepare(statement).all(...bindings) as readonly SqliteRow[];
-    }
-
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
-        this.#database.prepare(statement).run(...bindings);
-    }
-
-    public transaction<Result>(
-        operation: () => Result,
-        ..._guard: SynchronousResultGuard<Result>
-    ): Result {
-        this.#database.exec("BEGIN");
-        try {
-            const result = requireSynchronousResult(operation());
-            this.#database.exec("COMMIT");
-            return result;
-        } catch (error) {
-            this.#database.exec("ROLLBACK");
-            throw error;
-        }
-    }
-
-    public close(): void {
-        this.#database.close();
-    }
 }
