@@ -22,7 +22,8 @@ import {
     WriteRecord,
     type CommandCaller,
     type CommandIdentity,
-    type CommandOutcome
+    type CommandOutcome,
+    type WriteRecordInit
 } from "../../src/protocol";
 import { EventId } from "../../src/workspaces";
 import { expectAgentCoreError } from "./error-assertion";
@@ -491,12 +492,11 @@ export function protocolPersistenceContract<Transaction>(
             { tags: "p0" },
             (mismatch) => {
                 const harness = open();
-                const records = protocolTestRecords(`reciprocal-${mismatch}`, defaultCaller, {
-                    ...(mismatch === "id"
-                        ? { auditWriteId: new WriteRecordId(`other-${mismatch}`) }
-                        : {}),
-                    ...(mismatch === "outcome" ? { auditOutcome: "rejectedAuthority" } : {})
-                });
+                const records = protocolTestRecords(
+                    `reciprocal-${mismatch}`,
+                    defaultCaller,
+                    reciprocalMismatch(mismatch)
+                );
                 const write =
                     mismatch === "actor"
                         ? copyWrite(records.write, {
@@ -892,23 +892,32 @@ export function protocolTestRecords(
             outcome: options.auditOutcome ?? outcome
         }
     });
-    const write = new WriteRecord({
+    const required: WriteRecordInit = {
         id: writeId,
         actor,
         envelopeDigest: Digest.sha256(new TextEncoder().encode(`${prefix}-envelope`)),
         caller,
         command: "test.command",
-        ...(outcome === "rejectedAuthentication" ||
-        (outcome === "rejectedMalformed" && options.reserveIdentity !== true)
-            ? {}
-            : { idempotencyKey }),
         at: new Date("2026-07-07T12:00:00.000Z"),
         outcome,
         audit: audit.id,
-        ...(options.duplicateOf === undefined ? {} : { duplicateOf: options.duplicateOf }),
-        reply: options.reply ?? new TextEncoder().encode(`${prefix}-reply`),
-        ...(options.observation === undefined ? {} : { observation: options.observation })
-    });
+        reply: options.reply ?? new TextEncoder().encode(`${prefix}-reply`)
+    };
+    const reservesIdentity =
+        outcome !== "rejectedAuthentication" &&
+        (outcome !== "rejectedMalformed" || options.reserveIdentity === true);
+    const keyed: WriteRecordInit = reservesIdentity
+        ? { ...required, idempotencyKey }
+        : required;
+    const duplicated: WriteRecordInit =
+        options.duplicateOf === undefined
+            ? keyed
+            : { ...keyed, duplicateOf: options.duplicateOf };
+    const observed: WriteRecordInit =
+        options.observation === undefined
+            ? duplicated
+            : { ...duplicated, observation: options.observation };
+    const write = new WriteRecord(observed);
     return {
         root,
         audit,
@@ -972,26 +981,49 @@ export function appendProtocolTestRecords<Transaction>(
     persistence.appendWrite(transaction, records.write);
 }
 
-function copyWrite(
-    write: WriteRecord,
-    overrides: {
-        readonly id?: WriteRecordId;
-        readonly audit?: AuditRecordId;
-        readonly actor?: ActorRef;
-    }
-): WriteRecord {
-    return new WriteRecord({
+interface WriteCopyOverride {
+    readonly id?: WriteRecordId;
+    readonly audit?: AuditRecordId;
+    readonly actor?: ActorRef;
+}
+
+function copyWrite(write: WriteRecord, overrides: WriteCopyOverride): WriteRecord {
+    const required: WriteRecordInit = {
         id: overrides.id ?? write.id,
         actor: overrides.actor ?? write.actor,
         envelopeDigest: write.envelopeDigest,
-        ...(write.caller === undefined ? {} : { caller: write.caller }),
-        ...(write.command === undefined ? {} : { command: write.command }),
-        ...(write.idempotencyKey === undefined ? {} : { idempotencyKey: write.idempotencyKey }),
         at: write.at,
         outcome: write.outcome,
         audit: overrides.audit ?? write.audit,
-        ...(write.duplicateOf === undefined ? {} : { duplicateOf: write.duplicateOf }),
-        reply: write.reply,
-        ...(write.observation === undefined ? {} : { observation: write.observation })
-    });
+        reply: write.reply
+    };
+    const called: WriteRecordInit =
+        write.caller === undefined ? required : { ...required, caller: write.caller };
+    const commanded: WriteRecordInit =
+        write.command === undefined ? called : { ...called, command: write.command };
+    const keyed: WriteRecordInit =
+        write.idempotencyKey === undefined
+            ? commanded
+            : { ...commanded, idempotencyKey: write.idempotencyKey };
+    const duplicated: WriteRecordInit =
+        write.duplicateOf === undefined
+            ? keyed
+            : { ...keyed, duplicateOf: write.duplicateOf };
+    const observed: WriteRecordInit =
+        write.observation === undefined
+            ? duplicated
+            : { ...duplicated, observation: write.observation };
+    return new WriteRecord(observed);
+}
+
+/** Each linkage mismatch breaks exactly one half of the write/audit reciprocity. */
+function reciprocalMismatch(mismatch: "id" | "outcome" | "actor"): ProtocolTestRecordOptions {
+    switch (mismatch) {
+        case "id":
+            return { auditWriteId: new WriteRecordId(`other-${mismatch}`) };
+        case "outcome":
+            return { auditOutcome: "rejectedAuthority" };
+        case "actor":
+            return {};
+    }
 }
