@@ -408,7 +408,7 @@ const resourceKeys = [
     "resourceSource"
 ] as const;
 
-function mutationBase(request: SlateMutationRequest): { readonly [key: string]: JsonValue } {
+function mutationBase(request: SlateMutationRequest) {
     requireBase(request);
     return {
         impact: request.impact,
@@ -420,7 +420,7 @@ function mutationBase(request: SlateMutationRequest): { readonly [key: string]: 
 
 function deployData(
     request: SlateDeployInvocationIntent | SlateDeployReserveIntent | SlateDeployFinalizeIntent
-): { readonly [key: string]: JsonValue } {
+) {
     if (request.operation === "deploy" && request.impact !== "externalSend") {
         throw invalidInput("Slate deploy invocation impact must be externalSend");
     }
@@ -454,7 +454,7 @@ function deployData(
 function resourceData(
     request:
         SlateResourceInvocationIntent | SlateResourceReserveIntent | SlateResourceFinalizeIntent
-): { readonly [key: string]: JsonValue } {
+) {
     if (request.operation === "resource.materialize" && request.impact !== "externalSend") {
         throw invalidInput("Slate resource invocation impact must be externalSend");
     }

@@ -232,8 +232,8 @@
     {
       "file": "packages/agent-core/src/authority/runtime.ts",
       "kind": "assertion",
-      "count": 5,
-      "reason": "Authority records decode into closed impact and reason vocabularies and into path-epoch tuples whose nonemptiness the validation above establishes."
+      "count": 1,
+      "reason": "The Scope path tuple is asserted only to reach PathEpochEvidence's constructor, whose validatePath rejects any path outside one to three Scopes and owns the message naming the permitted chain."
     },
     {
       "file": "packages/agent-core/src/authority/runtime.ts",
@@ -473,12 +473,6 @@
       "file": "packages/agent-core/src/definition/placement.ts",
       "kind": "assertion",
       "count": 2,
-      "reason": "Package, blueprint, and plan records decode from canonical JSON into closed vocabularies and nonempty tuples that the surrounding validation establishes a statement earlier."
-    },
-    {
-      "file": "packages/agent-core/src/definition/policy.ts",
-      "kind": "assertion",
-      "count": 1,
       "reason": "Package, blueprint, and plan records decode from canonical JSON into closed vocabularies and nonempty tuples that the surrounding validation establishes a statement earlier."
     },
     {
