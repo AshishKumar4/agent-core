@@ -641,6 +641,7 @@ import AgentCore
 #print axioms AgentCore.trace_epoch_never_decreases
 #print axioms AgentCore.pre_restart_fence_never_readmitted
 #print axioms AgentCore.reachable_recovery_is_bound
+#print axioms AgentCore.reachable_storage_never_faults_on_recovery_provenance
 #print axioms AgentCore.bind_without_activation_faults_the_next_activation
 #print axioms AgentCore.commit_unknown_closes_the_incarnation
 #print axioms AgentCore.closed_incarnation_admits_no_command

@@ -258,7 +258,7 @@ evidence agree where applicable.
 - [~] Prove Actor-local persistence refinement over transaction, uniqueness,
       rollback, restart, and commit-unknown states. Keep SQLite itself in the documented
       trusted base unless it is independently verified. DONE for one Actor's own storage
-      (`AC-PERSISTENCE-001`, 18 theorems). The concrete machine carries an open
+      (`AC-PERSISTENCE-001`, 19 theorems). The concrete machine carries an open
       transaction holding the storage it opened against and the writes staged so far, and
       `durable_state_refines_the_atomic_actor` proves every reachable concrete storage is
       one the atomic Actor also reaches — so no partially applied transaction is ever

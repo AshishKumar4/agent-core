@@ -437,6 +437,7 @@
         "AgentCore.trace_epoch_never_decreases",
         "AgentCore.pre_restart_fence_never_readmitted",
         "AgentCore.reachable_recovery_is_bound",
+        "AgentCore.reachable_storage_never_faults_on_recovery_provenance",
         "AgentCore.bind_without_activation_faults_the_next_activation",
         "AgentCore.commit_unknown_closes_the_incarnation",
         "AgentCore.closed_incarnation_admits_no_command",
@@ -511,6 +512,10 @@
         ],
         "AgentCore.reactivation_resolves_commit_unknown": [
           "AgentCore.Examples.nonvacuous_actor_reactivation_retires_both_branches"
+        ],
+        "AgentCore.reachable_storage_never_faults_on_recovery_provenance": [
+          "AgentCore.Examples.nonvacuous_actor_activation_discriminates",
+          "AgentCore.Examples.nonvacuous_actor_persistence_trace"
         ]
       },
       "remainingEvidence": [

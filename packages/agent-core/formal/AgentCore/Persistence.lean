@@ -782,10 +782,7 @@ theorem applyWrites_preserve_bound {storage : ActorStorage} {writes : List Actor
       rw [same]
       exact bound original source
 
-/-- **The Actor's own steps never produce storage that faults its next activation on record
-provenance.** `unboundRecoveryState` and `foreignRecovery` screen the storage layer, not the
-logic: they detect a fencing record with no identity row, or one whose payload disagrees
-with the key it was read under, and no reachable step writes either. -/
+/-- Every step writes the fencing record under the identity it names. -/
 theorem reachable_recovery_is_bound {node : ActorNode} (reachable : ActorReachable node) :
     RecoveryIsBound node.storage := by
   induction reachable with
@@ -827,6 +824,35 @@ theorem reachable_recovery_is_bound {node : ActorNode} (reachable : ActorReachab
               rw [base]
               exact applyWrites_preserve_bound ih
       | crash => exact ih
+
+/-- **Neither record-provenance fault is reachable by the Actor's own steps.**
+`unboundRecoveryState` and `foreignRecovery` screen the storage layer, not the logic: they
+detect a fencing record with no identity row, or one whose payload disagrees with the key it
+was read under, and no reachable step writes either. Both are reachable by *some* storage —
+`nonvacuous_actor_activation_discriminates` constructs them — which is why they are worth
+checking for at all. -/
+theorem reachable_storage_never_faults_on_recovery_provenance {node : ActorNode}
+    {actor : ActorRef} (reachable : ActorReachable node) :
+    activateExec node.storage actor ≠ .error .unboundRecoveryState ∧
+      activateExec node.storage actor ≠ .error .foreignRecovery := by
+  have bound := reachable_recovery_is_bound reachable
+  cases recovery : node.storage.recovery with
+  | none =>
+      cases identity : node.storage.identity with
+      | none => rw [activateExec_created identity recovery]; exact ⟨by simp, by simp⟩
+      | some held =>
+          by_cases same : held = actor
+          · rw [activateExec_missing_recovery (same ▸ identity) recovery]
+            exact ⟨by simp, by simp⟩
+          · rw [activation_refuses_a_foreign_actor identity same]
+            exact ⟨by simp, by simp⟩
+  | some state =>
+      have identity : node.storage.identity = some state.actor := bound state recovery
+      by_cases same : state.actor = actor
+      · rw [activateExec_recovered (same ▸ identity) recovery same]
+        exact ⟨by simp, by simp⟩
+      · rw [activation_refuses_a_foreign_actor identity same]
+        exact ⟨by simp, by simp⟩
 
 /-- **A bare identity bind leaves storage its own next activation refuses.** `bindActor` is
 public and writes the identity row on its own, so unlike the other two activation faults
