@@ -164,7 +164,9 @@
       "checkerInvariants": [],
       "remainingEvidence": [
         "Run ownership is modelled in the SQLite substrate (run.ts refuses storage that belongs to neither a Workspace nor a dedicated Run Actor), but the Cloudflare package has no Run-hosting or start-time `dedicated` pin path, so the profile obligation is unimplemented there",
-        "Needs evidence that the owner retains RunPins, active/terminal outcome, graph, and derived Settled obligations across the default and `dedicated` hostings, and that a pin is only accepted at Run start"
+        "Needs evidence that the owner retains RunPins, active/terminal outcome, graph, and derived Settled obligations across the default and `dedicated` hostings, and that a pin is only accepted at Run start",
+        "Confirmed at HEAD: src/actors/types.ts#ActorKind already admits `run`, and actor-name.ts therefore already names a Run Durable Object, so the gap is the store rather than the identity; packages/agent-core-cloudflare/src mentions a Run only in placement.ts, and durable-object.ts and namespace.ts carry no Run hosting, so nothing there can hold pins, outcome, graph, or Settled obligations",
+        "The implementation to mirror is src/substrates/sqlite/run.ts; closing this needs that Run store built over the Durable Object SQLite port in the Cloudflare package plus a hosting test covering both hostings and refusing a `dedicated` pin offered after Run start"
       ]
     },
     {
@@ -878,7 +880,8 @@
       "checkerInvariants": [],
       "remainingEvidence": [
         "No Session egress plane exists in the runtime: environments model files, snapshots, and exposures but no EgressGrant or destination Binding, so the positive half (a send reaches exactly its named Binding's destination and an unbound destination refuses) has no source symbol; it is currently claimed only formally (AC-ENVIRONMENT-001, session_egress_is_explicitly_bound / unbound_send_is_refused) with NC-ENVIRONMENT-LIFECYCLE deferring the runtime",
-        "The adversarial half — code inside the Session cannot open a connection the platform did not pass — is a substrate property (globalOutbound: null, cf. the Slate loader) and needs either an isolate-backed Session provider with a local negative test or a new W8 consent gate and ACQ-LIVE scenario; no local emulation may substitute"
+        "The adversarial half — code inside the Session cannot open a connection the platform did not pass — is a substrate property (globalOutbound: null, cf. the Slate loader) and needs either an isolate-backed Session provider with a local negative test or a new W8 consent gate and ACQ-LIVE scenario; no local emulation may substitute",
+        "Checked at HEAD: the only globalOutbound assertion in the tree is packages/agent-core-cloudflare/test/hosting.test.ts \"forces one-time Dynamic Worker load with null outbound and only passed Bindings\", which drives DynamicWorkerLoaderAdapter against FakeWorkerLoader and so records the argument the adapter passes, never a refused connection; being local emulation it is exactly what this atom excludes, and it is cited by no requirement"
       ]
     },
     {
