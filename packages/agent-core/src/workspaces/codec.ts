@@ -87,10 +87,16 @@ export function encodeContent(ref: ContentRef, digest: Digest): JsonValue {
     return { ref: ref.value, digest: digest.value };
 }
 
-export function decodeContent(
-    value: JsonValue,
-    subject: string
-): { readonly ref: ContentRef; readonly digest: Digest } {
+/**
+ * A stored payload named by its content address, together with the digest that
+ * address resolves to. decodeContent proves the two agree before returning one.
+ */
+export interface AddressedContent {
+    readonly ref: ContentRef;
+    readonly digest: Digest;
+}
+
+export function decodeContent(value: JsonValue, subject: string): AddressedContent {
     const object = requireObject(value, subject);
     requireFields(object, ["digest", "ref"], subject);
     const ref = new ContentRef(requireString(object["ref"], `${subject} reference`));

@@ -891,7 +891,7 @@ function frozenRows<Row extends object>(
         [...rows]
             .map(copy)
             .sort(compare)
-            .map((row) => Object.freeze(row) as Row)
+            .map((row) => Object.freeze(row))
     );
 }
 

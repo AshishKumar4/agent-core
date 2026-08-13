@@ -6,9 +6,7 @@ import {
     decodeCanonicalJson,
     encodeBase64,
     encodeCanonicalJson,
-    hasExactJsonKeys,
-    isJsonObject,
-    type JsonValue
+    hasExactJsonKeys
 } from "../core";
 import {
     canonicalFacetData,
@@ -24,6 +22,7 @@ import type { CommandCaller, CommandEnvelope } from "./envelope";
 import type { CommandPayloadCodec } from "./payload";
 import { CommandCallerPolicy } from "./policy";
 import type { ProtocolCommandExecution, ProtocolValueCodec } from "./registration";
+import { requireObject, requireStringValue } from "./codec";
 
 export const FACET_SLOT_COMMANDS = Object.freeze({
     install: "facet.slot.install",
@@ -304,7 +303,7 @@ class SlotInstallPayloadCodec implements CommandPayloadCodec {
             throw new TypeError("Slot install payload contains missing or unknown fields");
         }
         return SlotDeclaration.decode(
-            decodeBase64(requireString(payload["record"], "Slot declaration record"))
+            decodeBase64(requireStringValue(payload["record"], "Slot declaration record"))
         );
     }
 }
@@ -320,7 +319,7 @@ class SlotContributionPayloadCodec implements CommandPayloadCodec {
             throw new TypeError("Slot contribution ordinal must be a non-negative safe integer");
         }
         return Object.freeze({
-            slot: new SlotName(requireString(payload["slot"], "Slot contribution slot")),
+            slot: new SlotName(requireStringValue(payload["slot"], "Slot contribution slot")),
             ordinal,
             value: canonicalFacetData(payload["value"])
         });
@@ -390,14 +389,4 @@ function requestMatchesEntry(request: SlotContributionRequest, entry: SlotEntry)
         expected.byteLength === actual.byteLength &&
         expected.every((value, index) => value === actual[index])
     );
-}
-
-function requireObject(value: JsonValue, subject: string): { readonly [key: string]: JsonValue } {
-    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
-    return value;
-}
-
-function requireString(value: JsonValue | undefined, subject: string): string {
-    if (typeof value !== "string") throw new TypeError(`${subject} must be a string`);
-    return value;
 }

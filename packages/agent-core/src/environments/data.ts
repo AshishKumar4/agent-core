@@ -1,7 +1,9 @@
-import { type JsonFields, Revision, hasExactJsonKeys, isJsonObject, type JsonValue } from "../core";
+import { type JsonFields, Revision, jsonDataParser, type JsonValue } from "../core";
 import { AgentCoreError } from "../errors";
 
 export type JsonObject = { readonly [key: string]: JsonValue };
+
+const parse = jsonDataParser((message) => new TypeError(message));
 
 export function requireInstance<Value>(
     value: unknown,
@@ -12,8 +14,7 @@ export function requireInstance<Value>(
 }
 
 export function requireObject(value: JsonValue, name: string): JsonObject {
-    if (!isJsonObject(value)) throw new TypeError(`${name} must be an object`);
-    return value;
+    return parse.object(value, name);
 }
 
 export function requireExact<Field extends string>(
@@ -21,29 +22,22 @@ export function requireExact<Field extends string>(
     keys: readonly Field[],
     name: string
 ): asserts object is JsonFields<Field> {
-    if (!hasExactJsonKeys(object, keys)) {
-        throw new TypeError(`${name} has invalid fields`);
-    }
+    parse.exact(object, keys, name, "has invalid fields");
 }
 
 export function requireString(value: JsonValue | undefined, name: string): string {
-    if (typeof value !== "string") throw new TypeError(`${name} must be a string`);
-    return value;
+    return parse.string(value, name);
 }
 
 export function requireSafeInteger(value: JsonValue | undefined, name: string): number {
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
-        throw new TypeError(`${name} must be a non-negative safe integer`);
-    }
-    return value;
+    return parse.safeInteger(value, name);
 }
 
 export function requireOptionalString(
     value: JsonValue | undefined,
     name: string
 ): string | undefined {
-    if (value === null) return undefined;
-    return requireString(value, name);
+    return parse.nullableString(value, name);
 }
 
 export function increment(value: number, name: string): number {

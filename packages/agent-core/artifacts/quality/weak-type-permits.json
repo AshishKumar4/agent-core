@@ -200,12 +200,6 @@
       "reason": "Run and Turn records decode into closed commit-kind and outcome vocabularies, and the base record spread reaches a JSON object the codec already produced."
     },
     {
-      "file": "packages/agent-core/src/authority/data.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Authority records decode into closed impact and reason vocabularies and into path-epoch tuples whose nonemptiness the validation above establishes."
-    },
-    {
       "file": "packages/agent-core/src/authority/epoch.ts",
       "kind": "non-null",
       "count": 6,
@@ -238,8 +232,8 @@
     {
       "file": "packages/agent-core/src/authority/runtime.ts",
       "kind": "assertion",
-      "count": 5,
-      "reason": "Authority records decode into closed impact and reason vocabularies and into path-epoch tuples whose nonemptiness the validation above establishes."
+      "count": 1,
+      "reason": "The Scope path tuple is asserted only to reach PathEpochEvidence's constructor, whose validatePath rejects any path outside one to three Scopes and owns the message naming the permitted chain."
     },
     {
       "file": "packages/agent-core/src/authority/runtime.ts",
@@ -278,27 +272,9 @@
       "reason": "A binding or route read back through the store that just produced it is present by that write."
     },
     {
-      "file": "packages/agent-core/src/composition/device-consent.ts",
-      "kind": "assertion",
-      "count": 2,
-      "reason": "Composition asserts the shape a validated request already established when the check and the use sit either side of a seam."
-    },
-    {
-      "file": "packages/agent-core/src/composition/device-consent.ts",
-      "kind": "non-null",
-      "count": 1,
-      "reason": "A binding or route read back through the store that just produced it is present by that write."
-    },
-    {
-      "file": "packages/agent-core/src/composition/device-consent.ts",
-      "kind": "unknown",
-      "count": 1,
-      "reason": "Composition wires substrate-supplied transactions and transports it never inspects, so their types stay open to the host that closes them."
-    },
-    {
       "file": "packages/agent-core/src/composition/json-patch.ts",
       "kind": "assertion",
-      "count": 3,
+      "count": 2,
       "reason": "fast-json-patch declares its Operation union as interfaces and demands the post-validation type as the input to its own validator, so the boundary cannot be crossed without an assertion; validate() runs on the result before any patch is applied."
     },
     {
@@ -339,6 +315,12 @@
     },
     {
       "file": "packages/agent-core/src/core/canonical.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "A canonical round trip reproduces exactly the members it was given, so the detached copy inhabits its input's type; TypeScript cannot carry that identity across encode and decode."
+    },
+    {
+      "file": "packages/agent-core/src/core/canonical.ts",
       "kind": "unknown",
       "count": 2,
       "reason": "Core value types decode from untrusted bytes and report failures whose thrown value JavaScript does not type."
@@ -370,8 +352,8 @@
     {
       "file": "packages/agent-core/src/core/schema.ts",
       "kind": "assertion",
-      "count": 4,
-      "reason": "A canonical round trip returns the value it was given, and a frozen copy is the same data; TypeScript keeps neither identity across encode and decode."
+      "count": 1,
+      "reason": "Ajv returns a compiled validator typed only as a generic function; the narrowed call is the one Ajv documents for a compiled schema."
     },
     {
       "file": "packages/agent-core/src/core/schema.ts",
@@ -453,12 +435,6 @@
     },
     {
       "file": "packages/agent-core/src/definition/memory.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Package, blueprint, and plan records decode from canonical JSON into closed vocabularies and nonempty tuples that the surrounding validation establishes a statement earlier."
-    },
-    {
-      "file": "packages/agent-core/src/definition/memory.ts",
       "kind": "non-null",
       "count": 1,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
@@ -479,18 +455,6 @@
       "file": "packages/agent-core/src/definition/placement.ts",
       "kind": "assertion",
       "count": 2,
-      "reason": "Package, blueprint, and plan records decode from canonical JSON into closed vocabularies and nonempty tuples that the surrounding validation establishes a statement earlier."
-    },
-    {
-      "file": "packages/agent-core/src/definition/plan.ts",
-      "kind": "assertion",
-      "count": 8,
-      "reason": "Package, blueprint, and plan records decode from canonical JSON into closed vocabularies and nonempty tuples that the surrounding validation establishes a statement earlier."
-    },
-    {
-      "file": "packages/agent-core/src/definition/policy.ts",
-      "kind": "assertion",
-      "count": 1,
       "reason": "Package, blueprint, and plan records decode from canonical JSON into closed vocabularies and nonempty tuples that the surrounding validation establishes a statement earlier."
     },
     {
@@ -770,12 +734,6 @@
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
-      "file": "packages/agent-core/src/identity/codec.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Identity records decode canonical JSON into the membership and trust shapes their exact-field checks established."
-    },
-    {
       "file": "packages/agent-core/src/identity/guest-verification.ts",
       "kind": "non-null",
       "count": 1,
@@ -786,18 +744,6 @@
       "kind": "non-null",
       "count": 1,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
-    },
-    {
-      "file": "packages/agent-core/src/identity/team.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Identity records decode canonical JSON into the membership and trust shapes their exact-field checks established."
-    },
-    {
-      "file": "packages/agent-core/src/invocations/approval.ts",
-      "kind": "assertion",
-      "count": 2,
-      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
     },
     {
       "file": "packages/agent-core/src/invocations/audit.ts",
@@ -816,12 +762,6 @@
       "kind": "unknown",
       "count": 1,
       "reason": "Mediation is generic over the authorization and transaction its host supplies, and effect output is opaque to the invocation layer."
-    },
-    {
-      "file": "packages/agent-core/src/invocations/claim.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
     },
     {
       "file": "packages/agent-core/src/invocations/codec.ts",
@@ -879,33 +819,15 @@
     },
     {
       "file": "packages/agent-core/src/invocations/prepared.ts",
-      "kind": "assertion",
-      "count": 8,
-      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
-    },
-    {
-      "file": "packages/agent-core/src/invocations/prepared.ts",
       "kind": "non-null",
-      "count": 11,
+      "count": 10,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
-    },
-    {
-      "file": "packages/agent-core/src/invocations/prepared.ts",
-      "kind": "unknown",
-      "count": 3,
-      "reason": "Mediation is generic over the authorization and transaction its host supplies, and effect output is opaque to the invocation layer."
     },
     {
       "file": "packages/agent-core/src/invocations/publication.ts",
       "kind": "non-null",
       "count": 2,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
-    },
-    {
-      "file": "packages/agent-core/src/invocations/receipt.ts",
-      "kind": "assertion",
-      "count": 3,
-      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
     },
     {
       "file": "packages/agent-core/src/invocations/replay.ts",

@@ -32,6 +32,8 @@ import {
     type PassedCapabilityProps,
     SqliteApplicationMigrator,
     SqlitePlacementRegistry,
+    cloudflareRuntimeMigrations,
+    runHostingMigration,
     SqliteReconciliationOutbox,
     ReconciliationOutboxId,
     contentRepositoryFromR2Binding,
@@ -416,6 +418,42 @@ export class PlacementRegistryDurableObject extends DurableObject<TestEnvironmen
 
     public fetch(): Response {
         return new Response("placement-registry");
+    }
+}
+
+/**
+ * A Workspace Actor object: it installs the Run index beside the runtime tables and, for a
+ * Workspace-owned Run, holds that Run's records in this same private storage.
+ */
+export class RunWorkspaceDurableObject extends DurableObject<TestEnvironment> {
+    public readonly sqlite: CloudflareSqlite;
+
+    public constructor(state: DurableObjectState, environment: TestEnvironment) {
+        super(state, environment);
+        this.sqlite = new CloudflareSqlite(state.storage, errors);
+        new SqliteApplicationMigrator(this.sqlite, errors, [
+            ...cloudflareRuntimeMigrations,
+            runHostingMigration(3)
+        ]).migrate();
+    }
+
+    public fetch(): Response {
+        return new Response("run-workspace");
+    }
+}
+
+/** A Run Actor object: a Run pinned `dedicated` at start owns its records here instead. */
+export class RunDurableObject extends DurableObject<TestEnvironment> {
+    public readonly sqlite: CloudflareSqlite;
+
+    public constructor(state: DurableObjectState, environment: TestEnvironment) {
+        super(state, environment);
+        this.sqlite = new CloudflareSqlite(state.storage, errors);
+        new SqliteApplicationMigrator(this.sqlite, errors, cloudflareRuntimeMigrations).migrate();
+    }
+
+    public fetch(): Response {
+        return new Response("run");
     }
 }
 
