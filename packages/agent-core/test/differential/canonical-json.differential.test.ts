@@ -1,5 +1,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
-import { encodeCanonicalJson, type JsonObject, type JsonValue } from "../../src/core";
+import {
+    encodeCanonicalJson,
+    isJsonObject,
+    jsonDataParser,
+    type JsonObject,
+    type JsonValue
+} from "../../src/core";
+
+const wire = jsonDataParser((message) => new TypeError(message));
 import { scopeKey, subjectKey } from "../../src/authority";
 import {
     GuestVerificationScheme,
@@ -215,16 +223,20 @@ function subjectWire(subject: SubjectRef): JsonObject {
  */
 function toWire(value: JsonValue): JsonObject {
     if (value === null) return { kind: "null" };
-    if (typeof value === "boolean") return { kind: "bool", value };
-    if (typeof value === "number") {
+    if (value === true || value === false) return { kind: "bool", value };
+    if (Array.isArray(value)) return { kind: "arr", items: value.map(toWire) };
+    if (isJsonObject(value)) {
+        return {
+            kind: "obj",
+            entries: Object.entries(value)
+                .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+                .map(([key, entry]) => ({ key, value: toWire(entry) }))
+        };
+    }
+    // Canonical JSON admits only finite numbers, and Number.isFinite answers true for
+    // nothing else, so the string case is exactly what survives this branch.
+    if (Number.isFinite(value)) {
         return { kind: "num", token: JSON.stringify(Object.is(value, -0) ? 0 : value) };
     }
-    if (typeof value === "string") return { kind: "str", value };
-    if (Array.isArray(value)) return { kind: "arr", items: value.map(toWire) };
-    return {
-        kind: "obj",
-        entries: Object.entries(value)
-            .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
-            .map(([key, entry]) => ({ key, value: toWire(entry) }))
-    };
+    return { kind: "str", value: wire.string(value, "Canonical JSON value") };
 }

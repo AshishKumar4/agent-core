@@ -5,6 +5,7 @@ import {
     decodeCanonicalJson,
     encodeCanonicalJson,
     isJsonObject,
+    jsonDataParser,
     requireNonempty,
     type JsonValue
 } from "../../src/core";
@@ -48,16 +49,15 @@ export interface InvocationHarness<Transaction> {
     dispose(): void;
 }
 
+const testReference = jsonDataParser((message) => new TypeError(message));
+
 export const referenceCodec: StructuralCodec<string> = Object.freeze({
     encode(value: string): JsonValue {
         if (value.length === 0) throw new TypeError("Test reference is required");
         return value;
     },
     decode(value: JsonValue): string {
-        if (typeof value !== "string" || value.length === 0) {
-            throw new TypeError("Test reference must be a string");
-        }
-        return value;
+        return testReference.nonemptyString(value, "Test reference");
     }
 });
 

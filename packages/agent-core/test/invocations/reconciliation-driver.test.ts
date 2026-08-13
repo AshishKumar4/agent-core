@@ -11,6 +11,7 @@ import {
 } from "../../src/invocations";
 import { InvocationId } from "../../src/interaction-references";
 import { OperationRequestKey } from "../../src/operations";
+import type { SqliteValue } from "../../src/substrates";
 import { TestSqlite } from "../helpers/sqlite";
 import { expectAgentCoreError } from "../protocol/error-assertion";
 import {
@@ -41,8 +42,8 @@ class DurableSchedule implements ReconciliationSchedulePort {
                 "reconciliation"
             ])
         );
-        const at = rows[0]?.["fire_at"];
-        return typeof at === "number" ? new Date(at) : undefined;
+        const [row] = rows;
+        return row === undefined ? undefined : new Date(scheduledMillis(row["fire_at"]));
     }
 
     public schedule(at: Date): void {
@@ -145,6 +146,13 @@ const untouchedReconciler = {
 };
 
 const emptyIndeterminateSource: IndeterminateAttemptSource = { indeterminate: () => [] };
+
+/** Reads the schedule row's `fire_at` column, which the table declares INTEGER NOT NULL. */
+function scheduledMillis(value: SqliteValue | undefined): number {
+    // Number.isFinite answers true only for actual numbers, so the conversion is the identity.
+    if (!Number.isFinite(value)) throw new TypeError("Scheduled fire_at must be an integer");
+    return Number(value);
+}
 
 /** The reconciler seam the driver drives, narrowed to the one call the driver makes. */
 interface DrivenReconciler {
