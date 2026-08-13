@@ -62,7 +62,7 @@ export class RunAdmissionRegistry extends CodecRecord {
             throw new TypeError("Run admission registry requires an exact Run ID");
         }
         requireEpoch(init.epoch, "Run admission registry epoch");
-        if (typeof init.accepting !== "boolean") {
+        if (init.accepting !== true && init.accepting !== false) {
             throw new TypeError("Run admission registry accepting state is invalid");
         }
         if (!init.accepting && init.epoch === 0) {
@@ -209,13 +209,14 @@ export class RunAdmissionRegistry extends CodecRecord {
             [],
             "Run admission registry"
         );
-        if (typeof object["accepting"] !== "boolean") {
+        const accepting = object["accepting"];
+        if (accepting !== true && accepting !== false) {
             throw new TypeError("Run admission registry accepting state is invalid");
         }
         return new RunAdmissionRegistry({
             run: new RunId(requireString(object["run"], "Run admission registry Run")),
             epoch: requireInteger(object["epoch"], "Run admission registry epoch"),
-            accepting: object["accepting"],
+            accepting,
             reserved: requireArray(object["reserved"], "Reserved Run obligations").map(
                 decodeRunObligation
             ),

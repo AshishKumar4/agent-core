@@ -3,8 +3,9 @@ import {
     JsonSchema,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    isJsonObject,
     isJsonValue,
-    isObjectRecord,
+    isMember,
     type JsonSchemaDocument,
     type JsonValue
 } from "../../core";
@@ -17,6 +18,8 @@ import {
 } from "../contribution";
 import {
     DataRecordCodec,
+    freezeFacetData,
+    isString,
     requireArray,
     requireBoolean,
     requireDataObject,
@@ -512,8 +515,8 @@ export class McpFacet<Receipt> {
                     new ProfileOperationContract(
                         descriptor.name.value,
                         descriptor,
-                        facetDataWireCodec<JsonValue>(),
-                        facetDataWireCodec<JsonValue>(),
+                        facetDataWireCodec(),
+                        facetDataWireCodec(),
                         "output"
                     )
                 ] as const
@@ -562,8 +565,8 @@ function requireUniqueName(name: string, names: Set<string>): void {
     names.add(name);
 }
 
-function requireImpact(value: Impact): Impact {
-    if (!IMPACTS.includes(value))
+function requireImpact(value: JsonValue): Impact {
+    if (!isMember(IMPACTS, value))
         throw new McpDiscoveryError("impact.invalid", "MCP tool impact is invalid");
     return value;
 }
@@ -577,13 +580,13 @@ function toolImpact(tool: McpToolDiscovery, remote: boolean): Impact {
     }
     const metadata = tool._meta;
     if (metadata === undefined) return remote ? "externalSend" : "execute";
-    if (metadata === null || Array.isArray(metadata) || typeof metadata !== "object") {
+    if (!isJsonObject(metadata)) {
         throw new McpDiscoveryError("impact.invalid", "MCP tool metadata must be an object");
     }
     const value = metadata[MCP_IMPACT_ANNOTATION];
     const derived = remote ? "externalSend" : "execute";
     if (value === undefined) return derived;
-    if (typeof value !== "string") {
+    if (!isString(value)) {
         throw new McpDiscoveryError("impact.invalid", "MCP tool impact metadata must be a string");
     }
     // The annotation is a claim by the discovered server (C13-FACET-IMPACT-BOUNDARY):
@@ -594,7 +597,7 @@ function toolImpact(tool: McpToolDiscovery, remote: boolean): Impact {
     // Tenant configuration, never something the discovered server controls — and an MCP
     // tool's target is never a Turn-owned Session's own filesystem, so
     // sessionFilesystemTarget is fixed `false`.
-    const annotated = requireImpact(value as Impact);
+    const annotated = requireImpact(value);
     return claimHonorsEnforcementFloor(annotated, derived, false) ? annotated : derived;
 }
 
@@ -604,47 +607,46 @@ function toolImpact(tool: McpToolDiscovery, remote: boolean): Impact {
 // line later, so the guards became unfalsifiable — and a genuine defect anywhere in the
 // walk was reported to callers as "the server sent a malformed document".
 function requireDiscoveryDocument(document: unknown): asserts document is McpDiscoveryDocument {
+    // encodeCanonicalJson applies exactly this predicate before encoding, so the walk
+    // opens with it rather than closing with it: a second, discarded encode would only
+    // restate the same rejection, and every field below is then read as JSON data whose
+    // absent keys are absent rather than as an unknown that could hold anything. Both
+    // orders reject exactly the same documents with the same diagnosis.
+    if (!isJsonValue(document) || !isJsonObject(document)) throw malformedDiscovery();
+    const tools = document["tools"];
+    const resources = document["resources"];
+    const prompts = document["prompts"];
     if (
-        !isObjectRecord(document) ||
-        typeof document["revision"] !== "string" ||
-        !Array.isArray(document["tools"]) ||
-        !Array.isArray(document["resources"]) ||
-        !Array.isArray(document["prompts"])
+        !isString(document["revision"]) ||
+        !Array.isArray(tools) ||
+        !Array.isArray(resources) ||
+        !Array.isArray(prompts)
     ) {
         throw malformedDiscovery();
     }
-    for (const tool of document["tools"]) {
+    for (const tool of tools) {
         if (
-            !isObjectRecord(tool) ||
-            typeof tool["name"] !== "string" ||
-            !("inputSchema" in tool) ||
-            !("outputSchema" in tool)
+            !isJsonObject(tool) ||
+            !isString(tool["name"]) ||
+            tool["inputSchema"] === undefined ||
+            tool["outputSchema"] === undefined
         ) {
             throw malformedDiscovery();
         }
     }
-    for (const resource of document["resources"]) {
+    for (const resource of resources) {
         if (
-            !isObjectRecord(resource) ||
-            typeof resource["name"] !== "string" ||
-            !("outputSchema" in resource)
+            !isJsonObject(resource) ||
+            !isString(resource["name"]) ||
+            resource["outputSchema"] === undefined
         ) {
             throw malformedDiscovery();
         }
     }
-    for (const prompt of document["prompts"]) {
-        if (
-            !isObjectRecord(prompt) ||
-            typeof prompt["title"] !== "string" ||
-            typeof prompt["body"] !== "string"
-        ) {
+    for (const prompt of prompts) {
+        if (!isJsonObject(prompt) || !isString(prompt["title"]) || !isString(prompt["body"])) {
             throw malformedDiscovery();
         }
-    }
-    // encodeCanonicalJson applies exactly this predicate before encoding, so the walk
-    // ends here: a second, discarded encode would only restate the same rejection.
-    if (!isJsonValue(document)) {
-        throw malformedDiscovery();
     }
 }
 
@@ -657,15 +659,7 @@ function canonicalDiscoveryBytes(document: JsonValue): Uint8Array {
 }
 
 function freezeDiscoveryDocument(document: McpDiscoveryDocument): McpDiscoveryDocument {
-    return freezeJson(document);
-}
-
-function freezeJson<Value extends JsonValue>(value: Value): Value {
-    if (value !== null && typeof value === "object") {
-        for (const item of Object.values(value)) freezeJson(item);
-        return Object.freeze(value);
-    }
-    return value;
+    return freezeFacetData(document);
 }
 
 function promptBytes(prompts: readonly McpPromptDiscovery[]): number {

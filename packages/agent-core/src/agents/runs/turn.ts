@@ -124,9 +124,9 @@ export interface TurnInit {
     readonly input: ContentRef;
     readonly status?: TurnStatus;
     readonly lease?: TurnLease;
-    readonly checkpoint?: RunCheckpointId;
-    readonly result?: ContentRef;
-    readonly cacheLineage?: TurnCacheLineage;
+    readonly checkpoint?: RunCheckpointId | undefined;
+    readonly result?: ContentRef | undefined;
+    readonly cacheLineage?: TurnCacheLineage | undefined;
     readonly revision: Revision;
 }
 
@@ -335,9 +335,9 @@ export class Turn extends CodecRecord {
             input: new ContentRef(requireString(object["input"], "Turn input")),
             status: requireTurnStatus(object["status"]),
             lease: TurnLease.fromData(object["lease"]),
-            ...(checkpoint === undefined ? {} : { checkpoint: new RunCheckpointId(checkpoint) }),
-            ...(result === undefined ? {} : { result: new ContentRef(result) }),
-            ...(cacheLineage === undefined ? {} : { cacheLineage }),
+            checkpoint: checkpoint === undefined ? undefined : new RunCheckpointId(checkpoint),
+            result: result === undefined ? undefined : new ContentRef(result),
+            cacheLineage,
             revision: revisionFromData(object["revision"], "Turn revision")
         });
     }
@@ -360,9 +360,9 @@ export class Turn extends CodecRecord {
             input: this.input,
             status,
             lease,
-            ...(checkpoint === undefined ? {} : { checkpoint }),
-            ...(result === undefined ? {} : { result }),
-            ...(this.cacheLineage === undefined ? {} : { cacheLineage: this.cacheLineage }),
+            checkpoint,
+            result,
+            cacheLineage: this.cacheLineage,
             revision: nextTurnRevision(this.revision)
         });
     }

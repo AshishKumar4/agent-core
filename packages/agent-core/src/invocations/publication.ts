@@ -7,7 +7,7 @@ import {
     type RecordVersion
 } from "../core";
 import {
-    requireDate,
+    requireNullableDate,
     requireExactObject,
     requireNonnegativeInteger,
     requireString,
@@ -124,11 +124,7 @@ export class InvocationPublicationOutbox {
             this.observation,
             eventPublishedAt !== undefined && commitAppendedAt !== undefined
                 ? { kind: "published", eventPublishedAt, commitAppendedAt }
-                : {
-                      kind: "pending",
-                      ...(eventPublishedAt === undefined ? {} : { eventPublishedAt }),
-                      ...(commitAppendedAt === undefined ? {} : { commitAppendedAt })
-                  },
+                : pendingState(eventPublishedAt, commitAppendedAt),
             this.revision.next()
         );
     }
@@ -171,18 +167,8 @@ class InvocationPublicationOutboxCodecV1 extends RecordCodec<InvocationPublicati
             "Invocation publication state"
         );
         const kind = requireString(state, "kind");
-        const eventValue = state["eventPublishedAt"];
-        const commitValue = state["commitAppendedAt"];
-        if (
-            (eventValue !== null && typeof eventValue !== "string") ||
-            (commitValue !== null && typeof commitValue !== "string")
-        ) {
-            throw new TypeError("Publication acknowledgement times must be strings or null");
-        }
-        const eventPublishedAt =
-            eventValue === null ? undefined : requireDate(state, "eventPublishedAt");
-        const commitAppendedAt =
-            commitValue === null ? undefined : requireDate(state, "commitAppendedAt");
+        const eventPublishedAt = requireNullableDate(state, "eventPublishedAt");
+        const commitAppendedAt = requireNullableDate(state, "commitAppendedAt");
         const record = new InvocationPublicationOutbox(
             Object.freeze({
                 invocation: new InvocationId(requireString(object, "invocation")),
@@ -190,11 +176,7 @@ class InvocationPublicationOutboxCodecV1 extends RecordCodec<InvocationPublicati
                 audit: new AuditRecordId(requireString(object, "audit"))
             }),
             kind === "pending"
-                ? {
-                      kind,
-                      ...(eventPublishedAt === undefined ? {} : { eventPublishedAt }),
-                      ...(commitAppendedAt === undefined ? {} : { commitAppendedAt })
-                  }
+                ? pendingState(eventPublishedAt, commitAppendedAt)
                 : kind === "published" &&
                     eventPublishedAt !== undefined &&
                     commitAppendedAt !== undefined
@@ -209,15 +191,33 @@ class InvocationPublicationOutboxCodecV1 extends RecordCodec<InvocationPublicati
     }
 }
 
+/** A pending publication being assembled, before it is frozen and published. */
+interface PendingPublication {
+    kind: "pending";
+    eventPublishedAt?: Date;
+    commitAppendedAt?: Date;
+}
+
+/**
+ * A pending publication omits the sink it has not acknowledged yet, so the two
+ * fields must stay absent rather than present-and-undefined: the state is public
+ * and callers distinguish the two.
+ */
+function pendingState(
+    eventPublishedAt: Date | undefined,
+    commitAppendedAt: Date | undefined
+): InvocationPublicationState {
+    const state: PendingPublication = { kind: "pending" };
+    if (eventPublishedAt !== undefined) state.eventPublishedAt = eventPublishedAt;
+    if (commitAppendedAt !== undefined) state.commitAppendedAt = commitAppendedAt;
+    return Object.freeze(state);
+}
+
 function copyState(state: InvocationPublicationState): InvocationPublicationState {
     const eventPublishedAt = copyDate(state.eventPublishedAt, "Event publication time");
     const commitAppendedAt = copyDate(state.commitAppendedAt, "Commit append time");
     return state.kind === "pending"
-        ? Object.freeze({
-              kind: state.kind,
-              ...(eventPublishedAt === undefined ? {} : { eventPublishedAt }),
-              ...(commitAppendedAt === undefined ? {} : { commitAppendedAt })
-          })
+        ? pendingState(eventPublishedAt, commitAppendedAt)
         : Object.freeze({
               kind: state.kind,
               eventPublishedAt: eventPublishedAt!,

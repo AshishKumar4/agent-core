@@ -17,6 +17,7 @@ import type { CommandEnvelope } from "./envelope";
 import { CommandPayloadMalformedError, type CommandPayloadCodec } from "./payload";
 import { CommandCallerPolicy } from "./policy";
 import type { ProtocolCommandExecution, ProtocolValueCodec } from "./registration";
+import { requireNonemptyString, requireObject } from "./codec";
 
 export interface TenantBootstrapAnchor {
     readonly actorId: ActorId;
@@ -304,10 +305,12 @@ class TenantBootstrapReplyCodec implements ProtocolValueCodec<TenantBootstrapRep
         }
         return Object.freeze({
             owner: new PrincipalRef(
-                new TenantId(requireString(owner["tenant"], "Tenant bootstrap owner Tenant")),
-                new PrincipalId(requireString(owner["principal"], "Tenant bootstrap owner"))
+                new TenantId(
+                    requireNonemptyString(owner["tenant"], "Tenant bootstrap owner Tenant")
+                ),
+                new PrincipalId(requireNonemptyString(owner["principal"], "Tenant bootstrap owner"))
             ),
-            tenant: new TenantId(requireString(object["tenant"], "Tenant bootstrap Tenant"))
+            tenant: new TenantId(requireNonemptyString(object["tenant"], "Tenant bootstrap Tenant"))
         });
     }
 }
@@ -325,13 +328,17 @@ class TenantBootstrapObservationCodec implements ProtocolValueCodec<TenantBootst
         if (!hasExactJsonKeys(object, ["at", "reply"])) {
             throw new TypeError("Tenant bootstrap observation is malformed");
         }
-        const at = new Date(requireString(object["at"], "Tenant bootstrap observation time"));
+        const at = new Date(
+            requireNonemptyString(object["at"], "Tenant bootstrap observation time")
+        );
         if (!Number.isFinite(at.getTime())) {
             throw new TypeError("Tenant bootstrap observation time is invalid");
         }
         return Object.freeze({
             ...bootstrapReplyCodec.decode(
-                decodeBase64(requireString(object["reply"], "Tenant bootstrap observation reply"))
+                decodeBase64(
+                    requireNonemptyString(object["reply"], "Tenant bootstrap observation reply")
+                )
             ),
             at
         });
@@ -350,21 +357,6 @@ function anchorMatchesTarget(
 
 function principalFor(anchor: TenantBootstrapAnchor): PrincipalRef {
     return new PrincipalRef(anchor.tenantId, anchor.principalId);
-}
-
-function requireObject(
-    value: JsonValue | undefined,
-    name: string
-): { readonly [key: string]: JsonValue } {
-    if (!isJsonObject(value)) throw new TypeError(`${name} must be an object`);
-    return value;
-}
-
-function requireString(value: JsonValue | undefined, name: string): string {
-    if (typeof value !== "string" || value.length === 0) {
-        throw new TypeError(`${name} must be a non-empty string`);
-    }
-    return value;
 }
 
 function isTenantKind(value: JsonValue | undefined): value is TenantKind {

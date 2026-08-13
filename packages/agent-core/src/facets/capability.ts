@@ -2,16 +2,20 @@ import {
     RecordCodec,
     encodeCanonicalJson,
     hasExactJsonKeys,
+    isJsonObject,
     isMember,
+    requireNonempty,
     type JsonValue,
     type RecordVersion
 } from "../core";
 import type { Impact } from "./contribution";
 import {
-    canonicalFacetData,
+    canonicalFacetDataMap,
+    canonicalOrder,
     requireArray,
     requireDataObject,
     requireString,
+    type FacetData,
     type FacetDataMap
 } from "./data";
 
@@ -26,7 +30,7 @@ const impacts: readonly Impact[] = [
 
 export type CapabilityEffect = "allow" | "deny";
 
-export function isCapabilityEffect(value: unknown): value is CapabilityEffect {
+export function isCapabilityEffect(value: FacetData | undefined): value is CapabilityEffect {
     return value === "allow" || value === "deny";
 }
 
@@ -151,13 +155,13 @@ export class CapabilitySpec {
         }
         const operationValues = requireArray(object["operations"], "Capability operations");
         const impactValues = requireArray(object["impacts"], "Capability impacts");
-        if (impactValues.length === 0) throw new TypeError("Capability impacts must not be empty");
+        const impacts = requireNonempty(impactValues.map(requireImpact), "Capability impacts");
         return new CapabilitySpec({
             facetPattern: requireString(object["facetPattern"], "Facet pattern"),
             operations: operationValues.map((entry, index) =>
-                requireArrayString(entry, `Operation ${index}`)
+                requireString(entry, `Operation ${index}`)
             ),
-            impacts: impactValues.map(requireImpact) as [Impact, ...Impact[]],
+            impacts,
             argumentConstraints: requireDataObject(
                 object["argumentConstraints"] ?? null,
                 "Argument constraints"
@@ -176,12 +180,7 @@ function canonicalStrings(values: readonly string[], name: string): readonly str
 }
 
 function canonicalImpacts(values: readonly Impact[]): readonly [Impact, ...Impact[]] {
-    if (values.length === 0 || values.some((value) => !impacts.includes(value))) {
-        throw new TypeError("Capability impacts must contain known values");
-    }
-    const ordered = impacts.filter((value) => values.includes(value));
-    if (ordered.length !== values.length) throw new TypeError("Capability impacts must be unique");
-    return Object.freeze(ordered) as unknown as readonly [Impact, ...Impact[]];
+    return canonicalOrder(values, impacts, "Capability impacts");
 }
 
 function canonicalConstraints(
@@ -191,7 +190,7 @@ function canonicalConstraints(
         if (!isConstraintPath(path))
             throw new TypeError(`Invalid argument constraint path ${path}`);
     }
-    return canonicalFacetData(constraints) as Readonly<Record<string, JsonValue>>;
+    return canonicalFacetDataMap(constraints);
 }
 
 function validatePattern(pattern: string): void {
@@ -216,15 +215,10 @@ function valueAtPath(
     value: Readonly<Record<string, JsonValue>>,
     path: string
 ): JsonValue | undefined {
-    let current: JsonValue = value;
+    let current: JsonValue | undefined = value;
     for (const segment of path.split(".")) {
-        if (current === null || Array.isArray(current) || typeof current !== "object")
-            return undefined;
-        const next: JsonValue | undefined = (
-            current as { readonly [key: string]: JsonValue | undefined }
-        )[segment];
-        if (next === undefined) return undefined;
-        current = next;
+        if (!isJsonObject(current)) return undefined;
+        current = current[segment];
     }
     return current;
 }
@@ -240,11 +234,6 @@ function canonicalEqual(left: JsonValue, right: JsonValue): boolean {
         leftBytes.byteLength === rightBytes.byteLength &&
         leftBytes.every((value, index) => value === rightBytes[index])
     );
-}
-
-function requireArrayString(value: JsonValue, name: string): string {
-    if (typeof value !== "string") throw new TypeError(`${name} must be a string`);
-    return value;
 }
 
 function requireImpact(value: JsonValue): Impact {

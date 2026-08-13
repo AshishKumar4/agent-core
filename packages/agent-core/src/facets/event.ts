@@ -2,11 +2,14 @@ import { isNonempty, JsonSchema, SecretRef } from "../core";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
+    canonicalOrder,
+    dataRecord,
     requireArray,
     requireDataObject,
     requireExactFields,
     requireNonblank,
     requireOptionalString,
+    requireSchemaDocument,
     requireString
 } from "./data";
 import { EventKind } from "./id";
@@ -61,11 +64,11 @@ export class EventPattern {
     }
 
     public toData(): FacetData {
-        return {
+        return dataRecord({
             acceptedTrust: this.acceptedTrust,
             kind: this.kind,
-            ...(this.source === undefined ? {} : { source: this.source })
-        };
+            source: this.source
+        });
     }
 }
 
@@ -223,14 +226,7 @@ const ingressDeclarationCodec = new DataRecordCodec(
 export function canonicalTrustTiers(
     values: readonly [TrustTier, ...TrustTier[]]
 ): readonly [TrustTier, ...TrustTier[]] {
-    if (values.length === 0 || values.some((value) => !trustOrder.includes(value))) {
-        throw new TypeError("Trust tiers must contain known values");
-    }
-    if (new Set(values).size !== values.length) {
-        throw new TypeError("Trust tiers must be unique");
-    }
-    const ordered = trustOrder.filter((value) => values.includes(value));
-    return Object.freeze(ordered) as unknown as readonly [TrustTier, ...TrustTier[]];
+    return canonicalOrder(values, trustOrder, "Trust tiers");
 }
 
 function requireTrustTier(value: FacetData): TrustTier {
@@ -263,22 +259,4 @@ function requirePrefixPattern(value: string, subject: string): void {
     if (value.length === 0 || value.trim() !== value || value.slice(0, -1).includes("*")) {
         throw new TypeError(`${subject} must be a literal or suffix-wildcard pattern`);
     }
-}
-
-function requireSchemaDocument(
-    value: FacetData | undefined,
-    subject: string
-): boolean | { readonly [key: string]: FacetData } {
-    if (typeof value === "boolean") {
-        return value;
-    }
-    if (
-        value === undefined ||
-        value === null ||
-        Array.isArray(value) ||
-        typeof value !== "object"
-    ) {
-        throw new TypeError(`${subject} must be an object or boolean`);
-    }
-    return value as { readonly [key: string]: FacetData };
 }

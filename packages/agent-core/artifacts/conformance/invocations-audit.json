@@ -366,7 +366,7 @@
       "prerequisites": [],
       "sourceSymbols": [
         "src/invocations/audit.ts#AuditRecord",
-        "src/invocations/audit.ts#validateStoredAuditShape"
+        "src/invocations/audit.ts#validateStoredAuditLinkage"
       ],
       "testSelectors": [
         "test/invocations/audit.test.ts#AuditRecord append validation [C13-ADV-UNBRIDGED-CROSS-ACTOR-AUDIT] rejects a direct cross-Actor audit cause"
@@ -448,7 +448,7 @@
       "prerequisites": [],
       "sourceSymbols": [
         "src/invocations/audit.ts#AuditRecord",
-        "src/invocations/audit.ts#validateStoredAuditShape"
+        "src/invocations/audit.ts#validateStoredAuditLinkage"
       ],
       "testSelectors": [
         "test/invocations/audit.test.ts#AuditRecord append validation [C13-AUDIT-PREEXISTING-CAUSE] requires a preexisting cause"

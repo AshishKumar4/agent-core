@@ -192,7 +192,16 @@ function inactive(message: string): AgentCoreError {
 
 function noop(): void {}
 
-function deferred(): { readonly promise: Promise<void>; readonly resolve: () => void } {
+interface Completion {
+    readonly promise: Promise<void>;
+    readonly resolve: () => void;
+}
+
+interface SettledCompletion extends Completion {
+    readonly reject: (error: unknown) => void;
+}
+
+function deferred(): Completion {
     let resolve!: () => void;
     const promise = new Promise<void>((complete) => {
         resolve = complete;
@@ -200,11 +209,7 @@ function deferred(): { readonly promise: Promise<void>; readonly resolve: () => 
     return { promise, resolve };
 }
 
-function transitionDeferred(): {
-    readonly promise: Promise<void>;
-    readonly resolve: () => void;
-    readonly reject: (error: unknown) => void;
-} {
+function transitionDeferred(): SettledCompletion {
     let resolve!: () => void;
     let reject!: (error: unknown) => void;
     const promise = new Promise<void>((complete, fail) => {

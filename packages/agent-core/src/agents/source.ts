@@ -1,4 +1,11 @@
-import { ContentRef, Digest, RecordCodec, Revision, type JsonValue } from "../core";
+import {
+    ContentRef,
+    Digest,
+    RecordCodec,
+    Revision,
+    type JsonObject,
+    type JsonValue
+} from "../core";
 import {
     digestFromData,
     CodecRecord,
@@ -32,7 +39,7 @@ abstract class RevisionRecord<Id> extends CodecRecord {
         this.digest = fields.digest;
     }
 
-    protected baseData(id: string): JsonValue {
+    protected baseData(id: string): JsonObject {
         return {
             content: this.content.value,
             digest: this.digest.value,
@@ -69,12 +76,12 @@ export class AgentRevisionRecord extends RevisionRecord<AgentId> {
 
     public toData(): JsonValue {
         return {
-            ...(this.baseData(this.id.value) as object),
+            ...this.baseData(this.id.value),
             environment: this.environment.value,
             model: this.model.value,
             policy: this.policy.value,
             profile: this.profile.value
-        } as JsonValue;
+        };
     }
 
     public static fromData(value: JsonValue): AgentRevisionRecord {

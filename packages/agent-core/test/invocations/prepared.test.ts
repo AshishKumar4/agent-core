@@ -397,10 +397,10 @@ describe("PreparedInvocation canonical identity", () => {
             /route evidence is malformed/
         );
         expect(() => codec.decode(changed({ ...header, route: 1 }))).toThrow(
-            /route evidence is malformed/
+            /route must be a string or null/
         );
         expect(() => codec.decode(changed({ ...header, projectionDigest: 1 }))).toThrow(
-            /route evidence is malformed/
+            /projectionDigest must be a string or null/
         );
         expect(() =>
             codec.decode(changed({ ...header, actor: { id: "actor", kind: "unknown" } }))
