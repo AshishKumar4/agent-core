@@ -746,12 +746,6 @@
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
-      "file": "packages/agent-core/src/invocations/approval.ts",
-      "kind": "assertion",
-      "count": 2,
-      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
-    },
-    {
       "file": "packages/agent-core/src/invocations/audit.ts",
       "kind": "non-null",
       "count": 1,
@@ -768,12 +762,6 @@
       "kind": "unknown",
       "count": 1,
       "reason": "Mediation is generic over the authorization and transaction its host supplies, and effect output is opaque to the invocation layer."
-    },
-    {
-      "file": "packages/agent-core/src/invocations/claim.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
     },
     {
       "file": "packages/agent-core/src/invocations/codec.ts",
@@ -831,33 +819,15 @@
     },
     {
       "file": "packages/agent-core/src/invocations/prepared.ts",
-      "kind": "assertion",
-      "count": 8,
-      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
-    },
-    {
-      "file": "packages/agent-core/src/invocations/prepared.ts",
       "kind": "non-null",
-      "count": 11,
+      "count": 10,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
-    },
-    {
-      "file": "packages/agent-core/src/invocations/prepared.ts",
-      "kind": "unknown",
-      "count": 3,
-      "reason": "Mediation is generic over the authorization and transaction its host supplies, and effect output is opaque to the invocation layer."
     },
     {
       "file": "packages/agent-core/src/invocations/publication.ts",
       "kind": "non-null",
       "count": 2,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
-    },
-    {
-      "file": "packages/agent-core/src/invocations/receipt.ts",
-      "kind": "assertion",
-      "count": 3,
-      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
     },
     {
       "file": "packages/agent-core/src/invocations/replay.ts",

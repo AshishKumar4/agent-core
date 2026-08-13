@@ -982,7 +982,10 @@ class UnknownReceipt extends Receipt {
         super(time(1), {
             variant: "attempt",
             id: new ReceiptId("unknown-receipt"),
-            outcome: "failed"
+            attempt: new EffectAttemptId("unknown-attempt"),
+            outcome: "failed",
+            previous: undefined,
+            result: undefined
         });
     }
 }

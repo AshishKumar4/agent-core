@@ -5,7 +5,6 @@ import {
     decodeBase64,
     encodeBase64,
     hasExactJsonKeys,
-    isJsonObject,
     type JsonValue,
     type RecordVersion
 } from "../core";
@@ -16,6 +15,7 @@ import {
     copyCommandCaller,
     type CommandCaller
 } from "./envelope";
+import { requireNullableString, requireObject, requireString } from "./codec";
 
 export type CommandOutcome =
     | "committed"
@@ -72,14 +72,18 @@ class WriteRecordCodecV2 extends RecordCodec<WriteRecord> {
             throw new TypeError("Write record payload contains missing or unknown fields");
         }
         const caller = object["caller"];
-        const command = object["command"];
-        const duplicateOf = object["duplicateOf"];
-        const idempotencyKey = object["idempotencyKey"];
-        const observation = object["observation"];
-        requireNullableString(command, "Write record command");
-        requireNullableString(duplicateOf, "Write record duplicate");
-        requireNullableString(idempotencyKey, "Write record idempotency key");
-        requireNullableString(observation, "Write record observation");
+        const command = requireNullableString(object, "command", "Write record command");
+        const duplicateOf = requireNullableString(object, "duplicateOf", "Write record duplicate");
+        const idempotencyKey = requireNullableString(
+            object,
+            "idempotencyKey",
+            "Write record idempotency key"
+        );
+        const observation = requireNullableString(
+            object,
+            "observation",
+            "Write record observation"
+        );
         return new WriteRecord({
             id: new WriteRecordId(requireString(object, "id")),
             actor: new ActorRef(
@@ -87,15 +91,15 @@ class WriteRecordCodecV2 extends RecordCodec<WriteRecord> {
                 new ActorId(requireString(actor, "id"))
             ),
             envelopeDigest: new Digest(requireString(object, "envelopeDigest")),
-            ...(caller === null ? {} : { caller: decodeCommandCaller(caller) }),
-            ...(command === null ? {} : { command }),
-            ...(idempotencyKey === null ? {} : { idempotencyKey }),
+            caller: caller === null ? undefined : decodeCommandCaller(caller),
+            command,
+            idempotencyKey,
             at: new Date(requireString(object, "at")),
             outcome: requireOutcome(object["outcome"]),
             audit: new AuditRecordId(requireString(object, "audit")),
-            ...(duplicateOf === null ? {} : { duplicateOf: new WriteRecordId(duplicateOf) }),
+            duplicateOf: duplicateOf === undefined ? undefined : new WriteRecordId(duplicateOf),
             reply: decodeBase64(requireString(object, "reply")),
-            ...(observation === null ? {} : { observation: decodeBase64(observation) })
+            observation: observation === undefined ? undefined : decodeBase64(observation)
         });
     }
 }
@@ -104,15 +108,15 @@ export interface WriteRecordInit {
     readonly id: WriteRecordId;
     readonly actor: ActorRef;
     readonly envelopeDigest: Digest;
-    readonly caller?: CommandCaller;
-    readonly command?: string;
-    readonly idempotencyKey?: string;
+    readonly caller?: CommandCaller | undefined;
+    readonly command?: string | undefined;
+    readonly idempotencyKey?: string | undefined;
     readonly at: Date;
     readonly outcome: CommandOutcome;
     readonly audit: AuditRecordId;
-    readonly duplicateOf?: WriteRecordId;
+    readonly duplicateOf?: WriteRecordId | undefined;
     readonly reply: Uint8Array;
-    readonly observation?: Uint8Array;
+    readonly observation?: Uint8Array | undefined;
 }
 
 export class WriteRecord {
@@ -215,31 +219,6 @@ export function writeReservesIdentity(record: WriteRecord): boolean {
         record.outcome !== "duplicate" &&
         record.outcome !== "rejectedAuthentication"
     );
-}
-
-function requireObject(
-    value: JsonValue | undefined,
-    name: string
-): { readonly [key: string]: JsonValue } {
-    if (!isJsonObject(value)) throw new TypeError(`${name} must be an object`);
-    return value;
-}
-
-function requireString(object: { readonly [key: string]: JsonValue }, key: string): string {
-    const value = object[key];
-    if (typeof value !== "string") {
-        throw new TypeError(`${key} must be a string`);
-    }
-    return value;
-}
-
-function requireNullableString(
-    value: JsonValue | undefined,
-    name: string
-): asserts value is string | null {
-    if (value !== null && typeof value !== "string") {
-        throw new TypeError(`${name} must be a string or null`);
-    }
 }
 
 function requireActorKind(value: JsonValue | undefined): ActorKind {
