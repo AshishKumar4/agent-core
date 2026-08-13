@@ -419,7 +419,7 @@
       "prerequisites": [],
       "sourceSymbols": [
         "src/agents/runs/commit.ts#RunCommit",
-        "src/agents/runs/commit.ts#validateClosedShape",
+        "src/agents/runs/commit.ts#validateClosedKind",
         "src/agents/runs/runtime.ts#RunRuntime"
       ],
       "testSelectors": [
@@ -942,7 +942,7 @@
       "prerequisites": [],
       "sourceSymbols": [
         "src/agents/runs/commit.ts#RunCommit",
-        "src/agents/runs/commit.ts#validateClosedShape",
+        "src/agents/runs/commit.ts#validateClosedKind",
         "src/agents/runs/commit.ts#validateCommitWriter"
       ],
       "testSelectors": [
@@ -960,7 +960,7 @@
       "prerequisites": [],
       "sourceSymbols": [
         "src/agents/runs/commit.ts#RunCommit",
-        "src/agents/runs/commit.ts#validateClosedShape",
+        "src/agents/runs/commit.ts#validateClosedKind",
         "src/agents/runs/commit.ts#validateCommitWriter"
       ],
       "testSelectors": [
