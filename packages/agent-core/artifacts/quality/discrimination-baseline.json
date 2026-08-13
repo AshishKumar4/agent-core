@@ -3,6 +3,111 @@
   "issues": [
     {
       "rule": "DISC-ATOM",
+      "file": "definition-platform.json",
+      "symbol": "C13-BLUEPRINT-REMATERIALIZE",
+      "message": "Verified C13-BLUEPRINT-REMATERIALIZE has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:definition-platform.json:C13-BLUEPRINT-REMATERIALIZE:798bdfeeb966"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "definition-platform.json",
+      "symbol": "C13-BLUEPRINT-RUN-PINS",
+      "message": "Verified C13-BLUEPRINT-RUN-PINS has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:definition-platform.json:C13-BLUEPRINT-RUN-PINS:f7b30fa311a1"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "definition-platform.json",
+      "symbol": "C13-BLUEPRINT-VALIDATE-BEFORE-LOAD",
+      "message": "Verified C13-BLUEPRINT-VALIDATE-BEFORE-LOAD has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:definition-platform.json:C13-BLUEPRINT-VALIDATE-BEFORE-LOAD:58658835e65f"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "definition-platform.json",
+      "symbol": "C13-PLACEMENT-EMPTY",
+      "message": "Verified C13-PLACEMENT-EMPTY has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:definition-platform.json:C13-PLACEMENT-EMPTY:3bde5f21c398"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "definition-platform.json",
+      "symbol": "C13-PLACEMENT-ORDER",
+      "message": "Verified C13-PLACEMENT-ORDER has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:definition-platform.json:C13-PLACEMENT-ORDER:411fe19bf9cd"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "definition-platform.json",
+      "symbol": "C13-PLACEMENT-UNTRUSTED-BUNDLED",
+      "message": "Verified C13-PLACEMENT-UNTRUSTED-BUNDLED has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:definition-platform.json:C13-PLACEMENT-UNTRUSTED-BUNDLED:5f4a5bac5608"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "definition-platform.json",
+      "symbol": "C13-POLICY-APPROVAL-FLOOR",
+      "message": "Verified C13-POLICY-APPROVAL-FLOOR has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:definition-platform.json:C13-POLICY-APPROVAL-FLOOR:3914c12e9c9a"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "definition-platform.json",
+      "symbol": "C13-POLICY-DIRECT-ESCALATION",
+      "message": "Verified C13-POLICY-DIRECT-ESCALATION has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:definition-platform.json:C13-POLICY-DIRECT-ESCALATION:342f09a10c42"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "definition-platform.json",
+      "symbol": "C13-POLICY-EPOCH-RECHECK",
+      "message": "Verified C13-POLICY-EPOCH-RECHECK has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:definition-platform.json:C13-POLICY-EPOCH-RECHECK:34dae284d5c4"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "definition-platform.json",
+      "symbol": "C13-POLICY-MEDIATION-FLOOR",
+      "message": "Verified C13-POLICY-MEDIATION-FLOOR has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:definition-platform.json:C13-POLICY-MEDIATION-FLOOR:7cbb57664496"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "events-routing.json",
+      "symbol": "C13-ADV-DUPLICATE-ROUTE",
+      "message": "Verified C13-ADV-DUPLICATE-ROUTE has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:events-routing.json:C13-ADV-DUPLICATE-ROUTE:4544d10e8239"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "events-routing.json",
+      "symbol": "C13-ADV-HOSTILE-TIER",
+      "message": "Verified C13-ADV-HOSTILE-TIER has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:events-routing.json:C13-ADV-HOSTILE-TIER:daa3310ecec0"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "events-routing.json",
+      "symbol": "C13-ADV-MISSING-CROSS-TENANT-BINDING",
+      "message": "Verified C13-ADV-MISSING-CROSS-TENANT-BINDING has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:events-routing.json:C13-ADV-MISSING-CROSS-TENANT-BINDING:c51dff06a43e"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "events-routing.json",
+      "symbol": "C13-ROUTE-CROSS-TENANT-BINDING",
+      "message": "Verified C13-ROUTE-CROSS-TENANT-BINDING has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:events-routing.json:C13-ROUTE-CROSS-TENANT-BINDING:638111779e76"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "events-routing.json",
+      "symbol": "C13-TRUST-VERIFIED-INGRESS",
+      "message": "Verified C13-TRUST-VERIFIED-INGRESS has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:events-routing.json:C13-TRUST-VERIFIED-INGRESS:48e94efadd58"
+    },
+    {
+      "rule": "DISC-ATOM",
       "file": "events-routing.json",
       "symbol": "C13-VIEW-DELTA-REPLAY",
       "message": "Verified C13-VIEW-DELTA-REPLAY has no recorded mutant of its sources killed by a cited test",
@@ -14,6 +119,13 @@
       "symbol": "C13-ADV-UNAUTHORIZED-SLOT",
       "message": "Verified C13-ADV-UNAUTHORIZED-SLOT has no recorded mutant of its sources killed by a cited test",
       "fingerprint": "DISC-ATOM:facets-operations.json:C13-ADV-UNAUTHORIZED-SLOT:abae848d1885"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "facets-operations.json",
+      "symbol": "C13-COMMAND-INSTALL-MAPPING",
+      "message": "Verified C13-COMMAND-INSTALL-MAPPING has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:facets-operations.json:C13-COMMAND-INSTALL-MAPPING:243fd426b618"
     },
     {
       "rule": "DISC-ATOM",
@@ -42,6 +154,83 @@
       "symbol": "C13-INTERCEPTOR-REPLAY",
       "message": "Verified C13-INTERCEPTOR-REPLAY has no recorded mutant of its sources killed by a cited test",
       "fingerprint": "DISC-ATOM:facets-operations.json:C13-INTERCEPTOR-REPLAY:178ea95e16ae"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "foundation.json",
+      "symbol": "C13-ADV-COMMAND-REJECTIONS",
+      "message": "Verified C13-ADV-COMMAND-REJECTIONS has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:foundation.json:C13-ADV-COMMAND-REJECTIONS:ffe1ae45bfcc"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "foundation.json",
+      "symbol": "C13-CODEC-VERSIONING",
+      "message": "Verified C13-CODEC-VERSIONING has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:foundation.json:C13-CODEC-VERSIONING:a21877c0c721"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "foundation.json",
+      "symbol": "C13-PROTOCOL-WRITE-AUDIT-LINK",
+      "message": "Verified C13-PROTOCOL-WRITE-AUDIT-LINK has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:foundation.json:C13-PROTOCOL-WRITE-AUDIT-LINK:d2f1ed98c81d"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "identity-authority.json",
+      "symbol": "C13-AUTH-DENY-PATH",
+      "message": "Verified C13-AUTH-DENY-PATH has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:identity-authority.json:C13-AUTH-DENY-PATH:5f4697f0159b"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "identity-authority.json",
+      "symbol": "C13-AUTH-EPOCH-ADVANCEMENT",
+      "message": "Verified C13-AUTH-EPOCH-ADVANCEMENT has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:identity-authority.json:C13-AUTH-EPOCH-ADVANCEMENT:d36c95dd0a84"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "identity-authority.json",
+      "symbol": "C13-AUTH-GUEST-SUBJECT",
+      "message": "Verified C13-AUTH-GUEST-SUBJECT has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:identity-authority.json:C13-AUTH-GUEST-SUBJECT:fe63555e728c"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "identity-authority.json",
+      "symbol": "C13-AUTH-MEDIATED-ADMISSION",
+      "message": "Verified C13-AUTH-MEDIATED-ADMISSION has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:identity-authority.json:C13-AUTH-MEDIATED-ADMISSION:b07967a90c0e"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "identity-authority.json",
+      "symbol": "C13-AUTH-PATH-EVIDENCE",
+      "message": "Verified C13-AUTH-PATH-EVIDENCE has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:identity-authority.json:C13-AUTH-PATH-EVIDENCE:ea090d7f9910"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "identity-authority.json",
+      "symbol": "C13-AUTH-PATH-ORDER",
+      "message": "Verified C13-AUTH-PATH-ORDER has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:identity-authority.json:C13-AUTH-PATH-ORDER:3aa8dc58cf58"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "identity-authority.json",
+      "symbol": "C13-AUTH-TEAM-SUBJECT",
+      "message": "Verified C13-AUTH-TEAM-SUBJECT has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:identity-authority.json:C13-AUTH-TEAM-SUBJECT:d0fcd92f7762"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-ADV-APPROVAL-REPLAY",
+      "message": "Verified C13-ADV-APPROVAL-REPLAY has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-ADV-APPROVAL-REPLAY:b0dcd9e59892"
     },
     {
       "rule": "DISC-ATOM",
@@ -74,9 +263,51 @@
     {
       "rule": "DISC-ATOM",
       "file": "invocations-audit.json",
+      "symbol": "C13-ADV-RECEIPT-AGGREGATE",
+      "message": "Verified C13-ADV-RECEIPT-AGGREGATE has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-ADV-RECEIPT-AGGREGATE:b7f55e44b2fe"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-ADV-RECEIPT-CANCELLED",
+      "message": "Verified C13-ADV-RECEIPT-CANCELLED has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-ADV-RECEIPT-CANCELLED:91a2d11f9da2"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-ADV-RECEIPT-DENIED",
+      "message": "Verified C13-ADV-RECEIPT-DENIED has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-ADV-RECEIPT-DENIED:085eef78875d"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-ADV-RECEIPT-FAILED",
+      "message": "Verified C13-ADV-RECEIPT-FAILED has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-ADV-RECEIPT-FAILED:7911c562b3d9"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
       "symbol": "C13-ADV-RECEIPT-INDETERMINATE",
       "message": "Verified C13-ADV-RECEIPT-INDETERMINATE has no recorded mutant of its sources killed by a cited test",
       "fingerprint": "DISC-ATOM:invocations-audit.json:C13-ADV-RECEIPT-INDETERMINATE:c8468754f7b6"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-ADV-RECEIPT-SUCCEEDED",
+      "message": "Verified C13-ADV-RECEIPT-SUCCEEDED has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-ADV-RECEIPT-SUCCEEDED:1049c6124553"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-ADV-RECEIPT-SUPERSESSION",
+      "message": "Verified C13-ADV-RECEIPT-SUPERSESSION has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-ADV-RECEIPT-SUPERSESSION:97fc8de05cee"
     },
     {
       "rule": "DISC-ATOM",
@@ -95,9 +326,65 @@
     {
       "rule": "DISC-ATOM",
       "file": "invocations-audit.json",
+      "symbol": "C13-ADV-UNBRIDGED-CROSS-ACTOR-AUDIT",
+      "message": "Verified C13-ADV-UNBRIDGED-CROSS-ACTOR-AUDIT has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-ADV-UNBRIDGED-CROSS-ACTOR-AUDIT:648983edce76"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-ADV-UNCHANGED-RECOVERY-OWNER",
+      "message": "Verified C13-ADV-UNCHANGED-RECOVERY-OWNER has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-ADV-UNCHANGED-RECOVERY-OWNER:0e2cba65c63c"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
       "symbol": "C13-ATTEMPT-ORDINAL-AFTER-FAILURE",
       "message": "Verified C13-ATTEMPT-ORDINAL-AFTER-FAILURE has no recorded mutant of its sources killed by a cited test",
       "fingerprint": "DISC-ATOM:invocations-audit.json:C13-ATTEMPT-ORDINAL-AFTER-FAILURE:d8a107f8f181"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-AUDIT-APPEND-ONLY",
+      "message": "Verified C13-AUDIT-APPEND-ONLY has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-AUDIT-APPEND-ONLY:3230570c540f"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-AUDIT-EDGE-RELATION",
+      "message": "Verified C13-AUDIT-EDGE-RELATION has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-AUDIT-EDGE-RELATION:bce9d1cdd9a9"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-AUDIT-PREEXISTING-CAUSE",
+      "message": "Verified C13-AUDIT-PREEXISTING-CAUSE has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-AUDIT-PREEXISTING-CAUSE:e2f247029326"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-AUDIT-RECEIPT-OUTCOMES",
+      "message": "Verified C13-AUDIT-RECEIPT-OUTCOMES has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-AUDIT-RECEIPT-OUTCOMES:bf254028246a"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-AUDIT-SETTLED-OBLIGATION",
+      "message": "Verified C13-AUDIT-SETTLED-OBLIGATION has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-AUDIT-SETTLED-OBLIGATION:0a735f7cb18e"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-AUDIT-SYSTEM-WRITER",
+      "message": "Verified C13-AUDIT-SYSTEM-WRITER has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-AUDIT-SYSTEM-WRITER:6c96222de4de"
     },
     {
       "rule": "DISC-ATOM",
@@ -116,9 +403,79 @@
     {
       "rule": "DISC-ATOM",
       "file": "invocations-audit.json",
+      "symbol": "C13-CLAIM-INITIAL-ATOMIC",
+      "message": "Verified C13-CLAIM-INITIAL-ATOMIC has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-CLAIM-INITIAL-ATOMIC:4697d23b3edb"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-CLAIM-RECOVERY-NEW-OWNER",
+      "message": "Verified C13-CLAIM-RECOVERY-NEW-OWNER has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-CLAIM-RECOVERY-NEW-OWNER:2a14fa6945d5"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-EFFECT-IDEMPOTENCY",
+      "message": "Verified C13-EFFECT-IDEMPOTENCY has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-EFFECT-IDEMPOTENCY:a71ae83fa0c2"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-EFFECT-RECONCILIATION",
+      "message": "Verified C13-EFFECT-RECONCILIATION has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-EFFECT-RECONCILIATION:ae3c24fd3f1f"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-EFFECT-WRITE-AHEAD",
+      "message": "Verified C13-EFFECT-WRITE-AHEAD has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-EFFECT-WRITE-AHEAD:0ab0a4a7faf4"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-PREPARED-APPROVAL-BINDING",
+      "message": "Verified C13-PREPARED-APPROVAL-BINDING has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-PREPARED-APPROVAL-BINDING:b1fef6d5ffde"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-PREPARED-APPROVAL-CONTINUATION",
+      "message": "Verified C13-PREPARED-APPROVAL-CONTINUATION has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-PREPARED-APPROVAL-CONTINUATION:2578e6857aa2"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-PREPARED-APPROVAL-SINGLE-USE",
+      "message": "Verified C13-PREPARED-APPROVAL-SINGLE-USE has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-PREPARED-APPROVAL-SINGLE-USE:945f2a73f090"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-PREPARED-APPROVAL-UNIQUE",
+      "message": "Verified C13-PREPARED-APPROVAL-UNIQUE has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-PREPARED-APPROVAL-UNIQUE:7a87d0ba1264"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
       "symbol": "C13-PREPARED-ITEM-KEYS",
       "message": "Verified C13-PREPARED-ITEM-KEYS has no recorded mutant of its sources killed by a cited test",
       "fingerprint": "DISC-ATOM:invocations-audit.json:C13-PREPARED-ITEM-KEYS:e8b8333c5350"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-PREPARED-NO-TURN-AUDIT",
+      "message": "Verified C13-PREPARED-NO-TURN-AUDIT has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-PREPARED-NO-TURN-AUDIT:afe49c45ffcc"
     },
     {
       "rule": "DISC-ATOM",
@@ -158,6 +515,27 @@
     {
       "rule": "DISC-ATOM",
       "file": "invocations-audit.json",
+      "symbol": "C13-PREPARED-WHOLE-DIGEST",
+      "message": "Verified C13-PREPARED-WHOLE-DIGEST has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-PREPARED-WHOLE-DIGEST:4baf1c3c73bb"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-RECEIPT-ATTEMPT-CHAIN",
+      "message": "Verified C13-RECEIPT-ATTEMPT-CHAIN has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-RECEIPT-ATTEMPT-CHAIN:28657255cc5a"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
+      "symbol": "C13-RECEIPT-ID-NAMESPACE",
+      "message": "Verified C13-RECEIPT-ID-NAMESPACE has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:invocations-audit.json:C13-RECEIPT-ID-NAMESPACE:de1bb01b2437"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "invocations-audit.json",
       "symbol": "C13-RECEIPT-PRE-EFFECT",
       "message": "Verified C13-RECEIPT-PRE-EFFECT has no recorded mutant of its sources killed by a cited test",
       "fingerprint": "DISC-ATOM:invocations-audit.json:C13-RECEIPT-PRE-EFFECT:36a385932ef2"
@@ -186,9 +564,58 @@
     {
       "rule": "DISC-ATOM",
       "file": "profiles-cloudflare.json",
+      "symbol": "P11-APPROVAL-GATEWAY-RECEIPTS",
+      "message": "Verified P11-APPROVAL-GATEWAY-RECEIPTS has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-APPROVAL-GATEWAY-RECEIPTS:f6ad894d2c5f"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-APPROVAL-GATEWAY-RECONCILIATION",
+      "message": "Verified P11-APPROVAL-GATEWAY-RECONCILIATION has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-APPROVAL-GATEWAY-RECONCILIATION:b56632639031"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
       "symbol": "P11-BASE-NAMES",
       "message": "Verified P11-BASE-NAMES has no recorded mutant of its sources killed by a cited test",
       "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-BASE-NAMES:a963bd860dfc"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-DEVICE-CACHED-READ",
+      "message": "Verified P11-DEVICE-CACHED-READ has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-DEVICE-CACHED-READ:4133d27be8ca"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-DEVICE-CONSENT-LIVE",
+      "message": "Verified P11-DEVICE-CONSENT-LIVE has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-DEVICE-CONSENT-LIVE:4349e19dc98c"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-DEVICE-CONSENT-PAIR",
+      "message": "Verified P11-DEVICE-CONSENT-PAIR has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-DEVICE-CONSENT-PAIR:381442f9102e"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-DEVICE-SCHEMA-VERSION",
+      "message": "Verified P11-DEVICE-SCHEMA-VERSION has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-DEVICE-SCHEMA-VERSION:83778ef87f60"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-DEVICE-TYPED-SURFACE",
+      "message": "Verified P11-DEVICE-TYPED-SURFACE has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-DEVICE-TYPED-SURFACE:6773513e545e"
     },
     {
       "rule": "DISC-ATOM",
@@ -263,6 +690,13 @@
     {
       "rule": "DISC-ATOM",
       "file": "profiles-cloudflare.json",
+      "symbol": "P11-FILESYSTEM-ERROR-BRANCHING",
+      "message": "Verified P11-FILESYSTEM-ERROR-BRANCHING has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-FILESYSTEM-ERROR-BRANCHING:086153865d4b"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
       "symbol": "P11-FILESYSTEM-MOVE-ASSERTIONS",
       "message": "Verified P11-FILESYSTEM-MOVE-ASSERTIONS has no recorded mutant of its sources killed by a cited test",
       "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-FILESYSTEM-MOVE-ASSERTIONS:17bdef92d2ca"
@@ -298,9 +732,93 @@
     {
       "rule": "DISC-ATOM",
       "file": "profiles-cloudflare.json",
+      "symbol": "P11-FILESYSTEM-SESSION-DIRECT",
+      "message": "Verified P11-FILESYSTEM-SESSION-DIRECT has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-FILESYSTEM-SESSION-DIRECT:621c662c486f"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
       "symbol": "P11-FILESYSTEM-SUITE",
       "message": "Verified P11-FILESYSTEM-SUITE has no recorded mutant of its sources killed by a cited test",
       "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-FILESYSTEM-SUITE:f67247e91bd8"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-MCP-IMPACT-ANNOTATION",
+      "message": "Verified P11-MCP-IMPACT-ANNOTATION has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-MCP-IMPACT-ANNOTATION:964674250a68"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-MCP-IMPACT-DEFAULT-LOCAL",
+      "message": "Verified P11-MCP-IMPACT-DEFAULT-LOCAL has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-MCP-IMPACT-DEFAULT-LOCAL:c123aeed48d4"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-MCP-IMPACT-UNKNOWN",
+      "message": "Verified P11-MCP-IMPACT-UNKNOWN has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-MCP-IMPACT-UNKNOWN:48fe693c0fc4"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-MCP-MALFORMED-SCHEMA",
+      "message": "Verified P11-MCP-MALFORMED-SCHEMA has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-MCP-MALFORMED-SCHEMA:a508a2eec296"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-MCP-POSITIVE-BOUNDS",
+      "message": "Verified P11-MCP-POSITIVE-BOUNDS has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-MCP-POSITIVE-BOUNDS:ad550715ea97"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-MCP-PROMPT-BYTES",
+      "message": "Verified P11-MCP-PROMPT-BYTES has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-MCP-PROMPT-BYTES:ae400e99bbf0"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-MCP-PROMPT-COUNT",
+      "message": "Verified P11-MCP-PROMPT-COUNT has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-MCP-PROMPT-COUNT:e9b518a3be22"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-MCP-PROMPTS",
+      "message": "Verified P11-MCP-PROMPTS has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-MCP-PROMPTS:4413d4fdbd15"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-MCP-REVISION",
+      "message": "Verified P11-MCP-REVISION has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-MCP-REVISION:e280145d249f"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-MCP-SCHEMA-BOUNDARY",
+      "message": "Verified P11-MCP-SCHEMA-BOUNDARY has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-MCP-SCHEMA-BOUNDARY:48158ba81cac"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-MCP-TOOLS",
+      "message": "Verified P11-MCP-TOOLS has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-MCP-TOOLS:bce84b14351b"
     },
     {
       "rule": "DISC-ATOM",
@@ -312,6 +830,27 @@
     {
       "rule": "DISC-ATOM",
       "file": "profiles-cloudflare.json",
+      "symbol": "P11-MEMORY-INDEXES",
+      "message": "Verified P11-MEMORY-INDEXES has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-MEMORY-INDEXES:897b6813ed42"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-MEMORY-PRUNE-PAST",
+      "message": "Verified P11-MEMORY-PRUNE-PAST has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-MEMORY-PRUNE-PAST:edf016a33363"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-MEMORY-PRUNE-WITHIN",
+      "message": "Verified P11-MEMORY-PRUNE-WITHIN has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-MEMORY-PRUNE-WITHIN:3441cec28f28"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
       "symbol": "P11-MEMORY-REBUILD",
       "message": "Verified P11-MEMORY-REBUILD has no recorded mutant of its sources killed by a cited test",
       "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-MEMORY-REBUILD:3f96cadf6a52"
@@ -319,16 +858,37 @@
     {
       "rule": "DISC-ATOM",
       "file": "profiles-cloudflare.json",
-      "symbol": "P11-SHELL-CANCELLATION",
-      "message": "Verified P11-SHELL-CANCELLATION has no recorded mutant of its sources killed by a cited test",
-      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-SHELL-CANCELLATION:0c942f4f0e38"
+      "symbol": "P11-SELF-ATTENUATION",
+      "message": "Verified P11-SELF-ATTENUATION has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-SELF-ATTENUATION:1f11b724142e"
     },
     {
       "rule": "DISC-ATOM",
       "file": "profiles-cloudflare.json",
-      "symbol": "P11-SHELL-COMPOSITION",
-      "message": "Verified P11-SHELL-COMPOSITION has no recorded mutant of its sources killed by a cited test",
-      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-SHELL-COMPOSITION:faffe2e0ccbe"
+      "symbol": "P11-SELF-LEASE",
+      "message": "Verified P11-SELF-LEASE has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-SELF-LEASE:dbc7773bd81b"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-SELF-NO-WIDENING",
+      "message": "Verified P11-SELF-NO-WIDENING has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-SELF-NO-WIDENING:cb9e60aea9c9"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-SELF-RECEIPTS",
+      "message": "Verified P11-SELF-RECEIPTS has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-SELF-RECEIPTS:c189ecb3437e"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-SHELL-CANCELLATION",
+      "message": "Verified P11-SHELL-CANCELLATION has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-SHELL-CANCELLATION:0c942f4f0e38"
     },
     {
       "rule": "DISC-ATOM",
@@ -347,9 +907,30 @@
     {
       "rule": "DISC-ATOM",
       "file": "profiles-cloudflare.json",
-      "symbol": "P11-SHELL-RUN",
-      "message": "Verified P11-SHELL-RUN has no recorded mutant of its sources killed by a cited test",
-      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-SHELL-RUN:8a38b3bb0b06"
+      "symbol": "P11-SLATE-IMMUTABLE-PUBLICATION",
+      "message": "Verified P11-SLATE-IMMUTABLE-PUBLICATION has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-SLATE-IMMUTABLE-PUBLICATION:310efb385067"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-SLATE-ROLLBACK-POINTER",
+      "message": "Verified P11-SLATE-ROLLBACK-POINTER has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-SLATE-ROLLBACK-POINTER:f414c8dc5955"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-SLATE-SOURCE",
+      "message": "Verified P11-SLATE-SOURCE has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-SLATE-SOURCE:dad62205bb49"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-SLATE-SPECIFICATION",
+      "message": "Verified P11-SLATE-SPECIFICATION has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:profiles-cloudflare.json:P11-SLATE-SPECIFICATION:df11748f7e41"
     },
     {
       "rule": "DISC-ATOM",
@@ -459,6 +1040,13 @@
     {
       "rule": "DISC-ATOM",
       "file": "runs-turns.json",
+      "symbol": "C13-ADV-UNEQUAL-PIN-MERGE",
+      "message": "Verified C13-ADV-UNEQUAL-PIN-MERGE has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:runs-turns.json:C13-ADV-UNEQUAL-PIN-MERGE:3e0b606365f6"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "runs-turns.json",
       "symbol": "C13-ADV-WRONG-TURN-LEASE",
       "message": "Verified C13-ADV-WRONG-TURN-LEASE has no recorded mutant of its sources killed by a cited test",
       "fingerprint": "DISC-ATOM:runs-turns.json:C13-ADV-WRONG-TURN-LEASE:6792fc8a1b2d"
@@ -473,16 +1061,16 @@
     {
       "rule": "DISC-ATOM",
       "file": "runs-turns.json",
-      "symbol": "C13-RUN-FRONTIER-COMPLETE",
-      "message": "Verified C13-RUN-FRONTIER-COMPLETE has no recorded mutant of its sources killed by a cited test",
-      "fingerprint": "DISC-ATOM:runs-turns.json:C13-RUN-FRONTIER-COMPLETE:09d7641cb675"
+      "symbol": "C13-RUN-EQUAL-PIN-MERGE",
+      "message": "Verified C13-RUN-EQUAL-PIN-MERGE has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:runs-turns.json:C13-RUN-EQUAL-PIN-MERGE:2f93c4a98a16"
     },
     {
       "rule": "DISC-ATOM",
       "file": "runs-turns.json",
-      "symbol": "C13-RUN-FRONTIER-EMPTY",
-      "message": "Verified C13-RUN-FRONTIER-EMPTY has no recorded mutant of its sources killed by a cited test",
-      "fingerprint": "DISC-ATOM:runs-turns.json:C13-RUN-FRONTIER-EMPTY:07f91d29e1e7"
+      "symbol": "C13-RUN-FRONTIER-COMPLETE",
+      "message": "Verified C13-RUN-FRONTIER-COMPLETE has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:runs-turns.json:C13-RUN-FRONTIER-COMPLETE:09d7641cb675"
     },
     {
       "rule": "DISC-ATOM",
@@ -494,9 +1082,30 @@
     {
       "rule": "DISC-ATOM",
       "file": "runs-turns.json",
-      "symbol": "C13-RUN-PLACEMENT-SNAPSHOT",
-      "message": "Verified C13-RUN-PLACEMENT-SNAPSHOT has no recorded mutant of its sources killed by a cited test",
-      "fingerprint": "DISC-ATOM:runs-turns.json:C13-RUN-PLACEMENT-SNAPSHOT:d27d45562544"
+      "symbol": "C13-RUN-MIGRATED-TURN-REJECTION",
+      "message": "Verified C13-RUN-MIGRATED-TURN-REJECTION has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:runs-turns.json:C13-RUN-MIGRATED-TURN-REJECTION:b3242dd07072"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "runs-turns.json",
+      "symbol": "C13-RUN-PINS-BLUEPRINT",
+      "message": "Verified C13-RUN-PINS-BLUEPRINT has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:runs-turns.json:C13-RUN-PINS-BLUEPRINT:6b21b5ab6c98"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "runs-turns.json",
+      "symbol": "C13-RUN-PINS-PACKAGES",
+      "message": "Verified C13-RUN-PINS-PACKAGES has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:runs-turns.json:C13-RUN-PINS-PACKAGES:06480a8f8bb7"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "runs-turns.json",
+      "symbol": "C13-RUN-PINS-SOURCES",
+      "message": "Verified C13-RUN-PINS-SOURCES has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:runs-turns.json:C13-RUN-PINS-SOURCES:00547a2c4454"
     },
     {
       "rule": "DISC-ATOM",
@@ -504,6 +1113,41 @@
       "symbol": "C13-RUN-RESERVATION-EPOCH",
       "message": "Verified C13-RUN-RESERVATION-EPOCH has no recorded mutant of its sources killed by a cited test",
       "fingerprint": "DISC-ATOM:runs-turns.json:C13-RUN-RESERVATION-EPOCH:cf480d589425"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "runs-turns.json",
+      "symbol": "C13-TURN-LIFECYCLE",
+      "message": "Verified C13-TURN-LIFECYCLE has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:runs-turns.json:C13-TURN-LIFECYCLE:ddd52abaf9ac"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "runs-turns.json",
+      "symbol": "C13-TURN-NO-RETRY-EXPORT",
+      "message": "Verified C13-TURN-NO-RETRY-EXPORT has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:runs-turns.json:C13-TURN-NO-RETRY-EXPORT:98fc4a22ff43"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "runs-turns.json",
+      "symbol": "C13-TURN-NO-RETRY-PROTOCOL",
+      "message": "Verified C13-TURN-NO-RETRY-PROTOCOL has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:runs-turns.json:C13-TURN-NO-RETRY-PROTOCOL:b959ea0d6394"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "runs-turns.json",
+      "symbol": "C13-TURN-NO-RETRY-RECORD",
+      "message": "Verified C13-TURN-NO-RETRY-RECORD has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:runs-turns.json:C13-TURN-NO-RETRY-RECORD:67083e7da8b6"
+    },
+    {
+      "rule": "DISC-ATOM",
+      "file": "runs-turns.json",
+      "symbol": "C13-TURN-NO-RETRY-RUNTIME",
+      "message": "Verified C13-TURN-NO-RETRY-RUNTIME has no recorded mutant of its sources killed by a cited test",
+      "fingerprint": "DISC-ATOM:runs-turns.json:C13-TURN-NO-RETRY-RUNTIME:8503afa31111"
     },
     {
       "rule": "DISC-ATOM",
@@ -536,44 +1180,9 @@
     {
       "rule": "DISC-STALE",
       "file": "definition-platform.json",
-      "symbol": "C13-BLUEPRINT-REMATERIALIZE",
-      "message": "Verified C13-BLUEPRINT-REMATERIALIZE cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:definition-platform.json:C13-BLUEPRINT-REMATERIALIZE:08a740f20da8"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "definition-platform.json",
-      "symbol": "C13-BLUEPRINT-RUN-PINS",
-      "message": "Verified C13-BLUEPRINT-RUN-PINS cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:definition-platform.json:C13-BLUEPRINT-RUN-PINS:80e304fecdda"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "definition-platform.json",
-      "symbol": "C13-PLACEMENT-ORDER",
-      "message": "Verified C13-PLACEMENT-ORDER cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:definition-platform.json:C13-PLACEMENT-ORDER:591f830398a4"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "definition-platform.json",
-      "symbol": "C13-POLICY-EPOCH-RECHECK",
-      "message": "Verified C13-POLICY-EPOCH-RECHECK cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:definition-platform.json:C13-POLICY-EPOCH-RECHECK:44a9939595bc"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "definition-platform.json",
-      "symbol": "C13-POLICY-MEDIATION-FLOOR",
-      "message": "Verified C13-POLICY-MEDIATION-FLOOR cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:definition-platform.json:C13-POLICY-MEDIATION-FLOOR:2578ae644180"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "events-routing.json",
-      "symbol": "C13-ADV-DUPLICATE-ROUTE",
-      "message": "Verified C13-ADV-DUPLICATE-ROUTE cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:events-routing.json:C13-ADV-DUPLICATE-ROUTE:389c59d8aeba"
+      "symbol": "C13-ADV-EMPTY-PLACEMENT",
+      "message": "Verified C13-ADV-EMPTY-PLACEMENT cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
+      "fingerprint": "DISC-STALE:definition-platform.json:C13-ADV-EMPTY-PLACEMENT:9ce8084b5f31"
     },
     {
       "rule": "DISC-STALE",
@@ -585,23 +1194,16 @@
     {
       "rule": "DISC-STALE",
       "file": "events-routing.json",
-      "symbol": "C13-ADV-HOSTILE-TIER",
-      "message": "Verified C13-ADV-HOSTILE-TIER cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:events-routing.json:C13-ADV-HOSTILE-TIER:d2cf363f08fa"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "events-routing.json",
-      "symbol": "C13-ADV-MISSING-CROSS-TENANT-BINDING",
-      "message": "Verified C13-ADV-MISSING-CROSS-TENANT-BINDING cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:events-routing.json:C13-ADV-MISSING-CROSS-TENANT-BINDING:008e9d3891d3"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "events-routing.json",
       "symbol": "C13-ADV-OMITTED-TRUST-SET",
       "message": "Verified C13-ADV-OMITTED-TRUST-SET cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:events-routing.json:C13-ADV-OMITTED-TRUST-SET:ae84f34dc0f8"
+    },
+    {
+      "rule": "DISC-STALE",
+      "file": "events-routing.json",
+      "symbol": "C13-ADV-UNAUTHENTICATED-PROJECTION",
+      "message": "Verified C13-ADV-UNAUTHENTICATED-PROJECTION cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
+      "fingerprint": "DISC-STALE:events-routing.json:C13-ADV-UNAUTHENTICATED-PROJECTION:39dd5d77ea8d"
     },
     {
       "rule": "DISC-STALE",
@@ -613,9 +1215,9 @@
     {
       "rule": "DISC-STALE",
       "file": "events-routing.json",
-      "symbol": "C13-ROUTE-DELIVERY-ONCE",
-      "message": "Verified C13-ROUTE-DELIVERY-ONCE cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:events-routing.json:C13-ROUTE-DELIVERY-ONCE:5719c951e258"
+      "symbol": "C13-ROUTE-PROJECTION-DIGEST",
+      "message": "Verified C13-ROUTE-PROJECTION-DIGEST cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
+      "fingerprint": "DISC-STALE:events-routing.json:C13-ROUTE-PROJECTION-DIGEST:1321819c82d6"
     },
     {
       "rule": "DISC-STALE",
@@ -630,6 +1232,13 @@
       "symbol": "C13-ROUTE-SOURCE-OWNED",
       "message": "Verified C13-ROUTE-SOURCE-OWNED cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:events-routing.json:C13-ROUTE-SOURCE-OWNED:82f23f72ff20"
+    },
+    {
+      "rule": "DISC-STALE",
+      "file": "events-routing.json",
+      "symbol": "C13-ROUTE-STABLE-INVOCATION",
+      "message": "Verified C13-ROUTE-STABLE-INVOCATION cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
+      "fingerprint": "DISC-STALE:events-routing.json:C13-ROUTE-STABLE-INVOCATION:ad6c6a65d05c"
     },
     {
       "rule": "DISC-STALE",
@@ -655,20 +1264,6 @@
     {
       "rule": "DISC-STALE",
       "file": "events-routing.json",
-      "symbol": "C13-TRUST-HOST-DERIVED",
-      "message": "Verified C13-TRUST-HOST-DERIVED cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:events-routing.json:C13-TRUST-HOST-DERIVED:b4ae1b7d4643"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "events-routing.json",
-      "symbol": "C13-TRUST-VERIFIED-INGRESS",
-      "message": "Verified C13-TRUST-VERIFIED-INGRESS cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:events-routing.json:C13-TRUST-VERIFIED-INGRESS:869ec3019acd"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "events-routing.json",
       "symbol": "C13-VIEW-NO-LIVE-STATE",
       "message": "Verified C13-VIEW-NO-LIVE-STATE cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:events-routing.json:C13-VIEW-NO-LIVE-STATE:1d7dfd3ad8d3"
@@ -679,41 +1274,6 @@
       "symbol": "C13-COMMAND-RESULT",
       "message": "Verified C13-COMMAND-RESULT cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:facets-operations.json:C13-COMMAND-RESULT:3dcb368a43d3"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "facets-operations.json",
-      "symbol": "C13-INTERCEPTOR-CROSS-FACET",
-      "message": "Verified C13-INTERCEPTOR-CROSS-FACET cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:facets-operations.json:C13-INTERCEPTOR-CROSS-FACET:37bda853c700"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "facets-operations.json",
-      "symbol": "C13-INTERCEPTOR-ORDER",
-      "message": "Verified C13-INTERCEPTOR-ORDER cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:facets-operations.json:C13-INTERCEPTOR-ORDER:fa86782489c5"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "facets-operations.json",
-      "symbol": "C13-INTERCEPTOR-THROW-BLOCK",
-      "message": "Verified C13-INTERCEPTOR-THROW-BLOCK cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:facets-operations.json:C13-INTERCEPTOR-THROW-BLOCK:888bcd4d177c"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "foundation.json",
-      "symbol": "C13-ADV-COMMAND-REJECTIONS",
-      "message": "Verified C13-ADV-COMMAND-REJECTIONS cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:foundation.json:C13-ADV-COMMAND-REJECTIONS:76cd7441b94e"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "foundation.json",
-      "symbol": "C13-CODEC-VERSIONING",
-      "message": "Verified C13-CODEC-VERSIONING cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:foundation.json:C13-CODEC-VERSIONING:55eaee8aff3a"
     },
     {
       "rule": "DISC-STALE",
@@ -745,13 +1305,6 @@
     },
     {
       "rule": "DISC-STALE",
-      "file": "foundation.json",
-      "symbol": "C13-PROTOCOL-WRITE-AUDIT-LINK",
-      "message": "Verified C13-PROTOCOL-WRITE-AUDIT-LINK cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:foundation.json:C13-PROTOCOL-WRITE-AUDIT-LINK:05e3fb5bfbbe"
-    },
-    {
-      "rule": "DISC-STALE",
       "file": "identity-authority.json",
       "symbol": "C13-ADV-DELAYED-WATERMARK",
       "message": "Verified C13-ADV-DELAYED-WATERMARK cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
@@ -774,6 +1327,13 @@
     {
       "rule": "DISC-STALE",
       "file": "identity-authority.json",
+      "symbol": "C13-ADV-REVOKED-ALLOW",
+      "message": "Verified C13-ADV-REVOKED-ALLOW cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
+      "fingerprint": "DISC-STALE:identity-authority.json:C13-ADV-REVOKED-ALLOW:b0e91da9ab45"
+    },
+    {
+      "rule": "DISC-STALE",
+      "file": "identity-authority.json",
       "symbol": "C13-AUTH-BINDING-RESOLUTION",
       "message": "Verified C13-AUTH-BINDING-RESOLUTION cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:identity-authority.json:C13-AUTH-BINDING-RESOLUTION:4978da22b869"
@@ -781,72 +1341,9 @@
     {
       "rule": "DISC-STALE",
       "file": "identity-authority.json",
-      "symbol": "C13-AUTH-DENY-PATH",
-      "message": "Verified C13-AUTH-DENY-PATH cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:identity-authority.json:C13-AUTH-DENY-PATH:ffdc90bc152d"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "identity-authority.json",
-      "symbol": "C13-AUTH-EPOCH-ADVANCEMENT",
-      "message": "Verified C13-AUTH-EPOCH-ADVANCEMENT cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:identity-authority.json:C13-AUTH-EPOCH-ADVANCEMENT:6fe176005a9e"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "identity-authority.json",
-      "symbol": "C13-AUTH-GUEST-SUBJECT",
-      "message": "Verified C13-AUTH-GUEST-SUBJECT cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:identity-authority.json:C13-AUTH-GUEST-SUBJECT:cc248e0cc85f"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "identity-authority.json",
-      "symbol": "C13-AUTH-GUEST-VERIFICATION",
-      "message": "Verified C13-AUTH-GUEST-VERIFICATION cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:identity-authority.json:C13-AUTH-GUEST-VERIFICATION:31e201e3691c"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "identity-authority.json",
-      "symbol": "C13-AUTH-MEDIATED-ADMISSION",
-      "message": "Verified C13-AUTH-MEDIATED-ADMISSION cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:identity-authority.json:C13-AUTH-MEDIATED-ADMISSION:6930c6ada6a7"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "identity-authority.json",
-      "symbol": "C13-AUTH-PATH-EVIDENCE",
-      "message": "Verified C13-AUTH-PATH-EVIDENCE cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:identity-authority.json:C13-AUTH-PATH-EVIDENCE:8e7e062796cb"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "identity-authority.json",
-      "symbol": "C13-AUTH-PATH-ORDER",
-      "message": "Verified C13-AUTH-PATH-ORDER cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:identity-authority.json:C13-AUTH-PATH-ORDER:05a2ade38082"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "identity-authority.json",
       "symbol": "C13-AUTH-ROLE-MATERIALIZATION",
       "message": "Verified C13-AUTH-ROLE-MATERIALIZATION cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:identity-authority.json:C13-AUTH-ROLE-MATERIALIZATION:5b5f0343a5d5"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "identity-authority.json",
-      "symbol": "C13-AUTH-TEAM-SUBJECT",
-      "message": "Verified C13-AUTH-TEAM-SUBJECT cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:identity-authority.json:C13-AUTH-TEAM-SUBJECT:3be43b47fe57"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "invocations-audit.json",
-      "symbol": "C13-ADV-APPROVAL-REPLAY",
-      "message": "Verified C13-ADV-APPROVAL-REPLAY cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:invocations-audit.json:C13-ADV-APPROVAL-REPLAY:69287b6d5fb8"
     },
     {
       "rule": "DISC-STALE",
@@ -886,41 +1383,6 @@
     {
       "rule": "DISC-STALE",
       "file": "invocations-audit.json",
-      "symbol": "C13-ADV-RECEIPT-AGGREGATE",
-      "message": "Verified C13-ADV-RECEIPT-AGGREGATE cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:invocations-audit.json:C13-ADV-RECEIPT-AGGREGATE:ba2e76b1283c"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "invocations-audit.json",
-      "symbol": "C13-ADV-RECEIPT-CANCELLED",
-      "message": "Verified C13-ADV-RECEIPT-CANCELLED cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:invocations-audit.json:C13-ADV-RECEIPT-CANCELLED:ad10f860e3ea"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "invocations-audit.json",
-      "symbol": "C13-ADV-RECEIPT-DENIED",
-      "message": "Verified C13-ADV-RECEIPT-DENIED cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:invocations-audit.json:C13-ADV-RECEIPT-DENIED:67e63bae5a7b"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "invocations-audit.json",
-      "symbol": "C13-ADV-RECEIPT-FAILED",
-      "message": "Verified C13-ADV-RECEIPT-FAILED cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:invocations-audit.json:C13-ADV-RECEIPT-FAILED:2286cb8e7783"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "invocations-audit.json",
-      "symbol": "C13-ADV-RECEIPT-SUCCEEDED",
-      "message": "Verified C13-ADV-RECEIPT-SUCCEEDED cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:invocations-audit.json:C13-ADV-RECEIPT-SUCCEEDED:86594141fbbd"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "invocations-audit.json",
       "symbol": "C13-ADV-RECOVERY-ORDINAL",
       "message": "Verified C13-ADV-RECOVERY-ORDINAL cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:invocations-audit.json:C13-ADV-RECOVERY-ORDINAL:02823de1a3cd"
@@ -942,9 +1404,16 @@
     {
       "rule": "DISC-STALE",
       "file": "invocations-audit.json",
-      "symbol": "C13-ADV-UNCHANGED-RECOVERY-OWNER",
-      "message": "Verified C13-ADV-UNCHANGED-RECOVERY-OWNER cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:invocations-audit.json:C13-ADV-UNCHANGED-RECOVERY-OWNER:3f983e8d9142"
+      "symbol": "C13-AUDIT-ROUTE-BRIDGE",
+      "message": "Verified C13-AUDIT-ROUTE-BRIDGE cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
+      "fingerprint": "DISC-STALE:invocations-audit.json:C13-AUDIT-ROUTE-BRIDGE:45327390e025"
+    },
+    {
+      "rule": "DISC-STALE",
+      "file": "invocations-audit.json",
+      "symbol": "C13-AUDIT-TELEMETRY-EXCLUDED",
+      "message": "Verified C13-AUDIT-TELEMETRY-EXCLUDED cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
+      "fingerprint": "DISC-STALE:invocations-audit.json:C13-AUDIT-TELEMETRY-EXCLUDED:e104b416bc18"
     },
     {
       "rule": "DISC-STALE",
@@ -956,23 +1425,9 @@
     {
       "rule": "DISC-STALE",
       "file": "invocations-audit.json",
-      "symbol": "C13-CLAIM-INITIAL-ATOMIC",
-      "message": "Verified C13-CLAIM-INITIAL-ATOMIC cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:invocations-audit.json:C13-CLAIM-INITIAL-ATOMIC:58f3a089395f"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "invocations-audit.json",
       "symbol": "C13-CLAIM-RECOVERY-FUTURE-EXPIRY",
       "message": "Verified C13-CLAIM-RECOVERY-FUTURE-EXPIRY cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:invocations-audit.json:C13-CLAIM-RECOVERY-FUTURE-EXPIRY:d3d5edd27766"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "invocations-audit.json",
-      "symbol": "C13-CLAIM-RECOVERY-NEW-OWNER",
-      "message": "Verified C13-CLAIM-RECOVERY-NEW-OWNER cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:invocations-audit.json:C13-CLAIM-RECOVERY-NEW-OWNER:1ac5d0be8d2f"
     },
     {
       "rule": "DISC-STALE",
@@ -984,13 +1439,6 @@
     {
       "rule": "DISC-STALE",
       "file": "invocations-audit.json",
-      "symbol": "C13-CLAIM-RECOVERY-SAME-ORDINAL",
-      "message": "Verified C13-CLAIM-RECOVERY-SAME-ORDINAL cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:invocations-audit.json:C13-CLAIM-RECOVERY-SAME-ORDINAL:26c0afcbc993"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "invocations-audit.json",
       "symbol": "C13-EFFECT-ATTEMPT-IMMUTABLE",
       "message": "Verified C13-EFFECT-ATTEMPT-IMMUTABLE cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:invocations-audit.json:C13-EFFECT-ATTEMPT-IMMUTABLE:f42db543a539"
@@ -998,51 +1446,9 @@
     {
       "rule": "DISC-STALE",
       "file": "invocations-audit.json",
-      "symbol": "C13-EFFECT-IDEMPOTENCY",
-      "message": "Verified C13-EFFECT-IDEMPOTENCY cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:invocations-audit.json:C13-EFFECT-IDEMPOTENCY:86fd9a42c4ce"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "invocations-audit.json",
-      "symbol": "C13-EFFECT-RECONCILIATION",
-      "message": "Verified C13-EFFECT-RECONCILIATION cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:invocations-audit.json:C13-EFFECT-RECONCILIATION:92b80c62bd30"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "invocations-audit.json",
-      "symbol": "C13-EFFECT-WRITE-AHEAD",
-      "message": "Verified C13-EFFECT-WRITE-AHEAD cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:invocations-audit.json:C13-EFFECT-WRITE-AHEAD:7671947f62b5"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "invocations-audit.json",
-      "symbol": "C13-PREPARED-APPROVAL-BINDING",
-      "message": "Verified C13-PREPARED-APPROVAL-BINDING cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:invocations-audit.json:C13-PREPARED-APPROVAL-BINDING:10c4b1ebb972"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "invocations-audit.json",
-      "symbol": "C13-PREPARED-APPROVAL-CONTINUATION",
-      "message": "Verified C13-PREPARED-APPROVAL-CONTINUATION cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:invocations-audit.json:C13-PREPARED-APPROVAL-CONTINUATION:c424b59bad44"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "invocations-audit.json",
       "symbol": "C13-PREPARED-APPROVAL-FIRST-ATTEMPT",
       "message": "Verified C13-PREPARED-APPROVAL-FIRST-ATTEMPT cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:invocations-audit.json:C13-PREPARED-APPROVAL-FIRST-ATTEMPT:4f8e7dc0e913"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "invocations-audit.json",
-      "symbol": "C13-PREPARED-APPROVAL-SINGLE-USE",
-      "message": "Verified C13-PREPARED-APPROVAL-SINGLE-USE cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:invocations-audit.json:C13-PREPARED-APPROVAL-SINGLE-USE:8a8e921c164a"
     },
     {
       "rule": "DISC-STALE",
@@ -1061,20 +1467,6 @@
     {
       "rule": "DISC-STALE",
       "file": "invocations-audit.json",
-      "symbol": "C13-RECEIPT-ATTEMPT-CHAIN",
-      "message": "Verified C13-RECEIPT-ATTEMPT-CHAIN cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:invocations-audit.json:C13-RECEIPT-ATTEMPT-CHAIN:0feaf438d0f6"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "invocations-audit.json",
-      "symbol": "C13-RECEIPT-ID-NAMESPACE",
-      "message": "Verified C13-RECEIPT-ID-NAMESPACE cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:invocations-audit.json:C13-RECEIPT-ID-NAMESPACE:9b89e7352067"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "invocations-audit.json",
       "symbol": "C13-RECEIPT-IMMUTABLE",
       "message": "Verified C13-RECEIPT-IMMUTABLE cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:invocations-audit.json:C13-RECEIPT-IMMUTABLE:058450305a8b"
@@ -1085,13 +1477,6 @@
       "symbol": "C13-RECEIPT-INDETERMINATE-SUPERSESSION",
       "message": "Verified C13-RECEIPT-INDETERMINATE-SUPERSESSION cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:invocations-audit.json:C13-RECEIPT-INDETERMINATE-SUPERSESSION:a718f859aa0b"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
-      "symbol": "C13-ENVIRONMENT-TURN-OWNED",
-      "message": "Verified C13-ENVIRONMENT-TURN-OWNED cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:C13-ENVIRONMENT-TURN-OWNED:08644c2509fa"
     },
     {
       "rule": "DISC-STALE",
@@ -1113,13 +1498,6 @@
       "symbol": "P11-APPROVAL-GATEWAY-READS",
       "message": "Verified P11-APPROVAL-GATEWAY-READS cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-APPROVAL-GATEWAY-READS:d89828d4cc41"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
-      "symbol": "P11-APPROVAL-GATEWAY-RECONCILIATION",
-      "message": "Verified P11-APPROVAL-GATEWAY-RECONCILIATION cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-APPROVAL-GATEWAY-RECONCILIATION:bca80c7cf57d"
     },
     {
       "rule": "DISC-STALE",
@@ -1166,13 +1544,6 @@
     {
       "rule": "DISC-STALE",
       "file": "profiles-cloudflare.json",
-      "symbol": "P11-DEVICE-COMMAND-EVENTS",
-      "message": "Verified P11-DEVICE-COMMAND-EVENTS cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-DEVICE-COMMAND-EVENTS:ba93a9b48b7b"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
       "symbol": "P11-DEVICE-CONSENT-ABSENT",
       "message": "Verified P11-DEVICE-CONSENT-ABSENT cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-DEVICE-CONSENT-ABSENT:b587da5209dd"
@@ -1197,13 +1568,6 @@
       "symbol": "P11-DEVICE-CONSENT-ISOLATION",
       "message": "Verified P11-DEVICE-CONSENT-ISOLATION cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-DEVICE-CONSENT-ISOLATION:c29c98314aa2"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
-      "symbol": "P11-DEVICE-CONSENT-PAIR",
-      "message": "Verified P11-DEVICE-CONSENT-PAIR cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-DEVICE-CONSENT-PAIR:89bd7226207c"
     },
     {
       "rule": "DISC-STALE",
@@ -1236,13 +1600,6 @@
     {
       "rule": "DISC-STALE",
       "file": "profiles-cloudflare.json",
-      "symbol": "P11-DEVICE-SCHEMA-VERSION",
-      "message": "Verified P11-DEVICE-SCHEMA-VERSION cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-DEVICE-SCHEMA-VERSION:920a2c5917eb"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
       "symbol": "P11-DEVICE-SCREEN",
       "message": "Verified P11-DEVICE-SCREEN cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-DEVICE-SCREEN:a32cf99c658d"
@@ -1260,13 +1617,6 @@
       "symbol": "P11-DEVICE-SYSTEM-RUN",
       "message": "Verified P11-DEVICE-SYSTEM-RUN cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-DEVICE-SYSTEM-RUN:b15aa334eb4b"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
-      "symbol": "P11-DEVICE-TYPED-SURFACE",
-      "message": "Verified P11-DEVICE-TYPED-SURFACE cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-DEVICE-TYPED-SURFACE:20be157a2014"
     },
     {
       "rule": "DISC-STALE",
@@ -1302,13 +1652,6 @@
       "symbol": "P11-FILESYSTEM-CODE-ASSERTIONS",
       "message": "Verified P11-FILESYSTEM-CODE-ASSERTIONS cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-FILESYSTEM-CODE-ASSERTIONS:a1cf273ac89d"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
-      "symbol": "P11-FILESYSTEM-ERROR-BRANCHING",
-      "message": "Verified P11-FILESYSTEM-ERROR-BRANCHING cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-FILESYSTEM-ERROR-BRANCHING:06f5275a3f92"
     },
     {
       "rule": "DISC-STALE",
@@ -1369,13 +1712,6 @@
     {
       "rule": "DISC-STALE",
       "file": "profiles-cloudflare.json",
-      "symbol": "P11-FILESYSTEM-SESSION-DIRECT",
-      "message": "Verified P11-FILESYSTEM-SESSION-DIRECT cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-FILESYSTEM-SESSION-DIRECT:768e83d4339a"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
       "symbol": "P11-FILESYSTEM-STAT",
       "message": "Verified P11-FILESYSTEM-STAT cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-FILESYSTEM-STAT:4ae3151348e0"
@@ -1386,13 +1722,6 @@
       "symbol": "P11-FILESYSTEM-WRITE",
       "message": "Verified P11-FILESYSTEM-WRITE cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-FILESYSTEM-WRITE:cdffdc56dd8d"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
-      "symbol": "P11-MCP-IMPACT-DEFAULT-LOCAL",
-      "message": "Verified P11-MCP-IMPACT-DEFAULT-LOCAL cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-MCP-IMPACT-DEFAULT-LOCAL:91a3fc8d7a47"
     },
     {
       "rule": "DISC-STALE",
@@ -1439,27 +1768,6 @@
     {
       "rule": "DISC-STALE",
       "file": "profiles-cloudflare.json",
-      "symbol": "P11-MEMORY-INDEXES",
-      "message": "Verified P11-MEMORY-INDEXES cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-MEMORY-INDEXES:d01fcbb1ba38"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
-      "symbol": "P11-MEMORY-PRUNE-PAST",
-      "message": "Verified P11-MEMORY-PRUNE-PAST cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-MEMORY-PRUNE-PAST:bf5e4311ff39"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
-      "symbol": "P11-MEMORY-PRUNE-WITHIN",
-      "message": "Verified P11-MEMORY-PRUNE-WITHIN cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-MEMORY-PRUNE-WITHIN:72498fa2c38a"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
       "symbol": "P11-MEMORY-RECALL",
       "message": "Verified P11-MEMORY-RECALL cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-MEMORY-RECALL:0ebb534a0916"
@@ -1470,13 +1778,6 @@
       "symbol": "P11-MEMORY-REMEMBER",
       "message": "Verified P11-MEMORY-REMEMBER cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-MEMORY-REMEMBER:d030ea2d40f8"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
-      "symbol": "P11-SELF-ATTENUATION",
-      "message": "Verified P11-SELF-ATTENUATION cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-SELF-ATTENUATION:b731f9d70594"
     },
     {
       "rule": "DISC-STALE",
@@ -1516,20 +1817,6 @@
     {
       "rule": "DISC-STALE",
       "file": "profiles-cloudflare.json",
-      "symbol": "P11-SELF-LEASE",
-      "message": "Verified P11-SELF-LEASE cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-SELF-LEASE:5a5b221a8204"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
-      "symbol": "P11-SELF-NO-WIDENING",
-      "message": "Verified P11-SELF-NO-WIDENING cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-SELF-NO-WIDENING:e89b16f5fc83"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
       "symbol": "P11-SELF-PROPOSE-MIGRATION",
       "message": "Verified P11-SELF-PROPOSE-MIGRATION cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-SELF-PROPOSE-MIGRATION:c64d144809c1"
@@ -1551,9 +1838,23 @@
     {
       "rule": "DISC-STALE",
       "file": "profiles-cloudflare.json",
+      "symbol": "P11-SHELL-COMPOSITION",
+      "message": "Verified P11-SHELL-COMPOSITION cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
+      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-SHELL-COMPOSITION:22f354d19cc8"
+    },
+    {
+      "rule": "DISC-STALE",
+      "file": "profiles-cloudflare.json",
       "symbol": "P11-SHELL-REGISTRY",
       "message": "Verified P11-SHELL-REGISTRY cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-SHELL-REGISTRY:76280bb62ba0"
+    },
+    {
+      "rule": "DISC-STALE",
+      "file": "profiles-cloudflare.json",
+      "symbol": "P11-SHELL-RUN",
+      "message": "Verified P11-SHELL-RUN cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
+      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-SHELL-RUN:52655a7e8558"
     },
     {
       "rule": "DISC-STALE",
@@ -1607,13 +1908,6 @@
     {
       "rule": "DISC-STALE",
       "file": "profiles-cloudflare.json",
-      "symbol": "P11-SLATE-IMMUTABLE-PUBLICATION",
-      "message": "Verified P11-SLATE-IMMUTABLE-PUBLICATION cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-SLATE-IMMUTABLE-PUBLICATION:3f7ee33267bc"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
       "symbol": "P11-SLATE-PUBLISH",
       "message": "Verified P11-SLATE-PUBLISH cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-SLATE-PUBLISH:17a01a120157"
@@ -1628,30 +1922,9 @@
     {
       "rule": "DISC-STALE",
       "file": "profiles-cloudflare.json",
-      "symbol": "P11-SLATE-ROLLBACK-POINTER",
-      "message": "Verified P11-SLATE-ROLLBACK-POINTER cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-SLATE-ROLLBACK-POINTER:d5c0673eead5"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
       "symbol": "P11-SLATE-ROLLBACK",
       "message": "Verified P11-SLATE-ROLLBACK cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-SLATE-ROLLBACK:faa660b8f0a8"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
-      "symbol": "P11-SLATE-SOURCE",
-      "message": "Verified P11-SLATE-SOURCE cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-SLATE-SOURCE:4737292f810d"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "profiles-cloudflare.json",
-      "symbol": "P11-SLATE-SPECIFICATION",
-      "message": "Verified P11-SLATE-SPECIFICATION cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:profiles-cloudflare.json:P11-SLATE-SPECIFICATION:b2203e82e049"
     },
     {
       "rule": "DISC-STALE",
@@ -1747,13 +2020,6 @@
     {
       "rule": "DISC-STALE",
       "file": "runs-turns.json",
-      "symbol": "C13-ADV-UNEQUAL-PIN-MERGE",
-      "message": "Verified C13-ADV-UNEQUAL-PIN-MERGE cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:runs-turns.json:C13-ADV-UNEQUAL-PIN-MERGE:cabc7dd1e549"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "runs-turns.json",
       "symbol": "C13-RUN-BINARY-TREE-MERGE",
       "message": "Verified C13-RUN-BINARY-TREE-MERGE cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:runs-turns.json:C13-RUN-BINARY-TREE-MERGE:bfb5c97d8e7d"
@@ -1761,9 +2027,9 @@
     {
       "rule": "DISC-STALE",
       "file": "runs-turns.json",
-      "symbol": "C13-RUN-EQUAL-PIN-MERGE",
-      "message": "Verified C13-RUN-EQUAL-PIN-MERGE cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:runs-turns.json:C13-RUN-EQUAL-PIN-MERGE:853c9b4369a4"
+      "symbol": "C13-RUN-FRONTIER-EMPTY",
+      "message": "Verified C13-RUN-FRONTIER-EMPTY cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
+      "fingerprint": "DISC-STALE:runs-turns.json:C13-RUN-FRONTIER-EMPTY:496080b22ecd"
     },
     {
       "rule": "DISC-STALE",
@@ -1782,13 +2048,6 @@
     {
       "rule": "DISC-STALE",
       "file": "runs-turns.json",
-      "symbol": "C13-RUN-PINS-BLUEPRINT",
-      "message": "Verified C13-RUN-PINS-BLUEPRINT cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:runs-turns.json:C13-RUN-PINS-BLUEPRINT:dfe83f512b5c"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "runs-turns.json",
       "symbol": "C13-RUN-PINS-ENVIRONMENT",
       "message": "Verified C13-RUN-PINS-ENVIRONMENT cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
       "fingerprint": "DISC-STALE:runs-turns.json:C13-RUN-PINS-ENVIRONMENT:219887b2f431"
@@ -1803,16 +2062,9 @@
     {
       "rule": "DISC-STALE",
       "file": "runs-turns.json",
-      "symbol": "C13-RUN-PINS-PACKAGES",
-      "message": "Verified C13-RUN-PINS-PACKAGES cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:runs-turns.json:C13-RUN-PINS-PACKAGES:a85a70b538f6"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "runs-turns.json",
-      "symbol": "C13-RUN-PINS-SOURCES",
-      "message": "Verified C13-RUN-PINS-SOURCES cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:runs-turns.json:C13-RUN-PINS-SOURCES:bcc3760993e6"
+      "symbol": "C13-RUN-PLACEMENT-SNAPSHOT",
+      "message": "Verified C13-RUN-PLACEMENT-SNAPSHOT cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
+      "fingerprint": "DISC-STALE:runs-turns.json:C13-RUN-PLACEMENT-SNAPSHOT:3a439b6295fc"
     },
     {
       "rule": "DISC-STALE",
@@ -1824,23 +2076,16 @@
     {
       "rule": "DISC-STALE",
       "file": "runs-turns.json",
-      "symbol": "C13-TURN-NO-RETRY-PROTOCOL",
-      "message": "Verified C13-TURN-NO-RETRY-PROTOCOL cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:runs-turns.json:C13-TURN-NO-RETRY-PROTOCOL:5207a9870204"
+      "symbol": "C13-TURN-EXECUTOR-WRITER",
+      "message": "Verified C13-TURN-EXECUTOR-WRITER cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
+      "fingerprint": "DISC-STALE:runs-turns.json:C13-TURN-EXECUTOR-WRITER:6d6ca8ac190a"
     },
     {
       "rule": "DISC-STALE",
       "file": "runs-turns.json",
-      "symbol": "C13-TURN-NO-RETRY-RECORD",
-      "message": "Verified C13-TURN-NO-RETRY-RECORD cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:runs-turns.json:C13-TURN-NO-RETRY-RECORD:907a69ef6e30"
-    },
-    {
-      "rule": "DISC-STALE",
-      "file": "runs-turns.json",
-      "symbol": "C13-TURN-NO-RETRY-RUNTIME",
-      "message": "Verified C13-TURN-NO-RETRY-RUNTIME cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
-      "fingerprint": "DISC-STALE:runs-turns.json:C13-TURN-NO-RETRY-RUNTIME:1d4608a75a0c"
+      "symbol": "C13-TURN-NO-RETRY",
+      "message": "Verified C13-TURN-NO-RETRY cites sources or tests with no attribution from the last mutation run; re-measure before judging its discrimination",
+      "fingerprint": "DISC-STALE:runs-turns.json:C13-TURN-NO-RETRY:65db29a80607"
     }
   ]
 }

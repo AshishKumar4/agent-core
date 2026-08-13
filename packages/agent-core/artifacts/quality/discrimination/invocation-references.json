@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "invocation-references",
-  "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
-  "fingerprint": "sha256:607ac4fa6d37a4131fe196e10017b191229bc73537e249c26d940343d3d04531",
+  "measuredAt": "be905bac8dbec599a2a50ff105947e1eeced2771",
+  "fingerprint": "sha256:213b4544c4e69cb79a3b518501267c5fb381832da29e2a52c26c60e604570d9d",
   "files": {
     "src/invocation-references/id.ts": {
       "mutants": 12,

@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "protocol",
-  "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
-  "fingerprint": "sha256:d6f6152fde0bba2d11612638ce0505ee46e5585cdf2d524520bdf0d1c0c4188e",
+  "measuredAt": "be905bac8dbec599a2a50ff105947e1eeced2771",
+  "fingerprint": "sha256:3f3938b7f4e116a5c41805fef88b2b384dcebc7d85955f3b66cedc2915a4cdc1",
   "files": {
     "src/protocol/authentication.ts": {
       "mutants": 37,
@@ -67,13 +67,13 @@
   },
   "killed": {
     "test/composition/authority-commands.test.ts#closed Tenant authority command gates non-Actor callers are refused before authority evaluation": {
-      "src/protocol/persistence.ts": [
-        539
+      "src/protocol/dispatcher.ts": [
+        413
       ]
     },
     "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) [protocol.authority-permit-issuance-request] [protocol.authority-permit-issuance-reply] issues a source-bound permit only for the current path": {
       "src/protocol/authority-evidence.ts": [
-        78
+        83
       ]
     },
     "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) admits exact current check and permit leases while rejecting stale epochs": {
@@ -85,14 +85,12 @@
         56,
         57,
         58,
-        65,
         77,
-        125,
-        129,
-        144
+        125
       ],
       "src/protocol/dispatcher.ts": [
-        648
+        647,
+        654
       ]
     },
     "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) binds validation and check evidence to the authenticated source and decision time": {
@@ -106,58 +104,57 @@
         34,
         36,
         93,
-        107
+        110
       ],
       "src/protocol/dispatcher.ts": [
-        289,
-        374,
-        385,
         393,
-        404,
-        413,
-        607,
-        623,
-        624
+        425,
+        439,
+        615,
+        632,
+        633,
+        648,
+        726,
+        736,
+        773
       ],
-      "src/protocol/persistence.ts": [
-        501,
-        513,
-        539,
-        553,
-        556
+      "src/protocol/ingress.ts": [
+        151
       ]
     },
     "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) records malformed ingress without evaluating authority": {
       "src/protocol/dispatcher.ts": [
         374
+      ],
+      "src/protocol/write.ts": [
+        158
       ]
     },
     "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) rejects source Actor and qualified Principal spoofing before authority evaluation": {
       "src/protocol/dispatcher.ts": [
-        611
+        611,
+        624
       ]
     },
-    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) replays duplicate check evidence without re-evaluating authority": {
-      "src/protocol/persistence.ts": [
-        565
-      ]
-    },
-    "test/composition/authority-commands.test.ts#closed Tenant authority commands (SQLite) binds validation and check evidence to the authenticated source and decision time": {
+    "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (SQLite) validates a Binding, checks the intent, and issues the permit as linked evidence": {
       "src/protocol/persistence.ts": [
         507
-      ]
-    },
-    "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (memory) validates a Binding, checks the intent, and issues the permit as linked evidence": {
-      "src/protocol/dispatcher.ts": [
-        326
       ]
     },
     "test/integration/e2e/blueprint-materialization-journey.test.ts#declared Blueprint to applied materialization journey applies the planned records of a declared Blueprint through the command protocol": {
       "src/protocol/materialization-commands.ts": [
         56,
-        66,
-        180,
-        194
+        66
+      ],
+      "src/protocol/persistence.ts": [
+        429,
+        500,
+        512
+      ]
+    },
+    "test/invocations/command.test.ts#Invocation protocol command families [C13-ADV-EARLY-AGGREGATE] pins the executor/system lease matrix and forbids aggregate revisions": {
+      "src/protocol/policy.ts": [
+        27
       ]
     },
     "test/protocol/authority-evidence.test.ts#authority protocol codec failures carry the codec.invalid code": {
@@ -169,7 +166,7 @@
     },
     "test/protocol/authority-evidence.test.ts#authority protocol evidence [authority.binding-validation-request] [authority.binding-validation-evidence] [protocol.binding-validation-reply] round-trips Binding validation request and source-bound evidence": {
       "src/protocol/authority-evidence.ts": [
-        110,
+        107,
         176,
         179
       ]
@@ -193,7 +190,8 @@
         126,
         129,
         130,
-        136
+        136,
+        144
       ]
     },
     "test/protocol/authority-evidence.test.ts#authority protocol evidence rejects protocol reply envelopes with extra fields": {
@@ -226,8 +224,9 @@
     },
     "test/protocol/authority-evidence.test.ts#permit issuance replies and payload codecs round-trip frozen permits": {
       "src/protocol/authority-evidence.ts": [
+        65,
+        78,
         81,
-        83,
         140,
         153,
         157,
@@ -283,9 +282,6 @@
         187,
         195,
         348
-      ],
-      "src/protocol/envelope.ts": [
-        344
       ]
     },
     "test/protocol/bootstrap.test.ts#bootstrap reply and observation codecs name malformed values exactly": {
@@ -395,11 +391,6 @@
       ]
     },
     "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions [protocol.tenant-bootstrap-anchor] memory composition creates and restores the complete closure": {
-      "src/protocol/authentication.ts": [
-        58,
-        74,
-        91
-      ],
       "src/protocol/bootstrap-memory.ts": [
         53,
         55,
@@ -464,7 +455,6 @@
         116,
         160,
         174,
-        182,
         185,
         187,
         192,
@@ -490,16 +480,12 @@
         351
       ],
       "src/protocol/dispatcher.ts": [
-        413,
-        637,
-        647,
+        170,
+        307,
+        348,
+        404,
         698,
-        704,
-        736,
-        771
-      ],
-      "src/protocol/ingress.ts": [
-        56
+        715
       ]
     },
     "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions anchor codec rejects malformed payloads and accepts every Tenant kind": {
@@ -545,9 +531,6 @@
       "src/protocol/authentication.ts": [
         57,
         76
-      ],
-      "src/protocol/dispatcher.ts": [
-        389
       ]
     },
     "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions memory rejects forged caller, revision, lease, and payload records": {
@@ -561,7 +544,8 @@
         393,
         395,
         399,
-        437
+        637,
+        749
       ]
     },
     "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions SQLite bootstrap payload codec rejects non-object canonical payloads": {
@@ -607,8 +591,8 @@
     },
     "test/protocol/codec.test.ts#CommandEnvelope codec [C13-PROTOCOL-EXACT-ENVELOPE] [command-envelope] round-trips absent optional fields and every Actor caller kind": {
       "src/protocol/envelope.ts": [
-        70,
         78,
+        86,
         111,
         112,
         113,
@@ -651,12 +635,12 @@
         223,
         224,
         232,
-        236,
+        237,
         238,
-        240,
-        253,
+        239,
+        246,
         255,
-        257,
+        258,
         266,
         268,
         269,
@@ -671,6 +655,7 @@
         296,
         305,
         306,
+        315,
         317,
         318,
         324,
@@ -683,18 +668,13 @@
         345,
         346,
         347,
-        348,
-        349
+        348
       ]
     },
     "test/protocol/codec.test.ts#CommandEnvelope codec rejects a non-object lease": {
       "src/protocol/envelope.ts": [
+        73,
         219
-      ]
-    },
-    "test/protocol/codec.test.ts#CommandEnvelope codec rejects a non-string caller cause": {
-      "src/protocol/envelope.ts": [
-        89
       ]
     },
     "test/protocol/codec.test.ts#CommandEnvelope codec rejects a unknown field": {
@@ -733,8 +713,7 @@
       "src/protocol/envelope.ts": [
         113,
         120,
-        240,
-        336
+        240
       ],
       "src/protocol/write.ts": [
         153
@@ -805,7 +784,6 @@
         184,
         185,
         202,
-        205,
         206
       ]
     },
@@ -830,7 +808,6 @@
         41,
         42,
         48,
-        58,
         60
       ]
     },
@@ -868,7 +845,8 @@
     },
     "test/protocol/codec.test.ts#protocol callers and authentication admits only the configured caller family": {
       "src/protocol/policy.ts": [
-        27,
+        17,
+        18,
         28
       ]
     },
@@ -890,7 +868,9 @@
         130
       ],
       "src/protocol/write.ts": [
-        146,
+        136,
+        139,
+        142,
         152,
         153,
         160,
@@ -941,6 +921,8 @@
     },
     "test/protocol/codec.test.ts#protocol callers and authentication validates issued authentication before invoking token behavior": {
       "src/protocol/authentication.ts": [
+        40,
+        52,
         58
       ]
     },
@@ -960,15 +942,25 @@
     },
     "test/protocol/codec.test.ts#WriteRecord codec and invariants [write-record] round-trips every Actor kind": {
       "src/protocol/write.ts": [
-        58,
-        61,
-        63,
+        57,
+        62,
         66,
-        67,
         70,
-        75,
+        74,
+        77,
+        84,
+        86,
+        89,
+        92,
+        94,
+        96,
+        97,
+        98,
         189,
         193,
+        224,
+        228,
+        230,
         240,
         245,
         247,
@@ -987,8 +979,7 @@
         261,
         262,
         263,
-        264,
-        265
+        264
       ]
     },
     "test/protocol/codec.test.ts#WriteRecord codec and invariants rejects a invalid timestamp": {
@@ -999,7 +990,6 @@
     "test/protocol/codec.test.ts#WriteRecord codec and invariants rejects a malformed write identity without its command": {
       "src/protocol/write.ts": [
         91,
-        147,
         166,
         167,
         168,
@@ -1015,7 +1005,7 @@
     },
     "test/protocol/codec.test.ts#WriteRecord codec and invariants rejects a unknown actor field": {
       "src/protocol/write.ts": [
-        70
+        36
       ]
     },
     "test/protocol/codec.test.ts#WriteRecord codec and invariants rejects a unknown field": {
@@ -1130,11 +1120,11 @@
         24,
         25,
         38,
-        40,
-        52,
         54,
         58,
-        76
+        74,
+        76,
+        91
       ],
       "src/protocol/dispatcher.ts": [
         166,
@@ -1157,28 +1147,30 @@
         267,
         287,
         288,
-        307,
+        289,
         311,
         326,
         338,
-        348,
         372,
         374,
         381,
         385,
         393,
         394,
+        404,
         405,
+        413,
         420,
         423,
         424,
-        425,
+        437,
         439,
         442,
         443,
         444,
         454,
         457,
+        458,
         459,
         463,
         476,
@@ -1207,9 +1199,10 @@
         576,
         592,
         594,
-        615,
+        607,
+        623,
         624,
-        632,
+        637,
         646,
         648,
         665,
@@ -1235,6 +1228,7 @@
         37,
         38,
         42,
+        44,
         45,
         57,
         65,
@@ -1252,94 +1246,81 @@
         93,
         109,
         111,
+        269,
+        275,
         296,
-        306,
-        315
+        336
       ],
       "src/protocol/ingress.ts": [
+        81,
         88,
+        100,
         105,
-        108,
         110,
         117,
         146,
-        178,
-        180,
         181
       ],
       "src/protocol/memory.ts": [
-        25,
         28,
-        79,
         162,
-        180
+        180,
+        182,
+        184,
+        186,
+        187,
+        188,
+        197,
+        201
       ],
       "src/protocol/payload.ts": [
-        41,
-        60
+        58
       ],
       "src/protocol/persistence.ts": [
+        307,
+        539,
+        553,
         572,
-        573,
-        577
+        573
       ],
       "src/protocol/policy.ts": [
         5,
-        17,
         18
       ],
       "src/protocol/write.ts": [
-        36,
-        40,
+        35,
         46,
-        48,
-        54,
         56,
-        60,
-        62,
+        58,
+        59,
+        63,
         65,
+        68,
         70,
-        76,
-        77,
-        78,
-        83,
-        84,
-        86,
-        87,
-        89,
-        90,
-        91,
+        75,
         92,
-        93,
-        94,
         95,
         96,
-        97,
-        98,
         134,
-        136,
         139,
         142,
         146,
-        152,
         160,
-        167,
-        177,
+        166,
         212,
         214,
         215,
         216,
         223,
-        224,
-        228,
-        230,
         247,
+        260,
         268
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) admits absent optional revisions and enforces forbidden revisions": {
       "src/protocol/dispatcher.ts": [
         404,
+        406,
         633,
         816,
         818
@@ -1373,7 +1354,6 @@
       ],
       "src/protocol/write.ts": [
         90,
-        147,
         166,
         177,
         214
@@ -1391,10 +1371,10 @@
       "src/protocol/dispatcher.ts": [
         562,
         569,
-        715,
         726,
         735,
         740,
+        771,
         773,
         774,
         775,
@@ -1406,7 +1386,7 @@
       "src/protocol/write.ts": [
         48,
         98,
-        171
+        205
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) evaluates post-payload gates in deterministic order": {
@@ -1424,6 +1404,9 @@
         637,
         654,
         658
+      ],
+      "src/protocol/envelope.ts": [
+        344
       ],
       "src/protocol/write.ts": [
         263,
@@ -1452,16 +1435,14 @@
         242,
         248,
         385,
+        389,
         545,
         746
       ],
       "src/protocol/persistence.ts": [
-        176,
-        183
+        539
       ],
       "src/protocol/write.ts": [
-        92,
-        152,
         158,
         161,
         262
@@ -1485,6 +1466,7 @@
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) registration callbacks cannot mutate authenticated envelope state": {
       "src/protocol/dispatcher.ts": [
         647,
+        648,
         654,
         656,
         658,
@@ -1494,19 +1476,16 @@
       "src/protocol/envelope.ts": [
         45,
         47,
-        48,
         70,
-        73,
         86,
         225,
         229,
         232,
         236,
-        237,
         238,
-        239,
-        246,
-        258
+        240,
+        253,
+        257
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects a missing caller cause before content and replays its identity": {
@@ -1528,8 +1507,8 @@
         611,
         699,
         700,
+        704,
         748,
-        749,
         821,
         822
       ],
@@ -1541,16 +1520,11 @@
         156
       ],
       "src/protocol/persistence.ts": [
-        203,
-        237,
-        366,
-        410,
-        418,
-        422,
+        365,
+        411,
         565
       ],
       "src/protocol/write.ts": [
-        96,
         139,
         142,
         171,
@@ -1562,9 +1536,6 @@
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects a wrong-kind caller cause before content and replays its identity": {
       "src/protocol/dispatcher.ts": [
         583
-      ],
-      "src/protocol/persistence.ts": [
-        430
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects expired and forbidden lease tokens": {
@@ -1598,9 +1569,9 @@
         173
       ],
       "src/protocol/persistence.ts": [
-        254,
-        285,
-        293
+        293,
+        452,
+        460
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) resolves the second duplicate lookup before defensive cause recheck": {
@@ -1620,9 +1591,9 @@
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) returns preparation infrastructure failure without evidence or mutation": {
       "src/protocol/ingress.ts": [
+        113,
         114,
-        168,
-        172
+        173
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rolls back a typed execution missing its reply codec": {
@@ -1639,8 +1610,7 @@
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rolls back an asynchronous gate instead of treating its Promise as approval": {
       "src/protocol/dispatcher.ts": [
-        478,
-        624
+        478
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rolls back an asynchronous payload decoder as a programmer fault": {
@@ -1672,11 +1642,19 @@
       "src/protocol/envelope.ts": [
         57,
         59,
+        70,
         74,
-        87
+        87,
+        89
       ],
       "src/protocol/memory.ts": [
-        154
+        154,
+        157
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) accepts an absent caller cause with a host-created Invocation root": {
+      "src/protocol/persistence.ts": [
+        502
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) uses a valid actor-local caller cause without creating another root": {
@@ -1759,6 +1737,9 @@
     "test/protocol/dispatcher.test.ts#protocol persistence repair runs on Actor activation": {
       "src/protocol/dispatcher.ts": [
         177
+      ],
+      "src/protocol/persistence.ts": [
+        285
       ]
     },
     "test/protocol/dispatcher.test.ts#rejected outcomes reply with their canonical outcome document": {
@@ -1856,10 +1837,12 @@
         271
       ],
       "src/protocol/ingress.ts": [
+        56,
         57,
         59,
         60,
-        61
+        61,
+        67
       ]
     },
     "test/protocol/facet-commands.test.ts#Facet Slot protocol commands atomically rejects payload, authority, and installation provenance substitution": {
@@ -2005,7 +1988,8 @@
     },
     "test/protocol/ingress.test.ts#[C13-PROTOCOL-ATOMIC-EVIDENCE] oversized submitted payload is deterministic malformed evidence": {
       "src/protocol/dispatcher.ts": [
-        198
+        198,
+        442
       ],
       "src/protocol/ingress.ts": [
         146,
@@ -2014,38 +1998,32 @@
     },
     "test/protocol/ingress.test.ts#authUnknown before command transaction remains notAttempted and does not poison Actor": {
       "src/protocol/ingress.ts": [
+        167,
         168
       ]
     },
     "test/protocol/ingress.test.ts#closes the payload lease exactly once after dispatch": {
       "src/protocol/ingress.ts": [
         121,
-        122,
-        147,
-        151
+        122
       ]
     },
     "test/protocol/ingress.test.ts#CommandIngress owns the raw envelope before asynchronous preparation": {
-      "src/protocol/dispatcher.ts": [
-        424,
-        458
-      ],
       "src/protocol/ingress.ts": [
-        67,
         79,
-        81,
         86,
         88,
-        100,
+        108,
         134,
         143,
         146,
         156,
+        178,
+        180,
         181
       ],
       "src/protocol/memory.ts": [
-        28,
-        29
+        28
       ]
     },
     "test/protocol/ingress.test.ts#detaches the submitted envelope before asynchronous authentication": {
@@ -2055,7 +2033,6 @@
     },
     "test/protocol/ingress.test.ts#exact authentication precedes unknown-command malformed and replay": {
       "src/protocol/dispatcher.ts": [
-        406,
         410
       ]
     },
@@ -2063,11 +2040,6 @@
       "src/protocol/ingress.ts": [
         67,
         68
-      ]
-    },
-    "test/protocol/ingress.test.ts#injected transport authentication cannot forge the envelope caller": {
-      "src/protocol/ingress.ts": [
-        105
       ]
     },
     "test/protocol/ingress.test.ts#reference mismatch is rejected without touching transient content": {
@@ -2094,7 +2066,6 @@
     },
     "test/protocol/ingress.test.ts#rejects unsafe lease expiry": {
       "src/protocol/ingress.ts": [
-        113,
         114,
         181,
         183,
@@ -2116,9 +2087,9 @@
         95,
         96,
         166,
-        167,
+        168,
         170,
-        173
+        172
       ]
     },
     "test/protocol/materialization-commands.test.ts#materialization canonical targeting is validated per field": {
@@ -2145,8 +2116,7 @@
     },
     "test/protocol/materialization-commands.test.ts#materialization.applyLocal protocol command applies a persisted plan without consulting nonempty Run usage": {
       "src/protocol/envelope.ts": [
-        42,
-        44
+        42
       ],
       "src/protocol/materialization-commands.ts": [
         55,
@@ -2174,6 +2144,7 @@
         180,
         181,
         182,
+        194,
         195,
         207,
         209,
@@ -2187,6 +2158,9 @@
         238,
         244,
         245
+      ],
+      "src/protocol/memory.ts": [
+        92
       ]
     },
     "test/protocol/materialization-commands.test.ts#materialization.applyLocal protocol command execute fails closed on missing, multi-actor, and non-Tenant controllers": {
@@ -2245,6 +2219,7 @@
         817
       ],
       "src/protocol/envelope.ts": [
+        48,
         50
       ]
     },
@@ -2253,8 +2228,10 @@
         56
       ],
       "src/protocol/memory.ts": [
+        25,
         28,
-        29
+        29,
+        83
       ]
     },
     "test/protocol/persistence-adapter.test.ts#append-only and reservation guards throw exact protocol diagnostics": {
@@ -2271,6 +2248,7 @@
         328,
         350,
         362,
+        365,
         373
       ]
     },
@@ -2278,16 +2256,17 @@
       "src/protocol/persistence.ts": [
         125,
         126,
-        583
+        583,
+        584
       ]
     },
     "test/protocol/persistence-adapter.test.ts#committed write audits require a cause on read and repair": {
       "src/protocol/persistence.ts": [
         262,
+        267,
         268,
         269,
         348,
-        361,
         366,
         367
       ]
@@ -2302,12 +2281,15 @@
       "src/protocol/persistence.ts": [
         170,
         197,
+        198,
         203,
         204,
         206,
-        207,
         208,
         565
+      ],
+      "src/protocol/write.ts": [
+        96
       ]
     },
     "test/protocol/persistence-adapter.test.ts#duplicate lineage must name an identity-reserving original": {
@@ -2323,17 +2305,15 @@
         84,
         85,
         139,
-        145,
-        146,
+        144,
         149,
         155,
-        159,
         164,
         170,
         176,
-        177,
         180,
         235,
+        237,
         305,
         307,
         310,
@@ -2341,44 +2321,68 @@
         315,
         316,
         317,
+        318,
         319,
         328,
+        331,
         335,
-        336,
         337,
         338,
         407,
+        410,
         411,
         413,
+        418,
+        422,
         493,
+        494,
         501,
         510,
         512,
         521,
+        529,
         530,
+        538,
+        539,
+        553,
         573,
-        576,
         577,
-        587,
-        588
+        587
       ],
       "src/protocol/write.ts": [
         38,
         40,
+        41,
         42,
         46,
         48,
+        52,
+        54,
         56,
-        57,
-        59,
+        60,
+        61,
         64,
-        68,
-        74
+        67,
+        70,
+        76,
+        78,
+        83,
+        87,
+        90,
+        91,
+        92,
+        93,
+        98,
+        136,
+        139,
+        142,
+        146
       ]
     },
     "test/protocol/persistence-adapter.test.ts#identity projections compare every structural field": {
       "src/protocol/persistence.ts": [
         394,
+        395,
         396,
         397,
         398,
@@ -2413,10 +2417,12 @@
         225,
         226,
         248,
+        254,
+        264,
         265,
+        276,
         277,
         285,
-        293,
         295,
         365,
         366,
@@ -2432,10 +2438,14 @@
         485,
         486,
         487,
-        512
+        512,
+        544,
+        546
       ],
       "src/protocol/write.ts": [
-        40
+        40,
+        92,
+        147
       ]
     },
     "test/protocol/persistence-adapter.test.ts#repair fails closed on duplicated stored identifiers and relations": {
@@ -2463,13 +2473,14 @@
     },
     "test/protocol/persistence-adapter.test.ts#stored duplicate reads fail closed when the original write is missing": {
       "src/protocol/persistence.ts": [
+        94,
         203,
-        205,
         212,
         213,
         217,
         220,
-        227
+        227,
+        228
       ]
     },
     "test/protocol/persistence-adapter.test.ts#stored record key aliasing fails closed for audits and writes": {
@@ -2479,7 +2490,6 @@
         321,
         335,
         336,
-        339,
         340
       ]
     },
@@ -2490,11 +2500,13 @@
     },
     "test/protocol/persistence-adapter.test.ts#write appends against non-write audit evidence fail closed": {
       "src/protocol/persistence.ts": [
+        94,
         553
       ]
     },
     "test/protocol/persistence-adapter.test.ts#write audit cause mismatches carry the exact diagnostic": {
       "src/protocol/persistence.ts": [
+        373,
         380
       ]
     },
@@ -2504,7 +2516,6 @@
         149,
         152,
         153,
-        157,
         158
       ]
     },
@@ -2530,21 +2541,23 @@
     "test/protocol/persistence-memory.test.ts#memory reads every hand-seeded codec-representable non-write audit projection": {
       "src/protocol/persistence.ts": [
         70,
-        245,
-        263,
-        267,
-        268
+        263
+      ]
+    },
+    "test/protocol/persistence-memory.test.ts#memory reads reject a corrupt audit projection": {
+      "src/protocol/persistence.ts": [
+        315
       ]
     },
     "test/protocol/persistence-memory.test.ts#memory reads reject a corrupt write projection": {
       "src/protocol/persistence.ts": [
-        335
+        335,
+        339
       ]
     },
     "test/protocol/persistence-memory.test.ts#memory reads reject a corrupt write-audit evidenceIdentity projection": {
       "src/protocol/persistence.ts": [
-        316,
-        584
+        316
       ]
     },
     "test/protocol/persistence-memory.test.ts#memory reads reject a corrupt write-audit evidenceKind projection": {
@@ -2555,6 +2568,11 @@
     "test/protocol/persistence-memory.test.ts#memory reads reject a corrupt write-audit writeId projection": {
       "src/protocol/persistence.ts": [
         573
+      ]
+    },
+    "test/protocol/persistence-memory.test.ts#memory reads reject a corrupt write-audit writeOutcome projection": {
+      "src/protocol/persistence.ts": [
+        319
       ]
     },
     "test/protocol/persistence-memory.test.ts#memory reads reject non-byte audit storage": {
@@ -2588,7 +2606,6 @@
     "test/protocol/persistence-memory.test.ts#memory rejects a duplicate with corrupt identity lineage": {
       "src/protocol/persistence.ts": [
         220,
-        228,
         546
       ]
     },
@@ -2610,7 +2627,8 @@
     "test/protocol/persistence-memory.test.ts#memory rejects write and audit records whose reciprocal record is missing": {
       "src/protocol/persistence.ts": [
         104,
-        106
+        106,
+        350
       ]
     },
     "test/protocol/persistence-memory.test.ts#memory restart preserves actor source identity without aliasing principal callers": {
@@ -2618,7 +2636,6 @@
         385,
         392,
         394,
-        395,
         398,
         400,
         401
@@ -2693,6 +2710,7 @@
     "test/protocol/persistence-memory.test.ts#memory write reads reject a missing Invocation cause": {
       "src/protocol/persistence.ts": [
         94,
+        361,
         373,
         379
       ]
@@ -2703,7 +2721,6 @@
         119
       ],
       "src/protocol/persistence.ts": [
-        94,
         551,
         553,
         558,
@@ -2717,20 +2734,22 @@
     },
     "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) generated append, repair and restart histories preserve every reserved identity": {
       "src/protocol/memory.ts": [
+        79,
         80
       ],
       "src/protocol/persistence.ts": [
         449,
-        452,
-        460,
-        461,
         462,
-        463,
-        465,
+        464,
         475
       ]
     },
     "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) keeps caller and idempotency identity structurally distinct": {
+      "src/protocol/envelope.ts": [
+        344,
+        345,
+        349
+      ],
       "src/protocol/memory.ts": [
         162
       ],
@@ -2738,24 +2757,36 @@
         81,
         427,
         429,
+        430,
         436,
-        502
+        501
       ]
     },
     "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) keeps malformed and unauthenticated writes out of the identity index": {
       "src/protocol/persistence.ts": [
+        176,
         183,
-        189
+        189,
+        539
+      ],
+      "src/protocol/write.ts": [
+        261
       ]
     },
     "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) rejects a duplicate that does not name a reserved original": {
       "src/protocol/persistence.ts": [
-        203
+        203,
+        588
+      ]
+    },
+    "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) rejects identity replacement and rolls back its staged audit and write": {
+      "src/protocol/persistence.ts": [
+        180
       ]
     },
     "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) rejects non-reciprocal actor linkage and rolls back": {
       "src/protocol/write.ts": [
-        247
+        248
       ]
     },
     "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) rejects non-reciprocal outcome linkage and rolls back": {
@@ -2765,8 +2796,10 @@
     },
     "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) reserves only the original write and leaves duplicate lookup unchanged": {
       "src/protocol/persistence.ts": [
+        170,
         198,
-        546,
+        203,
+        205,
         563,
         565
       ]
@@ -2802,17 +2835,14 @@
         66,
         74,
         76,
-        83,
         84,
         87,
         89,
-        92,
         102,
         104,
         114,
         120,
         141,
-        162,
         182,
         183,
         184,
@@ -2825,7 +2855,6 @@
         197,
         199,
         200,
-        201,
         205,
         207,
         208,
@@ -2848,10 +2877,16 @@
         135,
         139,
         144,
+        145,
+        146,
         149,
         159,
-        318,
-        362,
+        164,
+        177,
+        180,
+        328,
+        336,
+        350,
         365,
         373,
         374,
@@ -2859,30 +2894,28 @@
         376,
         377,
         378,
-        408,
-        500,
-        538,
-        539,
+        413,
+        513,
         541,
         553,
         554,
         555,
+        556,
         557
       ],
       "src/protocol/write.ts": [
-        35,
-        41,
-        52
+        40,
+        48,
+        260
       ]
     },
     "test/protocol/persistence-sqlite.test.ts#ProtocolPersistence (SQLite) [C13-PROTOCOL-WRITE-AUDIT-LINK] persists only reciprocal WriteRecord and AuditRecord links": {
       "src/protocol/persistence.ts": [
-        264,
-        276,
-        449,
         452,
-        464,
-        475
+        460,
+        461,
+        463,
+        465
       ]
     },
     "test/protocol/persistence-sqlite.test.ts#ProtocolPersistence (SQLite) keeps caller and idempotency identity structurally distinct": {
@@ -2890,14 +2923,10 @@
         429
       ]
     },
-    "test/protocol/persistence-sqlite.test.ts#ProtocolPersistence (SQLite) keeps malformed and unauthenticated writes out of the identity index": {
+    "test/protocol/persistence-sqlite.test.ts#ProtocolPersistence (SQLite) rejects a duplicate that does not name a reserved original": {
       "src/protocol/persistence.ts": [
-        539
-      ]
-    },
-    "test/protocol/persistence-sqlite.test.ts#ProtocolPersistence (SQLite) reserves only the original write and leaves duplicate lookup unchanged": {
-      "src/protocol/persistence.ts": [
-        544
+        203,
+        207
       ]
     },
     "test/protocol/persistence-sqlite.test.ts#ProtocolPersistence (SQLite) resolves one durable actor-owned audit evidence relation across restart": {
@@ -2907,20 +2936,14 @@
     },
     "test/protocol/persistence-sqlite.test.ts#ProtocolPersistence (SQLite) stores codec-backed records and resolves them synchronously": {
       "src/protocol/persistence.ts": [
-        314,
-        331,
-        365,
-        374,
-        411,
-        494,
-        512,
-        529,
-        539
+        362,
+        408,
+        501
       ]
     },
     "test/protocol/persistence-sqlite.test.ts#SQLite reads reject a corrupt audit projection": {
       "src/protocol/persistence.ts": [
-        315
+        314
       ]
     },
     "test/protocol/persistence-sqlite.test.ts#SQLite reads reject a corrupt write projection": {
@@ -2928,24 +2951,21 @@
         338
       ]
     },
-    "test/protocol/persistence-sqlite.test.ts#SQLite reads reject a corrupt write-audit writeOutcome projection": {
+    "test/protocol/persistence-sqlite.test.ts#SQLite reads reject a corrupt write-audit writeId projection": {
       "src/protocol/persistence.ts": [
-        319
+        314
       ]
     },
     "test/protocol/persistence-sqlite.test.ts#SQLite startup repair rejects duplicate-lineage corruption": {
       "src/protocol/persistence.ts": [
+        475,
+        478,
         481
       ]
     },
     "test/protocol/persistence-sqlite.test.ts#SQLite startup repair rejects orphan-write-audit corruption": {
       "src/protocol/persistence.ts": [
         295
-      ]
-    },
-    "test/protocol/persistence-sqlite.test.ts#SQLite write reads reject a actor Invocation cause": {
-      "src/protocol/persistence.ts": [
-        314
       ]
     },
     "test/protocol/persistence-sqlite.test.ts#SQLite write reads reject a missing Invocation cause": {
@@ -3145,9 +3165,19 @@
         174
       ]
     },
+    "test/substrates/sqlite/bootstrap.test.ts#SQLite Tenant bootstrap exact failure and identity behavior stamps every protocol ID with its record-kind prefix": {
+      "src/protocol/bootstrap.ts": [
+        182
+      ]
+    },
     "test/substrates/sqlite/invocations/state-machine.test.ts#generated InvocationLedger histories preserve exact records, outbox evidence, and test-audit state across memory and SQLite restarts": {
       "src/protocol/persistence.ts": [
-        249
+        245,
+        249,
+        293,
+        307,
+        573,
+        576
       ]
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant bootstrap anchor verification defaults omitted Tenant kind to personal across bootstrap": {
@@ -3158,7 +3188,8 @@
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control construction and transaction gating fails closed on identity rows without a marker and anchors eligibility": {
       "src/protocol/bootstrap.ts": [
-        112
+        112,
+        371
       ]
     }
   }

@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "authority",
-  "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
-  "fingerprint": "sha256:c180639610bac861dc96a0a698d71d20e2d513363708bd3b1e0ac81a3f494aff",
+  "measuredAt": "be905bac8dbec599a2a50ff105947e1eeced2771",
+  "fingerprint": "sha256:e8e39d2e1603559f4c1aea4f31fffc458d15d93b7286061a913c8a488720dba9",
   "files": {
     "src/authority/binding-evidence.ts": {
       "mutants": 169,
@@ -45,8 +45,8 @@
       "sha256": "sha256:fb51330da04722aabde34f19b9c96a1918a39a1c71361c99f573378185ece53b"
     },
     "src/authority/memory.ts": {
-      "mutants": 878,
-      "sha256": "sha256:a1b8150ad69a4788e9a92b50d71c0a60a2baacfdca0def65c27e7a69d97e0c9f"
+      "mutants": 844,
+      "sha256": "sha256:9a356ce7426a77bafc46bc72011755579b86d1550b5583ab126205a2ab5cb3d5"
     },
     "src/authority/permit-authentication.ts": {
       "mutants": 38,
@@ -84,13 +84,10 @@
   "killed": {
     "test/authority/binding-mutation-gates.test.ts#authority key identity [C13-AUTH-BINDING-RESOLUTION] pins exact binding, domain, scope, and subject key formats": {
       "src/authority/binding.ts": [
-        87,
-        138,
         139,
         147,
         251,
-        252,
-        278
+        252
       ],
       "src/authority/reference.ts": [
         15,
@@ -99,27 +96,29 @@
     },
     "test/authority/binding-mutation-gates.test.ts#Binding codec field gates [C13-AUTH-BINDING-RESOLUTION] round-trips Binding data and names each malformed field exactly": {
       "src/authority/binding.ts": [
-        200,
-        204,
-        208,
-        215,
+        183,
+        196,
+        201,
+        202,
+        205,
+        207,
+        214,
         217,
         218,
         219,
-        221,
         264
       ],
       "src/authority/data.ts": [
-        12,
         29,
-        30
+        30,
+        43,
+        45
       ]
     },
     "test/authority/binding-mutation-gates.test.ts#Binding codec field gates [C13-AUTH-BINDING-RESOLUTION] strictly decodes protection domains": {
       "src/authority/binding.ts": [
         260,
         264,
-        267,
         272
       ],
       "src/authority/data.ts": [
@@ -136,7 +135,6 @@
     "test/authority/binding-mutation-gates.test.ts#Binding replacement identity [C13-AUTH-BINDING-RESOLUTION] rejects replacements that change identity or skip generation or revision": {
       "src/authority/binding.ts": [
         37,
-        158,
         167,
         169,
         170,
@@ -147,7 +145,9 @@
         176,
         177,
         226,
-        229
+        228,
+        229,
+        240
       ]
     },
     "test/authority/binding-mutation-gates.test.ts#Binding validation request and evidence gates [C13-AUTH-PATH-EVIDENCE] accepts exact boundary values and rejects noncanonical inputs": {
@@ -166,13 +166,12 @@
       ],
       "src/authority/epoch.ts": [
         57,
-        106,
-        108
+        120,
+        121
       ]
     },
     "test/authority/binding-mutation-gates.test.ts#Binding validation request and evidence gates [C13-AUTH-PATH-EVIDENCE] binds evidence to the exact request it validated": {
       "src/authority/binding-evidence.ts": [
-        205,
         207
       ]
     },
@@ -180,22 +179,25 @@
       "src/authority/binding-evidence.ts": [
         181,
         182,
-        214,
+        215,
         218,
         227,
         231,
+        232,
         233,
         234,
         235,
         236,
-        237,
         238,
         239,
+        243,
         244,
+        246,
+        248,
         249,
-        251,
         252,
         253,
+        254,
         256,
         263,
         265,
@@ -203,30 +205,25 @@
         267,
         270
       ],
+      "src/authority/data.ts": [
+        51,
+        52
+      ],
       "src/authority/epoch.ts": [
-        88,
-        97,
-        148,
-        149,
-        152
+        89,
+        94,
+        96
       ]
     },
     "test/authority/binding-mutation-gates.test.ts#Binding validation request and evidence gates [C13-AUTH-PATH-EVIDENCE] decodes workspace fences as non-negative safe integers only": {
       "src/authority/binding-evidence.ts": [
-        114,
-        118,
-        121,
+        110,
+        116,
+        119,
         127,
         128,
-        129,
-        132,
-        133,
         135,
-        137,
-        138,
         139,
-        140,
-        141,
         261,
         263,
         264
@@ -261,29 +258,259 @@
         7,
         11,
         13,
+        22,
         28,
         29,
         30
       ]
     },
+    "test/authority/closure-mutation-gates.test.ts#AuthorityRecordChanges separates what a transaction created from what it replaced": {
+      "src/authority/closure.ts": [
+        29,
+        34,
+        37,
+        38,
+        39,
+        43,
+        44
+      ]
+    },
+    "test/authority/closure-mutation-gates.test.ts#Tenant authority closure audits every written record audits every Binding a transaction wrote": {
+      "src/authority/closure.ts": [
+        350
+      ]
+    },
+    "test/authority/closure-mutation-gates.test.ts#Tenant authority closure audits every written record audits every Grant a transaction wrote": {
+      "src/authority/closure.ts": [
+        336
+      ]
+    },
+    "test/authority/closure-mutation-gates.test.ts#Tenant authority closure audits every written record audits every Membership a transaction wrote": {
+      "src/authority/closure.ts": [
+        304
+      ]
+    },
+    "test/authority/closure-mutation-gates.test.ts#Tenant authority closure audits every written record re-materializes every Membership a transaction wrote": {
+      "src/authority/closure.ts": [
+        375
+      ]
+    },
+    "test/authority/closure-mutation-gates.test.ts#Tenant authority closure canonical Scopes refuses a Project Scope carrying no Project ID": {
+      "src/authority/closure.ts": [
+        408
+      ]
+    },
+    "test/authority/closure-mutation-gates.test.ts#Tenant authority closure canonical Scopes refuses a Scope naming a Project the Tenant does not hold": {
+      "src/authority/closure.ts": [
+        130,
+        139,
+        143,
+        144,
+        149,
+        154,
+        235,
+        239,
+        261,
+        266,
+        273,
+        274,
+        280,
+        286,
+        290,
+        291,
+        309,
+        310,
+        359,
+        379,
+        380,
+        384,
+        390,
+        396,
+        404,
+        407,
+        408,
+        409,
+        410,
+        412,
+        414,
+        415,
+        421,
+        422,
+        425,
+        426
+      ],
+      "src/authority/data.ts": [
+        35,
+        37,
+        66,
+        68
+      ],
+      "src/authority/epoch.ts": [
+        19,
+        22,
+        67,
+        74,
+        75,
+        81
+      ],
+      "src/authority/grant.ts": [
+        60,
+        138
+      ],
+      "src/authority/id.ts": [
+        22,
+        28
+      ]
+    },
+    "test/authority/closure-mutation-gates.test.ts#Tenant authority closure canonical Scopes refuses a Scope naming a Workspace the Tenant does not hold": {
+      "src/authority/closure.ts": [
+        407,
+        412,
+        415,
+        416
+      ]
+    },
+    "test/authority/closure-mutation-gates.test.ts#Tenant authority closure canonical Scopes refuses a Workspace Scope carrying no Workspace ID": {
+      "src/authority/closure.ts": [
+        414
+      ]
+    },
+    "test/authority/closure-mutation-gates.test.ts#Tenant authority closure incremental audit a replaced Grant re-audits only the Bindings resting on it": {
+      "src/authority/closure.ts": [
+        348
+      ]
+    },
+    "test/authority/closure-mutation-gates.test.ts#Tenant authority closure incremental audit a replaced Grant re-audits the Bindings resting on it": {
+      "src/authority/closure.ts": [
+        215,
+        216,
+        316,
+        321,
+        325,
+        327,
+        342,
+        344,
+        346,
+        348,
+        362
+      ],
+      "src/authority/grant.ts": [
+        59,
+        113,
+        146
+      ],
+      "src/authority/memory.ts": [
+        523
+      ]
+    },
+    "test/authority/closure-mutation-gates.test.ts#Tenant authority closure incremental audit a replaced Role re-materializes only the Memberships holding it": {
+      "src/authority/closure.ts": [
+        261,
+        373
+      ]
+    },
+    "test/authority/closure-mutation-gates.test.ts#Tenant authority closure incremental audit a replaced Role re-materializes the Memberships holding it": {
+      "src/authority/closure.ts": [
+        225,
+        226,
+        366,
+        371,
+        373
+      ]
+    },
+    "test/authority/closure-mutation-gates.test.ts#Tenant authority closure incremental audit a rotated guest trust re-audits only the Memberships on it": {
+      "src/authority/closure.ts": [
+        298,
+        300
+      ]
+    },
+    "test/authority/closure-mutation-gates.test.ts#Tenant authority closure incremental audit a rotated guest trust re-audits the guest Memberships on it": {
+      "src/authority/closure.ts": [
+        139,
+        140,
+        166,
+        292,
+        294,
+        296,
+        299,
+        300,
+        422
+      ]
+    },
+    "test/authority/closure-mutation-gates.test.ts#Tenant authority closure incremental audit does not re-read a replaced Grant as its own descendant": {
+      "src/authority/closure.ts": [
+        317,
+        322,
+        328
+      ]
+    },
+    "test/authority/closure-mutation-gates.test.ts#Tenant authority closure incremental audit judges the records a transaction wrote, not the whole store": {
+      "src/authority/closure.ts": [
+        102,
+        103,
+        106,
+        107,
+        113,
+        118,
+        120,
+        121,
+        122,
+        175,
+        177,
+        214,
+        223,
+        235,
+        266,
+        270,
+        274,
+        280,
+        286,
+        291,
+        310,
+        341,
+        359,
+        396,
+        398
+      ]
+    },
+    "test/authority/closure-mutation-gates.test.ts#Tenant authority closure incremental audit reads no record list to audit records a transaction created": {
+      "src/authority/closure.ts": [
+        256,
+        296,
+        313,
+        346,
+        371
+      ],
+      "src/authority/id.ts": [
+        15
+      ]
+    },
+    "test/authority/closure-mutation-gates.test.ts#Tenant authority closure record evidence refuses a Role Grant whose subject left its Membership": {
+      "src/authority/closure.ts": [
+        188
+      ]
+    },
     "test/authority/hard-gates.test.ts#Binding and epoch hard gates enforces exact path and watermark invariants": {
       "src/authority/epoch.ts": [
-        31,
-        43,
+        34,
         56,
         57,
+        75,
         77,
+        131,
         132,
         133,
+        152,
+        174,
         175,
         179,
+        212,
         216,
         218,
-        224,
         229,
         231,
+        246,
         248,
-        295,
         323,
         325
       ]
@@ -301,20 +528,25 @@
         50,
         87,
         90,
+        158,
         164,
+        228,
         229,
         278
       ]
     },
     "test/authority/hard-gates.test.ts#Grant and authority identifier hard gates defensively freezes caller-provided subject references": {
       "src/authority/binding.ts": [
-        116,
         278
       ],
       "src/authority/grant.ts": [
-        111,
-        112,
         273
+      ],
+      "src/authority/id.ts": [
+        6
+      ],
+      "src/authority/reference.ts": [
+        34
       ]
     },
     "test/authority/hard-gates.test.ts#Grant and authority identifier hard gates strictly validates Grant codec origin, effect, state, and attenuation": {
@@ -330,15 +562,13 @@
         125,
         272,
         273,
-        275,
-        280
+        275
       ]
     },
     "test/authority/hard-gates.test.ts#Grant and authority identifier hard gates validates deterministic role Grant identifiers": {
       "src/authority/id.ts": [
         21,
         22,
-        28,
         29
       ]
     },
@@ -357,19 +587,17 @@
         43,
         48,
         49,
+        50,
         52,
         58,
-        59,
         61,
         63
       ]
     },
     "test/authority/hard-gates.test.ts#typed authority evidence hard gates [C13-AUTH-PATH-EVIDENCE] enforces evidence issuer, time, path, and grant matrices": {
       "src/authority/binding-evidence.ts": [
-        175
-      ],
-      "src/authority/epoch.ts": [
-        120
+        175,
+        178
       ],
       "src/authority/evidence.ts": [
         231,
@@ -379,49 +607,53 @@
         241,
         244,
         247,
-        251,
-        275
+        251
       ]
     },
     "test/authority/hard-gates.test.ts#typed authority evidence hard gates gives requests uniform static codecs": {
       "src/authority/binding-evidence.ts": [
         52,
+        55,
         58,
         84,
         88,
+        92,
         96,
         97,
-        110,
+        105,
+        114,
         115,
         117,
-        119,
+        118,
         120,
+        121,
+        122,
         123,
         128,
-        264
-      ],
-      "src/authority/binding.ts": [
-        183,
-        202,
-        207,
-        217
+        129,
+        130,
+        132,
+        133,
+        136,
+        138,
+        140,
+        141
       ],
       "src/authority/data.ts": [
-        45,
-        51,
-        52
+        27,
+        29
       ],
       "src/authority/epoch.ts": [
         154,
         155,
-        156,
-        315
+        156
       ],
       "src/authority/evidence.ts": [
-        61,
+        79,
         80,
         91,
         97,
+        394,
         396,
         434
       ]
@@ -443,7 +675,6 @@
     },
     "test/authority/hard-gates.test.ts#typed authority evidence hard gates strictly rejects evidence codec enums and duplicate Grant IDs": {
       "src/authority/evidence.ts": [
-        280,
         368,
         386,
         387,
@@ -457,19 +688,21 @@
       ]
     },
     "test/authority/materializer.test.ts#EpochPlanner enumerates every resolver-input mutation and bumps each Scope once": {
+      "src/authority/epoch.ts": [
+        57
+      ],
       "src/authority/planner.ts": [
         40,
-        65,
+        56,
         67,
+        70,
         71,
         72,
         73,
-        74,
         75,
         76,
         77,
         78,
-        85,
         86,
         89
       ]
@@ -481,8 +714,7 @@
       ],
       "src/authority/planner.ts": [
         29,
-        61,
-        68
+        61
       ]
     },
     "test/authority/materializer.test.ts#EpochPlanner refuses an epoch plan that names one Scope twice": {
@@ -506,7 +738,6 @@
     },
     "test/authority/materializer.test.ts#RoleGrantMaterializer [C13-AUTH-GUEST-SUBJECT] materializes verified guest allows and denies while removing elevated allows": {
       "src/authority/materializer.ts": [
-        96,
         100
       ]
     },
@@ -517,10 +748,16 @@
       ]
     },
     "test/authority/materializer.test.ts#RoleGrantMaterializer [C13-AUTH-ROLE-MATERIALIZATION] reconciles only Membership-owned role Grants and orders affected Scopes": {
+      "src/authority/grant.ts": [
+        273
+      ],
+      "src/authority/key.ts": [
+        7,
+        9
+      ],
       "src/authority/materializer.ts": [
         29,
-        57,
-        59
+        74
       ]
     },
     "test/authority/materializer.test.ts#RoleGrantMaterializer materializes no Grants for unverified token guests": {
@@ -530,49 +767,53 @@
       ]
     },
     "test/authority/materializer.test.ts#RoleGrantMaterializer reconciles changed and obsolete rules without adding authority": {
+      "src/authority/grant.ts": [
+        52,
+        66,
+        150
+      ],
       "src/authority/materializer.ts": [
+        78,
         79
       ]
     },
     "test/authority/materializer.test.ts#RoleGrantMaterializer rejects handshake as a steady-state guest verification scheme": {
       "src/authority/materializer.ts": [
         48,
-        50,
         53
       ]
     },
     "test/authority/materializer.test.ts#RoleGrantMaterializer uses stable role Grant IDs and is an exact semantic no-op": {
       "src/authority/grant.ts": [
-        60,
-        201
+        86,
+        111,
+        113,
+        119,
+        199
       ],
       "src/authority/materializer.ts": [
         34,
         35,
         41,
-        59,
         61,
-        71,
-        72,
         74,
         76,
         77,
-        78,
         81,
         82,
         85,
-        94,
-        95,
+        90,
         96,
-        97,
         98,
         100,
         108,
         109,
         121,
-        125,
         126,
         127
+      ],
+      "src/authority/reference.ts": [
+        30
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates detects each broken bootstrap closure invariant during restore": {
@@ -584,30 +825,20 @@
         703,
         704,
         705,
-        706
+        706,
+        707
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates detects Memberships whose subject records were removed": {
-      "src/authority/closure.ts": [
-        137,
-        145,
-        149,
-        151
-      ],
       "src/authority/memory.ts": [
         368
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates direct Grant replacement respects revocation terminality": {
-      "src/authority/closure.ts": [
-        321
-      ],
       "src/authority/grant.ts": [
+        60,
         173,
-        185,
-        189,
-        286,
-        301
+        302
       ],
       "src/authority/memory.ts": [
         503,
@@ -644,7 +875,6 @@
         469,
         471,
         472,
-        476,
         478,
         479,
         481,
@@ -656,16 +886,13 @@
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates direct topology writers validate eagerly with exact errors": {
       "src/authority/closure.ts": [
-        121,
-        122
+        28
       ],
       "src/authority/memory.ts": [
         267,
         268,
         298,
-        300,
         301,
-        305,
         306,
         308,
         310,
@@ -676,19 +903,19 @@
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates enforces canonical Scopes on every direct authority write": {
       "src/authority/memory.ts": [
-        923,
+        914,
+        915,
+        917,
+        918,
+        919,
+        920,
+        922,
         924,
+        925,
         926,
-        927,
-        928,
-        929,
-        931,
-        933,
-        934,
         935,
-        944,
-        945,
-        946
+        936,
+        937
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates fails closed on malformed snapshot container shapes": {
@@ -697,33 +924,34 @@
         723,
         724,
         725,
-        753,
-        758,
-        759,
-        778,
-        779,
-        791,
-        792,
-        793,
-        809,
-        816,
-        817,
-        839,
-        840,
-        842,
-        843,
-        845,
-        847,
-        975
+        745,
+        746,
+        747,
+        769,
+        770,
+        782,
+        783,
+        784,
+        800,
+        808,
+        830,
+        831,
+        833,
+        834,
+        836,
+        966
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates handles rejected asynchronous transaction results without leaks": {
       "src/authority/memory.ts": [
         623,
-        979
+        970
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates holds a Membership's subject fixed across a revision for a team subject": {
+      "src/authority/closure.ts": [
+        150
+      ],
       "src/authority/memory.ts": [
         249,
         250,
@@ -731,14 +959,9 @@
         437,
         438,
         476,
-        477,
         478,
         484,
         489
-      ],
-      "src/authority/service.ts": [
-        321,
-        661
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates holds new Bindings to generation and revision zero": {
@@ -751,7 +974,7 @@
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates keeps in-transaction record listings canonically sorted": {
       "src/authority/memory.ts": [
-        896
+        887
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates keeps Membership subjects immutable across every subject kind": {
@@ -761,14 +984,6 @@
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates keeps record listings and snapshots canonically sorted": {
-      "src/authority/closure.ts": [
-        261
-      ],
-      "src/authority/grant.ts": [
-        59,
-        252,
-        273
-      ],
       "src/authority/memory.ts": [
         204,
         230,
@@ -777,8 +992,8 @@
         360,
         653,
         655,
-        867,
-        868
+        858,
+        859
       ],
       "src/authority/planner.ts": [
         67
@@ -788,13 +1003,22 @@
       "src/authority/closure.ts": [
         193,
         196
+      ],
+      "src/authority/grant.ts": [
+        165
+      ]
+    },
+    "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates records whether it found each written record already there": {
+      "src/authority/memory.ts": [
+        489,
+        931,
+        932
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates refuses a restored Binding its Grant does not authorize": {
       "src/authority/closure.ts": [
         210,
         214,
-        215,
         216,
         218
       ]
@@ -807,7 +1031,7 @@
         195,
         197,
         198,
-        955
+        946
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates rejects bootstrap plans violating any single anchor constraint": {
@@ -827,18 +1051,12 @@
       "src/authority/memory.ts": [
         165,
         166,
-        955,
-        958
+        167,
+        946,
+        949
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates rejects restored records that escape the local Tenant": {
-      "src/authority/closure.ts": [
-        100,
-        103,
-        107,
-        396,
-        399
-      ],
       "src/authority/memory.ts": [
         262,
         323
@@ -846,6 +1064,9 @@
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates replaces a Binding only by its exact successor": {
       "src/authority/memory.ts": [
+        385,
+        386,
+        390,
         522,
         529,
         530
@@ -865,63 +1086,37 @@
       "src/authority/memory.ts": [
         684,
         686,
-        687
+        687,
+        688
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates returns defensive copies of anchor and record bytes to callers": {
       "src/authority/closure.ts": [
-        130,
-        149,
-        180,
-        188,
         195,
         225,
-        229,
-        235,
         237,
-        239,
-        254,
-        256,
-        265,
-        266,
-        270,
-        274,
-        279,
-        280,
-        285,
-        286,
-        290,
-        291,
-        407
-      ],
-      "src/authority/data.ts": [
-        68
-      ],
-      "src/authority/epoch.ts": [
-        89,
-        94,
-        96
+        239
       ],
       "src/authority/grant.ts": [
-        113,
-        138,
-        216,
-        227,
-        231,
-        239,
-        251,
-        255,
-        258,
-        261,
-        264,
-        279
+        60,
+        112,
+        142,
+        296,
+        301
       ],
-      "src/authority/key.ts": [
-        7
+      "src/authority/id.ts": [
+        22
+      ],
+      "src/authority/materializer.ts": [
+        100,
+        125
       ],
       "src/authority/memory.ts": [
+        105,
+        136,
+        151,
+        155,
         161,
-        174,
         176,
         177,
         178,
@@ -946,14 +1141,14 @@
         253,
         257,
         258,
+        261,
         265,
         267,
         271,
         272,
-        288,
-        292,
+        284,
+        308,
         314,
-        322,
         355,
         356,
         363,
@@ -962,45 +1157,39 @@
         381,
         382,
         389,
+        393,
         395,
         399,
+        405,
         409,
+        414,
         417,
         428,
-        457,
-        468,
         469,
-        503,
-        544,
+        495,
         549,
         550,
         570,
-        571,
-        574,
-        575,
         576,
         577,
-        578,
-        579,
         587,
         588,
+        602,
         609,
-        620,
-        622,
+        610,
+        633,
         643,
         645,
         651,
         653,
         654,
-        656,
         660,
         662,
-        663,
-        668,
         677,
         678,
         684,
         685,
+        686,
         697,
         698,
         699,
@@ -1015,67 +1204,54 @@
         719,
         724,
         727,
-        736,
-        743,
-        744,
-        745,
-        751,
-        753,
-        754,
-        755,
-        756,
-        757,
-        761,
-        762,
-        765,
+        733,
+        737,
+        760,
+        769,
+        770,
+        771,
+        772,
+        773,
+        774,
+        775,
+        776,
         778,
         779,
         780,
         781,
         782,
-        783,
-        785,
         787,
-        788,
-        789,
-        791,
-        796,
-        809,
-        810,
-        811,
-        812,
-        814,
-        815,
-        826,
-        827,
-        835,
-        837,
-        839,
+        798,
+        800,
+        801,
+        802,
+        804,
+        806,
+        817,
+        818,
+        830,
+        832,
+        834,
         841,
-        842,
-        843,
-        844,
-        850,
-        857,
-        865,
-        869,
-        881,
-        883,
-        896,
-        920,
-        926,
-        931,
-        933,
-        934,
-        945,
-        953,
-        958,
+        856,
+        860,
+        872,
+        900,
+        911,
+        917,
+        922,
+        924,
+        925,
+        936,
+        944,
+        946,
+        949,
+        955,
         964,
-        973,
-        974,
-        975,
-        979,
-        981
+        965,
+        966,
+        970,
+        972
       ],
       "src/authority/planner.ts": [
         26,
@@ -1083,22 +1259,22 @@
         42,
         51,
         55,
-        56,
-        57,
+        65,
         69
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates returns synchronous null transaction results unchanged": {
       "src/authority/memory.ts": [
-        979
+        970
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates revalidates guest Membership trust evidence on restore": {
       "src/authority/closure.ts": [
-        154
+        157,
+        159
       ],
       "src/authority/memory.ts": [
-        318,
+        319,
         326,
         328,
         335,
@@ -1108,21 +1284,20 @@
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates round-trips organization and service Tenant kinds": {
       "src/authority/memory.ts": [
-        762,
-        958,
-        963,
-        964,
-        965
+        949,
+        954,
+        955,
+        956
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates ties bootstrap eligibility to every empty collection": {
       "src/authority/closure.ts": [
         214,
         215,
-        216,
         217
       ],
       "src/authority/memory.ts": [
+        122,
         176,
         177,
         178,
@@ -1135,8 +1310,8 @@
         676,
         678,
         679,
-        969,
-        970
+        960,
+        961
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates transaction isolation keeps escaped candidates and results inert": {
@@ -1147,119 +1322,147 @@
         668,
         670,
         671,
-        978,
-        979,
-        980
+        969,
+        970
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates validates Grant reference closure precisely on restore": {
       "src/authority/closure.ts": [
-        175,
-        178,
-        201
+        196,
+        201,
+        203
       ],
       "src/authority/grant.ts": [
-        113,
-        168,
-        220
+        163,
+        165,
+        168
       ]
     },
     "test/authority/memory-mutation-gates.test.ts#MemoryTenantControlStore mutation gates verifies role Grant materialization byte-for-byte on restore": {
       "src/authority/closure.ts": [
-        113,
-        183,
+        186,
         187,
-        223,
+        190,
         235,
-        236,
         239,
-        242,
         244
+      ],
+      "src/authority/grant.ts": [
+        113
+      ],
+      "src/authority/materializer.ts": [
+        127
       ]
     },
     "test/authority/memory-service-hard-gates.test.ts#AuthorityMutationService hard gates [C13-AUTH-MEDIATED-ADMISSION] covers Grant admission, delegation, and revocation errors": {
       "src/authority/service.ts": [
         426,
         428,
+        436,
+        442,
+        444,
+        448,
+        547,
+        668,
         669,
         671,
-        673
+        678,
+        709
       ]
     },
     "test/authority/memory-service-hard-gates.test.ts#AuthorityMutationService hard gates [C13-AUTH-TEAM-SUBJECT] covers Principal, Team, Project, and Workspace lifecycle errors": {
       "src/authority/closure.ts": [
         121
       ],
-      "src/authority/grant.ts": [
-        295,
-        296,
-        301
-      ],
-      "src/authority/id.ts": [
-        17
+      "src/authority/data.ts": [
+        13
       ],
       "src/authority/memory.ts": [
+        288,
+        296,
+        298,
         305,
+        322,
+        371,
         376,
+        421,
         431,
         433,
-        437,
         445,
-        446,
         460,
         464,
+        468,
         469,
-        495,
         499,
         503,
         512,
+        544,
         549,
         561,
         567,
-        570,
-        572,
+        571,
         573,
-        588,
-        610,
-        633,
+        574,
+        596,
+        618,
+        622,
         635,
-        645
+        645,
+        653,
+        654,
+        656,
+        663,
+        668
       ],
       "src/authority/service.ts": [
+        68,
         69,
         75,
-        78,
-        93,
-        96,
-        100,
+        79,
+        97,
         104,
+        174,
         177,
+        185,
+        187,
+        193,
+        195,
+        206,
+        216,
+        219,
+        613,
+        614,
         620,
+        621,
         693
       ]
     },
     "test/authority/memory-service-hard-gates.test.ts#AuthorityMutationService hard gates covers guest trust and Role lifecycle errors": {
       "src/authority/memory.ts": [
-        319
+        318,
+        328
       ]
     },
     "test/authority/memory-service-hard-gates.test.ts#AuthorityMutationService hard gates covers Membership admission and transition errors": {
       "src/authority/grant.ts": [
-        291,
-        300,
-        302
+        289
       ],
       "src/authority/memory.ts": [
         468,
-        478,
-        484,
+        477,
         489
       ],
       "src/authority/service.ts": [
         333,
         335,
         395,
-        409,
+        411,
+        417,
+        479,
+        481,
+        482,
+        486,
+        632,
         640,
         641,
         642,
@@ -1270,35 +1473,35 @@
         653,
         660,
         661,
-        663
+        663,
+        707,
+        718
       ]
     },
     "test/authority/memory-service-hard-gates.test.ts#AuthorityMutationService hard gates covers verified guest admission failures": {
       "src/authority/closure.ts": [
-        175
+        161
       ],
       "src/authority/service.ts": [
-        353,
         359,
         360,
-        362,
-        370
+        361,
+        370,
+        373
       ]
     },
     "test/authority/memory-service-hard-gates.test.ts#MemoryTenantControlStore operational taxonomy enforces every direct memory writer invariant": {
-      "src/authority/closure.ts": [
-        80,
-        120,
-        121
-      ],
       "src/authority/memory.ts": [
         271,
         272,
         274,
         278,
         280,
+        300,
+        305,
         306,
         348,
+        418,
         421,
         423,
         434,
@@ -1322,7 +1525,7 @@
         61,
         63,
         68,
-        72
+        71
       ]
     },
     "test/authority/memory-service-hard-gates.test.ts#MemoryTenantControlStore operational taxonomy rejects constituent bootstrap-plan substitution": {
@@ -1341,94 +1544,97 @@
         612,
         616,
         622,
-        625
-      ]
-    },
-    "test/authority/memory.test.ts#MemoryTenantControlStore [authority.binding] keeps the canonical Binding in the Tenant transaction with its path epoch": {
-      "src/authority/closure.ts": [
-        183
+        625,
+        668
       ]
     },
     "test/authority/memory.test.ts#MemoryTenantControlStore [authority.grant] [authority.scope-epoch] [authority.binding] [authority.invalidation-watermark] bootstraps and restores the complete detached Tenant control snapshot": {
       "src/authority/closure.ts": [
-        131,
-        139,
-        143,
-        144,
-        149,
-        186,
-        269,
-        273,
-        414,
-        415
-      ],
-      "src/authority/data.ts": [
-        68
+        180,
+        187,
+        188,
+        214
       ],
       "src/authority/epoch.ts": [
-        67
+        70
       ],
       "src/authority/grant.ts": [
         60
       ],
+      "src/authority/id.ts": [
+        17,
+        22,
+        27,
+        28
+      ],
       "src/authority/materializer.ts": [
-        25,
-        85
+        82,
+        85,
+        94,
+        95,
+        96
       ],
       "src/authority/memory.ts": [
         134,
         144,
-        151,
-        167,
-        176,
-        386,
-        393,
-        677,
-        686,
-        697,
-        719,
+        156,
+        174,
+        620,
         733,
         734,
         735,
-        737,
+        736,
         738,
         739,
         740,
         742,
+        744,
         745,
-        753,
-        855,
-        857,
-        867,
-        869,
-        879,
-        881,
-        883,
-        894,
-        896,
+        755,
+        756,
+        760,
+        767,
+        792,
+        802,
+        805,
+        810,
+        828,
+        831,
+        832,
+        833,
+        835,
+        846,
+        848,
+        858,
+        860,
+        870,
+        872,
+        874,
+        885,
+        887,
+        898,
+        900,
+        906,
         907,
-        909,
-        915,
-        916,
-        919,
-        920,
-        926
+        910,
+        911,
+        917
       ],
       "src/authority/service.ts": [
+        70,
+        78,
+        93,
+        99,
+        219,
         229,
+        235,
         237,
-        455,
         459
       ]
     },
     "test/authority/memory.test.ts#MemoryTenantControlStore [C13-AUTH-EPOCH-ADVANCEMENT] memory advances durable path epochs for allow and deny changes": {
       "src/authority/grant.ts": [
-        150,
-        175
-      ],
-      "src/authority/service.ts": [
-        436,
-        729
+        302
       ]
     },
     "test/authority/memory.test.ts#MemoryTenantControlStore allows writes only after bootstrap and only inside an owned transaction": {
@@ -1439,31 +1645,21 @@
     "test/authority/memory.test.ts#MemoryTenantControlStore enforces narrowing and recursively revokes delegated Grant chains": {
       "src/authority/closure.ts": [
         195,
-        196,
         197,
-        201,
-        203
+        201
       ],
       "src/authority/grant.ts": [
-        60,
         165,
-        166,
-        169
+        169,
+        301
       ],
       "src/authority/service.ts": [
-        546,
-        547,
-        709,
-        716,
-        718
+        546
       ]
     },
     "test/authority/memory.test.ts#MemoryTenantControlStore fails closed on malformed anchors and bootstrap requests": {
-      "src/authority/data.ts": [
-        68
-      ],
       "src/authority/memory.ts": [
-        763
+        769
       ],
       "src/authority/service.ts": [
         61,
@@ -1477,9 +1673,6 @@
       ]
     },
     "test/authority/memory.test.ts#MemoryTenantControlStore keeps explicitly revoked role Grants terminal across Role reconciliation": {
-      "src/authority/closure.ts": [
-        256
-      ],
       "src/authority/materializer.ts": [
         71,
         74
@@ -1491,12 +1684,6 @@
         613
       ]
     },
-    "test/authority/memory.test.ts#MemoryTenantControlStore rejects direct stale Workspace and revoked Membership rewrites": {
-      "src/authority/closure.ts": [
-        28,
-        294
-      ]
-    },
     "test/authority/memory.test.ts#MemoryTenantControlStore rejects malformed authority record scalar and collection shapes": {
       "src/authority/data.ts": [
         37,
@@ -1506,68 +1693,64 @@
     },
     "test/authority/memory.test.ts#MemoryTenantControlStore rejects malformed marker and anchor snapshot projections": {
       "src/authority/closure.ts": [
-        133
+        178
       ],
       "src/authority/memory.ts": [
         293,
-        678,
         684,
-        688,
         724,
         745,
-        815,
-        839,
-        850,
-        852
+        806,
+        807,
+        830,
+        838,
+        841,
+        843
       ]
     },
     "test/authority/memory.test.ts#MemoryTenantControlStore rejects unknown versions, extra fields, and codec-key disagreement": {
       "src/authority/memory.ts": [
         697,
         702,
-        707,
         727,
         729,
         733,
-        746,
-        747,
-        857,
-        858
+        848,
+        849
       ]
     },
     "test/authority/memory.test.ts#MemoryTenantControlStore restores deny authority through Team and verified guest identity closures": {
       "src/authority/closure.ts": [
-        140,
-        143,
+        121,
+        150,
+        159,
+        162,
         180,
         181,
         183,
         186,
-        189,
-        190
+        189
       ],
       "src/authority/service.ts": [
         166,
-        187,
-        193
+        257
       ]
     },
     "test/authority/memory.test.ts#MemoryTenantControlStore rolls back post-bootstrap transactions and rejects asynchronous callbacks": {
       "src/authority/memory.ts": [
-        626
+        622,
+        626,
+        971
       ]
     },
     "test/authority/model.test.ts#authority value records [authority.binding] keeps Binding identity immutable while advancing local generations": {
       "src/authority/binding.ts": [
-        87,
-        255,
-        264,
-        267
+        90
       ]
     },
     "test/authority/model.test.ts#authority value records [authority.grant] [authority.scope-epoch] round-trips retained authority records through canonical codecs": {
       "src/authority/grant.ts": [
-        199,
+        90,
         200,
         201,
         212,
@@ -1580,54 +1763,53 @@
         228,
         229,
         230,
+        231,
         236,
         237,
         238,
-        248,
         250,
         251,
         252,
         253,
+        295,
         301
       ]
     },
     "test/authority/model.test.ts#authority value records [authority.invalidation-watermark] joins qualified Actor-local watermarks monotonically": {
       "src/authority/epoch.ts": [
-        174,
-        175,
-        208,
-        213,
-        216,
-        224
+        43
       ]
     },
     "test/authority/model.test.ts#authority value records [authority.path-epoch-evidence] round-trips exact path evidence and reports changed Scopes": {
       "src/authority/epoch.ts": [
-        34,
+        31,
         112,
         116,
-        131,
         136,
+        137,
         140,
         141,
-        324
+        144,
+        323
+      ]
+    },
+    "test/authority/model.test.ts#authority value records advances Scope epochs immutably": {
+      "src/authority/epoch.ts": [
+        75
       ]
     },
     "test/authority/model.test.ts#authority value records rejects an empty authority path as an arity fault": {
       "src/authority/epoch.ts": [
-        156,
         296
       ]
     },
     "test/authority/model.test.ts#authority value records rejects extra Project ancestry for a projectless Workspace": {
       "src/authority/epoch.ts": [
-        296,
         326
       ]
     },
     "test/authority/model.test.ts#Grant model [C13-AUTH-PLANE] prohibits deny attenuation": {
       "src/authority/grant.ts": [
-        113,
         114
       ]
     },
@@ -1637,6 +1819,9 @@
       ]
     },
     "test/authority/model.test.ts#Grant model direct Grants replace only with their exact revocation": {
+      "src/authority/data.ts": [
+        68
+      ],
       "src/authority/grant.ts": [
         189,
         190,
@@ -1647,13 +1832,18 @@
       ]
     },
     "test/authority/model.test.ts#Grant model Grant.fromData rejects malformed fields with exact reasons": {
+      "src/authority/data.ts": [
+        29
+      ],
       "src/authority/grant.ts": [
         220,
         221,
         224,
         250,
+        251,
         255,
         258,
+        261,
         263,
         264,
         269,
@@ -1661,11 +1851,17 @@
         297
       ]
     },
+    "test/authority/model.test.ts#Grant model revokes immutably and cannot restore live authority": {
+      "src/authority/grant.ts": [
+        73
+      ]
+    },
     "test/authority/model.test.ts#Grant model role Grant replacement pins subject, Scope, origin, and lineage exactly": {
       "src/authority/grant.ts": [
         175,
         176,
         177,
+        178,
         179,
         181,
         182,
@@ -1673,7 +1869,6 @@
         186,
         189,
         275,
-        276,
         277,
         278,
         279,
@@ -1684,8 +1879,7 @@
         291
       ],
       "src/authority/reference.ts": [
-        18,
-        19
+        18
       ]
     },
     "test/authority/model.test.ts#Grant model role origins admit 1..256 character names and non-negative ordinals": {
@@ -1694,6 +1888,7 @@
         276,
         277,
         279,
+        280,
         281
       ]
     },
@@ -1701,7 +1896,8 @@
       "src/authority/grant.ts": [
         220,
         230,
-        237,
+        239,
+        264,
         265,
         266
       ]
@@ -1709,21 +1905,25 @@
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService Binding authority gate names the Binding in duplicate creation and absent replacement": {
       "src/authority/binding.ts": [
         62,
+        65,
+        121,
         124,
         154,
         182,
-        201,
+        200,
         203,
-        206,
+        204,
+        208,
         209,
-        214,
-        218,
+        215,
+        216,
+        217,
         219,
-        222
-      ],
-      "src/authority/memory.ts": [
-        122,
-        390
+        220,
+        221,
+        222,
+        259,
+        261
       ],
       "src/authority/service.ts": [
         456,
@@ -1742,15 +1942,19 @@
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService Binding authority gate refuses a Binding naming a deny Grant": {
-      "src/authority/grant.ts": [
-        113
-      ],
       "src/authority/service.ts": [
         532
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService Binding authority gate refuses a Binding naming a Grant that does not exist": {
+      "src/authority/binding.ts": [
+        90,
+        116
+      ],
       "src/authority/service.ts": [
+        454,
+        455,
+        527,
         529
       ]
     },
@@ -1769,17 +1973,12 @@
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService Binding authority gate refuses to re-point a live Binding at a revoked Grant": {
       "src/authority/binding.ts": [
-        228,
-        240
+        228
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService closure and epoch effects changeRole reconciles Grants, bumps epochs, and detects no-ops": {
       "src/authority/materializer.ts": [
-        29,
-        90
-      ],
-      "src/authority/planner.ts": [
-        70
+        29
       ],
       "src/authority/service.ts": [
         306,
@@ -1792,8 +1991,12 @@
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService closure and epoch effects changing a Team invalidates its Membership Scopes": {
+      "src/authority/closure.ts": [
+        236
+      ],
       "src/authority/memory.ts": [
         437,
+        445,
         446
       ],
       "src/authority/service.ts": [
@@ -1814,15 +2017,13 @@
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService closure and epoch effects disabling a Principal invalidates team-derived Grant Scopes exactly once": {
-      "src/authority/closure.ts": [
-        121
-      ],
       "src/authority/memory.ts": [
         254
       ],
       "src/authority/service.ts": [
         177,
         179,
+        554,
         559,
         560,
         565,
@@ -1837,8 +2038,8 @@
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService closure and epoch effects disabling an unrelated Principal leaves epochs untouched": {
-      "src/authority/key.ts": [
-        9
+      "src/authority/reference.ts": [
+        19
       ],
       "src/authority/service.ts": [
         557,
@@ -1848,12 +2049,12 @@
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService closure and epoch effects revoked delegations do not re-enter the revocation closure": {
-      "src/authority/reference.ts": [
-        15
+      "src/authority/planner.ts": [
+        68
       ],
       "src/authority/service.ts": [
         444,
-        448,
+        445,
         720,
         726,
         727,
@@ -1870,21 +2071,16 @@
       "src/authority/service.ts": [
         288,
         498,
-        500,
         502,
         503,
-        504,
         505,
         510,
         516
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService closure and epoch effects role swap rematerializes live Grants at stable IDs": {
-      "src/authority/data.ts": [
-        68
-      ],
-      "src/authority/memory.ts": [
-        489
+      "src/authority/grant.ts": [
+        185
       ],
       "src/authority/service.ts": [
         490,
@@ -1898,55 +2094,44 @@
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService closure and epoch effects suspending a Membership revokes replaced role Grants and delegations": {
-      "src/authority/closure.ts": [
-        316,
-        317,
-        327
-      ],
       "src/authority/grant.ts": [
-        52,
-        66,
-        73,
-        163,
-        165,
         166,
         285,
         286,
-        287,
-        289,
+        300,
         302
       ],
       "src/authority/materializer.ts": [
+        59,
         70,
-        78
+        95
       ],
       "src/authority/service.ts": [
         401,
         402,
         481,
         485,
-        486,
         494,
         546,
         701,
         706,
         708,
         709,
-        712,
+        711,
         714,
+        716,
         718,
         720
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService creation gate precedence canonical Project Scopes admit Memberships and bump their epoch": {
-      "src/authority/closure.ts": [
-        408
-      ],
       "src/authority/service.ts": [
         341,
+        519,
         520,
         521,
-        641
+        641,
+        648
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService creation gate precedence guest trust creation gate covers host, state, and revision faults": {
@@ -1974,10 +2159,8 @@
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService creation gate precedence Scope tenant validation precedes Grant subject existence": {
       "src/authority/service.ts": [
-        632,
         633,
-        635,
-        636
+        635
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService creation gate precedence Team creation checks tenant, then revision, then Principals": {
@@ -1986,7 +2169,6 @@
         189,
         190,
         193,
-        195,
         196
       ]
     },
@@ -1999,15 +2181,13 @@
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane [C13-AUTH-GUEST-VERIFICATION] denies a direct Grant to a foreign subject": {
       "src/authority/service.ts": [
-        678,
+        673,
         679
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane [C13-AUTH-GUEST-VERIFICATION] verifies provenance before materializing any guest Grant and a failure denies": {
       "src/authority/materializer.ts": [
-        74,
         80,
-        95,
         96
       ]
     },
@@ -2022,17 +2202,14 @@
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane denies inactive trust with matching evidence": {
-      "src/authority/closure.ts": [
-        300
-      ],
       "src/authority/service.ts": [
         359,
-        361,
         370,
         376,
         378,
         379,
         502,
+        591,
         592
       ]
     },
@@ -2048,10 +2225,12 @@
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService guest admission membrane guest shape gate rejects revision and state faults before admission": {
       "src/authority/service.ts": [
+        353,
         356,
         359,
         360,
         361,
+        362,
         364,
         365
       ]
@@ -2074,7 +2253,6 @@
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService record-existence taxonomy missing Grant subjects stay in the protocol taxonomy": {
       "src/authority/service.ts": [
-        668,
         669,
         670,
         671,
@@ -2083,48 +2261,31 @@
     },
     "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService record-existence taxonomy names the record in every already-exists rejection": {
       "src/authority/closure.ts": [
+        256,
         260,
-        261,
-        274,
-        280,
-        286,
-        291,
-        297,
-        309,
-        310,
-        359,
-        362,
-        379,
-        384,
-        389,
-        390,
-        396,
-        415,
-        421,
-        422
-      ],
-      "src/authority/data.ts": [
-        35,
-        37,
-        66
+        261
       ],
       "src/authority/epoch.ts": [
+        88,
         92,
-        94
+        94,
+        97
       ],
       "src/authority/grant.ts": [
-        60,
-        86,
-        90,
-        142,
-        146,
+        216,
+        220,
+        227,
+        230,
+        237,
+        248,
+        251,
         273
       ],
-      "src/authority/id.ts": [
-        15
-      ],
       "src/authority/materializer.ts": [
-        74
+        25,
+        71,
+        78,
+        85
       ],
       "src/authority/memory.ts": [
         98,
@@ -2135,64 +2296,60 @@
         128,
         140,
         142,
+        145,
         146,
-        155,
-        205,
-        261,
-        296,
+        195,
+        267,
+        271,
+        292,
         298,
+        305,
         308,
-        371,
-        405,
-        414,
+        438,
         453,
+        457,
         468,
-        587,
-        588,
-        596,
-        602,
-        618,
-        677,
-        762,
-        776,
-        784,
-        790,
-        807,
-        811,
-        813,
-        815,
-        819,
-        840,
-        841,
-        842,
-        931,
-        934,
-        945,
-        955,
-        958,
-        964
+        469,
+        572,
+        574,
+        575,
+        576,
+        578,
+        579,
+        743,
+        745,
+        802,
+        803,
+        806,
+        826,
+        832,
+        833,
+        848,
+        924,
+        925
+      ],
+      "src/authority/planner.ts": [
+        74
+      ],
+      "src/authority/reference.ts": [
+        14
       ],
       "src/authority/service.ts": [
-        97,
         165,
         167,
         184,
-        185,
         186,
         187,
         193,
-        216,
         217,
         218,
         219,
         225,
         229,
         234,
-        235,
         236,
         237,
         256,
-        257,
         258,
         260,
         261,
@@ -2200,6 +2357,7 @@
         295,
         296,
         297,
+        321,
         322,
         323,
         324,
@@ -2210,18 +2368,19 @@
         425,
         426,
         436,
-        479,
-        481,
-        482,
         544,
         596,
+        601,
         603,
+        612,
         613,
         619,
         620,
         621,
         633,
         640,
+        650,
+        651,
         669,
         700
       ]
@@ -2231,11 +2390,8 @@
         113
       ],
       "src/authority/service.ts": [
-        173,
-        174,
         175,
         205,
-        206,
         207,
         225,
         226,
@@ -2256,9 +2412,9 @@
         396,
         397,
         408,
+        409,
         410,
         441,
-        442,
         443,
         543,
         544,
@@ -2267,8 +2423,8 @@
         614,
         628,
         629,
-        661,
         662,
+        663,
         664
       ]
     },
@@ -2277,48 +2433,53 @@
         444
       ]
     },
-    "test/authority/mutation-service-mutation-gates.test.ts#createTenantControlBootstrapPlan anchor validation derives the owner Membership ID deterministically from the anchor": {
-      "src/authority/epoch.ts": [
-        74,
-        75
+    "test/authority/mutation-service-mutation-gates.test.ts#AuthorityMutationService revocation over a divergent Grant graph reads the Grant lineage only for a revocation that has roots": {
+      "src/authority/materializer.ts": [
+        57,
+        59
       ],
-      "src/authority/id.ts": [
-        22,
-        27,
-        28,
-        29
+      "src/authority/service.ts": [
+        484,
+        701
+      ]
+    },
+    "test/authority/mutation-service-mutation-gates.test.ts#createTenantControlBootstrapPlan anchor validation derives the owner Membership ID deterministically from the anchor": {
+      "src/authority/grant.ts": [
+        112,
+        113,
+        276,
+        279
       ],
       "src/authority/materializer.ts": [
         40,
         41,
-        85
-      ],
-      "src/authority/planner.ts": [
-        89
+        61,
+        72,
+        74,
+        97
       ],
       "src/authority/service.ts": [
-        68,
         78,
-        79,
         90,
-        99,
+        98,
         684,
         686
       ]
     },
     "test/authority/mutation-service-mutation-gates.test.ts#createTenantControlBootstrapPlan anchor validation rejects an empty trust anchor as malformed": {
       "src/authority/service.ts": [
-        60,
         61,
         68,
         70,
-        71,
         72
       ]
     },
     "test/authority/permit.test.ts#[authority-permit-owner-store] memory denies conflicting nonce reuse and foreign owner transactions": {
       "src/authority/binding.ts": [
         267
+      ],
+      "src/authority/data.ts": [
+        68
       ],
       "src/authority/permit-store.ts": [
         51,
@@ -2338,23 +2499,18 @@
     "test/authority/permit.test.ts#[authority-permit-owner-store] memory issues and consumes exactly once across owner-store restart": {
       "src/authority/binding.ts": [
         247,
-        259,
-        261,
-        262,
-        263,
         264,
         267,
         272
       ],
       "src/authority/data.ts": [
-        13,
-        22,
-        29,
-        45,
-        68
+        12
       ],
       "src/authority/epoch.ts": [
-        85
+        84,
+        85,
+        124,
+        315
       ],
       "src/authority/permit-authentication.ts": [
         21,
@@ -2418,7 +2574,8 @@
         273
       ],
       "src/authority/permit.ts": [
-        152,
+        147,
+        151,
         157,
         164,
         165,
@@ -2447,33 +2604,32 @@
         258,
         259,
         260,
-        264,
+        265,
         266,
-        271,
-        272,
+        270,
+        273,
+        277,
         278,
-        279,
         283,
-        299,
         315,
         320,
+        326,
         343,
-        407,
         413,
         416,
         417,
         434,
-        444,
+        443,
+        445,
         450,
         451,
         458,
         461,
         464,
         473,
-        475,
         495,
         498,
-        500,
+        499,
         505,
         510,
         511,
@@ -2482,42 +2638,38 @@
         518,
         525,
         526,
+        527,
         529,
         530,
         544,
         545,
-        552,
-        560,
+        553,
         562,
-        563,
         564,
         567,
-        574,
+        570,
+        578,
         580,
-        587,
-        592,
-        595,
+        583,
+        599,
         601,
         602,
         603,
-        609,
         610,
         613,
-        619,
+        617,
         620,
-        623,
         625,
-        626,
         627,
-        635,
         636,
         643,
         648,
         649,
+        655,
         657
       ],
       "src/authority/reference.ts": [
-        14,
+        15,
         22,
         26
       ]
@@ -2544,7 +2696,9 @@
         367,
         370,
         373,
-        382
+        382,
+        400,
+        403
       ]
     },
     "test/authority/permit.test.ts#AuthorityPermit authentication mutation gates admission evidence binds to the exact authenticated permit bytes": {
@@ -2740,7 +2894,7 @@
         533,
         534,
         535,
-        537,
+        538,
         564
       ]
     },
@@ -2789,16 +2943,13 @@
     },
     "test/authority/record-closure.test.ts#Tenant authority record closure: 'memory' [authority-mutation-store] reaches the same verdict from a changed record as from a full sweep": {
       "src/authority/closure.ts": [
-        313,
         316,
-        317,
         324,
-        326,
-        328,
-        422
+        326
       ],
       "src/authority/grant.ts": [
-        165
+        165,
+        166
       ]
     },
     "test/authority/record-closure.test.ts#Tenant authority record closure: 'memory' [authority-mutation-store] refuses a Binding whose Grant later denies": {
@@ -2807,34 +2958,38 @@
         219
       ]
     },
-    "test/authority/record-closure.test.ts#Tenant authority record closure: 'memory' [authority-mutation-store] refuses a Grant graph that attenuates in a cycle": {
-      "src/authority/grant.ts": [
-        169
-      ]
-    },
     "test/authority/record-closure.test.ts#Tenant authority record closure: 'memory' [authority-mutation-store] refuses every Binding its Grant does not cover": {
       "src/authority/closure.ts": [
+        215,
         217,
+        229,
         235,
-        412
-      ],
-      "src/authority/data.ts": [
-        68
-      ],
-      "src/authority/epoch.ts": [
-        19,
-        70,
-        81
-      ],
-      "src/authority/memory.ts": [
-        522
+        239,
+        256,
+        259,
+        261,
+        265,
+        269,
+        270,
+        341,
+        347,
+        358,
+        360,
+        362
       ],
       "src/authority/service.ts": [
-        613
+        448
+      ]
+    },
+    "test/authority/record-closure.test.ts#Tenant authority record closure: 'memory' [authority-mutation-store] refuses Role Grants that stopped matching their Membership": {
+      "src/authority/closure.ts": [
+        236,
+        242
       ]
     },
     "test/authority/runtime-epoch-mutation-gates.test.ts#authority check request and evidence mutation gates binds evidence to the exact request digest, Binding key, and generation": {
       "src/authority/evidence.ts": [
+        272,
         274,
         275,
         276
@@ -2842,25 +2997,33 @@
     },
     "test/authority/runtime-epoch-mutation-gates.test.ts#authority check request and evidence mutation gates decodes evidence strictly across reasons, decisions, and issuers": {
       "src/authority/evidence.ts": [
-        286,
-        308,
+        301,
+        303,
+        305,
+        307,
+        310,
+        311,
         315,
         316,
+        317,
         319,
         324,
+        325,
+        326,
         328,
         329,
         330,
+        331,
         332,
         376,
         377,
         384,
-        386,
         387,
         391,
         408,
         409,
-        414,
+        412,
+        413,
         415,
         416,
         417,
@@ -2880,11 +3043,13 @@
       "src/authority/evidence.ts": [
         226,
         227,
+        231,
         237,
-        238,
         241,
         250,
+        281,
         289,
+        368,
         437,
         439
       ]
@@ -2895,41 +3060,24 @@
         76,
         79,
         81,
-        82
+        82,
+        434
       ]
     },
     "test/authority/runtime-epoch-mutation-gates.test.ts#authority check request and evidence mutation gates round-trips delegate-impact intents through the codec": {
       "src/authority/binding.ts": [
-        31,
-        90
+        255
       ],
       "src/authority/evidence.ts": [
-        117,
-        129,
-        148,
-        155,
-        157,
-        159,
-        161,
-        168,
-        169,
         170,
         171,
         174,
-        175,
-        179,
-        182,
-        183,
-        187,
-        349,
+        340,
         353,
+        362,
+        384,
         385,
-        394,
-        396,
         400
-      ],
-      "src/authority/reference.ts": [
-        34
       ]
     },
     "test/authority/runtime-epoch-mutation-gates.test.ts#invalidation watermark mutation gates canonically orders delivered entries regardless of construction order": {
@@ -2939,10 +3087,9 @@
     },
     "test/authority/runtime-epoch-mutation-gates.test.ts#invalidation watermark mutation gates decodes watermarks strictly with exact owner kinds and subjects": {
       "src/authority/epoch.ts": [
-        256,
-        278,
+        262,
+        272,
         280,
-        282,
         289,
         330,
         332,
@@ -2956,44 +3103,39 @@
     "test/authority/runtime-epoch-mutation-gates.test.ts#invalidation watermark mutation gates joins watermarks monotonically without revising unchanged entries": {
       "src/authority/epoch.ts": [
         175,
-        179,
+        194,
         206,
         208,
-        212,
-        215,
-        216,
-        224,
-        240
+        214,
+        224
       ]
     },
     "test/authority/runtime-epoch-mutation-gates.test.ts#memory invalidation watermark store mutation gates enforces owner identity, initialization, and revision continuity with exact codes": {
       "src/authority/epoch.ts": [
-        198,
-        202
+        198
       ],
       "src/authority/watermark-store.ts": [
         25,
         44,
-        46,
         51,
         52,
+        53,
         55,
         56,
         61,
         62,
         64,
-        65,
-        68,
+        71,
         73,
-        75,
         77,
         78,
+        85,
         87,
         89,
-        90,
         127,
         128,
         129,
+        130,
         131
       ]
     },
@@ -3006,21 +3148,15 @@
       ]
     },
     "test/authority/runtime-epoch-mutation-gates.test.ts#memory invalidation watermark store mutation gates persists each changed watermark and reloads the exact revision": {
-      "src/authority/epoch.ts": [
-        251
-      ],
       "src/authority/watermark-store.ts": [
         71,
-        73,
-        74
+        73
       ]
     },
     "test/authority/runtime-epoch-mutation-gates.test.ts#memory invalidation watermark store mutation gates rejects malformed snapshots and records with the exact codec error": {
       "src/authority/watermark-store.ts": [
-        125,
         127,
         129,
-        132,
         133,
         135,
         137,
@@ -3038,7 +3174,6 @@
         26,
         28,
         29,
-        34,
         36,
         40,
         98,
@@ -3046,16 +3181,17 @@
         102,
         103,
         104,
-        105,
+        116,
         137,
         138,
         139,
         140,
-        141
+        142
       ]
     },
     "test/authority/runtime-epoch-mutation-gates.test.ts#Scope epoch and path evidence mutation gates accepts every canonical Scope chain and rejects malformed paths with exact reasons": {
       "src/authority/epoch.ts": [
+        295,
         296,
         297,
         301,
@@ -3075,10 +3211,8 @@
       "src/authority/epoch.ts": [
         126,
         132,
-        137,
         140,
         141,
-        144,
         296,
         299,
         301,
@@ -3087,7 +3221,8 @@
         311,
         312,
         315,
-        323
+        323,
+        324
       ]
     },
     "test/authority/runtime-epoch-mutation-gates.test.ts#Scope epoch and path evidence mutation gates decodes path evidence strictly with exact subjects": {
@@ -3098,67 +3233,60 @@
     },
     "test/authority/runtime-epoch-mutation-gates.test.ts#Scope epoch and path evidence mutation gates distinguishes epochs by Scope and reports exhaustion for the exact Scope": {
       "src/authority/epoch.ts": [
-        75,
         85
       ]
     },
     "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-NEW-DENY] [C13-AUTH-DENY-PRECEDENCE] denies an allowed intent after a new matching deny": {
       "src/authority/binding.ts": [
-        121,
-        152
+        138,
+        152,
+        262,
+        263,
+        264
       ],
-      "src/authority/epoch.ts": [
-        127
+      "src/authority/closure.ts": [
+        183
       ],
       "src/authority/evidence.ts": [
-        226,
         237,
         238,
-        247,
-        269
-      ],
-      "src/authority/memory.ts": [
-        385
+        244
       ],
       "src/authority/runtime.ts": [
         61,
+        67,
+        69,
         109,
         112,
+        127,
+        128,
         132,
-        137,
         138,
         140,
-        149,
         150,
         154,
         155,
         157,
-        198,
-        273,
-        278,
-        280,
-        298
-      ],
-      "src/authority/service.ts": [
-        648
-      ]
-    },
-    "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-ADV-REVOKED-ALLOW] rejects a revoked backing allow Grant": {
-      "src/authority/service.ts": [
-        701
+        159,
+        166,
+        178,
+        199,
+        204,
+        273
       ]
     },
     "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-AUTH-DIRECT-SUBJECT] unions direct and Team subjects without allowing unrelated principals": {
+      "src/authority/closure.ts": [
+        175
+      ],
       "src/authority/evidence.ts": [
         241
       ],
       "src/authority/runtime.ts": [
         135,
-        137,
-        207
+        137
       ],
       "src/authority/service.ts": [
-        669,
         671
       ]
     },
@@ -3166,38 +3294,39 @@
       "src/authority/binding.ts": [
         40,
         162,
-        164
-      ],
-      "src/authority/memory.ts": [
-        421
+        164,
+        278
       ],
       "src/authority/runtime.ts": [
+        93,
+        100,
+        101,
         138
+      ],
+      "src/authority/service.ts": [
+        173
       ]
     },
     "test/authority/runtime-foundation.test.ts#Tenant authority runtime persists immutable Tenant Project and Workspace topology": {
+      "src/authority/closure.ts": [
+        144,
+        149
+      ],
       "src/authority/memory.ts": [
-        136,
-        145,
-        156,
-        271,
         278,
-        284,
-        289,
-        298,
-        305,
-        308
+        289
       ],
       "src/authority/runtime.ts": [
         50
       ],
       "src/authority/service.ts": [
+        60,
         61,
         68,
         75,
         87,
-        98,
-        613
+        96,
+        100
       ]
     },
     "test/authority/runtime-foundation.test.ts#Tenant authority runtime refuses a stored Binding that no longer resolves": {
@@ -3212,25 +3341,18 @@
     },
     "test/authority/runtime-foundation.test.ts#Tenant authority runtime refuses an intent Facet the Binding does not name": {
       "src/authority/runtime.ts": [
+        109,
         185
       ]
     },
     "test/authority/runtime-foundation.test.ts#Tenant authority runtime returns current path evidence and detects stale evidence": {
-      "src/authority/epoch.ts": [
-        85,
-        126
-      ],
       "src/authority/runtime.ts": [
         99
-      ],
-      "src/authority/service.ts": [
-        519
       ]
     },
     "test/authority/runtime-foundation.test.ts#verified guest lifecycle materializes attenuated guest Grants and revokes them when trust is revoked": {
       "src/authority/closure.ts": [
-        44,
-        300
+        44
       ],
       "src/authority/materializer.ts": [
         100
@@ -3241,14 +3363,16 @@
         150,
         159,
         160,
+        172,
         179,
-        229
+        228,
+        236
       ],
       "src/authority/service.ts": [
+        500,
         502,
-        516,
-        592,
-        701
+        504,
+        516
       ]
     },
     "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates [C13-AUTH-GUEST-ELEVATION] enforces guest proof, current trust, and elevation": {
@@ -3267,7 +3391,6 @@
         233,
         234,
         235,
-        236,
         237,
         242,
         243,
@@ -3279,6 +3402,7 @@
         132,
         133,
         204,
+        207,
         208,
         215
       ]
@@ -3320,7 +3444,6 @@
       "src/authority/runtime.ts": [
         66,
         68,
-        69,
         70,
         72,
         249,
@@ -3337,7 +3460,6 @@
         111,
         169,
         171,
-        178,
         182,
         183,
         184,
@@ -3347,6 +3469,7 @@
         193,
         194,
         195,
+        198,
         199,
         206
       ]
@@ -3361,38 +3484,36 @@
     },
     "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates returns closed denial reasons for local principal and Binding failures": {
       "src/authority/binding.ts": [
-        31,
-        86,
         90,
-        107
+        107,
+        277,
+        278
+      ],
+      "src/authority/evidence.ts": [
+        439
       ],
       "src/authority/runtime.ts": [
         66,
-        67,
         68,
-        71,
         87,
         93,
         97,
         100,
-        101,
         109,
-        127,
-        128,
-        155,
-        159,
         166,
         169,
         203,
         204,
         222,
-        227,
+        223,
         228,
         250,
         254,
         261,
         277,
+        278,
         280,
+        298,
         299
       ]
     },
@@ -3402,6 +3523,8 @@
       ],
       "src/authority/runtime.ts": [
         272,
+        273,
+        282,
         286,
         287,
         288,
@@ -3411,7 +3534,6 @@
     },
     "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime mutation kill gates denies deny-backed and revoked-backed Bindings with exact reasons and decision": {
       "src/authority/runtime.ts": [
-        109,
         166,
         167,
         169
@@ -3486,20 +3608,33 @@
         262
       ]
     },
+    "test/authority/sqlite-ledger.test.ts#SQLite Tenant authority mutation storage [C13-AUTH-EPOCH-ADVANCEMENT] SQLite advances durable path epochs for allow and deny changes": {
+      "src/authority/service.ts": [
+        436,
+        448,
+        718
+      ]
+    },
     "test/authority/sqlite-ledger.test.ts#SQLite Tenant authority mutation storage bumps team and principal resolver-input mutations": {
       "src/authority/service.ts": [
-        554,
         566,
         567,
+        575,
         579,
         580,
-        591,
         592
       ]
     },
     "test/authority/sqlite-ledger.test.ts#SQLite Tenant authority mutation storage enforces narrowing and recursively revokes delegated Grant chains": {
       "src/authority/service.ts": [
-        720
+        547,
+        709,
+        712
+      ]
+    },
+    "test/authority/sqlite-ledger.test.ts#SQLite Tenant authority mutation storage enforces Tenant and immutable record boundaries": {
+      "src/authority/service.ts": [
+        636
       ]
     },
     "test/authority/sqlite-ledger.test.ts#SQLite Tenant authority mutation storage reconciles Membership Grants and bumps exactly once on revoke": {
@@ -3507,23 +3642,18 @@
         416,
         595,
         596,
-        601
-      ]
-    },
-    "test/authority/sqlite-ledger.test.ts#SQLite Tenant authority mutation storage refuses a durable Binding on a revoked Grant, which the ledger alone would keep": {
-      "src/authority/service.ts": [
-        527
+        603,
+        701
       ]
     },
     "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] denies a same-PrincipalId Principal from another Tenant at mediated admission": {
-      "src/authority/binding.ts": [
-        277
-      ],
       "src/authority/runtime.ts": [
         132,
         133,
-        154,
-        155
+        137,
+        138,
+        149,
+        215
       ]
     },
     "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] refuses a record whose Principal subject belongs to another Tenant": {
@@ -3531,64 +3661,41 @@
         187
       ],
       "src/authority/binding.ts": [
-        94,
-        278
+        94
       ],
       "src/authority/grant.ts": [
         117
       ]
     },
-    "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] rejects an unqualified stored Principal subject rather than inferring its Tenant": {
-      "src/authority/binding.ts": [
-        65
-      ]
-    },
     "test/composition/authored-code-delegation.test.ts#passing a capability set into a §4.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] binds the passed set to attenuations in the isolate's own domain": {
-      "src/authority/binding-evidence.ts": [
-        178,
-        181
-      ],
       "src/authority/evidence.ts": [
-        368,
-        439
+        367,
+        368
       ],
       "src/authority/grant.ts": [
-        178
+        175,
+        177
       ],
       "src/authority/runtime.ts": [
-        223,
-        250,
-        254,
-        261,
-        273,
+        66,
+        71,
+        227,
+        277,
         282
       ],
       "src/authority/service.ts": [
-        454,
-        612,
-        640,
-        707,
-        711
+        633,
+        640
       ]
     },
     "test/composition/authored-code-delegation.test.ts#passing a capability set into a §4.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] refuses a passed set wider than the delegator holds": {
       "src/authority/service.ts": [
-        546,
-        547
+        546
       ]
     },
     "test/composition/authored-code-delegation.test.ts#passing a capability set into a §4.7 isolate is delegation [C13-AUTH-ISOLATE-DELEGATION] revoking a passed Grant severs the isolate and leaves its loader whole": {
       "src/authority/evidence.ts": [
-        268
-      ],
-      "src/authority/service.ts": [
-        445,
-        729
-      ]
-    },
-    "test/composition/authority-commands.test.ts#closed Tenant authority command gates a substituted issued permit fails closed": {
-      "src/authority/data.ts": [
-        68
+        269
       ]
     },
     "test/composition/authority-commands.test.ts#closed Tenant authority command gates substituted authority check evidence fails closed": {
@@ -3601,86 +3708,85 @@
         283,
         303,
         330,
+        407,
         422,
         430,
         434,
         441,
-        443,
-        445
+        444
       ]
     },
     "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) admits exact current check and permit leases while rejecting stale epochs": {
-      "src/authority/data.ts": [
-        62
-      ],
       "src/authority/permit.ts": [
         140,
         147,
         151,
+        152,
         157,
         158,
+        164,
         261,
         263,
-        265,
+        264,
         268,
         269,
-        270,
-        273,
+        271,
+        272,
         274,
         275,
         276,
-        277,
+        279,
         280,
         281,
         282,
         283,
-        326,
+        299,
         337,
-        400,
-        403,
         421,
         474,
+        475,
         486,
         488,
         489,
         492,
         495,
-        499,
         501,
         503,
-        516,
+        504,
         517,
-        522,
         524,
         525,
         533,
         534,
-        538,
-        553,
+        537,
+        552,
+        560,
         562,
+        563,
         564,
         569,
-        570,
+        574,
         575,
-        578,
         580,
         582,
-        583,
+        587,
         589,
+        592,
+        595,
         596,
-        599,
         601,
         604,
         605,
-        617,
+        609,
         619,
-        620,
+        623,
         625,
         626,
         627,
+        635,
+        636,
         643,
-        649,
-        655
+        657
       ]
     },
     "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) binds validation and check evidence to the authenticated source and decision time": {
@@ -3689,92 +3795,105 @@
         41,
         51,
         52,
-        55,
-        58
+        137,
+        150,
+        175,
+        178,
+        181
       ],
       "src/authority/binding.ts": [
         30,
+        31,
+        86,
         87,
         90,
         248
       ],
       "src/authority/data.ts": [
+        13,
         22,
-        27,
         29
       ],
       "src/authority/epoch.ts": [
-        84,
-        121,
+        106,
+        108,
         126,
-        156,
+        127,
+        148,
+        149,
         296,
-        299,
-        301
+        303,
+        308
       ],
       "src/authority/evidence.ts": [
         58,
+        61,
         71,
         75,
-        79,
         91,
+        117,
+        121,
+        129,
         130,
-        138,
         141,
-        153,
-        156,
+        148,
+        154,
+        155,
+        157,
         158,
+        159,
+        160,
         163,
         167,
         169,
         170,
         172,
         177,
-        180,
-        184,
+        179,
+        182,
+        183,
         185,
         186,
+        187,
         188,
-        197,
         200,
         224,
         226,
         231,
         232,
         244,
-        281,
-        296,
-        301,
-        302,
+        247,
+        251,
+        257,
+        265,
+        268,
+        269,
+        286,
+        288,
+        300,
         304,
-        305,
-        306,
-        307,
-        310,
-        311,
+        308,
+        309,
         316,
-        317,
         321,
-        325,
+        322,
         329,
         330,
         339,
-        340,
+        349,
         353,
         357,
-        358,
         366,
+        368,
         375,
         376,
         382,
         384,
         385,
         396,
-        398,
-        407,
         408,
-        412,
-        413
+        414,
+        434
       ]
     },
     "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) commits a typed stale-path denial instead of issuing stale authority": {
@@ -3791,34 +3910,28 @@
         408
       ]
     },
-    "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-DIRECT-DEADLINE] admits direct calls strictly before the derived deadline and never at or after it": {
-      "src/authority/watermark-store.ts": [
-        25
-      ]
-    },
     "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-DIRECT-WATERMARK] a delivered higher epoch ends direct authorization; equal or lower does not": {
       "src/authority/epoch.ts": [
         224,
         229,
-        246,
-        248,
+        240,
         251,
         255,
         257,
-        262,
+        258,
         268,
         272,
         275,
-        276,
         277,
         278,
         283,
         286,
         287,
         289,
-        290,
-        332,
-        333
+        290
+      ],
+      "src/authority/watermark-store.ts": [
+        61
       ]
     },
     "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-WATERMARK-MONOTONE] delivery and observation share one monotone per-holder watermark": {
@@ -3827,14 +3940,14 @@
         251
       ]
     },
+    "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-DIRECT-DEADLINE] admits direct calls strictly before the derived deadline and never at or after it": {
+      "src/authority/watermark-store.ts": [
+        115
+      ]
+    },
     "test/composition/authority-state.test.ts#production authority state seams (memory) persists only watermark records that establish or advance holder state": {
       "src/authority/epoch.ts": [
         224
-      ]
-    },
-    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition admits a target-pulled canonical Tenant permit exactly once": {
-      "src/authority/permit.ts": [
-        527
       ]
     },
     "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition denies an exact locally constructed permit before target admission": {
@@ -3844,104 +3957,97 @@
     },
     "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (memory) validates a Binding, checks the intent, and issues the permit as linked evidence": {
       "src/authority/binding-evidence.ts": [
-        92,
-        105,
-        116,
-        122,
-        128,
-        130,
-        136,
-        150,
         153,
         193,
         197,
-        215,
-        232,
-        243,
-        246,
-        248,
-        254,
+        205,
+        214,
+        237,
+        251,
         255,
         263,
         264
       ],
       "src/authority/binding.ts": [
-        196,
-        205,
-        216,
-        220
+        206
+      ],
+      "src/authority/data.ts": [
+        62,
+        68
       ],
       "src/authority/evidence.ts": [
-        121,
         125,
-        152,
-        162,
-        169,
-        265,
-        269,
-        272,
-        276,
-        288,
-        300,
-        303,
-        309,
-        316,
-        322,
-        326,
-        331,
+        138,
+        153,
+        161,
+        280,
+        296,
+        302,
+        306,
         353,
         356,
+        358,
         359,
         360,
-        362,
-        367,
-        368,
         374,
         376,
-        384,
-        396
+        407
       ],
       "src/authority/permit.ts": [
         495,
-        504
+        500,
+        516,
+        522
+      ]
+    },
+    "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-SELF-ATTENUATION] creates a child Run under a durably attenuated Grant": {
+      "src/authority/grant.ts": [
+        168,
+        201,
+        216
       ]
     },
     "test/operations/authored-code.test.ts#the one channel out of a §4.7 isolate [C13-AUTH-ISOLATE-DELEGATION] carries a call the passed set names": {
       "src/authority/binding.ts": [
+        87,
         151,
         152
       ],
       "src/authority/epoch.ts": [
-        124,
+        85,
         208
-      ]
-    },
-    "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway tightens to mediated when the Turn Actor lacks local versioned Binding authority": {
-      "src/authority/epoch.ts": [
-        85
       ]
     },
     "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway uses delayed watermark, exact lease, and immutable deadline cutoffs before execution": {
       "src/authority/binding.ts": [
         31,
-        278
+        87
       ],
       "src/authority/epoch.ts": [
         208,
         213,
+        216,
         224,
         226,
-        229
+        229,
+        301
       ]
     },
     "test/protocol/authority-evidence.test.ts#authority protocol evidence [authority.check-request] [authority.check-evidence] [protocol.authority-check-reply] round-trips complete check identity without accepting altered arguments": {
       "src/authority/evidence.ts": [
         94,
         95,
-        154,
-        160,
-        251,
-        257,
+        152,
+        156,
+        162,
+        168,
+        169,
+        175,
+        180,
+        184,
+        197,
+        226,
+        247,
         261,
         269,
         274
@@ -3949,72 +4055,63 @@
     },
     "test/protocol/authority-evidence.test.ts#authority protocol evidence [C13-AUTH-PATH-ORDER] rejects evidence with inconsistent issuer, path, reason, or matched Grants": {
       "src/authority/evidence.ts": [
+        226,
         238,
         239,
         241,
         242,
-        244,
         245
       ]
     },
-    "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions [protocol.tenant-bootstrap-anchor] memory composition creates and restores the complete closure": {
-      "src/authority/memory.ts": [
-        801
-      ]
-    },
-    "test/substrates/sqlite/authority-hard-gates.test.ts#SQLite Tenant and identity hard gates requires anchor, completed bootstrap, and nonnested transactions": {
-      "src/authority/grant.ts": [
-        119
-      ],
-      "src/authority/id.ts": [
-        6
-      ],
-      "src/authority/reference.ts": [
-        30
+    "test/substrates/sqlite/authority-hard-gates.test.ts#SQLite authority adapter taxonomy converts missing writes and malformed projections to AgentCoreError": {
+      "src/authority/epoch.ts": [
+        85
       ]
     },
     "test/substrates/sqlite/authority-hard-gates.test.ts#SQLite watermark hard gates anchors stores and enforces monotonic revisions": {
       "src/authority/epoch.ts": [
         46,
         172,
-        194,
+        175,
+        179,
         195,
-        214,
-        258,
-        272
-      ],
-      "src/authority/watermark-store.ts": [
-        115
+        202,
+        215,
+        224,
+        256,
+        272,
+        276,
+        277,
+        278,
+        280,
+        282
       ]
     },
     "test/substrates/sqlite/authority-hard-gates.test.ts#SQLite watermark hard gates rejects malformed SQLite driver row types and lost writes": {
       "src/authority/epoch.ts": [
         183,
+        248,
         251
       ]
     },
     "test/substrates/sqlite/behavior-branches.test.ts#SQLite Tenant control behavior branches [authority-mutation-store] [identity-repository] memory and SQLite satisfy one shared Tenant control contract": {
       "src/authority/service.ts": [
         459,
-        470
+        470,
+        520
       ]
     },
     "test/substrates/sqlite/store-parity.test.ts#authority store parity: 'memory' [invalidation-watermark-store] joins watermarks pointwise without decreasing or duplicating Scopes": {
-      "src/authority/data.ts": [
-        43,
-        45
-      ],
       "src/authority/watermark-store.ts": [
         46,
         49,
         51,
-        53,
-        62,
-        71,
-        85,
+        61,
+        74,
         87,
         127,
-        130
+        128,
+        129
       ]
     },
     "test/substrates/sqlite/store-parity.test.ts#memory invalidation watermark snapshot isolation detaches watermark bytes and rejects projection disagreement": {
@@ -4026,28 +4123,32 @@
         37,
         38,
         61,
-        73,
-        102,
+        62,
+        65,
+        68,
+        75,
+        90,
+        105,
         107,
-        127,
+        125,
         130,
+        132,
         137,
+        138,
         139,
-        140,
-        142
+        141
       ]
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control canonical Scope enforcement requires canonical authority Scopes for Grants and epochs": {
       "src/authority/closure.ts": [
         131,
         183,
-        362,
-        414
+        408
       ]
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control closure integrity accepts Team-subject Memberships whose Team is stored": {
       "src/authority/closure.ts": [
-        150,
+        256,
         341,
         385
       ]
@@ -4059,32 +4160,34 @@
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control closure integrity fails closed when relational rows reference ghosts": {
       "src/authority/closure.ts": [
-        102,
-        106,
-        118,
+        80,
+        100,
         119,
         127,
         130,
         132,
+        133,
+        137,
         143,
+        145,
         146,
         149,
-        150,
+        151,
         152,
+        266,
+        270,
+        291,
         395,
         396,
-        398,
-        425,
-        426
+        399
       ]
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control closure integrity rejects Grants that break the closure inside the writing transaction": {
       "src/authority/closure.ts": [
-        34,
         175,
-        177,
         180,
         183,
+        239,
         361,
         362,
         364,
@@ -4094,25 +4197,27 @@
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control closure integrity reports a replaced Grant as replaced, so its children are audited": {
       "src/authority/closure.ts": [
         29,
-        38,
-        39,
         172,
         313,
         315,
-        316,
         324,
-        325,
         327,
-        336
+        328
       ],
       "src/authority/grant.ts": [
         165,
-        168
+        166,
+        169,
+        175
+      ]
+    },
+    "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control closure integrity requires every record the bootstrap plan names on reopen": {
+      "src/authority/materializer.ts": [
+        100
       ]
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control closure integrity surfaces foreign Membership Scopes as Scope ownership faults": {
       "src/authority/closure.ts": [
-        404,
         405
       ]
     },
@@ -4122,12 +4227,9 @@
         157,
         159,
         160,
-        161,
-        162,
         163,
         164,
         165,
-        166,
         167,
         168
       ]
@@ -4135,60 +4237,35 @@
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control construction and transaction gating rejects nested Tenant control transactions": {
       "src/authority/closure.ts": [
         33,
-        37,
         139,
-        143,
-        144,
         149,
         154,
         175,
         176,
         180,
         186,
-        187,
+        254,
+        261,
+        279,
+        285,
+        297,
         340,
-        360,
         372,
-        407,
-        412,
-        422
-      ],
-      "src/authority/data.ts": [
-        37
+        407
       ],
       "src/authority/epoch.ts": [
-        22,
-        75
+        85
+      ],
+      "src/authority/planner.ts": [
+        57,
+        85,
+        89
       ]
     },
     "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control topology and lifecycle guards creates and replays guest trust exactly": {
       "src/authority/closure.ts": [
-        40
-      ]
-    },
-    "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control topology and lifecycle guards enforces the Membership lifecycle exactly": {
-      "src/authority/closure.ts": [
-        380
-      ]
-    },
-    "test/substrates/sqlite/tenant-behavior.test.ts#SQLite Tenant control topology and lifecycle guards keeps Workspace topology immutable with exact diagnoses": {
-      "src/authority/closure.ts": [
-        130
-      ]
-    },
-    "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reconstruction rejects an extra role Grant beyond the materialized set": {
-      "src/authority/closure.ts": [
-        236
-      ]
-    },
-    "test/substrates/sqlite/tenant-control.test.ts#SQLite Tenant control storage reopens a file with identity, Binding, Grant, epoch, anchor, and marker intact": {
-      "src/authority/closure.ts": [
-        256,
-        259,
-        261,
-        266,
-        347,
-        358
+        40,
+        389
       ]
     },
     "test/substrates/sqlite/watermark.test.ts#SQLite watermark store exact failure and persistence behavior requires the exact next revision on watermark updates": {

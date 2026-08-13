@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "actors",
-  "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
-  "fingerprint": "sha256:2cd1ec83dc75009acd934f3f66a486449ed686718eb6d01ab40ac81d0cf3c9ef",
+  "measuredAt": "be905bac8dbec599a2a50ff105947e1eeced2771",
+  "fingerprint": "sha256:2d1481fe14864e82b84590a54e03e4509a590fc784f91a66634c45b221180ed2",
   "files": {
     "src/actors/actor.ts": {
       "mutants": 114,
@@ -78,6 +78,9 @@
         207,
         218
       ],
+      "src/actors/fence.ts": [
+        75
+      ],
       "src/actors/store.ts": [
         56,
         133,
@@ -86,9 +89,6 @@
         157,
         161,
         164
-      ],
-      "src/actors/types.ts": [
-        45
       ]
     },
     "test/actors/actor.test.ts#Memory ActorStore contract [C13-ADV-COMMAND-REJECTIONS] rejects commands after close and invalidates the durable fence": {
@@ -124,6 +124,7 @@
       "src/actors/actor.ts": [
         25,
         186,
+        187,
         199,
         200,
         201,
@@ -151,6 +152,9 @@
         102,
         109,
         110
+      ],
+      "src/actors/fence.ts": [
+        83
       ]
     },
     "test/actors/actor.test.ts#Memory ActorStore contract rejects runtime thenables and rolls their transaction back": {
@@ -182,37 +186,29 @@
         122,
         123,
         125,
-        130,
-        137,
         139,
-        155,
-        161,
+        149,
         172,
+        174,
         175,
-        194,
-        200
+        194
       ],
       "src/actors/context.ts": [
         12,
-        20,
         27,
         30
       ],
       "src/actors/fence.ts": [
         11,
-        12,
         13,
         20,
         24,
         50,
+        53,
         95,
-        100,
-        101,
         103
       ],
       "src/actors/id.ts": [
-        6,
-        8,
         13,
         14
       ],
@@ -233,6 +229,7 @@
         175,
         176,
         186,
+        189,
         191,
         199,
         227,
@@ -255,6 +252,7 @@
         680,
         690,
         703,
+        720,
         725,
         729,
         743,
@@ -265,22 +263,16 @@
         763
       ],
       "src/actors/types.ts": [
-        10,
+        9,
         18,
         19,
-        25,
-        27,
-        38
+        38,
+        45
       ]
     },
     "test/actors/actor.test.ts#MemoryActorStore isolation accepts detached extensible TextIds and protects their read metadata": {
       "src/actors/store.ts": [
         428
-      ]
-    },
-    "test/actors/actor.test.ts#MemoryActorStore isolation certifies only exact Revision instances as immutable leaves": {
-      "src/actors/store.ts": [
-        768
       ]
     },
     "test/actors/actor.test.ts#MemoryActorStore isolation detaches clone-owned custom class data from immutable reads": {
@@ -333,6 +325,7 @@
         376,
         377,
         388,
+        400,
         401,
         403,
         404,
@@ -345,7 +338,9 @@
         442,
         459,
         460,
+        463,
         465,
+        524,
         525,
         526,
         531,
@@ -361,6 +356,7 @@
         340,
         345,
         349,
+        666,
         667
       ]
     },
@@ -394,9 +390,11 @@
     "test/actors/actor.test.ts#MemoryActorStore isolation makes cyclic collections, dates, and typed views immutable during reads": {
       "src/actors/store.ts": [
         403,
+        472,
         473,
         476,
         477,
+        548,
         552,
         555,
         561,
@@ -407,15 +405,11 @@
         577,
         579,
         604,
-        619,
-        622,
         649,
         650,
         749,
-        766,
         769,
         770,
-        771,
         772
       ]
     },
@@ -439,8 +433,7 @@
         453,
         454,
         465,
-        526,
-        764
+        526
       ]
     },
     "test/actors/actor.test.ts#MemoryActorStore isolation preserves typed view offsets and shared backing in immutable reads": {
@@ -732,7 +725,6 @@
         372
       ],
       "src/actors/types.ts": [
-        25,
         29
       ]
     },
@@ -759,10 +751,12 @@
         94,
         95,
         99,
+        100,
+        101,
         103,
         105,
+        107,
         108,
-        110,
         116,
         117,
         119,
@@ -771,9 +765,6 @@
         125,
         127,
         129
-      ],
-      "src/actors/types.ts": [
-        27
       ]
     },
     "test/actors/fence.test.ts#ActorRecoveryState codec enforces safe integer state invariants in constructors and decoding": {
@@ -785,10 +776,8 @@
     },
     "test/actors/fence.test.ts#ActorRecoveryState codec fails before recovery counters or fences exceed safe integers": {
       "src/actors/fence.ts": [
-        50,
         53,
-        75,
-        83,
+        139,
         140,
         141
       ],
@@ -840,16 +829,15 @@
     },
     "test/actors/fence.test.ts#ActorRef accepts only its closed kinds and exact ActorId instances": {
       "src/actors/id.ts": [
+        6,
         8,
         14
       ],
       "src/actors/types.ts": [
-        9,
         10,
-        23,
         25,
         26,
-        28
+        27
       ]
     },
     "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) binds validation and check evidence to the authenticated source and decision time": {
@@ -857,42 +845,41 @@
         127
       ]
     },
-    "test/definition/materialization-sqlite.test.ts#SqliteMaterializationStore persistence joins W1 Actor activation and W4 initialization in one SQLite transaction": {
-      "src/actors/fence.ts": [
-        59
+    "test/definition/rollout.test.ts#materialization rollout and outbox memory [materialization-control-store] persists union-target outbox and completes only after every acknowledgement": {
+      "src/actors/id.ts": [
+        14
       ],
-      "src/actors/store.ts": [
-        50
+      "src/actors/types.ts": [
+        10,
+        23,
+        25,
+        26
       ]
     },
-    "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (memory) validates a Binding, checks the intent, and issues the permit as linked evidence": {
-      "src/actors/fence.ts": [
-        107
-      ]
-    },
-    "test/protocol/bootstrap.test.ts#memory bootstrap names every snapshot rejection exactly": {
-      "src/actors/store.ts": [
-        666
+    "test/definition/rollout.test.ts#materialization rollout mutation boundaries round-trips every materialization target Actor kind": {
+      "src/actors/types.ts": [
+        25,
+        27,
+        28,
+        29
       ]
     },
     "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions [protocol.tenant-bootstrap-anchor] memory composition creates and restores the complete closure": {
       "src/actors/store.ts": [
         368,
-        400,
+        381,
         401,
-        415,
-        463,
-        524,
         616,
+        619,
         620,
         622,
         624,
         690,
         703,
         706,
-        720,
         753,
-        763
+        763,
+        764
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) accepts an absent caller cause with a host-created Invocation root": {
@@ -903,61 +890,71 @@
         50,
         57,
         125,
+        130,
+        137,
         139,
-        149,
+        155,
+        161,
         170,
-        174
+        200
       ],
       "src/actors/context.ts": [
         11,
         12,
         18,
+        20,
         27,
         30
       ],
       "src/actors/fence.ts": [
+        12,
         19,
+        20,
+        50,
+        59,
+        107,
+        108,
         110,
-        117,
-        127,
-        129
+        117
       ],
       "src/actors/store.ts": [
-        189,
-        535,
-        753,
+        50,
+        680,
+        690,
+        703,
         757,
-        763
+        763,
+        764,
+        768,
+        771,
+        775
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) registration callbacks cannot mutate authenticated envelope state": {
       "src/actors/store.ts": [
-        472
-      ]
-    },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects a wrong-Actor caller cause before content and replays its identity": {
-      "src/actors/types.ts": [
-        19
+        766
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) requires a same-key retry after an unknown commit acknowledgement": {
       "src/actors/actor.ts": [
         177,
-        185,
-        187
+        185
       ],
       "src/actors/fence.ts": [
-        139,
         143
       ],
       "src/actors/store.ts": [
-        368,
-        370
+        368
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rolls back an asynchronous gate instead of treating its Promise as approval": {
       "src/actors/store.ts": [
         325
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rolls back attempted gate read mutation": {
+      "src/actors/store.ts": [
+        401
       ]
     },
     "test/protocol/dispatcher.test.ts#SQLite restart fences a callback prepared by the prior dispatcher": {
@@ -973,15 +970,11 @@
     "test/protocol/facet-commands.test.ts#Facet Slot protocol commands [C13-FACET-SLOT-AUTHORITY] derives contributor provenance and enforces Slot authority through the closed authenticated dispatcher": {
       "src/actors/fence.ts": [
         128
-      ],
-      "src/actors/store.ts": [
-        548,
-        579
       ]
     },
-    "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) stores codec-backed records and resolves them synchronously": {
+    "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] memory and SQLite satisfy one shared codec-storage contract": {
       "src/actors/store.ts": [
-        680
+        325
       ]
     }
   }

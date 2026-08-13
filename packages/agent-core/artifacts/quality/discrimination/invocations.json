@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "invocations",
-  "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
-  "fingerprint": "sha256:4f34fc52c02a6da60c0c7699d6096fded79e0d08ecfa6dc15ad728cf7c4848f2",
+  "measuredAt": "be905bac8dbec599a2a50ff105947e1eeced2771",
+  "fingerprint": "sha256:415949b3d868e1bf60d0525cd32d6d4143b6a47898bc868bcf811d5c23ad6ef5",
   "files": {
     "src/invocations/approval.ts": {
       "mutants": 346,
@@ -106,131 +106,108 @@
     }
   },
   "killed": {
-    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) binds validation and check evidence to the authenticated source and decision time": {
-      "src/invocations/audit.ts": [
-        642
-      ]
-    },
-    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) records malformed ingress without evaluating authority": {
-      "src/invocations/audit.ts": [
-        682
-      ]
-    },
-    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) rejects source Actor and qualified Principal spoofing before authority evaluation": {
-      "src/invocations/audit.ts": [
-        684
-      ]
-    },
     "test/composition/mediation-pipeline.test.ts#the published mediation composition root produces the whole §7 evidence chain for one mediated call": {
-      "src/invocations/attempt.ts": [
-        84
-      ],
-      "src/invocations/audit.ts": [
-        133,
-        134
-      ],
       "src/invocations/claim.ts": [
         100,
-        179,
-        180,
-        181
+        194
       ],
       "src/invocations/codec.ts": [
-        135,
-        145,
-        152
+        20,
+        30,
+        38,
+        61,
+        72,
+        100,
+        107,
+        135
       ],
       "src/invocations/continuation.ts": [
         76
       ],
       "src/invocations/mediation-memory.ts": [
-        59,
-        69,
-        85,
-        88,
-        102,
-        110,
-        120,
-        124
+        187,
+        188
       ],
       "src/invocations/memory.ts": [
-        37,
-        43
+        43,
+        47
       ],
       "src/invocations/operation-mediation.ts": [
-        235,
-        244,
-        249
-      ],
-      "src/invocations/operation-pin.ts": [
-        29
+        52,
+        82,
+        101,
+        120,
+        226,
+        236,
+        241
       ],
       "src/invocations/prepared.ts": [
         121,
-        177,
         209,
-        228,
-        232,
-        235,
-        250
+        278,
+        302,
+        310,
+        314,
+        370
       ],
       "src/invocations/publication.ts": [
-        129,
-        144,
-        152,
-        164,
-        170,
-        174,
+        121,
+        122,
         177,
-        178,
-        183,
-        185,
-        187,
-        189,
-        192,
         195,
         234,
         235
       ],
       "src/invocations/publisher.ts": [
-        18,
-        22,
+        19,
         23,
         26,
         27,
-        29,
-        58
-      ],
-      "src/invocations/receipt.ts": [
-        70,
-        94
+        29
       ],
       "src/invocations/replay.ts": [
         82,
         87,
+        90,
         94,
         95,
-        98,
         123,
-        138,
-        161,
-        170,
-        207,
-        210,
-        233,
+        151,
+        324,
+        330,
+        339,
+        375,
         382,
-        384,
         385,
-        388,
-        394,
+        391,
         397,
-        402,
+        399,
         403,
+        406,
         407,
-        511,
-        517,
-        524,
-        583
+        410,
+        420,
+        422,
+        427,
+        428,
+        439,
+        460,
+        467,
+        473,
+        489,
+        497,
+        500,
+        501,
+        513,
+        514,
+        518,
+        524
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root replays one Invocation for a repeated request key": {
+      "src/invocations/replay.ts": [
+        504,
+        517
       ]
     },
     "test/composition/mediation-pipeline.test.ts#the published mediation composition root serves a direct-tier Turn call from memory and writes no durable evidence": {
@@ -240,96 +217,103 @@
     },
     "test/composition/mediation-records.test.ts#mediation records carry the evidence their chain needs recovers an expired claim under a different worker": {
       "src/invocations/claim.ts": [
-        88
+        88,
+        189
+      ]
+    },
+    "test/composition/mediation-records.test.ts#mediation records carry the evidence their chain needs supersedes a Receipt with one naming what it replaced": {
+      "src/invocations/receipt.ts": [
+        121
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition replays per-item mediation and retries the durable outbox after crashes": {
+      "src/invocations/operation-mediation.ts": [
+        86,
+        114,
+        123
+      ],
+      "src/invocations/publication.ts": [
+        185
       ]
     },
     "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [C13-PROFILE-SOURCE-EVENT-CAUSALITY] persists a W7 Event caused by the exact successful W6 Receipt": {
       "src/invocations/audit.ts": [
         437,
         438,
-        439
+        439,
+        520,
+        531
       ]
     },
     "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-APPROVAL-GATEWAY-CONTINUATION] resumes through the persisted whole-intent continuation after restart": {
       "src/invocations/canonical-batch.ts": [
+        341,
         477,
         538,
-        539,
         543,
         612,
-        616,
-        621
+        613
       ],
       "src/invocations/codec.ts": [
-        50
+        88
       ],
       "src/invocations/continuation.ts": [
+        184,
         186
       ],
       "src/invocations/ledger.ts": [
-        181,
+        168,
         823,
         825
       ],
       "src/invocations/memory.ts": [
-        108,
-        111,
-        118,
-        170
-      ]
-    },
-    "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-APPROVAL-GATEWAY-MATCH] rejects an action not matching the approved PreparedInvocation and continuation": {
-      "src/invocations/canonical-batch.ts": [
-        496
+        128
       ]
     },
     "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-BASE-NAMES] executes a platform alias without changing impact or invariants": {
       "src/invocations/audit.ts": [
-        485
+        459,
+        485,
+        486,
+        531
       ],
       "src/invocations/canonical-batch.ts": [
-        509,
-        526,
-        536,
-        549,
         552,
-        591,
         634,
         636,
-        639
-      ],
-      "src/invocations/claim.ts": [
-        137
-      ],
-      "src/invocations/mediation-memory.ts": [
-        110,
-        122
-      ],
-      "src/invocations/memory.ts": [
-        188
+        651
       ],
       "src/invocations/profile-mediation.ts": [
-        20,
-        28,
-        31,
-        32,
-        36
-      ],
-      "src/invocations/receipt.ts": [
-        166
+        32
       ]
     },
     "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-SELF-LEASE] denies every Self Operation under a stale exact-Turn lease before EffectAttempt": {
       "src/invocations/audit.ts": [
-        382,
-        458,
         459
       ],
       "src/invocations/canonical-batch.ts": [
         407
       ],
+      "src/invocations/ledger.ts": [
+        798
+      ],
       "src/invocations/receipt.ts": [
         140
+      ]
+    },
+    "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-APPROVAL-GATEWAY-RECONCILIATION] reconciles one indeterminate W6 attempt after restart without repeating the effect": {
+      "src/invocations/ledger.ts": [
+        785,
+        809
+      ]
+    },
+    "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-FILESYSTEM-RECEIPT] returns and replays the canonical persisted W6 Receipt for mutation": {
+      "src/invocations/ledger.ts": [
+        882
+      ],
+      "src/invocations/mediation-memory.ts": [
+        24,
+        37
       ]
     },
     "test/invocations/audit-relation.test.ts#audit evidence substantiation requires approval evidence to match the invocation approval": {
@@ -419,7 +403,6 @@
     },
     "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-RECEIPT-OUTCOMES] admits the exact routed approval, effect, Receipt, Event, route, and commit graph": {
       "src/invocations/audit.ts": [
-        134,
         317,
         318,
         322,
@@ -430,13 +413,6 @@
         334,
         340,
         341,
-        345,
-        346,
-        347,
-        349,
-        350,
-        351,
-        360,
         366,
         367,
         370,
@@ -458,6 +434,7 @@
         427,
         428,
         429,
+        430,
         431,
         432,
         433,
@@ -475,34 +452,23 @@
         452,
         453,
         454,
+        459,
         465,
         466,
         469,
-        477,
         479,
         480,
-        485,
-        486,
         491,
+        492,
         503,
-        504,
         509,
         510,
-        514,
-        515,
         516,
         517,
         518,
-        519,
-        520,
         521,
         522,
         523
-      ]
-    },
-    "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-ROUTE-BRIDGE] rejects Invocation roots nested below the route projection bridge": {
-      "src/invocations/audit.ts": [
-        134
       ]
     },
     "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-SETTLED-OBLIGATION] admits only evidence-backed route projection roots": {
@@ -516,7 +482,6 @@
         335,
         336,
         342,
-        347,
         374,
         378,
         380,
@@ -537,6 +502,7 @@
         438,
         442,
         445,
+        458,
         459
       ]
     },
@@ -548,16 +514,15 @@
     "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-PREPARED-NO-TURN-AUDIT] requires exact Write evidence when an evidence resolver is supplied": {
       "src/invocations/audit.ts": [
         337,
-        362,
         363,
-        497,
+        364,
         498
       ]
     },
     "test/invocations/audit-relation.test.ts#complete local AuditKind relation rejects malformed audit codec vocabularies and fields": {
       "src/invocations/audit.ts": [
+        559,
         655,
-        658,
         668,
         681
       ]
@@ -595,7 +560,6 @@
     },
     "test/invocations/audit.test.ts#AuditRecord append validation admits cause-free rejectedMalformed only with command rejection admission": {
       "src/invocations/audit.ts": [
-        243,
         305,
         306,
         310,
@@ -608,6 +572,8 @@
     },
     "test/invocations/audit.test.ts#AuditRecord append validation permits the substantiated invocation -> committed write edge": {
       "src/invocations/audit.ts": [
+        134,
+        251,
         284,
         285,
         286,
@@ -625,6 +591,7 @@
     },
     "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported invocation -> approval consumed causality": {
       "src/invocations/audit.ts": [
+        262,
         360,
         366
       ]
@@ -711,7 +678,9 @@
     },
     "test/invocations/audit.test.ts#AuditRecord codec rejects caused Invocation records in constructors and codec data": {
       "src/invocations/audit.ts": [
-        134
+        110,
+        134,
+        135
       ]
     },
     "test/invocations/audit.test.ts#AuditRecord codec rejects the pre-public delivery id shape": {
@@ -748,12 +717,11 @@
     },
     "test/invocations/audit.test.ts#AuditRecord codec round-trips the complete approval pending vocabulary": {
       "src/invocations/audit.ts": [
+        479,
         529,
-        530,
         557,
         558,
-        559,
-        562,
+        561,
         653,
         655,
         660
@@ -776,8 +744,6 @@
     "test/invocations/audit.test.ts#AuditRecord codec round-trips the complete delivery vocabulary": {
       "src/invocations/audit.ts": [
         509,
-        543,
-        544,
         601,
         602,
         603,
@@ -786,7 +752,6 @@
     },
     "test/invocations/audit.test.ts#AuditRecord codec round-trips the complete event vocabulary": {
       "src/invocations/audit.ts": [
-        591,
         592,
         593
       ]
@@ -795,14 +760,20 @@
       "src/invocations/audit.ts": [
         91,
         94,
-        99,
-        106,
-        110,
+        102,
+        108,
+        133,
+        134,
+        477,
+        514,
+        515,
+        545,
         550,
-        552,
         555,
         556,
         619,
+        627,
+        628,
         632,
         634,
         640,
@@ -818,11 +789,8 @@
     },
     "test/invocations/audit.test.ts#AuditRecord codec round-trips the complete receipt deniedPreEffect vocabulary": {
       "src/invocations/audit.ts": [
-        531,
-        532,
         570,
         571,
-        572,
         574,
         575,
         666,
@@ -847,27 +815,25 @@
     },
     "test/invocations/audit.test.ts#AuditRecord codec round-trips the complete receipt superseded vocabulary": {
       "src/invocations/audit.ts": [
-        492,
         533,
-        534,
         577,
         578,
-        579,
-        581,
         582
       ]
     },
     "test/invocations/audit.test.ts#AuditRecord codec round-trips the complete route projected vocabulary": {
       "src/invocations/audit.ts": [
+        503,
+        504,
         537,
-        538,
         594,
         595,
-        598
+        599
       ]
     },
     "test/invocations/audit.test.ts#AuditRecord codec round-trips the complete route reserved vocabulary": {
       "src/invocations/audit.ts": [
+        519,
         567,
         568,
         569
@@ -875,9 +841,9 @@
     },
     "test/invocations/audit.test.ts#AuditRecord codec round-trips the complete write committed vocabulary": {
       "src/invocations/audit.ts": [
-        535,
         584,
         585,
+        588,
         589,
         679,
         681,
@@ -928,6 +894,9 @@
         289,
         295,
         325
+      ],
+      "src/invocations/error.ts": [
+        23
       ]
     },
     "test/invocations/audit.test.ts#AuditRecord identity and copies derives the evidence identity from the audit-evidence.v1 domain": {
@@ -953,11 +922,9 @@
     },
     "test/invocations/audit.test.ts#AuditRecord stored shape relation admits stored invocation, route projection, and rejected write roots": {
       "src/invocations/audit.ts": [
-        268,
         270,
         271,
-        272,
-        273
+        272
       ]
     },
     "test/invocations/audit.test.ts#AuditRecord stored shape relation permits the stored approvalApproved -> attempt edge": {
@@ -979,16 +946,19 @@
     },
     "test/invocations/audit.test.ts#AuditRecord stored shape relation permits the stored attempt -> receipt edge": {
       "src/invocations/audit.ts": [
+        340,
         345
       ]
     },
     "test/invocations/audit.test.ts#AuditRecord stored shape relation permits the stored delivery -> commit edge": {
       "src/invocations/audit.ts": [
+        350,
         351
       ]
     },
     "test/invocations/audit.test.ts#AuditRecord stored shape relation permits the stored event -> routeReserved edge": {
       "src/invocations/audit.ts": [
+        346,
         349,
         350
       ]
@@ -1008,6 +978,11 @@
         336
       ]
     },
+    "test/invocations/audit.test.ts#AuditRecord stored shape relation permits the stored receipt -> commit edge": {
+      "src/invocations/audit.ts": [
+        347
+      ]
+    },
     "test/invocations/audit.test.ts#AuditRecord stored shape relation permits the stored receipt -> event edge": {
       "src/invocations/audit.ts": [
         347
@@ -1016,6 +991,7 @@
     "test/invocations/audit.test.ts#AuditRecord stored shape relation permits the stored receipt -> receiptSuperseded edge": {
       "src/invocations/audit.ts": [
         332,
+        345,
         346,
         347
       ]
@@ -1032,7 +1008,8 @@
     },
     "test/invocations/audit.test.ts#AuditRecord stored shape relation permits the stored routeProjected -> delivery edge": {
       "src/invocations/audit.ts": [
-        329
+        329,
+        330
       ]
     },
     "test/invocations/audit.test.ts#AuditRecord stored shape relation rejects the stored approvalApproved -> receipt edge": {
@@ -1062,6 +1039,7 @@
     },
     "test/invocations/audit.test.ts#AuditRecord stored shape relation rejects the stored committed write root": {
       "src/invocations/audit.ts": [
+        270,
         272,
         273,
         274
@@ -1109,18 +1087,13 @@
       ]
     },
     "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-CLAIM-INITIAL-ATOMIC] claims before async permit issuance and returns one output only for success": {
-      "src/invocations/audit.ts": [
-        668
-      ],
       "src/invocations/canonical-batch.ts": [
         445,
         456,
         458,
+        591,
         595,
         634
-      ],
-      "src/invocations/memory.ts": [
-        203
       ]
     },
     "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-CLAIM-RECOVERY-NEW-OWNER] rejects empty, inexact, and substituted canonical batch preparation before claiming": {
@@ -1143,17 +1116,15 @@
       ],
       "src/invocations/claim.ts": [
         71,
-        73
+        88
       ],
       "src/invocations/ledger.ts": [
-        848,
         852,
         853
       ]
     },
     "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-EFFECT-IDEMPOTENCY] reuses a durable claim after permit-call crash and never repeats the effect": {
       "src/invocations/canonical-batch.ts": [
-        325,
         326,
         341,
         351,
@@ -1163,10 +1134,10 @@
         538,
         539,
         542,
-        543,
         613,
         616,
-        620
+        620,
+        621
       ]
     },
     "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-EFFECT-RECONCILIATION] terminalizes a crash-recovered admitted attempt without repeating the effect": {
@@ -1203,8 +1174,8 @@
         395,
         396,
         404,
+        538,
         539,
-        540,
         541,
         547
       ]
@@ -1223,15 +1194,11 @@
     },
     "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort keeps the decoded issuer admission witness-free and authenticates in the target runtime": {
       "src/invocations/canonical-batch.ts": [
-        283,
-        302,
         303,
         306,
         315,
         323,
-        339,
         341,
-        343,
         349,
         361,
         381,
@@ -1253,10 +1220,12 @@
         515,
         517,
         526,
+        536,
+        549,
         636,
         637,
         638,
-        651,
+        639,
         652,
         653,
         654,
@@ -1271,13 +1240,14 @@
         56,
         61,
         117,
-        124,
-        135,
+        123,
+        126,
         149
       ],
       "src/invocations/mediation-memory.ts": [
-        37,
-        106
+        105,
+        110,
+        122
       ]
     },
     "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort post-admission untyped throws are indeterminate": {
@@ -1312,9 +1282,6 @@
     "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort recovers a claim exactly at its expiry instant": {
       "src/invocations/canonical-batch.ts": [
         529
-      ],
-      "src/invocations/claim.ts": [
-        73
       ]
     },
     "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort rejects a canonical identity whose replay carries a different intent": {
@@ -1341,9 +1308,6 @@
     "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort rejects an existing PreparedInvocation without its exact Invocation audit root": {
       "src/invocations/canonical-batch.ts": [
         292
-      ],
-      "src/invocations/ledger.ts": [
-        158
       ]
     },
     "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort rejects inexact input and interception counts independently": {
@@ -1432,6 +1396,7 @@
     "test/invocations/codec.test.ts#invocation codec helpers accepts array and null-prototype structural references": {
       "src/invocations/codec.ts": [
         135,
+        145,
         152,
         155,
         157,
@@ -1447,11 +1412,10 @@
     "test/invocations/codec.test.ts#invocation codec helpers decodes optional, numeric, array, and structural values exactly": {
       "src/invocations/codec.ts": [
         38,
-        47,
         61,
-        88,
         89,
-        118,
+        102,
+        122,
         123
       ]
     },
@@ -1469,7 +1433,7 @@
     },
     "test/invocations/codec.test.ts#invocation codec helpers freezes exact identifier references and rejects derived classes": {
       "src/invocations/codec.ts": [
-        131,
+        127,
         135,
         137,
         145,
@@ -1502,11 +1466,6 @@
       "src/invocations/codec.ts": [
         70,
         72
-      ]
-    },
-    "test/invocations/codec.test.ts#invocation codec helpers rejects malformed nullable string values": {
-      "src/invocations/codec.ts": [
-        50
       ]
     },
     "test/invocations/codec.test.ts#invocation codec helpers rejects malformed object values": {
@@ -1585,12 +1544,6 @@
         208
       ]
     },
-    "test/invocations/error.test.ts#invocation operational error taxonomy [C13-ADV-STALE-RECOVERY-OWNER] uses AgentCoreError for append conflicts and missing persisted evidence": {
-      "src/invocations/codec.ts": [
-        93,
-        107
-      ]
-    },
     "test/invocations/error.test.ts#invocation operational error taxonomy names invocation errors and preserves the failure taxonomy": {
       "src/invocations/error.ts": [
         19
@@ -1598,8 +1551,7 @@
     },
     "test/invocations/immutability.test.ts#invocation record immutability [C13-PREPARED-WHOLE-DIGEST] detaches PreparedInvocation structural references before digesting": {
       "src/invocations/prepared.ts": [
-        65,
-        138
+        65
       ]
     },
     "test/invocations/ledger-memory.test.ts#[C13-ADV-RECEIPT-FAILED] [invocation-persistence] memory fails closed on substituted durable record identities": {
@@ -1641,6 +1593,9 @@
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-PREMATURE-RECOVERY] rejects recovery before the current claim expires": {
+      "src/invocations/claim.ts": [
+        76
+      ],
       "src/invocations/memory.ts": [
         190
       ]
@@ -1652,19 +1607,13 @@
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-RECEIPT-SUCCEEDED] [invocation.receipt] rejects succeeded attempted Receipts without the exact initial attempt lineage": {
-      "src/invocations/ledger.ts": [
-        580
-      ],
       "src/invocations/memory.ts": [
         279
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-RECEIPT-SUPERSESSION] [invocation.receipt] supersedes one indeterminate Receipt exactly once and derives batch outcomes": {
       "src/invocations/ledger.ts": [
-        592,
-        595,
-        700,
-        710
+        700
       ],
       "src/invocations/memory.ts": [
         200,
@@ -1688,51 +1637,33 @@
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-PREPARED-APPROVAL-UNIQUE] reserves one Approval identity per invocation": {
+      "src/invocations/ledger.ts": [
+        171
+      ],
       "src/invocations/memory.ts": [
         325
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.approval] [invocation.continuation] consumes one exact Approval with the first admitted attempt": {
-      "src/invocations/approval.ts": [
-        280
-      ],
-      "src/invocations/claim.ts": [
-        158,
-        160,
-        161
-      ],
-      "src/invocations/continuation.ts": [
-        197
-      ],
       "src/invocations/ledger.ts": [
-        183,
-        207,
-        208,
-        214,
-        273,
-        285,
-        294,
-        531,
-        533,
-        535,
-        543,
-        550,
-        553,
-        666,
+        170,
+        371,
+        372,
+        376,
+        377,
+        398,
+        643,
+        664,
+        684,
         686,
-        747,
-        754,
-        755,
-        822,
-        823,
-        871
+        754
       ],
       "src/invocations/memory.ts": [
-        47,
         106,
         108,
         109,
         111,
+        118,
         120,
         128,
         146,
@@ -1740,6 +1671,7 @@
         165,
         170,
         177,
+        188,
         190,
         198,
         201,
@@ -1753,8 +1685,9 @@
         243,
         244,
         247,
+        255,
         256,
-        287,
+        263,
         316,
         317,
         323,
@@ -1767,43 +1700,16 @@
         361,
         371,
         374
-      ],
-      "src/invocations/ports.ts": [
-        28
-      ],
-      "src/invocations/prepared.ts": [
-        234,
-        250
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.audit] binds a routed preparation to its exact persisted routeProjected AuditRecord": {
-      "src/invocations/audit.ts": [
-        71,
-        77
-      ],
       "src/invocations/ledger.ts": [
-        88,
-        140
-      ],
-      "src/invocations/prepared.ts": [
-        251,
-        253
-      ]
-    },
-    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.audit] prepareWithAudit persists a local preparation with its root AuditRecord": {
-      "src/invocations/ledger.ts": [
-        83,
-        86,
-        135
+        881,
+        882
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.audit] records an attempt receipt with bound audit and publication": {
       "src/invocations/ledger.ts": [
-        503,
-        504,
-        511,
-        513,
-        518,
         798,
         801,
         803,
@@ -1811,18 +1717,16 @@
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.audit] records an authority denial with bound receipt, audit, and publication": {
-      "src/invocations/audit.ts": [
-        284,
-        293
-      ],
       "src/invocations/ledger.ts": [
-        352,
+        436,
         438,
         452,
-        471,
+        470,
+        473,
+        474,
         477,
-        479,
-        485,
+        776,
+        783,
         788,
         790,
         792,
@@ -1834,77 +1738,58 @@
         294
       ]
     },
-    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.audit] refuses receipt evidence whose attempt AuditRecord names no cause": {
-      "src/invocations/ledger.ts": [
-        506
-      ]
-    },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.audit] rejects preparation AuditRecords that do not bind the PreparedInvocation": {
       "src/invocations/ledger.ts": [
-        135,
-        148
-      ],
-      "src/invocations/prepared.ts": [
-        67
+        886
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.audit] supersedes an indeterminate receipt with bound supersession evidence": {
       "src/invocations/ledger.ts": [
-        608,
-        613,
-        617,
         794,
         809
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.audit] validates persisted audit relations through ledger evidence": {
       "src/invocations/ledger.ts": [
-        108,
+        777,
+        779,
         785,
         788
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.item-claim] recovers only an expired no-attempt claim at the same ordinal under a new worker": {
       "src/invocations/ledger.ts": [
-        229,
-        237,
-        238
+        839,
+        841,
+        843,
+        845
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.item-claim] rejects claim owner kinds that contradict the Prepared lease mode": {
       "src/invocations/ledger.ts": [
-        748,
         754
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.prepared] persists preparation and derives stable shape-sensitive identities": {
-      "src/invocations/ledger.ts": [
-        73,
-        121,
-        124
-      ],
       "src/invocations/memory.ts": [
+        51,
         52,
+        93,
+        95,
+        102,
         331,
-        341,
+        332,
         342,
+        345,
         346
-      ],
-      "src/invocations/operation-pin.ts": [
-        222,
-        227
       ],
       "src/invocations/prepared.ts": [
         215,
         228,
+        231,
+        232,
         234,
-        243,
-        264
-      ]
-    },
-    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.receipt] names the initial AttemptReceipt lineage rule it enforces": {
-      "src/invocations/ledger.ts": [
-        575
+        235
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.receipt] never yields a Receipt lineage containing a cycle": {
@@ -1920,26 +1805,26 @@
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.receipt] reports a missing predecessor before counting lineage heads": {
       "src/invocations/ledger.ts": [
-        702,
         706
       ]
     },
-    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.receipt] resolves the current head for opaque Receipt identifier text": {
+    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) appends denied and expired Approval revisions from pending": {
       "src/invocations/ledger.ts": [
-        710
-      ]
-    },
-    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) admits the next ordinal only after the current attempt has a final failed Receipt": {
-      "src/invocations/memory.ts": [
-        264
+        826,
+        827
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) binds system and recovered executor claims to the Prepared owner": {
       "src/invocations/ledger.ts": [
-        746,
         748,
-        754,
-        756
+        749,
+        756,
+        757
+      ]
+    },
+    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) continues a consumed Approval with system-owned claims": {
+      "src/invocations/ledger.ts": [
+        874
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) covers lease-free system admission and defensive Receipt rejection paths": {
@@ -1948,15 +1833,13 @@
         748
       ]
     },
-    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) fails closed when cross-wave preparation evidence rejects ownership": {
+    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) derives Approval requirements and forbids out-of-band consumption": {
       "src/invocations/ledger.ts": [
-        125
+        181,
+        400
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) generated approval, claim, recovery, attempt and Receipt histories preserve every item lineage": {
-      "src/invocations/ledger.ts": [
-        733
-      ],
       "src/invocations/memory.ts": [
         289,
         295
@@ -1972,20 +1855,8 @@
         762
       ]
     },
-    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) prevents claim terminalization races and superseded-claim resurrection": {
-      "src/invocations/ledger.ts": [
-        237,
-        562,
-        564,
-        567
-      ]
-    },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) records pre-effect terminal evidence only before any attempt": {
-      "src/invocations/ledger.ts": [
-        655
-      ],
       "src/invocations/memory.ts": [
-        291,
         292,
         294
       ],
@@ -1999,25 +1870,26 @@
         20,
         21,
         25
+      ],
+      "src/invocations/prepared.ts": [
+        177
+      ]
+    },
+    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) recovers an expired system claim under a new worker": {
+      "src/invocations/ledger.ts": [
+        848
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) recovers an unattempted retry claim despite a prior failed ordinal": {
       "src/invocations/ledger.ts": [
-        213,
-        578,
-        632,
-        641,
-        695,
+        698,
         703,
-        714,
-        716,
+        710,
+        713,
         719,
-        720,
         724,
         726,
-        732,
         733,
-        737,
         740
       ],
       "src/invocations/memory.ts": [
@@ -2027,15 +1899,11 @@
         243,
         246,
         247,
-        276,
         279,
         302,
         304,
         306,
         310
-      ],
-      "src/invocations/receipt.ts": [
-        121
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) refuses retries once the attempt ordinal space is exhausted": {
@@ -2043,15 +1911,10 @@
         737
       ]
     },
-    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) rejects a repeated attempt ordinal after the final failed Receipt": {
-      "src/invocations/ledger.ts": [
-        294,
-        296
-      ]
-    },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) rejects altered recovery identity and invalid attempt ownership": {
       "src/invocations/ledger.ts": [
-        306
+        761,
+        839
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) rejects an expired approved continuation without consuming or attempting": {
@@ -2060,51 +1923,26 @@
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) rejects Approval revisions that alter request or expiry identity": {
-      "src/invocations/ledger.ts": [
-        186
-      ],
       "src/invocations/memory.ts": [
         122
       ]
     },
-    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) rejects attempt receipt audits that do not bind the attempted effect": {
+    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) rejects approved admission when a continuation already exists": {
       "src/invocations/ledger.ts": [
-        502,
-        508,
-        510
-      ]
-    },
-    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) rejects attempts that do not bind the live current claim": {
-      "src/invocations/ledger.ts": [
-        306
-      ]
-    },
-    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) rejects attempts when a continuation exists without its Approval": {
-      "src/invocations/ledger.ts": [
-        361
+        372
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) rejects authority denial evidence that does not bind the claimed item": {
       "src/invocations/ledger.ts": [
         470,
-        474,
-        476
-      ]
-    },
-    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) rejects consumed-Approval continuations with tampered first-attempt identity": {
-      "src/invocations/continuation.ts": [
-        188
-      ],
-      "src/invocations/ledger.ts": [
-        543,
-        544,
-        547
+        476,
+        481
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) rejects duplicate preparation and malformed Approval revisions": {
       "src/invocations/ledger.ts": [
-        120,
         168,
+        173,
         181
       ],
       "src/invocations/memory.ts": [
@@ -2113,27 +1951,17 @@
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) rejects expired approvals, invalid reconciliation, and nonfailed retries": {
       "src/invocations/ledger.ts": [
-        592,
-        733,
         734
       ]
     },
-    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) rejects illegal receipt supersessions": {
+    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) rejects recovery that moves a claim to another item": {
       "src/invocations/ledger.ts": [
-        593
+        841
       ]
     },
-    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) rejects live, unresolved, and wrong-ordinal claims": {
-      "src/invocations/ledger.ts": [
-        210,
-        215
-      ]
-    },
-    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) rejects token-bearing system attempts and orphaned consumed approvals": {
-      "src/invocations/ledger.ts": [
-        531,
-        532,
-        537
+    "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) restores the consumed Approval continuation before admitting another batch item": {
+      "src/invocations/memory.ts": [
+        58
       ]
     },
     "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) returns each persisted Approval revision exactly": {
@@ -2263,8 +2091,7 @@
     },
     "test/invocations/mediation.test.ts#W6 invocation publication outbox acknowledges each sink once in either order": {
       "src/invocations/error.ts": [
-        18,
-        23
+        18
       ],
       "src/invocations/publication.ts": [
         113,
@@ -2365,6 +2192,8 @@
     "test/invocations/mediation.test.ts#W6 mediation memory persistence verifies audit projections against their codec bytes": {
       "src/invocations/mediation-memory.ts": [
         102,
+        120,
+        122,
         124,
         138,
         139,
@@ -2399,30 +2228,29 @@
         124,
         125,
         161,
-        164,
         166,
-        185,
-        186,
         197,
         198,
         210,
         214,
         215,
+        228,
         233,
         234,
+        242,
         442,
         443,
-        582,
-        583
+        583,
+        584
       ]
     },
     "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-ADV-RECEIPT-CANCELLED] [invocation.publication-outbox] [invocation-evidence-persistence] durably drains Receipt publication without fire-and-forget": {
       "src/invocations/mediation-memory.ts": [
+        162,
         164,
         166,
         172,
         174,
-        175,
         176,
         184,
         187,
@@ -2449,6 +2277,7 @@
         122,
         125,
         126,
+        127,
         128,
         129,
         177,
@@ -2459,7 +2288,7 @@
         195,
         198,
         199,
-        201,
+        200,
         218,
         221,
         228,
@@ -2468,7 +2297,8 @@
         234
       ],
       "src/invocations/publisher.ts": [
-        19,
+        22,
+        26,
         27,
         31,
         41,
@@ -2482,6 +2312,7 @@
     },
     "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-BATCH-OUTCOME-COMPLETE] maps profile receipt mode and terminal outcomes without leaking batch shapes": {
       "src/invocations/profile-mediation.ts": [
+        20,
         25,
         36,
         37,
@@ -2503,11 +2334,14 @@
       "src/invocations/receipt.ts": [
         50,
         91,
+        94,
         97
       ],
       "src/invocations/replay.ts": [
-        197,
-        200
+        195,
+        200,
+        468,
+        503
       ]
     },
     "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-PREPARED-APPROVAL-BINDING] binds presentation to exact invocation evidence, item count, and persisted outputs": {
@@ -2532,17 +2366,15 @@
         39,
         41,
         46,
-        47,
+        134,
         149,
         150,
-        156,
+        155,
+        158,
         162,
-        164,
-        176,
         186,
         188,
         189,
-        190,
         196,
         197,
         198
@@ -2560,7 +2392,6 @@
         84,
         85,
         88,
-        92,
         202,
         203
       ],
@@ -2578,10 +2409,8 @@
         105,
         111,
         114,
-        120,
         123,
         129,
-        130,
         133,
         137,
         138,
@@ -2601,10 +2430,8 @@
         169,
         171,
         191,
-        226,
         228,
         235,
-        236,
         237,
         241,
         244,
@@ -2637,14 +2464,18 @@
         361,
         367
       ],
+      "src/invocations/receipt.ts": [
+        13,
+        70
+      ],
       "src/invocations/replay.ts": [
-        159,
         161,
-        162,
+        163,
         170,
         183,
         185,
         188,
+        210,
         211,
         212,
         213,
@@ -2657,14 +2488,21 @@
         232,
         233,
         238,
+        239,
+        256,
+        324,
         400,
         402,
+        405,
         406,
-        408,
-        410,
-        422,
-        465,
-        469
+        463,
+        497,
+        501,
+        515,
+        517,
+        533,
+        547,
+        553
       ]
     },
     "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-PREPARED-REPLAY-PRE] commits raw replay identity before mutating interception and rejects conflicts first": {
@@ -2676,24 +2514,34 @@
       ],
       "src/invocations/replay.ts": [
         227,
-        351,
         355,
         362
       ]
     },
     "test/invocations/mediation.test.ts#W6 operation mediation integration [invocation.continuation] [invocation.mediated-replay] [invocation.publication-outbox] round-trips continuation, replay, and publication durable records": {
       "src/invocations/continuation.ts": [
+        35,
+        36,
+        37,
+        38,
         46,
         58,
         65,
-        136,
-        149,
+        80,
+        106,
+        109,
+        110,
+        119,
+        132,
+        135,
         151,
         154,
         155,
+        162,
         163,
-        170,
-        175,
+        167,
+        168,
+        174,
         186,
         187,
         197
@@ -2710,18 +2558,21 @@
         78,
         82,
         142,
+        144,
         150,
         151,
         152,
         161,
         164,
+        167,
         170,
-        173,
+        174,
         175,
         177,
         178,
         183,
         185,
+        187,
         188,
         190,
         192,
@@ -2732,24 +2583,39 @@
         229
       ],
       "src/invocations/replay.ts": [
-        122,
         124,
-        151,
+        138,
+        287,
+        291,
+        306,
+        308,
+        313,
+        315,
+        324,
+        332,
+        338,
+        342,
+        374,
+        377,
+        383,
+        384,
         385,
-        391,
+        388,
         392,
-        397,
-        403,
+        394,
+        400,
         407,
-        420,
-        422,
+        408,
         459,
-        469,
+        465,
+        471,
         475,
-        482,
-        489,
-        490,
-        497
+        484,
+        487,
+        497,
+        500,
+        509,
+        583
       ]
     },
     "test/invocations/mediation.test.ts#W6 operation mediation integration keeps a reservation recoverable when before interception returns malformed cardinality": {
@@ -2760,15 +2626,20 @@
       ]
     },
     "test/invocations/mediation.test.ts#W6 operation mediation integration memory audit evidence relations survive restart and remain actor-owned": {
+      "src/invocations/audit.ts": [
+        134
+      ],
       "src/invocations/mediation-memory.ts": [
+        25,
         38,
-        105,
-        107,
+        101,
+        102,
+        106,
         110,
         111,
-        122,
-        132,
+        135,
         136,
+        138,
         141,
         142,
         148,
@@ -2845,8 +2716,7 @@
     },
     "test/invocations/mediation.test.ts#W6 replay operation invocation port binds mediated presentation to stored effect outputs": {
       "src/invocations/mediation-memory.ts": [
-        198,
-        199
+        198
       ],
       "src/invocations/operation-mediation.ts": [
         235,
@@ -2858,10 +2728,6 @@
     "test/invocations/mediation.test.ts#W6 replay operation invocation port fails closed exactly once for terminal batch outcomes": {
       "src/invocations/operation-mediation.ts": [
         152
-      ],
-      "src/invocations/receipt.ts": [
-        90,
-        101
       ]
     },
     "test/invocations/mediation.test.ts#W6 replay operation invocation port fails closed when a complete replay lacks its Invocation evidence": {
@@ -2901,6 +2767,10 @@
         184,
         185,
         186
+      ],
+      "src/invocations/replay.ts": [
+        467,
+        523
       ]
     },
     "test/invocations/mediation.test.ts#W6 replay operation invocation port rejects mixed batch outcomes while persisting their evidence": {
@@ -2930,9 +2800,9 @@
         183
       ],
       "src/invocations/replay.ts": [
+        248,
         570,
-        574,
-        575
+        576
       ]
     },
     "test/invocations/mediation.test.ts#W6 replay operation invocation port returns direct contexts unchanged and requires a nonblank scope": {
@@ -2966,12 +2836,14 @@
         31,
         32,
         33,
-        205
+        205,
+        206
       ]
     },
     "test/invocations/operation-pin.test.ts#Operation pin placement and decoding rejects a placement admitted by only some of the four sets": {
       "src/invocations/operation-pin.ts": [
-        36
+        36,
+        40
       ]
     },
     "test/invocations/operation-pin.test.ts#Operation pin placement and decoding rejects non-boolean approval requirements at decode time": {
@@ -2980,28 +2852,25 @@
       ]
     },
     "test/invocations/operation-pin.test.ts#Operation pin placement and decoding round-trips operation pins through canonical data": {
-      "src/invocations/codec.ts": [
-        36
-      ],
       "src/invocations/operation-pin.ts": [
-        52,
-        53,
-        65,
-        69,
-        72,
-        191,
         193,
-        194,
-        196
+        195,
+        196,
+        212,
+        213,
+        216,
+        221,
+        222,
+        226,
+        227
       ]
     },
     "test/invocations/operation-pin.test.ts#Operation pin placement and decoding selects the first placement admissible in every set, not merely in some set": {
       "src/invocations/operation-pin.ts": [
         36,
-        43,
-        204,
         205,
-        209
+        209,
+        217
       ]
     },
     "test/invocations/prepared.test.ts#PreparedInvocation canonical identity [C13-ADV-EMPTY-BATCH] rejects an empty batch": {
@@ -3030,21 +2899,22 @@
         73,
         189,
         193,
-        293,
+        253,
         344,
         345,
-        346,
-        361
+        346
       ]
     },
     "test/invocations/prepared.test.ts#PreparedInvocation canonical identity [C13-PREPARED-REPLAY-IDENTITY] distinguishes single, one-item batch, batch order, lease, authority, domain, seed, and pin": {
       "src/invocations/prepared.ts": [
+        143,
+        180,
         181,
         188,
         189,
         193,
         289,
-        310
+        406
       ]
     },
     "test/invocations/prepared.test.ts#PreparedInvocation canonical identity freezes prepared invocations and rejects derived identifier classes": {
@@ -3066,15 +2936,14 @@
     },
     "test/invocations/prepared.test.ts#PreparedInvocation canonical identity rejects caller-selected placement that violates canonical preference": {
       "src/invocations/operation-pin.ts": [
+        36,
         39,
-        40,
         43,
         44,
         109,
         119,
         120,
         205,
-        206,
         217,
         222,
         227
@@ -3107,15 +2976,20 @@
     },
     "test/invocations/prepared.test.ts#PreparedInvocation canonical identity round-trips canonical single and ordered batch records": {
       "src/invocations/codec.ts": [
-        20,
-        30,
-        38,
-        102
+        38
       ],
       "src/invocations/operation-pin.ts": [
+        36,
+        43,
+        52,
+        53,
         62,
         65,
+        68,
+        69,
         70,
+        71,
+        72,
         73,
         119,
         127,
@@ -3143,48 +3017,37 @@
         188,
         189,
         190,
+        191,
         192,
-        195,
-        205,
-        212,
-        213,
-        216,
-        217,
-        221,
-        226,
+        194,
+        204,
+        222,
         227
       ],
       "src/invocations/prepared.ts": [
-        65,
-        66,
         67,
         72,
+        86,
         129,
         135,
         138,
         139,
+        152,
         155,
+        156,
         157,
-        177,
-        214,
         225,
         228,
-        231,
         234,
         235,
         236,
-        264,
         265,
         289,
-        302,
-        304,
         313,
-        314,
         321,
         324,
         325,
         326,
-        327,
         328,
         329,
         330,
@@ -3200,22 +3063,22 @@
         344,
         345,
         346,
-        351,
         352,
         353,
-        355,
         356,
         358,
-        359,
         360,
-        361,
         362,
+        364,
         369,
         371,
-        374,
-        375,
-        378,
         381,
+        382,
+        385,
+        386,
+        388,
+        389,
+        400,
         401,
         402,
         410,
@@ -3268,11 +3131,8 @@
         84,
         86,
         88,
-        103,
-        127,
-        135,
-        144,
-        154
+        123,
+        139
       ]
     },
     "test/invocations/reconciliation-driver.test.ts#reconciliation driver [C13-EFFECT-RECONCILIATION-DRIVER] restart repair arms only while attempts remain": {
@@ -3313,22 +3173,20 @@
       "src/invocations/audit.ts": [
         422,
         426,
-        428,
-        430,
-        434,
         533
       ],
       "src/invocations/ledger.ts": [
         593,
-        785
-      ],
-      "src/invocations/mediation-memory.ts": [
-        162
+        596,
+        809
       ],
       "src/invocations/reconciliation.ts": [
         81,
+        84,
         88,
+        103,
         153,
+        154,
         162,
         172,
         181,
@@ -3367,22 +3225,22 @@
       "src/invocations/audit.ts": [
         434
       ],
-      "src/invocations/canonical-batch.ts": [
-        467
-      ],
       "src/invocations/reconciliation.ts": [
         260
+      ]
+    },
+    "test/invocations/reconciliation.test.ts#InvocationReconciler persists the exact attempt before the provider and atomically finalizes complete reconciliation evidence": {
+      "src/invocations/canonical-batch.ts": [
+        302
       ]
     },
     "test/invocations/reconciliation.test.ts#InvocationReconciler rejects a persisted attempt audit substituted onto an unrelated invocation root": {
       "src/invocations/attempt.ts": [
         46,
         48,
-        49
-      ],
-      "src/invocations/audit.ts": [
-        459,
-        531
+        49,
+        50,
+        51
       ],
       "src/invocations/canonical-batch.ts": [
         277,
@@ -3391,37 +3249,42 @@
         303,
         313,
         315,
-        320
+        320,
+        339,
+        341,
+        343,
+        385,
+        389,
+        496,
+        651
+      ],
+      "src/invocations/claim.ts": [
+        137
       ],
       "src/invocations/ledger.ts": [
-        881,
-        882
+        449,
+        502
       ],
       "src/invocations/mediation-memory.ts": [
-        24,
+        132,
         135,
         138,
-        141,
-        207
+        187,
+        188
       ],
       "src/invocations/memory.ts": [
-        62,
-        95,
-        102
+        62
       ],
       "src/invocations/prepared.ts": [
         158,
-        313,
-        368,
-        405,
         410
       ],
       "src/invocations/reconciliation.ts": [
-        123,
         125,
         127,
         135,
         139,
+        144,
         145,
         267,
         269,
@@ -3491,9 +3354,13 @@
       "src/invocations/canonical-batch.ts": [
         283,
         290,
+        325,
+        326,
         391,
-        496,
-        538
+        509,
+        536,
+        538,
+        540
       ],
       "src/invocations/reconciliation.ts": [
         135,
@@ -3520,17 +3387,15 @@
     "test/invocations/record-codecs.test.ts#durable invocation record codecs [invocation.approval] round-trips an actual immutable fixture": {
       "src/invocations/approval.ts": [
         41,
-        58,
-        64,
         298,
         300,
         301,
         308,
         310,
-        311,
-        340
+        311
       ],
       "src/invocations/codec.ts": [
+        47,
         49,
         50,
         76,
@@ -3541,7 +3406,9 @@
       "src/invocations/attempt.ts": [
         23,
         31,
+        57,
         72,
+        84,
         87,
         88,
         89
@@ -3552,14 +3419,21 @@
         27,
         34,
         149,
+        150,
         151,
         152,
         155
       ]
     },
     "test/invocations/record-codecs.test.ts#durable invocation record codecs [invocation.prepared] round-trips an actual immutable fixture": {
+      "src/invocations/codec.ts": [
+        118,
+        122,
+        123
+      ],
       "src/invocations/prepared.ts": [
-        114
+        114,
+        214
       ]
     },
     "test/invocations/record-codecs.test.ts#durable invocation record codecs [invocation.receipt] round-trips an actual immutable fixture": {
@@ -3573,16 +3447,14 @@
         181,
         182,
         184,
-        185,
-        186
+        185
       ]
     },
     "test/invocations/record-codecs.test.ts#durable invocation record codecs decodes every Approval state kind into an identical record": {
       "src/invocations/approval.ts": [
         312,
         313,
-        322,
-        345
+        347
       ],
       "src/invocations/codec.ts": [
         89
@@ -3598,6 +3470,7 @@
         166,
         167,
         170,
+        171,
         173,
         176,
         186,
@@ -3612,10 +3485,13 @@
     },
     "test/invocations/record-codecs.test.ts#durable invocation record codecs decodes every continuation owner Actor kind and rejects unknown kinds precisely": {
       "src/invocations/continuation.ts": [
+        33,
         186,
+        188,
         189,
         190,
-        193
+        193,
+        197
       ]
     },
     "test/invocations/record-codecs.test.ts#durable invocation record codecs rejects malformed Approval states with their precise errors": {
@@ -3630,6 +3506,7 @@
       ],
       "src/invocations/codec.ts": [
         49,
+        50,
         51
       ]
     },
@@ -3694,8 +3571,8 @@
         61,
         62,
         72,
+        73,
         75,
-        76,
         90,
         91
       ]
@@ -3723,13 +3600,13 @@
     },
     "test/invocations/records.test.ts#Invocation evidence records guards every Approval terminal transition and round-trips revisions": {
       "src/invocations/approval.ts": [
+        58,
         64,
         65,
         79,
         87,
-        91,
         95,
-        96,
+        99,
         103,
         106,
         109,
@@ -3749,30 +3626,19 @@
         193,
         194,
         195,
-        205,
         208,
         212,
         213,
-        214,
-        215,
         216,
         217,
-        218,
         223,
-        268,
-        269,
-        273,
-        274,
-        275,
-        277,
-        280,
-        283,
-        285,
-        286,
-        288,
+        237,
+        314,
+        321,
+        323,
+        324,
         339,
-        345,
-        346,
+        340,
         347,
         352,
         355,
@@ -3786,6 +3652,12 @@
       ],
       "src/invocations/codec.ts": [
         19,
+        20,
+        28,
+        30,
+        36,
+        59,
+        61,
         112,
         114
       ]
@@ -3806,7 +3678,6 @@
         49,
         50,
         51,
-        57,
         59,
         62,
         65
@@ -3817,6 +3688,7 @@
         45,
         58,
         59,
+        64,
         65,
         96,
         341,
@@ -3851,45 +3723,45 @@
         175,
         344,
         361
+      ],
+      "src/invocations/codec.ts": [
+        114
       ]
     },
     "test/invocations/records.test.ts#Invocation evidence records requires InvocationContinuation identifiers, canonical keys, and a valid admission time": {
       "src/invocations/continuation.ts": [
-        35,
         36,
         37,
         38,
         46,
+        47,
         50,
         69,
         79,
-        80,
         97,
-        100,
         101,
         102,
         103,
         104,
-        105,
-        106,
-        109,
-        110,
-        116,
+        107,
+        108,
+        115,
         117,
-        119,
+        118,
+        120,
         121,
-        123,
+        122,
         124,
         133,
-        134,
-        150
+        149,
+        175,
+        176,
+        197
       ]
     },
     "test/invocations/records.test.ts#Invocation evidence records round-trips EffectAttempts with and without executor tokens": {
       "src/invocations/attempt.ts": [
         48,
-        50,
-        51,
         52,
         53,
         56,
@@ -3903,15 +3775,17 @@
     },
     "test/invocations/records.test.ts#Invocation evidence records round-trips every Receipt variant and rejects illegal result lineage": {
       "src/invocations/receipt.ts": [
-        13,
         19,
         23,
         30,
+        90,
+        91,
         94,
         97,
         100,
         101,
         121,
+        122,
         123,
         128,
         131,
@@ -3924,7 +3798,11 @@
         158,
         165,
         166,
-        198,
+        173,
+        186,
+        189,
+        192,
+        221,
         222
       ]
     },
@@ -3933,23 +3811,28 @@
         46,
         61,
         88,
-        104,
+        103,
         117,
         122,
-        126,
+        125,
         135,
         136,
         138,
         147,
-        150,
+        158,
+        160,
+        161,
+        179,
         180,
-        189,
+        181,
         193,
         194
       ],
       "src/invocations/codec.ts": [
-        127,
-        132
+        72,
+        131,
+        132,
+        135
       ]
     },
     "test/invocations/records.test.ts#Invocation evidence records validates stored Approval chronology at its exact boundaries": {
@@ -3967,16 +3850,17 @@
     },
     "test/invocations/replay.test.ts#W6 mediated replay record completes preparation for every reserved payload exactly once": {
       "src/invocations/replay.ts": [
+        159,
         161,
         162,
         163,
+        164,
         592,
         593
       ]
     },
     "test/invocations/replay.test.ts#W6 mediated replay record keeps effected items immutable against repeated effect and late terminal recording": {
       "src/invocations/replay.ts": [
-        185,
         197,
         427
       ]
@@ -3988,17 +3872,16 @@
     },
     "test/invocations/replay.test.ts#W6 mediated replay record keeps terminal items immutable against late effect outputs": {
       "src/invocations/replay.ts": [
+        170,
         185,
-        195,
+        186,
         197,
-        239,
         240,
         247,
-        256,
-        399,
+        402,
+        406,
         420,
         422,
-        439,
         588
       ]
     },
@@ -4028,8 +3911,7 @@
     },
     "test/invocations/replay.test.ts#W6 mediated replay record rejects effect transitions for out-of-range items": {
       "src/invocations/replay.ts": [
-        239,
-        242
+        239
       ]
     },
     "test/invocations/replay.test.ts#W6 mediated replay record rejects items stored away from their own position": {
@@ -4041,6 +3923,7 @@
     "test/invocations/replay.test.ts#W6 mediated replay record rejects presentation while the record has not completed preparation": {
       "src/invocations/replay.ts": [
         94,
+        207,
         238,
         241,
         419,
@@ -4051,14 +3934,16 @@
       "src/invocations/replay.ts": [
         87,
         88,
+        122,
         123,
         124,
-        583,
-        584
+        582,
+        583
       ]
     },
     "test/invocations/replay.test.ts#W6 mediated replay record rejects records whose item phases are inconsistent": {
       "src/invocations/replay.ts": [
+        407,
         425,
         427,
         428,
@@ -4085,10 +3970,8 @@
         210,
         225,
         228,
-        248,
-        403,
-        405,
         407,
+        408,
         428,
         429
       ]
@@ -4104,81 +3987,63 @@
       "src/invocations/replay.ts": [
         173,
         324,
-        339,
-        385,
         441,
         444,
-        463,
         464,
+        465,
         466,
-        467,
-        468,
+        469,
         470,
         497,
         501,
         502,
         503,
         504,
-        513,
-        514,
-        515,
+        511,
         517,
-        518,
         519,
         523,
         524,
         525,
         526,
         527,
-        533,
         534,
+        544,
         547,
         550,
         551,
         553,
         554,
         559,
-        560,
         562,
         563,
         574,
         575,
-        576,
         577,
         578
       ]
     },
     "test/invocations/replay.test.ts#W6 mediated replay record round-trips route execution identities": {
-      "src/invocations/codec.ts": [
-        28,
-        59,
-        102
-      ],
       "src/invocations/replay.ts": [
         90,
         94,
         95,
+        98,
         100,
         111,
-        138,
         147,
         280,
         281,
         284,
         287,
-        291,
         302,
         305,
-        306,
         307,
-        308,
         309,
         310,
         311,
         312,
-        313,
         314,
-        315,
         316,
         317,
         318,
@@ -4187,27 +4052,26 @@
         324,
         328,
         329,
-        330,
         331,
         333,
         334,
         335,
         336,
         337,
-        338,
         339,
         340,
         342,
         349,
         366,
-        374,
         375,
         378,
         383,
         385,
+        388,
         392,
+        397,
         400,
-        407,
+        403,
         408,
         422,
         427,
@@ -4217,35 +4081,30 @@
         457,
         458,
         459,
-        460,
         463,
         465,
         467,
         469,
-        471,
         472,
-        473,
         475,
         479,
+        482,
         483,
-        484,
         485,
         486,
-        487,
         488,
+        490,
         491,
         495,
         496,
         497,
         500,
         508,
-        509,
         510,
         511,
         517,
         523,
         524,
-        568,
         570,
         571,
         572
@@ -4254,103 +4113,124 @@
     "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-ATTRIBUTION] persists attributable pre-preparation rewrite evidence": {
       "src/invocations/mediation-memory.ts": [
         59,
-        67,
-        71
+        85,
+        207
+      ],
+      "src/invocations/operation-mediation.ts": [
+        52,
+        111,
+        130
       ],
       "src/invocations/replay.ts": [
-        87,
-        90,
-        324,
-        332,
-        339,
-        375,
-        377,
-        383,
-        385,
-        388,
-        397,
-        400,
-        406,
-        407,
-        408,
-        420,
-        544,
+        547,
+        553,
+        554,
         558,
+        560,
+        568,
         570,
         571,
-        572,
         583
       ]
     },
     "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-FROZEN-RETRY] retries a frozen intent without rerunning its mutating interceptor": {
       "src/invocations/operation-mediation.ts": [
         83,
-        86
+        90
+      ]
+    },
+    "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-REPLAY] reuses durable pre-effect and post-effect transformations without rerunning either": {
+      "src/invocations/operation-mediation.ts": [
+        87
       ]
     },
     "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-SELF-SCOPE] defaults an omitted selector to only the contributing Facet": {
+      "src/invocations/mediation-memory.ts": [
+        199
+      ],
       "src/invocations/replay.ts": [
         554
+      ]
+    },
+    "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions [protocol.tenant-bootstrap-anchor] memory composition creates and restores the complete closure": {
+      "src/invocations/audit.ts": [
+        642,
+        681
+      ]
+    },
+    "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions memory rejects forged caller, revision, lease, and payload records": {
+      "src/invocations/audit.ts": [
+        683,
+        684
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) accepts an absent caller cause with a host-created Invocation root": {
       "src/invocations/audit.ts": [
         361,
+        362,
         363,
         497,
         527,
         535,
         536,
-        545,
-        546,
-        554,
+        552,
         555,
-        556,
-        585,
-        588,
-        628,
-        634,
         642
       ]
     },
     "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) evaluates post-payload gates in deterministic order": {
       "src/invocations/audit.ts": [
-        686
+        685
       ]
     },
-    "test/protocol/persistence-memory.test.ts#[C13-PROTOCOL-REJECTION-ROOT] audit values reject nested Invocation roots before persistence": {
+    "test/protocol/persistence-adapter.test.ts#committed write audits require a cause on read and repair": {
       "src/invocations/audit.ts": [
-        135
+        273
+      ]
+    },
+    "test/protocol/persistence-adapter.test.ts#identity lookup fails closed when the indexed write record is missing": {
+      "src/invocations/audit.ts": [
+        681
+      ]
+    },
+    "test/protocol/persistence-adapter.test.ts#repair accepts duplicates and cause-free rejected writes": {
+      "src/invocations/audit.ts": [
+        272,
+        682
+      ]
+    },
+    "test/protocol/persistence-adapter.test.ts#write appends against non-write audit evidence fail closed": {
+      "src/invocations/audit.ts": [
+        543
       ]
     },
     "test/protocol/persistence-memory.test.ts#memory reads every hand-seeded codec-representable non-write audit projection": {
       "src/invocations/audit.ts": [
-        270,
         529,
-        557,
+        530,
+        532,
+        534,
+        537,
+        543,
+        544,
         558,
-        561,
-        565,
-        567,
+        562,
+        566,
+        568,
+        569,
+        571,
+        572,
         578,
-        593,
-        594,
+        581,
+        592,
+        595,
         596,
-        599,
-        602,
-        655,
-        668
-      ]
-    },
-    "test/protocol/persistence-memory.test.ts#memory rejects a duplicate with corrupt actor lineage": {
-      "src/invocations/audit.ts": [
-        642
+        602
       ]
     },
     "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) rejects a codec-representable unsupported causal path without persistence": {
       "src/invocations/audit.ts": [
-        607,
-        609
+        607
       ]
     },
     "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) resolves one durable actor-owned audit evidence relation across restart": {
@@ -4360,27 +4240,57 @@
     },
     "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) stores codec-backed records and resolves them synchronously": {
       "src/invocations/audit.ts": [
+        546,
+        554,
+        555,
+        556,
         584,
         586,
-        627
+        628
+      ]
+    },
+    "test/protocol/persistence-sqlite.test.ts#ProtocolPersistence (SQLite) rejects a codec-representable unsupported causal path without persistence": {
+      "src/invocations/audit.ts": [
+        608
+      ]
+    },
+    "test/protocol/persistence-sqlite.test.ts#ProtocolPersistence (SQLite) stores codec-backed records and resolves them synchronously": {
+      "src/invocations/audit.ts": [
+        554,
+        585
       ]
     },
     "test/protocol/persistence-sqlite.test.ts#SQLite reads every hand-seeded codec-representable non-write audit projection": {
       "src/invocations/audit.ts": [
-        655,
-        668
+        538,
+        557,
+        577,
+        579,
+        591,
+        594,
+        598,
+        602
       ]
     },
     "test/substrates/sqlite/invocations/mediation.test.ts#SqliteInvocationMediationPersistence [C13-PREPARED-SHARED-HEADER] [invocation-replay-persistence] [invocation-evidence-persistence] memory and SQLite satisfy one shared mediation contract": {
       "src/invocations/mediation-memory.ts": [
         85,
-        176
+        92
       ]
     },
     "test/substrates/sqlite/invocations/mediation.test.ts#SqliteInvocationMediationPersistence [invocation.mediated-replay] [invocation.publication-outbox] persists replay revisions and durable publication acknowledgement": {
       "src/invocations/publication.ts": [
-        178,
-        200
+        201
+      ]
+    },
+    "test/substrates/sqlite/invocations/mediation.test.ts#SqliteInvocationMediationPersistence conflict and corruption taxonomy fails closed when replay revisions hold a foreign replay record": {
+      "src/invocations/replay.ts": [
+        351
+      ]
+    },
+    "test/substrates/sqlite/invocations/mediation.test.ts#SqliteInvocationMediationPersistence does not resend an acknowledged Event after a Commit sink crash": {
+      "src/invocations/publisher.ts": [
+        18
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-RECEIPT-DENIED] keeps denied pre-effect Receipts outside attempted lineage": {
@@ -4400,7 +4310,7 @@
         592,
         593,
         594,
-        596,
+        595,
         703,
         709,
         710,
@@ -4422,12 +4332,6 @@
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-PREPARED-APPROVAL-UNIQUE] reserves one Approval identity per invocation": {
       "src/invocations/approval.ts": [
         195
-      ],
-      "src/invocations/codec.ts": [
-        89
-      ],
-      "src/invocations/ledger.ts": [
-        171
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-PREPARED-OPTIONAL-LEASE] admits exact leased and lease-free ownership modes": {
@@ -4445,9 +4349,17 @@
       "src/invocations/approval.ts": [
         57,
         58,
+        64,
         65,
         87,
-        99,
+        91,
+        96,
+        182,
+        205,
+        208,
+        214,
+        215,
+        218,
         225,
         226,
         227,
@@ -4464,14 +4376,18 @@
         258,
         260,
         261,
+        277,
+        280,
+        283,
+        285,
+        286,
         287,
+        288,
         296,
-        298,
-        301,
         323,
-        324,
         340,
         341,
+        345,
         346
       ],
       "src/invocations/attempt.ts": [
@@ -4502,33 +4418,22 @@
         152
       ],
       "src/invocations/claim.ts": [
-        45,
-        46
-      ],
-      "src/invocations/codec.ts": [
-        72
+        45
       ],
       "src/invocations/continuation.ts": [
-        33,
         35,
-        36,
-        37,
-        38,
-        107,
-        108,
-        115,
-        118,
-        120,
-        122,
-        132,
+        46,
+        100,
+        105,
+        116,
+        123,
         133,
         145,
         149,
         150,
         155,
-        158,
+        156,
         159,
-        174,
         175
       ],
       "src/invocations/ledger.ts": [
@@ -4540,6 +4445,7 @@
         178,
         181,
         182,
+        183,
         184,
         185,
         186,
@@ -4552,6 +4458,8 @@
         213,
         214,
         265,
+        273,
+        285,
         294,
         306,
         307,
@@ -4580,7 +4488,9 @@
         398,
         531,
         532,
+        533,
         534,
+        535,
         536,
         543,
         544,
@@ -4589,45 +4499,53 @@
         547,
         548,
         549,
+        550,
         551,
         552,
+        553,
         638,
         643,
-        664,
         666,
         674,
-        684,
         685,
         686,
         687,
         747,
         754,
+        755,
         763,
+        822,
+        823,
         825,
         870,
         871,
         872
       ],
+      "src/invocations/ports.ts": [
+        28
+      ],
       "src/invocations/prepared.ts": [
+        250,
         360,
         371,
         385,
         386,
-        387,
-        388,
-        389
+        387
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.audit] binds a routed preparation to its exact persisted routeProjected AuditRecord": {
       "src/invocations/audit.ts": [
+        71,
         72,
         77
       ],
       "src/invocations/ledger.ts": [
         86,
+        88,
         140,
         141,
         142,
+        158,
         160,
         161,
         877,
@@ -4635,7 +4553,8 @@
         882
       ],
       "src/invocations/prepared.ts": [
-        345,
+        251,
+        361,
         362
       ]
     },
@@ -4645,19 +4564,23 @@
         244
       ],
       "src/invocations/ledger.ts": [
+        83,
         86,
         135,
-        136,
         137,
         140,
         145,
-        147
+        146,
+        147,
+        148
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.audit] records an attempt receipt with bound audit and publication": {
       "src/invocations/ledger.ts": [
-        415,
+        417,
+        498,
         502,
+        503,
         504,
         505,
         506,
@@ -4665,35 +4588,36 @@
         508,
         509,
         510,
-        512
+        511,
+        512,
+        513,
+        518
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.audit] records an authority denial with bound receipt, audit, and publication": {
       "src/invocations/audit.ts": [
-        366,
-        367,
-        374
+        259,
+        268,
+        485
       ],
       "src/invocations/ledger.ts": [
         352,
-        436,
         437,
         438,
         447,
-        449,
         462,
         470,
+        471,
         472,
-        473,
         474,
         475,
         476,
         477,
         478,
+        479,
         480,
-        775,
-        776,
-        783
+        485,
+        775
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.audit] refuses a caused preparation AuditRecord that otherwise binds": {
@@ -4712,10 +4636,12 @@
         504
       ]
     },
+    "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.audit] refuses receipt evidence whose attempt AuditRecord names no cause": {
+      "src/invocations/ledger.ts": [
+        506
+      ]
+    },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.audit] rejects preparation AuditRecords that do not bind the PreparedInvocation": {
-      "src/invocations/audit.ts": [
-        503
-      ],
       "src/invocations/ledger.ts": [
         132,
         135,
@@ -4725,32 +4651,36 @@
         148,
         149,
         150,
-        886,
         887
+      ],
+      "src/invocations/prepared.ts": [
+        293
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.audit] supersedes an indeterminate receipt with bound supersession evidence": {
+      "src/invocations/audit.ts": [
+        491
+      ],
       "src/invocations/ledger.ts": [
+        608,
         613,
         614,
         615,
         616,
+        617,
         618,
         619,
-        621,
-        809
+        621
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.audit] validates persisted audit relations through ledger evidence": {
       "src/invocations/audit.ts": [
-        259,
-        262,
-        380,
-        479
+        243,
+        259
       ],
       "src/invocations/ledger.ts": [
+        108,
         111,
-        777,
         779,
         780
       ]
@@ -4772,43 +4702,52 @@
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.effect-attempt] rejects substituted AuthorityAdmission before persisting an attempt": {
       "src/invocations/ledger.ts": [
-        333,
         351
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.item-claim] recovers only an expired no-attempt claim at the same ordinal under a new worker": {
       "src/invocations/ledger.ts": [
         225,
+        229,
         237,
+        238,
         239,
+        240,
         250,
         837,
         839,
         840,
-        841,
         842,
-        843,
         844,
-        845,
         848
+      ]
+    },
+    "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.item-claim] rejects claim owner kinds that contradict the Prepared lease mode": {
+      "src/invocations/ledger.ts": [
+        748
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.prepared] persists preparation and derives stable shape-sensitive identities": {
       "src/invocations/ledger.ts": [
+        73,
         121,
         124
       ],
       "src/invocations/prepared.ts": [
-        143,
-        180,
         193,
-        369
+        410
+      ]
+    },
+    "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.receipt] names the initial AttemptReceipt lineage rule it enforces": {
+      "src/invocations/ledger.ts": [
+        575
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.receipt] names the unreceipted EffectAttempt requirement it enforces": {
       "src/invocations/ledger.ts": [
         578,
         579,
+        580,
         581
       ]
     },
@@ -4817,6 +4756,11 @@
         702,
         703,
         705
+      ]
+    },
+    "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.receipt] resolves the current head for opaque Receipt identifier text": {
+      "src/invocations/ledger.ts": [
+        710
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) admits the next ordinal only after the current attempt has a final failed Receipt": {
@@ -4829,17 +4773,19 @@
         229,
         230,
         236,
-        237,
         264,
         265,
         266,
+        268,
+        269,
         270,
         273,
         274,
+        275,
         314,
         315,
-        321,
-        347
+        322,
+        346
       ],
       "src/invocations/ledger.ts": [
         826,
@@ -4847,14 +4793,10 @@
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) binds system and recovered executor claims to the Prepared owner": {
-      "src/invocations/codec.ts": [
-        122
-      ],
       "src/invocations/ledger.ts": [
+        746,
         748,
-        749,
-        754,
-        757
+        754
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) consumes an Approval without an expiry deadline": {
@@ -4863,6 +4805,9 @@
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) continues a consumed Approval with system-owned claims": {
+      "src/invocations/continuation.ts": [
+        164
+      ],
       "src/invocations/ledger.ts": [
         872,
         874
@@ -4874,25 +4819,20 @@
         132
       ],
       "src/invocations/claim.ts": [
-        166,
-        171,
-        201
+        164
       ],
       "src/invocations/ledger.ts": [
         317,
         326,
-        747,
         748
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) derives Approval requirements and forbids out-of-band consumption": {
       "src/invocations/ledger.ts": [
-        181,
         189,
         358,
         359,
         398,
-        400,
         401
       ]
     },
@@ -4904,13 +4844,13 @@
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) fails closed when cross-wave preparation evidence rejects ownership": {
       "src/invocations/ledger.ts": [
-        124
+        124,
+        125
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) generated approval, claim, recovery, attempt and Receipt histories preserve every item lineage": {
-      "src/invocations/prepared.ts": [
-        137,
-        406
+      "src/invocations/ledger.ts": [
+        733
       ],
       "src/invocations/receipt.ts": [
         217
@@ -4923,6 +4863,8 @@
         241,
         242,
         562,
+        564,
+        567,
         568
       ]
     },
@@ -4938,10 +4880,9 @@
         651,
         655
       ],
-      "src/invocations/prepared.ts": [
-        176
-      ],
       "src/invocations/receipt.ts": [
+        97,
+        100,
         216,
         217
       ]
@@ -4954,12 +4895,13 @@
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) recovers an unattempted retry claim despite a prior failed ordinal": {
       "src/invocations/ledger.ts": [
         207,
+        213,
         361,
-        364,
         573,
         574,
         578,
         579,
+        632,
         635,
         638,
         641,
@@ -4967,15 +4909,23 @@
         643,
         686,
         687,
-        698,
+        695,
         699,
         702,
         703,
         710,
         713,
-        719
+        714,
+        716,
+        719,
+        720,
+        724,
+        726,
+        732,
+        737
       ],
       "src/invocations/receipt.ts": [
+        119,
         195,
         196,
         198,
@@ -4986,12 +4936,12 @@
         207,
         208,
         209,
-        221,
         222
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) refuses retries once the attempt ordinal space is exhausted": {
       "src/invocations/ledger.ts": [
+        737,
         738
       ]
     },
@@ -5002,6 +4952,8 @@
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) rejects a repeated attempt ordinal after the final failed Receipt": {
       "src/invocations/ledger.ts": [
+        294,
+        296,
         297
       ]
     },
@@ -5026,7 +4978,6 @@
         319,
         323,
         324,
-        761,
         839,
         847
       ]
@@ -5039,6 +4990,9 @@
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) rejects an expired approved continuation without consuming or attempting": {
+      "src/invocations/approval.ts": [
+        96
+      ],
       "src/invocations/ledger.ts": [
         376,
         377,
@@ -5061,6 +5015,8 @@
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) rejects attempt receipt audits that do not bind the attempted effect": {
       "src/invocations/ledger.ts": [
         502,
+        508,
+        510,
         514,
         515
       ]
@@ -5081,34 +5037,33 @@
       "src/invocations/ledger.ts": [
         470,
         473,
+        474,
         477,
-        481,
         482
       ],
       "src/invocations/publication.ts": [
-        121,
-        125,
-        127
+        114
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) rejects consumed-Approval continuations with tampered first-attempt identity": {
       "src/invocations/continuation.ts": [
         133,
-        135,
+        136,
+        149,
         151,
         155,
         162,
         163,
-        167,
-        168,
+        170,
+        175,
         181,
-        184,
-        186,
-        188
+        186
       ],
       "src/invocations/ledger.ts": [
         543,
+        544,
         546,
+        547,
         549,
         551,
         553,
@@ -5118,15 +5073,12 @@
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) rejects duplicate preparation and malformed Approval revisions": {
-      "src/invocations/approval.ts": [
-        64
-      ],
       "src/invocations/ledger.ts": [
+        120,
         121,
         122,
         168,
         172,
-        173,
         181,
         190,
         666
@@ -5141,13 +5093,15 @@
       "src/invocations/ledger.ts": [
         592,
         597,
-        598
+        598,
+        733
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) rejects illegal receipt supersessions": {
       "src/invocations/ledger.ts": [
         588,
         592,
+        593,
         594
       ]
     },
@@ -5155,19 +5109,16 @@
       "src/invocations/ledger.ts": [
         204,
         207,
+        210,
         211,
         214,
+        215,
         699
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) rejects recovery of an unknown claim": {
       "src/invocations/ledger.ts": [
         229
-      ]
-    },
-    "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) rejects recovery that moves a claim to another item": {
-      "src/invocations/ledger.ts": [
-        841
       ]
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) rejects token-bearing system attempts and orphaned consumed approvals": {
@@ -5177,6 +5128,8 @@
         398,
         529,
         531,
+        532,
+        537,
         538
       ]
     },
@@ -5187,48 +5140,55 @@
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] memory and SQLite satisfy one shared codec-storage contract": {
       "src/invocations/codec.ts": [
-        100,
-        122
+        93
       ],
       "src/invocations/memory.ts": [
         36,
-        95,
-        332,
+        37,
+        341,
         342
       ],
       "src/invocations/operation-pin.ts": [
-        43,
-        65,
-        68,
-        71,
-        119,
-        222
+        29
       ],
       "src/invocations/prepared.ts": [
-        86,
-        135,
-        138,
-        155,
-        156,
-        278,
+        65,
+        66,
+        72,
+        234,
+        243,
+        264,
         289,
         293,
         303,
+        304,
         310,
-        345,
+        313,
+        314,
+        327,
+        344,
+        351,
+        355,
+        359,
+        360,
         361,
+        362,
         363,
-        364,
+        368,
         369,
         370,
+        374,
+        375,
+        378,
         380,
         381,
         382,
         383,
-        400,
-        401,
+        402,
+        405,
         410,
-        415
+        415,
+        417
       ]
     },
     "test/substrates/sqlite/invocations/state-machine.test.ts#generated InvocationLedger histories preserve exact records, outbox evidence, and test-audit state across memory and SQLite restarts": {
@@ -5250,16 +5210,16 @@
         94,
         98,
         99,
-        102,
         103,
         105,
-        108,
+        106,
         109,
         110,
         111,
         118,
         122,
         230,
+        231,
         244,
         251,
         259,
@@ -5267,73 +5227,52 @@
         270,
         273,
         280,
+        284,
         402,
-        414,
-        417,
-        628,
-        634,
-        642,
-        668
+        414
       ],
       "src/invocations/claim.ts": [
         60,
         61,
         73,
-        88,
-        103,
+        104,
         114,
         117,
         121,
-        123,
-        125,
+        124,
         134,
-        135
-      ],
-      "src/invocations/codec.ts": [
-        79,
-        123
+        135,
+        149
       ],
       "src/invocations/ledger.ts": [
-        140,
-        145,
-        146,
-        148,
-        240,
-        250,
-        273,
+        136,
         307,
         311,
         313,
+        333,
         358,
         361,
-        417,
-        498,
+        364,
+        415,
         502,
-        848,
         862
       ],
       "src/invocations/mediation-memory.ts": [
-        25,
-        101,
         105,
+        107,
         122,
         124,
-        135,
-        176,
-        187,
-        188
+        175,
+        176
       ],
       "src/invocations/memory.ts": [
-        51,
-        58,
-        93,
-        95,
-        170,
-        190,
-        255,
         263,
         264,
-        345,
+        276,
+        279,
+        287,
+        291,
+        342,
         346
       ],
       "src/invocations/outcome.ts": [
@@ -5342,21 +5281,21 @@
         25
       ],
       "src/invocations/prepared.ts": [
-        136,
-        138,
-        152,
-        155,
-        156,
-        181
+        176,
+        177,
+        228
       ],
       "src/invocations/publication.ts": [
-        167,
+        164,
         170,
-        177
+        173,
+        177,
+        178,
+        183,
+        189,
+        192
       ],
       "src/invocations/receipt.ts": [
-        119,
-        122,
         209
       ]
     }

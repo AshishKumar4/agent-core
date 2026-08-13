@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "operations",
-  "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
-  "fingerprint": "sha256:62ad4c3f3dc569b747036d40c6b7f5d9c2c51023b8674caafc2bbad3ef04ef39",
+  "measuredAt": "be905bac8dbec599a2a50ff105947e1eeced2771",
+  "fingerprint": "sha256:bc7fd453968bc71a17a8b83fd02a39b1ebca1145ce6cbd5010390f6d2a6ed003",
   "files": {
     "src/operations/authored-code.ts": {
       "mutants": 139,
@@ -43,35 +43,29 @@
     },
     "test/composition/behavior-branches.test.ts#W9 composition behavior branches owns loaded package handles, rejects double activation, and preserves cleanup failures": {
       "src/operations/lifecycle.ts": [
-        151,
-        170
-      ]
-    },
-    "test/composition/mediation-pipeline.test.ts#the published mediation composition root does not become a mediation surface when activation fails": {
-      "src/operations/lifecycle.ts": [
-        184
+        151
       ]
     },
     "test/composition/mediation-pipeline.test.ts#the published mediation composition root produces the whole §7 evidence chain for one mediated call": {
       "src/operations/gateway.ts": [
         360,
-        409,
-        516
-      ],
-      "src/operations/lifecycle.ts": [
-        45
+        369,
+        391,
+        409
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root replays one Invocation for a repeated request key": {
+      "src/operations/gateway.ts": [
+        369
       ]
     },
     "test/composition/mediation-pipeline.test.ts#the published mediation composition root serves a direct-tier Turn call from memory and writes no durable evidence": {
       "src/operations/gateway.ts": [
         293,
         299,
-        534
-      ]
-    },
-    "test/composition/mediation-pipeline.test.ts#the published mediation composition root stops its Facets when the composition root is disposed": {
-      "src/operations/lifecycle.ts": [
-        139
+        309,
+        329,
+        338
       ]
     },
     "test/operations/authored-code.test.ts#running one submission of agent-authored code [C13-AUTH-ISOLATE-DELEGATION] hands the isolate the delegated set and returns its value": {
@@ -143,7 +137,6 @@
     },
     "test/operations/authored-code.test.ts#selecting the backing that serves a §4.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] serves a declared consumer from its declared backing": {
       "src/operations/authored-code.ts": [
-        83,
         248,
         250,
         251,
@@ -181,16 +174,15 @@
         68,
         81,
         85,
-        89,
         95,
-        117,
-        204,
-        223
+        133
       ],
       "src/operations/gateway.ts": [
-        255,
-        268,
-        401
+        259,
+        410
+      ],
+      "src/operations/lifecycle.ts": [
+        34
       ]
     },
     "test/operations/authored-code.test.ts#the one channel out of a §4.7 isolate [C13-AUTH-ISOLATE-DELEGATION] refuses a capability the isolate was not passed, even one its own domain binds": {
@@ -273,14 +265,8 @@
         505
       ]
     },
-    "test/operations/command-routing.test.ts#Command invocation routing routes an invocation only when the derived Subscription accepts the Event trust": {
-      "src/operations/command-runtime.ts": [
-        87
-      ]
-    },
     "test/operations/command-runtime.test.ts#CommandRuntime binding and invocation binds arguments through nested and array pointers into a canonical input": {
       "src/operations/command-runtime.ts": [
-        139,
         141,
         415,
         416,
@@ -305,7 +291,8 @@
         506,
         507,
         514,
-        515
+        515,
+        517
       ]
     },
     "test/operations/command-runtime.test.ts#CommandRuntime binding and invocation invokes on every surface the Command declares": {
@@ -313,7 +300,6 @@
         121,
         123,
         126,
-        147,
         154
       ]
     },
@@ -326,13 +312,13 @@
     },
     "test/operations/command-runtime.test.ts#CommandRuntime binding and invocation rejects an invocation whose bound input the installed Operation schema refuses": {
       "src/operations/command-runtime.ts": [
-        130
+        130,
+        132
       ]
     },
     "test/operations/command-runtime.test.ts#CommandRuntime binding and invocation rejects arguments their schema refuses before applying any mapping": {
       "src/operations/command-runtime.ts": [
-        141,
-        143
+        141
       ]
     },
     "test/operations/command-runtime.test.ts#CommandRuntime binding and invocation rejects binding through a destination that traverses a non-object value": {
@@ -340,6 +326,7 @@
         445,
         447,
         448,
+        457,
         461
       ]
     },
@@ -391,6 +378,7 @@
     },
     "test/operations/command-runtime.test.ts#CommandRuntime installation rejects a target whose package or operation differs from the Command's Operation reference": {
       "src/operations/command-runtime.ts": [
+        160,
         166,
         168,
         170,
@@ -411,14 +399,10 @@
     },
     "test/operations/command-runtime.test.ts#CommandRuntime installation returns the identical installed Command for an equal reinstallation and rejects a divergent one": {
       "src/operations/command-runtime.ts": [
-        61,
-        64,
         67,
         68,
         72,
-        78,
         80,
-        81,
         86,
         90,
         166,
@@ -568,7 +552,7 @@
         368,
         370,
         468,
-        470,
+        472,
         473,
         524
       ]
@@ -617,8 +601,7 @@
       "src/operations/command-runtime.ts": [
         523,
         524,
-        526,
-        527
+        526
       ]
     },
     "test/operations/command-runtime.test.ts#CommandRuntime mapping validation requires an unconstrained argument sub-schema of true to equal its destination": {
@@ -676,16 +659,6 @@
     "test/operations/command-runtime.test.ts#CommandRuntime mapping validation treats const and enum sources as compatible exactly when the destination accepts their values": {
       "src/operations/command-runtime.ts": [
         314
-      ]
-    },
-    "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway tightens to mediated when the Turn Actor lacks local versioned Binding authority": {
-      "src/operations/gateway.ts": [
-        410
-      ]
-    },
-    "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway uses delayed watermark, exact lease, and immutable deadline cutoffs before execution": {
-      "src/operations/gateway.ts": [
-        422
       ]
     },
     "test/operations/runtime.test.ts#Facet runtime [C13-FACET-INSTALL-VERIFICATION] names the kind of contribution that has no runtime implementation": {
@@ -775,15 +748,18 @@
     "test/operations/runtime.test.ts#Facet runtime rejects correspondence failures before lifecycle code runs": {
       "src/operations/correspondence.ts": [
         87,
+        89,
         96,
         131,
         133,
         198,
         199,
         203,
+        204,
         205,
         209,
         213,
+        223,
         226,
         229,
         231,
@@ -872,6 +848,7 @@
         126,
         134,
         135,
+        184,
         185,
         186
       ]
@@ -891,7 +868,6 @@
       ],
       "src/operations/lifecycle.ts": [
         27,
-        34,
         35,
         44,
         45,
@@ -908,6 +884,7 @@
         119,
         122,
         125,
+        139,
         146,
         151,
         154,
@@ -915,6 +892,7 @@
         159,
         168,
         169,
+        170,
         171,
         180,
         181,
@@ -966,6 +944,7 @@
         380,
         382,
         391,
+        401,
         409,
         410,
         437,
@@ -999,11 +978,18 @@
     },
     "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-ARGUMENT-BINDING] binds validated surface arguments before emitting command.invoked": {
       "src/operations/command-runtime.ts": [
+        61,
+        64,
+        67,
+        78,
+        81,
         86,
         123,
         130,
         136,
-        154
+        143,
+        166,
+        176
       ]
     },
     "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-COLLISION] rejects later same-scope surface collisions atomically": {
@@ -1016,20 +1002,22 @@
     },
     "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-INSTALL-MAPPING] rejects incompatible mappings before registering a command": {
       "src/operations/command-runtime.ts": [
-        160
+        224
       ]
     },
     "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-INVOCATION-CORRELATION] emits only an installed Surface's correlation and infers no Subscription relation": {
       "src/operations/command-runtime.ts": [
         123,
         125,
-        132,
-        133
+        130,
+        133,
+        198
       ]
     },
     "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-SUBSCRIPTION-DEFAULTS] derives only the fixed command Subscription defaults": {
       "src/operations/command-runtime.ts": [
         86,
+        87,
         88
       ]
     },
@@ -1113,10 +1101,10 @@
       "src/operations/command-runtime.ts": [
         439,
         451,
-        457,
-        472,
-        517,
-        524
+        470,
+        507,
+        524,
+        527
       ]
     },
     "test/operations/runtime.test.ts#Protected Operation gateway binds payload shape into direct and mediated identities and returns replay without rerunning interceptors": {
@@ -1137,6 +1125,7 @@
     "test/operations/runtime.test.ts#Protected Operation gateway covers direct batches, inactive resolution, disposal idempotency, and invalid interceptor rewrites": {
       "src/operations/gateway.ts": [
         207,
+        255,
         329,
         331,
         415,
@@ -1148,11 +1137,6 @@
         488,
         518,
         524
-      ]
-    },
-    "test/operations/runtime.test.ts#Protected Operation gateway dispatches only through implementation identities captured before start": {
-      "src/operations/gateway.ts": [
-        259
       ]
     },
     "test/operations/runtime.test.ts#Protected Operation gateway drains in-flight execution before stopping and releasing authority": {
@@ -1175,6 +1159,7 @@
         230,
         260,
         266,
+        268,
         270,
         273,
         277,
@@ -1183,11 +1168,9 @@
         286,
         292,
         301,
-        309,
         312,
         325,
         329,
-        338,
         341,
         420,
         422,
@@ -1246,6 +1229,7 @@
     "test/operations/runtime.test.ts#Protected Operation gateway records attributable direct interception evidence for both cut points": {
       "src/operations/gateway.ts": [
         533,
+        534,
         539
       ]
     },
@@ -1256,10 +1240,10 @@
     },
     "test/operations/runtime.test.ts#Protected Operation gateway rejects invalid command arguments and missing mapping sources": {
       "src/operations/command-runtime.ts": [
+        139,
         141,
         144,
-        147,
-        524
+        147
       ]
     },
     "test/operations/runtime.test.ts#Protected Operation gateway rejects invalid input before consulting mediated authorization": {

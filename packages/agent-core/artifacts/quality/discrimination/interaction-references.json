@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "interaction-references",
-  "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
-  "fingerprint": "sha256:00311199768b94b9ac3804eb7c5a3d7ee67b0a3dbf251c25c01cb2193fc133c1",
+  "measuredAt": "be905bac8dbec599a2a50ff105947e1eeced2771",
+  "fingerprint": "sha256:f72afae5773984941c12c55e17f7e1cee812bdf84d684d3a7af51b650888e5d6",
   "files": {
     "src/interaction-references/id.ts": {
       "mutants": 14,
@@ -10,6 +10,11 @@
     }
   },
   "killed": {
+    "test/facets/profile-runtime.test.ts#W3 profile runtime keeps profile host adapters private and uses canonical Operation execution": {
+      "src/interaction-references/id.ts": [
+        18
+      ]
+    },
     "test/interaction-references/identity.test.ts#canonical interaction identities every interaction and invocation reference ID names its exact subject": {
       "src/interaction-references/id.ts": [
         5,
@@ -21,14 +26,7 @@
         47
       ]
     },
-    "test/operations/command-routing.test.ts#Command invocation routing routes an invocation only when the derived Subscription accepts the Event trust": {
-      "src/interaction-references/id.ts": [
-        11,
-        32,
-        39
-      ]
-    },
-    "test/protocol/persistence-sqlite.test.ts#ProtocolPersistence (SQLite) rejects a codec-representable unsupported causal path without persistence": {
+    "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) rejects a codec-representable unsupported causal path without persistence": {
       "src/interaction-references/id.ts": [
         4
       ]
@@ -40,8 +38,14 @@
     },
     "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] memory and SQLite satisfy one shared codec-storage contract": {
       "src/interaction-references/id.ts": [
-        18,
         46
+      ]
+    },
+    "test/workspaces/protocols.test.ts#SourceEventProtocol registers opaque prepared routing as typed W1 command evidence": {
+      "src/interaction-references/id.ts": [
+        11,
+        32,
+        39
       ]
     }
   }

@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "definition",
-  "measuredAt": "7b8091840097d69832d50ca89481b488d2ecbfdd",
-  "fingerprint": "sha256:328380f1255ac9dfb6d8a01ba3d4f793a26d4d2fd2333a612a9dfdea2dba7927",
+  "measuredAt": "be905bac8dbec599a2a50ff105947e1eeced2771",
+  "fingerprint": "sha256:e6e012c4c7c670ef05a9096ec9e8440e8091339ddb9620628f0a5ab6996d28ba",
   "files": {
     "src/definition/attestation.ts": {
       "mutants": 81,
@@ -118,50 +118,56 @@
     }
   },
   "killed": {
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] hosts a model call only inside the exact live Turn and commits its complete output": {
+      "src/definition/placement.ts": [
+        269,
+        270
+      ]
+    },
     "test/agents/runs/executor.test.ts#TurnExecutor seam identifies exact Turn authorship by commit kind and complete lease token": {
       "src/definition/package-lock.ts": [
-        29,
-        31,
         34,
-        39
+        149,
+        158,
+        163,
+        164
       ]
     },
     "test/composition/mediation-pipeline.test.ts#the published mediation composition root produces the whole §7 evidence chain for one mediated call": {
-      "src/definition/placement.ts": [
-        178
-      ],
       "src/definition/policy.ts": [
-        92
+        205,
+        211
       ]
     },
     "test/composition/mediation-pipeline.test.ts#the published mediation composition root serves a direct-tier Turn call from memory and writes no durable evidence": {
       "src/definition/policy.ts": [
-        183,
-        185
+        124,
+        135,
+        184,
+        185,
+        260
       ]
     },
     "test/composition/tier-policy.test.ts#runtime enforcement tier is the single evaluatePolicy call site approvals covering observe and execute force mediated on a bundled leased facet": {
       "src/definition/policy.ts": [
-        145,
-        159,
-        170
+        145
       ]
     },
     "test/composition/tier-policy.test.ts#runtime enforcement tier is the single evaluatePolicy call site execute with a turn-owned bundled session is direct absent tightening": {
       "src/definition/policy.ts": [
         137,
-        163
+        163,
+        172
       ]
     },
     "test/composition/tier-policy.test.ts#runtime enforcement tier is the single evaluatePolicy call site workspace policy raising observe to mediated is honored on a bundled leased facet": {
       "src/definition/policy.ts": [
         88,
-        133,
         136,
-        144,
+        141,
         150,
-        155,
-        253
+        153,
+        155
       ]
     },
     "test/definition/attestation.test.ts#PlatformCompatibility [definition.platform-compatibility] round-trips exact target versions and rejects malformed targets": {
@@ -175,7 +181,6 @@
         50,
         51,
         59,
-        60,
         69
       ]
     },
@@ -187,15 +192,17 @@
     },
     "test/definition/attestation.test.ts#ValidationAttestation [definition.validation-attestation] round-trips every validation input under one content-derived identity": {
       "src/definition/attestation.ts": [
-        81,
         106,
+        107,
         108,
         109,
         110,
         111,
+        112,
         116,
         117,
         136,
+        150,
         154,
         155,
         159,
@@ -248,50 +255,40 @@
         166
       ]
     },
-    "test/definition/authored-code-backing.test.ts#declaring which backing serves which §4.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] rejects a placement record whose declaration is malformed": {
-      "src/definition/placement.ts": [
-        166
-      ]
-    },
     "test/definition/authored-code-backing.test.ts#declaring which backing serves which §4.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] round-trips the declaration through the placement record": {
       "src/definition/placement.ts": [
         43,
         44,
         48,
-        73,
         74,
         81,
         83,
         103,
+        107,
         166,
         167,
         174,
         204,
+        322,
         323,
-        328,
-        350
+        331
       ]
     },
     "test/definition/authored-code-backing.test.ts#declaring which backing serves which §4.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] serves a declared consumer from the backing the Blueprint named": {
       "src/definition/placement.ts": [
         31,
+        35,
         77,
         78,
-        197,
-        301,
-        304
+        197
       ]
     },
     "test/definition/blueprint.test.ts#Blueprint [definition.blueprint] [definition.package-install] round-trips strict canonical declaration data": {
       "src/definition/blueprint.ts": [
         91,
         92,
-        96,
         97,
         118,
-        122,
-        139,
-        141,
         143,
         149,
         155,
@@ -300,10 +297,8 @@
         178,
         182,
         183,
-        186,
         187,
         188,
-        191,
         192,
         193,
         195,
@@ -317,6 +312,8 @@
         211,
         215,
         217,
+        227,
+        229,
         231,
         233,
         234,
@@ -339,6 +336,7 @@
         283,
         288,
         289,
+        301,
         303,
         304,
         310,
@@ -346,7 +344,7 @@
         318
       ],
       "src/definition/config.ts": [
-        49
+        43
       ]
     },
     "test/definition/blueprint.test.ts#Blueprint keeps every optional declaration group in canonical Blueprint data": {
@@ -374,12 +372,14 @@
       "src/definition/blueprint.ts": [
         140,
         143,
-        231,
         233,
         234,
         235,
         236,
         261
+      ],
+      "src/definition/config.ts": [
+        200
       ]
     },
     "test/definition/blueprint.test.ts#Blueprint rejects nonobject payloads, entry positions, and unknown metadata keys": {
@@ -394,17 +394,15 @@
         276,
         277,
         284,
-        306,
         311,
+        312,
         318
       ]
     },
     "test/definition/blueprint.test.ts#Blueprint rejects unknown codec fields and malformed optional declarations": {
       "src/definition/blueprint.ts": [
-        300,
         303,
-        304,
-        305
+        304
       ]
     },
     "test/definition/blueprint.test.ts#Blueprint requires unique root package requests": {
@@ -415,6 +413,7 @@
         144,
         244,
         245,
+        254,
         268,
         317,
         318,
@@ -424,40 +423,40 @@
     "test/definition/code-manifest.test.ts#PackageCodeManifest [definition.package-code-manifest] canonicalizes and round-trips a complete content-addressed closure": {
       "src/definition/code-manifest.ts": [
         45,
+        50,
         56,
+        57,
         79,
         83,
         87,
         89,
-        90,
         91,
         92,
         93,
         94,
+        98,
         99,
         120,
         124,
         137,
+        138,
         139,
         140,
         142,
         144,
-        155,
         158,
         166,
-        173,
         181,
         191,
         195,
         199,
         203,
+        206,
         209,
         212,
-        215,
         219,
         222,
-        234,
-        248,
+        230,
         254,
         259,
         260,
@@ -472,9 +471,8 @@
         280,
         290,
         291,
-        293,
         294,
-        296,
+        321,
         322,
         328,
         329,
@@ -492,6 +490,11 @@
         269,
         270,
         277
+      ]
+    },
+    "test/definition/code-manifest.test.ts#PackageCodeManifest binds media and compatibility date into the derived code digest": {
+      "src/definition/code-manifest.ts": [
+        245
       ]
     },
     "test/definition/code-manifest.test.ts#PackageCodeManifest names each decoded field subject and rejects nonobject payloads": {
@@ -597,20 +600,13 @@
         32,
         33,
         34,
-        38,
-        61,
-        80,
-        84,
         111,
         125,
         129,
         148,
         149,
-        158,
-        163,
         164,
         165,
-        171,
         178,
         179
       ]
@@ -641,37 +637,29 @@
         87,
         88,
         107,
-        127,
-        131,
-        133,
-        134,
-        136,
-        137,
-        139,
-        140,
-        145,
-        161,
-        207,
         214,
         216,
-        227,
-        242,
+        229,
+        259,
         263,
+        267,
         453,
         454,
+        460,
+        465,
+        467,
+        468,
+        472,
         478,
+        483,
         486,
-        520,
         521,
-        542,
-        543,
         549,
         550,
         557,
         563
       ],
       "src/definition/id.ts": [
-        15,
         17
       ]
     },
@@ -681,7 +669,6 @@
         99,
         100,
         104,
-        106,
         112,
         116,
         117,
@@ -704,11 +691,10 @@
       "src/definition/plan.ts": [
         698,
         706,
+        730,
+        735,
         758,
         759
-      ],
-      "src/definition/policy.ts": [
-        196
       ]
     },
     "test/definition/codec-edges.test.ts#definition codec adversarial edges rejects malformed Package locks releases and snapshots": {
@@ -722,46 +708,49 @@
         110,
         118,
         119,
-        125,
+        128,
         131,
-        132,
         138,
         139,
-        166,
-        172,
-        176,
+        170,
+        173,
         177,
-        181,
         185,
         187,
         188,
         191,
-        194,
+        193,
         197,
         198,
         201,
+        202,
+        204,
+        205,
+        211,
+        213,
+        369,
+        375,
         383,
         384,
         385,
-        397,
-        398,
+        395,
         412,
         413,
-        418,
-        420,
+        419,
         426
       ]
     },
     "test/definition/config.test.ts#Blueprint config [C13-CONFIG-SECRET-REF] [definition.config] uses one tagged SecretRef representation and round-trips canonical nested refs": {
       "src/definition/config.ts": [
-        77,
-        106,
+        73,
+        81,
         107,
         108,
-        116,
         118,
         122,
         126,
+        127,
+        128,
         132,
         133,
         135,
@@ -769,50 +758,42 @@
         196,
         199,
         200,
-        211,
+        205,
+        208,
         213,
         221,
-        245,
         250,
-        257,
-        263,
         269,
         270
       ]
     },
     "test/definition/config.test.ts#Blueprint config composes base, release, manifest, and settings contribution schemas": {
       "src/definition/config.ts": [
+        148,
+        153,
         156,
         158,
         160,
         164,
         166,
         167,
+        169,
         170,
         176,
         177,
         178,
         181,
         182,
-        226,
-        231,
-        235
-      ],
-      "src/definition/id.ts": [
-        5,
-        7
+        226
       ],
       "src/definition/package.ts": [
-        105,
-        125
+        115
       ]
     },
     "test/definition/config.test.ts#Blueprint config orders composed package properties by ID and inlines single-fragment schemas": {
       "src/definition/config.ts": [
         149,
-        156,
-        158,
-        226
+        158
       ]
     },
     "test/definition/config.test.ts#Blueprint config rejects alternate SecretRef forms and raw values at credential-typed positions": {
@@ -860,22 +841,23 @@
     },
     "test/definition/generation.test.ts#materialization generation identity and canonicalization canonicalizes generation managed record IDs into sorted unique order": {
       "src/definition/generation.ts": [
+        207,
         214,
-        229,
-        442,
-        451,
         452,
         453
       ],
+      "src/definition/id.ts": [
+        15,
+        17
+      ],
       "src/definition/materialization-kind.ts": [
-        40,
+        36,
         41
       ]
     },
     "test/definition/generation.test.ts#materialization generation identity and canonicalization derives stable managed resource identities under a fixed domain": {
       "src/definition/generation.ts": [
         430,
-        459,
         521
       ]
     },
@@ -898,21 +880,30 @@
         154,
         155,
         156,
-        259,
-        263,
-        269,
+        161,
         270,
+        272,
         274,
-        277,
         280,
+        288,
+        342,
+        371,
+        374,
+        375,
         377,
+        389,
+        390,
         468,
         476,
         478,
+        479,
         526,
         527,
         536,
+        541,
         542,
+        543,
+        548,
         549,
         563,
         564
@@ -920,12 +911,14 @@
     },
     "test/definition/generation.test.ts#materialization generation identity and canonicalization rejects blank managed resource names": {
       "src/definition/generation.ts": [
+        520,
         521,
         522
       ]
     },
     "test/definition/generation.test.ts#materialization generation identity and canonicalization rejects malformed pointer revisions with the exact subject": {
       "src/definition/generation.ts": [
+        380,
         384,
         555,
         556
@@ -942,7 +935,9 @@
       "src/definition/installation.ts": [
         25,
         27,
+        35,
         37,
+        42,
         52,
         54,
         57,
@@ -1029,6 +1024,9 @@
       ]
     },
     "test/definition/loader.test.ts#Blueprint loader byte custody and placement selection validates correspondence per release with only its own modules": {
+      "src/definition/config.ts": [
+        226
+      ],
       "src/definition/loader.ts": [
         123,
         126,
@@ -1036,7 +1034,8 @@
       ],
       "src/definition/package-lock.ts": [
         81,
-        84
+        84,
+        90
       ]
     },
     "test/definition/loader.test.ts#production Blueprint validation-before-load [C13-PLACEMENT-ORDER] passes detached verified bytes to one selected evaluator in canonical order": {
@@ -1080,66 +1079,48 @@
     "test/definition/loader.test.ts#production Blueprint validation-before-load does not resolve or evaluate code when config validation fails": {
       "src/definition/blueprint.ts": [
         58,
-        60
+        65,
+        139
       ],
       "src/definition/code-manifest.ts": [
         33,
         34,
-        45,
-        47,
-        50,
-        83,
+        48,
+        49,
         148,
         158,
-        166,
         173,
-        181,
-        230,
-        235,
-        254
+        234,
+        249
       ],
       "src/definition/config.ts": [
-        156,
         163,
-        169,
-        178,
-        185,
-        196,
-        208,
-        221
+        221,
+        257
       ],
       "src/definition/loader.ts": [
         71,
         79
       ],
       "src/definition/package-lock.ts": [
+        61,
         82,
-        87,
+        84,
         90,
-        102,
-        139
-      ],
-      "src/definition/package.ts": [
-        38,
-        39,
-        41,
-        44,
-        50,
-        96,
-        369
+        102
       ],
       "src/definition/resolver.ts": [
+        82,
         84,
-        85
+        89
       ],
       "src/definition/validator.ts": [
-        142
+        142,
+        155,
+        309
       ]
     },
     "test/definition/loader.test.ts#production Blueprint validation-before-load preflights every exact module byte before invoking the evaluator": {
-      "src/definition/code-manifest.ts": [
-        138
-      ],
       "src/definition/loader.ts": [
         207,
         208,
@@ -1147,6 +1128,9 @@
         217,
         218,
         219
+      ],
+      "src/definition/order.ts": [
+        3
       ]
     },
     "test/definition/loader.test.ts#production Blueprint validation-before-load rejects a non-byte content adapter result before inspection or evaluation": {
@@ -1158,8 +1142,8 @@
       "src/definition/blueprint.ts": [
         44
       ],
-      "src/definition/code-manifest.ts": [
-        152
+      "src/definition/config.ts": [
+        156
       ],
       "src/definition/loader.ts": [
         179,
@@ -1170,6 +1154,9 @@
       ]
     },
     "test/definition/loader.test.ts#production Blueprint validation-before-load rejects an inspected import outside the declared closure before evaluation": {
+      "src/definition/blueprint.ts": [
+        96
+      ],
       "src/definition/code-manifest.ts": [
         227
       ],
@@ -1204,7 +1191,14 @@
         229
       ],
       "src/definition/validator.ts": [
-        128
+        131,
+        163,
+        182,
+        185,
+        219,
+        239,
+        252,
+        263
       ]
     },
     "test/definition/loader.test.ts#production Blueprint validation-before-load rejects nonexact inspected import set []": {
@@ -1233,9 +1227,11 @@
     "test/definition/materialization-control-memory.test.ts#MemoryMaterializationControlStore integrity guards deployment CAS transitions through stored rollout lineage": {
       "src/definition/memory.ts": [
         521,
+        531,
         533,
-        534,
-        572,
+        546,
+        570,
+        678,
         679,
         680,
         682,
@@ -1246,12 +1242,6 @@
         695,
         758,
         759
-      ],
-      "src/definition/origin.ts": [
-        49,
-        74,
-        77,
-        80
       ]
     },
     "test/definition/materialization-control-memory.test.ts#MemoryMaterializationControlStore integrity isolates transaction draft bytes from committed control state": {
@@ -1261,12 +1251,10 @@
     },
     "test/definition/materialization-control-memory.test.ts#MemoryMaterializationControlStore integrity keeps control snapshots detached and deterministically ordered": {
       "src/definition/memory.ts": [
-        462,
         466,
-        469,
         470,
-        479,
-        510,
+        471,
+        512,
         710,
         712,
         715,
@@ -1286,16 +1274,13 @@
     "test/definition/materialization-control-memory.test.ts#MemoryMaterializationControlStore integrity loads plans and outbox entries by exact identity": {
       "src/definition/memory.ts": [
         582,
-        616,
         618,
-        620,
         621
       ]
     },
     "test/definition/materialization-control-memory.test.ts#MemoryMaterializationControlStore integrity names every missing closure linkage during snapshot restore": {
       "src/definition/memory.ts": [
         639,
-        640,
         641,
         647,
         648,
@@ -1308,7 +1293,7 @@
     },
     "test/definition/materialization-control-memory.test.ts#MemoryMaterializationControlStore integrity outbox CAS honors exact revisions and legal transitions": {
       "src/definition/memory.ts": [
-        607,
+        609,
         631,
         632,
         633
@@ -1318,7 +1303,6 @@
       "src/definition/memory.ts": [
         553,
         555,
-        591,
         600,
         752,
         753,
@@ -1328,31 +1312,30 @@
     },
     "test/definition/materialization-kind.test.ts#materialization kind validation rejects every malformed slot entry index shape": {
       "src/definition/materialization-kind.ts": [
+        90,
         111,
-        117,
-        118
+        116,
+        117
       ]
     },
     "test/definition/materialization-kind.test.ts#materialization kind validation rejects every non-canonical slot entry contributor shape": {
       "src/definition/materialization-kind.ts": [
+        86,
         89,
-        111,
-        112
+        110,
+        111
       ]
     },
     "test/definition/materialization-kind.test.ts#materialization kind validation rejects non-object slot entries with the object subject": {
       "src/definition/materialization-kind.ts": [
-        85,
-        106
+        85
       ]
     },
     "test/definition/materialization-kind.test.ts#materialization kind validation rejects partially reordered placement sources as non-canonical": {
       "src/definition/materialization-kind.ts": [
         61,
-        123,
         137,
-        138,
-        139
+        138
       ]
     },
     "test/definition/materialization-kind.test.ts#materialization kind validation rejects slot entries with unknown fields through exact key closure": {
@@ -1367,10 +1350,8 @@
         127,
         146,
         150,
-        181,
         188,
         192,
-        256,
         259,
         260,
         278,
@@ -1391,9 +1372,6 @@
       ]
     },
     "test/definition/materialization-memory.test.ts#memory MaterializationStore contract opens Actor-local materialization persistence for environment owners": {
-      "src/definition/generation.ts": [
-        481
-      ],
       "src/definition/plan.ts": [
         701
       ]
@@ -1401,11 +1379,6 @@
     "test/definition/materialization-memory.test.ts#memory MaterializationStore contract opens Actor-local materialization persistence for run owners": {
       "src/definition/plan.ts": [
         700
-      ]
-    },
-    "test/definition/materialization-memory.test.ts#memory MaterializationStore contract opens Actor-local materialization persistence for slate owners": {
-      "src/definition/plan.ts": [
-        702
       ]
     },
     "test/definition/materialization-memory.test.ts#memory MaterializationStore contract opens Actor-local materialization persistence for workspace owners": {
@@ -1453,7 +1426,8 @@
       "src/definition/materialization-store.ts": [
         144,
         790,
-        791
+        791,
+        792
       ]
     },
     "test/definition/materialization-memory.test.ts#memory MaterializationStore contract rejects immutable key conflicts and rolls their partial state back": {
@@ -1472,13 +1446,7 @@
     },
     "test/definition/materialization-memory.test.ts#memory MaterializationStore contract rejects multi-actor plans even when they include the owner": {
       "src/definition/materialization-store.ts": [
-        784,
-        785,
-        786
-      ],
-      "src/definition/plan.ts": [
-        623,
-        699
+        785
       ]
     },
     "test/definition/materialization-memory.test.ts#memory MaterializationStore contract rejects plans and records for a foreign Actor": {
@@ -1490,12 +1458,14 @@
       ]
     },
     "test/definition/materialization-memory.test.ts#memory MaterializationStore contract rejects pointer CAS onto the currently active generation": {
+      "src/definition/id.ts": [
+        47
+      ],
       "src/definition/materialization-store.ts": [
         320,
         323,
         325,
         351,
-        352,
         353,
         354,
         357,
@@ -1510,9 +1480,11 @@
         380,
         385,
         388,
+        389,
         393,
+        568,
+        569,
         687,
-        688,
         744,
         746,
         748,
@@ -1534,6 +1506,8 @@
     },
     "test/definition/materialization-memory.test.ts#memory MaterializationStore contract rejects pointers with foreign Actors, missing generations, or skipped revisions": {
       "src/definition/materialization-store.ts": [
+        212,
+        213,
         344,
         346,
         358,
@@ -1547,6 +1521,7 @@
       "src/definition/materialization-store.ts": [
         170,
         171,
+        231,
         233,
         261,
         296,
@@ -1558,10 +1533,12 @@
     },
     "test/definition/materialization-memory.test.ts#memory MaterializationStore contract returns false for a revision-expecting CAS on an absent pointer": {
       "src/definition/generation.ts": [
+        359,
         371,
-        384
+        377
       ],
       "src/definition/materialization-store.ts": [
+        344,
         353,
         354
       ]
@@ -1570,7 +1547,6 @@
       "src/definition/materialization-store.ts": [
         86,
         115,
-        144,
         233,
         280,
         323,
@@ -1588,6 +1564,7 @@
         825,
         826,
         835,
+        836,
         878,
         881
       ]
@@ -1610,49 +1587,46 @@
       "src/definition/generation.ts": [
         79,
         83,
+        87,
         108,
-        403,
-        424,
-        478,
-        489,
-        498
+        134,
+        137
       ],
       "src/definition/materialization-kind.ts": [
-        36,
         41
       ],
       "src/definition/materialization-store.ts": [
         70,
-        92,
         93,
-        94,
         97,
-        106,
-        108,
-        111,
-        113,
-        120,
-        122,
+        143,
+        147,
         186,
         187,
         235,
-        245,
         250,
         263,
         282,
+        289,
         294,
         306,
         481,
+        483,
+        495,
+        501,
         503,
         504,
         505,
+        514,
         518,
-        529,
-        542,
+        533,
+        546,
+        599,
         632,
         633,
         641,
-        642,
+        672,
+        701,
         703,
         704,
         705,
@@ -1677,16 +1651,13 @@
         801,
         802,
         810,
-        813,
         814,
-        820,
         822
       ],
       "src/definition/materializer.ts": [
         278,
         280,
-        287,
-        290
+        287
       ],
       "src/definition/memory.ts": [
         258,
@@ -1710,6 +1681,7 @@
         878,
         882,
         898,
+        902,
         905,
         911,
         914,
@@ -1728,21 +1700,30 @@
         1003
       ],
       "src/definition/order.ts": [
-        1,
         2
       ],
       "src/definition/origin.ts": [
-        48
+        49
+      ],
+      "src/definition/placement.ts": [
+        44,
+        337
       ],
       "src/definition/plan.ts": [
-        620,
+        44,
+        57,
+        67,
+        71,
+        75,
+        206,
+        216,
+        226,
+        317,
+        322,
         623,
-        640,
-        648,
+        650,
         698,
-        703,
-        735,
-        736
+        703
       ]
     },
     "test/definition/materialization-memory.test.ts#memory MaterializationStore contract uses exact revision CAS and requires a new higher generation for rollback": {
@@ -1761,6 +1742,7 @@
     },
     "test/definition/materialization-memory.test.ts#MemoryMaterializationStore persistence [C13-BLUEPRINT-REMATERIALIZE] [definition.blueprint] [definition.materialization-plan] [definition.managed-state] [definition.materialization-generation] [definition.materialization-generation-pointer] restores a detached deterministic snapshot and clones all generation history": {
       "src/definition/materialization-store.ts": [
+        215,
         620,
         621
       ],
@@ -1856,13 +1838,16 @@
       "src/definition/materialization-store.ts": [
         500,
         502,
-        506,
+        518,
+        546,
+        561,
         588,
         614,
         615,
         616,
         620,
         622,
+        703,
         707,
         731,
         735,
@@ -1879,11 +1864,13 @@
     },
     "test/definition/materialization-memory.test.ts#MemoryMaterializationStore persistence rejects detached blueprints projection mismatch in version": {
       "src/definition/materialization-store.ts": [
+        500,
         501
       ]
     },
     "test/definition/materialization-memory.test.ts#MemoryMaterializationStore persistence rejects detached generations projection mismatch in actorKind": {
       "src/definition/materialization-store.ts": [
+        533,
         716,
         717
       ]
@@ -2018,22 +2005,14 @@
         453
       ]
     },
+    "test/definition/materialization-sqlite.test.ts#SQLite MaterializationStore contract rejects conflicting logical keys within one generation": {
+      "src/definition/policy.ts": [
+        225
+      ]
+    },
     "test/definition/materialization-sqlite.test.ts#SQLite MaterializationStore contract rejects divergent record sets under one generation identity": {
       "src/definition/generation.ts": [
         214
-      ]
-    },
-    "test/definition/materialization-sqlite.test.ts#SQLite MaterializationStore contract rejects multi-actor plans even when they include the owner": {
-      "src/definition/policy.ts": [
-        48
-      ]
-    },
-    "test/definition/materialization-sqlite.test.ts#SQLite MaterializationStore contract rejects pointer CAS onto the currently active generation": {
-      "src/definition/generation.ts": [
-        556
-      ],
-      "src/definition/id.ts": [
-        47
       ]
     },
     "test/definition/materialization-sqlite.test.ts#SQLite MaterializationStore contract rejects unsupported managed state at insertion boundaries": {
@@ -2048,25 +2027,13 @@
         315,
         329,
         341,
-        342,
         350,
         351,
-        359,
         363,
         367,
         371,
-        374,
-        375,
-        377,
-        380,
-        389,
-        390,
+        384,
         556
-      ]
-    },
-    "test/definition/materialization-sqlite.test.ts#SQLite MaterializationStore contract returns undefined for every absent immutable record and deployment pointer": {
-      "src/definition/id.ts": [
-        17
       ]
     },
     "test/definition/materialization-sqlite.test.ts#SQLite MaterializationStore contract seals a stored generation closure against new managed state": {
@@ -2081,12 +2048,16 @@
       "src/definition/blueprint.ts": [
         87,
         89,
+        122,
+        182,
+        186,
+        191,
         193,
         196,
         199,
         207,
         215,
-        227,
+        231,
         233
       ],
       "src/definition/generation.ts": [
@@ -2095,83 +2066,106 @@
         79,
         83,
         87,
+        119,
         123,
+        127,
+        131,
         132,
+        133,
         135,
+        136,
         138,
+        139,
+        140,
         144,
+        145,
         146,
         147,
         149,
         152,
         153,
+        154,
+        155,
         156,
         160,
         188,
         192,
         214,
+        227,
+        242,
         251,
         255,
         263,
-        267,
-        272,
+        269,
+        277,
         280,
         283,
-        288,
         289,
         293,
+        403,
+        424,
+        452,
         453,
-        460,
+        459,
         463,
         465,
-        467,
-        468,
-        472,
         478,
-        483,
+        489,
         493,
         494,
         498,
         505,
         509,
         516,
-        562,
         563
       ],
       "src/definition/materialization-kind.ts": [
+        24,
         41
       ],
+      "src/definition/origin.ts": [
+        106
+      ],
       "src/definition/placement.ts": [
-        140
+        316,
+        328,
+        347
       ],
       "src/definition/plan.ts": [
-        44,
         53,
         57,
-        67,
         71,
-        75,
-        77,
-        206,
-        216,
+        74,
         226,
         231,
         232,
         238,
-        243,
+        239,
+        259,
         263,
         278,
-        331,
-        689,
+        311,
+        315,
+        318,
         698,
         709,
-        713,
-        718,
-        751
+        714,
+        725,
+        745,
+        751,
+        758,
+        765
       ],
       "src/definition/policy.ts": [
         49,
-        205
+        184,
+        203,
+        211,
+        218,
+        222,
+        246,
+        253,
+        270
       ]
     },
     "test/definition/materialization-sqlite.test.ts#SqliteMaterializationStore persistence survives adapter recreation over one database": {
@@ -2182,20 +2176,16 @@
         55,
         57,
         58,
+        59,
+        61,
         62,
         63,
         64,
         65,
-        111,
-        135
+        111
       ],
       "src/definition/placement.ts": [
-        243,
-        267
-      ],
-      "src/definition/plan.ts": [
-        663,
-        674
+        285
       ]
     },
     "test/definition/materialization-store-edges.test.ts#MaterializationStore hostile adapter boundaries detects pointer adapter CAS refusal and missing persisted state": {
@@ -2233,9 +2223,6 @@
     },
     "test/definition/materialization-store-edges.test.ts#MaterializationStore hostile adapter boundaries pins projection and codec-byte diagnostics for stored records": {
       "src/definition/materialization-store.ts": [
-        212,
-        213,
-        215,
         496,
         515,
         518,
@@ -2257,18 +2244,23 @@
     "test/definition/materialization-store-edges.test.ts#MaterializationStore hostile adapter boundaries rejects aliased plan generation managed-state and pointer rows": {
       "src/definition/materialization-store.ts": [
         66,
+        106,
+        108,
+        111,
+        113,
         139,
         140,
+        144,
         180,
-        231,
+        181,
         235,
         236,
+        245,
         250,
         263,
         282,
         283,
-        289,
-        306,
+        294,
         323,
         325,
         327,
@@ -2277,50 +2269,43 @@
         351,
         352,
         354,
-        385,
+        358,
         388,
-        389,
         470,
         479,
         481,
         483,
         485,
         500,
-        501,
         502,
         503,
         504,
         505,
-        514,
         518,
+        529,
         533,
+        542,
         546,
         557,
         561,
         568,
-        569,
         570,
         583,
         586,
         588,
         589,
         598,
-        599,
         605,
+        642,
         655,
         656,
         671,
-        672,
-        701,
-        785,
+        688,
         791,
         796,
+        813,
+        820,
         822
-      ],
-      "src/definition/memory.ts": [
-        836,
-        891,
-        902
       ]
     },
     "test/definition/materialization-store-edges.test.ts#MaterializationStore hostile adapter boundaries rejects byte-divergent generation replays before decoding adapter rows": {
@@ -2332,25 +2317,27 @@
     "test/definition/materialization-store-edges.test.ts#MaterializationStore hostile adapter boundaries rejects foreign rows behind honest adapters": {
       "src/definition/materialization-store.ts": [
         115,
-        143,
         145,
-        147,
         153,
         157,
         189,
         195,
         196,
-        483,
+        784,
         785,
-        792
+        786
       ]
     },
     "test/definition/materialization-store-edges.test.ts#MaterializationStore hostile adapter boundaries rejects malformed adapter bytes and duplicate list keys": {
       "src/definition/materialization-store.ts": [
+        86,
         90,
+        92,
+        94,
+        120,
+        122,
         124,
         128,
-        495,
         805,
         806,
         814,
@@ -2359,7 +2346,6 @@
     },
     "test/definition/materialization-store-edges.test.ts#MaterializationStore hostile adapter boundaries rejects pointers that target missing or foreign state": {
       "src/definition/materialization-store.ts": [
-        233,
         568,
         571,
         573
@@ -2367,7 +2353,10 @@
     },
     "test/definition/materialization-store-edges.test.ts#MaterializationStore hostile adapter boundaries reports a revision conflict when the active pointer generation disappears mid-CAS": {
       "src/definition/materialization-store.ts": [
+        256,
         259,
+        351,
+        353,
         376
       ]
     },
@@ -2379,39 +2368,28 @@
         500,
         503,
         504,
+        506,
         508
       ]
     },
-    "test/definition/materialize-blueprint.test.ts#complete Blueprint materialization materializes each supported record kind and covers every Blueprint field": {
-      "src/definition/materialization-kind.ts": [
-        24
-      ]
-    },
     "test/definition/materialize-blueprint.test.ts#complete Blueprint materialization mutating a single construct reconciles only that construct's record": {
-      "src/definition/materializer.ts": [
-        196
-      ],
       "src/definition/reconciliation.ts": [
-        31,
         124
       ]
     },
     "test/definition/materialize-blueprint.test.ts#complete Blueprint materialization projects every Blueprint construct to a record under its owning Actor": {
       "src/definition/config.ts": [
-        149,
-        226
+        156
       ],
       "src/definition/materialization-kind.ts": [
         75,
-        79,
+        84,
         86,
         89,
-        90,
-        91,
-        96,
         98,
+        106,
         117,
-        122
+        123
       ],
       "src/definition/materializer.ts": [
         86,
@@ -2419,36 +2397,29 @@
         95,
         103,
         104,
-        117,
+        110,
         123,
         125,
         131,
         137,
-        138,
         156,
         177,
-        194,
-        297
+        296
       ],
       "src/definition/plan.ts": [
         363,
         364,
-        370,
-        385,
+        383,
         388,
-        393,
-        395,
-        407,
-        410,
-        422,
-        440,
+        394,
+        413,
+        436,
         442,
         445,
         452,
         454,
         458,
         460,
-        461,
         463,
         469,
         471,
@@ -2460,18 +2431,19 @@
         487,
         488,
         500,
-        511,
+        504,
         512,
         514,
         515,
         517,
+        518,
         519,
+        524,
+        539,
         551,
         558,
         561,
-        575,
-        585,
-        592
+        575
       ],
       "src/definition/reconciliation.ts": [
         117,
@@ -2479,44 +2451,40 @@
         127,
         128,
         133,
-        186,
+        244,
+        257,
         296
       ],
       "src/definition/validator.ts": [
-        116,
+        111,
         117,
-        142,
-        153,
-        163,
-        182,
-        219,
-        239,
-        278,
-        320
+        140,
+        148,
+        227
       ]
     },
     "test/definition/materialize-blueprint.test.ts#complete Blueprint materialization re-applying an unchanged Blueprint reconciles to a semantic no-op": {
       "src/definition/materializer.ts": [
-        131,
-        177,
-        178,
-        180
+        125,
+        137,
+        148,
+        177
       ],
       "src/definition/reconciliation.ts": [
         127,
         137,
         142,
         147,
-        148,
-        157,
-        176,
-        197
+        148
       ]
     },
     "test/definition/materialize-blueprint.test.ts#complete Blueprint materialization rejects a contribution that violates its slot's contribute-authority": {
       "src/definition/plan.ts": [
+        533,
         538,
-        539
+        539,
+        550,
+        551
       ]
     },
     "test/definition/materialize-blueprint.test.ts#complete Blueprint materialization rejects a duplicate command name in the same surface slot": {
@@ -2530,38 +2498,35 @@
       "src/definition/generation.ts": [
         535,
         536,
-        541,
-        542,
-        548,
         556,
-        563
+        562
       ],
       "src/definition/id.ts": [
-        17
+        37
       ],
       "src/definition/materializer.ts": [
         280,
-        281
+        281,
+        290
       ],
-      "src/definition/origin.ts": [
-        70,
-        75,
-        78,
-        81,
-        85,
-        86
+      "src/definition/placement.ts": [
+        147,
+        297,
+        298,
+        301
       ]
     },
     "test/definition/materializer.test.ts#same-Actor additive materialization applies reordered plans once and makes an equal replay a no-op": {
       "src/definition/materializer.ts": [
-        110,
+        117,
         123,
         125,
         131,
         137,
+        138,
         139,
-        148,
         156,
+        177,
         178,
         179,
         180,
@@ -2585,7 +2550,7 @@
         265,
         270,
         273,
-        296,
+        297,
         308,
         309,
         320,
@@ -2602,10 +2567,12 @@
         368
       ],
       "src/definition/reconciliation.ts": [
+        176,
+        197,
         199,
         200,
         233,
-        257
+        246
       ]
     },
     "test/definition/materializer.test.ts#same-Actor additive materialization does not report a semantic no-op when any action mutates state": {
@@ -2613,6 +2580,7 @@
         178
       ],
       "src/definition/reconciliation.ts": [
+        185,
         312
       ]
     },
@@ -2630,8 +2598,7 @@
       "src/definition/reconciliation.ts": [
         17,
         18,
-        19,
-        22
+        188
       ]
     },
     "test/definition/materializer.test.ts#same-Actor additive materialization journals a new origin when unchanged desired state is re-materialized": {
@@ -2654,6 +2621,13 @@
     "test/definition/materializer.test.ts#same-Actor additive materialization reconciles create update and remove with one stable managed resource identity": {
       "src/definition/materializer.ts": [
         272
+      ],
+      "src/definition/policy.ts": [
+        211
+      ],
+      "src/definition/reconciliation.ts": [
+        156,
+        218
       ]
     },
     "test/definition/materializer.test.ts#same-Actor additive materialization rejects a store that rewrites immutable managed state or generations": {
@@ -2710,7 +2684,9 @@
       ],
       "src/definition/reconciliation.ts": [
         159,
-        176
+        165,
+        176,
+        209
       ]
     },
     "test/definition/materializer.test.ts#same-Actor additive materialization rejects stale generation replay and requires a higher generation for rollback": {
@@ -2719,6 +2695,11 @@
       ]
     },
     "test/definition/materializer.test.ts#same-Actor additive materialization reports a byte-divergent active generation as corrupt, not a revision conflict": {
+      "src/definition/error.ts": [
+        12,
+        16,
+        17
+      ],
       "src/definition/materializer.ts": [
         194,
         221,
@@ -2742,7 +2723,7 @@
     },
     "test/definition/package-memory.test.ts#memory PackageStore contract adds and gets an exact package release synchronously": {
       "src/definition/code-manifest.ts": [
-        254
+        31
       ],
       "src/definition/id.ts": [
         7
@@ -2767,27 +2748,24 @@
         48,
         55,
         57,
-        144,
         149,
         150,
         152,
         153,
-        154,
         155,
         244,
         252
       ],
       "src/definition/package.ts": [
         73,
-        77,
-        200,
-        202,
-        205,
+        115,
+        125,
+        132,
+        138,
+        158,
         212,
-        213,
-        375,
-        404,
-        412
+        223,
+        397
       ]
     },
     "test/definition/package-memory.test.ts#memory PackageStore contract lists all or one package in canonical key order": {
@@ -2805,7 +2783,6 @@
         62,
         64,
         65,
-        153,
         154,
         228,
         230,
@@ -2814,9 +2791,6 @@
       ]
     },
     "test/definition/package-memory.test.ts#memory PackageStore contract misses absent snapshots and orders them by revision then digest": {
-      "src/definition/code-manifest.ts": [
-        247
-      ],
       "src/definition/memory.ts": [
         141
       ],
@@ -2846,16 +2820,15 @@
       "src/definition/package-store.ts": [
         72,
         78,
-        87,
         92,
         172,
         240
+      ],
+      "src/definition/package.ts": [
+        265
       ]
     },
     "test/definition/package-memory.test.ts#memory PackageStore contract persists package locks by canonical lock digest": {
-      "src/definition/compatibility.ts": [
-        30
-      ],
       "src/definition/memory.ts": [
         156,
         158,
@@ -2866,10 +2839,7 @@
         790
       ],
       "src/definition/package-lock.ts": [
-        27,
-        29,
         65,
-        84,
         90,
         106,
         110,
@@ -2878,13 +2848,9 @@
         118,
         119,
         124,
-        129,
         131,
         138,
-        140,
-        170,
-        177,
-        178
+        170
       ],
       "src/definition/package-store.ts": [
         105,
@@ -2893,8 +2859,10 @@
         118
       ],
       "src/definition/package.ts": [
+        31,
         38,
-        51
+        41,
+        44
       ]
     },
     "test/definition/package-memory.test.ts#memory PackageStore contract rejects a different release under an immutable full-version key": {
@@ -2946,8 +2914,6 @@
         112
       ],
       "src/definition/package.ts": [
-        328,
-        432,
         434
       ]
     },
@@ -2960,9 +2926,6 @@
       ]
     },
     "test/definition/package-memory.test.ts#MemoryPackageStore persistence orders detached snapshot rows deterministically": {
-      "src/definition/code-manifest.ts": [
-        245
-      ],
       "src/definition/memory.ts": [
         102,
         104,
@@ -3011,7 +2974,8 @@
         79
       ],
       "src/definition/package-store.ts": [
-        149
+        149,
+        156
       ]
     },
     "test/definition/package-memory.test.ts#MemoryPackageStore persistence rejects duplicate snapshots and malformed snapshot scalar and byte fields": {
@@ -3048,7 +3012,6 @@
         795
       ],
       "src/definition/package-store.ts": [
-        172,
         256,
         257
       ],
@@ -3056,47 +3019,64 @@
         419
       ]
     },
+    "test/definition/package-sqlite.test.ts#SQLite PackageStore contract adds and gets an exact package release synchronously": {
+      "src/definition/code-manifest.ts": [
+        254
+      ]
+    },
+    "test/definition/package-sqlite.test.ts#SQLite PackageStore contract misses absent snapshots and orders them by revision then digest": {
+      "src/definition/code-manifest.ts": [
+        247
+      ]
+    },
+    "test/definition/package-sqlite.test.ts#SQLite PackageStore contract persists exact metadata snapshots": {
+      "src/definition/package.ts": [
+        277,
+        287,
+        292,
+        306
+      ]
+    },
     "test/definition/package-sqlite.test.ts#SQLite PackageStore contract persists package locks by canonical lock digest": {
       "src/definition/package-lock.ts": [
-        171
+        171,
+        178
       ]
     },
     "test/definition/package.test.ts#metadata snapshots [definition.metadata-snapshot] copies, sorts, freezes, and round-trips one immutable metadata revision": {
       "src/definition/package.ts": [
         249,
         253,
-        265,
         268,
         269,
-        277,
         281,
         285,
         287,
         288,
         290,
-        292,
         293,
         303,
         304,
-        306,
+        323,
         324,
-        325,
         326,
         328,
         341,
         344,
-        350,
         352,
         357,
         358,
+        418,
         419
       ]
     },
     "test/definition/package.test.ts#metadata snapshots deduplicates identical releases and rejects conflicting full-version metadata": {
       "src/definition/package.ts": [
         327,
+        328,
         332,
         334,
+        432,
         434
       ]
     },
@@ -3104,12 +3084,19 @@
       "src/definition/package.ts": [
         290,
         292,
-        419
+        419,
+        420
       ]
     },
     "test/definition/package.test.ts#package locks [definition.package-lock] sorts complete pins and round-trips byte deterministically": {
       "src/definition/package-lock.ts": [
-        178
+        27,
+        29,
+        31,
+        32,
+        129,
+        171,
+        177
       ]
     },
     "test/definition/package.test.ts#package locks rejects duplicate pins and unknown codec fields": {
@@ -3122,22 +3109,27 @@
     },
     "test/definition/package.test.ts#package releases [definition.package-release] canonicalizes immutable metadata and round-trips its strict codec": {
       "src/definition/package.ts": [
+        50,
+        77,
         97,
+        98,
         99,
         104,
-        105,
         113,
         115,
         118,
+        125,
         128,
+        131,
+        132,
         138,
-        158,
         162,
-        170,
+        166,
         171,
-        173,
+        172,
         174,
         175,
+        176,
         178,
         179,
         181,
@@ -3146,23 +3138,20 @@
         186,
         187,
         191,
-        193,
-        204,
+        194,
+        197,
+        200,
         207,
-        211,
         215,
-        219,
         220,
-        223,
-        227,
         230,
         233,
         313,
         317,
-        369,
-        374,
-        384,
-        395,
+        375,
+        397,
+        398,
+        404,
         405,
         411,
         412,
@@ -3170,9 +3159,6 @@
       ]
     },
     "test/definition/package.test.ts#package releases names malformed compatibility, digest, and identity subjects": {
-      "src/definition/compatibility.ts": [
-        79
-      ],
       "src/definition/package.ts": [
         145,
         146,
@@ -3201,7 +3187,6 @@
         132,
         133,
         135,
-        233,
         313,
         314,
         318,
@@ -3250,6 +3235,7 @@
         89
       ],
       "src/definition/reconciliation.ts": [
+        19,
         22
       ]
     },
@@ -3261,27 +3247,29 @@
     "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-INTERSECTION] matches the exact reference intersection and preference for all 8^4 source combinations": {
       "src/definition/placement.ts": [
         93,
-        223,
-        241,
         243,
         244,
         245,
         246,
+        267,
         270,
         277,
         285,
+        298,
+        301,
         304
       ]
     },
     "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-UNTRUSTED-BUNDLED] a Blueprint's placement policy derives trust from its own glob patterns": {
       "src/definition/placement.ts": [
+        115,
         117,
         118,
         119,
         120,
-        184,
+        140,
         185,
-        188,
+        312,
         316,
         319,
         337
@@ -3338,23 +3326,23 @@
     },
     "test/definition/placement.test.ts#placement policy trust patterns [definition.placement-policy] canonicalizes trust patterns, sorted and deduplicated": {
       "src/definition/placement.ts": [
-        107,
+        39,
         151,
         155,
         159,
         166,
+        172,
         173,
-        202,
         319,
-        322,
-        331,
-        336,
+        323,
+        328,
         344,
         351
       ]
     },
     "test/definition/placement.test.ts#placement policy trust patterns [definition.placement-policy] requires the trusted field explicitly, with no implicit wire default": {
       "src/definition/placement.ts": [
+        166,
         168,
         169
       ]
@@ -3366,6 +3354,7 @@
     },
     "test/definition/placement.test.ts#placement policy trust patterns rejects a malformed, duplicate, or non-array trust pattern list": {
       "src/definition/placement.ts": [
+        167,
         313,
         316,
         317,
@@ -3390,18 +3379,24 @@
         32,
         62,
         66,
-        76,
+        74,
+        75,
+        77,
+        78,
         79,
+        80,
+        85,
         88,
         91,
         94
       ],
       "src/definition/placement.ts": [
+        73,
         74
       ],
       "src/definition/plan.ts": [
-        74,
         76,
+        77,
         79,
         85,
         185,
@@ -3413,16 +3408,12 @@
         227,
         230,
         233,
-        239,
         282,
         307,
-        311,
-        315,
         317,
-        318,
         321,
-        322,
         324,
+        331,
         364,
         365,
         622,
@@ -3448,14 +3439,6 @@
         765,
         775,
         777
-      ],
-      "src/definition/policy.ts": [
-        80
-      ]
-    },
-    "test/definition/plan.test.ts#materialization planning canonicalizes policy-set desired data before deriving identity": {
-      "src/definition/placement.ts": [
-        167
       ]
     },
     "test/definition/plan.test.ts#materialization planning deduplicates identical logical keys and rejects conflicting desired records": {
@@ -3470,6 +3453,7 @@
     },
     "test/definition/plan.test.ts#materialization planning mutation boundaries consults topology in canonical record kind then logical key order": {
       "src/definition/materialization-kind.ts": [
+        91,
         98,
         117
       ],
@@ -3480,8 +3464,8 @@
         152,
         169,
         170,
-        458,
-        481,
+        461,
+        476,
         494,
         566,
         568
@@ -3500,14 +3484,11 @@
         161,
         162,
         432,
-        436,
         440,
         503,
-        504,
+        511,
         515,
         516,
-        518,
-        524,
         539
       ]
     },
@@ -3516,10 +3497,8 @@
         440,
         442,
         531,
-        533,
         547,
         548,
-        550,
         551,
         553,
         560,
@@ -3565,29 +3544,30 @@
     "test/definition/plan.test.ts#materialization planning normalizes reordered inputs into byte-identical Actor-local plans": {
       "src/definition/materialization-kind.ts": [
         56,
-        59,
-        61,
         73,
         75,
         78,
+        79,
         80,
         105,
         111,
+        122,
         123,
+        135,
         136,
         137
       ],
       "src/definition/order.ts": [
-        2,
-        3
+        1
       ],
       "src/definition/origin.ts": [
+        48,
         49
       ],
       "src/definition/placement.ts": [
-        166,
-        172,
-        201
+        202,
+        241,
+        243
       ],
       "src/definition/plan.ts": [
         84,
@@ -3603,7 +3583,7 @@
         140,
         202,
         206,
-        259,
+        243,
         275,
         278,
         282,
@@ -3613,14 +3593,17 @@
         303,
         330,
         332,
-        383,
+        364,
+        370,
         385,
         386,
         389,
-        394,
+        393,
+        395,
         401,
+        407,
         409,
-        413,
+        410,
         416,
         422,
         452,
@@ -3632,24 +3615,27 @@
         573,
         575,
         581,
+        585,
         586,
         589,
         590,
         592,
         618,
         619,
+        620,
         621,
         623,
+        640,
         644,
-        650,
+        648,
         660,
         662,
+        663,
         674,
         679,
         683,
-        714,
+        713,
         718,
-        725,
         730,
         771,
         772
@@ -3658,16 +3644,23 @@
         30,
         34,
         56,
-        60,
         64,
         68,
         71,
         72,
+        73,
         74,
+        75,
         81,
+        82,
+        83,
         84,
-        97,
+        96,
+        99,
         196
+      ],
+      "src/definition/validator.ts": [
+        128
       ]
     },
     "test/definition/plan.test.ts#materialization planning records all four placement source sets and validates the fixed selection": {
@@ -3686,17 +3679,17 @@
     },
     "test/definition/plan.test.ts#materialization planning rejects malformed desired state: 'scope-scaffold with an empty declarat…'": {
       "src/definition/materialization-kind.ts": [
+        96,
         98,
         99
       ]
     },
     "test/definition/plan.test.ts#materialization planning rejects malformed desired state: 'slot-entry with a negative index'": {
       "src/definition/materialization-kind.ts": [
-        84,
         86,
         91,
-        116,
-        117
+        117,
+        118
       ]
     },
     "test/definition/plan.test.ts#materialization planning rejects mismatched IDs, origins, digests, and unknown codec fields": {
@@ -3731,19 +3724,23 @@
         65,
         67,
         106,
-        110,
         111,
+        112,
         123,
         124,
         133,
         135,
-        137
+        137,
+        139
+      ],
+      "src/definition/placement.ts": [
+        92
       ]
     },
     "test/definition/policy.test.ts#monotone policy composition [C13-POLICY-APPROVAL-FLOOR] ORs positive approval requirements and cannot remove package, profile, or ancestor requirements": {
       "src/definition/policy.ts": [
+        159,
         172,
-        225,
         246
       ]
     },
@@ -3779,9 +3776,6 @@
       ]
     },
     "test/definition/policy.test.ts#policy declaration codec [definition.policy-set] canonicalizes immutable declarative data and round-trips byte deterministically": {
-      "src/definition/placement.ts": [
-        39
-      ],
       "src/definition/policy.ts": [
         238,
         242
@@ -3795,6 +3789,7 @@
         198,
         200,
         239,
+        269,
         270
       ]
     },
@@ -3813,8 +3808,9 @@
         69,
         82,
         229,
-        246,
+        249,
         259,
+        260,
         263,
         270
       ]
@@ -3823,9 +3819,9 @@
       "src/definition/policy.ts": [
         126,
         135,
+        137,
         139,
-        141,
-        260
+        144
       ]
     },
     "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] raises every non-bundled direct call without changing placement": {
@@ -3838,20 +3834,18 @@
         138
       ],
       "src/definition/policy.ts": [
+        92,
+        133,
         135,
         136,
         152,
-        153,
         155,
         162,
-        172,
+        170,
         205,
         209,
         211,
-        218,
-        222,
         225,
-        252,
         253
       ]
     },
@@ -3879,6 +3873,12 @@
         194,
         219,
         252
+      ],
+      "src/definition/package.ts": [
+        36,
+        39,
+        44,
+        51
       ]
     },
     "test/definition/projected-package-store-edges.test.ts#ProjectedPackageStore hostile adapter boundaries rejects duplicate listed releases and snapshots": {
@@ -3886,10 +3886,14 @@
         64,
         65,
         66,
+        78,
         90,
         100,
+        144,
         151,
         153,
+        154,
+        155,
         167,
         172,
         173,
@@ -3903,15 +3907,15 @@
         243,
         250,
         252
+      ],
+      "src/definition/package.ts": [
+        96
       ]
     },
     "test/definition/projected-package-store-edges.test.ts#ProjectedPackageStore hostile adapter boundaries rejects lookup aliases and malformed stored bytes": {
       "src/definition/package-store.ts": [
-        118,
         145,
-        149,
         153,
-        156,
         158,
         244,
         245
@@ -3920,6 +3924,7 @@
     "test/definition/projected-package-store-edges.test.ts#ProjectedPackageStore hostile adapter boundaries validates snapshot and lock projections against requested digests": {
       "src/definition/package-store.ts": [
         85,
+        87,
         172,
         173,
         174,
@@ -3951,13 +3956,7 @@
       "src/definition/id.ts": [
         35
       ],
-      "src/definition/placement.ts": [
-        298,
-        316
-      ],
       "src/definition/reconciliation.ts": [
-        244,
-        246,
         247,
         248,
         259,
@@ -3969,15 +3968,14 @@
       "src/definition/reconciliation.ts": [
         142,
         147,
-        165,
         176,
+        186,
         196,
         197,
         198,
         199,
         200,
         209,
-        218,
         220,
         222,
         232,
@@ -3989,19 +3987,15 @@
       ]
     },
     "test/definition/reconciliation-edges.test.ts#reconciliation adversarial boundaries rejects missing occupied foreign and removal drift": {
-      "src/definition/placement.ts": [
-        147
-      ],
       "src/definition/reconciliation.ts": [
         128,
         130,
         137,
         139,
-        156,
         157,
+        159,
         165,
         167,
-        260,
         272,
         274,
         275,
@@ -4026,8 +4020,8 @@
     },
     "test/definition/reconciliation-edges.test.ts#reconciliation ordering and persistence proof orders actions create update noop remove with identity tie-breaks": {
       "src/definition/reconciliation.ts": [
-        147,
-        185,
+        148,
+        157,
         310,
         312,
         315,
@@ -4037,7 +4031,6 @@
     "test/definition/reconciliation-edges.test.ts#reconciliation ordering and persistence proof rejects owner adapters that persist stale desired state": {
       "src/definition/reconciliation.ts": [
         209,
-        233,
         290,
         291,
         296,
@@ -4077,20 +4070,23 @@
         7
       ],
       "src/definition/package.ts": [
-        115
+        115,
+        300
       ],
       "src/definition/resolver.ts": [
         82,
         84,
-        89,
+        85,
         97,
         99,
+        104,
         109,
         114,
-        119,
+        117,
         120,
         124,
-        128,
+        126,
+        139,
         141,
         142,
         147,
@@ -4110,6 +4106,9 @@
       ]
     },
     "test/definition/resolver.test.ts#deterministic package resolution excludes a release when any of its Facet manifests is incompatible": {
+      "src/definition/compatibility.ts": [
+        90
+      ],
       "src/definition/resolver.ts": [
         96,
         97,
@@ -4159,12 +4158,13 @@
     },
     "test/definition/resolver.test.ts#deterministic package resolution rejects self and multi-package cycles with canonical paths": {
       "src/definition/resolver.ts": [
-        72,
+        73,
         77,
         181,
         186,
         188,
         189,
+        191,
         195,
         196,
         198,
@@ -4286,6 +4286,7 @@
         59,
         61,
         77,
+        81,
         85,
         87,
         88,
@@ -4302,70 +4303,74 @@
         102,
         103,
         104,
-        105,
-        107,
-        112,
-        150,
-        160
+        105
+      ],
+      "src/definition/compatibility.ts": [
+        30
       ],
       "src/definition/id.ts": [
         25,
-        27
+        27,
+        46
       ],
       "src/definition/memory.ts": [
+        462,
         464,
         466,
         469,
         470,
         471,
+        479,
         498,
+        510,
         512,
         519,
         521,
         529,
         531,
         533,
+        534,
         539,
         545,
         546,
         553,
-        570,
         572,
         579,
         580,
         582,
         590,
         591,
+        607,
         609,
+        616,
         618,
         619,
+        620,
         629,
         631,
+        632,
         636,
-        678,
         679,
         680,
-        682,
-        686,
-        688,
-        691,
-        693,
-        752,
-        759
+        682
+      ],
+      "src/definition/order.ts": [
+        2
+      ],
+      "src/definition/origin.ts": [
+        70,
+        76,
+        81,
+        86
       ],
       "src/definition/placement.ts": [
-        297,
-        301,
-        312
+        336
       ],
       "src/definition/plan.ts": [
-        57,
         772
       ],
       "src/definition/policy.ts": [
-        73,
-        82,
-        99
+        71
       ],
       "src/definition/rollout.ts": [
         41,
@@ -4576,6 +4581,9 @@
       ]
     },
     "test/definition/rollout.test.ts#materialization rollout and outbox memory allocates generations with CAS and keeps acknowledgements idempotent": {
+      "src/definition/memory.ts": [
+        764
+      ],
       "src/definition/rollout.ts": [
         332,
         378,
@@ -4604,6 +4612,7 @@
         536,
         546,
         547,
+        572,
         591,
         593,
         759
@@ -4624,9 +4633,6 @@
       ]
     },
     "test/definition/rollout.test.ts#materialization rollout and outbox memory starts forward compensation while a prior rollout remains pending": {
-      "src/definition/memory.ts": [
-        700
-      ],
       "src/definition/rollout.ts": [
         107,
         108,
@@ -4657,14 +4663,10 @@
       ]
     },
     "test/definition/rollout.test.ts#materialization rollout and outbox restores pending memory rollout state and rejects dangling outbox": {
-      "src/definition/error.ts": [
-        16,
-        17
-      ],
       "src/definition/memory.ts": [
         486,
         487,
-        647,
+        640,
         653,
         656,
         659,
@@ -4875,7 +4877,8 @@
         87
       ],
       "src/definition/package.ts": [
-        98,
+        97,
+        227,
         233,
         300
       ],
@@ -4883,7 +4886,6 @@
         196
       ],
       "src/definition/validator.ts": [
-        131,
         231,
         320,
         322,
@@ -4894,7 +4896,7 @@
     "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] validates every core contribution kind before loading Package code": {
       "src/definition/config.ts": [
         186,
-        232,
+        231,
         235,
         236
       ],
@@ -4915,11 +4917,13 @@
     },
     "test/definition/validation.test.ts#Blueprint validation [C13-PLACEMENT-UNTRUSTED-BUNDLED] derives trust from the Blueprint's own policy, not the substrate port": {
       "src/definition/placement.ts": [
-        115,
+        184,
+        185,
         327
       ],
       "src/definition/policy.ts": [
-        48
+        48,
+        80
       ]
     },
     "test/definition/validation.test.ts#Blueprint validation attributes duplicate package slot declarations to the sorted later manifest": {
@@ -4961,7 +4965,7 @@
         142
       ],
       "src/definition/package.ts": [
-        352
+        350
       ]
     },
     "test/definition/validation.test.ts#Blueprint validation honors the supplied schema validator as the config authority": {
@@ -4988,11 +4992,12 @@
     },
     "test/definition/validation.test.ts#Blueprint validation orders declarations by contributor, slot, and contribution index": {
       "src/definition/code-manifest.ts": [
+        152,
         310,
         311
       ],
-      "src/definition/package.ts": [
-        109
+      "src/definition/order.ts": [
+        2
       ],
       "src/definition/validator.ts": [
         405,
@@ -5008,13 +5013,9 @@
       "src/definition/resolver.ts": [
         29,
         72,
-        73,
         74,
         75,
-        77,
-        191,
-        198,
-        208
+        206
       ]
     },
     "test/definition/validation.test.ts#Blueprint validation registers platform core slots for contributions and rejects duplicates by source": {
@@ -5025,6 +5026,9 @@
       ]
     },
     "test/definition/validation.test.ts#Blueprint validation rejects a lock whose bytes differ from deterministic resolution": {
+      "src/definition/package-lock.ts": [
+        39
+      ],
       "src/definition/validator.ts": [
         534
       ]
@@ -5049,11 +5053,11 @@
         60
       ],
       "src/definition/declaration.ts": [
-        15
+        15,
+        17,
+        18
       ],
       "src/definition/placement.ts": [
-        92,
-        270,
         287
       ],
       "src/definition/validator.ts": [
@@ -5082,89 +5086,99 @@
         56,
         58,
         59,
-        65,
+        60,
         66,
-        149
+        141
       ],
       "src/definition/code-manifest.ts": [
-        31,
         33,
         43,
         45,
         46,
-        48,
-        49,
-        50,
-        57,
+        47,
+        83,
         89,
-        98,
-        206,
+        90,
+        144,
+        155,
+        173,
+        215,
         231,
+        235,
         244,
-        249,
+        248,
         253,
         254,
         259,
-        260,
+        279,
+        293,
+        296,
         314,
-        315,
-        321
+        315
       ],
       "src/definition/compatibility.ts": [
-        73,
+        60,
+        69,
         74,
-        77,
-        78
+        78,
+        87,
+        90
       ],
       "src/definition/config.ts": [
-        43,
         47,
+        49,
+        52,
         60,
+        69,
+        77,
         141,
-        148,
-        153,
+        149,
         192,
         193,
         196,
         199,
-        205,
         208,
+        211,
+        226,
         241,
+        246,
         250,
         258
       ],
+      "src/definition/id.ts": [
+        5
+      ],
       "src/definition/package-lock.ts": [
-        90,
-        137
+        80,
+        87,
+        137,
+        139,
+        140
       ],
       "src/definition/package.ts": [
-        31,
-        36,
-        115,
-        128,
-        131,
-        132,
+        38,
+        105,
+        219,
         268,
         299,
-        300,
         312,
-        313,
-        316,
-        323,
+        325,
         328,
-        375,
-        384,
-        405
+        369,
+        374,
+        384
       ],
       "src/definition/placement.ts": [
+        188,
+        201,
+        223,
         343,
-        351
+        350
       ],
       "src/definition/policy.ts": [
         46,
-        75,
-        184,
-        203
+        60,
+        97
       ],
       "src/definition/resolver.ts": [
         26,
@@ -5180,30 +5194,20 @@
         84,
         85,
         89,
-        97,
-        99,
-        104,
-        109,
-        117,
-        126,
-        139
+        119,
+        128
       ],
       "src/definition/validator.ts": [
-        140,
-        148,
+        142,
         153,
-        155,
         163,
-        185,
         194,
         204,
-        252,
         253,
         254,
         256,
-        263,
+        278,
         301,
-        309,
         310,
         317,
         320,
@@ -5227,18 +5231,16 @@
     },
     "test/definition/validation.test.ts#Blueprint validation validates config against exact locked metadata before loading code": {
       "src/definition/config.ts": [
+        106,
+        116,
         118,
         122,
-        127,
-        128,
         193,
         196,
-        213,
         262,
         263
       ],
       "src/definition/validator.ts": [
-        111,
         243,
         293
       ]
@@ -5262,12 +5264,11 @@
     "test/definition/validation.test.ts#Blueprint validation validates slot declarations, contribution schemas, and declaration targets": {
       "src/definition/declaration.ts": [
         27,
-        29,
-        38
+        29
       ],
       "src/definition/validator.ts": [
+        116,
         169,
-        227,
         364,
         380,
         381,
@@ -5286,7 +5287,6 @@
     },
     "test/definition/value-edges.test.ts#definition value boundaries definition error helpers carry their exact taxonomy codes": {
       "src/definition/error.ts": [
-        12,
         20,
         21,
         28,
@@ -5301,8 +5301,7 @@
         28,
         37,
         38,
-        43,
-        46
+        43
       ]
     },
     "test/definition/value-edges.test.ts#definition value boundaries exercises strict Blueprint PackageInstall and root access boundaries": {
@@ -5313,41 +5312,31 @@
         222,
         223,
         226,
-        229,
         244,
-        254,
         276,
         289,
         290,
-        301,
+        300,
         303,
+        305,
+        306,
         311,
-        312
+        318
       ],
       "src/definition/config.ts": [
         44,
         49,
-        52,
-        69,
-        73,
-        81,
         196,
-        199,
-        246,
-        270
+        245
       ],
       "src/definition/package.ts": [
-        313,
-        317
+        316
       ],
       "src/definition/placement.ts": [
-        347
+        351
       ],
       "src/definition/policy.ts": [
-        83,
-        96,
-        239,
-        269
+        239
       ]
     },
     "test/definition/value-edges.test.ts#definition value boundaries names each identifier subject and anchors digest identifiers end to end": {
@@ -5369,11 +5358,11 @@
     },
     "test/definition/value-edges.test.ts#definition value boundaries rejects malformed placement and policy values at public constructors": {
       "src/definition/placement.ts": [
+        243,
         344,
         345
       ],
       "src/definition/policy.ts": [
-        124,
         205,
         206,
         219,
@@ -5383,9 +5372,8 @@
         239,
         240,
         245,
-        249,
-        253,
-        260
+        246,
+        252
       ]
     },
     "test/definition/value-edges.test.ts#definition value boundaries requires complete nonduplicated fail-closed RunPins evidence": {
@@ -5395,27 +5383,39 @@
         20,
         22,
         24,
+        31,
         35,
         36
       ]
     },
     "test/definition/value-edges.test.ts#definition value boundaries requires one owner-published declaration codec and canonical owner output": {
       "src/definition/declaration.ts": [
-        17,
         18,
         19,
         29,
-        31
+        31,
+        38
       ]
     },
     "test/definition/value-edges.test.ts#definition value boundaries validates canonical compatibility ranges and exact target admission": {
       "src/definition/compatibility.ts": [
+        73,
         74,
         75,
+        77,
         78,
+        79,
         80,
-        87,
         90
+      ]
+    },
+    "test/integration/blueprint-live-composition.test.ts#a declared Blueprint is what executes a policy tightening declared in the Blueprint flips live admission to mediated": {
+      "src/definition/placement.ts": [
+        178
+      ],
+      "src/definition/policy.ts": [
+        183,
+        185
       ]
     },
     "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition rejects stale authority and preserves an opaque no-write direct stamp": {
@@ -5423,26 +5423,20 @@
         145
       ]
     },
-    "test/integration/e2e/blueprint-materialization-journey.test.ts#declared Blueprint to applied materialization journey applies the planned records of a declared Blueprint through the command protocol": {
-      "src/definition/materializer.ts": [
-        298,
-        308
-      ]
-    },
     "test/operations/authored-code.test.ts#selecting the backing that serves a §4.7 consumer [C13-PLACEMENT-AUTHORED-BACKING] serves a declared consumer from its declared backing": {
       "src/definition/placement.ts": [
-        35,
         69,
         70
       ]
     },
-    "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway uses delayed watermark, exact lease, and immutable deadline cutoffs before execution": {
-      "src/definition/policy.ts": [
-        184
+    "test/operations/authored-code.test.ts#the one channel out of a §4.7 isolate [C13-AUTH-ISOLATE-DELEGATION] carries a call the passed set names": {
+      "src/definition/package-lock.ts": [
+        38
       ]
     },
     "test/profiles/facets/filesystem.test.ts#Filesystem protected facade [P11-FILESYSTEM-SESSION-DIRECT] selects direct for a mutating Operation only on the Turn-owned Session's own filesystem": {
       "src/definition/policy.ts": [
+        126,
         135,
         136,
         137,
@@ -5451,8 +5445,8 @@
     },
     "test/protocol/facet-commands.test.ts#Facet Slot protocol commands [C13-FACET-SLOT-AUTHORITY] derives contributor provenance and enforces Slot authority through the closed authenticated dispatcher": {
       "src/definition/installation.ts": [
-        35,
-        42,
+        54,
+        59,
         67
       ]
     },
@@ -5463,23 +5457,17 @@
         78,
         79,
         83,
-        87,
-        119
+        442,
+        451
+      ],
+      "src/definition/materializer.ts": [
+        298,
+        320
       ],
       "src/definition/reconciliation.ts": [
         220,
-        247
-      ]
-    },
-    "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] memory and SQLite satisfy one shared codec-storage contract": {
-      "src/definition/placement.ts": [
-        269
-      ]
-    },
-    "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior verifies persisted pointer bytes through the CAS read-back seam": {
-      "src/definition/policy.ts": [
-        253,
-        270
+        247,
+        260
       ]
     },
     "test/substrates/sqlite/materialization-control.test.ts#SQLite materialization rollout control corruption and lineage resolves plans only by their exact identity across stored rollouts": {
@@ -5493,8 +5481,13 @@
       ]
     },
     "test/substrates/sqlite/materialization-control.test.ts#SQLite materialization rollout control validates deployment projections revisions and missing lookups": {
+      "src/definition/materialization-kind.ts": [
+        40,
+        41
+      ],
       "src/definition/rollout.ts": [
-        521
+        562,
+        565
       ]
     }
   }
