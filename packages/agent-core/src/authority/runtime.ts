@@ -9,12 +9,13 @@ import type {
     Membership,
     MembershipId,
     ScopeRef,
+    SubjectRef,
     Team,
     TenantId,
     WorkspaceId,
     Workspace
 } from "../identity";
-import { SubjectRef as Subjects } from "../identity";
+import { GuestVerificationScheme, SubjectRef as Subjects } from "../identity";
 import { Binding } from "./binding";
 import type { BindingValidationRequest } from "./binding-evidence";
 import { BindingValidationEvidence } from "./binding-evidence";
@@ -145,13 +146,12 @@ export class TenantAuthorityRuntime {
         };
         const path = new Set(exactPath.map(scopeKey));
         const all = this.store.grants();
-        const relevant = all.filter(
-            (grant) =>
-                subjects.has(subjectKey(grant.subject)) &&
-                path.has(scopeKey(grant.scope)) &&
-                grant.capability.matches(intent)
+        const reaching = all.filter(
+            (grant) => path.has(scopeKey(grant.scope)) && grant.capability.matches(intent)
         );
-        const deny = relevant.filter((grant) => grant.isLive && grant.effect === "deny");
+        const deny = reaching.filter(
+            (grant) => grant.isLive && grant.effect === "deny" && subjects.admitsDeny(grant.subject)
+        );
         if (deny.length > 0) return { reason: "matchingDeny", allow: [], deny };
 
         const guest = !request.principal.tenantId.equals(this.store.tenantId);
@@ -179,7 +179,7 @@ export class TenantAuthorityRuntime {
             return { reason: "guestVerificationExpired", allow: [], deny: [] };
         }
         if (
-            !subjects.has(subjectKey(backing.subject)) ||
+            !subjects.admitsAllow(backing.subject) ||
             subjectKey(backing.subject) !== subjectKey(binding.subject) ||
             !path.has(scopeKey(backing.scope)) ||
             binding.facet.value !== request.intent.facet.value ||
@@ -189,9 +189,10 @@ export class TenantAuthorityRuntime {
         }
         const lineage = validateLineage(backing, all, exactPath);
         if (lineage !== undefined) return { reason: lineage, allow: [], deny: [] };
-        const allow = relevant.filter(
+        const allow = reaching.filter(
             (grant) =>
                 grant.effect === "allow" &&
+                subjects.admitsAllow(grant.subject) &&
                 validateLineage(grant, all, exactPath) === undefined &&
                 this.guestGrantIsCurrent(grant, now)
         );
@@ -200,22 +201,21 @@ export class TenantAuthorityRuntime {
             : { reason: "noMatchingAllow", allow: [], deny: [] };
     }
 
-    private effectiveSubjects(request: AuthorityCheckRequest): ReadonlySet<string> | undefined {
+    private effectiveSubjects(request: AuthorityCheckRequest): EffectiveSubjects | undefined {
         if (request.principal.tenantId.equals(this.store.tenantId)) {
-            const principal = Subjects.principal(request.principal);
-            const subjects = new Set([subjectKey(principal)]);
+            const subjects: SubjectRef[] = [Subjects.principal(request.principal)];
             for (const team of this.store.teams()) {
                 if (team.has(request.principal.principalId)) {
-                    subjects.add(subjectKey(Subjects.team(team.id)));
+                    subjects.push(Subjects.team(team.id));
                 }
             }
-            return subjects;
+            return new EffectiveSubjects(subjects);
         }
         const subject = request.binding.subject;
         return subject.kind === "foreign" &&
             subject.homeTenant.equals(request.principal.tenantId) &&
             subject.principalId.equals(request.principal.principalId)
-            ? new Set([subjectKey(subject)])
+            ? new EffectiveSubjects([subject])
             : undefined;
     }
 
@@ -262,6 +262,43 @@ export class TenantAuthorityRuntime {
             throw authorityDenied("Authority request targets another Tenant");
         }
     }
+}
+
+/**
+ * The subjects one request acts under, and the two rules a Grant's subject is matched by.
+ *
+ * An allow is matched exactly: a Grant issued to a guest verified by `callback` is authority
+ * for that guest as verified by `callback`, which is what lets a Tenant scope an allow to
+ * the verification scheme it trusts. A deny is matched against the same Principal under
+ * every scheme, because a deny names who is refused while `verifiedVia` names only how a
+ * guest proved who they are — and §3.3 lets that stamp change over a Principal's lifetime,
+ * so matching it would let re-verification step out from under a live deny.
+ */
+class EffectiveSubjects {
+    readonly #allow: ReadonlySet<string>;
+    readonly #deny: ReadonlySet<string>;
+
+    public constructor(subjects: readonly SubjectRef[]) {
+        this.#allow = new Set(subjects.map(subjectKey));
+        this.#deny = new Set(subjects.flatMap(everyVerificationStamp).map(subjectKey));
+    }
+
+    public admitsAllow(subject: SubjectRef): boolean {
+        return this.#allow.has(subjectKey(subject));
+    }
+
+    public admitsDeny(subject: SubjectRef): boolean {
+        return this.#deny.has(subjectKey(subject));
+    }
+}
+
+/** One acting subject as every verification scheme could have stamped it (§3.3). */
+function everyVerificationStamp(subject: SubjectRef): readonly SubjectRef[] {
+    return subject.kind === "foreign"
+        ? GuestVerificationScheme.all.map((scheme) =>
+              Subjects.foreign(subject.homeTenant, subject.principalId, scheme)
+          )
+        : [subject];
 }
 
 function validateLineage(
