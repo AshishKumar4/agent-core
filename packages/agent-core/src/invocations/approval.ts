@@ -109,7 +109,6 @@ export class Approval {
     public deny(by: PrincipalId, at: Date, reason: string): Approval {
         this.requirePending("deny");
         this.requireBeforeExpiry(at);
-        requireDenialReason(reason);
         return this.transition({ kind: "denied", by, at, reason });
     }
 
@@ -370,9 +369,3 @@ function validateState(
 }
 
 export const ApprovalCodec: RecordCodec<Approval> = new ApprovalRecordCodec();
-
-function requireDenialReason(reason: string): void {
-    if (reason.trim().length === 0) {
-        throw new TypeError("Approval denial reason must not be blank");
-    }
-}

@@ -2422,6 +2422,38 @@
       "symbol": "optionalIdEquals"
     },
     {
+      "file": "src/invocations/approval.ts",
+      "symbol": "Approval.constructor",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "this.#expiresAt !== undefined",
+      "proof": "The conjunct guards the numeric comparison that follows, which is written over a field that is a number or undefined. Forcing it true evaluates this.#expiresAt <= this.#requestedAt with this.#expiresAt undefined. JavaScript relational operators coerce both operands with ToNumber, ToNumber(undefined) is NaN, and every relational comparison involving NaN is false. The conjunction is therefore false in exactly the case the guard used to exclude, so an Approval without an expiry is constructed unchanged and one with an expiry takes the same branch it always did. The throw below fires on the identical set of inputs, so no constructor argument distinguishes the two programs."
+    },
+    {
+      "file": "src/invocations/approval.ts",
+      "symbol": "Approval.requireBeforeExpiry",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "this.#expiresAt !== undefined",
+      "proof": "Forcing this guard true evaluates time >= this.#expiresAt for an Approval that has no expiry, where this.#expiresAt is undefined. The relational operator coerces its operands with ToNumber, ToNumber(undefined) is NaN, and NaN compares false against every value, so the conjunction stays false for exactly the approvals the guard used to exclude. An approval carrying an expiry evaluates the same comparison it always did. The past-expiry refusal therefore fires on the identical set of decision times, and the earlier precedes-request refusal in this method is untouched, so no approve, deny, or consume call can separate the two programs."
+    },
+    {
+      "file": "src/invocations/ledger.ts",
+      "symbol": "InvocationLedger.requirePreparationAuditBinding",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "route !== undefined",
+      "proof": "The conjunct exists so TypeScript narrows route to a RouteReservationId before audit.kind.reservation.equals(route) is written; it is not a filter. Forcing it true lets a record whose header carries no route reach that call, and the only records that get that far also satisfy audit.kind.kind === \"routeProjected\", so the call runs with route undefined. TextId.equals answers a non-object argument with false before it reads anything: its first test is typeof other === \"object\", which undefined fails. So routed is false for exactly the records it was false for before, the local binding above is untouched, and the refusal below fires on the same inputs. No input distinguishes the two programs, because the only inputs the mutation newly admits to the comparison are answered false by the comparison itself."
+    },
+    {
+      "file": "src/invocations/outcome.ts",
+      "symbol": "terminalBatchOutcome",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "outcome === undefined",
+      "proof": "The function returns undefined for the two cases it excludes and otherwise returns outcome unchanged. Forcing the first test false removes undefined from the excluded set, so an undefined argument now takes the other arm and returns outcome — which is the undefined it was passed. The value returned is identical, and it is the whole observable result: the function reads nothing else, writes nothing, and throws nothing. The complementary mutant that forces the test true is killed, because it discards genuine terminal outcomes. No caller can tell an explicit undefined from an argument that happens to be undefined, so no test can be written that separates these two programs."
+    },
+    {
       "file": "src/operations/command-runtime.ts",
       "symbol": "valueHasType",
       "mutator": "BooleanLiteral",
