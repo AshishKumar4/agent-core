@@ -105,8 +105,12 @@ export function requireExactFields(
     }
 }
 
+export function isString(value: FacetData | undefined): value is string {
+    return typeof value === "string";
+}
+
 export function requireString(value: FacetData | undefined, subject: string): string {
-    if (typeof value !== "string") {
+    if (!isString(value)) {
         throw new TypeError(`${subject} must be a string`);
     }
     return value;
@@ -184,18 +188,13 @@ export function requireNonblank(value: string, subject: string): void {
     }
 }
 
-function freezeFacetData(value: FacetData): FacetData {
-    if (Array.isArray(value)) {
-        for (const entry of value) {
-            freezeFacetData(entry);
-        }
-        return Object.freeze(value);
-    }
-    if (isJsonObject(value)) {
+/** Freezes a data value and everything beneath it in place, keeping the caller's type. */
+export function freezeFacetData<Value extends FacetData>(value: Value): Value {
+    if (Array.isArray(value) || isJsonObject(value)) {
         for (const entry of Object.values(value)) {
             freezeFacetData(entry);
         }
-        return Object.freeze(value);
+        Object.freeze(value);
     }
     return value;
 }

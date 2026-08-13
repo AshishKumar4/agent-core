@@ -602,12 +602,6 @@
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
-      "file": "packages/agent-core/src/facets/mcp/facet.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "A discovery document that requireDiscoveryDocument has asserted is still an ObjectRecord to the compiler, because the assertion narrows the reference and not the property reads inside it."
-    },
-    {
       "file": "packages/agent-core/src/facets/memory/facet.ts",
       "kind": "non-null",
       "count": 1,
@@ -633,18 +627,6 @@
     },
     {
       "file": "packages/agent-core/src/facets/runtime.ts",
-      "kind": "unknown",
-      "count": 1,
-      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
-    },
-    {
-      "file": "packages/agent-core/src/facets/self/facet.ts",
-      "kind": "assertion",
-      "count": 3,
-      "reason": "A computed key widens to an index signature, so the decoded single-field input cannot be spelled as the Input the contract carries; the property name itself is now bound to keyof Input, which is what the assertion used to be hiding."
-    },
-    {
-      "file": "packages/agent-core/src/facets/self/facet.ts",
       "kind": "unknown",
       "count": 1,
       "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
