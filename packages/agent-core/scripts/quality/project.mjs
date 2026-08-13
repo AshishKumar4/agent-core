@@ -110,7 +110,7 @@ class StrictJsonParser {
             seenKeys.add(key);
             this.skipWhitespace();
             this.expect(":");
-            result[key] = this.parseValue([...path, key]);
+            result[key] = this.parseValue([...path, `.${key}`]);
             this.skipWhitespace();
             const next = this.source[this.index];
             if (next === ",") {
@@ -136,7 +136,7 @@ class StrictJsonParser {
         }
         let entryIndex = 0;
         for (;;) {
-            result.push(this.parseValue([...path, entryIndex]));
+            result.push(this.parseValue([...path, `[${entryIndex}]`]));
             entryIndex += 1;
             this.skipWhitespace();
             const next = this.source[this.index];
@@ -246,11 +246,7 @@ class StrictJsonParser {
 }
 
 function formatJsonPath(path) {
-    let result = "$";
-    for (const segment of path) {
-        result += typeof segment === "number" ? `[${segment}]` : `.${segment}`;
-    }
-    return result;
+    return `$${path.join("")}`;
 }
 
 export async function writeCanonicalJson(path, value) {
@@ -312,10 +308,53 @@ export function globMatches(pattern, path) {
     return new RegExp(`^${expression}$`).test(path);
 }
 
+const jsonKindByPrototype = new Map([
+    [Object.prototype, "object"],
+    [Array.prototype, "array"],
+    [String.prototype, "string"],
+    [Number.prototype, "number"],
+    [Boolean.prototype, "boolean"]
+]);
+
+/**
+ * The single place a parsed artifact value is classified. Every gate used to narrow
+ * its own fields inline, one condition at a time, and accepted whatever that chain
+ * forgot to name — the way a checker ends up trusting a field kind it never
+ * established. Classification lives here instead, matched against the exact
+ * prototypes this module's parser produces, so a gate can only branch on a kind it
+ * asked for by name.
+ */
+export function jsonKind(value) {
+    if (value === null) return "null";
+    if (value === undefined) return "absent";
+    return jsonKindByPrototype.get(Object.getPrototypeOf(Object(value))) ?? "other";
+}
+
+export function isJsonObject(value) {
+    return jsonKind(value) === "object";
+}
+
+export function isNonEmptyString(value) {
+    return jsonKind(value) === "string" && value.trim().length > 0;
+}
+
+export function assertObject(value, owner) {
+    if (!isJsonObject(value)) throw new TypeError(`${owner} must be an object`);
+    return value;
+}
+
+export function assertArray(value, owner) {
+    if (jsonKind(value) !== "array") throw new TypeError(`${owner} must be an array`);
+    return value;
+}
+
+export function assertBoolean(value, owner) {
+    if (jsonKind(value) !== "boolean") throw new TypeError(`${owner} must be a boolean`);
+    return value;
+}
+
 export function assertExactKeys(value, expected, owner) {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError(`${owner} must be an object`);
-    }
+    assertObject(value, owner);
     const actual = Object.keys(value).sort();
     const keys = [...expected].sort();
     if (JSON.stringify(actual) !== JSON.stringify(keys)) {
@@ -324,16 +363,34 @@ export function assertExactKeys(value, expected, owner) {
 }
 
 export function assertString(value, owner) {
-    if (typeof value !== "string" || value.trim().length === 0) {
+    if (!isNonEmptyString(value)) {
         throw new TypeError(`${owner} must be a nonempty string`);
+    }
+    return value;
+}
+
+/** Key-sorted copy, so a digest taken over an artifact does not depend on its key order. */
+export function canonicalJson(value) {
+    if (Array.isArray(value)) return value.map(canonicalJson);
+    if (!isJsonObject(value)) return value;
+    return Object.fromEntries(
+        Object.keys(value)
+            .sort()
+            .map((key) => [key, canonicalJson(value[key])])
+    );
+}
+
+export function assertOneOf(value, allowed, owner) {
+    if (!allowed.includes(value)) {
+        throw new TypeError(`${owner} must be one of ${[...allowed].join(", ")}`);
     }
     return value;
 }
 
 export function assertUniqueStrings(value, owner) {
     if (
-        !Array.isArray(value) ||
-        value.some((item) => typeof item !== "string" || item.trim().length === 0) ||
+        jsonKind(value) !== "array" ||
+        !value.every(isNonEmptyString) ||
         new Set(value).size !== value.length
     ) {
         throw new TypeError(`${owner} must be an array of unique nonempty strings`);
