@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 import {
     ContentRef,
     Digest,
-    RecordCodec,
     Revision,
     decodeCanonicalJson,
     encodeCanonicalJson,
@@ -37,6 +36,7 @@ import {
     type SlateInvocationRequest
 } from "../../src/slates";
 import { WorkspaceId } from "../../src/workspaces";
+import { codecCase } from "../helpers/codec-case";
 import { malformed, violating } from "../helpers/malformed";
 
 describe("Slate records", () => {
@@ -96,12 +96,12 @@ describe("Slate records", () => {
     );
 
     const records = [
-        recordCase("[slate]", Slate.codec, slate),
-        recordCase("[slate.version]", SlateVersion.codec, version),
-        recordCase("[slate.publication]", SlatePublication.codec, publication),
-        recordCase("[slate.deployment]", SlateDeployment.codec, deployment),
-        recordCase("[slate.resource]", SlateResource.codec, resource),
-        recordCase("[slate.preview]", SlatePreview.codec, preview)
+        { name: "[slate]", ...codecCase(Slate.codec, slate) },
+        { name: "[slate.version]", ...codecCase(SlateVersion.codec, version) },
+        { name: "[slate.publication]", ...codecCase(SlatePublication.codec, publication) },
+        { name: "[slate.deployment]", ...codecCase(SlateDeployment.codec, deployment) },
+        { name: "[slate.resource]", ...codecCase(SlateResource.codec, resource) },
+        { name: "[slate.preview]", ...codecCase(SlatePreview.codec, preview) }
     ] as const;
 
     test.each(records)("$name round-trips a strict codec 1.0 record", { tags: "p1" }, (subject) => {
@@ -481,36 +481,6 @@ describe("Slate records", () => {
 
 function ref(label: string): ContentRef {
     return ContentRef.fromDigest(Digest.sha256(new TextEncoder().encode(label)));
-}
-
-/**
- * One record paired with the codec that owns it. Binding the two inside the closures
- * keeps the pairing checked at construction: a case built from a codec and a record of
- * another kind does not compile. Destructuring a heterogeneous case list at the test
- * body instead decorrelates them, which is what forced the earlier `as never`.
- */
-type SlateRecordCase = {
-    readonly name: string;
-    readonly encode: () => Uint8Array;
-    readonly reencode: (bytes: Uint8Array) => Uint8Array;
-    readonly decodeIsFrozen: (bytes: Uint8Array) => boolean;
-    readonly decode: (bytes: Uint8Array) => void;
-};
-
-function recordCase<Record>(
-    name: string,
-    codec: RecordCodec<Record>,
-    record: Record
-): SlateRecordCase {
-    return {
-        name,
-        encode: () => codec.encode(record),
-        reencode: (bytes) => codec.encode(codec.decode(bytes)),
-        decodeIsFrozen: (bytes) => Object.isFrozen(codec.decode(bytes)),
-        decode: (bytes) => {
-            codec.decode(bytes);
-        }
-    };
 }
 
 function object(value: JsonValue | undefined): JsonObject {
