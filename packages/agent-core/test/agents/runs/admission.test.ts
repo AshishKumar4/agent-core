@@ -153,7 +153,7 @@ describe("durable Run admission registry", () => {
         ).toThrow(/exact reserved/);
     });
 
-    it("[C13-ADV-UNEQUAL-PIN-MERGE] persists reservations and completion across a memory restart", { tags: "p0" }, () => {
+    it("persists reservations and completion across a memory restart", { tags: "p0" }, () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const done = value.runtime.reserveRunObligation(ids.run, {
