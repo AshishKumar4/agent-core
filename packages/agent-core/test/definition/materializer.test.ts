@@ -11,7 +11,7 @@ import {
     Revision,
     decodeCanonicalJson,
     encodeCanonicalJson,
-    type JsonValue
+    type JsonObject
 } from "../../src/core";
 import {
     ActorPlan,
@@ -35,7 +35,7 @@ import {
 import { AgentCoreError } from "../../src/errors";
 import { TenantId } from "../../src/identity";
 import { RunPinEvidence, type ManagedResourceSnapshot } from "../../src/definition/reconciliation";
-import { tamperedRecord } from "./record-data";
+import { requireObject, tamperedRecord } from "./record-data";
 import {
     MemoryManagedResourcePort,
     cloneManagedResources,
@@ -109,7 +109,7 @@ describe("same-Actor additive materialization", () => {
         ).toEqual(MaterializationGenerationPointer.encode(pointer));
 
         const envelope = jsonObject(MaterializationGeneration.encode(left.generation));
-        const payload = jsonObjectValue(envelope["payload"]);
+        const payload = requireObject(envelope["payload"], "generation payload");
         expectCodecError(
             () =>
                 MaterializationGeneration.decode(
@@ -137,7 +137,7 @@ describe("same-Actor additive materialization", () => {
                     encodeCanonicalJson({
                         ...managedEnvelope,
                         payload: {
-                            ...jsonObjectValue(managedEnvelope["payload"]),
+                            ...requireObject(managedEnvelope["payload"], "managed state payload"),
                             recordKind: "slot-entry"
                         }
                     })
@@ -259,14 +259,7 @@ describe("same-Actor additive materialization", () => {
             ).toBe(true);
         });
 
-        let caught: unknown;
-        try {
-            materializer.apply(plan);
-        } catch (error) {
-            caught = error;
-        }
-        expect(caught).toBeInstanceOf(AgentCoreError);
-        expect((caught as AgentCoreError).code).toBe("codec.invalid");
+        expectCodecError(() => materializer.apply(plan), "codec.invalid");
     });
 
     test("moves only the active pointer and leaves old generations and state untouched", { tags: "p0" }, () => {
@@ -878,20 +871,8 @@ function expectEmpty(store: MemoryMaterializationStore): void {
     });
 }
 
-function jsonObject(bytes: Uint8Array): { readonly [key: string]: JsonValue } {
-    return jsonObjectValue(decodeCanonicalJson(bytes));
-}
-
-function jsonObjectValue(value: JsonValue | undefined): { readonly [key: string]: JsonValue } {
-    if (
-        value === undefined ||
-        value === null ||
-        Array.isArray(value) ||
-        typeof value !== "object"
-    ) {
-        throw new TypeError("Expected JSON object");
-    }
-    return value as { readonly [key: string]: JsonValue };
+function jsonObject(bytes: Uint8Array): JsonObject {
+    return requireObject(decodeCanonicalJson(bytes), "encoded record");
 }
 
 function expectCodecError(action: () => void, code: AgentCoreError["code"]): void {

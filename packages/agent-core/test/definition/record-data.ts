@@ -16,7 +16,7 @@ export function recordData(record: CanonicalRecord): JsonObject {
 }
 
 /** Narrows one field of already decoded data so a nested field can be read or replaced. */
-export function requireObject(value: JsonValue, subject = "value"): JsonObject {
+export function requireObject(value: JsonValue | undefined, subject = "value"): JsonObject {
     if (!isJsonObject(value)) throw new TypeError(`Expected ${subject} to be an object`);
     return value;
 }
