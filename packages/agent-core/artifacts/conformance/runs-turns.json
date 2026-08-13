@@ -37,7 +37,10 @@
       "specTextSha256": "sha256:3e3b6f2b958433fd31c9e31ada78092355954c73622132d5b2dcc302af14e369",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "sourceSymbols": [
+        "src/agents/runs/commit.ts#RunCommit",
+        "src/agents/runs/runtime.ts#RunRuntime.mergeRunInTransaction"
+      ],
       "testSelectors": [
         "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-ADV-NONBINARY-MERGE] rejects missing merge sources and invalid picked content"
       ],
@@ -51,7 +54,10 @@
       "specTextSha256": "sha256:062b598cb829bb6a6ede5f52abc1d8bf529558aa23d62e43aa539a3cf7b22fc8",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
+      "sourceSymbols": [
+        "src/agents/runs/admission.ts#RunAdmissionRegistry",
+        "src/agents/runs/runtime.ts#RunRuntime"
+      ],
       "testSelectors": [
         "test/agents/runs/admission.test.ts#durable Run admission registry [C13-ADV-POST-FENCE-SYSTEM-EVIDENCE] captures exactly reserved minus completed and rejects every post-close race"
       ],
@@ -79,7 +85,10 @@
       "specTextSha256": "sha256:f2920a970cda64f5dd91184ca0b069abca5f034ad6ed0952221816bfbebaf8d1",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
+      "sourceSymbols": [
+        "src/agents/runs/runtime.ts#RunRuntime",
+        "src/agents/runs/settlement.ts#isSettled"
+      ],
       "testSelectors": [
         "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-ADV-POST-TERMINAL-PREPARATION] requires every canonical settlement identity without accepting broad Invocation evidence"
       ],
@@ -93,7 +102,10 @@
       "specTextSha256": "sha256:93e54c54ae2a9b7fc2bb079a27e82a5b4508bcf371b11a4cb38e58f9b7a14560",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
+      "sourceSymbols": [
+        "src/agents/runs/admission.ts#RunAdmissionRegistry",
+        "src/agents/runs/runtime.ts#RunRuntime"
+      ],
       "testSelectors": [
         "test/agents/runs/admission.test.ts#durable Run admission registry [C13-ADV-POST-TERMINAL-ROUTE] reuses duplicate reservations, completes idempotently, and rejects substitutions"
       ],
@@ -108,6 +120,7 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
+        "src/agents/runs/lease.ts#ExactTurnLease",
         "src/agents/runs/lease-verifier.ts#RepositoryTurnLeaseVerifier",
         "src/agents/runs/runtime.ts#RunRuntime.reclaimTurnInTransaction"
       ],
@@ -124,7 +137,7 @@
       "specTextSha256": "sha256:c96823bb27c75631503527aa4428bdbdd519ce71727d06c03b500c7ba8d87f40",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit", "src/agents/runs/turn.ts#Turn"],
       "testSelectors": [
         "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-ADV-TURN-MERGE] rejects completing one Turn with another Turn's valid commit"
       ],
@@ -152,9 +165,12 @@
       "specTextSha256": "sha256:eb23027c0e8bc53c7b96eb9fa6f03848b34955e0d06ef15514b7e98b3c44c274",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/pins.ts#RunPins"],
+      "sourceSymbols": [
+        "src/agents/runs/pins.ts#RunPins",
+        "src/agents/runs/runtime.ts#RunRuntime.validateMerge"
+      ],
       "testSelectors": [
-        "test/agents/runs/admission.test.ts#durable Run admission registry [C13-ADV-UNEQUAL-PIN-MERGE] persists reservations and completion across a memory restart"
+        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-RUN-EXPLICIT-MIGRATION] [MIGRATE-RUN-PINS] preserves old Turn pins, adopts exact new pins, rejects unequal merges, and survives restart"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -166,7 +182,10 @@
       "specTextSha256": "sha256:829bd1718ed1fa7751af8a189ef3509c2a959af36e93b0200b8f3922d161ed86",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/lease-verifier.ts#RepositoryTurnLeaseVerifier"],
+      "sourceSymbols": [
+        "src/agents/runs/lease-verifier.ts#RepositoryTurnLeaseVerifier",
+        "src/agents/runs/runtime.ts#RunRuntime.appendInTransaction"
+      ],
       "testSelectors": [
         "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-ADV-WRONG-TURN-LEASE] rejects undo while a branch Turn holds an unexpired lease"
       ],
@@ -236,7 +255,7 @@
       "specTextSha256": "sha256:108c067468adfd3b108814546629ff1706bf49af06cfb03793a2f55dd56d7868",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
+      "sourceSymbols": ["src/agents/runs/store.ts#RunRepository"],
       "testSelectors": [
         "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior [C13-RUN-ANCESTRY] detects missing and foreign ancestry while preserving valid ancestry"
       ],
@@ -318,7 +337,10 @@
       "specTextSha256": "sha256:cf1dc2e1997149887f330625751806a17c2bef93c3aadb81d5093df118dd771f",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/pins.ts#RunPins"],
+      "sourceSymbols": [
+        "src/agents/runs/pins.ts#RunPins",
+        "src/agents/runs/runtime.ts#RunRuntime.validateMerge"
+      ],
       "testSelectors": [
         "test/agents/runs/foundation.test.ts#memory Run runtime [C13-RUN-EQUAL-PIN-MERGE] accepts only ordered equal-pin current heads for binary merge"
       ],
@@ -364,7 +386,10 @@
       "specTextSha256": "sha256:8f92d2ae0f48318632d7d99646214b683bdc47aeda28e7039aa088f43af564fc",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/admission.ts#RunAdmissionRegistry"],
+      "sourceSymbols": [
+        "src/agents/runs/admission.ts#RunAdmissionRegistry",
+        "src/agents/runs/settlement.ts#isSettled"
+      ],
       "testSelectors": [
         "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-RUN-FRONTIER-COMPLETE] requires each captured obligation and each derived audit independently"
       ],
@@ -394,6 +419,7 @@
       "prerequisites": [],
       "sourceSymbols": [
         "src/agents/runs/commit.ts#RunCommit",
+        "src/agents/runs/commit.ts#validateClosedShape",
         "src/agents/runs/runtime.ts#RunRuntime"
       ],
       "testSelectors": [
@@ -412,7 +438,8 @@
       "prerequisites": [],
       "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
       "testSelectors": [
-        "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-RUN-MIGRATED-TURN-REJECTION] rejects duplicate commits, stale parents, pin changes, and foreign Turn writers"
+        "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-RUN-MIGRATED-TURN-REJECTION] rejects duplicate commits, stale parents, pin changes, and foreign Turn writers",
+        "test/agents/runs/runtime-mutation.test.ts#append guards non-migration commits must inherit the parent pins"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -457,7 +484,11 @@
       "specTextSha256": "sha256:7c200d15ffde189f11d4a22cd36a38d7c79dbad4504876f42eae907f1eb2c7bf",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/pins.ts#RunPins"],
+      "sourceSymbols": [
+        "src/agents/runs/pins.ts#BlueprintPin",
+        "src/agents/runs/pins.ts#RunPins",
+        "src/agents/runs/runtime.ts#RunRuntime.requireConfigurationForPins"
+      ],
       "testSelectors": [
         "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior [C13-RUN-PINS-BLUEPRINT] fails closed after restart when the active pin snapshot is omitted"
       ],
@@ -499,7 +530,10 @@
       "specTextSha256": "sha256:5e4df25a885f788d84b4384aa5f3f203db78500b9f3b84803c4fa1dc8477f0bc",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/pins.ts#RunPins"],
+      "sourceSymbols": [
+        "src/agents/runs/pins.ts#RunPins",
+        "src/agents/runs/runtime.ts#RunRuntime.migrateRunInTransaction"
+      ],
       "testSelectors": [
         "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-RUN-PINS-PACKAGES] [MIGRATE-RUN-PINS] rejects incomplete Package closure and a wrong Agent"
       ],
@@ -513,8 +547,12 @@
       "specTextSha256": "sha256:393661acb294fed37833a7d4c7ef7109783fa039b47b33cb64dd9d5870000bf1",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/pins.ts#RunPins"],
+      "sourceSymbols": [
+        "src/agents/runs/pins.ts#RunPins",
+        "src/agents/runs/pins.ts#requireSourcePin"
+      ],
       "testSelectors": [
+        "test/agents/runs/foundation.test.ts#Agent and Run records [C13-RUN-PINS-VALIDITY] round-trips authoritative source revisions and canonical pins",
         "test/agents/runs/foundation.test.ts#memory Run runtime [C13-RUN-PINS-SOURCES] rejects migration ahead of an admitted old-pin Turn"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
@@ -555,7 +593,11 @@
       "specTextSha256": "sha256:df064125682d932d333e38a5b03cb8d13550dae495874dd2ac41abd2dbdc6b76",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/admission.ts#RunAdmissionRegistry"],
+      "sourceSymbols": [
+        "src/agents/runs/admission.ts#RunAdmissionRegistry",
+        "src/agents/runs/settlement.ts#SettlementObligation",
+        "src/agents/runs/settlement.ts#TerminalSnapshot"
+      ],
       "testSelectors": [
         "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-RUN-RESERVATION-EPOCH] rejects malformed settlement epochs, timestamps, and obligation identities"
       ],
@@ -694,16 +736,20 @@
       "owner": "W5",
       "specAnchor": "C13-TURN-CANCEL-INBOX",
       "specTextSha256": "sha256:730de628f43fc8177e398f174645f88233a3ae565ec715b20d4e8ec23239df14",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "Implemented, contrary to the note this replaces. runtime.ts#deliverEventInTransaction requires the exact live lease before any append and routes the reserved `turn.cancel` Event to appendCancellation instead of the sequence-checked inbox path; TurnInboxEntry's constructor ties event and cancellation token together as a biconditional so neither can appear without the other; and the executor observes cancellation between steps at findCancellation's three call sites in executor.ts. The superseded note claimed no `turn.cancel` kind existed anywhere in src, which was true when it was written and false once the mediation work landed",
-        "Tested too, but unlabelled, so the rule is uncited rather than unverified. Two p0 cases in test/agents/runs/adversarial.test.ts already prove the delivery halves - 'delivers reserved cancellation to the exact live lease without fencing it' asserts the inbox append leaves the Turn running under its holder, and 'rejects delivered cancellation that names a lease other than the caller's' asserts the fencing. The executor half is proved by 'fences a boundary result when cancellation arrives during the operation' in executor.test.ts",
-        "Flipping this atom therefore needs no new test, only citation: label the two adversarial cases with the atom id, and label the executor case after giving it a priority tag - it is currently untagged, and the ledger refuses p2-only evidence for a conformance atom, so it must be raised to at least p1 first. Deferred only to avoid moving the priority lane counts while a kill-campaign agent holds the tree"
-      ]
+      "sourceSymbols": [
+        "src/agents/runs/executor.ts#findCancellation",
+        "src/agents/runs/runtime.ts#RunRuntime.deliverEventInTransaction",
+        "src/agents/runs/turn.ts#TurnInboxEntry"
+      ],
+      "testSelectors": [
+        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-TURN-CANCEL-INBOX] delivers reserved cancellation to the exact live lease without fencing it",
+        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-TURN-CANCEL-INBOX] rejects delivered cancellation that names a lease other than the caller's",
+        "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-CANCEL-INBOX] fences a boundary result when cancellation arrives during the operation"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-TURN-EXACT-LEASE",
@@ -766,7 +812,7 @@
       "specTextSha256": "sha256:29821e10716575a8d56dba4d01cf089e4c227752860e56e7f30b83b4c4641a38",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/turn.ts#Turn"],
+      "sourceSymbols": ["src/agents/runs/turn.ts#Turn", "src/agents/runs/turn.ts#TurnStatus"],
       "testSelectors": [
         "test/agents/runs/foundation.test.ts#Turn lifecycle [C13-TURN-LIFECYCLE] enforces claim, renewal, suspension, resume, completion, and terminal rejection"
       ],
@@ -815,7 +861,10 @@
       "specTextSha256": "sha256:7cc82b4732e5045dac3641e0c84820308f313ddc8190929c9d4aa5b6530c2b87",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/turn.ts#Turn"],
+      "sourceSymbols": [
+        "src/agents/runs/turn.ts#RunCheckpoint",
+        "src/agents/runs/turn.ts#TurnInboxEntry"
+      ],
       "testSelectors": [
         "test/agents/runs/foundation.test.ts#Turn lifecycle [C13-TURN-NO-RETRY-EXPORT] keeps checkpoint and cancellation inbox records distinct"
       ],
@@ -829,7 +878,7 @@
       "specTextSha256": "sha256:7cc82b4732e5045dac3641e0c84820308f313ddc8190929c9d4aa5b6530c2b87",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/turn.ts#Turn"],
+      "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime", "src/agents/runs/turn.ts#Turn"],
       "testSelectors": [
         "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-TURN-NO-RETRY-PROTOCOL] has no retry transition and rejects a wrong effective Run"
       ],
@@ -843,7 +892,7 @@
       "specTextSha256": "sha256:7cc82b4732e5045dac3641e0c84820308f313ddc8190929c9d4aa5b6530c2b87",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/turn.ts#Turn"],
+      "sourceSymbols": ["src/agents/record-data.ts#CodecRecord", "src/agents/runs/turn.ts#Turn"],
       "testSelectors": [
         "test/agents/runs/foundation.test.ts#memory Run runtime [C13-TURN-NO-RETRY-RECORD] exposes no Turn retry runtime or record field"
       ],
@@ -857,7 +906,10 @@
       "specTextSha256": "sha256:7cc82b4732e5045dac3641e0c84820308f313ddc8190929c9d4aa5b6530c2b87",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/turn.ts#Turn"],
+      "sourceSymbols": [
+        "src/agents/runs/runtime.ts#RunRuntime.cancelUnheldTurn",
+        "src/agents/runs/turn.ts#Turn"
+      ],
       "testSelectors": [
         "test/agents/runs/foundation.test.ts#memory Run runtime [C13-TURN-NO-RETRY-RUNTIME] cancels an unheld queued Turn without creating a result commit"
       ],
@@ -871,7 +923,10 @@
       "specTextSha256": "sha256:e4ece05845443f2ab6579043b096f94402df1ab33fd67d577c0cc6745ae2a345",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "sourceSymbols": [
+        "src/agents/runs/commit.ts#RunCommit",
+        "src/agents/runs/commit.ts#validateCommitWriter"
+      ],
       "testSelectors": [
         "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-WRITER-MATRIX] rejects every Receipt evidence mismatch"
       ],
@@ -885,7 +940,11 @@
       "specTextSha256": "sha256:e4ece05845443f2ab6579043b096f94402df1ab33fd67d577c0cc6745ae2a345",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "sourceSymbols": [
+        "src/agents/runs/commit.ts#RunCommit",
+        "src/agents/runs/commit.ts#validateClosedShape",
+        "src/agents/runs/commit.ts#validateCommitWriter"
+      ],
       "testSelectors": [
         "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-WRITER-POST-FENCE-EVIDENCE] rejects every delivery and control evidence mismatch"
       ],
@@ -899,7 +958,11 @@
       "specTextSha256": "sha256:e4ece05845443f2ab6579043b096f94402df1ab33fd67d577c0cc6745ae2a345",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "sourceSymbols": [
+        "src/agents/runs/commit.ts#RunCommit",
+        "src/agents/runs/commit.ts#validateClosedShape",
+        "src/agents/runs/commit.ts#validateCommitWriter"
+      ],
       "testSelectors": [
         "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-WRITER-SYNTHESIS] requires exact synthesis Run, token, and content evidence"
       ],
@@ -913,7 +976,10 @@
       "specTextSha256": "sha256:e4ece05845443f2ab6579043b096f94402df1ab33fd67d577c0cc6745ae2a345",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit"],
+      "sourceSymbols": [
+        "src/agents/runs/commit.ts#validateCommitWriter",
+        "src/agents/runs/runtime.ts#RunRuntime.appendCapturedEvidenceInTransaction"
+      ],
       "testSelectors": [
         "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-WRITER-SYSTEM-MERGE] admits only captured system evidence after terminalization"
       ],

@@ -1,6 +1,6 @@
 import { Contributions, Contribution, OperationDescriptor } from "../contribution";
 import { type FilesystemFacet } from "../filesystem";
-import { requireDataObject, requireString } from "../data";
+import { requireDataObject, requireSafeInteger, requireString } from "../data";
 import { OperationName, SlotName } from "../id";
 import { ShellExecutionId } from "./id";
 import type { FacetManifest } from "../manifest";
@@ -108,25 +108,30 @@ export class ShellExecutionBoundary {
             this.fenceAndSettle();
             return;
         }
-        const result = await Promise.race([
-            this.#result.then(() => "terminated" as const),
-            this.confirmed(),
+        // Only one of the three outcomes is termination; a timeout and a failed
+        // confirmation are the same answer, so the race carries whether the process
+        // terminated rather than which arm said so.
+        const terminated = await Promise.race([
+            this.#result.then(() => true),
+            this.confirmedTermination(),
             this.clock.wait(this.confirmationMilliseconds).then(
-                () => "timeout" as const,
-                () => "timeout" as const
+                () => false,
+                () => false
             )
         ]);
-        if (result !== "terminated") this.fenceAndSettle();
-        else this.settle(this.#terminatedExitCode);
+        if (terminated) this.settle(this.#terminatedExitCode);
+        else this.fenceAndSettle();
     }
 
-    private async confirmed(): Promise<"terminated" | "confirmation-failed"> {
+    private async confirmedTermination(): Promise<boolean> {
         try {
-            if (await this.process.confirmTerminated()) return "terminated";
-            return new Promise(() => {});
+            if (await this.process.confirmTerminated()) return true;
         } catch {
-            return "confirmation-failed";
+            // A confirmation that fails has answered; a confirmation that reports the
+            // process still running has not, and leaves the bound below to answer.
+            return false;
         }
+        return new Promise(() => {});
     }
 
     private fenceAndSettle(): void {
@@ -139,8 +144,10 @@ export class ShellExecutionBoundary {
         }
     }
 
+    // Every path that ends the execution settles it, and several of them run for the same
+    // execution: a cancelled process still completes. The first exit code is the one that
+    // stands, which resolving an already-resolved result gives without a re-entry guard.
     private settle(exitCode: number): void {
-        if (!this.#live) return;
         this.#live = false;
         this.#resolveResult(exitCode);
     }
@@ -205,7 +212,10 @@ export const SHELL_OPERATION_CONTRACTS = Object.freeze({
             exitCodeSchema
         ),
         runInputCodec,
-        profileWireCodec((value) => value, requireExitCode),
+        profileWireCodec(
+            (value) => value,
+            (data) => requireSafeInteger(data, "Exit code")
+        ),
         "output"
     ),
     cancel: new ProfileOperationContract<"cancel", ShellCancelInput, boolean>(
@@ -298,22 +308,22 @@ export class ShellBackend<Receipt> {
             this.termination.confirmationMilliseconds,
             this.termination.terminatedExitCode
         );
+        // One run owns its registration from set to delete. A cancel settles the
+        // execution, and settling resolves the result this call is already awaiting, so
+        // the run's own finally always frees the key before any cancel resumes — which
+        // is also why no second run can claim the key while this one is registered.
         this.#executions.set(executionKey, execution);
         try {
             return await execution.wait();
         } finally {
-            if (this.#executions.get(executionKey) === execution) {
-                this.#executions.delete(executionKey);
-            }
+            this.#executions.delete(executionKey);
         }
     }
 
     public async cancel(executionId: ShellExecutionId): Promise<boolean> {
-        const executionKey = executionId.value;
-        const execution = this.#executions.get(executionKey);
+        const execution = this.#executions.get(executionId.value);
         if (execution === undefined) return false;
         await execution.terminate();
-        if (this.#executions.get(executionKey) === execution) this.#executions.delete(executionKey);
         return true;
     }
 }
@@ -384,7 +394,6 @@ export function tokenizeShellCommand(commandLine: string): string[] {
         }
         if (character === "\\" && quote !== "'") {
             escaped = true;
-            started = true;
             continue;
         }
         if (character === "'" || character === '"') {
@@ -414,11 +423,4 @@ function requireCommandName(name: string): void {
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(name)) {
         throw new ShellError("command.invalid", "Shell command name must be canonical");
     }
-}
-
-function requireExitCode(data: unknown): number {
-    if (typeof data !== "number" || !Number.isSafeInteger(data)) {
-        throw new TypeError("Exit code is invalid");
-    }
-    return data;
 }

@@ -598,59 +598,58 @@ function toolImpact(tool: McpToolDiscovery, remote: boolean): Impact {
     return claimHonorsEnforcementFloor(annotated, derived, false) ? annotated : derived;
 }
 
+// Every rejection here is raised directly rather than thrown as a TypeError and
+// rewritten by a wrapping catch. A catch that turns any fault into one diagnosis makes a
+// missing shape guard indistinguishable from the TypeError the missing guard causes one
+// line later, so the guards became unfalsifiable — and a genuine defect anywhere in the
+// walk was reported to callers as "the server sent a malformed document".
 function requireDiscoveryDocument(document: unknown): asserts document is McpDiscoveryDocument {
-    try {
-        if (
-            !isObjectRecord(document) ||
-            typeof document["revision"] !== "string" ||
-            !Array.isArray(document["tools"]) ||
-            !Array.isArray(document["resources"]) ||
-            !Array.isArray(document["prompts"])
-        ) {
-            throw new TypeError("MCP discovery document is malformed");
-        }
-        for (const tool of document["tools"]) {
-            if (
-                tool === null ||
-                Array.isArray(tool) ||
-                typeof tool !== "object" ||
-                typeof tool.name !== "string" ||
-                !("inputSchema" in tool) ||
-                !("outputSchema" in tool)
-            ) {
-                throw new TypeError("MCP tool discovery is malformed");
-            }
-        }
-        for (const resource of document["resources"]) {
-            if (
-                resource === null ||
-                Array.isArray(resource) ||
-                typeof resource !== "object" ||
-                typeof resource.name !== "string" ||
-                !("outputSchema" in resource)
-            ) {
-                throw new TypeError("MCP resource discovery is malformed");
-            }
-        }
-        for (const prompt of document["prompts"]) {
-            if (
-                prompt === null ||
-                Array.isArray(prompt) ||
-                typeof prompt !== "object" ||
-                typeof prompt.title !== "string" ||
-                typeof prompt.body !== "string"
-            ) {
-                throw new TypeError("MCP prompt discovery is malformed");
-            }
-        }
-        if (!isJsonValue(document)) {
-            throw new TypeError("MCP discovery document is malformed");
-        }
-        canonicalDiscoveryBytes(document);
-    } catch (error) {
-        if (error instanceof McpDiscoveryError) throw error;
-        throw new McpDiscoveryError("schema.invalid", "MCP discovery document is malformed");
+    if (
+        !isObjectRecord(document) ||
+        typeof document["revision"] !== "string" ||
+        !Array.isArray(document["tools"]) ||
+        !Array.isArray(document["resources"]) ||
+        !Array.isArray(document["prompts"])
+    ) {
+        throw malformedDiscovery();
     }
+    for (const tool of document["tools"]) {
+        if (
+            !isObjectRecord(tool) ||
+            typeof tool["name"] !== "string" ||
+            !("inputSchema" in tool) ||
+            !("outputSchema" in tool)
+        ) {
+            throw malformedDiscovery();
+        }
+    }
+    for (const resource of document["resources"]) {
+        if (
+            !isObjectRecord(resource) ||
+            typeof resource["name"] !== "string" ||
+            !("outputSchema" in resource)
+        ) {
+            throw malformedDiscovery();
+        }
+    }
+    for (const prompt of document["prompts"]) {
+        if (
+            !isObjectRecord(prompt) ||
+            typeof prompt["title"] !== "string" ||
+            typeof prompt["body"] !== "string"
+        ) {
+            throw malformedDiscovery();
+        }
+    }
+    // encodeCanonicalJson applies exactly this predicate before encoding, so the walk
+    // ends here: a second, discarded encode would only restate the same rejection.
+    if (!isJsonValue(document)) {
+        throw malformedDiscovery();
+    }
+}
+
+function malformedDiscovery(): McpDiscoveryError {
+    return new McpDiscoveryError("schema.invalid", "MCP discovery document is malformed");
 }
 
 function canonicalDiscoveryBytes(document: JsonValue): Uint8Array {
@@ -662,10 +661,6 @@ function freezeDiscoveryDocument(document: McpDiscoveryDocument): McpDiscoveryDo
 }
 
 function freezeJson<Value extends JsonValue>(value: Value): Value {
-    if (Array.isArray(value)) {
-        for (const item of value) freezeJson(item);
-        return Object.freeze(value);
-    }
     if (value !== null && typeof value === "object") {
         for (const item of Object.values(value)) freezeJson(item);
         return Object.freeze(value);

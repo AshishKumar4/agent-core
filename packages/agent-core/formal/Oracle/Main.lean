@@ -17,6 +17,10 @@ verified model.
 proves a true answer implies the child admits no intent the parent refuses, so agreeing
 with it is agreeing with SPEC §3.4 rule 2 itself, not with a restatement of the check.
 
+`actor.activate` and `actor.admits` are likewise the modeled decisions themselves:
+`ActorStep` admits an activation exactly when `activateExec` succeeds, and every
+Actor-local persistence theorem is stated over that relation.
+
 What the suites establish runs one way. A disagreement is a genuine semantic divergence
 between the implementation and a proved model definition. Agreement is empirical evidence
 over the inputs actually exercised and bounds nothing outside them; it is not a refinement
@@ -139,6 +143,67 @@ def parseCapabilityIntent (json : Json) : Except String CapabilityIntent := do
   let arguments ← parseProjection (← json.getObjVal? "arguments")
   pure ⟨facet.data, operation, impact, arguments⟩
 
+/-! ## Actor-local persistence
+
+`activateExec` and `admitsCommand` are the modeled decisions themselves, not mirrors of a
+separate relation, and `ActorStep` admits an activation exactly when `activateExec`
+succeeds. The Actor's own record log carries no part of either decision, so storage crosses
+this boundary as the identity row and the fencing record only. -/
+
+def parseActorRef (json : Json) : Except String ActorRef := do
+  let kind ← (← json.getObjVal? "kind").getStr?
+  let tenant ← (← json.getObjVal? "tenant").getNat?
+  let id ← (← json.getObjVal? "id").getNat?
+  match kind with
+  | "tenant" => pure (.tenant ⟨tenant⟩)
+  | "workspace" => pure (.workspace ⟨tenant⟩ ⟨id⟩)
+  | "run" => pure (.run ⟨tenant⟩ ⟨id⟩)
+  | other => throw s!"unknown actor kind {other}"
+
+def actorRefJson : ActorRef → Json
+  | .tenant tenant =>
+      Json.mkObj [("kind", Json.str "tenant"), ("tenant", Json.num tenant.value),
+        ("id", Json.num 0)]
+  | .workspace tenant workspace =>
+      Json.mkObj [("kind", Json.str "workspace"), ("tenant", Json.num tenant.value),
+        ("id", Json.num workspace.value)]
+  | .run tenant run =>
+      Json.mkObj [("kind", Json.str "run"), ("tenant", Json.num tenant.value),
+        ("id", Json.num run.value)]
+  | .external tenant name =>
+      Json.mkObj [("kind", Json.str "external"), ("tenant", Json.num tenant.value),
+        ("id", Json.str name)]
+
+def parseRecovery (json : Json) : Except String (Option ActorRecovery) := do
+  if json.isNull then pure none
+  else do
+    let actor ← parseActorRef (← json.getObjVal? "actor")
+    let epoch ← (← json.getObjVal? "epoch").getNat?
+    let recoveries ← (← json.getObjVal? "recoveries").getNat?
+    pure (some ⟨actor, epoch, recoveries⟩)
+
+def recoveryJson (state : ActorRecovery) : Json :=
+  Json.mkObj [("actor", actorRefJson state.actor), ("epoch", Json.num state.epoch),
+    ("recoveries", Json.num state.recoveries)]
+
+def parseFence (json : Json) : Except String ActorFence := do
+  let actor ← parseActorRef (← json.getObjVal? "actor")
+  let epoch ← (← json.getObjVal? "epoch").getNat?
+  pure ⟨actor, epoch⟩
+
+def parseActorStorage (json : Json) : Except String ActorStorage := do
+  let identityField ← json.getObjVal? "identity"
+  let identity ← if identityField.isNull then pure none
+    else do pure (some (← parseActorRef identityField))
+  let recovery ← parseRecovery (← json.getObjVal? "recovery")
+  pure ⟨identity, recovery, []⟩
+
+def activationFaultName : ActivationFault → String
+  | .foreignActor => "foreign-actor"
+  | .foreignRecovery => "foreign-recovery"
+  | .missingRecoveryState => "missing-recovery-state"
+  | .unboundRecoveryState => "unbound-recovery-state"
+
 def parsePlacementSet (json : Json) : Except String PlacementSet := do
   let bundled ← (← json.getObjVal? "bundled").getBool?
   let provider ← (← json.getObjVal? "provider").getBool?
@@ -180,6 +245,29 @@ where
         let parent ← parseCapability (← request.getObjVal? "parent")
         let child ← parseCapability (← request.getObjVal? "child")
         pure (Json.mkObj [("covers", Json.bool (parent.coversBool child))])
+    | "actor.activate" => do
+        let storage ← parseActorStorage (← request.getObjVal? "storage")
+        let actor ← parseActorRef (← request.getObjVal? "actor")
+        match activateExec storage actor with
+        | .ok (next, activation) =>
+            pure (Json.mkObj [
+              ("ok", Json.bool true),
+              ("kind", Json.str (match activation.kind with
+                | .created => "created" | .recovered => "recovered")),
+              ("recovery", match next.recovery with
+                | none => Json.null
+                | some state => recoveryJson state)])
+        | .error fault =>
+            pure (Json.mkObj [("ok", Json.bool false),
+              ("fault", Json.str (activationFaultName fault))])
+    | "actor.admits" => do
+        let self ← parseActorRef (← request.getObjVal? "self")
+        let held ← parseFence (← request.getObjVal? "held")
+        let expectedField ← request.getObjVal? "expected"
+        let expected ← if expectedField.isNull then pure none
+          else do pure (some (← parseFence expectedField))
+        let stored ← parseRecovery (← request.getObjVal? "stored")
+        pure (Json.mkObj [("admits", Json.bool (admitsCommand self held expected stored))])
     | "policy.placement" => do
         let manifest ← parsePlacementSet (← request.getObjVal? "manifest")
         let policy ← parsePlacementSet (← request.getObjVal? "policy")

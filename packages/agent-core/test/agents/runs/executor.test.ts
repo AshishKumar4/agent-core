@@ -1503,56 +1503,60 @@ describe("TurnExecutor seam", () => {
         ).resolves.toMatchObject({ kind: "succeeded" });
     });
 
-    it("fences a boundary result when cancellation arrives during the operation", async () => {
-        const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
-        let now = new Date(2_000);
-        const cancellation = cancellationEntry(
-            "boundary-cancellation",
-            seeded.token,
-            boundaries.cancellationPayload,
-            0
-        );
-        const contentBoundary: ContentStore = {
-            put: (bytes, hint) => boundaries.content.put(bytes, hint),
-            get: async (ref, range) => {
-                seeded.runtime.reclaimTurn(
-                    ids.turn,
-                    seeded.running.revision,
-                    ids.holder,
-                    new Date(6_000),
-                    new Date(10_000),
-                    cancellation
-                );
-                now = new Date(7_000);
-                return boundaries.content.get(ref, range);
-            },
-            stat: (ref) => boundaries.content.stat(ref)
-        };
-        let boundaryError: string | undefined;
-        let boundaryCancellation = false;
-        let boundaryOutcome: unknown;
-        const executor = new FunctionExecutor(async (context) => {
-            try {
-                await context.content.get(boundaries.prompt);
-            } catch (error) {
-                boundaryError = errorCode(error);
-            }
-            boundaryCancellation = context.cancellation.aborted;
-            const outcome = await context.outcome.cancelled();
-            boundaryOutcome = outcome;
-            return outcome;
-        });
+    it(
+        "[C13-TURN-CANCEL-INBOX] fences a boundary result when cancellation arrives during the operation",
+        { tags: "p0" },
+        async () => {
+            const seeded = seedRunningTurn();
+            const boundaries = await TestBoundaries.create();
+            let now = new Date(2_000);
+            const cancellation = cancellationEntry(
+                "boundary-cancellation",
+                seeded.token,
+                boundaries.cancellationPayload,
+                0
+            );
+            const contentBoundary: ContentStore = {
+                put: (bytes, hint) => boundaries.content.put(bytes, hint),
+                get: async (ref, range) => {
+                    seeded.runtime.reclaimTurn(
+                        ids.turn,
+                        seeded.running.revision,
+                        ids.holder,
+                        new Date(6_000),
+                        new Date(10_000),
+                        cancellation
+                    );
+                    now = new Date(7_000);
+                    return boundaries.content.get(ref, range);
+                },
+                stat: (ref) => boundaries.content.stat(ref)
+            };
+            let boundaryError: string | undefined;
+            let boundaryCancellation = false;
+            let boundaryOutcome: unknown;
+            const executor = new FunctionExecutor(async (context) => {
+                try {
+                    await context.content.get(boundaries.prompt);
+                } catch (error) {
+                    boundaryError = errorCode(error);
+                }
+                boundaryCancellation = context.cancellation.aborted;
+                const outcome = await context.outcome.cancelled();
+                boundaryOutcome = outcome;
+                return outcome;
+            });
 
-        await expect(
-            boundaries
-                .host(seeded, executor, { content: contentBoundary, now: () => now })
-                .execute(seeded.token)
-        ).resolves.toEqual({ kind: "cancelled" });
-        expect(boundaryError).toBe("lease.invalid");
-        expect(boundaryCancellation).toBe(true);
-        expect(boundaryOutcome).toEqual({ kind: "cancelled" });
-    });
+            await expect(
+                boundaries
+                    .host(seeded, executor, { content: contentBoundary, now: () => now })
+                    .execute(seeded.token)
+            ).resolves.toEqual({ kind: "cancelled" });
+            expect(boundaryError).toBe("lease.invalid");
+            expect(boundaryCancellation).toBe(true);
+            expect(boundaryOutcome).toEqual({ kind: "cancelled" });
+        }
+    );
 
     it("rejects every stale content operation and stale inbox reads without exact cancellation", async () => {
         const seeded = seedRunningTurn();

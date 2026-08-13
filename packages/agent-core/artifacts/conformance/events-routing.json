@@ -9,7 +9,10 @@
       "specTextSha256": "sha256:64dbf182a186666601b3195d26848ea26ca8c3955b83aae43a2b20a0a1335dc7",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/workspaces/route.ts#RouteReservation"],
+      "sourceSymbols": [
+        "src/workspaces/route.ts#RouteReservation",
+        "src/workspaces/source-protocol.ts#SourceEventProtocol"
+      ],
       "testSelectors": [
         "test/workspaces/coverage-protocols.test.ts#source protocol adversarial coverage [C13-ADV-DUPLICATE-ROUTE] returns duplicate Events and reuses route dedupe identity"
       ],
@@ -37,7 +40,10 @@
       "specTextSha256": "sha256:6da27759c9a4dba3fe5bf2da3e066677fea64efe74452343579593fe1f4ddbee",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/workspaces/route.ts#RouteReservation"],
+      "sourceSymbols": [
+        "src/workspaces/origin.ts#requireAuthenticatedEventIntent",
+        "src/workspaces/source-protocol.ts#SourceEventProtocol"
+      ],
       "testSelectors": [
         "test/workspaces/coverage-protocols.test.ts#source protocol adversarial coverage [C13-ADV-HOSTILE-TIER] accepts only complete authenticated intents"
       ],
@@ -51,9 +57,12 @@
       "specTextSha256": "sha256:40a3e3e0940e3881d577df8ab458d8f2cc3a0eea1a96259e1d759b2400ddbbf2",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/workspaces/route.ts#RouteReservation"],
+      "sourceSymbols": [
+        "src/workspaces/route.ts#RouteReservation",
+        "src/workspaces/route.ts#decodeTenants"
+      ],
       "testSelectors": [
-        "test/substrates/sqlite/events-coverage.test.ts#memory View replay and retention coverage [C13-ADV-MISSING-CROSS-TENANT-BINDING] rejects retention verification, owner, tenant, binding, and exact-coverage failures"
+        "test/workspaces/route-mutations.test.ts#route record mutation kills [C13-ADV-MISSING-CROSS-TENANT-BINDING] a cross-tenant relation without its authority Binding does not decode"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -124,7 +133,11 @@
       "specTextSha256": "sha256:8eae0e22fe229968e3fa99039ec9aeee884c77a5c672dd218eca07df9d27f308",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/workspaces/route.ts#RouteReservation"],
+      "sourceSymbols": [
+        "src/workspaces/route.ts#RouteReservation",
+        "src/workspaces/route.ts#sourceTenant",
+        "src/workspaces/source-protocol.ts#tenantRelationsEqual"
+      ],
       "testSelectors": [
         "test/workspaces/coverage-protocols.test.ts#source protocol adversarial coverage [C13-ROUTE-CROSS-TENANT-BINDING] accepts an unchanged cross-tenant route and detects every cross relation change"
       ],
@@ -286,7 +299,11 @@
       "specTextSha256": "sha256:55624a36a81fc5aefdd72de0824e391868999b5c3c2ba5fcb4e2e22dcf887b00",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/workspaces/policy.ts#deriveEventTrust"],
+      "sourceSymbols": [
+        "src/workspaces/origin.ts#EventIntentAuthenticator",
+        "src/workspaces/origin.ts#detachIntent",
+        "src/workspaces/origin.ts#eventIntentBytes"
+      ],
       "testSelectors": [
         "test/workspaces/conformance.test.ts#[C13-TRUST-VERIFIED-INGRESS] verified evidence binds the complete Event intent"
       ],
@@ -316,7 +333,10 @@
       "specTextSha256": "sha256:9ae9249caec2b7dd9d12bc6dc553e5ebcd684e10aba9f0423146beff72f94662",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/workspaces/view-replay.ts#ViewReplayProtocol"],
+      "sourceSymbols": [
+        "src/workspaces/persistence.ts#WorkspacePersistence",
+        "src/workspaces/view-replay.ts#ViewReplayProtocol"
+      ],
       "testSelectors": [
         "test/workspaces/view-replay.test.ts#ViewReplayProtocol [C13-VIEW-DELTA-REPLAY] delegates RFC 6902 and durably replays deltas"
       ],

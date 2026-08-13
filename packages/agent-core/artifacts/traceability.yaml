@@ -1,7 +1,7 @@
 {
   "edition": "3.1.0",
   "formalScope": "abstract-model-only",
-  "checkerBoundary": "AgentCore/Axioms.lean is the explicit reviewed theorem allowlist. This ledger states ownership and narrow claim boundaries; the checker proves syntactic consistency, complete witness-family mapping, allowed axiom dependencies, and definition existence, but is not a semantic oracle for theorem adequacy or implementation conformance.",
+  "checkerBoundary": "AgentCore/Axioms.lean is the explicit reviewed theorem allowlist. This ledger states ownership and narrow claim boundaries; the checker proves syntactic consistency, complete witness-family mapping, allowed axiom dependencies, and definition existence, and, for the release chain, that each recorded link's named artifact actually contains its named evidence; it is not a semantic oracle for theorem adequacy or implementation conformance.",
   "statusVocabulary": {
     "proved-safety": "A theorem in the reviewed Axioms allowlist proves the stated narrow safety property of the abstract relation under listed assumptions; this status does not imply full-SPEC or implementation conformance.",
     "proved-component": "A theorem in the reviewed Axioms allowlist proves a local structural or component property only; the checker verifies consistency, not semantic sufficiency.",
@@ -391,6 +391,137 @@
         "per-key discharge of the delimiter-free side across every record store",
         "canonical-JSON key injectivity (ASM-CANONICAL-KEY-INJECTIVE)",
         "identifier validation excluding the delimiter at the trust boundary"
+      ]
+    },
+    {
+      "id": "AC-PERSISTENCE-001",
+      "summary": "Actor-local persistence: the transaction boundary, rollback, uniqueness, restart, and commit-unknown",
+      "status": "proved-safety",
+      "boundary": "One Actor's own storage, as a concrete machine with an open transaction holding the storage it opened against and the writes staged so far. durable_state_refines_the_atomic_actor is the refinement: every reachable concrete storage is one the atomic machine -- where a transaction is a single state change -- also reaches, so a crash at any point recovers a state the rest of this package describes and no partially applied transaction is ever durable. That rests on reachable_transaction_anchored, which holds only because a transaction cannot open over an open one; nonvacuous_actor_nested_commit_loses_a_write exhibits the lost write the guard excludes. activateExec is the modeled activation decision, in SqliteActorStore's precedence: the identity binding, then the record's provenance where the record is read, then the two consistency guards. MemoryActorStore refuses two of the four corrupt shapes earlier, at snapshot decode rather than at activation, so the model reproduces which fault SQLite raises and only whether Memory refuses at all; both fail closed on every shape. The transition system admits an activation exactly when activateExec succeeds. What the abstraction does not carry: atomicity itself. The two-branch semantics of commitUnknown -- the durable outcome is the base or the whole commit, never a mixture -- is the modeled form of SPEC 14's substrate premise, registered as ASM-ACTOR-LOCAL-ATOMICITY, and every theorem here inherits it; SQLite and Durable Object storage stay in the trusted base. Nor does it carry the mailbox: commands are modeled as a gate over durable state, so serialization, ordering, and the closing-before-closed latch are not results here. The journal is a list of opaque record identifiers, so append-only is proved for the log's shape and nothing is claimed about record content, codecs, or keys -- a stored recovery record whose payload disagrees with its key is exactly AC-KEY-001's obligation, and appears here only as the foreignRecovery fault. The Actor abstraction is single-storage and single-Actor throughout; cross-Actor atomicity remains excluded by ASM-TRANSITION-ATOMICITY. TypeScript refinement is empirical only (NC-DIFFERENTIAL-EMPIRICAL).",
+      "definitions": [
+        "AgentCore.ActorFence",
+        "AgentCore.ActorRecovery",
+        "AgentCore.ActorRecovery.initial",
+        "AgentCore.ActorRecovery.recover",
+        "AgentCore.ActorRecovery.advance",
+        "AgentCore.ActorStorage",
+        "AgentCore.ActorStorage.epoch",
+        "AgentCore.ActivationFault",
+        "AgentCore.Activation",
+        "AgentCore.activateExec",
+        "AgentCore.admitsCommand",
+        "AgentCore.ActorWrite",
+        "AgentCore.applyWrites",
+        "AgentCore.AtomicStep",
+        "AgentCore.AtomicReachable",
+        "AgentCore.ActorTransaction",
+        "AgentCore.ActorTransaction.working",
+        "AgentCore.ActorNode",
+        "AgentCore.ActorStep",
+        "AgentCore.ActorReachable",
+        "AgentCore.ActorTrace",
+        "AgentCore.TransactionAnchored",
+        "AgentCore.RecoveryIsBound"
+      ],
+      "theorems": [
+        "AgentCore.applyWrites_journal_extends",
+        "AgentCore.applyWrites_preserve_recoveries",
+        "AgentCore.reachable_transaction_anchored",
+        "AgentCore.durable_state_refines_the_atomic_actor",
+        "AgentCore.staged_writes_are_not_durable",
+        "AgentCore.abort_discards_every_staged_write",
+        "AgentCore.commit_applies_exactly_the_staged_writes",
+        "AgentCore.activation_refuses_a_foreign_actor",
+        "AgentCore.one_storage_serves_one_actor",
+        "AgentCore.activation_advances_the_epoch",
+        "AgentCore.trace_epoch_never_decreases",
+        "AgentCore.pre_restart_fence_never_readmitted",
+        "AgentCore.reachable_recovery_is_bound",
+        "AgentCore.reachable_storage_never_faults_on_recovery_provenance",
+        "AgentCore.bind_without_activation_faults_the_next_activation",
+        "AgentCore.commit_unknown_closes_the_incarnation",
+        "AgentCore.closed_incarnation_admits_no_command",
+        "AgentCore.serving_past_commit_unknown_is_branch_dependent",
+        "AgentCore.reactivation_resolves_commit_unknown"
+      ],
+      "nonVacuity": [
+        "AgentCore.Examples.nonvacuous_actor_persistence_trace",
+        "AgentCore.Examples.nonvacuous_actor_activation_discriminates",
+        "AgentCore.Examples.nonvacuous_actor_command_gate_discriminates",
+        "AgentCore.Examples.nonvacuous_actor_commit_applies_every_write",
+        "AgentCore.Examples.nonvacuous_actor_commit_unknown_branches_differ",
+        "AgentCore.Examples.nonvacuous_actor_reactivation_retires_both_branches",
+        "AgentCore.Examples.nonvacuous_actor_nested_commit_loses_a_write",
+        "AgentCore.Examples.nonvacuous_actor_rotation_is_not_a_restart"
+      ],
+      "witnessCoverage": {
+        "AgentCore.applyWrites_journal_extends": [
+          "AgentCore.Examples.nonvacuous_actor_commit_applies_every_write"
+        ],
+        "AgentCore.applyWrites_preserve_recoveries": [
+          "AgentCore.Examples.nonvacuous_actor_rotation_is_not_a_restart"
+        ],
+        "AgentCore.reachable_transaction_anchored": [
+          "AgentCore.Examples.nonvacuous_actor_persistence_trace",
+          "AgentCore.Examples.nonvacuous_actor_nested_commit_loses_a_write"
+        ],
+        "AgentCore.durable_state_refines_the_atomic_actor": [
+          "AgentCore.Examples.nonvacuous_actor_persistence_trace"
+        ],
+        "AgentCore.staged_writes_are_not_durable": [
+          "AgentCore.Examples.nonvacuous_actor_persistence_trace"
+        ],
+        "AgentCore.abort_discards_every_staged_write": [
+          "AgentCore.Examples.nonvacuous_actor_commit_applies_every_write"
+        ],
+        "AgentCore.commit_applies_exactly_the_staged_writes": [
+          "AgentCore.Examples.nonvacuous_actor_commit_applies_every_write"
+        ],
+        "AgentCore.activation_refuses_a_foreign_actor": [
+          "AgentCore.Examples.nonvacuous_actor_activation_discriminates"
+        ],
+        "AgentCore.one_storage_serves_one_actor": [
+          "AgentCore.Examples.nonvacuous_actor_activation_discriminates",
+          "AgentCore.Examples.nonvacuous_actor_persistence_trace"
+        ],
+        "AgentCore.activation_advances_the_epoch": [
+          "AgentCore.Examples.nonvacuous_actor_activation_discriminates"
+        ],
+        "AgentCore.trace_epoch_never_decreases": [
+          "AgentCore.Examples.nonvacuous_actor_persistence_trace"
+        ],
+        "AgentCore.pre_restart_fence_never_readmitted": [
+          "AgentCore.Examples.nonvacuous_actor_command_gate_discriminates",
+          "AgentCore.Examples.nonvacuous_actor_reactivation_retires_both_branches"
+        ],
+        "AgentCore.reachable_recovery_is_bound": [
+          "AgentCore.Examples.nonvacuous_actor_activation_discriminates",
+          "AgentCore.Examples.nonvacuous_actor_persistence_trace"
+        ],
+        "AgentCore.bind_without_activation_faults_the_next_activation": [
+          "AgentCore.Examples.nonvacuous_actor_activation_discriminates"
+        ],
+        "AgentCore.commit_unknown_closes_the_incarnation": [
+          "AgentCore.Examples.nonvacuous_actor_commit_unknown_branches_differ"
+        ],
+        "AgentCore.closed_incarnation_admits_no_command": [
+          "AgentCore.Examples.nonvacuous_actor_command_gate_discriminates"
+        ],
+        "AgentCore.serving_past_commit_unknown_is_branch_dependent": [
+          "AgentCore.Examples.nonvacuous_actor_commit_unknown_branches_differ"
+        ],
+        "AgentCore.reactivation_resolves_commit_unknown": [
+          "AgentCore.Examples.nonvacuous_actor_reactivation_retires_both_branches"
+        ],
+        "AgentCore.reachable_storage_never_faults_on_recovery_provenance": [
+          "AgentCore.Examples.nonvacuous_actor_activation_discriminates",
+          "AgentCore.Examples.nonvacuous_actor_persistence_trace"
+        ]
+      },
+      "remainingEvidence": [
+        "substrate atomicity for SQLite and Durable Object storage (ASM-ACTOR-LOCAL-ATOMICITY)",
+        "mailbox serialization, command ordering, and the closing-before-closed latch",
+        "TypeScript refinement, for which oracle agreement is empirical only (NC-DIFFERENTIAL-EMPIRICAL)"
       ]
     },
     {
@@ -2790,6 +2921,11 @@
       "status": "operational-assumption"
     },
     {
+      "id": "ASM-ACTOR-LOCAL-ATOMICITY",
+      "summary": "One Actor's own persistence linearizes its guarded transaction and applies it all-or-nothing. A commit whose outcome the caller never learns leaves the durable state at the base or at the complete commit, never a mixture, and rollback discards every staged write. SPEC 14 states this as an operational premise; SQLite and Durable Object storage stay in the trusted base, so AC-PERSISTENCE-001 assumes it rather than proving it, and every theorem there inherits it.",
+      "status": "operational-assumption"
+    },
+    {
       "id": "ASM-SOURCE-PROJECTION-AUTHENTICITY",
       "summary": "The source Actor owns RouteReservation and the target accepts only an authenticated projection of that reservation.",
       "status": "operational-assumption"
@@ -3082,7 +3218,8 @@
           "AC-CONTENT-001",
           "AC-DISPATCHER-001",
           "AC-GRAPH-WRITER-001",
-          "AC-KEY-001"
+          "AC-KEY-001",
+          "AC-PERSISTENCE-001"
         ],
         "nonClaimIds": [
           "NC-CODECS",
@@ -3090,6 +3227,7 @@
           "NC-PROTOCOL-DISPATCHER"
         ],
         "assumptionIds": [
+          "ASM-ACTOR-LOCAL-ATOMICITY",
           "ASM-CLOSED-WORLD-TRANSITIONS",
           "ASM-SOURCE-PROJECTION-AUTHENTICITY",
           "ASM-TRANSITION-ATOMICITY"
@@ -3163,6 +3301,225 @@
         "assumptionIds": [
           "ASM-IMPLEMENTATION-REFINEMENT-SEPARATE"
         ]
+      }
+    ]
+  },
+  "releaseChain": {
+    "summary": "SPEC requirement -> Lean claims and assumptions -> executable decision -> TypeScript refinement evidence -> Memory/SQLite contract -> Cloudflare live scenario -> deployed bundle, for the requirements that carry an executable decision plus one that carries live evidence instead. Each link is either recorded, and then the checker verifies the named artifact actually contains the named evidence, or open, and then it carries a reason and no evidence. No entry is closed end to end today: the executable decisions have no live scenario because the Cloudflare live harness never constructs a core Actor, lease, or capability path, and the requirement that does have live evidence has no executable decision. Making that visible per link is the point of the artifact.",
+    "entries": [
+      {
+        "requirementId": "AC-PERSISTENCE-001",
+        "specAtoms": [
+          "C13-OWNERSHIP-ACTOR-CONTRACT"
+        ],
+        "theorems": [
+          "AgentCore.durable_state_refines_the_atomic_actor",
+          "AgentCore.reachable_transaction_anchored",
+          "AgentCore.pre_restart_fence_never_readmitted",
+          "AgentCore.reactivation_resolves_commit_unknown"
+        ],
+        "assumptions": [
+          "ASM-ACTOR-LOCAL-ATOMICITY",
+          "NC-DIFFERENTIAL-EMPIRICAL"
+        ],
+        "executableDecision": {
+          "status": "recorded",
+          "reason": "",
+          "leanDefinitions": [
+            "AgentCore.activateExec",
+            "AgentCore.admitsCommand"
+          ],
+          "oracleOps": [
+            "actor.activate",
+            "actor.admits"
+          ]
+        },
+        "refinementEvidence": {
+          "status": "recorded",
+          "reason": "",
+          "paths": [
+            "test/differential/persistence.differential.test.ts"
+          ]
+        },
+        "substrateContract": {
+          "status": "recorded",
+          "reason": "",
+          "paths": [
+            "test/actors/actor.test.ts"
+          ],
+          "backings": [
+            "Memory",
+            "SQLite"
+          ]
+        },
+        "liveScenario": {
+          "status": "open",
+          "reason": "The Cloudflare live harness never constructs an ActorStore: no package under packages/agent-core-cloudflare imports SqliteActorStore, MemoryActorStore, or the protocol dispatcher, so no live scenario exercises this decision.",
+          "report": "",
+          "atoms": []
+        },
+        "deployedBundle": {
+          "status": "open",
+          "reason": "No live scenario, so no deployed bundle carries this decision.",
+          "run": "",
+          "versionIds": []
+        }
+      },
+      {
+        "requirementId": "AC-LEASE-001",
+        "specAtoms": [
+          "C13-TURN-EXACT-LEASE",
+          "C13-TURN-LEASE-EXPIRY"
+        ],
+        "theorems": [
+          "AgentCore.leaseStepExec_sound",
+          "AgentCore.leaseStepExec_complete",
+          "AgentCore.stale_token_rejects",
+          "AgentCore.expired_lease_rejects"
+        ],
+        "assumptions": [
+          "ASM-LIVENESS-TIME-INVALIDATION",
+          "NC-DIFFERENTIAL-EMPIRICAL"
+        ],
+        "executableDecision": {
+          "status": "recorded",
+          "reason": "",
+          "leanDefinitions": [
+            "AgentCore.leaseStepExec"
+          ],
+          "oracleOps": [
+            "lease.step",
+            "lease.admits"
+          ]
+        },
+        "refinementEvidence": {
+          "status": "recorded",
+          "reason": "",
+          "paths": [
+            "test/differential/lease.differential.test.ts"
+          ]
+        },
+        "substrateContract": {
+          "status": "open",
+          "reason": "The Turn lease persists inside the Turn record, and no contract runs the same lease transitions against a Memory and a SQLite run store; test/substrates/sqlite/run.test.ts exercises SQLite only.",
+          "paths": [],
+          "backings": []
+        },
+        "liveScenario": {
+          "status": "open",
+          "reason": "No live scenario exercises Turn lease admission.",
+          "report": "",
+          "atoms": []
+        },
+        "deployedBundle": {
+          "status": "open",
+          "reason": "No live scenario, so no deployed bundle carries this decision.",
+          "run": "",
+          "versionIds": []
+        }
+      },
+      {
+        "requirementId": "AC-CAPABILITY-001",
+        "specAtoms": [
+          "C13-AUTH-ISOLATE-DELEGATION"
+        ],
+        "theorems": [
+          "AgentCore.capability_covering_is_sound",
+          "AgentCore.glob_covering_iff_containment",
+          "AgentCore.covering_chain_never_widens"
+        ],
+        "assumptions": [
+          "ASM-TRUTHFUL-VERIFICATION-INPUTS",
+          "NC-DIFFERENTIAL-EMPIRICAL"
+        ],
+        "executableDecision": {
+          "status": "recorded",
+          "reason": "",
+          "leanDefinitions": [
+            "AgentCore.Capability.coversBool",
+            "AgentCore.Capability.matchesBool"
+          ],
+          "oracleOps": [
+            "capability.covers",
+            "capability.matches"
+          ]
+        },
+        "refinementEvidence": {
+          "status": "recorded",
+          "reason": "",
+          "paths": [
+            "test/differential/capability.differential.test.ts"
+          ]
+        },
+        "substrateContract": {
+          "status": "open",
+          "reason": "Grant attenuation and lineage validation are exercised against memory authority stores only (test/authority/*); no contract runs them against the SQLite authority ledger.",
+          "paths": [],
+          "backings": []
+        },
+        "liveScenario": {
+          "status": "open",
+          "reason": "No live scenario exercises capability attenuation.",
+          "report": "",
+          "atoms": []
+        },
+        "deployedBundle": {
+          "status": "open",
+          "reason": "No live scenario, so no deployed bundle carries this decision.",
+          "run": "",
+          "versionIds": []
+        }
+      },
+      {
+        "requirementId": "AC-ENVIRONMENT-001",
+        "specAtoms": [
+          "P11-ENVIRONMENT-EPHEMERAL-DURABILITY",
+          "P11-ENVIRONMENT-SNAPSHOT"
+        ],
+        "theorems": [
+          "AgentCore.rotation_does_not_retarget_open_sessions",
+          "AgentCore.stale_session_admits_nothing",
+          "AgentCore.closed_session_is_terminal"
+        ],
+        "assumptions": [
+          "NC-ENVIRONMENT-LIFECYCLE",
+          "NC-CLOUDFLARE-BEHAVIOR"
+        ],
+        "executableDecision": {
+          "status": "open",
+          "reason": "The Session LTS has no executable decision and no oracle operation; its admission rules are relational only.",
+          "leanDefinitions": [],
+          "oracleOps": []
+        },
+        "refinementEvidence": {
+          "status": "open",
+          "reason": "No executable decision, so no differential suite compares one.",
+          "paths": []
+        },
+        "substrateContract": {
+          "status": "open",
+          "reason": "Session state is provider-held, not Memory/SQLite record storage.",
+          "paths": [],
+          "backings": []
+        },
+        "liveScenario": {
+          "status": "recorded",
+          "reason": "",
+          "report": "artifacts/conformance/live-evidence/phase-1.vitest.json",
+          "atoms": [
+            "P11-ENVIRONMENT-EPHEMERAL-DURABILITY",
+            "P11-ENVIRONMENT-SNAPSHOT"
+          ]
+        },
+        "deployedBundle": {
+          "status": "recorded",
+          "reason": "",
+          "run": "artifacts/conformance/live-evidence/run.json",
+          "versionIds": [
+            "ff52e00d-7f8f-4ca4-9997-2d35232a7e0b",
+            "55a2e65b-29be-48e1-832a-8f4a80c68c10"
+          ]
+        }
       }
     ]
   }
