@@ -113,10 +113,11 @@ export function issueMalformedCommandPayload(
 export function inspectPreparedCommandPayload(
     value: unknown
 ): Readonly<PreparedPayloadState> | undefined {
-    if ((typeof value !== "object" || value === null) && typeof value !== "function") {
-        return undefined;
-    }
-    return preparedPayloadStates.get(value as PreparedCommandPayload);
+    // No shape test in front of the lookup: WeakMap.get answers undefined for anything
+    // that was never a key and never throws, so the guard could only ever agree with it.
+    // Narrowing on the class instead makes the cast unnecessary and leaves the map the
+    // single decider of whether this value was issued here.
+    return value instanceof PreparedCommandPayload ? preparedPayloadStates.get(value) : undefined;
 }
 
 function requirePreparedState(value: PreparedCommandPayload): PreparedPayloadState {

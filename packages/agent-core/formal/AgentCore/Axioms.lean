@@ -625,3 +625,35 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_free_right_keys_separate
 #print axioms AgentCore.Examples.nonvacuous_nul_key_collision
 #print axioms AgentCore.Examples.nonvacuous_nul_prefix_scan_admits_foreign
+
+-- Actor-local persistence (SPEC §8.1, §8.4, §14): the transaction boundary, the
+-- refinement to the atomic Actor, uniqueness, restart, and commit-unknown.
+#print axioms AgentCore.applyWrites_journal_extends
+#print axioms AgentCore.applyWrites_preserve_recoveries
+#print axioms AgentCore.reachable_transaction_anchored
+#print axioms AgentCore.durable_state_refines_the_atomic_actor
+#print axioms AgentCore.staged_writes_are_not_durable
+#print axioms AgentCore.abort_discards_every_staged_write
+#print axioms AgentCore.commit_applies_exactly_the_staged_writes
+#print axioms AgentCore.activation_refuses_a_foreign_actor
+#print axioms AgentCore.one_storage_serves_one_actor
+#print axioms AgentCore.activation_advances_the_epoch
+#print axioms AgentCore.trace_epoch_never_decreases
+#print axioms AgentCore.pre_restart_fence_never_readmitted
+#print axioms AgentCore.reachable_recovery_is_bound
+#print axioms AgentCore.reachable_storage_never_faults_on_recovery_provenance
+#print axioms AgentCore.bind_without_activation_faults_the_next_activation
+#print axioms AgentCore.commit_unknown_closes_the_incarnation
+#print axioms AgentCore.closed_incarnation_admits_no_command
+#print axioms AgentCore.serving_past_commit_unknown_is_branch_dependent
+#print axioms AgentCore.reactivation_resolves_commit_unknown
+
+-- Actor-local persistence nonvacuity witnesses.
+#print axioms AgentCore.Examples.nonvacuous_actor_persistence_trace
+#print axioms AgentCore.Examples.nonvacuous_actor_activation_discriminates
+#print axioms AgentCore.Examples.nonvacuous_actor_command_gate_discriminates
+#print axioms AgentCore.Examples.nonvacuous_actor_commit_applies_every_write
+#print axioms AgentCore.Examples.nonvacuous_actor_commit_unknown_branches_differ
+#print axioms AgentCore.Examples.nonvacuous_actor_reactivation_retires_both_branches
+#print axioms AgentCore.Examples.nonvacuous_actor_nested_commit_loses_a_write
+#print axioms AgentCore.Examples.nonvacuous_actor_rotation_is_not_a_restart

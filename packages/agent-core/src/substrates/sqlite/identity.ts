@@ -233,7 +233,7 @@ export class SqliteIdentityReader extends IdentityRepository {
     public teams(): readonly Team[] {
         return Object.freeze(
             readIdentity(this.readDatabase, "SELECT id FROM tenant_teams ORDER BY id", []).map(
-                (row) => this.loadTeam(projectedId(TeamId, text(row, "id")))!
+                (row) => projectedRecord(this.loadTeam(projectedId(TeamId, text(row, "id"))))
             )
         );
     }
@@ -261,7 +261,9 @@ export class SqliteIdentityReader extends IdentityRepository {
                 this.readDatabase,
                 "SELECT id FROM tenant_memberships ORDER BY id",
                 []
-            ).map((row) => this.loadMembership(projectedId(MembershipId, text(row, "id")))!)
+            ).map((row) =>
+                projectedRecord(this.loadMembership(projectedId(MembershipId, text(row, "id"))))
+            )
         );
     }
 
@@ -271,7 +273,9 @@ export class SqliteIdentityReader extends IdentityRepository {
                 this.readDatabase,
                 "SELECT id FROM tenant_guest_trusts ORDER BY id",
                 []
-            ).map((row) => this.loadGuestTrust(projectedId(GuestTrustId, text(row, "id")))!)
+            ).map((row) =>
+                projectedRecord(this.loadGuestTrust(projectedId(GuestTrustId, text(row, "id"))))
+            )
         );
     }
 }

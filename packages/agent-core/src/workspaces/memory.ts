@@ -104,10 +104,9 @@ export class MemoryWorkspaceRecords implements WorkspaceRecordStorage, ActorClon
         validateWorkspacePointerAdvance(pointer, expectedRecordKey);
         const pointers = nested(this.#pointers, pointer.namespace);
         const current = pointers.get(pointer.key);
-        if (
-            current?.recordKey !== expectedRecordKey ||
-            (current === undefined && expectedRecordKey !== undefined)
-        ) {
+        // An absent pointer reads as an absent record key, so this one test also rejects
+        // an advance that expected a record key there.
+        if (current?.recordKey !== expectedRecordKey) {
             throw new AgentCoreError(
                 "protocol.revision-conflict",
                 "Workspace pointer compare-and-set failed"

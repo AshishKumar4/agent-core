@@ -973,6 +973,35 @@ describe("SqliteInvocationPersistence projection integrity", () => {
             expectCorrupt(() => persistence.continuation(database, invocation.header.id));
         }
     );
+
+    test("fails closed when a read loses the column it projects", { tags: "p0" }, () => {
+        const database = new ColumnDroppingSqlite();
+        const persistence = createSqliteInvocationPersistence(database);
+        const invocation = prepared("sqlite-dropped-column");
+        const approval = Approval.pending(
+            new ApprovalId("sqlite-dropped-column-approval"),
+            invocation.header.id,
+            invocation.intentDigest,
+            new Date(1000)
+        );
+        database.transaction(() => persistence.appendApproval(database, approval));
+
+        const receipt = new PreEffectReceipt(
+            new ReceiptId("sqlite-dropped-column-receipt"),
+            invocation.header.id,
+            0,
+            "deniedPreEffect",
+            new Date(1000),
+            "denied"
+        );
+        database.transaction(() => persistence.appendReceipt(database, receipt));
+
+        database.dropped = ["invocation_approval_identities", "approval_id"];
+        expectCorrupt(() => persistence.approvalForInvocation(database, invocation.header.id));
+
+        database.dropped = ["invocation_receipts", "attempt_id"];
+        expectCorrupt(() => persistence.receipt(database, receipt.id));
+    });
 });
 
 function expectInvocationFailure(
@@ -1013,6 +1042,20 @@ class FaultingSqlite extends TestSqlite {
     public override run(statement: string, bindings: readonly SqliteValue[]): void {
         if (this.fault !== undefined && statement.startsWith("INSERT")) this.fault();
         super.run(statement, bindings);
+    }
+}
+
+/** Answers a read with the named column absent, the way a drifted projection would. */
+class ColumnDroppingSqlite extends TestSqlite {
+    public dropped: readonly [table: string, column: string] | undefined;
+
+    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.all(statement, bindings);
+        const dropped = this.dropped;
+        if (dropped === undefined || !statement.includes(dropped[0])) return rows;
+        return rows.map((row) =>
+            Object.fromEntries(Object.entries(row).filter(([column]) => column !== dropped[1]))
+        );
     }
 }
 
