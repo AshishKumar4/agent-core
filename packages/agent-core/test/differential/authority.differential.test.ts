@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
-import { Digest, Revision, encodeCanonicalJson } from "../../src/core";
+import { Digest, Revision, SecretRef, encodeCanonicalJson } from "../../src/core";
 import {
     AuthorityCheckRequest,
     Binding,
@@ -14,22 +14,23 @@ import {
 } from "../../src/authority";
 import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../src/facets";
 import {
+    GuestVerificationScheme,
+    Membership,
+    MembershipId,
     Principal,
     PrincipalId,
     PrincipalRef,
     ProjectId,
+    RoleName,
     ScopeRef,
     SubjectRef,
     Team,
     TeamId,
     TenantId,
     Workspace,
-    WorkspaceId,
-    type GuestTrust,
-    type GuestTrustId,
-    type Membership,
-    type MembershipId
+    WorkspaceId
 } from "../../src/identity";
+import { GuestTrust, GuestTrustId, GuestVerification } from "../identity/internal-fixture";
 import { LeanOracle } from "./oracle";
 
 /*
@@ -66,12 +67,16 @@ const OTHER_WORKSPACE = new WorkspaceId("workspace-differential-sibling");
 const PRINCIPAL = new PrincipalId("principal-differential");
 const STRANGER = new PrincipalId("principal-differential-stranger");
 const TEAM = new TeamId("team-differential");
+const GUEST_HOME = new TenantId("tenant-differential-guest-home");
+const GUEST = new PrincipalId("principal-differential-guest");
+const OTHER_GUEST = new PrincipalId("principal-differential-guest-other");
 
 const TENANT_SCOPE = ScopeRef.tenant(TENANT);
 const PROJECT_SCOPE = ScopeRef.project(TENANT, PROJECT);
 const TARGET_SCOPE = ScopeRef.workspace(TENANT, PROJECT, WORKSPACE);
 const SIBLING_SCOPE = ScopeRef.workspace(TENANT, PROJECT, OTHER_WORKSPACE);
 
+const GUEST_TRUST_KEY = new SecretRef("tenant", "oidc", "differential-guest-key");
 const DOMAIN = new ProtectionDomain("backend", "differential", "no-secrets");
 const FACET = new FacetRef("workspace:mail.instance");
 const BINDING_NAME = new BindingName("mail");
@@ -114,6 +119,90 @@ interface GrantShape {
     readonly live: boolean;
     readonly capability: CapabilitySpec;
     readonly attenuationOf?: string;
+}
+
+/** Who is asking, and the subjects the resolver has established they act under. */
+interface Requester {
+    readonly principal: PrincipalRef;
+    readonly subject: SubjectRef;
+    readonly subjects: readonly SubjectRef[];
+    readonly guest: boolean;
+}
+
+const HOST: Requester = {
+    principal: new PrincipalRef(TENANT, PRINCIPAL),
+    subject: SUBJECTS[0].subject,
+    subjects: [SUBJECTS[0].subject, SUBJECTS[1].subject],
+    guest: false
+};
+
+const GUEST_SCHEMES = [GuestVerificationScheme.token, GuestVerificationScheme.callback] as const;
+
+function guestSubject(principal: PrincipalId, scheme: GuestVerificationScheme): SubjectRef {
+    return SubjectRef.foreign(GUEST_HOME, principal, scheme);
+}
+
+function guestRequester(scheme: GuestVerificationScheme): Requester {
+    const subject = guestSubject(GUEST, scheme);
+    return {
+        principal: new PrincipalRef(GUEST_HOME, GUEST),
+        subject,
+        subjects: [subject],
+        guest: true
+    };
+}
+
+/**
+ * A guest Membership and the trust it was verified against, per foreign subject, so that
+ * `guestGrantIsCurrent` admits a role Grant carrying that subject. Without them the guest
+ * gates would decide the answer before the precedence the model claims.
+ */
+const GUEST_MEMBERSHIPS = new Map(
+    guestDenySubjects().map((subject, index) => {
+        if (subject.kind !== "foreign") throw new Error("Guest fixture subject must be foreign");
+        const trust = new GuestTrust(
+            new GuestTrustId(`trust-differential-${subject.verifiedVia.value}`),
+            TENANT,
+            GUEST_HOME,
+            subject.verifiedVia.equals(GuestVerificationScheme.token)
+                ? { kind: "token", issuer: "https://home.example", key: GUEST_TRUST_KEY }
+                : { kind: "callback", endpoint: "https://home.example/verify" },
+            "active",
+            Revision.initial()
+        );
+        const membership = new Membership(
+            new MembershipId(`membership-differential-${String(index)}`),
+            TARGET_SCOPE,
+            subject,
+            new RoleName("guest"),
+            "active",
+            Revision.initial(),
+            new GuestVerification(
+                new PrincipalRef(GUEST_HOME, subject.principalId),
+                trust.id,
+                trust.revision,
+                subject.verifiedVia,
+                Digest.sha256(Uint8Array.of(13)),
+                new Date(0),
+                new Date(10_000)
+            )
+        );
+        return [subjectLabel(subject), { trust, membership }];
+    })
+);
+
+/** Every foreign subject a competing deny can name: the guest itself, and another guest. */
+function guestDenySubjects(): readonly SubjectRef[] {
+    return [
+        ...GUEST_SCHEMES.map((scheme) => guestSubject(GUEST, scheme)),
+        guestSubject(OTHER_GUEST, GuestVerificationScheme.token)
+    ];
+}
+
+function subjectLabel(subject: SubjectRef): string {
+    return subject.kind === "foreign"
+        ? `${subject.principalId.value}/${subject.verifiedVia.value}`
+        : subject.kind;
 }
 
 let oracle: LeanOracle;
@@ -231,15 +320,68 @@ describe("deny precedence agrees with the verified model", () => {
     );
 
     test(
+        "[C13-AUTH-DENY-PRECEDENCE] guest deny precedence agrees across verification schemes",
+        { tags: "p0", timeout: 300_000 },
+        async () => {
+            // A guest's `verifiedVia` stamp is part of its subject and §3.3 lets it change,
+            // so a deny recorded under one scheme and a request verified under another name
+            // one Principal. The deny sweep reads that identity while the allow side keeps
+            // the stamp, and this is both sides of that against the model. The competing
+            // Grant is enumerated over each stamp of the same guest and over another foreign
+            // Principal of the same home Tenant, which is what tells matching on identity
+            // apart from matching on nothing.
+            for (const scheme of GUEST_SCHEMES) {
+                const requester = guestRequester(scheme);
+                const backing: GrantShape = {
+                    label: `guest backing ${scheme.value}`,
+                    id: "backing",
+                    scope: TARGET_SCOPE,
+                    subject: requester.subject,
+                    effect: "allow",
+                    live: true,
+                    capability: CAPABILITIES[0].spec
+                };
+                const admitted = runtimeReason([backing], "backing", "observe", requester);
+                expect(admitted, scheme.value).toBe(
+                    await modelDecision([backing], "backing", "observe", requester)
+                );
+                expect(admitted, scheme.value).toBe("allowed");
+
+                for (const denySubject of guestDenySubjects()) {
+                    const shapes: GrantShape[] = [
+                        backing,
+                        {
+                            label: `deny for ${subjectLabel(denySubject)}`,
+                            id: "other",
+                            scope: TENANT_SCOPE,
+                            subject: denySubject,
+                            effect: "deny",
+                            live: true,
+                            capability: CAPABILITIES[0].spec
+                        }
+                    ];
+                    const label = `${subjectLabel(denySubject)} against ${scheme.value}`;
+                    const reason = runtimeReason(shapes, "backing", "observe", requester);
+                    expect(reason, label).toBe(
+                        await modelDecision(shapes, "backing", "observe", requester)
+                    );
+                    const sameGuest =
+                        denySubject.kind === "foreign" && denySubject.principalId.equals(GUEST);
+                    expect(reason, label).toBe(sameGuest ? "matchingDeny" : "allowed");
+                }
+            }
+        }
+    );
+
+    test(
         "impact agreement over every impact a capability can carry",
         { tags: "p0", timeout: 300_000 },
         async () => {
-            // Guest requests are deliberately absent. The implementation's guest path also
-            // consults Grant origin provenance and Membership/GuestTrust verification
-            // currency, which the model does not carry, so driving it here would compare
-            // against a decision the model does not claim. The modeled half — the elevation
-            // prohibition on `delegate` and `administer` — is witnessed in Lean by
-            // `nonvacuous_authority_guest_elevation_refused`.
+            // Host requests only. Guest elevation is not driven here: the implementation
+            // refuses a `delegate` or `administer` guest intent through Grant origin
+            // provenance as well, which the model does not carry, so an agreement on the
+            // reason would not be an agreement about the same refusal. The modeled half is
+            // witnessed in Lean by `nonvacuous_authority_guest_elevation_refused`.
             for (const impact of ["observe", "mutate", "delegate", "administer"] as const) {
                 for (const requested of ["observe", "delegate"] as const) {
                     const shapes: GrantShape[] = [
@@ -315,13 +457,22 @@ function competingShapes(): readonly GrantShape[] {
 }
 
 function grantOf(shape: GrantShape): Grant {
+    const guest = GUEST_MEMBERSHIPS.get(subjectLabel(shape.subject));
     const grant = new Grant(
         new GrantId(shape.id),
         shape.scope,
         shape.subject,
         shape.effect,
         shape.capability,
-        { kind: "direct" },
+        guest === undefined
+            ? { kind: "direct" }
+            : {
+                  kind: "role",
+                  membershipId: guest.membership.id,
+                  roleName: guest.membership.role.value,
+                  ruleOrdinal: 0,
+                  guest: true
+              },
         shape.attenuationOf === undefined ? undefined : new GrantId(shape.attenuationOf)
     );
     return shape.live ? grant : grant.revoke();
@@ -338,6 +489,9 @@ function storeOf(grants: readonly Grant[], binding: Binding): TenantAuthorityRea
         [PRINCIPAL.value, new Principal(PRINCIPAL, "user", "active")],
         [STRANGER.value, new Principal(STRANGER, "user", "active")]
     ]);
+    const guests = [...GUEST_MEMBERSHIPS.values()];
+    const memberships = new Map(guests.map(({ membership }) => [membership.id.value, membership]));
+    const trusts = new Map(guests.map(({ trust }) => [trust.id.value, trust]));
     return {
         tenantId: TENANT,
         principal: (id: PrincipalId) => principals.get(id.value),
@@ -346,8 +500,8 @@ function storeOf(grants: readonly Grant[], binding: Binding): TenantAuthorityRea
             id.equals(WORKSPACE)
                 ? new Workspace(WORKSPACE, TENANT, PROJECT, Revision.initial())
                 : undefined,
-        membership: (_id: MembershipId): Membership | undefined => undefined,
-        guestTrust: (_id: GuestTrustId): GuestTrust | undefined => undefined,
+        membership: (id: MembershipId) => memberships.get(id.value),
+        guestTrust: (id: GuestTrustId) => trusts.get(id.value),
         binding: (key: string) => (key === binding.key ? binding : undefined),
         grant: (id: GrantId) => byId.get(id.value),
         grants: () => grants,
@@ -355,10 +509,10 @@ function storeOf(grants: readonly Grant[], binding: Binding): TenantAuthorityRea
     };
 }
 
-function bindingOf(backingId: string): Binding {
+function bindingOf(backingId: string, requester: Requester): Binding {
     return Binding.active(
         TARGET_SCOPE,
-        SUBJECTS[0].subject,
+        requester.subject,
         DOMAIN,
         BINDING_NAME,
         new GrantId(backingId),
@@ -369,9 +523,10 @@ function bindingOf(backingId: string): Binding {
 function runtimeReason(
     shapes: readonly GrantShape[],
     backingId: string,
-    impact: "observe" | "mutate" | "delegate" | "administer" = "observe"
+    impact: "observe" | "mutate" | "delegate" | "administer" = "observe",
+    requester: Requester = HOST
 ): string {
-    const binding = bindingOf(backingId);
+    const binding = bindingOf(backingId, requester);
     const grants = shapes.map(grantOf);
     const store = storeOf(grants, binding);
     const runtime = new TenantAuthorityRuntime(
@@ -383,7 +538,7 @@ function runtimeReason(
             ownerTenant: TENANT,
             owner: new ActorRef("workspace", new ActorId("workspace-actor")),
             ownerFence: 1,
-            principal: new PrincipalRef(TENANT, PRINCIPAL),
+            principal: requester.principal,
             binding,
             intent: {
                 facet: FACET,
@@ -405,23 +560,30 @@ function runtimeReason(
         }),
         new Date(1_000)
     );
-    // Nothing outside the modeled decision may decide the answer.
-    expect(["missingPrincipal", "inactivePrincipal", "invalidBinding", "stalePath"]).not.toContain(
-        evidence.reason
-    );
+    // Nothing outside the modeled decision may decide the answer. The guest gates are here
+    // because a guest sweep drives them: the store carries the Membership and trust that
+    // keep a guest role Grant current, so precedence is what is left to decide.
+    expect([
+        "missingPrincipal",
+        "inactivePrincipal",
+        "invalidBinding",
+        "stalePath",
+        "guestVerificationExpired"
+    ]).not.toContain(evidence.reason);
     return evidence.reason;
 }
 
 async function modelDecision(
     shapes: readonly GrantShape[],
     backingId: string,
-    impact: "observe" | "mutate" | "delegate" | "administer" = "observe"
+    impact: "observe" | "mutate" | "delegate" | "administer" = "observe",
+    requester: Requester = HOST
 ): Promise<string> {
     const response = await oracle.ask({
         op: "authority.evaluate",
         grants: shapes.map(modelGrant),
         request: {
-            subjects: [modelSubject(SUBJECTS[0].subject), modelSubject(SUBJECTS[1].subject)],
+            subjects: requester.subjects.map(modelSubject),
             target: modelScope(TARGET_SCOPE),
             intent: {
                 facet: FACET.value,
@@ -430,7 +592,7 @@ async function modelDecision(
                 arguments: []
             }
         },
-        guest: false,
+        guest: requester.guest,
         backing: grantNumber(backingId)
     });
     return String(response["decision"]);
@@ -472,7 +634,8 @@ function modelSubject(subject: SubjectRef): Record<string, unknown> {
     return {
         kind: "foreign",
         homeTenant: identityNumber(subject.homeTenant.value),
-        principal: identityNumber(subject.principalId.value)
+        principal: identityNumber(subject.principalId.value),
+        verifiedVia: subject.verifiedVia.value
     };
 }
 
@@ -508,7 +671,10 @@ const IDENTITY_NUMBERS = new Map<string, number>([
     [OTHER_WORKSPACE.value, 4],
     [PRINCIPAL.value, 5],
     [TEAM.value, 6],
-    [STRANGER.value, 7]
+    [STRANGER.value, 7],
+    [GUEST_HOME.value, 8],
+    [GUEST.value, 9],
+    [OTHER_GUEST.value, 10]
 ]);
 
 function identityNumber(value: string): number {

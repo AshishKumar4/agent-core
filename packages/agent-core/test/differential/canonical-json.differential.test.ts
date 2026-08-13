@@ -157,9 +157,10 @@ describe("canonical JSON encoding agrees with the verified model", () => {
 
     test("a foreign Subject's verification stamp changes its key", { tags: "p0" }, () => {
         // `AgentCore.foreign_subject_key_separates_verification_schemes`, asserted against
-        // the implementation. The same foreign Principal under two verification schemes is
-        // two subjects to every key comparison, including the deny sweep, whose effective
-        // subject set for a guest holds exactly the Binding's own stamped subject.
+        // the implementation. The same foreign Principal under two verification schemes has
+        // two keys, so comparing them compares the stamp too. That is why `EffectiveSubjects`
+        // compares these keys for an allow and matches the Principal under every scheme for a
+        // deny, rather than comparing one key for both.
         const homeTenant = new TenantId("home-tenant");
         const principal = new PrincipalId("guest-principal");
         const stamped = (scheme: "token" | "callback") =>

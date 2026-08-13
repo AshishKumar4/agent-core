@@ -221,6 +221,12 @@ def parseScopeValue (json : Json) : Except String Scope := do
       pure (.workspace ⟨tenant⟩ project ⟨workspace⟩)
   | other => throw s!"unknown scope kind {other}"
 
+def parseGuestScheme : String → Except String GuestScheme
+  | "token" => pure .token
+  | "callback" => pure .callback
+  | "handshake" => pure .handshake
+  | other => throw s!"unknown guest verification scheme {other}"
+
 def parseSubject (json : Json) : Except String Subject := do
   let kind ← (← json.getObjVal? "kind").getStr?
   match kind with
@@ -234,7 +240,8 @@ def parseSubject (json : Json) : Except String Subject := do
   | "foreign" => do
       let home ← (← json.getObjVal? "homeTenant").getNat?
       let principal ← (← json.getObjVal? "principal").getNat?
-      pure (.foreign ⟨home⟩ ⟨principal⟩)
+      let scheme ← parseGuestScheme (← (← json.getObjVal? "verifiedVia").getStr?)
+      pure (.foreign ⟨home⟩ ⟨principal⟩ scheme)
   | other => throw s!"unknown subject kind {other}"
 
 def parseGrantEffect : String → Except String GrantEffect

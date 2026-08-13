@@ -854,13 +854,17 @@ theorem subject_key_injective {left right : SubjectRefText}
     (encodeSubjectRefText_numberless right) equal).2
   cases left <;> cases right <;> simp_all [encodeSubjectRefText]
 
-/-- **A guest's verification stamp is part of its Subject identity.** `verifiedVia` sits
-inside the encoded subject, so the same foreign Principal recorded under two schemes is two
-subjects to every key comparison — including the deny sweep in `AuthorityRuntime.evaluate`,
-whose effective subject set holds exactly the Binding's own stamped subject. SPEC §3.3 makes
-the stamp part of `ForeignPrincipalRef` and also lets it change (`handshake` "downgrades all
-future verifications to `token`"), so a deny recorded under one stamp does not apply under
-another. -/
+/-- **A guest's verification stamp separates its Subject key.** `verifiedVia` sits inside the
+encoded subject, so the same foreign Principal recorded under two schemes has two keys, and
+comparing these keys is comparing the stamp as well as the Principal. SPEC §3.3 makes the
+stamp part of `ForeignPrincipalRef` and also lets it change (`handshake` "downgrades all
+future verifications to `token`"), so one guest is reachable under both.
+
+What this does not settle is which comparison the resolver should make. `AuthorityRuntime`
+matches an allow on the whole stamped subject and a deny on the identity underneath it
+(`AgentCore.deny_survives_verification_scheme_change`), because a deny names who is refused
+and a re-verified guest is the same who — so the deny sweep is not a comparison of these
+keys at all. -/
 theorem foreign_subject_key_separates_verification_schemes
     (homeTenant principal : List Char) :
     subjectKeyText (.foreign homeTenant principal "token".data) ≠

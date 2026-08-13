@@ -86,7 +86,7 @@ namespace AuthorityLedger
 def ActsUnder (ledger : AuthorityLedger) (principal : PrincipalRef) : Subject → Prop
   | .principal ref => ref = principal
   | .team id => ledger.teamMembers id principal.id
-  | .foreign home id => home = principal.tenant ∧ id = principal.id ∧
+  | .foreign home id _ => home = principal.tenant ∧ id = principal.id ∧
       ledger.foreignVerified home principal.id
 
 /-- A Principal subject names one Tenant's Principal, so an equal PrincipalId under another
