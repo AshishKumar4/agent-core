@@ -19,15 +19,7 @@ import {
     type ClosedTenantAuthorityComposition,
     type TenantAuthorityCommandBackend
 } from "../../src/composition";
-import {
-    ContentRef,
-    Digest,
-    Revision,
-    SemVer,
-    encodeCanonicalJson,
-    type JsonValue
-} from "../../src/core";
-import { requireInteger, requireString } from "../../src/agents/record-data";
+import { ContentRef, Digest, Revision, SemVer, encodeCanonicalJson, jsonDataParser, type JsonValue } from "../../src/core";
 import { PackageId, PackagePin } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
 import { BindingName, FacetRef, OperationRef, ProtectionDomain } from "../../src/facets";
@@ -69,6 +61,8 @@ import { RunId, TurnId } from "../../src/agents";
 import { TestSqlite } from "../helpers/sqlite";
 import { CounterAuthenticator, CounterContentStore } from "../protocol/counter-fixture";
 import type { Assembled } from "./fixture";
+
+const recordData = jsonDataParser((message) => new TypeError(message));
 
 const now = new Date("2026-07-12T14:00:00.000Z");
 const tenant = new TenantId("authority-command-tenant");
@@ -1475,11 +1469,11 @@ function integer(database: ReadableSqlite, statement: string): number {
 }
 
 function integerColumn(value: SqliteValue | undefined): number {
-    return requireInteger(scalar(value), "SQLite integer column");
+    return recordData.safeInteger(scalar(value), "SQLite integer column");
 }
 
 function text(value: SqliteValue | undefined): string {
-    return requireString(scalar(value), "SQLite text column");
+    return recordData.string(scalar(value), "SQLite text column");
 }
 
 /** A scalar SQLite column, as the JSON value it decodes to. */

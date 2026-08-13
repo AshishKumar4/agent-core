@@ -27,15 +27,7 @@ import {
     type RoutedInvocationProjection
 } from "../../src/composition";
 import { SpawnReservationId } from "../../src/agents";
-import {
-    CompatRange,
-    ContentRef,
-    Digest,
-    isJsonValue,
-    JsonSchema,
-    Revision,
-    SemVer
-} from "../../src/core";
+import { CompatRange, ContentRef, Digest, JsonSchema, Revision, SemVer, isJsonValue, jsonDataParser } from "../../src/core";
 import {
     PackageId,
     PackageInstallationProvenancePort,
@@ -68,10 +60,9 @@ import {
     type SurfaceId,
     type WorkspaceSlotStore
 } from "../../src/facets";
-import { requireObject, requireString } from "../../src/agents/record-data";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 import { forwarded, reaching, type Assembled } from "./fixture";
-import type { CommandEnvelope } from "../../src/protocol/public";
+import type { CommandEnvelope } from "../../src/protocol";
 import {
     AuditRecord,
     AuditRecordId,
@@ -103,6 +94,8 @@ import {
     tenant
 } from "../workspaces/fixtures";
 import { preparedReferenceCodecs } from "../invocations/fixture";
+
+const recordData = jsonDataParser((message) => new TypeError(message));
 
 describe("W9 composition behavior branches", () => {
     test(
@@ -886,14 +879,14 @@ const routedProjection: RoutedInvocationProjection<string, string, string, strin
     identify(header) {
         const parsed: unknown = JSON.parse(header.authority);
         if (!isJsonValue(parsed)) throw new TypeError("Invocation authority is not JSON");
-        const authority = requireObject(parsed, "Invocation authority");
+        const authority = recordData.object(parsed, "Invocation authority");
         return {
             operation: header.operation.operation,
             targetActor: header.actor,
-            binding: new BindingName(requireString(authority["binding"], "Authority binding")),
+            binding: new BindingName(recordData.string(authority["binding"], "Authority binding")),
             principal: new PrincipalRef(
-                new TenantId(requireString(authority["tenant"], "Authority tenant")),
-                new PrincipalId(requireString(authority["principal"], "Authority principal"))
+                new TenantId(recordData.string(authority["tenant"], "Authority tenant")),
+                new PrincipalId(recordData.string(authority["principal"], "Authority principal"))
             )
         };
     }

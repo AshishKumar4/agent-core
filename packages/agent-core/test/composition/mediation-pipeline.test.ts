@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
-import { requireInteger, requireObject, requireString } from "../../src/agents/record-data";
 import {
     Binding,
     GrantId,
@@ -9,16 +8,7 @@ import {
     ScopeEpoch
 } from "../../src/authority";
 import { MemoryContentStore, type ContentStore } from "../../src/content";
-import {
-    CompatRange,
-    ContentRef,
-    Digest,
-    JsonSchema,
-    Revision,
-    SemVer,
-    encodeCanonicalJson,
-    type JsonValue
-} from "../../src/core";
+import { CompatRange, ContentRef, Digest, JsonSchema, Revision, SemVer, encodeCanonicalJson, jsonDataParser, type JsonValue } from "../../src/core";
 import { PackageId, PackagePin, PolicySet } from "../../src/definition";
 import {
     BindingName,
@@ -104,6 +94,8 @@ import {
 } from "../../src/agents";
 import { RunId, TurnId } from "../../src/execution-references";
 import { EnvironmentId } from "../../src/environments";
+
+const recordData = jsonDataParser((message) => new TypeError(message));
 
 const tenant = new TenantId("pipeline-tenant");
 const principal = new PrincipalRef(tenant, new PrincipalId("pipeline-principal"));
@@ -350,11 +342,11 @@ const admissionCodec: StructuralCodec<DemoAdmission> = Object.freeze({
         itemIndex: value.itemIndex
     }),
     decode: (value: JsonValue): DemoAdmission => {
-        const object = requireObject(value, "Demo admission");
+        const object = recordData.object(value, "Demo admission");
         return Object.freeze({
-            invocation: requireString(object["invocation"], "Demo admission Invocation"),
-            itemIndex: requireInteger(object["itemIndex"], "Demo admission item index"),
-            attemptOrdinal: requireInteger(
+            invocation: recordData.string(object["invocation"], "Demo admission Invocation"),
+            itemIndex: recordData.safeInteger(object["itemIndex"], "Demo admission item index"),
+            attemptOrdinal: recordData.safeInteger(
                 object["attemptOrdinal"],
                 "Demo admission attempt ordinal"
             )
