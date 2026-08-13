@@ -548,12 +548,6 @@
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
-      "file": "packages/agent-core/src/facets/capability.ts",
-      "kind": "assertion",
-      "count": 3,
-      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
-    },
-    {
       "file": "packages/agent-core/src/facets/device/facet.ts",
       "kind": "assertion",
       "count": 2,
