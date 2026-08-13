@@ -1986,6 +1986,200 @@
       "replacement": "recordBytes",
       "mutated": "recordBytes.slice()",
       "proof": "The generation pointer is the record a CAS update swaps, and its projection is compared through equalGenerationPointerProjection on actor kind and id, deployment id, generation id and revision. The bytes field takes no part in that comparison, so a pointer read cannot distinguish a copy from the array it copies. On the write side the projection's bytes come from an encode result held only by the calling frame, which is the same guarantee the copy would have supplied."
+    },
+    {
+      "file": "src/substrates/sqlite/authority.ts",
+      "symbol": "equalBytes",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "left.byteLength === right.byteLength",
+      "proof": "Forcing the length test true leaves left.every(...), which iterates left's indices only and so answers true whenever left is a prefix of right, including a strict one. Every argument at all four call sites is a RecordCodec encode result — Grant.encode twice, Binding.encode twice, and the previousBytes/nextBytes pair that are themselves Binding.encode outputs — so both sides are complete canonical JSON documents. A complete JSON text has balanced delimiters and ends at its closing brace, so no such document is a strict prefix of another, and the divergent case cannot be constructed. The complementary shortening, left longer than right, still compares undefined and returns false."
+    },
+    {
+      "file": "src/substrates/sqlite/watermark.ts",
+      "symbol": "bytesEqual",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "left.byteLength === right.byteLength",
+      "proof": "bytesEqual has two callers and both pass InvalidationWatermark.encode results on both sides: the previousBytes/nextBytes no-op check, and the read-back comparison that re-encodes the stored watermark against the one just written. Dropping the length test leaves every(), which walks left's indices and therefore returns true for a left that is a strict prefix of right. Canonical JSON envelopes close at their final brace and carry nothing after it, so one cannot be a proper prefix of another; no watermark pair can reach the case where the two forms disagree."
+    },
+    {
+      "file": "src/substrates/sqlite/package.ts",
+      "symbol": "equalBytes",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "left.byteLength === right.byteLength",
+      "proof": "The three call sites all read equalBytes(stored.bytes, candidateBytes), and each is preceded on the line above by decodeSnapshot, decodeRelease or decodeLock over the same stored.bytes. Those decoders reach decodeCanonicalJson, which refuses anything that is not a complete canonical JSON document — it re-encodes what it parsed and compares. So by the time the comparison runs, both arguments are known-complete envelopes, and a complete JSON text cannot be a strict prefix of another because it ends at its own closing brace. Only that case separates every() from the length-guarded conjunction."
+    },
+    {
+      "file": "src/substrates/sqlite/slot.ts",
+      "symbol": "equalBytes",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "left.byteLength === right.byteLength",
+      "proof": "Slot comparisons are encode-against-encode at all four sites: insertSlot and install compare SlotDeclaration.encode outputs, insertEntry and contribute compare SlotEntry.encode outputs. Both operands are therefore whole canonical JSON envelopes. Removing the length test lets every() decide, and every() over left's indices differs from the guarded form only when left is a strict prefix of right — impossible between two complete JSON documents, whose text terminates at the closing brace of the top-level object with nothing following it."
+    },
+    {
+      "file": "src/substrates/sqlite/content.ts",
+      "symbol": "equalBytes",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "left.byteLength === right.byteLength",
+      "proof": "This helper has a single caller, put()'s read-back check, and by the time it runs validateContentRow has already established that the stored row's digest equals Digest.sha256 of the bytes it returned, that the row's ref equals the ref derived from the caller's array, and that ref.digest equals that digest. The two arguments therefore have the same SHA-256. Exhibiting a length difference here means exhibiting a SHA-256 collision, which no test can do, so the length test is true whenever it is evaluated and forcing it true changes nothing."
+    },
+    {
+      "file": "src/substrates/sqlite/content.ts",
+      "symbol": "equalBytes",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "left.byteLength === right.byteLength && left.every((value, index) => value === right[index])",
+      "proof": "The mutant makes equalBytes answer true unconditionally. Its only caller is the clause `content === undefined || !equalBytes(content.bytes, detached)` in put(), and the equalBytes half of that disjunction is already unreachable as a refusal: loadSqliteContent has run validateContentRow, which throws corruptContent unless the row's ref, digest and the SHA-256 of its bytes all agree with the digest taken from the caller's array. Two arrays with equal SHA-256 are equal short of a collision, so the original returns true on every input the call site can produce."
+    },
+    {
+      "file": "src/substrates/sqlite/content.ts",
+      "symbol": "equalBytes",
+      "mutator": "LogicalOperator",
+      "replacement": "left.byteLength === right.byteLength || left.every((value, index) => value === right[index])",
+      "mutated": "left.byteLength === right.byteLength && left.every((value, index) => value === right[index])",
+      "proof": "Turning the conjunction into a disjunction can only widen the set of pairs reported equal, and at this helper's single call site the original already reports equal every time. put() reaches equalBytes only after validateContentRow accepted the row, and that acceptance requires the stored bytes to hash to the same SHA-256 as the array the caller supplied. Both operands are consequently true, so `&&` and `||` return the same value, and no test can drive the call site to a pair where they part without producing a SHA-256 collision."
+    },
+    {
+      "file": "src/substrates/sqlite/content.ts",
+      "symbol": "equalBytes",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "value === right[index]",
+      "proof": "Forcing the per-byte comparison true makes every() vacuously true, so equalBytes reduces to its length test. That weakening is invisible at the one call site: put() has already passed validateContentRow, which pins the stored row's digest to the SHA-256 of its own bytes and pins that digest to the one derived from the caller's array, so the two arrays agree byte for byte unless SHA-256 collides. Where the arrays agree, the real predicate is true at every index and the mutant returns the same answer the original does."
+    },
+    {
+      "file": "src/substrates/sqlite/content-retention.ts",
+      "symbol": "equalBytes",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "left.byteLength === right.byteLength",
+      "proof": "The lease acquisition read-back is the only caller. Before it, validateBindingBytes has pinned Digest.sha256 of the caller's array to binding.digest and binding.digest to binding.ref.digest, and loadSqliteContent's validateContentRow has pinned the SHA-256 of the persisted bytes to the digest recorded under that same ref. The two arrays therefore share a SHA-256 and cannot differ in length without a collision. Forcing the length test true leaves every(), which agrees with the original on equal arrays."
+    },
+    {
+      "file": "src/substrates/sqlite/content-retention.ts",
+      "symbol": "equalBytes",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "left.byteLength === right.byteLength && left.every((value, index) => value === right[index])",
+      "proof": "equalBytes answering true unconditionally cannot change the acquisition path, because it already answers true there. The clause it feeds refuses a lease when the content read back differs from the bytes supplied, and both have been tied to binding.digest by then: validateBindingBytes hashes the caller's array against it, and validateContentRow hashes the stored row's bytes against the digest filed under binding.ref, which the binding check pinned to the same value. Distinguishing the mutant needs two arrays with one SHA-256."
+    },
+    {
+      "file": "src/substrates/sqlite/content-retention.ts",
+      "symbol": "equalBytes",
+      "mutator": "LogicalOperator",
+      "replacement": "left.byteLength === right.byteLength || left.every((value, index) => value === right[index])",
+      "mutated": "left.byteLength === right.byteLength && left.every((value, index) => value === right[index])",
+      "proof": "Both operands of this conjunction are true whenever the helper runs, so replacing `&&` with `||` returns the same value. The single call site compares the content row read back inside the acquisition transaction against the array the caller handed in, and the digest chain — caller array to binding.digest through validateBindingBytes, stored bytes to the row digest through validateContentRow, row digest to binding.ref.digest through the ref the read was keyed on — leaves the two arrays equal unless SHA-256 collides."
+    },
+    {
+      "file": "src/substrates/sqlite/content-retention.ts",
+      "symbol": "equalBytes",
+      "mutator": "ConditionalExpression",
+      "replacement": "true",
+      "mutated": "value === right[index]",
+      "proof": "With the element comparison forced true, every() is vacuously true and equalBytes becomes its length test alone. The lease acquisition path cannot see the difference: the array read back from content_blobs and the array the caller supplied are both pinned to binding.digest by validateContentRow and validateBindingBytes respectively, so they are byte-identical short of a SHA-256 collision, and on byte-identical arrays the true predicate and the forced one agree at every index."
+    },
+    {
+      "file": "src/substrates/sqlite/content-retention.ts",
+      "symbol": "SqliteTransientContentAccess.acquireInTransaction",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "(bytes !== undefined && !equalBytes(persisted.bytes, bytes))",
+      "proof": "This operand refuses a lease whose content did not persist as supplied, and it can never fire. Reaching it means bytes was defined, so validateBindingBytes ran and pinned Digest.sha256(bytes) to binding.digest and binding.digest to binding.ref.digest; loadSqliteContent then read content_blobs at binding.ref, and validateContentRow refuses that row unless the SHA-256 of the bytes it returns equals the digest filed under that ref. The two arrays therefore share a digest, equalBytes is true, and the negation is false on every input. The `persisted === undefined` operand beside it keeps deciding."
+    },
+    {
+      "file": "src/substrates/sqlite/content-retention.ts",
+      "symbol": "inactiveBoundary",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "lease.isActive(observedAt)",
+      "proof": "inactiveBoundary has three callers and none can reach this test with an active lease. The acquisition path only assigns `replaced` in the branch where existing.isActive(operationAt) was false, and passes that same operationAt. The close path passes a lease whose closedAt is defined, which returns from the branch above this one. The sweep passes a lease from the else of if (lease.isActive(observedAt)), with the same observedAt. The test is constantly false, so forcing it false selects the branch it already selects."
+    },
+    {
+      "file": "src/substrates/sqlite/content-retention.ts",
+      "symbol": "inactiveBoundary",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"Active lease has no inactive boundary\"",
+      "proof": "This literal is the message of a corruptRetention built only inside the active-lease guard, and that guard's test is constantly false for the reason recorded against it: all three callers either pass a lease with a defined closedAt, which returns earlier, or a lease they have just observed to be inactive at the very instant they pass. The error is never constructed and the string never read, so blanking it changes no value any caller, log or assertion could inspect. That is stronger than the prose tolerance a reachable throw would get."
+    },
+    {
+      "file": "src/substrates/sqlite/tenant.ts",
+      "symbol": "SqliteTenantControlStore.putEpoch",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"replaced\"",
+      "proof": "AuthorityRecordChanges.record consults its presence argument exactly once, as `presence === \"replaced\"`, and uses it only to populate the #replaced set. That set is read back through replaced() and isCreated(), and for the epochs collection neither is ever called: AuthorityClosure reads this.changed.epochs.written() and nothing else, which the class documents by noting that nothing points at a Scope epoch. Blanking the literal moves the epoch key out of a set no code reads, so no audit, error or stored record can differ."
+    },
+    {
+      "file": "src/substrates/sqlite/tenant.ts",
+      "symbol": "SqliteTenantControlStore.saveWorkspace",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"created\"",
+      "proof": "Presence reaches only one test in the whole codebase, `presence === \"replaced\"` inside AuthorityRecordChanges.record, and the empty string fails it exactly as \"created\" does — so the #replaced set is identical either way. The claim does not even need that: workspaces are the one collection whose replaced() is never called, because AuthorityClosure audits this.changed.workspaces.written() alone, and saveWorkspace refuses any Workspace whose id already resolves, so nothing here is ever a replacement to begin with."
+    },
+    {
+      "file": "src/substrates/sqlite/tenant.ts",
+      "symbol": "SqliteTenantControlStore.saveWorkspace",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "workspace.revision.value !== 0",
+      "proof": "Workspace's own constructor throws \"Workspace topology requires immutable revision zero\" for any other revision, and every Workspace reaches this store through it, including the ones Workspace.decode builds. The operand is therefore constantly false and the Project existence check beside it decides alone. It is written because the refusal names both preconditions, and a reader of the SQLite store would otherwise have to know the record type enforces one of them; the equivalent operand in the memory backing's createWorkspace carries the same reasoning."
+    },
+    {
+      "file": "src/substrates/sqlite/tenant.ts",
+      "symbol": "recordPresence",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"created\"",
+      "proof": "recordPresence's result travels to AuthorityRecordChanges.record, whose only use of it is the test `presence === \"replaced\"`. The empty string fails that test on exactly the inputs \"created\" fails it on, so the #replaced set, and with it replaced(), isCreated(), and every audit set AuthorityClosure derives from them, are bit-for-bit what they were. No other code reads an AuthorityRecordPresence value, and the changeset never leaves the store: it is private to the active write and passed only to assertCompleteClosure."
+    },
+    {
+      "file": "src/substrates/sqlite/tenant.ts",
+      "symbol": "SqliteTenantControlStore.assertCompleteClosureUnchecked",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "tenant.authorizationRevision.value < marker.revision.value",
+      "proof": "Three operands above this one, `marker.revision.value !== Revision.initial().value` throws unless the stored marker's revision is exactly zero, so by the time this comparison is evaluated its right-hand side is zero. Its left-hand side is a Revision's value, and Revision's constructor refuses anything that is not a non-negative safe integer, a constraint every decode path goes through. A non-negative number is never less than zero, so the operand is constantly false and the loadPrincipal check after it decides. Kept rather than deleted so that relaxing the pin above refutes this proof instead of silently reviving dead code."
+    },
+    {
+      "file": "src/substrates/sqlite/tenant.ts",
+      "symbol": "SqliteTenantControlStore.assertCompleteClosureUnchecked",
+      "mutator": "MethodExpression",
+      "replacement": "plan.grants.every(grant => this.grant(grant.id) === undefined)",
+      "mutated": "plan.grants.some((grant) => this.grant(grant.id) === undefined)",
+      "proof": "some and every differ only on an array with mixed results or on the empty array. plan.grants is createTenantControlBootstrapPlan's materialization of OWNER_ROLE over the owner Membership, and builtInRole constructs every built-in with a single RoleRule, so the materializer emits exactly one desired record and the array always holds one Grant. On a one-element array the two quantifiers agree by definition. The sibling call on plan.roles is killed instead, because BUILT_IN_ROLES holds three."
+    },
+    {
+      "file": "src/substrates/sqlite/tenant.ts",
+      "symbol": "anchorsEqual",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"personal\"",
+      "proof": "This is the left operand's default, and it is never taken. All three callers pass a TenantBootstrapAnchorRecord as `left`: two compare the anchor loaded from storage against a caller-supplied one, and the third compares the loaded anchor against the record just built. That class declares tenantKind as a required TenantKind and assigns it `anchor.tenantKind ?? \"personal\"` in its own constructor, so a decoded or constructed record always carries a string here and the ?? never evaluates its right side. The right operand's identical literal is killed, because `right` is the structural interface and may omit the kind.",
+      "occurrence": 1,
+      "sites": 2
+    },
+    {
+      "file": "src/substrates/sqlite/tenant.ts",
+      "symbol": "requireCanonicalScope",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "scope.projectId === undefined",
+      "proof": "ScopeRef's constructor is private and the only factory producing kind \"project\" is ScopeRef.project(tenantId, projectId), whose second parameter is a required ProjectId. A project scope therefore always carries a projectId, and this operand is constantly false wherever the kind test beside it is true. It is written so that store.loadProject(scope.projectId) typechecks against the optional field rather than needing an assertion, which is why the redundancy is deliberate: forcing it false is a runtime substitution the compiler never sees."
+    },
+    {
+      "file": "src/substrates/sqlite/tenant.ts",
+      "symbol": "requireCanonicalScope",
+      "mutator": "ConditionalExpression",
+      "replacement": "false",
+      "mutated": "scope.workspaceId === undefined",
+      "proof": "Control reaches this ternary only inside `if (scope.kind === \"workspace\")`, and both overloads of ScopeRef.workspace resolve a WorkspaceId before constructing — one through requireWorkspace, the other from the explicit third argument — so a workspace scope always carries one. Forcing the test false therefore always selects the loadWorkspace branch, which is the branch already taken. The test exists to narrow the optional field for that call; the undefined arm it guards would fail the canonicality check on the next line in any case."
     }
   ]
 }
