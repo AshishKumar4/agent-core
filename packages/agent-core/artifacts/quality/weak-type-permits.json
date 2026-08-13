@@ -560,24 +560,6 @@
       "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
     },
     {
-      "file": "packages/agent-core/src/facets/command.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
-    },
-    {
-      "file": "packages/agent-core/src/facets/contribution.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
-    },
-    {
-      "file": "packages/agent-core/src/facets/data.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
-    },
-    {
       "file": "packages/agent-core/src/facets/device/facet.ts",
       "kind": "assertion",
       "count": 2,
@@ -604,7 +586,7 @@
     {
       "file": "packages/agent-core/src/facets/event.ts",
       "kind": "assertion",
-      "count": 3,
+      "count": 2,
       "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
     },
     {
@@ -640,7 +622,7 @@
     {
       "file": "packages/agent-core/src/facets/manifest.ts",
       "kind": "assertion",
-      "count": 3,
+      "count": 2,
       "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
     },
     {
@@ -738,12 +720,6 @@
       "kind": "unknown",
       "count": 2,
       "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
-    },
-    {
-      "file": "packages/agent-core/src/facets/slot.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
     },
     {
       "file": "packages/agent-core/src/facets/slot.ts",

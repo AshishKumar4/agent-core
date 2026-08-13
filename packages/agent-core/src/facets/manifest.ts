@@ -6,6 +6,7 @@ import {
     requireArray,
     requireDataObject,
     requireExactFields,
+    requireSchemaDocument,
     requireString
 } from "./data";
 import { Contributions } from "./contribution";
@@ -125,7 +126,7 @@ export class FacetManifest {
         const decodedConfigSchema =
             configSchema === undefined
                 ? undefined
-                : new JsonSchema(requireSchemaDocument(configSchema));
+                : new JsonSchema(requireSchemaDocument(configSchema, "Manifest config schema"));
         return new FacetManifest({
             id: new FacetPackageId(requireString(object["id"], "Facet package ID")),
             version: new SemVer(requireString(object["version"], "Facet version")),
@@ -200,14 +201,4 @@ function requireIsolationMode(value: FacetData): IsolationMode {
         return value;
     }
     throw new TypeError("Manifest isolation mode is invalid");
-}
-
-function requireSchemaDocument(value: FacetData): boolean | { readonly [key: string]: FacetData } {
-    if (typeof value === "boolean") {
-        return value;
-    }
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError("Manifest config schema must be an object or boolean");
-    }
-    return value as { readonly [key: string]: FacetData };
 }

@@ -10,6 +10,7 @@ import {
     requireExactFields,
     requireNonblank,
     requireOptionalString,
+    requireSchemaDocument,
     requireString
 } from "./data";
 import { OperationName, SlotName, SurfaceId } from "./id";
@@ -295,24 +296,6 @@ function requireImpact(value: FacetData | undefined): Impact {
         return value;
     }
     throw new TypeError("Operation impact is invalid");
-}
-
-function requireSchemaDocument(
-    value: FacetData | undefined,
-    subject: string
-): boolean | { readonly [key: string]: FacetData } {
-    if (typeof value === "boolean") {
-        return value;
-    }
-    if (
-        value === undefined ||
-        value === null ||
-        Array.isArray(value) ||
-        typeof value !== "object"
-    ) {
-        throw new TypeError(`${subject} must be an object or boolean`);
-    }
-    return value as { readonly [key: string]: FacetData };
 }
 
 const emptyContributions = new Contributions([]);

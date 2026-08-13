@@ -8,6 +8,7 @@ import {
     requireExactFields,
     requireNonblank,
     requireOptionalString,
+    requireSchemaDocument,
     requireString
 } from "./data";
 import { canonicalTrustTiers, type TrustTier } from "./event";
@@ -93,7 +94,9 @@ export class Command {
         return new Command({
             name: requireString(object["name"], "Command name"),
             title: requireString(object["title"], "Command title"),
-            arguments: new JsonSchema(requireSchemaDocument(object["arguments"])),
+            arguments: new JsonSchema(
+                requireSchemaDocument(object["arguments"], "Command arguments schema")
+            ),
             operation: new OperationRef(requireString(object["operation"], "Command operation")),
             binding: new BindingName(requireString(object["binding"], "Command binding")),
             surfaces: requireArray(object["surfaces"], "Command surfaces").map(
@@ -154,21 +157,4 @@ function requireTrustTier(value: FacetData): TrustTier {
         return value;
     }
     throw new TypeError("Command trust tier is invalid");
-}
-
-function requireSchemaDocument(
-    value: FacetData | undefined
-): boolean | { readonly [key: string]: FacetData } {
-    if (typeof value === "boolean") {
-        return value;
-    }
-    if (
-        value === undefined ||
-        value === null ||
-        Array.isArray(value) ||
-        typeof value !== "object"
-    ) {
-        throw new TypeError("Command arguments schema must be an object or boolean");
-    }
-    return value as { readonly [key: string]: FacetData };
 }

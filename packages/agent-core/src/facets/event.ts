@@ -7,6 +7,7 @@ import {
     requireExactFields,
     requireNonblank,
     requireOptionalString,
+    requireSchemaDocument,
     requireString
 } from "./data";
 import { EventKind } from "./id";
@@ -263,22 +264,4 @@ function requirePrefixPattern(value: string, subject: string): void {
     if (value.length === 0 || value.trim() !== value || value.slice(0, -1).includes("*")) {
         throw new TypeError(`${subject} must be a literal or suffix-wildcard pattern`);
     }
-}
-
-function requireSchemaDocument(
-    value: FacetData | undefined,
-    subject: string
-): boolean | { readonly [key: string]: FacetData } {
-    if (typeof value === "boolean") {
-        return value;
-    }
-    if (
-        value === undefined ||
-        value === null ||
-        Array.isArray(value) ||
-        typeof value !== "object"
-    ) {
-        throw new TypeError(`${subject} must be an object or boolean`);
-    }
-    return value as { readonly [key: string]: FacetData };
 }

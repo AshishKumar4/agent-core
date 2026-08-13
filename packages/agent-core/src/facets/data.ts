@@ -2,7 +2,9 @@ import {
     RecordCodec,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    isJsonObject,
     isJsonValue,
+    type JsonSchemaDocument,
     type JsonValue,
     type RecordVersion
 } from "../core";
@@ -15,7 +17,7 @@ export function isFacetData(value: unknown): value is FacetData {
 }
 
 export function isFacetDataMap(value: unknown): value is FacetDataMap {
-    return isFacetData(value) && isDataObject(value);
+    return isFacetData(value) && isJsonObject(value);
 }
 
 export function canonicalFacetData(value: FacetData): FacetData {
@@ -23,7 +25,7 @@ export function canonicalFacetData(value: FacetData): FacetData {
 }
 
 export function canonicalFacetDataMap(value: FacetDataMap): FacetDataMap {
-    return canonicalFacetData(value) as FacetDataMap;
+    return requireDataObject(canonicalFacetData(value), "Canonical data map");
 }
 
 export class DataRecordCodec<Record> extends RecordCodec<Record> {
@@ -48,10 +50,43 @@ export class DataRecordCodec<Record> extends RecordCodec<Record> {
 }
 
 export function requireDataObject(value: FacetData | undefined, subject: string): FacetDataMap {
-    if (!isDataObject(value)) {
+    if (!isJsonObject(value)) {
         throw new TypeError(`${subject} must be an object`);
     }
     return value;
+}
+
+/**
+ * A declaration's schema field, which JSON Schema states either as a document or as the
+ * boolean that admits or rejects everything.
+ */
+export function requireSchemaDocument(
+    value: FacetData | undefined,
+    subject: string
+): JsonSchemaDocument {
+    if (typeof value === "boolean") {
+        return value;
+    }
+    if (!isJsonObject(value)) {
+        throw new TypeError(`${subject} must be an object or boolean`);
+    }
+    return value;
+}
+
+/**
+ * Builds a data record from named fields, dropping every field whose value is absent. An
+ * optional field has to be missing rather than null: `requireExactFields` admits only the
+ * fields a declaration names, and canonical JSON distinguishes an omitted key from an
+ * explicit null, so encoding an absent field as null would change the record's identity.
+ */
+export function dataRecord(fields: {
+    readonly [name: string]: FacetData | undefined;
+}): FacetDataMap {
+    const record: { [name: string]: FacetData } = {};
+    for (const [name, value] of Object.entries(fields)) {
+        if (value !== undefined) record[name] = value;
+    }
+    return record;
 }
 
 export function requireExactFields(
@@ -120,7 +155,7 @@ function freezeFacetData(value: FacetData): FacetData {
         }
         return Object.freeze(value);
     }
-    if (isDataObject(value)) {
+    if (isJsonObject(value)) {
         for (const entry of Object.values(value)) {
             freezeFacetData(entry);
         }
@@ -132,10 +167,6 @@ function freezeFacetData(value: FacetData): FacetData {
 // Number.isSafeInteger is already the complete check — it is false for every non-number —
 // but it carries no type predicate, so a paired `typeof` test would be a guard no test
 // could ever reach. This gives the check the narrowing it lacks instead.
-function isSafeInteger(value: unknown): value is number {
+function isSafeInteger(value: FacetData | undefined): value is number {
     return Number.isSafeInteger(value);
-}
-
-function isDataObject(value: FacetData | undefined): value is FacetDataMap {
-    return value !== null && !Array.isArray(value) && typeof value === "object";
 }
