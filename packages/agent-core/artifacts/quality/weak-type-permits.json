@@ -770,12 +770,6 @@
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
-      "file": "packages/agent-core/src/identity/codec.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Identity records decode canonical JSON into the membership and trust shapes their exact-field checks established."
-    },
-    {
       "file": "packages/agent-core/src/identity/guest-verification.ts",
       "kind": "non-null",
       "count": 1,

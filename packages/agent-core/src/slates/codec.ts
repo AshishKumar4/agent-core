@@ -1,11 +1,4 @@
-import {
-    type JsonFields,
-    ContentRef,
-    Revision,
-    hasExactJsonKeys,
-    isJsonObject,
-    type JsonValue
-} from "../core";
+import { type JsonFields, ContentRef, Revision, jsonDataParser, type JsonValue } from "../core";
 import { EnvironmentId, EnvironmentSessionId, PortExposureId } from "../environments";
 import { WorkspaceId } from "../identity";
 import { InvocationId } from "../interaction-references";
@@ -21,9 +14,10 @@ import {
 
 export type JsonObject = { readonly [key: string]: JsonValue };
 
+const parse = jsonDataParser((message) => new TypeError(message));
+
 export function requireObjectValue(value: JsonValue | undefined, subject: string): JsonObject {
-    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
-    return value;
+    return parse.object(value, subject);
 }
 
 export function requireExactObject<Field extends string>(
@@ -31,28 +25,19 @@ export function requireExactObject<Field extends string>(
     fields: readonly Field[],
     subject: string
 ): JsonObject & JsonFields<Field> {
-    const object = requireObjectValue(value, subject);
-    if (!hasExactJsonKeys(object, fields)) {
-        throw new TypeError(`${subject} contains missing or unknown fields`);
-    }
-    return object;
+    return parse.exact(parse.object(value, subject), fields, subject);
 }
 
 export function requireStringValue(value: JsonValue | undefined, subject: string): string {
-    if (typeof value !== "string") throw new TypeError(`${subject} must be a string`);
-    return value;
+    return parse.string(value, subject);
 }
 
 export function nullableString(value: JsonValue | undefined, subject: string): string | undefined {
-    if (value === null) return undefined;
-    return requireStringValue(value, subject);
+    return parse.nullableString(value, subject);
 }
 
 export function requireIntegerValue(value: JsonValue | undefined, subject: string): number {
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
-        throw new TypeError(`${subject} must be a non-negative safe integer`);
-    }
-    return value;
+    return parse.safeInteger(value, subject);
 }
 
 export function workspaceId(value: JsonValue | undefined): WorkspaceId {

@@ -2,16 +2,16 @@ import {
     type JsonFields,
     decodeCanonicalJson,
     encodeCanonicalJson,
-    hasExactJsonKeys,
-    isJsonObject,
+    jsonDataParser,
     type JsonValue
 } from "../core";
 
 export type JsonObject = { readonly [key: string]: JsonValue };
 
+const parse = jsonDataParser((message) => new TypeError(message));
+
 export function requireObject(value: JsonValue | undefined, name: string): JsonObject {
-    if (!isJsonObject(value)) throw new TypeError(`${name} must be an object`);
-    return value;
+    return parse.object(value, name);
 }
 
 export function requireExact<Field extends string>(
@@ -19,40 +19,23 @@ export function requireExact<Field extends string>(
     keys: readonly Field[],
     name: string
 ): asserts object is JsonFields<Field> {
-    if (!hasExactJsonKeys(object, keys)) {
-        throw new TypeError(`${name} contains missing or unknown fields`);
-    }
+    parse.exact(object, keys, name);
 }
 
 export function requireString(object: JsonObject, key: string, name = key): string {
-    const value = object[key];
-    if (typeof value !== "string") {
-        throw new TypeError(`${name} must be a string`);
-    }
-    return value;
+    return parse.string(object[key], name);
 }
 
 export function requireBoolean(object: JsonObject, key: string, name = key): boolean {
-    const value = object[key];
-    if (typeof value !== "boolean") {
-        throw new TypeError(`${name} must be a boolean`);
-    }
-    return value;
+    return parse.boolean(object[key], name);
 }
 
 export function requireSafeInteger(object: JsonObject, key: string, name = key): number {
-    const value = object[key];
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
-        throw new TypeError(`${name} must be a non-negative safe integer`);
-    }
-    return value;
+    return parse.safeInteger(object[key], name);
 }
 
 export function requireArray(value: JsonValue | undefined, name: string): readonly JsonValue[] {
-    if (!Array.isArray(value)) {
-        throw new TypeError(`${name} must be an array`);
-    }
-    return value;
+    return parse.array(value, name);
 }
 
 export function canonicalJson<Value extends JsonValue>(value: Value): Value {
