@@ -179,8 +179,8 @@ function writePointer(document: MutableJson, pointer: string, value: MutableJson
         if (position > current.length) {
             throw invalidSubscription("Mapping cannot create sparse arrays");
         }
-        if (position === current.length) current.push(value);
-        else current[position] = value;
+        // position is at most current.length, and assigning at the length appends.
+        current[position] = value;
     } else {
         defineDataProperty(current, finalToken, value);
     }

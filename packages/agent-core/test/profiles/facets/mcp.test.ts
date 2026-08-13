@@ -522,6 +522,27 @@ describe("MCP normative discovery", () => {
         },
         () => {
             for (const malformed of [
+                // A null member is the one shape whose rejection cannot be delegated to
+                // the field reads below it: those read through the member, so dropping
+                // the shape guard turns a malformed document into a TypeError.
+                {
+                    revision: MCP_PROTOCOL_REVISION,
+                    tools: [null],
+                    resources: [],
+                    prompts: []
+                },
+                {
+                    revision: MCP_PROTOCOL_REVISION,
+                    tools: [],
+                    resources: [null],
+                    prompts: []
+                },
+                {
+                    revision: MCP_PROTOCOL_REVISION,
+                    tools: [],
+                    resources: [],
+                    prompts: [null]
+                },
                 {
                     revision: MCP_PROTOCOL_REVISION,
                     tools: [{ name: 1, inputSchema: {}, outputSchema: {} }],
@@ -548,6 +569,33 @@ describe("MCP normative discovery", () => {
                 }
             ]) {
                 expect(() => createDiscovery().discover(malformed as never)).toThrow(
+                    expect.objectContaining({
+                        name: "McpDiscoveryError",
+                        detailCode: "schema.invalid",
+                        message: "MCP discovery document is malformed"
+                    })
+                );
+            }
+        }
+    );
+
+    test(
+        "rejects a document no shape guard reads but canonical bytes cannot encode",
+        { tags: "p1" },
+        () => {
+            // The registration digest covers the whole document, so a member that has no
+            // canonical encoding is a discovery failure and not an encoder failure, even
+            // where no tool, resource, or prompt field ever reads it.
+            for (const uncodable of [Number.NaN, Number.POSITIVE_INFINITY, undefined]) {
+                expect(() =>
+                    createDiscovery().discover({
+                        revision: MCP_PROTOCOL_REVISION,
+                        tools: [],
+                        resources: [],
+                        prompts: [],
+                        serverTime: uncodable
+                    } as never)
+                ).toThrow(
                     expect.objectContaining({
                         name: "McpDiscoveryError",
                         detailCode: "schema.invalid",

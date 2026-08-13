@@ -236,6 +236,22 @@ describe("monotone policy composition", () => {
                     new PolicySet({ placement: new PlacementPolicy(["bundled"]) })
                 ])
             ).toThrow(PlacementUnavailableError);
+
+            // The narrowed chain is what makes co-location impossible, and a call that
+            // cannot be co-located is mediated even where nothing else asks for it: the
+            // floor for observe is direct and the package asked for direct.
+            const merged = mergePolicySets([packagePolicy, ancestorPolicy, attemptedBroadening]);
+            for (const placement of merged.placement.allowed) {
+                expect(
+                    evaluatePolicy({
+                        impact: "observe",
+                        turnOwnedSession: true,
+                        sessionFilesystemTarget: false,
+                        placement,
+                        policies: [new PolicySet({ tiers: { observe: "direct" } })]
+                    })
+                ).toEqual({ approvalRequired: false, tier: "mediated" });
+            }
         }
     );
 });
