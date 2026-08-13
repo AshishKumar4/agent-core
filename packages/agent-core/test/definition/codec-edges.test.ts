@@ -168,6 +168,7 @@ describe("definition codec adversarial edges", () => {
         expect(zero.generation).toBe(0);
         expect(ManagedOrigin.fromData(zero.toData()).generation).toBe(0);
 
+
         const base = new ManagedOrigin(originInit());
         expect(base.equals(new ManagedOrigin(originInit()))).toBe(true);
         const variants: readonly Partial<ReturnType<typeof originInit>>[] = [
@@ -215,18 +216,17 @@ describe("definition codec adversarial edges", () => {
 
     test("rejects every malformed managed origin generation shape", { tags: "p1" }, () => {
         const data = new ManagedOrigin(originInit()).toData() as object;
-        const malformed: readonly JsonValue[] = [
-            -1,
-            -0.5,
-            1.5,
-            "3",
-            true,
-            null,
-            Number.MAX_SAFE_INTEGER + 2
-        ];
-        for (const generation of malformed) {
+        // Decoding narrows the field; the range belongs to the constructor, and the two
+        // answer separately so neither can stand in for the other.
+        for (const generation of [-1, -0.5, 1.5, Number.MAX_SAFE_INTEGER + 2]) {
             expect(() => ManagedOrigin.fromData({ ...data, generation })).toThrow(
                 "Managed origin generation must be a non-negative safe integer"
+            );
+        }
+        const notNumbers: readonly JsonValue[] = ["3", true, null, [], {}];
+        for (const generation of notNumbers) {
+            expect(() => ManagedOrigin.fromData({ ...data, generation })).toThrow(
+                "Managed origin generation must be a number"
             );
         }
         expect(ManagedOrigin.fromData({ ...data, generation: 0 }).generation).toBe(0);
