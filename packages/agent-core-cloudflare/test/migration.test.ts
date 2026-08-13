@@ -2,7 +2,8 @@ import {
     SqliteApplicationMigrator,
     ReconciliationOutboxId,
     SqliteReconciliationOutbox,
-    cloudflareRuntimeMigrations
+    cloudflareRuntimeMigrations,
+    type SqliteRow
 } from "../src/index.js";
 import { FakeRuntimeSqlite, fakeErrors } from "./fakes.js";
 import { expectOperationalFailure } from "./assertions.js";
@@ -85,8 +86,8 @@ describe("SQLite application durability", () => {
             "codec.invalid"
         );
 
-        const corruptMarkers = (rows: readonly Record<string, unknown>[]) => ({
-            all: () => rows as never,
+        const corruptMarkers = (rows: readonly SqliteRow[]) => ({
+            all: () => rows,
             run: () => {},
             transaction: <Result>(
                 operation: () => Result,

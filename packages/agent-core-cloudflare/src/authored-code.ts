@@ -10,6 +10,7 @@ import {
     type PassedCapabilityFactory,
     type PassedCapabilityRegistry
 } from "./passed-capability.js";
+import { answersPlatformMethod } from "./platform-value.js";
 
 /** The two backings SPEC §10.2 names for this profile. */
 export const WORKER_LOADER_BACKING = new AuthoredCodeBackingId("workerLoader");
@@ -147,9 +148,7 @@ function requireEntrypoint(value: unknown, errors: CloudflareErrorPort): Authore
 }
 
 function isEntrypoint(value: unknown): value is AuthoredCodeRunner {
-    return (typeof value === "object" && value !== null) || typeof value === "function"
-        ? typeof Reflect.get(value, "run") === "function"
-        : false;
+    return answersPlatformMethod<AuthoredCodeRunner>(value, (runner) => runner.run);
 }
 
 /** The loose shape the two published entry-point contracts both satisfy. */

@@ -44,6 +44,18 @@
       "reason": "The module loader receives an entrypoint from the platform's dynamic import and disposes resources whose types it never learns."
     },
     {
+      "file": "packages/agent-core-cloudflare/src/platform-value.ts",
+      "kind": "assertion",
+      "count": 1,
+      "reason": "Reading the one method a Workers stub must answer for is a plain property get: the runtime's stubs are Proxies that answer through their get trap alone, so in and own-property descriptors miss members that are really there, and TypeScript has no type for an object whose members are not yet known. The read is admitted only after the value is proved to carry properties, and its result is proved callable before any caller's narrowing rests on it."
+    },
+    {
+      "file": "packages/agent-core-cloudflare/src/platform-value.ts",
+      "kind": "unknown",
+      "count": 2,
+      "reason": "This is the parse boundary itself: the value has just crossed from the Workers runtime and nothing is known about it until the member read answers, and the callable question layered over that read takes the same value."
+    },
+    {
       "file": "packages/agent-core-cloudflare/src/queue.ts",
       "kind": "unknown",
       "count": 15,
@@ -65,12 +77,6 @@
       "file": "packages/agent-core-cloudflare/src/revision-log.ts",
       "kind": "assertion",
       "count": 2,
-      "reason": "SQLite columns and platform bindings come back as open unions, and the value is asserted only after the row shape has been checked."
-    },
-    {
-      "file": "packages/agent-core-cloudflare/src/sqlite.ts",
-      "kind": "assertion",
-      "count": 1,
       "reason": "SQLite columns and platform bindings come back as open unions, and the value is asserted only after the row shape has been checked."
     },
     {

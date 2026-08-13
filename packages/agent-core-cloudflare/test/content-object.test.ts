@@ -1,5 +1,6 @@
 import { R2ContentObjectRepository, contentObjectAddress } from "../src/index.js";
 import { AgentCoreError, TenantId } from "@agent-core/core";
+import { malformedInput } from "./assertions.js";
 import { FakeR2Bucket, fakeErrors } from "./fakes.js";
 
 const bytes = (value: string): Uint8Array => new TextEncoder().encode(value);
@@ -119,7 +120,7 @@ describe("R2ContentObjectRepository", () => {
         await expect(repository.get(tenant, "not-a-digest")).rejects.toMatchObject({
             code: "operation.invalid-input"
         });
-        await expect(repository.put("invalid" as never, bytes("x"))).rejects.toMatchObject({
+        await expect(repository.put(malformedInput("invalid"), bytes("x"))).rejects.toMatchObject({
             code: "operation.invalid-input"
         });
     });

@@ -31,12 +31,7 @@ function registryDatabase(): NodeSqlite {
     return database;
 }
 
-function fixture(): {
-    readonly namespace: FakeDurableObjectNamespace<FakeStub>;
-    readonly registry: SqlitePlacementRegistry;
-    readonly resolver: PlacementResolver<unknown, FakeStub>;
-    readonly actor: ActorRef;
-} {
+function fixture() {
     const namespace = new FakeDurableObjectNamespace<FakeStub>((name, jurisdiction) => ({
         name,
         jurisdiction

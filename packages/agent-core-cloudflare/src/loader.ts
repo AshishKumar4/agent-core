@@ -1,6 +1,7 @@
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
 import type { PassedCapabilities } from "./passed-capability.js";
+import { answersPlatformMethod } from "./platform-value.js";
 
 export interface DynamicWorkerSource {
     readonly compatibilityDate: string;
@@ -46,18 +47,22 @@ export class DynamicWorkerLoaderAdapter {
         createEntrypoint: (entrypoint: unknown) => Entrypoint
     ): DynamicWorkerScope<Entrypoint> {
         validateSource(source);
+        const required = {
+            compatibilityDate: source.compatibilityDate,
+            mainModule: source.mainModule,
+            modules: Object.freeze({ ...source.modules }),
+            env: Object.freeze({ ...capabilities }),
+            globalOutbound: null
+        };
+        // An absent flag list is absent, not present-and-undefined: the binding reads the
+        // property, and `exactOptionalPropertyTypes` keeps that distinction in the type.
+        const options: DynamicWorkerLoadOptions =
+            source.compatibilityFlags === undefined
+                ? required
+                : { ...required, compatibilityFlags: [...source.compatibilityFlags] };
         let worker: DynamicWorkerHandleLike;
         try {
-            worker = this.loader.load({
-                compatibilityDate: source.compatibilityDate,
-                ...(source.compatibilityFlags === undefined
-                    ? {}
-                    : { compatibilityFlags: [...source.compatibilityFlags] }),
-                mainModule: source.mainModule,
-                modules: Object.freeze({ ...source.modules }),
-                env: Object.freeze({ ...capabilities }),
-                globalOutbound: null
-            });
+            worker = this.loader.load(options);
         } catch (cause) {
             operationalFailure(
                 this.errors,
@@ -163,9 +168,7 @@ function validateSource(source: DynamicWorkerSource): void {
 }
 
 function isWorkerHandle(value: unknown): value is DynamicWorkerHandleLike {
-    return (typeof value === "object" && value !== null) || typeof value === "function"
-        ? typeof Reflect.get(value, "getEntrypoint") === "function"
-        : false;
+    return answersPlatformMethod<DynamicWorkerHandleLike>(value, (handle) => handle.getEntrypoint);
 }
 
 function disposeResources(resources: readonly unknown[]): unknown[] {
@@ -184,9 +187,11 @@ function disposeResources(resources: readonly unknown[]): unknown[] {
 }
 
 function dispose(value: unknown): void {
-    if ((typeof value !== "object" || value === null) && typeof value !== "function") return;
-    const disposer = Reflect.get(value, Symbol.dispose);
-    if (typeof disposer === "function") Reflect.apply(disposer, value, []);
+    if (isDisposable(value)) value[Symbol.dispose]();
+}
+
+function isDisposable(value: unknown): value is Disposable {
+    return answersPlatformMethod<Disposable>(value, (resource) => resource[Symbol.dispose]);
 }
 
 function combineFailures(cause: unknown, cleanupFailures: readonly unknown[]): unknown {

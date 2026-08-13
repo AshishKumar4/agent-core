@@ -32,6 +32,7 @@ import type {
     WorkerLoaderBindingLike
 } from "../src/index.js";
 import { ReconciliationOutboxId } from "../src/index.js";
+import { answersPlatformMethod } from "../src/platform-value.js";
 
 /** Structural test doubles only; these are not Cloudflare runtime emulators. */
 
@@ -73,19 +74,28 @@ export class FakeSqlStorage implements CloudflareSqlStorage {
     }
 }
 
-export class FakeDurableObjectStorage implements CloudflareDurableObjectStorage {
+/**
+ * How a test rolls its own state back when a fake transaction throws, the way the
+ * Durable Object runtime rolls storage back. The snapshot belongs to the test that
+ * captures it, so the double is generic over it rather than opaque about it.
+ */
+export interface FakeTransactionRollback<Snapshot> {
+    capture(): Snapshot;
+    restore(snapshot: Snapshot): void;
+}
+
+export class FakeDurableObjectStorage<Snapshot = never> implements CloudflareDurableObjectStorage {
     #active = false;
     #scheduledAt: number | null = null;
 
     public constructor(
         public readonly sql: CloudflareSqlStorage,
-        private readonly snapshot: () => unknown = () => undefined,
-        private readonly restore: (snapshot: unknown) => void = () => undefined
+        private readonly rollback?: FakeTransactionRollback<Snapshot>
     ) {}
 
     public transactionSync<Result>(operation: () => Result): Result {
         if (this.#active) throw new TypeError("Fake Durable Object transaction is nested");
-        const snapshot = this.snapshot();
+        const rollBack = this.capture();
         this.#active = true;
         try {
             const result = operation();
@@ -94,11 +104,20 @@ export class FakeDurableObjectStorage implements CloudflareDurableObjectStorage 
             }
             return result;
         } catch (error) {
-            this.restore(snapshot);
+            rollBack();
             throw error;
         } finally {
             this.#active = false;
         }
+    }
+
+    private capture(): () => void {
+        const rollback = this.rollback;
+        if (rollback === undefined) return () => undefined;
+        const snapshot = rollback.capture();
+        return () => {
+            rollback.restore(snapshot);
+        };
     }
 
     public async getAlarm(): Promise<number | null> {
@@ -132,7 +151,7 @@ export class FakeRuntimeSqlite implements SynchronousSqlitePort {
                 .map(([version, name]) => ({ version, name }));
         }
         if (statement.startsWith("SELECT MAX(revision)")) {
-            const channel = bindings[0] as string;
+            const channel = boundText(bindings, 0);
             const revisions = [
                 ...this.values(this.#snapshots, channel).keys(),
                 ...this.values(this.#deltas, channel).keys()
@@ -140,8 +159,8 @@ export class FakeRuntimeSqlite implements SynchronousSqlitePort {
             return [{ revision: revisions.length === 0 ? null : Math.max(...revisions) }];
         }
         if (statement.startsWith("SELECT revision, payload FROM agent_core_view_snapshots")) {
-            const channel = bindings[0] as string;
-            const after = bindings[1] as number;
+            const channel = boundText(bindings, 0);
+            const after = boundInteger(bindings, 1);
             const latest = [...this.values(this.#snapshots, channel)]
                 .filter(([revision]) => revision > after)
                 .sort(([left], [right]) => right - left)[0];
@@ -150,16 +169,16 @@ export class FakeRuntimeSqlite implements SynchronousSqlitePort {
                 : [{ revision: latest[0], payload: latest[1].slice() }];
         }
         if (statement.startsWith("SELECT revision, payload FROM agent_core_view_deltas")) {
-            const channel = bindings[0] as string;
-            const after = bindings[1] as number;
+            const channel = boundText(bindings, 0);
+            const after = boundInteger(bindings, 1);
             return [...this.values(this.#deltas, channel)]
                 .filter(([revision]) => revision > after)
                 .sort(([left], [right]) => left - right)
                 .map(([revision, payload]) => ({ revision, payload: payload.slice() }));
         }
         if (statement.includes("SELECT id, scheduled_at FROM agent_core_reconciliation_outbox")) {
-            const now = bindings[0] as number;
-            const limit = bindings[1] as number;
+            const now = boundInteger(bindings, 0);
+            const limit = boundInteger(bindings, 1);
             return [...this.#outbox]
                 .filter(([, scheduledAt]) => scheduledAt <= now)
                 .sort(
@@ -183,34 +202,37 @@ export class FakeRuntimeSqlite implements SynchronousSqlitePort {
     public run(statement: string, bindings: readonly SqliteValue[]): void {
         this.record(statement, bindings);
         if (statement.startsWith("INSERT INTO agent_core_migrations")) {
-            this.#migrations.set(bindings[0] as number, bindings[1] as string);
+            this.#migrations.set(boundInteger(bindings, 0), boundText(bindings, 1));
         } else if (statement.startsWith("INSERT INTO agent_core_view_deltas")) {
-            this.values(this.#deltas, bindings[0] as string).set(
-                bindings[1] as number,
-                (bindings[2] as Uint8Array).slice()
+            this.values(this.#deltas, boundText(bindings, 0)).set(
+                boundInteger(bindings, 1),
+                boundBytes(bindings, 2).slice()
             );
         } else if (statement.startsWith("INSERT INTO agent_core_view_snapshots")) {
-            this.values(this.#snapshots, bindings[0] as string).set(
-                bindings[1] as number,
-                (bindings[2] as Uint8Array).slice()
+            this.values(this.#snapshots, boundText(bindings, 0)).set(
+                boundInteger(bindings, 1),
+                boundBytes(bindings, 2).slice()
             );
         } else if (statement.startsWith("DELETE FROM agent_core_view_deltas")) {
-            deleteThrough(this.values(this.#deltas, bindings[0] as string), bindings[1] as number);
+            deleteThrough(
+                this.values(this.#deltas, boundText(bindings, 0)),
+                boundInteger(bindings, 1)
+            );
         } else if (statement.startsWith("DELETE FROM agent_core_view_snapshots")) {
             deleteBefore(
-                this.values(this.#snapshots, bindings[0] as string),
-                bindings[1] as number
+                this.values(this.#snapshots, boundText(bindings, 0)),
+                boundInteger(bindings, 1)
             );
         } else if (statement.startsWith("INSERT INTO agent_core_reconciliation_outbox")) {
-            this.#outbox.set(bindings[0] as string, bindings[1] as number);
+            this.#outbox.set(boundText(bindings, 0), boundInteger(bindings, 1));
         } else if (statement.startsWith("DELETE FROM agent_core_reconciliation_outbox")) {
             // The durable statement fences on the observed schedule; so does the fake.
-            const id = bindings[0] as string;
-            if (this.#outbox.get(id) === (bindings[1] as number)) this.#outbox.delete(id);
+            const id = boundText(bindings, 0);
+            if (this.#outbox.get(id) === boundInteger(bindings, 1)) this.#outbox.delete(id);
         } else if (statement.startsWith("UPDATE agent_core_reconciliation_outbox")) {
-            const id = bindings[1] as string;
-            if (this.#outbox.get(id) === (bindings[2] as number)) {
-                this.#outbox.set(id, bindings[0] as number);
+            const id = boundText(bindings, 1);
+            if (this.#outbox.get(id) === boundInteger(bindings, 2)) {
+                this.#outbox.set(id, boundInteger(bindings, 0));
             }
         }
     }
@@ -347,6 +369,26 @@ export class FakeWebSocket implements HibernatingWebSocketLike {
     public send(message: string | ArrayBuffer | ArrayBufferView): void {
         this.sent.push(message);
     }
+
+    /**
+     * What this socket was sent, as text. The view stream is a text protocol, so a binary
+     * frame — or a missing one — is the adapter misbehaving rather than something a test
+     * should decode.
+     */
+    public sentText(): readonly string[] {
+        return this.sent.map((message) => {
+            if (typeof message !== "string") {
+                throw new TypeError("Fake WebSocket was sent a binary frame");
+            }
+            return message;
+        });
+    }
+
+    public sentTextAt(index: number): string {
+        const message = this.sentText()[index];
+        if (message === undefined) throw new TypeError(`Fake WebSocket sent no frame ${index}`);
+        return message;
+    }
 }
 
 export class FakeWebSocketContext implements HibernatingWebSocketContextLike {
@@ -399,23 +441,12 @@ export class FakeDispatchNamespace implements DispatchNamespaceLike<FetchService
         readonly parameters: Readonly<Record<string, string>> | undefined;
     }> = [];
 
-    #nextFailure: unknown;
-
     public get(
         scriptName: string,
         parameters?: Readonly<Record<string, string>>
     ): FetchServiceLike {
-        if (this.#nextFailure !== undefined) {
-            const failure = this.#nextFailure;
-            this.#nextFailure = undefined;
-            throw failure;
-        }
         this.calls.push({ scriptName, parameters });
         return { fetch: (request) => new Response(`${scriptName}:${request.url}`) };
-    }
-
-    public failNext(failure: unknown): void {
-        this.#nextFailure = failure;
     }
 }
 
@@ -650,8 +681,35 @@ function deleteBefore(values: Map<number, Uint8Array>, revision: number): void {
     for (const current of values.keys()) if (current < revision) values.delete(current);
 }
 
+/**
+ * Reads a statement's bindings the way the real substrate reads a stored row:
+ * positionally, and refusing what that position is not for. Coercing instead would let a
+ * caller pass the wrong value in the wrong slot and still see the fake agree. Every
+ * binding union in this package is a subset of `CloudflareSqlValue`, so one reader serves
+ * the Cloudflare-facing storage and the runtime-facing port alike.
+ */
+export function boundText(bindings: readonly CloudflareSqlValue[], index: number): string {
+    const value = bindings[index];
+    if (typeof value !== "string") throw new TypeError(`Fake SQLite binding ${index} is not text`);
+    return value;
+}
+
+export function boundInteger(bindings: readonly CloudflareSqlValue[], index: number): number {
+    const value = bindings[index];
+    if (typeof value !== "number" || !Number.isSafeInteger(value)) {
+        throw new TypeError(`Fake SQLite binding ${index} is not an integer`);
+    }
+    return value;
+}
+
+function boundBytes(bindings: readonly CloudflareSqlValue[], index: number): Uint8Array {
+    const value = bindings[index];
+    if (!(value instanceof Uint8Array)) {
+        throw new TypeError(`Fake SQLite binding ${index} is not a BLOB`);
+    }
+    return value;
+}
+
 function isThenable(value: unknown): value is PromiseLike<unknown> {
-    return (typeof value === "object" && value !== null) || typeof value === "function"
-        ? typeof (value as { readonly then?: unknown }).then === "function"
-        : false;
+    return answersPlatformMethod<PromiseLike<unknown>>(value, (pending) => pending.then);
 }

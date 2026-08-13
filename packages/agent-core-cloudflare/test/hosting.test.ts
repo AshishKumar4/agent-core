@@ -5,7 +5,9 @@ import {
     ExplicitCloudflareDeploymentAdapter,
     contentRepositoryFromR2Binding,
     createCloudflareDurableObjectClass,
-    createCloudflareWorker
+    createCloudflareWorker,
+    type FetchServiceLike,
+    type HibernatingWebSocketLike
 } from "../src/index.js";
 import { RouteReservationId, TenantId } from "@agent-core/core";
 import {
@@ -21,6 +23,7 @@ import {
     FakeWorkerRouter,
     fakeErrors
 } from "./fakes.js";
+import { answersPlatformMethod } from "../src/platform-value.js";
 import { expectOperationalFailure } from "./assertions.js";
 import { queueCodecs } from "./queue-codecs.js";
 
@@ -189,11 +192,11 @@ describe("Cloudflare hosting adapters", () => {
             rows: statement.includes("FROM agent_core_migrations") ? [] : []
         }));
         const storage = new FakeDurableObjectStorage(sql);
-        const accepted: unknown[] = [];
+        const accepted: HibernatingWebSocketLike[] = [];
         const state = {
             storage,
             blockConcurrencyWhile: async <Result>(callback: () => Promise<Result>) => callback(),
-            acceptWebSocket(socket: unknown): void {
+            acceptWebSocket(socket: HibernatingWebSocketLike): void {
                 accepted.push(socket);
             }
         };
@@ -321,20 +324,11 @@ describe("Cloudflare hosting adapters", () => {
     );
 });
 
-function requireFetchService(value: unknown): {
-    fetch(request: Request): Response | Promise<Response>;
-} {
+function requireFetchService(value: unknown): FetchServiceLike {
     if (!isFetchService(value)) throw new TypeError("Expected Fetch service");
     return value;
 }
 
-function isFetchService(
-    value: unknown
-): value is { fetch(request: Request): Response | Promise<Response> } {
-    return (
-        typeof value === "object" &&
-        value !== null &&
-        "fetch" in value &&
-        typeof value.fetch === "function"
-    );
+function isFetchService(value: unknown): value is FetchServiceLike {
+    return answersPlatformMethod<FetchServiceLike>(value, (service) => service.fetch);
 }

@@ -34,11 +34,9 @@ interface PinInit {
     readonly generation?: number;
 }
 
-function pin(init: PinInit): {
-    readonly environmentId: EnvironmentId;
-    readonly environmentRevision: Revision;
-    readonly generation: number;
-} {
+function pin(
+    init: PinInit
+): Pick<OpenSessionRequest, "environmentId" | "environmentRevision" | "generation"> {
     return {
         environmentId: new EnvironmentId(init.environment ?? "env-1"),
         environmentRevision: new Revision(init.revision ?? 0),
@@ -50,11 +48,11 @@ function sessionRequest(
     session: string,
     init: PinInit & { readonly restore?: ContentRef } = {}
 ): OpenSessionRequest {
-    return Object.freeze({
-        ...pin(init),
-        sessionId: new EnvironmentSessionId(session),
-        ...(init.restore === undefined ? {} : { restore: init.restore })
-    });
+    const request = { ...pin(init), sessionId: new EnvironmentSessionId(session) };
+    // An absent restore pin is absent, not present-and-undefined.
+    return Object.freeze(
+        init.restore === undefined ? request : { ...request, restore: init.restore }
+    );
 }
 
 function snapshotRequest(

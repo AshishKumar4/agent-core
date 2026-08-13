@@ -1,6 +1,6 @@
 import { actorObjectName, locateActorObject, parseActorObjectName } from "../src/index.js";
 import { ActorId } from "@agent-core/core";
-import { expectOperationalFailure } from "./assertions.js";
+import { expectOperationalFailure, malformedInput } from "./assertions.js";
 import { FakeDurableObjectNamespace, fakeErrors } from "./fakes.js";
 
 describe("Actor object names", () => {
@@ -55,7 +55,7 @@ describe("Actor object names", () => {
     });
 
     test("rejects empty, oversized, noncanonical, and unsupported names", () => {
-        expect(() => actorObjectName({ kind: "" as never, id: new ActorId("id") })).toThrow(
+        expect(() => actorObjectName({ kind: malformedInput(""), id: new ActorId("id") })).toThrow(
             TypeError
         );
         expect(() =>

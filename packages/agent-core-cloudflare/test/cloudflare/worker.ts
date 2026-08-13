@@ -1,4 +1,12 @@
-import { AgentCoreError, ContentRef, Digest, RouteReservationId, TenantId } from "@agent-core/core";
+import {
+    AgentCoreError,
+    ContentRef,
+    Digest,
+    RouteReservationId,
+    TenantId,
+    isJsonObject,
+    isJsonValue
+} from "@agent-core/core";
 import { BindingName, FacetRef, type FacetData } from "@agent-core/core/facets";
 import {
     AuthoredCodeCapability,
@@ -47,6 +55,7 @@ import {
     type FetchServiceLike,
     type WorkerLoaderBindingLike
 } from "../../src/index.js";
+import { answersPlatformMethod, platformMember } from "../../src/platform-value.js";
 import { queueCodecs } from "../queue-codecs.js";
 
 export type TestEnvironment = Env;
@@ -68,18 +77,31 @@ const loaderInvocations = new (class extends AuthoredCodeInvocationPort {
     }
 })();
 
-function requireAuthoredCodeEntrypoint(entrypoint: unknown): AuthoredCodeEntrypointLike {
-    if (
-        (typeof entrypoint !== "object" || entrypoint === null) &&
-        typeof entrypoint !== "function"
-    ) {
-        throw new AgentCoreError("operation.invalid-output", "Loaded code has no entry point");
+/**
+ * The acknowledgement frame is JSON a client sent, so it is decoded once, here, and the
+ * socket route receives the revision rather than a frame to interpret.
+ */
+function acknowledgedRevision(message: string | ArrayBuffer): number {
+    if (message instanceof ArrayBuffer) {
+        throw new TypeError("Expected text acknowledgement");
     }
-    const run = Reflect.get(entrypoint, "run");
-    if (typeof run !== "function") {
+    const frame: unknown = JSON.parse(message);
+    const acked = isJsonValue(frame) && isJsonObject(frame) ? frame["ackedRevision"] : undefined;
+    if (typeof acked !== "number") {
+        throw new TypeError("Expected numeric acknowledged revision");
+    }
+    return acked;
+}
+
+function requireAuthoredCodeEntrypoint(entrypoint: unknown): AuthoredCodeEntrypointLike {
+    if (!isAuthoredCodeEntrypoint(entrypoint)) {
         throw new AgentCoreError("operation.invalid-output", "Loaded code declares no run");
     }
-    return { run: (call) => Reflect.apply(run, entrypoint, [call]) };
+    return entrypoint;
+}
+
+function isAuthoredCodeEntrypoint(value: unknown): value is AuthoredCodeEntrypointLike {
+    return answersPlatformMethod<AuthoredCodeEntrypointLike>(value, (code) => code.run);
 }
 
 const errors: CloudflareErrorPort = {
@@ -113,15 +135,27 @@ interface CapabilityExports {
     }): PassedCapabilityLike;
 }
 
+/** As much of the worker's own context as this route uses. */
+interface WorkerContextLike {
+    readonly exports: unknown;
+}
+
 function requireCapabilityExports(context: unknown): CapabilityExports {
-    if (typeof context !== "object" || context === null) {
-        throw new AgentCoreError("protocol.invalid-state", "Worker context is not an object");
+    const exports = platformMember<WorkerContextLike>(context, (candidate) => candidate.exports);
+    if (!isCapabilityExports(exports)) {
+        throw new AgentCoreError(
+            "protocol.invalid-state",
+            "Worker context exposes no capability entry point"
+        );
     }
-    const exports = Reflect.get(context, "exports");
-    if (typeof exports !== "object" || exports === null) {
-        throw new AgentCoreError("protocol.invalid-state", "Worker context exposes no exports");
-    }
-    return exports as CapabilityExports;
+    return exports;
+}
+
+function isCapabilityExports(value: unknown): value is CapabilityExports {
+    return answersPlatformMethod<CapabilityExports>(
+        value,
+        (exports) => exports.TestPassedCapabilityEntrypoint
+    );
 }
 
 const TestActorDelegate = createCloudflareDurableObjectClass<TestEnvironment>({
@@ -221,19 +255,7 @@ const TestActorDelegate = createCloudflareDurableObjectClass<TestEnvironment>({
                     await alarms.handleAlarm();
                 },
                 webSocketMessage(socket, message): void {
-                    if (typeof message !== "string") {
-                        throw new TypeError("Expected text acknowledgement");
-                    }
-                    const value: unknown = JSON.parse(message);
-                    if (
-                        typeof value !== "object" ||
-                        value === null ||
-                        !("ackedRevision" in value) ||
-                        typeof value.ackedRevision !== "number"
-                    ) {
-                        throw new TypeError("Expected numeric acknowledged revision");
-                    }
-                    runtime.webSockets.acknowledge(socket, value.ackedRevision);
+                    runtime.webSockets.acknowledge(socket, acknowledgedRevision(message));
                     if (runtime.revisions.currentRevision("test") === 1) {
                         runtime.revisions.append("test", 2, new Uint8Array([2]));
                     }
@@ -561,8 +583,8 @@ export default createCloudflareWorker<TestEnvironment, RouteReservationId, unkno
     },
     queue: new AtLeastOnceQueueAdapter(
         {
-            deliver: async (deliveryId, payload: unknown) => {
-                if (typeof payload === "object" && payload !== null && "retry" in payload) {
+            deliver: async (deliveryId, payload) => {
+                if (isJsonObject(payload) && "retry" in payload) {
                     return { disposition: "retry", retryDelaySeconds: 7 };
                 }
                 if (!delivered.has(deliveryId.value)) delivered.set(deliveryId.value, 1);
@@ -582,10 +604,5 @@ function requireFetchService(value: unknown): FetchServiceLike {
 }
 
 function isFetchService(value: unknown): value is FetchServiceLike {
-    return (
-        typeof value === "object" &&
-        value !== null &&
-        "fetch" in value &&
-        typeof value.fetch === "function"
-    );
+    return answersPlatformMethod<FetchServiceLike>(value, (service) => service.fetch);
 }

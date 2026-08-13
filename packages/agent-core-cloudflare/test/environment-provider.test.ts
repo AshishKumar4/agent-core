@@ -27,7 +27,7 @@ import {
 } from "../src/index.js";
 import type { R2ObjectBodyLike, R2ObjectLike, R2PutOptionsLike } from "../src/index.js";
 import { SQL_BLOB_LIMIT_BYTES } from "../src/sqlite.js";
-import { expectOperationalFailure } from "./assertions.js";
+import { expectOperationalFailure, malformedInput } from "./assertions.js";
 import { FakeR2Bucket, fakeErrors } from "./fakes.js";
 import { NodeSqlite } from "./node-sqlite.js";
 
@@ -48,13 +48,16 @@ function sessionRequest(
         readonly restore?: ContentRef;
     } = {}
 ): OpenSessionRequest {
-    return Object.freeze({
+    const request = {
         environmentId: new EnvironmentId("env-1"),
         environmentRevision: new Revision(pin.revision ?? 0),
         generation: pin.generation ?? 0,
-        sessionId: new EnvironmentSessionId(session),
-        ...(pin.restore === undefined ? {} : { restore: pin.restore })
-    });
+        sessionId: new EnvironmentSessionId(session)
+    };
+    // An absent restore pin is absent, not present-and-undefined.
+    return Object.freeze(
+        pin.restore === undefined ? request : { ...request, restore: pin.restore }
+    );
 }
 
 function snapshotRequest(
@@ -97,11 +100,7 @@ function exposureRequest(
     });
 }
 
-function createProvider(bucket: FakeR2Bucket = new FakeR2Bucket()): {
-    readonly provider: DurableObjectEnvironmentProvider;
-    readonly bucket: FakeR2Bucket;
-    readonly sqlite: NodeSqlite;
-} {
+function createProvider(bucket: FakeR2Bucket = new FakeR2Bucket()) {
     const sqlite = new NodeSqlite();
     new SqliteApplicationMigrator(sqlite, fakeErrors, [environmentProviderMigration(1)]).migrate();
     const provider = new DurableObjectEnvironmentProvider(
@@ -150,10 +149,7 @@ class FailingReadR2Bucket extends FakeR2Bucket {
     }
 }
 
-function deferred(): {
-    readonly promise: Promise<void>;
-    readonly resolve: () => void;
-} {
+function deferred() {
     let settle: (() => void) | undefined;
     const promise = new Promise<void>((resolve) => {
         settle = resolve;
@@ -489,13 +485,13 @@ describe("DurableObjectEnvironmentProvider", () => {
 
     test("rejects malformed requests before touching storage", async () => {
         const { provider } = createProvider();
-        const malformedSession = Object.freeze({
-            ...sessionRequest("valid"),
-            sessionId: Object.freeze({ value: "" })
-        });
-        await expect(
-            Reflect.apply(provider.openSession, provider, [malformedSession])
-        ).rejects.toMatchObject({
+        const malformedSession: OpenSessionRequest = malformedInput(
+            Object.freeze({
+                ...sessionRequest("valid"),
+                sessionId: Object.freeze({ value: "" })
+            })
+        );
+        await expect(provider.openSession(malformedSession)).rejects.toMatchObject({
             code: "operation.invalid-input"
         });
         await expect(
@@ -517,24 +513,25 @@ describe("DurableObjectEnvironmentProvider", () => {
         ]).migrate();
         const content = new R2ContentObjectRepository(new FakeR2Bucket(), fakeErrors);
         const construct = (
-            descriptor: unknown,
-            tenantValue: unknown,
+            descriptor: ProviderDescriptor,
+            tenantValue: TenantId,
             previewHost: string
-        ): unknown =>
-            Reflect.construct(DurableObjectEnvironmentProvider, [
+        ): DurableObjectEnvironmentProvider =>
+            new DurableObjectEnvironmentProvider(
                 descriptor,
                 sqlite,
                 content,
                 tenantValue,
                 { previewHost },
                 fakeErrors
-            ]);
+            );
         expectOperationalFailure(
-            () => construct({ id: "cloudflare-do" }, tenant, "preview.test"),
+            () => construct(malformedInput({ id: "cloudflare-do" }), tenant, "preview.test"),
             "operation.invalid-input"
         );
         expectOperationalFailure(
-            () => construct(providerDescriptor, "environment-tests", "preview.test"),
+            () =>
+                construct(providerDescriptor, malformedInput("environment-tests"), "preview.test"),
             "operation.invalid-input"
         );
         expectOperationalFailure(
@@ -545,8 +542,7 @@ describe("DurableObjectEnvironmentProvider", () => {
 
     test("validates every request pin with its canonical branded classes", async () => {
         const { provider } = createProvider();
-        const call = (request: unknown): Promise<unknown> =>
-            Reflect.apply(provider.openSession, provider, [request]);
+        const call = <Request>(request: Request) => provider.openSession(malformedInput(request));
         await expect(
             call({ ...sessionRequest("sess-1"), restore: "not-a-content-ref" })
         ).rejects.toMatchObject({ code: "operation.invalid-input" });
@@ -557,9 +553,9 @@ describe("DurableObjectEnvironmentProvider", () => {
             code: "operation.invalid-input"
         });
         await expect(
-            Reflect.apply(provider.createSnapshot, provider, [
-                { ...snapshotRequest("sess-1", "snap-1"), sessionEpoch: -1 }
-            ])
+            provider.createSnapshot(
+                malformedInput({ ...snapshotRequest("sess-1", "snap-1"), sessionEpoch: -1 })
+            )
         ).rejects.toMatchObject({ code: "operation.invalid-input" });
     });
 
@@ -575,12 +571,7 @@ describe("DurableObjectEnvironmentProvider", () => {
         const session = sessionRequest("sess-1");
         await provider.openSession(session);
         expectOperationalFailure(
-            () =>
-                Reflect.apply(provider.writeSessionFile, provider, [
-                    session,
-                    "state.txt",
-                    "not-bytes"
-                ]),
+            () => provider.writeSessionFile(session, "state.txt", malformedInput("not-bytes")),
             "operation.invalid-input"
         );
         expect(provider.readSessionFile(session, "missing.txt")).toBeUndefined();
@@ -590,7 +581,7 @@ describe("DurableObjectEnvironmentProvider", () => {
         const arm = (
             match: string,
             rows: readonly Record<string, string | number | Uint8Array | null>[]
-        ): { readonly provider: DurableObjectEnvironmentProvider; trigger: () => void } => {
+        ) => {
             let armed = false;
             const sqlite = new (class extends NodeSqlite {
                 public override all(

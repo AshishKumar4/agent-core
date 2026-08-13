@@ -11,8 +11,8 @@ import { actorObjectName } from "./actor-name.js";
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
 import type { SqliteApplicationMigration, SynchronousSqlitePort } from "./migration.js";
-import type { SqliteRow, SqliteValue } from "./sqlite.js";
-import { CloudflareSqlite, requireStorableBlob } from "./sqlite.js";
+import type { SqliteRow, SqliteValue, StoredRowReader } from "./sqlite.js";
+import { CloudflareSqlite, requireStorableBlob, storedRowReader } from "./sqlite.js";
 
 const SCHEMA_VERSION = 1;
 const SCHEMA_TABLE = "agent_run_storage_schema";
@@ -144,6 +144,10 @@ export function runHostingMigration(version: number): SqliteApplicationMigration
  * started Run is Run migration (SPEC §5.2), which rewrites pins, not ownership.
  */
 export class SqliteRunHostingIndex {
+    private readonly rows = storedRowReader((column) =>
+        operationalFailure(this.errors, "codec.invalid", `Stored Run hosting ${column} is corrupt`)
+    );
+
     public constructor(
         private readonly database: SynchronousSqlitePort,
         private readonly errors: CloudflareErrorPort
@@ -173,10 +177,13 @@ export class SqliteRunHostingIndex {
     public get(run: RunId): CloudflareRunHosting | undefined {
         const row = this.database.all(READ_HOSTING, [run.value])[0];
         if (row === undefined) return undefined;
+        // The column reads name the column that is wrong; what is left inside the guard is
+        // domain validation, whose TypeErrors carry no code of their own.
+        const workspace = this.rows.text(row, "workspace_id");
         try {
             return new CloudflareRunHosting(
                 run,
-                requireHostingWorkspace(row["workspace_id"]),
+                new ActorId(workspace),
                 requireHostingMode(row["mode"])
             );
         } catch (cause) {
@@ -199,6 +206,7 @@ export class SqliteRunHostingIndex {
  */
 export class DurableObjectRunStorage implements RunStoragePort<CloudflareSqlite> {
     public readonly owner: ActorRef;
+    private readonly rows: StoredRowReader;
 
     public constructor(
         private readonly database: CloudflareSqlite,
@@ -206,6 +214,8 @@ export class DurableObjectRunStorage implements RunStoragePort<CloudflareSqlite>
         private readonly errors: CloudflareErrorPort
     ) {
         this.owner = hosting.owner;
+        // Assigned before `initialize`, which reads rows while the constructor still runs.
+        this.rows = storedRowReader((column) => this.corrupt(`SQLite ${column} is invalid`));
         database.transaction(() => this.initialize(database));
     }
 
@@ -318,7 +328,7 @@ export class DurableObjectRunStorage implements RunStoragePort<CloudflareSqlite>
 
     private initialize(database: CloudflareSqlite): void {
         const objects = new Set(
-            database.all(READ_SCHEMA_OBJECTS, []).map((row) => this.requiredText(row, "name"))
+            database.all(READ_SCHEMA_OBJECTS, []).map((row) => this.rows.text(row, "name"))
         );
         if (!objects.has(SCHEMA_TABLE)) {
             if (objects.size !== 0) {
@@ -338,7 +348,7 @@ export class DurableObjectRunStorage implements RunStoragePort<CloudflareSqlite>
 
     private validateSchema(database: CloudflareSqlite): void {
         const rows = database.all(READ_SCHEMA_OBJECTS, []);
-        const names = new Set(rows.map((row) => this.requiredText(row, "name")));
+        const names = new Set(rows.map((row) => this.rows.text(row, "name")));
         if (
             names.size !== EXPECTED_SCHEMA.size ||
             [...EXPECTED_SCHEMA.keys()].some((name) => !names.has(name))
@@ -346,12 +356,12 @@ export class DurableObjectRunStorage implements RunStoragePort<CloudflareSqlite>
             this.corrupt("Run storage schema is incomplete or contains unexpected objects");
         }
         for (const row of rows) {
-            const name = this.requiredText(row, "name");
+            const name = this.rows.text(row, "name");
             const expected = EXPECTED_SCHEMA.get(name);
             if (
                 expected === undefined ||
-                this.requiredText(row, "type") !== expected.type ||
-                normalizeSql(this.requiredText(row, "sql")) !== normalizeSql(expected.sql)
+                this.rows.text(row, "type") !== expected.type ||
+                normalizeSql(this.rows.text(row, "sql")) !== normalizeSql(expected.sql)
             ) {
                 this.corrupt(`Run storage object ${name} does not match its exact schema`);
             }
@@ -361,8 +371,8 @@ export class DurableObjectRunStorage implements RunStoragePort<CloudflareSqlite>
         const marker = database.all(`SELECT owner_kind, owner_id FROM ${SCHEMA_TABLE}`, [])[0];
         if (
             marker === undefined ||
-            this.requiredText(marker, "owner_kind") !== this.owner.kind ||
-            this.requiredText(marker, "owner_id") !== this.owner.id.value
+            this.rows.text(marker, "owner_kind") !== this.owner.kind ||
+            this.rows.text(marker, "owner_id") !== this.owner.id.value
         ) {
             this.corrupt("Run storage owner does not match");
         }
@@ -380,18 +390,14 @@ export class DurableObjectRunStorage implements RunStoragePort<CloudflareSqlite>
         expectedKind: RunRecordKind,
         expectedKey?: string
     ): StoredRunRecord {
-        const kind = this.requiredText(row, "kind");
-        const key = this.requiredText(row, "record_key");
-        const revision = row["revision"];
-        const bytes = row["record"];
+        const kind = this.rows.text(row, "kind");
+        const key = this.rows.text(row, "record_key");
+        const revision = this.rows.nullableInteger(row, "revision");
+        const bytes = this.rows.bytes(row, "record");
         if (
             kind !== expectedKind ||
             (expectedKey !== undefined && key !== expectedKey) ||
-            (revision !== null &&
-                (typeof revision !== "number" ||
-                    !Number.isSafeInteger(revision) ||
-                    revision < 0)) ||
-            !(bytes instanceof Uint8Array)
+            (revision !== null && revision < 0)
         ) {
             this.corrupt("Stored Run record projection is malformed");
         }
@@ -400,9 +406,9 @@ export class DurableObjectRunStorage implements RunStoragePort<CloudflareSqlite>
 
     private decodeParent(row: SqliteRow): StoredRunParent {
         const edge = Object.freeze({
-            commit: this.requiredText(row, "commit_id"),
-            ordinal: this.requiredInteger(row, "ordinal"),
-            parent: this.requiredText(row, "parent_id")
+            commit: this.rows.text(row, "commit_id"),
+            ordinal: this.rows.integer(row, "ordinal"),
+            parent: this.rows.text(row, "parent_id")
         });
         this.requireParent(edge);
         return edge;
@@ -437,22 +443,6 @@ export class DurableObjectRunStorage implements RunStoragePort<CloudflareSqlite>
         }
     }
 
-    private requiredText(row: SqliteRow, column: string): string {
-        const value = row[column];
-        if (typeof value !== "string" || value.length === 0) {
-            this.corrupt(`SQLite ${column} is invalid`);
-        }
-        return value;
-    }
-
-    private requiredInteger(row: SqliteRow, column: string): number {
-        const value = row[column];
-        if (typeof value !== "number" || !Number.isSafeInteger(value)) {
-            this.corrupt(`SQLite ${column} is invalid`);
-        }
-        return value;
-    }
-
     private corrupt(message: string): never {
         operationalFailure(this.errors, "codec.invalid", message);
     }
@@ -463,11 +453,6 @@ function requireHostingMode(value: SqliteValue | undefined): RunHostingMode {
         throw new TypeError("Stored Run hosting mode is invalid");
     }
     return value;
-}
-
-function requireHostingWorkspace(value: SqliteValue | undefined): ActorId {
-    if (typeof value !== "string") throw new TypeError("Stored Run hosting Workspace is invalid");
-    return new ActorId(value);
 }
 
 function isRecordKind(value: string): value is RunRecordKind {

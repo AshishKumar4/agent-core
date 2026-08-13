@@ -8,7 +8,8 @@ import {
     runInDurableObject
 } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import { AgentCoreError } from "@agent-core/core";
+import { AgentCoreError, isJsonValue } from "@agent-core/core";
+import type { JsonValue } from "@agent-core/core";
 import { ActorId, ActorRef } from "@agent-core/core/actors";
 import {
     CloudflareSqlite,
@@ -169,14 +170,21 @@ describe("Cloudflare runtime integration", () => {
         const registryStub = env.PLACEMENTS.getByName("registry");
         const actor = new ActorRef("workspace", new ActorId("ledger-probe"));
         // The ledger is one object's own SQLite, so a resolution runs inside that object.
-        const probe = async (nonce: string, location?: ActorNamespaceLocation): Promise<unknown> =>
+        const probe = async (
+            nonce: string,
+            location?: ActorNamespaceLocation
+        ): Promise<JsonValue> =>
             runInDurableObject(registryStub, async (instance) => {
                 const resolver = new PlacementResolver<
                     DurableObjectId,
                     DurableObjectStub<TestActorDurableObject>
                 >(instance.placements, probeErrors);
                 const stub = await resolver.resolve(env.ACTORS, actor, location);
-                return (await stub.fetch(`https://test/probe-store?nonce=${nonce}`)).json();
+                const body: unknown = await (
+                    await stub.fetch(`https://test/probe-store?nonce=${nonce}`)
+                ).json();
+                if (!isJsonValue(body)) throw new TypeError("Probe store returned no JSON");
+                return body;
             });
 
         expect(await probe("n1")).toEqual({ count: 1 });

@@ -1,6 +1,7 @@
 import { R2ContentObjectRepository, type R2BucketLike } from "./content-object.js";
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
+import { answersPlatformMethod } from "./platform-value.js";
 
 export type R2BucketBinding<Environment> = (environment: Environment) => R2BucketLike;
 
@@ -21,10 +22,8 @@ export function contentRepositoryFromR2Binding<Environment>(
         );
     }
     if (
-        typeof bucket !== "object" ||
-        bucket === null ||
-        typeof bucket.get !== "function" ||
-        typeof bucket.put !== "function"
+        !answersPlatformMethod<R2BucketLike>(bucket, (candidate) => candidate.get) ||
+        !answersPlatformMethod<R2BucketLike>(bucket, (candidate) => candidate.put)
     ) {
         operationalFailure(
             errors,

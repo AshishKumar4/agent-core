@@ -15,12 +15,15 @@ import {
     WORKER_LOADER_BACKING,
     WorkerLoaderAuthoredCodeBacking,
     passedCapabilities,
+    type AuthoredCodeEntrypointLike,
+    type DispatchedAuthoredCodeEntrypointLike,
     type DynamicWorkerHandleLike,
     type DynamicWorkerLoadOptions,
     type PassedCapabilities,
     type PassedCapabilityProps,
     type WorkerLoaderBindingLike
 } from "../src/index.js";
+import { malformedInput } from "./assertions.js";
 import { fakeErrors } from "./fakes.js";
 
 const mailBinding = new BindingName("mail");
@@ -132,7 +135,7 @@ describe("Cloudflare backings for §4.7 agent-authored code", () => {
         const registry = new PassedCapabilityRegistry(fakeErrors);
         const noEntrypoint = new WorkerLoaderAuthoredCodeBacking(
             new DynamicWorkerLoaderAdapter(
-                new StubWorkerLoader(() => "not-an-entrypoint"),
+                new StubWorkerLoader(() => malformedInput("not-an-entrypoint")),
                 fakeErrors
             ),
             "2026-07-10",
@@ -180,7 +183,10 @@ describe("Cloudflare backings for §4.7 agent-authored code", () => {
     test("refuses pre-deployed code that exposes no entry point", async () => {
         const registry = new PassedCapabilityRegistry(fakeErrors);
         const backing = new DispatchNamespaceAuthoredCodeBacking(
-            new DispatchNamespaceAdapter({ get: () => "not-an-entrypoint" as unknown }, fakeErrors),
+            new DispatchNamespaceAdapter(
+                { get: () => malformedInput("not-an-entrypoint") },
+                fakeErrors
+            ),
             () => "slate",
             registry,
             capabilityFactory(registry),
@@ -241,7 +247,10 @@ class RecordingWorkerLoader implements WorkerLoaderBindingLike {
     public disposals = 0;
 
     public constructor(
-        private readonly run: (env: PassedCapabilities, input: FacetData) => unknown
+        private readonly run: (
+            env: PassedCapabilities,
+            input: FacetData
+        ) => FacetData | Promise<FacetData>
     ) {}
 
     public load(options: DynamicWorkerLoadOptions): DynamicWorkerHandleLike {
@@ -258,7 +267,7 @@ class RecordingWorkerLoader implements WorkerLoaderBindingLike {
 }
 
 class StubWorkerLoader implements WorkerLoaderBindingLike {
-    public constructor(private readonly entrypoint: () => unknown) {}
+    public constructor(private readonly entrypoint: () => AuthoredCodeEntrypointLike) {}
 
     public load(): DynamicWorkerHandleLike {
         return { getEntrypoint: () => this.entrypoint(), [Symbol.dispose]: () => undefined };
@@ -268,9 +277,9 @@ class StubWorkerLoader implements WorkerLoaderBindingLike {
 class RecordingDispatchNamespace {
     public readonly scripts: string[] = [];
 
-    public constructor(private readonly run: (capabilities: PassedCapabilities) => unknown) {}
+    public constructor(private readonly run: (capabilities: PassedCapabilities) => FacetData) {}
 
-    public get(scriptName: string): unknown {
+    public get(scriptName: string): DispatchedAuthoredCodeEntrypointLike {
         this.scripts.push(scriptName);
         return {
             run: (capabilities: PassedCapabilities) => this.run(capabilities)

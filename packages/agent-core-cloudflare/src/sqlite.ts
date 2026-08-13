@@ -6,6 +6,7 @@ import {
 import type { SynchronousResultGuard as CoreSynchronousResultGuard } from "@agent-core/core/actors";
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
+import { answersPlatformMethod } from "./platform-value.js";
 
 export type SqliteValue = CoreSqliteValue;
 export type SqliteRow = CoreSqliteRow;
@@ -56,6 +57,58 @@ export function requireStorableBlob(
                 `${SQL_BLOB_LIMIT_BYTES}-byte Durable Object SQLite limit`
         );
     }
+}
+
+/**
+ * Reads the value a stored column is for. SQLite is dynamically typed, so a column's
+ * declared type is a promise the schema makes and not one the runtime keeps, and a row
+ * read back is evidence rather than a record: every store in this package had derived
+ * that for itself, in copies that disagreed about what an integer column admits.
+ *
+ * Representation is all this reader decides. Domain range — a revision that must be
+ * positive, an epoch that must not be negative — belongs to the store that knows it.
+ */
+export interface StoredRowReader {
+    /** TEXT that must be present and carry at least one character. */
+    text(row: SqliteRow, column: string): string;
+    /** TEXT whose SQL NULL stands for an absent value. */
+    nullableText(row: SqliteRow, column: string): string | null;
+    /** INTEGER inside JavaScript's exactly representable range. */
+    integer(row: SqliteRow, column: string): number;
+    /** INTEGER whose SQL NULL stands for an absent value. */
+    nullableInteger(row: SqliteRow, column: string): number | null;
+    /** BLOB, as the runtime handed it over. */
+    bytes(row: SqliteRow, column: string): Uint8Array;
+}
+
+/**
+ * Binds the reader to how one store reports its own corrupt storage, so each keeps its
+ * error vocabulary and its wording while sharing what a stored column is.
+ */
+export function storedRowReader(corrupt: (column: string) => never): StoredRowReader {
+    function text(row: SqliteRow, column: string): string {
+        const value = row[column];
+        if (typeof value !== "string" || value.length === 0) corrupt(column);
+        return value;
+    }
+    function integer(row: SqliteRow, column: string): number {
+        const value = row[column];
+        if (typeof value !== "number" || !Number.isSafeInteger(value)) corrupt(column);
+        return value;
+    }
+    return Object.freeze({
+        text,
+        nullableText: (row: SqliteRow, column: string): string | null =>
+            row[column] === null ? null : text(row, column),
+        integer,
+        nullableInteger: (row: SqliteRow, column: string): number | null =>
+            row[column] === null ? null : integer(row, column),
+        bytes(row: SqliteRow, column: string): Uint8Array {
+            const value = row[column];
+            if (!(value instanceof Uint8Array)) corrupt(column);
+            return value;
+        }
+    });
 }
 
 export class CloudflareSqlite extends TransactionalSqlite {
@@ -215,9 +268,7 @@ function normalizeValue(value: CloudflareSqlValue, errors: CloudflareErrorPort):
 }
 
 function isThenable(value: unknown): value is PromiseLike<unknown> {
-    return (typeof value === "object" && value !== null) || typeof value === "function"
-        ? typeof (value as { readonly then?: unknown }).then === "function"
-        : false;
+    return answersPlatformMethod<PromiseLike<unknown>>(value, (pending) => pending.then);
 }
 
 function noop(): void {}
