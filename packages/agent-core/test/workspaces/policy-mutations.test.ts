@@ -280,8 +280,7 @@ describe("payload mapping", () => {
         expect(Object.getPrototypeOf(result)).toBe(Object.prototype);
         expect(Object.hasOwn(result, "__proto__")).toBe(true);
         expect(Object.getOwnPropertyDescriptor(result, "__proto__")?.value).toStrictEqual({ x: 1 });
-        const probe: { readonly x?: number } = {};
-        expect(probe.x).toBeUndefined();
+        expect(Object.hasOwn(Object.prototype, "x")).toBe(false);
         expect(Object.hasOwn({}, "x")).toBe(false);
     });
 });

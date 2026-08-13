@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { EventId } from "../../src/interaction-references";
-import { Event } from "../../src/workspaces/event";
+import { Event, type EventInit } from "../../src/workspaces/event";
 import { MemoryWorkspaceRecords } from "../../src/workspaces/memory";
 import { WorkspacePersistence } from "../../src/workspaces/persistence";
 import type { ContentRetentionPort } from "../../src/workspaces/retention";
@@ -91,7 +91,7 @@ function workspacePersistence(): WorkspacePersistence<MemoryWorkspaceRecords> {
 }
 
 function eventWithIdentity(source: Event, identity: Event): Event {
-    return new Event({
+    const init: EventInit = {
         id: new EventId(`${source.id.value}-other`),
         scope: source.scope,
         source: source.source,
@@ -102,7 +102,9 @@ function eventWithIdentity(source: Event, identity: Event): Event {
         correlation: source.correlation,
         provenance: source.provenance,
         trust: source.trust,
-        visibility: source.visibility,
-        ...(source.initiator === undefined ? {} : { initiator: source.initiator })
-    });
+        visibility: source.visibility
+    };
+    return new Event(
+        source.initiator === undefined ? init : { ...init, initiator: source.initiator }
+    );
 }

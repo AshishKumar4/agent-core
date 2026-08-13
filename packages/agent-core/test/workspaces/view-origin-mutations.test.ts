@@ -92,7 +92,7 @@ function intentInput(
     } = {}
 ): EventIntentInput {
     const payload = content(`intent-${suffix}`);
-    return {
+    const intent: EventIntentInput = {
         id: new EventId(`event-intent-${suffix}`),
         scope,
         sourceActor,
@@ -111,14 +111,17 @@ function intentInput(
         }),
         idempotencyKey: `intent-key-${suffix}`,
         correlation: new CorrelationId(`correlation-intent-${suffix}`),
-        ...(options.causation === undefined ? {} : { causation: options.causation }),
         provenance: new EventProvenance({
             verification: EventVerification.verified(),
             principal
         }),
-        visibility: "workspace",
-        ...(options.lease === undefined ? {} : { lease: options.lease })
+        visibility: "workspace"
     };
+    const withCausation: EventIntentInput =
+        options.causation === undefined ? intent : { ...intent, causation: options.causation };
+    return options.lease === undefined
+        ? withCausation
+        : { ...withCausation, lease: options.lease };
 }
 
 function intentData(intent: EventIntentInput): JsonObject {

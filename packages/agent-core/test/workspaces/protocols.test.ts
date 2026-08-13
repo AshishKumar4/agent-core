@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+import { violating } from "../helpers/malformed";
 import { ActorId, ActorRef, MemoryActorStore, type SynchronousResultGuard } from "../../src/actors";
 import { TurnId, TurnLease, type LeaseToken } from "../../src/agents";
 import { Digest, type JsonValue } from "../../src/core";
@@ -221,6 +222,8 @@ describe("SourceEventProtocol", () => {
             const port = new SourceCommandPort(prepared);
             const command = createSourceEventProtocolCommand(protocol, port);
             const payload = command.payload.decode(port.payloadBytes);
+            // SAFETY: these ports answer from their payload alone, so the envelope is
+            // never read. An empty one keeps the test to the lease decision under test.
             const envelope = {} as CommandEnvelope;
             const at = new Date("2026-07-12T12:00:00.000Z");
 
@@ -411,10 +414,10 @@ describe("SourceEventProtocol", () => {
             await expect(protocol.prepare({ ...snapshot })).rejects.toMatchObject({
                 code: "protocol.invalid-state"
             });
-            const ForgedPreparation = {
+            const ForgedPreparation = violating<Awaited<ReturnType<typeof protocol.prepare>>>({
                 snapshot,
                 routes: []
-            } as unknown as Awaited<ReturnType<typeof protocol.prepare>>;
+            });
             expect(() =>
                 harness.transaction((state) => protocol.commit(state, ForgedPreparation))
             ).toThrow(expect.objectContaining({ code: "protocol.invalid-state" }));
@@ -491,6 +494,8 @@ describe("authenticated target projection protocol", () => {
             const port = new TargetCommandPort(admission);
             const command = createTargetProjectionProtocolCommand(protocol, port);
             const payload = command.payload.decode(port.payloadBytes);
+            // SAFETY: these ports answer from their payload alone, so the envelope is
+            // never read. An empty one keeps the test to the lease decision under test.
             const envelope = {} as CommandEnvelope;
             const at = new Date("2026-07-12T12:00:00.000Z");
 
@@ -530,13 +535,15 @@ describe("authenticated target projection protocol", () => {
                 )
             ).toThrow(/authentication failed/);
 
-            const ForgedProjection = AuthenticatedRouteProjection as unknown as new (
+            // SAFETY: the constructor is host-only, so its signature is unreachable by
+            // design. Naming it is the only way to call it with a forged token.
+            const ForgedProjection = AuthenticatedRouteProjection as new (
                 token: symbol,
                 value: RouteProjectionEnvelope
             ) => AuthenticatedRouteProjection;
             expect(() => new ForgedProjection(Symbol("forged"), envelope)).toThrow(/host-only/);
 
-            const structuralForgery = { envelope } as unknown as AuthenticatedRouteProjection;
+            const structuralForgery = violating<AuthenticatedRouteProjection>({ envelope });
             const structuralHarness = createProtocolHarness();
             expect(() =>
                 structuralHarness.transaction((state) =>
@@ -809,7 +816,24 @@ describe("InboxProtocol", () => {
     );
 });
 
-class SourceCommandPort extends SourceEventCommandPort<object> {
+/** These ports answer from their payload alone, so they read no state. */
+type NoRead = Record<never, never>;
+
+/** The accepted routing decision a target authority returns. */
+type AcceptedRouting = {
+    readonly kind: "accepted";
+    readonly targetActor: ActorRef;
+    readonly tenants: { readonly kind: "same"; readonly tenant: typeof tenant };
+    readonly operation: ReturnType<typeof subscriptionFixture>["target"];
+};
+
+/** A projection the host authenticator minted, with the retention that admits it. */
+type AdmittedProjection = {
+    readonly projection: AuthenticatedRouteProjection;
+    readonly retention: ReturnType<typeof projectionRetention>;
+};
+
+class SourceCommandPort extends SourceEventCommandPort<NoRead> {
     public readonly caller = CommandCallerPolicy.actor("workspace");
     public readonly expectedRevision = "forbidden" as const;
     public readonly lease = "forbidden" as const;
@@ -834,7 +858,7 @@ class SourceCommandPort extends SourceEventCommandPort<object> {
         return undefined;
     }
     public currentLease(
-        _read: object,
+        _read: NoRead,
         _envelope: CommandEnvelope,
         _prepared: PreparedEventRouting,
         at: Date
@@ -844,7 +868,7 @@ class SourceCommandPort extends SourceEventCommandPort<object> {
     }
 }
 
-class TargetCommandPort extends TargetProjectionCommandPort<object> {
+class TargetCommandPort extends TargetProjectionCommandPort<NoRead> {
     public readonly caller = CommandCallerPolicy.actor("workspace");
     public readonly expectedRevision = "forbidden" as const;
     public readonly lease = "forbidden" as const;
@@ -869,7 +893,7 @@ class TargetCommandPort extends TargetProjectionCommandPort<object> {
         return undefined;
     }
     public currentLease(
-        _read: object,
+        _read: NoRead,
         _envelope: CommandEnvelope,
         _admission: TargetProjectionAdmission,
         at: Date
@@ -922,12 +946,7 @@ class SourceRoutes implements SourceRoutePort<ProtocolState> {
         };
     }
 
-    public authorize(): {
-        readonly kind: "accepted";
-        readonly targetActor: ActorRef;
-        readonly tenants: { readonly kind: "same"; readonly tenant: typeof tenant };
-        readonly operation: ReturnType<typeof subscriptionFixture>["target"];
-    } {
+    public authorize(): AcceptedRouting {
         return {
             kind: "accepted",
             targetActor,
@@ -1079,10 +1098,7 @@ function eventIntent(suffix: string): AuthenticatedEventIntent {
     return authenticateEventDraft(eventDraft(suffix));
 }
 
-function authenticatedAdmission(suffix: string): {
-    readonly projection: AuthenticatedRouteProjection;
-    readonly retention: ReturnType<typeof projectionRetention>;
-} {
+function authenticatedAdmission(suffix: string): AdmittedProjection {
     const reservation = reservationFixture(suffix);
     const projection = projectionFixture(reservation);
     const envelope = { reservation, projection };

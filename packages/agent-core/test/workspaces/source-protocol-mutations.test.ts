@@ -16,7 +16,7 @@ import {
     RouteProjectionId,
     RouteReservationId
 } from "../../src/interaction-references";
-import { Event } from "../../src/workspaces/event";
+import { Event, type EventInit } from "../../src/workspaces/event";
 import { MemoryWorkspaceRecords } from "../../src/workspaces/memory";
 import {
     AuthenticatedEventIntent,
@@ -310,7 +310,7 @@ describe("source protocol mutation kills", () => {
             );
             const prepared = await setup.protocol.prepare(snapshot);
             const other = content("draft-commit-conflict-other");
-            const conflicting = new Event({
+            const conflictingInit: EventInit = {
                 id: snapshot.event.id,
                 scope: snapshot.event.scope,
                 source: snapshot.event.source,
@@ -321,11 +321,13 @@ describe("source protocol mutation kills", () => {
                 correlation: snapshot.event.correlation,
                 provenance: snapshot.event.provenance,
                 trust: snapshot.event.trust,
-                visibility: snapshot.event.visibility,
-                ...(snapshot.event.initiator === undefined
-                    ? {}
-                    : { initiator: snapshot.event.initiator })
-            });
+                visibility: snapshot.event.visibility
+            };
+            const conflicting = new Event(
+                snapshot.event.initiator === undefined
+                    ? conflictingInit
+                    : { ...conflictingInit, initiator: snapshot.event.initiator }
+            );
             expect(Event.encode(conflicting).byteLength).toBe(
                 Event.encode(snapshot.event).byteLength
             );
@@ -687,6 +689,9 @@ function intentEvidence(message: Uint8Array): Uint8Array {
 describe("source commit trust boundary kills", () => {
     test("commit rejects a routing handle this runtime did not prepare", { tags: "p0" }, () => {
         const setup = sourceSetup("forged-prepared");
+        // SAFETY: Object.create returns a bare prototype instance this runtime never
+        // prepared, so it passes `instanceof` while carrying none of the preparation
+        // commit must recognise. That is exactly the handle this test rejects.
         const forged = Object.create(PreparedEventRouting.prototype) as PreparedEventRouting;
         expect(() => setup.protocol.commit(setup.state, forged)).toThrow(
             expect.objectContaining({ name: "AgentCoreError", code: "protocol.invalid-state" })

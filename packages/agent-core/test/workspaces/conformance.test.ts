@@ -1,4 +1,5 @@
 import { expect, test } from "vitest";
+import { callableRecord, violating } from "../helpers/malformed";
 import { ActorId, ActorRef } from "../../src/actors";
 import { Digest, Revision } from "../../src/core";
 import { EventKind, EventPattern, OperationRef, PayloadMapping, SurfaceId } from "../../src/facets";
@@ -12,6 +13,7 @@ import {
 } from "../../src/interaction-references";
 import {
     AuthenticatedEventIntent,
+    AuthenticatedRouteProjection,
     Event,
     EventCursor,
     EventId,
@@ -102,7 +104,9 @@ test("caller tier is absent from authenticated origin data", { tags: "p0" }, () 
 });
 
 test("[C13-ADV-OMITTED-TRUST-SET] accepted trust set cannot be empty", { tags: "p0" }, () => {
-    expect(() => new EventPattern("task.*", [] as unknown as ["owner"])).toThrow(
+    // SAFETY: the accepted-trust list is typed as a non-empty tuple, so an empty set
+    // cannot be written down. EventPattern rechecks it, which is the atom under test.
+    expect(() => new EventPattern("task.*", [] as never)).toThrow(
         /must not be empty|known values/
     );
 });
@@ -124,9 +128,9 @@ test("[C13-ADV-UNAUTHENTICATED-PROJECTION] structural projection cannot bridge",
     const reservation = reservationFixture("unverified-projection");
     const projection = projectionFixture(reservation);
     expect(() =>
-        requireAuthenticatedRouteProjection({
-            envelope: { reservation, projection }
-        } as unknown as never)
+        requireAuthenticatedRouteProjection(
+            violating<AuthenticatedRouteProjection>({ envelope: { reservation, projection } })
+        )
     ).toThrow(expect.objectContaining({ code: "authority.denied" }));
 });
 
@@ -242,7 +246,7 @@ test("[C13-VIEW-NO-LIVE-STATE] View rejects live non-JSON state", { tags: "p1" }
             new View({
                 surface: new SurfaceId("live-state"),
                 revision: Revision.initial(),
-                body: { live: (() => undefined) as unknown as string },
+                body: { live: callableRecord<string>(() => undefined) },
                 actions: [],
                 cursor: new EventCursor("live-state-cursor")
             })
@@ -292,7 +296,7 @@ test("conformance fixtures retain canonical route identity types", { tags: "p2" 
 
 function eventIntentFixture(suffix: string): EventIntentInput {
     const event = eventFixture(suffix);
-    return {
+    const intent: EventIntentInput = {
         id: event.id,
         scope: event.scope,
         sourceActor,
@@ -303,8 +307,10 @@ function eventIntentFixture(suffix: string): EventIntentInput {
         payloadRetention: eventRetention(event),
         idempotencyKey: event.idempotencyKey,
         correlation: event.correlation,
-        ...(event.causation === undefined ? {} : { causation: event.causation }),
         provenance: event.provenance,
         visibility: event.visibility
     };
+    return event.causation === undefined
+        ? intent
+        : { ...intent, causation: event.causation };
 }
