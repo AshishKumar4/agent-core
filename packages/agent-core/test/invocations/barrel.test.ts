@@ -77,7 +77,7 @@ describe("invocation context barrel", () => {
             "terminalBatchOutcome",
             "validDate",
             "validateAuditAppend",
-            "validateStoredAuditShape"
+            "validateStoredAuditLinkage"
         ]);
         expect(invocations.INVOCATION_CONTEXT_EXPORTS.runtime).toEqual(
             Object.keys(invocations)

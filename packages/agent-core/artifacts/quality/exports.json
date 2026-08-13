@@ -415,7 +415,7 @@
       "validDate",
       "validateAuditAppend",
       "validateBlueprint",
-      "validateStoredAuditShape"
+      "validateStoredAuditLinkage"
     ],
     "@agent-core/core/actors": [
       "ACTOR_STATE_SNAPSHOT",
@@ -823,7 +823,7 @@
       "terminalBatchOutcome",
       "validDate",
       "validateAuditAppend",
-      "validateStoredAuditShape"
+      "validateStoredAuditLinkage"
     ],
     "@agent-core/core/operations": [
       "AuthoredCodeBacking",
@@ -1536,7 +1536,7 @@
       "validDate",
       "validateAuditAppend",
       "validateBlueprint",
-      "validateStoredAuditShape"
+      "validateStoredAuditLinkage"
     ],
     "@agent-core/core/actors": [
       "ACTOR_STATE_SNAPSHOT",
@@ -2213,7 +2213,7 @@
       "terminalBatchOutcome",
       "validDate",
       "validateAuditAppend",
-      "validateStoredAuditShape"
+      "validateStoredAuditLinkage"
     ],
     "@agent-core/core/operations": [
       "AuthoredCodeBacking",

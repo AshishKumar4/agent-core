@@ -72,7 +72,7 @@ export const INVOCATION_CONTEXT_EXPORTS = Object.freeze({
         "terminalBatchOutcome",
         "validDate",
         "validateAuditAppend",
-        "validateStoredAuditShape"
+        "validateStoredAuditLinkage"
     ]),
     types: Object.freeze([
         "ApprovalState",

@@ -20,7 +20,7 @@ import {
     WriteRecordId,
     auditEvidenceIdentity,
     validateAuditAppend,
-    validateStoredAuditShape,
+    validateStoredAuditLinkage,
     type AuditEvidenceResolver,
     type AuditKind,
     type AuditRootAdmission,
@@ -737,17 +737,17 @@ describe("AuditRecord stored shape relation", () => {
         { tags: "p1" },
         () => {
             expect(() =>
-                validateStoredAuditShape(
+                validateStoredAuditLinkage(
                     audit({ kind: "invocation", id: new InvocationId("stored-root-invocation") }),
                     lookup()
                 )
             ).not.toThrow();
             expect(() =>
-                validateStoredAuditShape(audit(edgeKinds.routeProjected), lookup())
+                validateStoredAuditLinkage(audit(edgeKinds.routeProjected), lookup())
             ).not.toThrow();
             for (const outcome of rejectedWriteOutcomes) {
                 expect(() =>
-                    validateStoredAuditShape(
+                    validateStoredAuditLinkage(
                         audit({
                             kind: "write",
                             id: new WriteRecordId(`stored-root-${outcome}`),
@@ -779,7 +779,7 @@ describe("AuditRecord stored shape relation", () => {
         "rejects the stored %s root",
         { tags: "p1" },
         (_name, kind) => {
-            expect(() => validateStoredAuditShape(audit(kind), lookup())).toThrow(
+            expect(() => validateStoredAuditLinkage(audit(kind), lookup())).toThrow(
                 /Stored audit root kind is invalid/
             );
         }
@@ -792,7 +792,7 @@ describe("AuditRecord stored shape relation", () => {
             const cause = audit(edgeKinds[causeName]);
             const next = audit(edgeKinds[nextName], cause.id);
 
-            expect(() => validateStoredAuditShape(next, lookup(cause))).not.toThrow();
+            expect(() => validateStoredAuditLinkage(next, lookup(cause))).not.toThrow();
         }
     );
 
@@ -803,7 +803,7 @@ describe("AuditRecord stored shape relation", () => {
             const cause = audit(edgeKinds[causeName]);
             const next = audit(edgeKinds[nextName], cause.id);
 
-            expect(() => validateStoredAuditShape(next, lookup(cause))).toThrow(/not permitted/);
+            expect(() => validateStoredAuditLinkage(next, lookup(cause))).toThrow(/not permitted/);
         }
     );
 });
@@ -908,7 +908,7 @@ const failureCases: readonly (readonly [string, InvocationFailure, RegExp, () =>
                 { kind: "attempt", id: new EffectAttemptId("code-edge-next") },
                 cause.id
             );
-            validateStoredAuditShape(next, lookup(cause));
+            validateStoredAuditLinkage(next, lookup(cause));
         }
     ],
     [
@@ -916,7 +916,7 @@ const failureCases: readonly (readonly [string, InvocationFailure, RegExp, () =>
         "audit.invalid-root",
         /Stored audit root kind is invalid/,
         () => {
-            validateStoredAuditShape(
+            validateStoredAuditLinkage(
                 audit({ kind: "event", id: new EventId("code-root-event") }),
                 lookup()
             );
