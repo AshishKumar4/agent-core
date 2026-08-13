@@ -1125,11 +1125,19 @@ describe("storage trust boundary kills", () => {
     test("a View revision CAS on an empty Surface is a revision conflict", { tags: "p1" }, () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = persistenceWith();
+        // The absent-current check has to answer for itself: the pointer advance rule
+        // rejects the same call one step later with the same revision-conflict code, so a
+        // test that reads only the code passes while this guard is disabled.
         expect(() =>
             persistence.saveView(records, viewFixture(1, "cas-absent"), Revision.initial(), [])
         ).toThrow(
-            expect.objectContaining({ name: "AgentCoreError", code: "protocol.revision-conflict" })
+            expect.objectContaining({
+                name: "AgentCoreError",
+                code: "protocol.revision-conflict",
+                message: "View revision compare-and-set failed"
+            })
         );
+        expect(records.findRecord("view", "surface-cas-absent@1")).toBeUndefined();
     });
 
     test("stores View bodies containing null values", { tags: "p1" }, () => {
