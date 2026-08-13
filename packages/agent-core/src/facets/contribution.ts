@@ -2,6 +2,7 @@ import { JsonSchema } from "../core";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
+    dataRecord,
     canonicalFacetData,
     compareText,
     requireArray,
@@ -112,14 +113,14 @@ export class OperationDescriptor {
     }
 
     public toData(): FacetData {
-        return {
+        return dataRecord({
             impact: this.impact,
             input: this.input.document,
             interceptable: this.interceptable,
             name: this.name.value,
             output: this.output.document,
-            ...(this.help === undefined ? {} : { help: this.help })
-        };
+            help: this.help
+        });
     }
 }
 
@@ -164,11 +165,11 @@ export class SurfaceDescriptor {
     }
 
     public toData(): FacetData {
-        return {
+        return dataRecord({
             id: this.id.value,
             title: this.title,
-            ...(this.help === undefined ? {} : { help: this.help })
-        };
+            help: this.help
+        });
     }
 }
 

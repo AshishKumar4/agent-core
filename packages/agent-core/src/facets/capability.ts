@@ -9,6 +9,7 @@ import {
 import type { Impact } from "./contribution";
 import {
     canonicalFacetData,
+    canonicalOrder,
     requireArray,
     requireDataObject,
     requireString,
@@ -176,12 +177,7 @@ function canonicalStrings(values: readonly string[], name: string): readonly str
 }
 
 function canonicalImpacts(values: readonly Impact[]): readonly [Impact, ...Impact[]] {
-    if (values.length === 0 || values.some((value) => !impacts.includes(value))) {
-        throw new TypeError("Capability impacts must contain known values");
-    }
-    const ordered = impacts.filter((value) => values.includes(value));
-    if (ordered.length !== values.length) throw new TypeError("Capability impacts must be unique");
-    return Object.freeze(ordered) as unknown as readonly [Impact, ...Impact[]];
+    return canonicalOrder(values, impacts, "Capability impacts");
 }
 
 function canonicalConstraints(

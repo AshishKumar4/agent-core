@@ -2,7 +2,9 @@ import { isMember, isNonempty, CompatRange, JsonSchema, SemVer } from "../core";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
+    canonicalOrder,
     compareText,
+    dataRecord,
     requireArray,
     requireDataObject,
     requireExactFields,
@@ -77,7 +79,7 @@ export interface FacetManifestInit {
     readonly compat: CompatRange;
     readonly isolation: readonly [IsolationMode, ...IsolationMode[]];
     readonly bindings: readonly BindingRequirement[];
-    readonly configSchema?: JsonSchema;
+    readonly configSchema?: JsonSchema | undefined;
     readonly contributions: Contributions;
 }
 
@@ -139,7 +141,7 @@ export class FacetManifest {
                 BindingRequirement.fromData
             ),
             contributions: Contributions.fromMap(requireContributionMap(object["contributions"])),
-            ...(decodedConfigSchema === undefined ? {} : { configSchema: decodedConfigSchema })
+            configSchema: decodedConfigSchema
         });
     }
 
@@ -152,15 +154,15 @@ export class FacetManifest {
     }
 
     public toData(): FacetData {
-        return {
+        return dataRecord({
             bindings: this.bindings.map((binding) => binding.toData()),
             compat: { host: this.compat.host, spec: this.compat.spec },
             contributions: this.contributions.toData(),
             id: this.id.value,
             isolation: this.isolation,
             version: this.version.toString(),
-            ...(this.configSchema === undefined ? {} : { configSchema: this.configSchema.document })
-        };
+            configSchema: this.configSchema?.document
+        });
     }
 }
 
@@ -186,14 +188,7 @@ const facetManifestCodec = new DataRecordCodec(
 export function canonicalIsolationModes(
     modes: readonly [IsolationMode, ...IsolationMode[]]
 ): readonly [IsolationMode, ...IsolationMode[]] {
-    if (modes.length === 0 || modes.some((mode) => !PLACEMENT_PREFERENCE.includes(mode))) {
-        throw new TypeError("Manifest isolation modes must contain known values");
-    }
-    if (new Set(modes).size !== modes.length) {
-        throw new TypeError("Manifest isolation modes must be unique");
-    }
-    const ordered = PLACEMENT_PREFERENCE.filter((mode) => modes.includes(mode));
-    return Object.freeze(ordered) as unknown as readonly [IsolationMode, ...IsolationMode[]];
+    return canonicalOrder(modes, PLACEMENT_PREFERENCE, "Manifest isolation modes");
 }
 
 function requireIsolationMode(value: FacetData): IsolationMode {

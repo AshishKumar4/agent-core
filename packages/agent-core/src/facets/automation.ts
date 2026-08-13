@@ -1,6 +1,7 @@
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
+    dataRecord,
     requireArray,
     requireDataObject,
     requireExactFields,
@@ -19,9 +20,9 @@ export interface AutomationInit {
     readonly source: EventPattern;
     readonly target: OperationRef;
     readonly binding: BindingName;
-    readonly mapping?: PayloadMapping;
-    readonly dedupe?: DedupePolicy;
-    readonly authority?: AutomationAuthority;
+    readonly mapping?: PayloadMapping | undefined;
+    readonly dedupe?: DedupePolicy | undefined;
+    readonly authority?: AutomationAuthority | undefined;
 }
 
 export class Automation {
@@ -64,9 +65,9 @@ export class Automation {
             source: EventPattern.fromData(object["source"]!),
             target: new OperationRef(requireString(object["target"], "Automation target")),
             binding: new BindingName(requireString(object["binding"], "Automation binding")),
-            ...(decodedMapping === undefined ? {} : { mapping: decodedMapping }),
-            ...(dedupe === undefined ? {} : { dedupe: requireDedupePolicy(dedupe) }),
-            ...(authority === undefined ? {} : { authority: requireAuthority(authority) })
+            mapping: decodedMapping,
+            dedupe: dedupe === undefined ? undefined : requireDedupePolicy(dedupe),
+            authority: authority === undefined ? undefined : requireAuthority(authority)
         });
     }
 
@@ -79,14 +80,14 @@ export class Automation {
     }
 
     public toData(): FacetData {
-        return {
+        return dataRecord({
             binding: this.binding.value,
             source: this.source.toData(),
             target: this.target.value,
-            ...(this.authority === undefined ? {} : { authority: this.authority }),
-            ...(this.dedupe === undefined ? {} : { dedupe: this.dedupe }),
-            ...(this.mapping === undefined ? {} : { mapping: this.mapping.toData() })
-        };
+            authority: this.authority,
+            dedupe: this.dedupe,
+            mapping: this.mapping?.toData()
+        });
     }
 }
 

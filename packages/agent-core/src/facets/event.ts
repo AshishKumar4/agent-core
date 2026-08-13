@@ -2,6 +2,8 @@ import { isNonempty, JsonSchema, SecretRef } from "../core";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
+    canonicalOrder,
+    dataRecord,
     requireArray,
     requireDataObject,
     requireExactFields,
@@ -62,11 +64,11 @@ export class EventPattern {
     }
 
     public toData(): FacetData {
-        return {
+        return dataRecord({
             acceptedTrust: this.acceptedTrust,
             kind: this.kind,
-            ...(this.source === undefined ? {} : { source: this.source })
-        };
+            source: this.source
+        });
     }
 }
 
@@ -224,14 +226,7 @@ const ingressDeclarationCodec = new DataRecordCodec(
 export function canonicalTrustTiers(
     values: readonly [TrustTier, ...TrustTier[]]
 ): readonly [TrustTier, ...TrustTier[]] {
-    if (values.length === 0 || values.some((value) => !trustOrder.includes(value))) {
-        throw new TypeError("Trust tiers must contain known values");
-    }
-    if (new Set(values).size !== values.length) {
-        throw new TypeError("Trust tiers must be unique");
-    }
-    const ordered = trustOrder.filter((value) => values.includes(value));
-    return Object.freeze(ordered) as unknown as readonly [TrustTier, ...TrustTier[]];
+    return canonicalOrder(values, trustOrder, "Trust tiers");
 }
 
 function requireTrustTier(value: FacetData): TrustTier {

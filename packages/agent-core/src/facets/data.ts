@@ -4,8 +4,10 @@ import {
     encodeCanonicalJson,
     isJsonObject,
     isJsonValue,
+    requireNonempty,
     type JsonSchemaDocument,
     type JsonValue,
+    type Nonempty,
     type RecordVersion
 } from "../core";
 
@@ -136,6 +138,25 @@ export function requireArray(value: FacetData | undefined, subject: string): rea
         throw new TypeError(`${subject} must be an array`);
     }
     return value;
+}
+
+/**
+ * Restates a chosen set of vocabulary values in the vocabulary's own canonical order, so
+ * that two declarations naming the same values encode identically. Unknown, repeated, and
+ * empty selections are rejected here rather than reaching a comparison downstream.
+ */
+export function canonicalOrder<Value extends string>(
+    values: readonly Value[],
+    order: readonly Value[],
+    subject: string
+): Nonempty<Value> {
+    if (values.length === 0 || values.some((value) => !order.includes(value))) {
+        throw new TypeError(`${subject} must contain known values`);
+    }
+    if (new Set(values).size !== values.length) {
+        throw new TypeError(`${subject} must be unique`);
+    }
+    return requireNonempty(Object.freeze(order.filter((value) => values.includes(value))), subject);
 }
 
 export function compareText(left: string, right: string): number {
