@@ -10,7 +10,13 @@ import {
     type EnvironmentSessionCapability
 } from "../../environments";
 import { Contributions, type OperationDescriptor } from "../contribution";
-import { requireArray, requireDataObject, requireSafeInteger, requireString } from "../data";
+import {
+    dataRecord,
+    requireArray,
+    requireDataObject,
+    requireSafeInteger,
+    requireString
+} from "../data";
 import type { FacetManifest } from "../manifest";
 import {
     DetailedProfileError,
@@ -318,23 +324,23 @@ export const ENVIRONMENT_CONTROL_CONTRACTS = Object.freeze({
         strictObjectSchema({ environment: idProperty, restoreFrom: idProperty }, ["environment"]),
         sessionSchema,
         profileWireCodec(
-            (input) => ({
-                environment: input.environment,
-                ...(input.restoreFrom === undefined ? {} : { restoreFrom: input.restoreFrom })
-            }),
+            (input) =>
+                dataRecord({
+                    environment: input.environment,
+                    restoreFrom: input.restoreFrom
+                }),
             (data) => {
                 const object = requireDataObject(data, "Environment open input");
-                return {
-                    environment: requireString(object["environment"], "Environment ID"),
-                    ...(object["restoreFrom"] === undefined
-                        ? {}
-                        : {
-                              restoreFrom: requireString(
-                                  object["restoreFrom"],
-                                  "Environment snapshot ID"
-                              )
-                          })
+                const restoreFrom = object["restoreFrom"];
+                const input: EnvironmentOpenInput = {
+                    environment: requireString(object["environment"], "Environment ID")
                 };
+                return restoreFrom === undefined
+                    ? input
+                    : {
+                          ...input,
+                          restoreFrom: requireString(restoreFrom, "Environment snapshot ID")
+                      };
             }
         ),
         sessionBindingCodec

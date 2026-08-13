@@ -135,14 +135,8 @@
     },
     {
       "file": "packages/agent-core/src/agents/runs/commit.ts",
-      "kind": "assertion",
-      "count": 7,
-      "reason": "A ratified W2 or W5 outcome artifact pins this file by blob hash, so editing it would claim a reviewer approved content they never saw. The vocabulary and field narrowing that removes these assertions is written and verified elsewhere in this change; it lands when the resolution is re-ratified."
-    },
-    {
-      "file": "packages/agent-core/src/agents/runs/commit.ts",
       "kind": "non-null",
-      "count": 11,
+      "count": 9,
       "reason": "A ratified W2 or W5 outcome artifact pins this file by blob hash. The field assertions its decoder no longer needs stay until the resolution is re-ratified."
     },
     {
@@ -150,30 +144,12 @@
       "kind": "unknown",
       "count": 1,
       "reason": "Run execution is generic over the host transaction and the values a Turn returns."
-    },
-    {
-      "file": "packages/agent-core/src/agents/runs/lease.ts",
-      "kind": "assertion",
-      "count": 3,
-      "reason": "A ratified W2 or W5 outcome artifact pins this file by blob hash, so editing it would claim a reviewer approved content they never saw. The vocabulary and field narrowing that removes these assertions is written and verified elsewhere in this change; it lands when the resolution is re-ratified."
-    },
-    {
-      "file": "packages/agent-core/src/agents/runs/lease.ts",
-      "kind": "non-null",
-      "count": 1,
-      "reason": "A ratified W2 or W5 outcome artifact pins this file by blob hash. The field assertions its decoder no longer needs stay until the resolution is re-ratified."
     },
     {
       "file": "packages/agent-core/src/agents/runs/memory.ts",
       "kind": "unknown",
       "count": 1,
       "reason": "Run execution is generic over the host transaction and the values a Turn returns."
-    },
-    {
-      "file": "packages/agent-core/src/agents/runs/outcome.ts",
-      "kind": "assertion",
-      "count": 2,
-      "reason": "A ratified W2 or W5 outcome artifact pins this file by blob hash, so editing it would claim a reviewer approved content they never saw. The vocabulary and field narrowing that removes these assertions is written and verified elsewhere in this change; it lands when the resolution is re-ratified."
     },
     {
       "file": "packages/agent-core/src/agents/runs/run.ts",
@@ -192,12 +168,6 @@
       "kind": "non-null",
       "count": 1,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
-    },
-    {
-      "file": "packages/agent-core/src/agents/source.ts",
-      "kind": "assertion",
-      "count": 2,
-      "reason": "Run and Turn records decode into closed commit-kind and outcome vocabularies, and the base record spread reaches a JSON object the codec already produced."
     },
     {
       "file": "packages/agent-core/src/authority/epoch.ts",
@@ -512,39 +482,9 @@
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
-      "file": "packages/agent-core/src/facets/capability.ts",
-      "kind": "assertion",
-      "count": 5,
-      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
-    },
-    {
-      "file": "packages/agent-core/src/facets/capability.ts",
-      "kind": "unknown",
-      "count": 1,
-      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
-    },
-    {
-      "file": "packages/agent-core/src/facets/command.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
-    },
-    {
-      "file": "packages/agent-core/src/facets/contribution.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
-    },
-    {
-      "file": "packages/agent-core/src/facets/data.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
-    },
-    {
       "file": "packages/agent-core/src/facets/device/facet.ts",
       "kind": "assertion",
-      "count": 2,
+      "count": 1,
       "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
     },
     {
@@ -567,27 +507,9 @@
     },
     {
       "file": "packages/agent-core/src/facets/event.ts",
-      "kind": "assertion",
-      "count": 3,
-      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
-    },
-    {
-      "file": "packages/agent-core/src/facets/event.ts",
       "kind": "non-null",
       "count": 2,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
-    },
-    {
-      "file": "packages/agent-core/src/facets/event.ts",
-      "kind": "unknown",
-      "count": 1,
-      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
-    },
-    {
-      "file": "packages/agent-core/src/facets/filesystem/facet.ts",
-      "kind": "assertion",
-      "count": 3,
-      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
     },
     {
       "file": "packages/agent-core/src/facets/filesystem/facet.ts",
@@ -603,33 +525,15 @@
     },
     {
       "file": "packages/agent-core/src/facets/manifest.ts",
-      "kind": "assertion",
-      "count": 3,
-      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
-    },
-    {
-      "file": "packages/agent-core/src/facets/manifest.ts",
       "kind": "non-null",
       "count": 2,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
-    },
-    {
-      "file": "packages/agent-core/src/facets/manifest.ts",
-      "kind": "unknown",
-      "count": 1,
-      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
     },
     {
       "file": "packages/agent-core/src/facets/mapping.ts",
       "kind": "non-null",
       "count": 2,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
-    },
-    {
-      "file": "packages/agent-core/src/facets/mcp/facet.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "A discovery document that requireDiscoveryDocument has asserted is still an ObjectRecord to the compiler, because the assertion narrows the reference and not the property reads inside it."
     },
     {
       "file": "packages/agent-core/src/facets/memory/facet.ts",
@@ -644,12 +548,6 @@
       "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
     },
     {
-      "file": "packages/agent-core/src/facets/profile-runtime/facet.ts",
-      "kind": "unknown",
-      "count": 3,
-      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
-    },
-    {
       "file": "packages/agent-core/src/facets/profile-runtime/runtime.ts",
       "kind": "assertion",
       "count": 2,
@@ -660,27 +558,9 @@
       "kind": "unknown",
       "count": 2,
       "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
-    },
-    {
-      "file": "packages/agent-core/src/facets/profile-runtime/wire.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "The profile runtime is generic over each Operation's input, output, and receipt, and a conditional return type cannot be proven from inside the branch that produces it."
     },
     {
       "file": "packages/agent-core/src/facets/runtime.ts",
-      "kind": "unknown",
-      "count": 1,
-      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
-    },
-    {
-      "file": "packages/agent-core/src/facets/self/facet.ts",
-      "kind": "assertion",
-      "count": 3,
-      "reason": "A computed key widens to an index signature, so the decoded single-field input cannot be spelled as the Input the contract carries; the property name itself is now bound to keyof Input, which is what the assertion used to be hiding."
-    },
-    {
-      "file": "packages/agent-core/src/facets/self/facet.ts",
       "kind": "unknown",
       "count": 1,
       "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
@@ -705,12 +585,6 @@
     },
     {
       "file": "packages/agent-core/src/facets/slot.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
-    },
-    {
-      "file": "packages/agent-core/src/facets/slot.ts",
       "kind": "non-null",
       "count": 1,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
@@ -720,12 +594,6 @@
       "kind": "non-null",
       "count": 5,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
-    },
-    {
-      "file": "packages/agent-core/src/facets/web/facet.ts",
-      "kind": "assertion",
-      "count": 2,
-      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
     },
     {
       "file": "packages/agent-core/src/facets/web/facet.ts",

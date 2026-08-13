@@ -1,3 +1,4 @@
+import type { FacetData } from "../data";
 import { OperationDescriptor, SurfaceDescriptor } from "../contribution";
 import type { FacetManifest } from "../manifest";
 import { OperationName, SlotName, SurfaceId, type InterceptorId } from "../id";
@@ -150,11 +151,11 @@ function uniqueMap<Value>(
 }
 
 function requireExactDeclarations(
-    declared: readonly { toData(): unknown }[],
-    implemented: readonly { toData(): unknown }[],
+    declared: readonly { toData(): FacetData }[],
+    implemented: readonly { toData(): FacetData }[],
     subject: string
 ): void {
-    const data = (values: readonly { toData(): unknown }[]) =>
+    const data = (values: readonly { toData(): FacetData }[]) =>
         values.map((value) => JSON.stringify(value.toData())).sort();
     if (JSON.stringify(data(declared)) !== JSON.stringify(data(implemented))) {
         throw invalidRuntime(`Internal profile ${subject} declarations do not match its runtime`);

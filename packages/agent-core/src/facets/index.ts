@@ -1,5 +1,14 @@
 export type { FacetData, FacetDataMap } from "./data";
-export { canonicalFacetData, canonicalFacetDataMap, isFacetData, isFacetDataMap } from "./data";
+export {
+    canonicalFacetData,
+    canonicalFacetDataMap,
+    isFacetData,
+    isFacetDataMap,
+    isNumber,
+    isString,
+    requireDataObject,
+    requireString
+} from "./data";
 export {
     AuthoredCodeBackingId,
     BindingName,

@@ -1,4 +1,9 @@
-import { encodeCanonicalJson, type JsonSchemaDocument, type JsonValue } from "../core";
+import {
+    encodeCanonicalJson,
+    isJsonObject,
+    type JsonSchemaDocument,
+    type JsonValue
+} from "../core";
 import { AgentCoreError } from "../errors";
 import {
     Automation,
@@ -7,6 +12,8 @@ import {
     FieldMove,
     PayloadMapping,
     canonicalFacetData,
+    isNumber,
+    isString,
     type FacetData,
     type FacetPackageId,
     type FacetRef,
@@ -257,7 +264,7 @@ function schemaAtPointer(
 ): JsonSchemaDocument | undefined {
     let current: JsonSchemaDocument | undefined = document;
     for (const segment of pointerSegments(pointer)) {
-        if (current === undefined || typeof current === "boolean") return undefined;
+        if (current === undefined || current === true || current === false) return undefined;
         const properties = schemaMap(current["properties"]);
         if (properties !== undefined && Object.hasOwn(properties, segment)) {
             current = schemaDocument(properties[segment]);
@@ -290,12 +297,12 @@ function requiredTargetsCovered(
     document: JsonSchemaDocument,
     destinations: ReadonlySet<string>
 ): boolean {
-    if (destinations.has("") || typeof document === "boolean") return document !== false;
+    if (destinations.has("") || document === true || document === false) return document !== false;
     const required = document["required"];
     if (!Array.isArray(required)) return true;
     return required.every(
         (property) =>
-            typeof property === "string" &&
+            isString(property) &&
             [...destinations].some((pointer) => {
                 const requiredPointer = `/${escapePointer(property)}`;
                 return pointer === requiredPointer || pointer.startsWith(`${requiredPointer}/`);
@@ -330,7 +337,7 @@ function schemaAccepts(schema: JsonSchemaDocument, value: JsonValue): boolean {
         return false;
     }
     const type = schema["type"];
-    if (typeof type === "string" && !valueHasType(value, type)) return false;
+    if (isString(type) && !valueHasType(value, type)) return false;
     return true;
 }
 
@@ -339,36 +346,28 @@ function valueHasType(value: JsonValue, type: string): boolean {
         case "array":
             return Array.isArray(value);
         case "boolean":
-            return typeof value === "boolean";
+            return value === true || value === false;
         case "integer":
-            return typeof value === "number" && Number.isInteger(value);
+            return Number.isInteger(value);
         case "null":
             return value === null;
         case "number":
-            return typeof value === "number";
+            return isNumber(value);
         case "object":
-            return value !== null && typeof value === "object" && !Array.isArray(value);
+            return isJsonObject(value);
         case "string":
-            return typeof value === "string";
+            return isString(value);
         default:
             return false;
     }
 }
 
 function schemaDocument(value: JsonValue | undefined): JsonSchemaDocument | undefined {
-    return typeof value === "boolean" || isJsonObject(value) ? value : undefined;
+    return value === true || value === false || isJsonObject(value) ? value : undefined;
 }
 
 function schemaMap(value: JsonValue | undefined): Readonly<Record<string, JsonValue>> | undefined {
     return isJsonObject(value) ? value : undefined;
-}
-
-function isJsonObject(
-    value: JsonValue | undefined
-): value is { readonly [key: string]: JsonValue } {
-    return (
-        value !== undefined && value !== null && !Array.isArray(value) && typeof value === "object"
-    );
 }
 
 function facetScope(contributor: FacetRef): string {
@@ -423,7 +422,7 @@ function readPointer(value: FacetData, pointer: string): FacetData {
         if (Array.isArray(current)) {
             const index = arrayIndex(segment, current.length);
             current = current[index];
-        } else if (isObject(current) && Object.hasOwn(current, segment)) {
+        } else if (isJsonObject(current) && Object.hasOwn(current, segment)) {
             current = current[segment]!;
         } else {
             throw new AgentCoreError(
@@ -442,7 +441,7 @@ function writePointer(target: FacetData, pointer: string, value: FacetData): Fac
     let current: FacetData = root;
     for (const [index, segment] of segments.entries()) {
         const last = index === segments.length - 1;
-        if (!isObject(current)) {
+        if (!isJsonObject(current)) {
             throw new AgentCoreError(
                 "operation.invalid-input",
                 `Command mapping target ${pointer} is invalid`
@@ -496,15 +495,11 @@ function arrayIndex(value: string, length: number): number {
 
 function mutableCopy(value: FacetData): FacetData {
     if (Array.isArray(value)) return value.map(mutableCopy);
-    if (isObject(value))
+    if (isJsonObject(value))
         return Object.fromEntries(
             Object.entries(value).map(([key, child]) => [key, mutableCopy(child)])
         );
     return value;
-}
-
-function isObject(value: FacetData): value is { readonly [key: string]: FacetData } {
-    return value !== null && !Array.isArray(value) && typeof value === "object";
 }
 
 function defineDataProperty(

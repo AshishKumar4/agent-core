@@ -5,7 +5,13 @@ import {
     OperationDescriptor,
     SurfaceDescriptor
 } from "../contribution";
-import { requireDataObject, requireSafeInteger, requireString } from "../data";
+import {
+    dataRecord,
+    requireDataObject,
+    requireSafeInteger,
+    requireString,
+    type FacetDataMap
+} from "../data";
 import type { EnvironmentFacet, EnvironmentPreviewInput } from "../environment";
 import { OperationName, SlotName, SurfaceId } from "../id";
 import type { FacetManifest } from "../manifest";
@@ -79,7 +85,7 @@ function operation<Name extends string, Input extends PublicProfileInput>(
             schema({ type: "object" })
         ),
         inputCodec,
-        facetDataWireCodec<JsonValue>(),
+        facetDataWireCodec(),
         "output"
     );
 }
@@ -97,20 +103,20 @@ export const SLATE_OPERATION_CONTRACTS = Object.freeze({
             ["slateId", "source"]
         ),
         profileWireCodec(
-            (input) => ({
-                slateId: input.slate,
-                source: input.source,
-                ...(input.expectedRevision === undefined
-                    ? {}
-                    : { expectedRevision: input.expectedRevision })
-            }),
+            (input) =>
+                dataRecord({
+                    slateId: input.slate,
+                    source: input.source,
+                    expectedRevision: input.expectedRevision
+                }),
             (data) => {
-                const input = requireDataObject(data, "Slate update input");
-                return {
-                    slate: requireString(input["slateId"], "Slate ID"),
-                    source: requireString(input["source"], "Slate source"),
-                    ...decodeExpectedRevision(input)
+                const object = requireDataObject(data, "Slate update input");
+                const expectedRevision = decodeExpectedRevision(object);
+                const input: SlateUpdateInput = {
+                    slate: requireString(object["slateId"], "Slate ID"),
+                    source: requireString(object["source"], "Slate source")
                 };
+                return expectedRevision === undefined ? input : { ...input, expectedRevision };
             }
         )
     ),
@@ -125,18 +131,15 @@ export const SLATE_OPERATION_CONTRACTS = Object.freeze({
             ["slateId"]
         ),
         profileWireCodec(
-            (input) => ({
-                slateId: input.slate,
-                ...(input.expectedRevision === undefined
-                    ? {}
-                    : { expectedRevision: input.expectedRevision })
-            }),
+            (input) =>
+                dataRecord({ slateId: input.slate, expectedRevision: input.expectedRevision }),
             (data) => {
-                const input = requireDataObject(data, "Slate commit input");
-                return {
-                    slate: requireString(input["slateId"], "Slate ID"),
-                    ...decodeExpectedRevision(input)
+                const object = requireDataObject(data, "Slate commit input");
+                const expectedRevision = decodeExpectedRevision(object);
+                const input: SlateCommitInput = {
+                    slate: requireString(object["slateId"], "Slate ID")
                 };
+                return expectedRevision === undefined ? input : { ...input, expectedRevision };
             }
         )
     ),
@@ -227,28 +230,28 @@ export const SLATE_OPERATION_CONTRACTS = Object.freeze({
             ["slateId", "deploymentId"]
         ),
         profileWireCodec(
-            (input) => ({
-                slateId: input.slate,
-                deploymentId: input.deployment,
-                ...(input.expectedActiveDeployment === undefined
-                    ? {}
-                    : { expectedActiveDeploymentId: input.expectedActiveDeployment })
-            }),
+            (input) =>
+                dataRecord({
+                    slateId: input.slate,
+                    deploymentId: input.deployment,
+                    expectedActiveDeploymentId: input.expectedActiveDeployment
+                }),
             (data) => {
-                const input = requireDataObject(data, "Slate rollback input");
-                const expected = input["expectedActiveDeploymentId"];
-                return {
-                    slate: requireString(input["slateId"], "Slate ID"),
-                    deployment: requireString(input["deploymentId"], "Slate deployment ID"),
-                    ...(expected === undefined
-                        ? {}
-                        : {
-                              expectedActiveDeployment: requireString(
-                                  expected,
-                                  "Expected active Slate deployment ID"
-                              )
-                          })
+                const object = requireDataObject(data, "Slate rollback input");
+                const expected = object["expectedActiveDeploymentId"];
+                const input: SlateRollbackInput = {
+                    slate: requireString(object["slateId"], "Slate ID"),
+                    deployment: requireString(object["deploymentId"], "Slate deployment ID")
                 };
+                return expected === undefined
+                    ? input
+                    : {
+                          ...input,
+                          expectedActiveDeployment: requireString(
+                              expected,
+                              "Expected active Slate deployment ID"
+                          )
+                      };
             }
         )
     )
@@ -362,12 +365,10 @@ export class SlateFacet<Receipt> {
     }
 }
 
-function decodeExpectedRevision(input: ReturnType<typeof requireDataObject>): {
-    readonly expectedRevision?: number;
-} {
+function decodeExpectedRevision(input: FacetDataMap): number | undefined {
     const expected = input["expectedRevision"];
-    if (expected === undefined) return {};
+    if (expected === undefined) return undefined;
     const revision = requireSafeInteger(expected, "Expected Slate revision");
     if (revision < 0) throw new TypeError("Expected Slate revision must not be negative");
-    return { expectedRevision: revision };
+    return revision;
 }
