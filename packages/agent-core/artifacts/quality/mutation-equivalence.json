@@ -1876,6 +1876,62 @@
       "replacement": "false",
       "mutated": "records.size === 0",
       "proof": "Skipping this delete leaves an empty inner map under the kind instead of removing the kind, and nothing this class exposes can tell the two apart. findRecord and listRecords read through the inner map and answer undefined and an empty array either way; insertRecord goes through nested, which reuses an existing map and creates one otherwise; snapshot flattens the values, and an empty map contributes no entries; clone and the actor state hook are built from that same snapshot. The line only releases memory, so no observation distinguishes the mutant."
+    },
+    {
+      "file": "src/protocol/facet-commands.ts",
+      "symbol": "FacetSlotInstallCommand.currentLease",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ return undefined; }",
+      "proof": "The whole body is `return undefined;`, and a function that runs off the end of an empty body returns undefined as well, so the mutant and the original hand the dispatcher the identical value on every call. Slot installation takes no Turn lease; the method exists because ProtocolCommand declares it and every command must answer, which is exactly why the answer is a constant. No caller can observe the difference between returning undefined and completing without a return statement."
+    },
+    {
+      "file": "src/protocol/facet-commands.ts",
+      "symbol": "FacetSlotContributeCommand.currentLease",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ return undefined; }",
+      "proof": "Contribution declares no lease of its own: the body is a single `return undefined;`, and emptying it leaves a function whose completion value is undefined too. The dispatcher reads the result and finds undefined either way, so no lease is bound, no expiry is compared, and no decision downstream can differ. The method is written out rather than omitted because the ProtocolCommand interface requires every command to answer the lease question."
+    },
+    {
+      "file": "src/protocol/materialization-commands.ts",
+      "symbol": "MaterializationApplyLocalCommand.currentLease",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ return undefined; }",
+      "proof": "Local materialization holds no Turn lease, so its implementation of the interface method is one `return undefined;` statement. An empty body completes with undefined, which is the same value the statement produces, and the dispatcher's lease handling therefore takes the same path for every envelope. Nothing else in the body could be removed, because there is nothing else in it."
+    },
+    {
+      "file": "src/protocol/bootstrap.ts",
+      "symbol": "TenantBootstrapCommand.currentLease",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ return undefined; }",
+      "proof": "Tenant bootstrap runs without a Turn lease, and the method says so with a single `return undefined;`. Deleting that statement leaves a body that completes normally, and a normal completion evaluates to undefined, so the dispatcher receives the identical answer for every bootstrap envelope. The method cannot be omitted, since ProtocolCommand requires it, and it cannot return anything else, so nothing about it is observable."
+    },
+    {
+      "file": "src/protocol/dispatcher.ts",
+      "symbol": "CommandDispatcher.decode",
+      "mutator": "BlockStatement",
+      "replacement": "{}",
+      "mutated": "{ return undefined; }",
+      "proof": "This is the catch block of the envelope decode, and its only statement returns undefined. Emptying it leaves the catch swallowing the same error and control falling off the end of the method, which returns undefined as well; there is no code after the try statement that the mutant could reach instead. Every caller of decode therefore sees undefined for exactly the same malformed envelopes, and the raw bytes are recorded as rejectedMalformed on the same path."
+    },
+    {
+      "file": "src/protocol/dispatcher.ts",
+      "symbol": "CommandDispatcher.admitInTransaction",
+      "mutator": "ObjectLiteral",
+      "replacement": "{}",
+      "mutated": "{ kind: \"prepare\" }",
+      "proof": "This value is returned to admit, which tests only `result.kind === \"completed\"` and, on the other side of that test, builds its own prepare admission from scratch without reading anything off the result. An object with no kind at all fails that comparison exactly as the kind \"prepare\" does, so both spellings send admit down the same branch and produce the same CommandAdmission. The literal is written because the AdmissionTransactionResult union needs a discriminant the compiler can narrow on."
+    },
+    {
+      "file": "src/protocol/dispatcher.ts",
+      "symbol": "CommandDispatcher.admitInTransaction",
+      "mutator": "StringLiteral",
+      "replacement": "\"\"",
+      "mutated": "\"prepare\"",
+      "proof": "The only reader of this discriminant is admit, and it asks whether the kind equals \"completed\" before discarding the result and constructing its own prepare admission. The empty string fails that comparison just as \"prepare\" does, so the mutant cannot change which branch runs or what the caller receives. No test can pin the text either, because the object it names never leaves the private method that produced it."
     }
   ]
 }
