@@ -27,9 +27,11 @@ import {
     cloneInvocationMemoryState,
     createInvocationMemoryState,
     type InvocationMemoryState,
-    type InvocationTransactionPort
+    type InvocationTransactionPort,
+    type PreparedInvocationHeaderInit
 } from "../../src/invocations";
 import { OperationRequestKey, type MediatedInvocationRequest } from "../../src/operations";
+import type { Assembled } from "./fixture";
 import { TurnId } from "../../src/execution-references";
 import {
     CanonicalMediationPreparation,
@@ -524,23 +526,31 @@ describe("the ledger's preparation gate", () => {
     }): MediationPreparedInvocation {
         const record = locallyPrepared();
         const lease = "lease" in header ? header.lease : record.header.lease;
+        const headerInit: Assembled<
+            PreparedInvocationHeaderInit<
+                MediationLeaseReference,
+                MediationAuthorityReference,
+                MediationDomainReference,
+                MediationPathEpochReference
+            >
+        > = {
+            id: record.header.id,
+            operation: record.header.operation,
+            domain: record.header.domain,
+            actor: record.header.actor,
+            authority: record.header.authority,
+            pathEpochs: record.header.pathEpochs,
+            auditCause: header.auditCause ?? record.header.auditCause,
+            idempotencySeed: header.idempotencySeed ?? record.header.idempotencySeed
+        };
+        if (lease !== undefined) headerInit.lease = lease;
         return PreparedInvocation.create<
             MediationLeaseReference,
             MediationAuthorityReference,
             MediationDomainReference,
             MediationPathEpochReference
         >(
-            {
-                id: record.header.id,
-                operation: record.header.operation,
-                domain: record.header.domain,
-                actor: record.header.actor,
-                authority: record.header.authority,
-                pathEpochs: record.header.pathEpochs,
-                ...(lease === undefined ? {} : { lease }),
-                auditCause: header.auditCause ?? record.header.auditCause,
-                idempotencySeed: header.idempotencySeed ?? record.header.idempotencySeed
-            },
+            headerInit,
             { kind: "single", item: { query: "parking" } },
             mediationPreparedCodecs
         );

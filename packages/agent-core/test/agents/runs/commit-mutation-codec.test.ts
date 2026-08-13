@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { SemVer } from "../../../src/core";
+import { SemVer, type JsonValue } from "../../../src/core";
+import { requireArray } from "../../../src/agents/record-data";
 import { RunCommitId } from "../../../src/execution-references";
 import { ReceiptId } from "../../../src/invocations";
 import {
@@ -8,7 +9,17 @@ import {
     type RunCommitInit
 } from "../../../src/agents/runs/commit";
 import { BlueprintPin, RunPins } from "../../../src/agents/runs/pins";
-import { content, digest, ids, pins, refs } from "./fixture";
+import {
+    content,
+    digest,
+    ids,
+    mutableData,
+    objectAt,
+    pins,
+    refs,
+    thrownBy,
+    type MutableRecordData
+} from "./fixture";
 
 const source = new RunCommitId("merge-source");
 
@@ -16,40 +27,33 @@ const source = new RunCommitId("merge-source");
 // ArrayDeclaration mutant would admit is this exact literal.
 const alien = "Stryker was here";
 
-function expectTypeError(label: string, operation: () => unknown, message: string): void {
-    let caught: unknown;
-    try {
-        operation();
-    } catch (error) {
-        caught = error;
-    }
-    expect(caught, label).toBeInstanceOf(TypeError);
-    expect((caught as TypeError).message, label).toBe(message);
+function expectTypeError(label: string, operation: () => void, message: string): void {
+    expect(thrownBy(TypeError, operation, label).message, label).toBe(message);
 }
 
 function decodeMutated(
     base: RunCommit,
-    update: (data: Record<string, unknown>) => void
+    update: (data: MutableRecordData) => void
 ): () => RunCommit {
-    const data = structuredClone(base.toData()) as Record<string, unknown>;
+    const data = mutableData(base.toData());
     update(data);
-    return () => RunCommit.fromData(data as never);
+    return () => RunCommit.fromData(data);
 }
 
-function writerOf(data: Record<string, unknown>): Record<string, unknown> {
-    return data["writer"] as Record<string, unknown>;
+function writerOf(data: MutableRecordData): MutableRecordData {
+    return objectAt(data["writer"], "writer");
 }
 
-function causeOf(data: Record<string, unknown>): Record<string, unknown> {
-    return writerOf(data)["cause"] as Record<string, unknown>;
+function causeOf(data: MutableRecordData): MutableRecordData {
+    return objectAt(writerOf(data)["cause"], "writer cause");
 }
 
-function resolutionOf(data: Record<string, unknown>): Record<string, unknown> {
-    return data["resolution"] as Record<string, unknown>;
+function resolutionOf(data: MutableRecordData): MutableRecordData {
+    return objectAt(data["resolution"], "resolution");
 }
 
-function treeOf(data: Record<string, unknown>): Record<string, unknown> {
-    return data["treeResolution"] as Record<string, unknown>;
+function treeOf(data: MutableRecordData): MutableRecordData {
+    return objectAt(data["treeResolution"], "tree resolution");
 }
 
 function turnWriter(): CommitWriter {
@@ -241,7 +245,7 @@ describe("Run commit decode guards", () => {
         const cases: ReadonlyArray<{
             readonly label: string;
             readonly base: RunCommit;
-            readonly update: (data: Record<string, unknown>) => void;
+            readonly update: (data: MutableRecordData) => void;
             readonly subject: string;
         }> = [
             {
@@ -336,7 +340,11 @@ describe("Run commit decode guards", () => {
                 label: "path resolution",
                 base: mergePerPath("alien-path-entry"),
                 update: (data) => {
-                    (treeOf(data)["resolutions"] as [Record<string, unknown>])[0][alien] = true;
+                    const resolutions = requireArray(
+                        treeOf(data)["resolutions"],
+                        "Tree resolutions"
+                    );
+                    objectAt(resolutions[0], "path resolution")[alien] = true;
                 },
                 subject: "Path resolution"
             },
@@ -344,7 +352,7 @@ describe("Run commit decode guards", () => {
                 label: "migration",
                 base: migrationCommit("alien-migration"),
                 update: (data) => {
-                    (data["migration"] as Record<string, unknown>)[alien] = true;
+                    objectAt(data["migration"], "migration")[alien] = true;
                 },
                 subject: "Run migration"
             }
@@ -362,7 +370,7 @@ describe("Run commit decode guards", () => {
         const cases: ReadonlyArray<{
             readonly label: string;
             readonly base: RunCommit;
-            readonly update: (data: Record<string, unknown>) => void;
+            readonly update: (data: MutableRecordData) => void;
             readonly message: string;
         }> = [
             {
@@ -509,10 +517,13 @@ describe("Run commit decode guards", () => {
                 : decodedMigration.migration.from.equals(pins())
         ).toBe(true);
 
-        const explicitData = structuredClone(
+        const explicitData: { [field: string]: JsonValue | undefined } = mutableData(
             turnAuthored("migration-explicitly-undefined", "message").toData()
-        ) as Record<string, unknown>;
+        );
         explicitData["migration"] = undefined;
+        // SAFETY: an object carrying an explicitly-undefined key is not a JsonValue at all —
+        // JSON has no such value. Only a payload that never came from a JSON parser can prove
+        // the decoder treats a present-but-undefined optional field as absent.
         expect(RunCommit.fromData(explicitData as never).migration).toBeUndefined();
 
         const decodedMerge = RunCommit.fromData(mergePerPath("per-path-round-trip").toData());

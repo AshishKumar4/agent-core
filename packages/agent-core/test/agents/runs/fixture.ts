@@ -1,5 +1,12 @@
 import { ActorId, ActorRef } from "../../../src/actors";
-import { ContentRef, Digest, Revision, SemVer } from "../../../src/core";
+import {
+    ContentRef,
+    Digest,
+    isJsonObject,
+    Revision,
+    SemVer,
+    type JsonValue
+} from "../../../src/core";
 import { PackageId, PackagePin } from "../../../src/definition";
 import { PrincipalId, PrincipalRef, TenantId } from "../../../src/identity";
 import { AgentId, AgentPolicyId, AgentProfileId, ModelPolicyId } from "../../../src/agents/id";
@@ -327,3 +334,105 @@ export const refs = Object.freeze({
     receipt: new ReceiptId("receipt-1"),
     route: new RouteReservationId("route-1")
 });
+
+/**
+ * Runs an operation that must fail and hands back the failure as the named error class,
+ * so a test reads `code` and `message` off a real error instead of asserting one into
+ * existence. A success, or a failure of another class, fails here rather than at the
+ * caller's field comparison.
+ */
+export function thrownBy<Failure extends Error>(
+    kind: abstract new (...parameters: never[]) => Failure,
+    operation: () => void,
+    label = "operation"
+): Failure {
+    try {
+        operation();
+    } catch (error) {
+        if (error instanceof kind) return error;
+        throw new TypeError(`${label}: expected ${kind.name}, caught ${String(error)}`, {
+            cause: error
+        });
+    }
+    throw new TypeError(`${label}: expected ${kind.name}, but the operation returned`);
+}
+
+/**
+ * A record's own fields, writable, so a test can assemble an init one field at a time and
+ * add an optional field only when it is present. Writing an absent field as `undefined` is
+ * not the same thing under `exactOptionalPropertyTypes`.
+ */
+export type Assembled<Fields> = { -readonly [Field in keyof Fields]: Fields[Field] };
+
+/** Turn fields a test overrides on the shared queued-Turn builders. */
+export type TurnOverrides = Assembled<Partial<TurnInit>>;
+
+/**
+ * Builds a Run commit record that RunCommit's own constructor would refuse: a root writer on
+ * a message commit, a commit kind that contradicts its writer cause, a missing own reference.
+ * Nothing produced here could have come from the class, which is exactly what lets a test
+ * reach the checks that run downstream of the constructor and confirm they re-derive the
+ * invariant rather than trusting the record they are handed.
+ */
+export function forgedCommit(base: RunCommit, overrides: Partial<RunCommit>): RunCommit {
+    // SAFETY: the result is deliberately not a record the constructor would produce; that is
+    // the point of every caller. Nothing downstream may assume it satisfies RunCommit's own
+    // invariants — only the one the caller is about to assert on.
+    return { ...base, ...overrides } as RunCommit;
+}
+
+/**
+ * Overrides one field of stored port evidence with a value its interface does not admit — an
+ * administer record claiming to be a control, a cancellation naming another event kind. The
+ * port contracts pin these fields to single literals, so only a forged record can prove the
+ * runtime reads the field rather than trusting the map the evidence came from.
+ */
+export function forgedEvidence<Evidence, Field extends keyof Evidence>(
+    stored: Evidence,
+    field: Field,
+    value: string
+): Evidence {
+    // SAFETY: the value is deliberately outside the literal type the port pins to this field.
+    // That is what the caller is proving the runtime rejects; nothing else may read it.
+    return { ...stored, [field]: value } as Evidence;
+}
+
+/**
+ * Builds a Turn record carrying a lease its own constructor refuses: held with no expiration,
+ * unheld past epoch zero, or unheld yet expiring. A queued Turn cannot hold any of these, so
+ * only a forged record can prove the runtime re-checks the lease it is handed instead of
+ * trusting the Turn it arrives on.
+ */
+export function turnWithForgedLease(base: Turn, lease: ForgedLease): Turn {
+    // SAFETY: the lease is deliberately one TurnLease refuses to construct, so the result is
+    // not a Turn the constructor would produce. Only the lease check under test may read it.
+    return { ...base, lease } as never;
+}
+
+export interface ForgedLease {
+    readonly turn: TurnId;
+    readonly holder: PrincipalRef | undefined;
+    readonly epoch: number;
+    readonly expiresAt: Date | undefined;
+}
+
+/** The encoded form of a record, owned by the test that is about to corrupt it. */
+export type MutableRecordData = { [field: string]: JsonValue };
+
+/**
+ * Structured-clones a record's encoded form so a test may corrupt named fields in place
+ * and watch the decoder reject the result. The clone is owned by the caller, so writing
+ * through it cannot reach the record it was taken from.
+ */
+export function mutableData(value: JsonValue): MutableRecordData {
+    return objectAt(structuredClone(value), "record");
+}
+
+/** Reads a nested object on a corruption path, keeping the caller's write in place. */
+export function objectAt(value: JsonValue | undefined, field: string): MutableRecordData {
+    if (!isJsonObject(value)) {
+        throw new TypeError(`Corruption path field ${field} is not an object`);
+    }
+    return value;
+}
+

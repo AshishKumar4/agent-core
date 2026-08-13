@@ -21,7 +21,7 @@ import {
     type ForcedTurnCancellationInit
 } from "../../../src/agents/runs/forced-cancellation";
 import { SettlementObligation, TerminalSnapshot } from "../../../src/agents/runs/settlement";
-import { ids, settlementAuditKey } from "./fixture";
+import { ids, mutableData, settlementAuditKey, thrownBy, type MutableRecordData } from "./fixture";
 
 const invocation = new InvocationId("asm-invocation");
 const route = new RouteReservationId("asm-route");
@@ -35,20 +35,14 @@ const item: RunObligation = Object.freeze({
     itemKey: "asm-item"
 });
 
-function expectTypeError(label: string, operation: () => unknown, message: string): void {
-    try {
-        operation();
-        throw new Error(`Expected TypeError: ${label}`);
-    } catch (error) {
-        expect(error, label).toBeInstanceOf(TypeError);
-        expect((error as TypeError).message, label).toBe(message);
-    }
+function expectTypeError(label: string, operation: () => void, message: string): void {
+    expect(thrownBy(TypeError, operation, label).message, label).toBe(message);
 }
 
-function mutated(data: JsonValue, update: (object: Record<string, unknown>) => void): never {
-    const clone = structuredClone(data) as Record<string, unknown>;
+function mutated(data: JsonValue, update: (object: MutableRecordData) => void): MutableRecordData {
+    const clone = mutableData(data);
     update(clone);
-    return clone as never;
+    return clone;
 }
 
 describe("Run admission registry integrity", () => {
@@ -60,9 +54,13 @@ describe("Run admission registry integrity", () => {
             }
         };
 
+        // SAFETY: RunObligation declares `kind` as a plain literal field, so a throwing getter
+        // is unreachable through the type. It proves the registry lets a non-TypeError fault
+        // from reading the discriminant escape rather than reclassifying it as invalid input.
         expect(() =>
             registry.accepts({ run: ids.run, registryEpoch: 0, obligation: poisoned as never })
         ).toThrow(RangeError);
+        // SAFETY: as above, on the completion path.
         expect(() =>
             registry.complete({ run: ids.run, registryEpoch: 0, obligation: poisoned as never })
         ).toThrow(RangeError);
@@ -72,6 +70,9 @@ describe("Run admission registry integrity", () => {
         expectTypeError(
             "approval class",
             () =>
+                // SAFETY: the approval obligation types `approval` as ApprovalId. Only a
+                // foreign ID class reaches the exact-identity check that rejects a
+                // structurally identical identifier minted for another subject.
                 RunAdmissionRegistry.initial(ids.run).reserve({
                     kind: "approval",
                     approval: ids.run as never
@@ -83,6 +84,9 @@ describe("Run admission registry integrity", () => {
     test("rejects unknown obligation kinds in canonical copies", { tags: "p0" }, () => {
         expectTypeError(
             "unknown kind",
+            // SAFETY: RunObligation is a closed discriminated union, so an unknown kind cannot
+            // be written through it. The forged kind proves the copy validates the discriminant
+            // rather than falling through to a default branch.
             () => copyRunObligation({ kind: "unknown" } as never),
             "Run obligation kind is invalid"
         );
@@ -96,6 +100,9 @@ describe("Run admission registry integrity", () => {
                     run: ids.run,
                     epoch: 0,
                     accepting: true,
+                    // SAFETY: RunAdmissionRegistryInit types both lists as arrays, so a null
+                    // list is unreachable through the init. It proves each list is checked on
+                    // its own, and named on its own, rather than by one shared guard.
                     reserved: null as never,
                     completed: []
                 }),
@@ -109,6 +116,7 @@ describe("Run admission registry integrity", () => {
                     epoch: 0,
                     accepting: true,
                     reserved: [],
+                    // SAFETY: as above, for the completed list.
                     completed: null as never
                 }),
             "Completed Run obligations must be an array"
@@ -125,7 +133,7 @@ describe("Run admission registry integrity", () => {
                     epoch: -1,
                     reserved: [],
                     run: "asm-run"
-                } as never),
+                }),
             "Run admission registry accepting state is invalid"
         );
     });
@@ -168,7 +176,7 @@ describe("Run admission registry integrity", () => {
                     epoch: 0,
                     reserved: [],
                     run: 42
-                } as never),
+                }),
             "Run admission registry Run must be a non-empty string"
         );
     });
@@ -240,7 +248,7 @@ describe("Run admission registry integrity", () => {
         }
         expectTypeError(
             "kind string",
-            () => decodeRunObligation({} as never),
+            () => decodeRunObligation({}),
             "Run obligation kind must be a non-empty string"
         );
     });
@@ -284,7 +292,7 @@ describe("Run admission registry integrity", () => {
             }
         ] as const;
         for (const { label, data, message } of cases) {
-            expectTypeError(label, () => decodeRunObligation(data as never), message);
+            expectTypeError(label, () => decodeRunObligation(data), message);
         }
     });
 });
@@ -475,6 +483,9 @@ function cancellationInit(): ForcedTurnCancellationInit {
 
 describe("forced Turn cancellation integrity", () => {
     test("requires each identifier to use its exact context class", { tags: "p0" }, () => {
+        // SAFETY: ForcedTurnCancellationInit types each identifier with its own class, so a
+        // cross-context identifier is unreachable through the init. Forging one proves the
+        // record checks the exact class of every field instead of accepting any ID-shaped value.
         const cases = [
             { label: "run", init: { ...cancellationInit(), run: ids.turn as never } },
             {

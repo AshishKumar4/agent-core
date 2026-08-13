@@ -11,22 +11,17 @@ import type { LeaseToken } from "../../../src/agents/runs/lease";
 import { MemoryRunStorage } from "../../../src/agents/runs/memory";
 import { RunRepository, type StoredRunRecord } from "../../../src/agents/runs/store";
 import { TurnInboxEntry } from "../../../src/agents/runs/turn";
-import { content, digest, ids, pins, seedRunningTurn } from "./fixture";
+import { content, digest, ids, pins, seedRunningTurn, thrownBy } from "./fixture";
 
 function expectError(
     label: string,
-    operation: () => unknown,
+    operation: () => void,
     code: AgentCoreError["code"],
     message: string
 ): void {
-    try {
-        operation();
-        expect.fail(`${label}: expected AgentCoreError ${code} (${message})`);
-    } catch (error) {
-        expect(error, label).toBeInstanceOf(AgentCoreError);
-        expect((error as AgentCoreError).code, label).toBe(code);
-        expect((error as AgentCoreError).message, label).toBe(message);
-    }
+    const failure = thrownBy(AgentCoreError, operation, label);
+    expect(failure.code, label).toBe(code);
+    expect(failure.message, label).toBe(message);
 }
 
 function rawRecord(overrides: Partial<StoredRunRecord> = {}): StoredRunRecord {
@@ -46,6 +41,9 @@ describe("MemoryRunStorage mutation kills", () => {
         expect(storage.transaction(() => 42)).toBe(42);
         const plain = { value: 1 };
         expect(storage.transaction(() => plain)).toBe(plain);
+        // SAFETY: SynchronousResultGuard already rejects a Promise-returning callback at
+        // compile time. Defeating that guard is the only way to reach the runtime check that
+        // backs it, which is what this case pins.
         expectError(
             "promise result",
             () => storage.transaction(() => Promise.resolve() as never),
@@ -68,20 +66,21 @@ describe("MemoryRunStorage mutation kills", () => {
             "Run storage transactions must be synchronous"
         );
 
-        try {
-            storage.transaction((tx) => {
-                storage.insert(tx, rawRecord({ key: "rollback" }));
-                storage.insertParent(tx, {
-                    commit: "commit-rollback",
-                    ordinal: 0,
-                    parent: "parent-rollback"
-                });
-                throw new Error("abort");
-            });
-            expect.fail("aborted transactions must propagate their failure");
-        } catch (error) {
-            expect((error as Error).message).toBe("abort");
-        }
+        const aborted = thrownBy(
+            Error,
+            () =>
+                storage.transaction((tx) => {
+                    storage.insert(tx, rawRecord({ key: "rollback" }));
+                    storage.insertParent(tx, {
+                        commit: "commit-rollback",
+                        ordinal: 0,
+                        parent: "parent-rollback"
+                    });
+                    throw new Error("abort");
+                }),
+            "aborted transaction"
+        );
+        expect(aborted.message).toBe("abort");
         storage.transaction((tx) => {
             expect(storage.get(tx, "turn", "rollback")).toBeUndefined();
             expect(storage.parents(tx, "commit-rollback")).toEqual([]);
@@ -337,6 +336,9 @@ describe("MemoryRunStorage mutation kills", () => {
             }
         ];
         for (const { label, snapshot, message } of rejected) {
+            // SAFETY: MemoryRunStorageSnapshot pins `version` to 1 and both collections to
+            // arrays, so every defect in this list is unreachable through the declared type.
+            // Restoration reads a snapshot back from storage, so it must reject them anyway.
             expectError(label, () => new MemoryRunStorage(snapshot as never), "codec.invalid", message);
         }
 

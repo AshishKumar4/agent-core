@@ -11,37 +11,34 @@ import {
     type RunCommitInit
 } from "../../../src/agents/runs/commit";
 import { BlueprintPin, RunPins } from "../../../src/agents/runs/pins";
-import { content, digest, harness, ids, pins, refs } from "./fixture";
+import {
+    content,
+    digest,
+    forgedCommit,
+    harness,
+    ids,
+    pins,
+    refs,
+    thrownBy,
+    type Assembled
+} from "./fixture";
 
 const source = new RunCommitId("merge-source");
 const stranger = new RunCommitId("outside-parent");
 
-function expectTypeError(label: string, operation: () => unknown, message: string): void {
-    let caught: unknown;
-    try {
-        operation();
-    } catch (error) {
-        caught = error;
-    }
-    expect(caught, label).toBeInstanceOf(TypeError);
-    expect((caught as TypeError).message, label).toBe(message);
+function expectTypeError(label: string, operation: () => void, message: string): void {
+    expect(thrownBy(TypeError, operation, label).message, label).toBe(message);
 }
 
 function expectCode(
     label: string,
-    operation: () => unknown,
+    operation: () => void,
     code: AgentCoreError["code"],
     message: string
 ): void {
-    let caught: unknown;
-    try {
-        operation();
-    } catch (error) {
-        caught = error;
-    }
-    expect(caught, label).toBeInstanceOf(AgentCoreError);
-    expect((caught as AgentCoreError).code, label).toBe(code);
-    expect((caught as AgentCoreError).message, label).toBe(message);
+    const failure = thrownBy(AgentCoreError, operation, label);
+    expect(failure.code, label).toBe(code);
+    expect(failure.message, label).toBe(message);
 }
 
 function turnWriter(): CommitWriter {
@@ -176,10 +173,12 @@ function message(id: string): RunCommit {
 }
 
 function invocation(id: string, subjectTurn?: TurnId): RunCommit {
-    return new RunCommit({
-        ...invocationInit(id, { invocation: refs.invocation, receipt: refs.receipt }),
-        ...(subjectTurn === undefined ? {} : { subjectTurn })
+    const init: Assembled<RunCommitInit> = invocationInit(id, {
+        invocation: refs.invocation,
+        receipt: refs.receipt
     });
+    if (subjectTurn !== undefined) init.subjectTurn = subjectTurn;
+    return new RunCommit(init);
 }
 
 function delivery(id: string): RunCommit {
@@ -608,6 +607,9 @@ describe("closed commit shape single violations", () => {
                 subjectTurn: ids.turn,
                 content: content("1")
             });
+            // SAFETY: LeaseToken types `turn` as TurnId and `holder` as PrincipalRef, so a
+            // bare string is unreachable through the token. Forging one proves the commit
+            // checks each member's class rather than accepting any token-like object.
             expectTypeError(
                 "turn member",
                 () =>
@@ -619,6 +621,7 @@ describe("closed commit shape single violations", () => {
                     ),
                 "Lease token turn must be a TurnId"
             );
+            // SAFETY: as above, for the holder member.
             expectTypeError(
                 "holder member",
                 () =>
@@ -643,7 +646,7 @@ describe("writer authority single mismatches", () => {
                 value.repository.transaction((tx) =>
                     validateCommitWriter(
                         tx,
-                        { ...message("forged-root-writer"), writer: { kind: "root" } } as RunCommit,
+                        forgedCommit(message("forged-root-writer"), { writer: { kind: "root" } }),
                         value.evidence
                     )
                 ),
@@ -660,7 +663,7 @@ describe("writer authority single mismatches", () => {
                 value.repository.transaction((tx) =>
                     validateCommitWriter(
                         tx,
-                        { ...message("turn-no-subject"), subjectTurn: undefined } as RunCommit,
+                        forgedCommit(message("turn-no-subject"), { subjectTurn: undefined }),
                         value.evidence
                     )
                 ),
@@ -687,7 +690,7 @@ describe("writer authority single mismatches", () => {
                     receiptCase.repository.transaction((tx) =>
                         validateCommitWriter(
                             tx,
-                            { ...invocation("receipt-kind-forged"), kind: "message" } as RunCommit,
+                            forgedCommit(invocation("receipt-kind-forged"), { kind: "message" }),
                             receiptCase.evidence
                         )
                     ),
@@ -708,7 +711,7 @@ describe("writer authority single mismatches", () => {
                     deliveryCase.repository.transaction((tx) =>
                         validateCommitWriter(
                             tx,
-                            { ...delivery("delivery-kind-forged"), kind: "message" } as RunCommit,
+                            forgedCommit(delivery("delivery-kind-forged"), { kind: "message" }),
                             deliveryCase.evidence
                         )
                     ),
@@ -717,7 +720,7 @@ describe("writer authority single mismatches", () => {
             );
 
             const controlCase = harness();
-            const forgedControl = { ...undo("control-kind-forged"), kind: "message" } as RunCommit;
+            const forgedControl = forgedCommit(undo("control-kind-forged"), { kind: "message" });
             controlCase.evidence.controls.set(`${refs.receipt.value}:${refs.audit.value}`, {
                 kind: "control",
                 run: ids.run,
@@ -752,7 +755,7 @@ describe("writer authority single mismatches", () => {
                 receiptCase.repository.transaction((tx) =>
                     validateCommitWriter(
                         tx,
-                        { ...invocation("no-own-receipt"), receipt: undefined } as RunCommit,
+                        forgedCommit(invocation("no-own-receipt"), { receipt: undefined }),
                         receiptCase.evidence
                     )
                 ),
@@ -765,7 +768,7 @@ describe("writer authority single mismatches", () => {
                 receiptCase.repository.transaction((tx) =>
                     validateCommitWriter(
                         tx,
-                        { ...invocation("no-own-invocation"), invocation: undefined } as RunCommit,
+                        forgedCommit(invocation("no-own-invocation"), { invocation: undefined }),
                         receiptCase.evidence
                     )
                 ),
@@ -786,7 +789,7 @@ describe("writer authority single mismatches", () => {
                 deliveryCase.repository.transaction((tx) =>
                     validateCommitWriter(
                         tx,
-                        { ...delivery("no-own-reservation"), reservation: undefined } as RunCommit,
+                        forgedCommit(delivery("no-own-reservation"), { reservation: undefined }),
                         deliveryCase.evidence
                     )
                 ),
@@ -795,7 +798,7 @@ describe("writer authority single mismatches", () => {
         );
 
         const controlCase = harness();
-        const withoutReceipt = { ...undo("control-no-own-receipt"), receipt: undefined } as RunCommit;
+        const withoutReceipt = forgedCommit(undo("control-no-own-receipt"), { receipt: undefined });
         controlCase.evidence.controls.set(`${refs.receipt.value}:${refs.audit.value}`, {
             kind: "control",
             run: ids.run,
@@ -814,10 +817,9 @@ describe("writer authority single mismatches", () => {
         );
 
         const synthesisCase = harness();
-        const withoutContent = {
-            ...synthesize("synthesis-no-own-content"),
+        const withoutContent = forgedCommit(synthesize("synthesis-no-own-content"), {
             content: undefined
-        } as RunCommit;
+        });
         synthesisCase.evidence.controls.set(`${refs.receipt.value}:${refs.audit.value}`, {
             kind: "control",
             run: ids.run,
