@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { loadConfigFromFile } from "vite";
+import type {} from "vitest/config";
 import { describe, expect, test } from "vitest";
 import { dependencyClosure, topologicalOrder, validateGraph } from "../../scripts/quality/dag.mjs";
 import {
@@ -80,12 +81,12 @@ describe("quality DAG", subprocessTestOptions, () => {
             resolve(import.meta.dirname, "../../vitest.governance.config.mjs")
         );
         if (loaded === null) throw new TypeError("Governance Vitest config did not load");
-        const testConfig: unknown = Reflect.get(loaded.config, "test");
-        if (typeof testConfig !== "object" || testConfig === null) {
+        const testConfig = loaded.config.test;
+        if (testConfig === undefined) {
             throw new TypeError("Governance Vitest config lacks test settings");
         }
 
-        expect(Reflect.get(testConfig, "include")).toEqual(governanceTests);
+        expect(testConfig.include).toEqual(governanceTests);
     });
 
     test("runs native priority lanes before the full product suite and classifies their evidence", () => {
