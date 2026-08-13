@@ -4,25 +4,17 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const packageUrl = new URL("../../", import.meta.url);
-const manifest = JSON.parse(
-    readFileSync(
-        new URL("artifacts/integration/request-archive/W1/verification-manifest.json", packageUrl),
-        "utf8"
-    )
-) as VerificationManifest;
-const taxonomy = JSON.parse(
-    readFileSync(
-        new URL("artifacts/integration/request-archive/W1/error-taxonomy.json", packageUrl),
-        "utf8"
-    )
-) as ErrorTaxonomy;
+const manifest = readArtifact<VerificationManifest>(
+    "artifacts/integration/request-archive/W1/verification-manifest.json"
+);
+const taxonomy = readArtifact<ErrorTaxonomy>(
+    "artifacts/integration/request-archive/W1/error-taxonomy.json"
+);
 const coverage = readFileSync(
     new URL("artifacts/integration/request-archive/W1/coverage.md", packageUrl),
     "utf8"
 );
-const integration = JSON.parse(
-    readFileSync(new URL("artifacts/quality/integrated-w1.json", packageUrl), "utf8")
-) as IntegratedW1Manifest;
+const integration = readArtifact<IntegratedW1Manifest>("artifacts/quality/integrated-w1.json");
 
 const genericProtocolSources = [
     "src/protocol/authentication.ts",
@@ -112,6 +104,18 @@ describe("W1 verification manifest", () => {
         ).toEqual([]);
     });
 });
+
+/**
+ * Reads one of the generated W1 artifacts. They are evidence produced by the build, so
+ * JSON.parse can only hand back `any`; each caller names the contract the suite then checks.
+ */
+function readArtifact<Contract>(path: string): Contract {
+    // SAFETY: nothing here proves the file matches the named contract. The suite is that
+    // proof: it pins the manifest schemaVersion and base commit, then compares every field of
+    // all three artifacts against the source and test files that actually exist on disk, so a
+    // drifted artifact fails loudly instead of being read at the asserted type.
+    return JSON.parse(readFileSync(new URL(path, packageUrl), "utf8")) as Contract;
+}
 
 interface VerificationManifest {
     readonly schemaVersion: string;

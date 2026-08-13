@@ -8,7 +8,9 @@ import {
     encodeBase64,
     encodeCanonicalJson,
     hasExactJsonKeys,
+    isJsonObject,
     isJsonValue,
+    type JsonObject,
     type JsonValue,
     type RecordVersion
 } from "../../src/core";
@@ -24,6 +26,20 @@ interface FixtureRecord {
     readonly enabled: boolean;
 }
 
+/** A codec's own metadata without their readonly modifiers, so writes can be attempted. */
+interface WritableCodec {
+    kind: string;
+    version: RecordVersion;
+}
+
+/** A version's own fields without their readonly modifier, so a write can be attempted. */
+interface WritableVersion {
+    major: number;
+}
+
+/** A value that refers to itself, which the canonical screen has to reject. */
+type SelfReferentialValue = { self?: unknown };
+
 class FixtureCodec extends RecordCodec<FixtureRecord> {
     public decodedVersion: RecordVersion | undefined;
 
@@ -37,17 +53,14 @@ class FixtureCodec extends RecordCodec<FixtureRecord> {
 
     protected decodePayload(payload: JsonValue, version: RecordVersion): FixtureRecord {
         this.decodedVersion = version;
-        if (!isObject(payload) || typeof payload["label"] !== "string") {
+        if (!isJsonObject(payload) || typeof payload["label"] !== "string") {
             throw new AgentCoreError("codec.invalid", "Fixture payload is malformed");
         }
         const enabled = payload["enabled"];
-        if (version.minor > 0 && typeof enabled !== "boolean") {
+        if (version.minor > 0 && enabled !== true && enabled !== false) {
             throw new AgentCoreError("codec.invalid", "Fixture enabled flag is malformed");
         }
-        return {
-            label: payload["label"],
-            enabled: typeof enabled === "boolean" ? enabled : false
-        };
+        return { label: payload["label"], enabled: enabled === true };
     }
 }
 
@@ -76,9 +89,9 @@ describe("Canonical codecs", () => {
         () => {
             const sparse: JsonValue[] = ["present"];
             sparse.length = 2;
-            const extended = ["present"] as JsonValue[] & { extra?: boolean };
+            const extended: JsonValue[] & { extra?: boolean } = ["present"];
             extended.extra = true;
-            const cycle: { self?: unknown } = {};
+            const cycle: SelfReferentialValue = {};
             cycle.self = cycle;
             const accessor = Object.defineProperty({}, "value", {
                 enumerable: true,
@@ -88,8 +101,7 @@ describe("Canonical codecs", () => {
             class JsonLike {
                 public readonly value = "not plain";
             }
-
-            for (const value of [
+            const hostileValues: readonly unknown[] = [
                 sparse,
                 extended,
                 cycle,
@@ -101,9 +113,15 @@ describe("Canonical codecs", () => {
                 Number.POSITIVE_INFINITY,
                 1n,
                 new JsonLike(),
-                Object.create(null) as object,
-                Object.create({ inherited: true }) as object
-            ]) {
+                Object.create(null),
+                Object.create({ inherited: true })
+            ];
+
+            for (const value of hostileValues) {
+                // SAFETY: every value here is outside JsonValue, which is the test — the
+                // encoder screens what it is handed at runtime and must reject holes,
+                // extra keys, cycles, accessors, symbols, host objects, non-finite numbers,
+                // bigints, class instances, and detached or inherited prototypes alike.
                 expectCodecError(() => encodeCanonicalJson(value as JsonValue), "codec.invalid");
             }
         }
@@ -121,13 +139,9 @@ describe("Canonical codecs", () => {
                 }
             }
         );
-        const nonfinite = new Proxy(
-            { value: 1 },
-            {
-                get: (target, key, receiver) =>
-                    key === "value" ? Number.POSITIVE_INFINITY : Reflect.get(target, key, receiver)
-            }
-        );
+        // `value` is the object's only own key, so the trap answers for it alone: the
+        // descriptor validation reads a finite 1 and the encoder then reads Infinity.
+        const nonfinite = new Proxy({ value: 1 }, { get: () => Number.POSITIVE_INFINITY });
 
         expectCodecError(() => encodeCanonicalJson(throwing), "codec.invalid");
         expectCodecError(() => encodeCanonicalJson(nonfinite), "codec.invalid");
@@ -156,7 +170,7 @@ describe("Canonical codecs", () => {
             );
         }
         expectCodecError(() => decodeCanonicalJson(Uint8Array.of(0xc3, 0x28)), "codec.invalid");
-        expectCodecError(() => decodeCanonicalJson("{}" as unknown as Uint8Array), "codec.invalid");
+        expectCodecError(() => decodeCanonicalJson(candidateBytes("{}")), "codec.invalid");
         expectCodecError(
             () => decodeCanonicalJson(new TextEncoder().encode('"\\ud800"')),
             "codec.invalid"
@@ -175,9 +189,9 @@ describe("Canonical codecs", () => {
         "checks exact fields by own property rather than the prototype chain",
         { tags: "p0" },
         () => {
-            const hostile = Object.assign(Object.create({ expected: true }), { extra: true }) as {
-                readonly [key: string]: JsonValue;
-            };
+            const hostile: JsonObject = Object.assign(Object.create({ expected: true }), {
+                extra: true
+            });
 
             expect(hasExactJsonKeys({ expected: true }, ["expected"])).toBe(true);
             expect(hasExactJsonKeys(hostile, ["expected"])).toBe(false);
@@ -202,6 +216,9 @@ describe("Canonical codecs", () => {
                 get: () => "hidden"
             });
 
+            // SAFETY: the proxy answers JsonValue's own screen with a throwing prototype read,
+            // so it can only be offered as one — and offering it is the test: the encoder must
+            // surface an AgentCoreError rather than let the trap escape.
             expect(encodeCanonicalJson.bind(undefined, throwing as JsonValue)).toThrow(
                 AgentCoreError
             );
@@ -221,13 +238,13 @@ describe("Canonical codecs", () => {
         for (const value of ["Zg", "Zg=", "Zg===", "Zg==\n", "-w==", "AB==", "AAB="]) {
             expect(() => decodeBase64(value)).toThrow(TypeError);
         }
-        expect(() => decodeBase64(1 as unknown as string)).toThrow(TypeError);
-        expect(() => encodeBase64([1, 2, 3] as unknown as Uint8Array)).toThrow(TypeError);
+        expect(() => decodeBase64(candidateBase64(1))).toThrow(TypeError);
+        expect(() => encodeBase64(candidateBytes([1, 2, 3]))).toThrow(TypeError);
     });
 
     test("reports base64 rejections verbatim", { tags: "p1" }, () => {
         expectTypeFailure(
-            () => encodeBase64([1, 2, 3] as unknown as Uint8Array),
+            () => encodeBase64(candidateBytes([1, 2, 3])),
             "Base64 input must be a Uint8Array"
         );
         for (const value of ["Zg", "AB==", "AAB="]) {
@@ -254,18 +271,20 @@ describe("Canonical codecs", () => {
     test("detaches and freezes codec metadata", { tags: "p0" }, () => {
         const metadata = { major: 1, minor: 1 };
         const detached = new FixtureCodec(metadata);
+        const writable: WritableCodec = detached;
+        const writableVersion: WritableVersion = detached.version;
         metadata.major = 9;
 
         expect(detached.version).toEqual({ major: 1, minor: 1 });
         expect(Object.isFrozen(detached.version)).toBe(true);
         expect(() => {
-            (detached as { kind: string }).kind = "changed";
+            writable.kind = "changed";
         }).toThrow(TypeError);
         expect(() => {
-            (detached as { version: RecordVersion }).version = { major: 9, minor: 9 };
+            writable.version = { major: 9, minor: 9 };
         }).toThrow(TypeError);
         expect(() => {
-            (detached.version as { major: number }).major = 9;
+            writableVersion.major = 9;
         }).toThrow(TypeError);
         expect(detached.kind).toBe("test.fixture");
     });
@@ -399,17 +418,6 @@ describe("Canonical codecs", () => {
     });
 
     test("rejects invalid codec metadata at construction", { tags: "p2" }, () => {
-        for (const version of [
-            { major: -1, minor: 0 },
-            { major: 1, minor: 0.5 },
-            { extra: true, major: 1, minor: 0 },
-            null
-        ]) {
-            expect(() => new FixtureCodec(version as RecordVersion)).toThrow(TypeError);
-        }
-        for (const kind of ["", " ", " padded", "padded ", "\ud800", null]) {
-            expect(() => new FixtureCodec(undefined, kind as string)).toThrow(TypeError);
-        }
         const accessorVersion = Object.defineProperty({ minor: 0 }, "major", {
             enumerable: true,
             get: () => 1
@@ -418,21 +426,35 @@ describe("Canonical codecs", () => {
             enumerable: false,
             value: 0
         });
-        expect(() => new FixtureCodec(accessorVersion as RecordVersion)).toThrow(TypeError);
-        expect(() => new FixtureCodec(hiddenVersion as RecordVersion)).toThrow(TypeError);
+        const invalidVersions: readonly unknown[] = [
+            { major: -1, minor: 0 },
+            { major: 1, minor: 0.5 },
+            { extra: true, major: 1, minor: 0 },
+            null,
+            accessorVersion,
+            hiddenVersion
+        ];
+
+        for (const version of invalidVersions) {
+            // SAFETY: each value is outside RecordVersion, which is the test — the constructor
+            // validates its metadata at runtime and must reject negative, fractional, extra,
+            // absent, accessor-backed, and non-enumerable components alike.
+            expect(() => new FixtureCodec(version as RecordVersion)).toThrow(TypeError);
+        }
+        for (const kind of ["", " ", " padded", "padded ", "\ud800", null]) {
+            // SAFETY: the constructor declares a string kind, so the null in this list reaches
+            // it only through the assertion — and reaching it is the test.
+            expect(() => new FixtureCodec(undefined, kind as string)).toThrow(TypeError);
+        }
     });
 
     test("reports canonical encoding and decoding failures verbatim", { tags: "p0" }, () => {
-        const nonfinite = new Proxy(
-            { value: 1 },
-            {
-                get: (target, key, receiver) =>
-                    key === "value" ? Number.POSITIVE_INFINITY : Reflect.get(target, key, receiver)
-            }
-        );
+        // `value` is the object's only own key, so the trap answers for it alone: the
+        // descriptor validation reads a finite 1 and the encoder then reads Infinity.
+        const nonfinite = new Proxy({ value: 1 }, { get: () => Number.POSITIVE_INFINITY });
 
         expectCodecFailure(
-            () => encodeCanonicalJson(new Date("2026-01-01T00:00:00.000Z") as unknown as JsonValue),
+            () => encodeCanonicalJson(candidateJson(new Date("2026-01-01T00:00:00.000Z"))),
             "codec.invalid",
             "Value is not canonical JSON data"
         );
@@ -442,7 +464,7 @@ describe("Canonical codecs", () => {
             "Canonical JSON numbers must be finite"
         );
         expectCodecFailure(
-            () => decodeCanonicalJson("{}" as unknown as Uint8Array),
+            () => decodeCanonicalJson(candidateBytes("{}")),
             "codec.invalid",
             "Invalid canonical JSON: Canonical JSON input must be a Uint8Array"
         );
@@ -517,6 +539,8 @@ describe("Canonical codecs", () => {
         };
 
         for (const kind of ["", " ", " padded", "padded ", "\ud800", null, impostor]) {
+            // SAFETY: the constructor declares a string kind; the absent value and the impostor
+            // that only imitates the string protocol are exactly what its check must refuse.
             expectTypeFailure(
                 () => new FixtureCodec(undefined, kind as string),
                 "Record codec kind must be a nonblank canonical string"
@@ -554,11 +578,11 @@ describe("Canonical codecs", () => {
             get: () => 0
         });
 
-        for (const version of [
+        const invalidVersions: readonly unknown[] = [
             null,
             "1.0",
             new PrototypedVersion(),
-            Object.create(null) as RecordVersion,
+            Object.create(null),
             { extra: true, major: 1, minor: 0 },
             { major: 1.5, minor: 0 },
             { major: -1, minor: 0 },
@@ -567,7 +591,11 @@ describe("Canonical codecs", () => {
             hiddenMajor,
             hiddenMinor,
             accessorMinor
-        ]) {
+        ];
+
+        for (const version of invalidVersions) {
+            // SAFETY: each value is outside RecordVersion, which is the test — every clause of
+            // the version check must answer with the same message rather than let one through.
             expectTypeFailure(
                 () => new FixtureCodec(version as RecordVersion),
                 "Record codec version must contain non-negative safe integers"
@@ -807,7 +835,7 @@ describe("Canonical value properties", () => {
     );
 
     test("rejects non-string base64 input verbatim, without coercing it", { tags: "p1" }, () => {
-        for (const hostile of [
+        const hostileValues: readonly unknown[] = [
             null,
             undefined,
             42,
@@ -817,17 +845,21 @@ describe("Canonical value properties", () => {
             { length: 4 },
             new String("QQ=="),
             new String("Zm9vYmFy"),
-            Object.assign(Object.create(null) as object, { length: 4 })
-        ]) {
+            Object.assign(Object.create(null), { length: 4 })
+        ];
+
+        for (const hostile of hostileValues) {
+            // SAFETY: every value is outside the declared string parameter, which is the test —
+            // `decodeBase64` must reject each rather than coerce it through toString or length.
             expectTypeFailure(
-                () => decodeBase64(hostile as unknown as string),
+                () => decodeBase64(hostile as string),
                 "Base64 value must use canonical RFC 4648 encoding"
             );
         }
     });
 
     test("rejects non-Uint8Array base64 input verbatim", { tags: "p1" }, () => {
-        for (const hostile of [
+        const hostileValues: readonly unknown[] = [
             null,
             undefined,
             [1, 2, 3],
@@ -835,9 +867,13 @@ describe("Canonical value properties", () => {
             new Uint16Array(2),
             new ArrayBuffer(2),
             { length: 3, 0: 1, 1: 2, 2: 3 }
-        ]) {
+        ];
+
+        for (const hostile of hostileValues) {
+            // SAFETY: every value is outside the declared Uint8Array parameter, which is the
+            // test — `encodeBase64` must reject each rather than read its indexed entries.
             expectTypeFailure(
-                () => encodeBase64(hostile as unknown as Uint8Array),
+                () => encodeBase64(hostile as Uint8Array),
                 "Base64 input must be a Uint8Array"
             );
         }
@@ -880,7 +916,7 @@ const jsonValue = fc.letrec<{ value: JsonValue }>((tie) => ({
             .array(fc.tuple(jsonKey, tie("value")), { maxLength: 6 })
             // Object.fromEntries defines own data properties, so "__proto__" stays
             // a real key instead of reassigning the prototype.
-            .map((entries) => Object.fromEntries(entries) as JsonValue)
+            .map((entries): JsonValue => Object.fromEntries(entries))
     )
 })).value;
 
@@ -892,18 +928,14 @@ const canonicalValue = jsonValue.filter(isJsonValue);
 // which the language defines as ascending UTF-16 code-unit order, so it shares no
 // comparison logic with the implementation under test.
 function referenceCanonicalJson(value: JsonValue): string {
-    if (value === null || typeof value === "boolean" || typeof value === "string") {
-        return JSON.stringify(value);
-    }
-    if (typeof value === "number") {
-        return JSON.stringify(Object.is(value, -0) ? 0 : value);
-    }
     if (Array.isArray(value)) {
         return `[${value.map(referenceCanonicalJson).join(",")}]`;
     }
-    const record = value as { readonly [key: string]: JsonValue };
-    const keys = Object.keys(record).sort();
-    return `{${keys.map((key) => `${JSON.stringify(key)}:${referenceCanonicalJson(record[key]!)}`).join(",")}}`;
+    if (isJsonObject(value)) {
+        const keys = Object.keys(value).sort();
+        return `{${keys.map((key) => `${JSON.stringify(key)}:${referenceCanonicalJson(value[key]!)}`).join(",")}}`;
+    }
+    return JSON.stringify(Object.is(value, -0) ? 0 : value);
 }
 
 // Canonical encodings, near-misses of them, and free-form bytes, so the totality
@@ -963,6 +995,8 @@ function hostileBase64(): fc.Arbitrary<string> {
 
 class VerbatimVersionCodec extends RecordCodec<FixtureRecord> {
     public constructor(version: RecordVersion | undefined) {
+        // SAFETY: forwarding an absent version is the whole reason this subclass exists — it
+        // is the only way to reach RecordCodec's first version clause from outside.
         super("test.verbatim-version", version as RecordVersion);
     }
 
@@ -976,7 +1010,7 @@ class VerbatimVersionCodec extends RecordCodec<FixtureRecord> {
 }
 
 class RejectingFixtureCodec extends RecordCodec<FixtureRecord> {
-    public constructor(private readonly failure: unknown) {
+    public constructor(private readonly failure: Error | string) {
         super("test.rejecting", { major: 1, minor: 0 });
     }
 
@@ -997,11 +1031,37 @@ function rejectingRecord(): Uint8Array {
     });
 }
 
-function isObject(value: JsonValue): value is { readonly [key: string]: JsonValue } {
-    return value !== null && !Array.isArray(value) && typeof value === "object";
+/**
+ * Offers a value where the base64 decoder declares a string. Refusing to coerce is the
+ * behavior under test, so a non-string has to be reachable.
+ */
+function candidateBase64(value: string | number): string {
+    // SAFETY: the value is a candidate, not a proven encoding. It reaches `decodeBase64` only
+    // so the string check can reject it.
+    return value as string;
 }
 
-function expectCodecError(action: () => unknown, code: AgentCoreError["code"]): void {
+/**
+ * Offers a value where a codec declares bytes. Refusing anything that merely resembles a
+ * byte sequence is the behavior under test, so those values have to be reachable.
+ */
+function candidateBytes(value: Uint8Array | string | readonly number[]): Uint8Array {
+    // SAFETY: the value is a candidate, not proven bytes. It reaches the codec only so the
+    // Uint8Array check can reject it.
+    return value as Uint8Array;
+}
+
+/**
+ * Offers a value where the canonical encoder declares JSON data. Screening host objects is
+ * the behavior under test, so one has to be reachable.
+ */
+function candidateJson(value: JsonValue | Date): JsonValue {
+    // SAFETY: the value is a candidate, not proven JSON data. It reaches the encoder only so
+    // `isJsonValue` can reject it.
+    return value as JsonValue;
+}
+
+function expectCodecError(action: () => void, code: AgentCoreError["code"]): void {
     try {
         action();
         throw new Error("Expected codec to reject input");
@@ -1013,7 +1073,7 @@ function expectCodecError(action: () => unknown, code: AgentCoreError["code"]): 
 }
 
 function expectCodecFailure(
-    action: () => unknown,
+    action: () => void,
     code: AgentCoreError["code"],
     message: string
 ): void {
@@ -1027,7 +1087,7 @@ function expectCodecFailure(
     expect(thrown).toMatchObject({ code, message });
 }
 
-function expectTypeFailure(action: () => unknown, message: string): void {
+function expectTypeFailure(action: () => void, message: string): void {
     let thrown: unknown;
     try {
         action();

@@ -18,6 +18,10 @@ const coverage = readFileSync(
     "utf8"
 );
 const coverageInventory = [...coverage.matchAll(/^src\/[^\n]+\.ts$/gm)].map((match) => match[0]);
+// SAFETY: the taxonomy is generated evidence read off disk, so JSON.parse can only hand back
+// `any`. The first assertions in the suite below pin its schemaVersion and check its source
+// inventory against the coverage record and the files on disk, so a drifted artifact fails
+// rather than being read at the asserted type.
 const taxonomy = JSON.parse(readFileSync(taxonomyUrl, "utf8")) as ErrorTaxonomy;
 
 const classifications = new Set<TypeErrorClassification>([
