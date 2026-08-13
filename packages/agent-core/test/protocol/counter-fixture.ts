@@ -68,25 +68,33 @@ import { Revision } from "../../src/core";
 import { TurnId } from "../../src/agents";
 import { CommandAuthenticator } from "../../src/protocol/authentication";
 
-export type FaultBoundary =
-    | "gateMutation"
-    | "readSnapshot"
-    | "payloadValidation"
-    | "mutation"
-    | "forgedUnknown"
-    | "forgedActorUnknown"
-    | "unreadableInvocationAudit"
-    | "invocationAudit"
-    | "writeAudit"
-    | "writeRecord"
-    | "contentGet"
-    | "contentPut"
-    | "contentUnknown"
-    | "authUnknown"
-    | "replyEncoding"
-    | "observationEncoding"
-    | "unknownUnindexed"
-    | "unknownAck";
+/**
+ * Every boundary a counter command can be told to fail at. Kept as a value so a fixture that
+ * stores the choice outside the type system — the SQLite harness keeps it in a TEXT column —
+ * can decode it back through isMember rather than asserting it.
+ */
+export const faultBoundaries = [
+    "gateMutation",
+    "readSnapshot",
+    "payloadValidation",
+    "mutation",
+    "forgedUnknown",
+    "forgedActorUnknown",
+    "unreadableInvocationAudit",
+    "invocationAudit",
+    "writeAudit",
+    "writeRecord",
+    "contentGet",
+    "contentPut",
+    "contentUnknown",
+    "authUnknown",
+    "replyEncoding",
+    "observationEncoding",
+    "unknownUnindexed",
+    "unknownAck"
+] as const;
+
+export type FaultBoundary = (typeof faultBoundaries)[number];
 
 const counterTenant = new TenantId("counter-tenant");
 
