@@ -237,7 +237,8 @@ theorem activation_advances_the_epoch {storage next actor activation}
         activation.state.recoveries = 1 ∧ next.epoch = 0) ∨
       (storage.epoch < next.epoch ∧ activation.kind = .recovered ∧
         activation.state.recoveries = storage.recovery.elim 0 (·.recoveries) + 1) := by
-  rcases activateExec_ok activated with ⟨_, empty, shape, kind⟩ | ⟨previous, _, held, _, shape, kind⟩
+  rcases activateExec_ok activated with
+    ⟨_, empty, shape, kind⟩ | ⟨previous, _, held, _, shape, kind⟩
   · refine .inl ⟨empty, by simp [kind], by simp [kind, ActorRecovery.initial],
       by simp [kind, ActorRecovery.initial], ?_⟩
     simp [shape, ActorStorage.epoch, ActorStorage.activated, ActorRecovery.initial]
