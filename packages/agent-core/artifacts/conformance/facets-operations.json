@@ -23,7 +23,11 @@
       "specTextSha256": "sha256:d1965d49603dab9d0a0832ceabf11505376abdbaebe59503249bdf8e3f9fc858",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/facets/slot-store.ts#WorkspaceSlotStore"],
+      "sourceSymbols": [
+        "src/facets/slot-store.ts#WorkspaceSlotStore",
+        "src/protocol/facet-commands.ts#FacetSlotContributeCommand.authorize",
+        "src/protocol/facet-commands.ts#SlotContributionPayloadCodec.decode"
+      ],
       "testSelectors": [
         "test/protocol/facet-commands.test.ts#Facet Slot protocol commands [C13-ADV-UNAUTHORIZED-SLOT] strictly decodes payloads and denies unauthorized contributions"
       ],
@@ -83,7 +87,10 @@
       "specTextSha256": "sha256:304c4922f2df8a590234d0f8baae6fccaaaddf3a1aae9d654a7b981dcdd8b6ed",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
+      "sourceSymbols": [
+        "src/operations/command-runtime.ts#CommandRuntime",
+        "src/operations/command-runtime.ts#validateMapping"
+      ],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-INSTALL-MAPPING] rejects incompatible mappings before registering a command"
       ],
@@ -223,7 +230,7 @@
       "specTextSha256": "sha256:6483b0a53128f733eb489d0b8722c689f2ecb02ffa0aae65f26ba2a5db4564e0",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/facets/id.ts#FacetRef"],
+      "sourceSymbols": ["src/facets/id.ts#FacetRef", "src/facets/id.ts#requireFacetRef"],
       "testSelectors": [
         "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-FACET-REF-CANONICAL] uses canonical instance, bound, and Facet operation references"
       ],
@@ -251,7 +258,10 @@
       "specTextSha256": "sha256:7846a60a94572f7be0919ae5a032d20ee5703054964467a08bd09bda571db2b5",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/facets/slot-store.ts#WorkspaceSlotStore"],
+      "sourceSymbols": [
+        "src/facets/slot-store.ts#WorkspaceSlotCatalog",
+        "src/facets/slot-store.ts#WorkspaceSlotStore"
+      ],
       "testSelectors": [
         "test/facets/slot-memory.test.ts#MemoryWorkspaceSlotStore snapshots [C13-FACET-SLOT-VISIBILITY] binds SlotCatalog to an authenticated Workspace viewer and filters every entry"
       ],
@@ -294,8 +304,8 @@
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
-        "src/operations/interception.ts#OperationInterceptorRunner",
-        "src/composition/authority.ts#TenantOperationAuthority"
+        "src/composition/authority.ts#TenantOperationAuthority",
+        "src/operations/interception.ts#OperationInterceptorRunner"
       ],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-DOMAIN-CONFINEMENT] refuses an out-of-domain interceptor and admits the same contributor's asynchronous Event"
@@ -310,9 +320,13 @@
       "specTextSha256": "sha256:2212b0830a8fb6936c24cf39ee06f4ca4fa45125b85b4da21bb417854d75eccc",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
+      "sourceSymbols": [
+        "src/operations/gateway.ts#ProtectedResolvedFacet.dispatchWithLease",
+        "src/operations/interception.ts#OperationInterceptorRunner"
+      ],
       "testSelectors": [
-        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-FROZEN-RETRY] retries a frozen intent without rerunning its mutating interceptor"
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-FROZEN-RETRY] retries a frozen intent without rerunning its mutating interceptor",
+        "test/operations/runtime.test.ts#Protected Operation gateway binds payload shape into direct and mediated identities and returns replay without rerunning interceptors"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -355,7 +369,10 @@
       "specTextSha256": "sha256:291c9e6f263ba72564d33c5b400cdb362e4bcb6f1937f06d2418cb1419ef37b8",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
+      "sourceSymbols": [
+        "src/operations/gateway.ts#canonicalReplay",
+        "src/operations/interception.ts#OperationInterceptorRunner"
+      ],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-REPLAY] reuses durable pre-effect and post-effect transformations without rerunning either"
       ],

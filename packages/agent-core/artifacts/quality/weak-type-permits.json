@@ -722,12 +722,6 @@
       "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
     },
     {
-      "file": "packages/agent-core/src/facets/shell/facet.ts",
-      "kind": "unknown",
-      "count": 1,
-      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
-    },
-    {
       "file": "packages/agent-core/src/facets/slot-entry.ts",
       "kind": "non-null",
       "count": 1,
