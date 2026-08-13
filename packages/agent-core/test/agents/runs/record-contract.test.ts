@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Revision } from "../../../src/core";
 import { AgentCoreError } from "../../../src/errors";
-import { FacetRef } from "../../../src/facets";
+import { FacetRef, type IsolationMode } from "../../../src/facets";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
 import {
     compareText,
@@ -36,7 +36,19 @@ import {
     AgentRevisionRecord,
     ModelPolicyRevisionRecord
 } from "../../../src/agents/source";
-import { configuration, content, digest, genesis, ids, pins, refs, sourceRecords } from "./fixture";
+import {
+    configuration,
+    content,
+    digest,
+    genesis,
+    ids,
+    mutableData,
+    objectAt,
+    pins,
+    refs,
+    sourceRecords,
+    thrownBy
+} from "./fixture";
 
 interface StaticCodec<Value extends object> {
     readonly codec: unknown;
@@ -155,7 +167,7 @@ describe("uniform durable record contract", () => {
                     ids.turn
                 )
             ).toBe(true);
-            expect((turn.toData() as { lease: unknown }).lease).toEqual(
+            expect(objectAt(turn.toData(), "Turn")["lease"]).toEqual(
                 TurnLease.toData(turn.lease)
             );
         }
@@ -211,7 +223,7 @@ describe("record data shape helpers", () => {
     it("accepts valid values and rejects every malformed category", { tags: "p2" }, () => {
         expect(requireObject({}, "object")).toEqual({});
         for (const value of [null, [], "string"] as const) {
-            expect(() => requireObject(value as never, "object")).toThrow(TypeError);
+            expect(() => requireObject(value, "object")).toThrow(TypeError);
         }
         expect(() => requireExactFields({}, ["required"], [], "fields")).toThrow(TypeError);
         expect(() => requireExactFields({ extra: true }, [], [], "fields")).toThrow(TypeError);
@@ -220,7 +232,7 @@ describe("record data shape helpers", () => {
         expect(requireOptionalString(null, "optional")).toBeUndefined();
         expect(requireOptionalString("value", "optional")).toBe("value");
         for (const value of ["1", -1, 1.5]) {
-            expect(() => requireInteger(value as never, "integer")).toThrow(TypeError);
+            expect(() => requireInteger(value, "integer")).toThrow(TypeError);
         }
         expect(() => requireTimestamp(Number.MAX_SAFE_INTEGER, "timestamp")).toThrow(TypeError);
         expect(() => requireArray({}, "array")).toThrow(TypeError);
@@ -243,10 +255,16 @@ describe("constituent shape validation", () => {
             selected: "dynamic" as const
         };
         expect(() => new FacetRef("")).toThrow(/Facet reference/);
-        for (const manifest of [[], ["dynamic", "dynamic"], ["unknown" as never]]) {
-            expect(() => new PlacementPin({ ...valid, manifest: manifest as never })).toThrow(
-                TypeError
-            );
+        // SAFETY: IsolationMode is a closed union, so an unknown mode cannot be written through
+        // PlacementPinInit. Alongside the empty and duplicated lists, the forged entry proves
+        // the pin validates the mode set itself rather than trusting the union it declares.
+        const invalidManifests: readonly (readonly IsolationMode[])[] = [
+            [],
+            ["dynamic", "dynamic"],
+            ["unknown" as never]
+        ];
+        for (const manifest of invalidManifests) {
+            expect(() => new PlacementPin({ ...valid, manifest })).toThrow(TypeError);
         }
         expect(
             () =>
@@ -401,16 +419,12 @@ describe("Run lifecycle record errors", () => {
                 terminal.obligation,
                 new Date(1000)
             );
-            try {
-                genesis().run.terminalize(foreign);
-                throw new Error("Expected terminalization failure");
-            } catch (error) {
-                expect(error).toBeInstanceOf(AgentCoreError);
-                expect((error as AgentCoreError).code).toBe("run.invalid-state");
-            }
-            const data = structuredClone(genesis().run.toData()) as Record<string, unknown>;
+            expect(thrownBy(AgentCoreError, () => genesis().run.terminalize(foreign)).code).toBe(
+                "run.invalid-state"
+            );
+            const data = mutableData(genesis().run.toData());
             data["lifecycle"] = "unknown";
-            expect(() => Run.fromData(data as never)).toThrow(/unknown fields/);
+            expect(() => Run.fromData(data)).toThrow(/unknown fields/);
             expect(
                 () => new RunBranch(genesis().branch.id, ids.run, " ", ids.root, new Revision(0))
             ).toThrow(/blank/);
@@ -450,13 +464,7 @@ describe("Run lifecycle record errors", () => {
             [() => branch.advance(new RunCommitId("next")), "run.invalid-state"],
             [() => turn.revise(), "turn.invalid-state"]
         ] as const) {
-            try {
-                operation();
-                throw new Error("Expected exhaustion");
-            } catch (error) {
-                expect(error).toBeInstanceOf(AgentCoreError);
-                expect((error as AgentCoreError).code).toBe(code);
-            }
+            expect(thrownBy(AgentCoreError, operation).code).toBe(code);
         }
     });
 });

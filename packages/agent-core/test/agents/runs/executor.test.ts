@@ -28,9 +28,12 @@ import {
     type TurnContext,
     type TurnExecutorHostInit,
     type TurnModelCall,
-    type TurnOutcome
+    type TurnModelUsage,
+    type TurnOutcome,
+    type TurnStreamPublication
 } from "../../../src/agents/runs";
 import { RunCommitId } from "../../../src/execution-references";
+import type { RunCommitInit } from "../../../src/agents/runs/commit";
 import { AgentCoreError } from "../../../src/errors";
 import { PrincipalId, PrincipalRef } from "../../../src/identity";
 import {
@@ -40,7 +43,7 @@ import {
     type OperationDispatchResult,
     type OperationRequest
 } from "../../../src/operations";
-import { content, harness, ids, refs, seedRunningTurn } from "./fixture";
+import { content, harness, ids, refs, seedRunningTurn, type Assembled } from "./fixture";
 
 class HostedExecutor extends TurnExecutor {
     public async execute(turn: TurnContext): Promise<TurnOutcome> {
@@ -550,7 +553,7 @@ describe("TurnExecutor seam", () => {
                     new Date(10_000),
                     cancellation
                 );
-                const calls: readonly (() => Promise<unknown>)[] = [
+                const calls = [
                     () => context.content.get(boundaries.prompt),
                     async () => {
                         const call = context.model.call({ prompt: boundaries.prompt });
@@ -578,6 +581,7 @@ describe("TurnExecutor seam", () => {
                     try {
                         await call();
                     } catch (error) {
+                        if (!(error instanceof Error)) throw error;
                         errors.push(errorCode(error));
                     }
                     if (index === 0) expect(context.cancellation.aborted).toBe(true);
@@ -1329,7 +1333,7 @@ describe("TurnExecutor seam", () => {
     it("canonicalizes ephemeral stream events and validates complete model usage", async () => {
         const seeded = seedRunningTurn();
         const boundaries = await TestBoundaries.create();
-        const publications: unknown[] = [];
+        const publications: TurnStreamPublication[] = [];
         const executor = new FunctionExecutor(async (context) => {
             const bytes = new Uint8Array([4, 5, 6]);
             await context.stream.publish({ kind: "content", bytes });
@@ -1368,13 +1372,7 @@ describe("TurnExecutor seam", () => {
             })
             .execute(seeded.token);
         expect(publications).toHaveLength(3);
-        const [contentPublication, usagePublication, zeroUsagePublication] = publications as {
-            readonly event: {
-                readonly kind: string;
-                readonly bytes?: Uint8Array;
-                readonly usage?: object;
-            };
-        }[];
+        const [contentPublication, usagePublication, zeroUsagePublication] = publications;
         expect(contentPublication?.event).toEqual({
             kind: "content",
             bytes: new Uint8Array([4, 5, 6])
@@ -1383,12 +1381,11 @@ describe("TurnExecutor seam", () => {
             kind: "usage",
             usage: { inputTokens: 1, outputTokens: 2, cacheReadTokens: 3, cacheWriteTokens: 4 }
         });
-        expect(Object.isFrozen(usagePublication?.event.usage)).toBe(true);
-        expect(zeroUsagePublication?.event.usage).toEqual({ inputTokens: 0, outputTokens: 0 });
-        expect(Object.keys(zeroUsagePublication?.event.usage ?? {})).toEqual([
-            "inputTokens",
-            "outputTokens"
-        ]);
+        const usage = publishedUsage(usagePublication);
+        const zeroUsage = publishedUsage(zeroUsagePublication);
+        expect(Object.isFrozen(usage)).toBe(true);
+        expect(zeroUsage).toEqual({ inputTokens: 0, outputTokens: 0 });
+        expect(Object.keys(zeroUsage)).toEqual(["inputTokens", "outputTokens"]);
     });
 
     it.each([
@@ -1539,6 +1536,7 @@ describe("TurnExecutor seam", () => {
                 try {
                     await context.content.get(boundaries.prompt);
                 } catch (error) {
+                    if (!(error instanceof Error)) throw error;
                     boundaryError = errorCode(error);
                 }
                 boundaryCancellation = context.cancellation.aborted;
@@ -1970,7 +1968,7 @@ function turnCommit(
     subject: TurnId,
     treeCheckpoint?: ReturnType<typeof content>
 ): RunCommit {
-    return new RunCommit({
+    const init: Assembled<RunCommitInit> = {
         id: new RunCommitId(id),
         run: context.turn.run,
         branch: context.turn.branch,
@@ -1979,9 +1977,10 @@ function turnCommit(
         pins: context.turn.pins,
         writer: { kind: "turn", token: context.token },
         subjectTurn: subject,
-        content: output,
-        ...(treeCheckpoint === undefined ? {} : { treeCheckpoint })
-    });
+        content: output
+    };
+    if (treeCheckpoint !== undefined) init.treeCheckpoint = treeCheckpoint;
+    return new RunCommit(init);
 }
 
 function replaceResultCommit(
@@ -2047,8 +2046,16 @@ function inboxEntry(
     );
 }
 
-function errorCode(error: unknown): string {
+function errorCode(error: Error): string {
     return error instanceof AgentCoreError ? error.code : String(error);
+}
+
+/** Reads the usage a stream publication carries, naming any other event kind that arrived. */
+function publishedUsage(publication: TurnStreamPublication | undefined): TurnModelUsage {
+    if (publication?.event.kind !== "usage") {
+        throw new TypeError(`Expected a usage publication, received ${publication?.event.kind}`);
+    }
+    return publication.event.usage;
 }
 
 function invocationAdapter(resolved: ResolvedFacet): GatewayTurnInvocationPort {

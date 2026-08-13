@@ -22,7 +22,8 @@ import {
     ids,
     pins,
     refs,
-    seedRunningTurn
+    seedRunningTurn,
+    thrownBy
 } from "./fixture";
 
 type Harness = ReturnType<typeof harness>;
@@ -141,15 +142,10 @@ function spawnChild(
     };
 }
 
-function expectDenied(operation: () => unknown, message: RegExp): void {
-    try {
-        operation();
-        throw new Error("Expected the spawn to be denied");
-    } catch (error) {
-        expect(error).toBeInstanceOf(AgentCoreError);
-        expect((error as AgentCoreError).code).toBe("authority.denied");
-        expect((error as AgentCoreError).message).toMatch(message);
-    }
+function expectDenied(operation: () => void, message: RegExp): void {
+    const denial = thrownBy(AgentCoreError, operation, "spawn");
+    expect(denial.code).toBe("authority.denied");
+    expect(denial.message).toMatch(message);
 }
 
 function ceiling(limits: ConstructorParameters<typeof ResourceCeiling>[0]): SpawnAttenuation {
@@ -355,7 +351,7 @@ describe("Run resource ceilings", () => {
                 content: content("7")
             });
 
-            try {
+            const refusal = thrownBy(AgentCoreError, () => {
                 root.runtime.terminalizeRun({
                     run: ids.run,
                     turn: root.token.turn,
@@ -371,14 +367,11 @@ describe("Run resource ceilings", () => {
                     siblingCancellations: new Map(),
                     now: new Date(1_600)
                 });
-                throw new Error("Expected the terminalization to be refused");
-            } catch (error) {
-                expect(error).toBeInstanceOf(AgentCoreError);
-                expect((error as AgentCoreError).code).toBe("run.invalid-state");
-                expect((error as AgentCoreError).message).toBe(
-                    "Terminal exhaustion names a dimension with allowance left"
-                );
-            }
+            }, "terminalization");
+            expect(refusal.code).toBe("run.invalid-state");
+            expect(refusal.message).toBe(
+                "Terminal exhaustion names a dimension with allowance left"
+            );
             expect(
                 root.repository.transaction((tx) => root.repository.loadRun(tx, ids.run)!).lifecycle
                     .kind
@@ -421,7 +414,7 @@ describe("Run resource ceilings", () => {
         ).toEqual(new SpawnAttenuation());
         expect(() => new ResourceCeiling({})).toThrow(/at least one dimension/);
         expect(() => new ResourceCeiling({ tokens: -1 })).toThrow(/non-negative safe integer/);
-        expect(() => SpawnAttenuation.fromData({ ceiling: { cpu: 1 } } as never)).toThrow(
+        expect(() => SpawnAttenuation.fromData({ ceiling: { cpu: 1 } })).toThrow(
             /missing or unknown fields/
         );
     });
@@ -478,10 +471,10 @@ describe("Run resource ceilings", () => {
                 "wallClockMs"
             ]);
 
-            expect(() => ResourceCeiling.fromData({ tokens: "5" } as never)).toThrow(
+            expect(() => ResourceCeiling.fromData({ tokens: "5" })).toThrow(
                 "Resource ceiling tokens must be a non-negative safe integer"
             );
-            expect(() => ResourceCeiling.fromData({ depth: -1 } as never)).toThrow(
+            expect(() => ResourceCeiling.fromData({ depth: -1 })).toThrow(
                 "Resource ceiling depth must be a non-negative safe integer"
             );
         }
@@ -509,7 +502,7 @@ describe("Run resource ceilings", () => {
             // The attenuation declares `ceiling` and nothing else, so any other key is
             // refused whatever it is named.
             expect(() =>
-                SpawnAttenuation.fromData({ ceiling: null, "Stryker was here": 1 } as never)
+                SpawnAttenuation.fromData({ ceiling: null, "Stryker was here": 1 })
             ).toThrow("Spawn attenuation contains missing or unknown fields");
         }
     );

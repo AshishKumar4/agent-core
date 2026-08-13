@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { SemVer, type JsonValue } from "../../../src/core";
+import { requireArray } from "../../../src/agents/record-data";
 import { RunCommitId } from "../../../src/execution-references";
 import { ReceiptId } from "../../../src/invocations";
 import {
@@ -339,10 +340,10 @@ describe("Run commit decode guards", () => {
                 label: "path resolution",
                 base: mergePerPath("alien-path-entry"),
                 update: (data) => {
-                    const resolutions = treeOf(data)["resolutions"];
-                    if (!Array.isArray(resolutions)) {
-                        throw new TypeError("Tree resolutions are not an array");
-                    }
+                    const resolutions = requireArray(
+                        treeOf(data)["resolutions"],
+                        "Tree resolutions"
+                    );
                     objectAt(resolutions[0], "path resolution")[alien] = true;
                 },
                 subject: "Path resolution"
