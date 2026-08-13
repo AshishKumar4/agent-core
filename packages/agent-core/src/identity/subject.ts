@@ -15,6 +15,13 @@ export class GuestVerificationScheme {
     public static readonly callback = new GuestVerificationScheme("callback");
     public static readonly handshake = new GuestVerificationScheme("handshake");
 
+    /** The closed vocabulary §3.3 fixes, in the order it introduces the schemes. */
+    public static readonly all: readonly GuestVerificationScheme[] = Object.freeze([
+        GuestVerificationScheme.token,
+        GuestVerificationScheme.callback,
+        GuestVerificationScheme.handshake
+    ]);
+
     private constructor(public readonly value: GuestVerificationSchemeValue) {
         Object.freeze(this);
     }
@@ -35,10 +42,9 @@ export class GuestVerificationScheme {
 function parseGuestVerificationScheme(
     value: GuestVerificationSchemeValue
 ): GuestVerificationScheme {
-    if (value === "token") return GuestVerificationScheme.token;
-    if (value === "callback") return GuestVerificationScheme.callback;
-    if (value === "handshake") return GuestVerificationScheme.handshake;
-    throw new TypeError("Guest verification scheme is invalid");
+    const scheme = GuestVerificationScheme.all.find((candidate) => candidate.value === value);
+    if (scheme === undefined) throw new TypeError("Guest verification scheme is invalid");
+    return scheme;
 }
 
 export interface PrincipalSubjectRef {

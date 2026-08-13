@@ -5,7 +5,7 @@ import AgentCore.View
 namespace AgentCore
 
 def Action.elevated : Action → Bool | .delegate | .administer => true | _ => false
-def Subject.isForeign : Subject → Bool | .foreign _ _ => true | _ => false
+def Subject.isForeign : Subject → Bool | .foreign _ _ _ => true | _ => false
 
 def roleRuleEligible (membership : Membership) (rule : RoleRule) : Bool :=
   match rule.effect with

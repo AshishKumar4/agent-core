@@ -616,6 +616,11 @@ import AgentCore
 #print axioms AgentCore.path_index_le_iff_reaches
 #print axioms AgentCore.path_index_defined_of_reaches
 #print axioms AgentCore.authority_grant_matches_iff
+#print axioms AgentCore.authority_grant_matches_deny_iff
+#print axioms AgentCore.subject_identity_drops_verification_scheme
+#print axioms AgentCore.matches_deny_of_matches_request
+#print axioms AgentCore.deny_survives_verification_scheme_change
+#print axioms AgentCore.allow_requires_exact_verification_scheme
 #print axioms AgentCore.ancestor_deny_defeats_descendant_allow
 #print axioms AgentCore.lineage_ok_ancestor_covers
 #print axioms AgentCore.lineage_ok_ancestors_live
@@ -632,6 +637,7 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_authority_allows_without_matching_deny
 #print axioms AgentCore.Examples.nonvacuous_authority_ancestor_deny_overrides
 #print axioms AgentCore.Examples.nonvacuous_authority_guest_elevation_refused
+#print axioms AgentCore.Examples.nonvacuous_authority_guest_deny_crosses_schemes
 #print axioms AgentCore.Examples.nonvacuous_authority_lineage_walks_and_refuses
 
 -- Composite key representation (SPEC §3.4, §8.1): when a stored delimiter-joined key

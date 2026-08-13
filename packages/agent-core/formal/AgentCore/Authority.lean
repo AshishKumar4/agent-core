@@ -47,9 +47,15 @@ holding.
 Subjects and Scopes are compared as values here, while the implementation compares the
 canonical-JSON keys `subjectKey` and `scopeKey`. `AgentCore.authorityKey_injective` proves
 that comparison is value comparison with no side condition on the identifier text, so value
-equality is the right model of what the resolver runs — and, since a foreign subject's
-`verifiedVia` stamp is inside that key, two stamps for one foreign Principal are two
-subjects to this decision.
+equality is the right model of what the resolver runs.
+
+The two sides of §3.3 do not read the same subject. A foreign subject carries the
+`verifiedVia` stamp naming how the guest proved who they are, and §3.3 lets that stamp
+change over a Principal's lifetime. An allow is matched on the whole stamped subject, which
+is what lets a Tenant scope an allow to the verification scheme it trusts; a deny is matched
+on `Subject.identity`, which drops the stamp, because a deny names who is refused and a
+re-verified guest is the same who. `matches_deny_of_matches_request` proves the deny side is
+the coarser of the two, so the asymmetry can only refuse more.
 
 Guest verification currency (`guestGrantIsCurrent`) reads Membership and GuestTrust records
 and is not modeled; a guest request is modeled only through the elevation prohibition. The
@@ -324,9 +330,33 @@ structure AuthorityRequest where
   intent : CapabilityIntent
   deriving DecidableEq, Repr
 
-/-- SPEC §3.3's "matching" Grant: an acting subject, reach to the target, and an admitted
-intent. Admission is `Capability.Matches`, so this quantifies over the intent domain rather
-than over what any comparison computes. -/
+/-- Who a subject is, with a guest's verification stamp dropped. -/
+inductive SubjectIdentity where
+  | principal (ref : PrincipalRef)
+  | team (id : TeamId)
+  | foreign (homeTenant : TenantId) (id : PrincipalId)
+  deriving DecidableEq, Repr
+
+/-- A subject read as the identity it names rather than as how that identity was proved.
+`verifiedVia` qualifies a foreign Principal; it does not name a different one. -/
+def Subject.identity : Subject → SubjectIdentity
+  | .principal ref => .principal ref
+  | .team id => .team id
+  | .foreign home id _ => .foreign home id
+
+/-- **One guest is one identity under every scheme.** The stamp separates subjects and does
+not separate the Principal they name, which is what makes a deny recorded under one scheme
+a deny of the same guest under another. -/
+theorem subject_identity_drops_verification_scheme (home : TenantId) (principal : PrincipalId)
+    (left right : GuestScheme) :
+    (Subject.foreign home principal left).identity =
+      (Subject.foreign home principal right).identity := rfl
+
+/-- SPEC §3.3's "matching" allow-Grant: an acting subject, reach to the target, and an
+admitted intent. Admission is `Capability.Matches`, so this quantifies over the intent domain
+rather than over what any comparison computes. The subject is matched whole, stamp included,
+which is what makes an allow issued under one verification scheme authority under that
+scheme only. -/
 def AuthorityGrant.MatchesRequest (grant : AuthorityGrant) (request : AuthorityRequest) : Prop :=
   grant.subject ∈ request.subjects ∧ ScopeReaches grant.scope request.target ∧
   grant.capability.Matches request.intent
@@ -338,6 +368,18 @@ def AuthorityGrant.matchesRequestBool (grant : AuthorityGrant) (request : Author
   decide (grant.subject ∈ request.subjects) && decide (grant.scope ∈ request.target.path) &&
     grant.capability.matchesBool request.intent
 
+/-- SPEC §3.3's "matching" deny-Grant. Same reach and same intent admission, and the subject
+matched on identity: a deny names who is refused, so the guest's verification stamp is not
+part of what it matches. -/
+def AuthorityGrant.MatchesDeny (grant : AuthorityGrant) (request : AuthorityRequest) : Prop :=
+  grant.subject.identity ∈ request.subjects.map Subject.identity ∧
+  ScopeReaches grant.scope request.target ∧ grant.capability.Matches request.intent
+
+def AuthorityGrant.matchesDenyBool (grant : AuthorityGrant) (request : AuthorityRequest) :
+    Bool :=
+  decide (grant.subject.identity ∈ request.subjects.map Subject.identity) &&
+    decide (grant.scope ∈ request.target.path) && grant.capability.matchesBool request.intent
+
 theorem authority_grant_matches_iff {grant : AuthorityGrant} {request : AuthorityRequest} :
     grant.matchesRequestBool request = true ↔ grant.MatchesRequest request := by
   simp only [AuthorityGrant.matchesRequestBool, AuthorityGrant.MatchesRequest, Bool.and_eq_true,
@@ -348,22 +390,46 @@ theorem authority_grant_matches_iff {grant : AuthorityGrant} {request : Authorit
   · rintro ⟨subject, scope, intent⟩
     exact ⟨⟨subject, scope⟩, intent⟩
 
+theorem authority_grant_matches_deny_iff {grant : AuthorityGrant} {request : AuthorityRequest} :
+    grant.matchesDenyBool request = true ↔ grant.MatchesDeny request := by
+  simp only [AuthorityGrant.matchesDenyBool, AuthorityGrant.MatchesDeny, Bool.and_eq_true,
+    decide_eq_true_eq, capability_matches_iff, scope_reaches_iff_mem_path]
+  constructor
+  · rintro ⟨⟨subject, scope⟩, intent⟩
+    exact ⟨subject, scope, intent⟩
+  · rintro ⟨subject, scope, intent⟩
+    exact ⟨⟨subject, scope⟩, intent⟩
+
+/-- **The deny side matches everything the allow side does.** Dropping the stamp is a
+widening, so the asymmetry can only refuse more requests, never admit one the exact
+comparison would have refused. -/
+theorem matches_deny_of_matches_request {grant : AuthorityGrant} {request : AuthorityRequest}
+    (matched : grant.MatchesRequest request) : grant.MatchesDeny request :=
+  ⟨List.mem_map_of_mem Subject.identity matched.1, matched.2.1, matched.2.2⟩
+
 instance (grant : AuthorityGrant) (request : AuthorityRequest) :
     Decidable (grant.MatchesRequest request) :=
   decidable_of_iff _ authority_grant_matches_iff
 
+instance (grant : AuthorityGrant) (request : AuthorityRequest) :
+    Decidable (grant.MatchesDeny request) :=
+  decidable_of_iff _ authority_grant_matches_deny_iff
+
 /-! ## The §3.3 precedence condition -/
 
-/-- A live matching Grant of one effect. -/
-def LiveMatching (grants : List AuthorityGrant) (request : AuthorityRequest)
-    (effect : GrantEffect) : Prop :=
-  ∃ grant ∈ grants, grant.live = true ∧ grant.effect = effect ∧ grant.MatchesRequest request
+/-- A live allow-Grant matching the request, subject and stamp both. -/
+def LiveAllowing (grants : List AuthorityGrant) (request : AuthorityRequest) : Prop :=
+  ∃ grant ∈ grants, grant.live = true ∧ grant.effect = .allow ∧ grant.MatchesRequest request
+
+/-- A live deny-Grant matching the request's subject identity. -/
+def LiveDenying (grants : List AuthorityGrant) (request : AuthorityRequest) : Prop :=
+  ∃ grant ∈ grants, grant.live = true ∧ grant.effect = .deny ∧ grant.MatchesDeny request
 
 /-- **SPEC §3.3 precedence, stated exactly.** Effective authority exists exactly when at
 least one live matching allow-Grant reaches the target Scope and no live matching deny-Grant
 does. -/
 def EffectiveAuthority (grants : List AuthorityGrant) (request : AuthorityRequest) : Prop :=
-  LiveMatching grants request .allow ∧ ¬ LiveMatching grants request .deny
+  LiveAllowing grants request ∧ ¬ LiveDenying grants request
 
 /-- **A deny anywhere above the target defeats every allow below it.** This is §3.3's "a
 descendant allow MUST NOT re-widen an ancestor deny": the deny is issued at a Scope that
@@ -373,11 +439,44 @@ theorem ancestor_deny_defeats_descendant_allow {grants : List AuthorityGrant}
     {request : AuthorityRequest} {denyGrant : AuthorityGrant} {middle : Scope}
     (member : denyGrant ∈ grants) (live : denyGrant.live = true)
     (effect : denyGrant.effect = .deny)
-    (subject : denyGrant.subject ∈ request.subjects)
+    (subject : denyGrant.subject.identity ∈ request.subjects.map Subject.identity)
     (above : ScopeReaches denyGrant.scope middle) (below : ScopeReaches middle request.target)
     (admits : denyGrant.capability.Matches request.intent) :
     ¬ EffectiveAuthority grants request := fun effective =>
   effective.2 ⟨denyGrant, member, live, effect, subject, scope_reaches_trans above below, admits⟩
+
+/-- **A deny is not escaped by re-verifying.** A live deny recorded for a foreign Principal
+under one verification scheme refuses a request the same Principal makes under another. This
+is the reachable case: §3.3 lets the stamp change over a Principal's lifetime, and a Grant's
+subject is immutable, so a deny recorded before the change cannot be restamped to follow it.
+Deny matching therefore has to read the identity a stamp qualifies rather than the stamp. -/
+theorem deny_survives_verification_scheme_change {grants : List AuthorityGrant}
+    {request : AuthorityRequest} {denyGrant : AuthorityGrant} {home : TenantId}
+    {principal : PrincipalId} {recorded requested : GuestScheme} (member : denyGrant ∈ grants)
+    (live : denyGrant.live = true) (effect : denyGrant.effect = .deny)
+    (stamped : denyGrant.subject = .foreign home principal recorded)
+    (acting : Subject.foreign home principal requested ∈ request.subjects)
+    (reaches : ScopeReaches denyGrant.scope request.target)
+    (admits : denyGrant.capability.Matches request.intent) :
+    ¬ EffectiveAuthority grants request := by
+  intro effective
+  refine effective.2 ⟨denyGrant, member, live, effect, ?_, reaches, admits⟩
+  simpa [stamped, Subject.identity] using List.mem_map_of_mem Subject.identity acting
+
+/-- **An allow is authority only under the scheme it was verified with.** The same foreign
+Principal stamped by another scheme is another subject to the allow side, which is what lets
+a Tenant scope an allow to the verification scheme it trusts. -/
+theorem allow_requires_exact_verification_scheme {grant : AuthorityGrant}
+    {request : AuthorityRequest} {home : TenantId} {principal : PrincipalId}
+    {recorded requested : GuestScheme} (different : recorded ≠ requested)
+    (stamped : grant.subject = .foreign home principal recorded)
+    (acting : request.subjects = [.foreign home principal requested]) :
+    ¬ grant.MatchesRequest request := by
+  intro matched
+  have member := matched.1
+  rw [stamped, acting] at member
+  simp only [List.mem_singleton, Subject.foreign.injEq, true_and] at member
+  exact different member
 
 /-! ## The attenuation lineage walk
 
@@ -559,7 +658,7 @@ structure AuthorityInput where
 /-- The live matching deny-Grants, which is the list the evidence record carries. -/
 def AuthorityInput.denials (input : AuthorityInput) : List AuthorityGrant :=
   input.grants.filter fun grant =>
-    grant.matchesRequestBool input.request && grant.live && grant.effect == .deny
+    grant.matchesDenyBool input.request && grant.live && grant.effect == .deny
 
 def evaluateExec (input : AuthorityInput) : AuthorityDecision :=
   if input.denials = [] then
@@ -581,12 +680,12 @@ def evaluateExec (input : AuthorityInput) : AuthorityDecision :=
   else .matchingDeny
 
 theorem denials_empty_iff {input : AuthorityInput} :
-    input.denials = [] ↔ ¬ LiveMatching input.grants input.request .deny := by
+    input.denials = [] ↔ ¬ LiveDenying input.grants input.request := by
   constructor
   · rintro empty ⟨grant, member, live, effect, matched⟩
     have listed : grant ∈ input.denials := by
       simp only [AuthorityInput.denials, List.mem_filter, Bool.and_eq_true, beq_iff_eq]
-      exact ⟨member, ⟨authority_grant_matches_iff.mpr matched, live⟩, effect⟩
+      exact ⟨member, ⟨authority_grant_matches_deny_iff.mpr matched, live⟩, effect⟩
     rw [empty] at listed
     exact absurd listed (List.not_mem_nil grant)
   · intro absent
@@ -597,7 +696,7 @@ theorem denials_empty_iff {input : AuthorityInput} :
         simp only [AuthorityInput.denials, List.mem_filter, Bool.and_eq_true, beq_iff_eq]
           at member
         exact absurd ⟨head, member.1, member.2.1.2, member.2.2,
-          authority_grant_matches_iff.mp member.2.1.1⟩ absent
+          authority_grant_matches_deny_iff.mp member.2.1.1⟩ absent
 
 /-- The Binding integrity the decision requires beyond §3.3: the Grant a Binding names must
 itself be a live matching allow whose attenuation lineage the walk admits. -/
@@ -656,7 +755,7 @@ live matching deny-Grant reaches the target. -/
 theorem authority_decision_is_deny_precedence {input : AuthorityInput}
     {backing : AuthorityGrant} (sound : BackingSound input backing)
     (permitted : ¬ (input.guest = true ∧ input.request.intent.impact.elevating = true)) :
-    evaluateExec input = .allowed ↔ ¬ LiveMatching input.grants input.request .deny := by
+    evaluateExec input = .allowed ↔ ¬ LiveDenying input.grants input.request := by
   refine ⟨fun allowed => (authority_decision_is_sound allowed).2, fun absent => ?_⟩
   simp only [evaluateExec, if_pos (denials_empty_iff.mpr absent), if_neg permitted, sound.lookup,
     if_pos sound.allow, if_pos sound.live,

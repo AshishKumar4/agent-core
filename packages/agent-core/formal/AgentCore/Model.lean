@@ -70,10 +70,17 @@ inductive ProtectionDomain where
 def ProtectionDomain.tenant : ProtectionDomain → TenantId
   | .run tenant _ | .workspace tenant _ => tenant
 
+/-- SPEC §3.3's three verification schemes: how the host Tenant establishes that a request
+really comes from a foreign Principal. The stamp is part of a guest's subject and changes
+over the Principal's lifetime — `handshake` "downgrades all future verifications to
+`token`" — so one Principal is reachable under more than one of them. -/
+inductive GuestScheme where | token | callback | handshake
+  deriving DecidableEq, Repr
+
 inductive Subject where
   | principal (ref : PrincipalRef)
   | team (id : TeamId)
-  | foreign (homeTenant : TenantId) (id : PrincipalId)
+  | foreign (homeTenant : TenantId) (id : PrincipalId) (verifiedVia : GuestScheme)
   deriving DecidableEq, Repr
 
 inductive Resource where

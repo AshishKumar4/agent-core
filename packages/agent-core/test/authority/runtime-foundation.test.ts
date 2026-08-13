@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
-import { Digest, Revision, encodeCanonicalJson } from "../../src/core";
+import { Digest, Revision, SecretRef, encodeCanonicalJson } from "../../src/core";
 import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../src/facets";
 import {
     Membership,
@@ -29,7 +29,8 @@ import {
 } from "../identity/internal-fixture";
 import { Binding } from "../../src/authority/binding";
 import { BindingValidationRequest } from "../../src/authority/binding-evidence";
-import { AuthorityCheckRequest } from "../../src/authority/evidence";
+import { PathEpochEvidence, ScopeEpoch } from "../../src/authority/epoch";
+import { AuthorityCheckRequest, type AuthorityCheckEvidence } from "../../src/authority/evidence";
 import { Grant } from "../../src/authority/grant";
 import { GrantId } from "../../src/authority/id";
 import { authorityKey } from "../../src/authority/key";
@@ -47,6 +48,22 @@ const domain = new ProtectionDomain("backend", "runtime", "no-secrets");
 const facet = new FacetRef("workspace:mail.instance");
 const argumentsValue = { folder: "inbox" } as const;
 const argumentsDigest = Digest.sha256(encodeCanonicalJson(argumentsValue));
+
+const guestHome = new TenantId("tenant-runtime-guest-home");
+const guestPrincipal = new PrincipalId("principal-runtime-guest");
+const guestTrustKey = new SecretRef("tenant", "oidc", "runtime-guest-key");
+const mailObserve = new CapabilitySpec({ facetPattern: "workspace:mail.*", impacts: ["observe"] });
+const guestReaderRole = new Role(new RoleName("runtime-guest-reader"), [
+    new RoleRule("allow", mailObserve)
+]);
+const guestBlockedRole = new Role(new RoleName("runtime-guest-blocked"), [
+    new RoleRule("deny", mailObserve)
+]);
+/** The steady-state schemes, each once as the deny's stamp and once as the request's. */
+const guestSchemePairs = [
+    { deny: GuestVerificationScheme.token, request: GuestVerificationScheme.callback },
+    { deny: GuestVerificationScheme.callback, request: GuestVerificationScheme.token }
+] as const;
 
 describe("Tenant authority runtime", () => {
     test("persists immutable Tenant Project and Workspace topology", { tags: "p0" }, () => {
@@ -647,6 +664,64 @@ describe("verified guest lifecycle", () => {
     );
 });
 
+/*
+ * A guest's `verifiedVia` stamp is part of its subject and changes over the Principal's
+ * lifetime: SPEC §3.3 has `handshake` downgrade "all future verifications to `token`", and a
+ * host that trusts one home Tenant under both steady-state schemes reaches both stamps for
+ * one guest without any rotation at all. Every record below is written through
+ * AuthorityMutationService, so the two-stamp state these tests refuse from is one the host
+ * can actually be in.
+ */
+describe("guest deny precedence across verification schemes", () => {
+    test(
+        "[C13-AUTH-DENY-PRECEDENCE] a live guest deny holds under another verification scheme",
+        { tags: "p0" },
+        () => {
+            for (const denied of guestSchemePairs) {
+                const label = `deny ${denied.deny.value} against request ${denied.request.value}`;
+                const guest = guestSchemeFixture(label);
+                const allowed = guest.admit("allow", denied.request, guestReaderRole.name);
+                const binding = guest.bind(allowed);
+
+                // Without the deny the same request is admitted, so the refusal below is the
+                // deny sweep and not one of the guest gates behind it.
+                expect(guest.check(binding).reason, label).toBe("allowed");
+
+                const blocked = guest.admit("deny", denied.deny, guestBlockedRole.name);
+                const evidence = guest.check(binding);
+                expect(evidence.reason, label).toBe("matchingDeny");
+                expect(
+                    evidence.matchedDeny.map((id) => id.value),
+                    label
+                ).toEqual([GrantId.forRole(blocked.id, 0).value]);
+            }
+        }
+    );
+
+    test(
+        "[C13-AUTH-GUEST-VERIFICATION] a guest allow is authority only under its own scheme",
+        { tags: "p0" },
+        () => {
+            const guest = guestSchemeFixture("allow-stamp");
+            const token = guest.admit("token", GuestVerificationScheme.token, guestReaderRole.name);
+            const callback = guest.admit(
+                "callback",
+                GuestVerificationScheme.callback,
+                guestReaderRole.name
+            );
+            const evidence = guest.check(guest.bind(token));
+
+            // Both Grants are live, name the same foreign Principal, sit at the same Scope
+            // and admit the same intent; only the stamp keeps the second out of the answer.
+            expect(guest.store.grant(GrantId.forRole(callback.id, 0))?.isLive).toBe(true);
+            expect(evidence.reason).toBe("allowed");
+            expect(evidence.matchedAllow.map((id) => id.value)).toEqual([
+                GrantId.forRole(token.id, 0).value
+            ]);
+        }
+    );
+});
+
 describe("canonical authority keys", () => {
     test("does not collide at component boundaries", { tags: "p0" }, () => {
         expect(authorityKey("binding", ["a:b", "c"])).not.toBe(
@@ -671,6 +746,93 @@ function fixture(): {
     const service = new AuthorityMutationService(store);
     service.createWorkspace(new Workspace(workspaceId, tenantId, undefined, Revision.initial()));
     return { store, service, runtime: new TenantAuthorityRuntime(store, tenantActor) };
+}
+
+/**
+ * A host Tenant that trusts one home Tenant under both steady-state schemes, so the same
+ * guest is admissible — and therefore deniable — under either stamp. `admit` writes a
+ * verified guest Membership under a scheme; `bind` names its allow Grant; `check` asks the
+ * runtime with path evidence read at that moment, since admitting a Membership bumps the
+ * Scope epoch and stale evidence would answer before precedence ever runs.
+ */
+function guestSchemeFixture(label: string): {
+    readonly store: MemoryTenantControlStore;
+    admit(id: string, scheme: GuestVerificationScheme, role: RoleName): Membership;
+    bind(membership: Membership): Binding;
+    check(binding: Binding): AuthorityCheckEvidence;
+} {
+    const { store, service, runtime } = fixture();
+    const trusts = new Map(
+        guestSchemePairs.map(({ deny }) => [
+            deny.value,
+            new GuestTrust(
+                new GuestTrustId(`${label}-${deny.value}-trust`),
+                tenantId,
+                guestHome,
+                deny.equals(GuestVerificationScheme.token)
+                    ? { kind: "token", issuer: "https://home.example", key: guestTrustKey }
+                    : { kind: "callback", endpoint: "https://home.example/verify" },
+                "active",
+                Revision.initial()
+            )
+        ])
+    );
+    for (const trust of trusts.values()) service.createGuestTrust(trust);
+    service.createRole(guestReaderRole);
+    service.createRole(guestBlockedRole);
+    return {
+        store,
+        admit(id: string, scheme: GuestVerificationScheme, role: RoleName): Membership {
+            const trust = trusts.get(scheme.value)!;
+            return service.assignGuestMembership(
+                new Membership(
+                    new MembershipId(`${label}-${id}-member`),
+                    workspaceScope,
+                    SubjectRef.foreign(guestHome, guestPrincipal, scheme),
+                    role,
+                    "active",
+                    Revision.initial()
+                ),
+                new GuestVerification(
+                    new PrincipalRef(guestHome, guestPrincipal),
+                    trust.id,
+                    trust.revision,
+                    scheme,
+                    Digest.sha256(Uint8Array.of(11)),
+                    new Date(1_000),
+                    new Date(9_000)
+                ),
+                new Date(2_000)
+            );
+        },
+        bind(membership: Membership): Binding {
+            const binding = Binding.active(
+                workspaceScope,
+                membership.subject,
+                domain,
+                new BindingName(`${label}-mail`),
+                GrantId.forRole(membership.id, 0),
+                facet
+            );
+            service.createBinding(binding);
+            return binding;
+        },
+        check(binding: Binding): AuthorityCheckEvidence {
+            return runtime.check(
+                checkRequest(
+                    binding,
+                    new PrincipalRef(guestHome, guestPrincipal),
+                    new PathEpochEvidence(
+                        workspaceScope.path.map((scope) => store.epoch(scope)) as [
+                            ScopeEpoch,
+                            ...ScopeEpoch[]
+                        ]
+                    )
+                ),
+                new Date(2_000)
+            );
+        }
+    };
 }
 
 function grant(
@@ -706,7 +868,7 @@ function validationRequest(grantId: GrantId): BindingValidationRequest {
 function checkRequest(
     binding: Binding,
     principal: PrincipalRef,
-    expectedPath: import("../../src/authority/epoch").PathEpochEvidence,
+    expectedPath: PathEpochEvidence,
     intentFacet: FacetRef = facet
 ): AuthorityCheckRequest {
     return new AuthorityCheckRequest({

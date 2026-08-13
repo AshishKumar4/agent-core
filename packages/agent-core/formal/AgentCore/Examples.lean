@@ -194,7 +194,7 @@ theorem nonvacuous_authorized_resolution_issue :
   · exact ⟨by decide, by simp [resolution, header, token]⟩
 
 private def foreignMembership : Membership :=
-  ⟨⟨2⟩, .foreign ⟨2⟩ principal, scope, ⟨2⟩⟩
+  ⟨⟨2⟩, .foreign ⟨2⟩ principal .callback, scope, ⟨2⟩⟩
 private def denyRule : RoleRule :=
   ⟨.deny, ⟨.external tenant "admin", .administer⟩⟩
 private def denyRole : Role := ⟨⟨2⟩, [denyRule]⟩
@@ -2169,7 +2169,7 @@ private def elevatedAllowRule : RoleRule :=
   ⟨.allow, ⟨.external tenant "admin", .administer⟩⟩
 private def elevatedAllowRole : Role := ⟨⟨3⟩, [elevatedAllowRule]⟩
 private def elevatedMembership : Membership :=
-  ⟨⟨3⟩, .foreign ⟨2⟩ principal, scope, elevatedAllowRole.id⟩
+  ⟨⟨3⟩, .foreign ⟨2⟩ principal .callback, scope, elevatedAllowRole.id⟩
 
 theorem nonvacuous_guest_elevated_allow_filtered :
     (materializeRole (default : AuthorityLedger) elevatedMembership elevatedAllowRole).grants
@@ -5641,6 +5641,28 @@ private def hostDelegateInput : AuthorityInput :=
     .manual 2⟩
 private def guestDelegateInput : AuthorityInput := { hostDelegateInput with guest := true }
 
+/-! One guest of a foreign home Tenant, admitted as verified by `callback` and denied by a
+Grant recorded while the same guest was verified by `token`. -/
+
+private def guestHome : TenantId := ⟨8⟩
+private def guestPrincipal : PrincipalId := ⟨9⟩
+private def tokenGuest : Subject := .foreign guestHome guestPrincipal .token
+private def callbackGuest : Subject := .foreign guestHome guestPrincipal .callback
+private def otherGuest : Subject := .foreign guestHome ⟨10⟩ .token
+
+private def guestRequest : AuthorityRequest := ⟨[callbackGuest], targetScope, mailIntent⟩
+private def guestAllow : AuthorityGrant :=
+  ⟨.manual 6, callbackGuest, targetScope, .allow, mailCapability, none, true⟩
+private def tokenStampedDeny : AuthorityGrant :=
+  ⟨.manual 7, tokenGuest, rootScope, .deny, mailCapability, none, true⟩
+private def otherGuestDeny : AuthorityGrant :=
+  ⟨.manual 8, otherGuest, rootScope, .deny, mailCapability, none, true⟩
+private def guestInput : AuthorityInput := ⟨[guestAllow], guestRequest, true, .manual 6⟩
+private def guestDeniedInput : AuthorityInput :=
+  ⟨[guestAllow, tokenStampedDeny], guestRequest, true, .manual 6⟩
+private def otherGuestDeniedInput : AuthorityInput :=
+  ⟨[guestAllow, otherGuestDeny], guestRequest, true, .manual 6⟩
+
 /-- The chain relation separates real Scopes, and it is exactly the path membership the
 resolver tests: a Project reaches its Workspace, and never the other way round. -/
 theorem nonvacuous_authority_scope_reach_discriminates :
@@ -5692,6 +5714,21 @@ theorem nonvacuous_authority_ancestor_deny_overrides :
 theorem nonvacuous_authority_guest_elevation_refused :
     evaluateExec guestDelegateInput = .guestElevation ∧
       evaluateExec hostDelegateInput = .allowed := by decide
+
+/-- **The verification stamp separates allows and does not separate denies.** The guest is
+admitted as verified by `callback`; a deny recorded while the same guest was verified by
+`token` refuses it, and a deny naming another foreign Principal of the same home Tenant does
+not. The token-stamped Grant is not a subject match on the allow side at all, so the two
+sides genuinely read different subjects rather than one loose one. -/
+theorem nonvacuous_authority_guest_deny_crosses_schemes :
+    evaluateExec guestInput = .allowed ∧
+      evaluateExec guestDeniedInput = .matchingDeny ∧
+      evaluateExec otherGuestDeniedInput = .allowed ∧
+      ¬ tokenStampedDeny.MatchesRequest guestRequest ∧
+      tokenStampedDeny.MatchesDeny guestRequest :=
+  ⟨by decide, by decide, by decide,
+   fun matched => absurd (authority_grant_matches_iff.mpr matched) (by decide),
+   authority_grant_matches_deny_iff.mp (by decide)⟩
 
 /-- **The lineage walk separates three answers, and admits a real containment.** The clean
 chain is admitted and its root covers the leaf; revoking the root refuses the whole chain;
