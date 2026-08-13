@@ -5,8 +5,9 @@ import {
     Revision,
     decodeCanonicalJson,
     encodeCanonicalJson,
-    type JsonValue,
-    type RecordEnvelope
+    isJsonObject,
+    type JsonObject,
+    type JsonValue
 } from "../../src/core";
 import {
     EnvironmentId,
@@ -40,6 +41,7 @@ import {
     type SlateMutationRequest
 } from "../../src/slates";
 import { WorkspaceId } from "../../src/workspaces";
+import { malformed } from "../helpers/malformed";
 
 const workspace = new WorkspaceId("workspace-record-mutation");
 const slateId = new SlateId("slate-record-mutation");
@@ -54,6 +56,14 @@ const invocation = new InvocationId("invocation-record-mutation");
 const receipt = new ReceiptId("receipt-record-mutation");
 const source = ref("source");
 const materialization = ref("materialization");
+/**
+ * The stand-in for a constructor argument that is present but of the wrong type, which
+ * every record below must reject field by field.
+ *
+ * SAFETY: `never` is assignable to every parameter, so one value covers each field in the
+ * override tables without claiming to be any of their types. It is only ever passed to a
+ * constructor asserted to throw, and never read.
+ */
 const invalid = {} as never;
 
 describe("Slate record mutation kills", () => {
@@ -189,11 +199,7 @@ describe("Slate record mutation kills", () => {
             new Revision(2),
             1
         );
-        const preview = (
-            overrides: Partial<
-                Record<"id" | "ws" | "slate" | "cap" | "exp" | "src" | "version", never>
-            >
-        ): SlatePreview =>
+        const preview = (overrides: Partial<PreviewFields>): SlatePreview =>
             new SlatePreview(
                 overrides.id ?? previewId,
                 overrides.ws ?? workspace,
@@ -215,26 +221,20 @@ describe("Slate record mutation kills", () => {
             expect(() => preview(overrides)).toThrow(new TypeError("Slate preview is malformed"));
         }
 
-        const hollow = Object.create(
-            EnvironmentSessionCapability.prototype
-        ) as EnvironmentSessionCapability;
-        expect(() => preview({ cap: hollow as never })).toThrow(
+        expect(() => preview({ cap: hollowCapability({}) })).toThrow(
             new TypeError("Slate preview is malformed")
         );
-        const missingSession = Object.assign(
-            Object.create(EnvironmentSessionCapability.prototype) as EnvironmentSessionCapability,
-            { environmentId: capability.environmentId }
-        );
-        expect(() => preview({ cap: missingSession as never })).toThrow(
-            new TypeError("Slate preview is malformed")
-        );
-        const missingRevision = Object.assign(
-            Object.create(EnvironmentSessionCapability.prototype) as EnvironmentSessionCapability,
-            { environmentId: capability.environmentId, sessionId: capability.sessionId }
-        );
-        expect(() => preview({ cap: missingRevision as never })).toThrow(
-            new TypeError("Slate preview is malformed")
-        );
+        expect(() =>
+            preview({ cap: hollowCapability({ environmentId: capability.environmentId }) })
+        ).toThrow(new TypeError("Slate preview is malformed"));
+        expect(() =>
+            preview({
+                cap: hollowCapability({
+                    environmentId: capability.environmentId,
+                    sessionId: capability.sessionId
+                })
+            })
+        ).toThrow(new TypeError("Slate preview is malformed"));
     });
 
     test("rejects each malformed reservation field independently", { tags: "p1" }, () => {
@@ -242,8 +242,8 @@ describe("Slate record mutation kills", () => {
             overrides: Partial<
                 Record<"id" | "ws" | "slate" | "pub" | "mat" | "inv" | "expected", never>
             >
-        ): SlateDeploymentReservation =>
-            new SlateDeploymentReservation({
+        ): SlateDeploymentReservation => {
+            const init = {
                 id: overrides.id ?? deploymentId,
                 workspaceId: overrides.ws ?? workspace,
                 slateId: overrides.slate ?? slateId,
@@ -251,11 +251,14 @@ describe("Slate record mutation kills", () => {
                 publicationMaterialization: overrides.mat ?? materialization,
                 target: "production",
                 externalKey: "external-record-mutation",
-                invocationId: overrides.inv ?? invocation,
-                ...("expected" in overrides
-                    ? { expectedActiveDeploymentId: overrides.expected }
-                    : {})
-            });
+                invocationId: overrides.inv ?? invocation
+            };
+            return new SlateDeploymentReservation(
+                "expected" in overrides
+                    ? { ...init, expectedActiveDeploymentId: overrides.expected }
+                    : init
+            );
+        };
         for (const overrides of [
             { id: invalid },
             { ws: invalid },
@@ -383,9 +386,9 @@ describe("Slate record mutation kills", () => {
             activeDeploymentId: deploymentId,
             revision: new Revision(3)
         });
-        const slatePayload = slate.toData() as Record<string, JsonValue>;
+        const slatePayload = payloadOf(slate.toData());
         const version = new SlateVersion(versionId, workspace, slateId, source, parentVersionId);
-        const versionPayload = version.toData() as Record<string, JsonValue>;
+        const versionPayload = payloadOf(version.toData());
         const publication = new SlatePublication(
             publicationId,
             workspace,
@@ -393,7 +396,7 @@ describe("Slate record mutation kills", () => {
             versionId,
             materialization
         );
-        const publicationPayload = publication.toData() as Record<string, JsonValue>;
+        const publicationPayload = payloadOf(publication.toData());
         const deployment = new SlateDeployment(
             deploymentId,
             workspace,
@@ -404,7 +407,7 @@ describe("Slate record mutation kills", () => {
             invocation,
             receipt
         );
-        const deploymentPayload = deployment.toData() as Record<string, JsonValue>;
+        const deploymentPayload = payloadOf(deployment.toData());
         const resource = new SlateResource(
             resourceId,
             workspace,
@@ -416,7 +419,7 @@ describe("Slate record mutation kills", () => {
             invocation,
             receipt
         );
-        const resourcePayload = resource.toData() as Record<string, JsonValue>;
+        const resourcePayload = payloadOf(resource.toData());
         const preview = new SlatePreview(
             previewId,
             workspace,
@@ -431,7 +434,7 @@ describe("Slate record mutation kills", () => {
             source,
             versionId
         );
-        const previewPayload = preview.toData() as Record<string, JsonValue>;
+        const previewPayload = payloadOf(preview.toData());
 
         expectDecodeFailure(
             Slate,
@@ -558,7 +561,7 @@ describe("Slate record mutation kills", () => {
             source,
             invocationId: invocation
         });
-        const reservationPayload = resourceReservation.toData() as Record<string, JsonValue>;
+        const reservationPayload = payloadOf(resourceReservation.toData());
         expectDecodeFailure(
             SlateResourceReservation,
             resourceReservation,
@@ -991,14 +994,18 @@ describe("Slate record mutation kills", () => {
     });
 
     test("intent validation failures carry exact subjects", { tags: "p1" }, () => {
+        const incomplete: Partial<SlateMutationRequest> & { readonly wrongField: ContentRef } = {
+            operation: "create",
+            impact: "mutate",
+            workspaceId: workspace,
+            slateId,
+            wrongField: source
+        };
+        // SAFETY: `incomplete` states what it is — a create mutation missing the `source`
+        // it requires and carrying a field the contract does not declare. It reaches
+        // freezeSlateMutationRequest only to be rejected for both at once.
         expect(() =>
-            freezeSlateMutationRequest({
-                operation: "create",
-                impact: "mutate",
-                workspaceId: workspace,
-                slateId,
-                wrongField: source
-            } as unknown as SlateMutationRequest)
+            freezeSlateMutationRequest(incomplete as SlateMutationRequest)
         ).toThrowError(
             expect.objectContaining({
                 code: "operation.invalid-input",
@@ -1013,7 +1020,7 @@ describe("Slate record mutation kills", () => {
                 slateId,
                 versionId,
                 source,
-                parentVersionId: "bad" as unknown as SlateVersionId,
+                parentVersionId: malformed<SlateVersionId>("bad"),
                 expectedRevision: Revision.initial()
             })
         ).toThrowError(
@@ -1029,7 +1036,7 @@ describe("Slate record mutation kills", () => {
                 workspaceId: workspace,
                 slateId,
                 deploymentId,
-                expectedActiveDeploymentId: "bad" as unknown as SlateDeploymentId,
+                expectedActiveDeploymentId: malformed<SlateDeploymentId>("bad"),
                 expectedRevision: Revision.initial()
             })
         ).toThrowError(
@@ -1077,7 +1084,7 @@ describe("Slate record mutation kills", () => {
             })
         );
         expect(() =>
-            freezeSlateInvocationRequest(resourceIntent(1 as unknown as string))
+            freezeSlateInvocationRequest(resourceIntent(malformed<string>(1)))
         ).toThrowError(
             expect.objectContaining({
                 code: "operation.invalid-input",
@@ -1097,7 +1104,7 @@ describe("Slate record mutation kills", () => {
         ).toBe(false);
         expect(context.sameItem(new SlateEffectContext(invocation, 3, 3, "item-key"))).toBe(false);
         expect(context.sameItem(new SlateEffectContext(invocation, 2, 3, "other-key"))).toBe(false);
-        expect(() => new SlateEffectContext(invocation, 0, 0, 5 as unknown as string)).toThrow(
+        expect(() => new SlateEffectContext(invocation, 0, 0, malformed<string>(5))).toThrow(
             new TypeError("Slate effect idempotency key must be canonical")
         );
     });
@@ -1135,11 +1142,12 @@ describe("Slate record mutation kills", () => {
             workspaceId: workspace.value
         };
 
-        const arrayPayload = Object.assign([], fields);
-        expect(() => Slate.fromData(arrayPayload as unknown as JsonValue)).toThrow(TypeError);
-
-        const functionPayload = Object.assign(() => undefined, fields);
-        expect(() => Slate.fromData(functionPayload as unknown as JsonValue)).toThrow(TypeError);
+        expect(() => Slate.fromData(payloadContainer(Object.assign([], fields)))).toThrow(
+            TypeError
+        );
+        expect(() =>
+            Slate.fromData(payloadContainer(Object.assign(() => undefined, fields)))
+        ).toThrow(TypeError);
     });
 });
 
@@ -1149,16 +1157,68 @@ function expectDecodeFailure<Record>(
     payload: JsonValue,
     message: string
 ): void {
-    const envelope = decodeCanonicalJson(recordClass.encode(record)) as JsonValue & RecordEnvelope;
+    const envelope = payloadOf(decodeCanonicalJson(recordClass.encode(record)));
+    const version = payloadOf(fieldOf(envelope, "version"));
     expect(() =>
         recordClass.decode(
             encodeCanonicalJson({
-                kind: envelope.kind,
-                version: { major: envelope.version.major, minor: envelope.version.minor },
+                kind: fieldOf(envelope, "kind"),
+                version: { major: fieldOf(version, "major"), minor: fieldOf(version, "minor") },
                 payload
             })
         )
     ).toThrowError(expect.objectContaining({ code: "codec.invalid", message }));
+}
+
+/**
+ * A capability carrying the real prototype and only the fields named, standing in for one
+ * rebuilt field by field and left incomplete. A `instanceof` check alone accepts it, so it
+ * is what separates a prototype test from a field test.
+ */
+function hollowCapability(
+    fields: Partial<EnvironmentSessionCapability>
+): EnvironmentSessionCapability {
+    // SAFETY: Object.create returns a bare prototype instance that the constructor never
+    // validated, so the required fields it omits are missing on purpose. It only ever
+    // reaches SlatePreview, which is asserted to reject it.
+    return Object.assign(
+        Object.create(EnvironmentSessionCapability.prototype) as EnvironmentSessionCapability,
+        fields
+    );
+}
+
+/** The SlatePreview constructor arguments, each replaceable on its own. */
+type PreviewFields = {
+    readonly id: SlatePreviewId;
+    readonly ws: WorkspaceId;
+    readonly slate: SlateId;
+    readonly cap: EnvironmentSessionCapability;
+    readonly exp: PortExposureId;
+    readonly src: ContentRef;
+    readonly version: SlateVersionId | undefined;
+};
+
+function payloadOf(value: JsonValue): JsonObject {
+    if (!isJsonObject(value)) throw new TypeError("Slate record payload must be an object");
+    return value;
+}
+
+function fieldOf(record: JsonObject, field: string): JsonValue {
+    const value = record[field];
+    if (value === undefined) throw new TypeError(`Slate record envelope is missing ${field}`);
+    return value;
+}
+
+/**
+ * A payload container carrying a valid record's fields on something that is not a JSON
+ * object: an array, or a function. Both reach a decoder as `typeof x === "object"` or as a
+ * callable, and both must be turned away before any field is read.
+ */
+function payloadContainer(container: readonly JsonValue[] | (() => void)): JsonValue {
+    // SAFETY: a function is not a JsonValue at all, and an array carrying named fields is
+    // not the object payload the decoder expects. Slate.fromData is asserted to reject
+    // both, so neither is ever read as JSON.
+    return container as JsonValue;
 }
 
 function ref(label: string): ContentRef {
