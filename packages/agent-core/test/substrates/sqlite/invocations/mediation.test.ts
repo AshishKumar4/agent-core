@@ -900,14 +900,14 @@ function audit(
     cause: AuditRecordId | undefined,
     kind: ConstructorParameters<typeof AuditRecord>[0]["kind"]
 ): AuditRecord {
-    return new AuditRecord({
+    const init = {
         id,
         actor,
         tenant: new TenantId("sqlite-atomic-tenant"),
         correlation: new CorrelationId("sqlite-atomic-correlation"),
-        ...(cause === undefined ? {} : { cause }),
         kind
-    });
+    };
+    return new AuditRecord(cause === undefined ? init : { ...init, cause });
 }
 
 function expectAgentCoreError(operation: () => void, code: AgentCoreError["code"]): void {
@@ -915,6 +915,8 @@ function expectAgentCoreError(operation: () => void, code: AgentCoreError["code"
         operation();
     } catch (error) {
         expect(error).toBeInstanceOf(AgentCoreError);
+        // SAFETY: the line above established the value is an AgentCoreError; vitest's
+        // matcher does not narrow, so the code read needs the type restated.
         expect((error as AgentCoreError).code).toBe(code);
         return;
     }

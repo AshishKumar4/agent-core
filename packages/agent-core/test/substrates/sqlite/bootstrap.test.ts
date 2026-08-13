@@ -82,13 +82,13 @@ class AnchorVanishSqlite extends TestSqlite {
 }
 
 function bootstrap(database: TestSqlite, content: CounterContentStore, withAnchor = true) {
-    return createSqliteTenantBootstrap({
+    const request = {
         actor,
-        ...(withAnchor ? { anchor } : {}),
         authenticator: new OwnerAuthenticator(),
         content,
         database
-    });
+    };
+    return createSqliteTenantBootstrap(withAnchor ? { ...request, anchor } : request);
 }
 
 function envelope(content: CounterContentStore, key: string): Uint8Array {

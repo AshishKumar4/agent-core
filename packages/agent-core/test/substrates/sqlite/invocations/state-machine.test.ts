@@ -1244,14 +1244,14 @@ function audit(
     cause: AuditRecordId | undefined,
     kind: ConstructorParameters<typeof AuditRecord>[0]["kind"]
 ): AuditRecord {
-    return new AuditRecord({
+    const init = {
         id,
         actor: invocation.header.actor,
         tenant: tenant,
         correlation,
-        ...(cause === undefined ? {} : { cause }),
         kind
-    });
+    };
+    return new AuditRecord(cause === undefined ? init : { ...init, cause });
 }
 
 function requireAttemptReceipt(receipt: Receipt): AttemptReceipt {
