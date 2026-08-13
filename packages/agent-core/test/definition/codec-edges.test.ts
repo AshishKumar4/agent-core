@@ -32,11 +32,12 @@ import {
     PlatformCompatibility,
     PolicySet,
     policyProjection,
+    type PackageProvenance,
     type PackageReleaseInit
 } from "../../src/definition";
 import { Contributions, FacetManifest, FacetPackageId } from "../../src/facets";
 import { TenantId } from "../../src/identity";
-import { recordData } from "./record-data";
+import { forged, recordData } from "./record-data";
 
 const encoder = new TextEncoder();
 const tenantId = new TenantId("tenant");
@@ -312,7 +313,7 @@ describe("definition codec adversarial edges", () => {
 
         const release = packageRelease();
         expect(
-            () => new PackageRelease({ ...releaseInit(release), provenance: null as never })
+            () => new PackageRelease({ ...releaseInit(release), provenance: forged<PackageProvenance>(null) })
         ).toThrow(/provenance/);
         expect(
             () => new PackageRelease({ ...releaseInit(release), codeDigest: digest("wrong") })

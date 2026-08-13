@@ -7,7 +7,7 @@ import {
     PackageCodeModule
 } from "../../src/definition";
 import { FacetPackageId } from "../../src/facets";
-import { recordData } from "./record-data";
+import { forged, recordData } from "./record-data";
 
 const encoder = new TextEncoder();
 
@@ -81,7 +81,7 @@ describe("PackageCodeManifest", () => {
                 new PackageCodeManifest({
                     compatibilityDate: "2026-07-10",
                     modules: [module("./main.js", "main")],
-                    entrypoints: [] as never
+                    entrypoints: forged<readonly [PackageCodeEntrypoint, ...PackageCodeEntrypoint[]]>([])
                 })
         ).toThrow(/requires modules and entrypoints/);
     });
@@ -310,8 +310,8 @@ describe("PackageCodeManifest", () => {
         expect(() => build(new MediaHint("application/javascript; charset=utf-8"))).toThrow(
             /canonical media type without parameters/
         );
-        expect(() => build(null as never)).toThrow(/Code module media must be a MediaHint/);
-        expect(() => build({ mediaType: 7 } as never)).toThrow(
+        expect(() => build(forged<MediaHint>(null))).toThrow(/Code module media must be a MediaHint/);
+        expect(() => build(forged<MediaHint>({ mediaType: 7 }))).toThrow(
             /Code module media must be a MediaHint/
         );
         expect(() =>
@@ -338,7 +338,7 @@ describe("PackageCodeManifest", () => {
             () =>
                 new PackageCodeManifest({
                     compatibilityDate: "2026-07-10",
-                    modules: [] as never,
+                    modules: forged<readonly [PackageCodeModule, ...PackageCodeModule[]]>([]),
                     entrypoints: [entry("facet", "./main.js")]
                 })
         ).toThrow(/requires modules and entrypoints/);

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
-import { Digest } from "../../src/core";
+import { Digest, type JsonValue } from "../../src/core";
 import {
     ActorPlan,
     DeploymentId,
@@ -14,7 +14,7 @@ import {
     policyProjection
 } from "../../src/definition";
 import { TenantId } from "../../src/identity";
-import { recordData, requireObject } from "./record-data";
+import { forged, recordData, requireObject } from "./record-data";
 
 const encoder = new TextEncoder();
 const tenantId = new TenantId("tenant");
@@ -109,7 +109,7 @@ describe("materialization generation identity and canonicalization", () => {
             "Managed state record kind must be a string"
         );
         expect(() =>
-            ManagedStateRecord.fromData({ ...stateData, origin: undefined } as never)
+            ManagedStateRecord.fromData({ ...stateData, origin: forged<JsonValue>(undefined) })
         ).toThrow("Managed state origin is required");
         expect(() =>
             ManagedStateRecord.fromData({ ...stateData, actor: { id: 7, kind: "workspace" } })

@@ -9,6 +9,7 @@ import {
 } from "../../src/definition/package-store";
 import { digestOf, packageLock, packageRelease } from "./package-store-contract";
 import { MetadataSnapshot } from "../../src/definition/package";
+import { forged } from "./record-data";
 
 describe("ProjectedPackageStore hostile adapter boundaries", () => {
     test("rejects duplicate listed releases and snapshots", { tags: "p1" }, () => {
@@ -58,7 +59,7 @@ describe("ProjectedPackageStore hostile adapter boundaries", () => {
         );
 
         const malformed = new HostilePackageStore();
-        malformed.releaseAlias = { ...rowForRelease(release), bytes: "bad" as never };
+        malformed.releaseAlias = { ...rowForRelease(release), bytes: forged<Uint8Array>("bad") };
         expect(() => malformed.get(new PackageId("alias"), new SemVer("1.0.0"))).toThrow(
             /Stored package release bytes are malformed/
         );
@@ -134,14 +135,14 @@ describe("ProjectedPackageStore hostile adapter boundaries", () => {
         const release = packageRelease("package", "1.0.0");
         const snapshot = new MetadataSnapshot({ revision: new Revision(1), releases: [release] });
         const snapshotStore = new HostilePackageStore();
-        snapshotStore.snapshotWrite = { ...rowForSnapshot(snapshot), bytes: "bad" as never };
+        snapshotStore.snapshotWrite = { ...rowForSnapshot(snapshot), bytes: forged<Uint8Array>("bad") };
         expect(() => snapshotStore.addSnapshot(snapshot)).toThrow(
             /Stored metadata snapshot bytes are malformed/
         );
 
         const lock = packageLock(snapshot.digest, 1, [release]);
         const lockStore = new HostilePackageStore();
-        lockStore.lockWrite = { ...rowForLock(lock), bytes: "bad" as never };
+        lockStore.lockWrite = { ...rowForLock(lock), bytes: forged<Uint8Array>("bad") };
         expect(() => lockStore.addLock(lock)).toThrow(/Stored package lock bytes are malformed/);
     });
 });

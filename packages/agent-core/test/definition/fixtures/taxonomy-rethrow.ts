@@ -1,3 +1,3 @@
-export function taxonomyRethrow(error: unknown): never {
-    throw error;
+export function taxonomyRethrow(cause: unknown): never {
+    throw cause;
 }

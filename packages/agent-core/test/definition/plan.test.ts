@@ -60,7 +60,7 @@ import {
     SlotName
 } from "../../src/facets";
 import { TenantId } from "../../src/identity";
-import { recordData, requireObject, tamperedRecord } from "./record-data";
+import { forged, recordData, requireObject, tamperedRecord } from "./record-data";
 
 const encoder = new TextEncoder();
 const target = new PlatformCompatibility({ spec: new SemVer("1.0.0"), host: new SemVer("1.0.0") });
@@ -139,7 +139,7 @@ describe("materialization planning", () => {
                 generation: 5,
                 topology: new (class extends MaterializationTopologyPort {
                     public actorFor(): ActorRef {
-                        return {} as ActorRef;
+                        return forged<ActorRef>({});
                     }
                 })()
             })
@@ -165,7 +165,7 @@ describe("materialization planning", () => {
             tiers: {}
         });
         expect(Object.isFrozen(projection.desired)).toBe(true);
-        expect(Object.isFrozen((projection.desired as { placement: JsonValue }).placement)).toBe(
+        expect(Object.isFrozen(requireObject(projection.desired)["placement"])).toBe(
             true
         );
         expect(ManagedOrigin.encode(ManagedOrigin.decode(ManagedOrigin.encode(origin)))).toEqual(
@@ -185,7 +185,7 @@ describe("materialization planning", () => {
         ).toHaveLength(1);
         expect(() =>
             planMaterialization({
-                validatedBlueprint: {} as ValidatedBlueprint,
+                validatedBlueprint: forged<ValidatedBlueprint>({}),
                 tenantId,
                 deploymentKey,
                 generation: 1,
@@ -887,7 +887,7 @@ describe("materialization planning mutation boundaries", () => {
             /Actor plan ID must be a string/
         );
         expect(() =>
-            ActorPlan.fromData({ ...actorPlanData, origin: undefined } as never)
+            ActorPlan.fromData({ ...actorPlanData, origin: forged<JsonValue>(undefined) })
         ).toThrow(/Actor plan origin is required/);
         expect(() =>
             ActorPlan.fromData({ ...actorPlanData, actor: { id: 7, kind: "workspace" } })

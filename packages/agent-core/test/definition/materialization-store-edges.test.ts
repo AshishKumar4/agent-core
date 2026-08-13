@@ -28,6 +28,7 @@ import {
 } from "../../src/definition/materialization-store";
 import { MemoryMaterializationStore } from "../../src/definition/memory";
 import { TenantId } from "../../src/identity";
+import { forged } from "./record-data";
 import {
     blueprint,
     installGeneration,
@@ -84,7 +85,7 @@ describe("MaterializationStore hostile adapter boundaries", () => {
 
     test("rejects malformed adapter bytes and duplicate list keys", { tags: "p0" }, () => {
         const store = hostileStore();
-        store.rows.blueprints[0] = { ...store.rows.blueprints[0]!, bytes: "bad" as never };
+        store.rows.blueprints[0] = { ...store.rows.blueprints[0]!, bytes: forged<Uint8Array>("bad") };
         expect(() => store.listBlueprints()).toThrow(/bytes are malformed/);
         const duplicate = hostileStore();
         duplicate.duplicatePlans = true;

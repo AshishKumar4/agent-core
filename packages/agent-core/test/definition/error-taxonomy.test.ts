@@ -10,6 +10,7 @@ import {
     DeploymentKey,
     DeploymentRecord,
     FailClosedRunPinsReservationPort,
+    PackageId,
     RunPinEvidence,
     selectPlacement
 } from "../../src/definition";
@@ -71,7 +72,7 @@ describe("W4 error taxonomy", () => {
                 new MemoryPackageStore({
                     releases: [
                         {
-                            packageId: "" as never,
+                            packageId: forgedPackageId(""),
                             version: "1.0.0",
                             manifestDigest: "0".repeat(64),
                             codeDigest: "0".repeat(64),
@@ -108,7 +109,7 @@ describe("W4 error taxonomy", () => {
     });
 });
 
-function expectOperational(action: () => unknown, code: AgentCoreError["code"]): void {
+function expectOperational(action: () => void, code: AgentCoreError["code"]): void {
     try {
         action();
         throw new TypeError("Expected operational error");
@@ -116,4 +117,14 @@ function expectOperational(action: () => unknown, code: AgentCoreError["code"]):
         expect(error).toBeInstanceOf(AgentCoreError);
         expect(error).toMatchObject({ code });
     }
+}
+
+/**
+ * An empty package ID, typed as one. PackageId rejects an empty value, so a store row carrying one
+ * can only be built by skipping that constructor — and the store's own validation is what this
+ * asserts on.
+ */
+function forgedPackageId<TActual>(value: TActual): PackageId {
+    // SAFETY: not a PackageId. The store must report the row as invalid rather than index it.
+    return value as TActual & PackageId;
 }

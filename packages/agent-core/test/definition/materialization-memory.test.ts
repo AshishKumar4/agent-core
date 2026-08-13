@@ -17,7 +17,7 @@ import {
     MaterializationPlan
 } from "../../src/definition";
 import { SqliteMaterializationStore } from "../../src/substrates";
-import { requireObject } from "./record-data";
+import { forged, requireObject } from "./record-data";
 import { TestSqlite } from "../helpers/sqlite";
 import {
     actorRef,
@@ -412,7 +412,7 @@ describe("MemoryMaterializationStore persistence", () => {
             () =>
                 new MemoryMaterializationStore(actorRef("workspace"), {
                     ...snapshot,
-                    generations: [{ ...snapshot.generations[0]!, actorId: "other" as never }]
+                    generations: [{ ...snapshot.generations[0]!, actorId: forged<ActorId>("other") }]
                 })
         ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
         expect(
@@ -545,7 +545,7 @@ describe("MemoryMaterializationStore persistence", () => {
             () =>
                 new MemoryMaterializationStore(actorRef("workspace"), {
                     ...snapshot,
-                    blueprints: [{ ...snapshot.blueprints[0]!, bytes: "bad" as never }]
+                    blueprints: [{ ...snapshot.blueprints[0]!, bytes: forged<Uint8Array>("bad") }]
                 })
         ).toThrow(/bytes are malformed/);
         expect(

@@ -22,6 +22,18 @@ export function requireObject(value: JsonValue, subject = "value"): JsonObject {
 }
 
 /**
+ * A decoded value typed as a contract it does not satisfy — a string outside a closed vocabulary,
+ * a stored column holding the wrong type, a required field left absent. Definition records and
+ * store rows are re-validated on the way in because they arrive from decoded data and storage,
+ * where a declared type is only a claim, and that validation is what each caller asserts on.
+ */
+export function forged<TContract>(value: JsonValue | undefined): TContract {
+    // SAFETY: the value deliberately violates TContract. Only the guard asserted to reject it
+    // ever sees the result.
+    return value as TContract;
+}
+
+/**
  * Copies an already validated record onto a bare instance of its own class with fields replaced.
  * These records enforce their invariants in their constructors, so a value that violates one can
  * only be built by skipping it — and the codecs and store checks that re-validate on the way back

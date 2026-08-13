@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { decodeCanonicalJson, encodeCanonicalJson } from "../../src/core";
+import { decodeCanonicalJson, encodeCanonicalJson, type JsonValue } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
-import type { Impact } from "../../src/facets";
+import type { Impact, IsolationMode } from "../../src/facets";
 import {
     POLICY_IMPACTS,
     PolicySet,
@@ -16,7 +16,7 @@ import {
     PlacementUnavailableError,
     selectPlacement
 } from "../../src/definition/placement";
-import { requireObject } from "./record-data";
+import { forged, requireObject } from "./record-data";
 
 describe("pure policy floors", () => {
     test(
@@ -328,13 +328,13 @@ describe("policy declaration codec", () => {
         expect(() => PolicySet.fromData({ ...payload, tiers: null })).toThrow(
             "Policy tiers must be an object"
         );
-        expect(() => PolicySet.fromData({ ...payload, tiers: undefined } as never)).toThrow(
+        expect(() => PolicySet.fromData({ ...payload, tiers: forged<JsonValue>(undefined) })).toThrow(
             "Policy tiers must be an object"
         );
         expect(() => PolicySet.fromData(null)).toThrow("Policy set must be an object");
         expect(() => PolicySet.fromData([])).toThrow("Policy set must be an object");
         expect(() => PolicySet.fromData("payload")).toThrow("Policy set must be an object");
-        expect(() => PolicySet.fromData(undefined as never)).toThrow(
+        expect(() => PolicySet.fromData(forged<JsonValue>(undefined))).toThrow(
             "Policy set must be an object"
         );
         expect(() =>
@@ -342,7 +342,7 @@ describe("policy declaration codec", () => {
                 impact: "observe",
                 turnOwnedSession: false,
                 sessionFilesystemTarget: false,
-                placement: "hostile" as never
+                placement: forged<IsolationMode>("hostile")
             })
         ).toThrow("Policy placement is invalid");
     });
@@ -352,7 +352,9 @@ describe("policy declaration codec", () => {
         { tags: "p0" },
         () => {
             expect(() => new PolicySet({ approvals: ["observe", "observe"] })).toThrow(/unique/);
-            expect(() => new PolicySet({ tiers: { observe: "lower" as EnforcementTier } })).toThrow(
+            expect(() =>
+            new PolicySet({ tiers: { observe: forged<EnforcementTier>("lower") } })
+        ).toThrow(
                 /tier/
             );
 
