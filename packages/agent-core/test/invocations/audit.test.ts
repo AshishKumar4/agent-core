@@ -1,7 +1,13 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
 import { RunCommitId } from "../../src/agents";
-import { Digest, decodeCanonicalJson, encodeCanonicalJson, type JsonValue } from "../../src/core";
+import {
+    Digest,
+    decodeCanonicalJson,
+    encodeCanonicalJson,
+    isJsonObject,
+    type JsonValue
+} from "../../src/core";
 import { AgentCoreError, type AgentCoreErrorCode } from "../../src/errors";
 import { TenantId } from "../../src/identity";
 import * as invocations from "../../src/invocations";
@@ -23,11 +29,27 @@ import {
     validateStoredAuditShape,
     type AuditEvidenceResolver,
     type AuditKind,
+    type AuditRecordLookup,
     type AuditRootAdmission,
     type InvocationFailure,
     type WriteAuditOutcome
 } from "../../src/invocations";
 import { EventId } from "../../src/workspaces";
+
+/** A write kind's outcome without its literal type, so the caller's copy can be changed. */
+interface WritableWriteOutcome {
+    outcome: string;
+}
+
+/** A record's own fields without their readonly modifier, so a write can be attempted. */
+interface WritableAuditRecord {
+    cause: AuditRecordId | undefined;
+}
+
+/** A record kind's own discriminant without its readonly modifier, so a write can be attempted. */
+interface WritableAuditKind {
+    kind: string;
+}
 
 const actor = new ActorRef("run", new ActorId("audit-actor"));
 const tenant = new TenantId("audit-tenant");
@@ -132,19 +154,24 @@ function audit(
     } = {}
 ): AuditRecord {
     nextRecord += 1;
-    return new AuditRecord({
+    const init_ = {
         id: init.id ?? new AuditRecordId(`audit-${nextRecord}`),
         actor: init.actor ?? actor,
         tenant: init.tenant ?? tenant,
         correlation: init.correlation ?? correlation,
-        ...(cause === undefined ? {} : { cause }),
         kind
-    });
+    };
+    return new AuditRecord(cause === undefined ? init_ : { ...init_, cause });
 }
 
-function lookup(...records: readonly AuditRecord[]): {
-    get(id: AuditRecordId): AuditRecord | undefined;
-} {
+/** Reads a field off canonical JSON this suite just encoded, failing loudly if it is absent. */
+function jsonField(value: JsonValue, field: string): JsonValue {
+    const member = isJsonObject(value) ? value[field] : undefined;
+    if (member === undefined) throw new TypeError(`Expected encoded JSON carrying ${field}`);
+    return member;
+}
+
+function lookup(...records: readonly AuditRecord[]): AuditRecordLookup {
     return { get: (id) => records.find((record) => id.equals(record.id)) };
 }
 
@@ -198,7 +225,7 @@ function expectCodecError(bytes: Uint8Array, code: AgentCoreErrorCode): void {
         throw new Error("Expected audit codec to reject the record");
     } catch (error) {
         expect(error).toBeInstanceOf(AgentCoreError);
-        expect((error as AgentCoreError).code).toBe(code);
+        expect(error).toMatchObject({ code });
     }
 }
 
@@ -281,9 +308,7 @@ describe("AuditRecord codec", () => {
                 evidence: { kind: "delivery", reservation: "delivery-only-reservation" }
             }
         });
-        expect((encoded as { payload: { evidence: object } }).payload.evidence).not.toHaveProperty(
-            "id"
-        );
+        expect(jsonField(jsonField(encoded, "payload"), "evidence")).not.toHaveProperty("id");
     });
 
     test("rejects the pre-public delivery id shape", { tags: "p2" }, () => {
@@ -330,16 +355,21 @@ describe("AuditRecord codec", () => {
         const record = audit(mutableKind);
         const encoded = AuditRecordCodec.encode(record);
 
-        (mutableKind as { outcome: string }).outcome = "rejectedAuthority";
+        const writableOutcome: WritableWriteOutcome = mutableKind;
+
+        writableOutcome.outcome = "rejectedAuthority";
         expect(Object.isFrozen(record)).toBe(true);
         expect(Object.isFrozen(record.kind)).toBe(true);
         expect(record.kind).not.toBe(mutableKind);
         expect(record.kind).toMatchObject({ kind: "write", outcome: "committed" });
+        const writableRecord: WritableAuditRecord = record;
+        const writableKind: WritableAuditKind = record.kind;
+
         expect(() => {
-            (record as { cause?: AuditRecordId }).cause = new AuditRecordId("replacement-cause");
+            writableRecord.cause = new AuditRecordId("replacement-cause");
         }).toThrow(TypeError);
         expect(() => {
-            (record.kind as { kind: string }).kind = "event";
+            writableKind.kind = "event";
         }).toThrow(TypeError);
         expect(AuditRecordCodec.encode(record)).toEqual(encoded);
     });
@@ -943,8 +973,10 @@ describe("AuditRecord failure codes", () => {
                 throw new Error(`Expected the audit validation to fail for ${scenario}`);
             } catch (error) {
                 expect(error, scenario).toBeInstanceOf(InvocationError);
-                expect((error as InvocationError).failure, scenario).toBe(failure);
-                expect((error as InvocationError).message, scenario).toMatch(message);
+                expect(error, scenario).toMatchObject({
+                    failure,
+                    message: expect.stringMatching(message)
+                });
             }
         }
     });

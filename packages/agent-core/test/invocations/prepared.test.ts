@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { decodeCanonicalJson, encodeCanonicalJson, type JsonValue } from "../../src/core";
+import {
+    decodeCanonicalJson,
+    encodeCanonicalJson,
+    isJsonObject,
+    type JsonObject,
+    type JsonValue
+} from "../../src/core";
 import {
     AuditRecordId,
     InvocationError,
@@ -66,7 +72,7 @@ describe("PreparedInvocation canonical identity", () => {
                     auditCause: new AuditRecordId("audit"),
                     idempotencySeed: "seed"
                 },
-                { kind: "batch", items: [] as unknown as readonly [JsonValue, ...JsonValue[]] },
+                { kind: "batch", items: candidateItems([]) },
                 {
                     lease: referenceCodec,
                     authority: referenceCodec,
@@ -103,7 +109,7 @@ describe("PreparedInvocation canonical identity", () => {
                     pin.activationGeneration,
                     pin.registration,
                     pin.impact,
-                    "invalid" as unknown as boolean,
+                    candidateFlag("invalid"),
                     pin.placement
                 )
         ).toThrow(/boolean/);
@@ -146,7 +152,7 @@ describe("PreparedInvocation canonical identity", () => {
                 trust: ["bundled"]
             })
         ).toThrow(/Isolation mode/);
-        const pinData = pin.toData() as { readonly [key: string]: JsonValue };
+        const pinData = asObject(pin.toData());
         expect(() => OperationPin.fromData({ ...pinData, impact: "invalid" })).toThrow(/impact/);
         expect(() => OperationPin.fromData({ ...pinData, approvalRequired: "no" })).toThrow(
             /boolean/
@@ -381,15 +387,13 @@ describe("PreparedInvocation canonical identity", () => {
         const envelope = asObject(decodeCanonicalJson(codec.encode(routed)));
         const payload = asObject(envelope["payload"] ?? null);
         const header = asObject(payload["header"] ?? null);
-        const changed = (nextHeader: JsonValue, nextPayload?: JsonValue) =>
-            encodeCanonicalJson({
+        const changed = (nextHeader: JsonValue, nextPayload?: JsonValue): Uint8Array => {
+            const body = { ...payload, header: nextHeader };
+            return encodeCanonicalJson({
                 ...envelope,
-                payload: {
-                    ...payload,
-                    header: nextHeader,
-                    ...(nextPayload === undefined ? {} : { payload: nextPayload })
-                }
+                payload: nextPayload === undefined ? body : { ...body, payload: nextPayload }
             });
+        };
         expect(() => codec.decode(changed({ ...header, route: null }))).toThrow(
             /route evidence is malformed/
         );
@@ -431,18 +435,38 @@ describe("PreparedInvocation canonical identity", () => {
     });
 });
 
-function expectIndexError(operation: () => unknown, message: RegExp): void {
-    const caught = (() => {
-        try {
-            operation();
-        } catch (error) {
-            return error;
-        }
-        throw new TypeError("Expected an item index failure");
-    })();
-    expect(caught).toBeInstanceOf(InvocationError);
-    expect((caught as InvocationError).failure).toBe("state.invalid-transition");
-    expect((caught as InvocationError).message).toMatch(message);
+function expectIndexError(operation: () => void, message: RegExp): void {
+    let thrown: unknown;
+    try {
+        operation();
+    } catch (error) {
+        thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(InvocationError);
+    expect(thrown).toMatchObject({
+        failure: "state.invalid-transition",
+        message: expect.stringMatching(message)
+    });
+}
+
+/**
+ * Offers items where a batch payload declares a nonempty list. Rejecting an empty batch is
+ * the behavior under test, so the empty list has to be reachable.
+ */
+function candidateItems(items: readonly JsonValue[]): readonly [JsonValue, ...JsonValue[]] {
+    // SAFETY: the list is a candidate, not a proven nonempty batch. It reaches
+    // PreparedInvocation.create only so `requireNonemptyPayload` can reject it.
+    return items as readonly [JsonValue, ...JsonValue[]];
+}
+
+/**
+ * Offers a value where OperationPin declares its approval flag. Rejecting a non-boolean is
+ * the behavior under test, so it has to be reachable.
+ */
+function candidateFlag(value: boolean | string): boolean {
+    // SAFETY: the value is a candidate, not a proven flag. It reaches the constructor only
+    // so the boolean check can reject it.
+    return value as boolean;
 }
 
 function preparedWith(
@@ -456,18 +480,18 @@ function preparedWith(
         readonly pin?: ReturnType<typeof operationPin>;
     }
 ) {
+    const header = {
+        id: new InvocationId(id),
+        operation: changes.pin ?? operationPin(id),
+        domain: changes.domain ?? `domain:${id}`,
+        actor: new ActorRef("run", new ActorId(`actor:${id}`)),
+        authority: changes.authority ?? `authority:${id}`,
+        pathEpochs: changes.pathEpochs ?? `epochs:${id}`,
+        auditCause: new AuditRecordId(`audit:${id}`),
+        idempotencySeed: changes.seed ?? `seed:${id}`
+    };
     return PreparedInvocation.create(
-        {
-            id: new InvocationId(id),
-            operation: changes.pin ?? operationPin(id),
-            domain: changes.domain ?? `domain:${id}`,
-            actor: new ActorRef("run", new ActorId(`actor:${id}`)),
-            authority: changes.authority ?? `authority:${id}`,
-            pathEpochs: changes.pathEpochs ?? `epochs:${id}`,
-            ...(changes.lease === undefined ? {} : { lease: changes.lease }),
-            auditCause: new AuditRecordId(`audit:${id}`),
-            idempotencySeed: changes.seed ?? `seed:${id}`
-        },
+        changes.lease === undefined ? header : { ...header, lease: changes.lease },
         { kind: "single", item: { value: id } },
         {
             lease: referenceCodec,
@@ -478,9 +502,7 @@ function preparedWith(
     );
 }
 
-function asObject(value: JsonValue): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError("Expected object");
-    }
-    return value as { readonly [key: string]: JsonValue };
+function asObject(value: JsonValue): JsonObject {
+    if (!isJsonObject(value)) throw new TypeError("Expected object");
+    return value;
 }

@@ -1,6 +1,13 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
-import { ContentRef, Digest, Revision, encodeCanonicalJson } from "../../src/core";
+import {
+    ContentRef,
+    Digest,
+    Revision,
+    encodeCanonicalJson,
+    type JsonObject,
+    type JsonValue
+} from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import { PrincipalId } from "../../src/identity";
 import {
@@ -22,7 +29,9 @@ import {
     Receipt,
     ReceiptCodec,
     ReceiptId,
-    terminalBatchOutcome
+    terminalBatchOutcome,
+    type AttemptReceiptOutcome,
+    type PreEffectReceiptOutcome
 } from "../../src/invocations";
 import { admissionFor, attemptCodec, claimCodec, continuationCodec } from "./fixture";
 
@@ -124,7 +133,7 @@ describe("Invocation evidence records", () => {
         const approved = create(1, { kind: "approved", by: principal, at: time(3) });
         expect(() => approved.consume(new EffectAttemptId("backdated"), time(2))).toThrow();
 
-        const envelope = (state: unknown) =>
+        const envelope = (state: JsonValue) =>
             encodeCanonicalJson({
                 kind: "invocation.approval",
                 version: { major: 1, minor: 0 },
@@ -135,7 +144,7 @@ describe("Invocation evidence records", () => {
                     invocation: invocation.value,
                     requestedAt: time(1).toISOString(),
                     revision: 1,
-                    state: state as never
+                    state
                 }
             });
         expect(() => Approval.decode(envelope({ kind: "unknown" }))).toThrow();
@@ -191,7 +200,7 @@ describe("Invocation evidence records", () => {
                 )
         ).toThrow();
 
-        const claimEnvelope = (owner: unknown) =>
+        const claimEnvelope = (owner: JsonValue) =>
             encodeCanonicalJson({
                 kind: "invocation.item-claim",
                 version: { major: 1, minor: 0 },
@@ -201,7 +210,7 @@ describe("Invocation evidence records", () => {
                     id: "wire-claim",
                     invocation: "wire-invocation",
                     itemIndex: 0,
-                    owner: owner as never
+                    owner
                 }
             });
         expect(() => claimCodec.decode(claimEnvelope(null))).toThrow();
@@ -359,7 +368,9 @@ describe("Invocation evidence records", () => {
                     new ReceiptId("invalid-pre-outcome"),
                     new InvocationId("invalid-pre-invocation"),
                     0,
-                    "invalid" as never,
+                    // SAFETY: PreEffectReceipt declares a closed outcome vocabulary, so the
+                    // invalid one its constructor must reject is unreachable from typed code.
+                    "invalid" as PreEffectReceiptOutcome,
                     time(1),
                     "reason"
                 )
@@ -380,18 +391,20 @@ describe("Invocation evidence records", () => {
                 new AttemptReceipt(
                     new ReceiptId("invalid-attempt-outcome"),
                     new EffectAttemptId("invalid-attempt"),
-                    "invalid" as never,
+                    // SAFETY: AttemptReceipt declares a closed outcome vocabulary, so the
+                    // invalid one its constructor must reject is unreachable from typed code.
+                    "invalid" as AttemptReceiptOutcome,
                     undefined,
                     time(1),
                     undefined
                 )
         ).toThrow();
 
-        const envelope = (payload: unknown) =>
+        const envelope = (payload: JsonValue) =>
             encodeCanonicalJson({
                 kind: "invocation.receipt",
                 version: { major: 1, minor: 0 },
-                payload: payload as never
+                payload
             });
         expect(() => Receipt.decode(envelope(null))).toThrow();
         expect(() =>
@@ -943,7 +956,7 @@ describe("Invocation evidence records", () => {
     });
 
     test("rejects a pre-effect Receipt outcome before reading the rest of the payload", { tags: "p2" }, () => {
-        const envelope = (overrides: Record<string, unknown>) =>
+        const envelope = (overrides: JsonObject) =>
             encodeCanonicalJson({
                 kind: "invocation.receipt",
                 version: { major: 1, minor: 0 },
@@ -956,7 +969,7 @@ describe("Invocation evidence records", () => {
                     recordedAt: time(1).toISOString(),
                     variant: "preEffect",
                     ...overrides
-                } as never
+                }
             });
 
         expect(() =>
@@ -1012,27 +1025,32 @@ function content(value: string): ContentRef {
     return ContentRef.fromDigest(Digest.sha256(new TextEncoder().encode(value)));
 }
 
-function caughtFrom(operation: () => unknown): unknown {
+function expectInvocationInvalid(operation: () => void, message: RegExp): void {
+    let thrown: unknown;
     try {
         operation();
     } catch (error) {
-        return error;
+        thrown = error;
     }
-    throw new TypeError("Expected operation to throw");
+    expect(thrown).toBeInstanceOf(AgentCoreError);
+    expect(thrown).toMatchObject({
+        code: "invocation.invalid",
+        message: expect.stringMatching(message)
+    });
 }
 
-function expectInvocationInvalid(operation: () => unknown, message: RegExp): void {
-    const error = caughtFrom(operation);
-    expect(error).toBeInstanceOf(AgentCoreError);
-    expect((error as AgentCoreError).code).toBe("invocation.invalid");
-    expect((error as AgentCoreError).message).toMatch(message);
-}
-
-function expectInvalidTransition(operation: () => unknown, message: RegExp): void {
-    const error = caughtFrom(operation);
-    expect(error).toBeInstanceOf(InvocationError);
-    expect((error as InvocationError).failure).toBe("state.invalid-transition");
-    expect((error as InvocationError).message).toMatch(message);
+function expectInvalidTransition(operation: () => void, message: RegExp): void {
+    let thrown: unknown;
+    try {
+        operation();
+    } catch (error) {
+        thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(InvocationError);
+    expect(thrown).toMatchObject({
+        failure: "state.invalid-transition",
+        message: expect.stringMatching(message)
+    });
 }
 
 function time(second: number): Date {

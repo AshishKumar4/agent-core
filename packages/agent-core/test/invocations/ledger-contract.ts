@@ -6100,13 +6100,22 @@ function present<Value>(value: Value | undefined, subject: string): Value {
     return value;
 }
 
+/** An Invocation admitted through the ledger with one attempt on its first item. */
+interface AdmittedAttempt {
+    readonly invocation: PreparedInvocation<string, string, string, string>;
+    readonly attempt: EffectAttempt<string, string>;
+}
+
+/** An AdmittedAttempt whose preparation and attempt both carry their audit evidence. */
+interface AuditedAttempt extends AdmittedAttempt {
+    readonly root: AuditRecord;
+    readonly attemptAudit: AuditRecord;
+}
+
 function attemptLineage<Transaction>(
     harness: InvocationHarness<Transaction>,
     id: string
-): {
-    readonly invocation: PreparedInvocation<string, string, string, string>;
-    readonly attempt: EffectAttempt<string, string>;
-} {
+): AdmittedAttempt {
     const invocation = prepared(id, {}, { lease: "lease:1" });
     const claim = executorClaim(
         invocation.header.id,
@@ -6242,14 +6251,14 @@ function auditRecord(
     cause?: AuditRecordId,
     tenant = "tenant:contract"
 ): AuditRecord {
-    return new AuditRecord({
+    const init = {
         id: new AuditRecordId(id),
         actor,
         tenant: new TenantId(tenant),
         correlation: new CorrelationId("correlation:contract"),
-        ...(cause === undefined ? {} : { cause }),
         kind
-    });
+    };
+    return new AuditRecord(cause === undefined ? init : { ...init, cause });
 }
 
 function preparationAudit(invocation: ReturnType<typeof prepared>): AuditRecord {
@@ -6263,12 +6272,7 @@ function auditedAttempt<Transaction>(
     harness: InvocationHarness<Transaction>,
     evidence: ContractEvidence<Transaction>,
     id: string
-): {
-    readonly invocation: PreparedInvocation<string, string, string, string>;
-    readonly root: AuditRecord;
-    readonly attempt: EffectAttempt<string, string>;
-    readonly attemptAudit: AuditRecord;
-} {
+): AuditedAttempt {
     const invocation = prepared(id, { value: id }, { lease: "lease:1" });
     const root = preparationAudit(invocation);
     const claim = executorClaim(
@@ -6359,7 +6363,7 @@ class ContractEvidence<Transaction> implements InvocationEvidencePersistence<Tra
     }
 }
 
-function expectAgentCoreError(operation: () => unknown, message: RegExp): void {
+function expectAgentCoreError(operation: () => void, message: RegExp): void {
     let failure: unknown;
     try {
         operation();

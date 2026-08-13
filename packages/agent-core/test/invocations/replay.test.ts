@@ -1,11 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-    Digest,
-    Revision,
-    decodeCanonicalJson,
-    encodeCanonicalJson,
-    type JsonValue
-} from "../../src/core";
+import { Digest, Revision, type JsonValue } from "../../src/core";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 import {
     InvocationId,
@@ -15,6 +9,7 @@ import {
     type MediatedReplayItem,
     type MediatedReplayShape
 } from "../../src/invocations";
+import { jsonEntries, mutableObject, mutateRecord, type MutableJsonObject } from "./fixture";
 
 describe("W6 mediated replay record", () => {
     test("rejects Principal subclasses and blank reservation identity text", { tags: "p1" }, () => {
@@ -307,8 +302,7 @@ describe("W6 mediated replay record", () => {
         ).toThrow(/shape is invalid/);
         expect(
             decode((payload) => {
-                const execution = payload["execution"] as { [key: string]: JsonValue };
-                execution["kind"] = "substituted";
+                mutableObject(payload["execution"])["kind"] = "substituted";
             })
         ).toThrow(/execution identity kind is invalid/);
     });
@@ -380,25 +374,10 @@ function trace(cutPoint: "operation.before" | "operation.after"): InvocationInte
     });
 }
 
-function payloadItem(payload: { [key: string]: JsonValue }, itemIndex: number) {
-    const items = payload["items"] as JsonValue[];
-    return items[itemIndex] as { [key: string]: JsonValue };
+function payloadItem(payload: MutableJsonObject, itemIndex: number): MutableJsonObject {
+    return mutableObject(jsonEntries(payload["items"])[itemIndex]);
 }
 
-function payloadTrace(item: { [key: string]: JsonValue }) {
-    const traces = item["before"] as JsonValue[];
-    return traces[0] as { [key: string]: JsonValue };
-}
-
-function mutateRecord(
-    bytes: Uint8Array,
-    mutate: (payload: { [key: string]: JsonValue }) => void
-): Uint8Array {
-    const envelope = decodeCanonicalJson(bytes) as {
-        kind: string;
-        version: { major: number; minor: number };
-        payload: { [key: string]: JsonValue };
-    };
-    mutate(envelope.payload);
-    return encodeCanonicalJson(envelope as unknown as JsonValue);
+function payloadTrace(item: MutableJsonObject): MutableJsonObject {
+    return mutableObject(jsonEntries(item["before"])[0]);
 }

@@ -1389,10 +1389,13 @@ function time(second: number): Date {
     return new Date(second * 1_000);
 }
 
-function deferred<Value>(): {
+/** A promise handed out before the code that settles it runs. */
+interface Deferred<Value> {
     readonly promise: Promise<Value>;
     readonly resolve: (value: Value | PromiseLike<Value>) => void;
-} {
+}
+
+function deferred<Value>(): Deferred<Value> {
     let resolve!: (value: Value | PromiseLike<Value>) => void;
     const promise = new Promise<Value>((fulfill) => {
         resolve = fulfill;

@@ -4,12 +4,14 @@ import {
     Digest,
     JsonSchema,
     Revision,
-    decodeCanonicalJson,
     encodeCanonicalJson,
+    isJsonObject,
+    type JsonObject,
     type JsonValue
 } from "../../src/core";
 import { ActorId, ActorRef } from "../../src/actors";
 import {
+    BindingName,
     FacetRef,
     OperationDescriptor,
     OperationName,
@@ -50,7 +52,7 @@ import {
 } from "../../src/invocations";
 import { OperationRequestKey } from "../../src/operations";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
-import { referenceCodec } from "./fixture";
+import { mutableObject, mutateRecord, referenceCodec } from "./fixture";
 
 const descriptor = new OperationDescriptor(
     new OperationName("send"),
@@ -734,7 +736,7 @@ describe("W6 operation mediation integration", () => {
             };
             const request = {
                 facet: new FacetRef("workspace:target"),
-                binding: {} as never,
+                binding: new BindingName("workspace:target"),
                 operation,
                 input: { value: 1 },
                 resultMode: "receipt" as const
@@ -869,10 +871,7 @@ describe("W6 operation mediation integration", () => {
                     mutateRecord(
                         InvocationContinuation.encode(record, referenceCodec),
                         (payload) => {
-                            const claimOwner = payload["firstClaimOwner"] as {
-                                [key: string]: JsonValue;
-                            };
-                            claimOwner["kind"] = "substituted";
+                            mutableObject(payload["firstClaimOwner"])["kind"] = "substituted";
                         }
                     ),
                     referenceCodec
@@ -883,11 +882,8 @@ describe("W6 operation mediation integration", () => {
                     mutateRecord(
                         InvocationContinuation.encode(record, referenceCodec),
                         (payload) => {
-                            const claimOwner = payload["firstClaimOwner"] as {
-                                [key: string]: JsonValue;
-                            };
-                            const actor = claimOwner["actor"] as { [key: string]: JsonValue };
-                            actor["kind"] = "substituted";
+                            const claimOwner = mutableObject(payload["firstClaimOwner"]);
+                            mutableObject(claimOwner["actor"])["kind"] = "substituted";
                         }
                     ),
                     referenceCodec
@@ -1668,8 +1664,7 @@ describe("W6 invocation publication outbox", () => {
             expect(() =>
                 InvocationPublicationOutbox.decode(
                     mutateRecord(bytes, (payload) => {
-                        const state = payload["state"] as { [key: string]: JsonValue };
-                        state["commitAppendedAt"] = 42;
+                        mutableObject(payload["state"])["commitAppendedAt"] = 42;
                     })
                 )
             ).toThrow(/must be strings or null/);
@@ -1687,8 +1682,7 @@ describe("W6 invocation publication outbox", () => {
             try {
                 InvocationPublicationOutbox.decode(
                     mutateRecord(publishedBytes, (payload) => {
-                        const state = payload["state"] as { [key: string]: JsonValue };
-                        state["commitAppendedAt"] = null;
+                        mutableObject(payload["state"])["commitAppendedAt"] = null;
                     })
                 );
             } catch (error) {
@@ -1724,8 +1718,7 @@ describe("W6 invocation publication outbox", () => {
                 try {
                     InvocationPublicationOutbox.decode(
                         mutateRecord(bytes, (payload) => {
-                            const state = payload["state"] as { [key: string]: JsonValue };
-                            corrupt(state);
+                            corrupt(mutableObject(payload["state"]));
                         })
                     );
                 } catch (error) {
@@ -2428,11 +2421,9 @@ function trace(cutPoint: "operation.before" | "operation.after") {
     });
 }
 
-function object(value: FacetData): Readonly<Record<string, FacetData>> {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError("Expected object output");
-    }
-    return value as Readonly<Record<string, FacetData>>;
+function object(value: FacetData): JsonObject {
+    if (!isJsonObject(value)) throw new TypeError("Expected object output");
+    return value;
 }
 
 function replayHarness(scope: string, batch?: CanonicalBatchInvoker<string>) {
@@ -2488,7 +2479,7 @@ function observation(id: string): ReceiptObservation {
 function profileRequest(): ProtectedOperationRequest {
     return {
         facet: new FacetRef("workspace:target"),
-        binding: {} as never,
+        binding: new BindingName("workspace:target"),
         operation: {
             descriptor,
             execute: async (_context: OperationContext, input: FacetData) => input
@@ -2581,15 +2572,4 @@ function substitutedReplayBindings(binding: ReturnType<typeof replayReservationB
     ];
 }
 
-function mutateRecord(
-    bytes: Uint8Array,
-    mutate: (payload: { [key: string]: JsonValue }) => void
-): Uint8Array {
-    const envelope = decodeCanonicalJson(bytes) as {
-        kind: string;
-        version: { major: number; minor: number };
-        payload: { [key: string]: JsonValue };
-    };
-    mutate(envelope.payload);
-    return encodeCanonicalJson(envelope as unknown as JsonValue);
-}
+

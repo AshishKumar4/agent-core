@@ -146,10 +146,15 @@ const untouchedReconciler = {
 
 const emptyIndeterminateSource: IndeterminateAttemptSource = { indeterminate: () => [] };
 
+/** The reconciler seam the driver drives, narrowed to the one call the driver makes. */
+interface DrivenReconciler {
+    reconcile(): Promise<AttemptReceipt | undefined>;
+}
+
 function stalledReconciler(
     fixture: Awaited<ReturnType<typeof indeterminateFixture>>,
     invocation: InvocationId
-): { reconcile(): Promise<AttemptReceipt | undefined> } {
+): DrivenReconciler {
     return {
         async reconcile() {
             const receipt = fixture.harness.transactions.transact((transaction) =>

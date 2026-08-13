@@ -1,5 +1,13 @@
 import { ActorId, ActorRef } from "../../src/actors";
-import { Digest, SemVer, requireNonempty, type JsonValue } from "../../src/core";
+import {
+    Digest,
+    SemVer,
+    decodeCanonicalJson,
+    encodeCanonicalJson,
+    isJsonObject,
+    requireNonempty,
+    type JsonValue
+} from "../../src/core";
 import { OperationRef } from "../../src/facets";
 import { PackageId } from "../../src/definition";
 import {
@@ -214,4 +222,35 @@ export function admissionFor(
 
 export function digest(value: string): Digest {
     return Digest.sha256(new TextEncoder().encode(value));
+}
+
+/** A decoded record's own object, writable so one field of it can be corrupted. */
+export type MutableJsonObject = { [key: string]: JsonValue };
+
+/**
+ * Decodes a canonically encoded record, lets a suite corrupt one field of its payload, and
+ * re-encodes it, so a decoder can be offered a record only its own writer could have made.
+ */
+export function mutateRecord(
+    bytes: Uint8Array,
+    mutate: (payload: MutableJsonObject) => void
+): Uint8Array {
+    const envelope = mutableObject(decodeCanonicalJson(bytes));
+    mutate(mutableObject(envelope["payload"]));
+    return encodeCanonicalJson(envelope);
+}
+
+/** Reads a decoded record's array field as the array its writer encoded. */
+export function jsonEntries(value: JsonValue | undefined): readonly JsonValue[] {
+    if (!Array.isArray(value)) throw new TypeError("Expected an array in the decoded record");
+    return value;
+}
+
+/** Reads a decoded record's object field as one this suite may corrupt before re-encoding. */
+export function mutableObject(value: JsonValue | undefined): MutableJsonObject {
+    if (!isJsonObject(value)) throw new TypeError("Expected an object in the decoded record");
+    // SAFETY: the record was decoded from bytes inside `mutateRecord` and is owned by the
+    // suite alone; dropping readonly is what lets the corruption be applied before the record
+    // is re-encoded and offered back to the decoder under test.
+    return value as MutableJsonObject;
 }

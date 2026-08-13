@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
 import { RunCommitId } from "../../src/agents";
-import { encodeCanonicalJson } from "../../src/core";
+import { encodeCanonicalJson, type JsonObject, type JsonValue } from "../../src/core";
 import { TenantId } from "../../src/identity";
 import { EventId } from "../../src/workspaces";
 import {
@@ -279,7 +279,7 @@ describe("complete local AuditKind relation", () => {
     });
 
     test("rejects malformed audit codec vocabularies and fields", { tags: "p2" }, () => {
-        const payload = (evidence: unknown, overrides: Record<string, unknown> = {}) =>
+        const payload = (evidence: JsonValue, overrides: JsonObject = {}) =>
             encodeCanonicalJson({
                 kind: "audit-record",
                 version: { major: 1, minor: 0 },
@@ -287,7 +287,7 @@ describe("complete local AuditKind relation", () => {
                     actor: { id: "codec-actor", kind: "run" },
                     cause: null,
                     correlation: "codec-correlation",
-                    evidence: evidence as never,
+                    evidence,
                     id: "codec-audit",
                     tenant: "codec-tenant",
                     ...overrides
@@ -969,12 +969,12 @@ function record(
     kind: ConstructorParameters<typeof AuditRecord>[0]["kind"],
     cause?: AuditRecordId
 ): AuditRecord {
-    return new AuditRecord({
+    const init = {
         id: new AuditRecordId(id),
         actor: new ActorRef("run", new ActorId("audit-actor")),
         tenant: new TenantId("audit-tenant"),
         correlation: new CorrelationId("audit-correlation"),
-        ...(cause === undefined ? {} : { cause }),
         kind
-    });
+    };
+    return new AuditRecord(cause === undefined ? init : { ...init, cause });
 }

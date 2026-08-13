@@ -83,6 +83,9 @@ describe("Operation pin placement and decoding", () => {
         "[C13-INTERCEPTOR-REPLAY] refuses interception evidence offered on the direct tier",
         { tags: "p1" },
         () => {
+            // SAFETY: the port is built from its prototype alone so the tier check can be
+            // reached without a mediation stack behind it. The test drives only that check,
+            // which must refuse interception evidence before reading any other member.
             const port = Object.create(
                 ReplayOperationInvocationPort.prototype
             ) as ReplayOperationInvocationPort<unknown, unknown, unknown>;

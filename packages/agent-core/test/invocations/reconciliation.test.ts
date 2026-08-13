@@ -9,6 +9,7 @@ import {
     EffectAttempt,
     EffectAttemptId,
     InvocationReconciler,
+    Receipt,
     ReceiptCodec,
     auditEvidenceIdentity,
     type EffectReconciliationPort,
@@ -262,8 +263,7 @@ describe("InvocationReconciler", () => {
                 }
             };
             const indeterminate = await harness.port.invoke(request);
-            const previous = indeterminate.items[0]!.receipt;
-            expect(previous).toBeInstanceOf(AttemptReceipt);
+            const previous = attemptReceipt(indeterminate.items[0]!.receipt);
             const attempt = harness.transactions.transact(
                 (transaction) => harness.persistence.attemptsForItem(transaction, invocation, 0)[0]!
             );
@@ -326,7 +326,7 @@ describe("InvocationReconciler", () => {
             const supersessionAudit = harness.records.receiptSupersessionAudit(
                 prepared,
                 previousAudit,
-                previous as AttemptReceipt,
+                previous,
                 final!
             );
             const durable = harness.transactions.transact((transaction) => ({
@@ -1108,15 +1108,23 @@ function nondeterministicAuditRecords(
     };
 }
 
+/** Reads an item's Receipt as the attempt Receipt the reconciliation path has to produce. */
+function attemptReceipt(receipt: Receipt): AttemptReceipt {
+    if (!(receipt instanceof AttemptReceipt)) {
+        throw new TypeError("Expected an attempt Receipt on the reconciled item");
+    }
+    return receipt;
+}
+
 function withAuditId(record: AuditRecord, id: AuditRecordId): AuditRecord {
-    return new AuditRecord({
+    const init = {
         id,
         actor: record.actor,
         tenant: record.tenant,
         correlation: record.correlation,
-        ...(record.cause === undefined ? {} : { cause: record.cause }),
         kind: record.kind
-    });
+    };
+    return new AuditRecord(record.cause === undefined ? init : { ...init, cause: record.cause });
 }
 
 function createReconciler(
