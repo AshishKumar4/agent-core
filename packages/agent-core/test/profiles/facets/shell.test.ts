@@ -504,6 +504,23 @@ describe("Shell backends", () => {
             await expect(confirmationFailure.wait()).resolves.toBe(137);
             expect(fences).toBe(2);
 
+            // A confirmation bound that cannot be measured is not a confirmation.
+            const clockFailure = new ShellExecutionBoundary(
+                {
+                    completion: never,
+                    forceTerminate() {},
+                    confirmTerminated: () => false,
+                    fence() {
+                        fences += 1;
+                    }
+                },
+                new RejectingTerminationClock(),
+                100
+            );
+            await expect(clockFailure.terminate()).resolves.toBeUndefined();
+            await expect(clockFailure.wait()).resolves.toBe(137);
+            expect(fences).toBe(3);
+
             const rejected = new ShellExecutionBoundary(
                 immediateProcess(Promise.reject(new TypeError("process failed"))),
                 new ControlledTerminationClock(),
@@ -584,6 +601,10 @@ describe("Shell backends", () => {
         expect(decoded.commandLine).toBe("tool");
         expect(SHELL_OPERATION_CONTRACTS.cancel.decodeOutput(true)).toBe(true);
         expect(SHELL_OPERATION_CONTRACTS.cancel.decodeOutput(false)).toBe(false);
+        expect(SHELL_OPERATION_CONTRACTS.run.decodeOutput(0)).toBe(0);
+        for (const invalid of ["0", true, null, 1.5, Number.MAX_SAFE_INTEGER + 2]) {
+            expect(() => SHELL_OPERATION_CONTRACTS.run.decodeOutput(invalid)).toThrow(TypeError);
+        }
     });
 
     test(
@@ -713,6 +734,12 @@ function createShell(
 
 function immediateProcess(completion: Promise<number>): ShellProcessBackend {
     return { completion, forceTerminate() {}, confirmTerminated: () => true, fence() {} };
+}
+
+class RejectingTerminationClock extends ShellTerminationClock {
+    public wait(): Promise<void> {
+        return Promise.reject(new TypeError("termination clock failed"));
+    }
 }
 
 class ControlledTerminationClock extends ShellTerminationClock {
