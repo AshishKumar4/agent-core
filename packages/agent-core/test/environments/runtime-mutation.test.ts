@@ -429,7 +429,7 @@ describe("EnvironmentController mutation kills", () => {
             new EnvironmentSessionId("session-wrong-generation"),
             lease
         );
-        masking.bumpRevisionGeneration = true;
+        masking.revisionMask = "generation";
 
         await expect(controller.openSession(reserved.capability, lease)).rejects.toEqual(
             expect.objectContaining({
@@ -659,7 +659,7 @@ describe("EnvironmentController mutation kills", () => {
             new EnvironmentSessionId("session-hidden-revision"),
             lease
         );
-        masking.hideRevision = true;
+        masking.revisionMask = "hidden";
 
         await expect(controller.openSession(reserved.capability, lease)).rejects.toEqual(
             expect.objectContaining({
@@ -682,7 +682,7 @@ describe("EnvironmentController mutation kills", () => {
             const controller = new EnvironmentController(masking, registry, verifier);
             controller.provision(initialRevision(provider.descriptor), lease);
             masking.rejectEnvironmentCas = true;
-            masking.hideRevision = true;
+            masking.revisionMask = "hidden";
 
             expect(() =>
                 controller.provision(initialRevision(provider.descriptor), lease)
@@ -726,6 +726,38 @@ describe("EnvironmentController mutation kills", () => {
                 expect(inner.getSnapshot(snapshotId)?.state.name).toBe("failed");
                 masking.sessionMask = undefined;
                 provider.deferredSnapshot = undefined;
+            }
+        }
+    );
+
+    test(
+        "tells a replayed provision from the record the store answers with",
+        { tags: "p0" },
+        () => {
+            // sameRevision re-reads the record this controller just wrote, and the memory
+            // store refuses a row whose key contradicts its bytes, so every conjunct but
+            // the provider is true by construction. Each mask falsifies exactly one.
+            for (const mask of ["environment", "revision", "generation"] as const) {
+                const inner = new MemoryEnvironmentStore();
+                const masking = new MaskingEnvironmentStore(inner);
+                const provider = new TestProvider(descriptor(`provider-replay-${mask}`, "c"));
+                const registry = new MemoryEnvironmentProviderRegistry([provider]);
+                const verifier: TurnLeaseVerifier = { permits: (candidate) => candidate === lease };
+                const controller = new EnvironmentController(masking, registry, verifier);
+                controller.provision(initialRevision(provider.descriptor), lease);
+
+                // The replayed record matches the head's revision and generation, so the
+                // conflict reaches the comparator instead of the head checks above it.
+                masking.rejectEnvironmentCas = true;
+                masking.revisionMask = mask;
+                expect(() =>
+                    controller.provision(initialRevision(provider.descriptor), lease)
+                ).toThrowError(
+                    expect.objectContaining({
+                        code: "protocol.revision-conflict",
+                        message: "Environment was provisioned concurrently"
+                    })
+                );
             }
         }
     );
@@ -835,11 +867,20 @@ class TestProvider extends EnvironmentProvider {
     }
 }
 
+/**
+ * What one Environment record table answers instead of what it holds.
+ *
+ * The controller's replay comparators re-read the record its own writer just committed,
+ * and MemoryEnvironmentStore refuses to return a row whose key contradicts its bytes, so
+ * varying the request cannot falsify their identity conjuncts one at a time. Nothing but
+ * a store that accepts every write and then answers the later read with a different
+ * record separates those conjuncts from their absence. Every read here is a point read
+ * over the inner store, so there is no walk to bound.
+ */
 class MaskingEnvironmentStore extends EnvironmentStore {
     public maskSnapshotContent = false;
-    public bumpRevisionGeneration = false;
-    public hideRevision = false;
     public rejectEnvironmentCas = false;
+    public revisionMask: "hidden" | "generation" | "environment" | "revision" | undefined;
     public sessionMask: "hidden" | "failed-state" | "epoch-drift" | undefined;
 
     public constructor(private readonly inner: MemoryEnvironmentStore) {
@@ -854,13 +895,15 @@ class MaskingEnvironmentStore extends EnvironmentStore {
         id: EnvironmentId,
         revision: Revision
     ): EnvironmentRevisionRecord | undefined {
-        if (this.hideRevision) return undefined;
+        if (this.revisionMask === "hidden") return undefined;
         const record = this.inner.getRevision(id, revision);
-        if (record === undefined || !this.bumpRevisionGeneration) return record;
+        if (record === undefined || this.revisionMask === undefined) return record;
         return new EnvironmentRevisionRecord(
-            record.environmentId,
-            record.revision,
-            record.generation + 1,
+            this.revisionMask === "environment"
+                ? new EnvironmentId("environment-answered-elsewhere")
+                : record.environmentId,
+            this.revisionMask === "revision" ? new Revision(4) : record.revision,
+            this.revisionMask === "generation" ? record.generation + 1 : record.generation,
             record.provider
         );
     }
