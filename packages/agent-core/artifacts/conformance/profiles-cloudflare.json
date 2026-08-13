@@ -166,7 +166,9 @@
         "Run ownership is modelled in the SQLite substrate (run.ts refuses storage that belongs to neither a Workspace nor a dedicated Run Actor), but the Cloudflare package has no Run-hosting or start-time `dedicated` pin path, so the profile obligation is unimplemented there",
         "Needs evidence that the owner retains RunPins, active/terminal outcome, graph, and derived Settled obligations across the default and `dedicated` hostings, and that a pin is only accepted at Run start",
         "Confirmed at HEAD: src/actors/types.ts#ActorKind already admits `run`, and actor-name.ts therefore already names a Run Durable Object, so the gap is the store rather than the identity; packages/agent-core-cloudflare/src mentions a Run only in placement.ts, and durable-object.ts and namespace.ts carry no Run hosting, so nothing there can hold pins, outcome, graph, or Settled obligations",
-        "The implementation to mirror is src/substrates/sqlite/run.ts; closing this needs that Run store built over the Durable Object SQLite port in the Cloudflare package plus a hosting test covering both hostings and refusing a `dedicated` pin offered after Run start"
+        "The implementation to mirror is src/substrates/sqlite/run.ts; closing this needs that Run store built over the Durable Object SQLite port in the Cloudflare package plus a hosting test covering both hostings and refusing a `dedicated` pin offered after Run start",
+        "Blocked outside W8 by three missing type exports: RunStoragePort is public from @agent-core/core/agents/runs, but StoredRunRecord, StoredRunParent, and RunRecordKind are defined in src/agents/runs/store.ts and re-exported nowhere, so no package outside src/ can name the record the port accepts. Verified by compiling an import of all four against the Cloudflare tsconfig: RunStoragePort resolves and the other three fail TS2305",
+        "Adding those three to the type re-export on src/agents/runs/index.ts line 58 is a one-line change in the `agents` area, which W5 owns; with it the Cloudflare Run store is a self-contained W8 build over CloudflareSqlite, which already extends TransactionalSqlite"
       ]
     },
     {
