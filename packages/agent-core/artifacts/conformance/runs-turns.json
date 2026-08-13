@@ -736,16 +736,20 @@
       "owner": "W5",
       "specAnchor": "C13-TURN-CANCEL-INBOX",
       "specTextSha256": "sha256:730de628f43fc8177e398f174645f88233a3ae565ec715b20d4e8ec23239df14",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "Implemented, contrary to the note this replaces. runtime.ts#deliverEventInTransaction requires the exact live lease before any append and routes the reserved `turn.cancel` Event to appendCancellation instead of the sequence-checked inbox path; TurnInboxEntry's constructor ties event and cancellation token together as a biconditional so neither can appear without the other; and the executor observes cancellation between steps at findCancellation's three call sites in executor.ts. The superseded note claimed no `turn.cancel` kind existed anywhere in src, which was true when it was written and false once the mediation work landed",
-        "Tested too, but unlabelled, so the rule is uncited rather than unverified. Two p0 cases in test/agents/runs/adversarial.test.ts already prove the delivery halves - 'delivers reserved cancellation to the exact live lease without fencing it' asserts the inbox append leaves the Turn running under its holder, and 'rejects delivered cancellation that names a lease other than the caller's' asserts the fencing. The executor half is proved by 'fences a boundary result when cancellation arrives during the operation' in executor.test.ts",
-        "Flipping this atom therefore needs no new test, only citation: label the two adversarial cases with the atom id, and label the executor case after giving it a priority tag - it is currently untagged, and the ledger refuses p2-only evidence for a conformance atom, so it must be raised to at least p1 first. Deferred only to avoid moving the priority lane counts while a kill-campaign agent holds the tree"
-      ]
+      "sourceSymbols": [
+        "src/agents/runs/executor.ts#findCancellation",
+        "src/agents/runs/runtime.ts#RunRuntime.deliverEventInTransaction",
+        "src/agents/runs/turn.ts#TurnInboxEntry"
+      ],
+      "testSelectors": [
+        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-TURN-CANCEL-INBOX] delivers reserved cancellation to the exact live lease without fencing it",
+        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-TURN-CANCEL-INBOX] rejects delivered cancellation that names a lease other than the caller's",
+        "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-CANCEL-INBOX] fences a boundary result when cancellation arrives during the operation"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-TURN-EXACT-LEASE",
