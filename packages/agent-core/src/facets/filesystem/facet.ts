@@ -1,6 +1,13 @@
+import { isMember } from "../../core";
 import { Contributions, Contribution, OperationDescriptor } from "../contribution";
 import type { FacetData } from "../data";
-import { requireDataObject, requireSafeInteger, requireString } from "../data";
+import {
+    dataRecord,
+    requireBytes,
+    requireDataObject,
+    requireSafeInteger,
+    requireString
+} from "../data";
 import { OperationName, SlotName } from "../id";
 import type { FacetManifest } from "../manifest";
 import {
@@ -16,7 +23,9 @@ import {
 } from "../profile-runtime";
 
 export type FilesystemEntryKind = "file" | "directory";
-export type FilesystemWriteMode = "create" | "replace" | "upsert";
+const FILESYSTEM_WRITE_MODES = ["create", "replace", "upsert"] as const;
+
+export type FilesystemWriteMode = (typeof FILESYSTEM_WRITE_MODES)[number];
 
 export interface FilesystemStat {
     readonly path: string;
@@ -26,8 +35,8 @@ export interface FilesystemStat {
 }
 
 export interface FilesystemReadRange {
-    readonly offset?: number;
-    readonly length?: number;
+    readonly offset?: number | undefined;
+    readonly length?: number | undefined;
 }
 
 export interface FilesystemPage {
@@ -37,7 +46,7 @@ export interface FilesystemPage {
 
 export interface FilesystemReadInput extends PublicProfileInput {
     readonly path: string;
-    readonly range?: FilesystemReadRange;
+    readonly range?: FilesystemReadRange | undefined;
 }
 
 export interface FilesystemStatInput extends PublicProfileInput {
@@ -46,14 +55,14 @@ export interface FilesystemStatInput extends PublicProfileInput {
 
 export interface FilesystemListInput extends PublicProfileInput {
     readonly path: string;
-    readonly cursor?: string;
-    readonly limit?: number;
+    readonly cursor?: string | undefined;
+    readonly limit?: number | undefined;
 }
 
 export interface FilesystemWriteInput extends PublicProfileInput {
     readonly path: string;
     readonly content: Uint8Array;
-    readonly mode?: FilesystemWriteMode;
+    readonly mode?: FilesystemWriteMode | undefined;
 }
 
 export interface FilesystemRemoveInput extends PublicProfileInput {
@@ -67,7 +76,7 @@ export interface FilesystemMoveInput extends PublicProfileInput {
 
 export interface FilesystemMkdirInput extends PublicProfileInput {
     readonly path: string;
-    readonly recursive?: boolean;
+    readonly recursive?: boolean | undefined;
 }
 
 const pathProperty = { type: "string", minLength: 1 } as const;
@@ -125,16 +134,23 @@ export const FILESYSTEM_OPERATION_CONTRACTS = Object.freeze({
         ),
         schema({ type: "array", items: { type: "integer", minimum: 0, maximum: 255 } }),
         profileWireCodec(
-            (input) => ({
-                path: input.path,
-                ...(input.range === undefined ? {} : { range: { ...input.range } })
-            }),
+            (input) =>
+                dataRecord({
+                    path: input.path,
+                    range:
+                        input.range === undefined
+                            ? undefined
+                            : dataRecord({
+                                  offset: input.range.offset,
+                                  length: input.range.length
+                              })
+                }),
             (data) => {
                 const object = requireDataObject(data, "Filesystem read input");
                 const range = object["range"];
                 return {
                     path: requireString(object["path"], "Filesystem read path"),
-                    ...(range === undefined ? {} : { range: decodeRange(range) })
+                    range: range === undefined ? undefined : decodeRange(range)
                 };
             }
         ),
@@ -146,7 +162,7 @@ export const FILESYSTEM_OPERATION_CONTRACTS = Object.freeze({
         "observe",
         strictObjectSchema({ path: pathProperty }, ["path"]),
         schema(statSchema),
-        pathInputCodec(),
+        pathInputCodec((path) => ({ path })),
         statCodec(),
         "output"
     ),
@@ -167,25 +183,21 @@ export const FILESYSTEM_OPERATION_CONTRACTS = Object.freeze({
             additionalProperties: false
         }),
         profileWireCodec(
-            (input) => ({
-                path: input.path,
-                ...(input.cursor === undefined ? {} : { cursor: input.cursor }),
-                ...(input.limit === undefined ? {} : { limit: input.limit })
-            }),
+            (input) => dataRecord({ path: input.path, cursor: input.cursor, limit: input.limit }),
             (data) => {
                 const object = requireDataObject(data, "Filesystem list input");
+                const cursor = object["cursor"];
+                const limit = object["limit"];
                 return {
                     path: requireString(object["path"], "Filesystem list path"),
-                    ...(object["cursor"] === undefined
-                        ? {}
-                        : {
-                              cursor: requireString(object["cursor"], "Filesystem list cursor")
-                          }),
-                    ...(object["limit"] === undefined
-                        ? {}
-                        : {
-                              limit: requireSafeInteger(object["limit"], "Filesystem list limit")
-                          })
+                    cursor:
+                        cursor === undefined
+                            ? undefined
+                            : requireString(cursor, "Filesystem list cursor"),
+                    limit:
+                        limit === undefined
+                            ? undefined
+                            : requireSafeInteger(limit, "Filesystem list limit")
                 };
             }
         ),
@@ -205,11 +217,12 @@ export const FILESYSTEM_OPERATION_CONTRACTS = Object.freeze({
         ),
         voidSchema,
         profileWireCodec(
-            (input) => ({
-                path: input.path,
-                content: [...input.content],
-                ...(input.mode === undefined ? {} : { mode: input.mode })
-            }),
+            (input) =>
+                dataRecord({
+                    path: input.path,
+                    content: [...input.content],
+                    mode: input.mode
+                }),
             decodeWriteInput
         ),
         voidProfileWireCodec,
@@ -220,7 +233,7 @@ export const FILESYSTEM_OPERATION_CONTRACTS = Object.freeze({
         "mutate",
         strictObjectSchema({ path: pathProperty }, ["path"]),
         voidSchema,
-        pathInputCodec(),
+        pathInputCodec((path) => ({ path })),
         voidProfileWireCodec,
         "receipt"
     ),
@@ -251,16 +264,13 @@ export const FILESYSTEM_OPERATION_CONTRACTS = Object.freeze({
         strictObjectSchema({ path: pathProperty, recursive: { type: "boolean" } }, ["path"]),
         voidSchema,
         profileWireCodec(
-            (input) => ({
-                path: input.path,
-                ...(input.recursive === undefined ? {} : { recursive: input.recursive })
-            }),
+            (input) => dataRecord({ path: input.path, recursive: input.recursive }),
             (data) => {
                 const object = requireDataObject(data, "Filesystem mkdir input");
                 const recursive = object["recursive"];
                 return {
                     path: requireString(object["path"], "Filesystem mkdir path"),
-                    ...(recursive === undefined ? {} : { recursive: recursive === true })
+                    recursive: recursive === undefined ? undefined : recursive === true
                 };
             }
         ),
@@ -376,18 +386,18 @@ export class FilesystemFacet<Receipt> {
     }
 }
 
-function pathInputCodec<
-    Input extends FilesystemStatInput | FilesystemRemoveInput
->(): ProfileWireCodec<Input> {
+function pathInputCodec<Input extends { readonly path: string }>(
+    build: (path: string) => Input
+): ProfileWireCodec<Input> {
     return profileWireCodec(
         (input) => ({ path: input.path }),
         (data) =>
-            ({
-                path: requireString(
+            build(
+                requireString(
                     requireDataObject(data, "Filesystem path input")["path"],
                     "Filesystem path"
                 )
-            }) as Input
+            )
     );
 }
 
@@ -401,23 +411,22 @@ function statCodec(): ProfileWireCodec<FilesystemStat> {
 
 function pageCodec(): ProfileWireCodec<FilesystemPage> {
     return profileWireCodec(
-        (value) => ({
-            entries: value.entries.map((entry) => statCodec().encode(entry)),
-            ...(value.cursor === undefined ? {} : { cursor: value.cursor })
-        }),
+        (value) =>
+            dataRecord({
+                entries: value.entries.map((entry) => statCodec().encode(entry)),
+                cursor: value.cursor
+            }),
         decodePage
     );
 }
 
 function decodeRange(data: FacetData): FilesystemReadRange {
     const object = requireDataObject(data, "Filesystem read range");
+    const offset = object["offset"];
+    const length = object["length"];
     return {
-        ...(object["offset"] === undefined
-            ? {}
-            : { offset: requireSafeInteger(object["offset"], "Read offset") }),
-        ...(object["length"] === undefined
-            ? {}
-            : { length: requireSafeInteger(object["length"], "Read length") })
+        offset: offset === undefined ? undefined : requireSafeInteger(offset, "Read offset"),
+        length: length === undefined ? undefined : requireSafeInteger(length, "Read length")
     };
 }
 
@@ -427,29 +436,31 @@ function decodeWriteInput(data: FacetData): FilesystemWriteInput {
     return {
         path: requireString(object["path"], "Filesystem write path"),
         content: decodeBytes(object["content"]!),
-        ...(mode === undefined
-            ? {}
-            : { mode: requireString(mode, "Filesystem write mode") as FilesystemWriteMode })
+        mode: mode === undefined ? undefined : requireWriteMode(mode)
     };
 }
 
 function decodeBytes(data: FacetData): Uint8Array {
-    if (!Array.isArray(data) || data.some((byte) => typeof byte !== "number")) {
-        throw new TypeError("Filesystem bytes are invalid");
-    }
-    return new Uint8Array(data as number[]);
+    return requireBytes(data, "Filesystem bytes are invalid");
+}
+
+function requireWriteMode(value: FacetData): FilesystemWriteMode {
+    const mode = requireString(value, "Filesystem write mode");
+    if (isMember(FILESYSTEM_WRITE_MODES, mode)) return mode;
+    throw new TypeError("Filesystem write mode is invalid");
 }
 
 function decodePage(data: FacetData): FilesystemPage {
     const object = requireDataObject(data, "Filesystem page");
     const entries = object["entries"];
     if (!Array.isArray(entries)) throw new TypeError("Filesystem page entries must be an array");
-    return Object.freeze({
-        entries: Object.freeze(entries.map(decodeStat)),
-        ...(object["cursor"] === undefined
-            ? {}
-            : { cursor: requireString(object["cursor"], "Filesystem page cursor") })
-    });
+    const page = { entries: Object.freeze(entries.map(decodeStat)) };
+    const cursor = object["cursor"];
+    return Object.freeze(
+        cursor === undefined
+            ? page
+            : { ...page, cursor: requireString(cursor, "Filesystem page cursor") }
+    );
 }
 
 function decodeStat(data: FacetData): FilesystemStat {

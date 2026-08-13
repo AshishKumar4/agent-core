@@ -141,6 +141,21 @@ export function requireArray(value: FacetData | undefined, subject: string): rea
 }
 
 /**
+ * Reads the array of numbers that carries binary content through canonical JSON. The
+ * caller supplies the whole message because the profile owning the field names it, not
+ * this parser.
+ */
+export function requireBytes(value: FacetData | undefined, message: string): Uint8Array {
+    if (!Array.isArray(value)) throw new TypeError(message);
+    const bytes = new Uint8Array(value.length);
+    for (const [index, entry] of value.entries()) {
+        if (!isNumber(entry)) throw new TypeError(message);
+        bytes[index] = entry;
+    }
+    return bytes;
+}
+
+/**
  * Restates a chosen set of vocabulary values in the vocabulary's own canonical order, so
  * that two declarations naming the same values encode identically. Unknown, repeated, and
  * empty selections are rejected here rather than reaching a comparison downstream.
@@ -190,4 +205,8 @@ function freezeFacetData(value: FacetData): FacetData {
 // could ever reach. This gives the check the narrowing it lacks instead.
 function isSafeInteger(value: FacetData | undefined): value is number {
     return Number.isSafeInteger(value);
+}
+
+function isNumber(value: FacetData | undefined): value is number {
+    return typeof value === "number";
 }
