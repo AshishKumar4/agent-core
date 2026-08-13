@@ -903,7 +903,7 @@ function validationEvidence(
     );
 }
 
-function expectAgentError(action: () => unknown, code: AgentCoreErrorCode): void {
+function expectAgentError(action: () => void, code: AgentCoreErrorCode): void {
     try {
         action();
         throw new Error("Expected AgentCoreError");

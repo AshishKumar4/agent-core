@@ -808,7 +808,7 @@ class FaultingMediationSqlite extends TestSqlite {
 }
 
 function expectExactError(
-    operation: () => unknown,
+    operation: () => void,
     code: AgentCoreError["code"],
     message: string
 ): void {

@@ -1022,7 +1022,7 @@ function expectInvocationFailure(
     throw new TypeError(`Expected InvocationError ${failure}`);
 }
 
-function expectCorrupt(operation: () => unknown): void {
+function expectCorrupt(operation: () => void): void {
     try {
         operation();
     } catch (error) {

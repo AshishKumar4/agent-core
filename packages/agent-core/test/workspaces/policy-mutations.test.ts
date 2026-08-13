@@ -15,7 +15,7 @@ function mappingOf(...moves: readonly FieldMove[]): PayloadMapping {
     return new PayloadMapping(moves);
 }
 
-function expectSubscriptionInvalid(action: () => unknown, message: string): void {
+function expectSubscriptionInvalid(action: () => void, message: string): void {
     expect(action).toThrow(
         expect.objectContaining({ code: "subscription.invalid", message, name: "AgentCoreError" })
     );

@@ -1791,7 +1791,7 @@ function expectDefined<Value>(value: Value | undefined, label: string): Value {
 }
 
 function expectAgentCoreError(
-    action: () => unknown,
+    action: () => void,
     code: AgentCoreErrorCode,
     message: string
 ): void {

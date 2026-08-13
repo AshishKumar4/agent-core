@@ -107,7 +107,7 @@ function validationEvidence(
     );
 }
 
-function expectTypeError(action: () => unknown, message: string): void {
+function expectTypeError(action: () => void, message: string): void {
     try {
         action();
         throw new Error("Expected a TypeError");
@@ -117,7 +117,7 @@ function expectTypeError(action: () => unknown, message: string): void {
     }
 }
 
-function expectAgentError(action: () => unknown, code: AgentCoreErrorCode, message: string): void {
+function expectAgentError(action: () => void, code: AgentCoreErrorCode, message: string): void {
     try {
         action();
         throw new Error("Expected an AgentCoreError");

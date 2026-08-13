@@ -93,11 +93,11 @@ function recordBytes(
     return encodeCanonicalJson({ kind, payload, version });
 }
 
-function expectCodecInvalid(action: () => unknown): void {
+function expectCodecInvalid(action: () => void): void {
     expect(action).toThrow(expect.objectContaining({ code: "codec.invalid" }));
 }
 
-function expectAuthorityDenied(action: () => unknown): void {
+function expectAuthorityDenied(action: () => void): void {
     expect(action).toThrow(expect.objectContaining({ code: "authority.denied" }));
 }
 
