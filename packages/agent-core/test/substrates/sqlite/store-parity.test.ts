@@ -13,6 +13,7 @@ import {
     type InvalidationWatermarkStore
 } from "../../authority/internal-fixture";
 import { SqliteInvalidationWatermarkStore } from "../../../src/substrates/sqlite/watermark";
+import { violating } from "../../helpers/malformed";
 import { FileSqlite, TestSqlite } from "../../helpers/sqlite";
 
 const tenant = new TenantId("tenant-store-parity");
@@ -82,10 +83,11 @@ describe("memory invalidation watermark snapshot isolation", () => {
         const cleanWatermark = watermarks.snapshot();
         expect(
             () =>
-                new MemoryInvalidationWatermarkStore(tenant, owner, {
-                    ...cleanWatermark,
-                    version: 2
-                } as never)
+                new MemoryInvalidationWatermarkStore(
+                    tenant,
+                    owner,
+                    violating(cleanWatermark, { version: 2 })
+                )
         ).toThrow(/malformed/);
         expect(
             () =>
@@ -103,10 +105,11 @@ describe("memory invalidation watermark snapshot isolation", () => {
         ).toThrow(/does not match/);
         expect(
             () =>
-                new MemoryInvalidationWatermarkStore(tenant, owner, {
-                    version: 1,
-                    records: [null as never]
-                })
+                new MemoryInvalidationWatermarkStore(
+                    tenant,
+                    owner,
+                    violating(cleanWatermark, { records: [null] })
+                )
         ).toThrow(/record is malformed/);
         watermarkSnapshot.records[0]!.bytes.fill(0);
         expect(watermarks.load(watermarkKey(watermark))?.revision.value).toBe(

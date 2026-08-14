@@ -33,7 +33,7 @@ import {
 import { TestSqlite } from "../../../helpers/sqlite";
 import { describe, expect, test } from "vitest";
 import { admissionFor, createLedger, prepared } from "../../../invocations/fixture";
-import { createSqliteInvocationPersistence } from "./fixture";
+import { createSqliteInvocationPersistence, runSynchronousSqliteTransaction } from "./fixture";
 
 describe("SqliteInvocationMediationPersistence", () => {
     test(
@@ -385,9 +385,9 @@ describe("SqliteInvocationMediationPersistence", () => {
                     transact<Result>(
                         operation: (transaction: TransactionalSqlite) => Result
                     ): Result {
-                        return (
-                            database.transaction as unknown as (operation: () => Result) => Result
-                        )(() => operation(database));
+                        return runSynchronousSqliteTransaction(database, () =>
+                            operation(database)
+                        );
                     }
                 },
                 persistence,

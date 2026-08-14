@@ -11,6 +11,7 @@ import {
     type SqliteValue
 } from "../../../src/substrates/sqlite/sqlite";
 import { WorkspacePersistence, type CompactableWorkspaceRecordKind } from "../../../src/workspaces";
+import { malformed } from "../../helpers/malformed";
 import { FileSqlite, TestSqlite } from "../../helpers/sqlite";
 import { eventFixture, eventRetention, sourceActor, tenant } from "../../workspaces/fixtures";
 import {
@@ -97,7 +98,9 @@ test(
         records.insertRecord({ kind: "event", id: "guarded", bytes: Uint8Array.of(1) });
 
         expect(() =>
-            records.deleteCompactedRecords("event" as CompactableWorkspaceRecordKind, ["guarded"])
+            records.deleteCompactedRecords(malformed<CompactableWorkspaceRecordKind>("event"), [
+                "guarded"
+            ])
         ).toThrow(
             expect.objectContaining({
                 code: "protocol.invalid-state",
