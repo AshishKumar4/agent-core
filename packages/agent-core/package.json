@@ -92,6 +92,7 @@
     "check:exports": "node ./scripts/quality/run.mjs --stage building --target exports",
     "check:coverage": "node ./scripts/quality/run.mjs --stage building --target coverage",
     "check:mutation": "node ./scripts/quality/mutation.mjs --gate",
+    "check:normative": "node ./scripts/check-normative.mjs",
     "check:test-priorities": "node ./scripts/quality/run.mjs --stage building --target test-priorities",
     "check:traceability": "node ./scripts/check-traceability.mjs",
     "check:implementation": "node ./scripts/quality/run.mjs --stage building --target ledger",

@@ -3,6 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { allowedBuiltInAxioms } from "./formal-policy.mjs";
 import { isJsonObject, isNonEmptyString, parseCanonicalJson } from "./quality/project.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -12,7 +13,7 @@ const specPath = join(packageRoot, "SPEC.md");
 const traceabilityPath = join(packageRoot, "artifacts", "traceability.yaml");
 const lakeCommand = process.env.LEAN_LAKE?.trim() || "lake";
 
-const allowedBuiltInAxioms = new Set(["propext", "Quot.sound", "Classical.choice"]);
+const allowedBuiltInAxiomSet = new Set(allowedBuiltInAxioms);
 const requirementStatuses = new Set(["proved-safety", "proved-component"]);
 const assumptionStatuses = new Set(["operational-assumption", "refinement-non-goal"]);
 const nonClaimStatuses = new Set([
@@ -859,7 +860,7 @@ for (const rawLine of reportOutput.split(/\r?\n/)) {
     for (const axiom of axioms) {
         observedAxioms.add(axiom);
         if (axiom.includes("sorryAx")) fail(`designated theorem depends on sorryAx: ${name}`);
-        else if (!allowedBuiltInAxioms.has(axiom)) {
+        else if (!allowedBuiltInAxiomSet.has(axiom)) {
             fail(`designated theorem ${name} depends on disallowed axiom ${axiom}`);
         }
     }
