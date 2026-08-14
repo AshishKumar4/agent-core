@@ -76,6 +76,10 @@
       "reason": "CommitCertainty classifies how much is durably known about a failed §8.5 command's commit (notAttempted, rolledBack, unknown); the SPEC prescribes the retry behavior but names no axis."
     },
     {
+      "word": "cardinality",
+      "reason": "OperationPayloadCardinality and MediatedReplayCardinality name the SPEC §7.3 single-versus-nonempty-batch payload discriminator precisely while the versioned wire field remains shape."
+    },
+    {
       "word": "clone",
       "reason": "ActorCloneOwnedState carries owned records for the §8.5 Workspace-portability command family; the SPEC names the family, not the copied payload."
     },

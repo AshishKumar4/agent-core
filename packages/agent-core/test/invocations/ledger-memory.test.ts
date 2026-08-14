@@ -152,6 +152,35 @@ test(
 );
 
 test(
+    "[invocation-persistence] approval lookup isolates identifiers containing the key delimiter",
+    { tags: "p0" },
+    () => {
+        const state = createInvocationMemoryState();
+        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const requested = prepared("memory-approval-prefix-requested");
+        const foreign = prepared("memory-approval-prefix-foreign");
+        const requestedApproval = Approval.pending(
+            new ApprovalId("memory-approval-prefix"),
+            requested.header.id,
+            requested.intentDigest,
+            new Date(1000)
+        );
+        const foreignApproval = Approval.pending(
+            new ApprovalId("memory-approval-prefix\u0000foreign"),
+            foreign.header.id,
+            foreign.intentDigest,
+            new Date(1000)
+        );
+
+        persistence.appendApproval(state, requestedApproval);
+        persistence.appendApproval(state, foreignApproval);
+
+        expect(persistence.approval(state, requestedApproval.id)).toEqual(requestedApproval);
+        expect(persistence.approval(state, foreignApproval.id)).toEqual(foreignApproval);
+    }
+);
+
+test(
     "[C13-ATTEMPT-ORDINAL-AFTER-FAILURE] [invocation-persistence] memory rejects valid-byte index substitution",
     { tags: "p0" },
     () => {
@@ -423,20 +452,24 @@ test(
             invocation.intentDigest,
             new Date(1000)
         );
+        const advanced = approval.approve(
+            new PrincipalId("memory-approval-revision-principal"),
+            new Date(2000)
+        );
 
         const revisionDrift = createInvocationMemoryState();
-        revisionDrift.approvals.set(
-            `${approval.id.value}\u00005`,
-            invocationCodecs.approval.encode(approval)
-        );
+        persistence.appendApproval(revisionDrift, approval);
+        const revisionKey = [...revisionDrift.approvals.keys()][0];
+        if (revisionKey === undefined) throw new TypeError("Approval key is missing");
+        revisionDrift.approvals.set(revisionKey, invocationCodecs.approval.encode(advanced));
         const substitutedId = createInvocationMemoryState();
-        substitutedId.approvals.set(
-            `${approval.id.value}\u00000`,
-            invocationCodecs.approval.encode(other)
-        );
+        persistence.appendApproval(substitutedId, approval);
+        const substitutedKey = [...substitutedId.approvals.keys()][0];
+        if (substitutedKey === undefined) throw new TypeError("Approval key is missing");
+        substitutedId.approvals.set(substitutedKey, invocationCodecs.approval.encode(other));
 
         const cases: readonly (readonly [InvocationMemoryState, number])[] = [
-            [revisionDrift, 5],
+            [revisionDrift, 0],
             [substitutedId, 0]
         ];
         for (const [state, revision] of cases) {
@@ -469,14 +502,16 @@ test(
             new Date(2000)
         );
         expect(approved.revision.value).toBe(1);
-        const key = (revision: number): string => `${pending.id.value}\u0000${revision}`;
 
         const ascending = createInvocationMemoryState();
-        ascending.approvals.set(key(0), invocationCodecs.approval.encode(pending));
-        ascending.approvals.set(key(1), invocationCodecs.approval.encode(approved));
+        persistence.appendApproval(ascending, pending);
+        persistence.appendApproval(ascending, approved);
         const descending = createInvocationMemoryState();
-        descending.approvals.set(key(1), invocationCodecs.approval.encode(approved));
-        descending.approvals.set(key(0), invocationCodecs.approval.encode(pending));
+        persistence.appendApproval(descending, pending);
+        persistence.appendApproval(descending, approved);
+        const entries = [...descending.approvals.entries()].reverse();
+        descending.approvals.clear();
+        for (const [key, bytes] of entries) descending.approvals.set(key, bytes);
 
         for (const state of [ascending, descending]) {
             const latest = persistence.approval(state, pending.id);

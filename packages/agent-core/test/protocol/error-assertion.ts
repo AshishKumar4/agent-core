@@ -36,7 +36,7 @@ export function expectAgentCoreErrorValue(
     cause: unknown,
     code: ErrorCode,
     message?: ErrorMessage
-): void {
+): asserts cause is AgentCoreError {
     expect(cause).toBeInstanceOf(AgentCoreError);
     expect(cause).not.toBeInstanceOf(TypeError);
     const expectedCode = code instanceof RegExp ? expect.stringMatching(code) : code;

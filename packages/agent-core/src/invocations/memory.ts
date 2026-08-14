@@ -104,12 +104,7 @@ export class MemoryInvocationPersistence<
     }
 
     public approval(transaction: InvocationMemoryState, id: ApprovalId): Approval | undefined {
-        const entries = approvalEntries(transaction.approvals, id.value);
-        if (entries.length === 0) return undefined;
-        const [revision, bytes] = entries.at(-1)!;
-        const record = this.codecs.approval.decode(bytes);
-        if (!record.id.equals(id) || record.revision.value !== revision) corruptMemory();
-        return record;
+        return approvalEntries(transaction.approvals, this.codecs.approval, id).at(-1);
     }
 
     public approvalForInvocation(
@@ -314,18 +309,22 @@ export class MemoryInvocationPersistence<
 }
 
 function approvalKey(id: string, revision: number): string {
-    return `${id}\u0000${revision}`;
+    return JSON.stringify(["agent-core.invocation.approval-key.v1", id, revision]);
 }
 
 function approvalEntries(
     approvals: ReadonlyMap<string, Uint8Array>,
-    id: string
-): readonly (readonly [number, Uint8Array])[] {
-    const prefix = `${id}\u0000`;
+    codec: RecordCodec<Approval>,
+    id: ApprovalId
+): readonly Approval[] {
     return [...approvals.entries()]
-        .filter(([key]) => key.startsWith(prefix))
-        .map(([key, bytes]) => [Number(key.slice(prefix.length)), bytes] as const)
-        .sort(([left], [right]) => left - right);
+        .map(([key, bytes]) => {
+            const record = codec.decode(bytes);
+            if (key !== approvalKey(record.id.value, record.revision.value)) corruptMemory();
+            return record;
+        })
+        .filter((record) => record.id.equals(id))
+        .sort((left, right) => left.revision.value - right.revision.value);
 }
 
 function insert(map: Map<string, Uint8Array>, key: string, bytes: Uint8Array): void {

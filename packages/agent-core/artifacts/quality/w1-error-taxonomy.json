@@ -220,11 +220,11 @@
         {
             "id": "w1.actors.store.requiresynchronousresult.934291f199",
             "file": "src/actors/store.ts",
-            "line": 319,
+            "line": 338,
             "source": "src/actors/store.ts",
             "sourceAnchor": {
                 "container": "requireSynchronousResult",
-                "guard": "isUnstableOrThenable(result)",
+                "guard": "utilTypes.isProxy(owner) || Object.hasOwn(owner, \"then\")",
                 "expression": "new TypeError(ASYNC_TRANSACTION_MESSAGE)"
             },
             "classification": "programmer-contract",
@@ -234,9 +234,25 @@
             ]
         },
         {
+            "id": "w1.actors.store.copyreadonlyproperties.3e9f2df6b0",
+            "file": "src/actors/store.ts",
+            "line": 563,
+            "source": "src/actors/store.ts",
+            "sourceAnchor": {
+                "container": "copyReadonlyProperties",
+                "guard": "descriptor === undefined",
+                "expression": "new TypeError(\"Memory Actor state changed while creating a read view\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Rejects concurrent mutation while the Memory Actor store creates an isolated read view.",
+            "testedBy": [
+                "test/actors/actor.test.ts"
+            ]
+        },
+        {
             "id": "w1.actors.store.requirecreatedrecovery.0cd9a83866",
             "file": "src/actors/store.ts",
-            "line": 51,
+            "line": 71,
             "source": "src/actors/store.ts",
             "sourceAnchor": {
                 "container": "requireCreatedRecovery",
@@ -250,9 +266,57 @@
             ]
         },
         {
+            "id": "w1.actors.store.copydetached.98b48bfd46",
+            "file": "src/actors/store.ts",
+            "line": 733,
+            "source": "src/actors/store.ts",
+            "sourceAnchor": {
+                "container": "copyDetached",
+                "guard": "!isActorStateObject(value)",
+                "expression": "new TypeError(\"Memory Actor state must be an object\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Memory Actor state is host-supplied to the generic store and must satisfy its object-state contract at runtime.",
+            "testedBy": [
+                "test/actors/actor.test.ts"
+            ]
+        },
+        {
+            "id": "w1.actors.store.copydetached.ac2be32b42",
+            "file": "src/actors/store.ts",
+            "line": 739,
+            "source": "src/actors/store.ts",
+            "sourceAnchor": {
+                "container": "copyDetached",
+                "guard": "!isActorStateObject(copy)",
+                "expression": "new TypeError(\"Memory Actor clones must return an object\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Memory Actor clone hooks are host-supplied implementations bound by the detachment contract.",
+            "testedBy": [
+                "test/actors/actor.test.ts"
+            ]
+        },
+        {
+            "id": "w1.actors.store.requiredetachedobjects.6956acc7cf",
+            "file": "src/actors/store.ts",
+            "line": 766,
+            "source": "src/actors/store.ts",
+            "sourceAnchor": {
+                "container": "ActorStateGraph.requireDetachedFrom",
+                "guard": "sourceObjects.has(value)",
+                "expression": "new TypeError(\"Memory Actor clones must detach all mutable state\")"
+            },
+            "classification": "programmer-contract",
+            "rationale": "Memory Actor clone hooks are host-supplied implementations bound by the detachment contract.",
+            "testedBy": [
+                "test/actors/actor.test.ts"
+            ]
+        },
+        {
             "id": "w1.actors.store.requirerecoveredrecovery.ea78e134cf",
             "file": "src/actors/store.ts",
-            "line": 57,
+            "line": 77,
             "source": "src/actors/store.ts",
             "sourceAnchor": {
                 "container": "requireRecoveredRecovery",
@@ -266,45 +330,13 @@
             ]
         },
         {
-            "id": "w1.actors.store.copydetached.ac2be32b42",
-            "file": "src/actors/store.ts",
-            "line": 681,
-            "source": "src/actors/store.ts",
-            "sourceAnchor": {
-                "container": "copyDetached",
-                "guard": "copy === null || typeof copy !== \"object\"",
-                "expression": "new TypeError(\"Memory Actor clones must return an object\")"
-            },
-            "classification": "programmer-contract",
-            "rationale": "Memory Actor clone hooks are host-supplied implementations bound by the detachment contract.",
-            "testedBy": [
-                "test/actors/actor.test.ts"
-            ]
-        },
-        {
-            "id": "w1.actors.store.requiredetachedobjects.6956acc7cf",
-            "file": "src/actors/store.ts",
-            "line": 707,
-            "source": "src/actors/store.ts",
-            "sourceAnchor": {
-                "container": "requireDetachedObjects",
-                "guard": "sourceObjects.has(value)",
-                "expression": "new TypeError(\"Memory Actor clones must detach all mutable state\")"
-            },
-            "classification": "programmer-contract",
-            "rationale": "Memory Actor clone hooks are host-supplied implementations bound by the detachment contract.",
-            "testedBy": [
-                "test/actors/actor.test.ts"
-            ]
-        },
-        {
             "id": "w1.actors.store.requireownedgraph.f5ecb88cc5",
             "file": "src/actors/store.ts",
-            "line": 744,
+            "line": 774,
             "source": "src/actors/store.ts",
             "sourceAnchor": {
-                "container": "requireOwnedGraph",
-                "guard": "typeof value === \"function\"",
+                "container": "ActorStateGraph.validate",
+                "guard": "isFunctionValue(value)",
                 "expression": "new TypeError(\"Memory Actor state cannot contain functions\")"
             },
             "classification": "programmer-contract",
@@ -316,11 +348,11 @@
         {
             "id": "w1.actors.store.requireownedgraph.ae1a8dc653",
             "file": "src/actors/store.ts",
-            "line": 751,
+            "line": 782,
             "source": "src/actors/store.ts",
             "sourceAnchor": {
-                "container": "requireOwnedGraph",
-                "guard": "typeof SharedArrayBuffer !== \"undefined\" && (value instanceof SharedArrayBuffer || (ArrayBuffer.isView(value) && value.buffer instanceof SharedArrayBuffer))",
+                "container": "ActorStateGraph.validate",
+                "guard": "SharedBuffer !== undefined && (value instanceof SharedBuffer || (ArrayBuffer.isView(value) && value.buffer instanceof SharedBuffer))",
                 "expression": "new TypeError(\"Memory Actor state cannot contain shared memory\")"
             },
             "classification": "programmer-contract",
@@ -332,10 +364,10 @@
         {
             "id": "w1.actors.store.requireownedgraph.b5520c755e",
             "file": "src/actors/store.ts",
-            "line": 758,
+            "line": 788,
             "source": "src/actors/store.ts",
             "sourceAnchor": {
-                "container": "requireOwnedGraph",
+                "container": "ActorStateGraph.validate",
                 "guard": "descriptor !== undefined && !(\"value\" in descriptor)",
                 "expression": "new TypeError(\"Memory Actor state cannot contain accessor properties\")"
             },
@@ -348,12 +380,12 @@
         {
             "id": "w1.actors.store.requireownedgraph.a0b91e0216",
             "file": "src/actors/store.ts",
-            "line": 776,
+            "line": 805,
             "source": "src/actors/store.ts",
             "sourceAnchor": {
-                "container": "requireOwnedGraph",
-                "guard": "!Object.isFrozen(value) || typeof inspect !== \"function\"",
-                "expression": "new TypeError(\"Memory Actor custom state objects must be frozen and clone-owned\")"
+                "container": "ActorStateGraph.validate",
+                "guard": "!Object.isFrozen(value) || !isActorCloneOwnedState(value)",
+                "expression": "new TypeError( \"Memory Actor custom state objects must be frozen and clone-owned\" )"
             },
             "classification": "programmer-contract",
             "rationale": "Enforces an explicit host contract for supplied configuration, callbacks, validators, inheritance, or clone ownership.",
@@ -460,7 +492,7 @@
         {
             "id": "w1.content.retention.requireoperationtime.943465451a",
             "file": "src/content/retention.ts",
-            "line": 156,
+            "line": 160,
             "source": "src/content/retention.ts",
             "sourceAnchor": {
                 "container": "requireOperationTime",
@@ -476,7 +508,7 @@
         {
             "id": "w1.content.retention.contentowneredge-constructor.7bf0c9886c",
             "file": "src/content/retention.ts",
-            "line": 69,
+            "line": 73,
             "source": "src/content/retention.ts",
             "sourceAnchor": {
                 "container": "ContentOwnerEdge.constructor",
@@ -492,7 +524,7 @@
         {
             "id": "w1.content.stat.contentstat-constructor.ebc67b9505",
             "file": "src/content/stat.ts",
-            "line": 68,
+            "line": 76,
             "source": "src/content/stat.ts",
             "sourceAnchor": {
                 "container": "ContentStat.constructor",
@@ -508,7 +540,7 @@
         {
             "id": "w1.content.stat.contentstat-constructor.f424c7e560",
             "file": "src/content/stat.ts",
-            "line": 71,
+            "line": 79,
             "source": "src/content/stat.ts",
             "sourceAnchor": {
                 "container": "ContentStat.constructor",
@@ -524,7 +556,7 @@
         {
             "id": "w1.content.transient.transientcontentleasestate-constructor.a4749229b4",
             "file": "src/content/transient.ts",
-            "line": 116,
+            "line": 124,
             "source": "src/content/transient.ts",
             "sourceAnchor": {
                 "container": "TransientContentLeaseState.constructor",
@@ -540,7 +572,7 @@
         {
             "id": "w1.content.transient.transientcontentleasestate-constructor.b3e298fad4",
             "file": "src/content/transient.ts",
-            "line": 119,
+            "line": 127,
             "source": "src/content/transient.ts",
             "sourceAnchor": {
                 "container": "TransientContentLeaseState.constructor",
@@ -556,7 +588,7 @@
         {
             "id": "w1.content.transient.transientcontentleasestate-constructor.d32757e514",
             "file": "src/content/transient.ts",
-            "line": 122,
+            "line": 130,
             "source": "src/content/transient.ts",
             "sourceAnchor": {
                 "container": "TransientContentLeaseState.constructor",
@@ -572,28 +604,12 @@
         {
             "id": "w1.core.base64.decodebase64.35db5eeb2e",
             "file": "src/core/base64.ts",
-            "line": 28,
+            "line": 30,
             "source": "src/core/base64.ts",
             "sourceAnchor": {
                 "container": "decodeBase64",
-                "guard": "typeof value !== \"string\" || value.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)",
+                "guard": "!isJsonString(value) || value.length % 4 !== 0 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)",
                 "expression": "new TypeError(\"Base64 value must use canonical RFC 4648 encoding\")"
-            },
-            "classification": "codec-input-shape",
-            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
-            "testedBy": [
-                "test/core/codec.test.ts"
-            ]
-        },
-        {
-            "id": "w1.core.base64.encodebase64.08aa9c7938",
-            "file": "src/core/base64.ts",
-            "line": 5,
-            "source": "src/core/base64.ts",
-            "sourceAnchor": {
-                "container": "encodeBase64",
-                "guard": "!(bytes instanceof Uint8Array)",
-                "expression": "new TypeError(\"Base64 input must be a Uint8Array\")"
             },
             "classification": "codec-input-shape",
             "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
@@ -604,7 +620,7 @@
         {
             "id": "w1.core.base64.decodebase64.0733f18c76",
             "file": "src/core/base64.ts",
-            "line": 52,
+            "line": 54,
             "source": "src/core/base64.ts",
             "sourceAnchor": {
                 "container": "decodeBase64",
@@ -620,7 +636,7 @@
         {
             "id": "w1.core.base64.decodedigit.2424fb6198",
             "file": "src/core/base64.ts",
-            "line": 60,
+            "line": 62,
             "source": "src/core/base64.ts",
             "sourceAnchor": {
                 "container": "decodeDigit",
@@ -634,9 +650,25 @@
             ]
         },
         {
+            "id": "w1.core.base64.encodebase64.08aa9c7938",
+            "file": "src/core/base64.ts",
+            "line": 7,
+            "source": "src/core/base64.ts",
+            "sourceAnchor": {
+                "container": "encodeBase64",
+                "guard": "!(bytes instanceof Uint8Array)",
+                "expression": "new TypeError(\"Base64 input must be a Uint8Array\")"
+            },
+            "classification": "codec-input-shape",
+            "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
+            "testedBy": [
+                "test/core/codec.test.ts"
+            ]
+        },
+        {
             "id": "w1.core.canonical.decodecanonicaljson.91d8d2f8f3",
             "file": "src/core/canonical.ts",
-            "line": 27,
+            "line": 33,
             "source": "src/core/canonical.ts",
             "sourceAnchor": {
                 "container": "decodeCanonicalJson",
@@ -652,11 +684,11 @@
         {
             "id": "w1.core.codec.validateanddetachversion.f228b285d2",
             "file": "src/core/codec.ts",
-            "line": 129,
+            "line": 133,
             "source": "src/core/codec.ts",
             "sourceAnchor": {
                 "container": "validateAndDetachVersion",
-                "guard": "typeof version !== \"object\" || version === null || Object.getPrototypeOf(version) !== Object.prototype || !hasExactVersionKeys(version)",
+                "guard": "!isObjectRecord(version) || Object.getPrototypeOf(version) !== Object.prototype || !hasExactVersionKeys(version)",
                 "expression": "new TypeError(\"Record codec version must contain non-negative safe integers\")"
             },
             "classification": "codec-input-shape",
@@ -668,7 +700,7 @@
         {
             "id": "w1.core.codec.validateanddetachversion.18c9106de0",
             "file": "src/core/codec.ts",
-            "line": 141,
+            "line": 145,
             "source": "src/core/codec.ts",
             "sourceAnchor": {
                 "container": "validateAndDetachVersion",
@@ -684,11 +716,11 @@
         {
             "id": "w1.core.codec.validateanddetachversion.b25bb6acb8",
             "file": "src/core/codec.ts",
-            "line": 156,
+            "line": 157,
             "source": "src/core/codec.ts",
             "sourceAnchor": {
                 "container": "validateAndDetachVersion",
-                "guard": "typeof major !== \"number\" || !Number.isSafeInteger(major) || major < 0 || typeof minor !== \"number\" || !Number.isSafeInteger(minor) || minor < 0",
+                "guard": "!isJsonNumber(major) || !Number.isSafeInteger(major) || major < 0 || !isJsonNumber(minor) || !Number.isSafeInteger(minor) || minor < 0",
                 "expression": "new TypeError(\"Record codec version must contain non-negative safe integers\")"
             },
             "classification": "codec-input-shape",
@@ -700,11 +732,11 @@
         {
             "id": "w1.core.codec.recordcodec-constructor.1f37e78208",
             "file": "src/core/codec.ts",
-            "line": 28,
+            "line": 35,
             "source": "src/core/codec.ts",
             "sourceAnchor": {
                 "container": "RecordCodec.constructor",
-                "guard": "typeof kind !== \"string\" || kind.trim().length === 0 || kind !== kind.trim() || !hasOnlyUnicodeScalarValues(kind)",
+                "guard": "!isJsonString(kind) || kind.trim().length === 0 || kind !== kind.trim() || !hasOnlyUnicodeScalarValues(kind)",
                 "expression": "new TypeError(\"Record codec kind must be a nonblank canonical string\")"
             },
             "classification": "constructor-shape",
@@ -720,7 +752,7 @@
             "source": "src/core/compat-range.ts",
             "sourceAnchor": {
                 "container": "requireRange",
-                "guard": "typeof value !== \"string\" || value.trim().length === 0 || value !== value.trim() || !hasOnlyUnicodeScalarValues(value)",
+                "guard": "!isJsonString(value) || value.trim().length === 0 || value !== value.trim() || !hasOnlyUnicodeScalarValues(value)",
                 "expression": "new TypeError(`${name} must be a nonblank canonical string`)"
             },
             "classification": "constructor-shape",
@@ -812,11 +844,11 @@
         {
             "id": "w1.core.id.textid-constructor.0c2db0e1bc",
             "file": "src/core/id.ts",
-            "line": 14,
+            "line": 15,
             "source": "src/core/id.ts",
             "sourceAnchor": {
                 "container": "TextId.constructor",
-                "guard": "typeof value !== \"string\" || value.length === 0 || value.length > 256 || !hasOnlyUnicodeScalarValues(value)",
+                "guard": "!isJsonString(value) || value.length === 0 || value.length > 256 || !hasOnlyUnicodeScalarValues(value)",
                 "expression": "new TypeError(`${name} must contain between 1 and 256 characters`)"
             },
             "classification": "constructor-shape",
@@ -844,7 +876,7 @@
         {
             "id": "w1.core.schema.assertsupportedschema.b6dac1bd55",
             "file": "src/core/schema.ts",
-            "line": 166,
+            "line": 170,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "assertSupportedSchema",
@@ -860,7 +892,7 @@
         {
             "id": "w1.core.schema.assertsupportedschema.5f1516d9e3",
             "file": "src/core/schema.ts",
-            "line": 169,
+            "line": 173,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "assertSupportedSchema",
@@ -876,7 +908,7 @@
         {
             "id": "w1.core.schema.assertsupportedschema.a80ba3d24d",
             "file": "src/core/schema.ts",
-            "line": 172,
+            "line": 176,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "assertSupportedSchema",
@@ -892,11 +924,11 @@
         {
             "id": "w1.core.schema.assertsupportedschema.23a5701d60",
             "file": "src/core/schema.ts",
-            "line": 178,
+            "line": 182,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "assertSupportedSchema",
-                "guard": "typeof format === \"string\" && !SUPPORTED_FORMATS.has(format)",
+                "guard": "isJsonString(format) && !SUPPORTED_FORMATS.has(format)",
                 "expression": "new TypeError(`Unsupported JSON Schema format: ${format}`)"
             },
             "classification": "codec-input-shape",
@@ -908,7 +940,7 @@
         {
             "id": "w1.core.schema.requirelocalreference.725b14e43c",
             "file": "src/core/schema.ts",
-            "line": 235,
+            "line": 239,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "requireLocalReference",
@@ -924,11 +956,11 @@
         {
             "id": "w1.core.schema.requiredynamicreference.699d11bc4e",
             "file": "src/core/schema.ts",
-            "line": 241,
+            "line": 245,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "requireDynamicReference",
-                "guard": "typeof value === \"string\" && !value.startsWith(\"#\")",
+                "guard": "isJsonString(value) && !value.startsWith(\"#\")",
                 "expression": "new TypeError(`Remote JSON Schema reference is not supported: $dynamicRef ${value}`)"
             },
             "classification": "codec-input-shape",
@@ -940,7 +972,7 @@
         {
             "id": "w1.core.schema.requireunchanged.4a676921f0",
             "file": "src/core/schema.ts",
-            "line": 267,
+            "line": 271,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "requireUnchanged",
@@ -956,10 +988,10 @@
         {
             "id": "w1.core.schema.requirebooleanvalidationresult.485e91946b",
             "file": "src/core/schema.ts",
-            "line": 272,
+            "line": 276,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
-                "container": "requireBooleanValidationResult",
+                "container": "requireValidationResult",
                 "guard": "typeof value !== \"boolean\"",
                 "expression": "new TypeError(\"Injected JSON Schema validators must return a boolean synchronously\")"
             },
@@ -972,7 +1004,7 @@
         {
             "id": "w1.core.schema.strictjsonschemavalidatorvalidateandcompile.9317a1f7fe",
             "file": "src/core/schema.ts",
-            "line": 48,
+            "line": 55,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "StrictJsonSchemaValidator.validateAndCompile",
@@ -988,7 +1020,7 @@
         {
             "id": "w1.core.schema.jsonschemaconstructor.d55227387e",
             "file": "src/core/schema.ts",
-            "line": 92,
+            "line": 99,
             "source": "src/core/schema.ts",
             "sourceAnchor": {
                 "container": "JsonSchema.constructor",
@@ -1004,11 +1036,11 @@
         {
             "id": "w1.core.secretref.requiresecretcomponent.416f445a2d",
             "file": "src/core/secret-ref.ts",
-            "line": 34,
+            "line": 35,
             "source": "src/core/secret-ref.ts",
             "sourceAnchor": {
                 "container": "requireSecretComponent",
-                "guard": "typeof value !== \"string\" || value.trim().length === 0 || value.length > MAX_SECRET_COMPONENT_LENGTH || !hasOnlyUnicodeScalarValues(value)",
+                "guard": "!isJsonString(value) || value.trim().length === 0 || value.length > MAX_SECRET_COMPONENT_LENGTH || !hasOnlyUnicodeScalarValues(value)",
                 "expression": "new TypeError( `Secret reference ${name} must not be blank or exceed ${MAX_SECRET_COMPONENT_LENGTH} characters` )"
             },
             "classification": "constructor-shape",
@@ -1020,7 +1052,7 @@
         {
             "id": "w1.core.semver.parsesemver.4f45e4450b",
             "file": "src/core/semver.ts",
-            "line": 109,
+            "line": 106,
             "source": "src/core/semver.ts",
             "sourceAnchor": {
                 "container": "parseSemVer",
@@ -1036,7 +1068,7 @@
         {
             "id": "w1.core.semver.validateandformatsemver.6baf342d2c",
             "file": "src/core/semver.ts",
-            "line": 128,
+            "line": 125,
             "source": "src/core/semver.ts",
             "sourceAnchor": {
                 "container": "validateAndFormatSemVer",
@@ -1052,7 +1084,7 @@
         {
             "id": "w1.core.semver.validateandformatsemver.87c77e2c11",
             "file": "src/core/semver.ts",
-            "line": 136,
+            "line": 133,
             "source": "src/core/semver.ts",
             "sourceAnchor": {
                 "container": "validateAndFormatSemVer",
@@ -1068,7 +1100,7 @@
         {
             "id": "w1.core.semver.copyidentifiers.1021a33ba7",
             "file": "src/core/semver.ts",
-            "line": 149,
+            "line": 146,
             "source": "src/core/semver.ts",
             "sourceAnchor": {
                 "container": "copyIdentifiers",
@@ -1084,7 +1116,7 @@
         {
             "id": "w1.core.semver.requiresafecomponent.9749c133a5",
             "file": "src/core/semver.ts",
-            "line": 157,
+            "line": 154,
             "source": "src/core/semver.ts",
             "sourceAnchor": {
                 "container": "requireSafeComponent",
@@ -1100,11 +1132,11 @@
         {
             "id": "w1.core.semver.semver-parse.42ff6e1cd0",
             "file": "src/core/semver.ts",
-            "line": 66,
+            "line": 63,
             "source": "src/core/semver.ts",
             "sourceAnchor": {
                 "container": "SemVer.parse",
-                "guard": "typeof value !== \"string\"",
+                "guard": "!isJsonString(value)",
                 "expression": "new TypeError(\"Semantic version must follow SemVer 2.0.0\")"
             },
             "classification": "constructor-shape",
@@ -1601,7 +1633,7 @@
         {
             "id": "w1.substrates.sqlite.requiresqliteprovenance.bfc9af6430",
             "file": "src/substrates/sqlite/sqlite.ts",
-            "line": 39,
+            "line": 47,
             "source": "src/substrates/sqlite/sqlite.ts",
             "sourceAnchor": {
                 "container": "requireSqliteProvenance",

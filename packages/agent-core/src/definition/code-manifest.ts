@@ -349,15 +349,20 @@ interface MediaTypeDataProperty extends ObjectRecord {
 }
 
 function requireMediaType(value: MediaHint): string {
-    try {
-        if (!isObjectRecord(value)) throw new TypeError("Code module media must be a MediaHint");
-        const descriptor = Object.getOwnPropertyDescriptor(value, "mediaType");
-        if (!isMediaTypeDataProperty(descriptor)) {
-            throw new TypeError("Code module media must be a MediaHint");
-        }
-        return descriptor["value"];
-    } catch {
+    const mediaType = readMediaType(value);
+    if (mediaType === undefined) {
         throw new TypeError("Code module media must be a MediaHint");
+    }
+    return mediaType;
+}
+
+function readMediaType(value: MediaHint): string | undefined {
+    try {
+        if (!isObjectRecord(value)) return undefined;
+        const descriptor = Object.getOwnPropertyDescriptor(value, "mediaType");
+        return isMediaTypeDataProperty(descriptor) ? descriptor["value"] : undefined;
+    } catch {
+        return undefined;
     }
 }
 

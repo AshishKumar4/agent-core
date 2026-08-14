@@ -840,7 +840,7 @@ interface SlateProviderResult {
     readonly materialization: ContentRef;
 }
 
-interface SlateResultDataProperty extends ObjectRecord {
+interface SlateResultDataProperty {
     readonly enumerable: boolean;
     readonly value: unknown;
 }
