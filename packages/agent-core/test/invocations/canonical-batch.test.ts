@@ -193,28 +193,47 @@ describe("CanonicalBatchInvocationPort", () => {
             const harness = new Harness(false);
             const invocation = new InvocationId("canonical-crash");
             harness.permits.crashOnce = true;
+            const prepared = harness.preparation.create(invocation, [{ value: 1 }]);
+            const observedKeys: string[] = [];
+            const baseRequest = request(invocation, [{ value: 1 }], (index) =>
+                harness.executions.push(index)
+            );
+            const value = {
+                ...baseRequest,
+                request: {
+                    ...baseRequest.request,
+                    execute: async (
+                        itemIndex: number,
+                        context: Parameters<typeof baseRequest.request.execute>[1]
+                    ) => {
+                        if (context.attempt === undefined) {
+                            throw new TypeError("Mediated effect has no EffectAttempt identity");
+                        }
+                        observedKeys.push(context.idempotencyKey);
+                        return baseRequest.request.execute(itemIndex, context);
+                    }
+                }
+            };
 
-            await expect(
-                harness.port.invoke(
-                    request(invocation, [{ value: 1 }], (index) => harness.executions.push(index))
-                )
-            ).rejects.toThrow("permit transport crash");
+            await expect(harness.port.invoke(value)).rejects.toThrow("permit transport crash");
             expect(harness.records.createdClaims).toBe(1);
             expect(harness.executions).toEqual([]);
 
             harness.transactions.restart();
-            const first = await harness.port.invoke(
-                request(invocation, [{ value: 1 }], (index) => harness.executions.push(index))
-            );
+            const first = await harness.port.invoke(value);
             harness.transactions.restart();
-            const replay = await harness.port.invoke(
-                request(invocation, [{ value: 1 }], (index) => harness.executions.push(index))
-            );
+            const replay = await harness.port.invoke(value);
 
             expect(first.items[0]).toMatchObject({ kind: "succeeded", output: { value: 1 } });
             expect(replay.items[0]).toMatchObject({ kind: "succeeded", output: { value: 1 } });
             expect(harness.records.createdClaims).toBe(1);
             expect(harness.executions).toEqual([0]);
+            expect(observedKeys).toEqual([prepared.item(0).idempotencyKey]);
+            expect(
+                harness.transactions.transact((transaction) =>
+                    harness.persistence.attemptsForItem(transaction, invocation, 0)
+                )
+            ).toMatchObject([{ idempotencyKey: prepared.item(0).idempotencyKey }]);
         }
     );
 
@@ -586,7 +605,7 @@ describe("CanonicalBatchInvocationPort", () => {
     );
 
     test(
-        "[C13-RECEIPT-ID-NAMESPACE] turns an operation failure into one final failed Receipt",
+        "[C13-ADV-RECEIPT-FAILED] binds a final failed Receipt to its exact attempted effect",
         { tags: "p0" },
         async () => {
             const harness = new Harness(false);
@@ -606,6 +625,20 @@ describe("CanonicalBatchInvocationPort", () => {
                     result: ContentRef.fromDigest(digest("effect failed"))
                 }
             });
+            const receipt = itemReceipt(result, 0);
+            if (!(receipt instanceof AttemptReceipt)) {
+                throw new TypeError("Confirmed effect failure did not produce an AttemptReceipt");
+            }
+            const attempts = harness.transactions.transact((transaction) =>
+                harness.persistence.attemptsForItem(transaction, invocation, 0)
+            );
+            expect(attempts).toHaveLength(1);
+            const attempt = attempts[0];
+            if (attempt === undefined) {
+                throw new TypeError("Confirmed effect failure has no EffectAttempt");
+            }
+            expect(receipt.attempt.equals(attempt.id)).toBe(true);
+            expect(receipt.previous).toBeUndefined();
         }
     );
 

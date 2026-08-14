@@ -276,7 +276,7 @@ export function invocationLedgerContract<Transaction>(
         );
 
         test(
-            "[invocation.item-claim] recovers only an expired no-attempt claim at the same ordinal under a new worker",
+            "[C13-CLAIM-RECOVERY-NEW-OWNER] [C13-ADV-UNCHANGED-RECOVERY-OWNER] recovers only under a different worker",
             { tags: "p0" },
             () => {
                 const harness = open();
@@ -297,6 +297,14 @@ export function invocationLedgerContract<Transaction>(
                     "worker:2",
                     time(20)
                 );
+                const unchangedOwner = executorClaim(
+                    invocation.header.id,
+                    0,
+                    0,
+                    "claim:unchanged-owner",
+                    "worker:1",
+                    time(20)
+                );
                 harness.transaction((transaction) => {
                     harness.ledger.prepare(transaction, invocation);
                     harness.ledger.claimItem(transaction, first, time(1));
@@ -306,15 +314,26 @@ export function invocationLedgerContract<Transaction>(
                         harness.ledger.recoverClaim(transaction, first.id, replacement, time(4))
                     )
                 ).toThrow();
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.recoverClaim(
+                                transaction,
+                                first.id,
+                                unchangedOwner,
+                                time(5)
+                            )
+                        ),
+                    /different worker/
+                );
                 harness.transaction((transaction) =>
                     harness.ledger.recoverClaim(transaction, first.id, replacement, time(5))
                 );
-                expect(
-                    harness.transaction(
-                        (transaction) =>
-                            harness.persistence.claim(transaction, replacement.id)?.attemptOrdinal
-                    )
-                ).toBe(0);
+                const recovered = harness.transaction((transaction) =>
+                    harness.persistence.claim(transaction, replacement.id)
+                );
+                expect(recovered?.attemptOrdinal).toBe(0);
+                expect(recovered?.owner.worker.equals(replacement.owner.worker)).toBe(true);
             }
         );
 
@@ -375,7 +394,7 @@ export function invocationLedgerContract<Transaction>(
         );
 
         test(
-            "admits the next ordinal only after the current attempt has a final failed Receipt",
+            "[C13-ATTEMPT-ORDINAL-AFTER-FAILURE] admits the next ordinal only after final failure",
             { tags: "p0" },
             () => {
                 const harness = open();
@@ -421,6 +440,10 @@ export function invocationLedgerContract<Transaction>(
                     harness.ledger.prepare(transaction, invocation);
                     harness.ledger.claimItem(transaction, claim0, time(1));
                     harness.ledger.admitAttempt(transaction, attempt0, time(2));
+                    expectAgentCoreError(
+                        () => harness.ledger.claimItem(transaction, claim1, time(3)),
+                        /unresolved EffectAttempt/
+                    );
                     harness.ledger.recordAttemptReceipt(transaction, failed);
                     harness.ledger.claimItem(transaction, claim1, time(4));
                     harness.ledger.admitAttempt(transaction, attempt1, time(5));
@@ -461,6 +484,70 @@ export function invocationLedgerContract<Transaction>(
                 )
             ).toBe("denied");
         });
+
+        test(
+            "[C13-RECEIPT-ID-NAMESPACE] rejects ReceiptId reuse across pre-effect and attempted variants",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const invocation = prepared("receipt-id-namespace", [{ index: 0 }, { index: 1 }], {
+                    lease: "lease:1"
+                });
+                const sharedId = new ReceiptId("receipt:shared-namespace");
+                const preEffect = new PreEffectReceipt(
+                    sharedId,
+                    invocation.header.id,
+                    0,
+                    "deniedPreEffect",
+                    time(2),
+                    "item zero denied"
+                );
+                const claim = executorClaim(
+                    invocation.header.id,
+                    1,
+                    0,
+                    "claim:receipt-id-namespace",
+                    "worker:receipt-id-namespace",
+                    time(20)
+                );
+                const attempt = effectAttempt(
+                    invocation,
+                    claim,
+                    "attempt:receipt-id-namespace",
+                    time(3)
+                );
+                const attempted = new AttemptReceipt(
+                    sharedId,
+                    attempt.id,
+                    "failed",
+                    undefined,
+                    time(4),
+                    undefined
+                );
+
+                harness.transaction((transaction) => {
+                    harness.ledger.prepare(transaction, invocation);
+                    harness.ledger.recordPreEffect(transaction, preEffect);
+                    harness.ledger.claimItem(transaction, claim, time(2));
+                    harness.ledger.admitAttempt(transaction, attempt, time(3));
+                });
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.recordAttemptReceipt(transaction, attempted)
+                        ),
+                    /append-only|append conflicted/
+                );
+
+                harness.restart();
+                harness.transaction((transaction) => {
+                    expect(harness.persistence.receipt(transaction, sharedId)).toEqual(preEffect);
+                    expect(harness.persistence.receiptsForAttempt(transaction, attempt.id)).toEqual(
+                        []
+                    );
+                });
+            }
+        );
 
         test(
             "[C13-ADV-RECEIPT-SUCCEEDED] [invocation.receipt] rejects succeeded attempted Receipts without the exact initial attempt lineage",

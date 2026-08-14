@@ -27,7 +27,16 @@ import {
     type RoutedInvocationProjection
 } from "../../src/composition";
 import { SpawnReservationId } from "../../src/agents";
-import { CompatRange, ContentRef, Digest, JsonSchema, Revision, SemVer, isJsonValue, jsonDataParser } from "../../src/core";
+import {
+    CompatRange,
+    ContentRef,
+    Digest,
+    JsonSchema,
+    Revision,
+    SemVer,
+    isJsonValue,
+    jsonDataParser
+} from "../../src/core";
 import {
     PackageId,
     PackageInstallationProvenancePort,
@@ -99,7 +108,7 @@ const recordData = jsonDataParser((message) => new TypeError(message));
 
 describe("W9 composition behavior branches", () => {
     test(
-        "rejects every substituted routed identity and replays only byte-stable intent",
+        "[C13-PREPARED-ROUTED-PROJECTION] rejects every substituted routed identity and replays only byte-stable intent",
         { tags: "p0" },
         () => {
             const reservation = reservationFixture("composed-admission");
