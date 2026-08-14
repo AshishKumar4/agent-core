@@ -20,7 +20,9 @@ import {
     MaterializationPlan,
     POLICY_IMPACTS,
     PolicySet,
-    policyProjection
+    policyProjection,
+    type EnforcementTier,
+    type EnforcementTierOverrides
 } from "../../src/definition";
 import { materializeActorPlan, type LocalMaterialization } from "../../src/definition/materializer";
 import { TenantId } from "../../src/identity";
@@ -775,12 +777,16 @@ export function blueprint(name: string, version: string, policies: JsonValue): B
 
 function policyFromData(data: JsonValue): PolicySet {
     const digest = Digest.sha256(encodeCanonicalJson(data)).value;
-    const tiers = Object.fromEntries(
-        POLICY_IMPACTS.map((impact, index) => [
-            impact,
-            Number.parseInt(digest[index]!, 16) % 2 === 0 ? "direct" : "mediated"
-        ])
-    ) as import("../../src/definition").EnforcementTierOverrides;
+    const tierAt = (index: number): EnforcementTier =>
+        Number.parseInt(digest[index]!, 16) % 2 === 0 ? "direct" : "mediated";
+    const tiers: EnforcementTierOverrides = {
+        observe: tierAt(0),
+        mutate: tierAt(1),
+        externalSend: tierAt(2),
+        execute: tierAt(3),
+        delegate: tierAt(4),
+        administer: tierAt(5)
+    };
     const approvals = POLICY_IMPACTS.filter(
         (_, index) => Number.parseInt(digest[index + POLICY_IMPACTS.length]!, 16) % 2 === 0
     );

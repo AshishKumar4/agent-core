@@ -1,13 +1,13 @@
 import { describe, expect, test } from "vitest";
-import type { JsonValue } from "../../src/core";
+import type { JsonObject, JsonValue } from "../../src/core";
 import { DesiredProjection, PolicySet, selectPlacement } from "../../src/definition";
 
-const slotEntry: { readonly [key: string]: JsonValue } = {
+const slotEntry = {
     contributor: "acme.deploy",
     index: 0,
     slot: "chat.composer",
     value: { command: "deploy" }
-};
+} satisfies JsonObject;
 
 function slotEntryProjection(desired: JsonValue): DesiredProjection {
     return new DesiredProjection({

@@ -30,7 +30,7 @@ import {
 } from "../../src/definition/memory";
 import { TenantId } from "../../src/identity";
 import { SqliteMaterializationStore } from "../../src/substrates";
-import { recordData, tamperedRecord } from "./record-data";
+import { fieldWithoutValue, recordData, tamperedRecord } from "./record-data";
 import { TestSqlite } from "../helpers/sqlite";
 
 const encoder = new TextEncoder();
@@ -246,10 +246,7 @@ describe("materialization rollout and outbox", () => {
         ).toEqual(linked.toData());
         expect(() => MaterializationRollout.fromData(null)).toThrow(/object/);
         expect(() =>
-            MaterializationRollout.fromData({
-                ...recordData(rollout),
-                plan: undefined
-            } as never)
+            MaterializationRollout.fromData(fieldWithoutValue(recordData(rollout), "plan"))
         ).toThrow(/required|missing|object/);
 
         const entry = MaterializationOutboxEntry.pending(
@@ -1160,11 +1157,10 @@ describe("materialization rollout mutation boundaries", () => {
         const controller = controllerFor(store);
         const rollout = beginRollout(controller, plan(1, ["a"]));
         const entry = outbox(store, rollout.id)[0]!;
+        const rejected = receipt(entry, digest("reply"));
+        Object.defineProperty(rejected, "outcome", { value: "failed" });
         expect(() =>
-            controller.acknowledge(entry.id, {
-                ...receipt(entry, digest("reply")),
-                outcome: "failed"
-            } as never)
+            controller.acknowledge(entry.id, rejected)
         ).toThrow(/does not match its target apply receipt/);
         expect(outbox(store, rollout.id)[0]!.status).toBe("pending");
     });

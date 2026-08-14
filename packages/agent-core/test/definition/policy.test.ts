@@ -8,7 +8,8 @@ import {
     enforcementFloor,
     evaluatePolicy,
     mergePolicySets,
-    type EnforcementTier
+    type EnforcementTier,
+    type EnforcementTierOverrides
 } from "../../src/definition/policy";
 import {
     PLACEMENT_PREFERENCE,
@@ -286,19 +287,19 @@ describe("policy declaration codec", () => {
         { tags: "p0" },
         () => {
             const approvals: Impact[] = ["administer", "observe"];
-            const tiers: Partial<Record<Impact, EnforcementTier>> = {
+            const tiers = {
                 administer: "mediated",
                 observe: "direct"
-            };
+            } satisfies EnforcementTierOverrides;
             const policy = new PolicySet({
                 approvals,
                 tiers,
                 placement: new PlacementPolicy(["bundled", "dynamic"])
             });
             approvals.pop();
-            tiers.observe = "mediated";
 
             expect(policy.approvals).toEqual(["observe", "administer"]);
+            expect(policy.tiers).not.toBe(tiers);
             expect(policy.tiers).toEqual({ observe: "direct", administer: "mediated" });
             expect(policy.placement.allowed).toEqual(["dynamic", "bundled"]);
             expect(Object.isFrozen(policy)).toBe(true);

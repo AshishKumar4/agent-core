@@ -1,4 +1,6 @@
-import { isJsonObject, type JsonObject, type JsonValue } from "../../src/core";
+import { isJsonObject, jsonDataParser, type JsonObject, type JsonValue } from "../../src/core";
+
+const parse = jsonDataParser((message) => new TypeError(message));
 
 /** Any definition record that can encode itself to canonical data and be decoded back. */
 export interface CanonicalRecord {
@@ -16,9 +18,20 @@ export function recordData(record: CanonicalRecord): JsonObject {
 }
 
 /** Narrows one field of already decoded data so a nested field can be read or replaced. */
-export function requireObject(value: JsonValue, subject = "value"): JsonObject {
+export function requireObject(value: JsonValue | undefined, subject = "value"): JsonObject {
     if (!isJsonObject(value)) throw new TypeError(`Expected ${subject} to be an object`);
     return value;
+}
+
+/** Narrows one field of already decoded data so a nested array can be read or replaced. */
+export function requireArray(value: JsonValue | undefined, subject = "value"): readonly JsonValue[] {
+    return parse.array(value, subject);
+}
+
+/** Returns canonical data with a present field whose value cannot be represented by JSON. */
+export function fieldWithoutValue(data: JsonObject, field: string): JsonValue {
+    // SAFETY: This deliberately malformed value is passed only to the decoder asserted to reject it.
+    return { ...data, [field]: undefined } as JsonValue;
 }
 
 /**

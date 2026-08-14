@@ -290,11 +290,10 @@ test("SQLite repairs deleted identity projections and lost or corrupt indexes", 
         []
     );
     expect(indexes).toHaveLength(2);
-    expect(
-        indexes.every(
-            (row) => typeof row["sql"] === "string" && row["sql"].startsWith("CREATE UNIQUE INDEX")
-        )
-    ).toBe(true);
+    expect(indexes.map((row) => row["sql"])).toEqual([
+        expect.stringMatching(/^CREATE UNIQUE INDEX/),
+        expect.stringMatching(/^CREATE UNIQUE INDEX/)
+    ]);
 });
 
 test("SQLite rebuilds missing and counterfeit command identity views canonically", { tags: "p1" }, () => {

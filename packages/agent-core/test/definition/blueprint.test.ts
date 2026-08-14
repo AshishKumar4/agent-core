@@ -14,7 +14,7 @@ import { PackageDependency } from "../../src/definition/package";
 import { PlacementPolicy } from "../../src/definition/placement";
 import { PolicySet } from "../../src/definition/policy";
 import { SlotAuthorityPolicy, SlotDeclaration, SlotName } from "../../src/facets";
-import { requireObject } from "./record-data";
+import { recordData, requireObject } from "./record-data";
 
 describe("Blueprint", () => {
     test("[definition.blueprint] [definition.package-install] round-trips strict canonical declaration data", { tags: "p0" }, () => {
@@ -183,8 +183,8 @@ describe("Blueprint", () => {
             packages: [],
             policies: PolicySet.empty(),
             agents: []
-        }).toData();
-        expect(() => Blueprint.fromData({ ...(valid as object), agents: [7] })).toThrow(
+        });
+        expect(() => Blueprint.fromData({ ...recordData(valid), agents: [7] })).toThrow(
             /Blueprint agents entry 0 must be an object/
         );
 
@@ -225,7 +225,7 @@ function install(
 }
 
 
-function expectCodecError(action: () => unknown): void {
+function expectCodecError(action: () => void): void {
     try {
         action();
         throw new Error("Expected codec error");

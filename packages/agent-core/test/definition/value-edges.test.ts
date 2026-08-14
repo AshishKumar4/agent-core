@@ -148,7 +148,7 @@ describe("definition value boundaries", () => {
                     })
             ).toThrow(/PolicySet/);
             expect(() =>
-                PackageInstall.fromData({ request: install.request.toData() } as never)
+                PackageInstall.fromData({ request: install.request.toData() })
             ).toThrow(/missing or unknown/);
             expect(() => BlueprintMeta.fromData(null)).toThrow(/object/);
             expect(() => BlueprintMeta.fromData({ name: 7, version: "1.0.0" })).toThrow(/string/);

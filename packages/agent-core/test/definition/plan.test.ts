@@ -385,14 +385,13 @@ describe("materialization planning", () => {
     });
 
     test("rejects non-primitive supported-kind lookalikes", { tags: "p1" }, () => {
-        expect(
-            () =>
-                new DesiredProjection({
-                    logicalKey: "unsupported:boxed-kind",
-                    recordKind: Object("policy-set") as string,
-                    desired: PolicySet.empty().toData()
-                })
-        ).toThrow(/record kind/);
+        const init = {
+            logicalKey: "unsupported:boxed-kind",
+            recordKind: "policy-set",
+            desired: PolicySet.empty().toData()
+        };
+        Object.defineProperty(init, "recordKind", { value: Object("policy-set") });
+        expect(() => new DesiredProjection(init)).toThrow(/record kind/);
     });
 
     test("validates supported materialization payloads through their domain invariants", { tags: "p1" }, () => {
@@ -961,15 +960,17 @@ function validatedCustom(init: CustomDefinitionInit): ValidatedBlueprint {
             ? slotted
             : { ...slotted, environments: init.environments }
     );
-    return ValidatedBlueprint.validate(source, {
+    const context = {
         lock: packageLock([release]),
         releases: [release],
         target,
         placement: placementSource,
         schemaValidator: { validate: () => true },
-        declarationCodecs: identityDeclarationCodecs,
-        ...(init.coreSlots === undefined ? {} : { coreSlots: init.coreSlots })
-    });
+        declarationCodecs: identityDeclarationCodecs
+    };
+    return init.coreSlots === undefined
+        ? ValidatedBlueprint.validate(source, context)
+        : ValidatedBlueprint.validate(source, { ...context, coreSlots: init.coreSlots });
 }
 
 function managedOrigin(): ManagedOrigin {

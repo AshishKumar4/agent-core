@@ -539,7 +539,10 @@ function release(
     compatibility: CompatRange = CompatRange.any(),
     manifestCompatibility: CompatRange = CompatRange.any()
 ): PackageRelease {
-    const manifests = [manifest(`${id}.facet`, version, manifestCompatibility)] as [FacetManifest];
+    const manifests = requireNonempty(
+        [manifest(`${id}.facet`, version, manifestCompatibility)],
+        "manifests"
+    );
     return new PackageRelease({
         id: new PackageId(id),
         version: new SemVer(version),

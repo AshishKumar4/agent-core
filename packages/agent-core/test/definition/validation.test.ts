@@ -82,10 +82,12 @@ const encoder = new TextEncoder();
 const schemaValidator = strictJsonSchemaValidator;
 const target = new PlatformCompatibility({ spec: new SemVer("1.0.0"), host: new SemVer("1.0.0") });
 const declarationCodecs = new BlueprintDeclarationCodecPort(
-    ["scopes", "agents", "slots", "subscriptions", "environments", "surfaces"].map((field) => ({
-        field: field as import("../../src/definition/declaration").BlueprintDeclarationField,
-        canonicalize: (value: JsonValue): JsonValue => value
-    }))
+    (["scopes", "agents", "slots", "subscriptions", "environments", "surfaces"] as const).map(
+        (field) => ({
+            field,
+            canonicalize: (value: JsonValue): JsonValue => value
+        })
+    )
 );
 const placement = new (class extends PlacementSourcePort {
     public substrateModes(_release: PackageRelease, _manifest: FacetManifest) {
