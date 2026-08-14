@@ -297,7 +297,7 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
     });
 
     test("reports building incomplete and rejects final incomplete", async () => {
-        const fixture = await ledgerFixture(true);
+        const fixture = await ledgerFixture(true, "detached");
         await planOneRequirement(fixture);
         const building = runFixture(fixture);
         expect(building.status, building.stderr).toBe(0);
@@ -547,7 +547,10 @@ async function planOneRequirement(root: string): Promise<void> {
     throw new TypeError("Ledger fixture found no leaf requirement to demote");
 }
 
-async function ledgerFixture(preserveActiveFragments = false): Promise<string> {
+async function ledgerFixture(
+    preserveActiveFragments = false,
+    liveEvidence: "retained" | "detached" = "retained"
+): Promise<string> {
     const root = await mkdtemp(resolve(tmpdir(), "agent-core-ledger-"));
     temporary.push(root);
     await cp(resolve(packageRoot, "artifacts/conformance"), resolve(root, "conformance"), {
@@ -555,6 +558,20 @@ async function ledgerFixture(preserveActiveFragments = false): Promise<string> {
     });
     const indexPath = resolve(root, "conformance/index.json");
     const index = await readFixtureJson<ConformanceIndex>(indexPath);
+    if (liveEvidence === "detached") {
+        await Promise.all(
+            index.fragments.map(async (name) => {
+                const path = resolve(root, "conformance", name);
+                const fragment = await readFixtureJson<ConformanceFragment>(path);
+                for (const requirement of fragment.requirements) {
+                    requirement.checkerInvariants = requirement.checkerInvariants.filter(
+                        (invariant) => invariant !== "ACQ-LIVE"
+                    );
+                }
+                await writeFile(path, `${JSON.stringify(fragment, null, 4)}\n`, "utf8");
+            })
+        );
+    }
     if (!preserveActiveFragments) {
         await Promise.all(
             [...index.fragments, ...(index.pendingFragments ?? [])].map((name) =>
