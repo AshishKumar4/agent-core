@@ -3,7 +3,13 @@ import { MemoryContentStore } from "../../src/content";
 import { ContentRef, Digest, JsonSchema, SemVer, encodeCanonicalJson } from "../../src/core";
 import { PackageId } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
-import { FacetRef, OperationDescriptor, OperationName, OperationRef } from "../../src/facets";
+import {
+    FacetRef,
+    OperationDescriptor,
+    OperationName,
+    OperationRef,
+    isFacetData
+} from "../../src/facets";
 import { TenantId } from "../../src/identity";
 import {
     AttemptReceipt,
@@ -125,7 +131,14 @@ export class CanonicalBatchPreparation<Authorization> {
             trust: ["provider"],
             selected: "provider"
         });
-        if (inputs.length === 0) throw new TypeError("Canonical test payload must not be empty");
+        const parsedInputs = inputs.map((input, itemIndex) => {
+            if (!isFacetData(input)) {
+                throw new TypeError(`Canonical test payload item ${itemIndex} is invalid`);
+            }
+            return input;
+        });
+        const [first, ...remaining] = parsedInputs;
+        if (first === undefined) throw new TypeError("Canonical test payload must not be empty");
         return PreparedInvocation.create(
             {
                 id: invocation,
@@ -150,11 +163,11 @@ export class CanonicalBatchPreparation<Authorization> {
                 pathEpochs: `epochs:${invocation.value}`,
                 auditCause: new AuditRecordId(`audit:${invocation.value}`),
                 idempotencySeed: `seed:${invocation.value}`,
-                ...(this.lease === undefined ? {} : { lease: this.lease })
+                lease: this.lease
             },
             cardinality === "single"
-                ? { kind: "single", item: inputs[0] as never }
-                : { kind: "batch", items: inputs as [never, ...never[]] },
+                ? { kind: "single", item: first }
+                : { kind: "batch", items: [first, ...remaining] },
             preparedReferenceCodecs
         );
     }
@@ -583,14 +596,14 @@ function audit(
     cause: AuditRecordId | undefined,
     kind: ConstructorParameters<typeof AuditRecord>[0]["kind"]
 ): AuditRecord {
-    return new AuditRecord({
+    const init = {
         id: new AuditRecordId(id),
         actor: invocation.header.actor,
         tenant: new TenantId("canonical-tenant"),
         correlation: new CorrelationId(`correlation:${invocation.header.id.value}`),
-        ...(cause === undefined ? {} : { cause }),
         kind
-    });
+    };
+    return new AuditRecord(cause === undefined ? init : { ...init, cause });
 }
 
 function digest(value: string): Digest {

@@ -74,10 +74,11 @@ export function contentStoreContract(name: string, create: () => ContentStore): 
             const stored = await source.put(encode("only in source"));
 
             await expect(target.stat(stored.ref)).resolves.toBeUndefined();
-            await expect(target.get(stored.ref)).rejects.toSatisfy(
-                (error: unknown) =>
-                    error instanceof AgentCoreError && error.code === "content.not-found"
-            );
+            const missing = target.get(stored.ref);
+            await expect(missing).rejects.toBeInstanceOf(AgentCoreError);
+            await expect(missing).rejects.toMatchObject({
+                code: "content.not-found"
+            });
         });
     });
 }

@@ -29,7 +29,7 @@ import {
 } from "../identity/internal-fixture";
 import { Binding } from "../../src/authority/binding";
 import { BindingValidationRequest } from "../../src/authority/binding-evidence";
-import { PathEpochEvidence, ScopeEpoch } from "../../src/authority/epoch";
+import { PathEpochEvidence } from "../../src/authority/epoch";
 import { AuthorityCheckRequest, type AuthorityCheckEvidence } from "../../src/authority/evidence";
 import { Grant } from "../../src/authority/grant";
 import { GrantId } from "../../src/authority/id";
@@ -41,6 +41,7 @@ import { AuthorityMutationService } from "../../src/authority/service";
 const tenantId = new TenantId("tenant-runtime");
 const principalId = new PrincipalId("principal-runtime");
 const workspaceId = new WorkspaceId("workspace-runtime");
+const tenantScope = ScopeRef.tenant(tenantId);
 const workspaceScope = ScopeRef.workspace(tenantId, workspaceId);
 const tenantActor = new ActorRef("tenant", new ActorId("tenant-actor"));
 const workspaceActor = new ActorRef("workspace", new ActorId("workspace-actor"));
@@ -828,15 +829,7 @@ function guestSchemeFixture(label: string): GuestSchemeFixture {
                 checkRequest(
                     binding,
                     new PrincipalRef(guestHome, guestPrincipal),
-                    // SAFETY: a Scope path is non-empty by construction, so mapping it
-                    // yields at least one epoch; `map` erases that and returns a plain
-                    // array, which PathEpochEvidence's non-empty tuple will not accept.
-                    new PathEpochEvidence(
-                        workspaceScope.path.map((scope) => store.epoch(scope)) as [
-                            ScopeEpoch,
-                            ...ScopeEpoch[]
-                        ]
-                    )
+                    new PathEpochEvidence([store.epoch(tenantScope), store.epoch(workspaceScope)])
                 ),
                 new Date(2_000)
             );

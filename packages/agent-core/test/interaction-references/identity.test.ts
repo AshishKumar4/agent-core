@@ -42,36 +42,56 @@ describe("canonical interaction identities", () => {
         }
     });
 
-    test("every interaction and invocation reference ID names its exact subject", { tags: "p2" }, () => {
-        const cases = [
-            { label: "Event ID", make: () => new interaction.EventId("") },
-            { label: "Subscription ID", make: () => new interaction.SubscriptionId("") },
-            { label: "Invocation ID", make: () => new interaction.InvocationId("") },
-            { label: "Correlation ID", make: () => new interaction.CorrelationId("") },
-            { label: "Route reservation ID", make: () => new interaction.RouteReservationId("") },
-            { label: "Route projection ID", make: () => new interaction.RouteProjectionId("") },
-            { label: "Audit record ID", make: () => new interaction.AuditRecordId("") },
-            { label: "Approval ID", make: () => new invocationReferences.ApprovalId("") },
-            { label: "Receipt ID", make: () => new invocationReferences.ReceiptId("") },
-            { label: "Effect attempt ID", make: () => new invocationReferences.EffectAttemptId("") },
-            { label: "Item claim ID", make: () => new invocationReferences.ItemClaimId("") },
-            { label: "Claim worker ID", make: () => new invocationReferences.ClaimWorkerId("") },
-            { label: "Write record ID", make: () => new invocationReferences.WriteRecordId("") }
-        ] as const;
-        for (const { label, make } of cases) {
-            expect(make, label).toThrow(
-                new TypeError(`${label} must contain between 1 and 256 characters`)
-            );
+    test(
+        "every interaction and invocation reference ID names its exact subject",
+        { tags: "p2" },
+        () => {
+            const cases = [
+                { label: "Event ID", make: () => new interaction.EventId("") },
+                { label: "Subscription ID", make: () => new interaction.SubscriptionId("") },
+                { label: "Invocation ID", make: () => new interaction.InvocationId("") },
+                { label: "Correlation ID", make: () => new interaction.CorrelationId("") },
+                {
+                    label: "Route reservation ID",
+                    make: () => new interaction.RouteReservationId("")
+                },
+                { label: "Route projection ID", make: () => new interaction.RouteProjectionId("") },
+                { label: "Audit record ID", make: () => new interaction.AuditRecordId("") },
+                { label: "Approval ID", make: () => new invocationReferences.ApprovalId("") },
+                { label: "Receipt ID", make: () => new invocationReferences.ReceiptId("") },
+                {
+                    label: "Effect attempt ID",
+                    make: () => new invocationReferences.EffectAttemptId("")
+                },
+                { label: "Item claim ID", make: () => new invocationReferences.ItemClaimId("") },
+                {
+                    label: "Claim worker ID",
+                    make: () => new invocationReferences.ClaimWorkerId("")
+                },
+                { label: "Write record ID", make: () => new invocationReferences.WriteRecordId("") }
+            ] as const;
+            for (const { label, make } of cases) {
+                expect(make, label).toThrow(
+                    new TypeError(`${label} must contain between 1 and 256 characters`)
+                );
+            }
         }
-    });
+    );
 
     test("keeps W2 WorkspaceId and W6 ReceiptId distinct", { tags: "p1" }, () => {
         expect(WorkspaceId).toBe(IdentityWorkspaceId);
         for (const [name, Type] of Object.entries(invocationReferences)) {
-            expect(invocations[name as keyof typeof invocations]).toBe(Type);
+            if (!isInvocationExport(name)) {
+                throw new TypeError(`Missing invocation export ${name}`);
+            }
+            expect(invocations[name]).toBe(Type);
             expect(Object.isFrozen(new Type("canonical-id"))).toBe(true);
         }
         expect(new WorkspaceId("same").equals(new IdentityWorkspaceId("same"))).toBe(true);
         expect(new interaction.InvocationId("same").equals(new ReceiptId("same"))).toBe(false);
     });
 });
+
+function isInvocationExport(name: string): name is keyof typeof invocations {
+    return Object.hasOwn(invocations, name);
+}

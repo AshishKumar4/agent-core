@@ -472,9 +472,7 @@ describe("AuthorityPermit", () => {
                 ...envelope,
                 payload: { ...payload, ambientAuthority: true }
             });
-            expect(() => AuthorityPermit.decode(ambient)).toThrow(
-                /missing or unknown fields/
-            );
+            expect(() => AuthorityPermit.decode(ambient)).toThrow(/missing or unknown fields/);
         }
     );
 
@@ -828,23 +826,50 @@ describe("AuthorityPermit", () => {
         { tags: "p1" },
         () => {
             const digestValue = Digest.sha256(Uint8Array.of(1)).value;
-            // SAFETY: each entry is a stored ownership snapshot no writer can produce — an
-            // absent record, a numeric nonce, a numeric digest. They exist to show the
-            // store re-reads what it loads rather than trusting that it wrote it.
-            const snapshots = [
-                { version: 1, issued: [null as never], consumed: [] },
-                { version: 1, issued: [], consumed: [null as never] },
-                { version: 1, issued: [], consumed: [{ nonce: 5 as never, digest: digestValue }] },
-                {
-                    version: 1,
-                    issued: [],
-                    consumed: [{ nonce: "corrupt-nonce", digest: 5 as never }]
-                }
-            ] as const;
-            for (const snapshot of snapshots) {
+            const malformedStores = [
+                () =>
+                    new MemoryAuthorityPermitStore(issuerActor, {
+                        version: 1,
+                        // @ts-expect-error Issued ownership records cannot be null.
+                        issued: [null],
+                        consumed: []
+                    }),
+                () =>
+                    new MemoryAuthorityPermitStore(issuerActor, {
+                        version: 1,
+                        issued: [],
+                        // @ts-expect-error Consumed ownership records cannot be null.
+                        consumed: [null]
+                    }),
+                () =>
+                    new MemoryAuthorityPermitStore(issuerActor, {
+                        version: 1,
+                        issued: [],
+                        consumed: [
+                            {
+                                // @ts-expect-error Permit nonces are canonical strings.
+                                nonce: 5,
+                                digest: digestValue
+                            }
+                        ]
+                    }),
+                () =>
+                    new MemoryAuthorityPermitStore(issuerActor, {
+                        version: 1,
+                        issued: [],
+                        consumed: [
+                            {
+                                nonce: "corrupt-nonce",
+                                // @ts-expect-error Permit digests are canonical strings.
+                                digest: 5
+                            }
+                        ]
+                    })
+            ];
+            for (const create of malformedStores) {
                 let thrown: unknown;
                 try {
-                    new MemoryAuthorityPermitStore(issuerActor, snapshot);
+                    create();
                 } catch (error) {
                     thrown = error;
                 }

@@ -70,15 +70,15 @@ const argumentSchema = new JsonSchema({
 const outputSchema = new JsonSchema({ type: "object", additionalProperties: true });
 
 function command(acceptedTrust?: readonly [TrustTier, ...TrustTier[]]): Command {
-    return new Command({
+    const init = {
         name: COMMAND_NAME,
         title: "Run",
         arguments: argumentSchema,
         operation: new OperationRef(COMMAND_ID),
         binding: new BindingName("runtime"),
-        surfaces: [new SlotName("palette")],
-        ...(acceptedTrust === undefined ? {} : { acceptedTrust })
-    });
+        surfaces: [new SlotName("palette")]
+    };
+    return new Command(acceptedTrust === undefined ? init : { ...init, acceptedTrust });
 }
 
 function descriptor(): OperationDescriptor {
@@ -116,34 +116,46 @@ function routedSubscription(installed: InstalledCommand): Subscription {
 }
 
 describe("Command invocation routing", () => {
-    test("routes an invocation only when the derived Subscription accepts the Event trust", { tags: "p0" }, async () => {
-        const installed = install(["owner"]);
-        expect(await reservationCount(installed, "owner", "cmd-owner")).toBe(1);
-        expect(await reservationCount(installed, "authenticated", "cmd-authenticated")).toBe(0);
-        expect(await reservationCount(installed, "external", "cmd-external")).toBe(0);
-    });
+    test(
+        "routes an invocation only when the derived Subscription accepts the Event trust",
+        { tags: "p0" },
+        async () => {
+            const installed = install(["owner"]);
+            expect(await reservationCount(installed, "owner", "cmd-owner")).toBe(1);
+            expect(await reservationCount(installed, "authenticated", "cmd-authenticated")).toBe(0);
+            expect(await reservationCount(installed, "external", "cmd-external")).toBe(0);
+        }
+    );
 
-    test("routes exactly one reservation per invocation and dedupes a redelivered Event", { tags: "p0" }, async () => {
-        const installed = install(["owner", "authenticated", "self"]);
-        const harness = createHarness();
-        harness.transaction((state) =>
-            harness.persistence.saveSubscription(state, routedSubscription(installed), undefined)
-        );
-        const protocol = sourceProtocol(harness, "authenticated");
+    test(
+        "routes exactly one reservation per invocation and dedupes a redelivered Event",
+        { tags: "p0" },
+        async () => {
+            const installed = install(["owner", "authenticated", "self"]);
+            const harness = createHarness();
+            harness.transaction((state) =>
+                harness.persistence.saveSubscription(
+                    state,
+                    routedSubscription(installed),
+                    undefined
+                )
+            );
+            const protocol = sourceProtocol(harness, "authenticated");
 
-        const first = await commit(harness, protocol, "cmd-1");
-        expect(first.duplicate).toBe(false);
-        expect(first.reservations).toHaveLength(1);
-        expect(first.reservations[0]!.operation.value).toBe(COMMAND_ID);
-        expect(first.reservations[0]!.trust).toBe("authenticated");
-        expect(first.reservations[0]!.authority.kind).toBe("initiator");
+            const first = await commit(harness, protocol, "cmd-1");
+            expect(first.duplicate).toBe(false);
+            expect(first.reservations).toHaveLength(1);
+            expect(first.reservations[0]!.operation.value).toBe(COMMAND_ID);
+            expect(first.reservations[0]!.trust).toBe("authenticated");
+            expect(first.reservations[0]!.authority.kind).toBe("initiator");
 
-        const redelivered = await commit(harness, protocol, "cmd-1");
-        expect(redelivered.duplicate).toBe(true);
-        expect(redelivered.reservations).toHaveLength(1);
-        expect(redelivered.reservations[0]!.id).toEqual(first.reservations[0]!.id);
-        expect(harness.snapshot().records.listRecords("routeReservation")).toHaveLength(1);
-    });
+            const redelivered = await commit(harness, protocol, "cmd-1");
+            expect(redelivered.duplicate).toBe(true);
+            expect(redelivered.reservations).toHaveLength(1);
+            expect(redelivered.reservations[0]!.id).toEqual(first.reservations[0]!.id);
+            expect(harness.snapshot().records.listRecords("routeReservation")).toHaveLength(1);
+        }
+    );
 });
 
 async function reservationCount(

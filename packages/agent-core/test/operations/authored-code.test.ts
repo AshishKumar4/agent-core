@@ -61,6 +61,7 @@ import {
     type AuthoredCodeDelegationRequest,
     type AuthoredCodeRunRequest,
     type MediatedInvocationPreparation,
+    type MediatedInvocationPreflight,
     type MediatedInvocationRequest,
     type MediatedPreflightResult,
     type OperationInvocationPort
@@ -955,7 +956,7 @@ class RecordingInvocations implements OperationInvocationPort<
     }
 
     public async prepareMediated(
-        _request: unknown,
+        _request: MediatedInvocationPreflight<MediatedAuthorityIntent>,
         prepare: () => MediatedInvocationPreparation
     ): Promise<MediatedPreflightResult> {
         return { kind: "new", preparation: prepare() };

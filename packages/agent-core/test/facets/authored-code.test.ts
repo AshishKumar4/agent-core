@@ -65,9 +65,8 @@ describe("Agent-authored code source", () => {
             () =>
                 new AuthoredCodeSource(
                     "main.js",
-                    // The map is typed, so only an untyped caller reaches this guard —
-                    // which is the caller it exists for.
-                    new Map([["main.js", contentRef("main").value as unknown as ContentRef]])
+                    // @ts-expect-error Module values are statically restricted to ContentRef.
+                    new Map([["main.js", contentRef("main").value]])
                 )
         ).toThrow("Agent-authored code modules must be content-addressed");
     });

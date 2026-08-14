@@ -9,7 +9,8 @@ import {
     RouteReservation,
     RouteReservationId,
     View,
-    WorkspacePersistence
+    WorkspacePersistence,
+    type EventInit
 } from "../../src/workspaces";
 import {
     content,
@@ -44,101 +45,117 @@ export function workspacePersistenceContract<Transaction>(
     create: () => WorkspacePersistenceHarness<Transaction>
 ): void {
     describe(`${name} workspace persistence`, () => {
-        test("binds retained content to the exact durable record atomically", { tags: "p0" }, () => {
-            const harness = create();
-            try {
-                const event = eventFixture(`${name}-retention`);
-                const wrongRecord = retentionFixture({
-                    id: `${name}-wrong-retention`,
-                    recordKind: "event",
-                    recordId: "another-event",
-                    content: { ref: event.payload, digest: event.payloadDigest }
-                });
-                expect(() =>
+        test(
+            "binds retained content to the exact durable record atomically",
+            { tags: "p0" },
+            () => {
+                const harness = create();
+                try {
+                    const event = eventFixture(`${name}-retention`);
+                    const wrongRecord = retentionFixture({
+                        id: `${name}-wrong-retention`,
+                        recordKind: "event",
+                        recordId: "another-event",
+                        content: { ref: event.payload, digest: event.payloadDigest }
+                    });
+                    expect(() =>
+                        harness.transaction((transaction) => {
+                            harness.persistence.appendEvent(transaction, event, wrongRecord);
+                        })
+                    ).toThrow(/does not bind/);
                     harness.transaction((transaction) => {
-                        harness.persistence.appendEvent(transaction, event, wrongRecord);
-                    })
-                ).toThrow(/does not bind/);
-                harness.transaction((transaction) => {
-                    expect(harness.persistence.findEvent(transaction, event.id)).toBeUndefined();
-                });
+                        expect(
+                            harness.persistence.findEvent(transaction, event.id)
+                        ).toBeUndefined();
+                    });
 
-                const wrongContent = content(`${name}-wrong-content`);
-                const mismatchedContent = retentionFixture({
-                    id: `${name}-wrong-content-retention`,
-                    recordKind: "event",
-                    recordId: event.id.value,
-                    content: wrongContent
-                });
-                expect(() =>
+                    const wrongContent = content(`${name}-wrong-content`);
+                    const mismatchedContent = retentionFixture({
+                        id: `${name}-wrong-content-retention`,
+                        recordKind: "event",
+                        recordId: event.id.value,
+                        content: wrongContent
+                    });
+                    expect(() =>
+                        harness.transaction((transaction) => {
+                            harness.persistence.appendEvent(transaction, event, mismatchedContent);
+                        })
+                    ).toThrow(/does not bind/);
+
                     harness.transaction((transaction) => {
-                        harness.persistence.appendEvent(transaction, event, mismatchedContent);
-                    })
-                ).toThrow(/does not bind/);
-
-                harness.transaction((transaction) => {
-                    harness.persistence.appendEvent(transaction, event, eventRetention(event));
-                    expect(
-                        harness.persistence.findEventByIdentity(transaction, event.idempotencyKey)
-                            ?.id
-                    ).toEqual(event.id);
-                });
-            } finally {
-                harness.dispose();
+                        harness.persistence.appendEvent(transaction, event, eventRetention(event));
+                        expect(
+                            harness.persistence.findEventByIdentity(
+                                transaction,
+                                event.idempotencyKey
+                            )?.id
+                        ).toEqual(event.id);
+                    });
+                } finally {
+                    harness.dispose();
+                }
             }
-        });
+        );
 
-        test("rolls back partial unique reservations and preserves the original owner", { tags: "p0" }, () => {
-            const harness = create();
-            try {
-                const original = eventFixture(`${name}-unique-original`);
-                harness.transaction((transaction) => {
-                    harness.persistence.appendEvent(
-                        transaction,
-                        original,
-                        eventRetention(original)
-                    );
-                });
-                const conflicting = new Event({
-                    id: new EventId(`${name}-unique-conflict`),
-                    scope: original.scope,
-                    source: original.source,
-                    kind: original.kind,
-                    payload: original.payload,
-                    payloadDigest: original.payloadDigest,
-                    idempotencyKey: original.idempotencyKey,
-                    correlation: original.correlation,
-                    provenance: original.provenance,
-                    trust: original.trust,
-                    visibility: original.visibility,
-                    ...(original.initiator === undefined ? {} : { initiator: original.initiator })
-                });
-
-                expect(() =>
+        test(
+            "rolls back partial unique reservations and preserves the original owner",
+            { tags: "p0" },
+            () => {
+                const harness = create();
+                try {
+                    const original = eventFixture(`${name}-unique-original`);
                     harness.transaction((transaction) => {
                         harness.persistence.appendEvent(
                             transaction,
-                            conflicting,
-                            eventRetention(conflicting, `${name}-conflict-retention`)
+                            original,
+                            eventRetention(original)
                         );
-                    })
-                ).toThrow();
+                    });
+                    const conflictingInit: EventInit = {
+                        id: new EventId(`${name}-unique-conflict`),
+                        scope: original.scope,
+                        source: original.source,
+                        kind: original.kind,
+                        payload: original.payload,
+                        payloadDigest: original.payloadDigest,
+                        idempotencyKey: original.idempotencyKey,
+                        correlation: original.correlation,
+                        provenance: original.provenance,
+                        trust: original.trust,
+                        visibility: original.visibility
+                    };
+                    const conflicting = new Event(
+                        original.initiator === undefined
+                            ? conflictingInit
+                            : { ...conflictingInit, initiator: original.initiator }
+                    );
 
-                harness.transaction((transaction) => {
-                    expect(
-                        harness.persistence.findEvent(transaction, conflicting.id)
-                    ).toBeUndefined();
-                    expect(
-                        harness.persistence.findEventByIdentity(
-                            transaction,
-                            original.idempotencyKey
-                        )?.id
-                    ).toEqual(original.id);
-                });
-            } finally {
-                harness.dispose();
+                    expect(() =>
+                        harness.transaction((transaction) => {
+                            harness.persistence.appendEvent(
+                                transaction,
+                                conflicting,
+                                eventRetention(conflicting, `${name}-conflict-retention`)
+                            );
+                        })
+                    ).toThrow();
+
+                    harness.transaction((transaction) => {
+                        expect(
+                            harness.persistence.findEvent(transaction, conflicting.id)
+                        ).toBeUndefined();
+                        expect(
+                            harness.persistence.findEventByIdentity(
+                                transaction,
+                                original.idempotencyKey
+                            )?.id
+                        ).toEqual(original.id);
+                    });
+                } finally {
+                    harness.dispose();
+                }
             }
-        });
+        );
 
         test("enforces subscription and View compare-and-set revisions", { tags: "p0" }, () => {
             const harness = create();

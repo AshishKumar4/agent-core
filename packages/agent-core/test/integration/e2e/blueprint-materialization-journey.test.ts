@@ -1,6 +1,12 @@
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../../src/actors";
-import { Revision, SemVer, decodeCanonicalJson, strictJsonSchemaValidator } from "../../../src/core";
+import {
+    Revision,
+    SemVer,
+    decodeCanonicalJson,
+    strictJsonSchemaValidator,
+    type JsonValue
+} from "../../../src/core";
 import {
     Blueprint,
     BlueprintDeclarationCodecPort,
@@ -37,17 +43,19 @@ const platform = new PlatformCompatibility({
     host: new SemVer("1.0.0")
 });
 
+const declarationFields: readonly BlueprintDeclarationField[] = [
+    "scopes",
+    "agents",
+    "slots",
+    "subscriptions",
+    "environments",
+    "surfaces"
+];
 const declarationCodecs = new BlueprintDeclarationCodecPort(
-    (
-        [
-            "scopes",
-            "agents",
-            "slots",
-            "subscriptions",
-            "environments",
-            "surfaces"
-        ] as readonly BlueprintDeclarationField[]
-    ).map((field) => ({ field, canonicalize: (value: never) => value }))
+    declarationFields.map((field) => ({
+        field,
+        canonicalize: (value: JsonValue): JsonValue => value
+    }))
 );
 
 const placementSource = new (class extends PlacementSourcePort {
@@ -148,10 +156,12 @@ function planFor(policies: PolicySet): MaterializationPlan {
     });
 }
 
-function materializedPolicy(plan: MaterializationPlan): unknown {
+function materializedPolicy(plan: MaterializationPlan): JsonValue {
     const projection = plan.actors[0]!.projections.find(
         (candidate) => candidate.recordKind === "policy-set"
     );
-    expect(projection, "expected a materialized policy-set record").toBeDefined();
-    return PolicySet.fromData(projection!.desired).toData();
+    if (projection === undefined) {
+        throw new TypeError("Expected a materialized policy-set record");
+    }
+    return PolicySet.fromData(projection.desired).toData();
 }

@@ -80,8 +80,12 @@ function isJsonObject(value: JsonValue): value is { readonly [key: string]: Json
 function bodyCount(view: View): number {
     if (!isJsonObject(view.body)) throw new TypeError("Expected a View body object");
     const count = view.body["count"];
-    if (typeof count !== "number") throw new TypeError("Expected a numeric View count");
+    if (!isJsonNumber(count)) throw new TypeError("Expected a numeric View count");
     return count;
+}
+
+function isJsonNumber(value: JsonValue | undefined): value is number {
+    return typeof value === "number";
 }
 
 describe("event routing and view replay at volume", () => {
@@ -238,12 +242,7 @@ describe("event routing and view replay at volume", () => {
             expect(floors).toEqual([...floors].sort((left, right) => left - right));
             expect(new Set(floors).size).toBe(floors.length);
             expectAgentCoreError(
-                () =>
-                    protocol.replay(
-                        records,
-                        view.surface,
-                        new Revision(view.revision.value + 1)
-                    ),
+                () => protocol.replay(records, view.surface, new Revision(view.revision.value + 1)),
                 "protocol.revision-conflict"
             );
         }
@@ -292,10 +291,7 @@ describe("event routing and view replay at volume", () => {
             for (const [index, scope] of scopes.entries()) {
                 expect(loaded?.epoch(scope)).toBe(highest.get(`watermark-scope-${index}`));
             }
-            expectAgentCoreError(
-                () => store.save(empty),
-                "protocol.revision-conflict"
-            );
+            expectAgentCoreError(() => store.save(empty), "protocol.revision-conflict");
         }
     );
 });

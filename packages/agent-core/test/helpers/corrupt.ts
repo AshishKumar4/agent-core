@@ -20,11 +20,15 @@ export function corrupt(
     return copy;
 }
 
-// The clone is freshly owned by this helper, so dropping `readonly` to write the
-// corrupted field cannot reach the record the caller passed in.
 function mutableObject(value: JsonValue | undefined, segment: string): MutableJsonObject {
-    if (value === null || value === undefined || Array.isArray(value) || typeof value !== "object") {
+    if (!isMutableJsonObject(value)) {
         throw new TypeError(`Corruption path segment ${segment} is not an object`);
     }
-    return value as MutableJsonObject;
+    return value;
+}
+
+function isMutableJsonObject(value: JsonValue | undefined): value is MutableJsonObject {
+    return (
+        value !== null && value !== undefined && !Array.isArray(value) && typeof value === "object"
+    );
 }
