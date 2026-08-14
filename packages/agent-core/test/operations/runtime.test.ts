@@ -43,6 +43,7 @@ import {
     SurfaceId,
     isFacetDataMap,
     type FacetData,
+    type FacetDataMap,
     type FacetRef
 } from "../../src/facets";
 import {
@@ -64,7 +65,6 @@ import {
     type OperationAuthorityPort,
     type OperationInterceptionEvidence,
     type OperationInvocationPort,
-    type OperationPayload,
     type OperationPayloadCardinality
 } from "../../src/operations/gateway";
 import { FacetRuntimeHost } from "../../src/operations/lifecycle";
@@ -543,9 +543,9 @@ describe("Facet runtime", () => {
             expect(() => validator.validate([emptyManifest, emptyManifest], [empty])).toThrow(
                 /duplicate/
             );
-            const emptyManifestData = emptyManifest.toData() as {
-                readonly [key: string]: FacetData;
-            };
+            const emptyManifestData = emptyManifest.toData();
+            expect(isFacetDataMap(emptyManifestData)).toBe(true);
+            if (!isFacetDataMap(emptyManifestData)) throw new TypeError("Expected manifest data");
             const otherVersion = FacetManifest.fromData({ ...emptyManifestData, version: "2.0.0" });
             expect(() => validator.validate([emptyManifest, otherVersion], [empty])).toThrow(
                 /multiple versions/
@@ -1058,8 +1058,9 @@ describe("Protected Operation gateway", () => {
                 operations,
                 new Map(),
                 async () => {
-                    (implementation as { descriptor: OperationDescriptor }).descriptor =
-                        operationDescriptor("run", "mutate");
+                    Object.defineProperty(implementation, "descriptor", {
+                        value: operationDescriptor("run", "mutate")
+                    });
                     operations.set(
                         "run",
                         new TestOperation(descriptor, async (input) => {
@@ -1186,12 +1187,17 @@ describe("Protected Operation gateway", () => {
             // Everything the contributing Facet still holds once `operation.before` has
             // completed and preparation has frozen the intent (§4.4 rules 6 and 7): the
             // value it was handed, the value it returned, and the context it ran under.
-            const held: {
+            interface HeldInterceptionEvidence {
                 received?: FacetData;
-                returned?: { [key: string]: FacetData };
+                returned?: FacetDataMap;
                 context?: InterceptContext;
-            } = {};
-            const rewrite = (target: object, key: string, value: FacetData): void => {
+            }
+            const held: HeldInterceptionEvidence = {};
+            const rewrite = (
+                target: FacetDataMap | InterceptContext,
+                key: string,
+                value: FacetData
+            ): void => {
                 Object.defineProperty(target, key, {
                     configurable: true,
                     enumerable: true,
@@ -1218,11 +1224,19 @@ describe("Protected Operation gateway", () => {
                     for (const [subject, attempt] of [
                         [
                             "own pre-preparation rewrite",
-                            () => rewrite(held.returned!, "prepared", false)
+                            () => {
+                                if (held.returned === undefined)
+                                    throw new TypeError("Missing returned interception value");
+                                rewrite(held.returned, "prepared", false);
+                            }
                         ],
                         [
                             "value seen before preparation",
-                            () => rewrite(requireObject(held.received!), "value", 2)
+                            () => {
+                                if (held.received === undefined)
+                                    throw new TypeError("Missing received interception value");
+                                rewrite(requireObject(held.received), "value", 2);
+                            }
                         ],
                         [
                             "intercept context",
@@ -1426,7 +1440,8 @@ describe("Protected Operation gateway", () => {
                     )
                 ).toThrow(/unsafe/);
             }
-            expect((Object.prototype as { readonly polluted?: unknown }).polluted).toBeUndefined();
+            // @ts-expect-error Successful binding must not add an undeclared prototype property.
+            expect(Object.prototype.polluted).toBeUndefined();
         }
     );
 
@@ -1765,10 +1780,14 @@ describe("Protected Operation gateway", () => {
                 OperationSelector.own("run"),
                 1
             );
-            const interceptor = new TestInterceptor(
-                declaration,
-                (value) => Promise.resolve({ proceed: true, value }) as unknown as InterceptResult
-            );
+            const interceptor = new TestInterceptor(declaration, (value) => ({
+                proceed: true,
+                value
+            }));
+            Object.defineProperty(interceptor, "intercept", {
+                value: (_context: InterceptContext, value: FacetData) =>
+                    Promise.resolve({ proceed: true, value })
+            });
             const facetManifest = manifest("acme.runtime", [descriptor], [declaration]);
             const facet = new TestFacet(
                 "workspace:runtime",
@@ -2275,7 +2294,8 @@ describe("Protected Operation gateway", () => {
                 resolved.dispatch({
                     requestKey: new OperationRequestKey("empty-batch"),
                     operation: new OperationName("run"),
-                    payload: { kind: "batch", inputs: [] as unknown as [FacetData, ...FacetData[]] }
+                    // @ts-expect-error The runtime must reject an empty statically nonempty batch.
+                    payload: { kind: "batch", inputs: [] }
                 })
             ).rejects.toMatchObject({
                 code: "invocation.invalid",
@@ -2331,22 +2351,25 @@ describe("Protected Operation gateway", () => {
                 1
             );
             let behavior: "invalid" | "throw" | "valid" = "invalid";
+            class VariableInterceptor extends Interceptor {
+                public readonly declaration = invalid;
+
+                public intercept(_context: InterceptContext, value: FacetData): InterceptResult {
+                    if (behavior === "throw") throw "failure";
+                    if (behavior === "invalid") {
+                        // @ts-expect-error The runtime must reject an invalid interceptor result.
+                        return null;
+                    }
+                    return { proceed: true, value };
+                }
+            }
             const targetManifest = manifest("acme.runtime", [descriptor], [invalid]);
             const target = new TestFacet(
                 "workspace:runtime",
                 targetManifest,
                 [],
                 new Map([["run", new TestOperation(descriptor, async (input) => input)]]),
-                new Map([
-                    [
-                        "invalid",
-                        new TestInterceptor(invalid, (value) => {
-                            if (behavior === "throw") throw "failure";
-                            if (behavior === "invalid") return null as unknown as InterceptResult;
-                            return { proceed: true, value };
-                        })
-                    ]
-                ])
+                new Map([["invalid", new VariableInterceptor()]])
             );
             const host = new FacetRuntimeHost([targetManifest], [target]);
             await host.activate();
@@ -2921,7 +2944,7 @@ describe("Protected Operation gateway", () => {
         "wraps unknown handler failures and preserves typed failures",
         { tags: "p1" },
         async () => {
-            let failure: unknown = new Error("secret plugin error");
+            let failure: Error = new Error("secret plugin error");
             const descriptor = operationDescriptor("run");
             const facetManifest = manifest("acme.runtime", [descriptor]);
             const facet = new TestFacet(
@@ -3305,7 +3328,8 @@ describe("Protected Operation gateway", () => {
                 resolved.dispatch({
                     requestKey: new OperationRequestKey("bogus-kind"),
                     operation: new OperationName("run"),
-                    payload: { kind: "bogus", inputs: [{}] } as unknown as OperationPayload
+                    // @ts-expect-error The runtime must reject an unknown payload discriminator.
+                    payload: { kind: "bogus", inputs: [{}] }
                 })
             ).rejects.toMatchObject({
                 code: "invocation.invalid",
@@ -3315,7 +3339,8 @@ describe("Protected Operation gateway", () => {
                 resolved.dispatch({
                     requestKey: new OperationRequestKey("non-array-batch"),
                     operation: new OperationName("run"),
-                    payload: { kind: "batch", inputs: "ab" } as unknown as OperationPayload
+                    // @ts-expect-error The runtime must reject a non-array batch payload.
+                    payload: { kind: "batch", inputs: "ab" }
                 })
             ).rejects.toMatchObject({ code: "invocation.invalid" });
             await host.dispose();
@@ -3573,25 +3598,25 @@ describe("Protected Operation gateway", () => {
                 OperationSelector.own("run"),
                 1
             );
+            class InvalidResultInterceptor extends Interceptor {
+                public readonly declaration = declaration;
+
+                public intercept(_context: InterceptContext, value: FacetData): InterceptResult {
+                    if (behavior === "function") {
+                        // @ts-expect-error The runtime must reject callable lookalike results.
+                        return Object.assign(() => value, { proceed: true, value });
+                    }
+                    // @ts-expect-error The runtime must reject a non-boolean proceed field.
+                    return { proceed: "yes", value };
+                }
+            }
             const facetManifest = manifest("acme.runtime", [descriptor], [declaration]);
             const facet = new TestFacet(
                 "workspace:runtime",
                 facetManifest,
                 [],
                 new Map([["run", new TestOperation(descriptor, async (input) => input)]]),
-                new Map([
-                    [
-                        "shape",
-                        new TestInterceptor(declaration, (value) =>
-                            behavior === "function"
-                                ? (Object.assign(() => value, {
-                                      proceed: true,
-                                      value
-                                  }) as unknown as InterceptResult)
-                                : ({ proceed: "yes", value } as unknown as InterceptResult)
-                        )
-                    ]
-                ])
+                new Map([["shape", new InvalidResultInterceptor()]])
             );
             const host = new FacetRuntimeHost([facetManifest], [facet]);
             await host.activate();
