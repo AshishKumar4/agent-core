@@ -15,16 +15,22 @@ import {
     PrincipalRef,
     Revision,
     ScopeRef,
+    SubjectRef,
     SemVer,
-    TenantId
+    TenantId,
+    WorkspaceId,
+    encodeCanonicalJson
 } from "@agent-core/core";
 import { RunId, TurnId } from "@agent-core/core/agents/runs";
 import { ProtectionDomain } from "@agent-core/core";
 import {
     AuthorityPermit,
     AuthorityPermitExpectation,
+    Binding,
+    GrantId,
     PathEpochEvidence,
-    ScopeEpoch
+    ScopeEpoch,
+    TargetAuthorityPermitRequest
 } from "@agent-core/core/authority";
 import { ClaimWorkerId, ItemClaimId } from "@agent-core/core/invocations";
 import { actorObjectName } from "../../src/index.js";
@@ -39,6 +45,7 @@ const lease = Object.freeze({
 });
 const ISSUED_AT = 1_700_000_000_000;
 const EXPIRES_AT = ISSUED_AT + 60_000;
+const permitArguments = Object.freeze({ channel: "internal" as const });
 
 function digest(seed: string): Digest {
     return Digest.sha256(new TextEncoder().encode(seed));
@@ -65,8 +72,8 @@ function expectation(overrides: Partial<ExpectationInit> = {}): AuthorityPermitE
         },
         principal,
         binding,
-        facet: overrides.facet ?? new FacetRef("workspace:mail"),
-        operation: overrides.operation ?? new OperationRef("mail:send"),
+        facet: overrides.facet ?? new FacetRef("mail-package:mail"),
+        operation: overrides.operation ?? new OperationRef("mail-package:send"),
         package:
             overrides.package ??
             new PackagePin(
@@ -91,11 +98,15 @@ function expectation(overrides: Partial<ExpectationInit> = {}): AuthorityPermitE
             worker: new ClaimWorkerId("permit-worker")
         },
         itemKey,
-        argumentsDigest: overrides.argumentsDigest ?? digest("arguments"),
+        argumentsDigest:
+            overrides.argumentsDigest ?? Digest.sha256(encodeCanonicalJson(permitArguments)),
         intentDigest: overrides.intentDigest ?? digest("intent"),
         pathEpochs:
             overrides.pathEpochs ??
-            new PathEpochEvidence([new ScopeEpoch(ScopeRef.tenant(tenant), 2)]),
+            new PathEpochEvidence([
+                new ScopeEpoch(ScopeRef.tenant(tenant), 2),
+                new ScopeEpoch(ScopeRef.workspace(tenant, new WorkspaceId("permit-workspace")), 3)
+            ]),
         authority: {
             kind: "initiator",
             principal,
@@ -105,19 +116,66 @@ function expectation(overrides: Partial<ExpectationInit> = {}): AuthorityPermitE
     });
 }
 
+interface PermitFixture {
+    readonly permit: Uint8Array;
+    readonly request: Uint8Array;
+}
+
 function permit(
     base: AuthorityPermitExpectation,
     nonce: string,
     expiresAt = EXPIRES_AT
-): Uint8Array {
-    return AuthorityPermit.encode(
-        new AuthorityPermit({
-            ...basePermitInit(base),
-            nonce,
-            issuedAt: new Date(ISSUED_AT),
-            expiresAt: new Date(expiresAt)
-        })
+): PermitFixture {
+    const binding = new Binding(
+        base.pathEpochs.target.scope,
+        SubjectRef.principal(base.principal),
+        base.target.domain,
+        base.binding.name,
+        new GrantId(`grant-${nonce}`),
+        base.facet,
+        base.binding.generation.value,
+        "active",
+        base.binding.generation
     );
+    const request = TargetAuthorityPermitRequest.fromData({
+        authority: {
+            attemptOrdinal: base.attemptOrdinal,
+            binding: binding.toData(),
+            expectedPath: base.pathEpochs.toData(),
+            intent: {
+                arguments: permitArguments,
+                argumentsDigest: Digest.sha256(encodeCanonicalJson(permitArguments)).value,
+                facet: base.facet.value,
+                impact: base.impact,
+                operation: base.operation.operation.value
+            },
+            invocationDigest: base.intentDigest.value,
+            itemIndex: base.itemIndex,
+            nonce,
+            owner: { id: base.target.actor.id.value, kind: base.target.actor.kind },
+            ownerFence: base.target.fence,
+            ownerTenant: base.tenant.value,
+            principal: {
+                principal: base.principal.principalId.value,
+                tenant: base.principal.tenantId.value
+            }
+        },
+        expectation: base.toData(),
+        expiresAt,
+        nonce
+    });
+    return Object.freeze({
+        request: TargetAuthorityPermitRequest.encode(request),
+        permit: AuthorityPermit.encode(
+            new AuthorityPermit({
+                ...basePermitInit(base),
+                nonce,
+                requestDigest: request.digest(),
+                issuedAt: new Date(ISSUED_AT),
+                expiresAt: new Date(expiresAt)
+            })
+        )
+    });
 }
 
 function basePermitInit(base: AuthorityPermitExpectation): ExpectationInit {
@@ -147,6 +205,22 @@ function basePermitInit(base: AuthorityPermitExpectation): ExpectationInit {
     };
 }
 
+function substitutedPermit(
+    base: AuthorityPermitExpectation,
+    nonce: string,
+    requestDigest: Digest
+): Uint8Array {
+    return AuthorityPermit.encode(
+        new AuthorityPermit({
+            ...basePermitInit(base),
+            nonce,
+            requestDigest,
+            issuedAt: new Date(ISSUED_AT),
+            expiresAt: new Date(EXPIRES_AT)
+        })
+    );
+}
+
 async function issue(bytes: Uint8Array): Promise<void> {
     // The transport derives the Tenant object's name from the issuer identity;
     // issuance must land in exactly that object.
@@ -159,7 +233,7 @@ async function issue(bytes: Uint8Array): Promise<void> {
 }
 
 interface TargetHarness {
-    seed(bytes: Uint8Array): Promise<void>;
+    seed(request: Uint8Array): Promise<void>;
     admit(bytes: Uint8Array, at?: number, failAppend?: boolean): Promise<string>;
     attempts(): Promise<number>;
     evict(): Promise<void>;
@@ -170,7 +244,7 @@ function target(instance: string): TargetHarness {
     return {
         seed: async (bytes) =>
             runInDurableObject(stub, async (targetObject) => {
-                targetObject.seedExpectation(bytes);
+                targetObject.seedRequest(bytes);
             }),
         admit: async (bytes, at = ISSUED_AT + 1_000, failAppend = false) =>
             runInDurableObject(stub, (targetObject) =>
@@ -185,16 +259,16 @@ function target(instance: string): TargetHarness {
 describe("Cloudflare cross-DO authority permits", () => {
     it("[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt", async () => {
         const base = expectation();
-        const bytes = permit(base, "nonce-once");
-        await issue(bytes);
+        const fixture = permit(base, "nonce-once");
+        await issue(fixture.permit);
 
         const harness = target("consumption");
-        await harness.seed(bytes);
-        await expect(harness.admit(bytes)).resolves.toBe("nonce-once");
+        await harness.seed(fixture.request);
+        await expect(harness.admit(fixture.permit)).resolves.toBe("nonce-once");
         expect(await harness.attempts()).toBe(1);
 
         // Single use: the same authenticated permit can never admit again.
-        await expect(harness.admit(bytes)).rejects.toMatchObject({
+        await expect(harness.admit(fixture.permit)).rejects.toMatchObject({
             code: "authority.denied"
         });
         expect(await harness.attempts()).toBe(1);
@@ -202,16 +276,16 @@ describe("Cloudflare cross-DO authority permits", () => {
 
     it("[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] keeps the consumed nonce across a real instance restart", async () => {
         const base = expectation();
-        const bytes = permit(base, "nonce-restart");
-        await issue(bytes);
+        const fixture = permit(base, "nonce-restart");
+        await issue(fixture.permit);
 
         const harness = target("restart");
-        await harness.seed(bytes);
-        await harness.admit(bytes);
+        await harness.seed(fixture.request);
+        await harness.admit(fixture.permit);
         await harness.evict();
 
-        await harness.seed(bytes);
-        await expect(harness.admit(bytes)).rejects.toMatchObject({
+        await harness.seed(fixture.request);
+        await expect(harness.admit(fixture.permit)).rejects.toMatchObject({
             code: "authority.denied"
         });
         expect(await harness.attempts()).toBe(1);
@@ -219,30 +293,30 @@ describe("Cloudflare cross-DO authority permits", () => {
 
     it("[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] rolls back the nonce when the EffectAttempt append fails", async () => {
         const base = expectation();
-        const bytes = permit(base, "nonce-rollback");
-        await issue(bytes);
+        const fixture = permit(base, "nonce-rollback");
+        await issue(fixture.permit);
 
         const harness = target("rollback");
-        await harness.seed(bytes);
-        await expect(harness.admit(bytes, ISSUED_AT + 1_000, true)).rejects.toThrow(
+        await harness.seed(fixture.request);
+        await expect(harness.admit(fixture.permit, ISSUED_AT + 1_000, true)).rejects.toThrow(
             /Injected effect-append failure/
         );
         expect(await harness.attempts()).toBe(0);
 
         // Consumption and admission are one synchronous span: the rolled-back
         // nonce is still unused, so the exact same permit admits afterwards.
-        await expect(harness.admit(bytes)).resolves.toBe("nonce-rollback");
+        await expect(harness.admit(fixture.permit)).resolves.toBe("nonce-rollback");
         expect(await harness.attempts()).toBe(1);
     });
 
     it("[C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] rejects an expired permit before any EffectAttempt", async () => {
         const base = expectation();
-        const bytes = permit(base, "nonce-expiry");
-        await issue(bytes);
+        const fixture = permit(base, "nonce-expiry");
+        await issue(fixture.permit);
 
         const harness = target("expiry");
-        await harness.seed(bytes);
-        await expect(harness.admit(bytes, EXPIRES_AT + 1)).rejects.toMatchObject({
+        await harness.seed(fixture.request);
+        await expect(harness.admit(fixture.permit, EXPIRES_AT + 1)).rejects.toMatchObject({
             code: "authority.denied"
         });
         expect(await harness.attempts()).toBe(0);
@@ -250,11 +324,11 @@ describe("Cloudflare cross-DO authority permits", () => {
 
     it("[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects a permit that was never issued by the Tenant object", async () => {
         const base = expectation();
-        const bytes = permit(base, "nonce-forged");
+        const fixture = permit(base, "nonce-forged");
 
         const harness = target("forged");
-        await harness.seed(bytes);
-        await expect(harness.admit(bytes)).rejects.toMatchObject({
+        await harness.seed(fixture.request);
+        await expect(harness.admit(fixture.permit)).rejects.toMatchObject({
             code: "authority.denied"
         });
         expect(await harness.attempts()).toBe(0);
@@ -263,10 +337,13 @@ describe("Cloudflare cross-DO authority permits", () => {
     it("[C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt", async () => {
         const base = expectation();
         const canonical = permit(base, "nonce-binding");
-        await issue(canonical);
+        await issue(canonical.permit);
 
         const harness = target("binding");
-        await harness.seed(canonical);
+        await harness.seed(canonical.request);
+        const canonicalRequestDigest = TargetAuthorityPermitRequest.decode(
+            canonical.request
+        ).digest();
 
         const alternateInvocation = new InvocationId("permit-other-invocation");
         const substitutions: readonly (readonly [string, AuthorityPermitExpectation])[] = [
@@ -287,8 +364,14 @@ describe("Cloudflare cross-DO authority permits", () => {
                     binding: { name: new BindingName("mail"), generation: new Revision(4) }
                 })
             ],
-            ["facet", expectation({ facet: new FacetRef("workspace:calendar") })],
-            ["operation", expectation({ operation: new OperationRef("mail:archive") })],
+            [
+                "facet",
+                expectation({
+                    facet: new FacetRef("calendar-package:calendar"),
+                    operation: new OperationRef("calendar-package:send")
+                })
+            ],
+            ["operation", expectation({ operation: new OperationRef("mail-package:archive") })],
             [
                 "package pin",
                 expectation({
@@ -348,13 +431,19 @@ describe("Cloudflare cross-DO authority permits", () => {
             [
                 "path epochs",
                 expectation({
-                    pathEpochs: new PathEpochEvidence([new ScopeEpoch(ScopeRef.tenant(tenant), 3)])
+                    pathEpochs: new PathEpochEvidence([
+                        new ScopeEpoch(ScopeRef.tenant(tenant), 3),
+                        new ScopeEpoch(
+                            ScopeRef.workspace(tenant, new WorkspaceId("permit-workspace")),
+                            4
+                        )
+                    ])
                 })
             ]
         ];
 
         for (const [field, substituted] of substitutions) {
-            const forged = permit(substituted, "nonce-binding");
+            const forged = substitutedPermit(substituted, "nonce-binding", canonicalRequestDigest);
             await expect(harness.admit(forged), field).rejects.toMatchObject({
                 code: "authority.denied"
             });
@@ -363,7 +452,7 @@ describe("Cloudflare cross-DO authority permits", () => {
 
         // The canonical permit still admits — the matrix rejected substitutions,
         // not the issuance.
-        await expect(harness.admit(canonical)).resolves.toBe("nonce-binding");
+        await expect(harness.admit(canonical.permit)).resolves.toBe("nonce-binding");
         expect(await harness.attempts()).toBe(1);
     });
 
@@ -375,14 +464,14 @@ describe("Cloudflare cross-DO authority permits", () => {
         const foreign = expectation({
             issuer: new ActorRef("tenant", new ActorId("foreign-tenant"))
         });
-        const bytes = permit(foreign, "nonce-foreign");
+        const fixture = permit(foreign, "nonce-foreign");
         // Issue into OUR tenant's store under the same nonce to prove the lookup
         // is keyed by transport-derived identity, not by permit fields.
-        await issue(permit(expectation(), "nonce-foreign"));
+        await issue(permit(expectation(), "nonce-foreign").permit);
 
         const harness = target("foreign");
-        await harness.seed(bytes);
-        await expect(harness.admit(bytes)).rejects.toMatchObject({
+        await harness.seed(fixture.request);
+        await expect(harness.admit(fixture.permit)).rejects.toMatchObject({
             code: "authority.denied"
         });
         expect(await harness.attempts()).toBe(0);
@@ -393,14 +482,14 @@ describe("Cloudflare cross-DO authority permits", () => {
         // the target validates and consumes the exact permit without a second
         // authority decision, so authority changes after issuance cannot cancel it.
         const base = expectation();
-        const bytes = permit(base, "nonce-watermark");
-        await issue(bytes);
+        const fixture = permit(base, "nonce-watermark");
+        await issue(fixture.permit);
 
         // Simulate post-issuance authority movement: newer path epochs exist at
         // the tenant, but the already issued permit remains consumable.
         const harness = target("watermark");
-        await harness.seed(bytes);
-        await expect(harness.admit(bytes)).resolves.toBe("nonce-watermark");
+        await harness.seed(fixture.request);
+        await expect(harness.admit(fixture.permit)).resolves.toBe("nonce-watermark");
         expect(await harness.attempts()).toBe(1);
     });
 });

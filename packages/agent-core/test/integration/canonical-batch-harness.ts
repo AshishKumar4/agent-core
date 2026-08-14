@@ -173,13 +173,31 @@ export class CanonicalBatchPreparation<Authorization> {
     }
 }
 
-class Permits implements CanonicalBatchAuthorityPermitPort<string, string, string, string, string> {
+class Permits implements CanonicalBatchAuthorityPermitPort<
+    CanonicalBatchHarnessState,
+    string,
+    string,
+    string,
+    string,
+    string,
+    string
+> {
     public readonly invalidItems = new Set<number>();
     public readonly deniedItems = new Set<number>();
     public readonly claimedBeforeIssue: number[] = [];
     public issuedInsideTargetTransaction = false;
+    public deniedInsideTargetTransaction = false;
+    public readonly deniedClaims: ItemClaim<string>[] = [];
     public crashOnce = false;
-    public onIssue: (() => Promise<void>) | undefined;
+    public onIssue:
+        | ((
+              claim: ItemClaim<string>
+          ) => Promise<
+              | { readonly kind: "denied"; readonly denial: string; readonly reason: string }
+              | { readonly kind: "expired" }
+              | undefined
+          >)
+        | undefined;
     public readonly issuedAdmissions: AuthorityAdmissionReference<string>[] = [];
 
     public constructor(
@@ -204,19 +222,41 @@ class Permits implements CanonicalBatchAuthorityPermitPort<string, string, strin
         if (persisted === undefined)
             throw new TypeError("claim was not durable before permit issue");
         this.claimedBeforeIssue.push(claim.itemIndex);
-        await this.onIssue?.();
+        const decision = await this.onIssue?.(claim);
+        if (decision !== undefined) return decision;
         if (this.crashOnce) {
             this.crashOnce = false;
             throw new TypeError("permit transport crash");
         }
         if (this.deniedItems.has(claim.itemIndex)) {
-            throw new AgentCoreError("authority.denied", "permit denied");
+            return { kind: "denied" as const, denial: "permit-denied", reason: "permit denied" };
         }
         const admission = this.invalidItems.has(claim.itemIndex)
             ? new AuthorityAdmissionReference("invalid-permit", digest("invalid-permit"))
             : admissionFor(invocation.header.id.value, claim.itemIndex, claim.attemptOrdinal);
         this.issuedAdmissions.push(admission);
-        return admission;
+        return { kind: "issued" as const, admission };
+    }
+
+    public deny(
+        transaction: CanonicalBatchHarnessState,
+        invocation: ReturnType<CanonicalBatchPreparation<unknown>["create"]>,
+        claim: ItemClaim<string>,
+        denial: string
+    ): void {
+        this.deniedInsideTargetTransaction ||= this.transactions.active;
+        const persisted = this.persistence.claim(transaction, claim.id);
+        if (
+            persisted === undefined ||
+            !persisted.id.equals(claim.id) ||
+            persisted.itemIndex !== claim.itemIndex ||
+            persisted.attemptOrdinal !== claim.attemptOrdinal ||
+            !persisted.invocation.equals(invocation.header.id) ||
+            denial.length === 0
+        ) {
+            throw new TypeError("denial does not bind the current target claim");
+        }
+        this.deniedClaims.push(claim);
     }
 }
 
@@ -477,7 +517,8 @@ export class CanonicalBatchHarness<Authorization = string> {
         string,
         string,
         string,
-        string
+        string,
+        undefined
     > = createLedger(this.persistence);
     public readonly preparation: CanonicalBatchPreparation<Authorization>;
     public readonly permits = new Permits(this.transactions, this.persistence);
@@ -495,6 +536,8 @@ export class CanonicalBatchHarness<Authorization = string> {
         string,
         string,
         string,
+        string,
+        undefined,
         string
     >;
     readonly #finalAdmission: CanonicalBatchFinalAdmissionPort<
@@ -541,6 +584,8 @@ export class CanonicalBatchHarness<Authorization = string> {
         string,
         string,
         string,
+        string,
+        undefined,
         string
     > {
         return new CanonicalBatchInvocationPort<
@@ -550,6 +595,8 @@ export class CanonicalBatchHarness<Authorization = string> {
             string,
             string,
             string,
+            string,
+            undefined,
             string
         >(
             this.transactions,

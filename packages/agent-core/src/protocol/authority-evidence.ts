@@ -2,7 +2,7 @@ import {
     AuthorityCheckEvidence,
     AuthorityCheckRequest,
     AuthorityPermit,
-    AuthorityPermitExpectation,
+    TargetAuthorityPermitRequest,
     BindingValidationEvidence,
     BindingValidationRequest
 } from "../authority";
@@ -16,10 +16,6 @@ const parseReply = jsonDataParser(
 const parseRequest = jsonDataParser(
     () => new AgentCoreError("codec.invalid", "Authority protocol payload is malformed")
 );
-const parseIssuance = jsonDataParser(
-    () => new AgentCoreError("codec.invalid", "Authority permit issuance request is malformed")
-);
-
 class AuthorityCheckReplyCodec extends RecordCodec<AuthorityCheckReply> {
     public constructor() {
         super("protocol.authority-check-reply", { major: 1, minor: 0 });
@@ -50,49 +46,57 @@ class BindingValidationReplyCodec extends RecordCodec<BindingValidationReply> {
 
 class AuthorityPermitIssuanceRequestCodec extends RecordCodec<AuthorityPermitIssuanceRequest> {
     public constructor() {
-        super("protocol.authority-permit-issuance-request", { major: 1, minor: 0 });
+        super("protocol.authority-permit-issuance-request", { major: 2, minor: 0 });
     }
 
     protected encodePayload(request: AuthorityPermitIssuanceRequest): JsonValue {
         return {
-            expectation: request.expectation.toData(),
-            expiresAt: request.expiresAt.getTime(),
-            nonce: request.nonce
+            request: request.targetRequest.toData()
         };
     }
 
     protected decodePayload(payload: JsonValue): AuthorityPermitIssuanceRequest {
         const object = parseRequest.exact(
             parseRequest.object(payload, "Authority protocol payload"),
-            ["expectation", "expiresAt", "nonce"],
+            ["request"],
             "Authority protocol payload"
         );
-        const nonce = parseIssuance.string(object["nonce"], "Authority permit issuance request");
-        const expiresAt = parseIssuance.safeInteger(
-            object["expiresAt"],
-            "Authority permit issuance request"
-        );
         return new AuthorityPermitIssuanceRequest(
-            AuthorityPermitExpectation.fromData(object["expectation"]),
-            nonce,
-            new Date(expiresAt)
+            TargetAuthorityPermitRequest.fromData(object["request"])
         );
     }
 }
 
 class AuthorityPermitIssuanceReplyCodec extends RecordCodec<AuthorityPermitIssuanceReply> {
     public constructor() {
-        super("protocol.authority-permit-issuance-reply", { major: 1, minor: 0 });
+        super("protocol.authority-permit-issuance-reply", { major: 2, minor: 0 });
     }
 
     protected encodePayload(reply: AuthorityPermitIssuanceReply): JsonValue {
-        return { permit: reply.permit.toData() };
+        return {
+            evidence: reply.evidence.toData(),
+            kind: reply.kind,
+            permit: reply.kind === "issued" ? reply.requirePermit().toData() : null
+        };
     }
 
     protected decodePayload(payload: JsonValue): AuthorityPermitIssuanceReply {
-        return new AuthorityPermitIssuanceReply(
-            AuthorityPermit.fromData(singleField(payload, "permit"))
+        const object = parseReply.exact(
+            parseReply.object(payload, "Authority permit issuance reply"),
+            ["evidence", "kind", "permit"],
+            "Authority permit issuance reply"
         );
+        const evidence = AuthorityCheckEvidence.fromData(object["evidence"]);
+        if (object["kind"] === "denied" && object["permit"] === null) {
+            return AuthorityPermitIssuanceReply.denied(evidence);
+        }
+        if (object["kind"] === "issued" && object["permit"] !== null) {
+            return AuthorityPermitIssuanceReply.issued(
+                evidence,
+                AuthorityPermit.fromData(object["permit"])
+            );
+        }
+        throw new AgentCoreError("codec.invalid", "Authority permit issuance reply is malformed");
     }
 }
 
@@ -126,26 +130,8 @@ export class BindingValidationReply {
 export class AuthorityPermitIssuanceRequest {
     public static readonly codec: RecordCodec<AuthorityPermitIssuanceRequest> =
         new AuthorityPermitIssuanceRequestCodec();
-    readonly #expiresAt: number;
-
-    public constructor(
-        public readonly expectation: AuthorityPermitExpectation,
-        public readonly nonce: string,
-        expiresAt: Date
-    ) {
-        if (nonce.length === 0 || nonce !== nonce.trim()) {
-            throw new TypeError("Authority permit issuance nonce must be canonical and nonblank");
-        }
-        const expiresAtTime = expiresAt.getTime();
-        if (!Number.isSafeInteger(expiresAtTime) || expiresAtTime < 0) {
-            throw new TypeError("Authority permit issuance expiry is invalid");
-        }
-        this.#expiresAt = expiresAtTime;
+    public constructor(public readonly targetRequest: TargetAuthorityPermitRequest) {
         Object.freeze(this);
-    }
-
-    public get expiresAt(): Date {
-        return new Date(this.#expiresAt);
     }
 
     public static encode(request: AuthorityPermitIssuanceRequest): Uint8Array {
@@ -161,8 +147,39 @@ export class AuthorityPermitIssuanceReply {
     public static readonly codec: RecordCodec<AuthorityPermitIssuanceReply> =
         new AuthorityPermitIssuanceReplyCodec();
 
-    public constructor(public readonly permit: AuthorityPermit) {
+    private constructor(
+        public readonly kind: "issued" | "denied",
+        public readonly evidence: AuthorityCheckEvidence,
+        public readonly permit: AuthorityPermit | undefined
+    ) {
+        if (
+            (kind === "issued") !== (permit !== undefined) ||
+            (kind === "issued") !== evidence.allowed
+        ) {
+            throw new TypeError("Authority permit issuance reply does not match its decision");
+        }
         Object.freeze(this);
+    }
+
+    public static issued(
+        evidence: AuthorityCheckEvidence,
+        permit: AuthorityPermit
+    ): AuthorityPermitIssuanceReply {
+        return new AuthorityPermitIssuanceReply("issued", evidence, permit);
+    }
+
+    public static denied(evidence: AuthorityCheckEvidence): AuthorityPermitIssuanceReply {
+        return new AuthorityPermitIssuanceReply("denied", evidence, undefined);
+    }
+
+    public requirePermit(): AuthorityPermit {
+        if (this.permit === undefined) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Denied authority permit reply carries no permit"
+            );
+        }
+        return this.permit;
     }
 
     public static encode(reply: AuthorityPermitIssuanceReply): Uint8Array {

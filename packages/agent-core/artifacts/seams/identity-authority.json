@@ -3,9 +3,20 @@
   "owner": "W2",
   "seams": [
     {
+      "id": "authority-permit-target-store",
+      "disposition": "verified",
+      "contract": "src/authority/permit-store.ts#AuthorityPermitTargetStore",
+      "implementations": [
+        "src/authority/permit-store.ts#MemoryAuthorityPermitStore",
+        "src/substrates/sqlite/permit.ts#SqliteAuthorityPermitStore"
+      ],
+      "memoryReference": "src/authority/permit-store.ts#MemoryAuthorityPermitStore",
+      "contractTest": "test/authority/permit.test.ts#[authority-permit-owner-store] memory [authority-permit-target-store] [authority.target-permit-request] durably records one exact target request across restart"
+    },
+    {
       "id": "authority-permit-owner-store",
       "disposition": "verified",
-      "contract": "src/authority/permit-store.ts#AuthorityPermitOwnerStore",
+      "contract": "src/authority/permit-store.ts#AuthorityPermitIssueStore",
       "implementations": [
         "src/authority/permit-store.ts#MemoryAuthorityPermitStore",
         "src/substrates/sqlite/permit.ts#SqliteAuthorityPermitStore"

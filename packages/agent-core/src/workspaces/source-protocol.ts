@@ -565,7 +565,7 @@ class SourceEventProtocolCommand<Transaction, Read> implements ProtocolCommand<
         _at: Date
     ): ProtocolCommandExecution<EventAcceptanceResult, EventAcceptanceResult> {
         const result = this.protocol.commit(transaction, prepared);
-        return { reply: result, observation: result };
+        return { outcome: "committed", reply: result, observation: result };
     }
 }
 

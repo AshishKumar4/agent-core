@@ -3,6 +3,7 @@
   "required": [
     "actor-local-store",
     "authority-permit-owner-store",
+    "authority-permit-target-store",
     "authority-mutation-store",
     "content-retention",
     "content-store",

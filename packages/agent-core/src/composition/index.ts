@@ -15,6 +15,8 @@ export type {
 export {
     ClosedTenantAuthorityComposition,
     TENANT_AUTHORITY_COMMANDS,
+    TenantAuthorityCommandStatePort,
+    TenantAuthorityRuntimeCommandBackend,
     createClosedTenantAuthorityComposition
 } from "./authority-commands";
 export type {
@@ -34,14 +36,19 @@ export type {
     PackageFacetRoots
 } from "./package-runtime";
 export {
+    AuthenticatedAuthorityPermitDenial,
+    AuthorityPermitIssuanceTransport,
     ConsumedAuthorityAdmissionPort,
     IssuedAuthorityPermitPort,
+    TargetAuthorityPermitDenialPort,
     TargetAuthorityPermitAuthenticationPort
 } from "./permit";
 export type {
+    AuthorityCheckRequestFactory,
     AuthorityPermitDenialPort,
     AuthorityPermitExpectationFactory,
-    AuthorityPermitReference
+    AuthorityPermitReference,
+    TargetAuthorityPermitDenialState
 } from "./permit";
 export { ApprovalGatewayReconciliationPort, createProtectedProfileRuntime } from "./profile";
 export {

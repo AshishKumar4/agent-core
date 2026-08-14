@@ -1,13 +1,15 @@
 import type { ActorRef, Digest, SynchronousResultGuard } from "@agent-core/core";
 import { requireSynchronousResult } from "@agent-core/core";
 import type {
+    AuthorityPermitIssueStore,
     AuthorityPermitExpectation,
-    AuthorityPermitOwnerStore
+    AuthorityPermitTargetStore
 } from "@agent-core/core/authority";
 import {
     AuthorityPermit,
     AuthorityPermitAuthenticator,
-    AuthorityPermitIssuedRecordSource
+    AuthorityPermitIssuedRecordSource,
+    TargetAuthorityPermitRequest
 } from "@agent-core/core/authority";
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
@@ -29,7 +31,7 @@ export interface PermitIssuerObjectStub {
  * authoritative issuance evidence a target authenticates against.
  */
 export class PermitIssuerDurableObjectHost<Transaction> {
-    public constructor(private readonly store: AuthorityPermitOwnerStore<Transaction>) {}
+    public constructor(private readonly store: AuthorityPermitIssueStore<Transaction>) {}
 
     public issuedPermitRecord(nonce: string): Uint8Array | undefined {
         if (!isPermitNonce(nonce)) return undefined;
@@ -107,10 +109,14 @@ export class DurableObjectPermitAdmission<Transaction> {
     readonly #authenticator: AuthorityPermitAuthenticator;
 
     public constructor(
-        private readonly store: AuthorityPermitOwnerStore<Transaction>,
+        private readonly store: AuthorityPermitTargetStore<Transaction>,
         source: AuthorityPermitIssuedRecordSource
     ) {
         this.#authenticator = new AuthorityPermitAuthenticator(source);
+    }
+
+    public request(request: TargetAuthorityPermitRequest): TargetAuthorityPermitRequest {
+        return this.store.transaction((transaction) => this.store.request(transaction, request));
     }
 
     public async admit<Result>(

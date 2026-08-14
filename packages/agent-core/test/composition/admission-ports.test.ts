@@ -121,6 +121,7 @@ const expectation = new AuthorityPermitExpectation({
 const permit = new AuthorityPermit({
     ...expectation,
     nonce: "ports-permit",
+    requestDigest: digestOf("ports-permit-request"),
     issuedAt: ISSUED_AT,
     expiresAt: EXPIRES_AT
 });

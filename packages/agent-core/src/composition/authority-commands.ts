@@ -2,12 +2,15 @@ import type { ActorRef } from "../actors";
 import {
     AuthorityCheckEvidence,
     AuthorityCheckRequest,
-    AuthorityPermit,
-    AuthorityPermitExpectation,
+    AuthorityPermitIssuer,
+    TenantAuthorityRuntime,
     BindingValidationEvidence,
-    BindingValidationRequest
+    BindingValidationRequest,
+    type AuthorityPermitExpectation,
+    type TenantAuthorityPermitStore
 } from "../authority";
 import type { TransientContentAccess } from "../content";
+import { AgentCoreError } from "../errors";
 import type { PrincipalRef, TenantId } from "../identity";
 import {
     AuthorityCheckPayloadCodec,
@@ -43,10 +46,8 @@ export const TENANT_AUTHORITY_COMMANDS = Object.freeze({
 });
 
 export interface TenantAuthorityCommandBackend<Transaction, Read> {
-    sourceFence(read: Read, source: ActorRef): number | undefined;
+    actorFence(read: Read, actor: ActorRef): number | undefined;
     checkPrincipal(read: Read, request: AuthorityCheckRequest): PrincipalRef | undefined;
-    permitPrincipal(read: Read, expectation: AuthorityPermitExpectation): PrincipalRef | undefined;
-    permitsPermit(read: Read, request: AuthorityPermitIssuanceRequest): boolean;
     currentCheckLease(
         read: Read,
         request: AuthorityCheckRequest,
@@ -71,7 +72,112 @@ export interface TenantAuthorityCommandBackend<Transaction, Read> {
         transaction: Transaction,
         request: AuthorityPermitIssuanceRequest,
         at: Date
-    ): AuthorityPermit;
+    ): AuthorityPermitIssuanceReply;
+}
+
+export abstract class TenantAuthorityCommandStatePort<Read> {
+    public abstract actorFence(read: Read, actor: ActorRef): number | undefined;
+    public abstract checkPrincipal(
+        read: Read,
+        request: AuthorityCheckRequest
+    ): PrincipalRef | undefined;
+    public abstract currentCheckLease(
+        read: Read,
+        request: AuthorityCheckRequest,
+        at: Date
+    ): CurrentLease | undefined;
+    public abstract currentPermitLease(
+        read: Read,
+        request: AuthorityPermitIssuanceRequest,
+        at: Date
+    ): CurrentLease | undefined;
+}
+
+export class TenantAuthorityRuntimeCommandBackend<
+    Transaction,
+    Read
+> implements TenantAuthorityCommandBackend<Transaction, Read> {
+    readonly #issuer: AuthorityPermitIssuer<Transaction>;
+
+    public constructor(
+        private readonly state: TenantAuthorityCommandStatePort<Read>,
+        private readonly authority: TenantAuthorityPermitStore<Transaction>,
+        private readonly issuerActor: ActorRef
+    ) {
+        if (!authority.owner.equals(issuerActor) || issuerActor.kind !== "tenant") {
+            throw new TypeError(
+                "Tenant authority command backend requires its Tenant permit owner"
+            );
+        }
+        this.#issuer = new AuthorityPermitIssuer(authority);
+    }
+
+    public actorFence(read: Read, actor: ActorRef): number | undefined {
+        return this.state.actorFence(read, actor);
+    }
+
+    public get transactionStore(): TenantAuthorityPermitStore<Transaction> {
+        return this.authority;
+    }
+
+    public checkPrincipal(read: Read, request: AuthorityCheckRequest): PrincipalRef | undefined {
+        return this.state.checkPrincipal(read, request);
+    }
+
+    public currentCheckLease(
+        read: Read,
+        request: AuthorityCheckRequest,
+        at: Date
+    ): CurrentLease | undefined {
+        return this.state.currentCheckLease(read, request, at);
+    }
+
+    public currentPermitLease(
+        read: Read,
+        request: AuthorityPermitIssuanceRequest,
+        at: Date
+    ): CurrentLease | undefined {
+        return this.state.currentPermitLease(read, request, at);
+    }
+
+    public validateBinding(
+        transaction: Transaction,
+        request: BindingValidationRequest,
+        at: Date
+    ): BindingValidationEvidence {
+        return this.runtime(transaction).validateBinding(request, at);
+    }
+
+    public check(
+        transaction: Transaction,
+        request: AuthorityCheckRequest,
+        at: Date
+    ): AuthorityCheckEvidence {
+        return this.runtime(transaction).check(request, at);
+    }
+
+    public issuePermit(
+        transaction: Transaction,
+        request: AuthorityPermitIssuanceRequest,
+        at: Date
+    ): AuthorityPermitIssuanceReply {
+        const evidence = this.runtime(transaction).check(request.targetRequest.authority, at);
+        if (!evidence.binds(request.targetRequest.authority)) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Tenant authority returned evidence for another permit request"
+            );
+        }
+        if (!evidence.allowed) return AuthorityPermitIssuanceReply.denied(evidence);
+        return AuthorityPermitIssuanceReply.issued(
+            evidence,
+            this.#issuer.issue(transaction, request.targetRequest, evidence, at)
+        );
+    }
+
+    private runtime(transaction: Transaction): TenantAuthorityRuntime {
+        return new TenantAuthorityRuntime(this.authority.authority(transaction), this.issuerActor);
+    }
 }
 
 type AdditionalTenantCommandFamilies<Transaction, Read> = Omit<
@@ -104,6 +210,14 @@ export class ClosedTenantAuthorityComposition<
         init: ClosedTenantAuthorityCompositionInit<Transaction, Read, ReadTransaction, Transport>
     ) {
         requireTenantActor(init.actor);
+        if (
+            init.backend instanceof TenantAuthorityRuntimeCommandBackend &&
+            !Object.is(init.backend.transactionStore, init.store)
+        ) {
+            throw new TypeError(
+                "Tenant authority runtime backend and dispatcher require one transaction store"
+            );
+        }
         const authority = createTenantAuthorityCommands(init.backend, init.actor, init.tenant);
         const dispatcher = createClosedCommandDispatcher({
             ...init,
@@ -197,7 +311,7 @@ class BindingValidationCommand<Transaction, Read> implements ProtocolCommandRegi
         return (
             request.ownerTenant.equals(this.tenant) &&
             callerIs(envelope.caller, request.workspaceActor) &&
-            this.backend.sourceFence(read, request.workspaceActor) === request.workspaceFence
+            this.backend.actorFence(read, request.workspaceActor) === request.workspaceFence
         );
     }
 
@@ -221,7 +335,11 @@ class BindingValidationCommand<Transaction, Read> implements ProtocolCommandRegi
     ): ProtocolCommandExecution<BindingValidationReply, BindingValidationEvidence> {
         const evidence = this.backend.validateBinding(transaction, request, at);
         requireBindingEvidence(evidence, request, this.tenantActor, this.tenant, at);
-        return { reply: new BindingValidationReply(evidence), observation: evidence };
+        return {
+            outcome: "committed",
+            reply: new BindingValidationReply(evidence),
+            observation: evidence
+        };
     }
 }
 
@@ -261,7 +379,7 @@ class AuthorityCheckCommand<Transaction, Read> implements ProtocolCommandRegistr
         return (
             request.ownerTenant.equals(this.tenant) &&
             callerIs(envelope.caller, request.owner) &&
-            this.backend.sourceFence(read, request.owner) === request.ownerFence &&
+            this.backend.actorFence(read, request.owner) === request.ownerFence &&
             principal?.equals(request.principal) === true
         );
     }
@@ -291,7 +409,11 @@ class AuthorityCheckCommand<Transaction, Read> implements ProtocolCommandRegistr
     ): ProtocolCommandExecution<AuthorityCheckReply, AuthorityCheckEvidence> {
         const evidence = this.backend.check(transaction, request, at);
         requireCheckEvidence(evidence, request, this.tenantActor, this.tenant, at);
-        return { reply: new AuthorityCheckReply(evidence), observation: evidence };
+        return {
+            outcome: "committed",
+            reply: new AuthorityCheckReply(evidence),
+            observation: evidence
+        };
     }
 }
 
@@ -300,7 +422,7 @@ class AuthorityPermitIssuanceCommand<Transaction, Read> implements ProtocolComma
     Read,
     AuthorityPermitIssuanceRequest,
     AuthorityPermitIssuanceReply,
-    AuthorityPermit
+    AuthorityPermitIssuanceReply
 > {
     public readonly command = TENANT_AUTHORITY_COMMANDS.issuePermit;
     public readonly caller = anyActorCallerPolicy;
@@ -311,9 +433,9 @@ class AuthorityPermitIssuanceCommand<Transaction, Read> implements ProtocolComma
         encode: AuthorityPermitIssuanceReply.encode,
         decode: AuthorityPermitIssuanceReply.decode
     };
-    public readonly observationCodec: ProtocolValueCodec<AuthorityPermit> = {
-        encode: AuthorityPermit.encode,
-        decode: AuthorityPermit.decode
+    public readonly observationCodec: ProtocolValueCodec<AuthorityPermitIssuanceReply> = {
+        encode: AuthorityPermitIssuanceReply.encode,
+        decode: AuthorityPermitIssuanceReply.decode
     };
 
     public constructor(
@@ -323,19 +445,18 @@ class AuthorityPermitIssuanceCommand<Transaction, Read> implements ProtocolComma
     ) {}
 
     public authorize(
-        read: Read,
+        _read: Read,
         envelope: CommandEnvelope,
         request: AuthorityPermitIssuanceRequest
     ): boolean {
-        const { expectation } = request;
-        const principal = this.backend.permitPrincipal(read, expectation);
+        const { expectation } = request.targetRequest;
+        // The target owns its fence. Tenant issuance authenticates the target ActorRef;
+        // target-local request creation and consumption enforce the bound fence.
         return (
             expectation.tenant.equals(this.tenant) &&
             expectation.issuer.equals(this.tenantActor) &&
-            callerIs(envelope.caller, expectation.source) &&
-            principal?.equals(expectation.principal) === true &&
-            leasesEqual(envelope.lease, expectation.lease, expectation.tenant) &&
-            this.backend.permitsPermit(read, request)
+            callerIs(envelope.caller, expectation.target.actor) &&
+            leasesEqual(envelope.lease, expectation.lease, expectation.tenant)
         );
     }
 
@@ -361,10 +482,13 @@ class AuthorityPermitIssuanceCommand<Transaction, Read> implements ProtocolComma
         _envelope: CommandEnvelope,
         request: AuthorityPermitIssuanceRequest,
         at: Date
-    ): ProtocolCommandExecution<AuthorityPermitIssuanceReply, AuthorityPermit> {
-        const permit = this.backend.issuePermit(transaction, request, at);
-        requirePermit(permit, request, this.tenantActor, at);
-        return { reply: new AuthorityPermitIssuanceReply(permit), observation: permit };
+    ): ProtocolCommandExecution<AuthorityPermitIssuanceReply, AuthorityPermitIssuanceReply> {
+        const reply = this.backend.issuePermit(transaction, request, at);
+        requirePermitDecision(reply, request, this.tenantActor, this.tenant, at);
+        if (reply.kind === "issued") {
+            return { outcome: "committed", reply, observation: reply };
+        }
+        return { outcome: "rejectedAuthority", reply };
     }
 }
 
@@ -420,18 +544,31 @@ function requireCheckEvidence(
     }
 }
 
-function requirePermit(
-    permit: AuthorityPermit,
+function requirePermitDecision(
+    reply: AuthorityPermitIssuanceReply,
     request: AuthorityPermitIssuanceRequest,
     tenantActor: ActorRef,
+    tenant: TenantId,
     at: Date
 ): void {
+    const evidence = reply.evidence;
     if (
-        !permit.expectation.equals(request.expectation) ||
+        !evidence.binds(request.targetRequest.authority) ||
+        !evidence.issuer.equals(tenantActor) ||
+        !evidence.issuerTenant.equals(tenant) ||
+        evidence.checkedAt.getTime() !== at.getTime()
+    ) {
+        throw new TypeError("Authority permit issuer returned substituted evidence");
+    }
+    if (reply.kind === "denied") return;
+    const permit = reply.requirePermit();
+    if (
+        !permit.expectation.equals(request.targetRequest.expectation) ||
+        !permit.requestDigest.equals(request.targetRequest.digest()) ||
         !permit.issuer.equals(tenantActor) ||
-        permit.nonce !== request.nonce ||
+        permit.nonce !== request.targetRequest.nonce ||
         permit.issuedAt.getTime() !== at.getTime() ||
-        permit.expiresAt.getTime() !== request.expiresAt.getTime()
+        permit.expiresAt.getTime() !== request.targetRequest.expiresAt.getTime()
     ) {
         throw new TypeError("Authority permit issuer returned substituted evidence");
     }

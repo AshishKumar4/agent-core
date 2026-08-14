@@ -35,6 +35,7 @@ export type {
     AuthorityPermitSource,
     AuthorityPermitTarget
 } from "./permit";
+export { TargetAuthorityPermitRequest } from "./permit-request";
 export {
     AuthenticatedAuthorityPermit,
     AuthorityPermitAuthenticator,
@@ -43,10 +44,19 @@ export {
 } from "./permit-authentication";
 export {
     AuthorityPermitAdmissionPort,
-    AuthorityPermitAuthorityPort,
     AuthorityPermitIssuer,
     MemoryAuthorityPermitStore,
     MemoryAuthorityPermitTransaction,
     StoredAuthorityPermitAdmissionPort
 } from "./permit-store";
-export type { AuthorityPermitOwnerStore, MemoryAuthorityPermitSnapshot } from "./permit-store";
+export type {
+    AuthorityPermitIssueStore,
+    AuthorityPermitTargetStore,
+    AuthorityPermitTransactionStore,
+    MemoryAuthorityPermitSnapshot
+} from "./permit-store";
+export { MemoryTenantAuthorityPermitStore, TenantAuthorityTransactionPort } from "./permit-runtime";
+export type {
+    MemoryTenantAuthorityPermitState,
+    TenantAuthorityPermitStore
+} from "./permit-runtime";

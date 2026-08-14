@@ -8,5 +8,5 @@ export { SqlitePackageStore } from "./package";
 export { SqliteProtocolPersistence } from "./protocol";
 export { ReadableSqlite, TransactionalSqlite } from "./sqlite";
 export type { SqliteRow, SqliteValue } from "./sqlite";
-export { SqliteAuthorityPermitStore } from "./permit";
+export { SqliteAuthorityPermitStore, SqliteTenantAuthorityPermitStore } from "./permit";
 export { SqliteInvalidationWatermarkStore } from "./watermark";

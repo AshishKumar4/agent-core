@@ -118,12 +118,24 @@
             "symbol": "AuthorityPermit",
             "kind": "authority.permit",
             "durability": "durable",
-            "ownerActor": "permit-owner-actor",
+            "ownerActor": "tenant",
             "source": "src/authority/permit.ts#AuthorityPermit",
             "codec": "src/authority/permit.ts#AuthorityPermit.codec",
-            "store": "src/authority/permit-store.ts#AuthorityPermitOwnerStore",
+            "store": "src/authority/permit-store.ts#AuthorityPermitIssueStore",
             "tests": [
                 "test/authority/permit.test.ts#AuthorityPermit [authority.permit] codec preserves every normative field and immutable dates"
+            ]
+        },
+        {
+            "symbol": "TargetAuthorityPermitRequest",
+            "kind": "authority.target-permit-request",
+            "durability": "durable",
+            "ownerActor": "permit-target-actor",
+            "source": "src/authority/permit-request.ts#TargetAuthorityPermitRequest",
+            "codec": "src/authority/permit-request.ts#TargetAuthorityPermitRequest.codec",
+            "store": "src/authority/permit-store.ts#AuthorityPermitTargetStore",
+            "tests": [
+                "test/authority/permit.test.ts#[authority-permit-owner-store] memory [authority-permit-target-store] [authority.target-permit-request] durably records one exact target request across restart"
             ]
         },
         {

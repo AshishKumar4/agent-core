@@ -385,6 +385,7 @@ function admissionDigest(reference: DemoAdmission): Digest {
 }
 
 class DemoPermits implements CanonicalBatchAuthorityPermitPort<
+    PipelineState,
     MediationLeaseReference,
     MediationAuthorityReference,
     MediationDomainReference,
@@ -394,14 +395,27 @@ class DemoPermits implements CanonicalBatchAuthorityPermitPort<
     public async issue(
         invocation: MediationPreparedInvocation,
         claim: ItemClaim<MediationLeaseReference>
-    ): Promise<AuthorityAdmissionReference<DemoAdmission>> {
+    ): Promise<{
+        readonly kind: "issued";
+        readonly admission: AuthorityAdmissionReference<DemoAdmission>;
+    }> {
         const reference = Object.freeze({
             invocation: invocation.header.id.value,
             itemIndex: claim.itemIndex,
             attemptOrdinal: claim.attemptOrdinal
         });
-        return new AuthorityAdmissionReference(reference, admissionDigest(reference));
+        return {
+            kind: "issued",
+            admission: new AuthorityAdmissionReference(reference, admissionDigest(reference))
+        };
     }
+
+    public deny(
+        _transaction: PipelineState,
+        _invocation: MediationPreparedInvocation,
+        _claim: ItemClaim<MediationLeaseReference>,
+        _denial: never
+    ): void {}
 }
 
 class DemoAuthentication implements CanonicalBatchAuthorityAuthenticationPort<

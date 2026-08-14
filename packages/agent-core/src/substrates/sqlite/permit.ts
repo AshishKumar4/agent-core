@@ -1,37 +1,65 @@
-import type { ActorRef, SynchronousResultGuard } from "../../actors";
+import type {
+    ActorActivation,
+    ActorLocalStore,
+    ActorRecoveryState,
+    ActorRef,
+    SynchronousResultGuard,
+    TransactionOperation
+} from "../../actors";
 import {
     AuthorityPermit,
+    TenantAuthorityTransactionPort,
     type AuthenticatedAuthorityPermit,
     type AuthorityPermitExpectation,
-    type AuthorityPermitOwnerStore,
+    type AuthorityPermitIssueStore,
+    type AuthorityPermitTargetStore,
+    type TenantAuthorityReadStore,
+    TargetAuthorityPermitRequest,
     requireAuthenticatedAuthorityPermit
 } from "../../authority";
 import { Digest } from "../../core";
 import { AgentCoreError } from "../../errors";
 import {
+    ReadableSqlite,
     TransactionalSqlite,
     hasSameSqliteProvenance,
     isSqliteText,
     type SqliteRow
 } from "./sqlite";
+import { SqliteActorStore } from "./actor";
+import { createSqliteTenantControlStore } from "./tenant";
 
 const CREATE_PERMITS = `CREATE TABLE IF NOT EXISTS authority_permit_nonces (
     nonce TEXT PRIMARY KEY CHECK (length(nonce) > 0),
     owner_kind TEXT NOT NULL CHECK (owner_kind IN ('tenant', 'workspace', 'run', 'environment', 'slate')),
     owner_id TEXT NOT NULL CHECK (length(owner_id) > 0),
-    state TEXT NOT NULL CHECK (state IN ('issued', 'consumed')),
+    state TEXT NOT NULL CHECK (state IN ('requested', 'issued')),
     digest TEXT NOT NULL CHECK (length(digest) = 64),
-    record BLOB,
-    CHECK ((state = 'issued' AND record IS NOT NULL) OR (state = 'consumed' AND record IS NULL))
+    record BLOB NOT NULL
 ) STRICT`;
 
-export class SqliteAuthorityPermitStore implements AuthorityPermitOwnerStore<TransactionalSqlite> {
+const CREATE_CONSUMPTIONS = `CREATE TABLE IF NOT EXISTS authority_permit_consumptions (
+    nonce TEXT PRIMARY KEY CHECK (length(nonce) > 0),
+    owner_kind TEXT NOT NULL CHECK (owner_kind IN ('tenant', 'workspace', 'run', 'environment', 'slate')),
+    owner_id TEXT NOT NULL CHECK (length(owner_id) > 0),
+    digest TEXT NOT NULL CHECK (length(digest) = 64),
+    permit BLOB NOT NULL
+) STRICT`;
+
+export class SqliteAuthorityPermitStore
+    implements
+        AuthorityPermitTargetStore<TransactionalSqlite>,
+        AuthorityPermitIssueStore<TransactionalSqlite>
+{
     public constructor(
         private readonly database: TransactionalSqlite,
         public readonly owner: ActorRef
     ) {
         try {
-            database.transaction(() => database.run(CREATE_PERMITS, []));
+            database.transaction(() => {
+                database.run(CREATE_PERMITS, []);
+                database.run(CREATE_CONSUMPTIONS, []);
+            });
             this.validateRows(database);
         } catch (error) {
             if (error instanceof AgentCoreError) throw error;
@@ -52,12 +80,50 @@ export class SqliteAuthorityPermitStore implements AuthorityPermitOwnerStore<Tra
         return this.decodeIssued(row, nonce);
     }
 
-    public consumed(transaction: TransactionalSqlite, nonce: string): Digest | undefined {
+    public requested(
+        transaction: TransactionalSqlite,
+        nonce: string
+    ): TargetAuthorityPermitRequest | undefined {
         const row = this.row(transaction, nonce);
-        if (row === undefined || text(row, "state") !== "consumed") return undefined;
-        this.validateOwner(row);
-        if (row["record"] !== null) throw corrupt();
-        return new Digest(text(row, "digest"));
+        if (row === undefined || text(row, "state") !== "requested") return undefined;
+        return this.decodeRequested(row, nonce);
+    }
+
+    public consumed(transaction: TransactionalSqlite, nonce: string): Digest | undefined {
+        const row = this.consumptionRow(transaction, nonce);
+        return row === undefined
+            ? undefined
+            : this.decodeConsumed(transaction, row, nonce).digest();
+    }
+
+    public request(
+        transaction: TransactionalSqlite,
+        request: TargetAuthorityPermitRequest
+    ): TargetAuthorityPermitRequest {
+        this.requireTransaction(transaction);
+        if (!request.expectation.target.actor.equals(this.owner)) {
+            throw denied("Authority permit request targets another Actor owner");
+        }
+        const bytes = TargetAuthorityPermitRequest.encode(request);
+        try {
+            transaction.run(
+                `INSERT OR IGNORE INTO authority_permit_nonces
+                    (nonce, owner_kind, owner_id, state, digest, record)
+                 VALUES (?, ?, ?, 'requested', ?, ?)`,
+                [request.nonce, this.owner.kind, this.owner.id.value, request.digest().value, bytes]
+            );
+        } catch (error) {
+            if (error instanceof AgentCoreError) throw error;
+            throw denied("Authority permit target request could not be recorded atomically");
+        }
+        const stored = this.requested(transaction, request.nonce);
+        if (stored === undefined) {
+            throw denied("Authority permit nonce was already used by this Actor owner");
+        }
+        if (!stored.digest().equals(request.digest())) {
+            throw denied("Authority permit nonce is bound to another target request");
+        }
+        return stored;
     }
 
     public issue(transaction: TransactionalSqlite, permit: AuthorityPermit): AuthorityPermit {
@@ -81,7 +147,10 @@ export class SqliteAuthorityPermitStore implements AuthorityPermitOwnerStore<Tra
         if (stored === undefined) {
             throw denied("Authority permit nonce was already used by this Actor owner");
         }
-        if (!stored.expectation.equals(permit.expectation)) {
+        if (
+            !stored.expectation.equals(permit.expectation) ||
+            !stored.requestDigest.equals(permit.requestDigest)
+        ) {
             throw denied("Authority permit nonce is bound to another issuance expectation");
         }
         return stored;
@@ -100,14 +169,35 @@ export class SqliteAuthorityPermitStore implements AuthorityPermitOwnerStore<Tra
             throw denied("Authority permit targets another Actor owner");
         }
         permit.assertConsumable(expected, now);
-        this.requireUnused(transaction, permit.nonce);
+        const requested = this.requested(transaction, permit.nonce);
+        if (requested === undefined) {
+            if (this.row(transaction, permit.nonce) !== undefined) {
+                this.requireUnused(transaction, permit.nonce);
+            }
+            throw denied("Authority permit has no durable target request");
+        }
+        if (!requested.expectation.equals(expected)) {
+            throw denied("Authority permit does not match its exact target request");
+        }
+        if (!permit.requestDigest.equals(requested.digest())) {
+            throw denied("Authority permit was issued for another target request");
+        }
+        if (this.consumptionRow(transaction, permit.nonce) !== undefined) {
+            throw denied("Authority permit nonce was already used by this Actor owner");
+        }
         const digest = permit.digest();
         try {
             transaction.run(
-                `INSERT INTO authority_permit_nonces
-                    (nonce, owner_kind, owner_id, state, digest, record)
-                 VALUES (?, ?, ?, 'consumed', ?, NULL)`,
-                [permit.nonce, this.owner.kind, this.owner.id.value, digest.value]
+                `INSERT INTO authority_permit_consumptions
+                    (nonce, owner_kind, owner_id, digest, permit)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [
+                    permit.nonce,
+                    this.owner.kind,
+                    this.owner.id.value,
+                    digest.value,
+                    AuthorityPermit.encode(permit)
+                ]
             );
         } catch (error) {
             if (error instanceof AgentCoreError) throw error;
@@ -119,7 +209,10 @@ export class SqliteAuthorityPermitStore implements AuthorityPermitOwnerStore<Tra
     }
 
     private requireUnused(transaction: TransactionalSqlite, nonce: string): void {
-        if (this.row(transaction, nonce) !== undefined) {
+        if (
+            this.row(transaction, nonce) !== undefined ||
+            this.consumptionRow(transaction, nonce) !== undefined
+        ) {
             throw denied("Authority permit nonce was already used by this Actor owner");
         }
     }
@@ -136,11 +229,28 @@ export class SqliteAuthorityPermitStore implements AuthorityPermitOwnerStore<Tra
         }
     }
 
+    private consumptionRow(transaction: TransactionalSqlite, nonce: string): SqliteRow | undefined {
+        this.requireTransaction(transaction);
+        try {
+            return transaction.all("SELECT * FROM authority_permit_consumptions WHERE nonce = ?", [
+                nonce
+            ])[0];
+        } catch (error) {
+            if (error instanceof AgentCoreError) throw error;
+            throw corrupt("Authority permit consumption read failed");
+        }
+    }
+
     private validateRows(transaction: TransactionalSqlite): void {
         this.requireTransaction(transaction);
         let rows: readonly SqliteRow[];
+        let consumptions: readonly SqliteRow[];
         try {
             rows = transaction.all("SELECT * FROM authority_permit_nonces ORDER BY nonce", []);
+            consumptions = transaction.all(
+                "SELECT * FROM authority_permit_consumptions ORDER BY nonce",
+                []
+            );
         } catch (error) {
             if (error instanceof AgentCoreError) throw error;
             throw corrupt("Authority permit recovery read failed");
@@ -148,20 +258,46 @@ export class SqliteAuthorityPermitStore implements AuthorityPermitOwnerStore<Tra
         for (const row of rows) {
             const nonce = text(row, "nonce");
             const state = text(row, "state");
-            if (state === "issued") this.decodeIssued(row, nonce);
-            else if (state === "consumed") {
-                this.validateOwner(row);
-                new Digest(text(row, "digest"));
-                if (row["record"] !== null) throw corrupt();
-            } else throw corrupt();
+            if (state === "requested") this.decodeRequested(row, nonce);
+            else if (state === "issued") this.decodeIssued(row, nonce);
+            else throw corrupt();
         }
+        for (const row of consumptions) {
+            this.decodeConsumed(transaction, row, text(row, "nonce"));
+        }
+    }
+
+    private decodeRequested(row: SqliteRow, expectedNonce: string): TargetAuthorityPermitRequest {
+        this.validateOwner(row);
+        const record = row["record"];
+        if (!(record instanceof Uint8Array)) throw corrupt();
+        let request: TargetAuthorityPermitRequest;
+        try {
+            request = TargetAuthorityPermitRequest.decode(record.slice());
+        } catch {
+            throw corrupt();
+        }
+        if (
+            request.nonce !== expectedNonce ||
+            text(row, "nonce") !== expectedNonce ||
+            text(row, "state") !== "requested" ||
+            text(row, "digest") !== request.digest().value ||
+            !request.expectation.target.actor.equals(this.owner)
+        )
+            throw corrupt();
+        return request;
     }
 
     private decodeIssued(row: SqliteRow, expectedNonce: string): AuthorityPermit {
         this.validateOwner(row);
         const record = row["record"];
         if (!(record instanceof Uint8Array)) throw corrupt();
-        const permit = AuthorityPermit.decode(record.slice());
+        let permit: AuthorityPermit;
+        try {
+            permit = AuthorityPermit.decode(record.slice());
+        } catch {
+            throw corrupt();
+        }
         if (
             permit.nonce !== expectedNonce ||
             text(row, "nonce") !== expectedNonce ||
@@ -170,6 +306,35 @@ export class SqliteAuthorityPermitStore implements AuthorityPermitOwnerStore<Tra
             !permit.issuer.equals(this.owner)
         )
             throw corrupt();
+        return permit;
+    }
+
+    private decodeConsumed(
+        transaction: TransactionalSqlite,
+        row: SqliteRow,
+        expectedNonce: string
+    ): AuthorityPermit {
+        this.validateOwner(row);
+        const bytes = row["permit"];
+        if (!(bytes instanceof Uint8Array)) throw corrupt();
+        let permit: AuthorityPermit;
+        try {
+            permit = AuthorityPermit.decode(bytes.slice());
+        } catch {
+            throw corrupt();
+        }
+        const request = this.requested(transaction, expectedNonce);
+        if (
+            request === undefined ||
+            permit.nonce !== expectedNonce ||
+            text(row, "nonce") !== expectedNonce ||
+            text(row, "digest") !== permit.digest().value ||
+            !permit.target.actor.equals(this.owner) ||
+            !permit.expectation.equals(request.expectation) ||
+            !permit.requestDigest.equals(request.digest())
+        ) {
+            throw corrupt();
+        }
         return permit;
     }
 
@@ -187,6 +352,90 @@ export class SqliteAuthorityPermitStore implements AuthorityPermitOwnerStore<Tra
             !hasSameSqliteProvenance(this.database, transaction)
         )
             throw new TypeError("Authority permit transaction belongs to another SQLite owner");
+    }
+}
+
+/** Binds a Tenant's current authority view and issued permits to one SQLite transaction. */
+export class SqliteTenantAuthorityPermitStore
+    extends TenantAuthorityTransactionPort<TransactionalSqlite>
+    implements
+        ActorLocalStore<TransactionalSqlite, ReadableSqlite>,
+        AuthorityPermitIssueStore<TransactionalSqlite>
+{
+    readonly #permits: SqliteAuthorityPermitStore;
+    readonly #authority: TenantAuthorityReadStore;
+    readonly #actors: SqliteActorStore;
+
+    public constructor(
+        private readonly database: TransactionalSqlite,
+        public readonly owner: ActorRef
+    ) {
+        super();
+        if (owner.kind !== "tenant") {
+            throw new TypeError("SQLite Tenant authority permit store requires a Tenant Actor");
+        }
+        this.#authority = createSqliteTenantControlStore(database);
+        this.#permits = new SqliteAuthorityPermitStore(database, owner);
+        this.#actors = new SqliteActorStore(database);
+    }
+
+    public bindActor(actor: ActorRef): void {
+        this.#actors.bindActor(actor);
+    }
+
+    public activateActor(
+        actor: ActorRef,
+        start: (transaction: TransactionalSqlite, activation: ActorActivation) => void
+    ): ActorRecoveryState {
+        return this.#actors.activateActor(actor, start);
+    }
+
+    public loadRecoveryState(
+        transaction: TransactionalSqlite,
+        actor: ActorRef
+    ): ActorRecoveryState | undefined {
+        return this.#actors.loadRecoveryState(transaction, actor);
+    }
+
+    public saveRecoveryState(transaction: TransactionalSqlite, state: ActorRecoveryState): void {
+        this.#actors.saveRecoveryState(transaction, state);
+    }
+
+    public authority(transaction: TransactionalSqlite): TenantAuthorityReadStore {
+        this.requireTransaction(transaction);
+        return this.#authority;
+    }
+
+    public transaction<Result>(
+        operation: TransactionOperation<TransactionalSqlite, Result>,
+        ...guard: SynchronousResultGuard<Result>
+    ): Result {
+        return this.#actors.transaction(operation, ...guard);
+    }
+
+    public read<Result>(
+        transaction: TransactionalSqlite,
+        operation: TransactionOperation<ReadableSqlite, Result>,
+        ...guard: SynchronousResultGuard<Result>
+    ): Result {
+        return this.#actors.read(transaction, operation, ...guard);
+    }
+
+    public issued(transaction: TransactionalSqlite, nonce: string): AuthorityPermit | undefined {
+        return this.#permits.issued(transaction, nonce);
+    }
+
+    public issue(transaction: TransactionalSqlite, permit: AuthorityPermit): AuthorityPermit {
+        return this.#permits.issue(transaction, permit);
+    }
+
+    private requireTransaction(transaction: TransactionalSqlite): void {
+        if (
+            !(transaction instanceof TransactionalSqlite) ||
+            !hasSameSqliteProvenance(this.database, transaction)
+        ) {
+            throw new TypeError("Tenant authority transaction belongs to another SQLite owner");
+        }
     }
 }
 

@@ -21,6 +21,7 @@ export interface ProtocolValueCodec<Value> {
 }
 
 export interface ProtocolCommandExecution<Reply, Observation> {
+    readonly outcome: "committed" | "rejectedAuthority";
     readonly reply: Reply;
     readonly observation?: Observation;
 }

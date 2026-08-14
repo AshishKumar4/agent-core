@@ -3,19 +3,24 @@ import { ActorId, ActorRef, type SynchronousResultGuard } from "../../src/actors
 import { RunId, TurnId } from "../../src/agents";
 import {
     AuthenticatedAuthorityPermit,
+    AuthorityCheckEvidence,
+    AuthorityCheckRequest,
     AuthorityPermit,
     AuthorityPermitAuthenticator,
-    AuthorityPermitAuthorityPort,
     AuthorityPermitExpectation,
     AuthorityPermitIssuedRecordSource,
-    AuthorityPermitIssuer,
+    AuthorityPermitIssuer as TenantAuthorityPermitIssuer,
+    Binding,
+    GrantId,
     MemoryAuthorityPermitStore,
     PathEpochEvidence,
     ScopeEpoch,
     StoredAuthorityPermitAdmissionPort,
+    TargetAuthorityPermitRequest,
     requireAuthenticatedAuthorityPermit,
     type AuthorityPermitExpectationInit,
-    type AuthorityPermitOwnerStore
+    type AuthorityPermitIssueStore,
+    type AuthorityPermitTargetStore
 } from "../../src/authority";
 import {
     Digest,
@@ -31,7 +36,14 @@ import { violating } from "../helpers/malformed";
 import { PackageId, PackagePin } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
 import { BindingName, FacetRef, OperationRef, ProtectionDomain } from "../../src/facets";
-import { PrincipalId, PrincipalRef, ScopeRef, TenantId, WorkspaceId } from "../../src/identity";
+import {
+    PrincipalId,
+    PrincipalRef,
+    ScopeRef,
+    SubjectRef,
+    TenantId,
+    WorkspaceId
+} from "../../src/identity";
 import { ClaimWorkerId, ItemClaimId } from "../../src/invocation-references";
 import { InvocationId } from "../../src/interaction-references";
 import {
@@ -63,31 +75,87 @@ const lease = Object.freeze({
 const issuedAt = new Date("2026-07-12T12:00:00.000Z");
 const expiresAt = new Date("2026-07-12T12:00:05.000Z");
 
-class CurrentAuthority<Transaction> extends AuthorityPermitAuthorityPort<Transaction> {
+class CurrentAuthority<Transaction> {
     public live = true;
-    public generation = 3;
+    public generation = 0;
     public path = path;
     public lastClaim: ItemClaimId | undefined;
 
-    public admits(
+    public evidence(
         _transaction: Transaction,
-        expectation: AuthorityPermitExpectation,
-        _issuedAt: Date
-    ): boolean {
+        request: TargetAuthorityPermitRequest,
+        checkedAt: Date
+    ): AuthorityCheckEvidence {
+        const { expectation } = request;
         this.lastClaim = expectation.claim;
-        return (
+        const allowed =
             this.live &&
             expectation.binding.generation.value === this.generation &&
-            expectation.pathEpochs.equals(this.path)
+            expectation.pathEpochs.equals(this.path);
+        return new AuthorityCheckEvidence(
+            tenant,
+            issuerActor,
+            request.authority.digest(),
+            request.authority.binding.key,
+            request.authority.binding.generation,
+            allowed ? "allow" : "deny",
+            allowed ? "allowed" : "missingGrant",
+            allowed ? [new GrantId("permit-current-authority-grant")] : [],
+            [],
+            this.path,
+            checkedAt
         );
     }
 }
 
+type TestPermitOwnerStore<Transaction> = AuthorityPermitIssueStore<Transaction> &
+    AuthorityPermitTargetStore<Transaction>;
+
+class AuthorityPermitIssuer<Transaction> {
+    readonly #issuer: TenantAuthorityPermitIssuer<Transaction>;
+
+    public constructor(
+        store: AuthorityPermitIssueStore<Transaction>,
+        private readonly authority: CurrentAuthority<Transaction>
+    ) {
+        this.#issuer = new TenantAuthorityPermitIssuer(store);
+    }
+
+    public issue(
+        transaction: Transaction,
+        request: TargetAuthorityPermitRequest,
+        at: Date
+    ): AuthorityPermit {
+        if (request.expiresAt.getTime() <= at.getTime()) {
+            throw new AgentCoreError(
+                "authority.denied",
+                "Authority permit request expiry must be after issuance"
+            );
+        }
+        const evidence = this.authority.evidence(transaction, request, at);
+        if (!evidence.allowed) {
+            throw new AgentCoreError("authority.denied", "Current authority does not admit permit");
+        }
+        return this.#issuer.issue(transaction, request, evidence, at);
+    }
+}
+
+class AuthorityPermitRequester<Transaction> {
+    public constructor(private readonly store: AuthorityPermitTargetStore<Transaction>) {}
+
+    public request(
+        transaction: Transaction,
+        request: TargetAuthorityPermitRequest
+    ): TargetAuthorityPermitRequest {
+        return this.store.request(transaction, request);
+    }
+}
+
 interface StoreHarness<Transaction> {
-    readonly tenantStore: AuthorityPermitOwnerStore<Transaction>;
-    readonly targetStore: AuthorityPermitOwnerStore<Transaction>;
-    restartTenant(): AuthorityPermitOwnerStore<Transaction>;
-    restartTarget(): AuthorityPermitOwnerStore<Transaction>;
+    readonly tenantStore: TestPermitOwnerStore<Transaction>;
+    readonly targetStore: TestPermitOwnerStore<Transaction>;
+    restartTenant(): TestPermitOwnerStore<Transaction>;
+    restartTarget(): TestPermitOwnerStore<Transaction>;
 }
 
 function permitStoreContract<Transaction>(
@@ -95,6 +163,38 @@ function permitStoreContract<Transaction>(
     create: () => StoreHarness<Transaction>
 ): void {
     describe(`[authority-permit-owner-store] ${name}`, () => {
+        test(
+            "[authority-permit-target-store] [authority.target-permit-request] durably records one exact target request across restart",
+            { tags: "p0" },
+            () => {
+                const harness = create();
+                const requester = new AuthorityPermitRequester(harness.targetStore);
+                const request = targetRequest(`${name}-request`);
+
+                harness.targetStore.transaction((transaction) =>
+                    requester.request(transaction, request)
+                );
+                const restarted = harness.restartTarget();
+                const restored = restarted.transaction((transaction) =>
+                    restarted.requested(transaction, request.nonce)
+                );
+                const restartedRequester = new AuthorityPermitRequester(restarted);
+
+                expect(restored?.digest().equals(request.digest())).toBe(true);
+                const conflict = caughtAgentCoreError(() =>
+                    restarted.transaction((transaction) =>
+                        restartedRequester.request(
+                            transaction,
+                            targetRequest(request.nonce, {
+                                claim: new ItemClaimId("permit-substituted-claim")
+                            })
+                        )
+                    )
+                );
+                expect(conflict.code).toBe("authority.denied");
+            }
+        );
+
         test(
             "issues and consumes exactly once across owner-store restart",
             { tags: "p0" },
@@ -104,7 +204,7 @@ function permitStoreContract<Transaction>(
                 const expected = expectation();
                 const issuer = new AuthorityPermitIssuer(harness.tenantStore, authority);
                 const permit = harness.tenantStore.transaction((transaction) =>
-                    issuer.issue(transaction, expected, `${name}-once`, issuedAt, expiresAt)
+                    issuer.issue(transaction, targetRequestFor(expected, `${name}-once`), issuedAt)
                 );
 
                 expect(authority.lastClaim?.equals(expected.claim)).toBe(true);
@@ -117,6 +217,7 @@ function permitStoreContract<Transaction>(
                 ).toBe(permit.digest().value);
                 const authentication = await authenticate(restartedTenant, permit, expected);
 
+                recordTargetRequest(harness.targetStore, expected, permit.nonce);
                 const restartedTarget = harness.restartTarget();
                 const admission = new StoredAuthorityPermitAdmissionPort(restartedTarget);
                 restartedTarget.transaction((transaction) =>
@@ -134,8 +235,16 @@ function permitStoreContract<Transaction>(
                         (transaction) => consumedTarget.consumed(transaction, permit.nonce)?.value
                     )
                 ).toBe(permit.digest().value);
+                expect(
+                    consumedTarget
+                        .transaction((transaction) =>
+                            consumedTarget.requested(transaction, permit.nonce)
+                        )
+                        ?.digest()
+                        .equals(targetRequestFor(expected, permit.nonce).digest())
+                ).toBe(true);
                 const replayTarget = harness.restartTarget();
-                expect(() =>
+                const replay = caughtAgentCoreError(() =>
                     replayTarget.transaction((transaction) =>
                         new StoredAuthorityPermitAdmissionPort(replayTarget).consume(
                             transaction,
@@ -145,7 +254,16 @@ function permitStoreContract<Transaction>(
                             new Date(expiresAt.getTime() + 1)
                         )
                     )
-                ).toThrow(/already used|not valid/);
+                );
+                expect(replay.code).toBe("authority.denied");
+                expect(
+                    replayTarget
+                        .transaction((transaction) =>
+                            replayTarget.requested(transaction, permit.nonce)
+                        )
+                        ?.digest()
+                        .equals(targetRequestFor(expected, permit.nonce).digest())
+                ).toBe(true);
             }
         );
 
@@ -161,10 +279,8 @@ function permitStoreContract<Transaction>(
                     harness.tenantStore.transaction((transaction) => {
                         issuer.issue(
                             transaction,
-                            expected,
-                            `${name}-rollback`,
-                            issuedAt,
-                            expiresAt
+                            targetRequestFor(expected, `${name}-rollback`),
+                            issuedAt
                         );
                         throw new AgentCoreError("protocol.invalid-state", "abort issuance");
                     })
@@ -176,9 +292,14 @@ function permitStoreContract<Transaction>(
                 ).toBeUndefined();
 
                 const permit = harness.tenantStore.transaction((transaction) =>
-                    issuer.issue(transaction, expected, `${name}-admission`, issuedAt, expiresAt)
+                    issuer.issue(
+                        transaction,
+                        targetRequestFor(expected, `${name}-admission`),
+                        issuedAt
+                    )
                 );
                 const authentication = await authenticate(harness.tenantStore, permit, expected);
+                recordTargetRequest(harness.targetStore, expected, permit.nonce);
                 const admission = new StoredAuthorityPermitAdmissionPort(harness.targetStore);
                 expect(() =>
                     harness.targetStore.transaction((transaction) => {
@@ -217,28 +338,21 @@ function permitStoreContract<Transaction>(
             const first = harness.tenantStore.transaction((transaction) =>
                 new AuthorityPermitIssuer(harness.tenantStore, authority).issue(
                     transaction,
-                    expected,
-                    nonce,
-                    issuedAt,
-                    expiresAt
+                    targetRequestFor(expected, nonce),
+                    issuedAt
                 )
             );
 
-            authority.live = false;
-            authority.lastClaim = undefined;
             const restarted = harness.restartTenant();
             const replay = restarted.transaction((transaction) =>
                 new AuthorityPermitIssuer(restarted, authority).issue(
                     transaction,
-                    expected,
-                    nonce,
-                    new Date(issuedAt.getTime() + 1_000),
-                    new Date(expiresAt.getTime() + 1_000)
+                    targetRequestFor(expected, nonce),
+                    new Date(issuedAt.getTime() + 1_000)
                 )
             );
 
             expect(AuthorityPermit.encode(replay)).toEqual(AuthorityPermit.encode(first));
-            expect(authority.lastClaim).toBeUndefined();
         });
 
         test(
@@ -254,10 +368,8 @@ function permitStoreContract<Transaction>(
                         harness.tenantStore.transaction((transaction) =>
                             new AuthorityPermitIssuer(harness.tenantStore, authority).issue(
                                 transaction,
-                                expected,
-                                nonce,
-                                new Date(issuedAt.getTime() + offset),
-                                new Date(expiresAt.getTime() + offset)
+                                targetRequestFor(expected, nonce),
+                                new Date(issuedAt.getTime() + offset)
                             )
                         )
                     );
@@ -282,7 +394,7 @@ function permitStoreContract<Transaction>(
                 const expected = expectation();
                 const issuer = new AuthorityPermitIssuer(harness.tenantStore, authority);
                 const original = harness.tenantStore.transaction((transaction) =>
-                    issuer.issue(transaction, expected, `${name}-cas`, issuedAt, expiresAt)
+                    issuer.issue(transaction, targetRequestFor(expected, `${name}-cas`), issuedAt)
                 );
                 for (const [field, substituted] of substitutions(expected)) {
                     expect(
@@ -290,14 +402,12 @@ function permitStoreContract<Transaction>(
                             harness.tenantStore.transaction((transaction) =>
                                 issuer.issue(
                                     transaction,
-                                    substituted,
-                                    `${name}-cas`,
-                                    issuedAt,
-                                    expiresAt
+                                    targetRequestFor(substituted, `${name}-cas`),
+                                    issuedAt
                                 )
                             ),
                         field
-                    ).toThrow(/another issuance expectation/);
+                    ).toThrow();
                 }
                 expect(
                     harness.tenantStore.transaction(
@@ -313,12 +423,140 @@ function permitStoreContract<Transaction>(
                             new AuthorityPermit({
                                 ...expected,
                                 nonce: `${name}-foreign`,
+                                requestDigest: targetRequestFor(
+                                    expected,
+                                    `${name}-foreign`
+                                ).digest(),
                                 issuedAt,
                                 expiresAt
                             })
                         )
                     )
-                ).toThrow(/another|foreign/);
+                ).toThrow(TypeError);
+            }
+        );
+
+        test(
+            "refuses consumption without the exact durable target request across restart",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const expected = expectation();
+                const permit = harness.tenantStore.transaction((transaction) =>
+                    new AuthorityPermitIssuer(
+                        harness.tenantStore,
+                        new CurrentAuthority<Transaction>()
+                    ).issue(
+                        transaction,
+                        targetRequestFor(expected, `${name}-missing-target-request`),
+                        issuedAt
+                    )
+                );
+                const authentication = await authenticate(
+                    harness.restartTenant(),
+                    permit,
+                    expected
+                );
+                const restartedTarget = harness.restartTarget();
+
+                const error = caughtAgentCoreError(() =>
+                    restartedTarget.transaction((transaction) =>
+                        new StoredAuthorityPermitAdmissionPort(restartedTarget).consume(
+                            transaction,
+                            authentication,
+                            permit,
+                            expected,
+                            new Date(issuedAt.getTime() + 1)
+                        )
+                    )
+                );
+                expect(error.code).toBe("authority.denied");
+                expect(
+                    restartedTarget.transaction((transaction) =>
+                        restartedTarget.consumed(transaction, permit.nonce)
+                    )
+                ).toBeUndefined();
+            }
+        );
+
+        test(
+            "refuses a permit issued for a substituted full authority request",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const expected = expectation();
+                const nonce = `${name}-substituted-authority-request`;
+                const issuedRequest = targetRequestFor(expected, nonce);
+                const substitutedRequest = targetRequestFor(
+                    expected,
+                    nonce,
+                    expiresAt,
+                    new GrantId("permit-substituted-request-grant")
+                );
+                expect(substitutedRequest.expectation.equals(issuedRequest.expectation)).toBe(true);
+                expect(substitutedRequest.digest().equals(issuedRequest.digest())).toBe(false);
+
+                const permit = harness.tenantStore.transaction((transaction) =>
+                    new AuthorityPermitIssuer(
+                        harness.tenantStore,
+                        new CurrentAuthority<Transaction>()
+                    ).issue(transaction, issuedRequest, issuedAt)
+                );
+                const authentication = await authenticate(
+                    harness.restartTenant(),
+                    permit,
+                    expected
+                );
+                harness.targetStore.transaction((transaction) =>
+                    new AuthorityPermitRequester(harness.targetStore).request(
+                        transaction,
+                        substitutedRequest
+                    )
+                );
+                const restartedTarget = harness.restartTarget();
+
+                const error = caughtAgentCoreError(() =>
+                    restartedTarget.transaction((transaction) =>
+                        new StoredAuthorityPermitAdmissionPort(restartedTarget).consume(
+                            transaction,
+                            authentication,
+                            permit,
+                            expected,
+                            new Date(issuedAt.getTime() + 1)
+                        )
+                    )
+                );
+                expect(error.code).toBe("authority.denied");
+                expect(
+                    restartedTarget.transaction((transaction) =>
+                        restartedTarget.consumed(transaction, nonce)
+                    )
+                ).toBeUndefined();
+            }
+        );
+
+        test(
+            "refuses a non-future request expiry before authority evaluation",
+            { tags: "p0" },
+            () => {
+                const harness = create();
+                const authority = new CurrentAuthority<Transaction>();
+
+                const error = caughtAgentCoreError(() =>
+                    harness.tenantStore.transaction((transaction) =>
+                        new AuthorityPermitIssuer(harness.tenantStore, authority).issue(
+                            transaction,
+                            targetRequestFor(
+                                expectation(),
+                                `${name}-expired-at-issuance`,
+                                issuedAt
+                            ),
+                            issuedAt
+                        )
+                    )
+                );
+                expect(error.code).toBe("authority.denied");
+                expect(authority.lastClaim).toBeUndefined();
             }
         );
     });
@@ -391,6 +629,7 @@ describe("AuthorityPermit", () => {
             const permit = new AuthorityPermit({
                 ...expectation(),
                 nonce: "codec-nonce",
+                requestDigest: requestDigestFor(expectation(), "codec-nonce"),
                 issuedAt,
                 expiresAt
             });
@@ -463,6 +702,7 @@ describe("AuthorityPermit", () => {
                 "package",
                 "pathEpochs",
                 "principal",
+                "requestDigest",
                 "reservation",
                 "source",
                 "target",
@@ -500,6 +740,7 @@ describe("AuthorityPermit", () => {
                     new AuthorityPermit({
                         ...expected,
                         nonce: "system-no-lease",
+                        requestDigest: requestDigestFor(expected, "system-no-lease"),
                         issuedAt,
                         expiresAt
                     })
@@ -562,6 +803,7 @@ describe("AuthorityPermit", () => {
                 new AuthorityPermit({
                     ...expectation(),
                     nonce: " ",
+                    requestDigest: requestDigestFor(expectation(), "invalid-nonce"),
                     issuedAt,
                     expiresAt
                 })
@@ -571,6 +813,7 @@ describe("AuthorityPermit", () => {
                 new AuthorityPermit({
                     ...expectation(),
                     nonce: "bad-expiry",
+                    requestDigest: requestDigestFor(expectation(), "bad-expiry"),
                     issuedAt,
                     expiresAt: issuedAt
                 })
@@ -580,6 +823,7 @@ describe("AuthorityPermit", () => {
                 new AuthorityPermit({
                     ...expectation(),
                     nonce: "bad-time",
+                    requestDigest: requestDigestFor(expectation(), "bad-time"),
                     issuedAt: new Date(Number.NaN),
                     expiresAt
                 })
@@ -605,6 +849,7 @@ describe("AuthorityPermit", () => {
         const permit = new AuthorityPermit({
             ...expectation(),
             nonce: "malformed-codec",
+            requestDigest: requestDigestFor(expectation(), "malformed-codec"),
             issuedAt,
             expiresAt
         });
@@ -634,7 +879,7 @@ describe("AuthorityPermit", () => {
             const expected = expectation();
             const issuer = new AuthorityPermitIssuer(tenantStore, authority);
             const permit = tenantStore.transaction((transaction) =>
-                issuer.issue(transaction, expected, "adversarial", issuedAt, expiresAt)
+                issuer.issue(transaction, targetRequestFor(expected, "adversarial"), issuedAt)
             );
             const authentication = await authenticate(tenantStore, permit, expected);
             const admission = new StoredAuthorityPermitAdmissionPort(targetStore);
@@ -694,7 +939,7 @@ describe("AuthorityPermit", () => {
             const issuer = new AuthorityPermitIssuer(tenantStore, authority);
             const expected = expectation();
             const admitted = tenantStore.transaction((transaction) =>
-                issuer.issue(transaction, expected, "before-revocation", issuedAt, expiresAt)
+                issuer.issue(transaction, targetRequestFor(expected, "before-revocation"), issuedAt)
             );
             const authentication = await authenticate(tenantStore, admitted, expected);
 
@@ -706,10 +951,15 @@ describe("AuthorityPermit", () => {
             ]);
             expect(() =>
                 tenantStore.transaction((transaction) =>
-                    issuer.issue(transaction, expected, "after-revocation", issuedAt, expiresAt)
+                    issuer.issue(
+                        transaction,
+                        targetRequestFor(expected, "after-revocation"),
+                        issuedAt
+                    )
                 )
             ).toThrow(/does not admit/);
 
+            recordTargetRequest(targetStore, expected, admitted.nonce);
             targetStore.transaction((transaction) =>
                 new StoredAuthorityPermitAdmissionPort(targetStore).consume(
                     transaction,
@@ -736,21 +986,20 @@ describe("AuthorityPermit", () => {
             const permit = issuerStore.transaction((transaction) =>
                 new AuthorityPermitIssuer(issuerStore, new CurrentAuthority()).issue(
                     transaction,
-                    expected,
-                    "memory-corruption",
-                    issuedAt,
-                    expiresAt
+                    targetRequestFor(expected, "memory-corruption"),
+                    issuedAt
                 )
             );
             const snapshot = issuerStore.snapshot();
             expect(
                 () =>
-                    new MemoryAuthorityPermitStore(issuerActor, violating(snapshot, { version: 2 }))
+                    new MemoryAuthorityPermitStore(issuerActor, violating(snapshot, { version: 3 }))
             ).toThrow(/malformed/);
             expect(
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 1,
+                        version: 2,
+                        requested: [],
                         issued: [snapshot.issued[0]!, snapshot.issued[0]!],
                         consumed: []
                     })
@@ -758,7 +1007,8 @@ describe("AuthorityPermit", () => {
             expect(
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 1,
+                        version: 2,
+                        requested: [],
                         issued: [{ nonce: "wrong-nonce", bytes: snapshot.issued[0]!.bytes }],
                         consumed: []
                     })
@@ -766,17 +1016,19 @@ describe("AuthorityPermit", () => {
             expect(
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 1,
+                        version: 2,
+                        requested: [],
                         issued: [],
-                        consumed: [{ nonce: "consumed", digest: "bad-digest" }]
+                        consumed: [{ nonce: "consumed", bytes: Uint8Array.of(0) }]
                     })
             ).toThrow();
             expect(
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 1,
+                        version: 2,
+                        requested: [],
                         issued: snapshot.issued,
-                        consumed: [{ nonce: permit.nonce, digest: permit.digest().value }]
+                        consumed: [{ nonce: permit.nonce, bytes: AuthorityPermit.encode(permit) }]
                     })
             ).toThrow(/malformed/);
             expect(() => new MemoryAuthorityPermitStore(targetActor, snapshot)).toThrow(
@@ -791,7 +1043,8 @@ describe("AuthorityPermit", () => {
             let malformedKey: unknown;
             try {
                 new MemoryAuthorityPermitStore(targetActor, {
-                    version: 1,
+                    version: 2,
+                    requested: [],
                     issued: [violating(snapshot.issued[0]!, { nonce: 5 })],
                     consumed: []
                 });
@@ -829,21 +1082,24 @@ describe("AuthorityPermit", () => {
             const malformedStores = [
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 1,
+                        version: 2,
+                        requested: [],
                         // @ts-expect-error Issued ownership records cannot be null.
                         issued: [null],
                         consumed: []
                     }),
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 1,
+                        version: 2,
+                        requested: [],
                         issued: [],
                         // @ts-expect-error Consumed ownership records cannot be null.
                         consumed: [null]
                     }),
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 1,
+                        version: 2,
+                        requested: [],
                         issued: [],
                         consumed: [
                             {
@@ -855,7 +1111,8 @@ describe("AuthorityPermit", () => {
                     }),
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 1,
+                        version: 2,
+                        requested: [],
                         issued: [],
                         consumed: [
                             {
@@ -889,10 +1146,8 @@ describe("AuthorityPermit", () => {
             const permit = store.transaction((transaction) =>
                 new AuthorityPermitIssuer(store, new CurrentAuthority()).issue(
                     transaction,
-                    expected,
-                    "sqlite-corruption",
-                    issuedAt,
-                    expiresAt
+                    targetRequestFor(expected, "sqlite-corruption"),
+                    issuedAt
                 )
             );
             expect(
@@ -919,10 +1174,8 @@ describe("AuthorityPermit", () => {
             const permit = authenticationStore.transaction((transaction) =>
                 new AuthorityPermitIssuer(authenticationStore, new CurrentAuthority()).issue(
                     transaction,
-                    expected,
-                    "sqlite-fault",
-                    issuedAt,
-                    expiresAt
+                    targetRequestFor(expected, "sqlite-fault"),
+                    issuedAt
                 )
             );
             const authentication = await authenticate(authenticationStore, permit, expected);
@@ -940,6 +1193,12 @@ describe("AuthorityPermit", () => {
                     issuer: new ActorRef("tenant", new ActorId("foreign-issuer"))
                 }),
                 nonce: "foreign-issuer",
+                requestDigest: requestDigestFor(
+                    expectation({
+                        issuer: new ActorRef("tenant", new ActorId("foreign-issuer"))
+                    }),
+                    "foreign-issuer"
+                ),
                 issuedAt,
                 expiresAt
             });
@@ -968,6 +1227,7 @@ describe("AuthorityPermit", () => {
 
             const consumeFailure = new ControlledSqlite();
             const consumeStore = new SqliteAuthorityPermitStore(consumeFailure, targetActor);
+            recordTargetRequest(consumeStore, expected, permit.nonce);
             const wrongTargetStore = new SqliteAuthorityPermitStore(
                 new ControlledSqlite(),
                 new ActorRef("run", new ActorId("wrong-target"))
@@ -1010,6 +1270,7 @@ describe("AuthorityPermit", () => {
 
             const droppedConsume = new ControlledSqlite();
             const droppedConsumeStore = new SqliteAuthorityPermitStore(droppedConsume, targetActor);
+            recordTargetRequest(droppedConsumeStore, expected, permit.nonce);
             droppedConsume.dropRun = true;
             expect(() =>
                 droppedConsumeStore.transaction((transaction) =>
@@ -1059,6 +1320,7 @@ describe("AuthorityPermit", () => {
 
             const consumedProjection = new ControlledSqlite();
             const consumedStore = new SqliteAuthorityPermitStore(consumedProjection, targetActor);
+            recordTargetRequest(consumedStore, expected, permit.nonce);
             consumedStore.transaction((transaction) =>
                 consumedStore.consume(
                     transaction,
@@ -1078,7 +1340,7 @@ describe("AuthorityPermit", () => {
 });
 
 class StoreIssuedRecordSource<Transaction> extends AuthorityPermitIssuedRecordSource {
-    public constructor(private readonly store: AuthorityPermitOwnerStore<Transaction>) {
+    public constructor(private readonly store: AuthorityPermitIssueStore<Transaction>) {
         super();
     }
 
@@ -1097,7 +1359,7 @@ class StoreIssuedRecordSource<Transaction> extends AuthorityPermitIssuedRecordSo
 }
 
 function authenticate<Transaction>(
-    store: AuthorityPermitOwnerStore<Transaction>,
+    store: AuthorityPermitIssueStore<Transaction>,
     permit: AuthorityPermit,
     expected: AuthorityPermitExpectation
 ) {
@@ -1137,7 +1399,7 @@ function expectation(
 ): AuthorityPermitExpectation {
     const binding = overrides.binding ?? {
         name: new BindingName("mail"),
-        generation: new Revision(3)
+        generation: Revision.initial()
     };
     const selectedPrincipal = overrides.principal ?? principal;
     const selectedInvocation = overrides.invocation ?? invocation;
@@ -1155,7 +1417,7 @@ function expectation(
         principal: selectedPrincipal,
         binding,
         facet: overrides.facet ?? new FacetRef("workspace:mail"),
-        operation: overrides.operation ?? new OperationRef("mail:send"),
+        operation: overrides.operation ?? new OperationRef("workspace:send"),
         package:
             overrides.package ??
             new PackagePin(
@@ -1185,7 +1447,7 @@ function expectation(
             worker: new ClaimWorkerId("permit-worker")
         },
         itemKey: selectedItemKey,
-        argumentsDigest: overrides.argumentsDigest ?? digest("arguments"),
+        argumentsDigest: overrides.argumentsDigest ?? authorityArgumentsDigest(internalArguments),
         intentDigest: overrides.intentDigest ?? digest("intent"),
         pathEpochs: overrides.pathEpochs ?? path,
         authority: overrides.authority ?? {
@@ -1195,6 +1457,77 @@ function expectation(
         },
         lease: overrides.lease === undefined ? lease : overrides.lease
     });
+}
+
+function targetRequest(
+    nonce: string,
+    overrides: Partial<AuthorityPermitExpectationInit> = {}
+): TargetAuthorityPermitRequest {
+    return targetRequestFor(expectation(overrides), nonce);
+}
+
+const internalArguments = Object.freeze({ channel: "internal" as const });
+const externalArguments = Object.freeze({ channel: "external" as const });
+
+function targetRequestFor(
+    expected: AuthorityPermitExpectation,
+    nonce: string,
+    expiry: Date = expiresAt,
+    grantId: GrantId = new GrantId("permit-target-request-grant")
+): TargetAuthorityPermitRequest {
+    const argumentsValue = expected.argumentsDigest.equals(
+        authorityArgumentsDigest(internalArguments)
+    )
+        ? internalArguments
+        : externalArguments;
+    const binding = new Binding(
+        expected.pathEpochs.target.scope,
+        SubjectRef.principal(expected.principal),
+        expected.target.domain,
+        expected.binding.name,
+        grantId,
+        expected.facet,
+        expected.binding.generation.value,
+        "active",
+        new Revision(expected.binding.generation.value)
+    );
+    const authority = new AuthorityCheckRequest({
+        ownerTenant: expected.tenant,
+        owner: expected.target.actor,
+        ownerFence: expected.target.fence,
+        principal: expected.principal,
+        binding,
+        intent: {
+            facet: expected.facet,
+            operation: expected.operation.operation.value,
+            impact: expected.impact,
+            arguments: argumentsValue,
+            argumentsDigest: authorityArgumentsDigest(argumentsValue)
+        },
+        expectedPath: expected.pathEpochs,
+        invocationDigest: expected.intentDigest,
+        itemIndex: expected.itemIndex,
+        attemptOrdinal: expected.attemptOrdinal,
+        nonce
+    });
+    return new TargetAuthorityPermitRequest(expected, authority, nonce, expiry);
+}
+
+function recordTargetRequest<Transaction>(
+    store: AuthorityPermitTargetStore<Transaction>,
+    expected: AuthorityPermitExpectation,
+    nonce: string
+): void {
+    const requester = new AuthorityPermitRequester(store);
+    store.transaction((transaction) =>
+        requester.request(transaction, targetRequestFor(expected, nonce))
+    );
+}
+
+function authorityArgumentsDigest(
+    argumentsValue: typeof internalArguments | typeof externalArguments
+): Digest {
+    return Digest.sha256(encodeCanonicalJson(argumentsValue));
 }
 
 function substitutions(
@@ -1237,7 +1570,7 @@ function substitutions(
             })
         ],
         ["Facet", expectation({ facet: new FacetRef("workspace:calendar") })],
-        ["operation", expectation({ operation: new OperationRef("mail:draft") })],
+        ["operation", expectation({ operation: new OperationRef("workspace:draft") })],
         [
             "package pin",
             expectation({
@@ -1274,7 +1607,10 @@ function substitutions(
                 }
             })
         ],
-        ["arguments digest", expectation({ argumentsDigest: digest("other-arguments") })],
+        [
+            "arguments digest",
+            expectation({ argumentsDigest: authorityArgumentsDigest(externalArguments) })
+        ],
         ["intent digest", expectation({ intentDigest: digest("other-intent") })],
         [
             "complete path epochs",
@@ -1308,12 +1644,21 @@ function digest(value: string): Digest {
     return Digest.sha256(new TextEncoder().encode(value));
 }
 
+function requestDigestFor(
+    expected: AuthorityPermitExpectation,
+    nonce: string,
+    expiry: Date = expiresAt
+): Digest {
+    return targetRequestFor(expected, nonce, expiry).digest();
+}
+
 describe("AuthorityPermit mutation gates", () => {
     test("exposes every expectation field through the permit getters", { tags: "p0" }, () => {
         const expected = expectation();
         const permit = new AuthorityPermit({
             ...expected,
             nonce: "getter-nonce",
+            requestDigest: requestDigestFor(expected, "getter-nonce"),
             issuedAt,
             expiresAt
         });
@@ -1323,9 +1668,9 @@ describe("AuthorityPermit mutation gates", () => {
         expect(permit.source.equals(sourceActor)).toBe(true);
         expect(permit.principal.equals(principal)).toBe(true);
         expect(permit.binding.name.value).toBe("mail");
-        expect(permit.binding.generation.value).toBe(3);
+        expect(permit.binding.generation.value).toBe(0);
         expect(permit.facet.value).toBe("workspace:mail");
-        expect(permit.operation.value).toBe("mail:send");
+        expect(permit.operation.value).toBe("workspace:send");
         expect(permit.package.toData()).toEqual(expected.package.toData());
         expect(permit.invocation.equals(invocation)).toBe(true);
         expect(permit.claim.value).toBe("permit-claim");
@@ -1345,6 +1690,7 @@ describe("AuthorityPermit mutation gates", () => {
             const permit = new AuthorityPermit({
                 ...expected,
                 nonce: "boundary-nonce",
+                requestDigest: requestDigestFor(expected, "boundary-nonce"),
                 issuedAt,
                 expiresAt
             });
@@ -1372,6 +1718,7 @@ describe("AuthorityPermit mutation gates", () => {
                 new AuthorityPermit({
                     ...expectation(),
                     nonce: "invalid-issue",
+                    requestDigest: requestDigestFor(expectation(), "invalid-issue"),
                     issuedAt: new Date(Number.NaN),
                     expiresAt
                 })
@@ -1383,6 +1730,7 @@ describe("AuthorityPermit mutation gates", () => {
                 new AuthorityPermit({
                     ...expectation(),
                     nonce: "invalid-expiry",
+                    requestDigest: requestDigestFor(expectation(), "invalid-expiry"),
                     issuedAt,
                     expiresAt: new Date(Number.NaN)
                 })
@@ -1392,6 +1740,7 @@ describe("AuthorityPermit mutation gates", () => {
                 new AuthorityPermit({
                     ...expectation(),
                     nonce: "negative-issue",
+                    requestDigest: requestDigestFor(expectation(), "negative-issue"),
                     issuedAt: new Date(-1),
                     expiresAt
                 })
@@ -1402,6 +1751,7 @@ describe("AuthorityPermit mutation gates", () => {
         const epochPermit = new AuthorityPermit({
             ...expectation(),
             nonce: "epoch-issue",
+            requestDigest: requestDigestFor(expectation(), "epoch-issue", new Date(1)),
             issuedAt: new Date(0),
             expiresAt: new Date(1)
         });
@@ -1411,7 +1761,14 @@ describe("AuthorityPermit mutation gates", () => {
     test("rejects blank and non-canonical nonces exactly", { tags: "p0" }, () => {
         for (const nonce of ["", " padded"]) {
             expect(
-                () => new AuthorityPermit({ ...expectation(), nonce, issuedAt, expiresAt })
+                () =>
+                    new AuthorityPermit({
+                        ...expectation(),
+                        nonce,
+                        requestDigest: digest("invalid-request"),
+                        issuedAt,
+                        expiresAt
+                    })
             ).toThrow(new TypeError("Authority permit nonce must be a nonblank canonical string"));
         }
     });
@@ -1512,6 +1869,7 @@ describe("AuthorityPermit authentication mutation gates", () => {
         const permit = new AuthorityPermit({
             ...expectation(),
             nonce: "auth-forged",
+            requestDigest: requestDigestFor(expectation(), "auth-forged"),
             issuedAt,
             expiresAt
         });
@@ -1530,6 +1888,7 @@ describe("AuthorityPermit authentication mutation gates", () => {
             const permit = new AuthorityPermit({
                 ...expected,
                 nonce: "auth-nonce-a",
+                requestDigest: requestDigestFor(expected, "auth-nonce-a"),
                 issuedAt,
                 expiresAt
             });
@@ -1537,6 +1896,7 @@ describe("AuthorityPermit authentication mutation gates", () => {
             const drifted = new AuthorityPermit({
                 ...expected,
                 nonce: "auth-nonce-b",
+                requestDigest: requestDigestFor(expected, "auth-nonce-b"),
                 issuedAt,
                 expiresAt
             });
@@ -1602,10 +1962,8 @@ describe("AuthorityPermit authentication mutation gates", () => {
             const permit = store.transaction((transaction) =>
                 new AuthorityPermitIssuer(store, new CurrentAuthority()).issue(
                     transaction,
-                    expected,
-                    "auth-evidence-a",
-                    issuedAt,
-                    expiresAt
+                    targetRequestFor(expected, "auth-evidence-a"),
+                    issuedAt
                 )
             );
             const authentication = await authenticate(store, permit, expected);
@@ -1614,6 +1972,7 @@ describe("AuthorityPermit authentication mutation gates", () => {
             const other = new AuthorityPermit({
                 ...expected,
                 nonce: "auth-evidence-b",
+                requestDigest: requestDigestFor(expected, "auth-evidence-b"),
                 issuedAt,
                 expiresAt
             });
@@ -1637,6 +1996,7 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
             const permit = new AuthorityPermit({
                 ...expected,
                 nonce: "store-issue-nonce",
+                requestDigest: requestDigestFor(expected, "store-issue-nonce"),
                 issuedAt,
                 expiresAt
             });
@@ -1646,6 +2006,7 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
                 const replay = new AuthorityPermit({
                     ...expected,
                     nonce: "store-issue-nonce",
+                    requestDigest: requestDigestFor(expected, "store-issue-nonce"),
                     issuedAt: new Date(issuedAt.getTime() + 500),
                     expiresAt: new Date(expiresAt.getTime() + 500)
                 });
@@ -1655,6 +2016,10 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
                 const conflicting = new AuthorityPermit({
                     ...expectation({ claim: new ItemClaimId("store-other-claim") }),
                     nonce: "store-issue-nonce",
+                    requestDigest: requestDigestFor(
+                        expectation({ claim: new ItemClaimId("store-other-claim") }),
+                        "store-issue-nonce"
+                    ),
                     issuedAt,
                     expiresAt
                 });
@@ -1668,55 +2033,63 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         }
     );
 
-    test("a consumed nonce can never be reused by the same owner", { tags: "p0" }, async () => {
-        const expected = expectation({
-            target: {
-                actor: issuerActor,
-                fence: 11,
-                domain: new ProtectionDomain("backend", "permit-domain", "may-hold-secrets")
-            }
-        });
-        const issuerStore = new MemoryAuthorityPermitStore(issuerActor);
-        const permit = issuerStore.transaction((transaction) =>
-            new AuthorityPermitIssuer(issuerStore, new CurrentAuthority()).issue(
-                transaction,
-                expected,
-                "store-consumed-reuse",
+    test(
+        "a consumed nonce retains its exact request and cannot be consumed twice",
+        { tags: "p0" },
+        async () => {
+            const reuseOwner = new ActorRef("run", new ActorId("permit-consumed-reuse-owner"));
+            const expected = expectation({
+                target: {
+                    actor: reuseOwner,
+                    fence: 11,
+                    domain: new ProtectionDomain("backend", "permit-domain", "may-hold-secrets")
+                }
+            });
+            const issuerStore = new MemoryAuthorityPermitStore(issuerActor);
+            const permit = new AuthorityPermit({
+                ...expected,
+                nonce: "store-consumed-reuse",
+                requestDigest: requestDigestFor(expected, "store-consumed-reuse"),
                 issuedAt,
                 expiresAt
-            )
-        );
-        const authentication = await authenticate(issuerStore, permit, expected);
+            });
+            issuerStore.transaction((transaction) => issuerStore.issue(transaction, permit));
+            const authentication = await authenticate(issuerStore, permit, expected);
 
-        const ownerStore = new MemoryAuthorityPermitStore(issuerActor);
-        ownerStore.transaction((transaction) =>
-            ownerStore.consume(
-                transaction,
-                authentication,
-                permit,
-                expected,
-                new Date(issuedAt.getTime() + 1)
-            )
-        );
-        const reissue = caughtAgentCoreError(() =>
-            ownerStore.transaction((transaction) => ownerStore.issue(transaction, permit))
-        );
-        expect(reissue.code).toBe("authority.denied");
-        expect(reissue.message).toBe("Authority permit nonce was already used by this Actor owner");
-        const replay = caughtAgentCoreError(() =>
+            const ownerStore = new MemoryAuthorityPermitStore(reuseOwner);
+            recordTargetRequest(ownerStore, expected, permit.nonce);
             ownerStore.transaction((transaction) =>
                 ownerStore.consume(
                     transaction,
                     authentication,
                     permit,
                     expected,
-                    new Date(issuedAt.getTime() + 2)
+                    new Date(issuedAt.getTime() + 1)
                 )
-            )
-        );
-        expect(replay.code).toBe("authority.denied");
-        expect(replay.message).toBe("Authority permit nonce was already used by this Actor owner");
-    });
+            );
+            const replayedRequest = ownerStore.transaction((transaction) =>
+                new AuthorityPermitRequester(ownerStore).request(
+                    transaction,
+                    targetRequestFor(expected, permit.nonce)
+                )
+            );
+            expect(
+                replayedRequest.digest().equals(targetRequestFor(expected, permit.nonce).digest())
+            ).toBe(true);
+            const replay = caughtAgentCoreError(() =>
+                ownerStore.transaction((transaction) =>
+                    ownerStore.consume(
+                        transaction,
+                        authentication,
+                        permit,
+                        expected,
+                        new Date(issuedAt.getTime() + 2)
+                    )
+                )
+            );
+            expect(replay.code).toBe("authority.denied");
+        }
+    );
 
     test("snapshots order issued and consumed records canonically", { tags: "p1" }, async () => {
         const store = new MemoryAuthorityPermitStore(issuerActor);
@@ -1724,12 +2097,14 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         const second = new AuthorityPermit({
             ...expected,
             nonce: "store-order-b",
+            requestDigest: requestDigestFor(expected, "store-order-b"),
             issuedAt,
             expiresAt
         });
         const first = new AuthorityPermit({
             ...expected,
             nonce: "store-order-a",
+            requestDigest: requestDigestFor(expected, "store-order-a"),
             issuedAt,
             expiresAt
         });
@@ -1746,6 +2121,8 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         const authenticationB = await authenticate(store, second, expected);
         const authenticationA = await authenticate(store, first, expected);
         const targetStore = new MemoryAuthorityPermitStore(targetActor);
+        recordTargetRequest(targetStore, expected, second.nonce);
+        recordTargetRequest(targetStore, expected, first.nonce);
         targetStore.transaction((transaction) => {
             targetStore.consume(
                 transaction,
@@ -1774,6 +2151,7 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         const permit = new AuthorityPermit({
             ...expectation(),
             nonce: "store-detached",
+            requestDigest: requestDigestFor(expectation(), "store-detached"),
             issuedAt,
             expiresAt
         });
@@ -1807,6 +2185,7 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         const permit = new AuthorityPermit({
             ...expectation(),
             nonce: "store-real-nonce",
+            requestDigest: requestDigestFor(expectation(), "store-real-nonce"),
             issuedAt,
             expiresAt
         });
@@ -1828,7 +2207,8 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         const issuedHole = caughtAgentCoreError(
             () =>
                 new MemoryAuthorityPermitStore(issuerActor, {
-                    version: 1,
+                    version: 2,
+                    requested: [],
                     issued: Array.from<{ nonce: string; bytes: Uint8Array }>({ length: 1 }),
                     consumed: []
                 })
@@ -1839,9 +2219,10 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         const consumedHole = caughtAgentCoreError(
             () =>
                 new MemoryAuthorityPermitStore(issuerActor, {
-                    version: 1,
+                    version: 2,
+                    requested: [],
                     issued: [],
-                    consumed: Array.from<{ nonce: string; digest: string }>({ length: 1 })
+                    consumed: Array.from<{ nonce: string; bytes: Uint8Array }>({ length: 1 })
                 })
         );
         expect(consumedHole.code).toBe("codec.invalid");

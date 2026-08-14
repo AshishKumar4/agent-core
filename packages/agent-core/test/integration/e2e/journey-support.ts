@@ -10,10 +10,12 @@ import {
     BindingValidationRequest,
     GrantId,
     PathEpochEvidence,
-    ScopeEpoch
+    ScopeEpoch,
+    TargetAuthorityPermitRequest
 } from "../../../src/authority";
 import {
     createClosedTenantAuthorityComposition,
+    TENANT_AUTHORITY_COMMANDS,
     type ClosedTenantAuthorityComposition
 } from "../../../src/composition";
 import { ContentRef, Digest, Revision, SemVer, encodeCanonicalJson } from "../../../src/core";
@@ -37,6 +39,7 @@ import {
 } from "../../../src/invocations";
 import {
     AuthorityPermitIssuanceRequest,
+    AuthorityPermitIssuanceReply,
     CommandEnvelope,
     CommandEnvelopeCodec,
     MemoryProtocolPersistence,
@@ -179,12 +182,13 @@ class AuthorityJourneyIdentity {
             expiresAt: new Date(at.getTime() + 5_000)
         });
         return {
-            sourceFence: (read: AuthorityJourneyRead, source: ActorRef) =>
-                source.equals(this.sourceActor) ? read.fence : undefined,
+            actorFence: (read: AuthorityJourneyRead, actor: ActorRef) =>
+                actor.equals(this.sourceActor)
+                    ? read.fence
+                    : actor.equals(this.targetActor)
+                      ? 3
+                      : undefined,
             checkPrincipal: (read: AuthorityJourneyRead) => read.principal,
-            permitPrincipal: (read: AuthorityJourneyRead) => read.principal,
-            permitsPermit: (read: AuthorityJourneyRead, request: AuthorityPermitIssuanceRequest) =>
-                request.expectation.pathEpochs.equals(read.path),
             currentCheckLease: (
                 _read: AuthorityJourneyRead,
                 _request: AuthorityCheckRequest,
@@ -238,52 +242,79 @@ class AuthorityJourneyIdentity {
     public permitRequest(): AuthorityPermitIssuanceRequest {
         const invocation = new InteractionInvocationId(`${this.name}-permit-invocation`);
         const itemKey = `${this.name}-item`;
-        return new AuthorityPermitIssuanceRequest(
-            new AuthorityPermitExpectation({
-                tenant: this.tenant,
-                issuer: this.tenantActor,
-                source: this.sourceActor,
-                target: { actor: this.targetActor, fence: 3, domain: this.domain },
+        const argumentsValue = { channel: "internal" } as const;
+        const argumentsDigest = Digest.sha256(encodeCanonicalJson(argumentsValue));
+        const intentDigest = journeyDigest(`${this.name}-intent`);
+        const nonce = `${this.name}-permit`;
+        const expectation = new AuthorityPermitExpectation({
+            tenant: this.tenant,
+            issuer: this.tenantActor,
+            source: this.sourceActor,
+            target: { actor: this.targetActor, fence: 3, domain: this.domain },
+            principal: this.principal,
+            binding: {
+                name: this.bindingName,
+                generation: new Revision(this.binding.generation)
+            },
+            facet: this.facet,
+            operation: new OperationRef("workspace:send"),
+            package: new PackagePin(
+                new PackageId(`${this.name}-package`),
+                new SemVer("1.0.0"),
+                journeyDigest(`${this.name}-manifest`),
+                journeyDigest(`${this.name}-code`)
+            ),
+            impact: "externalSend",
+            invocation,
+            reservation: {
+                run: new RunId(`${this.name}-run`),
+                registryEpoch: 2,
+                obligation: { kind: "invocationItem", invocation, itemIndex: 0, itemKey }
+            },
+            itemIndex: 0,
+            attemptOrdinal: 0,
+            claim: new ItemClaimId(`${this.name}-claim`),
+            claimOwner: {
+                kind: "system",
+                actor: this.targetActor,
+                worker: new ClaimWorkerId(`${this.name}-worker`)
+            },
+            itemKey,
+            argumentsDigest,
+            intentDigest,
+            pathEpochs: this.path(),
+            authority: {
+                kind: "initiator",
                 principal: this.principal,
-                binding: {
-                    name: this.bindingName,
-                    generation: new Revision(this.binding.generation)
-                },
+                binding: this.bindingName
+            }
+        });
+        const authority = new AuthorityCheckRequest({
+            ownerTenant: this.tenant,
+            owner: this.targetActor,
+            ownerFence: 3,
+            principal: this.principal,
+            binding: this.binding,
+            intent: {
                 facet: this.facet,
-                operation: new OperationRef("mail:send"),
-                package: new PackagePin(
-                    new PackageId(`${this.name}-package`),
-                    new SemVer("1.0.0"),
-                    journeyDigest(`${this.name}-manifest`),
-                    journeyDigest(`${this.name}-code`)
-                ),
-                impact: "externalSend",
-                invocation,
-                reservation: {
-                    run: new RunId(`${this.name}-run`),
-                    registryEpoch: 2,
-                    obligation: { kind: "invocationItem", invocation, itemIndex: 0, itemKey }
-                },
-                itemIndex: 0,
-                attemptOrdinal: 0,
-                claim: new ItemClaimId(`${this.name}-claim`),
-                claimOwner: {
-                    kind: "system",
-                    actor: this.targetActor,
-                    worker: new ClaimWorkerId(`${this.name}-worker`)
-                },
-                itemKey,
-                argumentsDigest: journeyDigest(`${this.name}-arguments`),
-                intentDigest: journeyDigest(`${this.name}-intent`),
-                pathEpochs: this.path(),
-                authority: {
-                    kind: "initiator",
-                    principal: this.principal,
-                    binding: this.bindingName
-                }
-            }),
-            `${this.name}-permit`,
-            new Date(JOURNEY_NOW.getTime() + 5_000)
+                operation: expectation.operation.operation.value,
+                impact: expectation.impact,
+                arguments: argumentsValue,
+                argumentsDigest
+            },
+            expectedPath: this.path(),
+            invocationDigest: intentDigest,
+            itemIndex: 0,
+            attemptOrdinal: 0,
+            nonce
+        });
+        return new AuthorityPermitIssuanceRequest(
+            new TargetAuthorityPermitRequest(
+                expectation,
+                authority,
+                nonce,
+                new Date(JOURNEY_NOW.getTime() + 5_000)
+            )
         );
     }
 
@@ -322,10 +353,11 @@ class AuthorityJourneyIdentity {
 
     public permit(request: AuthorityPermitIssuanceRequest, at: Date): AuthorityPermit {
         return new AuthorityPermit({
-            ...request.expectation,
-            nonce: request.nonce,
+            ...request.targetRequest.expectation,
+            nonce: request.targetRequest.nonce,
+            requestDigest: request.targetRequest.digest(),
             issuedAt: at,
-            expiresAt: request.expiresAt
+            expiresAt: request.targetRequest.expiresAt
         });
     }
 
@@ -333,7 +365,9 @@ class AuthorityJourneyIdentity {
         command: string,
         key: string,
         payload: Uint8Array,
-        caller: CommandCaller = this.caller
+        caller: CommandCaller = command === TENANT_AUTHORITY_COMMANDS.issuePermit
+            ? { kind: "actor", actor: this.targetActor }
+            : this.caller
     ): Uint8Array {
         const payloadDigest = Digest.sha256(payload);
         return CommandEnvelopeCodec.encode(
@@ -371,8 +405,11 @@ function createMemoryAuthorityJourney(name: string): AuthorityJourney {
             },
             issuePermit: (state, request, at) => {
                 const permit = identity.permit(request, at);
-                state.permits[request.nonce] = AuthorityPermit.encode(permit);
-                return permit;
+                state.permits[request.targetRequest.nonce] = AuthorityPermit.encode(permit);
+                return AuthorityPermitIssuanceReply.issued(
+                    identity.checkEvidence(request.targetRequest.authority, at),
+                    permit
+                );
             }
         },
         ids: {
@@ -440,7 +477,10 @@ function createSqliteAuthorityJourney(name: string): AuthorityJourney {
             issuePermit: (transaction, request, at) => {
                 const permit = identity.permit(request, at);
                 permits.issue(transaction, permit);
-                return permit;
+                return AuthorityPermitIssuanceReply.issued(
+                    identity.checkEvidence(request.targetRequest.authority, at),
+                    permit
+                );
             }
         },
         ids: {
@@ -506,8 +546,8 @@ function createJourney<Transaction, ReadTransaction>(
         permitRequest: () => identity.permitRequest(),
         envelope: (command, key, payload, caller) =>
             identity.envelope(command, key, payload, caller),
-        dispatch: (raw, payload, caller = identity.caller) =>
-            composition.dispatch(raw, caller, payload),
+        dispatch: (raw, payload, caller) =>
+            composition.dispatch(raw, caller ?? CommandEnvelopeCodec.decode(raw).caller, payload),
         snapshot
     };
 }

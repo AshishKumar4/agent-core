@@ -288,13 +288,14 @@ export class AuthorityPermitExpectation {
 
 export interface AuthorityPermitInit extends AuthorityPermitExpectationInit {
     readonly nonce: string;
+    readonly requestDigest: Digest;
     readonly issuedAt: Date;
     readonly expiresAt: Date;
 }
 
 class AuthorityPermitCodec extends RecordCodec<AuthorityPermit> {
     public constructor() {
-        super("authority.permit", { major: 2, minor: 0 });
+        super("authority.permit", { major: 3, minor: 0 });
     }
 
     protected encodePayload(permit: AuthorityPermit): JsonValue {
@@ -312,10 +313,15 @@ export class AuthorityPermit {
     readonly #expiresAt: number;
     public readonly expectation: AuthorityPermitExpectation;
     public readonly nonce: string;
+    public readonly requestDigest: Digest;
 
     public constructor(init: AuthorityPermitInit) {
         this.expectation = new AuthorityPermitExpectation(init);
         this.nonce = requireNonblank(init.nonce, "Authority permit nonce");
+        if (!(init.requestDigest instanceof Digest)) {
+            throw new TypeError("Authority permit request digest is invalid");
+        }
+        this.requestDigest = new Digest(init.requestDigest.value);
         this.#issuedAt = validTime(init.issuedAt, "Authority permit issuance time");
         this.#expiresAt = validTime(init.expiresAt, "Authority permit expiry");
         if (this.#expiresAt <= this.#issuedAt) {
@@ -424,7 +430,8 @@ export class AuthorityPermit {
             ...this.expectation.toData(),
             expiresAt: this.#expiresAt,
             issuedAt: this.#issuedAt,
-            nonce: this.nonce
+            nonce: this.nonce,
+            requestDigest: this.requestDigest.value
         };
     }
 
@@ -432,7 +439,7 @@ export class AuthorityPermit {
         const object = requireObject(value, "Authority permit");
         requireExact(
             object,
-            [...EXPECTATION_FIELDS, "expiresAt", "issuedAt", "nonce"],
+            [...EXPECTATION_FIELDS, "expiresAt", "issuedAt", "nonce", "requestDigest"],
             "Authority permit"
         );
         const expectationData = EXPECTATION_FIELDS.reduce<JsonObject>(
@@ -443,6 +450,7 @@ export class AuthorityPermit {
         return new AuthorityPermit({
             ...expectation,
             nonce: requireString(object, "nonce"),
+            requestDigest: new Digest(requireString(object, "requestDigest")),
             issuedAt: new Date(requireSafeInteger(object, "issuedAt")),
             expiresAt: new Date(requireSafeInteger(object, "expiresAt"))
         });

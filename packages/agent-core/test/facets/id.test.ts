@@ -51,7 +51,8 @@ describe("Facet identifier vocabulary", () => {
     });
 
     test("requires exactly one interior operation reference separator", { tags: "p1" }, () => {
-        const separatorRefusal = "Operation reference must be '<facet-package-id>:<operation-name>'";
+        const separatorRefusal =
+            "Operation reference must be '<facet-package-id>:<operation-name>'";
         expect(() => new OperationRef(":run")).toThrow(separatorRefusal);
         expect(() => new OperationRef("core.deploy:")).toThrow(separatorRefusal);
         expect(() => new OperationRef("a:b:c")).toThrow(separatorRefusal);
@@ -63,7 +64,9 @@ describe("Facet identifier vocabulary", () => {
     });
 
     test("accepts multi-character dotted facet reference segments", { tags: "p1" }, () => {
-        expect(new FacetRef("ab.cd:ef.gh").value).toBe("ab.cd:ef.gh");
+        const reference = new FacetRef("ab.cd:ef.gh");
+        expect(reference.value).toBe("ab.cd:ef.gh");
+        expect(reference.packageId).toEqual(new FacetPackageId("ab.cd"));
         expect(new FacetRef("a-b2:c-d3").value).toBe("a-b2:c-d3");
         expect(() => new FacetRef("Upper:case")).toThrow(/canonical segments/);
     });

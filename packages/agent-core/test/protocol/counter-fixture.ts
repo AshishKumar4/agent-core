@@ -279,8 +279,12 @@ export class CounterCommand<TTransaction> implements ProtocolCommand<
             return encodeCanonicalJson({ value: reply.value, revision: reply.revision });
         }
         return this.typedObservation
-            ? { reply, observation: counterObservation(payload.amount, result.fault) }
-            : { reply };
+            ? {
+                  outcome: "committed",
+                  reply,
+                  observation: counterObservation(payload.amount, result.fault)
+              }
+            : { outcome: "committed", reply };
     }
 }
 
@@ -289,9 +293,7 @@ function counterReply(
     revision: number,
     encodingFault: FaultBoundary | undefined
 ): CounterReply {
-    return encodingFault === undefined
-        ? { value, revision }
-        : { value, revision, encodingFault };
+    return encodingFault === undefined ? { value, revision } : { value, revision, encodingFault };
 }
 
 function counterObservation(

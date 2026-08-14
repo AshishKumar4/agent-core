@@ -409,6 +409,13 @@ describe("CanonicalBatchInvocationPort", () => {
                 correlation: audits[0]?.correlation,
                 kind: { kind: "receipt", outcome: "deniedPreEffect" }
             });
+            expect(harness.permits.deniedInsideTargetTransaction).toBe(true);
+            expect(
+                harness.permits.deniedClaims.map((claim) => ({
+                    invocation: claim.invocation.value,
+                    itemIndex: claim.itemIndex
+                }))
+            ).toEqual([{ invocation: invocation.value, itemIndex: 0 }]);
             expect(harness.executions).toEqual([]);
         }
     );
@@ -571,6 +578,40 @@ describe("CanonicalBatchInvocationPort", () => {
             );
             expect(recovered.items[0]).toMatchObject({ kind: "succeeded" });
             expect(harness.records.createdClaims).toBe(2);
+            expect(
+                harness.transactions.transact((transaction) =>
+                    harness.persistence
+                        .claimsForItem(transaction, invocation, 0)
+                        .map((claim) => claim.attemptOrdinal)
+                )
+            ).toEqual([0, 0]);
+        }
+    );
+
+    test(
+        "replaces an expired permit request with a new claim before requesting again",
+        { tags: "p0" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("expired-permit-request");
+            const requestedClaims: string[] = [];
+            harness.permits.onIssue = async (claim) => {
+                requestedClaims.push(claim.id.value);
+                if (requestedClaims.length === 1) {
+                    harness.setTime(claim.expiresAt.getTime());
+                    return { kind: "expired" };
+                }
+                return undefined;
+            };
+
+            await expect(
+                harness.port.invoke(request(invocation, [{ value: 1 }], () => undefined))
+            ).resolves.toMatchObject({ items: [{ kind: "succeeded" }] });
+
+            expect(requestedClaims).toEqual([
+                `claim:${invocation.value}:0:0`,
+                `claim:${invocation.value}:0:recovered`
+            ]);
             expect(
                 harness.transactions.transact((transaction) =>
                     harness.persistence
@@ -805,9 +846,11 @@ describe("CanonicalBatchInvocationPort", () => {
             });
 
             const blank = new Harness(false);
-            blank.permits.onIssue = async () => {
-                throw new AgentCoreError("authority.denied", "");
-            };
+            blank.permits.onIssue = async () => ({
+                kind: "denied",
+                denial: "blank-denial",
+                reason: "Authority permit denied"
+            });
             const blankResult = await blank.port.invoke(
                 request(new InvocationId("permit-denied-blank"), [{ value: 1 }], () => undefined)
             );
@@ -927,8 +970,13 @@ describe("CanonicalBatchInvocationPort", () => {
                     issued.resolve(undefined);
                     await release.promise;
                 } else {
-                    throw new AgentCoreError("authority.denied", "concurrent permit denial");
+                    return {
+                        kind: "denied",
+                        denial: "concurrent-denial",
+                        reason: "concurrent permit denial"
+                    };
                 }
+                return undefined;
             };
             const value = request(invocation, [{ value: 1 }], (index) =>
                 harness.executions.push(index)
@@ -1151,8 +1199,13 @@ describe("CanonicalBatchInvocationPort", () => {
                 if (issueCalls === 1) {
                     issued.resolve(undefined);
                     await release.promise;
-                    throw new AgentCoreError("authority.denied", "raced permit denial");
+                    return {
+                        kind: "denied",
+                        denial: "raced-denial",
+                        reason: "raced permit denial"
+                    };
                 }
+                return undefined;
             };
             const value = request(invocation, [{ value: 1 }], (index) =>
                 harness.executions.push(index)
@@ -1186,6 +1239,8 @@ describe("CanonicalBatchInvocationPort", () => {
                 string,
                 string,
                 string,
+                string,
+                undefined,
                 string
             >(
                 harness.transactions,

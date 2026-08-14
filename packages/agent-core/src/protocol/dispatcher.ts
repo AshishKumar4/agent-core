@@ -551,7 +551,7 @@ export class CommandDispatcher<
                 const reply = requireSynchronousResult(command.replyCodec.encode(execution.reply));
                 if (execution.observation === undefined) {
                     return {
-                        outcome: "committed",
+                        outcome: execution.outcome,
                         reply,
                         callerCauseEligible: true,
                         reservesIdentity: true
@@ -561,7 +561,7 @@ export class CommandDispatcher<
                     requireObservationCodec();
                 }
                 return {
-                    outcome: "committed",
+                    outcome: execution.outcome,
                     reply,
                     observation: requireSynchronousResult(
                         command.observationCodec.encode(execution.observation)

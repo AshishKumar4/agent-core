@@ -6,16 +6,27 @@ import {
     AuthorityPermitAuthenticator,
     AuthorityPermitExpectation,
     AuthorityPermitIssuedRecordSource,
+    AuthorityCheckRequest,
+    Binding,
+    GrantId,
     PathEpochEvidence,
     ScopeEpoch,
+    TargetAuthorityPermitRequest,
     type AuthenticatedAuthorityPermit,
     type AuthorityPermitExpectationInit
 } from "../../../src/authority";
-import { Digest, Revision, SemVer } from "../../../src/core";
+import { Digest, Revision, SemVer, encodeCanonicalJson } from "../../../src/core";
 import { PackageId, PackagePin } from "../../../src/definition";
 import { AgentCoreError } from "../../../src/errors";
 import { BindingName, FacetRef, OperationRef, ProtectionDomain } from "../../../src/facets";
-import { PrincipalId, PrincipalRef, ScopeRef, TenantId, WorkspaceId } from "../../../src/identity";
+import {
+    PrincipalId,
+    PrincipalRef,
+    ScopeRef,
+    SubjectRef,
+    TenantId,
+    WorkspaceId
+} from "../../../src/identity";
 import { ClaimWorkerId, ItemClaimId } from "../../../src/invocation-references";
 import { InvocationId } from "../../../src/interaction-references";
 import {
@@ -47,6 +58,7 @@ const issuedAt = new Date(1_000);
 const expiresAt = new Date(6_000);
 const consumeAt = new Date(issuedAt.getTime() + 1);
 const corruptMessage = "Stored authority permit ownership is malformed";
+const authorityArguments = Object.freeze({ channel: "internal" });
 
 describe("SQLite authority permit store exact behavior", () => {
     test("issue binds each nonce to one exact expectation", { tags: "p0" }, () => {
@@ -72,11 +84,12 @@ describe("SQLite authority permit store exact behavior", () => {
 
     test("issued and consumed project only their exact states", { tags: "p0" }, async () => {
         const target = new SqliteAuthorityPermitStore(new TestSqlite(), targetActor);
-        const { issuance, permit, authentication } = await admit("state-nonce");
+        const { issuance, permit, authentication } = await admit("state-nonce", target);
         target.transaction((transaction) =>
             target.consume(transaction, authentication, permit, permit.expectation, consumeAt)
         );
-        expect(target.transaction((transaction) => target.issued(transaction, "state-nonce"))
+        expect(
+            target.transaction((transaction) => target.issued(transaction, "state-nonce"))
         ).toBeUndefined();
         expect(
             target.transaction((transaction) => target.consumed(transaction, "state-nonce"))?.value
@@ -96,7 +109,7 @@ describe("SQLite authority permit store exact behavior", () => {
 
     test("consume replay at a valid time reports exact nonce reuse", { tags: "p0" }, async () => {
         const target = new SqliteAuthorityPermitStore(new TestSqlite(), targetActor);
-        const { permit, authentication } = await admit("replay-nonce");
+        const { permit, authentication } = await admit("replay-nonce", target);
         target.transaction((transaction) =>
             target.consume(transaction, authentication, permit, permit.expectation, consumeAt)
         );
@@ -115,15 +128,14 @@ describe("SQLite authority permit store exact behavior", () => {
             "Authority permit nonce was already used by this Actor owner"
         );
         expect(
-            target.transaction((transaction) => target.consumed(transaction, "replay-nonce"))
-                ?.value
+            target.transaction((transaction) => target.consumed(transaction, "replay-nonce"))?.value
         ).toBe(permit.digest().value);
     });
 
     test("recovery validates consumed rows against the exact owner", { tags: "p0" }, async () => {
         const database = new TestSqlite();
         const target = new SqliteAuthorityPermitStore(database, targetActor);
-        const { permit, authentication } = await admit("owner-nonce");
+        const { permit, authentication } = await admit("owner-nonce", target);
         target.transaction((transaction) =>
             target.consume(transaction, authentication, permit, permit.expectation, consumeAt)
         );
@@ -154,7 +166,7 @@ describe("SQLite authority permit store exact behavior", () => {
         async () => {
             const database = new ProjectedSqlite();
             const target = new SqliteAuthorityPermitStore(database, targetActor);
-            const { permit, authentication } = await admit("recovery-nonce");
+            const { permit, authentication } = await admit("recovery-nonce", target);
             target.transaction((transaction) =>
                 target.consume(transaction, authentication, permit, permit.expectation, consumeAt)
             );
@@ -214,7 +226,7 @@ describe("SQLite authority permit store exact behavior", () => {
     test("consumed digest columns fail closed as typed corruption", { tags: "p1" }, async () => {
         const database = new ProjectedSqlite();
         const target = new SqliteAuthorityPermitStore(database, targetActor);
-        const { permit, authentication } = await admit("digest-nonce");
+        const { permit, authentication } = await admit("digest-nonce", target);
         target.transaction((transaction) =>
             target.consume(transaction, authentication, permit, permit.expectation, consumeAt)
         );
@@ -235,7 +247,7 @@ describe("SQLite authority permit store exact behavior", () => {
     test("consume that does not persist reports the exact conflict", { tags: "p0" }, async () => {
         const database = new ProjectedSqlite();
         const target = new SqliteAuthorityPermitStore(database, targetActor);
-        const { permit, authentication } = await admit("lost-nonce");
+        const { permit, authentication } = await admit("lost-nonce", target);
         database.dropRuns = true;
         expectExactFailure(
             () =>
@@ -280,7 +292,11 @@ class StoreIssuedRecordSource extends AuthorityPermitIssuedRecordSource {
         super();
     }
 
-    public issued(issuer: ActorRef, nonce: string, digest: Digest): Promise<Uint8Array | undefined> {
+    public issued(
+        issuer: ActorRef,
+        nonce: string,
+        digest: Digest
+    ): Promise<Uint8Array | undefined> {
         const stored = this.store.transaction((transaction) =>
             this.store.issued(transaction, nonce)
         );
@@ -292,7 +308,10 @@ class StoreIssuedRecordSource extends AuthorityPermitIssuedRecordSource {
     }
 }
 
-async function admit(nonce: string): Promise<{
+async function admit(
+    nonce: string,
+    target: SqliteAuthorityPermitStore
+): Promise<{
     issuance: SqliteAuthorityPermitStore;
     permit: AuthorityPermit;
     authentication: AuthenticatedAuthorityPermit;
@@ -301,6 +320,7 @@ async function admit(nonce: string): Promise<{
     const permit = issuance.transaction((transaction) =>
         issuance.issue(transaction, issuedPermit(nonce))
     );
+    target.transaction((transaction) => target.request(transaction, targetRequest(nonce)));
     const authentication = await new AuthorityPermitAuthenticator(
         new StoreIssuedRecordSource(issuance)
     ).authenticate(permit, permit.expectation);
@@ -311,7 +331,14 @@ function issuedPermit(
     nonce: string,
     overrides: Partial<AuthorityPermitExpectationInit> = {}
 ): AuthorityPermit {
-    return new AuthorityPermit({ ...expectation(overrides), nonce, issuedAt, expiresAt });
+    const expected = expectation(overrides);
+    return new AuthorityPermit({
+        ...expected,
+        nonce,
+        requestDigest: targetRequestFor(expected, nonce).digest(),
+        issuedAt,
+        expiresAt
+    });
 }
 
 function expectation(
@@ -329,7 +356,7 @@ function expectation(
         principal,
         binding: { name: new BindingName("mail"), generation: new Revision(2) },
         facet: new FacetRef("workspace:mail"),
-        operation: new OperationRef("mail:send"),
+        operation: new OperationRef("workspace:send"),
         package: new PackagePin(
             new PackageId("sqlite-permit-package"),
             new SemVer("1.0.0"),
@@ -352,13 +379,58 @@ function expectation(
             worker: new ClaimWorkerId("sqlite-permit-worker")
         },
         itemKey,
-        argumentsDigest: digest("arguments"),
+        argumentsDigest: Digest.sha256(encodeCanonicalJson(authorityArguments)),
         intentDigest: digest("intent"),
         pathEpochs: path,
         authority: { kind: "initiator", principal, binding: new BindingName("mail") },
         lease,
         ...overrides
     });
+}
+
+function targetRequest(nonce: string): TargetAuthorityPermitRequest {
+    return targetRequestFor(expectation(), nonce);
+}
+
+function targetRequestFor(
+    expected: AuthorityPermitExpectation,
+    nonce: string
+): TargetAuthorityPermitRequest {
+    const binding = new Binding(
+        expected.pathEpochs.target.scope,
+        SubjectRef.principal(expected.principal),
+        expected.target.domain,
+        expected.binding.name,
+        new GrantId("sqlite-permit-grant"),
+        expected.facet,
+        expected.binding.generation.value,
+        "active",
+        new Revision(expected.binding.generation.value)
+    );
+    return new TargetAuthorityPermitRequest(
+        expected,
+        new AuthorityCheckRequest({
+            ownerTenant: expected.tenant,
+            owner: expected.target.actor,
+            ownerFence: expected.target.fence,
+            principal: expected.principal,
+            binding,
+            intent: {
+                facet: expected.facet,
+                operation: expected.operation.operation.value,
+                impact: expected.impact,
+                arguments: authorityArguments,
+                argumentsDigest: expected.argumentsDigest
+            },
+            expectedPath: expected.pathEpochs,
+            invocationDigest: expected.intentDigest,
+            itemIndex: expected.itemIndex,
+            attemptOrdinal: expected.attemptOrdinal,
+            nonce
+        }),
+        nonce,
+        expiresAt
+    );
 }
 
 function expectExactFailure(

@@ -33,12 +33,7 @@ import {
     type FacetRef,
     type OperationContext
 } from "@agent-core/core/facets";
-import {
-    ScopeRef,
-    SubjectRef,
-    TenantId,
-    WorkspaceId
-} from "@agent-core/core/identity";
+import { ScopeRef, SubjectRef, TenantId, WorkspaceId } from "@agent-core/core/identity";
 import {
     AuthorityAdmissionReference,
     ClaimWorkerId,
@@ -330,6 +325,7 @@ function admissionDigest(reference: DemoAdmissionReference): Digest {
 }
 
 export class DemoPermits implements CanonicalBatchAuthorityPermitPort<
+    MediationState,
     MediationLeaseReference,
     MediationAuthorityReference,
     MediationDomainReference,
@@ -341,14 +337,29 @@ export class DemoPermits implements CanonicalBatchAuthorityPermitPort<
     public async issue(
         invocation: MediationPreparedInvocation,
         claim: ItemClaim<MediationLeaseReference>
-    ): Promise<AuthorityAdmissionReference<DemoAdmissionReference>> {
+    ): Promise<{
+        readonly kind: "issued";
+        readonly admission: AuthorityAdmissionReference<DemoAdmissionReference>;
+    }> {
         this.issued += 1;
         const reference = Object.freeze({
             invocation: invocation.header.id.value,
             itemIndex: claim.itemIndex,
             attemptOrdinal: claim.attemptOrdinal
         });
-        return new AuthorityAdmissionReference(reference, admissionDigest(reference));
+        return {
+            kind: "issued",
+            admission: new AuthorityAdmissionReference(reference, admissionDigest(reference))
+        };
+    }
+
+    public deny(
+        _transaction: MediationState,
+        _invocation: MediationPreparedInvocation,
+        _claim: ItemClaim<MediationLeaseReference>,
+        _denial: never
+    ): void {
+        throw new TypeError("Demo authority permits do not produce authenticated denials");
     }
 }
 

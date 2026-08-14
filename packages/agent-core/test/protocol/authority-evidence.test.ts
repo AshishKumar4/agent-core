@@ -20,6 +20,7 @@ import {
     AuthorityPermitExpectation,
     GrantId,
     ScopeEpoch,
+    TargetAuthorityPermitRequest,
     type AuthorityPermitExpectationInit
 } from "../../src/authority";
 import { PrincipalRef } from "../identity/internal-fixture";
@@ -64,6 +65,41 @@ const path = new PathEpochEvidence([
 ]);
 
 describe("authority protocol evidence", () => {
+    test(
+        "[authority.target-permit-request] binds the complete current-authority input to the exact target admission",
+        { tags: "p0" },
+        () => {
+            const request = targetPermitRequest();
+            const decoded = TargetAuthorityPermitRequest.decode(
+                TargetAuthorityPermitRequest.encode(request)
+            );
+
+            expect(decoded.expectation.equals(request.expectation)).toBe(true);
+            expect(decoded.authority.digest().equals(request.authority.digest())).toBe(true);
+            expect(decoded.nonce).toBe(request.nonce);
+            expect(decoded.expiresAt).toEqual(request.expiresAt);
+
+            const alteredArguments = { channel: "external" } as const;
+            const substituted = new AuthorityCheckRequest({
+                ...request.authority,
+                intent: {
+                    ...request.authority.intent,
+                    arguments: alteredArguments,
+                    argumentsDigest: Digest.sha256(encodeCanonicalJson(alteredArguments))
+                }
+            });
+            expect(
+                () =>
+                    new TargetAuthorityPermitRequest(
+                        request.expectation,
+                        substituted,
+                        request.nonce,
+                        request.expiresAt
+                    )
+            ).toThrow(TypeError);
+        }
+    );
+
     test(
         "[authority.check-request] [authority.check-evidence] [protocol.authority-check-reply] round-trips complete check identity without accepting altered arguments",
         { tags: "p1" },
@@ -256,51 +292,6 @@ describe("authority protocol evidence", () => {
             )
         ).toThrow(AgentCoreError);
     });
-
-    test(
-        "rejects malformed permit issuance identity, expiry, and payload shapes",
-        { tags: "p1" },
-        () => {
-            expect(
-                () =>
-                    new AuthorityPermitIssuanceRequest(
-                        permitExpectation(),
-                        " noncanonical ",
-                        new Date(1_000)
-                    )
-            ).toThrow(/nonce/);
-            expect(
-                () =>
-                    new AuthorityPermitIssuanceRequest(permitExpectation(), "permit", new Date(Number.NaN))
-            ).toThrow(/expiry/);
-            expect(
-                () => new AuthorityPermitIssuanceRequest(permitExpectation(), "permit", new Date(-1))
-            ).toThrow(/expiry/);
-            expect(
-                new AuthorityPermitIssuanceRequest(permitExpectation(), "permit", new Date(0)).expiresAt
-            ).toEqual(new Date(0));
-
-            const envelope = (payload: JsonValue) =>
-                encodeCanonicalJson({
-                    kind: "protocol.authority-permit-issuance-request",
-                    version: { major: 1, minor: 0 },
-                    payload
-                });
-            const malformedPayloads: readonly JsonValue[] = [
-                null,
-                [],
-                {},
-                { expectation: null, expiresAt: 1_000, nonce: "permit", extra: true },
-                { expectation: null, expiresAt: "soon", nonce: "permit" },
-                { expectation: null, expiresAt: 1_000, nonce: 4 }
-            ];
-            for (const payload of malformedPayloads) {
-                expect(() => AuthorityPermitIssuanceRequest.decode(envelope(payload))).toThrow(
-                    AgentCoreError
-                );
-            }
-        }
-    );
 });
 
 test("authority protocol replies freeze and reject inexact payload shapes", { tags: "p1" }, () => {
@@ -360,57 +351,47 @@ test("authority protocol replies freeze and reject inexact payload shapes", { ta
     ).toThrow("Authority protocol reply is malformed");
 });
 
-test("permit issuance codec diagnostics are exact", { tags: "p1" }, () => {
-    const issuanceEnvelope = (payload: JsonValue): Uint8Array =>
-        encodeCanonicalJson({
-            kind: "protocol.authority-permit-issuance-request",
-            version: { major: 1, minor: 0 },
-            payload
-        });
-    const inexact: readonly JsonValue[] = [
-        null,
-        [],
-        {},
-        { expectation: null, expiresAt: 1_000, nonce: "permit", extra: true }
-    ];
-    for (const payload of inexact) {
-        expect(() => AuthorityPermitIssuanceRequest.decode(issuanceEnvelope(payload))).toThrow(
-            "Authority protocol payload is malformed"
-        );
+test(
+    "permit issuance codec rejects every inexact payload with its stable code",
+    { tags: "p1" },
+    () => {
+        const issuanceEnvelope = (payload: JsonValue): Uint8Array =>
+            encodeCanonicalJson({
+                kind: "protocol.authority-permit-issuance-request",
+                version: { major: 2, minor: 0 },
+                payload
+            });
+        const inexact: readonly JsonValue[] = [
+            null,
+            [],
+            {},
+            { request: null },
+            { request: null, extra: true }
+        ];
+        for (const payload of inexact) {
+            expectAgentCoreError(
+                () => AuthorityPermitIssuanceRequest.decode(issuanceEnvelope(payload)),
+                "codec.invalid"
+            );
+        }
+        const request = new AuthorityPermitIssuanceRequest(targetPermitRequest());
+        expect(Object.isFrozen(request)).toBe(true);
+        const exposed = request.targetRequest.expiresAt;
+        exposed.setTime(0);
+        expect(request.targetRequest.expiresAt).toEqual(new Date(2_000));
     }
-    const wrongTypes: readonly JsonValue[] = [
-        { expectation: null, expiresAt: "soon", nonce: "permit" },
-        { expectation: null, expiresAt: 1_000, nonce: 4 }
-    ];
-    for (const payload of wrongTypes) {
-        expect(() => AuthorityPermitIssuanceRequest.decode(issuanceEnvelope(payload))).toThrow(
-            "Authority permit issuance request is malformed"
-        );
-    }
-
-    expect(() => new AuthorityPermitIssuanceRequest(permitExpectation(), "", new Date(0))).toThrow(
-        "Authority permit issuance nonce must be canonical and nonblank"
-    );
-    const request = new AuthorityPermitIssuanceRequest(permitExpectation(), "permit", new Date(2_000));
-    expect(Object.isFrozen(request)).toBe(true);
-    const exposed = request.expiresAt;
-    exposed.setTime(0);
-    expect(request.expiresAt).toEqual(new Date(2_000));
-});
+);
 
 test("authority protocol codec failures carry the codec.invalid code", { tags: "p1" }, () => {
     const issuanceEnvelope = (payload: JsonValue): Uint8Array =>
         encodeCanonicalJson({
             kind: "protocol.authority-permit-issuance-request",
-            version: { major: 1, minor: 0 },
+            version: { major: 2, minor: 0 },
             payload
         });
 
     expectAgentCoreError(
-        () =>
-            AuthorityPermitIssuanceRequest.decode(
-                issuanceEnvelope({ expectation: null, expiresAt: "soon", nonce: "permit" })
-            ),
+        () => AuthorityPermitIssuanceRequest.decode(issuanceEnvelope({ request: null })),
         "codec.invalid"
     );
     expectAgentCoreError(
@@ -434,38 +415,28 @@ test("permit issuance replies and payload codecs round-trip frozen permits", { t
     const permit = new AuthorityPermit({
         ...permitExpectationInit(),
         nonce: "permit-nonce",
+        requestDigest: targetPermitRequest().digest(),
         issuedAt: new Date(1_000),
         expiresAt: new Date(2_000)
     });
-    const reply = new AuthorityPermitIssuanceReply(permit);
+    const reply = AuthorityPermitIssuanceReply.issued(
+        permitEvidence(targetPermitRequest()),
+        permit
+    );
     expect(Object.isFrozen(reply)).toBe(true);
     const decodedReply = AuthorityPermitIssuanceReply.decode(
         AuthorityPermitIssuanceReply.encode(reply)
     );
-    expect(decodedReply.permit.expectation.equals(permit.expectation)).toBe(true);
+    expect(decodedReply.requirePermit().expectation.equals(permit.expectation)).toBe(true);
 
     const codec = new AuthorityPermitIssuancePayloadCodec();
-    const expectation = new AuthorityPermitExpectation(permitExpectationInit());
-    const request = new AuthorityPermitIssuanceRequest(
-        expectation,
-        "permit-nonce",
-        new Date(2_000)
-    );
+    const targetRequest = targetPermitRequest();
+    const request = new AuthorityPermitIssuanceRequest(targetRequest);
     const encoded = codec.encode(request);
     expect(encoded).toBeInstanceOf(Uint8Array);
     const decoded = codec.decode(encoded);
-    expect(decoded.expectation.equals(expectation)).toBe(true);
-    expect(decoded.nonce).toBe("permit-nonce");
-    expect(decoded.expiresAt).toEqual(new Date(2_000));
+    expect(decoded.targetRequest.digest().equals(targetRequest.digest())).toBe(true);
 });
-
-/**
- * A real expectation for the cases that validate the request's nonce and expiry. The constructor
- * does not inspect the expectation, but building one keeps the fixture honest about its type.
- */
-function permitExpectation(): AuthorityPermitExpectation {
-    return new AuthorityPermitExpectation(permitExpectationInit());
-}
 
 function permitExpectationInit(): AuthorityPermitExpectationInit {
     const invocation = new InvocationId("permit-invocation");
@@ -524,4 +495,62 @@ function checkRequest(): AuthorityCheckRequest {
         attemptOrdinal: 2,
         nonce: "authority-check"
     });
+}
+
+function targetPermitRequest(): TargetAuthorityPermitRequest {
+    const authority = checkRequest();
+    const base = permitExpectationInit();
+    const expectation = new AuthorityPermitExpectation({
+        ...base,
+        source: authority.owner,
+        target: { actor: authority.owner, fence: authority.ownerFence, domain },
+        binding: {
+            name: authority.binding.name,
+            generation: new Revision(authority.binding.generation)
+        },
+        facet: authority.intent.facet,
+        operation: new OperationRef(`workspace:${authority.intent.operation}`),
+        impact: authority.intent.impact,
+        itemIndex: authority.itemIndex,
+        attemptOrdinal: authority.attemptOrdinal,
+        reservation: {
+            ...base.reservation,
+            obligation: {
+                kind: "invocationItem",
+                invocation: base.invocation,
+                itemIndex: authority.itemIndex,
+                itemKey: base.itemKey
+            }
+        },
+        argumentsDigest: authority.intent.argumentsDigest,
+        intentDigest: authority.invocationDigest,
+        pathEpochs: authority.expectedPath,
+        authority: {
+            kind: "initiator",
+            principal: authority.principal,
+            binding: authority.binding.name
+        }
+    });
+    return new TargetAuthorityPermitRequest(
+        expectation,
+        authority,
+        authority.nonce,
+        new Date(2_000)
+    );
+}
+
+function permitEvidence(request: TargetAuthorityPermitRequest): AuthorityCheckEvidence {
+    return new AuthorityCheckEvidence(
+        tenant,
+        issuer,
+        request.authority.digest(),
+        request.authority.binding.key,
+        request.authority.binding.generation,
+        "allow",
+        "allowed",
+        [new GrantId("permit-evidence-grant")],
+        [],
+        request.authority.expectedPath,
+        new Date(1_000)
+    );
 }

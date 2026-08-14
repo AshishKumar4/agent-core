@@ -247,7 +247,7 @@ class TargetProjectionProtocolCommand<Transaction, Read> implements ProtocolComm
         _at: Date
     ): ProtocolCommandExecution<RouteDelivery, RouteDelivery> {
         const result = this.protocol.admit(transaction, admission);
-        return { reply: result, observation: result };
+        return { outcome: "committed", reply: result, observation: result };
     }
 }
 

@@ -5,30 +5,56 @@ import {
     AuthorityCheckRequest,
     AuthorityPermit,
     AuthorityPermitExpectation,
+    AuthorityMutationService,
     Binding,
     BindingValidationEvidence,
     BindingValidationRequest,
     GrantId,
+    Grant,
+    MemoryAuthorityPermitStore,
+    MemoryTenantAuthorityPermitStore,
+    MemoryTenantControlStore,
     PathEpochEvidence,
     ScopeEpoch,
-    type AuthorityPermitExpectationInit
+    TargetAuthorityPermitRequest,
+    type AuthorityPermitExpectationInit,
+    type AuthorityMutationStore,
+    type MemoryAuthorityPermitSnapshot,
+    type MemoryTenantControlSnapshot
 } from "../../src/authority";
 import {
     TENANT_AUTHORITY_COMMANDS,
+    TenantAuthorityCommandStatePort,
+    TenantAuthorityRuntimeCommandBackend,
     createClosedTenantAuthorityComposition,
     type ClosedTenantAuthorityComposition,
     type TenantAuthorityCommandBackend
 } from "../../src/composition";
-import { ContentRef, Digest, Revision, SemVer, encodeCanonicalJson, jsonDataParser, type JsonValue } from "../../src/core";
+import {
+    ContentRef,
+    Digest,
+    Revision,
+    SemVer,
+    encodeCanonicalJson,
+    jsonDataParser,
+    type JsonValue
+} from "../../src/core";
 import { PackageId, PackagePin } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
-import { BindingName, FacetRef, OperationRef, ProtectionDomain } from "../../src/facets";
+import {
+    BindingName,
+    CapabilitySpec,
+    FacetRef,
+    OperationRef,
+    ProtectionDomain
+} from "../../src/facets";
 import {
     PrincipalId,
     PrincipalRef,
     ScopeRef,
     SubjectRef,
     TenantId,
+    Workspace,
     WorkspaceId
 } from "../../src/identity";
 import { ClaimWorkerId, ItemClaimId } from "../../src/invocation-references";
@@ -53,8 +79,10 @@ import {
     ReadableSqlite,
     SqliteActorStore,
     SqliteAuthorityPermitStore,
+    SqliteTenantAuthorityPermitStore,
     SqliteProtocolPersistence,
     TransactionalSqlite,
+    createSqliteTenantControlStore,
     type SqliteValue
 } from "../../src/substrates";
 import { RunId, TurnId } from "../../src/agents";
@@ -327,13 +355,16 @@ function authorityCommandContract(name: string, create: HarnessFactory): void {
                     ),
                     payload
                 );
-                const permit = AuthorityPermitIssuanceReply.decode(result.reply).permit;
+                const permit = AuthorityPermitIssuanceReply.decode(result.reply).requirePermit();
 
                 expect(result.outcome).toBe("committed");
-                expect(permit.expectation.equals(request.expectation)).toBe(true);
+                expect(permit.expectation.equals(request.targetRequest.expectation)).toBe(true);
                 expect(permit.issuedAt).toEqual(now);
                 expect(
-                    AuthorityPermit.decode(result.observation!).digest().equals(permit.digest())
+                    AuthorityPermitIssuanceReply.decode(result.observation!)
+                        .requirePermit()
+                        .digest()
+                        .equals(permit.digest())
                 ).toBe(true);
                 expect(harness.snapshot()).toMatchObject({ permits: 1, writes: 1, audits: 2 });
 
@@ -341,7 +372,7 @@ function authorityCommandContract(name: string, create: HarnessFactory): void {
                 const staleRequest = staleHarness.permitRequest();
                 staleHarness.setEpoch(3);
                 const stalePayload = AuthorityPermitIssuanceRequest.encode(staleRequest);
-                const stale = await staleHarness.dispatch(
+                const denied = await staleHarness.dispatch(
                     staleHarness.envelope(
                         TENANT_AUTHORITY_COMMANDS.issuePermit,
                         `${name}-stale-permit`,
@@ -349,8 +380,16 @@ function authorityCommandContract(name: string, create: HarnessFactory): void {
                     ),
                     stalePayload
                 );
-                expect(stale.outcome).toBe("rejectedAuthority");
-                expect(staleHarness.snapshot()).toMatchObject({ permits: 0, writes: 1, audits: 1 });
+                expect(denied.outcome).toBe("rejectedAuthority");
+                expect(AuthorityPermitIssuanceReply.decode(denied.reply)).toMatchObject({
+                    kind: "denied",
+                    evidence: { decision: "deny", reason: "stalePath" }
+                });
+                expect(staleHarness.snapshot()).toMatchObject({
+                    permits: 0,
+                    writes: 1,
+                    audits: 1
+                });
             }
         );
 
@@ -377,6 +416,34 @@ function authorityCommandContract(name: string, create: HarnessFactory): void {
             }
         );
 
+        test(
+            "replays the original authority denial and cannot later issue under the same identity",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const request = harness.permitRequest();
+                harness.setEpoch(3);
+                const payload = AuthorityPermitIssuanceRequest.encode(request);
+                const raw = harness.envelope(
+                    TENANT_AUTHORITY_COMMANDS.issuePermit,
+                    `${name}-denial-response-loss`,
+                    payload
+                );
+
+                const denied = await harness.dispatch(raw, payload);
+                expect(harness.snapshot()).toMatchObject({ permits: 0, writes: 1, audits: 1 });
+                harness.setEpoch(1);
+                const duplicate = await harness.dispatch(raw, payload);
+
+                expect(denied.outcome).toBe("rejectedAuthority");
+                expect(AuthorityPermitIssuanceReply.decode(denied.reply).kind).toBe("denied");
+                expect(duplicate.outcome).toBe("duplicate");
+                expect(duplicate.reply).toEqual(denied.reply);
+                expect(duplicate.write.duplicateOf?.equals(denied.write.id)).toBe(true);
+                expect(harness.snapshot()).toMatchObject({ permits: 0, writes: 2, audits: 3 });
+            }
+        );
+
         test("records malformed ingress without evaluating authority", { tags: "p1" }, async () => {
             const harness = create();
             await expect(
@@ -391,6 +458,155 @@ function authorityCommandContract(name: string, create: HarnessFactory): void {
 
 authorityCommandContract("memory", createMemoryHarness);
 authorityCommandContract("SQLite", createSqliteHarness);
+
+interface ProductionPermitHarness {
+    currentPath(): PathEpochEvidence;
+    persistTarget(request: AuthorityPermitIssuanceRequest): AuthorityPermitIssuanceRequest;
+    dispatch(
+        request: AuthorityPermitIssuanceRequest,
+        caller?: CommandCaller
+    ): Promise<CommandDispatchResult>;
+    revokeAndRestartTenant(): void;
+    restartTenant(): void;
+    failEvidenceAppend(fail: boolean): void;
+    issued(nonce: string): AuthorityPermit | undefined;
+    writes(): number;
+}
+
+type ProductionPermitHarnessFactory = () => ProductionPermitHarness;
+
+function productionPermitContract(name: string, create: ProductionPermitHarnessFactory): void {
+    describe(`production Tenant authority permit runtime (${name})`, () => {
+        test(
+            "issues only from an authenticated target-owned request after both Actors restart",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const request = harness.persistTarget(
+                    permitRequest(
+                        harness.currentPath(),
+                        undefined,
+                        {},
+                        { channel: "internal" },
+                        `${name}-production-allowed`
+                    )
+                );
+                harness.restartTenant();
+
+                const result = await harness.dispatch(request);
+                const permit = AuthorityPermitIssuanceReply.decode(result.reply).requirePermit();
+
+                expect(result.outcome).toBe("committed");
+                expect(permit.expectation.equals(request.targetRequest.expectation)).toBe(true);
+                expect(harness.issued(request.targetRequest.nonce)?.digest().value).toBe(
+                    permit.digest().value
+                );
+            }
+        );
+
+        test(
+            "rechecks current Tenant authority after revocation and restart before issuing",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const request = harness.persistTarget(
+                    permitRequest(
+                        harness.currentPath(),
+                        undefined,
+                        {},
+                        { channel: "internal" },
+                        `${name}-production-revoked`
+                    )
+                );
+                harness.revokeAndRestartTenant();
+
+                const denied = await harness.dispatch(request);
+                expect(denied.outcome).toBe("rejectedAuthority");
+                expect(AuthorityPermitIssuanceReply.decode(denied.reply).kind).toBe("denied");
+                expect(harness.issued(request.targetRequest.nonce)).toBeUndefined();
+                expect(harness.writes()).toBe(1);
+            }
+        );
+
+        test(
+            "evaluates the target request's full canonical arguments rather than its digest alone",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const request = harness.persistTarget(
+                    permitRequest(
+                        harness.currentPath(),
+                        undefined,
+                        {},
+                        { channel: "external" },
+                        `${name}-production-arguments`
+                    )
+                );
+
+                const denied = await harness.dispatch(request);
+                expect(denied.outcome).toBe("rejectedAuthority");
+                expect(AuthorityPermitIssuanceReply.decode(denied.reply).kind).toBe("denied");
+                expect(harness.issued(request.targetRequest.nonce)).toBeUndefined();
+            }
+        );
+
+        test(
+            "authenticates the target ActorRef without a Tenant-side target-fence mirror",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const request = harness.persistTarget(
+                    permitRequest(
+                        harness.currentPath(),
+                        undefined,
+                        {},
+                        { channel: "internal" },
+                        `${name}-production-caller`
+                    )
+                );
+
+                const result = await harness.dispatch(request, {
+                    kind: "actor",
+                    actor: sourceActor
+                });
+
+                expect(result.outcome).toBe("rejectedAuthority");
+                expect(harness.issued(request.targetRequest.nonce)).toBeUndefined();
+            }
+        );
+
+        test(
+            "rolls permit issuance back when durable command evidence cannot commit",
+            { tags: "p0" },
+            async () => {
+                const harness = create();
+                const request = harness.persistTarget(
+                    permitRequest(
+                        harness.currentPath(),
+                        undefined,
+                        {},
+                        { channel: "internal" },
+                        `${name}-production-rollback`
+                    )
+                );
+
+                harness.failEvidenceAppend(true);
+                await expect(harness.dispatch(request)).rejects.toBeInstanceOf(TypeError);
+                expect(harness.issued(request.targetRequest.nonce)).toBeUndefined();
+                expect(harness.writes()).toBe(0);
+
+                harness.failEvidenceAppend(false);
+                await expect(harness.dispatch(request)).resolves.toMatchObject({
+                    outcome: "committed"
+                });
+                expect(harness.issued(request.targetRequest.nonce)).toBeDefined();
+            }
+        );
+    });
+}
+
+productionPermitContract("memory", createProductionMemoryHarness);
+productionPermitContract("SQLite", createProductionSqliteHarness);
 
 test(
     "closed Tenant authority composition rejects a non-Tenant owning Actor",
@@ -428,11 +644,6 @@ const spoofedCaller: CommandCaller = {
     kind: "actor",
     actor: new ActorRef("workspace", new ActorId("authority-command-spoofed"))
 };
-const permissiveBackend: Partial<AuthorityBackend> = {
-    permitPrincipal: (_read, expectation) => expectation.principal,
-    permitsPermit: () => true
-};
-
 /**
  * Dispatches a command that must be refused and hands back the refusal it threw. A gate may
  * refuse with either an AgentCoreError or a TypeError, so the caller reads the class it wants.
@@ -549,7 +760,7 @@ describe("closed Tenant authority command gates", () => {
     );
 
     test(
-        "permit issuance admits only the exact expectation, caller, Principal, and backend permit",
+        "permit issuance admits only the owning Tenant and authenticated target Actor",
         { tags: "p0" },
         async () => {
             const refusals: readonly (readonly [
@@ -570,39 +781,21 @@ describe("closed Tenant authority command gates", () => {
                         }
                     }),
                     {},
-                    undefined
+                    { kind: "actor", actor: targetActor }
                 ],
                 [
                     "an expectation naming another issuing Tenant Actor",
                     permitRequest(currentPath(1), undefined, { issuer: otherTenantActor }),
                     {},
-                    undefined
+                    { kind: "actor", actor: targetActor }
                 ],
-                ["a spoofed source Actor", permitRequest(currentPath(1)), {}, spoofedCaller],
-                [
-                    "an unresolved Principal",
-                    permitRequest(currentPath(1)),
-                    { permitPrincipal: () => undefined },
-                    undefined
-                ],
-                [
-                    "a substituted Principal",
-                    permitRequest(currentPath(1)),
-                    { permitPrincipal: () => otherPrincipal },
-                    undefined
-                ],
-                [
-                    "a backend that refuses the permit",
-                    permitRequest(currentPath(1)),
-                    { permitsPermit: () => false },
-                    undefined
-                ]
+                ["a spoofed target Actor", permitRequest(currentPath(1)), {}, spoofedCaller]
             ];
 
             let ordinal = 0;
             for (const [reason, request, backend, caller] of refusals) {
                 ordinal += 1;
-                const harness = createMemoryHarness({ ...permissiveBackend, ...backend });
+                const harness = createMemoryHarness(backend);
                 const payload = AuthorityPermitIssuanceRequest.encode(request);
                 const result = await harness.dispatch(
                     harness.envelope(
@@ -618,7 +811,7 @@ describe("closed Tenant authority command gates", () => {
                 expect(harness.snapshot().permits, reason).toBe(0);
             }
 
-            const harness = createMemoryHarness(permissiveBackend);
+            const harness = createMemoryHarness();
             const admitted = permitRequest(currentPath(1));
             const admittedPayload = AuthorityPermitIssuanceRequest.encode(admitted);
             const accepted = await harness.dispatch(
@@ -673,7 +866,7 @@ describe("closed Tenant authority command gates", () => {
             let ordinal = 0;
             for (const [reason, envelopeLease, lease] of refusals) {
                 ordinal += 1;
-                const harness = createMemoryHarness(permissiveBackend);
+                const harness = createMemoryHarness();
                 const request = permitRequest(currentPath(1), lease);
                 const payload = AuthorityPermitIssuanceRequest.encode(request);
                 const result = await harness.dispatch(
@@ -690,7 +883,7 @@ describe("closed Tenant authority command gates", () => {
                 expect(harness.snapshot().permits, reason).toBe(0);
             }
 
-            const harness = createMemoryHarness(permissiveBackend);
+            const harness = createMemoryHarness();
             const admitted = permitRequest(currentPath(1), expectationLease);
             const admittedPayload = AuthorityPermitIssuanceRequest.encode(admitted);
             const accepted = await harness.dispatch(
@@ -842,61 +1035,101 @@ describe("closed Tenant authority command gates", () => {
             [
                 "a substituted expectation",
                 (_state, request, at) =>
-                    new AuthorityPermit({
-                        ...request.expectation,
-                        attemptOrdinal: 1,
-                        nonce: request.nonce,
-                        issuedAt: at,
-                        expiresAt: request.expiresAt
-                    })
+                    issuedReply(
+                        request,
+                        new AuthorityPermit({
+                            ...request.targetRequest.expectation,
+                            attemptOrdinal: 1,
+                            nonce: request.targetRequest.nonce,
+                            requestDigest: request.targetRequest.digest(),
+                            issuedAt: at,
+                            expiresAt: request.targetRequest.expiresAt
+                        }),
+                        at
+                    )
             ],
             [
                 "a substituted issuer",
                 (_state, request, at) =>
-                    new AuthorityPermit({
-                        ...request.expectation,
-                        issuer: otherTenantActor,
-                        nonce: request.nonce,
-                        issuedAt: at,
-                        expiresAt: request.expiresAt
-                    })
+                    issuedReply(
+                        request,
+                        new AuthorityPermit({
+                            ...request.targetRequest.expectation,
+                            issuer: otherTenantActor,
+                            nonce: request.targetRequest.nonce,
+                            requestDigest: request.targetRequest.digest(),
+                            issuedAt: at,
+                            expiresAt: request.targetRequest.expiresAt
+                        }),
+                        at
+                    )
             ],
             [
                 "a substituted nonce",
                 (_state, request, at) =>
-                    new AuthorityPermit({
-                        ...request.expectation,
-                        nonce: `${request.nonce}-substituted`,
-                        issuedAt: at,
-                        expiresAt: request.expiresAt
-                    })
+                    issuedReply(
+                        request,
+                        new AuthorityPermit({
+                            ...request.targetRequest.expectation,
+                            nonce: `${request.targetRequest.nonce}-substituted`,
+                            requestDigest: request.targetRequest.digest(),
+                            issuedAt: at,
+                            expiresAt: request.targetRequest.expiresAt
+                        }),
+                        at
+                    )
             ],
             [
-                "a substituted issuance instant",
+                "a future issuance instant",
                 (_state, request, at) =>
-                    new AuthorityPermit({
-                        ...request.expectation,
-                        nonce: request.nonce,
-                        issuedAt: new Date(at.getTime() - 1),
-                        expiresAt: request.expiresAt
-                    })
+                    issuedReply(
+                        request,
+                        new AuthorityPermit({
+                            ...request.targetRequest.expectation,
+                            nonce: request.targetRequest.nonce,
+                            requestDigest: request.targetRequest.digest(),
+                            issuedAt: new Date(at.getTime() + 1),
+                            expiresAt: request.targetRequest.expiresAt
+                        }),
+                        at
+                    )
             ],
             [
                 "a substituted expiry",
                 (_state, request, at) =>
-                    new AuthorityPermit({
-                        ...request.expectation,
-                        nonce: request.nonce,
-                        issuedAt: at,
-                        expiresAt: new Date(request.expiresAt.getTime() + 1)
-                    })
+                    issuedReply(
+                        request,
+                        new AuthorityPermit({
+                            ...request.targetRequest.expectation,
+                            nonce: request.targetRequest.nonce,
+                            requestDigest: request.targetRequest.digest(),
+                            issuedAt: at,
+                            expiresAt: new Date(request.targetRequest.expiresAt.getTime() + 1)
+                        }),
+                        at
+                    )
+            ],
+            [
+                "a substituted target request digest",
+                (_state, request, at) =>
+                    issuedReply(
+                        request,
+                        new AuthorityPermit({
+                            ...request.targetRequest.expectation,
+                            nonce: request.targetRequest.nonce,
+                            requestDigest: digest("substituted-target-request"),
+                            issuedAt: at,
+                            expiresAt: request.targetRequest.expiresAt
+                        }),
+                        at
+                    )
             ]
         ];
 
         let ordinal = 0;
         for (const [reason, issuePermit] of substitutions) {
             ordinal += 1;
-            const harness = createMemoryHarness({ ...permissiveBackend, issuePermit });
+            const harness = createMemoryHarness({ issuePermit });
             const payload = AuthorityPermitIssuanceRequest.encode(permitRequest(currentPath(1)));
             const error = await dispatchFailure(
                 harness,
@@ -914,6 +1147,30 @@ describe("closed Tenant authority command gates", () => {
             expect(harness.snapshot(), reason).toMatchObject({ writes: 0, audits: 0 });
         }
     });
+
+    test(
+        "an exact prior issuance can be replayed after response loss",
+        { tags: "p0" },
+        async () => {
+            const request = permitRequest(currentPath(1));
+            const harness = createMemoryHarness();
+            const payload = AuthorityPermitIssuanceRequest.encode(request);
+            const raw = harness.envelope(
+                TENANT_AUTHORITY_COMMANDS.issuePermit,
+                "permit-response-loss",
+                payload
+            );
+            const issued = await harness.dispatch(raw, payload);
+            harness.setEpoch(3);
+            const replay = await harness.dispatch(raw, payload);
+
+            expect(replay.outcome).toBe("duplicate");
+            expect(replay.reply).toEqual(issued.reply);
+            expect(
+                AuthorityPermitIssuanceReply.decode(replay.reply).requirePermit().issuedAt
+            ).toEqual(now);
+        }
+    );
 
     test(
         "the composition ingress leases command payloads on the supplied clock",
@@ -1025,10 +1282,16 @@ function memoryBackend(overrides: Partial<AuthorityBackend> = {}): AuthorityBack
             return checkEvidence(request, currentPath(state.epoch), at);
         },
         issuePermit: (state, request, at) => {
-            if (state.permits[request.nonce] !== undefined) throw duplicatePermit();
+            const evidence = checkEvidence(
+                request.targetRequest.authority,
+                currentPath(state.epoch),
+                at
+            );
+            if (!evidence.allowed) return AuthorityPermitIssuanceReply.denied(evidence);
+            if (state.permits[request.targetRequest.nonce] !== undefined) throw duplicatePermit();
             const permit = permitFor(request, at);
-            state.permits[request.nonce] = AuthorityPermit.encode(permit);
-            return permit;
+            state.permits[request.targetRequest.nonce] = AuthorityPermit.encode(permit);
+            return AuthorityPermitIssuanceReply.issued(evidence, permit);
         },
         ...overrides
     };
@@ -1089,6 +1352,278 @@ function createSqliteHarness(): AuthorityCommandHarness {
     );
 }
 
+interface ProductionMemoryState {
+    authority: MemoryTenantControlSnapshot;
+    permits: MemoryAuthorityPermitSnapshot;
+    records: MemoryProtocolRecords;
+    nextId: number;
+}
+
+class ProductionCommandState extends TenantAuthorityCommandStatePort<AuthorityCommandRead> {
+    public actorFence(read: AuthorityCommandRead, actor: ActorRef): number | undefined {
+        return actor.equals(sourceActor) ? read.fence : undefined;
+    }
+
+    public checkPrincipal(
+        read: AuthorityCommandRead,
+        _request: AuthorityCheckRequest
+    ): PrincipalRef {
+        return read.principal;
+    }
+
+    public currentCheckLease(): undefined {
+        return undefined;
+    }
+
+    public currentPermitLease(): undefined {
+        return undefined;
+    }
+}
+
+const productionCommandState = new ProductionCommandState();
+
+const productionAnchor = {
+    actorId: tenantActor.id,
+    tenantId: tenant,
+    principalId: principal.principalId,
+    tenantKind: "personal" as const,
+    trustAnchor: Uint8Array.of(1, 2, 3)
+};
+
+function createProductionMemoryControl(): MemoryTenantControlStore {
+    const control = MemoryTenantControlStore.create(productionAnchor);
+    control.bootstrapTenant(productionAnchor, Revision.initial());
+    installProductionAuthority(control);
+    return control;
+}
+
+function installProductionAuthority(control: AuthorityMutationStore): void {
+    const service = new AuthorityMutationService(control);
+    service.createWorkspace(
+        new Workspace(
+            new WorkspaceId("authority-command-workspace"),
+            tenant,
+            undefined,
+            Revision.initial()
+        )
+    );
+    service.createGrant(
+        new Grant(
+            grant,
+            workspaceScope,
+            SubjectRef.principal(principal),
+            "allow",
+            new CapabilitySpec({
+                facetPattern: facet.value,
+                operations: ["send"],
+                impacts: ["externalSend"],
+                argumentConstraints: { channel: "internal" }
+            }),
+            { kind: "direct" }
+        )
+    );
+    service.createBinding(binding);
+}
+
+function productionPath(control: AuthorityMutationStore): PathEpochEvidence {
+    return new PathEpochEvidence([
+        control.epoch(ScopeRef.tenant(tenant)),
+        control.epoch(workspaceScope)
+    ]);
+}
+
+function readProductionMemoryControl(
+    actors: MemoryActorStore<ProductionMemoryState>
+): MemoryTenantControlStore {
+    return MemoryTenantControlStore.restore(actors.snapshot().state.authority);
+}
+
+function cloneProductionMemoryState(state: ProductionMemoryState): ProductionMemoryState {
+    return {
+        authority: MemoryTenantControlStore.restore(state.authority).snapshot(),
+        permits: new MemoryAuthorityPermitStore(tenantActor, state.permits).snapshot(),
+        records: state.records.clone(),
+        nextId: state.nextId
+    };
+}
+
+function initializeProductionSqliteState(database: TransactionalSqlite): void {
+    database.transaction(() => {
+        database.run(CREATE_SQLITE_STATE, []);
+        database.run("INSERT INTO authority_command_test_state VALUES (1, 7, ?, 1, 0)", [
+            principal.principalId.value
+        ]);
+        database.run(
+            "CREATE TABLE authority_command_test_ids (singleton INTEGER PRIMARY KEY, next_id INTEGER NOT NULL) STRICT",
+            []
+        );
+        database.run("INSERT INTO authority_command_test_ids VALUES (1, 0)", []);
+    });
+}
+
+function dispatchProductionPermit<Transaction, ReadTransaction>(
+    composition: ClosedTenantAuthorityComposition<
+        Transaction,
+        AuthorityCommandRead,
+        ReadTransaction,
+        CommandCaller
+    >,
+    request: AuthorityPermitIssuanceRequest,
+    caller: CommandCaller
+): Promise<CommandDispatchResult> {
+    const payload = AuthorityPermitIssuanceRequest.encode(request);
+    const raw = envelope(
+        TENANT_AUTHORITY_COMMANDS.issuePermit,
+        request.targetRequest.nonce,
+        payload,
+        caller
+    );
+    return composition.dispatch(raw, caller, payload);
+}
+
+function createProductionMemoryHarness(): ProductionPermitHarness {
+    const control = createProductionMemoryControl();
+    let failWrite = false;
+    let actorStore = new MemoryActorStore<ProductionMemoryState>(
+        {
+            authority: control.snapshot(),
+            permits: new MemoryAuthorityPermitStore(tenantActor).snapshot(),
+            records: new MemoryProtocolRecords(),
+            nextId: 0
+        },
+        cloneProductionMemoryState
+    );
+    let tenantStore = createProductionMemoryStore(actorStore);
+    let composition = createProductionMemoryComposition(tenantStore, () => failWrite);
+    let targetStore = new MemoryAuthorityPermitStore(targetActor);
+
+    const rebuild = (): void => {
+        actorStore = MemoryActorStore.restore(actorStore.snapshot(), cloneProductionMemoryState);
+        tenantStore = createProductionMemoryStore(actorStore);
+        composition = createProductionMemoryComposition(tenantStore, () => failWrite);
+    };
+
+    return {
+        currentPath: () => productionPath(readProductionMemoryControl(actorStore)),
+        persistTarget: (request) => {
+            targetStore.transaction((transaction) =>
+                targetStore.request(transaction, request.targetRequest)
+            );
+            targetStore = new MemoryAuthorityPermitStore(targetActor, targetStore.snapshot());
+            const persisted = targetStore.transaction((transaction) =>
+                targetStore.requested(transaction, request.targetRequest.nonce)
+            );
+            if (persisted === undefined)
+                throw new TypeError("Target request did not survive restart");
+            return new AuthorityPermitIssuanceRequest(persisted);
+        },
+        dispatch: (request, caller = { kind: "actor", actor: targetActor }) =>
+            dispatchProductionPermit(composition, request, caller),
+        revokeAndRestartTenant: () => {
+            tenantStore.transaction((state) => {
+                const current = MemoryTenantControlStore.restore(state.authority);
+                new AuthorityMutationService(current).revokeGrant(grant);
+                state.authority = current.snapshot();
+            });
+            rebuild();
+        },
+        restartTenant: rebuild,
+        failEvidenceAppend: (fail) => (failWrite = fail),
+        issued: (nonce) =>
+            tenantStore.transaction((transaction) => tenantStore.issued(transaction, nonce)),
+        writes: () => actorStore.snapshot().state.records.snapshot().writes.length
+    };
+}
+
+function createProductionSqliteHarness(): ProductionPermitHarness {
+    const database = new TestSqlite();
+    let failWrite = false;
+    let control = createSqliteTenantControlStore(database, productionAnchor);
+    database.transaction(() =>
+        control.bootstrapTenant(database, productionAnchor, Revision.initial())
+    );
+    installProductionAuthority(control);
+    initializeProductionSqliteState(database);
+    let tenantStore = new SqliteTenantAuthorityPermitStore(database, tenantActor);
+    let composition = createProductionSqliteComposition(tenantStore, database, () => failWrite);
+    const targetDatabase = new TestSqlite();
+    let targetStore = new SqliteAuthorityPermitStore(targetDatabase, targetActor);
+
+    const rebuild = (): void => {
+        control = createSqliteTenantControlStore(database);
+        tenantStore = new SqliteTenantAuthorityPermitStore(database, tenantActor);
+        composition = createProductionSqliteComposition(tenantStore, database, () => failWrite);
+    };
+
+    return {
+        currentPath: () => productionPath(control),
+        persistTarget: (request) => {
+            targetStore.transaction((transaction) =>
+                targetStore.request(transaction, request.targetRequest)
+            );
+            targetStore = new SqliteAuthorityPermitStore(targetDatabase, targetActor);
+            const persisted = targetStore.transaction((transaction) =>
+                targetStore.requested(transaction, request.targetRequest.nonce)
+            );
+            if (persisted === undefined)
+                throw new TypeError("Target request did not survive restart");
+            return new AuthorityPermitIssuanceRequest(persisted);
+        },
+        dispatch: (request, caller = { kind: "actor", actor: targetActor }) =>
+            dispatchProductionPermit(composition, request, caller),
+        revokeAndRestartTenant: () => {
+            new AuthorityMutationService(control).revokeGrant(grant);
+            rebuild();
+        },
+        restartTenant: rebuild,
+        failEvidenceAppend: (fail) => (failWrite = fail),
+        issued: (nonce) =>
+            tenantStore.transaction((transaction) => tenantStore.issued(transaction, nonce)),
+        writes: () => count(database, "protocol_write_records")
+    };
+}
+
+function createProductionMemoryStore(
+    actorStore: MemoryActorStore<ProductionMemoryState>
+): MemoryTenantAuthorityPermitStore<ProductionMemoryState> {
+    return new MemoryTenantAuthorityPermitStore(actorStore, tenantActor, {
+        authority: (state) => state.authority,
+        permits: (state) => state.permits,
+        savePermits: (state, permits) => (state.permits = permits)
+    });
+}
+
+function createProductionMemoryComposition(
+    store: MemoryTenantAuthorityPermitStore<ProductionMemoryState>,
+    failWrite: () => boolean
+) {
+    return createComposition(
+        store,
+        new FailingProtocolPersistence(
+            new MemoryProtocolPersistence<ProductionMemoryState>((state) => state.records),
+            failWrite
+        ),
+        new TenantAuthorityRuntimeCommandBackend(productionCommandState, store, tenantActor),
+        (state) => {
+            state.nextId += 1;
+            return state.nextId;
+        }
+    );
+}
+
+function createProductionSqliteComposition(
+    store: SqliteTenantAuthorityPermitStore,
+    database: TransactionalSqlite,
+    failWrite: () => boolean
+) {
+    return createComposition(
+        store,
+        new FailingProtocolPersistence(new SqliteProtocolPersistence(database), failWrite),
+        new TenantAuthorityRuntimeCommandBackend(productionCommandState, store, tenantActor),
+        nextSqliteId
+    );
+}
+
 function sqliteBackend(
     permitStore: SqliteAuthorityPermitStore
 ): TenantAuthorityCommandBackend<TransactionalSqlite, AuthorityCommandRead> {
@@ -1103,20 +1638,23 @@ function sqliteBackend(
             return checkEvidence(request, readSqlite(database).path, at);
         },
         issuePermit: (database, request, at) => {
+            const evidence = checkEvidence(
+                request.targetRequest.authority,
+                readSqlite(database).path,
+                at
+            );
+            if (!evidence.allowed) return AuthorityPermitIssuanceReply.denied(evidence);
             const permit = permitFor(request, at);
             permitStore.issue(database, permit);
-            return permit;
+            return AuthorityPermitIssuanceReply.issued(evidence, permit);
         }
     };
 }
 
 const readBackend = {
-    sourceFence: (read: AuthorityCommandRead, source: ActorRef) =>
-        source.equals(sourceActor) ? read.fence : undefined,
+    actorFence: (read: AuthorityCommandRead, actor: ActorRef) =>
+        actor.equals(sourceActor) ? read.fence : actor.equals(targetActor) ? 3 : undefined,
     checkPrincipal: (read: AuthorityCommandRead) => read.principal,
-    permitPrincipal: (read: AuthorityCommandRead) => read.principal,
-    permitsPermit: (read: AuthorityCommandRead, request: AuthorityPermitIssuanceRequest) =>
-        request.expectation.pathEpochs.equals(read.path),
     currentCheckLease: (
         _read: AuthorityCommandRead,
         _request: AuthorityCheckRequest,
@@ -1132,9 +1670,9 @@ const readBackend = {
         request: AuthorityPermitIssuanceRequest,
         at: Date
     ) => ({
-        turn: request.expectation.lease!.turn,
+        turn: request.targetRequest.expectation.lease!.turn,
         holder: principal,
-        epoch: request.expectation.lease!.epoch,
+        epoch: request.targetRequest.expectation.lease!.epoch,
         expiresAt: new Date(at.getTime() + 5_000)
     })
 };
@@ -1176,13 +1714,20 @@ function createComposition<Transaction, ReadTransaction extends AuthorityReadTra
     });
 }
 
-/** The two read transactions this harness composes over. */
-type AuthorityReadTransaction = ReadableSqlite | MemoryAuthorityState;
+/** The read transactions composed by the mock and production harnesses. */
+type AuthorityReadTransaction = ReadableSqlite | MemoryAuthorityState | ProductionMemoryState;
 
 function readTransaction(transaction: AuthorityReadTransaction): AuthorityCommandRead {
-    return transaction instanceof ReadableSqlite
-        ? readSqlite(transaction)
-        : readMemoryState(transaction);
+    if (transaction instanceof ReadableSqlite) return readSqlite(transaction);
+    if ("authority" in transaction) {
+        const control = MemoryTenantControlStore.restore(transaction.authority);
+        return Object.freeze({
+            fence: 7,
+            principal,
+            path: productionPath(control)
+        });
+    }
+    return readMemoryState(transaction);
 }
 
 function createHarness<Transaction, ReadTransaction>(
@@ -1198,20 +1743,36 @@ function createHarness<Transaction, ReadTransaction>(
     snapshot: () => AuthorityCommandSnapshot
 ): AuthorityCommandHarness {
     const caller: CommandCaller = { kind: "actor", actor: sourceActor };
+    const targetCaller: CommandCaller = { kind: "actor", actor: targetActor };
     return {
         caller,
         bindingRequest: () => bindingRequest(),
         checkRequest: (path = read().path, selectedPrincipal = principal) =>
             checkRequest(path, selectedPrincipal),
         permitRequest: (path = read().path) => permitRequest(path),
-        envelope: (command, key, payload, selectedCaller = caller, lease) =>
-            envelope(command, key, payload, selectedCaller, lease),
-        dispatch: (raw, payload, transport = caller) =>
-            composition.dispatch(raw, transport, payload),
+        envelope: (command, key, payload, selectedCaller, lease) =>
+            envelope(
+                command,
+                key,
+                payload,
+                selectedCaller ??
+                    (command === TENANT_AUTHORITY_COMMANDS.issuePermit ? targetCaller : caller),
+                lease
+            ),
+        dispatch: (raw, payload, transport) =>
+            composition.dispatch(raw, transport ?? submittedCaller(raw, caller), payload),
         setEpoch,
         failEvidenceAppend,
         snapshot
     };
+}
+
+function submittedCaller(raw: Uint8Array, fallback: CommandCaller): CommandCaller {
+    try {
+        return CommandEnvelopeCodec.decode(raw).caller;
+    } catch {
+        return fallback;
+    }
 }
 
 class FailingProtocolPersistence<Transaction> implements ProtocolPersistence<Transaction> {
@@ -1290,8 +1851,13 @@ function checkRequest(
 function permitRequest(
     path: PathEpochEvidence,
     lease?: AuthorityPermitExpectation["lease"],
-    overrides: Partial<ConstructorParameters<typeof AuthorityPermitExpectation>[0]> = {}
+    overrides: Partial<ConstructorParameters<typeof AuthorityPermitExpectation>[0]> = {},
+    argumentsValue: Readonly<{ channel: "internal" | "external" }> = {
+        channel: "internal"
+    },
+    nonce = "authority-command-permit"
 ): AuthorityPermitIssuanceRequest {
+    const argumentsDigest = Digest.sha256(encodeCanonicalJson(argumentsValue));
     const invocation = new AuthorityInvocationId("authority-command-permit-invocation");
     const itemKey = "authority-command-item";
     const expectationInit: Assembled<AuthorityPermitExpectationInit> = {
@@ -1302,7 +1868,7 @@ function permitRequest(
         principal,
         binding: { name: bindingName, generation: new Revision(binding.generation) },
         facet,
-        operation: new OperationRef("mail:send"),
+        operation: new OperationRef("workspace:send"),
         package: new PackagePin(
             new PackageId("authority-command-package"),
             new SemVer("1.0.0"),
@@ -1325,7 +1891,7 @@ function permitRequest(
             worker: new ClaimWorkerId("authority-command-worker")
         },
         itemKey,
-        argumentsDigest: digest("authority-command-arguments"),
+        argumentsDigest,
         intentDigest: digest("authority-command-intent"),
         pathEpochs: path,
         authority: { kind: "initiator", principal, binding: bindingName },
@@ -1333,10 +1899,43 @@ function permitRequest(
     };
     if (lease !== undefined) expectationInit.lease = lease;
     const expectation = new AuthorityPermitExpectation(expectationInit);
+    const authorityBinding = new Binding(
+        expectation.pathEpochs.target.scope,
+        SubjectRef.principal(expectation.principal),
+        expectation.target.domain,
+        expectation.binding.name,
+        grant,
+        expectation.facet,
+        expectation.binding.generation.value,
+        "active",
+        new Revision(expectation.binding.generation.value)
+    );
+    const authority = new AuthorityCheckRequest({
+        ownerTenant: expectation.tenant,
+        owner: expectation.target.actor,
+        ownerFence: expectation.target.fence,
+        principal: expectation.principal,
+        binding: authorityBinding,
+        intent: {
+            facet: expectation.facet,
+            operation: expectation.operation.operation.value,
+            impact: expectation.impact,
+            arguments: argumentsValue,
+            argumentsDigest
+        },
+        expectedPath: expectation.pathEpochs,
+        invocationDigest: expectation.intentDigest,
+        itemIndex: expectation.itemIndex,
+        attemptOrdinal: expectation.attemptOrdinal,
+        nonce
+    });
     return new AuthorityPermitIssuanceRequest(
-        expectation,
-        "authority-command-permit",
-        new Date(now.getTime() + 5_000)
+        new TargetAuthorityPermitRequest(
+            expectation,
+            authority,
+            nonce,
+            new Date(now.getTime() + 5_000)
+        )
     );
 }
 
@@ -1379,11 +1978,27 @@ function checkEvidence(
 
 function permitFor(request: AuthorityPermitIssuanceRequest, at: Date): AuthorityPermit {
     return new AuthorityPermit({
-        ...request.expectation,
-        nonce: request.nonce,
+        ...request.targetRequest.expectation,
+        nonce: request.targetRequest.nonce,
+        requestDigest: request.targetRequest.digest(),
         issuedAt: at,
-        expiresAt: request.expiresAt
+        expiresAt: request.targetRequest.expiresAt
     });
+}
+
+function issuedReply(
+    request: AuthorityPermitIssuanceRequest,
+    permit: AuthorityPermit,
+    at: Date
+): AuthorityPermitIssuanceReply {
+    return AuthorityPermitIssuanceReply.issued(
+        checkEvidence(
+            request.targetRequest.authority,
+            request.targetRequest.authority.expectedPath,
+            at
+        ),
+        permit
+    );
 }
 
 function envelope(

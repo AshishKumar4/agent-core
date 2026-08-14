@@ -67,17 +67,30 @@ export interface CanonicalBatchPreparationPort<
 }
 
 export interface CanonicalBatchAuthorityPermitPort<
+    Transaction,
     Lease,
     Authority,
     Domain,
     PathEpochs,
-    Admission
+    Admission,
+    Denial = never
 > {
     issue(
         invocation: PreparedInvocation<Lease, Authority, Domain, PathEpochs>,
         claim: ItemClaim<Lease>
-    ): Promise<AuthorityAdmissionReference<Admission>>;
+    ): Promise<CanonicalBatchAuthorityPermitResult<Admission, Denial>>;
+    deny(
+        transaction: Transaction,
+        invocation: PreparedInvocation<Lease, Authority, Domain, PathEpochs>,
+        claim: ItemClaim<Lease>,
+        denial: Denial
+    ): void;
 }
+
+export type CanonicalBatchAuthorityPermitResult<Admission, Denial = never> =
+    | { readonly kind: "issued"; readonly admission: AuthorityAdmissionReference<Admission> }
+    | { readonly kind: "denied"; readonly denial: Denial; readonly reason: string }
+    | { readonly kind: "expired" };
 
 export interface CanonicalBatchAuthorityAuthenticationPort<
     Lease,
@@ -206,7 +219,8 @@ export class CanonicalBatchInvocationPort<
     Domain,
     PathEpochs,
     Admission,
-    Authentication = undefined
+    Authentication = undefined,
+    Denial = never
 > implements CanonicalBatchInvoker<Authorization> {
     readonly #activeItems = new Map<string, Map<number, Promise<CanonicalBatchItemResult>>>();
 
@@ -237,11 +251,13 @@ export class CanonicalBatchInvocationPort<
             PathEpochs
         >,
         private readonly permits: CanonicalBatchAuthorityPermitPort<
+            Transaction,
             Lease,
             Authority,
             Domain,
             PathEpochs,
-            Admission
+            Admission,
+            Denial
         >,
         private readonly authentication: CanonicalBatchAuthorityAuthenticationPort<
             Lease,
@@ -345,17 +361,17 @@ export class CanonicalBatchInvocationPort<
             return terminal(itemIndex, receipt);
         }
 
-        let admission: AuthorityAdmissionReference<Admission>;
-        try {
-            admission = await this.permits.issue(prepared, state.claim);
-        } catch (error) {
-            if (!(error instanceof AgentCoreError) || error.code !== "authority.denied")
-                throw error;
+        const permitResult = await this.permits.issue(prepared, state.claim);
+        if (permitResult.kind === "expired") {
+            return this.invokeItemOnce(request, prepared, itemIndex);
+        }
+        if (permitResult.kind === "denied") {
             return terminal(
                 itemIndex,
-                this.denyClaim(prepared, state.claim, error.message || "Authority permit denied")
+                this.denyClaim(prepared, state.claim, permitResult.reason, permitResult.denial)
             );
         }
+        const { admission } = permitResult;
 
         let authentication: Authentication;
         try {
@@ -556,7 +572,8 @@ export class CanonicalBatchInvocationPort<
     private denyClaim(
         prepared: PreparedInvocation<Lease, Authority, Domain, PathEpochs>,
         claim: ItemClaim<Lease>,
-        reason: string
+        reason: string,
+        denial?: Denial
     ): PreEffectReceipt {
         const recordedAt = this.now();
         const receipt = this.records.preEffectReceipt(prepared, claim, recordedAt, reason);
@@ -570,6 +587,19 @@ export class CanonicalBatchInvocationPort<
             if (current !== undefined) {
                 if (current instanceof PreEffectReceipt) return current;
                 throw invalid("Authority denial raced an attempted item Receipt");
+            }
+            const currentClaim = this.persistence
+                .claimsForItem(transaction, prepared.header.id, claim.itemIndex)
+                .at(-1);
+            if (
+                currentClaim === undefined ||
+                !currentClaim.id.equals(claim.id) ||
+                this.persistence.attemptForClaim(transaction, claim.id) !== undefined
+            ) {
+                throw invalid("Authority denial does not bind the exact current claim");
+            }
+            if (denial !== undefined) {
+                this.permits.deny(transaction, prepared, claim, denial);
             }
             this.ledger.recordClaimedAuthorityDenialWithAudit(
                 transaction,

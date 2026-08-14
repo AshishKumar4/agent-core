@@ -94,6 +94,7 @@ export { CanonicalBatchInvocationPort } from "./canonical-batch";
 export type {
     CanonicalBatchAuthorityAuthenticationPort,
     CanonicalBatchAuthorityPermitPort,
+    CanonicalBatchAuthorityPermitResult,
     CanonicalBatchFinalAdmissionContext,
     CanonicalBatchFinalAdmissionPort,
     CanonicalBatchFinalAdmissionResult,

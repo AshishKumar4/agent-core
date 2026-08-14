@@ -58,7 +58,12 @@ export interface MediatedTurnCaller {
     readonly token: LeaseToken;
 }
 
-export interface MediatedOperationPipelineInit<Transaction, Admission, Authentication> {
+export interface MediatedOperationPipelineInit<
+    Transaction,
+    Admission,
+    Authentication,
+    Denial = never
+> {
     /** The replay scope: one Actor's mediated request-key namespace (§7.3). */
     readonly scope: string;
     readonly actor: ActorRef;
@@ -78,11 +83,13 @@ export interface MediatedOperationPipelineInit<Transaction, Admission, Authentic
     readonly roots: readonly Facet[];
     readonly activations: FacetActivationPinPort;
     readonly permits: CanonicalBatchAuthorityPermitPort<
+        Transaction,
         MediationLeaseReference,
         MediationAuthorityReference,
         MediationDomainReference,
         MediationPathEpochReference,
-        Admission
+        Admission,
+        Denial
     >;
     readonly authentication: CanonicalBatchAuthorityAuthenticationPort<
         MediationLeaseReference,
@@ -143,7 +150,8 @@ export interface MediatedOperationPipelineInit<Transaction, Admission, Authentic
 export class MediatedOperationPipeline<
     Transaction,
     Admission,
-    Authentication
+    Authentication,
+    Denial = never
 > implements AsyncDisposable {
     public readonly invocations: TurnInvocationPort;
     public readonly outbox: InvocationPublicationDrainer<Transaction>;
@@ -155,9 +163,9 @@ export class MediatedOperationPipeline<
      * that correspondence validation admitted, and a half-activated runtime must never
      * become a mediation surface.
      */
-    public static async activate<Transaction, Admission, Authentication>(
-        init: MediatedOperationPipelineInit<Transaction, Admission, Authentication>
-    ): Promise<MediatedOperationPipeline<Transaction, Admission, Authentication>> {
+    public static async activate<Transaction, Admission, Authentication, Denial = never>(
+        init: MediatedOperationPipelineInit<Transaction, Admission, Authentication, Denial>
+    ): Promise<MediatedOperationPipeline<Transaction, Admission, Authentication, Denial>> {
         const facets = new FacetRuntimeHost(init.manifests, init.roots);
         try {
             await facets.activate();
@@ -169,7 +177,7 @@ export class MediatedOperationPipeline<
     }
 
     private constructor(
-        init: MediatedOperationPipelineInit<Transaction, Admission, Authentication>,
+        init: MediatedOperationPipelineInit<Transaction, Admission, Authentication, Denial>,
         facets: FacetRuntimeHost
     ) {
         this.#facets = facets;
@@ -221,8 +229,8 @@ type MediatedOperations<Transaction> = ReplayOperationInvocationPort<
     MediatedAuthorityIntent
 >;
 
-function operations<Transaction, Admission, Authentication>(
-    init: MediatedOperationPipelineInit<Transaction, Admission, Authentication>,
+function operations<Transaction, Admission, Authentication, Denial>(
+    init: MediatedOperationPipelineInit<Transaction, Admission, Authentication, Denial>,
     identities: DerivedMediationIdentities,
     ledger: InvocationLedger<
         Transaction,
@@ -250,7 +258,8 @@ function operations<Transaction, Admission, Authentication>(
             MediationDomainReference,
             MediationPathEpochReference,
             Admission,
-            Authentication
+            Authentication,
+            Denial
         >(
             init.transactions,
             init.persistence,

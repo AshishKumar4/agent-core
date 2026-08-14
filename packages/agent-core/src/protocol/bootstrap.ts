@@ -229,6 +229,7 @@ class TenantBootstrapCommand<Transaction, Read> implements ProtocolCommand<
             tenant: verifiedAnchor.tenantId
         });
         return {
+            outcome: "committed",
             reply,
             observation: Object.freeze({ ...reply, at: new Date(at) })
         };

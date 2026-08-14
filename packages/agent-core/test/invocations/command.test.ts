@@ -20,76 +20,85 @@ import {
 } from "../../src/invocations";
 
 describe("Invocation protocol command families", () => {
-    test("[C13-ADV-EARLY-AGGREGATE] pins the executor/system lease matrix and forbids aggregate revisions", { tags: "p0" }, () => {
-        const commands = createInvocationProtocolCommands(new Backend(), callers);
-        expect(commands).toHaveLength(Object.keys(INVOCATION_COMMANDS).length);
-        for (const command of commands) {
-            expect(command.expectedRevision).toBe("forbidden");
-            const executor = command.command.endsWith(".executor");
-            expect(command.lease).toBe(executor ? "required" : "forbidden");
+    test(
+        "[C13-ADV-EARLY-AGGREGATE] pins the executor/system lease matrix and forbids aggregate revisions",
+        { tags: "p0" },
+        () => {
+            const commands = createInvocationProtocolCommands(new Backend(), callers);
+            expect(commands).toHaveLength(Object.keys(INVOCATION_COMMANDS).length);
+            for (const command of commands) {
+                expect(command.expectedRevision).toBe("forbidden");
+                const executor = command.command.endsWith(".executor");
+                expect(command.lease).toBe(executor ? "required" : "forbidden");
+            }
+            const system = commands.find(
+                (command) => command.command === INVOCATION_COMMANDS.attemptSystem
+            )!;
+            expect(
+                system.caller.admits({
+                    kind: "principal",
+                    principal: new PrincipalRef(tenant, new PrincipalId("not-system"))
+                })
+            ).toBe(false);
         }
-        const system = commands.find(
-            (command) => command.command === INVOCATION_COMMANDS.attemptSystem
-        )!;
-        expect(
-            system.caller.admits({
-                kind: "principal",
-                principal: new PrincipalRef(tenant, new PrincipalId("not-system"))
-            })
-        ).toBe(false);
-    });
+    );
 
-    test("[C13-ADV-REORDERED-INTENT] uses strict canonical payloads and delegates synchronously", { tags: "p0" }, () => {
-        const backend = new Backend();
-        const command = createInvocationProtocolCommands(backend, callers).find(
-            (entry) => entry.command === INVOCATION_COMMANDS.claimExecutor
-        )!;
-        const payload = command.payload.decode(
-            InvocationCommandPayload.encode(new InvocationId("protocol-invocation"), {
-                itemIndex: 0
-            })
-        );
-        expect(Object.isFrozen(payload.body)).toBe(true);
-        const envelope = commandEnvelope(INVOCATION_COMMANDS.claimExecutor);
-        const at = new Date("2026-07-12T12:00:00.000Z");
-        expect(command.authorize({}, envelope, payload)).toBe(true);
-        expect(command.permitsLifecycle({}, envelope, payload)).toBe(true);
-        expect(command.currentRevision({}, envelope, payload)).toBeUndefined();
-        expect(command.currentLease({}, envelope, payload, at)?.epoch).toBe(1);
-        expect(command.execute({}, envelope, payload, at)).toEqual({
-            reply: new Uint8Array([1]),
-            observation: { command: INVOCATION_COMMANDS.claimExecutor, at }
-        });
-        expect(backend.calls).toEqual([
-            "authorize:invocation.item.claim.executor",
-            "lifecycle:invocation.item.claim.executor",
-            "lease:invocation.item.claim.executor",
-            "execute:invocation.item.claim.executor"
-        ]);
-        expect(() =>
-            command.payload.decode(
-                new TextEncoder().encode('{"body":{},"extra":true,"invocation":"x"}')
-            )
-        ).toThrow();
-        // SAFETY: an empty object never went through the command's payload codec, which is
-        // precisely what the check under test looks for — a command must refuse a payload it
-        // did not decode itself, however well-formed it looks.
-        expect(() => command.authorize({}, envelope, {} as InvocationCommandPayloadValue)).toThrow(
-            /not decoded/
-        );
-        for (const malformed of [
-            "null",
-            "[]",
-            "1",
-            "{}",
-            '{"body":{},"invocation":1}',
-            '{"body":null,"invocation":"x"}'
-        ]) {
-            expect(() => command.payload.decode(new TextEncoder().encode(malformed))).toThrow(
-                /payload is malformed/
+    test(
+        "[C13-ADV-REORDERED-INTENT] uses strict canonical payloads and delegates synchronously",
+        { tags: "p0" },
+        () => {
+            const backend = new Backend();
+            const command = createInvocationProtocolCommands(backend, callers).find(
+                (entry) => entry.command === INVOCATION_COMMANDS.claimExecutor
+            )!;
+            const payload = command.payload.decode(
+                InvocationCommandPayload.encode(new InvocationId("protocol-invocation"), {
+                    itemIndex: 0
+                })
             );
+            expect(Object.isFrozen(payload.body)).toBe(true);
+            const envelope = commandEnvelope(INVOCATION_COMMANDS.claimExecutor);
+            const at = new Date("2026-07-12T12:00:00.000Z");
+            expect(command.authorize({}, envelope, payload)).toBe(true);
+            expect(command.permitsLifecycle({}, envelope, payload)).toBe(true);
+            expect(command.currentRevision({}, envelope, payload)).toBeUndefined();
+            expect(command.currentLease({}, envelope, payload, at)?.epoch).toBe(1);
+            expect(command.execute({}, envelope, payload, at)).toEqual({
+                outcome: "committed",
+                reply: new Uint8Array([1]),
+                observation: { command: INVOCATION_COMMANDS.claimExecutor, at }
+            });
+            expect(backend.calls).toEqual([
+                "authorize:invocation.item.claim.executor",
+                "lifecycle:invocation.item.claim.executor",
+                "lease:invocation.item.claim.executor",
+                "execute:invocation.item.claim.executor"
+            ]);
+            expect(() =>
+                command.payload.decode(
+                    new TextEncoder().encode('{"body":{},"extra":true,"invocation":"x"}')
+                )
+            ).toThrow();
+            // SAFETY: an empty object never went through the command's payload codec, which is
+            // precisely what the check under test looks for — a command must refuse a payload it
+            // did not decode itself, however well-formed it looks.
+            expect(() =>
+                command.authorize({}, envelope, {} as InvocationCommandPayloadValue)
+            ).toThrow(/not decoded/);
+            for (const malformed of [
+                "null",
+                "[]",
+                "1",
+                "{}",
+                '{"body":{},"invocation":1}',
+                '{"body":null,"invocation":"x"}'
+            ]) {
+                expect(() => command.payload.decode(new TextEncoder().encode(malformed))).toThrow(
+                    /payload is malformed/
+                );
+            }
         }
-    });
+    );
 
     test("binds backend codecs and rejects payloads that bypassed decoding", { tags: "p1" }, () => {
         const backend = new Backend();
@@ -196,6 +205,7 @@ class Backend implements InvocationCommandBackend<
     ) {
         this.calls.push(`execute:${command}`);
         return {
+            outcome: "committed" as const,
             reply: new Uint8Array([1]),
             observation: { command, at }
         };

@@ -129,6 +129,7 @@ export class FacetSlotInstallCommand<Transaction, Read> implements ProtocolComma
         const changed = this.backend.install(transaction, declaration);
         const revision = changed ? this.backend.advanceRevision(transaction, expected) : expected;
         const execution: ProtocolCommandExecution<FacetSlotCommandReply, SlotDeclaration> = {
+            outcome: "committed",
             reply: Object.freeze({ revision })
         };
         return changed ? { ...execution, observation: declaration } : execution;
@@ -241,6 +242,7 @@ export class FacetSlotContributeCommand<
         );
         const revision = changed ? this.backend.advanceRevision(transaction, expected) : expected;
         const execution: ProtocolCommandExecution<FacetSlotCommandReply, SlotEntry> = {
+            outcome: "committed",
             reply: Object.freeze({ revision })
         };
         return changed ? { ...execution, observation: prepared.entry } : execution;

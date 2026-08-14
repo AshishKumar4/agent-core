@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 import {
     AuthorityCheckEvidence,
     AuthorityCheckRequest,
-    AuthorityPermit,
     BindingValidationEvidence,
     BindingValidationRequest
 } from "../../../src/authority";
@@ -81,14 +80,19 @@ function authorityJourney(name: string, create: AuthorityJourneyFactory): void {
                     ),
                     permitPayload
                 );
-                const permit = AuthorityPermitIssuanceReply.decode(issued.reply).permit;
+                const permit = AuthorityPermitIssuanceReply.decode(issued.reply).requirePermit();
 
                 expect(issued.outcome).toBe("committed");
-                expect(permit.expectation.equals(permitRequest.expectation)).toBe(true);
+                expect(permit.expectation.equals(permitRequest.targetRequest.expectation)).toBe(
+                    true
+                );
                 expect(permit.issuer.equals(journey.tenantActor)).toBe(true);
                 expect(permit.issuedAt).toEqual(JOURNEY_NOW);
                 expect(
-                    AuthorityPermit.decode(issued.observation!).digest().equals(permit.digest())
+                    AuthorityPermitIssuanceReply.decode(issued.observation!)
+                        .requirePermit()
+                        .digest()
+                        .equals(permit.digest())
                 ).toBe(true);
                 expect(journey.snapshot()).toEqual({
                     writes: 3,
@@ -129,25 +133,29 @@ function authorityJourney(name: string, create: AuthorityJourneyFactory): void {
             }
         );
 
-        test("replays a duplicate check without re-evaluating authority", { tags: "p0" }, async () => {
-            const journey = create(`${name}-authority-replay`);
-            const request = journey.checkRequest();
-            const payload = AuthorityCheckRequest.encode(request);
-            const raw = journey.envelope(
-                TENANT_AUTHORITY_COMMANDS.check,
-                "journey-check-replay",
-                payload
-            );
+        test(
+            "replays a duplicate check without re-evaluating authority",
+            { tags: "p0" },
+            async () => {
+                const journey = create(`${name}-authority-replay`);
+                const request = journey.checkRequest();
+                const payload = AuthorityCheckRequest.encode(request);
+                const raw = journey.envelope(
+                    TENANT_AUTHORITY_COMMANDS.check,
+                    "journey-check-replay",
+                    payload
+                );
 
-            const first = await journey.dispatch(raw, payload);
-            const duplicate = await journey.dispatch(raw, payload);
+                const first = await journey.dispatch(raw, payload);
+                const duplicate = await journey.dispatch(raw, payload);
 
-            expect(first.outcome).toBe("committed");
-            expect(duplicate.outcome).toBe("duplicate");
-            expect(duplicate.reply).toEqual(first.reply);
-            expect(duplicate.write.duplicateOf?.equals(first.write.id)).toBe(true);
-            expect(journey.snapshot().checks).toBe(1);
-        });
+                expect(first.outcome).toBe("committed");
+                expect(duplicate.outcome).toBe("duplicate");
+                expect(duplicate.reply).toEqual(first.reply);
+                expect(duplicate.write.duplicateOf?.equals(first.write.id)).toBe(true);
+                expect(journey.snapshot().checks).toBe(1);
+            }
+        );
     });
 }
 

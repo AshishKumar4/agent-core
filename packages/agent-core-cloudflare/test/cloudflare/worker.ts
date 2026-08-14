@@ -23,7 +23,11 @@ import {
     SqliteAuthorityPermitStore,
     SqliteContentStore
 } from "@agent-core/core/substrates/sqlite";
-import { AuthorityPermit, AuthorityPermitExpectation } from "@agent-core/core/authority";
+import {
+    AuthorityPermit,
+    AuthorityPermitExpectation,
+    TargetAuthorityPermitRequest
+} from "@agent-core/core/authority";
 import { DurableObject, WorkerEntrypoint } from "cloudflare:workers";
 import {
     AlarmOutboxReconciler,
@@ -405,10 +409,10 @@ export class PermitTargetDurableObject extends DurableObject<TestEnvironment> {
         );
     }
 
-    public seedExpectation(bytes: Uint8Array): void {
-        // Stands in for the target's persisted invocation, reservation, and claim
-        // state: admission validates against this local record, never permit fields.
-        this.#expected = AuthorityPermit.decode(bytes).expectation;
+    public seedRequest(bytes: Uint8Array): void {
+        const request = TargetAuthorityPermitRequest.decode(bytes);
+        this.#admission.request(request);
+        this.#expected = request.expectation;
     }
 
     public async admitPermit(bytes: Uint8Array, at: number, failAppend = false): Promise<string> {

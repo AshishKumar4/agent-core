@@ -9,9 +9,12 @@ export class FacetPackageId extends TextId {
 }
 
 export class FacetRef extends TextId {
+    public readonly packageId: FacetPackageId;
+
     public constructor(value: string) {
         super(value, "Facet reference");
         requireFacetRef(value);
+        this.packageId = new FacetPackageId(value.slice(0, value.indexOf(":")));
         Object.freeze(this);
     }
 }
