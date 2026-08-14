@@ -86,22 +86,18 @@ describe("Facet Slot protocol commands", () => {
         ).toThrow(/Workspace/);
     });
 
-    test(
-        "prepared contributions to an undeclared slot fail lifecycle closed",
-        { tags: "p1" },
-        () => {
-            const target = actor("workspace");
-            const backend = new Backend();
-            const contribute = new FacetSlotContributeCommand(backend, target);
-            const decoded = contribute.payload.decode(
-                FacetSlotCommandPayload.contribute(contribution(entry()))
-            );
-            const contributionEnvelope = envelope(FACET_SLOT_COMMANDS.contribute, target);
+    test("prepared contributions to an undeclared slot fail lifecycle closed", { tags: "p1" }, () => {
+        const target = actor("workspace");
+        const backend = new Backend();
+        const contribute = new FacetSlotContributeCommand(backend, target);
+        const decoded = contribute.payload.decode(
+            FacetSlotCommandPayload.contribute(contribution(entry()))
+        );
+        const contributionEnvelope = envelope(FACET_SLOT_COMMANDS.contribute, target);
 
-            expect(contribute.authorize(backend, contributionEnvelope, decoded)).toBe(true);
-            expect(contribute.permitsLifecycle(backend, contributionEnvelope, decoded)).toBe(false);
-        }
-    );
+        expect(contribute.authorize(backend, contributionEnvelope, decoded)).toBe(true);
+        expect(contribute.permitsLifecycle(backend, contributionEnvelope, decoded)).toBe(false);
+    });
 
     test("contribution codec rejects non-canonical ordinals", { tags: "p2" }, () => {
         const contribute = new FacetSlotContributeCommand(new Backend(), actor("workspace"));
@@ -165,309 +161,271 @@ describe("Facet Slot protocol commands", () => {
         expect(backend.revision.value).toBe(2);
     });
 
-    test(
-        "[C13-ADV-UNAUTHORIZED-SLOT] strictly decodes payloads and denies unauthorized contributions",
-        { tags: "p0" },
-        () => {
-            const target = actor("workspace");
-            const backend = new Backend();
-            const command = new FacetSlotContributeCommand(backend, target);
-            backend.contributionAllowed = false;
-            const decoded = command.payload.decode(
-                FacetSlotCommandPayload.contribute(contribution(entry()))
-            );
+    test("[C13-ADV-UNAUTHORIZED-SLOT] strictly decodes payloads and denies unauthorized contributions", { tags: "p0" }, () => {
+        const target = actor("workspace");
+        const backend = new Backend();
+        const command = new FacetSlotContributeCommand(backend, target);
+        backend.contributionAllowed = false;
+        const decoded = command.payload.decode(
+            FacetSlotCommandPayload.contribute(contribution(entry()))
+        );
 
-            expect(command.authorize(backend, envelope(command.command, target), decoded)).toBe(
-                false
-            );
-            expect(() =>
-                command.payload.decode(
-                    encodeCanonicalJson({ entry: entry().toData(), extra: true })
-                )
-            ).toThrow(/unknown fields/);
-        }
-    );
+        expect(command.authorize(backend, envelope(command.command, target), decoded)).toBe(false);
+        expect(() =>
+            command.payload.decode(encodeCanonicalJson({ entry: entry().toData(), extra: true }))
+        ).toThrow(/unknown fields/);
+    });
 
-    test(
-        "[C13-FACET-SLOT-AUTHORITY] derives contributor provenance and enforces Slot authority through the closed authenticated dispatcher",
-        { tags: "p0" },
-        async () => {
-            const admitted = closedSlotFixture("workspace:trusted", "workspace:trusted");
-            const payload = FacetSlotCommandPayload.contribute({
-                slot: new SlotName("dashboard.card"),
-                ordinal: 0,
-                value: { title: "Trusted" }
-            });
-            expect(new TextDecoder().decode(payload)).not.toContain("contributor");
+    test("[C13-FACET-SLOT-AUTHORITY] derives contributor provenance and enforces Slot authority through the closed authenticated dispatcher", { tags: "p0" }, async () => {
+        const admitted = closedSlotFixture("workspace:trusted", "workspace:trusted");
+        const payload = FacetSlotCommandPayload.contribute({
+            slot: new SlotName("dashboard.card"),
+            ordinal: 0,
+            value: { title: "Trusted" }
+        });
+        expect(new TextDecoder().decode(payload)).not.toContain("contributor");
 
-            const committed = await admitted.dispatch(payload, "trusted-contribution");
-            expect(committed.outcome).toBe("committed");
-            const observation = SlotEntry.decode(committed.observation!);
-            expect(observation.contributor.value).toBe("workspace:trusted");
-            expect(admitted.entries().map((candidate) => candidate.contributor.value)).toEqual([
-                "workspace:trusted"
-            ]);
+        const committed = await admitted.dispatch(payload, "trusted-contribution");
+        expect(committed.outcome).toBe("committed");
+        const observation = SlotEntry.decode(committed.observation!);
+        expect(observation.contributor.value).toBe("workspace:trusted");
+        expect(admitted.entries().map((candidate) => candidate.contributor.value)).toEqual([
+            "workspace:trusted"
+        ]);
 
-            const denied = closedSlotFixture("workspace:untrusted", "workspace:trusted");
-            const rejected = await denied.dispatch(payload, "untrusted-contribution");
-            expect(rejected.outcome).toBe("rejectedAuthority");
-            expect(rejected.observation).toBeUndefined();
-            expect(denied.entries()).toEqual([]);
-        }
-    );
+        const denied = closedSlotFixture("workspace:untrusted", "workspace:trusted");
+        const rejected = await denied.dispatch(payload, "untrusted-contribution");
+        expect(rejected.outcome).toBe("rejectedAuthority");
+        expect(rejected.observation).toBeUndefined();
+        expect(denied.entries()).toEqual([]);
+    });
 
-    test(
-        "atomically rejects payload, authority, and installation provenance substitution",
-        { tags: "p0" },
-        () => {
-            const target = actor("workspace");
-            const declaration = slot();
-            const state: SlotState = {
-                revision: new Revision(1),
-                slots: new Map([[declaration.name.value, declaration]]),
-                entries: new Map()
-            };
-            const store = slotStore();
-            const provenance = new MutableInstallationProvenance(installation(1));
-            let contributionAllowed = true;
-            const backend = new ProvenanceFacetSlotBackend(
-                store,
-                provenance,
-                {
-                    permitsInstall: () => true,
-                    permitsContribution: () => contributionAllowed
-                },
-                {
-                    revision: (transaction) => store.loadRevision(transaction),
-                    slot: (transaction, name) => store.loadSlot(transaction, name)
-                }
-            );
-            const command = new FacetSlotContributeCommand(backend, target);
-            const request = contribution(entry());
-
-            const provenanceEnvelope = envelope(command.command, target, new Revision(1));
-            expect(command.authorize(state, provenanceEnvelope, request)).toBe(true);
-            provenance.installation = installation(2);
-            expect(() => command.execute(state, provenanceEnvelope, request, decisionAt)).toThrow(
-                /provenance changed/
-            );
-
-            provenance.installation = installation(1);
-            const authorityEnvelope = envelope(command.command, target, new Revision(1));
-            expect(command.authorize(state, authorityEnvelope, request)).toBe(true);
-            contributionAllowed = false;
-            expect(() => command.execute(state, authorityEnvelope, request, decisionAt)).toThrow(
-                /Current authority/
-            );
-
-            contributionAllowed = true;
-            const payloadEnvelope = envelope(command.command, target, new Revision(1));
-            expect(command.authorize(state, payloadEnvelope, request)).toBe(true);
-            expect(() =>
-                command.execute(
-                    state,
-                    payloadEnvelope,
-                    { ...request, value: { title: "Substituted" } },
-                    decisionAt
-                )
-            ).toThrow(/substituted/);
-
-            const schemaEnvelope = envelope(command.command, target, new Revision(1));
-            expect(command.authorize(state, schemaEnvelope, request)).toBe(true);
-            state.slots.set(
-                declaration.name.value,
-                new SlotDeclaration(
-                    declaration.name,
-                    new JsonSchema({ type: "null" }),
-                    declaration.authority
-                )
-            );
-            expect(() => command.execute(state, schemaEnvelope, request, decisionAt)).toThrow(
-                /entry schema/
-            );
-
-            expect(state.entries.size).toBe(0);
-            expect(state.revision.value).toBe(1);
-        }
-    );
-
-    test(
-        "strictly decodes typed replies without accepting revision coercion",
-        { tags: "p1" },
-        () => {
-            const command = new FacetSlotInstallCommand(new Backend(), actor("workspace"));
-            const codec = command.replyCodec!;
-            expect(codec.decode(codec.encode({ revision: new Revision(3) })).revision.value).toBe(
-                3
-            );
-            const malformedReplies: readonly JsonValue[] = [
-                null,
-                {},
-                { revision: 0, extra: true },
-                { revision: "0" },
-                { revision: -1 },
-                { revision: 1.5 }
-            ];
-            for (const malformed of malformedReplies) {
-                expect(() => codec.decode(encodeCanonicalJson(malformed))).toThrow(TypeError);
+    test("atomically rejects payload, authority, and installation provenance substitution", { tags: "p0" }, () => {
+        const target = actor("workspace");
+        const declaration = slot();
+        const state: SlotState = {
+            revision: new Revision(1),
+            slots: new Map([[declaration.name.value, declaration]]),
+            entries: new Map()
+        };
+        const store = slotStore();
+        const provenance = new MutableInstallationProvenance(installation(1));
+        let contributionAllowed = true;
+        const backend = new ProvenanceFacetSlotBackend(
+            store,
+            provenance,
+            {
+                permitsInstall: () => true,
+                permitsContribution: () => contributionAllowed
+            },
+            {
+                revision: (transaction) => store.loadRevision(transaction),
+                slot: (transaction, name) => store.loadSlot(transaction, name)
             }
-            expect(() =>
-                command.payload.decode(encodeCanonicalJson({ record: "AA==", extra: true }))
-            ).toThrow(/unknown fields/);
-        }
-    );
+        );
+        const command = new FacetSlotContributeCommand(backend, target);
+        const request = contribution(entry());
 
-    test(
-        "covers malformed protocol state, lifecycle denial, foreign callers, and install no-ops",
-        { tags: "p1" },
-        () => {
-            const target = actor("workspace");
-            const foreign = actor("foreign");
-            const backend = new Backend();
-            const install = new FacetSlotInstallCommand(backend, target);
-            const contribute = new FacetSlotContributeCommand(backend, target);
-            const declaration = slot();
-            const decodedDeclaration = install.payload.decode(
-                FacetSlotCommandPayload.install(declaration)
-            );
-            const encodedContribution = FacetSlotCommandPayload.contribute(contribution(entry()));
-            expect(new TextDecoder().decode(encodedContribution)).not.toContain("contributor");
-            const decodedEntry = contribute.payload.decode(encodedContribution);
+        const provenanceEnvelope = envelope(command.command, target, new Revision(1));
+        expect(command.authorize(state, provenanceEnvelope, request)).toBe(true);
+        provenance.installation = installation(2);
+        expect(() => command.execute(state, provenanceEnvelope, request, decisionAt)).toThrow(
+            /provenance changed/
+        );
 
-            expect(
-                install.authorize(backend, envelope(install.command, foreign), decodedDeclaration)
-            ).toBe(false);
-            expect(
-                contribute.authorize(backend, envelope(contribute.command, foreign), decodedEntry)
-            ).toBe(false);
-            expect(
-                contribute.permitsLifecycle(
-                    backend,
-                    envelope(contribute.command, target),
-                    decodedEntry
-                )
-            ).toBe(false);
-            backend.provenanceAvailable = false;
-            expect(
-                contribute.permitsLifecycle(
-                    backend,
-                    envelope(contribute.command, target),
-                    decodedEntry
-                )
-            ).toBe(false);
-            backend.provenanceAvailable = true;
-            backend.declaration = new SlotDeclaration(
-                new SlotName("dashboard.card"),
-                new JsonSchema({ type: "null" }),
-                new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"])
-            );
-            const invalidSchemaEnvelope = envelope(contribute.command, target);
-            expect(contribute.authorize(backend, invalidSchemaEnvelope, decodedEntry)).toBe(true);
-            expect(contribute.permitsLifecycle(backend, invalidSchemaEnvelope, decodedEntry)).toBe(
-                false
-            );
-            expectAgentCoreError(
-                () =>
-                    install.execute(
-                        backend,
-                        envelope(install.command, target),
-                        forgedDeclaration({}),
-                        decisionAt
-                    ),
-                "protocol.invalid-state"
-            );
-            expectAgentCoreError(
-                () =>
-                    contribute.execute(
-                        backend,
-                        envelope(contribute.command, target),
-                        forgedContribution({}),
-                        decisionAt
-                    ),
-                "protocol.invalid-state"
-            );
-            expectAgentCoreError(
-                () =>
-                    install.execute(
-                        backend,
-                        envelopeWithoutRevision(install.command, target),
-                        decodedDeclaration,
-                        decisionAt
-                    ),
-                "protocol.revision-conflict"
-            );
+        provenance.installation = installation(1);
+        const authorityEnvelope = envelope(command.command, target, new Revision(1));
+        expect(command.authorize(state, authorityEnvelope, request)).toBe(true);
+        contributionAllowed = false;
+        expect(() => command.execute(state, authorityEnvelope, request, decisionAt)).toThrow(
+            /Current authority/
+        );
 
-            backend.changed = false;
-            const reply = install.execute(
-                backend,
-                envelope(install.command, target),
-                decodedDeclaration,
+        contributionAllowed = true;
+        const payloadEnvelope = envelope(command.command, target, new Revision(1));
+        expect(command.authorize(state, payloadEnvelope, request)).toBe(true);
+        expect(() =>
+            command.execute(
+                state,
+                payloadEnvelope,
+                { ...request, value: { title: "Substituted" } },
                 decisionAt
-            );
-            expect(reply.reply.revision.value).toBe(0);
-            expect(() => install.payload.decode(encodeCanonicalJson({ record: 1 }))).toThrow(
-                /string/
-            );
+            )
+        ).toThrow(/substituted/);
+
+        const schemaEnvelope = envelope(command.command, target, new Revision(1));
+        expect(command.authorize(state, schemaEnvelope, request)).toBe(true);
+        state.slots.set(
+            declaration.name.value,
+            new SlotDeclaration(
+                declaration.name,
+                new JsonSchema({ type: "null" }),
+                declaration.authority
+            )
+        );
+        expect(() => command.execute(state, schemaEnvelope, request, decisionAt)).toThrow(
+            /entry schema/
+        );
+
+        expect(state.entries.size).toBe(0);
+        expect(state.revision.value).toBe(1);
+    });
+
+    test("strictly decodes typed replies without accepting revision coercion", { tags: "p1" }, () => {
+        const command = new FacetSlotInstallCommand(new Backend(), actor("workspace"));
+        const codec = command.replyCodec!;
+        expect(codec.decode(codec.encode({ revision: new Revision(3) })).revision.value).toBe(3);
+        const malformedReplies: readonly JsonValue[] = [
+            null,
+            {},
+            { revision: 0, extra: true },
+            { revision: "0" },
+            { revision: -1 },
+            { revision: 1.5 }
+        ];
+        for (const malformed of malformedReplies) {
+            expect(() => codec.decode(encodeCanonicalJson(malformed))).toThrow(TypeError);
+        }
+        expect(() =>
+            command.payload.decode(encodeCanonicalJson({ record: "AA==", extra: true }))
+        ).toThrow(/unknown fields/);
+    });
+
+    test("covers malformed protocol state, lifecycle denial, foreign callers, and install no-ops", { tags: "p1" }, () => {
+        const target = actor("workspace");
+        const foreign = actor("foreign");
+        const backend = new Backend();
+        const install = new FacetSlotInstallCommand(backend, target);
+        const contribute = new FacetSlotContributeCommand(backend, target);
+        const declaration = slot();
+        const decodedDeclaration = install.payload.decode(
+            FacetSlotCommandPayload.install(declaration)
+        );
+        const encodedContribution = FacetSlotCommandPayload.contribute(contribution(entry()));
+        expect(new TextDecoder().decode(encodedContribution)).not.toContain("contributor");
+        const decodedEntry = contribute.payload.decode(encodedContribution);
+
+        expect(
+            install.authorize(backend, envelope(install.command, foreign), decodedDeclaration)
+        ).toBe(false);
+        expect(
+            contribute.authorize(backend, envelope(contribute.command, foreign), decodedEntry)
+        ).toBe(false);
+        expect(
+            contribute.permitsLifecycle(backend, envelope(contribute.command, target), decodedEntry)
+        ).toBe(false);
+        backend.provenanceAvailable = false;
+        expect(
+            contribute.permitsLifecycle(backend, envelope(contribute.command, target), decodedEntry)
+        ).toBe(false);
+        backend.provenanceAvailable = true;
+        backend.declaration = new SlotDeclaration(
+            new SlotName("dashboard.card"),
+            new JsonSchema({ type: "null" }),
+            new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"])
+        );
+        const invalidSchemaEnvelope = envelope(contribute.command, target);
+        expect(contribute.authorize(backend, invalidSchemaEnvelope, decodedEntry)).toBe(true);
+        expect(contribute.permitsLifecycle(backend, invalidSchemaEnvelope, decodedEntry)).toBe(
+            false
+        );
+        expectAgentCoreError(
+            () =>
+                install.execute(
+                    backend,
+                    envelope(install.command, target),
+                    forgedDeclaration({}),
+                    decisionAt
+                ),
+            "protocol.invalid-state"
+        );
+        expectAgentCoreError(
+            () =>
+                contribute.execute(
+                    backend,
+                    envelope(contribute.command, target),
+                    forgedContribution({}),
+                    decisionAt
+                ),
+            "protocol.invalid-state"
+        );
+        expectAgentCoreError(
+            () =>
+                install.execute(
+                    backend,
+                    envelopeWithoutRevision(install.command, target),
+                    decodedDeclaration,
+                    decisionAt
+                ),
+            "protocol.revision-conflict"
+        );
+
+        backend.changed = false;
+        const reply = install.execute(
+            backend,
+            envelope(install.command, target),
+            decodedDeclaration,
+            decisionAt
+        );
+        expect(reply.reply.revision.value).toBe(0);
+        expect(() => install.payload.decode(encodeCanonicalJson({ record: 1 }))).toThrow(/string/);
+        expect(() => contribute.payload.decode(encodeCanonicalJson({ record: "%%%" }))).toThrow();
+        expect(() => install.payload.decode(encodeCanonicalJson(null))).toThrow(/object/);
+        expect(() =>
+            FacetSlotCommandPayload.contribute({
+                slot: new SlotName("slot"),
+                ordinal: -1,
+                value: null
+            })
+        ).toThrow(/ordinal/);
+        expect(() =>
+            FacetSlotCommandPayload.contribute({
+                slot: new SlotName("slot"),
+                ordinal: 1.5,
+                value: null
+            })
+        ).toThrow(/ordinal/);
+        for (const ordinal of ["zero", -1, 1.5]) {
             expect(() =>
-                contribute.payload.decode(encodeCanonicalJson({ record: "%%%" }))
-            ).toThrow();
-            expect(() => install.payload.decode(encodeCanonicalJson(null))).toThrow(/object/);
-            expect(() =>
-                FacetSlotCommandPayload.contribute({
-                    slot: new SlotName("slot"),
-                    ordinal: -1,
-                    value: null
-                })
+                contribute.payload.decode(
+                    encodeCanonicalJson({ ordinal, slot: "slot", value: null })
+                )
             ).toThrow(/ordinal/);
-            expect(() =>
-                FacetSlotCommandPayload.contribute({
-                    slot: new SlotName("slot"),
-                    ordinal: 1.5,
-                    value: null
-                })
-            ).toThrow(/ordinal/);
-            for (const ordinal of ["zero", -1, 1.5]) {
-                expect(() =>
-                    contribute.payload.decode(
-                        encodeCanonicalJson({ ordinal, slot: "slot", value: null })
-                    )
-                ).toThrow(/ordinal/);
-            }
-            for (const malformed of [
-                null,
-                {},
-                { slot: "slot", ordinal: 0, value: null },
-                { slot: new SlotName("slot"), ordinal: "zero", value: null },
-                { slot: new SlotName("slot"), ordinal: -1, value: null },
-                { slot: new SlotName("slot"), ordinal: 0, value: new Date() }
-            ]) {
-                expectAgentCoreError(
-                    () =>
-                        contribute.execute(
-                            backend,
-                            envelope(contribute.command, target),
-                            forgedContribution(malformed),
-                            decisionAt
-                        ),
-                    "protocol.invalid-state"
-                );
-            }
-            backend.provenanceAvailable = false;
-            expect(
-                contribute.authorize(backend, envelope(contribute.command, target), decodedEntry)
-            ).toBe(false);
+        }
+        for (const malformed of [
+            null,
+            {},
+            { slot: "slot", ordinal: 0, value: null },
+            { slot: new SlotName("slot"), ordinal: "zero", value: null },
+            { slot: new SlotName("slot"), ordinal: -1, value: null },
+            { slot: new SlotName("slot"), ordinal: 0, value: new Date() }
+        ]) {
             expectAgentCoreError(
                 () =>
                     contribute.execute(
                         backend,
                         envelope(contribute.command, target),
-                        decodedEntry,
+                        forgedContribution(malformed),
                         decisionAt
                     ),
-                "authority.denied"
+                "protocol.invalid-state"
             );
         }
-    );
+        backend.provenanceAvailable = false;
+        expect(
+            contribute.authorize(backend, envelope(contribute.command, target), decodedEntry)
+        ).toBe(false);
+        expectAgentCoreError(
+            () =>
+                contribute.execute(
+                    backend,
+                    envelope(contribute.command, target),
+                    decodedEntry,
+                    decisionAt
+                ),
+            "authority.denied"
+        );
+    });
 });
 
 test("facet slot reply codec accepts boundary revisions exactly", { tags: "p1" }, () => {
@@ -563,10 +521,6 @@ test("contribution lifecycle admits only the authorized exact entry", { tags: "p
     expect(contribute.permitsLifecycle(backend, commandEnvelope, longer)).toBe(false);
 });
 
-interface BackendContributionStamp {
-    readonly facet: FacetRef;
-}
-
 class Backend implements FacetSlotCommandBackend<Backend, Backend> {
     public revision = Revision.initial();
     public declaration: SlotDeclaration | undefined;
@@ -592,16 +546,14 @@ class Backend implements FacetSlotCommandBackend<Backend, Backend> {
     public prepareContribution(
         _read: Backend,
         _envelope: CommandEnvelope
-    ):
-        | { readonly reference: PackageInstallationRef; readonly stamp: BackendContributionStamp }
-        | undefined {
+    ): { readonly reference: PackageInstallationRef; readonly stamp: object } | undefined {
         return this.provenanceAvailable
             ? {
                   reference: new PackageInstallationRef(
                       this.provenanceFacet,
                       new FacetPackageId("package.facet")
                   ),
-                  stamp: Object.freeze({ facet: this.provenanceFacet })
+                  stamp: Object.freeze({})
               }
             : undefined;
     }
@@ -609,7 +561,7 @@ class Backend implements FacetSlotCommandBackend<Backend, Backend> {
     public applyContribution(
         _transaction: Backend,
         _envelope: CommandEnvelope,
-        _stamp: BackendContributionStamp,
+        _stamp: object,
         candidate: SlotEntry
     ): boolean {
         if (!candidate.contributor.equals(this.provenanceFacet)) {
@@ -837,7 +789,10 @@ class ClosedTestSlotStore extends WorkspaceSlotStore<ClosedSlotState> {
         state.revision = revision.value;
     }
 
-    public override loadSlot(state: ClosedSlotState, name: SlotName): SlotDeclaration | undefined {
+    public override loadSlot(
+        state: ClosedSlotState,
+        name: SlotName
+    ): SlotDeclaration | undefined {
         const bytes = state.slots.get(name.value);
         return bytes === undefined ? undefined : SlotDeclaration.decode(bytes);
     }
@@ -846,7 +801,10 @@ class ClosedTestSlotStore extends WorkspaceSlotStore<ClosedSlotState> {
         state.slots.set(candidate.name.value, SlotDeclaration.encode(candidate));
     }
 
-    public override loadEntry(state: ClosedSlotState, id: SlotEntry["id"]): SlotEntry | undefined {
+    public override loadEntry(
+        state: ClosedSlotState,
+        id: SlotEntry["id"]
+    ): SlotEntry | undefined {
         const bytes = state.entries.get(id.value);
         return bytes === undefined ? undefined : SlotEntry.decode(bytes);
     }

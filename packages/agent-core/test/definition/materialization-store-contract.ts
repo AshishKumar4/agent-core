@@ -20,9 +20,7 @@ import {
     MaterializationPlan,
     POLICY_IMPACTS,
     PolicySet,
-    policyProjection,
-    type EnforcementTier,
-    type EnforcementTierOverrides
+    policyProjection
 } from "../../src/definition";
 import { materializeActorPlan, type LocalMaterialization } from "../../src/definition/materializer";
 import { TenantId } from "../../src/identity";
@@ -37,80 +35,72 @@ export function materializationStoreContract<TTransaction>(
     create: (owner: ActorRef) => MaterializationStoreContract<TTransaction>
 ): void {
     describe(`${name} MaterializationStore contract`, () => {
-        test(
-            "returns undefined for every absent immutable record and deployment pointer",
-            { tags: "p1" },
-            () => {
-                const actor = actorRef("empty");
-                const store = create(actor);
-                expect(store.getBlueprint("missing", new SemVer("1.0.0"))).toBeUndefined();
-                expect(store.getPlan(digestOf("missing-plan"))).toBeUndefined();
-                expect(
-                    store.getGeneration(
-                        new MaterializationGenerationId(digestOf("missing-generation").value)
-                    )
-                ).toBeUndefined();
-                expect(store.getManagedState(digestOf("missing-state"))).toBeUndefined();
-                expect(store.getGenerationPointer(actor, deploymentId)).toBeUndefined();
-            }
-        );
+        test("returns undefined for every absent immutable record and deployment pointer", { tags: "p1" }, () => {
+            const actor = actorRef("empty");
+            const store = create(actor);
+            expect(store.getBlueprint("missing", new SemVer("1.0.0"))).toBeUndefined();
+            expect(store.getPlan(digestOf("missing-plan"))).toBeUndefined();
+            expect(
+                store.getGeneration(
+                    new MaterializationGenerationId(digestOf("missing-generation").value)
+                )
+            ).toBeUndefined();
+            expect(store.getManagedState(digestOf("missing-state"))).toBeUndefined();
+            expect(store.getGenerationPointer(actor, deploymentId)).toBeUndefined();
+        });
 
-        test(
-            "stores codec records synchronously and lists every record deterministically",
-            { tags: "p1" },
-            () => {
-                const workspace = actorRef("z-workspace");
-                const store = create(workspace);
-                const zetaBlueprint = blueprint("zeta", "1.0.0", { tier: "zeta" });
-                const alphaTwo = blueprint("alpha", "2.0.0", { tier: "two" });
-                const alphaOne = blueprint("alpha", "1.0.0", { tier: "one" });
-                const workspaceState = materializationState(workspace, 2, "workspace");
+        test("stores codec records synchronously and lists every record deterministically", { tags: "p1" }, () => {
+            const workspace = actorRef("z-workspace");
+            const store = create(workspace);
+            const zetaBlueprint = blueprint("zeta", "1.0.0", { tier: "zeta" });
+            const alphaTwo = blueprint("alpha", "2.0.0", { tier: "two" });
+            const alphaOne = blueprint("alpha", "1.0.0", { tier: "one" });
+            const workspaceState = materializationState(workspace, 2, "workspace");
 
-                store.addBlueprint(zetaBlueprint);
-                store.addBlueprint(alphaTwo);
-                store.addBlueprint(alphaOne);
-                store.addPlan(workspaceState.plan);
-                installGeneration(store, workspaceState);
+            store.addBlueprint(zetaBlueprint);
+            store.addBlueprint(alphaTwo);
+            store.addBlueprint(alphaOne);
+            store.addPlan(workspaceState.plan);
+            installGeneration(store, workspaceState);
 
-                const blueprintResult = store.getBlueprint("alpha", new SemVer("1.0.0"));
-                const planResult = store.getPlan(workspaceState.plan.id);
-                const generationResult = store.getGeneration(
-                    workspaceState.materialization.generation.id
-                );
-                const stateResult = store.getManagedState(
-                    workspaceState.materialization.records[0]!.id
-                );
+            const blueprintResult = store.getBlueprint("alpha", new SemVer("1.0.0"));
+            const planResult = store.getPlan(workspaceState.plan.id);
+            const generationResult = store.getGeneration(
+                workspaceState.materialization.generation.id
+            );
+            const stateResult = store.getManagedState(
+                workspaceState.materialization.records[0]!.id
+            );
 
-                expect(blueprintResult).not.toBeInstanceOf(Promise);
-                expect(planResult).not.toBeInstanceOf(Promise);
-                expect(generationResult).not.toBeInstanceOf(Promise);
-                expect(stateResult).not.toBeInstanceOf(Promise);
-                expect(Blueprint.encode(blueprintResult!)).toEqual(Blueprint.encode(alphaOne));
-                expect(MaterializationPlan.encode(planResult!)).toEqual(
-                    MaterializationPlan.encode(workspaceState.plan)
-                );
-                expect(store.listBlueprints().map((value) => blueprintKey(value))).toEqual([
-                    "alpha@1.0.0",
-                    "alpha@2.0.0",
-                    "zeta@1.0.0"
-                ]);
-                expect(store.listBlueprints("alpha").map((value) => blueprintKey(value))).toEqual([
-                    "alpha@1.0.0",
-                    "alpha@2.0.0"
-                ]);
-                expect(store.listPlans().map((value) => value.id.value)).toEqual([
-                    workspaceState.plan.id.value
-                ]);
-                expect(store.listGenerations().map((value) => actorKey(value.actor))).toEqual([
-                    actorKey(workspace)
-                ]);
-                expect(store.listGenerations(workspace)).toHaveLength(1);
-                expect(
-                    store.listManagedState(workspaceState.materialization.generation.id)
-                ).toHaveLength(1);
-                expect(Object.isFrozen(store.listManagedState())).toBe(true);
-            }
-        );
+            expect(blueprintResult).not.toBeInstanceOf(Promise);
+            expect(planResult).not.toBeInstanceOf(Promise);
+            expect(generationResult).not.toBeInstanceOf(Promise);
+            expect(stateResult).not.toBeInstanceOf(Promise);
+            expect(Blueprint.encode(blueprintResult!)).toEqual(Blueprint.encode(alphaOne));
+            expect(MaterializationPlan.encode(planResult!)).toEqual(
+                MaterializationPlan.encode(workspaceState.plan)
+            );
+            expect(store.listBlueprints().map((value) => blueprintKey(value))).toEqual([
+                "alpha@1.0.0",
+                "alpha@2.0.0",
+                "zeta@1.0.0"
+            ]);
+            expect(store.listBlueprints("alpha").map((value) => blueprintKey(value))).toEqual([
+                "alpha@1.0.0",
+                "alpha@2.0.0"
+            ]);
+            expect(store.listPlans().map((value) => value.id.value)).toEqual([
+                workspaceState.plan.id.value
+            ]);
+            expect(store.listGenerations().map((value) => actorKey(value.actor))).toEqual([
+                actorKey(workspace)
+            ]);
+            expect(store.listGenerations(workspace)).toHaveLength(1);
+            expect(
+                store.listManagedState(workspaceState.materialization.generation.id)
+            ).toHaveLength(1);
+            expect(Object.isFrozen(store.listManagedState())).toBe(true);
+        });
 
         test("lists plans generations and managed state in canonical order", { tags: "p1" }, () => {
             const actor = actorRef("ordering");
@@ -155,7 +145,10 @@ export function materializationStoreContract<TTransaction>(
         test("orders managed state within one generation by logical key", { tags: "p1" }, () => {
             const actor = actorRef("ordering");
             const store = create(actor);
-            const fixture = materializationStateWithKeys(actor, 1, "g-two", ["slot:zz", "slot:aa"]);
+            const fixture = materializationStateWithKeys(actor, 1, "g-two", [
+                "slot:zz",
+                "slot:aa"
+            ]);
             installGeneration(store, fixture);
 
             expect(
@@ -165,27 +158,21 @@ export function materializationStoreContract<TTransaction>(
             ).toEqual(["slot:aa", "slot:zz"]);
         });
 
-        test(
-            "replays managed state through addManagedState in a multi-record generation",
-            { tags: "p1" },
-            () => {
-                const actor = actorRef("workspace");
-                const store = create(actor);
-                const fixture = materializationStateWithKeys(actor, 1, "replay", [
-                    "slot:aa",
-                    "slot:zz"
-                ]);
-                installGeneration(store, fixture);
-                installGeneration(store, fixture);
+        test("replays managed state through addManagedState in a multi-record generation", { tags: "p1" }, () => {
+            const actor = actorRef("workspace");
+            const store = create(actor);
+            const fixture = materializationStateWithKeys(actor, 1, "replay", [
+                "slot:aa",
+                "slot:zz"
+            ]);
+            installGeneration(store, fixture);
+            installGeneration(store, fixture);
 
-                for (const record of fixture.materialization.records) {
-                    expect(() => store.addManagedState(record)).not.toThrow();
-                }
-                expect(store.listManagedState(fixture.materialization.generation.id)).toHaveLength(
-                    2
-                );
+            for (const record of fixture.materialization.records) {
+                expect(() => store.addManagedState(record)).not.toThrow();
             }
-        );
+            expect(store.listManagedState(fixture.materialization.generation.id)).toHaveLength(2);
+        });
 
         test("seals a stored generation closure against new managed state", { tags: "p0" }, () => {
             const actor = actorRef("workspace");
@@ -231,40 +218,36 @@ export function materializationStoreContract<TTransaction>(
             ).toThrow(/Materialization generation .* is immutable/);
         });
 
-        test(
-            "rejects divergent codec bytes under one managed-state identity",
-            { tags: "p0" },
-            () => {
-                const actor = actorRef("workspace");
-                const store = create(actor);
-                const fixture = materializationState(actor, 1, "identity");
-                installGeneration(store, fixture);
-                const record = fixture.materialization.records[0]!;
-                const divergent = new ManagedStateRecord({
-                    actor,
-                    origin: new ManagedOrigin({
-                        tenantId: record.origin.tenantId,
-                        deploymentId: record.origin.deploymentId,
-                        attestationDigest: record.origin.attestationDigest,
-                        blueprintDigest: digestOf("forged-blueprint"),
-                        packageLockDigest: record.origin.packageLockDigest,
-                        configDigest: record.origin.configDigest,
-                        generation: record.origin.generation
-                    }),
-                    generationId: record.generationId,
-                    logicalKey: record.logicalKey,
-                    recordKind: record.recordKind,
-                    desired: record.desired
-                });
-                expect(divergent.id.equals(record.id)).toBe(true);
+        test("rejects divergent codec bytes under one managed-state identity", { tags: "p0" }, () => {
+            const actor = actorRef("workspace");
+            const store = create(actor);
+            const fixture = materializationState(actor, 1, "identity");
+            installGeneration(store, fixture);
+            const record = fixture.materialization.records[0]!;
+            const divergent = new ManagedStateRecord({
+                actor,
+                origin: new ManagedOrigin({
+                    tenantId: record.origin.tenantId,
+                    deploymentId: record.origin.deploymentId,
+                    attestationDigest: record.origin.attestationDigest,
+                    blueprintDigest: digestOf("forged-blueprint"),
+                    packageLockDigest: record.origin.packageLockDigest,
+                    configDigest: record.origin.configDigest,
+                    generation: record.origin.generation
+                }),
+                generationId: record.generationId,
+                logicalKey: record.logicalKey,
+                recordKind: record.recordKind,
+                desired: record.desired
+            });
+            expect(divergent.id.equals(record.id)).toBe(true);
 
-                expect(() =>
-                    store.transaction((transaction) => {
-                        store.insertManagedState(transaction, divergent);
-                    })
-                ).toThrow(/Managed state .* is immutable/);
-            }
-        );
+            expect(() =>
+                store.transaction((transaction) => {
+                    store.insertManagedState(transaction, divergent);
+                })
+            ).toThrow(/Managed state .* is immutable/);
+        });
 
         test("rejects generation queries for a foreign Actor", { tags: "p0" }, () => {
             const store = create(actorRef("owner"));
@@ -296,33 +279,29 @@ export function materializationStoreContract<TTransaction>(
             expect(store.listPlans()).toEqual([]);
         });
 
-        test(
-            "returns false for a revision-expecting CAS on an absent pointer",
-            { tags: "p1" },
-            () => {
-                const actor = actorRef("workspace");
-                const store = create(actor);
-                const fixture = materializationState(actor, 1, "absent");
-                installGeneration(store, fixture);
+        test("returns false for a revision-expecting CAS on an absent pointer", { tags: "p1" }, () => {
+            const actor = actorRef("workspace");
+            const store = create(actor);
+            const fixture = materializationState(actor, 1, "absent");
+            installGeneration(store, fixture);
 
-                expect(
-                    store.transaction((transaction) =>
-                        store.compareAndSetGenerationPointer(
-                            transaction,
+            expect(
+                store.transaction((transaction) =>
+                    store.compareAndSetGenerationPointer(
+                        transaction,
+                        actor,
+                        deploymentId,
+                        new Revision(0),
+                        MaterializationGenerationPointer.initial(
                             actor,
                             deploymentId,
-                            new Revision(0),
-                            MaterializationGenerationPointer.initial(
-                                actor,
-                                deploymentId,
-                                fixture.materialization.generation.id
-                            ).activate(fixture.materialization.generation.id)
-                        )
+                            fixture.materialization.generation.id
+                        ).activate(fixture.materialization.generation.id)
                     )
-                ).toBe(false);
-                expect(store.getGenerationPointer(actor, deploymentId)).toBeUndefined();
-            }
-        );
+                )
+            ).toBe(false);
+            expect(store.getGenerationPointer(actor, deploymentId)).toBeUndefined();
+        });
 
         test("rejects pointer CAS onto the currently active generation", { tags: "p0" }, () => {
             const actor = actorRef("workspace");
@@ -378,225 +357,209 @@ export function materializationStoreContract<TTransaction>(
             expect(store.listManagedState()).toHaveLength(1);
         });
 
-        test(
-            "rejects immutable key conflicts and rolls their partial state back",
-            { tags: "p0" },
-            () => {
-                const actor = actorRef("workspace");
-                const store = create(actor);
-                const original = blueprint("platform", "1.0.0", { value: "original" });
-                const conflict = blueprint("platform", "1.0.0", { value: "conflict" });
-                store.addBlueprint(original);
+        test("rejects immutable key conflicts and rolls their partial state back", { tags: "p0" }, () => {
+            const actor = actorRef("workspace");
+            const store = create(actor);
+            const original = blueprint("platform", "1.0.0", { value: "original" });
+            const conflict = blueprint("platform", "1.0.0", { value: "conflict" });
+            store.addBlueprint(original);
 
-                expect(() => store.addBlueprint(conflict)).toThrowError(
-                    expect.objectContaining({
-                        code: "protocol.invalid-state"
-                    })
-                );
-                expect(() => store.addBlueprint(conflict)).toThrow(
-                    /Blueprint platform.1\.0\.0 is immutable/
-                );
-                expect(
-                    Blueprint.encode(store.getBlueprint("platform", new SemVer("1.0.0"))!)
-                ).toEqual(Blueprint.encode(original));
+            expect(() => store.addBlueprint(conflict)).toThrowError(
+                expect.objectContaining({
+                    code: "protocol.invalid-state"
+                })
+            );
+            expect(() => store.addBlueprint(conflict)).toThrow(
+                /Blueprint platform.1\.0\.0 is immutable/
+            );
+            expect(Blueprint.encode(store.getBlueprint("platform", new SemVer("1.0.0"))!)).toEqual(
+                Blueprint.encode(original)
+            );
 
-                const accepted = materializationState(actor, 1, "accepted", "slot:a");
-                const generationConflict = materializationState(actor, 1, "accepted", "slot:b");
-                installGeneration(store, accepted);
-                expect(() => installGeneration(store, generationConflict)).toThrowError(
-                    expect.objectContaining({ code: "protocol.invalid-state" })
-                );
-                expect(store.listGenerations()).toHaveLength(1);
-                expect(store.listManagedState()).toHaveLength(1);
+            const accepted = materializationState(actor, 1, "accepted", "slot:a");
+            const generationConflict = materializationState(actor, 1, "accepted", "slot:b");
+            installGeneration(store, accepted);
+            expect(() => installGeneration(store, generationConflict)).toThrowError(
+                expect.objectContaining({ code: "protocol.invalid-state" })
+            );
+            expect(store.listGenerations()).toHaveLength(1);
+            expect(store.listManagedState()).toHaveLength(1);
+        });
+
+        test("uses exact revision CAS and requires a new higher generation for rollback", { tags: "p0" }, () => {
+            const actor = actorRef("workspace");
+            const store = create(actor);
+            const first = materializationState(actor, 1, "first");
+            const second = materializationState(actor, 2, "second");
+            const rollback = materializationState(actor, 3, "rollback", "slot:first", "first");
+            installGeneration(store, first);
+            installGeneration(store, second);
+            installGeneration(store, rollback);
+
+            const initial = MaterializationGenerationPointer.initial(
+                actor,
+                deploymentId,
+                first.materialization.generation.id
+            );
+            expect(
+                store.transaction((transaction) =>
+                    store.compareAndSetGenerationPointer(
+                        transaction,
+                        actor,
+                        deploymentId,
+                        undefined,
+                        initial
+                    )
+                )
+            ).toBe(true);
+            expect(
+                store.transaction((transaction) =>
+                    store.compareAndSetGenerationPointer(
+                        transaction,
+                        actor,
+                        deploymentId,
+                        undefined,
+                        initial
+                    )
+                )
+            ).toBe(false);
+
+            const advanced = initial.activate(second.materialization.generation.id);
+            expect(
+                store.transaction((transaction) =>
+                    store.compareAndSetGenerationPointer(
+                        transaction,
+                        actor,
+                        deploymentId,
+                        new Revision(7),
+                        advanced
+                    )
+                )
+            ).toBe(false);
+            expect(
+                store.transaction((transaction) =>
+                    store.compareAndSetGenerationPointer(
+                        transaction,
+                        actor,
+                        deploymentId,
+                        initial.revision,
+                        advanced
+                    )
+                )
+            ).toBe(true);
+
+            expect(() =>
+                store.transaction((transaction) =>
+                    store.compareAndSetGenerationPointer(
+                        transaction,
+                        actor,
+                        deploymentId,
+                        advanced.revision,
+                        advanced.activate(first.materialization.generation.id)
+                    )
+                )
+            ).toThrow(/strictly increase/);
+
+            const rolledBack = advanced.activate(rollback.materialization.generation.id);
+            expect(
+                store.transaction((transaction) =>
+                    store.compareAndSetGenerationPointer(
+                        transaction,
+                        actor,
+                        deploymentId,
+                        advanced.revision,
+                        rolledBack
+                    )
+                )
+            ).toBe(true);
+            expect(
+                store
+                    .getGenerationPointer(actor, deploymentId)
+                    ?.generationId.equals(rollback.materialization.generation.id)
+            ).toBe(true);
+            expect(store.getGenerationPointer(actor, deploymentId)?.revision.value).toBe(2);
+            expect(store.listGenerations(actor)).toHaveLength(3);
+            expect(store.listManagedState()).toHaveLength(3);
+        });
+
+        test("rolls back a failed transaction and exposes no destructive lifecycle API", { tags: "p0" }, () => {
+            const actor = actorRef("workspace");
+            const store = create(actor);
+            const state = materializationState(actor, 1, "rollback");
+
+            expect(() =>
+                store.transaction((transaction) => {
+                    for (const record of state.materialization.records) {
+                        store.insertManagedState(transaction, record);
+                    }
+                    store.insertGeneration(transaction, state.materialization.generation);
+                    throw new TypeError("injected rollback");
+                })
+            ).toThrow(/injected rollback/);
+            expect(store.listManagedState()).toEqual([]);
+            expect(store.listGenerations()).toEqual([]);
+
+            for (const method of ["delete", "remove", "retire", "update"]) {
+                expect(method in store).toBe(false);
             }
-        );
+        });
 
-        test(
-            "uses exact revision CAS and requires a new higher generation for rollback",
-            { tags: "p0" },
-            () => {
-                const actor = actorRef("workspace");
-                const store = create(actor);
-                const first = materializationState(actor, 1, "first");
-                const second = materializationState(actor, 2, "second");
-                const rollback = materializationState(actor, 3, "rollback", "slot:first", "first");
-                installGeneration(store, first);
-                installGeneration(store, second);
-                installGeneration(store, rollback);
+        test("rejects pointers with foreign Actors, missing generations, or skipped revisions", { tags: "p0" }, () => {
+            const actor = actorRef("workspace");
+            const store = create(actor);
+            const foreign = actorRef("foreign");
+            const state = materializationState(actor, 1, "pointer");
+            installGeneration(store, state);
+            const generationId = state.materialization.generation.id;
 
-                const initial = MaterializationGenerationPointer.initial(
-                    actor,
-                    deploymentId,
-                    first.materialization.generation.id
-                );
-                expect(
-                    store.transaction((transaction) =>
-                        store.compareAndSetGenerationPointer(
-                            transaction,
-                            actor,
+            expect(() =>
+                store.transaction((transaction) =>
+                    store.compareAndSetGenerationPointer(
+                        transaction,
+                        actor,
+                        deploymentId,
+                        undefined,
+                        MaterializationGenerationPointer.initial(
+                            foreign,
                             deploymentId,
-                            undefined,
-                            initial
+                            generationId
                         )
                     )
-                ).toBe(true);
-                expect(
-                    store.transaction((transaction) =>
-                        store.compareAndSetGenerationPointer(
-                            transaction,
+                )
+            ).toThrow(/different Actor/);
+            expect(() =>
+                store.transaction((transaction) =>
+                    store.compareAndSetGenerationPointer(
+                        transaction,
+                        actor,
+                        deploymentId,
+                        undefined,
+                        MaterializationGenerationPointer.initial(
                             actor,
                             deploymentId,
-                            undefined,
-                            initial
+                            new MaterializationGenerationId(digestOf("missing").value)
                         )
                     )
-                ).toBe(false);
-
-                const advanced = initial.activate(second.materialization.generation.id);
-                expect(
-                    store.transaction((transaction) =>
-                        store.compareAndSetGenerationPointer(
-                            transaction,
+                )
+            ).toThrow(/stored generation/);
+            expect(() =>
+                store.transaction((transaction) =>
+                    store.compareAndSetGenerationPointer(
+                        transaction,
+                        actor,
+                        deploymentId,
+                        undefined,
+                        new MaterializationGenerationPointer({
                             actor,
                             deploymentId,
-                            new Revision(7),
-                            advanced
-                        )
+                            generationId,
+                            revision: new Revision(1)
+                        })
                     )
-                ).toBe(false);
-                expect(
-                    store.transaction((transaction) =>
-                        store.compareAndSetGenerationPointer(
-                            transaction,
-                            actor,
-                            deploymentId,
-                            initial.revision,
-                            advanced
-                        )
-                    )
-                ).toBe(true);
-
-                expect(() =>
-                    store.transaction((transaction) =>
-                        store.compareAndSetGenerationPointer(
-                            transaction,
-                            actor,
-                            deploymentId,
-                            advanced.revision,
-                            advanced.activate(first.materialization.generation.id)
-                        )
-                    )
-                ).toThrow(/strictly increase/);
-
-                const rolledBack = advanced.activate(rollback.materialization.generation.id);
-                expect(
-                    store.transaction((transaction) =>
-                        store.compareAndSetGenerationPointer(
-                            transaction,
-                            actor,
-                            deploymentId,
-                            advanced.revision,
-                            rolledBack
-                        )
-                    )
-                ).toBe(true);
-                expect(
-                    store
-                        .getGenerationPointer(actor, deploymentId)
-                        ?.generationId.equals(rollback.materialization.generation.id)
-                ).toBe(true);
-                expect(store.getGenerationPointer(actor, deploymentId)?.revision.value).toBe(2);
-                expect(store.listGenerations(actor)).toHaveLength(3);
-                expect(store.listManagedState()).toHaveLength(3);
-            }
-        );
-
-        test(
-            "rolls back a failed transaction and exposes no destructive lifecycle API",
-            { tags: "p0" },
-            () => {
-                const actor = actorRef("workspace");
-                const store = create(actor);
-                const state = materializationState(actor, 1, "rollback");
-
-                expect(() =>
-                    store.transaction((transaction) => {
-                        for (const record of state.materialization.records) {
-                            store.insertManagedState(transaction, record);
-                        }
-                        store.insertGeneration(transaction, state.materialization.generation);
-                        throw new TypeError("injected rollback");
-                    })
-                ).toThrow(/injected rollback/);
-                expect(store.listManagedState()).toEqual([]);
-                expect(store.listGenerations()).toEqual([]);
-
-                for (const method of ["delete", "remove", "retire", "update"]) {
-                    expect(method in store).toBe(false);
-                }
-            }
-        );
-
-        test(
-            "rejects pointers with foreign Actors, missing generations, or skipped revisions",
-            { tags: "p0" },
-            () => {
-                const actor = actorRef("workspace");
-                const store = create(actor);
-                const foreign = actorRef("foreign");
-                const state = materializationState(actor, 1, "pointer");
-                installGeneration(store, state);
-                const generationId = state.materialization.generation.id;
-
-                expect(() =>
-                    store.transaction((transaction) =>
-                        store.compareAndSetGenerationPointer(
-                            transaction,
-                            actor,
-                            deploymentId,
-                            undefined,
-                            MaterializationGenerationPointer.initial(
-                                foreign,
-                                deploymentId,
-                                generationId
-                            )
-                        )
-                    )
-                ).toThrow(/different Actor/);
-                expect(() =>
-                    store.transaction((transaction) =>
-                        store.compareAndSetGenerationPointer(
-                            transaction,
-                            actor,
-                            deploymentId,
-                            undefined,
-                            MaterializationGenerationPointer.initial(
-                                actor,
-                                deploymentId,
-                                new MaterializationGenerationId(digestOf("missing").value)
-                            )
-                        )
-                    )
-                ).toThrow(/stored generation/);
-                expect(() =>
-                    store.transaction((transaction) =>
-                        store.compareAndSetGenerationPointer(
-                            transaction,
-                            actor,
-                            deploymentId,
-                            undefined,
-                            new MaterializationGenerationPointer({
-                                actor,
-                                deploymentId,
-                                generationId,
-                                revision: new Revision(1)
-                            })
-                        )
-                    )
-                ).toThrow(/exactly one revision/);
-                expect(store.listGenerationPointers()).toEqual([]);
-            }
-        );
+                )
+            ).toThrow(/exactly one revision/);
+            expect(store.listGenerationPointers()).toEqual([]);
+        });
 
         test("rejects plans and records for a foreign Actor", { tags: "p0" }, () => {
             const owner = actorRef("owner");
@@ -633,41 +596,37 @@ export function materializationStoreContract<TTransaction>(
             expect(store.listManagedState()).toEqual([]);
         });
 
-        test(
-            "checks canonical codec ownership before persisting hostile objects",
-            { tags: "p0" },
-            () => {
-                const owner = actorRef("owner");
-                const foreign = actorRef("foreign");
-                const store = create(owner);
-                const ownerState = materializationState(owner, 1, "owner");
-                const foreignState = materializationState(foreign, 1, "foreign");
+        test("checks canonical codec ownership before persisting hostile objects", { tags: "p0" }, () => {
+            const owner = actorRef("owner");
+            const foreign = actorRef("foreign");
+            const store = create(owner);
+            const ownerState = materializationState(owner, 1, "owner");
+            const foreignState = materializationState(foreign, 1, "foreign");
 
-                expect(() => store.addPlan(encodeAs(ownerState.plan, foreignState.plan))).toThrow(
-                    /store owner/
-                );
-                expect(() =>
-                    store.addManagedState(
-                        encodeAs(
-                            ownerState.materialization.records[0]!,
-                            foreignState.materialization.records[0]!
-                        )
+            expect(() => store.addPlan(encodeAs(ownerState.plan, foreignState.plan))).toThrow(
+                /store owner/
+            );
+            expect(() =>
+                store.addManagedState(
+                    encodeAs(
+                        ownerState.materialization.records[0]!,
+                        foreignState.materialization.records[0]!
                     )
-                ).toThrow(/different Actor/);
-                expect(() =>
-                    store.addGeneration(
-                        encodeAs(
-                            ownerState.materialization.generation,
-                            foreignState.materialization.generation
-                        )
+                )
+            ).toThrow(/different Actor/);
+            expect(() =>
+                store.addGeneration(
+                    encodeAs(
+                        ownerState.materialization.generation,
+                        foreignState.materialization.generation
                     )
-                ).toThrow(/different Actor/);
+                )
+            ).toThrow(/different Actor/);
 
-                expect(store.listPlans()).toEqual([]);
-                expect(store.listManagedState()).toEqual([]);
-                expect(store.listGenerations()).toEqual([]);
-            }
-        );
+            expect(store.listPlans()).toEqual([]);
+            expect(store.listManagedState()).toEqual([]);
+            expect(store.listGenerations()).toEqual([]);
+        });
 
         test("rejects conflicting logical keys within one generation", { tags: "p0" }, () => {
             const actor = actorRef("owner");
@@ -701,30 +660,28 @@ export function materializationStoreContract<TTransaction>(
             expect(store.listManagedState()).toEqual([]);
         });
 
-        test(
-            "canonicalizes standalone managed state exactly once before closure validation",
-            { tags: "p1" },
-            () => {
-                const actor = actorRef("owner");
-                const store = create(actor);
-                const installed = materializationState(actor, 1, "installed");
-                const orphan = materializationState(actor, 2, "orphan").materialization.records[0]!;
-                installGeneration(store, installed);
-                let reads = 0;
-                const stateful = tamperedRecord(installed.materialization.records[0]!, {
+        test("canonicalizes standalone managed state exactly once before closure validation", { tags: "p1" }, () => {
+            const actor = actorRef("owner");
+            const store = create(actor);
+            const installed = materializationState(actor, 1, "installed");
+            const orphan = materializationState(actor, 2, "orphan").materialization.records[0]!;
+            installGeneration(store, installed);
+            let reads = 0;
+            const stateful = tamperedRecord(installed.materialization.records[0]!,
+                {
                     toData: () => {
                         reads += 1;
                         return reads === 1
                             ? orphan.toData()
                             : installed.materialization.records[0]!.toData();
                     }
-                });
+                }
+            );
 
-                expect(() => store.addManagedState(stateful)).toThrow(/stored generation/);
-                expect(reads).toBe(1);
-                expect(store.listManagedState()).toHaveLength(1);
-            }
-        );
+            expect(() => store.addManagedState(stateful)).toThrow(/stored generation/);
+            expect(reads).toBe(1);
+            expect(store.listManagedState()).toHaveLength(1);
+        });
 
         test.each(["tenant", "workspace", "run", "environment", "slate"] as const)(
             "opens Actor-local materialization persistence for %s owners",
@@ -818,16 +775,12 @@ export function blueprint(name: string, version: string, policies: JsonValue): B
 
 function policyFromData(data: JsonValue): PolicySet {
     const digest = Digest.sha256(encodeCanonicalJson(data)).value;
-    const tierAt = (index: number): EnforcementTier =>
-        Number.parseInt(digest[index]!, 16) % 2 === 0 ? "direct" : "mediated";
-    const tiers: EnforcementTierOverrides = {
-        observe: tierAt(0),
-        mutate: tierAt(1),
-        externalSend: tierAt(2),
-        execute: tierAt(3),
-        delegate: tierAt(4),
-        administer: tierAt(5)
-    };
+    const tiers = Object.fromEntries(
+        POLICY_IMPACTS.map((impact, index) => [
+            impact,
+            Number.parseInt(digest[index]!, 16) % 2 === 0 ? "direct" : "mediated"
+        ])
+    ) as import("../../src/definition").EnforcementTierOverrides;
     const approvals = POLICY_IMPACTS.filter(
         (_, index) => Number.parseInt(digest[index + POLICY_IMPACTS.length]!, 16) % 2 === 0
     );
@@ -845,14 +798,7 @@ export function materializationState(
     desiredSeed = seed,
     deploymentKey = "platform"
 ): MaterializationFixture {
-    return materializationFixture(
-        actor,
-        generation,
-        seed,
-        [logicalKey],
-        desiredSeed,
-        deploymentKey
-    );
+    return materializationFixture(actor, generation, seed, [logicalKey], desiredSeed, deploymentKey);
 }
 
 export function materializationStateWithKeys(
@@ -903,7 +849,9 @@ function policyForSeed(seed: string): PolicySet {
 }
 
 function forgeManagedStateKind(record: ManagedStateRecord, recordKind: string): ManagedStateRecord {
-    return tamperedRecord(record, { recordKind });
+    return tamperedRecord(record,
+        { recordKind }
+    );
 }
 
 /**
