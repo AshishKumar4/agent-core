@@ -6,7 +6,7 @@ import {
 import type { SynchronousResultGuard as CoreSynchronousResultGuard } from "@agent-core/core/actors";
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
-import { answersPlatformMethod } from "./platform-value.js";
+import { isFiniteNumber, isPlatformMethod, isPlatformObject, isText } from "./platform-value.js";
 
 export type SqliteValue = CoreSqliteValue;
 export type SqliteRow = CoreSqliteRow;
@@ -88,12 +88,12 @@ export interface StoredRowReader {
 export function storedRowReader(corrupt: (column: string) => never): StoredRowReader {
     function text(row: SqliteRow, column: string): string {
         const value = row[column];
-        if (typeof value !== "string" || value.length === 0) corrupt(column);
+        if (!isText(value) || value.length === 0) corrupt(column);
         return value;
     }
     function integer(row: SqliteRow, column: string): number {
         const value = row[column];
-        if (typeof value !== "number" || !Number.isSafeInteger(value)) corrupt(column);
+        if (!isFiniteNumber(value) || !Number.isSafeInteger(value)) corrupt(column);
         return value;
     }
     return Object.freeze({
@@ -133,7 +133,7 @@ export class CloudflareSqlite extends TransactionalSqlite {
                 this.errors,
                 "protocol.invalid-state",
                 "Cloudflare SQLite query iteration failed",
-                cause
+                { value: cause }
             );
         }
         return rows.map((row) => normalizeRow(row, this.errors));
@@ -151,7 +151,7 @@ export class CloudflareSqlite extends TransactionalSqlite {
                 this.errors,
                 "protocol.invalid-state",
                 "Cloudflare SQLite statement execution failed",
-                cause
+                { value: cause }
             );
         }
     }
@@ -186,7 +186,7 @@ export class CloudflareSqlite extends TransactionalSqlite {
                     this.errors,
                     "protocol.invalid-state",
                     "Cloudflare SQLite transaction failed",
-                    cause
+                    { value: cause }
                 );
             }
         } finally {
@@ -226,7 +226,7 @@ export class CloudflareSqlite extends TransactionalSqlite {
                 this.errors,
                 "protocol.invalid-state",
                 "Cloudflare SQLite statement preparation failed",
-                cause
+                { value: cause }
             );
         }
     }
@@ -249,9 +249,7 @@ function normalizeRow(
 }
 
 function normalizeValue(value: CloudflareSqlValue, errors: CloudflareErrorPort): SqliteValue {
-    if (value === null || typeof value === "string" || typeof value === "number") {
-        return value;
-    }
+    if (value === null || isFiniteNumber(value)) return value;
     if (value instanceof ArrayBuffer) {
         return new Uint8Array(value.slice(0));
     }
@@ -260,6 +258,7 @@ function normalizeValue(value: CloudflareSqlValue, errors: CloudflareErrorPort):
         const end = start + value.byteLength;
         return new Uint8Array(value.buffer.slice(start, end));
     }
+    if (isText(value)) return value;
     operationalFailure(
         errors,
         "operation.invalid-output",
@@ -267,8 +266,12 @@ function normalizeValue(value: CloudflareSqlValue, errors: CloudflareErrorPort):
     );
 }
 
-function isThenable(value: unknown): value is PromiseLike<unknown> {
-    return answersPlatformMethod<PromiseLike<unknown>>(value, (pending) => pending.then);
+function isThenable(value: unknown): value is PromiseLike<void> {
+    if (!isPlatformObject(value)) return false;
+    // SAFETY: this optional view reads only then. Callability below establishes the
+    // PromiseLike behavior relevant to the synchronous-transaction guard.
+    const candidate = value as Partial<PromiseLike<void>>;
+    return isPlatformMethod(candidate.then);
 }
 
 function noop(): void {}

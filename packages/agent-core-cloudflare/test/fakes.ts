@@ -1,4 +1,4 @@
-import { AgentCoreError } from "@agent-core/core";
+import { AgentCoreError, isJsonValue, jsonDataParser, type JsonValue } from "@agent-core/core";
 import type {
     AlarmStorageLike,
     AuthoritativeDurableObjectHost,
@@ -6,7 +6,6 @@ import type {
     CloudflareDurableObjectStorage,
     CloudflareErrorPort,
     CloudflareExecutionContextLike,
-    CloudflareOperationalErrorCode,
     CloudflareSqlBinding,
     CloudflareSqlCursor,
     CloudflareSqlStorage,
@@ -32,17 +31,24 @@ import type {
     WorkerLoaderBindingLike
 } from "../src/index.js";
 import { ReconciliationOutboxId } from "../src/index.js";
-import { answersPlatformMethod } from "../src/platform-value.js";
+import {
+    isFiniteNumber,
+    isPlatformMethod,
+    isPlatformObject,
+    isText
+} from "../src/platform-value.js";
 
 /** Structural test doubles only; these are not Cloudflare runtime emulators. */
 
+const json = jsonDataParser((message) => new TypeError(message));
+
 export const fakeErrors: CloudflareErrorPort = Object.freeze({
-    raise(code: CloudflareOperationalErrorCode, message: string, cause?: unknown): never {
+    raise(code, message, cause): never {
         const error = new AgentCoreError(code, message);
-        if (cause !== undefined) Object.defineProperty(error, "cause", { value: cause });
+        if (cause !== undefined) Object.defineProperty(error, "cause", { value: cause.value });
         throw error;
     }
-});
+} satisfies CloudflareErrorPort);
 
 export interface FakeSqlExecution<Row extends Record<string, CloudflareSqlValue>> {
     readonly rows?: readonly Row[];
@@ -355,14 +361,14 @@ export class FakeR2Bucket implements R2BucketLike {
 }
 
 export class FakeWebSocket implements HibernatingWebSocketLike {
-    public attachmentValue: unknown = null;
+    public attachmentValue: JsonValue = null;
     public readonly sent: Array<string | ArrayBuffer | ArrayBufferView> = [];
 
-    public serializeAttachment(value: unknown): void {
+    public serializeAttachment(value: JsonValue): void {
         this.attachmentValue = structuredClone(value);
     }
 
-    public deserializeAttachment(): unknown {
+    public deserializeAttachment(): JsonValue {
         return structuredClone(this.attachmentValue);
     }
 
@@ -377,7 +383,7 @@ export class FakeWebSocket implements HibernatingWebSocketLike {
      */
     public sentText(): readonly string[] {
         return this.sent.map((message) => {
-            if (typeof message !== "string") {
+            if (!isText(message)) {
                 throw new TypeError("Fake WebSocket was sent a binary frame");
             }
             return message;
@@ -417,14 +423,14 @@ export class FakeQueueMessage<Body> implements QueueMessageLike<Body> {
     }
 }
 
-export class FakeWorkerLoader implements WorkerLoaderBindingLike {
+export class FakeWorkerLoader implements WorkerLoaderBindingLike<FetchServiceLike> {
     public readonly calls: DynamicWorkerLoadOptions[] = [];
     public disposals = 0;
     public readonly service: FetchServiceLike = {
         fetch: (request) => new Response(request.url)
     };
 
-    public load(options: DynamicWorkerLoadOptions): DynamicWorkerHandleLike {
+    public load(options: DynamicWorkerLoadOptions): DynamicWorkerHandleLike<FetchServiceLike> {
         this.calls.push(options);
         return {
             getEntrypoint: () => this.service,
@@ -451,9 +457,9 @@ export class FakeDispatchNamespace implements DispatchNamespaceLike<FetchService
 }
 
 export class FakeExecutionContext implements CloudflareExecutionContextLike {
-    public readonly pending: Promise<unknown>[] = [];
+    public readonly pending: Promise<void>[] = [];
 
-    public waitUntil(promise: Promise<unknown>): void {
+    public waitUntil(promise: Promise<void>): void {
         this.pending.push(promise);
     }
 }
@@ -506,7 +512,7 @@ export class FakeDurableObjectHost implements AuthoritativeDurableObjectHost {
         this.closes += 1;
     }
 
-    public webSocketError(_socket: HibernatingWebSocketLike, _error: unknown): void {
+    public webSocketError(_socket: HibernatingWebSocketLike, _error: Error): void {
         this.errors += 1;
     }
 }
@@ -690,13 +696,13 @@ function deleteBefore(values: Map<number, Uint8Array>, revision: number): void {
  */
 export function boundText(bindings: readonly CloudflareSqlValue[], index: number): string {
     const value = bindings[index];
-    if (typeof value !== "string") throw new TypeError(`Fake SQLite binding ${index} is not text`);
-    return value;
+    if (!isJsonValue(value)) throw new TypeError(`Fake SQLite binding ${index} is not text`);
+    return json.string(value, `Fake SQLite binding ${index}`);
 }
 
 export function boundInteger(bindings: readonly CloudflareSqlValue[], index: number): number {
     const value = bindings[index];
-    if (typeof value !== "number" || !Number.isSafeInteger(value)) {
+    if (!isFiniteNumber(value) || !Number.isSafeInteger(value)) {
         throw new TypeError(`Fake SQLite binding ${index} is not an integer`);
     }
     return value;
@@ -710,6 +716,10 @@ function boundBytes(bindings: readonly CloudflareSqlValue[], index: number): Uin
     return value;
 }
 
-function isThenable(value: unknown): value is PromiseLike<unknown> {
-    return answersPlatformMethod<PromiseLike<unknown>>(value, (pending) => pending.then);
+function isThenable(value: unknown): value is PromiseLike<void> {
+    if (!isPlatformObject(value)) return false;
+    // SAFETY: this optional view reads only then; callability is the complete behavior
+    // the fake transaction needs to reject an asynchronous callback.
+    const candidate = value as Partial<PromiseLike<void>>;
+    return isPlatformMethod(candidate.then);
 }

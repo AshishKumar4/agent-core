@@ -15,6 +15,7 @@ import {
     operationalFailure,
     parseActorObjectName,
     type DueReconciliation,
+    type FetchServiceLike,
     type QueueTargetResult,
     type SynchronousSqlitePort
 } from "../src/index.js";
@@ -44,7 +45,7 @@ describe("Cloudflare operational failure mapping", () => {
                 },
                 "protocol.invalid-state",
                 "mapped failure",
-                "cause"
+                { value: "cause" }
             )
         ).toThrow(AgentCoreError);
         try {
@@ -56,7 +57,7 @@ describe("Cloudflare operational failure mapping", () => {
                 },
                 "protocol.invalid-state",
                 "mapped failure",
-                "cause"
+                { value: "cause" }
             );
         } catch (error) {
             expect(error).toMatchObject({
@@ -289,6 +290,16 @@ describe("Cloudflare operational failure mapping", () => {
         await expect(invalidTime.nextDueAt()).rejects.toMatchObject({
             code: "operation.invalid-output"
         });
+        const nullStoredSchedule = new SqliteReconciliationOutbox(
+            {
+                ...malformed,
+                all: () => [{ id: "id", scheduled_at: null }]
+            },
+            fakeErrors
+        );
+        await expect(nullStoredSchedule.dueIds(0, 1)).rejects.toMatchObject({
+            code: "operation.invalid-output"
+        });
         expectOperationalFailure(
             () => outbox.enqueue(malformedInput(""), 0),
             "operation.invalid-input"
@@ -331,7 +342,7 @@ describe("Cloudflare operational failure mapping", () => {
             "protocol.invalid-state"
         );
         let invalidHandleDisposals = 0;
-        const invalidHandle = new DynamicWorkerLoaderAdapter(
+        const invalidHandle = new DynamicWorkerLoaderAdapter<FetchServiceLike>(
             {
                 load: () =>
                     malformedInput({
@@ -385,10 +396,10 @@ describe("Cloudflare operational failure mapping", () => {
         );
         expect(entrypointFailureDisposals).toBe(1);
         let missingEntrypointDisposals = 0;
-        const missingEntrypoint = new DynamicWorkerLoaderAdapter(
+        const missingEntrypoint = new DynamicWorkerLoaderAdapter<FetchServiceLike>(
             {
                 load: () => ({
-                    getEntrypoint: () => null,
+                    getEntrypoint: () => malformedInput<FetchServiceLike, null>(null),
                     [Symbol.dispose]: () => {
                         missingEntrypointDisposals += 1;
                     }
@@ -448,7 +459,7 @@ describe("Cloudflare operational failure mapping", () => {
         );
 
         const invalidDeployment = new ExplicitCloudflareDeploymentAdapter(
-            new DynamicWorkerLoaderAdapter(
+            new DynamicWorkerLoaderAdapter<FetchServiceLike>(
                 {
                     load: () => ({ getEntrypoint: () => malformedInput({}) })
                 },

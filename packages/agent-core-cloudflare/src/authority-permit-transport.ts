@@ -32,13 +32,17 @@ export class PermitIssuerDurableObjectHost<Transaction> {
     public constructor(private readonly store: AuthorityPermitOwnerStore<Transaction>) {}
 
     public issuedPermitRecord(nonce: string): Uint8Array | undefined {
-        if (typeof nonce !== "string" || nonce.length === 0) return undefined;
+        if (!isPermitNonce(nonce)) return undefined;
         return this.store.transaction((transaction) => {
             const permit = this.store.issued(transaction, nonce);
             if (permit === undefined) return undefined;
             return AuthorityPermit.encode(permit);
         });
     }
+}
+
+function isPermitNonce(value: unknown): value is string {
+    return typeof value === "string" && value.length !== 0;
 }
 
 /**
@@ -117,9 +121,12 @@ export class DurableObjectPermitAdmission<Transaction> {
         ...guard: SynchronousResultGuard<Result>
     ): Promise<Result> {
         const authentication = await this.#authenticator.authenticate(permit, expected);
-        return this.store.transaction((transaction) => {
-            this.store.consume(transaction, authentication, permit, expected, now);
-            return requireSynchronousResult(appendEffectAttempt(transaction));
-        }, ...guard);
+        return this.store.transaction(
+            (transaction) => {
+                this.store.consume(transaction, authentication, permit, expected, now);
+                return requireSynchronousResult(appendEffectAttempt(transaction));
+            },
+            ...guard
+        );
     }
 }

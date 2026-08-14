@@ -3,14 +3,14 @@ import { AuthoredCodeBacking, type AuthoredCodeRunRequest } from "@agent-core/co
 import type { DispatchNamespaceAdapter } from "./dispatch.js";
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
-import type { DynamicWorkerLoaderAdapter } from "./loader.js";
+import type { DisposableCandidate, DynamicWorkerLoaderAdapter } from "./loader.js";
 import {
     passedCapabilities,
     type PassedCapabilities,
     type PassedCapabilityFactory,
     type PassedCapabilityRegistry
 } from "./passed-capability.js";
-import { answersPlatformMethod } from "./platform-value.js";
+import { isPlatformMethod, isPlatformObject } from "./platform-value.js";
 
 /** The two backings SPEC §10.2 names for this profile. */
 export const WORKER_LOADER_BACKING = new AuthoredCodeBackingId("workerLoader");
@@ -22,8 +22,12 @@ export const DISPATCH_NAMESPACE_BACKING = new AuthoredCodeBackingId("dispatchNam
  * channel every user of this platform expects and the one the reference implementation
  * of this pattern uses.
  */
-export interface AuthoredCodeEntrypointLike {
-    run(input: FacetData): unknown;
+export interface AuthoredCodeEntrypointLike extends DisposableCandidate {
+    run(input: FacetData): FacetData | Promise<FacetData>;
+}
+
+interface AuthoredCodeEntrypointCandidate extends DisposableCandidate {
+    run?(input: FacetData): FacetData | Promise<FacetData>;
 }
 
 /**
@@ -33,8 +37,8 @@ export interface AuthoredCodeEntrypointLike {
  * loaded-code path puts in `env`; only the channel differs, because the mechanism
  * leaves no choice.
  */
-export interface DispatchedAuthoredCodeEntrypointLike {
-    run(capabilities: PassedCapabilities, input: FacetData): unknown;
+export interface DispatchedAuthoredCodeEntrypointLike extends DisposableCandidate {
+    run(capabilities: PassedCapabilities, input: FacetData): FacetData | Promise<FacetData>;
 }
 
 /**
@@ -47,7 +51,7 @@ export class WorkerLoaderAuthoredCodeBacking extends AuthoredCodeBacking {
     public readonly id = WORKER_LOADER_BACKING;
 
     public constructor(
-        private readonly loader: DynamicWorkerLoaderAdapter,
+        private readonly loader: DynamicWorkerLoaderAdapter<AuthoredCodeEntrypointCandidate>,
         private readonly compatibilityDate: string,
         private readonly registry: PassedCapabilityRegistry,
         private readonly capabilities: PassedCapabilityFactory,
@@ -67,7 +71,7 @@ export class WorkerLoaderAuthoredCodeBacking extends AuthoredCodeBacking {
                 modules: Object.fromEntries(request.code)
             },
             passedCapabilities(request.capabilities, request.isolate, this.capabilities),
-            (entrypoint) => requireEntrypoint(entrypoint, this.errors)
+            (entrypoint) => requireAuthoredEntrypoint(entrypoint, this.errors)
         );
         try {
             const entrypoint: AuthoredCodeEntrypointLike = scope.entrypoint;
@@ -111,7 +115,7 @@ export class DispatchNamespaceAuthoredCodeBacking extends AuthoredCodeBacking {
     public readonly id = DISPATCH_NAMESPACE_BACKING;
 
     public constructor(
-        private readonly namespace: DispatchNamespaceAdapter<unknown>,
+        private readonly namespace: DispatchNamespaceAdapter<DispatchedAuthoredCodeEntrypointLike>,
         private readonly naming: DispatchScriptNaming,
         private readonly registry: PassedCapabilityRegistry,
         private readonly capabilities: PassedCapabilityFactory,
@@ -123,7 +127,7 @@ export class DispatchNamespaceAuthoredCodeBacking extends AuthoredCodeBacking {
     public async run(request: AuthoredCodeRunRequest): Promise<FacetData> {
         using registered = this.registry.open(request.isolate, request.invocations);
         void registered;
-        const entrypoint: DispatchedAuthoredCodeEntrypointLike = requireEntrypoint(
+        const entrypoint = requireDispatchedEntrypoint(
             this.namespace.resolve(this.naming(request)),
             this.errors
         );
@@ -136,8 +140,11 @@ export class DispatchNamespaceAuthoredCodeBacking extends AuthoredCodeBacking {
     }
 }
 
-function requireEntrypoint(value: unknown, errors: CloudflareErrorPort): AuthoredCodeRunner {
-    if (!isEntrypoint(value)) {
+function requireAuthoredEntrypoint(
+    value: AuthoredCodeEntrypointCandidate,
+    errors: CloudflareErrorPort
+): AuthoredCodeEntrypointLike {
+    if (!isAuthoredEntrypoint(value)) {
         operationalFailure(
             errors,
             "operation.invalid-output",
@@ -147,13 +154,30 @@ function requireEntrypoint(value: unknown, errors: CloudflareErrorPort): Authore
     return value;
 }
 
-function isEntrypoint(value: unknown): value is AuthoredCodeRunner {
-    return answersPlatformMethod<AuthoredCodeRunner>(value, (runner) => runner.run);
+function requireDispatchedEntrypoint(
+    value: DispatchedAuthoredCodeEntrypointLike,
+    errors: CloudflareErrorPort
+): DispatchedAuthoredCodeEntrypointLike {
+    if (!isDispatchedEntrypoint(value)) {
+        operationalFailure(
+            errors,
+            "operation.invalid-output",
+            "Agent-authored code exposes no callable entry point"
+        );
+    }
+    return value;
 }
 
-/** The loose shape the two published entry-point contracts both satisfy. */
-interface AuthoredCodeRunner {
-    run(...args: unknown[]): unknown;
+function isAuthoredEntrypoint(
+    value: AuthoredCodeEntrypointCandidate
+): value is AuthoredCodeEntrypointLike {
+    return isPlatformObject(value) && isPlatformMethod(value.run);
+}
+
+function isDispatchedEntrypoint(
+    value: DispatchedAuthoredCodeEntrypointLike
+): value is DispatchedAuthoredCodeEntrypointLike {
+    return isPlatformObject(value) && isPlatformMethod(value.run);
 }
 
 function notData(errors: CloudflareErrorPort): never {

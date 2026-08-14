@@ -21,6 +21,7 @@ import {
     type CloudflareErrorPort
 } from "../../src/index.js";
 import { SQL_BLOB_LIMIT_BYTES } from "../../src/sqlite.js";
+import { isText } from "../../src/platform-value.js";
 import worker, { type TestActorDurableObject } from "./worker.js";
 
 const probeErrors: CloudflareErrorPort = {
@@ -279,7 +280,7 @@ function nextMessage(socket: WebSocket): Promise<string> {
         socket.addEventListener(
             "message",
             (event) => {
-                if (typeof event.data !== "string") {
+                if (!isText(event.data)) {
                     throw new TypeError("Expected text WebSocket message");
                 }
                 resolve(event.data);

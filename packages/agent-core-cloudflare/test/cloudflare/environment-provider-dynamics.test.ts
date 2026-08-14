@@ -21,6 +21,7 @@ import {
     type SnapshotEnvironmentRequest
 } from "@agent-core/core/environment-provider";
 import type { DurableObjectEnvironmentProvider } from "../../src/index.js";
+import { isText } from "../../src/platform-value.js";
 import { PREVIEW_HOST, type EnvironmentProviderDurableObject } from "./worker.js";
 
 const PROPERTY_SEED = 0x5e5510;
@@ -1023,7 +1024,7 @@ function projectResource<Value>(outcome: ProviderResourceOutcome<Value>): Projec
     if (outcome.value instanceof ContentRef) {
         return { name: outcome.name, value: outcome.value.value };
     }
-    return typeof outcome.value === "string"
+    return isText(outcome.value)
         ? { name: outcome.name, value: outcome.value }
         : { name: outcome.name };
 }
@@ -1033,7 +1034,8 @@ async function captureFailure<Result>(operation: () => Promise<Result>): Promise
         await operation();
         return "succeeded";
     } catch (error) {
-        return errorCode(error);
+        if (error instanceof Error) return errorCode(error);
+        throw error;
     }
 }
 
@@ -1042,11 +1044,12 @@ function captureSynchronousFailure(operation: () => void): string {
         operation();
         return "succeeded";
     } catch (error) {
-        return errorCode(error);
+        if (error instanceof Error) return errorCode(error);
+        throw error;
     }
 }
 
-function errorCode(error: unknown): string {
+function errorCode(error: Error): string {
     if (error instanceof AgentCoreError) return error.code;
     throw error;
 }

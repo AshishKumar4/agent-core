@@ -3,6 +3,8 @@ import type { CloudflareErrorPort } from "./error.js";
 import { operationalError, operationalFailure } from "./error.js";
 import type { SynchronousSqlitePort } from "./migration.js";
 import { ReconciliationOutboxId } from "./id.js";
+import { isFiniteNumber } from "./platform-value.js";
+import type { SqliteValue } from "./sqlite.js";
 
 const DEFAULT_BATCH_SIZE = 100;
 const DEFAULT_RETRY_DELAY_MS = 30_000;
@@ -146,7 +148,7 @@ export class AlarmOutboxReconciler {
                         this.errors,
                         "protocol.invalid-state",
                         `Reconciliation failed for ${id}`,
-                        failure
+                        { value: failure }
                     );
                 }
                 const retryAt = this.retryTime(now);
@@ -191,7 +193,7 @@ export class AlarmOutboxReconciler {
         try {
             return await operation();
         } catch (cause) {
-            operationalFailure(this.errors, "protocol.invalid-state", message, cause);
+            operationalFailure(this.errors, "protocol.invalid-state", message, { value: cause });
         }
     }
 }
@@ -223,14 +225,10 @@ export class SqliteReconciliationOutbox implements ReconciliationOutbox {
         return Object.freeze(
             rows.map((row) => {
                 requireStoredOutputId(row.id, this.errors);
-                requireOutputTime(
-                    row.scheduled_at as number | null,
-                    "Stored outbox schedule",
-                    this.errors
-                );
+                requireStoredSchedule(row.scheduled_at, this.errors);
                 return Object.freeze({
-                    id: new ReconciliationOutboxId(row.id as string),
-                    scheduledAt: row.scheduled_at as number
+                    id: new ReconciliationOutboxId(row.id),
+                    scheduledAt: row.scheduled_at
                 });
             })
         );
@@ -249,8 +247,8 @@ export class SqliteReconciliationOutbox implements ReconciliationOutbox {
             );
         }
         const value = rows[0]?.scheduled_at;
-        requireOutputTime(value as number | null, "SQLite outbox schedule", this.errors);
-        return value as number | null;
+        requireOutputTime(value, "SQLite outbox schedule", this.errors);
+        return value;
     }
 
     public async acknowledge(due: DueReconciliation): Promise<void> {
@@ -284,7 +282,10 @@ function requireInputId(id: ReconciliationOutboxId, errors: CloudflareErrorPort)
     }
 }
 
-function requireOutputId(value: unknown, errors: CloudflareErrorPort): void {
+function requireOutputId(
+    value: ReconciliationOutboxId | undefined,
+    errors: CloudflareErrorPort
+): asserts value is ReconciliationOutboxId {
     if (!(value instanceof ReconciliationOutboxId)) {
         operationalFailure(
             errors,
@@ -294,8 +295,11 @@ function requireOutputId(value: unknown, errors: CloudflareErrorPort): void {
     }
 }
 
-function requireStoredOutputId(value: unknown, errors: CloudflareErrorPort): void {
-    if (typeof value !== "string" || value.length === 0) {
+function requireStoredOutputId(
+    value: SqliteValue | undefined,
+    errors: CloudflareErrorPort
+): asserts value is string {
+    if (!isNonemptyString(value)) {
         operationalFailure(
             errors,
             "operation.invalid-output",
@@ -314,10 +318,28 @@ function requireInputTime(value: number | null, label: string, errors: Cloudflar
     }
 }
 
-function requireOutputTime(value: number | null, label: string, errors: CloudflareErrorPort): void {
-    if (value !== null && (!Number.isSafeInteger(value) || value < 0)) {
+function requireOutputTime(
+    value: SqliteValue | undefined,
+    label: string,
+    errors: CloudflareErrorPort
+): asserts value is number | null {
+    if (value !== null && (!isFiniteNumber(value) || !Number.isSafeInteger(value) || value < 0)) {
         operationalFailure(errors, "operation.invalid-output", `${label} is invalid`);
     }
+}
+
+function requireStoredSchedule(
+    value: SqliteValue | undefined,
+    errors: CloudflareErrorPort
+): asserts value is number {
+    requireOutputTime(value, "Stored outbox schedule", errors);
+    if (value === null) {
+        operationalFailure(errors, "operation.invalid-output", "Stored outbox schedule is invalid");
+    }
+}
+
+function isNonemptyString(value: unknown): value is string {
+    return typeof value === "string" && value.length !== 0;
 }
 
 function requirePositiveConfigInteger(value: number, label: string): number {

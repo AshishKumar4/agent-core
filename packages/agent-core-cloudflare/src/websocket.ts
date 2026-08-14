@@ -1,4 +1,10 @@
-import { AgentCoreError } from "@agent-core/core";
+import {
+    AgentCoreError,
+    isJsonObject,
+    isJsonValue,
+    jsonDataParser,
+    type JsonValue
+} from "@agent-core/core";
 import { encodeBase64 } from "./base64.js";
 import type { CloudflareErrorPort, CloudflareOperationalErrorCode } from "./error.js";
 import { operationalFailure } from "./error.js";
@@ -14,14 +20,15 @@ const ATTACHMENT_VERSION = 1;
 const ATTACHMENT_LIMIT_BYTES = 16_384;
 
 export interface ViewSocketAttachment {
+    readonly [key: string]: JsonValue;
     readonly version: 1;
     readonly channel: string;
     readonly ackedRevision: number;
 }
 
 export interface HibernatingWebSocketLike {
-    serializeAttachment(value: unknown): void;
-    deserializeAttachment(): unknown;
+    serializeAttachment(value: JsonValue): void;
+    deserializeAttachment(): JsonValue;
     send(message: string | ArrayBuffer | ArrayBufferView): void;
 }
 
@@ -30,12 +37,15 @@ export interface HibernatingWebSocketContextLike {
 }
 
 export interface ViewStreamFrame {
+    readonly [key: string]: JsonValue;
     readonly version: 1;
     readonly kind: "snapshot" | "delta";
     readonly channel: string;
     readonly revision: number;
     readonly payload: string;
 }
+
+const persistedData = jsonDataParser((message) => new AgentCoreError("codec.invalid", message));
 
 export class HibernatingViewSocketAdapter {
     public constructor(
@@ -57,7 +67,7 @@ export class HibernatingViewSocketAdapter {
                 this.errors,
                 "protocol.invalid-state",
                 "Cloudflare failed to accept a hibernating WebSocket",
-                cause
+                { value: cause }
             );
         }
         this.replay(socket);
@@ -112,7 +122,7 @@ export class HibernatingViewSocketAdapter {
                 this.errors,
                 "protocol.invalid-state",
                 "Cloudflare WebSocket replay send failed",
-                cause
+                { value: cause }
             );
         }
     }
@@ -129,13 +139,13 @@ export class HibernatingViewSocketAdapter {
                 this.errors,
                 "protocol.invalid-state",
                 "Cloudflare WebSocket attachment serialization failed",
-                cause
+                { value: cause }
             );
         }
     }
 
     private readAttachment(socket: HibernatingWebSocketLike): ViewSocketAttachment {
-        let value: unknown;
+        let value: JsonValue;
         try {
             value = socket.deserializeAttachment();
         } catch (cause) {
@@ -143,7 +153,7 @@ export class HibernatingViewSocketAdapter {
                 this.errors,
                 "protocol.invalid-state",
                 "Cloudflare WebSocket attachment deserialization failed",
-                cause
+                { value: cause }
             );
         }
         return decodePersistedAttachment(value, this.errors);
@@ -166,27 +176,30 @@ function requireAttachmentSize(
 }
 
 export function decodeViewStreamFrame(value: string): ViewStreamFrame {
-    let decoded: unknown;
+    let decoded: JsonValue;
     try {
-        decoded = JSON.parse(value);
+        const parsed: unknown = JSON.parse(value);
+        if (!isJsonValue(parsed)) {
+            throw new AgentCoreError("codec.invalid", "View stream frame must be JSON data");
+        }
+        decoded = parsed;
     } catch (cause) {
         const error = new AgentCoreError("codec.invalid", "View stream frame must be JSON");
         Object.defineProperty(error, "cause", { value: cause });
         throw error;
     }
-    if (
-        !isRecord(decoded) ||
-        decoded.version !== ATTACHMENT_VERSION ||
-        (decoded.kind !== "snapshot" && decoded.kind !== "delta") ||
-        typeof decoded.channel !== "string" ||
-        decoded.channel.length === 0 ||
-        !Number.isSafeInteger(decoded.revision) ||
-        (decoded.revision as number) < 0 ||
-        typeof decoded.payload !== "string"
-    ) {
+    if (!isJsonObject(decoded)) {
         throw new AgentCoreError("codec.invalid", "View stream frame has an invalid shape");
     }
-    return Object.freeze(decoded as unknown as ViewStreamFrame);
+    const version = persistedData.safeInteger(decoded["version"], "View stream frame version");
+    const kind = persistedData.string(decoded["kind"], "View stream frame kind");
+    const channel = persistedData.nonemptyString(decoded["channel"], "View stream frame channel");
+    const revision = persistedData.safeInteger(decoded["revision"], "View stream frame revision");
+    const payload = persistedData.string(decoded["payload"], "View stream frame payload");
+    if (version !== ATTACHMENT_VERSION || (kind !== "snapshot" && kind !== "delta")) {
+        throw new AgentCoreError("codec.invalid", "View stream frame has an invalid shape");
+    }
+    return Object.freeze({ ...decoded, version, kind, channel, revision, payload });
 }
 
 function createAttachment(
@@ -206,20 +219,31 @@ function createAttachment(
 }
 
 function decodePersistedAttachment(
-    value: unknown,
+    value: JsonValue,
     errors: CloudflareErrorPort
 ): ViewSocketAttachment {
-    if (
-        !isRecord(value) ||
-        value.version !== ATTACHMENT_VERSION ||
-        typeof value.channel !== "string" ||
-        value.channel.length === 0 ||
-        !Number.isSafeInteger(value.ackedRevision) ||
-        (value.ackedRevision as number) < 0
-    ) {
+    if (!isJsonObject(value)) {
         operationalFailure(errors, "codec.invalid", "WebSocket attachment has an invalid shape");
     }
-    const attachment = Object.freeze(value as unknown as ViewSocketAttachment);
+    let version: number;
+    let channel: string;
+    let ackedRevision: number;
+    try {
+        version = persistedData.safeInteger(value["version"], "WebSocket attachment version");
+        channel = persistedData.nonemptyString(value["channel"], "WebSocket attachment channel");
+        ackedRevision = persistedData.safeInteger(
+            value["ackedRevision"],
+            "WebSocket attachment revision"
+        );
+    } catch (cause) {
+        operationalFailure(errors, "codec.invalid", "WebSocket attachment has an invalid shape", {
+            value: cause
+        });
+    }
+    if (version !== ATTACHMENT_VERSION) {
+        operationalFailure(errors, "codec.invalid", "WebSocket attachment has an invalid shape");
+    }
+    const attachment = Object.freeze({ ...value, version, channel, ackedRevision });
     requireAttachmentSize(attachment, "codec.invalid", errors);
     return attachment;
 }
@@ -232,8 +256,4 @@ function requireInputRevision(revision: number, errors: CloudflareErrorPort): vo
             "WebSocket revision must be a non-negative safe integer"
         );
     }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
 }

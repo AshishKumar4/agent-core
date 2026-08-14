@@ -122,7 +122,7 @@ export class R2ContentObjectRepository {
         try {
             return await operation();
         } catch (cause) {
-            operationalFailure(this.errors, "protocol.invalid-state", message, cause);
+            operationalFailure(this.errors, "protocol.invalid-state", message, { value: cause });
         }
     }
 
@@ -185,7 +185,9 @@ async function sha256(bytes: Uint8Array, errors: CloudflareErrorPort): Promise<s
     try {
         return hex(await crypto.subtle.digest("SHA-256", detached));
     } catch (cause) {
-        operationalFailure(errors, "protocol.invalid-state", "SHA-256 digest failed", cause);
+        operationalFailure(errors, "protocol.invalid-state", "SHA-256 digest failed", {
+            value: cause
+        });
     }
 }
 

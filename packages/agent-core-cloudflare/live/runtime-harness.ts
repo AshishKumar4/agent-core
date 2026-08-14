@@ -1,4 +1,10 @@
-import { AgentCoreError, type JsonValue } from "@agent-core/core";
+import {
+    AgentCoreError,
+    isJsonObject,
+    isJsonValue,
+    jsonDataParser,
+    type JsonValue
+} from "@agent-core/core";
 import { DurableObject } from "cloudflare:workers";
 import {
     AlarmOutboxReconciler,
@@ -25,6 +31,9 @@ import {
     readBody,
     type LiveBody
 } from "./protocol.js";
+import { isFiniteNumber, isText } from "../src/platform-value.js";
+
+const hibernationData = jsonDataParser((message) => new AgentCoreError("codec.invalid", message));
 
 export interface LiveRuntimeEnvironment {
     readonly GIT_COMMIT?: string;
@@ -101,7 +110,7 @@ function delay(milliseconds: number): Promise<void> {
 
 function textColumn(row: SqliteRow, column: string): string {
     const value = row[column];
-    if (typeof value !== "string") {
+    if (!isText(value)) {
         throw new AgentCoreError("codec.invalid", `Live harness column ${column} is not text`);
     }
     return value;
@@ -109,7 +118,7 @@ function textColumn(row: SqliteRow, column: string): string {
 
 function integerColumn(row: SqliteRow, column: string): number {
     const value = row[column];
-    if (typeof value !== "number" || !Number.isSafeInteger(value)) {
+    if (!isFiniteNumber(value) || !Number.isSafeInteger(value)) {
         throw new AgentCoreError(
             "codec.invalid",
             `Live harness column ${column} is not an integer`
@@ -223,10 +232,14 @@ class LiveRuntimeHost implements AuthoritativeDurableObjectHost {
     }
 
     public webSocketMessage(socket: HibernatingWebSocketLike, message: string | ArrayBuffer): void {
-        if (typeof message !== "string") {
+        if (!isText(message)) {
             throw new AgentCoreError("codec.invalid", "Live socket messages must be text");
         }
-        const request = JSON.parse(message) as LiveBody;
+        const decoded: unknown = JSON.parse(message);
+        if (!isJsonValue(decoded) || !isJsonObject(decoded)) {
+            throw new AgentCoreError("codec.invalid", "Live socket message must be JSON data");
+        }
+        const request: LiveBody = decoded;
         const before = this.runtime.webSockets.attachment(socket);
         if (request["ack"] !== undefined) {
             this.runtime.webSockets.acknowledge(socket, numberField(request, "ack"));
@@ -535,7 +548,7 @@ export class LiveRuntimeHarness extends DurableObject<LiveRuntimeEnvironment> {
         return this.#delegate.webSocketClose(socket, code, reason, wasClean);
     }
 
-    public webSocketError(socket: WebSocket, error: unknown): void | Promise<void> {
+    public webSocketError(socket: WebSocket, error: Error): void | Promise<void> {
         return this.#delegate.webSocketError(socket, error);
     }
 
@@ -549,20 +562,22 @@ export class LiveRuntimeHarness extends DurableObject<LiveRuntimeEnvironment> {
             count: this.ctx.getWebSockets().length,
             attachments: this.ctx.getWebSockets().map((socket) => {
                 const value: unknown = socket.deserializeAttachment();
-                if (
-                    typeof value !== "object" ||
-                    value === null ||
-                    !("channel" in value) ||
-                    typeof value.channel !== "string" ||
-                    !("ackedRevision" in value) ||
-                    typeof value.ackedRevision !== "number"
-                ) {
+                if (!isJsonValue(value) || !isJsonObject(value)) {
                     throw new AgentCoreError(
                         "codec.invalid",
                         "Hibernating socket attachment is not a live view attachment"
                     );
                 }
-                return { channel: value.channel, ackedRevision: value.ackedRevision };
+                return {
+                    channel: hibernationData.nonemptyString(
+                        value["channel"],
+                        "Hibernating socket channel"
+                    ),
+                    ackedRevision: hibernationData.safeInteger(
+                        value["ackedRevision"],
+                        "Hibernating socket revision"
+                    )
+                };
             })
         };
     }

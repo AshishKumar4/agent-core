@@ -305,7 +305,12 @@ describe("AlarmOutboxReconciler", () => {
             { retryDelayMs: 25, clock: { now: () => 100 } }
         );
 
-        const failure = await driver.handleAlarm().catch((error: unknown) => error);
+        let failure: unknown;
+        try {
+            await driver.handleAlarm();
+        } catch (error) {
+            failure = error;
+        }
         expect(failure).toBeInstanceOf(AgentCoreError);
         expect(failure).toMatchObject({
             code: "protocol.invalid-state",

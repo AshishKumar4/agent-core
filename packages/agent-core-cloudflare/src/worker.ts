@@ -1,7 +1,7 @@
 import type { AtLeastOnceQueueAdapter, QueueMessageBatchLike } from "./queue.js";
 
 export interface CloudflareExecutionContextLike {
-    waitUntil(promise: Promise<unknown>): void;
+    waitUntil(promise: Promise<void>): void;
 }
 
 export interface AuthoritativeWorkerRouter<Environment> {

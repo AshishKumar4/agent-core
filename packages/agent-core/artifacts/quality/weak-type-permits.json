@@ -2,106 +2,34 @@
   "edition": "1.0.0",
   "permits": [
     {
-      "file": "packages/agent-core-cloudflare/src/alarm-claims.ts",
-      "kind": "unknown",
-      "count": 1,
-      "reason": "Platform callbacks surface thrown values and bindings that Workers types leave open."
-    },
-    {
-      "file": "packages/agent-core-cloudflare/src/authored-code.ts",
-      "kind": "unknown",
-      "count": 6,
-      "reason": "Agent-authored code is the untyped side of the isolate boundary: its entry point arrives from the platform and is narrowed by a predicate, the value it returns is proved to be data before it leaves, both published entry-point contracts return it, and a dispatch namespace binding's service type is the host's to state."
-    },
-    {
-      "file": "packages/agent-core-cloudflare/src/deployment.ts",
-      "kind": "unknown",
-      "count": 1,
-      "reason": "Platform callbacks surface thrown values and bindings that Workers types leave open."
-    },
-    {
-      "file": "packages/agent-core-cloudflare/src/durable-object.ts",
-      "kind": "unknown",
-      "count": 3,
-      "reason": "Platform callbacks surface thrown values and bindings that Workers types leave open."
-    },
-    {
-      "file": "packages/agent-core-cloudflare/src/environment-provider.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "SQLite columns and platform bindings come back as open unions, and the value is asserted only after the row shape has been checked."
-    },
-    {
       "file": "packages/agent-core-cloudflare/src/error.ts",
       "kind": "unknown",
-      "count": 3,
-      "reason": "Platform callbacks surface thrown values and bindings that Workers types leave open."
+      "count": 1,
+      "reason": "A captured JavaScript throw has no static type; the wrapper prevents that open value from spreading beyond the error-mapping boundary."
     },
     {
       "file": "packages/agent-core-cloudflare/src/loader.ts",
       "kind": "unknown",
-      "count": 14,
-      "reason": "The module loader receives an entrypoint from the platform's dynamic import and disposes resources whose types it never learns."
-    },
-    {
-      "file": "packages/agent-core-cloudflare/src/platform-value.ts",
-      "kind": "assertion",
       "count": 1,
-      "reason": "Reading the one method a Workers stub must answer for is a plain property get: the runtime's stubs are Proxies that answer through their get trap alone, so in and own-property descriptors miss members that are really there, and TypeScript has no type for an object whose members are not yet known. The read is admitted only after the value is proved to carry properties, and its result is proved callable before any caller's narrowing rests on it."
-    },
-    {
-      "file": "packages/agent-core-cloudflare/src/platform-value.ts",
-      "kind": "unknown",
-      "count": 2,
-      "reason": "This is the parse boundary itself: the value has just crossed from the Workers runtime and nothing is known about it until the member read answers, and the callable question layered over that read takes the same value."
+      "reason": "A resource cleanup throw has no static type; it is captured immediately and never used as a resource or entrypoint contract."
     },
     {
       "file": "packages/agent-core-cloudflare/src/queue.ts",
       "kind": "unknown",
-      "count": 15,
-      "reason": "The queue adapter is generic over the delivery identity and payload its target defines, and reads platform message bodies that arrive untyped."
-    },
-    {
-      "file": "packages/agent-core-cloudflare/src/reconciliation.ts",
-      "kind": "assertion",
-      "count": 5,
-      "reason": "SQLite columns and platform bindings come back as open unions, and the value is asserted only after the row shape has been checked."
-    },
-    {
-      "file": "packages/agent-core-cloudflare/src/reconciliation.ts",
-      "kind": "unknown",
       "count": 2,
-      "reason": "Values arriving from the Workers runtime are untyped until this package narrows them."
-    },
-    {
-      "file": "packages/agent-core-cloudflare/src/revision-log.ts",
-      "kind": "assertion",
-      "count": 2,
-      "reason": "SQLite columns and platform bindings come back as open unions, and the value is asserted only after the row shape has been checked."
+      "reason": "Cloudflare queue bodies are untrusted until isJsonValue narrows them; the default generic records that platform boundary without weakening decoded deliveries."
     },
     {
       "file": "packages/agent-core-cloudflare/src/sqlite.ts",
-      "kind": "unknown",
-      "count": 2,
-      "reason": "Values arriving from the Workers runtime are untyped until this package narrows them."
-    },
-    {
-      "file": "packages/agent-core-cloudflare/src/websocket.ts",
       "kind": "assertion",
-      "count": 6,
-      "reason": "The stream frame and hibernation attachment decoders check every declared field before asserting the shape, but they check it inline, so the narrowing lands on the property reads and not on the value. Lifting both into type predicates removes all six assertions and is written and verified; it cannot land until the live lane is re-run, because this file is fingerprinted by the deployed live-substrate evidence."
+      "count": 1,
+      "reason": "Thenable detection reads only then after proving an object boundary and proves callability before treating the transaction result as asynchronous."
     },
     {
       "file": "packages/agent-core-cloudflare/src/websocket.ts",
-      "kind": "unknown",
-      "count": 8,
-      "reason": "Values arriving from the Workers runtime are untyped until this package narrows them."
-    },
-    {
-      "file": "packages/agent-core-cloudflare/src/worker.ts",
       "kind": "unknown",
       "count": 1,
-      "reason": "Platform callbacks surface thrown values and bindings that Workers types leave open."
+      "reason": "JSON.parse returns an untrusted JavaScript value, which is immediately narrowed by isJsonValue before frame decoding."
     },
     {
       "file": "packages/agent-core/src/actors/actor.ts",

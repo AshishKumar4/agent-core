@@ -47,7 +47,7 @@ import type { CloudflareErrorPort } from "../src/index.js";
 export const errors: CloudflareErrorPort = {
     raise(code, message, cause): never {
         const failure = new AgentCoreError(code, message);
-        if (cause !== undefined) Object.defineProperty(failure, "cause", { value: cause });
+        if (cause !== undefined) Object.defineProperty(failure, "cause", { value: cause.value });
         throw failure;
     }
 };

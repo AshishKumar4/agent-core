@@ -5,6 +5,9 @@ import {
     Revision,
     TenantId,
     WorkspaceId,
+    isJsonObject,
+    isJsonValue,
+    jsonDataParser,
     type JsonValue
 } from "@agent-core/core";
 import {
@@ -16,7 +19,10 @@ import {
     ProviderId,
     type ExposePortRequest,
     type OpenSessionRequest,
-    type SnapshotEnvironmentRequest
+    type SnapshotEnvironmentRequest,
+    type LiveEnvironmentSession,
+    type ProviderActionOutcome,
+    type ProviderResourceOutcome
 } from "@agent-core/core/environment-provider";
 import {
     SlateDeploymentId,
@@ -51,6 +57,7 @@ import {
     type LiveBody
 } from "./protocol.js";
 import { LiveRuntimeHarness, type LiveRuntimeEnvironment } from "./runtime-harness.js";
+import { isText } from "../src/platform-value.js";
 
 export { LiveRuntimeHarness };
 
@@ -66,6 +73,7 @@ const LIVE_TENANT = "agent-core-live-evidence";
 const PREVIEW_HOST = "preview.agent-core-live.test";
 /** Must match `queues.consumers[].dead_letter_queue` in live/wrangler.live.jsonc. */
 const POISON_QUEUE = "agent-core-live-evidence-poison";
+const liveData = jsonDataParser((message) => new TypeError(message));
 
 const providerDescriptor = new ProviderDescriptor(
     new ProviderId("cloudflare-do-live"),
@@ -73,17 +81,20 @@ const providerDescriptor = new ProviderDescriptor(
     ContentRef.fromDigest(Digest.sha256(new Uint8Array([0])))
 );
 
-function sessionRequest(body: Record<string, JsonValue>): OpenSessionRequest {
-    return Object.freeze({
+function sessionRequest(body: LiveBody): OpenSessionRequest {
+    const request = {
         environmentId: new EnvironmentId(field(body, "environmentId")),
         environmentRevision: new Revision(numberField(body, "environmentRevision")),
         generation: numberField(body, "generation"),
-        sessionId: new EnvironmentSessionId(field(body, "sessionId")),
-        ...(typeof body["restore"] === "string" ? { restore: new ContentRef(body["restore"]) } : {})
-    });
+        sessionId: new EnvironmentSessionId(field(body, "sessionId"))
+    };
+    const restore = body["restore"];
+    return Object.freeze(
+        isText(restore) ? { ...request, restore: new ContentRef(restore) } : request
+    );
 }
 
-function snapshotRequest(body: Record<string, JsonValue>): SnapshotEnvironmentRequest {
+function snapshotRequest(body: LiveBody): SnapshotEnvironmentRequest {
     return Object.freeze({
         environmentId: new EnvironmentId(field(body, "environmentId")),
         environmentRevision: new Revision(numberField(body, "environmentRevision")),
@@ -94,7 +105,7 @@ function snapshotRequest(body: Record<string, JsonValue>): SnapshotEnvironmentRe
     });
 }
 
-function exposureRequest(body: Record<string, JsonValue>): ExposePortRequest {
+function exposureRequest(body: LiveBody): ExposePortRequest {
     return Object.freeze({
         environmentId: new EnvironmentId(field(body, "environmentId")),
         environmentRevision: new Revision(numberField(body, "environmentRevision")),
@@ -106,7 +117,7 @@ function exposureRequest(body: Record<string, JsonValue>): ExposePortRequest {
     });
 }
 
-function deploymentRequest(body: Record<string, JsonValue>): SlateProviderDeploymentRequest {
+function deploymentRequest(body: LiveBody): SlateProviderDeploymentRequest {
     const invocationId = new InvocationId(field(body, "invocationId"));
     const idempotencyKey = field(body, "idempotencyKey");
     const expected = body["expectedActiveDeploymentId"];
@@ -119,8 +130,7 @@ function deploymentRequest(body: Record<string, JsonValue>): SlateProviderDeploy
         publicationId: new SlatePublicationId(field(body, "publicationId")),
         publicationMaterialization: new ContentRef(field(body, "publicationMaterialization")),
         target: field(body, "target"),
-        expectedActiveDeploymentId:
-            typeof expected === "string" ? new SlateDeploymentId(expected) : undefined,
+        expectedActiveDeploymentId: isText(expected) ? new SlateDeploymentId(expected) : undefined,
         invocationId,
         effectContext: new SlateEffectContext(
             invocationId,
@@ -132,7 +142,7 @@ function deploymentRequest(body: Record<string, JsonValue>): SlateProviderDeploy
     });
 }
 
-function resourceRequest(body: Record<string, JsonValue>): SlateProviderResourceRequest {
+function resourceRequest(body: LiveBody): SlateProviderResourceRequest {
     const invocationId = new InvocationId(field(body, "invocationId"));
     const idempotencyKey = field(body, "idempotencyKey");
     return Object.freeze({
@@ -291,11 +301,14 @@ export class LiveSlateHarness extends DurableObject<LiveEnvironment> {
     }
 }
 
-function outcome(value: { readonly name: string; readonly value?: unknown }): JsonValue {
-    if (!("value" in value) || value.value === undefined) return { name: value.name };
+type LiveOutcome =
+    ProviderActionOutcome | ProviderResourceOutcome<ContentRef | LiveEnvironmentSession | string>;
+
+function outcome(value: LiveOutcome): JsonValue {
+    if (value.name !== "ready") return { name: value.name };
     const inner = value.value;
     if (inner instanceof ContentRef) return { name: value.name, value: inner.value };
-    if (typeof inner === "string") return { name: value.name, value: inner };
+    if (isText(inner)) return { name: value.name, value: inner };
     // LiveEnvironmentSession handles carry no serializable payload.
     return { name: value.name };
 }
@@ -321,26 +334,19 @@ interface LiveQueueBody {
 
 const liveQueueCodecs: QueueDeliveryCodecs<string, LiveQueuePayload> = Object.freeze({
     deliveryId: Object.freeze({
-        decode(value: unknown): string {
-            if (typeof value !== "string" || value.length === 0) {
-                throw new TypeError("Live delivery ID must be non-empty text");
-            }
-            return value;
+        decode(value: JsonValue): string {
+            return liveData.nonemptyString(value, "Live delivery ID");
         }
     }),
     payload: Object.freeze({
-        decode(value: unknown): LiveQueuePayload {
-            if (
-                typeof value !== "object" ||
-                value === null ||
-                !("instance" in value) ||
-                typeof value.instance !== "string" ||
-                !("mode" in value) ||
-                typeof value.mode !== "string"
-            ) {
+        decode(value: JsonValue): LiveQueuePayload {
+            if (!isJsonObject(value)) {
                 throw new TypeError("Live queue payload must name an instance and a mode");
             }
-            return Object.freeze({ instance: value.instance, mode: value.mode });
+            return Object.freeze({
+                instance: liveData.nonemptyString(value["instance"], "Live queue instance"),
+                mode: liveData.nonemptyString(value["mode"], "Live queue mode")
+            });
         }
     })
 });
@@ -375,14 +381,15 @@ async function runtimeCall(
             body: JSON.stringify(body)
         })
     );
-    const decoded = (await response.json()) as {
-        readonly ok?: unknown;
-        readonly result?: LiveBody;
-    };
-    if (decoded.ok !== true || decoded.result === undefined) {
+    const decoded: unknown = await response.json();
+    if (!isJsonValue(decoded) || !isJsonObject(decoded) || decoded["ok"] !== true) {
         throw new TypeError(`Live runtime lane ${operation} failed for ${instance}`);
     }
-    return decoded.result;
+    const result = decoded["result"];
+    if (!isJsonObject(result)) {
+        throw new TypeError(`Live runtime lane ${operation} returned no result for ${instance}`);
+    }
+    return result;
 }
 
 async function publish(
@@ -392,30 +399,20 @@ async function publish(
 ): Promise<JsonValue> {
     const poison = flagField(body, "poison");
     const deliveryId = field(body, "deliveryId");
-    await environment.DELIVERIES.send({
+    const message = {
         deliveryId,
-        payload: { instance, mode: field(body, "mode") },
-        ...(poison ? { poison: true as const } : {})
-    });
+        payload: { instance, mode: field(body, "mode") }
+    };
+    await environment.DELIVERIES.send(poison ? { ...message, poison: true } : message);
     return { deliveryId, poison };
 }
 
 async function recordPoison(
     environment: LiveEnvironment,
     messageId: string,
-    body: unknown
+    body: LiveQueueBody
 ): Promise<void> {
-    if (
-        typeof body !== "object" ||
-        body === null ||
-        !("deliveryId" in body) ||
-        typeof body.deliveryId !== "string" ||
-        !("payload" in body) ||
-        typeof body.payload !== "object" ||
-        body.payload === null ||
-        !("instance" in body.payload) ||
-        typeof body.payload.instance !== "string"
-    ) {
+    if (!isText(body.deliveryId) || !isText(body.payload.instance)) {
         throw new TypeError(`Dead-lettered message ${messageId} carries no live routing`);
     }
     await runtimeCall(environment, body.payload.instance, "queue-poison", {
@@ -448,7 +445,7 @@ export default {
         return stub.fetch(new Request(forwarded, request));
     },
 
-    async queue(batch: MessageBatch<unknown>, environment: LiveEnvironment): Promise<void> {
+    async queue(batch: MessageBatch<LiveQueueBody>, environment: LiveEnvironment): Promise<void> {
         if (batch.queue === POISON_QUEUE) {
             for (const message of batch.messages) {
                 await recordPoison(environment, message.id, message.body);

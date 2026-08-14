@@ -22,6 +22,7 @@ import type { R2ContentObjectRepository } from "./content-object.js";
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
 import type { SqliteApplicationMigration, SynchronousSqlitePort } from "./migration.js";
+import { isText } from "./platform-value.js";
 
 const DEPLOYMENT_FORMAT = "agent-core-slate-deployment/1";
 const RESOURCE_FORMAT = "agent-core-slate-resource/1";
@@ -284,15 +285,15 @@ export class DurableObjectSlateProvider extends SlateProvider {
         const expectedActiveDeployment = row?.expected_active_deployment_id;
         const materialization = row?.materialization;
         if (
-            typeof invocation !== "string" ||
-            typeof idempotencyKey !== "string" ||
-            typeof workspace !== "string" ||
-            typeof slate !== "string" ||
-            typeof publication !== "string" ||
-            typeof publicationMaterialization !== "string" ||
-            typeof target !== "string" ||
-            (expectedActiveDeployment !== null && typeof expectedActiveDeployment !== "string") ||
-            typeof materialization !== "string"
+            !isText(invocation) ||
+            !isText(idempotencyKey) ||
+            !isText(workspace) ||
+            !isText(slate) ||
+            !isText(publication) ||
+            !isText(publicationMaterialization) ||
+            !isText(target) ||
+            (expectedActiveDeployment !== null && !isText(expectedActiveDeployment)) ||
+            !isText(materialization)
         ) {
             this.corrupt("Slate deployment record is corrupt");
         }
@@ -323,15 +324,15 @@ export class DurableObjectSlateProvider extends SlateProvider {
         const resourceSource = row?.resource_source;
         const materialization = row?.materialization;
         if (
-            typeof invocation !== "string" ||
-            typeof idempotencyKey !== "string" ||
-            typeof workspace !== "string" ||
-            typeof slate !== "string" ||
-            typeof deployment !== "string" ||
-            typeof deploymentMaterialization !== "string" ||
-            typeof resourceName !== "string" ||
-            typeof resourceSource !== "string" ||
-            typeof materialization !== "string"
+            !isText(invocation) ||
+            !isText(idempotencyKey) ||
+            !isText(workspace) ||
+            !isText(slate) ||
+            !isText(deployment) ||
+            !isText(deploymentMaterialization) ||
+            !isText(resourceName) ||
+            !isText(resourceSource) ||
+            !isText(materialization)
         ) {
             this.corrupt("Slate resource record is corrupt");
         }
@@ -412,7 +413,7 @@ export class DurableObjectSlateProvider extends SlateProvider {
     }
 
     private requireCanonicalText(value: string, name: string): void {
-        if (typeof value !== "string" || value.length === 0 || value.trim() !== value) {
+        if (!isCanonicalText(value)) {
             this.invalid(`${name} must be canonical non-empty text`);
         }
     }
@@ -424,4 +425,8 @@ export class DurableObjectSlateProvider extends SlateProvider {
     private corrupt(message: string): never {
         return operationalFailure(this.errors, "codec.invalid", message);
     }
+}
+
+function isCanonicalText(value: unknown): value is string {
+    return typeof value === "string" && value.length !== 0 && value.trim() === value;
 }

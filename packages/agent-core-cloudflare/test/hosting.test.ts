@@ -23,8 +23,8 @@ import {
     FakeWorkerRouter,
     fakeErrors
 } from "./fakes.js";
-import { answersPlatformMethod } from "../src/platform-value.js";
-import { expectOperationalFailure } from "./assertions.js";
+import { isPlatformMethod, isPlatformObject } from "../src/platform-value.js";
+import { expectOperationalFailure, malformedInput } from "./assertions.js";
 import { queueCodecs } from "./queue-codecs.js";
 
 const source = Object.freeze({
@@ -86,7 +86,7 @@ describe("Cloudflare hosting adapters", () => {
         let attempts = 0;
         let entrypointDisposals = 0;
         let workerDisposals = 0;
-        const adapter = new DynamicWorkerLoaderAdapter(
+        const adapter = new DynamicWorkerLoaderAdapter<FetchServiceLike>(
             {
                 load: () => {
                     attempts += 1;
@@ -127,10 +127,10 @@ describe("Cloudflare hosting adapters", () => {
     });
 
     test("disposes distinct entrypoint resources and maps cleanup failure", () => {
-        const adapter = new DynamicWorkerLoaderAdapter(
+        const adapter = new DynamicWorkerLoaderAdapter<FetchServiceLike>(
             {
                 load: () => ({
-                    getEntrypoint: () => "raw-entrypoint",
+                    getEntrypoint: () => malformedInput<FetchServiceLike, string>("raw-entrypoint"),
                     [Symbol.dispose](): never {
                         throw new TypeError("worker cleanup failed");
                     }
@@ -138,7 +138,9 @@ describe("Cloudflare hosting adapters", () => {
             },
             fakeErrors
         );
-        const scope = adapter.load(source, {}, () => ({ fetch: () => new Response("loaded") }));
+        const scope = adapter.load(source, {}, (): FetchServiceLike => ({
+            fetch: () => new Response("loaded")
+        }));
 
         expectOperationalFailure(() => scope[Symbol.dispose](), "protocol.invalid-state");
     });
@@ -324,11 +326,11 @@ describe("Cloudflare hosting adapters", () => {
     );
 });
 
-function requireFetchService(value: unknown): FetchServiceLike {
+function requireFetchService(value: Partial<FetchServiceLike>): FetchServiceLike {
     if (!isFetchService(value)) throw new TypeError("Expected Fetch service");
     return value;
 }
 
-function isFetchService(value: unknown): value is FetchServiceLike {
-    return answersPlatformMethod<FetchServiceLike>(value, (service) => service.fetch);
+function isFetchService(value: Partial<FetchServiceLike>): value is FetchServiceLike {
+    return isPlatformObject(value) && isPlatformMethod(value.fetch);
 }
