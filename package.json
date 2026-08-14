@@ -1,6 +1,7 @@
 {
   "name": "agent-core-monorepo",
   "private": true,
+  "type": "module",
   "packageManager": "pnpm@10.13.1",
   "scripts": {
     "build": "pnpm --recursive build",
@@ -12,11 +13,13 @@
     "check:hermetic": "pnpm --filter @agent-core/core check:hermetic",
     "check:implementation": "pnpm --filter @agent-core/core quality --stage building --target ledger",
     "check:traceability": "pnpm --filter @agent-core/core check:traceability",
-    "check:types": "pnpm --recursive check:types",
+    "check:anti-slop": "pnpm --filter @agent-core/core exec tsc --noEmit -p ../../tools/oxlint/anti-slop/tsconfig.json",
+    "check:types": "pnpm check:anti-slop && pnpm --recursive check:types",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "lint": "pnpm --recursive lint",
-    "test": "pnpm --recursive test",
+    "lint": "oxlint --deny-warnings tools/oxlint && pnpm --recursive lint",
+    "test": "pnpm test:anti-slop && pnpm --recursive test",
+    "test:anti-slop": "node tools/oxlint/anti-slop/rules/no-runtime-typeof.test.ts && node tools/oxlint/anti-slop/rules/no-unknown-parameters.test.ts && node tools/oxlint/anti-slop/rules/require-safety-comment-for-type-assertion.test.ts",
     "verify": "pnpm --filter @agent-core/core check:hermetic"
   },
   "devDependencies": {
