@@ -5,19 +5,19 @@
  * parser already established.
  */
 
-import { isJsonObject, type JsonObject, type JsonValue } from "../core";
+import { jsonDataParser, type JsonObject, type JsonValue } from "../core";
 
 /** A record being encoded, before it is published as an immutable JsonValue. */
 export type MutableJsonObject = { [key: string]: JsonValue };
 
+const parse = jsonDataParser((message) => new TypeError(message));
+
 export function requireObject(value: JsonValue | undefined, subject: string): JsonObject {
-    if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);
-    return value;
+    return parse.object(value, subject);
 }
 
 export function requireStringValue(value: JsonValue | undefined, subject: string): string {
-    if (typeof value !== "string") throw new TypeError(`${subject} must be a string`);
-    return value;
+    return parse.string(value, subject);
 }
 
 export function requireString(object: JsonObject, key: string, subject = key): string {
@@ -25,10 +25,7 @@ export function requireString(object: JsonObject, key: string, subject = key): s
 }
 
 export function requireNonemptyString(value: JsonValue | undefined, subject: string): string {
-    if (typeof value !== "string" || value.length === 0) {
-        throw new TypeError(`${subject} must be a non-empty string`);
-    }
-    return value;
+    return parse.nonemptyString(value, subject);
 }
 
 export function requireNullableString(
@@ -36,16 +33,11 @@ export function requireNullableString(
     key: string,
     subject = key
 ): string | undefined {
-    const value = object[key];
-    if (value === null) return undefined;
-    return requireStringValue(value, subject);
+    return parse.nullableString(object[key], subject);
 }
 
 export function requireNonnegativeInteger(value: JsonValue | undefined, subject: string): number {
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
-        throw new TypeError(`${subject} must be a non-negative safe integer`);
-    }
-    return value;
+    return parse.safeInteger(value, subject);
 }
 
 export function requireKeys(

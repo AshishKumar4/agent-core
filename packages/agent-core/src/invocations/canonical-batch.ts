@@ -1,7 +1,7 @@
 import type { ContentStore } from "../content";
 import { Digest, decodeCanonicalJson, encodeCanonicalJson, type ContentRef } from "../core";
 import { AgentCoreError } from "../errors";
-import type { FacetData, OperationContext } from "../facets";
+import { canonicalFacetData, type FacetData, type OperationContext } from "../facets";
 import { ConfirmedOperationFailure, type MediatedInvocationRequest } from "../operations";
 import type { InvocationId } from "../interaction-references";
 import type { EffectAttempt } from "./attempt";
@@ -621,9 +621,7 @@ export class CanonicalBatchInvocationPort<
             kind: "succeeded",
             itemIndex,
             receipt,
-            output: canonicalData(
-                decodeCanonicalJson(await content.get(receipt.result)) as FacetData
-            )
+            output: canonicalFacetData(decodeCanonicalJson(await content.get(receipt.result)))
         });
     }
 }
@@ -679,7 +677,7 @@ function terminal(itemIndex: number, receipt: Receipt): CanonicalBatchItemResult
 }
 
 function canonicalData(value: FacetData): FacetData {
-    return decodeCanonicalJson(encodeCanonicalJson(value)) as FacetData;
+    return canonicalFacetData(value);
 }
 
 function invalid(message: string): AgentCoreError {

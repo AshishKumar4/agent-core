@@ -2,12 +2,12 @@ import {
     Digest,
     RecordCodec,
     Revision,
-    decodeCanonicalJson,
     encodeCanonicalJson,
+    type JsonObject,
     type JsonValue,
     type RecordVersion
 } from "../core";
-import type { FacetData } from "../facets";
+import { canonicalFacetData, type FacetData } from "../facets";
 import { PrincipalId, PrincipalRef, TenantId } from "../identity";
 import type { MediatedReplayExecutionIdentity } from "../operations";
 import {
@@ -15,6 +15,7 @@ import {
     requireDigest,
     requireExactObject,
     requireNonnegativeInteger,
+    requireNullableString,
     requireObject,
     requireString
 } from "./codec";
@@ -321,10 +322,7 @@ class MediatedReplayRecordCodecV1 extends RecordCodec<MediatedReplayRecord> {
             ],
             "Mediated replay"
         );
-        const invocation = object["invocation"];
-        if (invocation !== null && typeof invocation !== "string") {
-            throw new TypeError("Replay invocation must be a string or null");
-        }
+        const invocation = requireNullableString(object, "invocation", "Replay invocation");
         const record = new MediatedReplayRecord(
             requireString(object, "scope"),
             requireString(object, "requestKey"),
@@ -337,7 +335,7 @@ class MediatedReplayRecordCodecV1 extends RecordCodec<MediatedReplayRecord> {
             decodeExecution(object["execution"]),
             decodeCardinality(object["shape"]),
             requireArray(object, "items").map(decodeItem),
-            invocation === null ? undefined : new InvocationId(invocation),
+            invocation === undefined ? undefined : new InvocationId(invocation),
             new Revision(requireNonnegativeInteger(object, "revision"))
         );
         if (record.id.value !== requireString(object, "id")) {
@@ -392,24 +390,29 @@ function decodeExecution(value: JsonValue): MediatedReplayExecutionIdentity {
 function copyItem(item: MediatedReplayItem, expectedIndex: number): MediatedReplayItem {
     if (item.itemIndex !== expectedIndex)
         throw new TypeError("Replay item index must equal its position");
-    return Object.freeze({
+    const copied: MutableReplayItem = {
         itemIndex: item.itemIndex,
-        rawPayloadIdentity: new Digest(item.rawPayloadIdentity.value),
-        ...(item.preparedArguments === undefined
-            ? {}
-            : { preparedArguments: canonicalData(item.preparedArguments) }),
-        ...(item.before === undefined
-            ? {}
-            : { before: copyTraces(item.before, "operation.before") }),
-        ...(item.effectOutput === undefined
-            ? {}
-            : { effectOutput: canonicalData(item.effectOutput) }),
-        ...(item.receipt === undefined ? {} : { receipt: item.receipt }),
-        ...(item.after === undefined ? {} : { after: copyTraces(item.after, "operation.after") }),
-        ...(item.presentation === undefined
-            ? {}
-            : { presentation: canonicalData(item.presentation) })
-    });
+        rawPayloadIdentity: new Digest(item.rawPayloadIdentity.value)
+    };
+    if (item.preparedArguments !== undefined) {
+        copied.preparedArguments = canonicalData(item.preparedArguments);
+    }
+    if (item.before !== undefined) {
+        copied.before = copyTraces(item.before, "operation.before");
+    }
+    if (item.effectOutput !== undefined) {
+        copied.effectOutput = canonicalData(item.effectOutput);
+    }
+    if (item.receipt !== undefined) {
+        copied.receipt = item.receipt;
+    }
+    if (item.after !== undefined) {
+        copied.after = copyTraces(item.after, "operation.after");
+    }
+    if (item.presentation !== undefined) {
+        copied.presentation = canonicalData(item.presentation);
+    }
+    return Object.freeze(copied);
 }
 
 function validatePhases(
@@ -493,10 +496,8 @@ function decodeItem(value: JsonValue): MediatedReplayItem {
         ],
         "Replay item"
     );
-    const receipt = object["receipt"];
+    const receipt = requireReplayReceipt(object);
     const phase = requireString(object, "phase");
-    if (receipt !== null && typeof receipt !== "string")
-        throw new TypeError("Replay Receipt is malformed");
     if (
         phase !== "reserved" &&
         phase !== "prepared" &&
@@ -506,29 +507,26 @@ function decodeItem(value: JsonValue): MediatedReplayItem {
     ) {
         throw new TypeError("Replay item phase is invalid");
     }
-    return {
+    const item: MutableReplayItem = {
         itemIndex: requireNonnegativeInteger(object, "itemIndex"),
-        rawPayloadIdentity: requireDigest(object, "rawPayloadIdentity"),
-        ...(phase === "reserved"
-            ? {}
-            : {
-                  preparedArguments: object["preparedArguments"],
-                  before: requireArray(object, "before").map(decodeTrace)
-              }),
-        ...(phase === "effect" || phase === "presented"
-            ? {
-                  effectOutput: object["effectOutput"],
-                  receipt: new ReceiptId(receipt as string)
-              }
-            : {}),
-        ...(phase === "terminal" ? { receipt: new ReceiptId(receipt as string) } : {}),
-        ...(phase === "presented"
-            ? {
-                  after: requireArray(object, "after").map(decodeTrace),
-                  presentation: object["presentation"]
-              }
-            : {})
+        rawPayloadIdentity: requireDigest(object, "rawPayloadIdentity")
     };
+    if (phase !== "reserved") {
+        item.preparedArguments = object["preparedArguments"];
+        item.before = requireArray(object, "before").map(decodeTrace);
+    }
+    if (phase === "effect" || phase === "presented" || phase === "terminal") {
+        if (receipt === undefined) throw new TypeError("Replay Receipt is malformed");
+        item.receipt = new ReceiptId(receipt);
+    }
+    if (phase === "effect" || phase === "presented") {
+        item.effectOutput = object["effectOutput"];
+    }
+    if (phase === "presented") {
+        item.after = requireArray(object, "after").map(decodeTrace);
+        item.presentation = object["presentation"];
+    }
+    return item;
 }
 
 function encodeTrace(trace: InvocationInterceptorTrace): JsonValue {
@@ -580,14 +578,33 @@ function decodeCardinality(value: JsonValue): MediatedReplayCardinality {
     });
 }
 
+function requireReplayReceipt(object: JsonObject): string | undefined {
+    try {
+        return requireNullableString(object, "receipt", "Replay Receipt");
+    } catch {
+        throw new TypeError("Replay Receipt is malformed");
+    }
+}
+
 function requireCanonical(value: string, subject: string): void {
     if (value.trim().length === 0 || value !== value.trim()) {
         throw new TypeError(`${subject} must be canonical`);
     }
 }
 
+type MutableReplayItem = {
+    itemIndex: number;
+    rawPayloadIdentity: Digest;
+    preparedArguments?: FacetData;
+    before?: readonly InvocationInterceptorTrace[];
+    effectOutput?: FacetData;
+    receipt?: ReceiptId;
+    after?: readonly InvocationInterceptorTrace[];
+    presentation?: FacetData;
+};
+
 function canonicalData(value: FacetData): FacetData {
-    return decodeCanonicalJson(encodeCanonicalJson(value)) as FacetData;
+    return canonicalFacetData(value);
 }
 
 function invalidTransition(message: string) {

@@ -1,6 +1,6 @@
 import { MemoryActorStore, type MemoryActorStoreSnapshot } from "../actors";
 import { MemoryTenantControlStore, type MemoryTenantControlSnapshot } from "../authority";
-import { Revision } from "../core";
+import { isObjectRecord, Revision } from "../core";
 import type { TransientContentAccess } from "../content";
 import { AgentCoreError } from "../errors";
 import type { TenantId } from "../identity";
@@ -164,23 +164,60 @@ function snapshotValue(
 ): MemoryActorStoreSnapshot<MemoryTenantBootstrapState> | undefined {
     if (snapshot === undefined) return undefined;
     if (
-        snapshot === null ||
-        typeof snapshot !== "object" ||
+        !isObjectRecord(snapshot) ||
         Object.keys(snapshot).sort().join(",") !== "opaque,version" ||
         snapshot.version !== 1 ||
-        snapshot.opaque === null ||
-        typeof snapshot.opaque !== "object"
+        !isRestoredActorSnapshot(snapshot.opaque)
     ) {
         throw new AgentCoreError("codec.invalid", "Memory Tenant bootstrap snapshot is malformed");
     }
-    const value = snapshot.opaque as MemoryActorStoreSnapshot<MemoryTenantBootstrapState>;
     try {
-        cloneState(value.state);
+        cloneState(snapshot.opaque.state);
     } catch (error) {
         if (error instanceof AgentCoreError) throw error;
         throw new AgentCoreError("codec.invalid", "Memory Tenant bootstrap snapshot is malformed");
     }
-    return value;
+    return snapshot.opaque;
+}
+
+function isRestoredActorSnapshot(
+    value: MemoryTenantBootstrapSnapshot["opaque"]
+): value is MemoryActorStoreSnapshot<MemoryTenantBootstrapState> {
+    if (!isObjectRecord(value) || !isObjectRecord(value["state"])) return false;
+    if (
+        Object.keys(value).sort().join(",") !== "actor,recoveryState,state,version" ||
+        value["version"] !== 1 ||
+        !isSnapshotActor(value["actor"]) ||
+        (value["recoveryState"] !== null && !(value["recoveryState"] instanceof Uint8Array))
+    ) {
+        throw new AgentCoreError("codec.invalid", "Memory Actor snapshot is malformed");
+    }
+    return true;
+}
+
+function isSnapshotActor(
+    value: MemoryTenantBootstrapSnapshot["opaque"]
+): value is MemoryActorStoreSnapshot<MemoryTenantBootstrapState>["actor"] {
+    if (value === null) return true;
+    if (
+        !isObjectRecord(value) ||
+        Object.keys(value).sort().join(",") !== "id,kind" ||
+        !isString(value["id"])
+    ) {
+        return false;
+    }
+    const kind = value["kind"];
+    return (
+        kind === "tenant" ||
+        kind === "workspace" ||
+        kind === "run" ||
+        kind === "environment" ||
+        kind === "slate"
+    );
+}
+
+function isString(value: unknown): value is string {
+    return typeof value === "string";
 }
 
 export function createMemoryTenantBootstrap<Transport>(

@@ -10,15 +10,20 @@ export function deriveBatchOutcome(
     receipts: readonly (Receipt | undefined)[]
 ): BatchOutcome | undefined {
     requireReceiptSlots(itemCount, receipts);
-    if (receipts.some((receipt) => receipt === undefined)) return undefined;
-    const complete = receipts as readonly Receipt[];
-    const outcomes = complete.map((receipt) => receipt.outcome);
+    if (!isCompleteReceipts(receipts)) return undefined;
+    const outcomes = receipts.map((receipt) => receipt.outcome);
     if (outcomes.includes("indeterminate")) return "indeterminate";
     if (outcomes.every((outcome) => outcome === "succeeded")) return "succeeded";
     if (outcomes.includes("succeeded")) return "partiallySucceeded";
     if (outcomes.includes("failed")) return "failed";
     if (outcomes.includes("cancelledPreEffect")) return "cancelled";
     return "denied";
+}
+
+function isCompleteReceipts(
+    receipts: readonly (Receipt | undefined)[]
+): receipts is readonly Receipt[] {
+    return receipts.every((receipt) => receipt !== undefined);
 }
 
 function requireReceiptSlots(itemCount: number, receipts: readonly (Receipt | undefined)[]): void {

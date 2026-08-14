@@ -1,19 +1,21 @@
 import {
     Actor,
     ActorCommitUnknownError,
+    isActorActivationStore,
     requireSynchronousResult,
     type ActorContext,
     type ActorLocalStore,
     type ActorRef,
     type SynchronousResultGuard
 } from "../actors";
-import { Digest, encodeCanonicalJson, type Revision } from "../core";
+import { Digest, encodeCanonicalJson, isObjectRecord, type Revision } from "../core";
 import { AgentCoreError } from "../errors";
 import type { TenantId } from "../identity";
 import {
     AuditRecord,
     CorrelationId,
     type AuditAppendContext,
+    type AuditRecordInit,
     type AuditRecordId,
     type AuditRootAdmission,
     type InvocationId,
@@ -26,13 +28,8 @@ import {
     inspectPreparedCommandPayload,
     type PreparedCommandPayload
 } from "./payload";
-import type {
-    ExpectedRevisionPolicy,
-    ProtocolCommand,
-    ProtocolCommandExecution,
-    ProtocolValueCodec
-} from "./registration";
-import { WriteRecord, type CommandOutcome } from "./write";
+import type { ExpectedRevisionPolicy, ProtocolCommand } from "./registration";
+import { WriteRecord, type CommandOutcome, type WriteRecordInit } from "./write";
 
 export type {
     CurrentLease,
@@ -76,8 +73,6 @@ export interface CommandDispatcherInit<Transaction, Read, ReadTransaction = Tran
     readonly commands: readonly RegisteredProtocolCommand<Transaction, Read>[];
     readonly limits: CommandProtocolLimits;
     readonly now?: () => Date;
-    // Type-only W2/W4 cutover input; generic dispatch never reads or trusts it.
-    readonly heldContentVerifier?: unknown;
 }
 
 export interface CommandDispatchResult {
@@ -99,6 +94,14 @@ export interface PreparedCommandAdmission {
     readonly kind: "prepare";
     dispatch(payload: PreparedCommandPayload): Promise<CommandDispatchResult>;
 }
+
+interface PreparedDecision {
+    decide(): Decision;
+}
+
+type WriteRecordDraft = {
+    -readonly [Key in keyof WriteRecordInit]: WriteRecordInit[Key];
+};
 
 interface Decision {
     readonly outcome: CommandOutcome;
@@ -137,6 +140,8 @@ export class CommandCommitUnknownError extends ActorCommitUnknownError {
             name: { configurable: true, value: "CommandCommitUnknownError" },
             retrySameKey: { enumerable: true, value: retrySameKey }
         });
+        // SAFETY: the canonical issued Actor error now has this subclass prototype and
+        // the required retrySameKey own property.
         return canonical as CommandCommitUnknownError;
     }
 }
@@ -220,7 +225,8 @@ export class CommandDispatcher<
                     dispatch: (payload) => this.dispatchPrepared(submitted, authentication, payload)
                 };
             } catch (error) {
-                throw rejectForgedCommitUnknown(error);
+                if (isForgedCommitUnknown(error)) throw invalidCommitUnknownOrigin();
+                throw error;
             }
         });
     }
@@ -294,7 +300,8 @@ export class CommandDispatcher<
                     payload
                 );
             } catch (error) {
-                throw rejectForgedCommitUnknown(error);
+                if (isForgedCommitUnknown(error)) throw invalidCommitUnknownOrigin();
+                throw error;
             }
         });
     }
@@ -334,8 +341,14 @@ export class CommandDispatcher<
             );
         }
 
-        const decodedPayload = this.decodePreparedPayload(validated, prepared, envelopeDigest, at);
-        if (decodedPayload === invalidPayload) {
+        const preparedDecision = this.prepareDecision(
+            transaction,
+            validated,
+            prepared,
+            envelopeDigest,
+            at
+        );
+        if (preparedDecision === invalidPayload) {
             return this.persistDecision(
                 transaction,
                 validated.envelope,
@@ -360,7 +373,7 @@ export class CommandDispatcher<
             validated.envelope,
             validated.identity,
             envelopeDigest,
-            this.decide(transaction, validated, decodedPayload, at),
+            preparedDecision.decide(),
             at
         );
     }
@@ -429,12 +442,13 @@ export class CommandDispatcher<
         }
     }
 
-    private decodePreparedPayload(
+    private prepareDecision(
+        transaction: Transaction,
         request: ValidatedRequest<Transaction, Read>,
         prepared: PreparedCommandPayload,
         envelopeDigest: Digest,
         now: Date
-    ): unknown | typeof invalidPayload {
+    ): PreparedDecision | typeof invalidPayload {
         const state = inspectPreparedCommandPayload(prepared);
         if (state === undefined) return invalidPayload;
         const { lease, binding } = state;
@@ -460,41 +474,103 @@ export class CommandDispatcher<
         ) {
             return invalidPayload;
         }
-        try {
-            return requireSynchronousResult(request.command.payload.decode(bytes.slice()));
-        } catch (error) {
-            if (error instanceof CommandPayloadMalformedError) return invalidPayload;
-            throw error;
-        }
-    }
-
-    private decide(
-        transaction: Transaction,
-        request: ValidatedRequest<Transaction, Read>,
-        payload: unknown,
-        now: Date
-    ): Decision {
+        const payload = (() => {
+            try {
+                return requireSynchronousResult(request.command.payload.decode(bytes.slice()));
+            } catch (error) {
+                if (error instanceof CommandPayloadMalformedError) return invalidPayload;
+                throw error;
+            }
+        })();
+        if (payload === invalidPayload) return invalidPayload;
         const { command, envelope } = request;
-        if (!this.booleanGate(transaction, (read) => command.authorize(read, envelope, payload))) {
-            return rejected("rejectedAuthority", true);
-        }
-        if (
-            !this.booleanGate(transaction, (read) =>
-                command.permitsLifecycle(read, envelope, payload)
-            )
-        ) {
-            return rejected("rejectedLifecycle", true);
-        }
-        if (!this.revisionMatches(transaction, command, envelope, payload)) {
-            return rejected("rejectedRevision", true);
-        }
-        if (!this.leaseMatches(transaction, command, envelope, payload, now)) {
-            return rejected("rejectedLease", true);
-        }
-        const execution = requireSynchronousResult(
-            command.execute(transaction, envelope, payload, now)
-        );
-        return committedDecision(command, execution);
+        return {
+            decide: () => {
+                if (
+                    !this.booleanGate(transaction, (read) =>
+                        command.authorize(read, envelope, payload)
+                    )
+                ) {
+                    return rejected("rejectedAuthority", true);
+                }
+                if (
+                    !this.booleanGate(transaction, (read) =>
+                        command.permitsLifecycle(read, envelope, payload)
+                    )
+                ) {
+                    return rejected("rejectedLifecycle", true);
+                }
+                if (envelope.expectedRevision !== undefined) {
+                    const current = requireSynchronousResult(
+                        command.currentRevision(this.readForGate(transaction), envelope, payload)
+                    );
+                    if (current === undefined || !current.equals(envelope.expectedRevision)) {
+                        return rejected("rejectedRevision", true);
+                    }
+                }
+                if (command.lease === "forbidden") {
+                    if (envelope.lease !== undefined) return rejected("rejectedLease", true);
+                } else if (envelope.lease === undefined) {
+                    if (command.lease !== "optional") return rejected("rejectedLease", true);
+                } else {
+                    const current = requireSynchronousResult(
+                        command.currentLease(this.readForGate(transaction), envelope, payload, now)
+                    );
+                    const expiresAt = current?.expiresAt?.getTime();
+                    if (
+                        current === undefined ||
+                        !current.turn.equals(envelope.lease.turn) ||
+                        current.holder === undefined ||
+                        !current.holder.equals(envelope.lease.holder) ||
+                        current.epoch !== envelope.lease.epoch ||
+                        expiresAt === undefined ||
+                        !Number.isFinite(expiresAt) ||
+                        expiresAt <= now.getTime()
+                    ) {
+                        return rejected("rejectedLease", true);
+                    }
+                }
+                const execution = requireSynchronousResult(
+                    command.execute(transaction, envelope, payload, now)
+                );
+                if (execution instanceof Uint8Array) {
+                    return {
+                        outcome: "committed",
+                        reply: execution.slice(),
+                        callerCauseEligible: true,
+                        reservesIdentity: true
+                    };
+                }
+                if (
+                    !isObjectRecord(execution) ||
+                    !("reply" in execution) ||
+                    command.replyCodec === undefined
+                ) {
+                    requireTypedCommandExecution();
+                }
+                const reply = requireSynchronousResult(command.replyCodec.encode(execution.reply));
+                if (execution.observation === undefined) {
+                    return {
+                        outcome: "committed",
+                        reply,
+                        callerCauseEligible: true,
+                        reservesIdentity: true
+                    };
+                }
+                if (command.observationCodec === undefined) {
+                    requireObservationCodec();
+                }
+                return {
+                    outcome: "committed",
+                    reply,
+                    observation: requireSynchronousResult(
+                        command.observationCodec.encode(execution.observation)
+                    ),
+                    callerCauseEligible: true,
+                    reservesIdentity: true
+                };
+            }
+        };
     }
 
     private persistDecision(
@@ -530,45 +606,54 @@ export class CommandDispatcher<
             (auditCause === undefined
                 ? this.#ids.correlationId(transaction)
                 : this.requireAudit(transaction, auditCause).correlation);
-        const audit = new AuditRecord({
+        const auditInit: AuditRecordInit = {
             id: auditId,
             actor: this.#actor,
             tenant: this.#tenant,
             correlation,
-            ...(auditCause === undefined ? {} : { cause: auditCause }),
             kind: { kind: "write", id: writeId, outcome: decision.outcome }
-        });
+        };
+        const audit = new AuditRecord(
+            auditCause === undefined ? auditInit : { ...auditInit, cause: auditCause }
+        );
         const admission =
             auditCause === undefined ? ({ kind: "commandRejection" } as const) : undefined;
         this.appendAudit(transaction, audit, admission);
 
         const hasCanonicalIdentity = identity !== undefined && decision.reservesIdentity;
-        const write = new WriteRecord({
+        const writeInit: WriteRecordDraft = {
             id: writeId,
             actor: this.#actor,
             envelopeDigest,
-            ...(envelope === undefined
-                ? {}
-                : {
-                      caller: envelope.caller,
-                      command: envelope.command
-                  }),
-            ...(hasCanonicalIdentity ? { idempotencyKey: identity.idempotencyKey } : {}),
             at,
             outcome: decision.outcome,
             audit: audit.id,
-            ...(decision.duplicateOf === undefined ? {} : { duplicateOf: decision.duplicateOf }),
-            reply: decision.reply,
-            ...(decision.observation === undefined ? {} : { observation: decision.observation })
-        });
+            reply: decision.reply
+        };
+        if (envelope !== undefined) {
+            writeInit.caller = envelope.caller;
+            writeInit.command = envelope.command;
+        }
+        if (hasCanonicalIdentity) {
+            writeInit.idempotencyKey = identity.idempotencyKey;
+        }
+        if (decision.duplicateOf !== undefined) {
+            writeInit.duplicateOf = decision.duplicateOf;
+        }
+        if (decision.observation !== undefined) {
+            writeInit.observation = decision.observation;
+        }
+        const write = new WriteRecord(writeInit);
         this.#persistence.appendWrite(transaction, write);
-        return {
+        const result: CommandDispatchResult = {
             kind: "commandOutcome",
             outcome: decision.outcome,
             reply: write.reply,
-            ...(write.observation === undefined ? {} : { observation: write.observation }),
             write
         };
+        return write.observation === undefined
+            ? result
+            : { ...result, observation: write.observation };
     }
 
     private hasInvalidCallerCause(transaction: Transaction, envelope: CommandEnvelope): boolean {
@@ -613,6 +698,8 @@ export class CommandDispatcher<
     }
 
     private readForGate(transaction: Transaction): Read {
+        // SAFETY: the ActorLocalStore contract requires implementations to reject a
+        // Promise-like read result; this empty conditional-rest tuple has no runtime value.
         return this.#store.read(
             transaction,
             this.#readOnly,
@@ -622,44 +709,6 @@ export class CommandDispatcher<
 
     private booleanGate(transaction: Transaction, evaluate: (read: Read) => boolean): boolean {
         return requireSynchronousResult(evaluate(this.readForGate(transaction))) === true;
-    }
-
-    private revisionMatches(
-        transaction: Transaction,
-        command: RegisteredProtocolCommand<Transaction, Read>,
-        envelope: CommandEnvelope,
-        payload: unknown
-    ): boolean {
-        if (envelope.expectedRevision === undefined) return true;
-        const current = requireSynchronousResult(
-            command.currentRevision(this.readForGate(transaction), envelope, payload)
-        );
-        return current !== undefined && current.equals(envelope.expectedRevision);
-    }
-
-    private leaseMatches(
-        transaction: Transaction,
-        command: RegisteredProtocolCommand<Transaction, Read>,
-        envelope: CommandEnvelope,
-        payload: unknown,
-        now: Date
-    ): boolean {
-        if (command.lease === "forbidden") return envelope.lease === undefined;
-        if (envelope.lease === undefined) return command.lease === "optional";
-        const current = requireSynchronousResult(
-            command.currentLease(this.readForGate(transaction), envelope, payload, now)
-        );
-        const expiresAt = current?.expiresAt?.getTime();
-        return (
-            current !== undefined &&
-            current.turn.equals(envelope.lease.turn) &&
-            current.holder !== undefined &&
-            current.holder.equals(envelope.lease.holder) &&
-            current.epoch === envelope.lease.epoch &&
-            expiresAt !== undefined &&
-            Number.isFinite(expiresAt) &&
-            expiresAt > now.getTime()
-        );
     }
 
     private timestamp(): Date {
@@ -705,42 +754,6 @@ function duplicateDecision(duplicate: WriteRecord): Decision {
     };
 }
 
-function committedDecision(
-    command: {
-        readonly replyCodec?: ProtocolValueCodec<unknown>;
-        readonly observationCodec?: ProtocolValueCodec<unknown>;
-    },
-    execution: Uint8Array | ProtocolCommandExecution<unknown, unknown>
-): Decision {
-    if (execution instanceof Uint8Array) {
-        return {
-            outcome: "committed",
-            reply: execution.slice(),
-            callerCauseEligible: true,
-            reservesIdentity: true
-        };
-    }
-    const typed = requireTypedCommandExecution(command, execution);
-    const reply = requireSynchronousResult(typed.replyCodec.encode(typed.execution.reply));
-    const observationValue = typed.execution.observation;
-    if (observationValue === undefined) {
-        return {
-            outcome: "committed",
-            reply,
-            callerCauseEligible: true,
-            reservesIdentity: true
-        };
-    }
-    const observationCodec = requireObservationCodec(command);
-    return {
-        outcome: "committed",
-        reply,
-        observation: requireSynchronousResult(observationCodec.encode(observationValue)),
-        callerCauseEligible: true,
-        reservesIdentity: true
-    };
-}
-
 function rejected(
     outcome: Exclude<CommandOutcome, "committed" | "duplicate">,
     callerCauseEligible = false,
@@ -754,59 +767,24 @@ function rejected(
     };
 }
 
-type ActorActivationStoreCapability<Transaction, ReadTransaction> = ActorLocalStore<
-    Transaction,
-    ReadTransaction
-> &
-    ActorContext<Transaction>["store"];
-
-function requireTypedCommandExecution(
-    command: {
-        readonly replyCodec?: ProtocolValueCodec<unknown>;
-    },
-    execution: unknown
-): {
-    readonly execution: ProtocolCommandExecution<unknown, unknown>;
-    readonly replyCodec: ProtocolValueCodec<unknown>;
-} {
-    if (
-        execution === null ||
-        typeof execution !== "object" ||
-        !("reply" in execution) ||
-        command.replyCodec === undefined
-    ) {
-        throw new TypeError("Typed command execution requires a reply codec");
-    }
-    return { execution, replyCodec: command.replyCodec };
+function requireTypedCommandExecution(): never {
+    throw new TypeError("Typed command execution requires a reply codec");
 }
 
-function requireObservationCodec(command: {
-    readonly observationCodec?: ProtocolValueCodec<unknown>;
-}): ProtocolValueCodec<unknown> {
-    if (command.observationCodec === undefined) {
-        throw new TypeError("Typed command observation requires an observation codec");
-    }
-    return command.observationCodec;
+function requireObservationCodec(): never {
+    throw new TypeError("Typed command observation requires an observation codec");
 }
 
 function validateCommandActorContext<Transaction, ReadTransaction>(
     actor: ActorRef,
     store: ActorLocalStore<Transaction, ReadTransaction>
 ): ActorContext<Transaction> {
-    if (!isActorActivationStore(store)) {
-        throw new TypeError("Command dispatcher requires an Actor activation store");
+    try {
+        if (isActorActivationStore(store)) return { actor, store };
+    } catch {
+        // Invalid host values are rejected through the same constructor contract below.
     }
-    return { actor, store };
-}
-
-function isActorActivationStore<Transaction, ReadTransaction>(
-    store: ActorLocalStore<Transaction, ReadTransaction>
-): store is ActorActivationStoreCapability<Transaction, ReadTransaction> {
-    return (
-        ((typeof store === "object" && store !== null) || typeof store === "function") &&
-        "activateActor" in store &&
-        typeof store.activateActor === "function"
-    );
+    throw new TypeError("Command dispatcher requires an Actor activation store");
 }
 
 function revisionFieldIsValid(
@@ -822,13 +800,15 @@ function isRejected(outcome: CommandOutcome): boolean {
     return outcome.startsWith("rejected");
 }
 
-function rejectForgedCommitUnknown(error: unknown): unknown {
-    return error instanceof CommandCommitUnknownError
-        ? new AgentCoreError(
-              "protocol.invalid-state",
-              "Commit uncertainty cannot originate inside an Actor transaction"
-          )
-        : error;
+function isForgedCommitUnknown(cause: unknown): cause is CommandCommitUnknownError {
+    return cause instanceof CommandCommitUnknownError;
+}
+
+function invalidCommitUnknownOrigin(): AgentCoreError {
+    return new AgentCoreError(
+        "protocol.invalid-state",
+        "Commit uncertainty cannot originate inside an Actor transaction"
+    );
 }
 
 function validateLimit(value: number, name: string): void {

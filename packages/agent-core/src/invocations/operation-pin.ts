@@ -116,7 +116,7 @@ export class OperationPin {
         ] as const)
             requireCanonicalText(value, subject);
         requireImpact(impact);
-        if (typeof approvalRequired !== "boolean") {
+        if (approvalRequired !== true && approvalRequired !== false) {
             throw new TypeError("Operation approval requirement must be boolean");
         }
         for (const digest of [manifestDigest, descriptorDigest, configurationDigest, runtimeDigest])
@@ -210,7 +210,10 @@ function canonicalModes(
 }
 
 function decodeModes(values: readonly JsonValue[]): readonly IsolationMode[] {
-    return values.map((value) => requireMode(typeof value === "string" ? value : ""));
+    return values.map((value) => {
+        if (!isMember(MODES, value)) throw new TypeError("Isolation mode is invalid");
+        return value;
+    });
 }
 
 function requireMode(value: string): IsolationMode {
@@ -224,6 +227,8 @@ function requireImpact(value: string): Impact {
 }
 
 function requireBoolean(value: JsonValue | undefined): boolean {
-    if (typeof value !== "boolean") throw new TypeError("Approval requirement must be boolean");
+    if (value !== true && value !== false) {
+        throw new TypeError("Approval requirement must be boolean");
+    }
     return value;
 }

@@ -4,7 +4,6 @@ import {
     RecordCodec,
     encodeCanonicalJson,
     hasExactJsonKeys,
-    isJsonObject,
     type JsonValue,
     type RecordVersion
 } from "../core";
@@ -19,6 +18,7 @@ import {
     RouteReservationId
 } from "../interaction-references";
 import { ApprovalId, EffectAttemptId, ReceiptId, WriteRecordId } from "./id";
+import { requireNullableString, requireObject, requireString } from "./codec";
 import type { AttemptReceiptOutcome, PreEffectReceiptOutcome } from "./receipt";
 import type { CommandOutcome } from "../protocol";
 import { invocationError } from "./error";
@@ -95,11 +95,8 @@ class AuditRecordCodecV1 extends RecordCodec<AuditRecord> {
         ) {
             throw new TypeError("Audit record payload contains missing or unknown fields");
         }
-        const cause = object["cause"];
-        if (cause !== null && typeof cause !== "string") {
-            throw new TypeError("Audit cause must be a string or null");
-        }
-        return new AuditRecord({
+        const cause = requireNullableString(object, "cause", "Audit cause");
+        const init: AuditRecordInit = {
             id: new AuditRecordId(requireString(object, "id")),
             actor: new ActorRef(
                 requireActorKind(actor["kind"]),
@@ -107,9 +104,11 @@ class AuditRecordCodecV1 extends RecordCodec<AuditRecord> {
             ),
             tenant: new TenantId(requireString(object, "tenant")),
             correlation: new CorrelationId(requireString(object, "correlation")),
-            ...(cause === null ? {} : { cause: new AuditRecordId(cause) }),
             kind: decodeKind(object["evidence"])
-        });
+        };
+        return new AuditRecord(
+            cause === undefined ? init : { ...init, cause: new AuditRecordId(cause) }
+        );
     }
 }
 
@@ -619,22 +618,6 @@ function requireEvidenceKeys(
     if (!hasExactJsonKeys(object, expected)) {
         throw new TypeError("Audit evidence contains missing or unknown fields");
     }
-}
-
-function requireObject(
-    value: JsonValue | undefined,
-    name: string
-): { readonly [key: string]: JsonValue } {
-    if (!isJsonObject(value)) throw new TypeError(`${name} must be an object`);
-    return value;
-}
-
-function requireString(object: { readonly [key: string]: JsonValue }, key: string): string {
-    const value = object[key];
-    if (typeof value !== "string") {
-        throw new TypeError(`${key} must be a string`);
-    }
-    return value;
 }
 
 function requireActorKind(value: JsonValue | undefined): ActorKind {
