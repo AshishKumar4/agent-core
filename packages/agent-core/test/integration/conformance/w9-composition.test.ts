@@ -372,9 +372,10 @@ describe("W9 internal typed composition", () => {
                 store.transaction((transaction) => store.consumed(transaction, permit.nonce))
             ).toBeUndefined();
 
-            const fabricatedAuthentication: {
-                readonly matches: AuthenticatedAuthorityPermit["matches"];
-            } = Object.create(AuthenticatedAuthorityPermit.prototype);
+            const fabricatedAuthentication = {
+                matches: (_permit: AuthorityPermit): boolean => true
+            };
+            Object.setPrototypeOf(fabricatedAuthentication, AuthenticatedAuthorityPermit.prototype);
             expect(
                 store.transaction((transaction) => {
                     return adapter.admits(
@@ -783,8 +784,8 @@ describe("W9 internal typed composition", () => {
         const attempt = new EffectAttemptId("w9-settlement-attempt");
         const commit = new ExecutionRunCommitId("w9-settlement-commit");
         const seen = new Set<string>();
-        const snapshot = new SettlementSnapshot();
-        const evidence = new CanonicalSettlementEvidencePort<SettlementSnapshot>({
+        const snapshot = Object.freeze({ registryEpoch: 8 });
+        const evidence = new CanonicalSettlementEvidencePort<typeof snapshot>({
             approvalResolved: (_transaction, id: ApprovalId) => {
                 seen.add(`approval:${id.value}`);
                 return id.equals(approval);
@@ -1239,8 +1240,6 @@ class UnavailableAuthorityPermitAdmission extends AuthorityPermitAdmissionPort<M
         throw new TypeError("permit store unavailable");
     }
 }
-
-class SettlementSnapshot {}
 
 class PassthroughProfileEffects extends ProfileRuntimeEffectsPort<AttemptReceipt> {
     public async emit(
