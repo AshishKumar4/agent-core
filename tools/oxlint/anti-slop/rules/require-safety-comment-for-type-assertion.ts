@@ -26,20 +26,18 @@ function isConstAssertion(node: TypeAssertion): boolean {
 }
 
 function classifySafetyCommentBlock(comments: readonly Comment[]): SafetyComment {
-    let safetyIndex = -1;
-    let firstReason = "";
-    for (const [index, comment] of comments.entries()) {
-        const match = /\bSAFETY\s*:\s*(.*)/isu.exec(comment.value);
-        if (match === null) continue;
-        if (safetyIndex !== -1) return "placeholder";
-        safetyIndex = index;
-        firstReason = match[1]?.trim() ?? "";
-    }
-    if (safetyIndex === -1) return "missing";
-    const reasons = [
-        firstReason,
-        ...comments.slice(safetyIndex + 1).map((comment) => comment.value)
-    ]
+    const text = comments
+        .flatMap((comment) => comment.value.split(/\r?\n/u))
+        .map((line) => line.trim().replace(/^\*\s?/u, ""))
+        .join("\n");
+    const markers = [...text.matchAll(/\bSAFETY\s*:/giu)];
+    if (markers.length === 0) return "missing";
+    if (markers.length !== 1) return "placeholder";
+    const marker = markers[0];
+    const reasonStart = (marker?.index ?? 0) + (marker?.[0].length ?? 0);
+    const reasons = text
+        .slice(reasonStart)
+        .split("\n")
         .map((reason) => reason.trim())
         .filter((reason) => reason.length > 0);
     return reasons.every((reason) => obviousPlaceholder.test(reason)) ? "placeholder" : "present";

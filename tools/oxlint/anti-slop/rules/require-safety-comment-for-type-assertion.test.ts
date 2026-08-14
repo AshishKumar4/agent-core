@@ -16,6 +16,7 @@ tester.run(
             "// SAFETY: as above, for the holder member validated by parseUserId.\nconst id = value as UserId;",
             "// SAFETY: parseUserId validated the identifier.\n// Branding preserves that validated representation.\nconst id = value as UserId;",
             "const id = /* SAFETY: parseUserId validated the identifier. */ /* Branding preserves that representation. */ value as UserId;",
+            "/*\n * SAFETY: parseUserId validated the identifier.\n * Branding preserves that validated representation.\n */\nconst id = value as UserId;",
             "execute(/* SAFETY: parseUserId validated this identifier. */ value as UserId);",
             "function run(): void { /* SAFETY: parseUserId validated the identifier. */ execute(value as UserId); }"
         ],
@@ -74,6 +75,14 @@ tester.run(
             {
                 code: "// SAFETY: parseUserId validated the identifier.\n\n// Branding preserves that representation.\nconst id = value as UserId;",
                 errors: [{ messageId: "missingSafetyComment" }]
+            },
+            {
+                code: "/* SAFETY: parseUserId validated it. SAFETY: branding is sound. */\nconst id = value as UserId;",
+                errors: [{ messageId: "placeholderSafetyComment" }]
+            },
+            {
+                code: "/*\n * SAFETY: trust me.\n * Same reason.\n */\nconst id = value as UserId;",
+                errors: [{ messageId: "placeholderSafetyComment" }]
             }
         ]
     }
