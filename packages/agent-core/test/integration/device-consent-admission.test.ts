@@ -1,5 +1,5 @@
 import { DeviceConsentFinalAdmissionPort } from "../../src/composition";
-import { Digest, JsonSchema, type JsonValue } from "../../src/core";
+import { Digest, JsonSchema, isObjectRecord, type JsonValue } from "../../src/core";
 import {
     DEVICE_OPERATION_CONTRACTS,
     DeviceAgentBinding,
@@ -321,7 +321,7 @@ function effectContext(admission: unknown): ProfileEffectContext {
         new EffectAttemptId("device-admitted-attempt"),
         0,
         Digest.sha256(new TextEncoder().encode("device-admitted")),
-        admission
+        isObjectRecord(admission) ? admission : undefined
     );
 }
 

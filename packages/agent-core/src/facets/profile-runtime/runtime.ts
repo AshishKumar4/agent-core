@@ -1,5 +1,4 @@
-import type { JsonSchema } from "../../core";
-import { Digest } from "../../core";
+import { Digest, isObjectRecord, type JsonSchema, type ObjectRecord } from "../../core";
 import type { InvocationId } from "../../interaction-references";
 import { EffectAttemptId } from "../../invocation-references";
 import { Operation, Surface, type OperationContext, type ProtectedOperationPort } from "../runtime";
@@ -85,7 +84,7 @@ export class ProfileEffectContext {
         public readonly attempt: EffectAttemptId | undefined,
         public readonly attemptOrdinal: number | undefined,
         public readonly intentDigest: Digest | undefined,
-        public readonly targetAdmission: unknown = undefined
+        public readonly targetAdmission: ObjectRecord | undefined = undefined
     ) {
         if (!Number.isSafeInteger(itemIndex) || itemIndex < 0) {
             throw new TypeError("Profile effect item index must be a non-negative safe integer");
@@ -113,6 +112,7 @@ export class ProfileEffectContext {
     }
 
     public static fromOperation(context: OperationContext): ProfileEffectContext {
+        const admission = context.targetAdmission;
         return new ProfileEffectContext(
             context.invocation,
             context.itemIndex,
@@ -120,7 +120,7 @@ export class ProfileEffectContext {
             context.attempt?.id,
             context.attempt?.ordinal,
             context.attempt?.intentDigest,
-            context.targetAdmission
+            isObjectRecord(admission) ? admission : undefined
         );
     }
 

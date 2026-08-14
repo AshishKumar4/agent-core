@@ -1,4 +1,4 @@
-import { CompatRange, Digest, SemVer, type JsonValue } from "../../../src/core";
+import { CompatRange, Digest, SemVer, isObjectRecord, type JsonValue } from "../../../src/core";
 import { MemoryContentStore } from "../../../src/content";
 import { PrincipalId, PrincipalRef, TenantId } from "../../../src/identity";
 import {
@@ -1063,7 +1063,7 @@ function effectContext(admission: unknown): ProfileEffectContext {
         new EffectAttemptId("device-test-attempt"),
         0,
         Digest.sha256(new TextEncoder().encode("device-test")),
-        admission
+        isObjectRecord(admission) ? admission : undefined
     );
 }
 

@@ -556,7 +556,7 @@
     {
       "file": "packages/agent-core/src/facets/profile-runtime/runtime.ts",
       "kind": "unknown",
-      "count": 2,
+      "count": 1,
       "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
     },
     {

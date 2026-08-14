@@ -606,7 +606,9 @@ function toolImpact(tool: McpToolDiscovery, remote: boolean): Impact {
 // missing shape guard indistinguishable from the TypeError the missing guard causes one
 // line later, so the guards became unfalsifiable — and a genuine defect anywhere in the
 // walk was reported to callers as "the server sent a malformed document".
-function requireDiscoveryDocument(document: unknown): asserts document is McpDiscoveryDocument {
+function requireDiscoveryDocument(
+    document: JsonValue | undefined
+): asserts document is McpDiscoveryDocument {
     // encodeCanonicalJson applies exactly this predicate before encoding, so the walk
     // opens with it rather than closing with it: a second, discarded encode would only
     // restate the same rejection, and every field below is then read as JSON data whose
