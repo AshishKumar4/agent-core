@@ -12,7 +12,7 @@ import {
     type FacetRef,
     type OperationRef
 } from "../../facets";
-import { OperationGateway, type OperationRequestKey } from "../../operations";
+import { OperationGateway, ResolvedFacetScope, type OperationRequestKey } from "../../operations";
 import { RunCommit } from "./commit";
 import { leaseTokensEqual, type LeaseToken } from "./lease";
 import type { TurnPlacementSnapshot } from "./placement";
@@ -81,7 +81,20 @@ export type TurnInvocationResult =
     | { readonly tier: "mediated"; readonly output: FacetData; readonly evidence: FacetData };
 
 export abstract class TurnInvocationPort {
-    public abstract invoke(request: TurnInvocationRequest): Promise<TurnInvocationResult>;
+    public abstract open(scope: TurnGatewayScope): Promise<TurnInvocationSession>;
+
+    public async invoke(request: TurnInvocationRequest): Promise<TurnInvocationResult> {
+        const session = await this.open({
+            turn: request.turn,
+            token: request.token,
+            signal: request.signal
+        });
+        try {
+            return await session.invoke(request);
+        } finally {
+            session[Symbol.dispose]();
+        }
+    }
 }
 
 export interface TurnGatewayScope {
@@ -94,53 +107,70 @@ export abstract class TurnGatewaySource {
     public abstract open(scope: TurnGatewayScope): Promise<OperationGateway>;
 }
 
+export abstract class TurnInvocationSession implements Disposable {
+    public abstract invoke(request: TurnInvocationRequest): Promise<TurnInvocationResult>;
+    public abstract [Symbol.dispose](): void;
+}
+
 export class GatewayTurnInvocationPort extends TurnInvocationPort {
     public constructor(private readonly gateways: TurnGatewaySource) {
         super();
     }
 
+    public async open(scope: TurnGatewayScope): Promise<TurnInvocationSession> {
+        requireNotCancelled(scope.signal);
+        const gateway = await this.gateways.open(Object.freeze(scope));
+        requireNotCancelled(scope.signal);
+        return new GatewayTurnInvocationSession(scope, gateway);
+    }
+}
+
+class GatewayTurnInvocationSession extends TurnInvocationSession {
+    readonly #facets: ResolvedFacetScope;
+
+    public constructor(
+        private readonly scope: TurnGatewayScope,
+        gateway: OperationGateway
+    ) {
+        super();
+        this.#facets = new ResolvedFacetScope(gateway, scope.signal);
+    }
+
     public async invoke(request: TurnInvocationRequest): Promise<TurnInvocationResult> {
+        requireInvocationScope(this.scope, request);
         requireNotCancelled(request.signal);
-        const gateway = await this.gateways.open(
-            Object.freeze({
-                turn: request.turn,
-                token: request.token,
-                signal: request.signal
-            })
-        );
-        requireNotCancelled(request.signal);
-        const resolved = await gateway.resolve(request.operation.binding);
-        try {
-            const descriptor = resolved.descriptor(request.operation.descriptor.name);
-            if (
-                !resolved.facet.equals(request.operation.facet) ||
-                !resolved.package.equals(request.operation.operation.facet) ||
-                descriptor === undefined ||
-                !bytesEqual(
-                    OperationDescriptor.encode(descriptor),
-                    OperationDescriptor.encode(request.operation.descriptor)
-                )
-            ) {
-                throw new AgentCoreError(
-                    "binding.invalid",
-                    "Resolved operation does not match the exact bound Turn Operation"
-                );
-            }
-            requireNotCancelled(request.signal);
-            const result = await resolved.dispatch({
-                requestKey: request.requestKey,
-                operation: descriptor.name,
-                payload: { kind: "single", input: canonicalFacetData(request.input) }
-            });
-            requireNotCancelled(request.signal);
-            return canonicalInvocationResult(
-                result.kind === "mediated"
-                    ? { tier: "mediated", output: result.output, evidence: result.evidence }
-                    : { tier: "direct", output: result.output }
+        const resolved = await this.#facets.resolve(request.operation.binding);
+        const descriptor = resolved.descriptor(request.operation.descriptor.name);
+        if (
+            !resolved.facet.equals(request.operation.facet) ||
+            !resolved.package.equals(request.operation.operation.facet) ||
+            descriptor === undefined ||
+            !bytesEqual(
+                OperationDescriptor.encode(descriptor),
+                OperationDescriptor.encode(request.operation.descriptor)
+            )
+        ) {
+            throw new AgentCoreError(
+                "binding.invalid",
+                "Resolved operation does not match the exact bound Turn Operation"
             );
-        } finally {
-            resolved[Symbol.dispose]();
         }
+        requireNotCancelled(request.signal);
+        const result = await resolved.dispatch({
+            requestKey: request.requestKey,
+            operation: descriptor.name,
+            payload: { kind: "single", input: canonicalFacetData(request.input) }
+        });
+        requireNotCancelled(request.signal);
+        return canonicalInvocationResult(
+            result.kind === "mediated"
+                ? { tier: "mediated", output: result.output, evidence: result.evidence }
+                : { tier: "direct", output: result.output }
+        );
+    }
+
+    public [Symbol.dispose](): void {
+        this.#facets[Symbol.dispose]();
     }
 }
 
@@ -285,33 +315,38 @@ export class TurnExecutorHost<Transaction> {
         const initial = scope.active();
         const operations = await scope.resolveOperations(initial);
         const prompt = await scope.assemblePrompt({ ...initial.scope, operations });
-        const context = Object.freeze<TurnContext>({
-            ...initial.scope,
-            operations,
-            prompt,
-            content: new ScopedContentHandle(scope),
-            inbox: new ScopedInboxHandle(scope),
-            commit: new ScopedCommitHandle(scope),
-            checkpoint: new ScopedCheckpointHandle(scope),
-            invocation: new ScopedInvocationHandle(scope, operations),
-            model: new ScopedModelHandle(scope, operations),
-            stream: new ScopedStreamHandle(scope),
-            outcome: new ScopedOutcomeHandle(scope),
-            cancellation: scope.signal
-        });
-        let proposed: TurnOutcome;
+        const invocations = await scope.openInvocations(initial.scope);
         try {
-            proposed = await this.init.executor.execute(context);
-        } catch (error) {
+            const context = Object.freeze<TurnContext>({
+                ...initial.scope,
+                operations,
+                prompt,
+                content: new ScopedContentHandle(scope),
+                inbox: new ScopedInboxHandle(scope),
+                commit: new ScopedCommitHandle(scope),
+                checkpoint: new ScopedCheckpointHandle(scope),
+                invocation: new ScopedInvocationHandle(scope, operations, invocations),
+                model: new ScopedModelHandle(scope, operations),
+                stream: new ScopedStreamHandle(scope),
+                outcome: new ScopedOutcomeHandle(scope),
+                cancellation: scope.signal
+            });
+            let proposed: TurnOutcome;
+            try {
+                proposed = await this.init.executor.execute(context);
+            } catch (error) {
+                const committed = scope.recover();
+                if (committed !== undefined) return committed;
+                throw error;
+            }
             const committed = scope.recover();
-            if (committed !== undefined) return committed;
-            throw error;
+            if (committed === undefined || !outcomesEqual(proposed, committed)) {
+                throw invalidTurn("Turn executor returned without its exact canonical transition");
+            }
+            return committed;
+        } finally {
+            invocations[Symbol.dispose]();
         }
-        const committed = scope.recover();
-        if (committed === undefined || !outcomesEqual(proposed, committed)) {
-            throw invalidTurn("Turn executor returned without its exact canonical transition");
-        }
-        return committed;
     }
 }
 
@@ -371,6 +406,20 @@ class LeaseScopedTurn<Transaction> {
         this.active();
         await this.requireContent(prompt);
         return prompt;
+    }
+
+    public async openInvocations(scope: TurnExecutionScope): Promise<TurnInvocationSession> {
+        this.active();
+        const session = await this.init.invocations.open(
+            Object.freeze({ turn: scope.turn, token: scope.token, signal: this.signal })
+        );
+        try {
+            this.active();
+            return session;
+        } catch (error) {
+            session[Symbol.dispose]();
+            throw error;
+        }
     }
 
     public async requireContent(ref: ContentRef): Promise<void> {
@@ -554,7 +603,8 @@ class ScopedStreamHandle<Transaction> extends TurnStreamHandle {
 class ScopedInvocationHandle<Transaction> extends TurnInvocationHandle {
     public constructor(
         private readonly scope: LeaseScopedTurn<Transaction>,
-        private readonly operations: readonly TurnBoundOperation[]
+        private readonly operations: readonly TurnBoundOperation[],
+        private readonly invocations: TurnInvocationSession
     ) {
         super();
     }
@@ -572,7 +622,7 @@ class ScopedInvocationHandle<Transaction> extends TurnInvocationHandle {
         }
         const turn = this.scope.active().scope.turn;
         const result = await this.scope.withActive(() =>
-            this.scope.init.invocations.invoke(
+            this.invocations.invoke(
                 Object.freeze({
                     turn,
                     token: this.scope.token,
@@ -728,6 +778,19 @@ function canonicalInvocationResult(result: TurnInvocationResult): TurnInvocation
               evidence: canonicalFacetData(result.evidence)
           })
         : Object.freeze({ tier: "direct", output: canonicalFacetData(result.output) });
+}
+
+function requireInvocationScope(scope: TurnGatewayScope, request: TurnInvocationRequest): void {
+    if (
+        request.signal !== scope.signal ||
+        !leaseTokensEqual(request.token, scope.token) ||
+        !request.turn.id.equals(scope.turn.id)
+    ) {
+        throw new AgentCoreError(
+            "lease.invalid",
+            "Turn invocation does not belong to its opened execution scope"
+        );
+    }
 }
 
 function canonicalStreamEvent(event: TurnStreamEvent): TurnStreamEvent {

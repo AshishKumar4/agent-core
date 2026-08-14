@@ -161,15 +161,16 @@
       "owner": "W3",
       "specAnchor": "C13-FACET-DISPOSAL",
       "specTextSha256": "sha256:21e197907a85ada71eb00129342078c36ec69fd09a442da1bd5d761d244ff955",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": ["src/operations/resolved-facet-scope.ts#ResolvedFacetScope"],
+      "testSelectors": [
+        "test/operations/resolved-facet-scope.test.ts#ResolvedFacetScope [C13-FACET-DISPOSAL] releases held and concurrently resolving Facets on cancellation",
+        "test/operations/resolved-facet-scope.test.ts#ResolvedFacetScope [C13-FACET-DISPOSAL] closes the whole scope when protected dispatch reports authority loss"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "ResolvedFacetScope now owns every ResolvedFacet acquired through one execution scope, closes idempotently, closes on cancellation or authority-denied dispatch, and disposes a capability that arrives after a concurrent close",
-        "The W5 Turn executor still consumes only a per-invocation TurnInvocationPort: it does not open one ResolvedFacetScope for the Turn or close that scope from a terminal finally covering completion, failure, cancellation, and suspension",
-        "End-to-end W5 behavior evidence must exercise all five specified exits through the Turn executor before this atom can become verified"
+        "The W5 TurnExecutorHost now owns one ResolvedFacetScope-backed session and its W5 behavior tests cover completion, failure, cancellation, suspension, thrown execution, and authority loss; a W9-owned end-to-end selector must admit that cross-wave integration into the W3 atom, then fresh operations mutation attribution must show the cited selector constrains ResolvedFacetScope before verification"
       ]
     },
     {

@@ -25,6 +25,8 @@ import {
     TurnId,
     TurnInboxEntry,
     TurnInboxEntryId,
+    TurnInvocationPort,
+    TurnInvocationSession,
     type TurnContext,
     type TurnExecutorHostInit,
     type TurnModelCall,
@@ -86,6 +88,41 @@ class FunctionExecutor extends TurnExecutor {
         this.calls += 1;
         return this.run(context);
     }
+}
+
+class FunctionInvocationPort extends TurnInvocationPort {
+    public constructor(private readonly run: TurnInvocationSession["invoke"]) {
+        super();
+    }
+
+    public async open(): Promise<TurnInvocationSession> {
+        return new FunctionInvocationSession(this.run);
+    }
+}
+
+class FunctionInvocationSession extends TurnInvocationSession {
+    public constructor(private readonly run: TurnInvocationSession["invoke"]) {
+        super();
+    }
+
+    public invoke(request: Parameters<TurnInvocationSession["invoke"]>[0]) {
+        return this.run(request);
+    }
+
+    public [Symbol.dispose](): void {}
+}
+
+async function rejectedBy<Failure extends Error>(
+    kind: abstract new (...parameters: never[]) => Failure,
+    operation: () => Promise<object>
+): Promise<Failure> {
+    try {
+        await operation();
+    } catch (error) {
+        if (error instanceof kind) return error;
+        throw error;
+    }
+    throw new TypeError(`Expected ${kind.name} rejection`);
 }
 
 describe("TurnExecutor seam", () => {
@@ -210,18 +247,16 @@ describe("TurnExecutor seam", () => {
                 content: contentStore,
                 operations: { resolve: async () => [write, read] },
                 prompt: { assemble: async () => prompt },
-                invocations: {
-                    invoke: async (request) => {
-                        invocationCalls.push(request.operation);
-                        expect(request.token).toEqual(seeded.token);
-                        expect(request.input).toEqual({ key: "value" });
-                        return {
-                            tier: "mediated",
-                            output: { stored: true },
-                            evidence: { receipt: "receipt-1" }
-                        };
-                    }
-                },
+                invocations: new FunctionInvocationPort(async (request) => {
+                    invocationCalls.push(request.operation);
+                    expect(request.token).toEqual(seeded.token);
+                    expect(request.input).toEqual({ key: "value" });
+                    return {
+                        tier: "mediated",
+                        output: { stored: true },
+                        evidence: { receipt: "receipt-1" }
+                    };
+                }),
                 model: {
                     call: async (request) => {
                         modelCalls.push(request.prompt);
@@ -299,6 +334,205 @@ describe("TurnExecutor seam", () => {
         ]);
         expect(resolved.disposed).toBe(true);
     });
+
+    it(
+        "binds a Turn invocation session to its exact Turn, lease token, and cancellation signal",
+        { tags: "p0" },
+        async () => {
+            const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
+            const tool = boundTool("read", "memory.read", "observe", "Read memory.");
+            const resolved = new TestResolvedFacet(tool, { kind: "direct", output: {} });
+            const adapter = invocationAdapter(resolved);
+            const controller = new AbortController();
+            const session = await adapter.open({
+                turn: seeded.running,
+                token: seeded.token,
+                signal: controller.signal
+            });
+            const request = invocationRequest(seeded, tool, controller.signal);
+            const otherTurn = seedRunningTurn(
+                undefined,
+                { id: new TurnId("other-invocation-session-turn") },
+                [memoryPlacement()]
+            ).running;
+
+            for (const substituted of [
+                { ...request, signal: new AbortController().signal },
+                { ...request, token: { ...request.token, epoch: request.token.epoch + 1 } },
+                { ...request, turn: otherTurn }
+            ]) {
+                const rejection = await rejectedBy(AgentCoreError, () =>
+                    session.invoke(substituted)
+                );
+                expect(rejection.code).toBe("lease.invalid");
+            }
+
+            await expect(session.invoke(request)).resolves.toEqual({ tier: "direct", output: {} });
+            expect(resolved.disposals).toBe(0);
+            session[Symbol.dispose]();
+            expect(resolved.disposals).toBe(1);
+        }
+    );
+
+    it.each([
+        [
+            "completion",
+            (context: TurnContext, boundaries: TestBoundaries) =>
+                context.outcome.succeed(
+                    resultCommit(context, "facet-scope-succeeded", boundaries.output, ids.root)
+                )
+        ],
+        [
+            "failure",
+            (context: TurnContext, boundaries: TestBoundaries) =>
+                context.outcome.fail(
+                    resultCommit(context, "facet-scope-failed", boundaries.output, ids.root)
+                )
+        ],
+        [
+            "cancellation",
+            (context: TurnContext, boundaries: TestBoundaries) =>
+                context.outcome.cancel(
+                    resultCommit(context, "facet-scope-cancelled", boundaries.output, ids.root),
+                    cancellationEntry(
+                        "facet-scope-cancellation",
+                        context.token,
+                        boundaries.cancellationPayload,
+                        0
+                    )
+                )
+        ],
+        [
+            "suspension",
+            (context: TurnContext, boundaries: TestBoundaries) => {
+                const commit = checkpointCommit(
+                    context,
+                    "facet-scope-suspended",
+                    boundaries.checkpointState,
+                    ids.root
+                );
+                return context.checkpoint.persist(
+                    new RunCheckpoint(
+                        new RunCheckpointId("facet-scope-checkpoint"),
+                        context.turn.id,
+                        commit.id,
+                        boundaries.checkpointState,
+                        0,
+                        undefined
+                    ),
+                    commit
+                );
+            }
+        ]
+    ] as const)(
+        "[C13-FACET-DISPOSAL] holds resolved Facets through Turn work and releases them on %s",
+        { tags: "p0" },
+        async (_, settle) => {
+            const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
+            const tool = boundTool("read", "memory.read", "observe", "Read memory.");
+            const boundaries = await TestBoundaries.create([tool]);
+            const resolved = new TestResolvedFacet(tool, { kind: "direct", output: {} });
+            const executor = new FunctionExecutor(async (context) => {
+                await context.invocation.invoke(
+                    tool,
+                    new OperationRequestKey("facet-scope-call"),
+                    {}
+                );
+                expect(resolved.disposals).toBe(0);
+                return settle(context, boundaries);
+            });
+
+            await boundaries
+                .host(seeded, executor, { invocations: invocationAdapter(resolved) })
+                .execute(seeded.token);
+
+            expect(resolved.disposals).toBe(1);
+        }
+    );
+
+    it(
+        "[C13-FACET-DISPOSAL] releases held Facets when Turn execution throws",
+        { tags: "p0" },
+        async () => {
+            const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
+            const tool = boundTool("read", "memory.read", "observe", "Read memory.");
+            const boundaries = await TestBoundaries.create([tool]);
+            const resolved = new TestResolvedFacet(tool, { kind: "direct", output: {} });
+            const executor = new FunctionExecutor(async (context) => {
+                await context.invocation.invoke(
+                    tool,
+                    new OperationRequestKey("facet-scope-thrown-call"),
+                    {}
+                );
+                expect(resolved.disposals).toBe(0);
+                throw new TypeError("Turn execution failed");
+            });
+
+            await expect(
+                boundaries
+                    .host(seeded, executor, { invocations: invocationAdapter(resolved) })
+                    .execute(seeded.token)
+            ).rejects.toBeInstanceOf(TypeError);
+            expect(resolved.disposals).toBe(1);
+        }
+    );
+
+    it(
+        "[C13-FACET-DISPOSAL] releases the Turn Facet set immediately on authority loss",
+        { tags: "p0" },
+        async () => {
+            const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
+            const firstTool = boundTool("read", "memory.read", "observe", "Read memory.");
+            const deniedTool = boundTool("write", "memory.write", "mutate", "Write memory.");
+            const boundaries = await TestBoundaries.create([firstTool, deniedTool]);
+            const first = new TestResolvedFacet(firstTool, { kind: "direct", output: {} });
+            const denied = new TestResolvedFacet(
+                deniedTool,
+                { kind: "direct", output: {} },
+                {
+                    dispatchError: new AgentCoreError(
+                        "authority.denied",
+                        "Current authority no longer admits the Binding"
+                    )
+                }
+            );
+            const executor = new FunctionExecutor(async (context) => {
+                await context.invocation.invoke(
+                    firstTool,
+                    new OperationRequestKey("facet-scope-first-call"),
+                    {}
+                );
+                expect(first.disposals).toBe(0);
+
+                const denial = await rejectedBy(AgentCoreError, () =>
+                    context.invocation.invoke(
+                        deniedTool,
+                        new OperationRequestKey("facet-scope-denied-call"),
+                        {}
+                    )
+                );
+                expect(denial.code).toBe("authority.denied");
+                expect([first.disposals, denied.disposals]).toEqual([1, 1]);
+                const inactive = await rejectedBy(AgentCoreError, () =>
+                    context.invocation.invoke(
+                        firstTool,
+                        new OperationRequestKey("facet-scope-after-denial"),
+                        {}
+                    )
+                );
+                expect(inactive.code).toBe("facet.inactive");
+                return context.outcome.fail(
+                    resultCommit(context, "facet-scope-authority-loss", boundaries.output, ids.root)
+                );
+            });
+
+            await boundaries
+                .host(seeded, executor, { invocations: invocationAdapter([first, denied]) })
+                .execute(seeded.token);
+
+            expect([first.disposals, denied.disposals]).toEqual([1, 1]);
+        }
+    );
 
     it.each([
         ["facet identity", { facet: new FacetRef("memory:other") }, "binding.invalid"],
@@ -744,9 +978,7 @@ describe("TurnExecutor seam", () => {
                 );
             });
 
-            await expect(
-                boundaries.host(seeded, executor).execute(seeded.token)
-            ).resolves.toEqual({
+            await expect(boundaries.host(seeded, executor).execute(seeded.token)).resolves.toEqual({
                 kind: "cancelled",
                 result: boundaries.output,
                 commit: new RunCommitId("requested-cancel-result")
@@ -1786,12 +2018,10 @@ class TestBoundaries {
             content: this.content,
             operations: { resolve: async () => this.tools },
             prompt: { assemble: async () => this.prompt },
-            invocations: {
-                invoke: async (request) => {
-                    this.invocationCalls.push(request.operation);
-                    return { tier: "mediated", output: {}, evidence: { receipt: "test" } };
-                }
-            },
+            invocations: new FunctionInvocationPort(async (request) => {
+                this.invocationCalls.push(request.operation);
+                return { tier: "mediated", output: {}, evidence: { receipt: "test" } };
+            }),
             model: {
                 call: async (request) => {
                     this.modelCalls.push(request);
@@ -1816,12 +2046,19 @@ class TestBoundaries {
 }
 
 class TestOperationGateway extends OperationGateway {
-    public constructor(private readonly resolved: ResolvedFacet) {
+    readonly #resolved: readonly ResolvedFacet[];
+    #index = 0;
+
+    public constructor(resolved: ResolvedFacet | readonly ResolvedFacet[]) {
         super();
+        this.#resolved = resolved instanceof ResolvedFacet ? [resolved] : resolved;
     }
 
     public async resolve(): Promise<ResolvedFacet> {
-        return this.resolved;
+        const resolved = this.#resolved[this.#index];
+        if (resolved === undefined) throw new TypeError("No resolved Facet remains");
+        this.#index += 1;
+        return resolved;
     }
 }
 
@@ -1829,7 +2066,11 @@ class TestResolvedFacet extends ResolvedFacet {
     public readonly facet: FacetRef;
     public readonly package;
     public readonly requests: OperationRequest[] = [];
-    public disposed = false;
+    public disposals = 0;
+
+    public get disposed(): boolean {
+        return this.disposals > 0;
+    }
 
     public constructor(
         private readonly tool: TurnBoundOperation,
@@ -1838,6 +2079,7 @@ class TestResolvedFacet extends ResolvedFacet {
             readonly facet?: FacetRef;
             readonly package?: FacetPackageId;
             readonly descriptor?: OperationDescriptor | null;
+            readonly dispatchError?: AgentCoreError;
             readonly afterDispatch?: () => void;
         } = {}
     ) {
@@ -1857,11 +2099,12 @@ class TestResolvedFacet extends ResolvedFacet {
     public async dispatch(request: OperationRequest): Promise<OperationDispatchResult> {
         this.requests.push(request);
         this.options.afterDispatch?.();
+        if (this.options.dispatchError !== undefined) throw this.options.dispatchError;
         return this.result;
     }
 
     public [Symbol.dispose](): void {
-        this.disposed = true;
+        this.disposals += 1;
     }
 }
 
@@ -2058,7 +2301,9 @@ function publishedUsage(publication: TurnStreamPublication | undefined): TurnMod
     return publication.event.usage;
 }
 
-function invocationAdapter(resolved: ResolvedFacet): GatewayTurnInvocationPort {
+function invocationAdapter(
+    resolved: ResolvedFacet | readonly ResolvedFacet[]
+): GatewayTurnInvocationPort {
     return new GatewayTurnInvocationPort({
         open: async () => new TestOperationGateway(resolved)
     });

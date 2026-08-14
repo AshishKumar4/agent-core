@@ -91,14 +91,6 @@
     },
     {
       "file": "src/agents/runs/executor.ts",
-      "symbol": "GatewayTurnInvocationPort.invoke",
-      "mutator": "StringLiteral",
-      "replacement": "\"\"",
-      "mutated": "\"direct\"",
-      "proof": "This literal is written into an object that is constructed inline as the sole argument to canonicalInvocationResult and is never bound, stored, or read anywhere else. canonicalInvocationResult reads exactly two things from what it is handed: the test result.tier === \"mediated\", and then result.output (plus result.evidence on the mediated side). It does not pass the tier through. Its else branch builds a fresh frozen object from its own \"direct\" literal, which is a separate mutation site and one that tests do kill. So the tier written here decides one branch and nothing else, and it decides that branch the same way under the mutant: \"\" === \"mediated\" is false exactly as \"direct\" === \"mediated\" is false, so both select the else branch and both return the identical frozen { tier: \"direct\", output } value. The mediated arm of the same conditional is unaffected, because the mutant replaces only the literal on the direct arm. Nothing observable downstream — the returned result, the canonicalized output bytes, the freeze — can differ, so no test can tell the two apart. Confirmed by applying the mutant and running the whole suite: 4962 assertions pass unchanged."
-    },
-    {
-      "file": "src/agents/runs/executor.ts",
       "mutated": "commit.content?.equals",
       "mutator": "OptionalChaining",
       "proof": "The optional call cannot short-circuit. The disjunct before it is `!commit.isTurnAuthored(\"checkpoint\", this.token)`, and isTurnAuthored returns true only when the commit's kind is \"checkpoint\", which validateClosedKind admits only with a turn writer, a subject Turn and content present. So reaching this expression means content is a ContentRef, and both spellings call the same ContentRef.equals against the checkpoint's state. The chain is written because RunCommit types content as optional for every kind; a test could only separate the two by producing a checkpoint commit without content, which the record's own constructor refuses.",

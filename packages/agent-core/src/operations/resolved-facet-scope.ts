@@ -30,7 +30,13 @@ export class ResolvedFacetScope implements Disposable {
 
     public async resolve(binding: BindingName): Promise<ResolvedFacet> {
         this.requireActive();
-        const resolved = await this.gateway.resolve(binding);
+        let resolved: ResolvedFacet;
+        try {
+            resolved = await this.gateway.resolve(binding);
+        } catch (error) {
+            if (isAuthorityDenied(error)) this[Symbol.dispose]();
+            throw error;
+        }
         if (this.#disposed) {
             resolved[Symbol.dispose]();
             throw inactive("Resolved Facet scope is disposed");
@@ -89,9 +95,7 @@ class ScopedResolvedFacet extends ResolvedFacet {
         try {
             return await this.resolved.dispatch(request);
         } catch (error) {
-            if (error instanceof AgentCoreError && error.code === "authority.denied") {
-                this.authorityDenied();
-            }
+            if (isAuthorityDenied(error)) this.authorityDenied();
             throw error;
         }
     }
@@ -119,4 +123,8 @@ class ScopedResolvedFacet extends ResolvedFacet {
 
 function inactive(message: string): AgentCoreError {
     return new AgentCoreError("facet.inactive", message);
+}
+
+function isAuthorityDenied(error: unknown): error is AgentCoreError {
+    return error instanceof AgentCoreError && error.code === "authority.denied";
 }

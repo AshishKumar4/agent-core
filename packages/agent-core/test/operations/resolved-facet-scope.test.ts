@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { AgentCoreError } from "../../src/errors";
-import { OperationGateway, OperationRequestKey, ResolvedFacet } from "../../src/operations";
-import { ResolvedFacetScope } from "../../src/operations/resolved-facet-scope";
+import {
+    OperationGateway,
+    OperationRequestKey,
+    ResolvedFacet,
+    ResolvedFacetScope
+} from "../../src/operations";
 import {
     BindingName,
     FacetPackageId,
@@ -77,12 +81,48 @@ class DelayedGateway extends OperationGateway {
     }
 }
 
+class DeniedAfterGateway extends OperationGateway {
+    #resolved = false;
+
+    public constructor(private readonly facet: ResolvedFacet) {
+        super();
+    }
+
+    public async resolve(): Promise<ResolvedFacet> {
+        if (!this.#resolved) {
+            this.#resolved = true;
+            return this.facet;
+        }
+        throw new AgentCoreError("authority.denied", "Binding resolution is no longer allowed");
+    }
+}
+
 function request(): OperationRequest {
     return {
         requestKey: new OperationRequestKey("scope-request"),
         operation: new OperationName("read"),
         payload: { kind: "single", input: {} satisfies FacetData }
     };
+}
+
+async function rejectedBy(operation: () => Promise<object>): Promise<AgentCoreError> {
+    try {
+        await operation();
+    } catch (error) {
+        if (error instanceof AgentCoreError) return error;
+        throw error;
+    }
+    throw new TypeError("Expected AgentCoreError rejection");
+}
+
+function thrownBy(operation: () => void): AgentCoreError {
+    try {
+        operation();
+    } catch (error) {
+        if (error instanceof AgentCoreError) return error;
+        throw error;
+    }
+    throw new TypeError("Expected AgentCoreError failure");
 }
 
 describe("ResolvedFacetScope", () => {
@@ -104,9 +144,8 @@ describe("ResolvedFacetScope", () => {
 
             expect(first.disposals).toBe(1);
             expect(second.disposals).toBe(1);
-            await expect(scope.resolve(new BindingName("after-close"))).rejects.toMatchObject({
-                code: "facet.inactive"
-            });
+            const inactive = await rejectedBy(() => scope.resolve(new BindingName("after-close")));
+            expect(inactive.code).toBe("facet.inactive");
         }
     );
 
@@ -125,9 +164,10 @@ describe("ResolvedFacetScope", () => {
             controller.abort();
 
             expect(held.disposals).toBe(1);
-            await expect(heldScope.resolve(new BindingName("cancelled"))).rejects.toMatchObject({
-                code: "facet.inactive"
-            });
+            const cancelled = await rejectedBy(() =>
+                heldScope.resolve(new BindingName("cancelled"))
+            );
+            expect(cancelled.code).toBe("facet.inactive");
 
             const delayedController = new AbortController();
             const delayedGateway = new DelayedGateway();
@@ -137,7 +177,8 @@ describe("ResolvedFacetScope", () => {
             const arrivedAfterCancellation = new RecordedFacet();
             delayedGateway.supply(arrivedAfterCancellation);
 
-            await expect(resolving).rejects.toMatchObject({ code: "facet.inactive" });
+            const delayed = await rejectedBy(() => resolving);
+            expect(delayed.code).toBe("facet.inactive");
             expect(arrivedAfterCancellation.disposals).toBe(1);
         }
     );
@@ -157,15 +198,31 @@ describe("ResolvedFacetScope", () => {
             const deniedResolution = await scope.resolve(new BindingName("denied"));
             const siblingResolution = await scope.resolve(new BindingName("sibling"));
 
-            await expect(deniedResolution.dispatch(request())).rejects.toMatchObject({
-                code: "authority.denied"
-            });
+            const dispatchDenial = await rejectedBy(() => deniedResolution.dispatch(request()));
+            expect(dispatchDenial.code).toBe("authority.denied");
 
             expect(denied.disposals).toBe(1);
             expect(sibling.disposals).toBe(1);
-            expect(() => siblingResolution.descriptor(new OperationName("read"))).toThrowError(
-                expect.objectContaining({ code: "facet.inactive" })
+            const siblingInactive = thrownBy(() => {
+                siblingResolution.descriptor(new OperationName("read"));
+            });
+            expect(siblingInactive.code).toBe("facet.inactive");
+
+            const heldDuringResolution = new RecordedFacet();
+            const resolutionScope = new ResolvedFacetScope(
+                new DeniedAfterGateway(heldDuringResolution),
+                new AbortController().signal
             );
+            await resolutionScope.resolve(new BindingName("held-during-resolution"));
+            const denial = await rejectedBy(() =>
+                resolutionScope.resolve(new BindingName("denied-resolution"))
+            );
+            expect(denial.code).toBe("authority.denied");
+            expect(heldDuringResolution.disposals).toBe(1);
+            const inactive = await rejectedBy(() =>
+                resolutionScope.resolve(new BindingName("after-resolution-denial"))
+            );
+            expect(inactive.code).toBe("facet.inactive");
         }
     );
 });
