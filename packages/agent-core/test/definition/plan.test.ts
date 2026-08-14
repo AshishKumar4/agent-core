@@ -385,16 +385,13 @@ describe("materialization planning", () => {
     });
 
     test("rejects non-primitive supported-kind lookalikes", { tags: "p1" }, () => {
-        // SAFETY: A boxed string bypasses TypeScript to exercise the runtime primitive check.
-        const boxedKind = Object("policy-set") as string;
-        expect(
-            () =>
-                new DesiredProjection({
-                    logicalKey: "unsupported:boxed-kind",
-                    recordKind: boxedKind,
-                    desired: PolicySet.empty().toData()
-                })
-        ).toThrow(/record kind/);
+        const init = {
+            logicalKey: "unsupported:boxed-kind",
+            recordKind: "policy-set",
+            desired: PolicySet.empty().toData()
+        };
+        Object.defineProperty(init, "recordKind", { value: Object("policy-set") });
+        expect(() => new DesiredProjection(init)).toThrow(/record kind/);
     });
 
     test("validates supported materialization payloads through their domain invariants", { tags: "p1" }, () => {

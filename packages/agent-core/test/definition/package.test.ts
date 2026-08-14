@@ -482,9 +482,7 @@ function packageRelease(
     dependencies: readonly PackageDependency[] = [],
     overrides: ReleaseOverrides = {}
 ): PackageRelease {
-    const manifests: readonly [FacetManifest, ...FacetManifest[]] = [
-        manifest(`${id}.facet`, version)
-    ];
+    const manifests = requireNonempty([manifest(`${id}.facet`, version)], "manifests");
     const references = [
         ...(overrides.codeRefs ?? [
             ContentRef.fromDigest(overrides.codeDigest ?? digestOf(`code:${id}:${version}`))
