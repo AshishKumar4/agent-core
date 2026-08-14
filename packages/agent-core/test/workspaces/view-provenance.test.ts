@@ -8,6 +8,7 @@ import {
     type JsonObject,
     type JsonValue
 } from "../../src/core";
+import { AgentCoreError } from "../../src/errors";
 import { SurfaceId } from "../../src/facets";
 import { EventCursor } from "../../src/workspaces/id";
 import {
@@ -118,15 +119,25 @@ describe("View approval provenance", () => {
             }
             expect(
                 () =>
+                    // @ts-expect-error Decision provenance is incomplete without marks.
                     new View({
-                        ...ordinary,
+                        surface: ordinary.surface,
+                        revision: ordinary.revision,
+                        body: ordinary.body,
+                        actions: ordinary.actions,
+                        cursor: ordinary.cursor,
                         intentDigest: digest("missing-marks")
                     })
             ).toThrow(TypeError);
             expect(
                 () =>
+                    // @ts-expect-error Ordinary Views must omit both provenance fields.
                     new View({
-                        ...ordinary,
+                        surface: ordinary.surface,
+                        revision: ordinary.revision,
+                        body: ordinary.body,
+                        actions: ordinary.actions,
+                        cursor: ordinary.cursor,
                         intentDigest: undefined,
                         marks: undefined
                     })
@@ -165,6 +176,39 @@ describe("View approval provenance", () => {
             const intentDigest = view.intentDigest;
             if (intentDigest === undefined) throw new TypeError("Expected a decision View");
             expect(View.decode(encoded).intentDigest?.equals(intentDigest)).toBe(true);
+        }
+    );
+
+    test(
+        "rejects malformed nested marks through the shared provenance decoder",
+        { tags: "p0" },
+        () => {
+            const view = decisionView();
+            const payload = viewPayload(view);
+            const document = viewDocument(view);
+            if (!isJsonObject(document)) throw new TypeError("View document fixture changed shape");
+            const delta = new ViewDelta({
+                surface: view.surface,
+                baseRevision: view.revision,
+                revision: view.revision.next(),
+                patch: [],
+                cursor: new EventCursor("cursor-malformed-mark")
+            });
+            const malformedMarks = [
+                [null],
+                [{ path: "/request" }],
+                [{ path: "/request", tier: "external", unknown: true }],
+                [{ path: "/request", tier: "trusted" }]
+            ] satisfies readonly (readonly JsonValue[])[];
+
+            for (const marks of malformedMarks) {
+                const decode = () => View.decode(viewBytes({ ...payload, marks }));
+                expect(decode).toThrow(AgentCoreError);
+                expect(decode).toThrow(expect.objectContaining({ code: "codec.invalid" }));
+                expect(() => viewFromDocument(view, delta, { ...document, marks })).toThrow(
+                    TypeError
+                );
+            }
         }
     );
 
@@ -284,8 +328,13 @@ describe("View approval provenance", () => {
         ).toThrow(TypeError);
         expect(
             () =>
+                // @ts-expect-error Decision provenance is incomplete without an intent digest.
                 new View({
-                    ...base,
+                    surface: base.surface,
+                    revision: base.revision,
+                    body: base.body,
+                    actions: base.actions,
+                    cursor: base.cursor,
                     marks: [new ViewMark("/count", "external")]
                 })
         ).toThrow(TypeError);

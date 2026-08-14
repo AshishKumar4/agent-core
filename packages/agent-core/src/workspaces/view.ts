@@ -73,15 +73,25 @@ export class ActionDescriptor {
     }
 }
 
-export interface ViewInit {
+interface ViewBaseInit {
     readonly surface: SurfaceId;
     readonly revision: Revision;
     readonly body: JsonValue;
     readonly actions: readonly ActionDescriptor[];
     readonly cursor: EventCursor;
-    readonly intentDigest?: Digest | undefined;
-    readonly marks?: readonly ViewMark[] | undefined;
 }
+
+interface OrdinaryViewInit {
+    readonly intentDigest?: never;
+    readonly marks?: never;
+}
+
+interface DecisionViewInit {
+    readonly intentDigest: Digest;
+    readonly marks: readonly ViewMark[];
+}
+
+export type ViewInit = ViewBaseInit & (OrdinaryViewInit | DecisionViewInit);
 
 class ViewMarkCodecV1 extends RecordCodec<ViewMark> {
     public constructor() {
@@ -170,8 +180,8 @@ export class View {
     public readonly body: JsonValue;
     public readonly actions: readonly ActionDescriptor[];
     public readonly cursor: EventCursor;
-    declare public readonly intentDigest: Digest | undefined;
-    declare public readonly marks: readonly ViewMark[] | undefined;
+    declare public readonly intentDigest?: Digest;
+    declare public readonly marks?: readonly ViewMark[];
 
     public constructor(init: ViewInit) {
         const actionIds = new Set<string>();
