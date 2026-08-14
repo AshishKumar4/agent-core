@@ -103,24 +103,21 @@ export class SqliteActorStore implements ActorLocalStore<TransactionalSqlite, Re
         activeActorTransactions.add(this.database);
         let committedActor = this.#actor;
         try {
-            const result = this.database.transaction(
-                () => {
-                    const transaction = new SqliteTransactionScope(this.database);
-                    this.#activeTransaction = transaction;
-                    this.#activeActor = this.#actor;
-                    try {
-                        return requireSynchronousResult(operation(transaction));
-                    } finally {
-                        committedActor = this.#activeActor;
-                        this.#activeTransaction = undefined;
-                        this.#activeActor = undefined;
-                        transaction.close();
-                    }
-                },
-                ...([] as SynchronousResultGuard<TResult>)
-            );
+            const outcome = this.database.transaction(() => {
+                const transaction = new SqliteTransactionScope(this.database);
+                this.#activeTransaction = transaction;
+                this.#activeActor = this.#actor;
+                try {
+                    return { result: requireSynchronousResult(operation(transaction)) };
+                } finally {
+                    committedActor = this.#activeActor;
+                    this.#activeTransaction = undefined;
+                    this.#activeActor = undefined;
+                    transaction.close();
+                }
+            });
             this.#actor = committedActor;
-            return result;
+            return outcome.result;
         } finally {
             activeActorTransactions.delete(this.database);
         }

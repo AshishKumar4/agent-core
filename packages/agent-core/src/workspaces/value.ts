@@ -106,21 +106,24 @@ export class EventProvenance {
         const group = value["group"];
         if (
             (verification !== "verified" && verification !== "host") ||
-            (channel !== null && typeof channel !== "string") ||
-            (group !== null && typeof group !== "string")
+            (channel !== null && !isStringValue(channel)) ||
+            (group !== null && !isStringValue(group))
         ) {
             throw new TypeError("Event provenance fields are malformed");
         }
-        return new EventProvenance({
+        let provenance: EventProvenanceInit = {
             verification:
                 verification === "host" ? EventVerification.host() : EventVerification.verified(),
-            ...(principal === null
-                ? {}
-                : { principal: decodeOptionalPrincipalRef(principal, "Provenance Principal")! }),
-            ...(channel === null ? {} : { channel }),
-            ...(group === null ? {} : { group }),
             claims: value["claims"]
-        });
+        };
+        if (principal !== null) {
+            const decoded = decodeOptionalPrincipalRef(principal, "Provenance Principal");
+            if (decoded === undefined) throw new TypeError("Provenance Principal is malformed");
+            provenance = { ...provenance, principal: decoded };
+        }
+        if (channel !== null) provenance = { ...provenance, channel };
+        if (group !== null) provenance = { ...provenance, group };
+        return new EventProvenance(provenance);
     }
 
     public toData(): JsonValue {
@@ -157,13 +160,19 @@ export function canonicalJson(value: JsonValue): JsonValue {
 }
 
 function deepFreeze(value: JsonValue): JsonValue {
-    // Arrays need no branch of their own: they are objects, and Object.values yields
-    // exactly their elements.
-    if (value !== null && typeof value === "object") {
+    if (Array.isArray(value)) {
+        for (const entry of value) deepFreeze(entry);
+        return Object.freeze(value);
+    }
+    if (isJsonObject(value)) {
         for (const entry of Object.values(value)) deepFreeze(entry);
         return Object.freeze(value);
     }
     return value;
+}
+
+function isStringValue(value: JsonValue): value is string {
+    return typeof value === "string";
 }
 
 function validateOptionalCanonicalText(

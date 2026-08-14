@@ -9,7 +9,7 @@ import {
     type StoredProtocolAudit,
     type StoredProtocolWrite
 } from "../../protocol";
-import { TransactionalSqlite, type SqliteRow } from "./sqlite";
+import { TransactionalSqlite, isSqliteText, type SqliteRow } from "./sqlite";
 
 const PROTOCOL_SCHEMA_VERSION = 4;
 const SCHEMA_OBJECTS = [
@@ -366,9 +366,10 @@ function rebuildIdentityIndexes(database: TransactionalSqlite): void {
         database.run(CREATE_PRINCIPAL_IDENTITY_INDEX, []);
         database.run(CREATE_ACTOR_IDENTITY_INDEX, []);
     } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
         throw new AgentCoreError(
             "protocol.invalid-state",
-            `Cannot rebuild protocol identity projection: ${errorMessage(error)}`
+            `Cannot rebuild protocol identity projection: ${message}`
         );
     }
 }
@@ -413,14 +414,17 @@ function storedWrite(row: SqliteRow): StoredProtocolWrite {
 function storedAudit(row: SqliteRow): StoredProtocolAudit {
     const writeId = nullableText(row, "write_id");
     const writeOutcome = nullableText(row, "write_outcome");
-    return {
+    let audit: StoredProtocolAudit = {
         id: text(row, "id"),
         evidenceIdentity: text(row, "evidence_identity"),
         evidenceKind: auditKind(text(row, "evidence_kind")),
-        ...(writeId === undefined ? {} : { writeId: new WriteRecordId(writeId) }),
-        ...(writeOutcome === undefined ? {} : { writeOutcome: commandOutcome(writeOutcome) }),
         bytes: bytes(row, "record")
     };
+    if (writeId !== undefined) audit = { ...audit, writeId: new WriteRecordId(writeId) };
+    if (writeOutcome !== undefined) {
+        audit = { ...audit, writeOutcome: commandOutcome(writeOutcome) };
+    }
+    return audit;
 }
 
 function auditKind(value: string): AuditKind["kind"] {
@@ -468,7 +472,7 @@ function bytes(row: SqliteRow, column: string): Uint8Array {
 
 function text(row: SqliteRow, column: string): string {
     const value = row[column];
-    if (typeof value !== "string") {
+    if (!isSqliteText(value)) {
         throw corruptProtocolRow(`Expected text column: ${column}`);
     }
     return value;
@@ -477,14 +481,10 @@ function text(row: SqliteRow, column: string): string {
 function nullableText(row: SqliteRow, column: string): string | undefined {
     const value = row[column];
     if (value === null) return undefined;
-    if (typeof value !== "string") {
+    if (!isSqliteText(value)) {
         throw corruptProtocolRow(`Expected nullable text column: ${column}`);
     }
     return value;
-}
-
-function errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
 }
 
 function corruptProtocolRow(message: string): AgentCoreError {

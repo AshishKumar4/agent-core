@@ -543,9 +543,7 @@ describe("Facet runtime", () => {
             expect(() => validator.validate([emptyManifest, emptyManifest], [empty])).toThrow(
                 /duplicate/
             );
-            const emptyManifestData = emptyManifest.toData();
-            expect(isFacetDataMap(emptyManifestData)).toBe(true);
-            if (!isFacetDataMap(emptyManifestData)) throw new TypeError("Expected manifest data");
+            const emptyManifestData = requireObject(emptyManifest.toData());
             const otherVersion = FacetManifest.fromData({ ...emptyManifestData, version: "2.0.0" });
             expect(() => validator.validate([emptyManifest, otherVersion], [empty])).toThrow(
                 /multiple versions/

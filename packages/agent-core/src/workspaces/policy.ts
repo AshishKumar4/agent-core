@@ -1,4 +1,4 @@
-import { decodeCanonicalJson, encodeCanonicalJson, type JsonValue } from "../core";
+import { decodeCanonicalJson, encodeCanonicalJson, isJsonObject, type JsonValue } from "../core";
 import { EventPattern, PayloadMapping, type DedupePolicy, type TrustTier } from "../facets";
 import { AgentCoreError } from "../errors";
 import type { PrincipalRef } from "../identity";
@@ -17,12 +17,12 @@ export function deriveEventTrust(facts: TrustDerivationFacts): DerivedEventTrust
         if (!facts.validTurnLease || !facts.hostEmission) {
             throw denied("Self trust requires a host emission under a valid Turn lease");
         }
-        return Object.freeze({
-            tier: "self" as const,
-            ...(facts.authenticatedPrincipal === undefined
-                ? {}
-                : { initiator: facts.authenticatedPrincipal })
-        });
+        const trust: DerivedEventTrust = { tier: "self" };
+        return Object.freeze(
+            facts.authenticatedPrincipal === undefined
+                ? trust
+                : { ...trust, initiator: facts.authenticatedPrincipal }
+        );
     }
     if (facts.principalOwnsScope) {
         if (facts.authenticatedPrincipal === undefined) {
@@ -53,13 +53,14 @@ export function applyPayloadMapping(mapping: PayloadMapping, source: JsonValue):
     validatePayloadMapping(snapshot);
     let target: MutableJson = {};
     for (const move of snapshot.moves) {
-        const value =
+        const value = mutableCopy(
             move.from === undefined
-                ? mutableCopy(move.literal!)
-                : mutableCopy(readPointer(source, move.from));
+                ? requireMoveLiteral(move.literal)
+                : readPointer(source, move.from)
+        );
         target = writePointer(target, move.to, value);
     }
-    return canonicalJson(target as JsonValue);
+    return canonicalJson(target);
 }
 
 export function routeDedupeKey(
@@ -108,9 +109,9 @@ function eventSourceId(source: EventSource): string {
 
 export function validatePayloadMapping(mapping: PayloadMapping): void {
     const paths = mapping.moves.map((move) => parsePointer(move.to));
-    for (let left = 0; left < paths.length; left += 1) {
-        for (let right = left + 1; right < paths.length; right += 1) {
-            if (isPrefix(paths[left]!, paths[right]!) || isPrefix(paths[right]!, paths[left]!)) {
+    for (const [leftIndex, left] of paths.entries()) {
+        for (const right of paths.slice(leftIndex + 1)) {
+            if (isPrefix(left, right) || isPrefix(right, left)) {
                 throw new TypeError("Mapping targets must not duplicate or overlap");
             }
         }
@@ -127,9 +128,13 @@ function readPointer(document: JsonValue, pointer: string): JsonValue {
         if (Array.isArray(current)) {
             const index = parseArrayIndex(token);
             if (index >= current.length) throw missingPointer(pointer);
-            current = current[index];
-        } else if (isObject(current) && Object.hasOwn(current, token)) {
-            current = current[token]!;
+            const entry = current[index];
+            if (entry === undefined) throw missingPointer(pointer);
+            current = entry;
+        } else if (isJsonObject(current) && Object.hasOwn(current, token)) {
+            const entry = current[token];
+            if (entry === undefined) throw missingPointer(pointer);
+            current = entry;
         } else {
             throw missingPointer(pointer);
         }
@@ -140,13 +145,16 @@ function readPointer(document: JsonValue, pointer: string): JsonValue {
 function writePointer(document: MutableJson, pointer: string, value: MutableJson): MutableJson {
     const tokens = parsePointer(pointer);
     if (tokens.length === 0) return value;
-    // validatePayloadMapping rejects a root ("") target alongside any sibling move, and a
-    // solo root target returned at the empty-token check above; a non-empty pointer therefore
-    // always descends into the object accumulator, never a scalar.
-    let current = document as MutableJson[] | { [key: string]: MutableJson };
+    if (!isMutableContainer(document)) {
+        throw invalidSubscription("Mapping target traverses a scalar value");
+    }
+    let current = document;
     for (let index = 0; index < tokens.length - 1; index += 1) {
-        const token = tokens[index]!;
-        const nextToken = tokens[index + 1]!;
+        const token = tokens[index];
+        const nextToken = tokens[index + 1];
+        if (token === undefined || nextToken === undefined) {
+            throw invalidSubscription("Mapping target pointer is malformed");
+        }
         if (Array.isArray(current)) {
             const position = token === "-" ? current.length : parseArrayIndex(token);
             if (position > current.length) {
@@ -157,7 +165,7 @@ function writePointer(document: MutableJson, pointer: string, value: MutableJson
                 child = arrayToken(nextToken) ? [] : {};
                 current.push(child);
             }
-            if (child === null || typeof child !== "object") {
+            if (!isMutableContainer(child)) {
                 throw invalidSubscription("Mapping target traverses a scalar value");
             }
             current = child;
@@ -167,13 +175,16 @@ function writePointer(document: MutableJson, pointer: string, value: MutableJson
                 child = arrayToken(nextToken) ? [] : {};
                 defineDataProperty(current, token, child);
             }
-            if (child === null || typeof child !== "object") {
+            if (!isMutableContainer(child)) {
                 throw invalidSubscription("Mapping target traverses a scalar value");
             }
             current = child;
         }
     }
-    const finalToken = tokens.at(-1)!;
+    const finalToken = tokens.at(-1);
+    if (finalToken === undefined) {
+        throw invalidSubscription("Mapping target pointer is malformed");
+    }
     if (Array.isArray(current)) {
         const position = finalToken === "-" ? current.length : parseArrayIndex(finalToken);
         if (position > current.length) {
@@ -222,11 +233,34 @@ function arrayToken(token: string): boolean {
 }
 
 function mutableCopy(value: JsonValue): MutableJson {
-    return decodeCanonicalJson(encodeCanonicalJson(value)) as MutableJson;
+    return mutableValue(decodeCanonicalJson(encodeCanonicalJson(value)));
 }
 
-function isObject(value: JsonValue): value is { readonly [key: string]: JsonValue } {
-    return value !== null && !Array.isArray(value) && typeof value === "object";
+function mutableValue(value: JsonValue): MutableJson {
+    if (isJsonArrayValue(value)) return value.map(mutableValue);
+    if (isJsonObject(value)) {
+        return Object.fromEntries(
+            Object.entries(value).map(([key, entry]) => [key, mutableValue(entry)])
+        );
+    }
+    return value;
+}
+
+function isJsonArrayValue(value: JsonValue): value is readonly JsonValue[] {
+    return Array.isArray(value);
+}
+
+function isMutableContainer(
+    value: MutableJson | undefined
+): value is MutableJson[] | { [key: string]: MutableJson } {
+    return value !== null && value !== undefined && typeof value === "object";
+}
+
+function requireMoveLiteral(value: JsonValue | undefined): JsonValue {
+    if (value === undefined) {
+        throw invalidSubscription("Literal mapping move has no literal value");
+    }
+    return value;
 }
 
 function missingPointer(pointer: string): AgentCoreError {

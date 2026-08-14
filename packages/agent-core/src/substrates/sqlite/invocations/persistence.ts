@@ -1,6 +1,6 @@
 import { AgentCoreError } from "../../../errors";
-import type { RecordCodec } from "../../../core";
-import { TransactionalSqlite, type SqliteRow } from "../sqlite";
+import { isObjectRecord, type RecordCodec } from "../../../core";
+import { TransactionalSqlite, isSqliteNumber, isSqliteText, type SqliteRow } from "../sqlite";
 import { InvocationError } from "../../../invocations";
 
 interface TextReference {
@@ -549,20 +549,20 @@ export class SqliteInvocationPersistence<
 
 function text(row: SqliteRow, column: string): string {
     const value = row[column];
-    if (typeof value !== "string") corrupt();
+    if (!isSqliteText(value)) corrupt();
     return value;
 }
 
 function nullableText(row: SqliteRow, column: string): string | undefined {
     const value = row[column];
     if (value === null) return undefined;
-    if (typeof value !== "string") corrupt();
+    if (!isSqliteText(value)) corrupt();
     return value;
 }
 
 function integer(row: SqliteRow, column: string): number {
     const value = row[column];
-    if (typeof value !== "number" || !Number.isSafeInteger(value)) corrupt();
+    if (!isSqliteNumber(value) || !Number.isSafeInteger(value)) corrupt();
     return value;
 }
 
@@ -593,10 +593,23 @@ function appendRecord(
     }
 }
 
-function isConstraintFailure(error: unknown): boolean {
-    if (error === null || typeof error !== "object") return false;
-    const code = (error as { readonly code?: unknown }).code;
-    if (typeof code === "string" && code.startsWith("SQLITE_CONSTRAINT")) return true;
-    const message = (error as { readonly message?: unknown }).message;
-    return typeof message === "string" && /(?:constraint|unique)/iu.test(message);
+interface SqliteConstraintFailure {
+    readonly code?: unknown;
+    readonly message?: unknown;
+}
+
+function isConstraintFailure(error: unknown): error is SqliteConstraintFailure {
+    try {
+        if (!isObjectRecord(error)) return false;
+        const code = error["code"];
+        if (isErrorText(code) && code.startsWith("SQLITE_CONSTRAINT")) return true;
+        const message = error["message"];
+        return isErrorText(message) && /(?:constraint|unique)/iu.test(message);
+    } catch {
+        return false;
+    }
+}
+
+function isErrorText(value: unknown): value is string {
+    return typeof value === "string";
 }

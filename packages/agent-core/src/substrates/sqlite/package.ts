@@ -2,7 +2,7 @@ import { Digest, SemVer } from "../../core";
 import { MetadataSnapshot, PackageId, PackageLock, PackageRelease } from "../../definition";
 import { AgentCoreError } from "../../errors";
 import type { SqliteRow } from "./sqlite";
-import { TransactionalSqlite } from "./sqlite";
+import { TransactionalSqlite, isSqliteNumber, isSqliteText } from "./sqlite";
 
 const CREATE_RELEASES = `CREATE TABLE IF NOT EXISTS definition_package_releases (
     package_id TEXT NOT NULL CHECK (length(package_id) > 0),
@@ -323,7 +323,7 @@ function storedSnapshot(row: SqliteRow): StoredMetadataSnapshot {
 
 function text(row: SqliteRow, column: string): string {
     const value = row[column];
-    if (typeof value !== "string" || value.length === 0) {
+    if (!isSqliteText(value) || value.length === 0) {
         throw corruptPackage(`Stored package ${column} projection is malformed`);
     }
     return value;
@@ -331,7 +331,7 @@ function text(row: SqliteRow, column: string): string {
 
 function integer(row: SqliteRow, column: string): number {
     const value = row[column];
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    if (!isSqliteNumber(value) || !Number.isSafeInteger(value) || value < 0) {
         throw corruptPackage(`Stored package ${column} projection is malformed`);
     }
     return value;

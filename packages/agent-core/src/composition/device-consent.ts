@@ -1,4 +1,4 @@
-import { isJsonObject, isMember } from "../core";
+import { isJsonObject, isMember, type JsonValue } from "../core";
 import {
     DeviceError,
     DeviceId,
@@ -63,7 +63,7 @@ export class DeviceConsentFinalAdmissionPort<
         }
         const input = request.request.inputs[0];
         const deviceId = isJsonObject(input) ? input["deviceId"] : undefined;
-        if (request.request.inputs.length !== 1 || typeof deviceId !== "string") {
+        if (request.request.inputs.length !== 1 || !isDeviceIdValue(deviceId)) {
             return denied("Device consent admission requires one exact Device input");
         }
         try {
@@ -80,6 +80,10 @@ export class DeviceConsentFinalAdmissionPort<
             throw error;
         }
     }
+}
+
+function isDeviceIdValue(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
 }
 
 function denied(reason: string): CanonicalBatchFinalAdmissionResult {

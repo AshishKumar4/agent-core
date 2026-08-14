@@ -22,7 +22,7 @@ import {
     encodeSubjectRef
 } from "../../identity";
 import type { SqliteRow, SqliteValue } from "./sqlite";
-import { ReadableSqlite, TransactionalSqlite } from "./sqlite";
+import { ReadableSqlite, TransactionalSqlite, isSqliteNumber, isSqliteText } from "./sqlite";
 
 const CREATE_TENANTS = `CREATE TABLE IF NOT EXISTS tenant_identities (
     id TEXT PRIMARY KEY CHECK (length(id) > 0),
@@ -324,20 +324,20 @@ function runIdentityWrite(database: TransactionalSqlite, statement: string): voi
 
 function text(row: SqliteRow, column: string): string {
     const value = row[column];
-    if (typeof value !== "string" || value.length === 0) throw corruptIdentity();
+    if (!isSqliteText(value) || value.length === 0) throw corruptIdentity();
     return value;
 }
 
 function nullableText(row: SqliteRow, column: string): string | null {
     const value = row[column];
     if (value === null) return null;
-    if (typeof value !== "string" || value.length === 0) throw corruptIdentity();
+    if (!isSqliteText(value) || value.length === 0) throw corruptIdentity();
     return value;
 }
 
 function integer(row: SqliteRow, column: string): number {
     const value = row[column];
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    if (!isSqliteNumber(value) || !Number.isSafeInteger(value) || value < 0) {
         throw corruptIdentity();
     }
     return value;

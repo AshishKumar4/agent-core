@@ -10,7 +10,7 @@ import { ContentRef, Digest } from "../../core";
 import { AgentCoreError } from "../../errors";
 import type { TenantId } from "../../identity";
 import { SqliteContentRetention, SqliteTransientContentAccess } from "./content-retention";
-import { type SqliteRow, TransactionalSqlite } from "./sqlite";
+import { isSqliteNumber, isSqliteText, type SqliteRow, TransactionalSqlite } from "./sqlite";
 
 const CREATE_CONTENT = `CREATE TABLE IF NOT EXISTS content_blobs (
     ref TEXT PRIMARY KEY CHECK (
@@ -164,20 +164,20 @@ export function sqliteBytes(row: SqliteRow, column: string): Uint8Array {
 
 export function sqliteText(row: SqliteRow, column: string): string {
     const value = row[column];
-    if (typeof value !== "string") throw invalidSqliteColumn("string", column);
+    if (!isSqliteText(value)) throw invalidSqliteColumn("string", column);
     return value;
 }
 
 function sqliteNullableText(row: SqliteRow, column: string): string | undefined {
     const value = row[column];
     if (value === null) return undefined;
-    if (typeof value !== "string") throw invalidSqliteColumn("nullable string", column);
+    if (!isSqliteText(value)) throw invalidSqliteColumn("nullable string", column);
     return value;
 }
 
 export function sqliteInteger(row: SqliteRow, column: string): number {
     const value = row[column];
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    if (!isSqliteNumber(value) || !Number.isSafeInteger(value) || value < 0) {
         throw invalidSqliteColumn("non-negative safe integer", column);
     }
     return value;

@@ -109,13 +109,15 @@ export class ClosedTenantAuthorityComposition<
             ...init,
             commands: { ...init.commands, authority }
         });
-        this.#ingress = new CommandIngress({
+        const ingress = {
             dispatcher,
             content: init.content,
             authenticator: init.authenticator,
-            leaseForMilliseconds: init.leaseForMilliseconds,
-            ...(init.now === undefined ? {} : { now: init.now })
-        });
+            leaseForMilliseconds: init.leaseForMilliseconds
+        };
+        this.#ingress = new CommandIngress(
+            init.now === undefined ? ingress : { ...ingress, now: init.now }
+        );
     }
 
     public accept(

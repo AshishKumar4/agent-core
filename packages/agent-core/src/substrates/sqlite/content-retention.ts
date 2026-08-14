@@ -25,7 +25,12 @@ import {
     sqliteInteger,
     sqliteText
 } from "./content";
-import { hasSameSqliteProvenance, type SqliteRow, TransactionalSqlite } from "./sqlite";
+import {
+    hasSameSqliteProvenance,
+    isSqliteNumber,
+    type SqliteRow,
+    TransactionalSqlite
+} from "./sqlite";
 
 const CREATE_BINDING = `CREATE TABLE IF NOT EXISTS content_retention_binding (
     singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
@@ -803,7 +808,7 @@ function validateBindingBytes(binding: TransientContentBinding, bytes: Uint8Arra
 function nullableInteger(row: SqliteRow, column: string): number | null {
     const value = row[column];
     if (value === null) return null;
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    if (!isSqliteNumber(value) || !Number.isSafeInteger(value) || value < 0) {
         throw new AgentCoreError(
             "codec.invalid",
             `Expected nullable non-negative integer column: ${column}`

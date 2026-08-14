@@ -1,6 +1,6 @@
 import { AgentCoreError } from "../errors";
 import type { ActorRef } from "../actors";
-import { ContentRef, type Revision } from "../core";
+import { ContentRef, isJsonObject, type JsonValue, type Revision } from "../core";
 import type { TenantId } from "../identity";
 import type {
     EventId,
@@ -35,6 +35,16 @@ export type WorkspaceRecordKind =
     | "contentRetention";
 
 export type CompactableWorkspaceRecordKind = "view" | "viewDelta" | "contentRetention";
+
+type WorkspaceDurableRecord =
+    | Event
+    | Subscription
+    | RouteReservation
+    | RouteProjection
+    | RouteDelivery
+    | View
+    | ViewDelta
+    | ContentRetentionReference;
 
 export interface StoredWorkspaceRecord {
     readonly kind: WorkspaceRecordKind;
@@ -699,7 +709,7 @@ export class WorkspacePersistence<Transaction> {
         );
     }
 
-    private load<Record>(
+    private load<Record extends WorkspaceDurableRecord>(
         transaction: Transaction,
         kind: WorkspaceRecordKind,
         id: string,
@@ -709,7 +719,7 @@ export class WorkspacePersistence<Transaction> {
         return stored === undefined ? undefined : this.decodeStored(stored, kind, id, codec);
     }
 
-    private requireLoad<Record>(
+    private requireLoad<Record extends WorkspaceDurableRecord>(
         transaction: Transaction,
         kind: WorkspaceRecordKind,
         id: string,
@@ -722,7 +732,7 @@ export class WorkspacePersistence<Transaction> {
         return record;
     }
 
-    private decodeStored<Record>(
+    private decodeStored<Record extends WorkspaceDurableRecord>(
         stored: StoredWorkspaceRecord,
         kind: WorkspaceRecordKind,
         id: string,
@@ -801,7 +811,7 @@ function pointerRevision(recordKey: string): number {
 }
 
 function requireCompleteRetention(
-    value: unknown,
+    value: JsonValue,
     retentions: readonly ContentRetentionReference[],
     subject: string
 ): void {
@@ -815,22 +825,22 @@ function requireCompleteRetention(
     }
 }
 
-function collectContentRefs(value: unknown, refs = new Set<string>()): Set<string> {
-    if (typeof value === "string") {
+function collectContentRefs(value: JsonValue, refs = new Set<string>()): Set<string> {
+    if (isStringValue(value)) {
         try {
             refs.add(new ContentRef(value).value);
         } catch {}
         return refs;
     }
-    // Arrays need no branch of their own: they are objects, and Object.values yields
-    // exactly their elements.
-    if (value !== null && typeof value === "object") {
+    if (Array.isArray(value)) {
+        for (const entry of value) collectContentRefs(entry, refs);
+    } else if (isJsonObject(value)) {
         for (const entry of Object.values(value)) collectContentRefs(entry, refs);
     }
     return refs;
 }
 
-function durableRecordId(kind: WorkspaceRecordKind, record: unknown): string {
+function durableRecordId(kind: WorkspaceRecordKind, record: WorkspaceDurableRecord): string {
     switch (kind) {
         case "event":
             if (record instanceof Event) return record.id.value;
@@ -858,6 +868,10 @@ function durableRecordId(kind: WorkspaceRecordKind, record: unknown): string {
             break;
     }
     throw corrupt("Stored workspace record has the wrong codec kind");
+}
+
+function isStringValue(value: JsonValue): value is string {
+    return typeof value === "string";
 }
 
 function subscriptionRecordId(subscription: Subscription): string {

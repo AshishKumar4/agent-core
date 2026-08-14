@@ -495,7 +495,7 @@ function freezeData(value: JsonValue): JsonValue {
         for (const entry of value) freezeData(entry);
         return Object.freeze(value);
     }
-    if (value !== null && typeof value === "object") {
+    if (isJsonObject(value)) {
         for (const entry of Object.values(value)) freezeData(entry);
         return Object.freeze(value);
     }
@@ -539,7 +539,7 @@ function requireFields<Field extends string>(
 }
 
 function requireString(value: JsonValue | undefined, subject: string): string {
-    if (typeof value !== "string") {
+    if (!isStringValue(value)) {
         throw new TypeError(`${subject} must be a string`);
     }
     return value;
@@ -553,10 +553,18 @@ function requireArray(value: JsonValue | undefined, subject: string): readonly J
 }
 
 function requireNonnegativeInteger(value: JsonValue | undefined, subject: string): number {
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    if (!isNumberValue(value) || !Number.isSafeInteger(value) || value < 0) {
         throw new TypeError(`${subject} must be a non-negative safe integer`);
     }
     return value;
+}
+
+function isStringValue(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
+}
+
+function isNumberValue(value: JsonValue | undefined): value is number {
+    return typeof value === "number";
 }
 
 function requireValue(value: JsonValue | undefined, subject: string): JsonValue {

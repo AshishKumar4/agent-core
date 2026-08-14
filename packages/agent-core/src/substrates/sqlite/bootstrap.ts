@@ -17,7 +17,7 @@ import {
 import { SqliteActorStore } from "./actor";
 import { SqliteProtocolPersistence } from "./protocol";
 import { SqliteTenantControlStore, createSqliteTenantControlStore } from "./tenant";
-import { ReadableSqlite, TransactionalSqlite, type SqliteRow } from "./sqlite";
+import { ReadableSqlite, TransactionalSqlite, isSqliteNumber, type SqliteRow } from "./sqlite";
 
 const CREATE_IDS = `CREATE TABLE IF NOT EXISTS tenant_bootstrap_protocol_ids (
     singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
@@ -195,7 +195,7 @@ function readNextId(database: ReadableSqlite): number {
         throw new AgentCoreError("codec.invalid", "Tenant bootstrap protocol ID read failed");
     }
     const value = rows[0]?.["next_id"];
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    if (!isSqliteNumber(value) || !Number.isSafeInteger(value) || value < 0) {
         throw new AgentCoreError(
             "codec.invalid",
             "Tenant bootstrap protocol ID state is malformed"

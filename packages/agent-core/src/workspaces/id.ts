@@ -2,12 +2,16 @@ import { TextId } from "../core";
 
 export class ActionId extends TextId {
     public constructor(value: string) {
-        if (typeof value !== "string" || value.length === 0 || value.trim() !== value) {
+        if (!isActionIdText(value) || value.length === 0 || value.trim() !== value) {
             throw new TypeError("Action ID must be a nonblank canonical string");
         }
         super(value, "Action ID");
         Object.freeze(this);
     }
+}
+
+function isActionIdText(value: unknown): value is string {
+    return typeof value === "string";
 }
 
 export class ContentRetentionId extends TextId {

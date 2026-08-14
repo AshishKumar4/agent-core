@@ -9,7 +9,7 @@ import {
     type AuthorityMutationStore,
     type AuthorityRecordPresence
 } from "../../authority";
-import type { SynchronousResultGuard } from "../../actors";
+import { requireSynchronousResult } from "../../actors";
 import { RecordCodec, Revision, isJsonObject, type JsonValue } from "../../core";
 import { AgentCoreError } from "../../errors";
 import {
@@ -50,7 +50,7 @@ import {
     sqliteSubjectKey
 } from "./identity";
 import type { SqliteRow, SqliteValue } from "./sqlite";
-import { ReadableSqlite, TransactionalSqlite } from "./sqlite";
+import { ReadableSqlite, TransactionalSqlite, isSqliteNumber, isSqliteText } from "./sqlite";
 
 class BootstrapMarkerCodec extends RecordCodec<TenantBootstrapMarker> {
     public constructor() {
@@ -70,9 +70,9 @@ class BootstrapMarkerCodec extends RecordCodec<TenantBootstrapMarker> {
             throw new TypeError("Tenant bootstrap marker payload is malformed");
         }
         if (
-            typeof payload["tenantId"] !== "string" ||
-            typeof payload["ownerPrincipalId"] !== "string" ||
-            typeof payload["revision"] !== "number"
+            !isMarkerText(payload["tenantId"]) ||
+            !isMarkerText(payload["ownerPrincipalId"]) ||
+            !isMarkerNumber(payload["revision"])
         ) {
             throw new TypeError("Tenant bootstrap marker payload is malformed");
         }
@@ -180,20 +180,18 @@ export class SqliteTenantControlStore
             );
         }
         try {
-            return this.database.transaction(
-                () => {
-                    const changes = new AuthorityChangeSet();
-                    this.#activeWrite = { database: this.database, changes };
-                    try {
-                        const result = operation(this);
-                        this.assertCompleteClosure(changes);
-                        return result;
-                    } finally {
-                        this.#activeWrite = undefined;
-                    }
-                },
-                ...([] as SynchronousResultGuard<Result>)
-            );
+            const outcome = this.database.transaction(() => {
+                const changes = new AuthorityChangeSet();
+                this.#activeWrite = { database: this.database, changes };
+                try {
+                    const result = requireSynchronousResult(operation(this));
+                    this.assertCompleteClosure(changes);
+                    return { result };
+                } finally {
+                    this.#activeWrite = undefined;
+                }
+            });
+            return outcome.result;
         } catch (error) {
             if (error instanceof AgentCoreError) throw error;
             throw new AgentCoreError("protocol.revision-conflict", "Tenant control write failed");
@@ -927,16 +925,24 @@ function readTenant(
 
 function text(row: SqliteRow, column: string): string {
     const value = row[column];
-    if (typeof value !== "string" || value.length === 0) throw corruptTenantControl();
+    if (!isSqliteText(value) || value.length === 0) throw corruptTenantControl();
     return value;
 }
 
 function integer(row: SqliteRow, column: string): number {
     const value = row[column];
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    if (!isSqliteNumber(value) || !Number.isSafeInteger(value) || value < 0) {
         throw corruptTenantControl();
     }
     return value;
+}
+
+function isMarkerText(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
+}
+
+function isMarkerNumber(value: JsonValue | undefined): value is number {
+    return typeof value === "number";
 }
 
 function bytes(row: SqliteRow, column: string): Uint8Array {

@@ -194,7 +194,7 @@ export class PortExposure {
         if (!Number.isSafeInteger(port) || port < 1 || port > MAX_PORT) {
             throw new TypeError("Port exposure port must be between 1 and 65535");
         }
-        if (url !== undefined && typeof url !== "string") {
+        if (url !== undefined && !isExposureUrl(url)) {
             throw new TypeError("Port exposure URL must be a string");
         }
         if (
@@ -253,6 +253,10 @@ export class PortExposure {
             advanceRevision(this.recordRevision, "Port exposure record revision")
         );
     }
+}
+
+function isExposureUrl(value: unknown): value is string {
+    return typeof value === "string";
 }
 
 function decodePortState(value: string): PortExposureState {

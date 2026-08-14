@@ -11,7 +11,6 @@ import {
     SlotDeclaration,
     SlotEntry,
     type Facet,
-    type PackageInstallationRef,
     type SlotName,
     type WorkspaceSlotStore
 } from "../facets";
@@ -109,17 +108,19 @@ export class ProvenanceFacetSlotBackend<Transaction, Read> implements FacetSlotC
         return this.authority.permitsInstall(read, declaration);
     }
 
-    public prepareContribution(
-        read: Read,
-        envelope: CommandEnvelope
-    ): { readonly reference: PackageInstallationRef; readonly stamp: object } | undefined {
+    public prepareContribution(read: Read, envelope: CommandEnvelope) {
         return this.provenance.prepareContribution(read, envelope);
     }
 
     public applyContribution(
         transaction: Transaction,
         envelope: CommandEnvelope,
-        stamp: object,
+        stamp: Parameters<
+            PackageInstallationProvenancePort<
+                Read | Transaction,
+                CommandEnvelope
+            >["resolveContributionForApply"]
+        >[2],
         entry: SlotEntry
     ): boolean {
         const installation = this.provenance.resolveContributionForApply(

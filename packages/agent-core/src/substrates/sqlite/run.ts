@@ -2,7 +2,7 @@ import type { ActorRef, SynchronousResultGuard } from "../../actors";
 import type { RunStoragePort } from "../../agents";
 import { isMember } from "../../core";
 import { AgentCoreError } from "../../errors";
-import { TransactionalSqlite, type SqliteRow } from "./sqlite";
+import { TransactionalSqlite, isSqliteNumber, isSqliteText, type SqliteRow } from "./sqlite";
 
 const SCHEMA_VERSION = 1;
 const SCHEMA_TABLE = "agent_run_storage_schema";
@@ -266,7 +266,7 @@ function decodeRecord(
         kind !== expectedKind ||
         (expectedKey !== undefined && key !== expectedKey) ||
         (revision !== null &&
-            (typeof revision !== "number" || !Number.isSafeInteger(revision) || revision < 0)) ||
+            (!isSqliteNumber(revision) || !Number.isSafeInteger(revision) || revision < 0)) ||
         !(bytes instanceof Uint8Array)
     ) {
         throw corrupt("Stored Run record projection is malformed");
@@ -324,14 +324,13 @@ function recordsEqual(left: SqliteStoredRunRecord, right: SqliteStoredRunRecord)
 
 function requiredText(row: SqliteRow, column: string): string {
     const value = row[column];
-    if (typeof value !== "string" || value.length === 0)
-        throw corrupt(`SQLite ${column} is invalid`);
+    if (!isSqliteText(value) || value.length === 0) throw corrupt(`SQLite ${column} is invalid`);
     return value;
 }
 
 function requiredInteger(row: SqliteRow, column: string): number {
     const value = row[column];
-    if (typeof value !== "number" || !Number.isSafeInteger(value))
+    if (!isSqliteNumber(value) || !Number.isSafeInteger(value))
         throw corrupt(`SQLite ${column} is invalid`);
     return value;
 }

@@ -2,8 +2,6 @@ import {
     JsonSchema,
     RecordCodec,
     SecretRef,
-    decodeCanonicalJson,
-    encodeCanonicalJson,
     hasExactJsonKeys,
     isJsonObject,
     type JsonValue
@@ -104,13 +102,15 @@ export const SECRET_REF_SCHEMA = new JsonSchema({
 export const BASE_CONFIG_SCHEMA = new JsonSchema({ type: "object" });
 
 export function encodeSecretRef(reference: SecretRef): SecretRefData {
-    return canonicalJson({
+    const data: SecretRefData = {
         [SECRET_TAG]: {
             id: reference.id,
             provider: reference.provider,
             source: reference.source
         }
-    });
+    };
+    freezeJson(data);
+    return data;
 }
 
 export function decodeSecretRef(value: JsonValue): SecretRef {
@@ -139,7 +139,9 @@ export function isSecretRefData(value: JsonValue): value is JsonValue & SecretRe
 }
 
 export function canonicalConfig(value: ConfigInputMap): ConfigData {
-    return canonicalJson(canonicalConfigValue(value)) as ConfigData;
+    const canonical = canonicalConfigMap(value);
+    freezeJson(canonical);
+    return canonical;
 }
 
 export function composeConfigSchema(
@@ -153,11 +155,9 @@ export function composeConfigSchema(
     for (const release of ordered) {
         const fragments = packageConfigFragments(release);
         properties[release.id.value] =
-            fragments.length === 0
-                ? {}
-                : fragments.length === 1
-                  ? fragments[0]!
-                  : { allOf: fragments };
+            fragments.length > 1
+                ? { allOf: fragments }
+                : fragments.reduce<JsonValue>((_empty, fragment) => fragment, {});
     }
 
     return new JsonSchema({
@@ -193,33 +193,34 @@ function canonicalConfigValue(value: ConfigInput): JsonValue {
     if (value instanceof SecretRef) {
         return encodeSecretRef(value);
     }
-    if (value === null || typeof value === "boolean" || typeof value === "string") {
+    if (isConfigScalar(value)) {
         return value;
     }
-    if (typeof value === "number") {
+    if (isConfigNumber(value)) {
         if (!Number.isFinite(value)) {
             throw new TypeError("Config numbers must be finite");
         }
         return Object.is(value, -0) ? 0 : value;
     }
-    if (Array.isArray(value)) {
+    if (isConfigArray(value)) {
         return value.map(canonicalConfigValue);
     }
-    if (!isPlainObject(value)) {
+    return canonicalConfigMap(value);
+}
+
+function canonicalConfigMap(value: ConfigInputMap): ConfigData {
+    if (!hasPlainConfigPrototype(value)) {
         throw new TypeError("Config values must be canonical JSON data or SecretRef values");
     }
+    const normalized = Object.fromEntries(
+        Object.entries(value)
+            .sort(([left], [right]) => compareText(left, right))
+            .map(([key, entry]) => [key, canonicalConfigValue(entry)])
+    );
     if (SECRET_TAG in value) {
-        const normalized = Object.fromEntries(
-            Object.entries(value).map(([key, entry]): readonly [string, JsonValue] => [
-                key,
-                canonicalConfigValue(entry)
-            ])
-        );
         return encodeSecretRef(decodeSecretRef(normalized));
     }
-    return Object.fromEntries(
-        Object.entries(value).map(([key, entry]) => [key, canonicalConfigValue(entry)])
-    );
+    return normalized;
 }
 
 function validateUniquePackageReleases(releases: readonly PackageRelease[]): void {
@@ -229,29 +230,25 @@ function validateUniquePackageReleases(releases: readonly PackageRelease[]): voi
 }
 
 function requireSchemaDocument(value: JsonValue, subject: string): JsonValue {
-    if (typeof value === "boolean") {
+    if (isBooleanSchema(value)) {
         return value;
     }
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
+    if (!isJsonObject(value)) {
         throw new TypeError(`${subject} must be a JSON Schema object or boolean`);
     }
-    return new JsonSchema(value as { readonly [name: string]: JsonValue }).document;
+    return new JsonSchema(value).document;
 }
 
-function canonicalJson<Value extends JsonValue>(value: Value): Value {
-    return freezeJson(decodeCanonicalJson(encodeCanonicalJson(value)) as Value);
-}
-
-function freezeJson<Value extends JsonValue>(value: Value): Value {
+function freezeJson(value: JsonValue): void {
     if (Array.isArray(value)) {
         for (const entry of value) freezeJson(entry);
-        return Object.freeze(value);
+        Object.freeze(value);
+        return;
     }
-    if (value !== null && typeof value === "object") {
+    if (isJsonObject(value)) {
         for (const entry of Object.values(value)) freezeJson(entry);
-        return Object.freeze(value);
+        Object.freeze(value);
     }
-    return value;
 }
 
 function requireObject(value: JsonValue, subject: string): { readonly [key: string]: JsonValue } {
@@ -260,14 +257,34 @@ function requireObject(value: JsonValue, subject: string): { readonly [key: stri
 }
 
 function requireString(value: JsonValue | undefined, subject: string): string {
-    if (typeof value !== "string") {
+    if (!isStringValue(value)) {
         throw new TypeError(`${subject} must be a string`);
     }
     return value;
 }
 
-function isPlainObject(value: object): value is { readonly [name: string]: ConfigInput } {
+function hasPlainConfigPrototype(value: ConfigInputMap): boolean {
     return Object.getPrototypeOf(value) === Object.prototype;
+}
+
+function isConfigScalar(value: ConfigInput): value is null | boolean | string {
+    return value === null || typeof value === "boolean" || typeof value === "string";
+}
+
+function isConfigNumber(value: ConfigInput): value is number {
+    return typeof value === "number";
+}
+
+function isConfigArray(value: ConfigInput): value is readonly ConfigInput[] {
+    return Array.isArray(value);
+}
+
+function isBooleanSchema(value: JsonValue): value is boolean {
+    return typeof value === "boolean";
+}
+
+function isStringValue(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
 }
 
 const emptyConfig = new Config({});

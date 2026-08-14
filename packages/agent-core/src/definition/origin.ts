@@ -142,7 +142,7 @@ function requireFields<Field extends string>(
 }
 
 function requireString(value: JsonValue | undefined, subject: string): string {
-    if (typeof value !== "string") {
+    if (!isStringValue(value)) {
         throw new TypeError(`${subject} must be a string`);
     }
     return value;
@@ -153,8 +153,16 @@ function requireString(value: JsonValue | undefined, subject: string): string {
 // rule unfalsifiable through this path: no decoded value could reach the constructor's
 // check without passing an identical one first.
 function requireNumber(value: JsonValue | undefined, subject: string): number {
-    if (typeof value !== "number") {
+    if (!isNumberValue(value)) {
         throw new TypeError(`${subject} must be a number`);
     }
     return value;
+}
+
+function isStringValue(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
+}
+
+function isNumberValue(value: JsonValue | undefined): value is number {
+    return typeof value === "number";
 }

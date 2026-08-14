@@ -41,7 +41,7 @@ export class SlateEffectContext {
             throw new TypeError("Slate effect attempt ordinal must be a non-negative safe integer");
         }
         if (
-            typeof idempotencyKey !== "string" ||
+            !isIdempotencyKey(idempotencyKey) ||
             idempotencyKey.trim().length === 0 ||
             idempotencyKey !== idempotencyKey.trim()
         ) {
@@ -57,6 +57,10 @@ export class SlateEffectContext {
             this.idempotencyKey === other.idempotencyKey
         );
     }
+}
+
+function isIdempotencyKey(value: unknown): value is string {
+    return typeof value === "string";
 }
 
 export abstract class SlateInvocationSeam {

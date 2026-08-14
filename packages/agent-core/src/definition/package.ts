@@ -1,8 +1,8 @@
 import { Range } from "semver";
 import {
     isNonempty,
-    type JsonObject,
     type JsonFields,
+    type JsonObject,
     CompatRange,
     Digest,
     JsonSchema,
@@ -12,9 +12,10 @@ import {
     encodeCanonicalJson,
     hasExactJsonKeys,
     isJsonObject,
+    isJsonValue,
     type JsonValue
 } from "../core";
-import { FacetManifest, canonicalFacetDataMap, isFacetDataMap, type FacetDataMap } from "../facets";
+import { FacetManifest, canonicalFacetDataMap, type FacetDataMap } from "../facets";
 import { PackageId } from "./id";
 import { canonicalCompatibilityRange } from "./compatibility";
 import { PackageCodeManifest } from "./code-manifest";
@@ -115,7 +116,7 @@ export class PackageRelease {
         if (init.manifestDigest !== undefined && !init.manifestDigest.equals(manifestDigest)) {
             throw new TypeError("Package manifest digest does not match its canonical manifests");
         }
-        if (!isFacetDataMap(init.provenance)) {
+        if (!isJsonValue(init.provenance) || !isJsonObject(init.provenance)) {
             throw new TypeError("Package provenance must be a canonical data object");
         }
         const codeManifest = PackageCodeManifest.decode(
@@ -184,7 +185,7 @@ export class PackageRelease {
         const compatibility = requireObject(object["compatibility"]!, "Package compatibility");
         requireFields(compatibility, ["host", "spec"], "Package compatibility");
         const provenance = object["provenance"];
-        if (!isFacetDataMap(provenance)) {
+        if (!isJsonObject(provenance)) {
             throw new TypeError("Package provenance must be a canonical data object");
         }
         const configSchema =
@@ -197,7 +198,7 @@ export class PackageRelease {
         if (!isNonempty(manifests)) {
             throw new TypeError("Package release must contain at least one manifest");
         }
-        return new PackageRelease({
+        let release: PackageReleaseInit = {
             id: new PackageId(requireString(object["id"], "Package ID")),
             version: new SemVer(requireString(object["version"], "Package version")),
             compatibility: new CompatRange(
@@ -208,16 +209,17 @@ export class PackageRelease {
                 PackageDependency.fromData
             ),
             manifests,
-            codeManifest: PackageCodeManifest.fromData(object["codeManifest"]!),
+            codeManifest: PackageCodeManifest.fromData(object["codeManifest"]),
             manifestDigest: new Digest(requireString(object["manifestDigest"], "Manifest digest")),
             codeDigest: new Digest(requireString(object["codeDigest"], "Code digest")),
-            provenance,
-            ...(configSchema === undefined ? {} : { configSchema })
-        });
+            provenance
+        };
+        if (configSchema !== undefined) release = { ...release, configSchema };
+        return new PackageRelease(release);
     }
 
     public toData(): JsonValue {
-        return {
+        let data: JsonObject = {
             codeDigest: this.codeDigest.value,
             codeManifest: this.codeManifest.toData(),
             compatibility: {
@@ -229,9 +231,12 @@ export class PackageRelease {
             manifestDigest: this.manifestDigest.value,
             manifests: this.manifests.map((manifest) => manifest.toData()),
             provenance: this.provenance,
-            version: this.version.toString(),
-            ...(this.configSchema === undefined ? {} : { configSchema: this.configSchema.document })
+            version: this.version.toString()
         };
+        if (this.configSchema !== undefined) {
+            data = { ...data, configSchema: this.configSchema.document };
+        }
+        return data;
     }
 }
 
@@ -386,12 +391,12 @@ function requireFields<Field extends string>(
     }
 }
 
-function requireOptionalFields(
-    value: { readonly [key: string]: JsonValue },
-    required: readonly string[],
+function requireOptionalFields<Field extends string>(
+    value: JsonObject,
+    required: readonly Field[],
     optional: readonly string[],
     subject: string
-): void {
+): asserts value is JsonFields<Field> {
     const admitted = new Set([...required, ...optional]);
     if (
         required.some((field) => !(field in value)) ||
@@ -402,7 +407,7 @@ function requireOptionalFields(
 }
 
 function requireString(value: JsonValue | undefined, subject: string): string {
-    if (typeof value !== "string") {
+    if (!isStringValue(value)) {
         throw new TypeError(`${subject} must be a string`);
     }
     return value;
@@ -416,17 +421,29 @@ function requireArray(value: JsonValue | undefined, subject: string): readonly J
 }
 
 function requireNonnegativeInteger(value: JsonValue | undefined, subject: string): number {
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    if (!isNumberValue(value) || !Number.isSafeInteger(value) || value < 0) {
         throw new TypeError(`${subject} must be a non-negative safe integer`);
     }
     return value;
 }
 
 function requireSchema(value: JsonValue): boolean | { readonly [key: string]: JsonValue } {
-    if (typeof value === "boolean") {
+    if (isBooleanValue(value)) {
         return value;
     }
     return requireObject(value, "Package config schema");
+}
+
+function isStringValue(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
+}
+
+function isNumberValue(value: JsonValue | undefined): value is number {
+    return typeof value === "number";
+}
+
+function isBooleanValue(value: JsonValue): value is boolean {
+    return typeof value === "boolean";
 }
 
 function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {

@@ -26,7 +26,7 @@ import {
 import { AgentCoreError } from "../../errors";
 import { TenantId } from "../../identity";
 import type { SqliteRow } from "./sqlite";
-import { TransactionalSqlite } from "./sqlite";
+import { TransactionalSqlite, isSqliteNumber, isSqliteText } from "./sqlite";
 
 const DIGEST_CHECK = (column: string): string => `
         length(${column}) = 64
@@ -138,6 +138,7 @@ const CONTROL_TABLES = [
     "definition_materialization_rollouts",
     "definition_materialization_outbox"
 ] as const;
+const CONTROL_TABLE_NAMES: ReadonlySet<string> = new Set(CONTROL_TABLES);
 const CREATE_CONTROL_SCHEMA = `CREATE TABLE ${CONTROL_SCHEMA_TABLE} (
     version INTEGER PRIMARY KEY CHECK (version = ${CONTROL_SCHEMA_VERSION}),
     owner_kind TEXT NOT NULL CHECK (owner_kind = 'tenant'),
@@ -590,17 +591,13 @@ function requireControlSchema(database: TransactionalSqlite, owner: ActorRef): v
         [...objects.indexes.values()].some(
             (candidate) =>
                 candidate.sql !== null &&
-                CONTROL_TABLES.includes(candidate.table as (typeof CONTROL_TABLES)[number]) &&
+                CONTROL_TABLE_NAMES.has(candidate.table) &&
                 candidate.name !== "definition_materialization_outbox_rollout"
         )
     ) {
         throw resetRequired("Materialization control schema contains an unexpected index");
     }
-    if (
-        [...objects.triggers.values()].some((trigger) =>
-            CONTROL_TABLES.includes(trigger.table as (typeof CONTROL_TABLES)[number])
-        )
-    ) {
+    if ([...objects.triggers.values()].some((trigger) => CONTROL_TABLE_NAMES.has(trigger.table))) {
         throw resetRequired("Materialization control schema must not contain triggers");
     }
     const rows = database.all(
@@ -1661,16 +1658,25 @@ function decodeStoredMaterialization<Value>(decode: () => Value): Value {
                 "stored codec bytes contain an unsupported materialization closure"
             );
         }
-        throw corruptMaterialization(
-            error instanceof Error ? error.message : "Stored materialization codec decode failed"
-        );
+        let detail = "Stored materialization codec decode failed";
+        try {
+            if (error instanceof Error) detail = error.message;
+        } catch {
+            // Preserve the stable codec taxonomy when a hostile thrown value traps inspection.
+        }
+        throw corruptMaterialization(detail);
     }
 }
 
-function isUnsupportedMaterializationKindError(error: unknown): boolean {
-    return (
-        error instanceof Error && error.message.includes("Unsupported materialization record kind")
-    );
+function isUnsupportedMaterializationKindError(error: unknown): error is Error {
+    try {
+        return (
+            error instanceof Error &&
+            error.message.includes("Unsupported materialization record kind")
+        );
+    } catch {
+        return false;
+    }
 }
 
 function projectBlueprint(blueprint: Blueprint, recordBytes: Uint8Array): StoredBlueprint {
@@ -1902,7 +1908,7 @@ function storedPointer(row: SqliteRow): StoredMaterializationGenerationPointer {
 
 function text(row: SqliteRow, column: string): string {
     const value = row[column];
-    if (typeof value !== "string" || value.length === 0) {
+    if (!isSqliteText(value) || value.length === 0) {
         throw corruptMaterialization(`Stored materialization ${column} projection is malformed`);
     }
     return value;
@@ -1910,13 +1916,13 @@ function text(row: SqliteRow, column: string): string {
 
 function nullableText(row: SqliteRow, column: string): string | null {
     const value = row[column];
-    if (value === null || typeof value === "string") return value;
+    if (value === null || isSqliteText(value)) return value;
     throw corruptMaterialization(`Stored materialization ${column} projection is malformed`);
 }
 
 function integer(row: SqliteRow, column: string): number {
     const value = row[column];
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    if (!isSqliteNumber(value) || !Number.isSafeInteger(value) || value < 0) {
         throw corruptMaterialization(`Stored materialization ${column} projection is malformed`);
     }
     return value;

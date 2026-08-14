@@ -1,6 +1,13 @@
-import { type JsonFields, RecordCodec, SemVer, type JsonValue } from "../core";
+import {
+    isJsonObject,
+    type JsonFields,
+    type JsonObject,
+    RecordCodec,
+    SemVer,
+    type JsonValue
+} from "../core";
 import { canonicalFacetData, type FacetDataMap } from "../facets";
-import { Config, type ConfigData, type ConfigInputMap } from "./config";
+import { Config, type ConfigInputMap } from "./config";
 import { PackageId } from "./id";
 import { PackageDependency } from "./package";
 import { PolicySet } from "./policy";
@@ -58,7 +65,7 @@ export class PackageInstall {
         requireFields(object, ["config", "request"], [], "Package install");
         return new PackageInstall({
             request: PackageDependency.fromData(object["request"]),
-            config: Config.fromData(requireObject(object["config"], "Package config") as ConfigData)
+            config: Config.fromData(requireObject(object["config"], "Package config"))
         });
     }
 
@@ -183,68 +190,80 @@ export class Blueprint {
             ["environments", "scopes", "slots", "subscriptions", "surfaces"],
             "Blueprint"
         );
-        return new Blueprint({
+        let blueprint: BlueprintInit = {
             meta: BlueprintMeta.fromData(object["meta"]),
             packages: requireArray(object["packages"], "Blueprint packages").map(
                 PackageInstall.fromData
             ),
             policies: PolicySet.fromData(object["policies"]),
-            agents: requireObjectArray(object["agents"], "Blueprint agents"),
-            ...(object["scopes"] === undefined
-                ? {}
-                : { scopes: requireObject(object["scopes"], "Blueprint scope scaffold") }),
-            ...(object["slots"] === undefined
-                ? {}
-                : { slots: requireObjectArray(object["slots"], "Blueprint slots") }),
-            ...(object["subscriptions"] === undefined
-                ? {}
-                : {
-                      subscriptions: requireObjectArray(
-                          object["subscriptions"],
-                          "Blueprint subscriptions"
-                      )
-                  }),
-            ...(object["environments"] === undefined
-                ? {}
-                : {
-                      environments: requireObjectArray(
-                          object["environments"],
-                          "Blueprint environments"
-                      )
-                  }),
-            ...(object["surfaces"] === undefined
-                ? {}
-                : { surfaces: requireObject(object["surfaces"], "Blueprint surface layout") })
-        });
+            agents: requireObjectArray(object["agents"], "Blueprint agents")
+        };
+        if (object["scopes"] !== undefined) {
+            blueprint = {
+                ...blueprint,
+                scopes: requireObject(object["scopes"], "Blueprint scope scaffold")
+            };
+        }
+        if (object["slots"] !== undefined) {
+            blueprint = {
+                ...blueprint,
+                slots: requireObjectArray(object["slots"], "Blueprint slots")
+            };
+        }
+        if (object["subscriptions"] !== undefined) {
+            blueprint = {
+                ...blueprint,
+                subscriptions: requireObjectArray(
+                    object["subscriptions"],
+                    "Blueprint subscriptions"
+                )
+            };
+        }
+        if (object["environments"] !== undefined) {
+            blueprint = {
+                ...blueprint,
+                environments: requireObjectArray(object["environments"], "Blueprint environments")
+            };
+        }
+        if (object["surfaces"] !== undefined) {
+            blueprint = {
+                ...blueprint,
+                surfaces: requireObject(object["surfaces"], "Blueprint surface layout")
+            };
+        }
+        return new Blueprint(blueprint);
     }
 
     public root(id: PackageId | string): PackageInstall | undefined {
-        const value = typeof id === "string" ? id : id.value;
+        const value = isPackageIdText(id) ? id : id.value;
         return this.packages.find((install) => install.request.id.value === value);
     }
 
     public toData(): JsonValue {
-        return {
+        let data: JsonObject = {
             meta: this.meta.toData(),
             packages: this.packages.map((install) => install.toData()),
             policies: this.policies.toData(),
-            ...(this.scopes === undefined ? {} : { scopes: this.scopes }),
-            agents: this.agents,
-            ...(this.slots === undefined ? {} : { slots: this.slots }),
-            ...(this.subscriptions === undefined ? {} : { subscriptions: this.subscriptions }),
-            ...(this.environments === undefined ? {} : { environments: this.environments }),
-            ...(this.surfaces === undefined ? {} : { surfaces: this.surfaces })
+            agents: this.agents
         };
+        if (this.scopes !== undefined) data = { ...data, scopes: this.scopes };
+        if (this.slots !== undefined) data = { ...data, slots: this.slots };
+        if (this.subscriptions !== undefined) {
+            data = { ...data, subscriptions: this.subscriptions };
+        }
+        if (this.environments !== undefined) data = { ...data, environments: this.environments };
+        if (this.surfaces !== undefined) data = { ...data, surfaces: this.surfaces };
+        return data;
     }
 }
 
 function canonicalDeclarationMap(value: DeclarationInput, subject: string): FacetDataMap {
     const data = isDeclaration(value) ? value.toData() : value;
     const canonical = canonicalFacetData(data);
-    if (canonical === null || Array.isArray(canonical) || typeof canonical !== "object") {
+    if (!isJsonObject(canonical)) {
         throw new TypeError(`${subject} must be an object declaration`);
     }
-    return canonical as FacetDataMap;
+    return canonical;
 }
 
 function optionalCanonicalDeclarationMap(
@@ -273,10 +292,10 @@ function isDeclaration(value: DeclarationInput): value is CanonicalDeclaration {
 }
 
 function requireObject(value: JsonValue, subject: string): FacetDataMap {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
+    if (!isJsonObject(value)) {
         throw new TypeError(`${subject} must be an object`);
     }
-    return value as FacetDataMap;
+    return value;
 }
 
 function requireObjectArray(value: JsonValue, subject: string): readonly FacetDataMap[] {
@@ -308,10 +327,18 @@ function requireFields<Field extends string>(
 }
 
 function requireString(value: JsonValue | undefined, subject: string): string {
-    if (typeof value !== "string") {
+    if (!isStringValue(value)) {
         throw new TypeError(`${subject} must be a string`);
     }
     return value;
+}
+
+function isPackageIdText(value: PackageId | string): value is string {
+    return typeof value === "string";
+}
+
+function isStringValue(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
 }
 
 function requireNonblank(value: string, subject: string): void {

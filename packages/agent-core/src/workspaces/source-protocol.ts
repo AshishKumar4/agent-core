@@ -18,7 +18,7 @@ import {
     RetainedRecordKind,
     type ContentRetentionPort
 } from "./retention";
-import { Event } from "./event";
+import { Event, type EventInit } from "./event";
 import {
     AuthenticatedEventIntent,
     requireAuthenticatedEventIntent,
@@ -34,7 +34,7 @@ import type {
 } from "./ports";
 import { applyPayloadMapping, eventMatches, routeDedupeKey } from "./policy";
 import { WorkspacePersistence } from "./persistence";
-import { RouteProjection, RouteReservation } from "./route";
+import { RouteProjection, RouteReservation, type RouteReservationInit } from "./route";
 import type { Subscription } from "./subscription";
 import { canonicalJson } from "./value";
 export type EventDraft = EventIntentInput;
@@ -63,7 +63,7 @@ export interface PreparedRoute {
 export class PreparedEventRouting {
     public constructor(
         token: typeof preparedRoutingToken,
-        owner: object,
+        owner: symbol,
         snapshot: EventRoutingSnapshot,
         routes: readonly PreparedRoute[]
     ) {
@@ -84,14 +84,14 @@ export class PreparedEventRouting {
 
 const preparedRoutingToken: unique symbol = Symbol("prepared-event-routing");
 const preparedRoutingInstances = new WeakMap<
-    object,
+    PreparedEventRouting,
     {
-        readonly owner: object;
+        readonly owner: symbol;
         readonly snapshot: EventRoutingSnapshot;
         readonly routes: readonly PreparedRoute[];
     }
 >();
-const routingSnapshots = new WeakMap<object, object>();
+const routingSnapshots = new WeakMap<EventRoutingSnapshot, symbol>();
 
 export interface EventAcceptanceResult {
     readonly event: Event;
@@ -131,6 +131,8 @@ export abstract class SourceEventCommandPort<Read> {
 }
 
 export class SourceEventProtocol<Transaction> {
+    readonly #owner = Symbol("source-event-protocol");
+
     public constructor(
         private readonly actor: ActorRef,
         private readonly persistence: WorkspacePersistence<Transaction>,
@@ -159,7 +161,7 @@ export class SourceEventProtocol<Transaction> {
             draft.provenance,
             draft.lease
         );
-        const event = new Event({
+        let eventInit: EventInit = {
             id: draft.id,
             scope: draft.scope,
             source: draft.source,
@@ -168,12 +170,15 @@ export class SourceEventProtocol<Transaction> {
             payloadDigest: draft.payloadDigest,
             idempotencyKey: draft.idempotencyKey,
             correlation: draft.correlation,
-            ...(draft.causation === undefined ? {} : { causation: draft.causation }),
             provenance: draft.provenance,
             trust: derived.tier,
-            visibility: draft.visibility,
-            ...(derived.initiator === undefined ? {} : { initiator: derived.initiator })
-        });
+            visibility: draft.visibility
+        };
+        if (draft.causation !== undefined) eventInit = { ...eventInit, causation: draft.causation };
+        if (derived.initiator !== undefined) {
+            eventInit = { ...eventInit, initiator: derived.initiator };
+        }
+        const event = new Event(eventInit);
         const subscriptions = this.persistence.listSubscriptions(transaction);
         const existingEvent = this.persistence.findEventByIdentity(
             transaction,
@@ -207,19 +212,19 @@ export class SourceEventProtocol<Transaction> {
             lease: draft.lease === undefined ? undefined : Object.freeze({ ...draft.lease }),
             existingEvent
         });
-        routingSnapshots.set(snapshot, this);
+        routingSnapshots.set(snapshot, this.#owner);
         return snapshot;
     }
 
     public async prepare(snapshot: EventRoutingSnapshot): Promise<PreparedEventRouting> {
-        if (routingSnapshots.get(snapshot) !== this) {
+        if (routingSnapshots.get(snapshot) !== this.#owner) {
             throw new AgentCoreError(
                 "protocol.invalid-state",
                 "Event routing snapshot was not created by this host runtime"
             );
         }
         if (snapshot.existingEvent !== undefined) {
-            return new PreparedEventRouting(preparedRoutingToken, this, snapshot, []);
+            return new PreparedEventRouting(preparedRoutingToken, this.#owner, snapshot, []);
         }
         const payload = await this.payloads.load(
             snapshot.event.payload,
@@ -271,7 +276,7 @@ export class SourceEventProtocol<Transaction> {
             for (const route of prepared) this.retention.discard(route.material.retention);
             throw error;
         }
-        return new PreparedEventRouting(preparedRoutingToken, this, snapshot, prepared);
+        return new PreparedEventRouting(preparedRoutingToken, this.#owner, snapshot, prepared);
     }
 
     public commit(transaction: Transaction, prepared: PreparedEventRouting): EventAcceptanceResult {
@@ -279,7 +284,7 @@ export class SourceEventProtocol<Transaction> {
         if (
             !(prepared instanceof PreparedEventRouting) ||
             preparedState === undefined ||
-            preparedState.owner !== this
+            preparedState.owner !== this.#owner
         ) {
             throw new AgentCoreError(
                 "protocol.invalid-state",
@@ -393,7 +398,7 @@ export class SourceEventProtocol<Transaction> {
                     RetainedRecordKind.routeReservation(),
                     route.reservationId.value
                 );
-                const reservation = new RouteReservation({
+                let reservationInit: RouteReservationInit = {
                     id: route.reservationId,
                     invocation: route.invocationId,
                     event: preparedState.snapshot.event.id,
@@ -408,11 +413,15 @@ export class SourceEventProtocol<Transaction> {
                     projection: route.projection.id,
                     projectionRef: route.projection.content,
                     projectionDigest: route.projection.digest,
-                    trust: preparedState.snapshot.event.trust,
-                    ...(preparedState.snapshot.event.initiator === undefined
-                        ? {}
-                        : { initiator: preparedState.snapshot.event.initiator })
-                });
+                    trust: preparedState.snapshot.event.trust
+                };
+                if (preparedState.snapshot.event.initiator !== undefined) {
+                    reservationInit = {
+                        ...reservationInit,
+                        initiator: preparedState.snapshot.event.initiator
+                    };
+                }
+                const reservation = new RouteReservation(reservationInit);
                 this.audit.appendReservation(transaction, reservation, route.reservationAudit);
                 this.persistence.appendReservation(
                     transaction,

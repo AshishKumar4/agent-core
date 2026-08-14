@@ -1,4 +1,12 @@
-import { RecordCodec, hasExactJsonKeys, isJsonObject, isMember, type JsonValue } from "../core";
+import {
+    RecordCodec,
+    hasExactJsonKeys,
+    isJsonObject,
+    isMember,
+    requireNonempty,
+    type JsonObject,
+    type JsonValue
+} from "../core";
 import {
     AuthoredCodeBackingId,
     PLACEMENT_PREFERENCE,
@@ -199,11 +207,12 @@ export class PlacementPolicy {
     }
 
     public toData(): JsonValue {
-        return {
+        let data: JsonObject = {
             allowed: this.allowed,
-            ...(this.backings.isEmpty ? {} : { backings: this.backings.toData() }),
             trusted: this.trusted
         };
+        if (!this.backings.isEmpty) data = { ...data, backings: this.backings.toData() };
+        return data;
     }
 }
 
@@ -295,18 +304,18 @@ export function trustPlacementModes(trustedPackage: boolean): NonemptyIsolationM
 }
 
 function canonicalModes(modes: readonly IsolationMode[], subject: string): NonemptyIsolationModes {
-    if (modes.length === 0) {
+    const snapshot = [...modes];
+    if (snapshot.length === 0) {
         throw new PlacementUnavailableError(`${subject} must not be empty`);
     }
-    if (modes.some((mode) => !PLACEMENT_PREFERENCE.includes(mode))) {
+    if (snapshot.some((mode) => !PLACEMENT_PREFERENCE.includes(mode))) {
         throw new TypeError(`${subject} contains an unknown isolation mode`);
     }
-    if (new Set(modes).size !== modes.length) {
+    if (new Set(snapshot).size !== snapshot.length) {
         throw new TypeError(`${subject} modes must be unique`);
     }
-    return Object.freeze(
-        PLACEMENT_PREFERENCE.filter((mode) => modes.includes(mode))
-    ) as NonemptyIsolationModes;
+    const canonical = PLACEMENT_PREFERENCE.filter((mode) => snapshot.includes(mode));
+    return Object.freeze(requireNonempty(canonical, subject));
 }
 
 function canonicalGlobs(patterns: readonly string[]): readonly string[] {
@@ -334,27 +343,33 @@ function requireGlobArray(value: JsonValue | undefined, subject: string): readon
 // Nonblank, already-canonical text: a trust glob and a backing identifier are both
 // exactly that, and neither is normalized on the caller's behalf.
 function requireCanonicalString(value: JsonValue, subject: string): string {
-    if (typeof value !== "string" || value.length === 0 || value !== value.trim()) {
+    if (!isStringValue(value) || value.length === 0 || value !== value.trim()) {
         throw new TypeError(`${subject} must be a nonblank canonical string`);
     }
     return value;
+}
+
+function isStringValue(value: JsonValue): value is string {
+    return typeof value === "string";
 }
 
 function requireModeArray(value: JsonValue | undefined, subject: string): readonly IsolationMode[] {
     if (!Array.isArray(value)) {
         throw new TypeError(`${subject} must be an array`);
     }
-    return value.map((mode) => requireMode(mode, subject));
+    return value.map((mode) => parseIsolationMode(mode, subject));
 }
 
-function requireMode(value: JsonValue, subject: string): IsolationMode {
+export function parseIsolationMode(value: JsonValue, subject: string): IsolationMode {
     if (isMember(PLACEMENT_PREFERENCE, value)) {
         return value;
     }
     throw new TypeError(`${subject} contains an unknown isolation mode`);
 }
 
-const trustedPlacementModes = Object.freeze([...PLACEMENT_PREFERENCE]) as NonemptyIsolationModes;
+const trustedPlacementModes = Object.freeze(
+    requireNonempty([...PLACEMENT_PREFERENCE], "Placement")
+);
 const untrustedPlacementModes = Object.freeze(["dynamic", "provider"] as const);
 const unmappedBackingPolicy = new AuthoredCodeBackingPolicy(new Map());
 const allPlacementPolicy = new PlacementPolicy(PLACEMENT_PREFERENCE);

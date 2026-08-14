@@ -1,7 +1,8 @@
 import {
     isNonempty,
-    type JsonObject,
     type JsonFields,
+    type JsonObject,
+    type ObjectRecord,
     ContentRef,
     Digest,
     RecordCodec,
@@ -9,6 +10,7 @@ import {
     encodeCanonicalJson,
     hasExactJsonKeys,
     isJsonObject,
+    isObjectRecord,
     type JsonValue
 } from "../core";
 import type { MediaHint } from "../content";
@@ -251,10 +253,7 @@ function codeData(
 }
 
 function canonicalMedia(value: MediaHint): MediaHint {
-    if (value === null || typeof value !== "object" || typeof value.mediaType !== "string") {
-        throw new TypeError("Code module media must be a MediaHint");
-    }
-    const mediaType = value.mediaType;
+    const mediaType = requireMediaType(value);
     if (
         mediaType !== mediaType.trim().toLowerCase() ||
         !/^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/.test(mediaType)
@@ -288,14 +287,14 @@ function reachableModules(
     modules: readonly PackageCodeModule[],
     entrypoints: readonly PackageCodeEntrypoint[]
 ): ReadonlySet<string> {
-    const byName = new Map(modules.map((module) => [module.specifier, module]));
-    const reachable = new Set<string>();
-    const pending = entrypoints.map((entrypoint) => entrypoint.module);
-    while (pending.length > 0) {
-        const specifier = pending.pop()!;
-        if (reachable.has(specifier)) continue;
-        reachable.add(specifier);
-        pending.push(...byName.get(specifier)!.imports);
+    const reachable = new Set(entrypoints.map((entrypoint) => entrypoint.module));
+    let previousSize = -1;
+    while (reachable.size !== previousSize) {
+        previousSize = reachable.size;
+        for (const module of modules) {
+            if (!reachable.has(module.specifier)) continue;
+            for (const imported of module.imports) reachable.add(imported);
+        }
     }
     return reachable;
 }
@@ -341,8 +340,38 @@ function requireFields<Field extends string>(
 }
 
 function requireString(value: JsonValue | undefined, subject: string): string {
-    if (typeof value !== "string") throw new TypeError(`${subject} must be a string`);
+    if (!isStringValue(value)) throw new TypeError(`${subject} must be a string`);
     return value;
+}
+
+interface MediaTypeDataProperty extends ObjectRecord {
+    readonly value: string;
+}
+
+function requireMediaType(value: MediaHint): string {
+    try {
+        if (!isObjectRecord(value)) throw new TypeError("Code module media must be a MediaHint");
+        const descriptor = Object.getOwnPropertyDescriptor(value, "mediaType");
+        if (!isMediaTypeDataProperty(descriptor)) {
+            throw new TypeError("Code module media must be a MediaHint");
+        }
+        return descriptor["value"];
+    } catch {
+        throw new TypeError("Code module media must be a MediaHint");
+    }
+}
+
+function isMediaTypeDataProperty(value: unknown): value is MediaTypeDataProperty {
+    return (
+        isObjectRecord(value) &&
+        typeof value["value"] === "string" &&
+        value["get"] === undefined &&
+        value["set"] === undefined
+    );
+}
+
+function isStringValue(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
 }
 
 function requireArray(value: JsonValue | undefined, subject: string): readonly JsonValue[] {

@@ -136,7 +136,7 @@ export class SlateDeploymentReservation {
             object["expectedActiveDeploymentId"],
             "Expected active deployment ID"
         );
-        return new SlateDeploymentReservation({
+        let reservation: SlateDeploymentReservationInit = {
             id: deploymentId(object["id"]),
             workspaceId: workspaceId(object["workspaceId"]),
             slateId: slateId(object["slateId"]),
@@ -147,11 +147,12 @@ export class SlateDeploymentReservation {
             ),
             target: requireStringValue(object["target"], "Slate deployment target"),
             externalKey: requireStringValue(object["externalKey"], "Slate deployment external key"),
-            invocationId: invocationId(object["invocationId"]),
-            ...(expected === undefined
-                ? {}
-                : { expectedActiveDeploymentId: deploymentId(expected) })
-        });
+            invocationId: invocationId(object["invocationId"])
+        };
+        if (expected !== undefined) {
+            reservation = { ...reservation, expectedActiveDeploymentId: deploymentId(expected) };
+        }
+        return new SlateDeploymentReservation(reservation);
     }
 }
 
@@ -940,7 +941,7 @@ function putReservation<
     rows.set(key, copyReservationRow(row));
 }
 
-function getRecord<Record>(
+function getRecord<Record extends SlateRecordProjection>(
     rows: Map<string, StoredSlateRecord> | Map<string, StoredSlateReservation>,
     key: string,
     codec: RecordCodec<Record>
@@ -952,7 +953,7 @@ function getRecord<Record>(
     return record;
 }
 
-function listRecords<Record>(
+function listRecords<Record extends SlateRecordProjection>(
     rows: Map<string, StoredSlateRecord>,
     codec: RecordCodec<Record>
 ): readonly Record[] {
@@ -967,7 +968,17 @@ function listRecords<Record>(
     );
 }
 
-function verifyRecordRows<Record>(
+interface SlateRecordProjection {
+    readonly id: { readonly value: string };
+    readonly workspaceId: { readonly value: string };
+    readonly slateId: { readonly value: string };
+}
+
+interface SlateReservationProjection extends SlateRecordProjection {
+    readonly invocationId: { readonly value: string };
+}
+
+function verifyRecordRows<Record extends SlateRecordProjection>(
     rows: Map<string, StoredSlateRecord>,
     codec: RecordCodec<Record>
 ): void {
@@ -977,7 +988,7 @@ function verifyRecordRows<Record>(
     }
 }
 
-function verifyReservationRows<Record>(
+function verifyReservationRows<Record extends SlateReservationProjection>(
     rows: Map<string, StoredSlateReservation>,
     codec: RecordCodec<Record>
 ): void {
@@ -986,28 +997,22 @@ function verifyReservationRows<Record>(
             throw corrupt("Stored Slate reservation key does not match its projection");
         const record = codec.decode(row.bytes);
         verifyCommonProjection(row, record);
-        const projected = record as { readonly invocationId?: { readonly value: string } };
         if (
             !(row.invocationId instanceof InvocationId) ||
-            projected.invocationId?.value !== row.invocationId.value
+            record.invocationId.value !== row.invocationId.value
         ) {
             throw corrupt("Stored Slate reservation invocation does not match its codec bytes");
         }
     }
 }
 
-function verifyCommonProjection(row: StoredSlateRecord, record: unknown): void {
-    const projected = record as {
-        readonly id?: { readonly value: string };
-        readonly workspaceId?: { readonly value: string };
-        readonly slateId?: { readonly value: string };
-    };
+function verifyCommonProjection(row: StoredSlateRecord, record: SlateRecordProjection): void {
     if (
         !(row.workspaceId instanceof WorkspaceId) ||
         !(row.slateId instanceof SlateId) ||
-        projected.id?.value !== row.id ||
-        projected.workspaceId?.value !== row.workspaceId.value ||
-        projected.slateId?.value !== row.slateId.value
+        record.id.value !== row.id ||
+        record.workspaceId.value !== row.workspaceId.value ||
+        record.slateId.value !== row.slateId.value
     ) {
         throw corrupt("Stored Slate projection does not match its codec bytes");
     }

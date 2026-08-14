@@ -705,7 +705,7 @@ function freezeData(value: JsonValue): JsonValue {
         for (const entry of value) freezeData(entry);
         return Object.freeze(value);
     }
-    if (value !== null && typeof value === "object") {
+    if (isJsonObject(value)) {
         for (const entry of Object.values(value)) freezeData(entry);
         return Object.freeze(value);
     }
@@ -738,10 +738,14 @@ function requireFields(
 }
 
 function requireString(value: JsonValue | undefined, subject: string): string {
-    if (typeof value !== "string") {
+    if (!isStringValue(value)) {
         throw new TypeError(`${subject} must be a string`);
     }
     return value;
+}
+
+function isStringValue(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
 }
 
 function requireArray(value: JsonValue | undefined, subject: string): readonly JsonValue[] {

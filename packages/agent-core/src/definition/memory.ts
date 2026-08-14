@@ -800,7 +800,7 @@ function copySnapshot(snapshot: StoredMetadataSnapshot): StoredMetadataSnapshot 
 }
 
 function requireText(value: string, subject: string): void {
-    if (typeof value !== "string" || value.length === 0) {
+    if (!isStoredText(value) || value.length === 0) {
         throw corruptDefinition(`Memory package snapshot ${subject} is malformed`);
     }
 }
@@ -981,9 +981,13 @@ function copyPointer(
 }
 
 function requireStoredText(value: string, subject: string): void {
-    if (typeof value !== "string" || value.length === 0) {
+    if (!isStoredText(value) || value.length === 0) {
         throw corruptDefinition(`Memory materialization snapshot ${subject} is malformed`);
     }
+}
+
+function isStoredText(value: unknown): value is string {
+    return typeof value === "string";
 }
 
 function requireStoredInteger(value: number, subject: string): void {

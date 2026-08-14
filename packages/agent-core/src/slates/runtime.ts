@@ -1,4 +1,4 @@
-import { ContentRef, Revision } from "../core";
+import { ContentRef, Revision, isObjectRecord, type ObjectRecord } from "../core";
 import { EnvironmentSessionCapability, PortExposureId } from "../environments";
 import { AgentCoreError } from "../errors";
 import { WorkspaceId } from "../identity";
@@ -40,7 +40,12 @@ import {
     type SlateInvocationResult
 } from "./seams";
 import { Slate } from "./slate";
-import { SlateDeploymentReservation, SlateResourceReservation, SlateStore } from "./store";
+import {
+    SlateDeploymentReservation,
+    SlateResourceReservation,
+    SlateStore,
+    type SlateDeploymentReservationInit
+} from "./store";
 import { SlateVersion } from "./version";
 
 export abstract class SlateIdSource {
@@ -319,7 +324,7 @@ export class SlateRuntime {
         externalKey: string
     ): Promise<SlateDeploymentOutcome> {
         if (
-            typeof externalKey !== "string" ||
+            !isExternalKey(externalKey) ||
             externalKey.trim() !== externalKey ||
             externalKey.length === 0
         ) {
@@ -543,22 +548,21 @@ export class SlateRuntime {
         invocationId: import("../interaction-references").InvocationId,
         result: SlateInvocationResult<SlateProviderDeployment>
     ): Promise<SlateDeploymentOutcome> {
-        requireInvocationResult(result);
-        if (result.outcome !== "succeeded") {
+        const outcome = canonicalInvocationResult(result, "deployment");
+        if (outcome.outcome !== "succeeded") {
             return {
-                outcome: result.outcome,
+                outcome: outcome.outcome,
                 deploymentId: invocation.deploymentId,
-                receiptId: result.receiptId
+                receiptId: outcome.receiptId
             };
         }
-        requireProviderMaterialization(result.value, "deployment");
         const request = freezeSlateMutationRequest({
             ...invocation,
             operation: "deploy.finalize",
             impact: "mutate",
             invocationId,
-            receiptId: result.receiptId,
-            materialization: result.value.materialization
+            receiptId: outcome.receiptId,
+            materialization: outcome.value.materialization
         });
         const activated = await this.mutate(request, (store) => {
             const deployment = deploymentFromIntent(request);
@@ -589,22 +593,21 @@ export class SlateRuntime {
         invocationId: import("../interaction-references").InvocationId,
         result: SlateInvocationResult<SlateProviderResource>
     ): Promise<SlateResourceOutcome> {
-        requireInvocationResult(result);
-        if (result.outcome !== "succeeded") {
+        const outcome = canonicalInvocationResult(result, "resource");
+        if (outcome.outcome !== "succeeded") {
             return {
-                outcome: result.outcome,
+                outcome: outcome.outcome,
                 resourceId: invocation.resourceId,
-                receiptId: result.receiptId
+                receiptId: outcome.receiptId
             };
         }
-        requireProviderMaterialization(result.value, "resource");
         const request = freezeSlateMutationRequest({
             ...invocation,
             operation: "resource.finalize",
             impact: "mutate",
             invocationId,
-            receiptId: result.receiptId,
-            materialization: result.value.materialization
+            receiptId: outcome.receiptId,
+            materialization: outcome.value.materialization
         });
         await this.mutate(request, (store) => store.addResource(resourceFromIntent(request)));
         return {
@@ -679,7 +682,7 @@ function deploymentReservation(
     request: Extract<SlateMutationRequest, { readonly operation: "deploy.reserve" }>,
     externalKey: string
 ): SlateDeploymentReservation {
-    return new SlateDeploymentReservation({
+    let reservation: SlateDeploymentReservationInit = {
         externalKey,
         id: request.deploymentId,
         workspaceId: request.workspaceId,
@@ -687,11 +690,15 @@ function deploymentReservation(
         publicationId: request.publicationId,
         publicationMaterialization: request.publicationMaterialization,
         target: request.target,
-        invocationId: request.invocationId,
-        ...(request.expectedActiveDeploymentId === undefined
-            ? {}
-            : { expectedActiveDeploymentId: request.expectedActiveDeploymentId })
-    });
+        invocationId: request.invocationId
+    };
+    if (request.expectedActiveDeploymentId !== undefined) {
+        reservation = {
+            ...reservation,
+            expectedActiveDeploymentId: request.expectedActiveDeploymentId
+        };
+    }
+    return new SlateDeploymentReservation(reservation);
 }
 
 function resourceReservation(
@@ -813,23 +820,6 @@ function previewFromIntent(request: SlatePreviewLinkIntent): SlatePreview {
     );
 }
 
-function requireProviderMaterialization(
-    value: SlateProviderDeployment | SlateProviderResource,
-    subject: string
-): void {
-    if (
-        value === null ||
-        typeof value !== "object" ||
-        Reflect.ownKeys(value).length !== 1 ||
-        !(value.materialization instanceof ContentRef)
-    ) {
-        throw new AgentCoreError(
-            "operation.invalid-output",
-            `Slate provider ${subject} result is malformed`
-        );
-    }
-}
-
 function requireEffectContext(
     context: SlateEffectContext,
     invocationId: import("../interaction-references").InvocationId
@@ -846,25 +836,132 @@ function requireEffectContext(
     }
 }
 
-function requireInvocationResult<Result>(result: SlateInvocationResult<Result>): void {
+interface SlateProviderResult {
+    readonly materialization: ContentRef;
+}
+
+interface SlateResultDataProperty extends ObjectRecord {
+    readonly enumerable: boolean;
+    readonly value: unknown;
+}
+
+function canonicalInvocationResult(
+    result: SlateInvocationResult<SlateProviderResult>,
+    subject: "deployment" | "resource"
+): SlateInvocationResult<SlateProviderResult> {
+    if (!isObjectRecord(result)) throw malformedInvocationResult();
+    const keys = ownStringKeys(result);
+    const outcomeSource = ownDataProperty(result, "outcome");
+    const receiptSource = ownDataProperty(result, "receiptId");
+    if (keys === undefined || outcomeSource === undefined || receiptSource === undefined) {
+        throw malformedInvocationResult();
+    }
+    const outcome = outcomeSource.value;
+    if (outcome !== "succeeded" && outcome !== "failed" && outcome !== "indeterminate") {
+        throw malformedInvocationResult();
+    }
+    let receiptId: ReceiptId;
+    try {
+        if (!(receiptSource.value instanceof ReceiptId)) throw malformedInvocationResult();
+        receiptId = new ReceiptId(receiptSource.value.value);
+    } catch {
+        throw malformedInvocationResult();
+    }
+    if (outcome !== "succeeded") {
+        if (!hasExactKeys(keys, ["outcome", "receiptId"])) throw malformedInvocationResult();
+        return Object.freeze({ outcome, receiptId });
+    }
+    const valueSource = ownDataProperty(result, "value");
+    if (valueSource === undefined || !hasExactKeys(keys, ["outcome", "receiptId", "value"])) {
+        throw malformedInvocationResult();
+    }
+    return Object.freeze({
+        outcome,
+        receiptId,
+        value: canonicalProviderResult(valueSource, subject)
+    });
+}
+
+function canonicalProviderResult(
+    source: SlateResultDataProperty,
+    subject: "deployment" | "resource"
+): SlateProviderResult {
+    if (!isObjectRecord(source.value)) throw malformedProviderResult(subject);
+    const keys = ownStringKeys(source.value);
+    const materializationSource = ownDataProperty(source.value, "materialization");
     if (
-        result === null ||
-        typeof result !== "object" ||
-        !(result.receiptId instanceof ReceiptId) ||
-        (result.outcome !== "succeeded" &&
-            result.outcome !== "failed" &&
-            result.outcome !== "indeterminate")
+        keys === undefined ||
+        materializationSource === undefined ||
+        !hasExactKeys(keys, ["materialization"])
     ) {
-        throw new AgentCoreError("invocation.invalid", "Slate invocation result is malformed");
+        throw malformedProviderResult(subject);
     }
-    const expectedKeys =
-        result.outcome === "succeeded"
-            ? ["outcome", "receiptId", "value"]
-            : ["outcome", "receiptId"];
-    const keys = Reflect.ownKeys(result);
-    if (keys.length !== expectedKeys.length || !expectedKeys.every((key) => keys.includes(key))) {
-        throw new AgentCoreError("invocation.invalid", "Slate invocation result is malformed");
+    try {
+        if (!(materializationSource.value instanceof ContentRef)) {
+            throw malformedProviderResult(subject);
+        }
+        return Object.freeze({
+            materialization: new ContentRef(materializationSource.value.value)
+        });
+    } catch {
+        throw malformedProviderResult(subject);
     }
+}
+
+function ownStringKeys(
+    value: SlateInvocationResult<SlateProviderResult> | ObjectRecord
+): readonly string[] | undefined {
+    try {
+        const keys = Reflect.ownKeys(value);
+        return keys.every(isStringKey) ? keys : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+function ownDataProperty(
+    value: SlateInvocationResult<SlateProviderResult> | ObjectRecord,
+    key: string
+): SlateResultDataProperty | undefined {
+    try {
+        const descriptor = Object.getOwnPropertyDescriptor(value, key);
+        return isSlateResultDataProperty(descriptor) ? descriptor : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+function isSlateResultDataProperty(value: unknown): value is SlateResultDataProperty {
+    return (
+        isObjectRecord(value) &&
+        value["enumerable"] === true &&
+        Object.hasOwn(value, "value") &&
+        value["get"] === undefined &&
+        value["set"] === undefined
+    );
+}
+
+function isStringKey(value: PropertyKey): value is string {
+    return typeof value === "string";
+}
+
+function hasExactKeys(actual: readonly string[], expected: readonly string[]): boolean {
+    return actual.length === expected.length && expected.every((key) => actual.includes(key));
+}
+
+function malformedInvocationResult(): AgentCoreError {
+    return new AgentCoreError("invocation.invalid", "Slate invocation result is malformed");
+}
+
+function malformedProviderResult(subject: "deployment" | "resource"): AgentCoreError {
+    return new AgentCoreError(
+        "operation.invalid-output",
+        `Slate provider ${subject} result is malformed`
+    );
+}
+
+function isExternalKey(value: unknown): value is string {
+    return typeof value === "string";
 }
 
 function sameOptionalDeployment(

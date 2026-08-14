@@ -481,7 +481,10 @@ function resourceData(
     };
 }
 
-function requireKeys(value: object, expected: readonly string[]): void {
+function requireKeys(
+    value: SlateMutationRequest | SlateInvocationRequest,
+    expected: readonly string[]
+): void {
     const keys = Reflect.ownKeys(value);
     if (
         keys.length !== expected.length ||
