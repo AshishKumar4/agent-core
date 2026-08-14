@@ -538,7 +538,7 @@ describe("SQLite Tenant and identity hard gates", () => {
     test.each([
         [
             "extra Tenant",
-            ({ database }: ReturnType<typeof fixture>) => {
+            ({ database }: TenantAuthorityFixture) => {
                 const tenant = new Tenant(
                     new TenantId("extra-tenant"),
                     "organization",
@@ -560,31 +560,31 @@ describe("SQLite Tenant and identity hard gates", () => {
         ],
         [
             "missing owner Principal",
-            ({ database }: ReturnType<typeof fixture>) => {
+            ({ database }: TenantAuthorityFixture) => {
                 database.run("DELETE FROM tenant_principals WHERE id = ?", [ownerId.value]);
             }
         ],
         [
             "missing bootstrap Membership",
-            ({ database }: ReturnType<typeof fixture>) => {
+            ({ database }: TenantAuthorityFixture) => {
                 database.run("DELETE FROM tenant_memberships", []);
             }
         ],
         [
             "missing built-in Role",
-            ({ database }: ReturnType<typeof fixture>) => {
+            ({ database }: TenantAuthorityFixture) => {
                 database.run("DELETE FROM tenant_roles WHERE name = 'owner'", []);
             }
         ],
         [
             "missing bootstrap Grant",
-            ({ database }: ReturnType<typeof fixture>) => {
+            ({ database }: TenantAuthorityFixture) => {
                 database.run("DELETE FROM tenant_grants", []);
             }
         ],
         [
             "foreign Project",
-            (state: ReturnType<typeof fixture>) => {
+            (state: TenantAuthorityFixture) => {
                 const project = new Project(
                     new ProjectId("closure-project"),
                     tenantId,
@@ -606,7 +606,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         ],
         [
             "Team missing Principal",
-            (state: ReturnType<typeof fixture>) => {
+            (state: TenantAuthorityFixture) => {
                 const team = new Team(
                     new TeamId("closure-team"),
                     tenantId,
@@ -630,7 +630,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         ],
         [
             "Workspace missing Project",
-            (state: ReturnType<typeof fixture>) => {
+            (state: TenantAuthorityFixture) => {
                 const workspace = new Workspace(
                     new WorkspaceId("closure-workspace"),
                     tenantId,
@@ -652,7 +652,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         ],
         [
             "foreign guest trust",
-            (state: ReturnType<typeof fixture>) => {
+            (state: TenantAuthorityFixture) => {
                 const trust = new GuestTrust(
                     new GuestTrustId("closure-trust"),
                     tenantId,
@@ -678,7 +678,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         ],
         [
             "Grant missing Principal",
-            (state: ReturnType<typeof fixture>) => {
+            (state: TenantAuthorityFixture) => {
                 const grant = new Grant(
                     new GrantId("closure-principal-grant"),
                     ScopeRef.tenant(tenantId),
@@ -704,7 +704,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         ],
         [
             "Grant missing attenuation parent",
-            (state: ReturnType<typeof fixture>) => {
+            (state: TenantAuthorityFixture) => {
                 const grant = new Grant(
                     new GrantId("closure-child"),
                     ScopeRef.tenant(tenantId),
@@ -731,7 +731,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         ],
         [
             "revoked Grant attenuation parent",
-            (state: ReturnType<typeof fixture>) => {
+            (state: TenantAuthorityFixture) => {
                 const parent = new Grant(
                     new GrantId("closure-parent"),
                     ScopeRef.tenant(tenantId),
@@ -761,7 +761,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         ],
         [
             "malformed Binding record",
-            (state: ReturnType<typeof fixture>) => {
+            (state: TenantAuthorityFixture) => {
                 const binding = closureBinding(state);
                 state.database.run("UPDATE tenant_bindings SET record = ? WHERE binding_key = ?", [
                     Uint8Array.of(0),
@@ -771,7 +771,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         ],
         [
             "Binding missing Grant authority",
-            (state: ReturnType<typeof fixture>) => {
+            (state: TenantAuthorityFixture) => {
                 const binding = closureBinding(state);
                 const corrupt = binding.replace(new GrantId("missing"), binding.facet);
                 state.database.run(
@@ -789,7 +789,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         ],
         [
             "foreign Scope epoch",
-            (state: ReturnType<typeof fixture>) => {
+            (state: TenantAuthorityFixture) => {
                 const foreign = new ScopeEpoch(ScopeRef.tenant(new TenantId("foreign")), 1);
                 state.database.run(
                     `INSERT INTO tenant_scope_epochs (scope_key, epoch, record) VALUES (?, ?, ?)`,
@@ -799,7 +799,7 @@ describe("SQLite Tenant and identity hard gates", () => {
         ],
         [
             "overlength Project key",
-            (state: ReturnType<typeof fixture>) => {
+            (state: TenantAuthorityFixture) => {
                 const record = new Project(
                     new ProjectId("valid-project-record"),
                     tenantId,
@@ -1097,18 +1097,21 @@ describe("SQLite authority adapter taxonomy", () => {
     );
 });
 
-function fixture(): {
-    database: TestSqlite;
-    store: SqliteTenantControlStore;
-    service: AuthorityMutationService;
-} {
+/** A bootstrapped Tenant control store with the mutation service that writes through it. */
+interface TenantAuthorityFixture {
+    readonly database: TestSqlite;
+    readonly store: SqliteTenantControlStore;
+    readonly service: AuthorityMutationService;
+}
+
+function fixture(): TenantAuthorityFixture {
     const database = new TestSqlite();
     const store = createSqliteTenantControlStore(database, anchor);
     database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
     return { database, store, service: new AuthorityMutationService(store) };
 }
 
-function closureBinding(state: ReturnType<typeof fixture>): Binding {
+function closureBinding(state: TenantAuthorityFixture): Binding {
     const workspace = new Workspace(
         new WorkspaceId("closure-binding-workspace"),
         tenantId,

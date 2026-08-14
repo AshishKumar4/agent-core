@@ -168,14 +168,17 @@ function hideBlobReadsFrom(database: InterceptingSqlite, first: number): void {
     };
 }
 
-function harness(now: () => Date = () => at(10)): {
+/** A Content store with the retention and transient access opened over one owner. */
+interface ContentRetentionHarness {
     readonly database: TestSqlite;
     readonly store: SqliteContentStore;
     readonly tenant: TenantId;
     readonly actor: ActorRef;
     readonly retention: SqliteContentRetention;
     readonly access: ReturnType<SqliteContentStore["transient"]>;
-} {
+}
+
+function harness(now: () => Date = () => at(10)): ContentRetentionHarness {
     const database = new TestSqlite();
     const store = new SqliteContentStore(database);
     const owner = contentOwner();

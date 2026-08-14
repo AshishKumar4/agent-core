@@ -72,10 +72,13 @@ const corruptRecord = expect.objectContaining({
     message: "Stored Tenant identity state is malformed"
 });
 
+/** An identity record the reader projects from the key column that stores it. */
+type ProjectedIdentity = GuestTrust | Membership | Project | Role | Team | Tenant | Workspace;
+
 interface DriftCase {
     readonly title: string;
     readonly corrupt: (database: TestSqlite) => void;
-    readonly load: (reader: SqliteIdentityReader) => unknown;
+    readonly load: (reader: SqliteIdentityReader) => void;
 }
 
 const driftCases: readonly DriftCase[] = [
@@ -369,12 +372,12 @@ describe("SQLite identity reader", () => {
 interface KeyDriftCase {
     readonly title: string;
     readonly column: string;
-    readonly load: (reader: SqliteIdentityReader) => unknown;
+    readonly load: (reader: SqliteIdentityReader) => ProjectedIdentity | undefined;
 }
 
 interface EnumerationCase {
     readonly title: string;
-    readonly list: (reader: SqliteIdentityReader) => readonly unknown[];
+    readonly list: (reader: SqliteIdentityReader) => readonly ProjectedIdentity[];
 }
 
 function seededDatabase(): TestSqlite {
