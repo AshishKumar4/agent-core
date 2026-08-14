@@ -53,7 +53,7 @@ import {
     SqliteProtocolPersistence,
     TransactionalSqlite
 } from "../../../src/substrates";
-import { TestSqlite } from "../../helpers/sqlite";
+import { TestSqlite, sqliteInteger as readSqliteInteger } from "../../helpers/sqlite";
 import { CounterAuthenticator, CounterContentStore } from "../../protocol/counter-fixture";
 
 export const JOURNEY_NOW = new Date("2026-08-04T09:00:00.000Z");
@@ -464,10 +464,26 @@ function createSqliteAuthorityJourney(name: string): AuthorityJourney {
     });
 
     return createJourney(identity, composition, () => ({
-        writes: sqliteInteger(database, "SELECT COUNT(*) AS value FROM protocol_write_records"),
-        audits: sqliteInteger(database, "SELECT COUNT(*) AS value FROM protocol_audit_records"),
-        permits: sqliteInteger(database, "SELECT COUNT(*) AS value FROM authority_permit_nonces"),
-        checks: sqliteInteger(database, "SELECT checks AS value FROM authority_journey_state")
+        writes: readSqliteInteger(
+            database.all("SELECT COUNT(*) AS value FROM protocol_write_records", [])[0],
+            "value",
+            "an integer protocol write count"
+        ),
+        audits: readSqliteInteger(
+            database.all("SELECT COUNT(*) AS value FROM protocol_audit_records", [])[0],
+            "value",
+            "an integer protocol audit count"
+        ),
+        permits: readSqliteInteger(
+            database.all("SELECT COUNT(*) AS value FROM authority_permit_nonces", [])[0],
+            "value",
+            "an integer authority permit count"
+        ),
+        checks: readSqliteInteger(
+            database.all("SELECT checks AS value FROM authority_journey_state", [])[0],
+            "value",
+            "an integer authority check count"
+        )
     }));
 }
 
@@ -506,7 +522,11 @@ function nextSqliteId(transaction: TransactionalSqlite): number {
         "UPDATE authority_journey_state SET next_id = next_id + 1 WHERE singleton = 1",
         []
     );
-    return sqliteInteger(transaction, "SELECT next_id AS value FROM authority_journey_state");
+    return readSqliteInteger(
+        transaction.all("SELECT next_id AS value FROM authority_journey_state", [])[0],
+        "value",
+        "an integer authority journey ID"
+    );
 }
 
 function cloneMemoryState(state: MemoryAuthorityJourneyState): MemoryAuthorityJourneyState {
@@ -518,14 +538,6 @@ function cloneMemoryState(state: MemoryAuthorityJourneyState): MemoryAuthorityJo
             Object.entries(state.permits).map(([nonce, bytes]) => [nonce, bytes.slice()])
         )
     };
-}
-
-function sqliteInteger(database: ReadableSqlite, statement: string): number {
-    const value = database.all(statement, [])[0]?.["value"];
-    if (typeof value !== "number" || !Number.isSafeInteger(value)) {
-        throw new TypeError("Expected an integer column");
-    }
-    return value;
 }
 
 function journeyDigest(label: string): Digest {

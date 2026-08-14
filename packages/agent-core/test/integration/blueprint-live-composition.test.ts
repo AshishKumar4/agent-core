@@ -58,6 +58,7 @@ import {
     FacetManifest,
     FacetPackageId,
     FacetRef,
+    isFacetDataMap,
     OperationDescriptor,
     OperationName,
     OperationRef,
@@ -100,9 +101,17 @@ const objectSchema = new JsonSchema({ additionalProperties: true, type: "object"
 const FACET_ID = "acme.notes.facet";
 const OPERATION = `${FACET_ID}:append`;
 
+const declarationFields: readonly BlueprintDeclarationField[] = [
+    "scopes",
+    "agents",
+    "slots",
+    "subscriptions",
+    "environments",
+    "surfaces"
+];
 const declarationCodecs = new BlueprintDeclarationCodecPort(
-    ["scopes", "agents", "slots", "subscriptions", "environments", "surfaces"].map((field) => ({
-        field: field as BlueprintDeclarationField,
+    declarationFields.map((field) => ({
+        field,
         canonicalize: (value: JsonValue): JsonValue => value
     }))
 );
@@ -219,14 +228,21 @@ const packagePin = new PackagePin(new PackageId("acme.notes"), new SemVer("1.0.0
 const lease = TurnLease.restore(new TurnId("live-turn"), principal, 1, new Date(100));
 
 // tier() is a pure decision over the resolution; the state port must stay untouched.
-const untouchedState: OperationAuthorityStatePort<PrincipalRef> = new Proxy(
-    {} as OperationAuthorityStatePort<PrincipalRef>,
-    {
-        get() {
-            throw new Error("tier() must not consult the authority state port");
-        }
-    }
-);
+const untouched = (): never => {
+    throw new TypeError("tier() must not consult the authority state port");
+};
+const untouchedState = {
+    resolve: untouched,
+    currentBinding: untouched,
+    currentPath: untouched,
+    currentWatermark: untouched,
+    currentLease: untouched,
+    admits: untouched,
+    contributorDomain: untouched,
+    admitsInterception: untouched,
+    release: untouched,
+    observeStale: untouched
+} satisfies OperationAuthorityStatePort<PrincipalRef>;
 const authority = new TenantOperationAuthority(untouchedState, () => new Date(10));
 
 function resolutionWith(
@@ -333,11 +349,13 @@ describe("a declared Blueprint is what executes", () => {
         () => {
             const projections = materializedProjections(new PolicySet({}));
             const record = projectionOfKind(projections, "facet-placement");
-            const desired = record.desired as { readonly selected: string };
+            if (!isFacetDataMap(record.desired)) {
+                throw new TypeError("Facet placement projection must be an object");
+            }
 
             // The manifest declared isolation ["dynamic"]; the four-source intersection
             // materializes that choice.
-            expect(desired.selected).toBe("dynamic");
+            expect(record.desired["selected"]).toBe("dynamic");
 
             // Feeding the pinned placement into the live membrane: even a plain observe
             // under a live lease cannot run direct off-actor.
@@ -360,7 +378,7 @@ function packageRelease(id: string, contributions: Contributions): PackageReleas
             bindings: [],
             contributions
         })
-    ] as [FacetManifest];
+    ] satisfies [FacetManifest];
     const codeManifest = new PackageCodeManifest({
         compatibilityDate: "2026-07-10",
         modules: [

@@ -1,10 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-    CapabilitySpec,
-    type CapabilityIntent,
-    type CapabilitySpecInit,
-    type Impact
-} from "../../src/facets";
+import { CapabilitySpec, type CapabilityIntent, type CapabilitySpecInit } from "../../src/facets";
 
 describe("CapabilitySpec authority semantics", () => {
     test("covers requires facet pattern containment", { tags: "p0" }, () => {
@@ -112,9 +107,12 @@ describe("CapabilitySpec authority semantics", () => {
         expect(() => cap("*", { operations: [" pad "] })).toThrow(
             "Capability operations must contain canonical nonblank strings"
         );
-        expect(() => cap("*", { impacts: ["observe", "bogus"] as unknown as [Impact] })).toThrow(
-            "Capability impacts must contain known values"
-        );
+        expect(() =>
+            cap("*", {
+                // @ts-expect-error Capability impacts are a closed string union.
+                impacts: ["observe", "bogus"]
+            })
+        ).toThrow("Capability impacts must contain known values");
         expect(() => cap("*", { impacts: ["observe", "observe"] })).toThrow(
             "Capability impacts must be unique"
         );
@@ -154,12 +152,7 @@ function cap(facetPattern: string, rest: Partial<CapabilitySpecInit> = {}): Capa
     return new CapabilitySpec({ facetPattern, impacts: ["observe"], ...rest });
 }
 
-function base(): {
-    argumentConstraints: Record<string, never>;
-    facetPattern: string;
-    impacts: string[];
-    operations: string[];
-} {
+function base() {
     return { argumentConstraints: {}, facetPattern: "*", impacts: ["observe"], operations: [] };
 }
 

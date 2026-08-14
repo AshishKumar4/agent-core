@@ -1,4 +1,3 @@
-import { readFile } from "node:fs/promises";
 import {
     APPROVAL_GATEWAY_CONTRIBUTIONS,
     APPROVAL_GATEWAY_OPERATIONS,
@@ -31,6 +30,7 @@ import {
 } from "../../src/facets";
 import { describe, expect, test } from "vitest";
 import { validateCompleteOwnership } from "../../scripts/quality/ownership.mjs";
+import { objectsAt, readArtifact, stringAt, stringsAt } from "../quality/artifacts";
 
 const profiles = [
     [FILESYSTEM_CONTRIBUTIONS, FILESYSTEM_OPERATIONS],
@@ -48,69 +48,86 @@ const profiles = [
 ] as const;
 
 describe("Profile base conformance", () => {
-    test("[C13-OWNERSHIP-MAP] covers every tracked path without depending on candidate worktree authorization", { tags: "p1" }, async () => {
-        await expect(validateCompleteOwnership()).resolves.toBeGreaterThan(200);
-    });
+    test(
+        "[C13-OWNERSHIP-MAP] covers every tracked path without depending on candidate worktree authorization",
+        { tags: "p1" },
+        async () => {
+            await expect(validateCompleteOwnership()).resolves.toBeGreaterThan(200);
+        }
+    );
 
-    test("[P11-BASE-COMPOSITION] composes every profile exclusively from standard contribution and Operation primitives", { tags: "p1" }, () => {
-        for (const [contributions, operations] of profiles) {
-            expect(contributions).toBeInstanceOf(Contributions);
-            expect(operations.every((operation) => operation instanceof OperationDescriptor)).toBe(
-                true
+    test(
+        "[P11-BASE-COMPOSITION] composes every profile exclusively from standard contribution and Operation primitives",
+        { tags: "p1" },
+        () => {
+            for (const [contributions, operations] of profiles) {
+                expect(contributions).toBeInstanceOf(Contributions);
+                expect(
+                    operations.every((operation) => operation instanceof OperationDescriptor)
+                ).toBe(true);
+                expect(
+                    contributions.entries.every(
+                        (entry) => entry.constructor.name === "Contribution"
+                    )
+                ).toBe(true);
+            }
+        }
+    );
+
+    test(
+        "[P11-BASE-CONTRACT] exposes closed executable Operation schemas and explicit empty Event contracts",
+        { tags: "p1" },
+        () => {
+            for (const [, operations] of profiles) {
+                for (const operation of operations) {
+                    operation.input.assertValid();
+                    operation.output.assertValid();
+                }
+            }
+            expect(ENVIRONMENT_EVENTS).toEqual([]);
+            expect(SINGLE_TENANT_EVENTS).toEqual([]);
+        }
+    );
+
+    test(
+        "[P11-BASE-EVIDENCE] keeps implementation status out of executable profile contracts",
+        { tags: "p1" },
+        () => {
+            for (const [contributions, operations] of profiles) {
+                for (const operation of operations) {
+                    const data = operation.toData();
+                    expect(data).not.toHaveProperty("status");
+                    expect(data).not.toHaveProperty("implemented");
+                    expect(data).not.toHaveProperty("verified");
+                }
+                for (const contribution of contributions.entries) {
+                    expect(contribution.toData()).not.toHaveProperty("status");
+                }
+            }
+        }
+    );
+
+    test(
+        "[P11-BASE-TESTS] gives every verified profile atom unique executable evidence",
+        { tags: "p1" },
+        async () => {
+            const requirements = objectsAt(
+                await readArtifact("artifacts/conformance/profiles-cloudflare.json"),
+                "requirements"
             );
-            expect(
-                contributions.entries.every((entry) => entry.constructor.name === "Contribution")
-            ).toBe(true);
-        }
-    });
-
-    test("[P11-BASE-CONTRACT] exposes closed executable Operation schemas and explicit empty Event contracts", { tags: "p1" }, () => {
-        for (const [, operations] of profiles) {
-            for (const operation of operations) {
-                operation.input.assertValid();
-                operation.output.assertValid();
+            const selectors = new Set<string>();
+            for (const requirement of requirements) {
+                const id = stringAt(requirement, "id");
+                if (!id.startsWith("P11-") || stringAt(requirement, "status") !== "verified")
+                    continue;
+                const requirementSelectors = stringsAt(requirement, "testSelectors");
+                expect(requirementSelectors.length).toBeGreaterThan(0);
+                for (const selector of requirementSelectors) {
+                    expect(selector).toContain(`[${id}]`);
+                    expect(selectors.has(selector)).toBe(false);
+                    selectors.add(selector);
+                }
             }
         }
-        expect(ENVIRONMENT_EVENTS).toEqual([]);
-        expect(SINGLE_TENANT_EVENTS).toEqual([]);
-    });
-
-    test("[P11-BASE-EVIDENCE] keeps implementation status out of executable profile contracts", { tags: "p1" }, () => {
-        for (const [contributions, operations] of profiles) {
-            for (const operation of operations) {
-                const data = operation.toData() as Record<string, unknown>;
-                expect(data).not.toHaveProperty("status");
-                expect(data).not.toHaveProperty("implemented");
-                expect(data).not.toHaveProperty("verified");
-            }
-            for (const contribution of contributions.entries) {
-                expect(contribution.toData()).not.toHaveProperty("status");
-            }
-        }
-    });
-
-    test("[P11-BASE-TESTS] gives every verified profile atom unique executable evidence", { tags: "p1" }, async () => {
-        const fragment = JSON.parse(
-            await readFile(
-                new URL("../../artifacts/conformance/profiles-cloudflare.json", import.meta.url),
-                "utf8"
-            )
-        ) as {
-            requirements: Array<{
-                id: string;
-                status: string;
-                testSelectors: string[];
-            }>;
-        };
-        const selectors = new Set<string>();
-        for (const requirement of fragment.requirements) {
-            if (!requirement.id.startsWith("P11-") || requirement.status !== "verified") continue;
-            expect(requirement.testSelectors.length).toBeGreaterThan(0);
-            for (const selector of requirement.testSelectors) {
-                expect(selector).toContain(`[${requirement.id}]`);
-                expect(selectors.has(selector)).toBe(false);
-                selectors.add(selector);
-            }
-        }
-    });
+    );
 });

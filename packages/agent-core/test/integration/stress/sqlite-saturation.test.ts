@@ -6,7 +6,7 @@ import { Revision } from "../../../src/core";
 import { SqliteProtocolPersistence, SqliteWorkspaceEventRecords } from "../../../src/substrates";
 import { WorkspacePersistence } from "../../../src/workspaces";
 import type { Event } from "../../../src/workspaces";
-import { FileSqlite } from "../../helpers/sqlite";
+import { FileSqlite, sqliteInteger } from "../../helpers/sqlite";
 import { expectAgentCoreError } from "../../protocol/error-assertion";
 import { SqliteCounterHarness } from "../../protocol/sqlite-counter-fixture";
 import {
@@ -74,9 +74,11 @@ function batchEvents(batch: number): readonly Event[] {
 }
 
 function rowCount(database: FileSqlite, table: string): number {
-    const value = database.all(`SELECT COUNT(*) AS count FROM ${table}`, [])[0]?.["count"];
-    if (typeof value !== "number") throw new TypeError(`Expected a row count for ${table}`);
-    return value;
+    return sqliteInteger(
+        database.all(`SELECT COUNT(*) AS count FROM ${table}`, [])[0],
+        "count",
+        `a row count for ${table}`
+    );
 }
 
 describe("sqlite saturation", () => {
@@ -203,9 +205,10 @@ describe("sqlite saturation", () => {
                 expect(expectedUniques).toBe(events.length);
                 for (const event of events) {
                     expect(
-                        reopenedPersistence
-                            .findEventByIdentity(reopenedRecords, event.idempotencyKey)
-                            ?.id.value
+                        reopenedPersistence.findEventByIdentity(
+                            reopenedRecords,
+                            event.idempotencyKey
+                        )?.id.value
                     ).toBe(event.id.value);
                 }
                 const replayed = events[0];
@@ -275,9 +278,7 @@ describe("sqlite saturation", () => {
                 );
                 expect(replay.outcome).toBe("duplicate");
                 expect(restarted.snapshot().value).toBe(PROTOCOL_COMMANDS);
-                expect(rowCount(reopened, "protocol_command_identities")).toBe(
-                    before.identities
-                );
+                expect(rowCount(reopened, "protocol_command_identities")).toBe(before.identities);
             });
         }
     );

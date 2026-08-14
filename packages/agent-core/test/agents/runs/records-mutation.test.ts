@@ -727,9 +727,12 @@ describe("spawn reservations", () => {
                     ids.run,
                     ids.turn,
                     new RunId("records-spawn-child"),
-                    // SAFETY: LeaseToken types `holder` as PrincipalRef, so only a forged
-                    // identifier reaches the reservation's own `instanceof` check on it.
-                    { turn: ids.turn, holder: new TurnId("not-a-holder") as never, epoch: 1 },
+                    {
+                        turn: ids.turn,
+                        // @ts-expect-error Lease holders are statically restricted to PrincipalRef.
+                        holder: new TurnId("not-a-holder"),
+                        epoch: 1
+                    },
                     configuration().id,
                     content("d"),
                     refs.invocation,

@@ -76,14 +76,17 @@ describe("MemoryRunStorage exhaustive behavior", () => {
 
     it("rejects every malformed raw record and snapshot projection", { tags: "p2" }, () => {
         const storage = new MemoryRunStorage();
-        // SAFETY: StoredRunRecord already constrains `bytes` to Uint8Array and `kind` to the
-        // known record kinds, so a caller respecting the type cannot produce these. The forged
-        // fields prove storage validates each field rather than trusting its declared type.
         for (const record of [
             rawRecord({ key: "" }),
             rawRecord({ revision: -1 }),
-            { ...rawRecord(), bytes: "bad" as never },
-            { ...rawRecord(), kind: "unknown" as never }
+            rawRecord({
+                // @ts-expect-error Stored record bytes are statically restricted to Uint8Array.
+                bytes: "bad"
+            }),
+            rawRecord({
+                // @ts-expect-error Stored record kinds are a closed string union.
+                kind: "unknown"
+            })
         ]) {
             expectCode(
                 () => storage.transaction((tx) => storage.insert(tx, record)),
@@ -123,79 +126,90 @@ describe("MemoryRunStorage exhaustive behavior", () => {
         );
     });
 
-    it("detects key and revision projection corruption through the repository", { tags: "p0" }, () => {
-        const value = harness();
-        value.runtime.createRun(genesis());
-        const snapshot = value.storage.snapshot();
-        const runRow = snapshot.records.find((row) => row.kind === "run")!;
-        const wrongKey = new MemoryRunStorage({
-            version: 1,
-            records: snapshot.records.map((row) =>
-                row === runRow ? { ...row, key: "wrong-run" } : row
-            ),
-            parents: snapshot.parents
-        });
-        const wrongKeyRepository = new RunRepository(wrongKey);
-        expectCode(
-            () =>
-                wrongKeyRepository.transaction((tx) =>
-                    wrongKeyRepository.loadRun(tx, new RunId("wrong-run"))
+    it(
+        "detects key and revision projection corruption through the repository",
+        { tags: "p0" },
+        () => {
+            const value = harness();
+            value.runtime.createRun(genesis());
+            const snapshot = value.storage.snapshot();
+            const runRow = snapshot.records.find((row) => row.kind === "run")!;
+            const wrongKey = new MemoryRunStorage({
+                version: 1,
+                records: snapshot.records.map((row) =>
+                    row === runRow ? { ...row, key: "wrong-run" } : row
                 ),
-            "codec.invalid"
-        );
+                parents: snapshot.parents
+            });
+            const wrongKeyRepository = new RunRepository(wrongKey);
+            expectCode(
+                () =>
+                    wrongKeyRepository.transaction((tx) =>
+                        wrongKeyRepository.loadRun(tx, new RunId("wrong-run"))
+                    ),
+                "codec.invalid"
+            );
 
-        const wrongRevision = new MemoryRunStorage({
-            version: 1,
-            records: snapshot.records.map((row) =>
-                row === runRow ? { ...row, revision: 99 } : row
-            ),
-            parents: snapshot.parents
-        });
-        const wrongRevisionRepository = new RunRepository(wrongRevision);
-        expectCode(
-            () => wrongRevisionRepository.transaction((tx) => wrongRevisionRepository.listRuns(tx)),
-            "codec.invalid"
-        );
-    });
-
-    it("[C13-RUN-ANCESTRY] detects missing and foreign ancestry while preserving valid ancestry", { tags: "p0" }, () => {
-        const value = seedRunningTurn();
-        expect(
-            value.repository.transaction((tx) =>
-                value.repository.isAncestor(tx, ids.root, ids.root)
-            )
-        ).toBe(true);
-        expect(
-            value.repository.transaction((tx) =>
-                value.repository.isAncestor(tx, new RunCommitId("missing"), ids.root)
-            )
-        ).toBe(false);
-
-        const snapshot = value.storage.snapshot();
-        const root = snapshot.records.find((row) => row.kind === "commit")!;
-        const foreignBytes = root.bytes.slice();
-        const foreign = new MemoryRunStorage({
-            version: 1,
-            records: [
-                ...snapshot.records,
-                {
-                    ...root,
-                    key: "foreign-key",
-                    revision: null,
-                    bytes: foreignBytes
-                }
-            ],
-            parents: snapshot.parents
-        });
-        const repository = new RunRepository(foreign);
-        expectCode(
-            () =>
-                repository.transaction((tx) =>
-                    repository.loadCommit(tx, new RunCommitId("foreign-key"))
+            const wrongRevision = new MemoryRunStorage({
+                version: 1,
+                records: snapshot.records.map((row) =>
+                    row === runRow ? { ...row, revision: 99 } : row
                 ),
-            "codec.invalid"
-        );
-    });
+                parents: snapshot.parents
+            });
+            const wrongRevisionRepository = new RunRepository(wrongRevision);
+            expectCode(
+                () =>
+                    wrongRevisionRepository.transaction((tx) =>
+                        wrongRevisionRepository.listRuns(tx)
+                    ),
+                "codec.invalid"
+            );
+        }
+    );
+
+    it(
+        "[C13-RUN-ANCESTRY] detects missing and foreign ancestry while preserving valid ancestry",
+        { tags: "p0" },
+        () => {
+            const value = seedRunningTurn();
+            expect(
+                value.repository.transaction((tx) =>
+                    value.repository.isAncestor(tx, ids.root, ids.root)
+                )
+            ).toBe(true);
+            expect(
+                value.repository.transaction((tx) =>
+                    value.repository.isAncestor(tx, new RunCommitId("missing"), ids.root)
+                )
+            ).toBe(false);
+
+            const snapshot = value.storage.snapshot();
+            const root = snapshot.records.find((row) => row.kind === "commit")!;
+            const foreignBytes = root.bytes.slice();
+            const foreign = new MemoryRunStorage({
+                version: 1,
+                records: [
+                    ...snapshot.records,
+                    {
+                        ...root,
+                        key: "foreign-key",
+                        revision: null,
+                        bytes: foreignBytes
+                    }
+                ],
+                parents: snapshot.parents
+            });
+            const repository = new RunRepository(foreign);
+            expectCode(
+                () =>
+                    repository.transaction((tx) =>
+                        repository.loadCommit(tx, new RunCommitId("foreign-key"))
+                    ),
+                "codec.invalid"
+            );
+        }
+    );
 
     it("enforces exact revision increments", { tags: "p0" }, () => {
         const value = harness();
@@ -233,42 +247,50 @@ describe("MemoryRunStorage exhaustive behavior", () => {
         ).toEqual(current);
     });
 
-    it("fails closed after restart when ancestry loses an intermediate commit", { tags: "p0" }, () => {
-        const value = seedRunningTurn();
-        const first = message("ancestry-first", ids.root, value.token);
-        value.runtime.appendTurnCommit(first, new Revision(0), new Date(1500));
-        const second = message("ancestry-second", first.id, value.token);
-        value.runtime.appendTurnCommit(second, new Revision(1), new Date(1600));
-        const snapshot = value.storage.snapshot();
-        const restarted = new RunRepository(
-            new MemoryRunStorage({
+    it(
+        "fails closed after restart when ancestry loses an intermediate commit",
+        { tags: "p0" },
+        () => {
+            const value = seedRunningTurn();
+            const first = message("ancestry-first", ids.root, value.token);
+            value.runtime.appendTurnCommit(first, new Revision(0), new Date(1500));
+            const second = message("ancestry-second", first.id, value.token);
+            value.runtime.appendTurnCommit(second, new Revision(1), new Date(1600));
+            const snapshot = value.storage.snapshot();
+            const restarted = new RunRepository(
+                new MemoryRunStorage({
+                    ...snapshot,
+                    records: snapshot.records.filter(
+                        (record) => !(record.kind === "commit" && record.key === first.id.value)
+                    )
+                })
+            );
+
+            expectCode(
+                () => restarted.transaction((tx) => restarted.isAncestor(tx, ids.root, second.id)),
+                "codec.invalid"
+            );
+        }
+    );
+
+    it(
+        "[C13-RUN-PINS-BLUEPRINT] fails closed after restart when the active pin snapshot is omitted",
+        { tags: "p0" },
+        () => {
+            const value = harness();
+            value.runtime.createRun(genesis());
+            const snapshot = value.storage.snapshot();
+            const restarted = harness({
                 ...snapshot,
-                records: snapshot.records.filter(
-                    (record) => !(record.kind === "commit" && record.key === first.id.value)
-                )
-            })
-        );
+                records: snapshot.records.filter((record) => record.kind !== "configuration")
+            });
 
-        expectCode(
-            () => restarted.transaction((tx) => restarted.isAncestor(tx, ids.root, second.id)),
-            "codec.invalid"
-        );
-    });
-
-    it("[C13-RUN-PINS-BLUEPRINT] fails closed after restart when the active pin snapshot is omitted", { tags: "p0" }, () => {
-        const value = harness();
-        value.runtime.createRun(genesis());
-        const snapshot = value.storage.snapshot();
-        const restarted = harness({
-            ...snapshot,
-            records: snapshot.records.filter((record) => record.kind !== "configuration")
-        });
-
-        expectCode(() => seedRunningTurn(restarted), "run.invalid-state");
-        expect(
-            restarted.repository.transaction((tx) => restarted.repository.listTurns(tx))
-        ).toEqual([]);
-    });
+            expectCode(() => seedRunningTurn(restarted), "run.invalid-state");
+            expect(
+                restarted.repository.transaction((tx) => restarted.repository.listTurns(tx))
+            ).toEqual([]);
+        }
+    );
 });
 
 function message(

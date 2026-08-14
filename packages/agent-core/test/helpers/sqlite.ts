@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { DatabaseSync } from "node:sqlite";
+import { DatabaseSync, type SQLOutputValue } from "node:sqlite";
 import { requireSynchronousResult, type SynchronousResultGuard } from "../../src/actors";
 import { TransactionalSqlite, type SqliteRow, type SqliteValue } from "../../src/substrates";
 
@@ -31,7 +31,10 @@ export class FileSqlite extends TransactionalSqlite {
     }
 
     public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        return this.#database.prepare(statement).all(...bindings) as readonly SqliteRow[];
+        return this.#database
+            .prepare(statement)
+            .all(...bindings)
+            .map((row) => parseSqliteRow(row));
     }
 
     public run(statement: string, bindings: readonly SqliteValue[]): void {
@@ -56,4 +59,33 @@ export class FileSqlite extends TransactionalSqlite {
     public close(): void {
         this.#database.close();
     }
+}
+
+export function sqliteInteger(row: SqliteRow | undefined, column: string, subject: string): number {
+    const value = row?.[column];
+    if (!isSqliteInteger(value)) throw new TypeError(`Expected ${subject}`);
+    return value;
+}
+
+function parseSqliteRow(row: Record<string, SQLOutputValue>): SqliteRow {
+    const parsed: Record<string, SqliteValue> = {};
+    for (const [column, value] of Object.entries(row)) {
+        if (!isSqliteValue(value))
+            throw new TypeError(`SQLite column ${column} is an unsafe integer`);
+        parsed[column] = value;
+    }
+    return parsed;
+}
+
+function isSqliteValue(value: SQLOutputValue): value is Exclude<SQLOutputValue, bigint> {
+    return (
+        value === null ||
+        typeof value === "number" ||
+        typeof value === "string" ||
+        value instanceof Uint8Array
+    );
+}
+
+function isSqliteInteger(value: SqliteValue | undefined): value is number {
+    return typeof value === "number" && Number.isSafeInteger(value);
 }
