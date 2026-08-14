@@ -35,6 +35,10 @@
       "kind": "agent.policy-revision",
       "durability": "value",
       "ownerActor": null,
+      "contentRetention": {
+        "fields": ["content"],
+        "retentionOwner": null
+      },
       "source": "src/agents/source.ts#AgentPolicyRevisionRecord",
       "codec": "src/agents/source.ts#AgentPolicyRevisionRecord.codec",
       "store": null,
@@ -47,6 +51,10 @@
       "kind": "agent.revision",
       "durability": "value",
       "ownerActor": null,
+      "contentRetention": {
+        "fields": ["content"],
+        "retentionOwner": null
+      },
       "source": "src/agents/source.ts#AgentRevisionRecord",
       "codec": "src/agents/source.ts#AgentRevisionRecord.codec",
       "store": null,
@@ -73,6 +81,10 @@
       "kind": "agent.model-revision",
       "durability": "value",
       "ownerActor": null,
+      "contentRetention": {
+        "fields": ["content"],
+        "retentionOwner": null
+      },
       "source": "src/agents/source.ts#ModelPolicyRevisionRecord",
       "codec": "src/agents/source.ts#ModelPolicyRevisionRecord.codec",
       "store": null,
@@ -121,6 +133,10 @@
       "kind": "run.checkpoint",
       "durability": "durable",
       "ownerActor": "run",
+      "contentRetention": {
+        "fields": ["state", "tree"],
+        "retentionOwner": "run"
+      },
       "source": "src/agents/runs/turn.ts#RunCheckpoint",
       "codec": "src/agents/runs/turn.ts#RunCheckpoint.codec",
       "store": "src/agents/runs/store.ts#RunRepository",
@@ -133,6 +149,10 @@
       "kind": "run.commit",
       "durability": "durable",
       "ownerActor": "run",
+      "contentRetention": {
+        "fields": ["content", "treeCheckpoint", "treeResolution.base"],
+        "retentionOwner": "run"
+      },
       "source": "src/agents/runs/commit.ts#RunCommit",
       "codec": "src/agents/runs/commit.ts#RunCommit.codec",
       "store": "src/agents/runs/store.ts#RunRepository",
@@ -193,6 +213,10 @@
       "kind": "run.spawn-reservation",
       "durability": "durable",
       "ownerActor": "run",
+      "contentRetention": {
+        "fields": ["rootContent"],
+        "retentionOwner": "run"
+      },
       "source": "src/agents/runs/spawn.ts#SpawnReservation",
       "codec": "src/agents/runs/spawn.ts#SpawnReservation.codec",
       "store": "src/agents/runs/store.ts#RunRepository",
@@ -217,6 +241,10 @@
       "kind": "turn.record",
       "durability": "durable",
       "ownerActor": "run",
+      "contentRetention": {
+        "fields": ["input", "result"],
+        "retentionOwner": "run"
+      },
       "source": "src/agents/runs/turn.ts#Turn",
       "codec": "src/agents/runs/turn.ts#Turn.codec",
       "store": "src/agents/runs/store.ts#RunRepository",
@@ -229,6 +257,10 @@
       "kind": "turn.inbox-entry",
       "durability": "durable",
       "ownerActor": "run",
+      "contentRetention": {
+        "fields": ["payload"],
+        "retentionOwner": "run"
+      },
       "source": "src/agents/runs/turn.ts#TurnInboxEntry",
       "codec": "src/agents/runs/turn.ts#TurnInboxEntry.codec",
       "store": "src/agents/runs/store.ts#RunRepository",

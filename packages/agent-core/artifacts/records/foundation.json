@@ -20,6 +20,10 @@
       "kind": "content.owner-edge",
       "durability": "durable",
       "ownerActor": "content-owning-actor",
+      "contentRetention": {
+        "fields": ["ref"],
+        "retentionOwner": "content-owning-actor"
+      },
       "source": "src/content/retention.ts#ContentOwnerEdge",
       "codec": "src/content/retention.ts#ContentOwnerEdge.codec",
       "store": "src/content/retention.ts#ContentRetention",
@@ -33,6 +37,10 @@
       "kind": "content.stat",
       "durability": "value",
       "ownerActor": null,
+      "contentRetention": {
+        "fields": ["ref"],
+        "retentionOwner": null
+      },
       "source": "src/content/stat.ts#ContentStat",
       "codec": "src/content/stat.ts#ContentStat.codec",
       "store": null,
@@ -45,6 +53,10 @@
       "kind": "content.transient-lease",
       "durability": "durable",
       "ownerActor": "content-owning-actor",
+      "contentRetention": {
+        "fields": ["ref"],
+        "retentionOwner": "content-owning-actor"
+      },
       "source": "src/content/transient.ts#TransientContentLeaseState",
       "codec": "src/content/transient.ts#TransientContentLeaseState.codec",
       "store": "src/content/transient.ts#TransientContentAccess",
@@ -154,6 +166,10 @@
       "kind": "command-envelope",
       "durability": "value",
       "ownerActor": null,
+      "contentRetention": {
+        "fields": ["payload"],
+        "retentionOwner": null
+      },
       "source": "src/protocol/envelope.ts#CommandEnvelope",
       "codec": "src/protocol/envelope.ts#CommandEnvelope.codec",
       "store": null,

@@ -2,6 +2,8 @@ import type ts from "typescript";
 
 import type { JsonValue } from "./project.mjs";
 
+export function createProgram(): ts.Program;
+export function resolveSourceSymbol(program: ts.Program, selector: string): ts.Node;
 export function requireSuccessfulTestReport(
     path: string,
     requireTests?: boolean

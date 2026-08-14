@@ -20,6 +20,10 @@
       "kind": "environment.revision",
       "durability": "durable",
       "ownerActor": "environment",
+      "contentRetention": {
+        "fields": ["provider.configuration"],
+        "retentionOwner": "environment"
+      },
       "source": "src/environments/environment.ts#EnvironmentRevisionRecord",
       "codec": "src/environments/environment.ts#EnvironmentRevisionRecord.codec",
       "store": "src/environments/store.ts#EnvironmentStore",
@@ -59,6 +63,10 @@
       "kind": "environment.snapshot",
       "durability": "durable",
       "ownerActor": "environment",
+      "contentRetention": {
+        "fields": ["content"],
+        "retentionOwner": "environment"
+      },
       "source": "src/environments/snapshot.ts#EnvironmentSnapshot",
       "codec": "src/environments/snapshot.ts#EnvironmentSnapshot.codec",
       "store": "src/environments/store.ts#EnvironmentStore",
@@ -72,6 +80,10 @@
       "kind": "slate.deployment",
       "durability": "durable",
       "ownerActor": "slate",
+      "contentRetention": {
+        "fields": ["materialization"],
+        "retentionOwner": "slate"
+      },
       "source": "src/slates/deployment.ts#SlateDeployment",
       "codec": "src/slates/deployment.ts#SlateDeployment.codec",
       "store": "src/slates/store.ts#SlateStore",
@@ -85,6 +97,10 @@
       "kind": "slate.preview",
       "durability": "durable",
       "ownerActor": "slate",
+      "contentRetention": {
+        "fields": ["source"],
+        "retentionOwner": "slate"
+      },
       "source": "src/slates/preview.ts#SlatePreview",
       "codec": "src/slates/preview.ts#SlatePreview.codec",
       "store": "src/slates/store.ts#SlateStore",
@@ -98,6 +114,10 @@
       "kind": "slate.publication",
       "durability": "durable",
       "ownerActor": "slate",
+      "contentRetention": {
+        "fields": ["materialization"],
+        "retentionOwner": "slate"
+      },
       "source": "src/slates/publication.ts#SlatePublication",
       "codec": "src/slates/publication.ts#SlatePublication.codec",
       "store": "src/slates/store.ts#SlateStore",
@@ -111,6 +131,10 @@
       "kind": "slate.resource",
       "durability": "durable",
       "ownerActor": "slate",
+      "contentRetention": {
+        "fields": ["materialization", "source"],
+        "retentionOwner": "slate"
+      },
       "source": "src/slates/resource.ts#SlateResource",
       "codec": "src/slates/resource.ts#SlateResource.codec",
       "store": "src/slates/store.ts#SlateStore",
@@ -124,6 +148,10 @@
       "kind": "slate",
       "durability": "durable",
       "ownerActor": "slate",
+      "contentRetention": {
+        "fields": ["source"],
+        "retentionOwner": "slate"
+      },
       "source": "src/slates/slate.ts#Slate",
       "codec": "src/slates/slate.ts#Slate.codec",
       "store": "src/slates/store.ts#SlateStore",
@@ -137,6 +165,10 @@
       "kind": "slate.deployment-reservation",
       "durability": "durable",
       "ownerActor": "slate",
+      "contentRetention": {
+        "fields": ["publicationMaterialization"],
+        "retentionOwner": "slate"
+      },
       "source": "src/slates/store.ts#SlateDeploymentReservation",
       "codec": "src/slates/store.ts#SlateDeploymentReservation.codec",
       "store": "src/slates/store.ts#SlateStore",
@@ -149,6 +181,10 @@
       "kind": "slate.resource-reservation",
       "durability": "durable",
       "ownerActor": "slate",
+      "contentRetention": {
+        "fields": ["deploymentMaterialization", "source"],
+        "retentionOwner": "slate"
+      },
       "source": "src/slates/store.ts#SlateResourceReservation",
       "codec": "src/slates/store.ts#SlateResourceReservation.codec",
       "store": "src/slates/store.ts#SlateStore",
@@ -161,6 +197,10 @@
       "kind": "slate.version",
       "durability": "durable",
       "ownerActor": "slate",
+      "contentRetention": {
+        "fields": ["source"],
+        "retentionOwner": "slate"
+      },
       "source": "src/slates/version.ts#SlateVersion",
       "codec": "src/slates/version.ts#SlateVersion.codec",
       "store": "src/slates/store.ts#SlateStore",

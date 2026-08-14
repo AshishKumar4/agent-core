@@ -19,7 +19,7 @@ export function createProgram() {
 }
 
 export function resolveSourceSymbol(program, selector) {
-    locateSourceSymbol(selector, (path) => program.getSourceFile(path));
+    return locateSourceSymbol(selector, (path) => program.getSourceFile(path)).node;
 }
 
 /**

@@ -29,9 +29,14 @@ import {
     OperationDescriptor
 } from "../../src/facets";
 import { describe, expect, test } from "vitest";
+import { createProgram } from "../../scripts/quality/evidence.mjs";
 import { validateCompleteOwnership } from "../../scripts/quality/ownership.mjs";
-import { validateRecordOwnership } from "../../scripts/quality/record-ownership.mjs";
 import {
+    validateRecordContentRetention,
+    validateRecordOwnership
+} from "../../scripts/quality/record-ownership.mjs";
+import {
+    objectAt,
     objectsAt,
     readArtifact,
     readArtifactSync,
@@ -102,6 +107,77 @@ describe("Profile base conformance", () => {
                 expect(stringAt(record, "ownerActor")).toBe("tenant");
                 expect(stringAt(record, "store")).toBe(
                     "src/authority/service.ts#AuthorityMutationStore"
+                );
+            }
+        }
+    );
+
+    test(
+        "[C13-CONTENT-CUSTODY] derives exact direct, nested, and inherited ContentRef declarations",
+        { tags: "p0", timeout: 60_000 },
+        () => {
+            const records = registeredRecords();
+            const program = createProgram();
+            expect(() => validateRecordContentRetention(records, program)).not.toThrow();
+
+            expect(contentFields(records, "definition.metadata-snapshot")).toEqual([
+                "releases[].codeManifest.modules[].content"
+            ]);
+            expect(contentFields(records, "invocation.receipt")).toEqual(["result"]);
+            expect(contentFields(records, "run.commit")).toEqual([
+                "content",
+                "treeCheckpoint",
+                "treeResolution.base"
+            ]);
+
+            const metadata = recordByKind(records, "definition.metadata-snapshot");
+            const { contentRetention: _contentRetention, ...missingDeclaration } = metadata;
+            const metadataRetention = objectAt(metadata, "contentRetention");
+            const receipt = recordByKind(records, "invocation.receipt");
+            const receiptRetention = objectAt(receipt, "contentRetention");
+            const actorState = recordByKind(records, "actor.recovery-state");
+
+            const adversarial = [
+                missingDeclaration,
+                {
+                    ...metadata,
+                    contentRetention: {
+                        ...metadataRetention,
+                        fields: []
+                    }
+                },
+                {
+                    ...metadata,
+                    contentRetention: {
+                        ...metadataRetention,
+                        fields: ["releases[].codeManifest.modules[].digest"]
+                    }
+                },
+                {
+                    ...receipt,
+                    contentRetention: {
+                        ...receiptRetention,
+                        fields: ["result", "result"]
+                    }
+                },
+                {
+                    ...actorState,
+                    contentRetention: {
+                        fields: ["stale"],
+                        retentionOwner: "actor"
+                    }
+                },
+                {
+                    ...metadata,
+                    contentRetention: {
+                        ...metadataRetention,
+                        retentionOwner: "workspace"
+                    }
+                }
+            ];
+            for (const candidate of adversarial) {
+                expect(() => validateRecordContentRetention([candidate], program)).toThrow(
+                    TypeError
                 );
             }
         }
@@ -188,4 +264,14 @@ function registeredRecords() {
     return stringsAt(index, "fragments").flatMap((fragment) =>
         objectsAt(readArtifactSync(`artifacts/records/${fragment}`), "records")
     );
+}
+
+function recordByKind(records: ReturnType<typeof registeredRecords>, kind: string) {
+    const record = records.find((candidate) => stringAt(candidate, "kind") === kind);
+    if (record === undefined) throw new TypeError(`Missing registered record ${kind}`);
+    return record;
+}
+
+function contentFields(records: ReturnType<typeof registeredRecords>, kind: string) {
+    return stringsAt(objectAt(recordByKind(records, kind), "contentRetention"), "fields");
 }

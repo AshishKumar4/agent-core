@@ -45,6 +45,10 @@
       "kind": "definition.package-code-manifest",
       "durability": "value",
       "ownerActor": null,
+      "contentRetention": {
+        "fields": ["modules[].content"],
+        "retentionOwner": null
+      },
       "source": "src/definition/code-manifest.ts#PackageCodeManifest",
       "codec": "src/definition/code-manifest.ts#PackageCodeManifest.codec",
       "store": null,
@@ -145,6 +149,10 @@
       "kind": "definition.metadata-snapshot",
       "durability": "durable",
       "ownerActor": "tenant",
+      "contentRetention": {
+        "fields": ["releases[].codeManifest.modules[].content"],
+        "retentionOwner": "tenant"
+      },
       "source": "src/definition/package.ts#MetadataSnapshot",
       "codec": "src/definition/package.ts#MetadataSnapshot.codec",
       "store": "src/definition/package-store.ts#PackageStore",
@@ -158,6 +166,10 @@
       "kind": "definition.package-release",
       "durability": "durable",
       "ownerActor": "tenant",
+      "contentRetention": {
+        "fields": ["codeManifest.modules[].content"],
+        "retentionOwner": "tenant"
+      },
       "source": "src/definition/package.ts#PackageRelease",
       "codec": "src/definition/package.ts#PackageRelease.codec",
       "store": "src/definition/package-store.ts#PackageStore",

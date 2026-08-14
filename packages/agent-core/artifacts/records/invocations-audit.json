@@ -76,6 +76,10 @@
             "kind": "invocation.receipt",
             "durability": "durable",
             "ownerActor": "actor",
+            "contentRetention": {
+              "fields": ["result"],
+              "retentionOwner": "actor"
+            },
             "source": "src/invocations/receipt.ts#Receipt",
             "codec": "src/invocations/receipt.ts#ReceiptCodecV1",
             "store": "src/substrates/sqlite/invocations/persistence.ts#SqliteInvocationPersistence",

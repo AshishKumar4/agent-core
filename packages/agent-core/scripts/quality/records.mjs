@@ -16,7 +16,7 @@ import {
     requirePassingTests,
     resolveSourceSymbol
 } from "./evidence.mjs";
-import { validateRecordOwnership } from "./record-ownership.mjs";
+import { validateRecordContentRetention, validateRecordOwnership } from "./record-ownership.mjs";
 
 const stage = stageArgument(process.argv.slice(2));
 const selectedArtifactRoot = pathArgument(process.argv.slice(2), "--artifact-root") ?? artifactRoot;
@@ -71,6 +71,7 @@ if (
     throw new TypeError("Record fragments differ from the exact index");
 }
 const records = [];
+const activeOwnershipRecords = [];
 const ownershipRecords = [];
 for (const path of files.filter((path) => activeFragmentNames.includes(basename(path)))) {
     const fragment = await readCanonicalJson(path);
@@ -85,6 +86,7 @@ for (const path of files.filter((path) => activeFragmentNames.includes(basename(
         throw new TypeError(`Record fragment ${basename(path)} is owned by the wrong wave`);
     }
     for (const record of fragment.records) {
+        activeOwnershipRecords.push(record);
         ownershipRecords.push(record);
         records.push({ ...record, fragmentOwner: fragment.owner });
     }
@@ -101,7 +103,9 @@ for (const path of files.filter((path) => pendingFragmentNames.includes(basename
     }
     ownershipRecords.push(...fragment.records);
 }
+const program = createProgram();
 validateRecordOwnership(ownershipRecords);
+validateRecordContentRetention(activeOwnershipRecords, program);
 const missing = [...discovered].filter(
     (selector) => !records.some((record) => record.source === selector)
 );
@@ -109,7 +113,6 @@ const extra = records
     .filter((record) => !discovered.has(record.source))
     .map((record) => record.source);
 if (records.length > 0) {
-    const program = createProgram();
     const executedTests = await executedTestSelectors();
     for (const record of records) {
         if (!discovered.has(record.source))
