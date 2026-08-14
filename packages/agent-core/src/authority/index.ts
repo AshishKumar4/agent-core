@@ -52,6 +52,9 @@ export {
 } from "./permit-store";
 export type {
     AuthorityPermitIssueStore,
+    AuthorityPermitTargetAdmissionStore,
+    AuthorityPermitTargetDenialStore,
+    AuthorityPermitTargetRequestStore,
     AuthorityPermitTargetStore,
     AuthorityPermitTransactionStore,
     MemoryAuthorityPermitSnapshot

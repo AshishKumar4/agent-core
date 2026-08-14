@@ -102,6 +102,13 @@ export class SqliteActorStore implements ActorLocalStore<TransactionalSqlite, Re
         operation: TransactionOperation<TransactionalSqlite, TResult>,
         ..._guard: SynchronousResultGuard<TResult>
     ): TResult {
+        return this.transact(operation);
+    }
+
+    /** Runtime-guarded form for ports whose interface cannot express the conditional tuple. */
+    public transact<TResult>(
+        operation: TransactionOperation<TransactionalSqlite, TResult>
+    ): TResult {
         if (this.#activeTransaction !== undefined || activeActorTransactions.has(this.database)) {
             throw invalidState("Nested actor transactions are not supported");
         }

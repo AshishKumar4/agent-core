@@ -183,6 +183,7 @@ class Permits implements CanonicalBatchAuthorityPermitPort<
     string
 > {
     public readonly invalidItems = new Set<number>();
+    public readonly locallyDeniedItems = new Set<number>();
     public readonly deniedItems = new Set<number>();
     public readonly claimedBeforeIssue: number[] = [];
     public issuedInsideTargetTransaction = false;
@@ -194,6 +195,7 @@ class Permits implements CanonicalBatchAuthorityPermitPort<
               claim: ItemClaim<string>
           ) => Promise<
               | { readonly kind: "denied"; readonly denial: string; readonly reason: string }
+              | { readonly kind: "invalid"; readonly reason: string }
               | { readonly kind: "expired" }
               | undefined
           >)
@@ -227,6 +229,9 @@ class Permits implements CanonicalBatchAuthorityPermitPort<
         if (this.crashOnce) {
             this.crashOnce = false;
             throw new TypeError("permit transport crash");
+        }
+        if (this.locallyDeniedItems.has(claim.itemIndex)) {
+            return { kind: "invalid" as const, reason: "permit reply was locally invalid" };
         }
         if (this.deniedItems.has(claim.itemIndex)) {
             return { kind: "denied" as const, denial: "permit-denied", reason: "permit denied" };

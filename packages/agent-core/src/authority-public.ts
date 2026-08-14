@@ -13,6 +13,9 @@ export type { AuthenticatedAuthorityPermit } from "./authority/permit-authentica
 export type {
     AuthorityPermitExpectationInit,
     AuthorityPermitIssueStore,
+    AuthorityPermitTargetAdmissionStore,
+    AuthorityPermitTargetDenialStore,
+    AuthorityPermitTargetRequestStore,
     AuthorityPermitTargetStore
 } from "./authority";
 export { FacetRef } from "./facets";

@@ -90,6 +90,7 @@ export interface CanonicalBatchAuthorityPermitPort<
 export type CanonicalBatchAuthorityPermitResult<Admission, Denial = never> =
     | { readonly kind: "issued"; readonly admission: AuthorityAdmissionReference<Admission> }
     | { readonly kind: "denied"; readonly denial: Denial; readonly reason: string }
+    | { readonly kind: "invalid"; readonly reason: string }
     | { readonly kind: "expired" };
 
 export interface CanonicalBatchAuthorityAuthenticationPort<
@@ -364,6 +365,9 @@ export class CanonicalBatchInvocationPort<
         const permitResult = await this.permits.issue(prepared, state.claim);
         if (permitResult.kind === "expired") {
             return this.invokeItemOnce(request, prepared, itemIndex);
+        }
+        if (permitResult.kind === "invalid") {
+            return terminal(itemIndex, this.denyClaim(prepared, state.claim, permitResult.reason));
         }
         if (permitResult.kind === "denied") {
             return terminal(

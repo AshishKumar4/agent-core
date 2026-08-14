@@ -38,6 +38,7 @@ export type {
 export {
     AuthenticatedAuthorityPermitDenial,
     AuthorityPermitIssuanceTransport,
+    authorityPermitReferenceCodec,
     ConsumedAuthorityAdmissionPort,
     IssuedAuthorityPermitPort,
     TargetAuthorityPermitDenialPort,
@@ -45,7 +46,6 @@ export {
 } from "./permit";
 export type {
     AuthorityCheckRequestFactory,
-    AuthorityPermitDenialPort,
     AuthorityPermitExpectationFactory,
     AuthorityPermitReference,
     TargetAuthorityPermitDenialState
@@ -121,3 +121,5 @@ export type { MediationRecordIdentity } from "./mediation-records";
 export { MediationClaimOwnerAdmission } from "./mediation-records";
 export { MediatedOperationPipeline } from "./mediation";
 export type { MediatedOperationPipelineInit, MediatedTurnCaller } from "./mediation";
+export { TargetPermitMediationAggregate, activateTargetPermitMediation } from "./permit-mediation";
+export type { TargetPermitMediationPipelineInit } from "./permit-mediation";

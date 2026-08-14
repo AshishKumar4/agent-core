@@ -7,11 +7,15 @@ import {
     AuthorityPermitExpectation,
     AuthorityPermitIssuedRecordSource,
     AuthorityCheckRequest,
+    AuthorityCheckEvidence,
     Binding,
     GrantId,
+    InvalidationWatermark,
     PathEpochEvidence,
     ScopeEpoch,
+    TargetAuthorityPermitDenial,
     TargetAuthorityPermitRequest,
+    watermarkKey as authorityWatermarkKey,
     type AuthenticatedAuthorityPermit,
     type AuthorityPermitExpectationInit
 } from "../../../src/authority";
@@ -31,6 +35,9 @@ import { ClaimWorkerId, ItemClaimId } from "../../../src/invocation-references";
 import { InvocationId } from "../../../src/interaction-references";
 import {
     SqliteAuthorityPermitStore,
+    SqliteInvalidationWatermarkStore,
+    SqliteTargetPermitMediationAggregate,
+    SqliteTargetResolutionInvalidationPort,
     TransactionalSqlite,
     type SqliteRow,
     type SqliteValue
@@ -61,6 +68,121 @@ const corruptMessage = "Stored authority permit ownership is malformed";
 const authorityArguments = Object.freeze({ channel: "internal" });
 
 describe("SQLite authority permit store exact behavior", () => {
+    test(
+        "target aggregate closes every permit view and rolls denial state back as one Actor span",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const invalidations = new RecordingTargetInvalidations();
+            const aggregate = new SqliteTargetPermitMediationAggregate(
+                database,
+                tenant,
+                targetActor,
+                invalidations
+            );
+            const request = targetRequest("aggregate-denial");
+            const denial = deniedTargetRequest(request);
+            let captured: TransactionalSqlite | undefined;
+
+            aggregate.permitRequests.transaction((transaction) => {
+                captured = transaction;
+                aggregate.permitRequests.request(transaction, request);
+            });
+            if (captured === undefined) throw new TypeError("Expected captured target transaction");
+            const closed = captured;
+            expect(() => aggregate.permitRequests.request(closed, request)).toThrow();
+            expect(() =>
+                database.transaction(() => aggregate.permitRequests.request(database, request))
+            ).toThrow();
+
+            expect(() =>
+                aggregate.transact((transaction) => {
+                    aggregate.permitDenials.deny(transaction, denial);
+                    aggregate.joinDeniedEpochs(
+                        transaction,
+                        request.expectation.principal,
+                        denial.evidence.pathEpochs.path
+                    );
+                    aggregate.invalidateResolution(transaction, request.expectation);
+                    throw new AgentCoreError("protocol.invalid-state", "abort aggregate denial");
+                })
+            ).toThrow(/abort aggregate denial/);
+            expect(
+                aggregate.transact((transaction) =>
+                    aggregate.permitDenials.denied(transaction, request.nonce)
+                )
+            ).toBeUndefined();
+            const watermarkStore = new SqliteInvalidationWatermarkStore(
+                database,
+                tenant,
+                targetActor
+            );
+            const watermarkKey = InvalidationWatermark.empty(tenant, targetActor, principal);
+            expect(watermarkStore.load(authorityWatermarkKey(watermarkKey))).toBeUndefined();
+
+            aggregate.transact((transaction) => {
+                aggregate.permitDenials.deny(transaction, denial);
+                aggregate.joinDeniedEpochs(
+                    transaction,
+                    request.expectation.principal,
+                    denial.evidence.pathEpochs.path
+                );
+                aggregate.invalidateResolution(transaction, request.expectation);
+            });
+            expect(
+                aggregate.transact(
+                    (transaction) =>
+                        aggregate.permitDenials.denied(transaction, request.nonce)?.digest().value
+                )
+            ).toBe(denial.digest().value);
+            expect(
+                watermarkStore.load(authorityWatermarkKey(watermarkKey))?.epoch(workspaceScope)
+            ).toBe(2);
+            expect(invalidations.expectations).toEqual([request.expectation, request.expectation]);
+        }
+    );
+
+    test(
+        "target aggregate rejects nested and foreign scopes without leaking writes",
+        { tags: "p0" },
+        () => {
+            const aggregate = new SqliteTargetPermitMediationAggregate(
+                new TestSqlite(),
+                tenant,
+                targetActor,
+                new RecordingTargetInvalidations()
+            );
+            const foreign = new SqliteTargetPermitMediationAggregate(
+                new TestSqlite(),
+                tenant,
+                targetActor,
+                new RecordingTargetInvalidations()
+            );
+
+            expect(() =>
+                aggregate.transact((transaction) => {
+                    aggregate.permitRequests.request(transaction, targetRequest("aggregate-outer"));
+                    aggregate.transact((inner) =>
+                        aggregate.permitRequests.request(inner, targetRequest("aggregate-inner"))
+                    );
+                })
+            ).toThrow(/Nested actor transactions/);
+            expect(
+                aggregate.transact((transaction) =>
+                    aggregate.permitRequests.requested(transaction, "aggregate-outer")
+                )
+            ).toBeUndefined();
+            foreign.transact((transaction) => {
+                expect(() =>
+                    aggregate.permitRequests.request(
+                        transaction,
+                        targetRequest("aggregate-foreign")
+                    )
+                ).toThrow();
+            });
+        }
+    );
+
     test(
         "requires the active Actor transaction scope even for the same database",
         { tags: "p0" },
@@ -484,6 +606,36 @@ function targetRequestFor(
         nonce,
         expiresAt
     );
+}
+
+function deniedTargetRequest(request: TargetAuthorityPermitRequest): TargetAuthorityPermitDenial {
+    return new TargetAuthorityPermitDenial(
+        request,
+        new AuthorityCheckEvidence(
+            request.expectation.tenant,
+            request.expectation.issuer,
+            request.authority.digest(),
+            request.authority.binding.key,
+            request.authority.binding.generation,
+            "deny",
+            "stalePath",
+            [],
+            [],
+            request.authority.expectedPath,
+            issuedAt
+        )
+    );
+}
+
+class RecordingTargetInvalidations extends SqliteTargetResolutionInvalidationPort {
+    public readonly expectations: AuthorityPermitExpectation[] = [];
+
+    public invalidate(
+        _transaction: TransactionalSqlite,
+        expected: AuthorityPermitExpectation
+    ): void {
+        this.expectations.push(expected);
+    }
 }
 
 function expectExactFailure(

@@ -21,7 +21,6 @@ import {
     assembleSingleTenantPolicy,
     ApprovalGatewayReconciliationPort,
     DurableRunAdmissionPort,
-    type AuthorityPermitDenialPort,
     type AuthorityPermitExpectationFactory,
     type AuthorityPermitReference
 } from "../../src/composition";
@@ -151,14 +150,6 @@ class FixedExpectations implements AuthorityPermitExpectationFactory<
 
     public forAdmission(): AuthorityPermitExpectation | undefined {
         return this.admissionExpectation;
-    }
-}
-
-class RecordingDenial<Transaction = object> implements AuthorityPermitDenialPort<Transaction> {
-    public readonly denials: (AuthorityPermitExpectation | undefined)[] = [];
-
-    public deny(_transaction: Transaction, value: AuthorityPermitExpectation | undefined): void {
-        this.denials.push(value);
     }
 }
 
@@ -296,7 +287,6 @@ describe("authority permit composition ports", () => {
             ];
 
             for (const entry of cases) {
-                const denial = new RecordingDenial();
                 const admission = new ScriptedAdmission();
                 const expected = "expected" in entry ? entry.expected : expectation;
                 const port = new ConsumedAuthorityAdmissionPort<
@@ -305,7 +295,7 @@ describe("authority permit composition ports", () => {
                     string,
                     string,
                     string
-                >(admission, new FixedExpectations(expectation, expected), denial, () => ISSUED_AT);
+                >(admission, new FixedExpectations(expectation, expected), () => ISSUED_AT);
 
                 expect(
                     port.admits(
@@ -316,7 +306,6 @@ describe("authority permit composition ports", () => {
                     ),
                     entry.reason
                 ).toBe(false);
-                expect(denial.denials, entry.reason).toEqual([expected]);
                 expect(admission.consumed, entry.reason).toBe(entry.consumed);
             }
         }
@@ -334,17 +323,14 @@ describe("authority permit composition ports", () => {
                 permit.digest()
             );
             const build = () => {
-                const denial = new RecordingDenial();
                 const admission = new ScriptedAdmission();
                 return {
                     port: new ConsumedAuthorityAdmissionPort(
                         admission,
                         new FixedExpectations(expectation, expectation),
-                        denial,
                         () => ISSUED_AT
                     ),
-                    admission,
-                    denial
+                    admission
                 };
             };
 
@@ -353,7 +339,6 @@ describe("authority permit composition ports", () => {
                 true
             );
             expect(accepted.admission.consumed).toBe(1);
-            expect(accepted.denial.denials).toEqual([]);
 
             const denied = build();
             denied.admission.failure = new AgentCoreError(
@@ -361,7 +346,6 @@ describe("authority permit composition ports", () => {
                 "Authority permit nonce was already consumed"
             );
             expect(denied.port.admits({}, reference, admissionContext, authentication)).toBe(false);
-            expect(denied.denial.denials).toEqual([expectation]);
 
             for (const failure of [
                 new AgentCoreError("protocol.invalid-state", "permit store is unavailable"),
@@ -372,7 +356,6 @@ describe("authority permit composition ports", () => {
                 expect(() =>
                     propagated.port.admits({}, reference, admissionContext, authentication)
                 ).toThrow(failure);
-                expect(propagated.denial.denials).toEqual([]);
             }
         }
     );

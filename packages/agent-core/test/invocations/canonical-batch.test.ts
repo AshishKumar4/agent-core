@@ -86,6 +86,42 @@ describe("CanonicalBatchInvocationPort", () => {
     );
 
     test(
+        "records issue-time local permit denial with linked evidence before any attempt",
+        { tags: "p0" },
+        async () => {
+            const harness = new Harness(false);
+            const invocation = new InvocationId("issue-time-local-permit-denial");
+            harness.permits.locallyDeniedItems.add(0);
+
+            const result = await harness.port.invoke(
+                request(invocation, [{ value: 1 }], (index) => harness.executions.push(index))
+            );
+            const evidence = harness.transactions.transact((transaction) => ({
+                attempts: harness.persistence.attemptsForItem(transaction, invocation, 0),
+                audits: [...transaction.audits.values()].map((bytes) => AuditRecord.decode(bytes)),
+                receipt: harness.ledger.currentReceipt(transaction, invocation, 0)
+            }));
+
+            expect(result.items[0]).toMatchObject({
+                kind: "terminal",
+                receipt: {
+                    outcome: "deniedPreEffect",
+                    reason: "permit reply was locally invalid"
+                }
+            });
+            expect(evidence.attempts).toEqual([]);
+            expect(evidence.receipt).toBeInstanceOf(PreEffectReceipt);
+            expect(evidence.audits.map((audit) => audit.kind.kind)).toEqual([
+                "invocation",
+                "receipt"
+            ]);
+            expect(evidence.audits[1]?.cause?.equals(evidence.audits[0]!.id)).toBe(true);
+            expect(harness.permits.deniedClaims).toEqual([]);
+            expect(harness.executions).toEqual([]);
+        }
+    );
+
+    test(
         "reconstructs the target runtime and retries authentication without duplicating its claim",
         { tags: "p0" },
         async () => {

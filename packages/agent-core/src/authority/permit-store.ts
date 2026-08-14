@@ -18,20 +18,29 @@ export interface AuthorityPermitTransactionStore<Transaction> {
     ): Result;
 }
 
-export interface AuthorityPermitTargetStore<
+export interface AuthorityPermitTargetRequestStore<
     Transaction
 > extends AuthorityPermitTransactionStore<Transaction> {
     requested(transaction: Transaction, nonce: string): TargetAuthorityPermitRequest | undefined;
-    denied(transaction: Transaction, nonce: string): TargetAuthorityPermitDenial | undefined;
-    consumed(transaction: Transaction, nonce: string): Digest | undefined;
     request(
         transaction: Transaction,
         request: TargetAuthorityPermitRequest
     ): TargetAuthorityPermitRequest;
+}
+
+export interface AuthorityPermitTargetDenialStore<Transaction> {
+    readonly owner: ActorRef;
+    requested(transaction: Transaction, nonce: string): TargetAuthorityPermitRequest | undefined;
+    denied(transaction: Transaction, nonce: string): TargetAuthorityPermitDenial | undefined;
     deny(
         transaction: Transaction,
         denial: TargetAuthorityPermitDenial
     ): TargetAuthorityPermitDenial;
+}
+
+export interface AuthorityPermitTargetAdmissionStore<Transaction> {
+    readonly owner: ActorRef;
+    consumed(transaction: Transaction, nonce: string): Digest | undefined;
     consume(
         transaction: Transaction,
         authentication: AuthenticatedAuthorityPermit,
@@ -40,6 +49,12 @@ export interface AuthorityPermitTargetStore<
         now: Date
     ): void;
 }
+
+export interface AuthorityPermitTargetStore<Transaction>
+    extends
+        AuthorityPermitTargetRequestStore<Transaction>,
+        AuthorityPermitTargetDenialStore<Transaction>,
+        AuthorityPermitTargetAdmissionStore<Transaction> {}
 
 export interface AuthorityPermitIssueStore<
     Transaction
@@ -112,7 +127,7 @@ export abstract class AuthorityPermitAdmissionPort<Transaction> {
 export class StoredAuthorityPermitAdmissionPort<
     Transaction
 > extends AuthorityPermitAdmissionPort<Transaction> {
-    public constructor(private readonly store: AuthorityPermitTargetStore<Transaction>) {
+    public constructor(private readonly store: AuthorityPermitTargetAdmissionStore<Transaction>) {
         super();
     }
 

@@ -8,7 +8,13 @@ import { AgentCoreError } from "../../errors";
 import type { ActorRef } from "../../actors";
 import type { TenantId } from "../../identity";
 import type { SqliteRow, SqliteValue } from "./sqlite";
-import { TransactionalSqlite, isSqliteNumber, isSqliteText } from "./sqlite";
+import {
+    TransactionalSqlite,
+    hasSameSqliteProvenance,
+    isSqliteNumber,
+    isSqliteText
+} from "./sqlite";
+import { isActiveSqliteActorTransaction } from "./actor";
 
 const CREATE_WATERMARKS = `CREATE TABLE IF NOT EXISTS actor_invalidation_watermarks (
     watermark_key TEXT PRIMARY KEY CHECK (length(watermark_key) > 0),
@@ -67,14 +73,48 @@ export class SqliteInvalidationWatermarkStore implements InvalidationWatermarkSt
 
     public save(watermark: InvalidationWatermark): void {
         try {
-            this.database.transaction(() => this.saveInTransaction(watermark));
+            this.database.transaction(() => this.saveUsing(this.database, watermark));
         } catch (error) {
             if (error instanceof AgentCoreError) throw error;
             throw new AgentCoreError("protocol.revision-conflict", "Watermark write failed");
         }
     }
 
-    private saveInTransaction(watermark: InvalidationWatermark): void {
+    public loadInTransaction(
+        transaction: TransactionalSqlite,
+        key: string
+    ): InvalidationWatermark | undefined {
+        this.requireTransaction(transaction);
+        return this.loadUsing(transaction, key);
+    }
+
+    public saveInTransaction(
+        transaction: TransactionalSqlite,
+        watermark: InvalidationWatermark
+    ): void {
+        this.requireTransaction(transaction);
+        this.saveUsing(transaction, watermark);
+    }
+
+    public joinInTransaction(
+        transaction: TransactionalSqlite,
+        key: string,
+        entries: readonly ScopeEpoch[]
+    ): InvalidationWatermark {
+        this.requireTransaction(transaction);
+        const current = this.loadUsing(transaction, key);
+        if (current === undefined) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Watermark must be initialized before join"
+            );
+        }
+        const joined = current.join(entries);
+        this.saveUsing(transaction, joined);
+        return joined;
+    }
+
+    private saveUsing(transaction: TransactionalSqlite, watermark: InvalidationWatermark): void {
         if (
             !watermark.ownerTenant.equals(this.ownerTenant) ||
             !watermark.owner.equals(this.owner)
@@ -85,7 +125,7 @@ export class SqliteInvalidationWatermarkStore implements InvalidationWatermarkSt
             );
         }
         const key = watermarkKey(watermark);
-        const previous = this.load(key);
+        const previous = this.loadUsing(transaction, key);
         if (previous === undefined) {
             if (watermark.revision.value !== 0) {
                 throw new AgentCoreError(
@@ -93,7 +133,7 @@ export class SqliteInvalidationWatermarkStore implements InvalidationWatermarkSt
                     "New watermarks require revision zero"
                 );
             }
-            this.database.run(
+            transaction.run(
                 `INSERT INTO actor_invalidation_watermarks (
                     watermark_key, owner_tenant_id, owner_kind, owner_id,
                     holder_tenant_id, holder_principal_id, revision, record
@@ -113,13 +153,13 @@ export class SqliteInvalidationWatermarkStore implements InvalidationWatermarkSt
                     "Watermark updates require monotonic entries and the next revision"
                 );
             }
-            this.database.run(
+            transaction.run(
                 `UPDATE actor_invalidation_watermarks SET revision = ?, record = ?
                  WHERE watermark_key = ? AND revision = ?`,
                 [watermark.revision.value, nextBytes, key, previous.revision.value]
             );
         }
-        const stored = this.load(key);
+        const stored = this.loadUsing(transaction, key);
         if (
             stored === undefined ||
             !bytesEqual(
@@ -145,12 +185,47 @@ export class SqliteInvalidationWatermarkStore implements InvalidationWatermarkSt
                     );
                 }
                 const joined = current.join(entries);
-                this.saveInTransaction(joined);
+                this.saveUsing(this.database, joined);
                 return joined;
             });
         } catch (error) {
             if (error instanceof AgentCoreError) throw error;
             throw new AgentCoreError("protocol.revision-conflict", "Watermark join failed");
+        }
+    }
+
+    private loadUsing(
+        transaction: TransactionalSqlite,
+        key: string
+    ): InvalidationWatermark | undefined {
+        const row = readWatermarks(
+            transaction,
+            "SELECT * FROM actor_invalidation_watermarks WHERE watermark_key = ?",
+            [key]
+        )[0];
+        if (row === undefined) return undefined;
+        const watermark = decodeWatermark(row, key);
+        if (
+            !watermark.ownerTenant.equals(this.ownerTenant) ||
+            !watermark.owner.equals(this.owner)
+        ) {
+            throw corruptWatermark();
+        }
+        return watermark;
+    }
+
+    private requireTransaction(transaction: TransactionalSqlite): void {
+        if (
+            !(transaction instanceof TransactionalSqlite) ||
+            !hasSameSqliteProvenance(this.database, transaction)
+        ) {
+            throw new TypeError("Watermark transaction belongs to another SQLite owner");
+        }
+        if (!isActiveSqliteActorTransaction(transaction)) {
+            throw new AgentCoreError(
+                "actor.stale-callback",
+                "Watermark writes require the active SQLite Actor transaction"
+            );
         }
     }
 }

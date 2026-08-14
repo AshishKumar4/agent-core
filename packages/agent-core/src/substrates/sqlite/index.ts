@@ -10,3 +10,7 @@ export { ReadableSqlite, TransactionalSqlite } from "./sqlite";
 export type { SqliteRow, SqliteValue } from "./sqlite";
 export { SqliteAuthorityPermitStore, SqliteTenantAuthorityPermitStore } from "./permit";
 export { SqliteInvalidationWatermarkStore } from "./watermark";
+export {
+    SqliteTargetPermitMediationAggregate,
+    SqliteTargetResolutionInvalidationPort
+} from "./target-mediation";

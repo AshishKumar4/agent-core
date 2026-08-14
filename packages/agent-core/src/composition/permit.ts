@@ -4,17 +4,18 @@ import {
     AuthorityPermitAuthenticator,
     AuthorityPermitExpectation,
     AuthorityCheckEvidence,
-    InvalidationWatermark,
+    TargetAuthorityPermitDenial,
     TargetAuthorityPermitRequest,
-    watermarkKey,
     type AuthorityCheckRequest,
     type AuthenticatedAuthorityPermit,
-    type AuthorityPermitTargetStore,
-    type InvalidationWatermarkStore
+    type AuthorityPermitTargetDenialStore,
+    type AuthorityPermitTargetRequestStore,
+    type ScopeEpoch
 } from "../authority";
 import { AgentCoreError } from "../errors";
 import type { ActorRef } from "../actors";
-import type { ItemClaim, PreparedInvocation } from "../invocations";
+import type { ItemClaim, PreparedInvocation, StructuralCodec } from "../invocations";
+import type { JsonValue } from "../core";
 import type { PrincipalRef, TenantId } from "../identity";
 import {
     AuthorityAdmissionReference,
@@ -26,6 +27,14 @@ import {
 import { AuthorityPermitIssuanceReply, AuthorityPermitIssuanceRequest } from "../protocol";
 
 export type AuthorityPermitReference = ReturnType<AuthorityPermit["toData"]>;
+
+export const authorityPermitReferenceCodec: StructuralCodec<AuthorityPermitReference> =
+    Object.freeze({
+        encode: (reference: AuthorityPermitReference): JsonValue =>
+            AuthorityPermit.fromData(reference).toData(),
+        decode: (value: JsonValue): AuthorityPermitReference =>
+            AuthorityPermit.fromData(value).toData()
+    });
 
 export interface AuthorityPermitExpectationFactory<
     Transaction,
@@ -44,25 +53,20 @@ export interface AuthorityPermitExpectationFactory<
     ): AuthorityPermitExpectation | undefined;
 }
 
-export interface AuthorityPermitDenialPort<Transaction> {
-    deny(
-        transaction: Transaction,
-        expectation: AuthorityPermitExpectation | undefined,
-        evidence: AuthorityCheckEvidence | undefined
-    ): void;
-}
-
 export interface TargetAuthorityPermitDenialState<Transaction> {
-    watermarks(transaction: Transaction): InvalidationWatermarkStore;
+    joinDeniedEpochs(
+        transaction: Transaction,
+        principal: PrincipalRef,
+        entries: readonly ScopeEpoch[]
+    ): void;
     invalidateResolution(transaction: Transaction, expectation: AuthorityPermitExpectation): void;
 }
 
-export class TargetAuthorityPermitDenialPort<
-    Transaction
-> implements AuthorityPermitDenialPort<Transaction> {
+export class TargetAuthorityPermitDenialPort<Transaction> {
     public constructor(
         private readonly tenant: TenantId,
         private readonly owner: ActorRef,
+        private readonly store: AuthorityPermitTargetDenialStore<Transaction>,
         private readonly state: TargetAuthorityPermitDenialState<Transaction>
     ) {
         if (owner.kind === "tenant") {
@@ -72,50 +76,26 @@ export class TargetAuthorityPermitDenialPort<
 
     public deny(
         transaction: Transaction,
-        expectation: AuthorityPermitExpectation | undefined,
-        evidence: AuthorityCheckEvidence | undefined
+        authentication: AuthenticatedAuthorityPermitDenial
     ): void {
-        if (expectation === undefined || evidence === undefined || evidence.allowed) {
-            throw new AgentCoreError(
-                "protocol.invalid-state",
-                "Target authority denial requires exact denied Tenant evidence"
-            );
-        }
+        const denialRecord = authentication.record();
+        const { request, evidence } = denialRecord;
+        const { expectation } = request;
         if (
             !expectation.tenant.equals(this.tenant) ||
             !expectation.target.actor.equals(this.owner) ||
             !expectation.principal.tenantId.equals(this.tenant) ||
-            !evidence.issuerTenant.equals(this.tenant) ||
-            !evidence.issuer.equals(expectation.issuer)
+            !this.store.owner.equals(this.owner)
         ) {
             throw denied("Target authority denial evidence has the wrong owner");
         }
-        this.join(transaction, expectation.principal, evidence);
-        this.state.invalidateResolution(transaction, expectation);
-    }
-
-    private join(
-        transaction: Transaction,
-        principal: PrincipalRef,
-        evidence: AuthorityCheckEvidence
-    ): void {
-        const watermarks = this.state.watermarks(transaction);
-        const empty = InvalidationWatermark.empty(this.tenant, this.owner, principal);
-        const stored = watermarks.load(watermarkKey(empty));
-        const current = stored ?? empty;
-        if (
-            !current.ownerTenant.equals(this.tenant) ||
-            !current.owner.equals(this.owner) ||
-            !current.holder.equals(principal)
-        ) {
-            throw new AgentCoreError(
-                "codec.invalid",
-                "Target authority denial watermark has the wrong owner"
-            );
+        const retained = this.store.requested(transaction, request.nonce);
+        if (retained === undefined || !retained.digest().equals(request.digest())) {
+            throw denied("Target authority denial does not bind its exact retained request");
         }
-        const joined = current.join(evidence.pathEpochs.path);
-        if (stored === undefined) watermarks.save(current);
-        if (joined !== current) watermarks.save(joined);
+        this.store.deny(transaction, denialRecord);
+        this.state.joinDeniedEpochs(transaction, expectation.principal, evidence.pathEpochs.path);
+        this.state.invalidateResolution(transaction, expectation);
     }
 }
 
@@ -132,32 +112,24 @@ export abstract class AuthorityPermitIssuanceTransport {
 }
 
 export class AuthenticatedAuthorityPermitDenial {
-    readonly #request: TargetAuthorityPermitRequest;
-    readonly #evidence: AuthorityCheckEvidence;
+    readonly #record: TargetAuthorityPermitDenial;
 
     public constructor(
         authority: symbol,
         request: TargetAuthorityPermitRequest,
         evidence: AuthorityCheckEvidence
     ) {
-        if (authority !== denialAuthenticationAuthority || evidence.allowed) {
+        if (authority !== denialAuthenticationAuthority) {
             throw new TypeError("Authority permit denial requires authenticated Tenant evidence");
         }
-        this.#request = TargetAuthorityPermitRequest.decode(
-            TargetAuthorityPermitRequest.encode(request)
+        this.#record = TargetAuthorityPermitDenial.decode(
+            TargetAuthorityPermitDenial.encode(new TargetAuthorityPermitDenial(request, evidence))
         );
-        this.#evidence = AuthorityCheckEvidence.decode(AuthorityCheckEvidence.encode(evidence));
         Object.freeze(this);
     }
 
-    public request(): TargetAuthorityPermitRequest {
-        return TargetAuthorityPermitRequest.decode(
-            TargetAuthorityPermitRequest.encode(this.#request)
-        );
-    }
-
-    public evidence(): AuthorityCheckEvidence {
-        return AuthorityCheckEvidence.decode(AuthorityCheckEvidence.encode(this.#evidence));
+    public record(): TargetAuthorityPermitDenial {
+        return TargetAuthorityPermitDenial.decode(TargetAuthorityPermitDenial.encode(this.#record));
     }
 }
 
@@ -179,7 +151,7 @@ export class IssuedAuthorityPermitPort<
     AuthenticatedAuthorityPermitDenial
 > {
     public constructor(
-        private readonly store: AuthorityPermitTargetStore<Transaction>,
+        private readonly store: AuthorityPermitTargetRequestStore<Transaction>,
         private readonly expectations: AuthorityPermitExpectationFactory<
             Transaction,
             Lease,
@@ -187,7 +159,7 @@ export class IssuedAuthorityPermitPort<
             Domain,
             PathEpochs
         >,
-        private readonly denial: AuthorityPermitDenialPort<Transaction>,
+        private readonly denial: TargetAuthorityPermitDenialPort<Transaction>,
         private readonly authority: AuthorityCheckRequestFactory<
             Lease,
             Authority,
@@ -220,6 +192,7 @@ export class IssuedAuthorityPermitPort<
               readonly denial: AuthenticatedAuthorityPermitDenial;
               readonly reason: string;
           }
+        | { readonly kind: "invalid"; readonly reason: string }
         | { readonly kind: "expired" }
     > {
         const nonce = this.nonce(invocation, claim);
@@ -259,26 +232,37 @@ export class IssuedAuthorityPermitPort<
             new AuthorityPermitIssuanceRequest(persisted)
         );
         return this.transport.issue(payload).then((replyBytes) => {
-            const reply = AuthorityPermitIssuanceReply.decode(replyBytes);
             const receivedAt = this.now();
-            requireIssuanceEvidence(reply.evidence, persisted, receivedAt);
-            if (reply.kind === "denied") {
+            validTime(receivedAt, "Authority permit response time");
+            try {
+                const reply = AuthorityPermitIssuanceReply.decode(replyBytes);
+                requireIssuanceEvidence(reply.evidence, persisted, receivedAt);
+                if (reply.kind === "denied") {
+                    return {
+                        kind: "denied" as const,
+                        denial: new AuthenticatedAuthorityPermitDenial(
+                            denialAuthenticationAuthority,
+                            persisted,
+                            reply.evidence
+                        ),
+                        reason: `Tenant authority denied permit issuance: ${reply.evidence.reason}`
+                    };
+                }
+                const permit = reply.requirePermit();
+                requireIssuedPermit(permit, persisted, receivedAt);
                 return {
-                    kind: "denied",
-                    denial: new AuthenticatedAuthorityPermitDenial(
-                        denialAuthenticationAuthority,
-                        persisted,
-                        reply.evidence
-                    ),
-                    reason: `Tenant authority denied permit issuance: ${reply.evidence.reason}`
+                    kind: "issued" as const,
+                    admission: new AuthorityAdmissionReference(permit.toData(), permit.digest())
                 };
+            } catch (error) {
+                if (isInvalidIssuanceReply(error)) {
+                    return {
+                        kind: "invalid" as const,
+                        reason: error.message || "Authority permit response is invalid"
+                    };
+                }
+                throw error;
             }
-            const permit = reply.requirePermit();
-            requireIssuedPermit(permit, persisted, receivedAt);
-            return {
-                kind: "issued",
-                admission: new AuthorityAdmissionReference(permit.toData(), permit.digest())
-            };
         });
     }
 
@@ -288,21 +272,14 @@ export class IssuedAuthorityPermitPort<
         claim: ItemClaim<Lease>,
         denial: AuthenticatedAuthorityPermitDenial
     ): void {
-        const request = denial.request();
-        const evidence = denial.evidence();
-        const retained = this.store.requested(transaction, request.nonce);
-        if (
-            retained === undefined ||
-            !retained.digest().equals(request.digest()) ||
-            !request.expectation.equals(this.expectations.forClaim(invocation, claim)) ||
-            !evidence.binds(request.authority) ||
-            evidence.allowed
-        ) {
+        const denialRecord = denial.record();
+        const { request } = denialRecord;
+        if (!request.expectation.equals(this.expectations.forClaim(invocation, claim))) {
             throw denied(
                 "Authenticated authority denial does not bind the retained target request"
             );
         }
-        this.denial.deny(transaction, request.expectation, evidence);
+        this.denial.deny(transaction, denial);
     }
 }
 
@@ -437,7 +414,6 @@ export class ConsumedAuthorityAdmissionPort<
             Domain,
             PathEpochs
         >,
-        private readonly denial: AuthorityPermitDenialPort<Transaction>,
         private readonly now: () => Date
     ) {}
 
@@ -452,7 +428,6 @@ export class ConsumedAuthorityAdmissionPort<
         try {
             permit = AuthorityPermit.fromData(admission.reference);
         } catch {
-            this.denial.deny(transaction, expected, undefined);
             return false;
         }
         if (
@@ -460,7 +435,6 @@ export class ConsumedAuthorityAdmissionPort<
             authentication === undefined ||
             !permit.digest().equals(admission.digest)
         ) {
-            this.denial.deny(transaction, expected, undefined);
             return false;
         }
         try {
@@ -469,11 +443,19 @@ export class ConsumedAuthorityAdmissionPort<
             if (!(error instanceof AgentCoreError) || error.code !== "authority.denied") {
                 throw error;
             }
-            this.denial.deny(transaction, expected, undefined);
             return false;
         }
         return true;
     }
+}
+
+function isInvalidIssuanceReply(error: unknown): error is AgentCoreError {
+    return (
+        error instanceof AgentCoreError &&
+        (error.code === "authority.denied" ||
+            error.code === "codec.invalid" ||
+            error.code === "protocol.invalid-state")
+    );
 }
 
 function validTime(value: Date, subject: string): number {

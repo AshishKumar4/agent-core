@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
 import {
+    AuthorityCheckEvidence,
+    AuthorityCheckRequest,
+    AuthorityPermitAuthenticator,
+    AuthorityPermitExpectation,
+    AuthorityPermitIssuedRecordSource,
     Binding,
     GrantId,
     InvalidationWatermark,
@@ -16,6 +21,7 @@ import {
     Revision,
     SemVer,
     encodeCanonicalJson,
+    isObjectRecord,
     jsonDataParser,
     type JsonValue
 } from "../../src/core";
@@ -75,11 +81,17 @@ import {
 } from "../../src/invocations";
 import { OperationRequestKey } from "../../src/operations";
 import {
+    AuthorityPermitIssuanceTransport,
     MediatedOperationPipeline,
     ResolvedOperationAuthority,
+    activateTargetPermitMediation,
+    leaseToken,
     mediationInvocationCodecs,
     mediationPreparedCodecs,
     type FacetActivationPinPort,
+    type AuthorityCheckRequestFactory,
+    type AuthorityPermitExpectationFactory,
+    type AuthorityPermitReference,
     type MediatedTurnCaller,
     type MediationAuthorityReference,
     type MediationDomainReference,
@@ -104,6 +116,13 @@ import {
 } from "../../src/agents";
 import { RunId, TurnId } from "../../src/execution-references";
 import { EnvironmentId } from "../../src/environments";
+import { AuthorityPermitIssuanceReply, AuthorityPermitIssuanceRequest } from "../../src/protocol";
+import {
+    SqliteTargetPermitMediationAggregate,
+    SqliteTargetResolutionInvalidationPort,
+    type TransactionalSqlite
+} from "../../src/substrates";
+import { TestSqlite } from "../helpers/sqlite";
 
 const recordData = jsonDataParser((message) => new TypeError(message));
 
@@ -119,6 +138,7 @@ const runId = new RunId("pipeline-run");
 const branchId = new RunBranchId("pipeline-branch");
 const turnId = new TurnId("pipeline-turn");
 const token: LeaseToken = Object.freeze({ turn: turnId, holder: principal, epoch: 1 });
+const issuer = new ActorRef("tenant", new ActorId("pipeline-issuer"));
 
 type PipelineState = InvocationMemoryState & InvocationMediationMemoryState;
 
@@ -579,6 +599,204 @@ async function harness(): Promise<Harness> {
     return { pipeline, transactions, authority, observed, observations, content };
 }
 
+class DeniedPermitExpectations implements AuthorityPermitExpectationFactory<
+    TransactionalSqlite,
+    MediationLeaseReference,
+    MediationAuthorityReference,
+    MediationDomainReference,
+    MediationPathEpochReference
+> {
+    public forClaim(
+        invocation: MediationPreparedInvocation,
+        claim: ItemClaim<MediationLeaseReference>
+    ): AuthorityPermitExpectation {
+        return permitExpectationFor(invocation, claim);
+    }
+
+    public forAdmission(): undefined {
+        return undefined;
+    }
+}
+
+class DeniedPermitRequests implements AuthorityCheckRequestFactory<
+    MediationLeaseReference,
+    MediationAuthorityReference,
+    MediationDomainReference,
+    MediationPathEpochReference
+> {
+    public forClaim(
+        invocation: MediationPreparedInvocation,
+        claim: ItemClaim<MediationLeaseReference>,
+        nonce: string
+    ): AuthorityCheckRequest {
+        const expected = permitExpectationFor(invocation, claim);
+        const binding = new Binding(
+            expected.pathEpochs.target.scope,
+            SubjectRef.principal(expected.principal),
+            expected.target.domain,
+            expected.binding.name,
+            new GrantId("pipeline-permit-grant"),
+            expected.facet,
+            expected.binding.generation.value,
+            "active",
+            expected.binding.generation
+        );
+        return new AuthorityCheckRequest({
+            ownerTenant: expected.tenant,
+            owner: expected.target.actor,
+            ownerFence: expected.target.fence,
+            principal: expected.principal,
+            binding,
+            intent: {
+                facet: expected.facet,
+                operation: expected.operation.operation.value,
+                impact: expected.impact,
+                arguments: permitArguments(invocation.item(claim.itemIndex).arguments),
+                argumentsDigest: expected.argumentsDigest
+            },
+            expectedPath: expected.pathEpochs,
+            invocationDigest: expected.intentDigest,
+            itemIndex: claim.itemIndex,
+            attemptOrdinal: claim.attemptOrdinal,
+            nonce
+        });
+    }
+}
+
+class DeniedPermitTransport extends AuthorityPermitIssuanceTransport {
+    public async issue(bytes: Uint8Array): Promise<Uint8Array> {
+        const request = AuthorityPermitIssuanceRequest.decode(bytes).targetRequest;
+        const evidence = new AuthorityCheckEvidence(
+            request.expectation.tenant,
+            request.expectation.issuer,
+            request.authority.digest(),
+            request.authority.binding.key,
+            request.authority.binding.generation,
+            "deny",
+            "stalePath",
+            [],
+            [],
+            request.authority.expectedPath,
+            new Date(2_000)
+        );
+        return AuthorityPermitIssuanceReply.encode(AuthorityPermitIssuanceReply.denied(evidence));
+    }
+}
+
+class MissingIssuedPermits extends AuthorityPermitIssuedRecordSource {
+    public async issued(): Promise<undefined> {
+        return undefined;
+    }
+}
+
+class RecordingSqliteInvalidations extends SqliteTargetResolutionInvalidationPort {
+    public calls = 0;
+
+    public invalidate(
+        transaction: TransactionalSqlite,
+        _expectation: AuthorityPermitExpectation
+    ): void {
+        transaction.all("SELECT 1", []);
+        this.calls += 1;
+    }
+}
+
+class SqlitePermitFinalAdmission implements CanonicalBatchFinalAdmissionPort<
+    TransactionalSqlite,
+    never,
+    MediationLeaseReference,
+    MediationAuthorityReference,
+    MediationDomainReference,
+    MediationPathEpochReference,
+    AuthorityPermitReference
+> {
+    public admit(): CanonicalBatchFinalAdmissionResult {
+        return { kind: "admitted" };
+    }
+}
+
+function permitExpectationFor(
+    invocation: MediationPreparedInvocation,
+    claim: ItemClaim<MediationLeaseReference>
+): AuthorityPermitExpectation {
+    const authority = invocation.header.authority;
+    const path = PathEpochEvidence.fromData({ path: [...invocation.header.pathEpochs.path] });
+    const permitPrincipal = new PrincipalRef(
+        new TenantId(authority.tenant),
+        new PrincipalId(authority.principal)
+    );
+    const packagePin = invocation.header.operation;
+    const claimOwner =
+        claim.owner.kind === "executor"
+            ? {
+                  kind: "executor" as const,
+                  token: leaseToken(claim.owner.token),
+                  worker: claim.owner.worker
+              }
+            : {
+                  kind: "system" as const,
+                  actor: claim.owner.actor,
+                  worker: claim.owner.worker
+              };
+    return new AuthorityPermitExpectation({
+        tenant,
+        issuer,
+        source: owner,
+        target: {
+            actor: owner,
+            fence: 0,
+            domain: new ProtectionDomain(
+                invocation.header.domain.kind,
+                invocation.header.domain.label,
+                invocation.header.domain.secretPolicy
+            )
+        },
+        principal: permitPrincipal,
+        binding: { name: new BindingName(authority.binding), generation: Revision.initial() },
+        facet: new FacetRef(invocation.header.operation.target),
+        operation: packagePin.operation,
+        package: new PackagePin(
+            packagePin.packageId,
+            packagePin.version,
+            packagePin.manifestDigest,
+            packagePin.runtimeDigest
+        ),
+        impact: packagePin.impact,
+        invocation: invocation.header.id,
+        reservation: {
+            run: runId,
+            registryEpoch: 0,
+            obligation: {
+                kind: "invocationItem",
+                invocation: invocation.header.id,
+                itemIndex: claim.itemIndex,
+                itemKey: invocation.item(claim.itemIndex).idempotencyKey
+            }
+        },
+        itemIndex: claim.itemIndex,
+        attemptOrdinal: claim.attemptOrdinal,
+        claim: claim.id,
+        claimOwner,
+        itemKey: invocation.item(claim.itemIndex).idempotencyKey,
+        argumentsDigest: Digest.sha256(
+            encodeCanonicalJson(invocation.item(claim.itemIndex).arguments)
+        ),
+        intentDigest: invocation.intentDigest,
+        pathEpochs: path,
+        authority: {
+            kind: authority.kind,
+            principal: permitPrincipal,
+            binding: new BindingName(authority.binding)
+        },
+        lease: claimOwner.kind === "executor" ? claimOwner.token : undefined
+    });
+}
+
+function permitArguments(value: JsonValue): Readonly<Record<string, JsonValue>> {
+    if (!isObjectRecord(value)) throw new TypeError("Expected permit argument object");
+    return value;
+}
+
 function invocationRequest(signal = new AbortController().signal, key = "pipeline-request") {
     return {
         turn: turn(),
@@ -591,6 +809,78 @@ function invocationRequest(signal = new AbortController().signal, key = "pipelin
 }
 
 describe("the published mediation composition root", () => {
+    it(
+        "assembles authenticated permit denial over one SQLite target aggregate",
+        { tags: "p0" },
+        async () => {
+            const database = new TestSqlite();
+            const invalidations = new RecordingSqliteInvalidations();
+            const aggregate = new SqliteTargetPermitMediationAggregate(
+                database,
+                tenant,
+                owner,
+                invalidations
+            );
+            const observed: Observed = {
+                signal: undefined,
+                content: undefined,
+                calls: 0,
+                stops: 0
+            };
+            let nonce: string | undefined;
+            const pipeline = await activateTargetPermitMediation({
+                aggregate,
+                scope: "sqlite-target-permit",
+                worker: new ClaimWorkerId("sqlite-target-worker"),
+                authority: new DemoAuthorityState(),
+                manifests: [manifest()],
+                roots: [new MemoryFacet(observed)],
+                activations,
+                expectations: new DeniedPermitExpectations(),
+                authorityRequests: new DeniedPermitRequests(),
+                issuanceTransport: new DeniedPermitTransport(),
+                authenticator: new AuthorityPermitAuthenticator(new MissingIssuedPermits()),
+                permitNonce: (_invocation, claim) => {
+                    nonce = claim.id.value;
+                    return claim.id.value;
+                },
+                permitLifetimeMilliseconds: 60_000,
+                finalAdmission: new SqlitePermitFinalAdmission(),
+                content: new MemoryContentStore(),
+                events: { publish: async () => undefined },
+                commits: { append: async () => undefined },
+                claimLifetimeMilliseconds: 60_000,
+                now: () => new Date(2_000)
+            });
+
+            await expect(pipeline.invocations.invoke(invocationRequest())).rejects.toMatchObject({
+                code: "authority.denied"
+            });
+            if (nonce === undefined) throw new TypeError("Expected target permit nonce");
+            const permitNonce = nonce;
+            const stored = aggregate.transact((transaction) => ({
+                attempts: transaction.all("SELECT id FROM invocation_effect_attempts", []),
+                audits: transaction.all("SELECT id FROM protocol_audit_records", []),
+                denial: aggregate.permitDenials.denied(transaction, permitNonce),
+                receipts: transaction.all("SELECT variant, outcome FROM invocation_receipts", []),
+                watermarks: transaction.all(
+                    "SELECT watermark_key FROM actor_invalidation_watermarks",
+                    []
+                )
+            }));
+
+            expect(stored.attempts).toEqual([]);
+            expect(stored.receipts).toEqual([{ variant: "preEffect", outcome: "deniedPreEffect" }]);
+            expect(stored.audits).toHaveLength(2);
+            expect(stored.denial?.request.nonce).toBe(permitNonce);
+            expect(stored.denial?.evidence.allowed).toBe(false);
+            expect(stored.watermarks).toHaveLength(1);
+            expect(invalidations.calls).toBe(1);
+            expect(observed.calls).toBe(0);
+            await pipeline.dispose();
+        }
+    );
+
     it("produces the whole §7 evidence chain for one mediated call", { tags: "p0" }, async () => {
         const value = await harness();
         const result = await value.pipeline.invocations.invoke(invocationRequest());

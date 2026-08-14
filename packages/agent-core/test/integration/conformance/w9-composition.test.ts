@@ -379,11 +379,9 @@ describe("W9 internal typed composition", () => {
                 expiresAt: new Date(20)
             });
             const store = new MemoryAuthorityPermitStore(expected.target.actor);
-            let denials = 0;
             const adapter = new ConsumedAuthorityAdmissionPort(
                 new StoredAuthorityPermitAdmissionPort(store),
                 new FixedExpectationFactory(expected),
-                { deny: () => (denials += 1) },
                 () => new Date(15)
             );
             const admission = new AuthorityAdmissionReference(permit.toData(), permit.digest());
@@ -392,7 +390,6 @@ describe("W9 internal typed composition", () => {
             expect(
                 store.transaction((transaction) => adapter.admits(transaction, admission, context))
             ).toBe(false);
-            expect(denials).toBe(1);
             expect(
                 store.transaction((transaction) => store.consumed(transaction, permit.nonce))
             ).toBeUndefined();
@@ -412,7 +409,6 @@ describe("W9 internal typed composition", () => {
                     );
                 })
             ).toBe(false);
-            expect(denials).toBe(2);
 
             const substituted = new AuthorityAdmissionReference(
                 permit.toData(),
@@ -423,7 +419,6 @@ describe("W9 internal typed composition", () => {
                     adapter.admits(transaction, substituted, context)
                 )
             ).toBe(false);
-            expect(denials).toBe(3);
         }
     );
 
@@ -450,11 +445,9 @@ describe("W9 internal typed composition", () => {
                     targetPermitRequest(expected, permit.nonce, permit.expiresAt)
                 )
             );
-            let denials = 0;
             const adapter = new ConsumedAuthorityAdmissionPort(
                 new StoredAuthorityPermitAdmissionPort(targetStore),
                 new FixedExpectationFactory(expected),
-                { deny: () => (denials += 1) },
                 () => new Date(15)
             );
             const admission = new AuthorityAdmissionReference(permit.toData(), permit.digest());
@@ -470,7 +463,6 @@ describe("W9 internal typed composition", () => {
                     adapter.admits(transaction, admission, context, authentication)
                 )
             ).toBe(false);
-            expect(denials).toBe(1);
             expect(
                 targetStore.transaction(
                     (transaction) => targetStore.consumed(transaction, permit.nonce)?.value
@@ -496,11 +488,9 @@ describe("W9 internal typed composition", () => {
             );
             const authentication = await authenticatePermit(issuerStore, permit, expected);
             const store = new MemoryAuthorityPermitStore(expected.target.actor);
-            let denials = 0;
             const adapter = new ConsumedAuthorityAdmissionPort(
                 new StoredAuthorityPermitAdmissionPort(store),
                 new FixedExpectationFactory(expected),
-                { deny: () => (denials += 1) },
                 () => new Date(20)
             );
             const admission = new AuthorityAdmissionReference(permit.toData(), permit.digest());
@@ -515,7 +505,6 @@ describe("W9 internal typed composition", () => {
                     )
                 )
             ).toBe(false);
-            expect(denials).toBe(1);
             expect(
                 store.transaction((transaction) => store.consumed(transaction, permit.nonce))
             ).toBeUndefined();
@@ -532,7 +521,7 @@ describe("W9 internal typed composition", () => {
             const issuerPort = new IssuedAuthorityPermitPort(
                 requestStore,
                 new FixedExpectationFactory(expected),
-                ignoredPermitDenial,
+                targetDenialPort(requestStore),
                 new FixedAuthorityRequestFactory(expected),
                 new MemoryPermitIssuanceTransport(store),
                 () => "w9-issued-port-nonce",
@@ -592,7 +581,6 @@ describe("W9 internal typed composition", () => {
             const targetAdmission = new ConsumedAuthorityAdmissionPort(
                 new StoredAuthorityPermitAdmissionPort(requestStore),
                 new FixedExpectationFactory(expected),
-                { deny: () => undefined },
                 () => new Date(15)
             );
             expect(
@@ -628,7 +616,7 @@ describe("W9 internal typed composition", () => {
             const replayPort = new IssuedAuthorityPermitPort(
                 replayStore,
                 new FixedExpectationFactory(expected),
-                ignoredPermitDenial,
+                targetDenialPort(replayStore),
                 new FixedAuthorityRequestFactory(expected),
                 responseLoss,
                 () => "w9-replayed-transport",
@@ -675,7 +663,7 @@ describe("W9 internal typed composition", () => {
                 const port = new IssuedAuthorityPermitPort(
                     targetStore,
                     new FixedExpectationFactory(expected),
-                    ignoredPermitDenial,
+                    targetDenialPort(targetStore),
                     new FixedAuthorityRequestFactory(expected),
                     new FixedPermitIssuanceTransport(failure.reply),
                     () => failure.nonce,
@@ -687,7 +675,7 @@ describe("W9 internal typed composition", () => {
                 if (failure.nonce === "w9-expired-transport") {
                     await expect(issuance).resolves.toEqual({ kind: "expired" });
                 } else {
-                    await expect(issuance).rejects.toMatchObject({ code: "authority.denied" });
+                    await expect(issuance).resolves.toMatchObject({ kind: "invalid" });
                 }
                 expect(
                     targetStore.transaction((transaction) =>
@@ -709,7 +697,7 @@ describe("W9 internal typed composition", () => {
             const port = new IssuedAuthorityPermitPort(
                 targetStore,
                 new FixedExpectationFactory(expected),
-                ignoredPermitDenial,
+                targetDenialPort(targetStore),
                 new FixedAuthorityRequestFactory(expected),
                 transport,
                 () => "w9-concurrent-reordered-transport",
@@ -763,7 +751,7 @@ describe("W9 internal typed composition", () => {
             const port = new IssuedAuthorityPermitPort(
                 targetStore,
                 expectations,
-                ignoredPermitDenial,
+                targetDenialPort(targetStore),
                 authority,
                 new FixedPermitIssuanceTransport((request) => permitReply(request, new Date(21))),
                 (_invocation, claim) => claim.id.value,
@@ -804,11 +792,9 @@ describe("W9 internal typed composition", () => {
         async () => {
             const expected = permitExpectation();
             const store = new MemoryAuthorityPermitStore(expected.target.actor);
-            let denials = 0;
             const malformedAdapter = new ConsumedAuthorityAdmissionPort(
                 new StoredAuthorityPermitAdmissionPort(store),
                 new FixedExpectationFactory(expected),
-                { deny: () => (denials += 1) },
                 () => new Date(15)
             );
             const malformedAdmission = new AuthorityAdmissionReference({}, expected.intentDigest);
@@ -822,7 +808,6 @@ describe("W9 internal typed composition", () => {
                     );
                 })
             ).toBe(false);
-            expect(denials).toBe(1);
 
             const permit = new AuthorityPermit({
                 ...expected,
@@ -841,7 +826,6 @@ describe("W9 internal typed composition", () => {
             const failingAdapter = new ConsumedAuthorityAdmissionPort(
                 new UnavailableAuthorityPermitAdmission(),
                 new FixedExpectationFactory(expected),
-                { deny: () => (denials += 1) },
                 () => new Date(15)
             );
             expect(() =>
@@ -854,14 +838,13 @@ describe("W9 internal typed composition", () => {
                     )
                 )
             ).toThrow("permit store unavailable");
-            expect(denials).toBe(1);
         }
     );
 
     test(
         "joins authenticated Tenant denial epochs and invalidates the exact target resolution idempotently",
         { tags: "p0" },
-        () => {
+        async () => {
             const expected = permitExpectation();
             const request = targetPermitRequest(expected, "w9-denied-permit", new Date(20));
             const currentPath = new PathEpochEvidence([
@@ -870,31 +853,72 @@ describe("W9 internal typed composition", () => {
             ]);
             const evidence = deniedPermitEvidence(request, currentPath, new Date(10));
             const watermarks = new MemoryInvalidationWatermarkStore(tenant, expected.target.actor);
-            const transaction = Object.freeze({ target: expected.target.actor.id.value });
             const invalidated: AuthorityPermitExpectation[] = [];
-            const denial = new TargetAuthorityPermitDenialPort(tenant, expected.target.actor, {
-                watermarks: (received) => {
-                    expect(received).toBe(transaction);
-                    return watermarks;
-                },
-                invalidateResolution: (received, expectation) => {
-                    expect(received).toBe(transaction);
-                    invalidated.push(expectation);
+            const targetStore = new MemoryAuthorityPermitStore(expected.target.actor);
+            let activeTransaction: MemoryAuthorityPermitTransaction | undefined;
+            const denial = new TargetAuthorityPermitDenialPort(
+                tenant,
+                expected.target.actor,
+                targetStore,
+                {
+                    joinDeniedEpochs: (received, holder, entries) => {
+                        expect(received).toBe(activeTransaction);
+                        const empty = InvalidationWatermark.empty(
+                            tenant,
+                            expected.target.actor,
+                            holder
+                        );
+                        const key = watermarkKey(empty);
+                        if (watermarks.load(key) === undefined) watermarks.save(empty);
+                        watermarks.join(key, entries);
+                    },
+                    invalidateResolution: (received, expectation) => {
+                        expect(received).toBe(activeTransaction);
+                        invalidated.push(expectation);
+                    }
                 }
-            });
+            );
+            const port = new IssuedAuthorityPermitPort(
+                targetStore,
+                new FixedExpectationFactory(expected),
+                denial,
+                new FixedAuthorityRequestFactory(expected),
+                new FixedPermitIssuanceTransport(() =>
+                    AuthorityPermitIssuanceReply.denied(evidence)
+                ),
+                () => request.nonce,
+                () => new Date(10),
+                10
+            );
+            const inputs = permitClaimInputs(expected);
+            const result = await port.issue(inputs.invocation, inputs.claim);
+            if (result.kind !== "denied") throw new TypeError("Expected denied permit issuance");
 
-            denial.deny(transaction, expected, evidence);
+            targetStore.transaction((transaction) => {
+                activeTransaction = transaction;
+                port.deny(transaction, inputs.invocation, inputs.claim, result.denial);
+                activeTransaction = undefined;
+            });
             const key = watermarkKey(
                 InvalidationWatermark.empty(tenant, expected.target.actor, expected.principal)
             );
             const first = watermarks.load(key);
-            denial.deny(transaction, expected, evidence);
+            targetStore.transaction((transaction) => {
+                activeTransaction = transaction;
+                port.deny(transaction, inputs.invocation, inputs.claim, result.denial);
+                activeTransaction = undefined;
+            });
             const second = watermarks.load(key);
 
             expect(first?.epoch(scope)).toBe(1);
             expect(second?.revision.value).toBe(first?.revision.value);
             expect(invalidated).toHaveLength(2);
             expect(invalidated.every((value) => value.equals(expected))).toBe(true);
+            expect(
+                targetStore.transaction(
+                    (transaction) => targetStore.denied(transaction, request.nonce)?.digest().value
+                )
+            ).toBeDefined();
         }
     );
 
@@ -908,7 +932,7 @@ describe("W9 internal typed composition", () => {
                 new IssuedAuthorityPermitPort(
                     targetStore,
                     new FixedExpectationFactory(expected),
-                    ignoredPermitDenial,
+                    targetDenialPort(targetStore),
                     new FixedAuthorityRequestFactory(expected),
                     new MemoryPermitIssuanceTransport(issuerStore),
                     () => "unused-nonce",
@@ -1526,9 +1550,20 @@ function permitReply(
     );
 }
 
-const ignoredPermitDenial = Object.freeze({
-    deny: () => {}
-});
+function targetDenialPort(
+    store: MemoryAuthorityPermitStore
+): TargetAuthorityPermitDenialPort<MemoryAuthorityPermitTransaction> {
+    const watermarks = new MemoryInvalidationWatermarkStore(tenant, store.owner);
+    return new TargetAuthorityPermitDenialPort(tenant, store.owner, store, {
+        joinDeniedEpochs: (_transaction, holder, entries) => {
+            const empty = InvalidationWatermark.empty(tenant, store.owner, holder);
+            const key = watermarkKey(empty);
+            if (watermarks.load(key) === undefined) watermarks.save(empty);
+            watermarks.join(key, entries);
+        },
+        invalidateResolution: () => undefined
+    });
+}
 
 function allowedPermitEvidence(
     request: TargetAuthorityPermitRequest,
