@@ -327,7 +327,7 @@ describe("Slate wire codec evidence", () => {
 
 describe("Slate effect identity to deployment backend", () => {
     test(
-        "[P11-SLATE-DISPATCH] delivers the canonical effect identity derived from the context to deploy",
+        "[C13-EFFECT-IDEMPOTENCY] delivers the canonical effect identity derived from the context to deploy",
         { tags: "p0" },
         async () => {
             const { runtime, admission } = recordingRuntime("slate-dispatch");
@@ -354,7 +354,7 @@ describe("Slate effect identity to deployment backend", () => {
     );
 
     test(
-        "[P11-SLATE-CRASH-RETRY] a crash-after-send deploy retry reuses the key so the provider dedups instead of redeploying",
+        "[C13-EFFECT-IDEMPOTENCY] a crash-after-send deploy retry reuses the key so the provider dedups instead of redeploying",
         { tags: "p0" },
         async () => {
             const backend = new DedupSlateBackend();

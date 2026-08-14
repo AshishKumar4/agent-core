@@ -1,12 +1,4 @@
 {
   "edition": "1.0.0",
-  "dispositions": [
-    {
-      "disposition": "exempt",
-      "excerpt": "A Turn MAY carry an advisory `cacheLineage` hint identifying the Turn and prompt prefix it…",
-      "reason": "The document denies this field correctness semantics in the same breath it introduces it — `Purely advisory; no correctness semantics.` — so there is no behaviour a conformance atom could require. The MAY is a permission over an optional hint, and the cost figure is rationale for why the hint gets a field at all. If a later edition gives `cacheLineage` any effect on a Turn, this digest stops matching and the exemption reopens.",
-      "section": "5.5",
-      "sha256": "sha256:36f96e9e8d2594b42cb6bf2e86f8beb54110005c518f8132b6b61409d84fac94"
-    }
-  ]
+  "dispositions": []
 }

@@ -109,7 +109,7 @@ describe("Web protected facade", () => {
     );
 
     test(
-        "[P11-WEB-DISPATCH] delivers the canonical effect identity derived from the mediated context to transport",
+        "[C13-EFFECT-IDEMPOTENCY] delivers the canonical effect identity derived from the mediated context to transport",
         { tags: "p0" },
         async () => {
             const dispatched: EffectDispatch[] = [];
@@ -138,7 +138,7 @@ describe("Web protected facade", () => {
     );
 
     test(
-        "[P11-WEB-CRASH-RETRY] a crash-after-send retry reuses the idempotency key so the provider dedups instead of re-sending",
+        "[C13-EFFECT-IDEMPOTENCY] a crash-after-send retry reuses the idempotency key so the provider dedups instead of re-sending",
         { tags: "p0" },
         async () => {
             const transport = new DedupWebTransport();

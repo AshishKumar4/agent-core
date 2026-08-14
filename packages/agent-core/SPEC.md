@@ -1422,7 +1422,7 @@ maps to **C13-RUN-CHECKPOINT-KINDS**.
 
 ### 5.5 Cache lineage
 
-A Turn MAY carry an advisory `cacheLineage` hint identifying the Turn and prompt
+A Turn may carry an advisory `cacheLineage` hint identifying the Turn and prompt
 prefix it descends from, so executors can preserve provider-side prefix caches across
 forked or parallel attempts. Purely advisory; no correctness semantics. Systems that
 exploit prefix-cache sharing across forks have measured roughly a quarter of inference
@@ -1463,16 +1463,22 @@ is the non-blocking shape — a parent spawns, ends its Turn, and reads the answ
 history instead of holding its context open to wait. This maps to
 **C13-TURN-ADMISSION-HANDLE**.
 
-The Turn lifecycle above is closed. There is no normative `retryTurn` transition and a
-failed or cancelled Turn is never resurrected. A product may request another execution
-through ordinary Run/Turn admission, but no retry linkage or inherited authority is
-created by this specification. Conforming runtime, protocol command, package export,
-and record registries MUST contain no Turn-retry operation, command family, public
-symbol, durable record, or migration/upcast that can recreate it. A later integration that
-finds such an extension surface deletes it rather than adapting it. This maps to
-**C13-TURN-NO-RETRY**, **C13-TURN-NO-RETRY-RUNTIME**,
-**C13-TURN-NO-RETRY-PROTOCOL**, **C13-TURN-NO-RETRY-EXPORT**, and
-**C13-TURN-NO-RETRY-RECORD**.
+The Turn lifecycle above is closed. There is no normative `retryTurn` transition, a failed
+or cancelled Turn is never resurrected, and ordinary admission of another Turn creates no
+retry linkage or inherited authority. This maps to **C13-TURN-NO-RETRY**.
+
+The runtime MUST contain no Turn-retry operation that can recreate a terminal Turn. This
+maps to **C13-TURN-NO-RETRY-RUNTIME**.
+
+The command protocol MUST contain no Turn-retry command family. This maps to
+**C13-TURN-NO-RETRY-PROTOCOL**.
+
+The supported package surface MUST expose no Turn-retry symbol. This maps to
+**C13-TURN-NO-RETRY-EXPORT**.
+
+The durable record and migration registries MUST contain no Turn-retry record or upcast. A
+later integration that finds such a pre-public extension deletes it rather than adapting
+it. This maps to **C13-TURN-NO-RETRY-RECORD**.
 
 ---
 

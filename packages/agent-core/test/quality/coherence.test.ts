@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -28,7 +29,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         );
 
         expect(result.status, result.stderr).toBe(0);
-        expect(result.stdout).toContain("coherence incomplete");
+        expect(result.stdout).toContain("coherence complete: 0 issue(s), 0 resolved");
     });
 
     test("binds bracketed atom labels in test titles and nowhere else", async () => {
@@ -53,7 +54,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
             }
         });
         const boundResult = run(bound);
-        expect(boundResult.stderr).toContain("COH-SHARED-BLOCK");
+        expect(boundResult.status, boundResult.stderr).toBe(0);
         expect(boundResult.stderr).not.toContain("COH-TEST-LABEL");
     });
 
@@ -104,13 +105,13 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
             )
         });
         const boundResult = run(bound);
-        expect(boundResult.stderr).toContain("COH-SECTION-NO-ATOM");
+        expect(boundResult.status, boundResult.stderr).toBe(0);
         expect(boundResult.stderr).not.toContain("§6.4");
         expect(boundResult.stderr).not.toContain("Normative §5.2 carries no conformance atom");
     });
 
     test("reports one prose block hashed into more atoms than the bound allows", async () => {
-        const root = await fixture({});
+        const root = await fixture({ spec: combineTurnRetryRules(original) });
         const bounded = run(root);
         expect(bounded.status).toBe(1);
         expect(bounded.stderr).toContain(
@@ -118,7 +119,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         );
 
         const relaxed = run(root, ["--max-shared-atoms", "20"]);
-        expect(relaxed.stderr).toContain("COH-SECTION-NO-ATOM");
+        expect(relaxed.status, relaxed.stderr).toBe(0);
         expect(relaxed.stderr).not.toContain("COH-SHARED-BLOCK");
     });
 
@@ -129,7 +130,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         expect(danglingResult.stderr).toContain("Cross-reference §8.9 resolves to no §8.9 heading");
 
         const resolved = run(await fixture({}));
-        expect(resolved.stderr).toContain("COH-SHARED-BLOCK");
+        expect(resolved.status, resolved.stderr).toBe(0);
         expect(resolved.stderr).not.toContain("COH-XREF");
     });
 
@@ -156,7 +157,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         );
 
         const agreed = run(await fixture({}));
-        expect(agreed.stderr).toContain("COH-SHARED-BLOCK");
+        expect(agreed.status, agreed.stderr).toBe(0);
         expect(agreed.stderr).not.toContain("COH-ATOM-UNBOUND");
     });
 
@@ -178,10 +179,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
             )
         });
         const anchoredResult = run(anchored);
-        expect(anchoredResult.status).toBe(1);
-        // The checker still reached its findings report; the anchored clause is simply
-        // no longer one of them.
-        expect(anchoredResult.stderr).toContain("COH-SHARED-BLOCK");
+        expect(anchoredResult.status, anchoredResult.stderr).toBe(0);
         expect(anchoredResult.stderr).not.toContain("§6.4");
     });
 
@@ -240,8 +238,10 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
     });
 
     test("reopens a disposition when the prose it judged changes", async () => {
+        const normative = original.replace("A Turn may carry", "A Turn MAY carry");
         const reworded = await fixture({
-            spec: original.replace("Purely advisory; no correctness semantics.", "It binds.")
+            spec: normative.replace("Purely advisory; no correctness semantics.", "It binds."),
+            coverage: cacheLineageDisposition
         });
         const rewordedResult = run(reworded);
         expect(rewordedResult.status).toBe(1);
@@ -270,18 +270,54 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
             )
         });
         const narrowedResult = run(narrowed);
-        expect(narrowedResult.status).toBe(1);
+        expect(narrowedResult.status, narrowedResult.stderr).toBe(0);
         expect(narrowedResult.stderr).not.toContain("Every fixture profile obligation MUST hold.");
 
+        const optional = original.replace(
+            "![Cloudflare topology](diagrams/cloudflare.svg)",
+            "A fixture profile MAY omit nothing.\n\n![Cloudflare topology](diagrams/cloudflare.svg)"
+        );
+        expect(run(await fixture({ spec: optional })).stderr).toContain(
+            "A fixture profile MAY omit nothing."
+        );
         const renamed = await fixture({
-            spec: original.replace(
+            spec: optional.replace(
                 "MUST, SHOULD, and MAY are RFC 2119 keywords.",
                 "MUST and SHOULD are RFC 2119 keywords."
             )
         });
-        expect(run(renamed).stderr).toContain("Normative disposition matches no §5.5 unit");
+        const renamedResult = run(renamed);
+        expect(renamedResult.status, renamedResult.stderr).toBe(0);
+        expect(renamedResult.stderr).not.toContain("A fixture profile MAY omit nothing.");
     });
 });
+
+const cacheLineageDisposition = JSON.stringify({
+    edition: "1.0.0",
+    dispositions: [
+        {
+            disposition: "exempt",
+            excerpt:
+                "A Turn MAY carry an advisory `cacheLineage` hint identifying the Turn and prompt prefix it…",
+            reason: "The field is expressly advisory and has no correctness semantics.",
+            section: "5.5",
+            sha256: "sha256:36f96e9e8d2594b42cb6bf2e86f8beb54110005c518f8132b6b61409d84fac94"
+        }
+    ]
+});
+
+function combineTurnRetryRules(spec: string): string {
+    const start = spec.indexOf("The Turn lifecycle above is closed.");
+    const end = spec.indexOf("\n\n---", start);
+    if (start < 0 || end < 0) throw new TypeError("Turn retry rules are missing from the fixture");
+    const combined = [
+        "The Turn lifecycle and every integration surface MUST contain no Turn retry:",
+        "**C13-TURN-NO-RETRY**, **C13-TURN-NO-RETRY-RUNTIME**",
+        "**C13-TURN-NO-RETRY-PROTOCOL**, **C13-TURN-NO-RETRY-EXPORT**, and",
+        "**C13-TURN-NO-RETRY-RECORD**."
+    ].join("\n");
+    return `${spec.slice(0, start)}${combined}${spec.slice(end)}`;
+}
 
 /** A §6.4 that §7 does not yet occupy, so the fixture adds prose without moving any atom. */
 function insertSection(spec: string, body: string): string {
@@ -294,11 +330,13 @@ function insertSection(spec: string, body: string): string {
 async function fixture({
     spec,
     tests = {},
-    baseline = '{\n  "edition": "1.0.0",\n  "issues": []\n}\n'
+    baseline = '{\n  "edition": "1.0.0",\n  "issues": []\n}\n',
+    coverage
 }: {
     spec?: string;
     tests?: Record<string, string>;
     baseline?: string;
+    coverage?: string;
 }): Promise<string> {
     const root = await mkdtemp(resolve(tmpdir(), "agent-core-coherence-"));
     temporary.push(root);
@@ -308,6 +346,7 @@ async function fixture({
         await writeFile(resolve(root, "test", name), source, "utf8");
     }
     await writeFile(resolve(root, "baseline.json"), baseline, "utf8");
+    if (coverage !== undefined) await writeFile(resolve(root, "coverage.json"), coverage, "utf8");
     return root;
 }
 
@@ -324,8 +363,14 @@ function run(root: string, extra: string[] = []): ReturnType<typeof runQualitySu
             resolve(root, "SPEC.md"),
             "--baseline",
             resolve(root, "baseline.json"),
+            ...(extraCoverage(root) ?? []),
             ...extra
         ],
         packageRoot
     );
+}
+
+function extraCoverage(root: string): string[] | undefined {
+    const coverage = resolve(root, "coverage.json");
+    return existsSync(coverage) ? ["--normative-coverage", coverage] : undefined;
 }

@@ -429,7 +429,7 @@ describe("Device transport admission and declarations", () => {
 
 describe("Device effect identity to reverse transport", () => {
     test(
-        "[P11-DEVICE-DISPATCH] delivers the canonical effect identity derived from the context",
+        "[C13-EFFECT-IDEMPOTENCY] delivers the canonical effect identity derived from the context",
         { tags: "p0" },
         async () => {
             const agent = principal("dispatch-agent");
@@ -461,7 +461,7 @@ describe("Device effect identity to reverse transport", () => {
     );
 
     test(
-        "[P11-DEVICE-CRASH-RETRY] a crash-after-send retry reuses the key so the provider dedups instead of re-delivering",
+        "[C13-EFFECT-IDEMPOTENCY] a crash-after-send retry reuses the key so the provider dedups instead of re-delivering",
         { tags: "p0" },
         async () => {
             const agent = principal("crash-agent");

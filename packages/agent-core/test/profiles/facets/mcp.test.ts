@@ -776,7 +776,7 @@ describe("MCP wire codecs and error identity", () => {
 
 describe("MCP effect identity to server backend", () => {
     test(
-        "[P11-MCP-DISPATCH] delivers the canonical effect identity derived from the context",
+        "[C13-EFFECT-IDEMPOTENCY] delivers the canonical effect identity derived from the context",
         { tags: "p0" },
         async () => {
             const server = new TestMcpServer();
@@ -805,7 +805,7 @@ describe("MCP effect identity to server backend", () => {
     );
 
     test(
-        "[P11-MCP-CRASH-RETRY] a crash-after-send retry reuses the key so the provider dedups instead of re-invoking",
+        "[C13-EFFECT-IDEMPOTENCY] a crash-after-send retry reuses the key so the provider dedups instead of re-invoking",
         { tags: "p0" },
         async () => {
             const server = new DedupMcpServer();
