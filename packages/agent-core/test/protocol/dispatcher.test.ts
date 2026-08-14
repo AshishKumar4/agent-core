@@ -474,14 +474,6 @@ test("a write-kind caller cause is rejected before mutation", { tags: "p1" }, as
     expect(harness.snapshot().value).toBe(1);
 });
 
-test("optional revision commands admit a supplied matching revision", { tags: "p0" }, async () => {
-    const optional = new CounterHarness({ expectedRevision: "optional" });
-
-    expect(
-        (await optional.dispatch(optional.envelope({ key: "optional-present" }))).outcome
-    ).toBe("committed");
-});
-
 test("rejects an envelope beyond the configured byte limit", { tags: "p0" }, async () => {
     const harness = new CounterHarness({ limits: { envelopeBytes: 32, payloadBytes: 1024 } });
 

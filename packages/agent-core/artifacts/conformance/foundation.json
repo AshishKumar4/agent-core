@@ -117,14 +117,19 @@
       "owner": "W1",
       "specAnchor": "C13-PROTOCOL-FAMILY-ENVELOPE-POLICY",
       "specTextSha256": "sha256:1929b3fb8f586076fa7c6c5d8d6abc34ce6d910f1588e738c0989e5aa6c942c1",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "src/protocol/registration.ts declares the per-family `required | optional | forbidden` field policy and src/protocol/dispatcher.ts enforces it, splitting `rejectedMalformed` from `rejectedLease`; W1 must cite those symbols and add a test titled with [C13-PROTOCOL-FAMILY-ENVELOPE-POLICY] covering all three policy values for both `expectedRevision` and the LeaseToken before this atom leaves planned"
-      ]
+      "sourceSymbols": [
+        "src/protocol/registration.ts#ExpectedRevisionPolicy",
+        "src/protocol/registration.ts#LeaseTokenPolicy",
+        "src/protocol/dispatcher.ts#CommandDispatcher"
+      ],
+      "testSelectors": [
+        "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-PROTOCOL-FAMILY-ENVELOPE-POLICY] enforces every revision and lease field policy",
+        "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) [C13-PROTOCOL-FAMILY-ENVELOPE-POLICY] enforces every revision and lease field policy"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-PROTOCOL-OUTCOMES",

@@ -877,40 +877,74 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             ).toBe("rejectedLease");
         });
 
-        test("admits absent optional revisions and enforces forbidden revisions", { tags: "p0" }, async () => {
-            const optional = create({ expectedRevision: "optional" });
-            expect(
-                (
-                    await optional.dispatch(
-                        optional.envelope({
-                            key: "optional-revision",
-                            omitRevision: true
-                        })
-                    )
-                ).outcome
-            ).toBe("committed");
+        test(
+            "[C13-PROTOCOL-FAMILY-ENVELOPE-POLICY] enforces every revision and lease field policy",
+            { tags: "p0" },
+            async () => {
+                const revisionCases = [
+                    {
+                        policy: "required",
+                        absent: "rejectedMalformed",
+                        present: "committed"
+                    },
+                    { policy: "optional", absent: "committed", present: "committed" },
+                    {
+                        policy: "forbidden",
+                        absent: "committed",
+                        present: "rejectedMalformed"
+                    }
+                ] as const;
+                for (const expectation of revisionCases) {
+                    const absent = create({ expectedRevision: expectation.policy });
+                    const present = create({ expectedRevision: expectation.policy });
+                    expect(
+                        (
+                            await absent.dispatch(
+                                absent.envelope({
+                                    key: `revision-${expectation.policy}-absent`,
+                                    omitRevision: true
+                                })
+                            )
+                        ).outcome
+                    ).toBe(expectation.absent);
+                    expect(
+                        (
+                            await present.dispatch(
+                                present.envelope({ key: `revision-${expectation.policy}-present` })
+                            )
+                        ).outcome
+                    ).toBe(expectation.present);
+                }
 
-            const forbidden = create({ expectedRevision: "forbidden" });
-            expect(
-                (
-                    await forbidden.dispatch(
-                        forbidden.envelope({
-                            key: "forbidden-revision-absent",
-                            omitRevision: true
-                        })
-                    )
-                ).outcome
-            ).toBe("committed");
-            expect(
-                (
-                    await forbidden.dispatch(
-                        forbidden.envelope({
-                            key: "forbidden-revision-present"
-                        })
-                    )
-                ).outcome
-            ).toBe("rejectedMalformed");
-        });
+                const leaseCases = [
+                    { policy: "required", absent: "rejectedLease", present: "committed" },
+                    { policy: "optional", absent: "committed", present: "committed" },
+                    { policy: "forbidden", absent: "committed", present: "rejectedLease" }
+                ] as const;
+                for (const expectation of leaseCases) {
+                    const absent = create({ lease: expectation.policy });
+                    const present = create({ lease: expectation.policy });
+                    const token = present.setLease();
+                    expect(
+                        (
+                            await absent.dispatch(
+                                absent.envelope({ key: `lease-${expectation.policy}-absent` })
+                            )
+                        ).outcome
+                    ).toBe(expectation.absent);
+                    expect(
+                        (
+                            await present.dispatch(
+                                present.envelope({
+                                    key: `lease-${expectation.policy}-present`,
+                                    lease: token
+                                })
+                            )
+                        ).outcome
+                    ).toBe(expectation.present);
+                }
+            }
+        );
 
         test.each<readonly [string, (token: LeaseToken) => LeaseToken | undefined]>([
             ["missing", () => undefined],
@@ -979,18 +1013,12 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             }
         );
 
-        test("rejects expired and forbidden lease tokens", { tags: "p0" }, async () => {
+        test("rejects expired required lease tokens", { tags: "p0" }, async () => {
             const required = create({ lease: "required" });
             const expired = required.setLease({ expiresAt: new Date("2026-07-07T11:59:59.000Z") });
             expect((await required.dispatch(required.envelope({ lease: expired }))).outcome).toBe(
                 "rejectedLease"
             );
-
-            const forbidden = create({ lease: "forbidden" });
-            const supplied = forbidden.setLease();
-            expect(
-                (await forbidden.dispatch(forbidden.envelope({ lease: supplied }))).outcome
-            ).toBe("rejectedLease");
         });
     });
 }
