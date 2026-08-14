@@ -49,6 +49,7 @@ export type { EnforcementTier, Impact } from "./contribution";
 export { SlotAuthorityPolicy, SlotDeclaration } from "./slot";
 export { SlotEntry } from "./slot-entry";
 export { WorkspaceSlotStore } from "./slot-store";
+export { MemoryWorkspaceSlotStore } from "./slot-memory";
 export {
     EventDeclaration,
     EventPattern,

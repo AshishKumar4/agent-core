@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../../src/actors";
 import {
     AuthorityPermit,
+    AuthorityPermitAdmissionPort,
     AuthorityPermitAuthenticator,
     AuthorityPermitIssuer,
     AuthorityPermitExpectation,
@@ -13,6 +14,7 @@ import {
     MemoryAuthorityPermitStore,
     PathEpochEvidence,
     ScopeEpoch,
+    type MemoryAuthorityPermitTransaction,
     StoredAuthorityPermitAdmissionPort
 } from "../../../src/authority";
 import {
@@ -31,7 +33,7 @@ import {
     type OperationAuthorityStatePort,
     type OperationResolutionCandidate
 } from "../../../src/composition";
-import { Digest, JsonSchema, Revision, SemVer } from "../../../src/core";
+import { ContentRef, Digest, JsonSchema, Revision, SemVer } from "../../../src/core";
 import { MemoryContentStore } from "../../../src/content";
 import {
     PackageId,
@@ -46,13 +48,21 @@ import {
 import {
     BindingName,
     CapabilitySpec,
+    type EventDeclaration,
+    type FacetData,
     FacetRef,
+    InterceptorDeclaration,
+    InterceptorId,
+    MemoryWorkspaceSlotStore,
     Operation,
     OperationDescriptor,
     OperationName,
     OperationRef,
+    type ProfileControlAdmission,
+    ProfileRuntimeEffectsPort,
     ProfileRuntimeHostBinding,
     ProtectionDomain,
+    type SurfaceDescriptor,
     type OperationContext,
     type ProtectedOperationRequest
 } from "../../../src/facets";
@@ -79,6 +89,7 @@ import {
     InvocationProtectedOperationPort,
     InvocationPlacementPin,
     InvocationPublicationOutbox,
+    ItemClaim,
     MemoryInvocationMediationPersistence,
     cloneInvocationMediationMemoryState,
     createInvocationMediationMemoryState,
@@ -94,7 +105,7 @@ import {
     RouteReservationId
 } from "../../../src/interaction-references";
 import { OperationRequestKey } from "../../../src/operations";
-import { AuthorityPermitIssuanceReply } from "../../../src/protocol";
+import { AuthorityPermitIssuanceReply, CommandEnvelope } from "../../../src/protocol";
 import {
     MemoryRunStorage,
     RunAdmissionRegistry,
@@ -107,6 +118,7 @@ import {
 } from "../../../src/agents";
 import * as packageRoot from "../../../src/index";
 import { WorkspaceId as RoutedWorkspaceId } from "../../../src/workspaces";
+import { prepared as preparedInvocation } from "../../invocations/fixture";
 
 const tenant = new TenantId("w9-tenant");
 const principal = new PrincipalRef(tenant, new PrincipalId("w9-principal"));
@@ -192,12 +204,18 @@ describe("W9 internal typed composition", () => {
             expect(authority.replayBinding(intent, descriptor).execution.kind).toBe("lease");
 
             const routedAuthority = operationAuthority(state, {
-                resolve: (caller) => ({
-                    ...state.resolve(caller)!,
-                    lease: undefined,
-                    originalLease: undefined,
-                    route: new RouteReservationId("w9-replay-route")
-                })
+                resolve: (caller) => {
+                    const candidate = state.resolve(caller);
+                    if (candidate === undefined) {
+                        throw new TypeError("Expected the W9 authority fixture to resolve");
+                    }
+                    return {
+                        ...candidate,
+                        lease: undefined,
+                        originalLease: undefined,
+                        route: new RouteReservationId("w9-replay-route")
+                    };
+                }
             });
             const routed = await routedAuthority.resolve(principal, bindingName);
             const routedIntent = await routedAuthority.authorizeMediated(
@@ -217,11 +235,16 @@ describe("W9 internal typed composition", () => {
                 undefined,
                 true
             );
+            const interceptor = new InterceptorDeclaration(
+                new InterceptorId("w9-interceptor"),
+                "operation.before",
+                0
+            );
             expect(
                 authority.allowsInterception(
                     resolved.resolution,
                     facet,
-                    {} as never,
+                    interceptor,
                     facet,
                     interceptable
                 )
@@ -230,7 +253,7 @@ describe("W9 internal typed composition", () => {
                 authority.allowsInterception(
                     resolved.resolution,
                     facet,
-                    {} as never,
+                    interceptor,
                     new FacetRef("workspace:substituted"),
                     interceptable
                 )
@@ -250,7 +273,7 @@ describe("W9 internal typed composition", () => {
                 operationAuthority(state, { admitsInterception: () => false }).allowsInterception(
                     resolved.resolution,
                     facet,
-                    {} as never,
+                    interceptor,
                     facet,
                     interceptable
                 )
@@ -279,8 +302,12 @@ describe("W9 internal typed composition", () => {
                 valid.lease.epoch,
                 valid.originalLease.expiresAt
             );
+            const candidate = state.resolve(principal);
+            if (candidate === undefined) {
+                throw new TypeError("Expected the W9 authority fixture to resolve");
+            }
             const substituted: OperationResolutionCandidate = {
-                ...state.resolve(principal)!,
+                ...candidate,
                 lease: {
                     turn: valid.lease.turn,
                     holder: foreignHolder,
@@ -345,13 +372,19 @@ describe("W9 internal typed composition", () => {
                 store.transaction((transaction) => store.consumed(transaction, permit.nonce))
             ).toBeUndefined();
 
-            const fabricatedAuthentication = Object.create(
-                AuthenticatedAuthorityPermit.prototype
-            ) as AuthenticatedAuthorityPermit;
+            const fabricatedAuthentication: {
+                readonly matches: AuthenticatedAuthorityPermit["matches"];
+            } = Object.create(AuthenticatedAuthorityPermit.prototype);
             expect(
-                store.transaction((transaction) =>
-                    adapter.admits(transaction, admission, context, fabricatedAuthentication)
-                )
+                store.transaction((transaction) => {
+                    return adapter.admits(
+                        transaction,
+                        admission,
+                        context,
+                        // @ts-expect-error A prototype-only object must be rejected at runtime.
+                        fabricatedAuthentication
+                    );
+                })
             ).toBe(false);
             expect(denials).toBe(2);
 
@@ -471,8 +504,9 @@ describe("W9 internal typed composition", () => {
                 () => new Date(10),
                 10
             );
+            const inputs = permitClaimInputs(expected);
 
-            const admission = await issuerPort.issue({} as never, {} as never);
+            const admission = await issuerPort.issue(inputs.invocation, inputs.claim);
 
             expect(Reflect.ownKeys(admission).sort()).toEqual(["digest", "reference"]);
             expect("authentication" in admission).toBe(false);
@@ -492,8 +526,8 @@ describe("W9 internal typed composition", () => {
                 new FixedExpectationFactory(expected)
             );
             const firstAuthentication = await firstTargetAuthentication.authenticate(
-                {} as never,
-                {} as never,
+                inputs.invocation,
+                inputs.claim,
                 transportedAdmission
             );
             const restartedSource = new MemoryIssuedRecordSource(store);
@@ -502,8 +536,8 @@ describe("W9 internal typed composition", () => {
                 new FixedExpectationFactory(expected)
             );
             const restartedAuthentication = await restartedTargetAuthentication.authenticate(
-                {} as never,
-                {} as never,
+                inputs.invocation,
+                inputs.claim,
                 transportedAdmission
             );
             expect(restartedAuthentication).not.toBe(firstAuthentication);
@@ -551,15 +585,16 @@ describe("W9 internal typed composition", () => {
                 { deny: () => (denials += 1) },
                 () => new Date(15)
             );
+            const malformedAdmission = new AuthorityAdmissionReference({}, expected.intentDigest);
 
             expect(
-                store.transaction((transaction) =>
-                    malformedAdapter.admits(
+                store.transaction((transaction) => {
+                    return malformedAdapter.admits(
                         transaction,
-                        new AuthorityAdmissionReference({} as never, expected.intentDigest),
+                        malformedAdmission,
                         admissionContext(expected)
-                    )
-                )
+                    );
+                })
             ).toBe(false);
             expect(denials).toBe(1);
 
@@ -573,11 +608,7 @@ describe("W9 internal typed composition", () => {
             issuerStore.transaction((transaction) => issuerStore.issue(transaction, permit));
             const authentication = await authenticatePermit(issuerStore, permit, expected);
             const failingAdapter = new ConsumedAuthorityAdmissionPort(
-                {
-                    consume: () => {
-                        throw new TypeError("permit store unavailable");
-                    }
-                } as never,
+                new UnavailableAuthorityPermitAdmission(),
                 new FixedExpectationFactory(expected),
                 { deny: () => (denials += 1) },
                 () => new Date(15)
@@ -617,25 +648,51 @@ describe("W9 internal typed composition", () => {
         "delegates installation provenance and creates a protected profile runtime",
         { tags: "p1" },
         () => {
-            const provenance = new (class extends PackageInstallationProvenancePort<
-                object,
-                object
-            > {
-                protected authenticatedInstallation(): undefined {
-                    return undefined;
-                }
-            })();
-            const slots = new ProvenanceFacetSlotBackend(
-                {} as never,
-                provenance,
-                {} as never,
-                {} as never
-            );
+            const slotStore = new MemoryWorkspaceSlotStore(new WorkspaceId("w9-slot-workspace"));
+            const envelopeDigest = new Digest("9".repeat(64));
+            const envelope = new CommandEnvelope({
+                command: "facets.contribute",
+                caller: { kind: "principal", principal },
+                idempotencyKey: "w9-slot-contribution",
+                payload: ContentRef.fromDigest(envelopeDigest),
+                payloadDigest: envelopeDigest
+            });
+            slotStore.transaction((transaction) => {
+                const provenance = new (class extends PackageInstallationProvenancePort<
+                    typeof transaction,
+                    CommandEnvelope
+                > {
+                    protected authenticatedInstallation(): undefined {
+                        return undefined;
+                    }
+                })();
+                const slots = new ProvenanceFacetSlotBackend(
+                    slotStore,
+                    provenance,
+                    {
+                        permitsInstall: () => true,
+                        permitsContribution: () => true
+                    },
+                    {
+                        revision: (read) => slotStore.loadRevision(read),
+                        slot: (read, name) => slotStore.loadSlot(read, name)
+                    }
+                );
 
-            expect(slots.prepareContribution({}, {} as never)).toBeUndefined();
+                expect(slots.prepareContribution(transaction, envelope)).toBeUndefined();
+            });
 
             const host = new ProfileRuntimeHostBinding(facet, bindingName);
-            const runtime = createProtectedProfileRuntime(host, {} as never, {} as never);
+            const runtimeInvocation = new InvocationId("w9-profile-runtime");
+            const operations = new InvocationProtectedOperationPort(
+                { invocation: () => runtimeInvocation },
+                new SuccessfulBatch<ProtectedOperationRequest>(runtimeInvocation)
+            );
+            const runtime = createProtectedProfileRuntime(
+                host,
+                operations,
+                new PassthroughProfileEffects()
+            );
             expect(runtime.host).toBe(host);
             expect(runtime.active).toBe(false);
             runtime.activate();
@@ -726,13 +783,14 @@ describe("W9 internal typed composition", () => {
         const attempt = new EffectAttemptId("w9-settlement-attempt");
         const commit = new ExecutionRunCommitId("w9-settlement-commit");
         const seen = new Set<string>();
-        const evidence = new CanonicalSettlementEvidencePort({
-            approvalResolved: (_transaction: object, id: ApprovalId) => {
+        const snapshot = new SettlementSnapshot();
+        const evidence = new CanonicalSettlementEvidencePort<SettlementSnapshot>({
+            approvalResolved: (_transaction, id: ApprovalId) => {
                 seen.add(`approval:${id.value}`);
                 return id.equals(approval);
             },
             invocationItemTerminal: (
-                _transaction: object,
+                _transaction,
                 id: InvocationId,
                 itemIndex: number,
                 itemKey: string
@@ -740,19 +798,19 @@ describe("W9 internal typed composition", () => {
                 seen.add(`item:${id.value}:${itemIndex}:${itemKey}`);
                 return id.equals(invocation) && itemIndex === 0 && itemKey === "w9-item";
             },
-            routeTerminal: (_transaction: object, id: RouteReservationId) => {
+            routeTerminal: (_transaction, id: RouteReservationId) => {
                 seen.add(`route:${id.value}`);
                 return id.equals(route);
             },
-            reconciliationSuperseded: (_transaction: object, id: EffectAttemptId) => {
+            reconciliationSuperseded: (_transaction, id: EffectAttemptId) => {
                 seen.add(`reconciliation:${id.value}`);
                 return id.equals(attempt);
             },
-            commitExists: (_transaction: object, id: ExecutionRunCommitId) => {
+            commitExists: (_transaction, id: ExecutionRunCommitId) => {
                 seen.add(`commit:${id.value}`);
                 return id.equals(commit);
             },
-            auditSatisfied: (_transaction: object, obligation) => {
+            auditSatisfied: (_transaction, obligation) => {
                 switch (obligation.kind) {
                     case "receipt":
                         seen.add(`audit:receipt:${obligation.invocation.value}`);
@@ -787,7 +845,7 @@ describe("W9 internal typed composition", () => {
             "delivery",
             "receipt"
         ]);
-        expect(isSettled({}, obligation, evidence)).toBe(true);
+        expect(isSettled(snapshot, obligation, evidence)).toBe(true);
         expect(seen.size).toBe(8);
     });
 
@@ -906,8 +964,11 @@ describe("W9 internal typed composition", () => {
             );
             const operation = new (class extends Operation {
                 public readonly descriptor = descriptor;
-                public async execute(_context: OperationContext, input: unknown) {
-                    return input as { readonly value: number };
+                public async execute(
+                    _context: OperationContext,
+                    input: FacetData
+                ): Promise<FacetData> {
+                    return input;
                 }
             })();
 
@@ -1052,11 +1113,11 @@ function operationAuthority(
 }
 
 class FixedExpectationFactory implements AuthorityPermitExpectationFactory<
-    object,
-    object,
-    object,
-    object,
-    object
+    MemoryAuthorityPermitTransaction,
+    string,
+    string,
+    string,
+    string
 > {
     public constructor(private readonly expected: AuthorityPermitExpectation) {}
     public forClaim(): AuthorityPermitExpectation {
@@ -1136,18 +1197,76 @@ function permitExpectation(): AuthorityPermitExpectation {
 
 function admissionContext(
     expected: AuthorityPermitExpectation
-): AuthorityAdmissionContext<object, object, object, object> {
+): AuthorityAdmissionContext<string, string, string, string> {
     return {
         invocation: expected.invocation,
         itemIndex: expected.itemIndex,
         ordinal: expected.attemptOrdinal,
-        lease: expected.lease,
-        authority: expected.authority,
-        domain: expected.target.domain,
-        pathEpochs: expected.pathEpochs,
+        lease: "w9-lease",
+        authority: "w9-authority",
+        domain: "w9-domain",
+        pathEpochs: "w9-path-epochs",
         intentDigest: expected.intentDigest,
         itemKey: expected.itemKey
     };
+}
+
+function permitClaimInputs(expected: AuthorityPermitExpectation) {
+    const invocation = preparedInvocation(
+        expected.invocation.value,
+        { value: "permit" },
+        { lease: "w9-lease" }
+    );
+    return {
+        invocation,
+        claim: new ItemClaim(
+            expected.claim,
+            expected.invocation,
+            expected.itemIndex,
+            expected.attemptOrdinal,
+            {
+                kind: "executor",
+                token: "w9-lease",
+                worker: new ClaimWorkerId("w9-worker")
+            },
+            new Date(20)
+        )
+    };
+}
+
+class UnavailableAuthorityPermitAdmission extends AuthorityPermitAdmissionPort<MemoryAuthorityPermitTransaction> {
+    public consume(): void {
+        throw new TypeError("permit store unavailable");
+    }
+}
+
+class SettlementSnapshot {}
+
+class PassthroughProfileEffects extends ProfileRuntimeEffectsPort<AttemptReceipt> {
+    public async emit(
+        _host: ProfileRuntimeHostBinding,
+        _declaration: EventDeclaration,
+        _payload: FacetData,
+        _cause: AttemptReceipt
+    ): Promise<void> {}
+
+    public async control(
+        _host: ProfileRuntimeHostBinding,
+        _control: ProfileControlAdmission,
+        input: FacetData,
+        execute: (input: FacetData) => Promise<FacetData>
+    ): Promise<FacetData> {
+        return execute(input);
+    }
+
+    public async render(
+        _host: ProfileRuntimeHostBinding,
+        _descriptor: SurfaceDescriptor,
+        _context: OperationContext,
+        input: FacetData
+    ): Promise<FacetData> {
+        return input;
+    }
 }
 
 class MemoryTransactions implements InvocationTransactionPort<InvocationMediationMemoryState> {
