@@ -218,6 +218,39 @@ describe("MemoryTenantControlStore", () => {
     );
 
     test(
+        "[authority.binding] preserves custody through public deactivation and reactivation",
+        { tags: "p0" },
+        () => {
+            const store = bootstrappedStore();
+            const service = new AuthorityMutationService(store);
+            const grant = allowGrant("credential-lifecycle-grant");
+            service.createGrant(grant);
+            const credential = new SecretRef(tenantId.value, "vault", "lifecycle-token");
+            const endpoint = "https://lifecycle.example/";
+            const binding = Binding.active(
+                workspaceScope,
+                grant.subject,
+                new ProtectionDomain("backend", "credential-lifecycle", "may-hold-secrets"),
+                new BindingName("credential-lifecycle"),
+                grant.id,
+                new FacetRef("tenant:credential-lifecycle"),
+                [new BindingCredentialCustody(credential, endpoint)]
+            );
+            service.createBinding(binding);
+
+            const inactive = service.deactivateBinding(binding.key);
+            const reactivated = service.replaceBinding(binding.key, grant.id, binding.facet);
+
+            expect(inactive.resolves).toBe(false);
+            expect(inactive.hasCredentialCustody(credential, endpoint)).toBe(true);
+            expect(reactivated.resolves).toBe(true);
+            expect(reactivated.hasCredentialCustody(credential, endpoint)).toBe(true);
+            expect(reactivated.generation).toBe(inactive.generation + 1);
+            expect(reactivated.revision.value).toBe(inactive.revision.value + 1);
+        }
+    );
+
+    test(
         "rejects unknown versions, extra fields, and codec-key disagreement",
         { tags: "p0" },
         () => {

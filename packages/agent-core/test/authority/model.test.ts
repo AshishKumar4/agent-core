@@ -1,9 +1,15 @@
 import { describe, expect, test } from "vitest";
 import { AgentCoreError } from "../../src/errors";
 import { ActorId, ActorRef } from "../../src/actors";
-import { Revision, encodeCanonicalJson } from "../../src/core";
+import {
+    Revision,
+    SecretRef,
+    decodeCanonicalJson,
+    encodeCanonicalJson,
+    isJsonObject
+} from "../../src/core";
 import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../src/facets";
-import { Grant, GrantId, ScopeEpoch } from "../../src/authority";
+import { BindingCredentialCustody, Grant, GrantId, ScopeEpoch } from "../../src/authority";
 import { Binding } from "../../src/authority/binding";
 import { InvalidationWatermark, PathEpochEvidence } from "../../src/authority/epoch";
 import {
@@ -226,6 +232,126 @@ describe("authority value records", () => {
                     )
                 )
             ).toThrow(/next generation/);
+        }
+    );
+
+    test(
+        "[authority.binding] accepts custody only for its Tenant and canonical endpoints",
+        { tags: "p0" },
+        () => {
+            const credential = new SecretRef(tenantId.value, "vault", "model-token");
+            const endpoint = "https://service.example/v1/requests?audience=agent";
+            // Authority owns exact canonical endpoint identity; providers own its operational meaning.
+            const custody = new BindingCredentialCustody(credential, endpoint);
+            const createBinding = (accepted: BindingCredentialCustody): Binding =>
+                Binding.active(
+                    workspaceScope,
+                    principal,
+                    new ProtectionDomain("backend", "credential-acceptance", "may-hold-secrets"),
+                    new BindingName("credential-acceptance"),
+                    new GrantId("credential-acceptance-grant"),
+                    new FacetRef("workspace:credential-acceptance"),
+                    [accepted]
+                );
+            const binding = createBinding(custody);
+
+            let noncanonical: BindingCredentialCustody | undefined;
+            expect(() => {
+                noncanonical = new BindingCredentialCustody(
+                    credential,
+                    "https://SERVICE.example/v1/requests?audience=agent"
+                );
+            }).toThrow(TypeError);
+            let foreignBinding: Binding | undefined;
+            expect(() => {
+                foreignBinding = createBinding(
+                    new BindingCredentialCustody(
+                        new SecretRef("another-tenant", "vault", "model-token"),
+                        endpoint
+                    )
+                );
+            }).toThrow(TypeError);
+
+            expect(custody.endpoint).toBe(endpoint);
+            expect(binding.hasCredentialCustody(credential, endpoint)).toBe(true);
+            expect(noncanonical).toBeUndefined();
+            expect(foreignBinding).toBeUndefined();
+        }
+    );
+
+    test(
+        "[authority.binding] makes required custody bytes an intentional codec major",
+        { tags: "p0" },
+        () => {
+            const binding = Binding.active(
+                workspaceScope,
+                principal,
+                new ProtectionDomain("backend", "credential-codec", "may-hold-secrets"),
+                new BindingName("credential-codec"),
+                new GrantId("credential-codec-grant"),
+                new FacetRef("workspace:credential-codec"),
+                [
+                    new BindingCredentialCustody(
+                        new SecretRef(tenantId.value, "vault", "codec-token"),
+                        "https://service.example/"
+                    )
+                ]
+            );
+            const envelope = decodeCanonicalJson(Binding.encode(binding));
+            if (!isJsonObject(envelope)) throw new TypeError("Expected Binding record envelope");
+
+            expect(envelope["version"]).toEqual({ major: 3, minor: 0 });
+            const error = caughtAgentCoreError(() =>
+                Binding.decode(
+                    encodeCanonicalJson({
+                        ...envelope,
+                        version: { major: 2, minor: 0 }
+                    })
+                )
+            );
+            expect(error.code).toBe("codec.unknown-major");
+        }
+    );
+
+    test(
+        "[authority.binding] canonicalizes custody order and rejects duplicate facts",
+        { tags: "p0" },
+        () => {
+            const first = new BindingCredentialCustody(
+                new SecretRef(tenantId.value, "vault", "first-token"),
+                "https://first.example/"
+            );
+            const second = new BindingCredentialCustody(
+                new SecretRef(tenantId.value, "vault", "second-token"),
+                "https://second.example/"
+            );
+            const binding = Binding.active(
+                workspaceScope,
+                principal,
+                new ProtectionDomain("backend", "credential-order", "may-hold-secrets"),
+                new BindingName("credential-order"),
+                new GrantId("credential-order-grant"),
+                new FacetRef("workspace:credential-order"),
+                [second, first]
+            );
+
+            expect(binding.credentialCustody.map((custody) => custody.toData())).toEqual([
+                first.toData(),
+                second.toData()
+            ]);
+            let duplicate: Binding | undefined;
+            expect(() => {
+                duplicate = Binding.active(
+                    workspaceScope,
+                    principal,
+                    binding.domain,
+                    new BindingName("duplicate-credential-custody"),
+                    binding.grantId,
+                    binding.facet,
+                    [first, first]
+                );
+            }).toThrow(TypeError);
+            expect(duplicate).toBeUndefined();
         }
     );
 });
