@@ -6,7 +6,8 @@ import {
     decodeCanonicalJson,
     encodeBase64,
     encodeCanonicalJson,
-    hasExactJsonKeys
+    hasExactJsonKeys,
+    isObjectRecord
 } from "../core";
 import {
     canonicalFacetData,
@@ -22,24 +23,24 @@ import type { CommandCaller, CommandEnvelope } from "./envelope";
 import type { CommandPayloadCodec } from "./payload";
 import { CommandCallerPolicy } from "./policy";
 import type { ProtocolCommandExecution, ProtocolValueCodec } from "./registration";
-import { requireObject, requireStringValue } from "./codec";
+import { requireNonnegativeInteger, requireObject, requireStringValue } from "./codec";
 
 export const FACET_SLOT_COMMANDS = Object.freeze({
     install: "facet.slot.install",
     contribute: "facet.slot.contribute"
 });
 
-export interface FacetSlotCommandBackend<Transaction, Read> {
+export interface FacetSlotCommandBackend<Transaction, Read, Stamp extends WeakKey = WeakKey> {
     currentRevision(read: Read): Revision;
     permitsInstall(read: Read, declaration: SlotDeclaration): boolean;
     prepareContribution(
         read: Read,
         envelope: CommandEnvelope
-    ): { readonly reference: PackageInstallationRef; readonly stamp: object } | undefined;
+    ): { readonly reference: PackageInstallationRef; readonly stamp: Stamp } | undefined;
     applyContribution(
         transaction: Transaction,
         envelope: CommandEnvelope,
-        stamp: object,
+        stamp: Stamp,
         entry: SlotEntry
     ): boolean;
     permitsContribution(read: Read, entry: SlotEntry): boolean;
@@ -127,21 +128,25 @@ export class FacetSlotInstallCommand<Transaction, Read> implements ProtocolComma
         const expected = requireExpectedRevision(envelope);
         const changed = this.backend.install(transaction, declaration);
         const revision = changed ? this.backend.advanceRevision(transaction, expected) : expected;
-        return {
-            reply: Object.freeze({ revision }),
-            ...(changed ? { observation: declaration } : {})
+        const execution: ProtocolCommandExecution<FacetSlotCommandReply, SlotDeclaration> = {
+            reply: Object.freeze({ revision })
         };
+        return changed ? { ...execution, observation: declaration } : execution;
     }
 }
 
-export class FacetSlotContributeCommand<Transaction, Read> implements ProtocolCommand<
+export class FacetSlotContributeCommand<
+    Transaction,
+    Read,
+    Stamp extends WeakKey = WeakKey
+> implements ProtocolCommand<
     Transaction,
     Read,
     SlotContributionRequest,
     FacetSlotCommandReply,
     SlotEntry
 > {
-    readonly #prepared = new WeakMap<CommandEnvelope, PreparedSlotContribution>();
+    readonly #prepared = new WeakMap<CommandEnvelope, PreparedSlotContribution<Stamp>>();
     public readonly command = FACET_SLOT_COMMANDS.contribute;
     public readonly caller: CommandCallerPolicy;
     public readonly expectedRevision = "required" as const;
@@ -155,7 +160,7 @@ export class FacetSlotContributeCommand<Transaction, Read> implements ProtocolCo
     };
 
     public constructor(
-        private readonly backend: FacetSlotCommandBackend<Transaction, Read>,
+        private readonly backend: FacetSlotCommandBackend<Transaction, Read, Stamp>,
         private readonly target: ActorRef
     ) {
         requireWorkspace(target);
@@ -235,16 +240,16 @@ export class FacetSlotContributeCommand<Transaction, Read> implements ProtocolCo
             prepared.entry
         );
         const revision = changed ? this.backend.advanceRevision(transaction, expected) : expected;
-        return {
-            reply: Object.freeze({ revision }),
-            ...(changed ? { observation: prepared.entry } : {})
+        const execution: ProtocolCommandExecution<FacetSlotCommandReply, SlotEntry> = {
+            reply: Object.freeze({ revision })
         };
+        return changed ? { ...execution, observation: prepared.entry } : execution;
     }
 }
 
-interface PreparedSlotContribution {
+interface PreparedSlotContribution<Stamp> {
     readonly entry: SlotEntry;
-    readonly stamp: object;
+    readonly stamp: Stamp;
 }
 
 export const FacetSlotCommandPayload = Object.freeze({
@@ -276,11 +281,18 @@ class FacetSlotReplyCodec implements ProtocolValueCodec<FacetSlotCommandReply> {
         if (!hasExactJsonKeys(payload, ["revision"])) {
             throw new TypeError("Facet Slot command reply contains missing or unknown fields");
         }
-        const revision = payload["revision"];
-        if (typeof revision !== "number" || !Number.isSafeInteger(revision) || revision < 0) {
+        try {
+            return Object.freeze({
+                revision: new Revision(
+                    requireNonnegativeInteger(
+                        payload["revision"],
+                        "Facet Slot command reply revision"
+                    )
+                )
+            });
+        } catch {
             throw new TypeError("Facet Slot command reply revision is invalid");
         }
-        return Object.freeze({ revision: new Revision(revision) });
     }
 }
 
@@ -296,7 +308,7 @@ class ExactActorCallerPolicy extends CommandCallerPolicy {
     }
 }
 
-class SlotInstallPayloadCodec implements CommandPayloadCodec {
+class SlotInstallPayloadCodec implements CommandPayloadCodec<SlotDeclaration> {
     public decode(bytes: Uint8Array): SlotDeclaration {
         const payload = requireObject(decodeCanonicalJson(bytes), "Slot install payload");
         if (!hasExactJsonKeys(payload, ["record"])) {
@@ -308,16 +320,13 @@ class SlotInstallPayloadCodec implements CommandPayloadCodec {
     }
 }
 
-class SlotContributionPayloadCodec implements CommandPayloadCodec {
+class SlotContributionPayloadCodec implements CommandPayloadCodec<SlotContributionRequest> {
     public decode(bytes: Uint8Array): SlotContributionRequest {
         const payload = requireObject(decodeCanonicalJson(bytes), "Slot contribution payload");
         if (!hasExactJsonKeys(payload, ["ordinal", "slot", "value"])) {
             throw new TypeError("Slot contribution payload contains missing or unknown fields");
         }
-        const ordinal = payload["ordinal"];
-        if (typeof ordinal !== "number" || !Number.isSafeInteger(ordinal) || ordinal < 0) {
-            throw new TypeError("Slot contribution ordinal must be a non-negative safe integer");
-        }
+        const ordinal = requireNonnegativeInteger(payload["ordinal"], "Slot contribution ordinal");
         return Object.freeze({
             slot: new SlotName(requireStringValue(payload["slot"], "Slot contribution slot")),
             ordinal,
@@ -326,7 +335,7 @@ class SlotContributionPayloadCodec implements CommandPayloadCodec {
     }
 }
 
-function requireDeclaration(payload: unknown): SlotDeclaration {
+function requireDeclaration(payload: SlotDeclaration): SlotDeclaration {
     if (!(payload instanceof SlotDeclaration)) {
         throw new AgentCoreError(
             "protocol.invalid-state",
@@ -336,25 +345,24 @@ function requireDeclaration(payload: unknown): SlotDeclaration {
     return payload;
 }
 
-function requireContributionRequest(payload: unknown): SlotContributionRequest {
-    if (!isContributionRequest(payload)) {
+function requireContributionRequest(payload: SlotContributionRequest): SlotContributionRequest {
+    if (
+        !isObjectRecord(payload) ||
+        !(payload.slot instanceof SlotName) ||
+        !Number.isSafeInteger(payload.ordinal) ||
+        payload.ordinal < 0 ||
+        !isFacetData(payload.value)
+    ) {
         throw new AgentCoreError(
             "protocol.invalid-state",
             "Slot contribution payload was not decoded"
         );
     }
-    return payload;
-}
-
-function isContributionRequest(payload: unknown): payload is SlotContributionRequest {
-    return (
-        payload !== null &&
-        typeof payload === "object" &&
-        (payload as { readonly slot?: unknown }).slot instanceof SlotName &&
-        Number.isSafeInteger((payload as { readonly ordinal?: unknown }).ordinal) &&
-        (payload as { readonly ordinal: number }).ordinal >= 0 &&
-        isFacetData((payload as { readonly value?: unknown }).value)
-    );
+    return Object.freeze({
+        slot: new SlotName(payload.slot.value),
+        ordinal: payload.ordinal,
+        value: canonicalFacetData(payload.value)
+    });
 }
 
 function requireExpectedRevision(envelope: CommandEnvelope): Revision {

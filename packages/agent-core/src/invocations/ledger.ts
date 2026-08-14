@@ -2,7 +2,12 @@ import { requireSynchronousResult } from "../actors";
 import { AgentCoreError } from "../errors";
 import type { Approval } from "./approval";
 import type { EffectAttempt } from "./attempt";
-import { AuditRecord, validateAuditRelation, type AuditEvidenceResolver } from "./audit";
+import {
+    AuditRecord,
+    validateAuditRelation,
+    type AuditEvidenceResolver,
+    type ReceiptAuditEvidence
+} from "./audit";
 import type { ItemClaim, ItemClaimOwner } from "./claim";
 import { InvocationContinuation } from "./continuation";
 import type { ItemClaimId } from "./id";
@@ -796,14 +801,15 @@ export class InvocationLedger<
                 }
                 if (!(receipt instanceof AttemptReceipt)) return undefined;
                 const attempt = this.persistence.attempt(transaction, receipt.attempt);
-                return attempt === undefined
-                    ? undefined
-                    : {
-                          invocation: attempt.invocation,
-                          attempt: receipt.attempt,
-                          outcome: receipt.outcome,
-                          ...(receipt.previous === undefined ? {} : { previous: receipt.previous })
-                      };
+                if (attempt === undefined) return undefined;
+                const evidence: ReceiptAuditEvidence = {
+                    invocation: attempt.invocation,
+                    attempt: receipt.attempt,
+                    outcome: receipt.outcome
+                };
+                return receipt.previous === undefined
+                    ? evidence
+                    : { ...evidence, previous: receipt.previous };
             },
             event: () => undefined,
             route: () => undefined,

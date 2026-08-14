@@ -41,8 +41,6 @@ export interface CommandIngressInit<
     readonly content: TransientContentAccess;
     readonly authenticator?: CommandAuthenticator<Transport>;
     readonly leaseForMilliseconds?: number;
-    // Removed once W2/W4 rename their owned composition input.
-    readonly holdForMilliseconds?: number;
     readonly now?: () => Date;
 }
 
@@ -54,7 +52,7 @@ export class CommandIngress<Transaction, Read, ReadTransaction = Transaction, Tr
     readonly #now: () => Date;
 
     public constructor(init: CommandIngressInit<Transaction, Read, ReadTransaction, Transport>) {
-        const leaseForMilliseconds = init.leaseForMilliseconds ?? init.holdForMilliseconds;
+        const leaseForMilliseconds = init.leaseForMilliseconds;
         if (
             !Number.isSafeInteger(leaseForMilliseconds) ||
             leaseForMilliseconds === undefined ||
@@ -93,14 +91,24 @@ export class CommandIngress<Transaction, Read, ReadTransaction = Transaction, Tr
                           Digest.sha256(submittedEnvelope)
                       );
         } catch (error) {
-            return preDispatchFailure("admissionPreflight", error, false);
+            return {
+                ...preDispatchDisposition("admissionPreflight", undefined, false),
+                cause: error
+            };
         }
 
         let admission: CommandAdmission;
         try {
             admission = await this.#dispatcher.admit(submittedEnvelope, authentication);
         } catch (error) {
-            return preDispatchFailure("admissionPreflight", error, true);
+            return {
+                ...preDispatchDisposition(
+                    "admissionPreflight",
+                    commitUnknown(error) ? error : undefined,
+                    true
+                ),
+                cause: error
+            };
         }
         if (admission.kind === "completed") return admission.result;
 
@@ -111,13 +119,23 @@ export class CommandIngress<Transaction, Read, ReadTransaction = Transaction, Tr
                     ? issueMalformedCommandPayload("absent")
                     : await this.prepare(submittedEnvelope, speculativeEnvelope, submittedPayload);
         } catch (error) {
-            return preDispatchFailure("admissionPreflight", error, false);
+            return {
+                ...preDispatchDisposition("admissionPreflight", undefined, false),
+                cause: error
+            };
         }
 
         try {
             return await admission.dispatch(prepared);
         } catch (error) {
-            return preDispatchFailure("dispatch", error, true);
+            return {
+                ...preDispatchDisposition(
+                    "dispatch",
+                    commitUnknown(error) ? error : undefined,
+                    true
+                ),
+                cause: error
+            };
         } finally {
             try {
                 await inspectPreparedCommandPayload(prepared)?.lease?.close();
@@ -159,20 +177,23 @@ export class CommandIngress<Transaction, Read, ReadTransaction = Transaction, Tr
     }
 }
 
-function preDispatchFailure(
+function preDispatchDisposition(
     phase: PreDispatchPhase,
-    cause: unknown,
+    uncertain: CommandCommitUnknownError | undefined,
     transactionAttempted: boolean
-): PreDispatchFailure {
-    const unknown = transactionAttempted && cause instanceof CommandCommitUnknownError;
-    const retrySameKey = unknown && cause.retrySameKey;
+): Omit<PreDispatchFailure, "cause"> {
+    const unknown = transactionAttempted && uncertain !== undefined;
+    const retrySameKey = unknown && uncertain.retrySameKey;
     return {
         kind: "preDispatchFailure",
         phase,
         commit: unknown ? "unknown" : transactionAttempted ? "rolledBack" : "notAttempted",
-        retry: retrySameKey ? "retrySameKey" : "mayRetry",
-        cause
+        retry: retrySameKey ? "retrySameKey" : "mayRetry"
     };
+}
+
+function commitUnknown(cause: unknown): cause is CommandCommitUnknownError {
+    return cause instanceof CommandCommitUnknownError;
 }
 
 function leaseExpiry(now: Date, duration: number): Date {

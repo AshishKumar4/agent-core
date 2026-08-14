@@ -6,6 +6,7 @@ import {
     decodeCanonicalJson,
     encodeCanonicalJson,
     hasExactJsonKeys,
+    isObjectRecord,
     TextId,
     type JsonValue,
     type Revision
@@ -15,7 +16,7 @@ import type { CommandCaller, CommandEnvelope } from "./envelope";
 import type { CommandPayloadCodec } from "./payload";
 import { CommandCallerPolicy } from "./policy";
 import type { ProtocolCommandExecution, ProtocolValueCodec } from "./registration";
-import { requireNonemptyString, requireObject } from "./codec";
+import { requireNonemptyString, requireNonnegativeInteger, requireObject } from "./codec";
 
 export const RUN_COMMANDS = Object.freeze({
     create: "run.create",
@@ -364,7 +365,7 @@ class RunPortCommand<Transaction, Read, Reply, Observation> implements ProtocolC
     }
 }
 
-class RunRequestCodec implements CommandPayloadCodec {
+class RunRequestCodec implements CommandPayloadCodec<RunProtocolRequest> {
     public constructor(private readonly kind: RunProtocolRequest["kind"]) {}
 
     public decode(bytes: Uint8Array): RunProtocolRequest {
@@ -558,15 +559,14 @@ function requestFromData(kind: RunProtocolRequest["kind"], value: JsonValue): Ru
     }
 }
 
-function requireRequest(value: unknown, kind: RunProtocolRequest["kind"]): RunProtocolRequest {
-    if (
-        value === null ||
-        typeof value !== "object" ||
-        (value as { readonly kind?: unknown }).kind !== kind
-    ) {
+function requireRequest(
+    value: RunProtocolRequest,
+    kind: RunProtocolRequest["kind"]
+): RunProtocolRequest {
+    if (!isObjectRecord(value) || value["kind"] !== kind) {
         throw new TypeError("Run protocol payload was not decoded for this command");
     }
-    return value as RunProtocolRequest;
+    return value;
 }
 
 function requireRunProtocolOwner(owner: ActorRef): ActorRef {
@@ -585,10 +585,13 @@ function requireKeys<Field extends string>(
 }
 
 function requireDate(value: JsonValue | undefined): Date {
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    let time: number;
+    try {
+        time = requireNonnegativeInteger(value, "Run command expiration");
+    } catch {
         throw new TypeError("Run command expiration is invalid");
     }
-    const date = new Date(value);
+    const date = new Date(time);
     if (!Number.isFinite(date.getTime())) throw new TypeError("Run command expiration is invalid");
     return date;
 }

@@ -5,7 +5,7 @@ import {
     decodeCanonicalJson,
     encodeCanonicalJson,
     hasExactJsonKeys,
-    isJsonObject,
+    isObjectRecord,
     type JsonValue
 } from "../core";
 import { MaterializationPlan } from "../definition";
@@ -15,6 +15,7 @@ import type { CurrentLease, ProtocolCommand } from "./dispatcher";
 import type { CommandCaller, CommandEnvelope } from "./envelope";
 import { CommandPayloadMalformedError, type CommandPayloadCodec } from "./payload";
 import { CommandCallerPolicy } from "./policy";
+import { requireObject, requireStringValue } from "./codec";
 
 export const MATERIALIZATION_COMMANDS = Object.freeze({
     applyLocal: "materialization.applyLocal"
@@ -39,13 +40,14 @@ export interface MaterializationCommandBackend<Transaction, Read> {
 
 export class MaterializationApplyLocalCommand<Transaction, Read> implements ProtocolCommand<
     Transaction,
-    Read
+    Read,
+    MaterializationApplyLocalPayload
 > {
     public readonly command = MATERIALIZATION_COMMANDS.applyLocal;
     public readonly caller: CommandCallerPolicy;
     public readonly expectedRevision = "required" as const;
     public readonly lease = "forbidden" as const;
-    public readonly payload: CommandPayloadCodec;
+    public readonly payload: CommandPayloadCodec<MaterializationApplyLocalPayload>;
 
     public constructor(
         private readonly backend: MaterializationCommandBackend<Transaction, Read>,
@@ -63,7 +65,11 @@ export class MaterializationApplyLocalCommand<Transaction, Read> implements Prot
         this.payload = new MaterializationApplyLocalPayloadCodec();
     }
 
-    public authorize(_read: Read, envelope: CommandEnvelope, payload: unknown): boolean {
+    public authorize(
+        _read: Read,
+        envelope: CommandEnvelope,
+        payload: MaterializationApplyLocalPayload
+    ): boolean {
         const planId = requireApplyLocalPayload(payload).planId;
         const plan = this.backend.loadPlan(_read, planId);
         return (
@@ -73,7 +79,11 @@ export class MaterializationApplyLocalCommand<Transaction, Read> implements Prot
         );
     }
 
-    public permitsLifecycle(read: Read, _envelope: CommandEnvelope, payload: unknown): boolean {
+    public permitsLifecycle(
+        read: Read,
+        _envelope: CommandEnvelope,
+        payload: MaterializationApplyLocalPayload
+    ): boolean {
         const decoded = requireApplyLocalPayload(payload);
         const plan = this.backend.loadPlan(read, decoded.planId);
         const canonical =
@@ -86,7 +96,7 @@ export class MaterializationApplyLocalCommand<Transaction, Read> implements Prot
     public currentRevision(
         read: Read,
         _envelope: CommandEnvelope,
-        payload: unknown
+        payload: MaterializationApplyLocalPayload
     ): Revision | undefined {
         const decoded = requireApplyLocalPayload(payload);
         const plan = this.backend.loadPlan(read, decoded.planId);
@@ -102,7 +112,7 @@ export class MaterializationApplyLocalCommand<Transaction, Read> implements Prot
     public currentLease(
         _read: Read,
         _envelope: CommandEnvelope,
-        _payload: unknown,
+        _payload: MaterializationApplyLocalPayload,
         _at: Date
     ): CurrentLease | undefined {
         return undefined;
@@ -111,7 +121,7 @@ export class MaterializationApplyLocalCommand<Transaction, Read> implements Prot
     public execute(
         transaction: Transaction,
         _envelope: CommandEnvelope,
-        payload: unknown,
+        payload: MaterializationApplyLocalPayload,
         at: Date
     ): Uint8Array {
         const planId = requireApplyLocalPayload(payload).planId;
@@ -143,7 +153,7 @@ class ExactActorCallerPolicy extends CommandCallerPolicy {
     }
 }
 
-class MaterializationApplyLocalPayloadCodec implements CommandPayloadCodec {
+class MaterializationApplyLocalPayloadCodec implements CommandPayloadCodec<MaterializationApplyLocalPayload> {
     public decode(bytes: Uint8Array): MaterializationApplyLocalPayload {
         let decoded: JsonValue;
         try {
@@ -159,8 +169,10 @@ class MaterializationApplyLocalPayloadCodec implements CommandPayloadCodec {
                 "Local materialization payload contains missing or unknown fields"
             );
         }
-        const planId = object["planId"];
-        if (typeof planId !== "string") {
+        let planId: string;
+        try {
+            planId = requireStringValue(object["planId"], "Local materialization plan ID");
+        } catch {
             throw new CommandPayloadMalformedError(
                 "Local materialization plan ID must be a digest"
             );
@@ -175,15 +187,13 @@ class MaterializationApplyLocalPayloadCodec implements CommandPayloadCodec {
     }
 }
 
-function requireApplyLocalPayload(payload: unknown): MaterializationApplyLocalPayload {
-    if (
-        payload === null ||
-        typeof payload !== "object" ||
-        !((payload as { readonly planId?: unknown }).planId instanceof Digest)
-    ) {
+function requireApplyLocalPayload(
+    payload: MaterializationApplyLocalPayload
+): MaterializationApplyLocalPayload {
+    if (!isObjectRecord(payload) || !(payload["planId"] instanceof Digest)) {
         throw new TypeError("Local materialization payload was not decoded");
     }
-    return payload as MaterializationApplyLocalPayload;
+    return Object.freeze({ planId: new Digest(payload["planId"].value) });
 }
 
 function canonicalTargetPlan(
@@ -235,10 +245,11 @@ function requireCanonicalTargetPlan(
 }
 
 function requirePayloadObject(value: JsonValue): { readonly [key: string]: JsonValue } {
-    if (!isJsonObject(value)) {
+    try {
+        return requireObject(value, "Local materialization payload");
+    } catch {
         throw new CommandPayloadMalformedError("Local materialization payload must be an object");
     }
-    return value as { readonly [key: string]: JsonValue };
 }
 
 function callerIsTarget(caller: CommandCaller, target: ActorRef): boolean {

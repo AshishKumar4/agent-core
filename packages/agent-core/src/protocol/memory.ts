@@ -1,4 +1,5 @@
 import { ACTOR_STATE_SNAPSHOT, type ActorCloneOwnedState } from "../actors";
+import { isObjectRecord, jsonDataParser } from "../core";
 import { AgentCoreError } from "../errors";
 import { AuditRecordId, WriteRecordId } from "../invocations";
 import {
@@ -26,8 +27,7 @@ export class MemoryProtocolRecords extends ProtocolRecordStorage implements Acto
         super();
         if (
             snapshot !== undefined &&
-            (snapshot === null ||
-                typeof snapshot !== "object" ||
+            (!isObjectRecord(snapshot) ||
                 !Array.isArray(snapshot.audits) ||
                 !Array.isArray(snapshot.writes))
         ) {
@@ -177,42 +177,57 @@ function derivedIdentities(
     });
 }
 
+type StoredAuditDraft = {
+    -readonly [Key in keyof StoredProtocolAudit]: StoredProtocolAudit[Key];
+};
+
+const parseAuditSnapshot = jsonDataParser(() =>
+    corruptSnapshot("Memory protocol snapshot contains a malformed audit record")
+);
+const parseWriteSnapshot = jsonDataParser(() =>
+    corruptSnapshot("Memory protocol snapshot contains a malformed write record")
+);
+
 function copyAudit(record: StoredProtocolAudit): StoredProtocolAudit {
-    if (
-        record === null ||
-        typeof record !== "object" ||
-        typeof record.id !== "string" ||
-        typeof record.evidenceIdentity !== "string" ||
-        typeof record.evidenceKind !== "string" ||
-        (record.writeId !== undefined && !(record.writeId instanceof WriteRecordId)) ||
-        (record.writeOutcome !== undefined && typeof record.writeOutcome !== "string") ||
-        !(record.bytes instanceof Uint8Array)
-    ) {
+    if (!isObjectRecord(record) || !(record.bytes instanceof Uint8Array)) {
         throw corruptSnapshot("Memory protocol snapshot contains a malformed audit record");
     }
-    return {
+    parseAuditSnapshot.string(record.id, "id");
+    parseAuditSnapshot.string(record.evidenceIdentity, "evidenceIdentity");
+    parseAuditSnapshot.string(record.evidenceKind, "evidenceKind");
+    const writeId = record.writeId;
+    if (writeId !== undefined && !(writeId instanceof WriteRecordId)) {
+        throw corruptSnapshot("Memory protocol snapshot contains a malformed audit record");
+    }
+    const writeOutcome = record.writeOutcome;
+    if (writeOutcome !== undefined) {
+        parseAuditSnapshot.string(writeOutcome, "writeOutcome");
+    }
+    const copied: StoredAuditDraft = {
         id: record.id,
         evidenceIdentity: record.evidenceIdentity,
         evidenceKind: record.evidenceKind,
-        ...(record.writeId === undefined
-            ? {}
-            : { writeId: new WriteRecordId(record.writeId.value) }),
-        ...(record.writeOutcome === undefined ? {} : { writeOutcome: record.writeOutcome }),
         bytes: record.bytes.slice()
     };
+    if (writeId !== undefined) {
+        copied.writeId = new WriteRecordId(writeId.value);
+    }
+    if (writeOutcome !== undefined) {
+        copied.writeOutcome = writeOutcome;
+    }
+    return copied;
 }
 
 function copyWrite(record: StoredProtocolWrite): StoredProtocolWrite {
     if (
-        record === null ||
-        typeof record !== "object" ||
-        typeof record.id !== "string" ||
+        !isObjectRecord(record) ||
         !(record.auditId instanceof AuditRecordId) ||
-        typeof record.outcome !== "string" ||
         !(record.bytes instanceof Uint8Array)
     ) {
         throw corruptSnapshot("Memory protocol snapshot contains a malformed write record");
     }
+    parseWriteSnapshot.string(record.id, "id");
+    parseWriteSnapshot.string(record.outcome, "outcome");
     return {
         id: record.id,
         auditId: new AuditRecordId(record.auditId.value),

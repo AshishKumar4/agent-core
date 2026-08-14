@@ -1,6 +1,6 @@
-import { Digest, decodeCanonicalJson, encodeCanonicalJson } from "../core";
+import { Digest, encodeCanonicalJson, isJsonObject } from "../core";
 import { AgentCoreError } from "../errors";
-import type { FacetData, OperationContext } from "../facets";
+import { canonicalFacetData, type FacetData, type OperationContext } from "../facets";
 import type {
     MediatedInvocationPreflight,
     MediatedInvocationPreparation,
@@ -16,6 +16,7 @@ import type {
 } from "../operations";
 import { InvocationId } from "../interaction-references";
 import type { CanonicalBatchInvoker } from "./canonical-batch";
+import { requireString } from "./codec";
 import type { InvocationReplayPersistence, InvocationTransactionPort } from "./ports";
 import { MediatedReplayRecord, type InvocationInterceptorTrace } from "./replay";
 
@@ -321,14 +322,14 @@ function replayEvidence(record: MediatedReplayRecord): FacetData {
 }
 
 function evidenceInvocation(evidence: FacetData): InvocationId {
-    if (evidence === null || Array.isArray(evidence) || typeof evidence !== "object") {
+    if (!isJsonObject(evidence)) {
         throw invalid("Mediated evidence does not identify its Invocation");
     }
-    const invocation = (evidence as { readonly [key: string]: FacetData })["invocation"];
-    if (typeof invocation !== "string") {
+    try {
+        return new InvocationId(requireString(evidence, "invocation"));
+    } catch {
         throw invalid("Mediated evidence does not identify its Invocation");
     }
-    return new InvocationId(invocation);
 }
 
 function requirePreparation(value: MediatedInvocationPreparation, itemCount: number): void {
@@ -362,7 +363,7 @@ function sameData(left: FacetData, right: FacetData): boolean {
 }
 
 function canonicalData(value: FacetData): FacetData {
-    return decodeCanonicalJson(encodeCanonicalJson(value)) as FacetData;
+    return canonicalFacetData(value);
 }
 
 function invalid(message: string): AgentCoreError {

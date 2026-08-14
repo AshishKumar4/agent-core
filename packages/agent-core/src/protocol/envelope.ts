@@ -110,15 +110,11 @@ export class CommandEnvelope {
     public readonly payloadDigest: Digest;
 
     public constructor(init: CommandEnvelopeInit) {
-        if (
-            typeof init.command !== "string" ||
-            init.command.length === 0 ||
-            init.command.length > 256
-        ) {
+        if (!isString(init.command) || init.command.length === 0 || init.command.length > 256) {
             throw new TypeError("Command name must contain between 1 and 256 characters");
         }
         if (
-            typeof init.idempotencyKey !== "string" ||
+            !isString(init.idempotencyKey) ||
             init.idempotencyKey.length === 0 ||
             init.idempotencyKey.length > 512
         ) {
@@ -156,25 +152,38 @@ export function commandCallersEqual(left: CommandCaller, right: CommandCaller): 
 }
 
 export function copyCommandCaller(caller: CommandCaller): CommandCaller {
-    const callerKind = requirePlainDataValue(caller, "kind", "Command caller");
-    const [kind, identity] = requireExactPlainData(
-        caller,
-        callerKind === "principal" ? ["kind", "principal"] : ["kind", "actor"],
-        "Command caller"
-    );
-    if (kind === "principal" && identity instanceof PrincipalRef) {
-        return Object.freeze({
-            kind,
-            principal: new PrincipalRef(identity.tenantId, identity.principalId)
-        });
-    }
-    if (kind === "actor" && identity instanceof ActorRef) {
-        return Object.freeze({
-            kind,
-            actor: new ActorRef(requireActorKind(identity.kind), new ActorId(identity.id.value))
-        });
+    requireCommandCallerContainer(caller);
+    if (commandCallerHasKind(caller, "principal")) {
+        requirePlainObjectKeys(caller, ["kind", "principal"], "Command caller");
+        if (caller.principal instanceof PrincipalRef) {
+            return Object.freeze({
+                kind: "principal",
+                principal: new PrincipalRef(caller.principal.tenantId, caller.principal.principalId)
+            });
+        }
+    } else if (commandCallerHasKind(caller, "actor")) {
+        requirePlainObjectKeys(caller, ["kind", "actor"], "Command caller");
+        if (caller.actor instanceof ActorRef) {
+            return Object.freeze({
+                kind: "actor",
+                actor: new ActorRef(
+                    requireActorKind(caller.actor.kind),
+                    new ActorId(caller.actor.id.value)
+                )
+            });
+        }
     }
     throw new TypeError("Command caller is invalid");
+}
+
+function requireCommandCallerContainer(caller: CommandCaller): void {
+    if (caller === null || Object.getPrototypeOf(caller) !== Object.prototype) {
+        throw new TypeError("Command caller must be a plain object with exact fields");
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(caller, "kind");
+    if (descriptor === undefined || !("value" in descriptor) || !descriptor.enumerable) {
+        throw new TypeError("Command caller must contain enumerable data fields");
+    }
 }
 
 export function encodeCommandCaller(caller: CommandCaller): JsonValue {
@@ -230,26 +239,21 @@ function decodeLease(value: JsonValue): LeaseToken {
 }
 
 function copyLeaseToken(lease: LeaseToken): LeaseToken {
-    const [turn, holder, epoch] = requireExactPlainData(
-        lease,
-        ["turn", "holder", "epoch"],
-        "Lease token"
-    );
+    requirePlainObjectKeys(lease, ["turn", "holder", "epoch"], "Lease token");
     if (
-        !(turn instanceof TurnId) ||
-        !(holder instanceof PrincipalRef) ||
-        typeof epoch !== "number" ||
-        !Number.isSafeInteger(epoch) ||
-        epoch < 0
+        !(lease.turn instanceof TurnId) ||
+        !(lease.holder instanceof PrincipalRef) ||
+        !Number.isSafeInteger(lease.epoch) ||
+        lease.epoch < 0
     ) {
         throw new TypeError(
             "Lease token requires a TurnId turn, PrincipalRef holder, and non-negative epoch"
         );
     }
     return Object.freeze({
-        turn: new TurnId(turn.value),
-        holder: new PrincipalRef(holder.tenantId, holder.principalId),
-        epoch
+        turn: new TurnId(lease.turn.value),
+        holder: new PrincipalRef(lease.holder.tenantId, lease.holder.principalId),
+        epoch: lease.epoch
     });
 }
 
@@ -262,44 +266,38 @@ function decodePrincipalRef(value: JsonValue | undefined, name: string): Princip
     );
 }
 
-function requireExactPlainData(
-    value: unknown,
+function commandCallerHasKind<Kind extends CommandCaller["kind"]>(
+    caller: CommandCaller,
+    kind: Kind
+): caller is Extract<CommandCaller, { readonly kind: Kind }> {
+    if (caller === null || Object.getPrototypeOf(caller) !== Object.prototype) {
+        return false;
+    }
+    const descriptor = Object.getOwnPropertyDescriptor(caller, "kind");
+    if (descriptor === undefined || !("value" in descriptor) || !descriptor.enumerable) {
+        return false;
+    }
+    return descriptor.value === kind;
+}
+
+function requirePlainObjectKeys(
+    value: CommandCaller | LeaseToken,
     fields: readonly string[],
     name: string
-): readonly unknown[] {
-    if (
-        value === null ||
-        typeof value !== "object" ||
-        Object.getPrototypeOf(value) !== Object.prototype
-    ) {
+): void {
+    if (value === null || Object.getPrototypeOf(value) !== Object.prototype) {
         throw new TypeError(`${name} must be a plain object with exact fields`);
     }
     const keys = Reflect.ownKeys(value);
     if (keys.length !== fields.length || fields.some((field) => !keys.includes(field))) {
         throw new TypeError(`${name} must be a plain object with exact fields`);
     }
-    return fields.map((field) => {
+    for (const field of fields) {
         const descriptor = Object.getOwnPropertyDescriptor(value, field);
         if (descriptor === undefined || !("value" in descriptor) || !descriptor.enumerable) {
             throw new TypeError(`${name} must contain enumerable data fields`);
         }
-        return descriptor.value as unknown;
-    });
-}
-
-function requirePlainDataValue(value: unknown, field: string, name: string): unknown {
-    if (
-        value === null ||
-        typeof value !== "object" ||
-        Object.getPrototypeOf(value) !== Object.prototype
-    ) {
-        throw new TypeError(`${name} must be a plain object with exact fields`);
     }
-    const descriptor = Object.getOwnPropertyDescriptor(value, field);
-    if (descriptor === undefined || !("value" in descriptor) || !descriptor.enumerable) {
-        throw new TypeError(`${name} must contain enumerable data fields`);
-    }
-    return descriptor.value as unknown;
 }
 
 function requireActorKind(value: JsonValue | undefined): ActorKind {
@@ -313,4 +311,8 @@ function requireActorKind(value: JsonValue | undefined): ActorKind {
         return value;
     }
     throw new TypeError("Command caller actor kind is invalid");
+}
+
+function isString(value: unknown): value is string {
+    return typeof value === "string";
 }

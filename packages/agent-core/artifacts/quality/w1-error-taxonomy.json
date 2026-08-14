@@ -138,7 +138,7 @@
         ],
         "src/protocol/ingress.ts": [
             "test/protocol/ingress.test.ts#rejects invalid payload lease duration %s",
-            "test/protocol/ingress.test.ts#forged heldContentVerifier cannot replace transport authentication"
+            "test/protocol/ingress.test.ts#a forged capability cannot replace transport authentication"
         ],
         "src/protocol/payload.ts": [
             "test/protocol/codec.test.ts#defensively copies expiry and compares every binding field"
@@ -1116,7 +1116,7 @@
         {
             "id": "w1.protocol.dispatcher.commanddispatcher-constructor.3fe84729f9",
             "file": "src/protocol/dispatcher.ts",
-            "line": 171,
+            "line": 176,
             "source": "src/protocol/dispatcher.ts",
             "sourceAnchor": {
                 "container": "CommandDispatcher.constructor",
@@ -1133,11 +1133,11 @@
         {
             "id": "w1.protocol.dispatcher.requiretypedcommandexecution.fe9769ac05",
             "file": "src/protocol/dispatcher.ts",
-            "line": 778,
+            "line": 771,
             "source": "src/protocol/dispatcher.ts",
             "sourceAnchor": {
                 "container": "requireTypedCommandExecution",
-                "guard": "execution === null || typeof execution !== \"object\" || !(\"reply\" in execution) || command.replyCodec === undefined",
+                "guard": null,
                 "expression": "new TypeError(\"Typed command execution requires a reply codec\")"
             },
             "classification": "programmer-contract",
@@ -1150,11 +1150,11 @@
         {
             "id": "w1.protocol.dispatcher.requireobservationcodec.9847dd1ef8",
             "file": "src/protocol/dispatcher.ts",
-            "line": 787,
+            "line": 775,
             "source": "src/protocol/dispatcher.ts",
             "sourceAnchor": {
                 "container": "requireObservationCodec",
-                "guard": "command.observationCodec === undefined",
+                "guard": null,
                 "expression": "new TypeError(\"Typed command observation requires an observation codec\")"
             },
             "classification": "programmer-contract",
@@ -1167,11 +1167,11 @@
         {
             "id": "w1.protocol.dispatcher.validatecommandactorcontext.ec8effee4d",
             "file": "src/protocol/dispatcher.ts",
-            "line": 797,
+            "line": 787,
             "source": "src/protocol/dispatcher.ts",
             "sourceAnchor": {
                 "container": "validateCommandActorContext",
-                "guard": "!isActorActivationStore(store)",
+                "guard": null,
                 "expression": "new TypeError(\"Command dispatcher requires an Actor activation store\")"
             },
             "classification": "programmer-contract",
@@ -1184,7 +1184,7 @@
         {
             "id": "w1.protocol.dispatcher.validatelimit.96f93ee5cc",
             "file": "src/protocol/dispatcher.ts",
-            "line": 836,
+            "line": 816,
             "source": "src/protocol/dispatcher.ts",
             "sourceAnchor": {
                 "container": "validateLimit",
@@ -1201,11 +1201,11 @@
         {
             "id": "w1.protocol.envelope.commandenvelope-constructor.a945a07e4c",
             "file": "src/protocol/envelope.ts",
-            "line": 118,
+            "line": 114,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "CommandEnvelope.constructor",
-                "guard": "typeof init.command !== \"string\" || init.command.length === 0 || init.command.length > 256",
+                "guard": "!isString(init.command) || init.command.length === 0 || init.command.length > 256",
                 "expression": "new TypeError(\"Command name must contain between 1 and 256 characters\")"
             },
             "classification": "constructor-shape",
@@ -1217,11 +1217,11 @@
         {
             "id": "w1.protocol.envelope.commandenvelopeconstructor.129eae476b",
             "file": "src/protocol/envelope.ts",
-            "line": 125,
+            "line": 121,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "CommandEnvelope.constructor",
-                "guard": "typeof init.idempotencyKey !== \"string\" || init.idempotencyKey.length === 0 || init.idempotencyKey.length > 512",
+                "guard": "!isString(init.idempotencyKey) || init.idempotencyKey.length === 0 || init.idempotencyKey.length > 512",
                 "expression": "new TypeError( \"Command idempotency key must contain between 1 and 512 characters\" )"
             },
             "classification": "constructor-shape",
@@ -1233,7 +1233,7 @@
         {
             "id": "w1.protocol.envelope.copycommandcaller.307b4cf626",
             "file": "src/protocol/envelope.ts",
-            "line": 177,
+            "line": 176,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "copyCommandCaller",
@@ -1247,9 +1247,41 @@
             ]
         },
         {
+            "id": "w1.protocol.envelope.requireplaindatavalue.285cc9c4e4",
+            "file": "src/protocol/envelope.ts",
+            "line": 181,
+            "source": "src/protocol/envelope.ts",
+            "sourceAnchor": {
+                "container": "requireCommandCallerContainer",
+                "guard": "caller === null || Object.getPrototypeOf(caller) !== Object.prototype",
+                "expression": "new TypeError(\"Command caller must be a plain object with exact fields\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Command envelopes require the caller discriminant to arrive in an exact plain-data container.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.protocol.envelope.requireplaindatavalue.013f5bbdaa",
+            "file": "src/protocol/envelope.ts",
+            "line": 185,
+            "source": "src/protocol/envelope.ts",
+            "sourceAnchor": {
+                "container": "requireCommandCallerContainer",
+                "guard": "descriptor === undefined || !(\"value\" in descriptor) || !descriptor.enumerable",
+                "expression": "new TypeError(\"Command caller must contain enumerable data fields\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Command envelopes reject an accessor caller discriminant before evaluating it.",
+            "testedBy": [
+                "test/protocol/codec.test.ts"
+            ]
+        },
+        {
             "id": "w1.protocol.envelope.decodecommandcaller.dd743a0fde",
             "file": "src/protocol/envelope.ts",
-            "line": 219,
+            "line": 228,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "decodeCommandCaller",
@@ -1265,11 +1297,11 @@
         {
             "id": "w1.protocol.envelope.copyleasetoken.b3774e96b6",
             "file": "src/protocol/envelope.ts",
-            "line": 245,
+            "line": 249,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "copyLeaseToken",
-                "guard": "!(turn instanceof TurnId) || !(holder instanceof PrincipalRef) || typeof epoch !== \"number\" || !Number.isSafeInteger(epoch) || epoch < 0",
+                "guard": "!(lease.turn instanceof TurnId) || !(lease.holder instanceof PrincipalRef) || !Number.isSafeInteger(lease.epoch) || lease.epoch < 0",
                 "expression": "new TypeError( \"Lease token requires a TurnId turn, PrincipalRef holder, and non-negative epoch\" )"
             },
             "classification": "constructor-shape",
@@ -1281,15 +1313,15 @@
         {
             "id": "w1.protocol.envelope.requireexactplaindata.51536f3b33",
             "file": "src/protocol/envelope.ts",
-            "line": 275,
+            "line": 289,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
-                "container": "requireExactPlainData",
-                "guard": "value === null || typeof value !== \"object\" || Object.getPrototypeOf(value) !== Object.prototype",
+                "container": "requirePlainObjectKeys",
+                "guard": "value === null || Object.getPrototypeOf(value) !== Object.prototype",
                 "expression": "new TypeError(`${name} must be a plain object with exact fields`)"
             },
-            "classification": "codec-input-shape",
-            "rationale": "Envelope payload decoding requires exact plain-data shapes before interpretation.",
+            "classification": "constructor-shape",
+            "rationale": "Command envelopes require exact plain-data caller and lease shapes at construction.",
             "testedBy": [
                 "test/protocol/codec.test.ts"
             ]
@@ -1297,15 +1329,15 @@
         {
             "id": "w1.protocol.envelope.requireexactplaindata.127017207d",
             "file": "src/protocol/envelope.ts",
-            "line": 279,
+            "line": 293,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
-                "container": "requireExactPlainData",
+                "container": "requirePlainObjectKeys",
                 "guard": "keys.length !== fields.length || fields.some((field) => !keys.includes(field))",
                 "expression": "new TypeError(`${name} must be a plain object with exact fields`)"
             },
-            "classification": "codec-input-shape",
-            "rationale": "Envelope payload decoding requires exact plain-data shapes before interpretation.",
+            "classification": "constructor-shape",
+            "rationale": "Command envelopes require exact plain-data caller and lease shapes at construction.",
             "testedBy": [
                 "test/protocol/codec.test.ts"
             ]
@@ -1313,47 +1345,15 @@
         {
             "id": "w1.protocol.envelope.requireexactplaindata.82ab76367c",
             "file": "src/protocol/envelope.ts",
-            "line": 284,
+            "line": 298,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
-                "container": "requireExactPlainData",
+                "container": "requirePlainObjectKeys",
                 "guard": "descriptor === undefined || !(\"value\" in descriptor) || !descriptor.enumerable",
                 "expression": "new TypeError(`${name} must contain enumerable data fields`)"
             },
-            "classification": "codec-input-shape",
-            "rationale": "Envelope payload decoding requires exact plain-data shapes before interpretation.",
-            "testedBy": [
-                "test/protocol/codec.test.ts"
-            ]
-        },
-        {
-            "id": "w1.protocol.envelope.requireplaindatavalue.285cc9c4e4",
-            "file": "src/protocol/envelope.ts",
-            "line": 296,
-            "source": "src/protocol/envelope.ts",
-            "sourceAnchor": {
-                "container": "requirePlainDataValue",
-                "guard": "value === null || typeof value !== \"object\" || Object.getPrototypeOf(value) !== Object.prototype",
-                "expression": "new TypeError(`${name} must be a plain object with exact fields`)"
-            },
-            "classification": "codec-input-shape",
-            "rationale": "Envelope payload decoding requires exact plain-data shapes before interpretation.",
-            "testedBy": [
-                "test/protocol/codec.test.ts"
-            ]
-        },
-        {
-            "id": "w1.protocol.envelope.requireplaindatavalue.013f5bbdaa",
-            "file": "src/protocol/envelope.ts",
-            "line": 300,
-            "source": "src/protocol/envelope.ts",
-            "sourceAnchor": {
-                "container": "requirePlainDataValue",
-                "guard": "descriptor === undefined || !(\"value\" in descriptor) || !descriptor.enumerable",
-                "expression": "new TypeError(`${name} must contain enumerable data fields`)"
-            },
-            "classification": "codec-input-shape",
-            "rationale": "Envelope payload decoding requires exact plain-data shapes before interpretation.",
+            "classification": "constructor-shape",
+            "rationale": "Command envelopes reject caller and lease accessors before evaluating them.",
             "testedBy": [
                 "test/protocol/codec.test.ts"
             ]
@@ -1361,7 +1361,7 @@
         {
             "id": "w1.protocol.envelope.requireactorkind.b76ca1df18",
             "file": "src/protocol/envelope.ts",
-            "line": 315,
+            "line": 313,
             "source": "src/protocol/envelope.ts",
             "sourceAnchor": {
                 "container": "requireActorKind",
@@ -1377,7 +1377,7 @@
         {
             "id": "w1.protocol.ingress.commandingress-constructor.9281a78045",
             "file": "src/protocol/ingress.ts",
-            "line": 63,
+            "line": 61,
             "source": "src/protocol/ingress.ts",
             "sourceAnchor": {
                 "container": "CommandIngress.constructor",
@@ -1393,7 +1393,7 @@
         {
             "id": "w1.protocol.ingress.commandingress-constructor.8ff7746e3a",
             "file": "src/protocol/ingress.ts",
-            "line": 68,
+            "line": 66,
             "source": "src/protocol/ingress.ts",
             "sourceAnchor": {
                 "container": "CommandIngress.constructor",
@@ -1409,7 +1409,7 @@
         {
             "id": "w1.protocol.payload.payloadleasebinding-constructor.4a9149c0d3",
             "file": "src/protocol/payload.ts",
-            "line": 42,
+            "line": 34,
             "source": "src/protocol/payload.ts",
             "sourceAnchor": {
                 "container": "PayloadLeaseBinding.constructor",

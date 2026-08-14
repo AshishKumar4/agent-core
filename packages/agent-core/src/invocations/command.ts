@@ -1,11 +1,5 @@
 import { requireSynchronousResult } from "../actors";
-import {
-    decodeCanonicalJson,
-    encodeCanonicalJson,
-    hasExactJsonKeys,
-    isJsonObject,
-    type Revision
-} from "../core";
+import { decodeCanonicalJson, encodeCanonicalJson, type Revision } from "../core";
 import { InvocationId } from "../interaction-references";
 import type {
     CommandCallerPolicy,
@@ -18,6 +12,7 @@ import type {
     ProtocolValueCodec
 } from "../protocol";
 import { canonicalFacetDataMap, isFacetDataMap, type FacetDataMap } from "../facets";
+import { requireExactObject, requireString } from "./codec";
 
 export const INVOCATION_COMMANDS = Object.freeze({
     prepareExecutor: "invocation.prepare.executor",
@@ -182,37 +177,46 @@ class InvocationProtocolCommand<Transaction, Read, Reply, Observation> implement
     }
 }
 
-class InvocationPayloadCodec implements CommandPayloadCodec {
+class InvocationPayloadCodec implements CommandPayloadCodec<InvocationCommandPayloadValue> {
     public decode(bytes: Uint8Array): InvocationCommandPayloadValue {
         const value = decodeCanonicalJson(bytes);
-        if (!isJsonObject(value)) {
+        let object;
+        try {
+            object = requireExactObject(
+                value,
+                ["body", "invocation"],
+                "Invocation command payload"
+            );
+        } catch {
             throw new TypeError("Invocation command payload is malformed");
         }
-        if (
-            !hasExactJsonKeys(value, ["body", "invocation"]) ||
-            typeof value["invocation"] !== "string" ||
-            !isFacetDataMap(value["body"])
-        ) {
+        const body = object["body"];
+        if (!isFacetDataMap(body)) {
             throw new TypeError("Invocation command payload is malformed");
         }
-        return Object.freeze({
-            invocation: new InvocationId(value["invocation"]),
-            body: canonicalFacetDataMap(value["body"])
+        let invocation;
+        try {
+            invocation = requireString(object, "invocation");
+        } catch {
+            throw new TypeError("Invocation command payload is malformed");
+        }
+        const payload = Object.freeze({
+            invocation: new InvocationId(invocation),
+            body: canonicalFacetDataMap(body)
         });
+        issuedPayloads.add(payload);
+        return payload;
     }
 }
 
-function requirePayload(value: unknown): InvocationCommandPayloadValue {
-    if (
-        value === null ||
-        typeof value !== "object" ||
-        !((value as { readonly invocation?: unknown }).invocation instanceof InvocationId) ||
-        !("body" in value)
-    ) {
+function requirePayload(value: InvocationCommandPayloadValue): InvocationCommandPayloadValue {
+    if (!issuedPayloads.has(value)) {
         throw new TypeError("Invocation command payload was not decoded");
     }
-    return value as InvocationCommandPayloadValue;
+    return value;
 }
+
+const issuedPayloads = new WeakSet<InvocationCommandPayloadValue>();
 
 const commandPolicies: readonly {
     readonly command: InvocationCommandName;

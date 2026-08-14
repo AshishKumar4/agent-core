@@ -609,38 +609,8 @@
     },
     {
       "file": "packages/agent-core/src/invocations/canonical-batch.ts",
-      "kind": "assertion",
-      "count": 2,
-      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
-    },
-    {
-      "file": "packages/agent-core/src/invocations/canonical-batch.ts",
       "kind": "unknown",
       "count": 1,
-      "reason": "Mediation is generic over the authorization and transaction its host supplies, and effect output is opaque to the invocation layer."
-    },
-    {
-      "file": "packages/agent-core/src/invocations/codec.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
-    },
-    {
-      "file": "packages/agent-core/src/invocations/codec.ts",
-      "kind": "unknown",
-      "count": 2,
-      "reason": "Mediation is generic over the authorization and transaction its host supplies, and effect output is opaque to the invocation layer."
-    },
-    {
-      "file": "packages/agent-core/src/invocations/command.ts",
-      "kind": "assertion",
-      "count": 2,
-      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
-    },
-    {
-      "file": "packages/agent-core/src/invocations/command.ts",
-      "kind": "unknown",
-      "count": 2,
       "reason": "Mediation is generic over the authorization and transaction its host supplies, and effect output is opaque to the invocation layer."
     },
     {
@@ -648,12 +618,6 @@
       "kind": "non-null",
       "count": 5,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
-    },
-    {
-      "file": "packages/agent-core/src/invocations/operation-mediation.ts",
-      "kind": "assertion",
-      "count": 3,
-      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
     },
     {
       "file": "packages/agent-core/src/invocations/operation-mediation.ts",
@@ -668,12 +632,6 @@
       "reason": "Mediation is generic over the authorization and transaction its host supplies, and effect output is opaque to the invocation layer."
     },
     {
-      "file": "packages/agent-core/src/invocations/outcome.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
-    },
-    {
       "file": "packages/agent-core/src/invocations/prepared.ts",
       "kind": "non-null",
       "count": 10,
@@ -684,12 +642,6 @@
       "kind": "non-null",
       "count": 2,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
-    },
-    {
-      "file": "packages/agent-core/src/invocations/replay.ts",
-      "kind": "assertion",
-      "count": 3,
-      "reason": "Invocation evidence bridges canonical JSON to the receipt, attempt, and replay shapes their exact-field checks established."
     },
     {
       "file": "packages/agent-core/src/invocations/replay.ts",
@@ -746,88 +698,28 @@
       "reason": "Operation interception and lifecycle report failures whose thrown value has no static type."
     },
     {
-      "file": "packages/agent-core/src/protocol/authentication.ts",
-      "kind": "unknown",
-      "count": 1,
-      "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
-    },
-    {
-      "file": "packages/agent-core/src/protocol/authority-evidence.ts",
-      "kind": "assertion",
-      "count": 2,
-      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
-    },
-    {
-      "file": "packages/agent-core/src/protocol/authority-evidence.ts",
-      "kind": "non-null",
-      "count": 1,
-      "reason": "A payload field read after the envelope's exact-field check is present by that check, which the index signature cannot carry."
-    },
-    {
-      "file": "packages/agent-core/src/protocol/bootstrap-memory.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
-    },
-    {
       "file": "packages/agent-core/src/protocol/bootstrap-memory.ts",
       "kind": "unknown",
       "count": 1,
       "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
     },
     {
-      "file": "packages/agent-core/src/protocol/bootstrap.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
-    },
-    {
       "file": "packages/agent-core/src/protocol/dispatcher.ts",
       "kind": "assertion",
       "count": 2,
-      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
+      "reason": "The canonical Actor commit error is upgraded only after installing its subclass prototype, while the empty conditional rest tuple encodes ActorLocalStore's synchronous read contract without a runtime value."
     },
     {
       "file": "packages/agent-core/src/protocol/dispatcher.ts",
       "kind": "unknown",
-      "count": 21,
-      "reason": "The dispatcher routes a heterogeneous command registry through each command's own codecs without ever naming their request, reply, or observation types; unknown is what a registry of differently typed commands is."
-    },
-    {
-      "file": "packages/agent-core/src/protocol/envelope.ts",
-      "kind": "assertion",
-      "count": 2,
-      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
-    },
-    {
-      "file": "packages/agent-core/src/protocol/envelope.ts",
-      "kind": "unknown",
-      "count": 6,
-      "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
-    },
-    {
-      "file": "packages/agent-core/src/protocol/facet-commands.ts",
-      "kind": "assertion",
-      "count": 4,
-      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
-    },
-    {
-      "file": "packages/agent-core/src/protocol/facet-commands.ts",
-      "kind": "unknown",
-      "count": 5,
-      "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
+      "count": 3,
+      "reason": "A heterogeneous command registry erases each command's distinct request, reply, and observation types, while the decoder and every consumer remain captured in one typed decision."
     },
     {
       "file": "packages/agent-core/src/protocol/ingress.ts",
       "kind": "unknown",
-      "count": 4,
-      "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
-    },
-    {
-      "file": "packages/agent-core/src/protocol/materialization-commands.ts",
-      "kind": "assertion",
       "count": 3,
-      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
+      "reason": "Ingress is generic over a host transport, and a caught failure remains untyped until the commit-uncertainty predicate narrows it."
     },
     {
       "file": "packages/agent-core/src/protocol/materialization-commands.ts",
@@ -836,31 +728,13 @@
       "reason": "A payload field read after the envelope's exact-field check is present by that check, which the index signature cannot carry."
     },
     {
-      "file": "packages/agent-core/src/protocol/materialization-commands.ts",
-      "kind": "unknown",
-      "count": 7,
-      "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
-    },
-    {
       "file": "packages/agent-core/src/protocol/payload.ts",
       "kind": "unknown",
-      "count": 2,
-      "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
+      "count": 1,
+      "reason": "A command payload codec defaults to an untyped boundary value until a concrete registration supplies its decoded payload type."
     },
     {
       "file": "packages/agent-core/src/protocol/registration.ts",
-      "kind": "unknown",
-      "count": 2,
-      "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
-    },
-    {
-      "file": "packages/agent-core/src/protocol/run-commands.ts",
-      "kind": "assertion",
-      "count": 2,
-      "reason": "Command payload decoding bridges a canonical JSON value to the request shape its codec declares, after the exact-field check that shape depends on."
-    },
-    {
-      "file": "packages/agent-core/src/protocol/run-commands.ts",
       "kind": "unknown",
       "count": 2,
       "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."

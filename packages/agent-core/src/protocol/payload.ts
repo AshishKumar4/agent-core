@@ -1,19 +1,11 @@
 import type { ActorRef } from "../actors";
-import type {
-    TransientContentAccess,
-    TransientContentBinding,
-    TransientContentLease
-} from "../content";
+import type { TransientContentBinding, TransientContentLease } from "../content";
 import type { ContentRef, Digest } from "../core";
 import { AgentCoreError } from "../errors";
 import type { TenantId } from "../identity";
 
 export type PayloadMalformedReason =
     "absent" | "missing" | "referenceMismatch" | "submittedMismatch" | "tooLarge";
-
-// Removed once W2/W4 consume TransientContentAccess in their owned compositions.
-export type HeldContentStore = TransientContentAccess;
-export type HeldContentVerifier = TransientContentAccess;
 
 export interface CommandPayloadCodec<Payload = unknown> {
     decode(bytes: Uint8Array): Payload;
@@ -111,7 +103,7 @@ export function issueMalformedCommandPayload(
 }
 
 export function inspectPreparedCommandPayload(
-    value: unknown
+    value: PreparedCommandPayload
 ): Readonly<PreparedPayloadState> | undefined {
     // No shape test in front of the lookup: WeakMap.get answers undefined for anything
     // that was never a key and never throws, so the guard could only ever agree with it.

@@ -45,16 +45,12 @@ export class CommandAuthentication {
 }
 
 export function commandAuthenticationMatches(
-    authentication: unknown,
+    authentication: CommandAuthentication | undefined,
     envelopeDigest: Digest,
     envelope: CommandEnvelope,
     tenant: TenantId
 ): boolean {
-    if (
-        (typeof authentication !== "object" || authentication === null) &&
-        typeof authentication !== "function"
-    )
-        return false;
+    if (!(authentication instanceof CommandAuthentication)) return false;
     if (!issuedAuthentications.has(authentication)) return false;
     return CommandAuthentication.prototype.matches.call(
         authentication,

@@ -167,7 +167,7 @@
     "src/definition/rollout.ts:893",
     "src/definition/rollout.ts:908",
     "src/facets/installation.ts:9",
-    "src/protocol/materialization-commands.ts:184",
+    "src/protocol/materialization-commands.ts:194",
     "src/substrates/sqlite/materialization.ts:1967"
   ],
   "allowedPreservedRethrows": ["src/definition/loader.ts:251"],

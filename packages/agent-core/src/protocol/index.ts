@@ -14,7 +14,6 @@ export type {
 export { RUN_COMMANDS, RunProtocolPort, createRunProtocolCommands } from "./run-commands";
 export type { RunProtocolRequest } from "./run-commands";
 export { CommandPayloadMalformedError } from "./payload";
-export type { HeldContentStore, HeldContentVerifier } from "./payload";
 export {
     AuthorityCheckPayloadCodec,
     AuthorityCheckReply,

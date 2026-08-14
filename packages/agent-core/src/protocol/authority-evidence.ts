@@ -6,9 +6,19 @@ import {
     BindingValidationEvidence,
     BindingValidationRequest
 } from "../authority";
-import { RecordCodec, type JsonValue } from "../core";
+import { jsonDataParser, RecordCodec, type JsonValue } from "../core";
 import { AgentCoreError } from "../errors";
 import type { CommandPayloadCodec } from "./payload";
+
+const parseReply = jsonDataParser(
+    () => new AgentCoreError("codec.invalid", "Authority protocol reply is malformed")
+);
+const parseRequest = jsonDataParser(
+    () => new AgentCoreError("codec.invalid", "Authority protocol payload is malformed")
+);
+const parseIssuance = jsonDataParser(
+    () => new AgentCoreError("codec.invalid", "Authority permit issuance request is malformed")
+);
 
 class AuthorityCheckReplyCodec extends RecordCodec<AuthorityCheckReply> {
     public constructor() {
@@ -52,15 +62,16 @@ class AuthorityPermitIssuanceRequestCodec extends RecordCodec<AuthorityPermitIss
     }
 
     protected decodePayload(payload: JsonValue): AuthorityPermitIssuanceRequest {
-        const object = exactObject(payload, ["expectation", "expiresAt", "nonce"]);
-        const expiresAt = object["expiresAt"];
-        const nonce = object["nonce"];
-        if (typeof expiresAt !== "number" || typeof nonce !== "string") {
-            throw new AgentCoreError(
-                "codec.invalid",
-                "Authority permit issuance request is malformed"
-            );
-        }
+        const object = parseRequest.exact(
+            parseRequest.object(payload, "Authority protocol payload"),
+            ["expectation", "expiresAt", "nonce"],
+            "Authority protocol payload"
+        );
+        const nonce = parseIssuance.string(object["nonce"], "Authority permit issuance request");
+        const expiresAt = parseIssuance.safeInteger(
+            object["expiresAt"],
+            "Authority permit issuance request"
+        );
         return new AuthorityPermitIssuanceRequest(
             AuthorityPermitExpectation.fromData(object["expectation"]),
             nonce,
@@ -163,7 +174,7 @@ export class AuthorityPermitIssuanceReply {
     }
 }
 
-export class AuthorityCheckPayloadCodec implements CommandPayloadCodec {
+export class AuthorityCheckPayloadCodec implements CommandPayloadCodec<AuthorityCheckRequest> {
     public decode(bytes: Uint8Array): AuthorityCheckRequest {
         return AuthorityCheckRequest.decode(bytes);
     }
@@ -172,7 +183,7 @@ export class AuthorityCheckPayloadCodec implements CommandPayloadCodec {
     }
 }
 
-export class BindingValidationPayloadCodec implements CommandPayloadCodec {
+export class BindingValidationPayloadCodec implements CommandPayloadCodec<BindingValidationRequest> {
     public decode(bytes: Uint8Array): BindingValidationRequest {
         return BindingValidationRequest.decode(bytes);
     }
@@ -192,29 +203,14 @@ export class AuthorityPermitIssuancePayloadCodec implements CommandPayloadCodec<
 }
 
 function singleField(payload: JsonValue, field: string): JsonValue {
-    if (
-        payload === null ||
-        Array.isArray(payload) ||
-        typeof payload !== "object" ||
-        Object.keys(payload).length !== 1 ||
-        !(field in payload)
-    ) {
+    const object = parseReply.exact(
+        parseReply.object(payload, "Authority protocol reply"),
+        [field],
+        "Authority protocol reply"
+    );
+    const value = object[field];
+    if (value === undefined) {
         throw new AgentCoreError("codec.invalid", "Authority protocol reply is malformed");
     }
-    return (payload as { readonly [key: string]: JsonValue })[field]!;
-}
-
-function exactObject(
-    payload: JsonValue,
-    fields: readonly string[]
-): { readonly [key: string]: JsonValue } {
-    if (
-        payload === null ||
-        Array.isArray(payload) ||
-        typeof payload !== "object" ||
-        Object.keys(payload).sort().join(",") !== [...fields].sort().join(",")
-    ) {
-        throw new AgentCoreError("codec.invalid", "Authority protocol payload is malformed");
-    }
-    return payload as { readonly [key: string]: JsonValue };
+    return value;
 }

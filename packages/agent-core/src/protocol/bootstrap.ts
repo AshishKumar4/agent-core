@@ -6,7 +6,6 @@ import {
     encodeBase64,
     encodeCanonicalJson,
     hasExactJsonKeys,
-    isJsonObject,
     type JsonValue,
     type Revision
 } from "../core";
@@ -17,7 +16,7 @@ import type { CommandEnvelope } from "./envelope";
 import { CommandPayloadMalformedError, type CommandPayloadCodec } from "./payload";
 import { CommandCallerPolicy } from "./policy";
 import type { ProtocolCommandExecution, ProtocolValueCodec } from "./registration";
-import { requireNonemptyString, requireObject } from "./codec";
+import { requireKeys, requireNonemptyString, requireObject, requireString } from "./codec";
 
 export interface TenantBootstrapAnchor {
     readonly actorId: ActorId;
@@ -43,41 +42,31 @@ class TenantBootstrapAnchorCodec extends RecordCodec<TenantBootstrapAnchorRecord
     }
 
     protected decodePayload(payload: JsonValue): TenantBootstrapAnchorRecord {
-        if (!isJsonObject(payload)) {
-            throw new TypeError("Tenant bootstrap anchor payload is malformed");
+        try {
+            const object = requireObject(payload, "Tenant bootstrap anchor payload");
+            requireKeys(
+                object,
+                ["actorId", "principalId", "tenantId", "tenantKind", "trustAnchor"],
+                [],
+                "Tenant bootstrap anchor payload"
+            );
+            const tenantKind = object["tenantKind"];
+            if (!isTenantKind(tenantKind)) {
+                throw new TypeError("Tenant bootstrap anchor payload is malformed");
+            }
+            return new TenantBootstrapAnchorRecord({
+                actorId: new ActorId(requireString(object, "actorId")),
+                principalId: new PrincipalId(requireString(object, "principalId")),
+                tenantId: new TenantId(requireString(object, "tenantId")),
+                tenantKind,
+                trustAnchor: decodeBase64(requireString(object, "trustAnchor"))
+            });
+        } catch (error) {
+            if (error instanceof TypeError) {
+                throw new TypeError("Tenant bootstrap anchor payload is malformed");
+            }
+            throw error;
         }
-        if (
-            !hasExactJsonKeys(payload, [
-                "actorId",
-                "principalId",
-                "tenantId",
-                "tenantKind",
-                "trustAnchor"
-            ])
-        ) {
-            throw new TypeError("Tenant bootstrap anchor payload is malformed");
-        }
-        const actorId = payload["actorId"];
-        const principalId = payload["principalId"];
-        const tenantId = payload["tenantId"];
-        const tenantKind = payload["tenantKind"];
-        const trustAnchor = payload["trustAnchor"];
-        if (
-            typeof actorId !== "string" ||
-            typeof principalId !== "string" ||
-            typeof tenantId !== "string" ||
-            typeof trustAnchor !== "string" ||
-            !isTenantKind(tenantKind)
-        ) {
-            throw new TypeError("Tenant bootstrap anchor payload is malformed");
-        }
-        return new TenantBootstrapAnchorRecord({
-            actorId: new ActorId(actorId),
-            principalId: new PrincipalId(principalId),
-            tenantId: new TenantId(tenantId),
-            tenantKind,
-            trustAnchor: decodeBase64(trustAnchor)
-        });
     }
 }
 
@@ -253,13 +242,10 @@ export function tenantBootstrapPayload(): Uint8Array {
 class EmptyBootstrapPayloadCodec implements CommandPayloadCodec<EmptyBootstrapPayload> {
     public decode(bytes: Uint8Array): EmptyBootstrapPayload {
         const value = decodeCanonicalJson(bytes);
-        if (!isJsonObject(value)) {
-            throw new CommandPayloadMalformedError(
-                "Tenant bootstrap payload must be an empty object"
-            );
-        }
-        const object = value as { readonly [key: string]: never };
-        if (!hasExactJsonKeys(object, [])) {
+        try {
+            const object = requireObject(value, "Tenant bootstrap payload");
+            requireKeys(object, [], [], "Tenant bootstrap payload");
+        } catch {
             throw new CommandPayloadMalformedError(
                 "Tenant bootstrap payload must be an empty object"
             );
