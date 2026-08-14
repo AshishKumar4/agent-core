@@ -22,7 +22,7 @@
         "src/substrates/sqlite/tenant.ts#SqliteTenantControlStore"
       ],
       "memoryReference": "src/authority/memory.ts#MemoryTenantControlStore",
-      "contractTest": "test/substrates/sqlite/behavior-branches.test.ts#SQLite Tenant control behavior branches [authority-mutation-store] [identity-repository] memory and SQLite satisfy one shared Tenant control contract"
+      "contractTest": "test/substrates/sqlite/behavior-branches.test.ts#SQLite Tenant control behavior branches [C13-OWNERSHIP-AUTHORITY-RECORDS] [authority-mutation-store] [identity-repository] memory and SQLite keep Binding transitions and path epochs in one Tenant control plane"
     },
     {
       "id": "identity-repository",
@@ -34,7 +34,7 @@
         "src/substrates/sqlite/tenant.ts#SqliteTenantControlStore"
       ],
       "memoryReference": "src/identity/repository.ts#MemoryIdentityRepository",
-      "contractTest": "test/substrates/sqlite/behavior-branches.test.ts#SQLite Tenant control behavior branches [authority-mutation-store] [identity-repository] memory and SQLite satisfy one shared Tenant control contract"
+      "contractTest": "test/substrates/sqlite/behavior-branches.test.ts#SQLite Tenant control behavior branches [C13-OWNERSHIP-AUTHORITY-RECORDS] [authority-mutation-store] [identity-repository] memory and SQLite keep Binding transitions and path epochs in one Tenant control plane"
     },
     {
       "id": "invalidation-watermark-store",

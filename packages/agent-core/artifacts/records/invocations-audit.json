@@ -53,8 +53,8 @@
             "store": "src/substrates/sqlite/invocations/persistence.ts#SqliteInvocationPersistence",
             "tests": [
                 "test/invocations/record-codecs.test.ts#durable invocation record codecs [invocation.item-claim] round-trips an actual immutable fixture",
-                "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.item-claim] recovers only an expired no-attempt claim at the same ordinal under a new worker",
-                "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.item-claim] recovers only an expired no-attempt claim at the same ordinal under a new worker"
+                "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [invocation.item-claim] rejects claim owner kinds that contradict the Prepared lease mode",
+                "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [invocation.item-claim] rejects claim owner kinds that contradict the Prepared lease mode"
             ]
         },
         {
