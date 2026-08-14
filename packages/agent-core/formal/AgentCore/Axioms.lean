@@ -358,6 +358,8 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_claim_records_future_expiry
 #print axioms AgentCore.Examples.nonvacuous_delegation_containment
 #print axioms AgentCore.Examples.nonvacuous_lease_reclaim_and_same_turn_resume
+#print axioms AgentCore.Examples.nonvacuous_lease_exec_reclaim
+#print axioms AgentCore.Examples.nonvacuous_expired_lease_rejection
 #print axioms AgentCore.Examples.nonvacuous_resolution_deadline_bound
 #print axioms AgentCore.Examples.nonvacuous_stale_mediated_denial
 #print axioms AgentCore.Examples.nonvacuous_view_replay
@@ -428,8 +430,11 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_fenced_undo_redo_trace
 #print axioms AgentCore.Examples.nonvacuous_undo_selects_ancestor_and_redo_restores
 #print axioms AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates
+#print axioms AgentCore.Examples.nonvacuous_mismatched_custody_resolution_rejected
 #print axioms AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable
+#print axioms AgentCore.Examples.nonvacuous_guest_and_cross_tenant_carriers_are_refs_and_leaks_are_unreachable
 #print axioms AgentCore.Examples.nonvacuous_content_custody_lifecycle
+#print axioms AgentCore.Examples.nonvacuous_missing_content_resolution_rejected
 #print axioms AgentCore.Examples.nonvacuous_content_cross_tenant_grant_admits_resolution
 #print axioms AgentCore.Examples.nonvacuous_collected_owned_content_is_unreachable
 #print axioms AgentCore.Examples.nonvacuous_materialize_then_reconcile_never_duplicates
@@ -577,10 +582,12 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_disabled_subscription_rejected
 #print axioms AgentCore.Examples.nonvacuous_broker_available
 #print axioms AgentCore.Examples.nonvacuous_broker_apply_action
+#print axioms AgentCore.Examples.nonvacuous_broker_rejection_cutoffs
 #print axioms AgentCore.Examples.nonvacuous_aggregation_chain
 #print axioms AgentCore.Examples.nonvacuous_consent_grant_is_live
 #print axioms AgentCore.Examples.nonvacuous_consent_revocation_blocks
 #print axioms AgentCore.Examples.nonvacuous_midturn_stale_injection_rejected
+#print axioms AgentCore.Examples.nonvacuous_midturn_wrong_turn_and_expiry_rejected
 
 -- Executable lease semantics: the differential oracle's answers carry the relation.
 #print axioms AgentCore.leaseStepExec_sound

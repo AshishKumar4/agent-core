@@ -734,7 +734,9 @@
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates",
-        "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable"
+        "AgentCore.Examples.nonvacuous_mismatched_custody_resolution_rejected",
+        "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable",
+        "AgentCore.Examples.nonvacuous_guest_and_cross_tenant_carriers_are_refs_and_leaks_are_unreachable"
       ],
       "witnessCoverage": {
         "AgentCore.secret_resolution_requires_exact_tenant": [
@@ -747,7 +749,7 @@
           "AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates"
         ],
         "AgentCore.mismatched_custody_secret_resolution_rejected": [
-          "AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates"
+          "AgentCore.Examples.nonvacuous_mismatched_custody_resolution_rejected"
         ],
         "AgentCore.fresh_resolution_is_current": [
           "AgentCore.Examples.nonvacuous_secret_custody_exact_and_repoint_invalidates"
@@ -768,10 +770,10 @@
           "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable"
         ],
         "AgentCore.guest_grant_value_carrier_is_unreachable": [
-          "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable"
+          "AgentCore.Examples.nonvacuous_guest_and_cross_tenant_carriers_are_refs_and_leaks_are_unreachable"
         ],
         "AgentCore.cross_tenant_reservation_value_carrier_is_unreachable": [
-          "AgentCore.Examples.nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable"
+          "AgentCore.Examples.nonvacuous_guest_and_cross_tenant_carriers_are_refs_and_leaks_are_unreachable"
         ]
       },
       "remainingEvidence": [
@@ -1263,6 +1265,8 @@
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_nonempty_audit_terminal_snapshot",
         "AgentCore.Examples.nonvacuous_lease_reclaim_and_same_turn_resume",
+        "AgentCore.Examples.nonvacuous_lease_exec_reclaim",
+        "AgentCore.Examples.nonvacuous_expired_lease_rejection",
         "AgentCore.Examples.nonvacuous_renewal_preserves_turn_and_resolution_deadline",
         "AgentCore.Examples.nonvacuous_wrong_turn_rejection",
         "AgentCore.Examples.nonvacuous_stale_token_rejection"
@@ -1287,16 +1291,16 @@
           "AgentCore.Examples.nonvacuous_stale_token_rejection"
         ],
         "AgentCore.expired_lease_rejects": [
-          "AgentCore.Examples.nonvacuous_lease_reclaim_and_same_turn_resume"
+          "AgentCore.Examples.nonvacuous_expired_lease_rejection"
         ],
         "AgentCore.renewal_cannot_extend_resolution_deadline": [
           "AgentCore.Examples.nonvacuous_renewal_preserves_turn_and_resolution_deadline"
         ],
         "AgentCore.leaseStepExec_sound": [
-          "AgentCore.Examples.nonvacuous_nonempty_audit_terminal_snapshot"
+          "AgentCore.Examples.nonvacuous_lease_exec_reclaim"
         ],
         "AgentCore.leaseStepExec_complete": [
-          "AgentCore.Examples.nonvacuous_nonempty_audit_terminal_snapshot"
+          "AgentCore.Examples.nonvacuous_lease_exec_reclaim"
         ]
       },
       "remainingEvidence": [
@@ -2442,7 +2446,8 @@
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_broker_available",
-        "AgentCore.Examples.nonvacuous_broker_apply_action"
+        "AgentCore.Examples.nonvacuous_broker_apply_action",
+        "AgentCore.Examples.nonvacuous_broker_rejection_cutoffs"
       ],
       "witnessCoverage": {
         "AgentCore.Representation.Broker.initial_custody": [
@@ -2458,13 +2463,13 @@
           "AgentCore.Examples.nonvacuous_broker_available"
         ],
         "AgentCore.Representation.Broker.tampered_action_never_fires": [
-          "AgentCore.Examples.nonvacuous_broker_available"
+          "AgentCore.Examples.nonvacuous_broker_rejection_cutoffs"
         ],
         "AgentCore.Representation.Broker.consumed_action_never_refires": [
-          "AgentCore.Examples.nonvacuous_broker_available"
+          "AgentCore.Examples.nonvacuous_broker_rejection_cutoffs"
         ],
         "AgentCore.Representation.Broker.expired_action_never_fires": [
-          "AgentCore.Examples.nonvacuous_broker_available"
+          "AgentCore.Examples.nonvacuous_broker_rejection_cutoffs"
         ]
       },
       "remainingEvidence": [
@@ -2532,7 +2537,8 @@
         "AgentCore.Representation.Reaction.expired_injection_rejected"
       ],
       "nonVacuity": [
-        "AgentCore.Examples.nonvacuous_midturn_stale_injection_rejected"
+        "AgentCore.Examples.nonvacuous_midturn_stale_injection_rejected",
+        "AgentCore.Examples.nonvacuous_midturn_wrong_turn_and_expiry_rejected"
       ],
       "witnessCoverage": {
         "AgentCore.Representation.Reaction.reaction_at_most_once": [
@@ -2551,10 +2557,10 @@
           "AgentCore.Examples.nonvacuous_midturn_stale_injection_rejected"
         ],
         "AgentCore.Representation.Reaction.wrong_turn_injection_rejected": [
-          "AgentCore.Examples.nonvacuous_midturn_stale_injection_rejected"
+          "AgentCore.Examples.nonvacuous_midturn_wrong_turn_and_expiry_rejected"
         ],
         "AgentCore.Representation.Reaction.expired_injection_rejected": [
-          "AgentCore.Examples.nonvacuous_midturn_stale_injection_rejected"
+          "AgentCore.Examples.nonvacuous_midturn_wrong_turn_and_expiry_rejected"
         ]
       },
       "remainingEvidence": [
@@ -2630,6 +2636,7 @@
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_content_custody_lifecycle",
+        "AgentCore.Examples.nonvacuous_missing_content_resolution_rejected",
         "AgentCore.Examples.nonvacuous_content_cross_tenant_grant_admits_resolution",
         "AgentCore.Examples.nonvacuous_collected_owned_content_is_unreachable"
       ],
@@ -2644,7 +2651,7 @@
           "AgentCore.Examples.nonvacuous_content_custody_lifecycle"
         ],
         "AgentCore.missing_content_resolution_rejected": [
-          "AgentCore.Examples.nonvacuous_content_custody_lifecycle"
+          "AgentCore.Examples.nonvacuous_missing_content_resolution_rejected"
         ],
         "AgentCore.collect_requires_unowned": [
           "AgentCore.Examples.nonvacuous_content_custody_lifecycle"

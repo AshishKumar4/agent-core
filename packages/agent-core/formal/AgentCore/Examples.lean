@@ -1988,11 +1988,25 @@ private def expiredLease : TurnLease := ⟨turnId, some principalRef, 1, ⟨2⟩
 private def reclaimedLease : TurnLease := ⟨turnId, some principalRef, 2, ⟨10⟩⟩
 private def suspendedLease : TurnLease := ⟨turnId, none, 2, ⟨10⟩⟩
 private def resumedLease : TurnLease := ⟨turnId, some principalRef, 3, ⟨12⟩⟩
+private def expiredLeaseToken : LeaseToken := ⟨turnId, principalRef, 1⟩
 
 theorem nonvacuous_lease_reclaim_and_same_turn_resume :
     LeaseStep expiredLease (.reclaim principalRef ⟨3⟩ ⟨10⟩) reclaimedLease ∧
     LeaseStep suspendedLease (.resume principalRef ⟨3⟩ ⟨12⟩) resumedLease := by
   exact ⟨.reclaim (by decide) (by decide) (by decide), .resume rfl (by decide)⟩
+
+/-- The executable lease oracle admits a concrete reclaim and returns the same
+    successor as the relational semantics. This witnesses both directions of the
+    executable/relation correspondence rather than only a relation nested in another
+    component's transition. -/
+theorem nonvacuous_lease_exec_reclaim :
+    leaseStepExec expiredLease (.reclaim principalRef ⟨3⟩ ⟨10⟩) = some reclaimedLease ∧
+    LeaseStep expiredLease (.reclaim principalRef ⟨3⟩ ⟨10⟩) reclaimedLease := by
+  exact ⟨rfl, .reclaim (by decide) (by decide) (by decide)⟩
+
+/-- An otherwise exact token is rejected at the recorded expiry boundary. -/
+theorem nonvacuous_expired_lease_rejection :
+    ¬ expiredLease.Admits expiredLeaseToken ⟨3⟩ := by decide
 
 theorem nonvacuous_resolution_deadline_bound :
     resolution.deadline.tick ≤ (⟨10⟩ : Time).tick :=
@@ -2647,6 +2661,38 @@ theorem nonvacuous_broker_available :
       actionInvocation, tableSet_self],
     rfl, rfl⟩
 
+private def tamperedBrokerPrepared : PreparedInvocation :=
+  ⟨actionHeader, .single firstArgs⟩
+
+private def consumedBrokerApprovals : ApprovalLedger :=
+  approvedApprovals.consume actionApproval actionPrepared ⟨50⟩
+
+/-- The three broker denial cutoffs are independently inhabited: changed intent,
+    prior consumption, and the exact expiry boundary each make the same otherwise-live
+    ticket unavailable. -/
+theorem nonvacuous_broker_rejection_cutoffs :
+    ¬ approvedApprovals.Available actionApproval tamperedBrokerPrepared ⟨5⟩ ∧
+    ¬ consumedBrokerApprovals.Available actionApproval actionPrepared ⟨5⟩ ∧
+    ¬ approvedApprovals.Available actionApproval actionPrepared ⟨10⟩ := by
+  constructor
+  · apply Representation.Broker.tampered_action_never_fires
+      (state := Representation.Broker.initial approvedApprovals) (ticket := approvedTicket)
+    · change approvedApprovals.tickets actionApproval = some approvedTicket
+      simp [approvedApprovals, ApprovalLedger.setTicket, actionApproval]
+    · decide
+  constructor
+  · apply Representation.Broker.consumed_action_never_refires
+      (state := Representation.Broker.initial consumedBrokerApprovals)
+      (invocation := actionPrepared.header.invocation)
+    change consumedBrokerApprovals.consumedBy actionApproval =
+      some actionPrepared.header.invocation
+    simp [consumedBrokerApprovals, ApprovalLedger.consume, actionApproval]
+  · apply Representation.Broker.expired_action_never_fires
+      (state := Representation.Broker.initial approvedApprovals) (ticket := approvedTicket)
+    · change approvedApprovals.tickets actionApproval = some approvedTicket
+      simp [approvedApprovals, ApprovalLedger.setTicket, actionApproval]
+    · decide
+
 /-- The broker's guarded mutation is livable: a concrete approved, unconsumed,
     unexpired ticket admits `applyAction` from the bootstrap state. -/
 theorem nonvacuous_broker_apply_action :
@@ -2736,10 +2782,19 @@ theorem nonvacuous_consent_revocation_blocks :
     epoch 1, so mid-turn injection is refused. -/
 private def injectionLease : TurnLease := ⟨⟨9⟩, some principalRef, 1, ⟨10⟩⟩
 private def staleInjectionToken : LeaseToken := ⟨⟨9⟩, principalRef, 0⟩
+private def currentInjectionToken : LeaseToken := ⟨⟨9⟩, principalRef, 1⟩
+private def wrongTurnInjectionToken : LeaseToken := ⟨⟨10⟩, principalRef, 1⟩
 
 theorem nonvacuous_midturn_stale_injection_rejected :
     ¬ injectionLease.Admits staleInjectionToken ⟨5⟩ :=
   Representation.Reaction.stale_injection_rejected (by decide)
+
+/-- Addressing and time are distinct cutoffs from the stale-epoch case: a current
+    epoch for another Turn and the exact expiry instant both reject. -/
+theorem nonvacuous_midturn_wrong_turn_and_expiry_rejected :
+    ¬ injectionLease.Admits wrongTurnInjectionToken ⟨5⟩ ∧
+    ¬ injectionLease.Admits currentInjectionToken ⟨10⟩ := by
+  decide
 
 /-! Acceptance criteria (§5.2) over the transition system. One trace opens a Run that declares
     a criterion and records the verifier's verdict against the Run's own head tree; the
@@ -5337,6 +5392,16 @@ theorem nonvacuous_secret_custody_exact_and_repoint_invalidates :
     repoint_invalidates_prior_resolution (current := secretCustody1) rfl secretsRepointStep
       (fresh_resolution_is_current (current := secretCustody1) rfl secretsResolveStep) rfl⟩
 
+/-- The home Tenant still cannot resolve through a Binding that differs from current
+    custody. This distinguishes custody mismatch from the separate foreign-Tenant
+    rejection exercised above. -/
+theorem nonvacuous_mismatched_custody_resolution_rejected :
+    ¬ SecretStep secretsAccepted
+      (.resolve secretResolutionId secretRef1 secretsTenantA secretBinding2 secretEndpoint1)
+      secretsResolved :=
+  mismatched_custody_secret_resolution_rejected
+    (current := secretCustody1) rfl (Or.inl (by decide))
+
 private def secretDelegationId : DelegationId := ⟨91⟩
 private def secretsDelegated : SecretLedger :=
   { secretsAccepted with
@@ -5348,6 +5413,30 @@ private def secretsDelegateStep :
 
 private def secretsReachable : SecretReachable secretsDelegated :=
   .step (.step .boot secretsAcceptStep) secretsDelegateStep
+
+private def secretGuestGrantId : GuestGrantId := ⟨92⟩
+private def secretCrossTenantReservationId : ReservationId := ⟨93⟩
+
+private def secretsGuestGranted : SecretLedger :=
+  { secretsDelegated with
+    guestGrants := tableSet secretsDelegated.guestGrants secretGuestGrantId (.ref secretRef1) }
+
+private def secretsGuestGrantStep :
+    SecretStep secretsDelegated (.guestGrant secretGuestGrantId secretRef1) secretsGuestGranted :=
+  SecretStep.guestGrant rfl
+
+private def secretsReserved : SecretLedger :=
+  { secretsGuestGranted with
+    crossTenantReservations := tableSet secretsGuestGranted.crossTenantReservations
+      secretCrossTenantReservationId (.ref secretRef1) }
+
+private def secretsReservationStep :
+    SecretStep secretsGuestGranted
+      (.crossTenantReserve secretCrossTenantReservationId secretRef1) secretsReserved :=
+  SecretStep.crossTenantReserve rfl
+
+private def secretsReservedReachable : SecretReachable secretsReserved :=
+  .step (.step secretsReachable secretsGuestGrantStep) secretsReservationStep
 
 /-- A reachable delegation carrier for the accepted secret is a ref; a ledger built
     the same way but with a raw `SecretValue` in that slot is provably unreachable —
@@ -5364,6 +5453,31 @@ theorem nonvacuous_secret_delegation_carrier_is_ref_and_leak_is_unreachable :
     secret_value_carrier_is_unreachable
       (id := secretDelegationId) (secret := secretRef1) (raw := (⟨0⟩ : SecretValue)) ?_⟩
   simp only [tableSet_self]
+
+/-- Reachable guest-grant and cross-tenant-reservation carriers hold refs. Replacing
+    either exact carrier with a raw value produces a representable but unreachable
+    ledger, independently exercising both carrier-specific exclusion theorems. -/
+theorem nonvacuous_guest_and_cross_tenant_carriers_are_refs_and_leaks_are_unreachable :
+    SecretReachable secretsReserved ∧
+    secretsReserved.guestGrants secretGuestGrantId = some (.ref secretRef1) ∧
+    secretsReserved.crossTenantReservations secretCrossTenantReservationId =
+      some (.ref secretRef1) ∧
+    (¬ SecretReachable
+      { secretsReserved with
+        guestGrants := tableSet secretsReserved.guestGrants secretGuestGrantId
+          (.value secretRef1 ⟨0⟩) }) ∧
+    ¬ SecretReachable
+      { secretsReserved with
+        crossTenantReservations := tableSet secretsReserved.crossTenantReservations
+          secretCrossTenantReservationId (.value secretRef1 ⟨0⟩) } := by
+  refine ⟨secretsReservedReachable, rfl, rfl, ?_, ?_⟩
+  · apply guest_grant_value_carrier_is_unreachable
+      (id := secretGuestGrantId) (secret := secretRef1) (raw := (⟨0⟩ : SecretValue))
+    simp only [tableSet_self]
+  · apply cross_tenant_reservation_value_carrier_is_unreachable
+      (id := secretCrossTenantReservationId) (secret := secretRef1)
+      (raw := (⟨0⟩ : SecretValue))
+    simp only [tableSet_self]
 
 /-! ## ContentStore custody witnesses (SPEC §8.2, C13-CONTENT-CUSTODY) -/
 
@@ -5432,6 +5546,15 @@ theorem nonvacuous_content_custody_lifecycle :
     fun _ => foreign_tenant_content_resolution_rejected (by decide) (fun granted => granted),
     fun _ => owned_content_cannot_be_collected (Or.inl ⟨rfl, rfl⟩),
     contentCollectStep, contentReachable⟩
+
+/-- The home Tenant still cannot resolve a ref before the bytes exist. This is a
+    different rejection state from the foreign-Tenant case above, where the bytes are
+    already present. -/
+theorem nonvacuous_missing_content_resolution_rejected :
+    ∀ after, ¬ ContentStep ContentLedger.boot
+      (.resolve contentRef1 contentTenantA) after := by
+  intro after
+  exact missing_content_resolution_rejected rfl
 
 /-- A cross-tenant grant admits the resolution it names, and only that requester. -/
 theorem nonvacuous_content_cross_tenant_grant_admits_resolution :
