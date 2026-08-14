@@ -5,7 +5,10 @@ import {
     Binding,
     Grant,
     GrantId,
-    MemoryTenantControlStore
+    MemoryTenantControlStore,
+    ScopeEpoch,
+    scopeKey,
+    type AuthorityMutationStore
 } from "../../../src/authority";
 import { MemoryContentStore } from "../../../src/content";
 import { Digest, Revision } from "../../../src/core";
@@ -71,7 +74,7 @@ const anchor = {
 
 describe("SQLite Tenant control behavior branches", () => {
     test(
-        "[authority-mutation-store] [identity-repository] memory and SQLite satisfy one shared Tenant control contract",
+        "[C13-OWNERSHIP-AUTHORITY-RECORDS] [authority-mutation-store] [identity-repository] memory and SQLite keep Binding transitions and path epochs in one Tenant control plane",
         { tags: "p1" },
         () => {
             const memory = MemoryTenantControlStore.create(anchor);
@@ -121,11 +124,56 @@ describe("SQLite Tenant control behavior branches", () => {
                     grant.id,
                     new FacetRef("core:replacement")
                 );
+                const inactive = service.deactivateBinding(binding.key);
+                const unchanged = service.deactivateBinding(binding.key);
 
-                expect(store.binding(binding.key)).toEqual(replacement);
-                expect(store.bindings()).toEqual([replacement]);
-                expect(store.epoch(workspace.scope).epoch).toBe(before + 2);
+                expect(inactive.state).toBe("inactive");
+                expect(inactive.revision.value).toBe(replacement.revision.value + 1);
+                expect(unchanged).toEqual(inactive);
+                expect(store.binding(binding.key)).toEqual(inactive);
+                expect(store.bindings()).toEqual([inactive]);
+                expect(store.epoch(workspace.scope).epoch).toBe(before + 3);
             }
+        }
+    );
+
+    test.each(["memory", "sqlite"] as const)(
+        "[C13-OWNERSHIP-AUTHORITY-RECORDS] %s rolls back a Binding write when its same-transaction epoch advance fails",
+        { tags: "p0" },
+        (adapter) => {
+            let store: AuthorityMutationStore;
+            let fixture: ReturnType<typeof bindingFixture>;
+            if (adapter === "memory") {
+                const memory = MemoryTenantControlStore.create(anchor);
+                memory.bootstrapTenant(anchor, Revision.initial());
+                fixture = bindingFixture(memory, `rollback-${adapter}`);
+                const snapshot = memory.snapshot();
+                const saturated = new ScopeEpoch(fixture.workspace.scope, Number.MAX_SAFE_INTEGER);
+                store = MemoryTenantControlStore.restore({
+                    ...snapshot,
+                    epochs: snapshot.epochs.map((record) =>
+                        record.id === scopeKey(fixture.workspace.scope)
+                            ? { ...record, bytes: ScopeEpoch.encode(saturated) }
+                            : record
+                    )
+                });
+            } else {
+                const database = new TestSqlite();
+                const sqlite = bootstrappedTenant(database);
+                fixture = bindingFixture(sqlite, `rollback-${adapter}`);
+                store = saturateSqliteEpoch(
+                    database,
+                    new ScopeEpoch(fixture.workspace.scope, Number.MAX_SAFE_INTEGER)
+                );
+            }
+            const { binding, workspace } = fixture;
+            const saturated = new ScopeEpoch(workspace.scope, Number.MAX_SAFE_INTEGER);
+
+            expect(() => new AuthorityMutationService(store).createBinding(binding)).toThrow(
+                "Authority epoch is exhausted"
+            );
+            expect(store.binding(binding.key)).toBeUndefined();
+            expect(store.epoch(workspace.scope).equals(saturated)).toBe(true);
         }
     );
 
@@ -439,6 +487,49 @@ function bootstrappedTenant(database: TestSqlite) {
     const store = createSqliteTenantControlStore(database, anchor);
     database.transaction(() => store.bootstrapTenant(database, anchor, Revision.initial()));
     return store;
+}
+
+function bindingFixture(store: AuthorityMutationStore, suffix: string) {
+    const service = new AuthorityMutationService(store);
+    const principal = new Principal(new PrincipalId(`${suffix}-principal`), "user", "active");
+    service.createPrincipal(principal);
+    const workspace = new Workspace(
+        new WorkspaceId(`${suffix}-workspace`),
+        tenantId,
+        undefined,
+        Revision.initial()
+    );
+    service.createWorkspace(workspace);
+    const subject = SubjectRef.principal(new PrincipalRef(tenantId, principal.id));
+    const grant = new Grant(
+        new GrantId(`${suffix}-grant`),
+        workspace.scope,
+        subject,
+        "allow",
+        new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] }),
+        { kind: "direct" }
+    );
+    service.createGrant(grant);
+    return {
+        workspace,
+        binding: Binding.active(
+            workspace.scope,
+            subject,
+            new ProtectionDomain("backend", suffix, "no-secrets"),
+            new BindingName("canonical"),
+            grant.id,
+            new FacetRef("core:canonical")
+        )
+    };
+}
+
+function saturateSqliteEpoch(database: TestSqlite, saturated: ScopeEpoch): AuthorityMutationStore {
+    database.run("UPDATE tenant_scope_epochs SET epoch = ?, record = ? WHERE scope_key = ?", [
+        saturated.epoch,
+        ScopeEpoch.encode(saturated),
+        scopeKey(saturated.scope)
+    ]);
+    return createSqliteTenantControlStore(database);
 }
 
 class PointerCardinalitySqlite extends TestSqlite {

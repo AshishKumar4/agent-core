@@ -205,7 +205,11 @@ describe("Tenant Binding mutation surface", () => {
             const bindingMutators = Object.getOwnPropertyNames(AuthorityMutationService.prototype)
                 .filter((name) => name.toLowerCase().includes("binding"))
                 .sort();
-            expect(bindingMutators).toEqual(["createBinding", "replaceBinding"]);
+            expect(bindingMutators).toEqual([
+                "createBinding",
+                "deactivateBinding",
+                "replaceBinding"
+            ]);
         }
     );
 });
