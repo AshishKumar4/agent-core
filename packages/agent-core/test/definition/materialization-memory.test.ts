@@ -351,8 +351,9 @@ describe("MemoryMaterializationStore persistence", () => {
         for (const [collection, field, value, message] of cases) {
             const corrupted = {
                 ...snapshot,
-                [collection]: [{ ...snapshot[collection][0]!, [field]: value }]
-            } as MemoryMaterializationSnapshot;
+                [collection]: [{ ...snapshot[collection][0]! }]
+            };
+            Object.defineProperty(corrupted[collection][0]!, field, { value });
             expect(() => new MemoryMaterializationStore(actorRef("workspace"), corrupted)).toThrow(
                 message
             );
@@ -382,8 +383,11 @@ describe("MemoryMaterializationStore persistence", () => {
         const snapshot = completeSnapshot();
         const corrupted = {
             ...snapshot,
-            [collection]: [{ ...snapshot[collection][0]!, bytes: new Uint8Array([0]) }]
-        } as MemoryMaterializationSnapshot;
+            [collection]: [{ ...snapshot[collection][0]! }]
+        };
+        Object.defineProperty(corrupted[collection][0]!, "bytes", {
+            value: new Uint8Array([0])
+        });
 
         expect(() => new MemoryMaterializationStore(actorRef("workspace"), corrupted)).toThrowError(
             expect.objectContaining({ code: "codec.invalid" })
@@ -496,8 +500,9 @@ describe("MemoryMaterializationStore persistence", () => {
         const snapshot = completeSnapshot();
         const corrupted = {
             ...snapshot,
-            [collection]: [{ ...snapshot[collection][0]!, [field]: "" }]
-        } as MemoryMaterializationSnapshot;
+            [collection]: [{ ...snapshot[collection][0]! }]
+        };
+        Object.defineProperty(corrupted[collection][0]!, field, { value: "" });
         expect(() => new MemoryMaterializationStore(actorRef("workspace"), corrupted)).toThrow(
             /malformed/
         );
@@ -581,8 +586,9 @@ describe("MemoryMaterializationStore persistence", () => {
         const snapshot = completeSnapshot();
         const corrupted = {
             ...snapshot,
-            [collection]: [{ ...snapshot[collection][0]!, [field]: value }]
-        } as MemoryMaterializationSnapshot;
+            [collection]: [{ ...snapshot[collection][0]! }]
+        };
+        Object.defineProperty(corrupted[collection][0]!, field, { value });
         expect(() => new MemoryMaterializationStore(actorRef("workspace"), corrupted)).toThrow();
     });
 });
@@ -633,4 +639,3 @@ function completeSnapshot(): MemoryMaterializationSnapshot {
     });
     return store.snapshot();
 }
-

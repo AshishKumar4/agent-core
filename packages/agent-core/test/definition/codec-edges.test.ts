@@ -37,7 +37,7 @@ import {
 } from "../../src/definition";
 import { Contributions, FacetManifest, FacetPackageId } from "../../src/facets";
 import { TenantId } from "../../src/identity";
-import { forged, recordData } from "./record-data";
+import { fieldWithoutValue, forged, recordData } from "./record-data";
 
 const encoder = new TextEncoder();
 const tenantId = new TenantId("tenant");
@@ -78,10 +78,9 @@ describe("definition codec adversarial edges", () => {
             MaterializationPlan.fromData({ ...recordData(materialization), actors: null })
         ).toThrow(/array/);
         expect(() =>
-            MaterializationPlan.fromData({
-                ...recordData(materialization),
-                origin: undefined
-            } as never)
+            MaterializationPlan.fromData(
+                fieldWithoutValue(recordData(materialization), "origin")
+            )
         ).toThrow(/required|missing/);
     });
 
@@ -104,10 +103,7 @@ describe("definition codec adversarial edges", () => {
             /state ID/
         );
         expect(() =>
-            ManagedStateRecord.fromData({
-                ...recordData(record),
-                desired: undefined
-            } as never)
+            ManagedStateRecord.fromData(fieldWithoutValue(recordData(record), "desired"))
         ).toThrow(/required|missing/);
         expect(() =>
             ManagedStateRecord.fromData({

@@ -21,6 +21,12 @@ export function requireObject(value: JsonValue | undefined, subject = "value"): 
     return value;
 }
 
+/** Returns canonical data with a present field whose value cannot be represented by JSON. */
+export function fieldWithoutValue(data: JsonObject, field: string): JsonValue {
+    // SAFETY: This deliberately malformed value is passed only to the decoder asserted to reject it.
+    return { ...data, [field]: undefined } as JsonValue;
+}
+
 /**
  * A decoded value typed as a contract it does not satisfy — a string outside a closed vocabulary,
  * a stored column holding the wrong type, a required field left absent. Definition records and

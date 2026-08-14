@@ -213,7 +213,7 @@ describe("PackageCodeManifest", () => {
                 facet: "facet",
                 version: "1.0.0",
                 module: "./main.js"
-            } as never)
+            })
         ).toThrow(/missing or unknown/);
         expect(() =>
             PackageCodeEntrypoint.fromData({
@@ -314,9 +314,11 @@ describe("PackageCodeManifest", () => {
         expect(() => build(forged<MediaHint>({ mediaType: 7 }))).toThrow(
             /Code module media must be a MediaHint/
         );
-        expect(() =>
-            build(Object.assign(() => undefined, { mediaType: "text/plain" }) as never)
-        ).toThrow(/Code module media must be a MediaHint/);
+        const callable = { media: new MediaHint("text/plain") };
+        Object.defineProperty(callable, "media", {
+            value: Object.assign(() => undefined, { mediaType: "text/plain" })
+        });
+        expect(() => build(callable.media)).toThrow(/Code module media must be a MediaHint/);
     });
 
     test("anchors and bounds the compatibility calendar date", { tags: "p1" }, () => {

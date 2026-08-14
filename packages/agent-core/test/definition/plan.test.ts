@@ -385,11 +385,13 @@ describe("materialization planning", () => {
     });
 
     test("rejects non-primitive supported-kind lookalikes", { tags: "p1" }, () => {
+        // SAFETY: A boxed string bypasses TypeScript to exercise the runtime primitive check.
+        const boxedKind = Object("policy-set") as string;
         expect(
             () =>
                 new DesiredProjection({
                     logicalKey: "unsupported:boxed-kind",
-                    recordKind: Object("policy-set") as string,
+                    recordKind: boxedKind,
                     desired: PolicySet.empty().toData()
                 })
         ).toThrow(/record kind/);
@@ -961,15 +963,17 @@ function validatedCustom(init: CustomDefinitionInit): ValidatedBlueprint {
             ? slotted
             : { ...slotted, environments: init.environments }
     );
-    return ValidatedBlueprint.validate(source, {
+    const context = {
         lock: packageLock([release]),
         releases: [release],
         target,
         placement: placementSource,
         schemaValidator: { validate: () => true },
-        declarationCodecs: identityDeclarationCodecs,
-        ...(init.coreSlots === undefined ? {} : { coreSlots: init.coreSlots })
-    });
+        declarationCodecs: identityDeclarationCodecs
+    };
+    return init.coreSlots === undefined
+        ? ValidatedBlueprint.validate(source, context)
+        : ValidatedBlueprint.validate(source, { ...context, coreSlots: init.coreSlots });
 }
 
 function managedOrigin(): ManagedOrigin {

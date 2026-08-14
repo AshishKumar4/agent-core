@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import { Digest, Revision } from "../../src/core";
+import { Revision } from "../../src/core";
 import { PackageId } from "../../src/definition/id";
 import { PackageLock } from "../../src/definition/package-lock";
 import { MetadataSnapshot, PackageRelease } from "../../src/definition/package";
@@ -145,17 +145,19 @@ describe("SqlitePackageStore persistence", () => {
             const digest = digestOf("snapshot");
             const lock = packageLock(digest, 1, [packageRelease("package", "1.0.0")]);
             store.addLock(lock);
+            const requestedDigest =
+                projection === "lock_digest" ? digestOf("other-lock") : lock.digest;
             const value =
                 projection === "snapshot_revision"
                     ? 2
-                    : digestOf(projection === "lock_digest" ? "other-lock" : "other").value;
+                    : projection === "lock_digest"
+                      ? requestedDigest.value
+                      : digestOf("other").value;
             database.run(`UPDATE definition_package_locks SET ${projection} = ?`, [value]);
 
-            expect(() =>
-                store.getLock(
-                    projection === "lock_digest" ? new Digest(value as string) : lock.digest
-                )
-            ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
+            expect(() => store.getLock(requestedDigest)).toThrowError(
+                expect.objectContaining({ code: "codec.invalid" })
+            );
         }
     );
 

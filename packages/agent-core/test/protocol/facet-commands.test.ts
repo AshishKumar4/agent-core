@@ -521,6 +521,10 @@ test("contribution lifecycle admits only the authorized exact entry", { tags: "p
     expect(contribute.permitsLifecycle(backend, commandEnvelope, longer)).toBe(false);
 });
 
+interface BackendContributionStamp {
+    readonly facet: FacetRef;
+}
+
 class Backend implements FacetSlotCommandBackend<Backend, Backend> {
     public revision = Revision.initial();
     public declaration: SlotDeclaration | undefined;
@@ -546,14 +550,16 @@ class Backend implements FacetSlotCommandBackend<Backend, Backend> {
     public prepareContribution(
         _read: Backend,
         _envelope: CommandEnvelope
-    ): { readonly reference: PackageInstallationRef; readonly stamp: object } | undefined {
+    ):
+        | { readonly reference: PackageInstallationRef; readonly stamp: BackendContributionStamp }
+        | undefined {
         return this.provenanceAvailable
             ? {
                   reference: new PackageInstallationRef(
                       this.provenanceFacet,
                       new FacetPackageId("package.facet")
                   ),
-                  stamp: Object.freeze({})
+                  stamp: Object.freeze({ facet: this.provenanceFacet })
               }
             : undefined;
     }
@@ -561,7 +567,7 @@ class Backend implements FacetSlotCommandBackend<Backend, Backend> {
     public applyContribution(
         _transaction: Backend,
         _envelope: CommandEnvelope,
-        _stamp: object,
+        _stamp: BackendContributionStamp,
         candidate: SlotEntry
     ): boolean {
         if (!candidate.contributor.equals(this.provenanceFacet)) {

@@ -195,8 +195,8 @@ describe("MaterializationStore hostile adapter boundaries", () => {
             const corrupted = hostileStore();
             corrupted.rows[collection][0] = {
                 ...corrupted.rows[collection][0]!,
-                bytes: "bad"
-            } as never;
+                bytes: forged<Uint8Array>("bad")
+            };
             const read = () => {
                 if (collection === "blueprints") return corrupted.listBlueprints();
                 if (collection === "plans") return corrupted.listPlans();
