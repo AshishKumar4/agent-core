@@ -7,15 +7,11 @@ import {
     type AuthoredCodeRunRequest
 } from "@agent-core/core/operations";
 import {
-    DISPATCH_NAMESPACE_BACKING,
-    DispatchNamespaceAdapter,
-    DispatchNamespaceAuthoredCodeBacking,
     DynamicWorkerLoaderAdapter,
     PassedCapabilityRegistry,
     WORKER_LOADER_BACKING,
     WorkerLoaderAuthoredCodeBacking,
     passedCapabilities,
-    type DispatchedAuthoredCodeEntrypointLike,
     type DynamicWorkerHandleLike,
     type DynamicWorkerLoadOptions,
     type FetchServiceLike,
@@ -168,41 +164,6 @@ describe("Cloudflare backings for §4.7 agent-authored code", () => {
         });
     });
 
-    test("serves pre-deployed code from the script the platform's naming rule names", async () => {
-        const registry = new PassedCapabilityRegistry(fakeErrors);
-        const namespace = new RecordingDispatchNamespace((capabilities) => ({
-            names: Object.keys(capabilities).sort()
-        }));
-        const backing = new DispatchNamespaceAuthoredCodeBacking(
-            new DispatchNamespaceAdapter(namespace, fakeErrors),
-            (request) => `slate-${request.entry}`,
-            registry,
-            capabilityFactory(registry),
-            fakeErrors
-        );
-
-        await expect(backing.run(runRequest())).resolves.toEqual({ names: ["mail", "notes"] });
-        expect(backing.id.value).toBe(DISPATCH_NAMESPACE_BACKING.value);
-        expect(namespace.scripts).toEqual(["slate-index.js"]);
-    });
-
-    test("refuses pre-deployed code that exposes no entry point", async () => {
-        const registry = new PassedCapabilityRegistry(fakeErrors);
-        const backing = new DispatchNamespaceAuthoredCodeBacking(
-            new DispatchNamespaceAdapter(
-                { get: () => malformedInput("not-an-entrypoint") },
-                fakeErrors
-            ),
-            () => "slate",
-            registry,
-            capabilityFactory(registry),
-            fakeErrors
-        );
-        await expect(backing.run(runRequest())).rejects.toMatchObject({
-            code: "operation.invalid-output"
-        });
-    });
-
     test("renders exactly the delegated Bindings and nothing else", () => {
         const registry = new PassedCapabilityRegistry(fakeErrors);
         const rendered = passedCapabilities(capabilitySet(), isolate, capabilityFactory(registry));
@@ -278,18 +239,5 @@ class StubWorkerLoader implements WorkerLoaderBindingLike<FetchServiceLike> {
 
     public load(): DynamicWorkerHandleLike<FetchServiceLike> {
         return { getEntrypoint: () => this.entrypoint(), [Symbol.dispose]: () => undefined };
-    }
-}
-
-class RecordingDispatchNamespace {
-    public readonly scripts: string[] = [];
-
-    public constructor(private readonly run: (capabilities: PassedCapabilities) => FacetData) {}
-
-    public get(scriptName: string): DispatchedAuthoredCodeEntrypointLike {
-        this.scripts.push(scriptName);
-        return {
-            run: (capabilities: PassedCapabilities) => this.run(capabilities)
-        };
     }
 }

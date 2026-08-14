@@ -107,9 +107,9 @@
       "checkerInvariants": [],
       "remainingEvidence": [
         "The declaration half is built and discrimination-tested. PlacementPolicy carries `backings` (src/definition/placement.ts#AuthoredCodeBackingPolicy), a partial map from the closed §4.7 consumer set to an opaque AuthoredCodeBackingId, read through PlacementPolicy.backingFor(consumer, profileDefault); an unmapped consumer takes the substrate profile's declared default and never another offered backing. test/definition/authored-code-backing.test.ts covers it under this atom's id, and four mutations — ignoring the declaration, sending an unmapped consumer to a declared backing, dropping the mapping on encode, and opening the consumer set — each break a cited test.",
-        "Both backings §10.2 names are now implemented (packages/agent-core-cloudflare/src/authored-code.ts), so the atom's second conjunct — every offered backing preserves identical `dynamic` authority semantics — finally has subjects. Worker Loader discharges it: the isolate is loaded with `globalOutbound: null`, `disallow_importable_env`, and an `env` holding one entrypoint stub per delegated Binding and nothing else, all three exercised against real workerd in the cloudflare lane.",
-        "The dispatch-namespace backing does not discharge it. It resolves a script deployed earlier, whose outbound posture is a property of that deployment and of the namespace binding's own `outbound` configuration — neither visible nor settable from the adapter at call time — so nothing in the tree demonstrates zero ambient egress for it. §4.7 requires each backing to demonstrate the invariant independently, 'never by comparison against another backing', so Worker Loader's evidence cannot stand for it.",
-        "C13-PLACEMENT-DYNAMIC-NO-EGRESS is therefore declared as a prerequisite rather than left implicit: this atom's second conjunct is discharged through it, and it is planned. Verifying this atom needs that atom's substrate-neutral domain-construction seam to cover pre-deployed code as well as loaded code, and needs the ownership question it already records to be answered — the enforcement points are W8's, and a W4-owned atom cannot cite a cloudflare/ test."
+        "Worker Loader is the only §4.7 backing currently implemented by the Cloudflare package. It loads the isolate with `globalOutbound: null`, `disallow_importable_env`, and an `env` holding one entrypoint stub per delegated Binding and nothing else, all three exercised against real workerd in the cloudflare lane.",
+        "The former dispatch-namespace adapter was removed because it could not establish the abstract AuthoredCodeBacking contract it claimed: outbound posture is a property of the binding's deployed outbound Worker, not of `DispatchNamespace.get()`. Restoring the §10.2 dispatch backing requires a configured deny-all outbound Worker, the exact deployed binding, and a real substrate test proving both `fetch` and `connect` are unavailable while passed Binding capabilities remain callable.",
+        "C13-PLACEMENT-DYNAMIC-NO-EGRESS remains an explicit prerequisite. Verification also requires ownership-correct integration evidence connecting the W4 declaration to every W8 backing the profile actually offers; Worker Loader evidence cannot stand in for an unimplemented dispatch backing."
       ]
     },
     {
@@ -123,9 +123,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The rule is enforced at the substrate (SPEC §1.5: an outbound policy code can reach around is advice), but W4's definition plane holds only the dynamic mode token; the sole enforcement point is globalOutbound: null in the W8 Cloudflare loader, which W4 cannot cite",
-        "Needs a substrate-neutral domain-construction seam in the definition plane whose contract is no-ambient-egress with destinations only as passed Bindings, implemented by the Cloudflare loader and a local reference, before W4-citable evidence exists",
-        "Adversarial evidence: loaded code attempting an outbound connection with no Binding must be denied by the substrate, not by a policy check inside the domain"
+        "The rule is enforced by domain construction at the substrate (SPEC §1.5: policy code inside the domain is not a security boundary); W4's definition plane can declare only the dynamic mode and cannot establish the network posture of a W8 backing",
+        "No substrate-neutral interface, nominal token, or local reference can prove zero ambient egress. Verification requires ownership-correct integration between the W4 placement decision and every concrete backing the selected profile offers, together with evidence from each backing's real enforcement boundary",
+        "For Worker Loader, adversarial code running in the real substrate must fail both global fetch and connect while an explicitly passed Binding remains callable. A dispatch-namespace backing additionally requires the exact deployed namespace and deny-all outbound Worker configuration; local fakes do not satisfy either obligation"
       ]
     },
     {

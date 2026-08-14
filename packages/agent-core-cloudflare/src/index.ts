@@ -78,17 +78,8 @@ export type {
     QueueDeliveryCodecs,
     QueueValueCodec
 } from "./queue.js";
-export {
-    DISPATCH_NAMESPACE_BACKING,
-    DispatchNamespaceAuthoredCodeBacking,
-    WORKER_LOADER_BACKING,
-    WorkerLoaderAuthoredCodeBacking
-} from "./authored-code.js";
-export type {
-    AuthoredCodeEntrypointLike,
-    DispatchScriptNaming,
-    DispatchedAuthoredCodeEntrypointLike
-} from "./authored-code.js";
+export { WORKER_LOADER_BACKING, WorkerLoaderAuthoredCodeBacking } from "./authored-code.js";
+export type { AuthoredCodeEntrypointLike } from "./authored-code.js";
 export { PassedCapabilityRegistry, passedCapabilities } from "./passed-capability.js";
 export type {
     PassedCapabilities,
