@@ -32,6 +32,11 @@ const CREATE_ACTOR_IDENTITY = `CREATE TABLE IF NOT EXISTS actor_identity (
 )`;
 
 const activeActorTransactions = new WeakSet<TransactionalSqlite>();
+const activeActorTransactionScopes = new WeakSet<TransactionalSqlite>();
+
+export function isActiveSqliteActorTransaction(transaction: TransactionalSqlite): boolean {
+    return activeActorTransactionScopes.has(transaction);
+}
 
 export class SqliteActorStore implements ActorLocalStore<TransactionalSqlite, ReadableSqlite> {
     #actor: ActorRef | undefined;
@@ -105,6 +110,7 @@ export class SqliteActorStore implements ActorLocalStore<TransactionalSqlite, Re
         try {
             const outcome = this.database.transaction(() => {
                 const transaction = new SqliteTransactionScope(this.database);
+                activeActorTransactionScopes.add(transaction);
                 this.#activeTransaction = transaction;
                 this.#activeActor = this.#actor;
                 try {
@@ -232,6 +238,7 @@ class SqliteTransactionScope extends TransactionalSqlite {
 
     public close(): void {
         this.#open = false;
+        activeActorTransactionScopes.delete(this);
     }
 
     public read<Result>(operation: TransactionOperation<ReadableSqlite, Result>): Result {

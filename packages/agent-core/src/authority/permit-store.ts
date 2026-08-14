@@ -129,22 +129,25 @@ export interface MemoryAuthorityPermitSnapshot {
 }
 
 export class MemoryAuthorityPermitTransaction {
-    public constructor(
-        readonly ownerToken: MemoryAuthorityPermitOwner,
-        readonly requestedRecords: Map<string, Uint8Array>,
-        readonly issuedRecords: Map<string, Uint8Array>,
-        readonly consumedRecords: Map<string, Uint8Array>
-    ) {}
+    public constructor() {
+        Object.freeze(this);
+    }
 }
 
-class MemoryAuthorityPermitOwner {}
+interface MemoryAuthorityPermitScope {
+    readonly transaction: MemoryAuthorityPermitTransaction;
+    readonly requested: Map<string, Uint8Array>;
+    readonly issued: Map<string, Uint8Array>;
+    readonly consumed: Map<string, Uint8Array>;
+}
 
 export class MemoryAuthorityPermitStore
     implements
         AuthorityPermitTargetStore<MemoryAuthorityPermitTransaction>,
         AuthorityPermitIssueStore<MemoryAuthorityPermitTransaction>
 {
-    readonly #ownerToken = Object.freeze(new MemoryAuthorityPermitOwner());
+    readonly #transactions = new WeakSet<MemoryAuthorityPermitTransaction>();
+    #active: MemoryAuthorityPermitScope | undefined;
     #requested = new Map<string, Uint8Array>();
     #issued = new Map<string, Uint8Array>();
     #consumed = new Map<string, Uint8Array>();
@@ -160,25 +163,37 @@ export class MemoryAuthorityPermitStore
         operation: (transaction: MemoryAuthorityPermitTransaction) => Result,
         ..._guard: SynchronousResultGuard<Result>
     ): Result {
-        const transaction = new MemoryAuthorityPermitTransaction(
-            this.#ownerToken,
-            cloneBytesMap(this.#requested),
-            cloneBytesMap(this.#issued),
-            cloneBytesMap(this.#consumed)
-        );
-        const result = requireSynchronousResult(operation(transaction));
-        this.#requested = transaction.requestedRecords;
-        this.#issued = transaction.issuedRecords;
-        this.#consumed = transaction.consumedRecords;
-        return result;
+        if (this.#active !== undefined) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Nested authority permit transactions are not supported"
+            );
+        }
+        const transaction = new MemoryAuthorityPermitTransaction();
+        const scope: MemoryAuthorityPermitScope = {
+            transaction,
+            requested: cloneBytesMap(this.#requested),
+            issued: cloneBytesMap(this.#issued),
+            consumed: cloneBytesMap(this.#consumed)
+        };
+        this.#transactions.add(transaction);
+        this.#active = scope;
+        try {
+            const result = requireSynchronousResult(operation(transaction));
+            this.#requested = cloneBytesMap(scope.requested);
+            this.#issued = cloneBytesMap(scope.issued);
+            this.#consumed = cloneBytesMap(scope.consumed);
+            return result;
+        } finally {
+            this.#active = undefined;
+        }
     }
 
     public issued(
         transaction: MemoryAuthorityPermitTransaction,
         nonce: string
     ): AuthorityPermit | undefined {
-        this.requireTransaction(transaction);
-        const bytes = transaction.issuedRecords.get(nonce);
+        const bytes = this.requireTransaction(transaction).issued.get(nonce);
         if (bytes === undefined) return undefined;
         const permit = AuthorityPermit.decode(bytes.slice());
         this.assertIssuedOwner(permit);
@@ -190,8 +205,7 @@ export class MemoryAuthorityPermitStore
         transaction: MemoryAuthorityPermitTransaction,
         nonce: string
     ): TargetAuthorityPermitRequest | undefined {
-        this.requireTransaction(transaction);
-        const bytes = transaction.requestedRecords.get(nonce);
+        const bytes = this.requireTransaction(transaction).requested.get(nonce);
         if (bytes === undefined) return undefined;
         const request = TargetAuthorityPermitRequest.decode(bytes.slice());
         this.assertRequestedOwner(request);
@@ -203,8 +217,7 @@ export class MemoryAuthorityPermitStore
         transaction: MemoryAuthorityPermitTransaction,
         nonce: string
     ): Digest | undefined {
-        this.requireTransaction(transaction);
-        const bytes = transaction.consumedRecords.get(nonce);
+        const bytes = this.requireTransaction(transaction).consumed.get(nonce);
         if (bytes === undefined) return undefined;
         return this.decodeConsumed(transaction, nonce, bytes).digest();
     }
@@ -213,7 +226,7 @@ export class MemoryAuthorityPermitStore
         transaction: MemoryAuthorityPermitTransaction,
         request: TargetAuthorityPermitRequest
     ): TargetAuthorityPermitRequest {
-        this.requireTransaction(transaction);
+        const scope = this.requireTransaction(transaction);
         this.assertRequestedOwner(request);
         const existing = this.requested(transaction, request.nonce);
         if (existing !== undefined) {
@@ -223,10 +236,7 @@ export class MemoryAuthorityPermitStore
             return existing;
         }
         this.requireUnused(transaction, request.nonce);
-        transaction.requestedRecords.set(
-            request.nonce,
-            TargetAuthorityPermitRequest.encode(request)
-        );
+        scope.requested.set(request.nonce, TargetAuthorityPermitRequest.encode(request));
         return request;
     }
 
@@ -234,7 +244,7 @@ export class MemoryAuthorityPermitStore
         transaction: MemoryAuthorityPermitTransaction,
         permit: AuthorityPermit
     ): AuthorityPermit {
-        this.requireTransaction(transaction);
+        const scope = this.requireTransaction(transaction);
         this.assertIssuedOwner(permit);
         const existing = this.issued(transaction, permit.nonce);
         if (existing !== undefined) {
@@ -246,10 +256,10 @@ export class MemoryAuthorityPermitStore
             }
             return existing;
         }
-        if (transaction.consumedRecords.has(permit.nonce)) {
+        if (scope.consumed.has(permit.nonce)) {
             throw denied("Authority permit nonce was already used by this Actor owner");
         }
-        transaction.issuedRecords.set(permit.nonce, AuthorityPermit.encode(permit));
+        scope.issued.set(permit.nonce, AuthorityPermit.encode(permit));
         return permit;
     }
 
@@ -260,17 +270,17 @@ export class MemoryAuthorityPermitStore
         expected: AuthorityPermitExpectation,
         now: Date
     ): void {
-        this.requireTransaction(transaction);
+        const scope = this.requireTransaction(transaction);
         requireAuthenticatedAuthorityPermit(authentication, permit);
         if (!permit.target.actor.equals(this.owner)) {
             throw denied("Authority permit targets another Actor owner");
         }
         permit.assertConsumable(expected, now);
         this.requireRequestedExpectation(transaction, permit.nonce, expected, permit);
-        if (transaction.consumedRecords.has(permit.nonce)) {
+        if (scope.consumed.has(permit.nonce)) {
             throw denied("Authority permit nonce was already used by this Actor owner");
         }
-        transaction.consumedRecords.set(permit.nonce, AuthorityPermit.encode(permit));
+        scope.consumed.set(permit.nonce, AuthorityPermit.encode(permit));
     }
 
     public snapshot(): MemoryAuthorityPermitSnapshot {
@@ -302,63 +312,73 @@ export class MemoryAuthorityPermitStore
             !Array.isArray(snapshot.consumed)
         )
             throw corrupt();
-        const transaction = new MemoryAuthorityPermitTransaction(
-            this.#ownerToken,
-            new Map(),
-            new Map(),
-            new Map()
-        );
+        const requested = new Map<string, Uint8Array>();
+        const issued = new Map<string, Uint8Array>();
+        const consumed = new Map<string, Uint8Array>();
         for (const record of snapshot.requested) {
-            if (!isRequestedPermitRecord(record) || transaction.requestedRecords.has(record.nonce))
-                throw corrupt();
+            if (!isRequestedPermitRecord(record) || requested.has(record.nonce)) throw corrupt();
             const request = TargetAuthorityPermitRequest.decode(record.bytes.slice());
             this.assertRequestedOwner(request);
             if (request.nonce !== record.nonce) throw corrupt();
-            transaction.requestedRecords.set(
-                record.nonce,
-                TargetAuthorityPermitRequest.encode(request)
-            );
+            requested.set(record.nonce, TargetAuthorityPermitRequest.encode(request));
         }
         for (const record of snapshot.issued) {
-            if (!isIssuedPermitRecord(record) || transaction.issuedRecords.has(record.nonce))
-                throw corrupt();
+            if (!isIssuedPermitRecord(record) || issued.has(record.nonce)) throw corrupt();
             const permit = AuthorityPermit.decode(record.bytes.slice());
             this.assertIssuedOwner(permit);
             if (permit.nonce !== record.nonce) throw corrupt();
-            transaction.issuedRecords.set(record.nonce, AuthorityPermit.encode(permit));
+            issued.set(record.nonce, AuthorityPermit.encode(permit));
         }
         for (const record of snapshot.consumed) {
-            if (!isConsumedPermitRecord(record) || transaction.consumedRecords.has(record.nonce))
+            if (!isConsumedPermitRecord(record) || consumed.has(record.nonce)) throw corrupt();
+            consumed.set(record.nonce, record.bytes.slice());
+        }
+        for (const nonce of issued.keys()) {
+            if (requested.has(nonce) || consumed.has(nonce)) throw corrupt();
+        }
+        for (const [nonce, bytes] of consumed) {
+            const permit = AuthorityPermit.decode(bytes.slice());
+            const requestBytes = requested.get(nonce);
+            const request =
+                requestBytes === undefined
+                    ? undefined
+                    : TargetAuthorityPermitRequest.decode(requestBytes.slice());
+            if (
+                request === undefined ||
+                permit.nonce !== nonce ||
+                !permit.target.actor.equals(this.owner) ||
+                !permit.expectation.equals(request.expectation) ||
+                !permit.requestDigest.equals(request.digest())
+            ) {
                 throw corrupt();
-            transaction.consumedRecords.set(record.nonce, record.bytes.slice());
-            this.decodeConsumed(transaction, record.nonce, record.bytes);
+            }
         }
-        for (const nonce of transaction.issuedRecords.keys()) {
-            if (transaction.requestedRecords.has(nonce) || transaction.consumedRecords.has(nonce))
-                throw corrupt();
-        }
-        for (const nonce of transaction.consumedRecords.keys()) {
-            if (!transaction.requestedRecords.has(nonce)) throw corrupt();
-        }
-        this.#requested = transaction.requestedRecords;
-        this.#issued = transaction.issuedRecords;
-        this.#consumed = transaction.consumedRecords;
+        this.#requested = cloneBytesMap(requested);
+        this.#issued = cloneBytesMap(issued);
+        this.#consumed = cloneBytesMap(consumed);
     }
 
-    private requireTransaction(transaction: MemoryAuthorityPermitTransaction): void {
+    private requireTransaction(
+        transaction: MemoryAuthorityPermitTransaction
+    ): MemoryAuthorityPermitScope {
         if (
             !(transaction instanceof MemoryAuthorityPermitTransaction) ||
-            transaction.ownerToken !== this.#ownerToken
-        )
+            !this.#transactions.has(transaction)
+        ) {
             throw new TypeError("Authority permit transaction belongs to another owner store");
+        }
+        if (this.#active?.transaction !== transaction) {
+            throw new AgentCoreError(
+                "actor.closed",
+                "Authority permit transaction is no longer active"
+            );
+        }
+        return this.#active;
     }
 
     private requireUnused(transaction: MemoryAuthorityPermitTransaction, nonce: string): void {
-        if (
-            transaction.requestedRecords.has(nonce) ||
-            transaction.issuedRecords.has(nonce) ||
-            transaction.consumedRecords.has(nonce)
-        )
+        const scope = this.requireTransaction(transaction);
+        if (scope.requested.has(nonce) || scope.issued.has(nonce) || scope.consumed.has(nonce))
             throw denied("Authority permit nonce was already used by this Actor owner");
     }
 
@@ -370,7 +390,8 @@ export class MemoryAuthorityPermitStore
     ): void {
         const request = this.requested(transaction, nonce);
         if (request === undefined) {
-            if (transaction.issuedRecords.has(nonce) || transaction.consumedRecords.has(nonce)) {
+            const scope = this.requireTransaction(transaction);
+            if (scope.issued.has(nonce) || scope.consumed.has(nonce)) {
                 this.requireUnused(transaction, nonce);
             }
             throw denied("Authority permit has no durable target request");

@@ -26,7 +26,7 @@ import {
     isSqliteText,
     type SqliteRow
 } from "./sqlite";
-import { SqliteActorStore } from "./actor";
+import { SqliteActorStore, isActiveSqliteActorTransaction } from "./actor";
 import { createSqliteTenantControlStore } from "./tenant";
 
 const CREATE_PERMITS = `CREATE TABLE IF NOT EXISTS authority_permit_nonces (
@@ -51,16 +51,19 @@ export class SqliteAuthorityPermitStore
         AuthorityPermitTargetStore<TransactionalSqlite>,
         AuthorityPermitIssueStore<TransactionalSqlite>
 {
+    readonly #actors: SqliteActorStore;
+
     public constructor(
         private readonly database: TransactionalSqlite,
         public readonly owner: ActorRef
     ) {
         try {
+            this.#actors = new SqliteActorStore(database);
             database.transaction(() => {
                 database.run(CREATE_PERMITS, []);
                 database.run(CREATE_CONSUMPTIONS, []);
             });
-            this.validateRows(database);
+            this.#actors.transaction((transaction) => this.validateRows(transaction));
         } catch (error) {
             if (error instanceof AgentCoreError) throw error;
             throw corrupt("Authority permit schema initialization failed");
@@ -71,7 +74,7 @@ export class SqliteAuthorityPermitStore
         operation: (transaction: TransactionalSqlite) => Result,
         ...guard: SynchronousResultGuard<Result>
     ): Result {
-        return this.database.transaction(() => operation(this.database), ...guard);
+        return this.#actors.transaction(operation, ...guard);
     }
 
     public issued(transaction: TransactionalSqlite, nonce: string): AuthorityPermit | undefined {
@@ -352,6 +355,12 @@ export class SqliteAuthorityPermitStore
             !hasSameSqliteProvenance(this.database, transaction)
         )
             throw new TypeError("Authority permit transaction belongs to another SQLite owner");
+        if (!isActiveSqliteActorTransaction(transaction)) {
+            throw new AgentCoreError(
+                "actor.stale-callback",
+                "Authority permit writes require the active SQLite Actor transaction"
+            );
+        }
     }
 }
 
@@ -435,6 +444,12 @@ export class SqliteTenantAuthorityPermitStore
             !hasSameSqliteProvenance(this.database, transaction)
         ) {
             throw new TypeError("Tenant authority transaction belongs to another SQLite owner");
+        }
+        if (!isActiveSqliteActorTransaction(transaction)) {
+            throw new AgentCoreError(
+                "actor.stale-callback",
+                "Tenant authority writes require the active SQLite Actor transaction"
+            );
         }
     }
 }

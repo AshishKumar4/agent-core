@@ -559,6 +559,43 @@ function permitStoreContract<Transaction>(
                 expect(authority.lastClaim).toBeUndefined();
             }
         );
+
+        test(
+            "closes captured transactions and rolls nested transactions back",
+            { tags: "p0" },
+            () => {
+                const harness = create();
+                const outer = targetRequest(`${name}-outer-scope`);
+                const nested = targetRequest(`${name}-nested-scope`);
+                let useCaptured: (() => void) | undefined;
+
+                expect(() =>
+                    harness.targetStore.transaction((transaction) => {
+                        useCaptured = () => {
+                            harness.targetStore.request(transaction, outer);
+                        };
+                        harness.targetStore.request(transaction, outer);
+                        harness.targetStore.transaction((inner) =>
+                            harness.targetStore.request(inner, nested)
+                        );
+                    })
+                ).toThrow();
+
+                if (useCaptured === undefined)
+                    throw new TypeError("Expected a captured transaction");
+                expect(useCaptured).toThrow();
+                expect(
+                    harness.targetStore.transaction((transaction) =>
+                        harness.targetStore.requested(transaction, outer.nonce)
+                    )
+                ).toBeUndefined();
+                expect(
+                    harness.targetStore.transaction((transaction) =>
+                        harness.targetStore.requested(transaction, nested.nonce)
+                    )
+                ).toBeUndefined();
+            }
+        );
     });
 }
 
@@ -604,6 +641,13 @@ permitStoreContract<TransactionalSqlite>("sqlite", () => {
             return targetStore;
         }
     };
+});
+
+test("memory permit transactions do not expose mutable scope state", { tags: "p0" }, () => {
+    const store = new MemoryAuthorityPermitStore(targetActor);
+    store.transaction((transaction) => {
+        expect(Reflect.ownKeys(transaction)).toEqual([]);
+    });
 });
 
 describe("AuthorityPermit", () => {
@@ -1287,9 +1331,13 @@ describe("AuthorityPermit", () => {
             const readFailure = new ControlledSqlite();
             const readStore = new SqliteAuthorityPermitStore(readFailure, issuerActor);
             readFailure.failAll = new TypeError("read failure");
-            expect(() => readStore.issued(readFailure, permit.nonce)).toThrow(/read failed/);
+            expect(() =>
+                readStore.transaction((transaction) => readStore.issued(transaction, permit.nonce))
+            ).toThrow(/read failed/);
             readFailure.failAll = new AgentCoreError("codec.invalid", "closed read");
-            expect(() => readStore.issued(readFailure, permit.nonce)).toThrow(/closed read/);
+            expect(() =>
+                readStore.transaction((transaction) => readStore.issued(transaction, permit.nonce))
+            ).toThrow(/closed read/);
 
             const recoveryFailure = new ControlledSqlite();
             new SqliteAuthorityPermitStore(recoveryFailure, issuerActor);
@@ -1307,16 +1355,28 @@ describe("AuthorityPermit", () => {
             corruptStore.transaction((transaction) => corruptStore.issue(transaction, permit));
             corruptProjection.mapRows = (rows) =>
                 rows.map((row) => ({ ...row, digest: "0".repeat(64) }));
-            expect(() => corruptStore.issued(corruptProjection, permit.nonce)).toThrow(/malformed/);
+            expect(() =>
+                corruptStore.transaction((transaction) =>
+                    corruptStore.issued(transaction, permit.nonce)
+                )
+            ).toThrow(/malformed/);
 
             corruptProjection.mapRows = (rows) => rows.map((row) => ({ ...row, state: "invalid" }));
             expect(() => new SqliteAuthorityPermitStore(corruptProjection, issuerActor)).toThrow(
                 /malformed/
             );
             corruptProjection.mapRows = (rows) => rows.map((row) => ({ ...row, record: null }));
-            expect(() => corruptStore.issued(corruptProjection, permit.nonce)).toThrow(/malformed/);
+            expect(() =>
+                corruptStore.transaction((transaction) =>
+                    corruptStore.issued(transaction, permit.nonce)
+                )
+            ).toThrow(/malformed/);
             corruptProjection.mapRows = (rows) => rows.map((row) => ({ ...row, owner_id: "" }));
-            expect(() => corruptStore.issued(corruptProjection, permit.nonce)).toThrow(/malformed/);
+            expect(() =>
+                corruptStore.transaction((transaction) =>
+                    corruptStore.issued(transaction, permit.nonce)
+                )
+            ).toThrow(/malformed/);
 
             const consumedProjection = new ControlledSqlite();
             const consumedStore = new SqliteAuthorityPermitStore(consumedProjection, targetActor);
@@ -1332,9 +1392,11 @@ describe("AuthorityPermit", () => {
             );
             consumedProjection.mapRows = (rows) =>
                 rows.map((row) => ({ ...row, record: Uint8Array.of(1) }));
-            expect(() => consumedStore.consumed(consumedProjection, permit.nonce)).toThrow(
-                /malformed/
-            );
+            expect(() =>
+                consumedStore.transaction((transaction) =>
+                    consumedStore.consumed(transaction, permit.nonce)
+                )
+            ).toThrow(/malformed/);
         }
     );
 });
@@ -2146,7 +2208,7 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         ]);
     });
 
-    test("snapshot and staged bytes stay detached from committed state", { tags: "p0" }, () => {
+    test("snapshot bytes stay detached from committed state", { tags: "p0" }, () => {
         const store = new MemoryAuthorityPermitStore(issuerActor);
         const permit = new AuthorityPermit({
             ...expectation(),
@@ -2166,22 +2228,9 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
                 (transaction) => store.issued(transaction, "store-detached")?.digest().value
             )
         ).toBe(permit.digest().value);
-
-        expect(() =>
-            store.transaction((transaction) => {
-                transaction.issuedRecords.get("store-detached")?.fill(0);
-                throw new AgentCoreError("protocol.invalid-state", "abort staged mutation");
-            })
-        ).toThrow(/abort staged mutation/);
-        expect(
-            store.transaction(
-                (transaction) => store.issued(transaction, "store-detached")?.digest().value
-            )
-        ).toBe(permit.digest().value);
     });
 
     test("detects issued records filed under a foreign nonce", { tags: "p0" }, () => {
-        const store = new MemoryAuthorityPermitStore(issuerActor);
         const permit = new AuthorityPermit({
             ...expectation(),
             nonce: "store-real-nonce",
@@ -2189,17 +2238,22 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
             issuedAt,
             expiresAt
         });
-        expect(() =>
-            store.transaction((transaction) => {
-                transaction.issuedRecords.set("store-alias-nonce", AuthorityPermit.encode(permit));
-                const error = caughtAgentCoreError(() =>
-                    store.issued(transaction, "store-alias-nonce")
-                );
-                expect(error.code).toBe("codec.invalid");
-                expect(error.message).toBe("Stored authority permit ownership is malformed");
-                throw new AgentCoreError("protocol.invalid-state", "discard corrupted staging");
-            })
-        ).toThrow(/discard corrupted staging/);
+        const error = caughtAgentCoreError(
+            () =>
+                new MemoryAuthorityPermitStore(issuerActor, {
+                    version: 2,
+                    requested: [],
+                    issued: [
+                        {
+                            nonce: "store-alias-nonce",
+                            bytes: AuthorityPermit.encode(permit)
+                        }
+                    ],
+                    consumed: []
+                })
+        );
+        expect(error.code).toBe("codec.invalid");
+        expect(error.message).toBe("Stored authority permit ownership is malformed");
     });
 
     test("restore rejects holed snapshot records as malformed", { tags: "p0" }, () => {

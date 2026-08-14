@@ -61,6 +61,59 @@ const corruptMessage = "Stored authority permit ownership is malformed";
 const authorityArguments = Object.freeze({ channel: "internal" });
 
 describe("SQLite authority permit store exact behavior", () => {
+    test(
+        "requires the active Actor transaction scope even for the same database",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const store = new SqliteAuthorityPermitStore(database, targetActor);
+            const request = targetRequest("active-scope");
+            let useCaptured: (() => void) | undefined;
+
+            expect(() => store.request(database, request)).toThrow();
+            expect(() => database.transaction(() => store.request(database, request))).toThrow();
+
+            store.transaction((transaction) => {
+                useCaptured = () => {
+                    store.request(transaction, targetRequest("captured-scope"));
+                };
+                expect(store.request(transaction, request).digest().equals(request.digest())).toBe(
+                    true
+                );
+            });
+            if (useCaptured === undefined)
+                throw new TypeError("Expected a captured SQLite transaction");
+            expect(useCaptured).toThrow();
+            expect(
+                store.transaction((transaction) => store.requested(transaction, "captured-scope"))
+            ).toBeUndefined();
+        }
+    );
+
+    test(
+        "rejects nested permit transactions and rolls the outer scope back",
+        { tags: "p0" },
+        () => {
+            const store = new SqliteAuthorityPermitStore(new TestSqlite(), targetActor);
+
+            expect(() =>
+                store.transaction((transaction) => {
+                    store.request(transaction, targetRequest("outer-rollback"));
+                    store.transaction((inner) =>
+                        store.request(inner, targetRequest("nested-rollback"))
+                    );
+                })
+            ).toThrow();
+
+            expect(
+                store.transaction((transaction) => store.requested(transaction, "outer-rollback"))
+            ).toBeUndefined();
+            expect(
+                store.transaction((transaction) => store.requested(transaction, "nested-rollback"))
+            ).toBeUndefined();
+        }
+    );
+
     test("issue binds each nonce to one exact expectation", { tags: "p0" }, () => {
         const store = new SqliteAuthorityPermitStore(new TestSqlite(), issuerActor);
         const first = issuedPermit("bound-nonce");
