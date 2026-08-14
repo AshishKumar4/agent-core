@@ -80,7 +80,7 @@ class GuestTrustRecordCodec extends RecordCodec<GuestTrust> {
             "Guest trust payload"
         );
         const handshakeDigest = object["handshakeDigest"];
-        if (handshakeDigest !== null && typeof handshakeDigest !== "string") {
+        if (handshakeDigest !== null && !isHandshakeDigest(handshakeDigest)) {
             throw new TypeError("Guest trust handshake digest must be a string or null");
         }
         return new GuestTrust(
@@ -93,6 +93,10 @@ class GuestTrustRecordCodec extends RecordCodec<GuestTrust> {
             handshakeDigest === null ? undefined : new Digest(handshakeDigest)
         );
     }
+}
+
+function isHandshakeDigest(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
 }
 
 export class GuestTrust {

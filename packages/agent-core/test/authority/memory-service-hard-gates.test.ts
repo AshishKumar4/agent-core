@@ -26,7 +26,7 @@ import {
 import {
     GuestTrust,
     GuestTrustId,
-    GuestVerification,
+    mintGuestVerification,
     PrincipalRef,
     Workspace
 } from "../identity/internal-fixture";
@@ -431,7 +431,7 @@ describe("AuthorityMutationService hard gates", () => {
         const reader = role("guest-reader");
         service.createGuestTrust(trust);
         service.createRole(reader);
-        const proof = new GuestVerification(
+        const proof = mintGuestVerification(
             new PrincipalRef(home, guest),
             trust.id,
             trust.revision,

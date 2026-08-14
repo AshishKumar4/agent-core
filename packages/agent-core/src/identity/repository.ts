@@ -128,10 +128,9 @@ function emptySnapshot(): MemoryIdentitySnapshot {
     return Object.freeze({ version: 1, records: Object.freeze([]) });
 }
 
-function requireSnapshot(snapshot: MemoryIdentitySnapshot): void {
+function requireSnapshot(snapshot: unknown): asserts snapshot is MemoryIdentitySnapshot {
     if (
-        snapshot === null ||
-        typeof snapshot !== "object" ||
+        !isIdentitySnapshotCandidate(snapshot) ||
         !hasExactKeys(snapshot, ["records", "version"]) ||
         snapshot.version !== 1 ||
         !Array.isArray(snapshot.records)
@@ -164,11 +163,8 @@ function verifyRecord(record: StoredIdentityRecord): void {
 
 function copyRecord(record: StoredIdentityRecord): StoredIdentityRecord {
     if (
-        record === null ||
-        typeof record !== "object" ||
+        !isStoredIdentityRecord(record) ||
         !hasExactKeys(record, ["bytes", "id", "kind"]) ||
-        !isRecordKind(record.kind) ||
-        typeof record.id !== "string" ||
         record.id.length === 0 ||
         !(record.bytes instanceof Uint8Array)
     ) {
@@ -198,7 +194,33 @@ function corruptIdentitySnapshot(message: string): AgentCoreError {
     return new AgentCoreError("codec.invalid", message);
 }
 
-function hasExactKeys(value: object, keys: readonly string[]): boolean {
+function hasExactKeys(
+    value: IdentitySnapshotCandidate | StoredIdentityRecord,
+    keys: readonly string[]
+): boolean {
     const actual = Object.keys(value).sort();
     return actual.length === keys.length && actual.every((key, index) => key === keys[index]);
+}
+
+interface IdentitySnapshotCandidate {
+    readonly records?: unknown;
+    readonly version?: unknown;
+}
+
+function isIdentitySnapshotCandidate(value: unknown): value is IdentitySnapshotCandidate {
+    return value !== null && typeof value === "object";
+}
+
+function isStoredIdentityRecord(value: unknown): value is StoredIdentityRecord {
+    return (
+        value !== null &&
+        typeof value === "object" &&
+        "kind" in value &&
+        typeof value.kind === "string" &&
+        isRecordKind(value.kind) &&
+        "id" in value &&
+        typeof value.id === "string" &&
+        "bytes" in value &&
+        value.bytes instanceof Uint8Array
+    );
 }

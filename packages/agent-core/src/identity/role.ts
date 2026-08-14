@@ -104,8 +104,12 @@ export const BUILT_IN_ROLES: readonly Role[] = Object.freeze([
 ]);
 
 export function findBuiltInRole(name: RoleName | string): Role | undefined {
-    const value = typeof name === "string" ? name : name.value;
+    const value = isRoleNameValue(name) ? name : name.value;
     return BUILT_IN_ROLES.find((role) => role.name.value === value);
+}
+
+function isRoleNameValue(value: RoleName | string): value is string {
+    return typeof value === "string";
 }
 
 function builtInRole(name: string, impacts: readonly RoleImpact[]): Role {

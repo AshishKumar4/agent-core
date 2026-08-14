@@ -102,12 +102,8 @@ function isActorRecoveryStatePayload(
     return (
         hasExactJsonKeys(payload, ["actor", "epoch", "recoveries"]) &&
         isActor(actor) &&
-        typeof epoch === "number" &&
-        Number.isSafeInteger(epoch) &&
-        epoch >= 0 &&
-        typeof recoveries === "number" &&
-        Number.isSafeInteger(recoveries) &&
-        recoveries >= 1
+        isFenceEpoch(epoch) &&
+        isRecoveryCount(recoveries)
     );
 }
 
@@ -118,8 +114,20 @@ function isActor(
     return (
         hasExactJsonKeys(value, ["kind", "id"]) &&
         isActorKind(value["kind"]) &&
-        typeof value["id"] === "string"
+        isActorIdValue(value["id"])
     );
+}
+
+function isFenceEpoch(value: JsonValue | undefined): value is number {
+    return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+function isRecoveryCount(value: JsonValue | undefined): value is number {
+    return typeof value === "number" && Number.isSafeInteger(value) && value >= 1;
+}
+
+function isActorIdValue(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
 }
 
 function isActorKind(value: JsonValue | undefined): value is ActorKind {

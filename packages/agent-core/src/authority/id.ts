@@ -25,9 +25,13 @@ function validateRoleRuleOrdinal(ruleOrdinal: number): void {
 }
 
 function validateIdentityIdValue(value: IdentityIdInput, name: string): string {
-    const result = typeof value === "string" ? value : value.value;
+    const result = isIdentityIdText(value) ? value : value.value;
     if (result.length === 0 || result.length > 256) {
         throw new TypeError(`${name} must contain between 1 and 256 characters`);
     }
     return result;
+}
+
+function isIdentityIdText(value: IdentityIdInput): value is string {
+    return typeof value === "string";
 }

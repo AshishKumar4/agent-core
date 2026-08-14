@@ -612,8 +612,7 @@ function snapshotBackend(backend: MemoryBackend): MemoryContentSnapshot {
 function restoreBackend(snapshot: MemoryContentSnapshot): MemoryBackend {
     try {
         if (
-            snapshot === null ||
-            typeof snapshot !== "object" ||
+            !isContentSnapshotObject(snapshot) ||
             snapshot.version !== 1 ||
             !Array.isArray(snapshot.content) ||
             !Array.isArray(snapshot.edges) ||
@@ -682,6 +681,10 @@ function restoreBackend(snapshot: MemoryContentSnapshot): MemoryBackend {
         if (error instanceof AgentCoreError) throw error;
         throw corruptContent("Memory content snapshot is malformed");
     }
+}
+
+function isContentSnapshotObject(value: unknown): value is object {
+    return value !== null && typeof value === "object";
 }
 
 function validateBackend(backend: MemoryBackend): void {

@@ -96,14 +96,16 @@ export interface MemoryAuthorityPermitSnapshot {
 
 export class MemoryAuthorityPermitTransaction {
     public constructor(
-        readonly ownerToken: object,
+        readonly ownerToken: MemoryAuthorityPermitOwner,
         readonly issuedRecords: Map<string, Uint8Array>,
         readonly consumedRecords: Map<string, string>
     ) {}
 }
 
+class MemoryAuthorityPermitOwner {}
+
 export class MemoryAuthorityPermitStore implements AuthorityPermitOwnerStore<MemoryAuthorityPermitTransaction> {
-    readonly #ownerToken = Object.freeze({});
+    readonly #ownerToken = Object.freeze(new MemoryAuthorityPermitOwner());
     #issued = new Map<string, Uint8Array>();
     #consumed = new Map<string, string>();
 
@@ -217,13 +219,7 @@ export class MemoryAuthorityPermitStore implements AuthorityPermitOwnerStore<Mem
             new Map()
         );
         for (const record of snapshot.issued) {
-            if (
-                record === null ||
-                typeof record !== "object" ||
-                typeof record.nonce !== "string" ||
-                !(record.bytes instanceof Uint8Array) ||
-                transaction.issuedRecords.has(record.nonce)
-            )
+            if (!isIssuedPermitRecord(record) || transaction.issuedRecords.has(record.nonce))
                 throw corrupt();
             const permit = AuthorityPermit.decode(record.bytes.slice());
             this.assertIssuedOwner(permit);
@@ -231,13 +227,7 @@ export class MemoryAuthorityPermitStore implements AuthorityPermitOwnerStore<Mem
             transaction.issuedRecords.set(record.nonce, AuthorityPermit.encode(permit));
         }
         for (const record of snapshot.consumed) {
-            if (
-                record === null ||
-                typeof record !== "object" ||
-                typeof record.nonce !== "string" ||
-                typeof record.digest !== "string" ||
-                transaction.consumedRecords.has(record.nonce)
-            )
+            if (!isConsumedPermitRecord(record) || transaction.consumedRecords.has(record.nonce))
                 throw corrupt();
             new Digest(record.digest);
             transaction.consumedRecords.set(record.nonce, record.digest);
@@ -267,6 +257,32 @@ export class MemoryAuthorityPermitStore implements AuthorityPermitOwnerStore<Mem
             throw denied("Authority permit was issued by another Actor owner");
         }
     }
+}
+
+function isIssuedPermitRecord(
+    value: unknown
+): value is MemoryAuthorityPermitSnapshot["issued"][number] {
+    return (
+        value !== null &&
+        typeof value === "object" &&
+        "nonce" in value &&
+        typeof value.nonce === "string" &&
+        "bytes" in value &&
+        value.bytes instanceof Uint8Array
+    );
+}
+
+function isConsumedPermitRecord(
+    value: unknown
+): value is MemoryAuthorityPermitSnapshot["consumed"][number] {
+    return (
+        value !== null &&
+        typeof value === "object" &&
+        "nonce" in value &&
+        typeof value.nonce === "string" &&
+        "digest" in value &&
+        typeof value.digest === "string"
+    );
 }
 
 function cloneBytesMap(source: ReadonlyMap<string, Uint8Array>): Map<string, Uint8Array> {

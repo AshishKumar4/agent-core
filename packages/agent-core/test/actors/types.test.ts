@@ -9,23 +9,23 @@ import {
 import type { ReadableSqlite, TransactionalSqlite } from "../../src/substrates";
 
 abstract class TypedActor extends Actor<unknown> {
-    public promiseCallbackMustFail(): Promise<unknown> {
+    public promiseCallbackMustFail(): Promise<void> {
         // @ts-expect-error Actor transaction callbacks must be synchronous.
         return this.execute(async () => Promise.resolve());
     }
 
-    public customThenableCallbackMustFail(thenable: PromiseLike<string>): Promise<unknown> {
+    public customThenableCallbackMustFail(thenable: PromiseLike<string>): Promise<string> {
         // @ts-expect-error Actor transaction callbacks must be synchronous.
         return this.execute(() => thenable);
     }
 
-    public unionCallbackMustFail(asynchronous: boolean): Promise<unknown> {
+    public unionCallbackMustFail(asynchronous: boolean): Promise<string> {
         // @ts-expect-error Actor transaction callbacks must be synchronous.
         return this.execute(() => (asynchronous ? Promise.resolve("async") : "sync"));
     }
 }
 
-function publicRawMutationMustFail(actor: Actor<unknown>): Promise<unknown> {
+function publicRawMutationMustFail(actor: Actor<unknown>): Promise<void> {
     // @ts-expect-error Actor command submission is protected.
     return actor.execute(() => undefined);
 }
@@ -43,7 +43,7 @@ function publicFenceIsAsynchronous(actor: Actor<unknown>): Promise<ActorFence> {
     return actor.currentFence();
 }
 
-function sqlitePromiseCallbackMustFail(database: TransactionalSqlite): Promise<unknown> {
+function sqlitePromiseCallbackMustFail(database: TransactionalSqlite): Promise<void> {
     // @ts-expect-error SQLite transaction callbacks must be synchronous.
     return database.transaction(async () => Promise.resolve());
 }

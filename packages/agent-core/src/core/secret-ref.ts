@@ -1,3 +1,4 @@
+import { isJsonString } from "./json";
 import { hasOnlyUnicodeScalarValues } from "./unicode";
 
 const MAX_SECRET_COMPONENT_LENGTH = 2048;
@@ -26,7 +27,7 @@ export class SecretRef {
 
 function requireSecretComponent(value: string, name: string): string {
     if (
-        typeof value !== "string" ||
+        !isJsonString(value) ||
         value.trim().length === 0 ||
         value.length > MAX_SECRET_COMPONENT_LENGTH ||
         !hasOnlyUnicodeScalarValues(value)

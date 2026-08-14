@@ -37,7 +37,7 @@ import {
     Workspace,
     WorkspaceId
 } from "../../src/identity";
-import { GuestTrust, GuestTrustId, GuestVerification } from "../identity/internal-fixture";
+import { GuestTrust, GuestTrustId, mintGuestVerification } from "../identity/internal-fixture";
 import { LeanOracle } from "./oracle";
 
 /*
@@ -184,7 +184,7 @@ const GUEST_MEMBERSHIPS = new Map(
             new RoleName("guest"),
             "active",
             Revision.initial(),
-            new GuestVerification(
+            mintGuestVerification(
                 new PrincipalRef(GUEST_HOME, subject.principalId),
                 trust.id,
                 trust.revision,
@@ -622,7 +622,8 @@ function modelGrant(grantCase: GrantCase): JsonObject {
             impacts: grantCase.capability.impacts,
             constraints: []
         },
-        attenuationOf: grantCase.attenuationOf === undefined ? null : grantNumber(grantCase.attenuationOf),
+        attenuationOf:
+            grantCase.attenuationOf === undefined ? null : grantNumber(grantCase.attenuationOf),
         live: grantCase.live
     };
 }

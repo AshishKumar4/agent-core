@@ -24,7 +24,7 @@ import {
     TenantId,
     WorkspaceId
 } from "../../src/identity";
-import { GuestVerification, Workspace } from "../identity/internal-fixture";
+import { mintGuestVerification, Workspace } from "../identity/internal-fixture";
 import { Binding } from "../../src/authority/binding";
 import {
     AuthorityChangeSet,
@@ -715,7 +715,7 @@ function openGuest(): GuestClosureFixture {
             "active",
             Revision.initial()
         ),
-        new GuestVerification(
+        mintGuestVerification(
             new PrincipalRef(guestHome, guestId),
             trust.id,
             trust.revision,

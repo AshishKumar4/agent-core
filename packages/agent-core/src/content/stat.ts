@@ -28,10 +28,10 @@ class ContentStatRecordCodec extends RecordCodec<ContentStat> {
         if (
             !isObject(payload) ||
             !hasExactJsonKeys(payload, ["digest", "mediaType", "ref", "size"]) ||
-            typeof payload["digest"] !== "string" ||
-            (payload["mediaType"] !== null && typeof payload["mediaType"] !== "string") ||
-            typeof payload["ref"] !== "string" ||
-            typeof size !== "number" ||
+            !isContentString(payload["digest"]) ||
+            (payload["mediaType"] !== null && !isContentString(payload["mediaType"])) ||
+            !isContentString(payload["ref"]) ||
+            !isContentSize(size) ||
             !Number.isSafeInteger(size)
         ) {
             throw new AgentCoreError("codec.invalid", "Content stat payload is malformed");
@@ -43,7 +43,7 @@ class ContentStatRecordCodec extends RecordCodec<ContentStat> {
                 new ContentRef(payload["ref"]),
                 new Digest(payload["digest"]),
                 size,
-                typeof mediaType === "string" ? new MediaHint(mediaType) : undefined
+                isContentString(mediaType) ? new MediaHint(mediaType) : undefined
             );
         } catch (error) {
             throw new AgentCoreError(
@@ -52,6 +52,14 @@ class ContentStatRecordCodec extends RecordCodec<ContentStat> {
             );
         }
     }
+}
+
+function isContentString(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
+}
+
+function isContentSize(value: JsonValue | undefined): value is number {
+    return typeof value === "number";
 }
 
 export class ContentStat {

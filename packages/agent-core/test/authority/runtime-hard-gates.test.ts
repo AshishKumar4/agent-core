@@ -22,6 +22,7 @@ import {
     GuestTrust,
     GuestTrustId,
     GuestVerification,
+    mintGuestVerification,
     PrincipalRef,
     Workspace
 } from "../identity/internal-fixture";
@@ -243,7 +244,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
                 "active",
                 Revision.initial()
             );
-            const proof = new GuestVerification(
+            const proof = mintGuestVerification(
                 new PrincipalRef(home, guest),
                 trust.id,
                 trust.revision,
@@ -333,7 +334,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
                 new RoleName("guest"),
                 "active",
                 Revision.initial(),
-                new GuestVerification(
+                mintGuestVerification(
                     new PrincipalRef(home, guest),
                     trust.id,
                     trust.revision,
@@ -501,7 +502,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
         ).toBe("guestElevation");
 
         const membershipId = new MembershipId("branch-member");
-        const proof = new GuestVerification(
+        const proof = mintGuestVerification(
             principal,
             new GuestTrustId("branch-trust"),
             Revision.initial(),
@@ -578,7 +579,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
                 new RoleName("guest"),
                 "active",
                 Revision.initial(),
-                new GuestVerification(
+                mintGuestVerification(
                     new PrincipalRef(home, guest),
                     trust.id,
                     trust.revision,
@@ -756,7 +757,7 @@ describe("TenantAuthorityRuntime mutation kill gates", () => {
             "active",
             Revision.initial()
         );
-        const proof = new GuestVerification(
+        const proof = mintGuestVerification(
             new PrincipalRef(home, guest),
             trust.id,
             trust.revision,
@@ -1029,8 +1030,8 @@ describe("TenantAuthorityRuntime mutation kill gates", () => {
             const guest = new PrincipalId("currency-guest");
             const subject = SubjectRef.foreign(home, guest, GuestVerificationScheme.callback);
             const message = "Binding requires a live allow Grant reaching its Workspace";
-            const proofFor = (trust: GuestTrust): InstanceType<typeof GuestVerification> =>
-                new GuestVerification(
+            const proofFor = (trust: GuestTrust): GuestVerification =>
+                mintGuestVerification(
                     new PrincipalRef(home, guest),
                     trust.id,
                     trust.revision,
@@ -1042,7 +1043,7 @@ describe("TenantAuthorityRuntime mutation kill gates", () => {
             const makeMembership = (
                 id: string,
                 state: "active" | "revoked",
-                proof?: InstanceType<typeof GuestVerification>
+                proof?: GuestVerification
             ): Membership =>
                 new Membership(
                     new MembershipId(id),

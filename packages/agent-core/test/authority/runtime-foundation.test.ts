@@ -23,7 +23,7 @@ import {
 import {
     GuestTrust,
     GuestTrustId,
-    GuestVerification,
+    mintGuestVerification,
     PrincipalRef,
     Workspace
 } from "../identity/internal-fixture";
@@ -496,7 +496,7 @@ describe("verified guest lifecycle", () => {
             service.createRole(role);
             service.assignGuestMembership(
                 membership,
-                new GuestVerification(
+                mintGuestVerification(
                     new PrincipalRef(home, guest),
                     trust.id,
                     trust.revision,
@@ -648,7 +648,7 @@ describe("verified guest lifecycle", () => {
             expect(() =>
                 service.assignGuestMembership(
                     membership,
-                    new GuestVerification(
+                    mintGuestVerification(
                         new PrincipalRef(home, guest),
                         rotatedTrust.id,
                         rotatedTrust.revision,
@@ -800,7 +800,7 @@ function guestSchemeFixture(label: string): GuestSchemeFixture {
                     "active",
                     Revision.initial()
                 ),
-                new GuestVerification(
+                mintGuestVerification(
                     new PrincipalRef(guestHome, guestPrincipal),
                     trust.id,
                     trust.revision,

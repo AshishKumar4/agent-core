@@ -1,6 +1,13 @@
 import { AgentCoreError } from "../errors";
 import { decodeCanonicalJson, encodeCanonicalJson } from "./canonical";
-import { hasExactJsonKeys, isJsonObject, type JsonValue } from "./json";
+import {
+    hasExactJsonKeys,
+    isJsonNumber,
+    isJsonObject,
+    isJsonString,
+    isObjectRecord,
+    type JsonValue
+} from "./json";
 import { hasOnlyUnicodeScalarValues } from "./unicode";
 
 export interface RecordVersion {
@@ -20,7 +27,7 @@ export abstract class RecordCodec<Record> {
 
     protected constructor(kind: string, version: RecordVersion) {
         if (
-            typeof kind !== "string" ||
+            !isJsonString(kind) ||
             kind.trim().length === 0 ||
             kind !== kind.trim() ||
             !hasOnlyUnicodeScalarValues(kind)
@@ -87,10 +94,8 @@ export abstract class RecordCodec<Record> {
                 throw error;
             }
             if (!(error instanceof TypeError)) throw error;
-            throw new AgentCoreError(
-                "codec.invalid",
-                `Invalid ${this.kind} record: ${errorMessage(error)}`
-            );
+            const message = error.message;
+            throw new AgentCoreError("codec.invalid", `Invalid ${this.kind} record: ${message}`);
         }
     }
 
@@ -106,14 +111,14 @@ function isEnvelope(value: JsonValue): value is JsonValue & RecordEnvelope {
     const version = value["version"];
     return (
         hasExactJsonKeys(value, ["kind", "payload", "version"]) &&
-        typeof value["kind"] === "string" &&
+        isJsonString(value["kind"]) &&
         isJsonObject(version) &&
         hasExactJsonKeys(version, ["major", "minor"]) &&
         Number.isSafeInteger(version["major"]) &&
-        typeof version["major"] === "number" &&
+        isJsonNumber(version["major"]) &&
         version["major"] >= 0 &&
         Number.isSafeInteger(version["minor"]) &&
-        typeof version["minor"] === "number" &&
+        isJsonNumber(version["minor"]) &&
         version["minor"] >= 0 &&
         Object.hasOwn(value, "payload")
     );
@@ -121,8 +126,7 @@ function isEnvelope(value: JsonValue): value is JsonValue & RecordEnvelope {
 
 function validateAndDetachVersion(version: RecordVersion): RecordVersion {
     if (
-        typeof version !== "object" ||
-        version === null ||
+        !isObjectRecord(version) ||
         Object.getPrototypeOf(version) !== Object.prototype ||
         !hasExactVersionKeys(version)
     ) {
@@ -140,16 +144,13 @@ function validateAndDetachVersion(version: RecordVersion): RecordVersion {
     ) {
         throw new TypeError("Record codec version must contain non-negative safe integers");
     }
-    // SAFETY: PropertyDescriptor.value is typed `any`, which would let every check
-    // below pass vacuously. Restating it as `unknown` is a narrowing, not an escape:
-    // it forces the number, safe-integer and range checks that follow to be real.
-    const major = majorDescriptor.value as unknown;
-    const minor = minorDescriptor.value as unknown;
+    const major: unknown = majorDescriptor.value;
+    const minor: unknown = minorDescriptor.value;
     if (
-        typeof major !== "number" ||
+        !isJsonNumber(major) ||
         !Number.isSafeInteger(major) ||
         major < 0 ||
-        typeof minor !== "number" ||
+        !isJsonNumber(minor) ||
         !Number.isSafeInteger(minor) ||
         minor < 0
     ) {
@@ -158,11 +159,7 @@ function validateAndDetachVersion(version: RecordVersion): RecordVersion {
     return Object.freeze({ major, minor });
 }
 
-function hasExactVersionKeys(version: object): boolean {
+function hasExactVersionKeys(version: RecordVersion): boolean {
     const keys = Reflect.ownKeys(version);
     return keys.length === 2 && keys.includes("major") && keys.includes("minor");
-}
-
-function errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
 }

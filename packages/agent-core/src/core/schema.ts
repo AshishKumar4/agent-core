@@ -3,7 +3,14 @@ import { fullFormats } from "ajv-formats/dist/formats.js";
 import { AgentCoreError } from "../errors";
 import { canonicalJsonCopy, encodeCanonicalJson, frozenCanonicalJson } from "./canonical";
 import { RecordCodec, type RecordVersion } from "./codec";
-import { hasExactJsonKeys, isJsonValue, type JsonValue } from "./json";
+import {
+    hasExactJsonKeys,
+    isJsonBoolean,
+    isJsonObject,
+    isJsonString,
+    isJsonValue,
+    type JsonValue
+} from "./json";
 
 export type JsonSchemaDocument = boolean | { readonly [key: string]: JsonValue };
 
@@ -19,7 +26,7 @@ export class StrictJsonSchemaValidator implements JsonSchemaValidator {
     // bounded because schemas also arrive from decoded records, where an unbounded
     // cache would let untrusted definitions grow memory without limit.
     static readonly #compiledLimit = 512;
-    readonly #compiled = new Map<string, (value: unknown) => boolean>();
+    readonly #compiled = new Map<string, (value: JsonValue) => boolean>();
 
     public assertSchema(schema: JsonSchemaDocument): void {
         this.validateAndCompile(schema);
@@ -34,15 +41,15 @@ export class StrictJsonSchemaValidator implements JsonSchemaValidator {
         return validate(frozenCanonicalJson(value));
     }
 
-    private validateAndCompile(schema: JsonSchemaDocument): (value: unknown) => boolean {
+    private validateAndCompile(schema: JsonSchemaDocument): (value: JsonValue) => boolean {
         const canonical = frozenCanonicalJson(schema);
         const key = new TextDecoder().decode(encodeCanonicalJson(canonical));
         const memoized = this.#compiled.get(key);
         if (memoized !== undefined) return memoized;
         assertSupportedSchema(canonical);
-        let compiled: (value: unknown) => boolean;
+        let compiled: (value: JsonValue) => boolean;
         try {
-            compiled = createAjv().compile(canonical) as (value: unknown) => boolean;
+            compiled = createAjv().compile<JsonValue>(canonical);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             throw new TypeError(`Unsupported JSON Schema: ${message}`);
@@ -68,7 +75,7 @@ class JsonSchemaCodec extends RecordCodec<JsonSchema> {
     }
 
     protected decodePayload(payload: JsonValue, _version: RecordVersion): JsonSchema {
-        if (!isObject(payload) || !hasExactJsonKeys(payload, ["document"])) {
+        if (!isJsonObject(payload) || !hasExactJsonKeys(payload, ["document"])) {
             throw new AgentCoreError("codec.invalid", "JSON Schema payload is malformed");
         }
         const document = payload["document"];
@@ -127,7 +134,8 @@ export class JsonSchema {
             throw error;
         }
         requireUnchanged(candidate, before);
-        return requireBooleanValidationResult(accepted);
+        requireValidationResult(accepted);
+        return accepted;
     }
 
     public assertValid(): void {
@@ -146,11 +154,7 @@ export class JsonSchema {
 }
 
 function isSchemaDocument(value: unknown): value is JsonSchemaDocument {
-    return typeof value === "boolean" || (isJsonValue(value) && isObject(value));
-}
-
-function isObject(value: unknown): value is { readonly [key: string]: JsonValue } {
-    return value !== null && !Array.isArray(value) && typeof value === "object";
+    return isJsonBoolean(value) || (isJsonValue(value) && isJsonObject(value));
 }
 
 const anyJsonSchema = new JsonSchema({});
@@ -174,7 +178,7 @@ function assertSupportedSchema(schema: JsonSchemaDocument): void {
         requireLocalReference(ownValue(value, "$ref"), base, resources, "$ref");
         requireDynamicReference(ownValue(value, "$dynamicRef"));
         const format = ownValue(value, "format");
-        if (typeof format === "string" && !SUPPORTED_FORMATS.has(format)) {
+        if (isJsonString(format) && !SUPPORTED_FORMATS.has(format)) {
             throw new TypeError(`Unsupported JSON Schema format: ${format}`);
         }
     });
@@ -185,7 +189,7 @@ function visitSchemas(
     inheritedBase: string | undefined,
     inspect: (value: { readonly [key: string]: JsonValue }, base: string | undefined) => void
 ): void {
-    if (!isObject(value)) return;
+    if (!isJsonObject(value)) return;
     const base = resolveIdentifier(ownValue(value, "$id"), inheritedBase) ?? inheritedBase;
     inspect(value, base);
     for (const keyword of SCHEMA_KEYWORDS) {
@@ -198,7 +202,7 @@ function visitSchemas(
     }
     for (const keyword of SCHEMA_MAP_KEYWORDS) {
         const children = ownValue(value, keyword);
-        if (!isObject(children)) continue;
+        if (!isJsonObject(children)) continue;
         for (const child of Object.values(children)) visitSchemaValue(child, base, inspect);
     }
 }
@@ -208,14 +212,14 @@ function visitSchemaValue(
     base: string | undefined,
     inspect: (value: { readonly [key: string]: JsonValue }, base: string | undefined) => void
 ): void {
-    if (typeof value === "boolean" || isObject(value)) visitSchemas(value, base, inspect);
+    if (isJsonBoolean(value) || isJsonObject(value)) visitSchemas(value, base, inspect);
 }
 
 function resolveIdentifier(
     value: JsonValue | undefined,
     base: string | undefined
 ): string | undefined {
-    if (typeof value !== "string") return undefined;
+    if (!isJsonString(value)) return undefined;
     try {
         return new URL(value, base).href;
     } catch {
@@ -229,7 +233,7 @@ function requireLocalReference(
     resources: ReadonlySet<string>,
     keyword: string
 ): void {
-    if (typeof value !== "string" || value.startsWith("#")) return;
+    if (!isJsonString(value) || value.startsWith("#")) return;
     const resolved = resolveIdentifier(value, base);
     if (resolved === undefined || !resources.has(withoutFragment(resolved))) {
         throw new TypeError(`Remote JSON Schema reference is not supported: ${keyword} ${value}`);
@@ -237,7 +241,7 @@ function requireLocalReference(
 }
 
 function requireDynamicReference(value: JsonValue | undefined): void {
-    if (typeof value === "string" && !value.startsWith("#")) {
+    if (isJsonString(value) && !value.startsWith("#")) {
         throw new TypeError(`Remote JSON Schema reference is not supported: $dynamicRef ${value}`);
     }
 }
@@ -267,11 +271,10 @@ function requireUnchanged(value: JsonValue, expected: Uint8Array): void {
     if (!unchanged) throw new TypeError("Injected JSON Schema validators must not mutate input");
 }
 
-function requireBooleanValidationResult(value: unknown): boolean {
+function requireValidationResult(value: unknown): asserts value is boolean {
     if (typeof value !== "boolean") {
         throw new TypeError("Injected JSON Schema validators must return a boolean synchronously");
     }
-    return value;
 }
 
 function createAjv(): Ajv2020 {

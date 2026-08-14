@@ -26,7 +26,7 @@ class WorkspaceRecordCodec extends RecordCodec<Workspace> {
         const object = requireIdentityObject(payload, "Workspace payload");
         requireIdentityFields(object, ["id", "project", "revision", "tenant"], "Workspace payload");
         const project = object["project"];
-        if (project !== null && typeof project !== "string") {
+        if (project !== null && !isProjectIdValue(project)) {
             throw new TypeError("Workspace Project must be a string or null");
         }
         return new Workspace(
@@ -36,6 +36,10 @@ class WorkspaceRecordCodec extends RecordCodec<Workspace> {
             requireIdentityRevision(object["revision"], "Workspace revision")
         );
     }
+}
+
+function isProjectIdValue(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
 }
 
 export class Workspace {

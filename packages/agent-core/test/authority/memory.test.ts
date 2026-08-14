@@ -40,7 +40,7 @@ import {
     TenantId,
     WorkspaceId
 } from "../../src/identity";
-import { GuestVerification } from "../identity/internal-fixture";
+import { mintGuestVerification } from "../identity/internal-fixture";
 import { Workspace } from "../identity/internal-fixture";
 import { allowGrant, principalId, tenantId, workspaceScope } from "./fixture";
 
@@ -666,7 +666,7 @@ describe("MemoryTenantControlStore", () => {
             );
             const guestRole = observeRole("memory-guest-role");
             const guestSubject = SubjectRef.foreign(home, guest, GuestVerificationScheme.callback);
-            const verification = new GuestVerification(
+            const verification = mintGuestVerification(
                 new PrincipalRef(home, guest),
                 trust.id,
                 trust.revision,

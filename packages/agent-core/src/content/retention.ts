@@ -33,11 +33,11 @@ class ContentOwnerEdgeCodec extends RecordCodec<ContentOwnerEdge> {
             !hasExactJsonKeys(payload, ["actor", "ownerKey", "ref", "tenant"]) ||
             !isObject(actor) ||
             !hasExactJsonKeys(actor, ["id", "kind"]) ||
-            typeof actor["id"] !== "string" ||
+            !isContentString(actor["id"]) ||
             !isActorKind(actor["kind"]) ||
-            typeof payload["ownerKey"] !== "string" ||
-            typeof payload["ref"] !== "string" ||
-            typeof payload["tenant"] !== "string"
+            !isContentString(payload["ownerKey"]) ||
+            !isContentString(payload["ref"]) ||
+            !isContentString(payload["tenant"])
         ) {
             throw invalidEdge("Content owner edge payload is malformed");
         }
@@ -54,6 +54,10 @@ class ContentOwnerEdgeCodec extends RecordCodec<ContentOwnerEdge> {
             );
         }
     }
+}
+
+function isContentString(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
 }
 
 export class ContentOwnerEdge {

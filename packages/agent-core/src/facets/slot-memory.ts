@@ -1,5 +1,9 @@
-import { Revision, isObjectRecord } from "../core";
-import type { SynchronousResultGuard, TransactionOperation } from "../actors";
+import { Revision } from "../core";
+import {
+    requireSynchronousResult,
+    type SynchronousResultGuard,
+    type TransactionOperation
+} from "../actors";
 import { AgentCoreError } from "../errors";
 import type { WorkspaceId } from "../identity";
 import { isString } from "./data";
@@ -77,11 +81,7 @@ export class MemoryWorkspaceSlotStore extends WorkspaceSlotStore<MemorySlotState
         const draft = cloneState(this.#state);
         this.#active = draft;
         try {
-            const result = operation(draft);
-            if (isThenable(result)) {
-                if (result instanceof Promise) void result.catch(noop);
-                throw invalidState("Slot transactions must be synchronous");
-            }
+            const result = requireSynchronousSlotResult(operation(draft));
             validateState(draft);
             this.#state = cloneState(draft);
             return result;
@@ -242,11 +242,13 @@ function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
     );
 }
 
-function isThenable<Result>(value: Result): value is Result & PromiseLike<never> {
-    if (isObjectRecord(value)) {
-        return value["then"] instanceof Function;
+function requireSynchronousSlotResult<Result>(result: Result): Result {
+    try {
+        return requireSynchronousResult(result);
+    } catch (error) {
+        if (error instanceof TypeError) throw invalidState("Slot transactions must be synchronous");
+        throw error;
     }
-    return value instanceof Function && "then" in value && value["then"] instanceof Function;
 }
 
 function requireSnapshot(snapshot: MemoryWorkspaceSlotSnapshot): void {
@@ -287,8 +289,6 @@ function compareRecordKeys(
 ): number {
     return compareText(left[0], right[0]);
 }
-
-function noop(): void {}
 
 function corrupt(message: string): AgentCoreError {
     return new AgentCoreError("codec.invalid", message);

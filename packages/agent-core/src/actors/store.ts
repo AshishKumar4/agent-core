@@ -1,6 +1,7 @@
+import { types as utilTypes } from "node:util";
+
 import { AgentCoreError } from "../errors";
 import { Revision, TextId } from "../core";
-import { types as utilTypes } from "node:util";
 import { ActorRecoveryState } from "./fence";
 import { ActorId } from "./id";
 import {
@@ -15,9 +16,28 @@ const ASYNC_TRANSACTION_MESSAGE = "Actor transaction callbacks must be synchrono
 
 export const ACTOR_STATE_SNAPSHOT: unique symbol = Symbol("actor-state-snapshot");
 
+type ActorCloneSnapshot = boolean | number | string | null | bigint | symbol | object | undefined;
+
 export interface ActorCloneOwnedState {
-    [ACTOR_STATE_SNAPSHOT](): unknown;
+    [ACTOR_STATE_SNAPSHOT](): ActorCloneSnapshot;
 }
+
+declare const ACTOR_STATE_OBJECT: unique symbol;
+
+interface ActorStateObject {
+    readonly [ACTOR_STATE_OBJECT]?: undefined;
+}
+
+type ActorStateTarget = ActorStateObject | unknown[];
+
+type InspectableActorState =
+    | ActorStateTarget
+    | ArrayBuffer
+    | ArrayBufferView
+    | Date
+    | Map<unknown, unknown>
+    | Set<unknown>
+    | TextId;
 
 export interface ActorStore<TTransaction> extends TransactionalStore<TTransaction> {
     bindActor(actor: ActorRef): void;
@@ -101,7 +121,6 @@ export class MemoryActorStore<TTransaction extends object>
         private readonly clone: (value: TTransaction) => TTransaction
     ) {
         this.#value = copyDetached(value, clone);
-        requireOwnedGraph(this.#value);
     }
 
     public static restore<TState extends object>(
@@ -181,7 +200,6 @@ export class MemoryActorStore<TTransaction extends object>
         }
 
         const draft = copyDetached(this.#value, this.clone);
-        requireOwnedGraph(draft);
         const recoveryDraft =
             this.#recovery === undefined
                 ? undefined
@@ -198,7 +216,10 @@ export class MemoryActorStore<TTransaction extends object>
             },
             get(target, property, receiver) {
                 requireActiveScope(active);
-                return Reflect.get(target, property, receiver);
+                const member = inspectProperty(target, property);
+                if (member.kind === "missing") return undefined;
+                if (member.kind === "accessor") return member.descriptor.get?.call(receiver);
+                return member.value;
             },
             getOwnPropertyDescriptor(target, property) {
                 requireActiveScope(active);
@@ -241,7 +262,6 @@ export class MemoryActorStore<TTransaction extends object>
         try {
             const result = requireSynchronousResult(operation(scope));
             const committed = copyDetached(draft, this.clone);
-            requireOwnedGraph(committed);
             this.#value = committed;
             this.#recovery = this.#activeRecovery;
             this.#actor = this.#activeActor;
@@ -264,7 +284,6 @@ export class MemoryActorStore<TTransaction extends object>
             throw staleTransaction("Actor reads require the active transaction");
         }
         const view = copyDetached(this.#activeDraft, this.clone);
-        requireOwnedGraph(view);
         return requireSynchronousResult(operation(readonlyView(view)));
     }
 
@@ -283,7 +302,6 @@ export class MemoryActorStore<TTransaction extends object>
 
     public snapshot(): MemoryActorStoreSnapshot<TTransaction> {
         const state = copyDetached(this.#value, this.clone);
-        requireOwnedGraph(state);
         return Object.freeze({
             version: 1,
             state,
@@ -312,38 +330,32 @@ export class MemoryActorStore<TTransaction extends object>
 }
 
 export function requireSynchronousResult<TResult>(result: TResult): TResult {
-    if (isUnstableOrThenable(result)) {
-        if (result instanceof Promise) {
-            void result.catch(noop);
+    if (isThenableCandidate(result)) {
+        let owner: object | null = result;
+        while (owner !== null) {
+            if (utilTypes.isProxy(owner) || Object.hasOwn(owner, "then")) {
+                if (utilTypes.isPromise(result)) void result.catch(noop);
+                throw new TypeError(ASYNC_TRANSACTION_MESSAGE);
+            }
+            owner = Reflect.getPrototypeOf(owner);
         }
-        throw new TypeError(ASYNC_TRANSACTION_MESSAGE);
     }
     return result;
 }
 
-function isUnstableOrThenable(value: unknown): value is PromiseLike<unknown> {
-    if ((typeof value !== "object" || value === null) && typeof value !== "function") {
-        return false;
-    }
-    let owner: object | null = value;
-    while (owner !== null) {
-        if (utilTypes.isProxy(owner) || Object.hasOwn(owner, "then")) return true;
-        owner = Object.getPrototypeOf(owner) as object | null;
-    }
-    return typeof (value as { readonly then?: unknown }).then === "function";
+function isThenableCandidate(value: unknown): value is object {
+    return (typeof value === "object" && value !== null) || typeof value === "function";
 }
 
 function noop(): void {}
 
 function requireSnapshot<TState>(value: MemoryActorStoreSnapshot<TState>): void {
     if (
-        value === null ||
-        typeof value !== "object" ||
+        !isActorStateObject(value) ||
         JSON.stringify(Object.keys(value).sort()) !==
             JSON.stringify(["actor", "recoveryState", "state", "version"]) ||
         value.version !== 1 ||
-        value.state === null ||
-        typeof value.state !== "object" ||
+        !isActorStateObject(value.state) ||
         !isSnapshotActor(value.actor) ||
         (value.recoveryState !== null && !(value.recoveryState instanceof Uint8Array))
     ) {
@@ -356,11 +368,15 @@ function isSnapshotActor(
 ): value is MemoryActorStoreSnapshot<unknown>["actor"] {
     return (
         value === null ||
-        (typeof value === "object" &&
+        (isActorStateObject(value) &&
             JSON.stringify(Object.keys(value).sort()) === JSON.stringify(["id", "kind"]) &&
-            typeof value.id === "string" &&
+            isActorId(value.id) &&
             isActorKind(value.kind))
     );
+}
+
+function isActorId(value: unknown): value is string {
+    return typeof value === "string";
 }
 
 function isActorKind(value: unknown): value is ActorKind {
@@ -387,35 +403,47 @@ function staleTransaction(message: string): AgentCoreError {
 
 function readonlyView<Value>(value: Value): Value {
     return readonlyValue(value, {
-        seen: new WeakMap<object, unknown>(),
+        seen: new WeakMap<object, object>(),
         buffers: new WeakMap<ArrayBuffer, ArrayBuffer>()
-    }) as Value;
+    });
 }
 
 interface ReadonlyContext {
-    readonly seen: WeakMap<object, unknown>;
+    readonly seen: WeakMap<object, object>;
     readonly buffers: WeakMap<ArrayBuffer, ArrayBuffer>;
 }
 
-function readonlyValue(value: unknown, context: ReadonlyContext): unknown {
-    if (value === null || typeof value !== "object") return value;
+function readonlyValue<Value>(value: Value, context: ReadonlyContext): Value {
+    if (!isActorStateObject(value)) return value;
     const previous = context.seen.get(value);
-    if (previous !== undefined) return previous;
-    if (value instanceof Date) return readonlyDate(value, context);
-    if (value instanceof Map) return readonlyMap(value, context);
-    if (value instanceof Set) return readonlySet(value, context);
-    if (value instanceof ArrayBuffer) return readonlyArrayBuffer(value, context);
-    if (ArrayBuffer.isView(value)) return readonlyArrayBufferView(value, context);
-    if (isImmutableLeaf(value)) {
+    let view: object;
+    if (previous !== undefined) {
+        view = previous;
+    } else if (value instanceof Date) {
+        view = readonlyDate(value, context);
+    } else if (value instanceof Map) {
+        view = readonlyMap(value, context);
+    } else if (value instanceof Set) {
+        view = readonlySet(value, context);
+    } else if (value instanceof ArrayBuffer) {
+        view = readonlyArrayBuffer(value, context);
+    } else if (ArrayBuffer.isView(value)) {
+        view = readonlyArrayBufferView(value, context);
+    } else if (isImmutableLeaf(value)) {
         context.seen.set(value, value);
-        return value;
+        view = value;
+    } else if (value instanceof TextId) {
+        view = readonlyTextId(value, context);
+    } else {
+        const prototype = Reflect.getPrototypeOf(value);
+        view =
+            prototype !== Object.prototype && prototype !== Array.prototype && prototype !== null
+                ? readonlyClass(value, context)
+                : readonlyPlain(value, context);
     }
-    if (value instanceof TextId) return readonlyTextId(value, context);
-    const prototype = Object.getPrototypeOf(value);
-    if (prototype !== Object.prototype && prototype !== Array.prototype && prototype !== null) {
-        return readonlyClass(value, context);
-    }
-    return readonlyPlain(value, prototype, context);
+    // SAFETY: each branch retains the source object's public runtime shape while replacing
+    // mutable operations and nested mutable members with immutable views.
+    return view as Value;
 }
 
 function readonlyTextId(value: TextId, context: ReadonlyContext): TextId {
@@ -426,12 +454,12 @@ function readonlyTextId(value: TextId, context: ReadonlyContext): TextId {
             if (property === "value") return target.value;
             if (property === "equals") return TextId.prototype.equals.bind(target);
             if (property === "toString") return TextId.prototype.toString.bind(target);
-            const descriptor = propertyDescriptor(target, property);
-            if (descriptor === undefined) return undefined;
-            if (!("value" in descriptor) || typeof descriptor.value === "function") {
+            const member = inspectProperty(target, property);
+            if (member.kind === "missing") return undefined;
+            if (member.kind === "accessor" || isFunctionValue(member.value)) {
                 return immutableRead();
             }
-            return readonlyValue(descriptor.value, context);
+            return readonlyValue(member.value, context);
         },
         set: immutableRead
     });
@@ -439,13 +467,14 @@ function readonlyTextId(value: TextId, context: ReadonlyContext): TextId {
     return proxy;
 }
 
-function readonlyPlain(value: object, prototype: object | null, context: ReadonlyContext): object {
-    const target = Array.isArray(value)
+function readonlyPlain(value: ActorStateObject, context: ReadonlyContext) {
+    const prototype = Reflect.getPrototypeOf(value);
+    const target: ActorStateTarget = Array.isArray(value)
         ? arrayWithLength(value.length)
-        : (Object.create(prototype) as object);
+        : createActorStateTarget(prototype);
     const proxy = new Proxy(target, immutableHandler());
     context.seen.set(value, proxy);
-    defineReadonlyProperties(value, target, context, Array.isArray(value));
+    copyReadonlyProperties(value, target, context, Array.isArray(value));
     Object.freeze(target);
     return proxy;
 }
@@ -456,14 +485,14 @@ function arrayWithLength(length: number): unknown[] {
     return value;
 }
 
-function immutableHandler(): ProxyHandler<object> {
+function immutableHandler(): ProxyHandler<ActorStateTarget> {
     return {
         defineProperty: immutableRead,
         deleteProperty: immutableRead,
-        get(target, property, receiver) {
-            const descriptor = propertyDescriptor(target, property);
-            if (descriptor?.get !== undefined) return immutableRead();
-            return Reflect.get(target, property, receiver);
+        get(target, property) {
+            const member = inspectProperty(target, property);
+            if (member.kind === "accessor") return immutableRead();
+            return member.kind === "data" ? member.value : undefined;
         },
         set: immutableRead
     };
@@ -474,7 +503,7 @@ function readonlyDate(value: Date, context: ReadonlyContext): Date {
         defineProperty: immutableRead,
         deleteProperty: immutableRead,
         get(target, property) {
-            if (typeof property === "string" && property.startsWith("set")) return immutableRead;
+            if (isStringProperty(property) && property.startsWith("set")) return immutableRead;
             if (property === Symbol.toPrimitive) {
                 // A Proxy cannot carry the Date internal slot, so new Date(view)
                 // falls back to ToPrimitive — and the native default hint stringifies
@@ -487,8 +516,11 @@ function readonlyDate(value: Date, context: ReadonlyContext): Date {
                           ? target.toString()
                           : target.toISOString();
             }
-            const member = Reflect.get(target, property, target);
-            return typeof member === "function" ? member.bind(target) : member;
+            const member = inspectProperty(target, property);
+            if (member.kind === "missing") return undefined;
+            const accessed: unknown =
+                member.kind === "accessor" ? member.descriptor.get?.call(target) : member.value;
+            return isFunctionValue(accessed) ? accessed.bind(target) : accessed;
         },
         set: immutableRead
     });
@@ -496,50 +528,61 @@ function readonlyDate(value: Date, context: ReadonlyContext): Date {
     return proxy;
 }
 
-function readonlyClass(value: object, context: ReadonlyContext): object {
-    const target = Object.create(Object.getPrototypeOf(value)) as object;
+function readonlyClass(value: ActorStateObject, context: ReadonlyContext) {
+    const prototype = Reflect.getPrototypeOf(value);
+    const target = createActorStateTarget(prototype);
     const proxy = new Proxy(target, {
         defineProperty: immutableRead,
         deleteProperty: immutableRead,
         get(target, property) {
-            const descriptor = propertyDescriptor(target, property);
-            if (descriptor?.get !== undefined) return immutableRead();
-            const member = Reflect.get(target, property, target);
-            if (typeof member !== "function") return member;
+            const member = inspectProperty(target, property);
+            if (member.kind === "accessor") return immutableRead();
+            if (member.kind === "missing" || !isFunctionValue(member.value)) {
+                return member.kind === "data" ? member.value : undefined;
+            }
             return immutableRead;
         },
         set: immutableRead
     });
     context.seen.set(value, proxy);
-    defineReadonlyProperties(value, target, context, false);
+    copyReadonlyProperties(value, target, context, false);
     Object.freeze(target);
     return proxy;
 }
 
-function defineReadonlyProperties(
-    source: object,
-    target: object,
+function copyReadonlyProperties(
+    source: ActorStateObject,
+    target: ActorStateTarget,
     context: ReadonlyContext,
     skipArrayLength: boolean
 ): void {
     for (const property of Reflect.ownKeys(source)) {
         if (skipArrayLength && property === "length") continue;
-        const descriptor = Object.getOwnPropertyDescriptor(source, property)!;
+        const descriptor = Object.getOwnPropertyDescriptor(source, property);
+        if (descriptor === undefined) {
+            throw new TypeError("Memory Actor state changed while creating a read view");
+        }
+        const descriptorValue: unknown = "value" in descriptor ? descriptor.value : undefined;
         Object.defineProperty(
             target,
             property,
             "value" in descriptor
                 ? {
                       ...descriptor,
-                      value:
-                          typeof descriptor.value === "function"
-                              ? immutableRead
-                              : readonlyValue(descriptor.value, context),
+                      value: isFunctionValue(descriptorValue)
+                          ? immutableRead
+                          : readonlyValue(descriptorValue, context),
                       writable: false
                   }
                 : descriptor
         );
     }
+}
+
+function createActorStateTarget(prototype: ActorStateObject | null): ActorStateObject {
+    // SAFETY: Object.create always returns a non-callable object with the requested
+    // prototype; the standard TypeScript library alone declares that result as `any`.
+    return Object.create(prototype) as ActorStateObject;
 }
 
 function readonlyMap(
@@ -549,34 +592,41 @@ function readonlyMap(
     const copy = new Map<unknown, unknown>();
     const proxy = new Proxy(
         copy,
-        collectionHandler(new Set(["clear", "delete", "forEach", "set", "valueOf"]))
+        collectionHandler<Map<unknown, unknown>>(
+            new Set(["clear", "delete", "forEach", "set", "valueOf"])
+        )
     );
     context.seen.set(value, proxy);
     for (const [key, entry] of value) {
         copy.set(readonlyValue(key, context), readonlyValue(entry, context));
     }
-    return proxy as Map<unknown, unknown>;
+    return proxy;
 }
 
 function readonlySet(value: Set<unknown>, context: ReadonlyContext): Set<unknown> {
     const copy = new Set<unknown>();
     const proxy = new Proxy(
         copy,
-        collectionHandler(new Set(["add", "clear", "delete", "forEach", "valueOf"]))
+        collectionHandler<Set<unknown>>(new Set(["add", "clear", "delete", "forEach", "valueOf"]))
     );
     context.seen.set(value, proxy);
     for (const entry of value) copy.add(readonlyValue(entry, context));
-    return proxy as Set<unknown>;
+    return proxy;
 }
 
-function collectionHandler(mutators: ReadonlySet<string>): ProxyHandler<object> {
+function collectionHandler<Collection extends object>(
+    mutators: ReadonlySet<string>
+): ProxyHandler<Collection> {
     return {
         defineProperty: immutableRead,
         deleteProperty: immutableRead,
         get(target, property) {
-            if (typeof property === "string" && mutators.has(property)) return immutableRead;
-            const member = Reflect.get(target, property, target);
-            return typeof member === "function" ? member.bind(target) : member;
+            if (isStringProperty(property) && mutators.has(property)) return immutableRead;
+            const member = inspectProperty(target, property);
+            if (member.kind === "missing") return undefined;
+            const accessed: unknown =
+                member.kind === "accessor" ? member.descriptor.get?.call(target) : member.value;
+            return isFunctionValue(accessed) ? accessed.bind(target) : accessed;
         },
         set: immutableRead
     };
@@ -588,20 +638,25 @@ function readonlyArrayBuffer(value: ArrayBuffer, context: ReadonlyContext): Arra
         defineProperty: immutableRead,
         deleteProperty: immutableRead,
         get(target, property) {
-            const member = Reflect.get(target, property, target);
-            if (typeof member !== "function") return member;
-            return property === "slice" ? member.bind(target) : immutableRead;
+            const member = inspectProperty(target, property);
+            if (member.kind === "missing") return undefined;
+            const accessed: unknown =
+                member.kind === "accessor" ? member.descriptor.get?.call(target) : member.value;
+            if (!isFunctionValue(accessed)) return accessed;
+            return property === "slice" ? accessed.bind(target) : immutableRead;
         },
         set: immutableRead
     });
     context.seen.set(value, proxy);
-    return proxy as ArrayBuffer;
+    return proxy;
 }
 
 function readonlyArrayBufferView(
     value: ArrayBufferView,
     context: ReadonlyContext
 ): ArrayBufferView {
+    // SAFETY: copyDetached validates and rejects shared-memory views before any read view
+    // is constructed, leaving ArrayBuffer as the only possible backing buffer here.
     const sourceBuffer = value.buffer as ArrayBuffer;
     const copy = cloneView(value, clonedBuffer(sourceBuffer, context));
     const mutators = new Set([
@@ -618,19 +673,18 @@ function readonlyArrayBufferView(
         deleteProperty: immutableRead,
         get(target, property) {
             if (property === "buffer") return readonlyValue(sourceBuffer, context);
-            const member = Reflect.get(target, property, target);
-            if (typeof member !== "function") return member;
-            if (
-                typeof property !== "string" ||
-                mutators.has(property) ||
-                property.startsWith("set")
-            )
+            const member = inspectProperty(target, property);
+            if (member.kind === "missing") return undefined;
+            const accessed: unknown =
+                member.kind === "accessor" ? member.descriptor.get?.call(target) : member.value;
+            if (!isFunctionValue(accessed)) return accessed;
+            if (!isStringProperty(property) || mutators.has(property) || property.startsWith("set"))
                 return immutableRead;
             const allowed =
                 target instanceof DataView
                     ? property.startsWith("get")
                     : SAFE_TYPED_ARRAY_METHODS.has(property);
-            return allowed ? member.bind(target) : immutableRead;
+            return allowed ? accessed.bind(target) : immutableRead;
         },
         set: immutableRead
     });
@@ -650,15 +704,15 @@ function cloneView(value: ArrayBufferView, buffer: ArrayBuffer): ArrayBufferView
     if (value instanceof DataView) {
         return new DataView(buffer, value.byteOffset, value.byteLength);
     }
-    // ArrayBuffer.isView admits only DataView and the built-in typed arrays, and every
-    // typed array carries BYTES_PER_ELEMENT and an (buffer, offset, length) constructor.
-    // ArrayBufferView describes neither, so the element width is read through the shape
-    // the isView guard already established.
+    // SAFETY: ArrayBuffer.isView admitted this value and the DataView branch returned,
+    // so the remaining built-in typed array has this standard constructor signature.
     const constructor = value.constructor as new (
         buffer: ArrayBuffer,
         byteOffset: number,
         length: number
     ) => ArrayBufferView;
+    // SAFETY: the same ArrayBuffer.isView and non-DataView narrowing establishes the
+    // standard typed-array element-width field.
     const { BYTES_PER_ELEMENT } = value as ArrayBufferView & { readonly BYTES_PER_ELEMENT: number };
     return new constructor(buffer, value.byteOffset, value.byteLength / BYTES_PER_ELEMENT);
 }
@@ -675,118 +729,155 @@ function copyDetached<TState extends object>(
     value: TState,
     clone: (value: TState) => TState
 ): TState {
-    requireOwnedGraph(value);
+    if (!isActorStateObject(value)) {
+        throw new TypeError("Memory Actor state must be an object");
+    }
+    const sourceGraph = new ActorStateGraph(value);
+    sourceGraph.validate();
     const copy = clone(value);
-    if (copy === null || typeof copy !== "object") {
+    if (!isActorStateObject(copy)) {
         throw new TypeError("Memory Actor clones must return an object");
     }
-    const sourceObjects = new Set<object>();
-    collectMutableObjects(value, sourceObjects, new Set<object>());
-    requireDetachedObjects(copy, sourceObjects, new Set<object>());
+    const copyGraph = new ActorStateGraph(copy);
+    copyGraph.validate();
+    copyGraph.requireDetachedFrom(sourceGraph.mutableObjects());
     return copy;
 }
 
-function collectMutableObjects(value: unknown, objects: Set<object>, seen: Set<object>): void {
-    if (isImmutableLeaf(value) || value === null || typeof value !== "object" || seen.has(value)) {
-        return;
-    }
-    seen.add(value);
-    objects.add(value);
-    forEachOwnedChild(value, (child) => collectMutableObjects(child, objects, seen));
-}
-
-function requireDetachedObjects(
-    value: unknown,
-    sourceObjects: ReadonlySet<object>,
-    seen: Set<object>
-): void {
-    if (isImmutableLeaf(value) || value === null || typeof value !== "object" || seen.has(value)) {
-        return;
-    }
-    if (sourceObjects.has(value)) {
-        throw new TypeError("Memory Actor clones must detach all mutable state");
-    }
-    seen.add(value);
-    forEachOwnedChild(value, (child) => requireDetachedObjects(child, sourceObjects, seen));
-}
-
-function isImmutableLeaf(value: unknown): boolean {
+function isImmutableLeaf(value: unknown): value is Revision {
     return Revision.isExact(value);
 }
 
-function forEachOwnedChild(value: object, inspect: (child: unknown) => void): void {
-    if (ArrayBuffer.isView(value)) {
-        inspect(value.buffer);
-    } else if (value instanceof Map) {
-        for (const [key, entry] of value) {
-            inspect(key);
-            inspect(entry);
+class ActorStateGraph {
+    public constructor(private readonly root: ActorStateObject) {}
+
+    public mutableObjects(): Set<object> {
+        const objects = new Set<object>();
+        for (const value of this.values()) {
+            if (!isImmutableLeaf(value) && isActorStateObject(value)) objects.add(value);
         }
-    } else if (value instanceof Set) {
-        for (const entry of value) inspect(entry);
+        return objects;
     }
-    const owned = (value as Partial<ActorCloneOwnedState>)[ACTOR_STATE_SNAPSHOT];
-    if (typeof owned === "function") {
-        inspect(owned.call(value));
+
+    public requireDetachedFrom(sourceObjects: ReadonlySet<object>): void {
+        for (const value of this.values()) {
+            if (isImmutableLeaf(value) || !isActorStateObject(value)) continue;
+            if (sourceObjects.has(value)) {
+                throw new TypeError("Memory Actor clones must detach all mutable state");
+            }
+        }
     }
-    for (const property of Reflect.ownKeys(value)) {
-        const descriptor = Object.getOwnPropertyDescriptor(value, property);
-        if (descriptor === undefined || !("value" in descriptor)) continue;
-        // The snapshot key is exempt only when it holds the method it names, whose
-        // result is inspected above. A non-callable value there is ordinary state.
-        if (property === ACTOR_STATE_SNAPSHOT && typeof owned === "function") continue;
-        inspect(descriptor.value);
+
+    public validate(): void {
+        for (const value of this.values()) {
+            if (isFunctionValue(value)) {
+                throw new TypeError("Memory Actor state cannot contain functions");
+            }
+            const SharedBuffer = globalThis.SharedArrayBuffer;
+            if (
+                SharedBuffer !== undefined &&
+                (value instanceof SharedBuffer ||
+                    (ArrayBuffer.isView(value) && value.buffer instanceof SharedBuffer))
+            ) {
+                throw new TypeError("Memory Actor state cannot contain shared memory");
+            }
+            if (!isActorStateObject(value)) continue;
+            for (const property of Reflect.ownKeys(value)) {
+                const descriptor = Object.getOwnPropertyDescriptor(value, property);
+                if (descriptor !== undefined && !("value" in descriptor)) {
+                    throw new TypeError("Memory Actor state cannot contain accessor properties");
+                }
+            }
+            const prototype = Reflect.getPrototypeOf(value);
+            const isCustomState =
+                prototype !== Object.prototype &&
+                prototype !== Array.prototype &&
+                prototype !== null &&
+                !(value instanceof Date) &&
+                !(value instanceof TextId) &&
+                !(value instanceof Revision) &&
+                !(value instanceof Map) &&
+                !(value instanceof Set) &&
+                !(value instanceof ArrayBuffer) &&
+                !ArrayBuffer.isView(value);
+            if (isCustomState) {
+                if (!Object.isFrozen(value) || !isActorCloneOwnedState(value)) {
+                    throw new TypeError(
+                        "Memory Actor custom state objects must be frozen and clone-owned"
+                    );
+                }
+            }
+        }
+    }
+
+    private *values(): Generator<unknown> {
+        const expanded = new Set<object>();
+        const pending: unknown[] = [this.root];
+        while (pending.length > 0) {
+            const value = pending.pop();
+            if (isActorStateObject(value)) {
+                if (expanded.has(value)) continue;
+                expanded.add(value);
+            }
+            yield value;
+            if (isImmutableLeaf(value) || !isActorStateObject(value)) continue;
+            if (ArrayBuffer.isView(value)) {
+                pending.push(value.buffer);
+            } else if (value instanceof Map) {
+                for (const [key, entry] of value) pending.push(key, entry);
+            } else if (value instanceof Set) {
+                pending.push(...value);
+            }
+            const ownsState = isActorCloneOwnedState(value);
+            if (ownsState) pending.push(value[ACTOR_STATE_SNAPSHOT]());
+            for (const property of Reflect.ownKeys(value)) {
+                const descriptor = Object.getOwnPropertyDescriptor(value, property);
+                if (descriptor === undefined || !("value" in descriptor)) continue;
+                if (property === ACTOR_STATE_SNAPSHOT && ownsState) continue;
+                const propertyValue: unknown = descriptor.value;
+                pending.push(propertyValue);
+            }
+        }
     }
 }
 
-function requireOwnedGraph(value: unknown, seen = new Set<object>()): void {
-    if (typeof value === "function") {
-        throw new TypeError("Memory Actor state cannot contain functions");
-    }
-    if (
-        typeof SharedArrayBuffer !== "undefined" &&
-        (value instanceof SharedArrayBuffer ||
-            (ArrayBuffer.isView(value) && value.buffer instanceof SharedArrayBuffer))
-    ) {
-        throw new TypeError("Memory Actor state cannot contain shared memory");
-    }
-    if (value === null || typeof value !== "object" || seen.has(value)) return;
-    seen.add(value);
-    for (const property of Reflect.ownKeys(value)) {
-        const descriptor = Object.getOwnPropertyDescriptor(value, property);
-        if (descriptor !== undefined && !("value" in descriptor)) {
-            throw new TypeError("Memory Actor state cannot contain accessor properties");
-        }
-    }
-    const prototype = Object.getPrototypeOf(value);
-    if (
-        prototype !== Object.prototype &&
-        prototype !== Array.prototype &&
-        prototype !== null &&
-        !(value instanceof Date) &&
-        !(value instanceof TextId) &&
-        !(value instanceof Revision) &&
-        !(value instanceof Map) &&
-        !(value instanceof Set) &&
-        !(value instanceof ArrayBuffer) &&
-        !ArrayBuffer.isView(value)
-    ) {
-        const inspect = (value as Partial<ActorCloneOwnedState>)[ACTOR_STATE_SNAPSHOT];
-        if (!Object.isFrozen(value) || typeof inspect !== "function") {
-            throw new TypeError("Memory Actor custom state objects must be frozen and clone-owned");
-        }
-    }
-    forEachOwnedChild(value, (child) => requireOwnedGraph(child, seen));
+function isActorStateObject(value: unknown): value is ActorStateObject {
+    return value !== null && typeof value === "object";
 }
 
-function propertyDescriptor(target: object, property: PropertyKey): PropertyDescriptor | undefined {
+function isFunctionValue(value: unknown): value is CallableFunction {
+    return typeof value === "function";
+}
+
+function isActorCloneOwnedState(value: unknown): value is ActorCloneOwnedState {
+    return (
+        isActorStateObject(value) &&
+        ACTOR_STATE_SNAPSHOT in value &&
+        typeof value[ACTOR_STATE_SNAPSHOT] === "function"
+    );
+}
+
+type InspectedProperty =
+    | { readonly kind: "missing" }
+    | { readonly kind: "data"; readonly value: unknown }
+    | { readonly kind: "accessor"; readonly descriptor: PropertyDescriptor };
+
+function inspectProperty(target: InspectableActorState, property: PropertyKey): InspectedProperty {
     let owner: object | null = target;
     while (owner !== null) {
         const descriptor = Object.getOwnPropertyDescriptor(owner, property);
-        if (descriptor !== undefined) return descriptor;
-        owner = Object.getPrototypeOf(owner) as object | null;
+        if (descriptor !== undefined) {
+            if (!("value" in descriptor)) return { kind: "accessor", descriptor };
+            const descriptorValue: unknown = descriptor.value;
+            return { kind: "data", value: descriptorValue };
+        }
+        owner = Reflect.getPrototypeOf(owner);
     }
-    return undefined;
+    return { kind: "missing" };
+}
+
+function isStringProperty(value: PropertyKey): value is string {
+    return typeof value === "string";
 }
 
 const SAFE_TYPED_ARRAY_METHODS = new Set([

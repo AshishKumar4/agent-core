@@ -39,9 +39,9 @@ class InterceptingSqlite extends TransactionalSqlite {
 
     public transaction<Result>(
         operation: () => Result,
-        ..._guard: SynchronousResultGuard<Result>
+        ...guard: SynchronousResultGuard<Result>
     ): Result {
-        return this.inner.transaction(operation, ...([] as SynchronousResultGuard<Result>));
+        return this.inner.transaction(operation, ...guard);
     }
 }
 
@@ -477,7 +477,7 @@ describe("SQLite retention row validation", () => {
                 prepare(
                     database: InterceptingSqlite,
                     store: SqliteContentStore
-                ): Promise<() => unknown>;
+                ): Promise<() => void>;
                 verify(database: InterceptingSqlite): void;
             }[] = [
                 {
@@ -492,8 +492,9 @@ describe("SQLite retention row validation", () => {
                             "fault-edge",
                             stored.ref
                         );
-                        return () =>
+                        return () => {
                             database.transaction(() => retention.retain(database, edge, at(10)));
+                        };
                     },
                     verify(database) {
                         expect(database.inner.all("SELECT * FROM content_owner_edges", [])).toEqual(
@@ -507,7 +508,7 @@ describe("SQLite retention row validation", () => {
                         const owner = contentOwner();
                         const access = store.transient(owner.tenant, owner.actor, () => at(10));
                         const binding = bindingFor("fault-lease", "fault-lease", at(30));
-                        return () =>
+                        return () => {
                             database.transaction(() =>
                                 access.acquireInTransaction(
                                     database,
@@ -516,6 +517,7 @@ describe("SQLite retention row validation", () => {
                                     encode("fault-lease")
                                 )
                             );
+                        };
                     },
                     verify(database) {
                         expect(

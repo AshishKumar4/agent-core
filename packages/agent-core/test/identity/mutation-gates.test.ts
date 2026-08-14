@@ -400,6 +400,7 @@ describe("guest verification gates", () => {
                     Digest.sha256(Uint8Array.of(1)),
                     new Date(100),
                     new Date(200),
+                    // @ts-expect-error Runtime callers cannot forge the host construction token.
                     {}
                 ),
             "Guest verification must be minted or restored by the host"

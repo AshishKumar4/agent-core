@@ -1,6 +1,6 @@
 import { AgentCoreError } from "../errors";
 import { RecordCodec, type RecordVersion } from "./codec";
-import { hasExactJsonKeys, isJsonObject, type JsonValue } from "./json";
+import { hasExactJsonKeys, isJsonObject, isJsonString, type JsonValue } from "./json";
 import { hasOnlyUnicodeScalarValues } from "./unicode";
 
 class CompatRangeCodec extends RecordCodec<CompatRange> {
@@ -16,8 +16,8 @@ class CompatRangeCodec extends RecordCodec<CompatRange> {
         if (
             !isJsonObject(payload) ||
             !hasExactJsonKeys(payload, ["host", "spec"]) ||
-            typeof payload["host"] !== "string" ||
-            typeof payload["spec"] !== "string"
+            !isJsonString(payload["host"]) ||
+            !isJsonString(payload["spec"])
         ) {
             throw new AgentCoreError("codec.invalid", "Compatibility range payload is malformed");
         }
@@ -58,7 +58,7 @@ export class CompatRange {
 
 function requireRange(value: string, name: string): void {
     if (
-        typeof value !== "string" ||
+        !isJsonString(value) ||
         value.trim().length === 0 ||
         value !== value.trim() ||
         !hasOnlyUnicodeScalarValues(value)

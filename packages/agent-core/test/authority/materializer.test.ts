@@ -12,7 +12,7 @@ import {
     SubjectRef,
     type SubjectRef as SubjectReference
 } from "../../src/identity";
-import { GuestTrustId, GuestVerification, PrincipalRef } from "../identity/internal-fixture";
+import { GuestTrustId, mintGuestVerification, PrincipalRef } from "../identity/internal-fixture";
 import {
     EpochPlanner,
     Grant,
@@ -179,7 +179,7 @@ describe("RoleGrantMaterializer", () => {
                 )
             ]);
             const verifiedAt = new Date(1_000);
-            const verification = new GuestVerification(
+            const verification = mintGuestVerification(
                 new PrincipalRef(tenantId, otherPrincipalId),
                 new GuestTrustId("guest-trust"),
                 Revision.initial(),

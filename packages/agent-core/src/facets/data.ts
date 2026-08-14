@@ -14,11 +14,11 @@ import {
 export type FacetData = JsonValue;
 export type FacetDataMap = { readonly [name: string]: FacetData };
 
-export function isFacetData<Candidate>(value: Candidate): value is Candidate & FacetData {
+export function isFacetData(value: unknown): value is FacetData {
     return isJsonValue(value);
 }
 
-export function isFacetDataMap<Candidate>(value: Candidate): value is Candidate & FacetDataMap {
+export function isFacetDataMap(value: unknown): value is FacetDataMap {
     return isJsonValue(value) && isJsonObject(value);
 }
 
@@ -105,9 +105,8 @@ export function requireExactFields(
     }
 }
 
-/** A JSON string is exactly the value that is its own string rendering. */
 export function isString(value: FacetData | undefined): value is string {
-    return value === String(value);
+    return typeof value === "string";
 }
 
 export function requireString(value: FacetData | undefined, subject: string): string {
@@ -139,7 +138,7 @@ export function requireSafeInteger(value: FacetData | undefined, subject: string
 }
 
 export function requireArray(value: FacetData | undefined, subject: string): readonly FacetData[] {
-    if (!Array.isArray(value)) {
+    if (!isArray(value)) {
         throw new TypeError(`${subject} must be an array`);
     }
     return value;
@@ -151,7 +150,7 @@ export function requireArray(value: FacetData | undefined, subject: string): rea
  * this parser.
  */
 export function requireBytes(value: FacetData | undefined, message: string): Uint8Array {
-    if (!Array.isArray(value)) throw new TypeError(message);
+    if (!isArray(value)) throw new TypeError(message);
     const bytes = new Uint8Array(value.length);
     for (const [index, entry] of value.entries()) {
         if (!isNumber(entry)) throw new TypeError(message);
@@ -191,7 +190,7 @@ export function requireNonblank(value: string, subject: string): void {
 
 /** Freezes a data value and everything beneath it in place, keeping the caller's type. */
 export function freezeFacetData<Value extends FacetData>(value: Value): Value {
-    if (Array.isArray(value) || isJsonObject(value)) {
+    if (isArray(value) || isJsonObject(value)) {
         for (const entry of Object.values(value)) {
             freezeFacetData(entry);
         }
@@ -200,17 +199,14 @@ export function freezeFacetData<Value extends FacetData>(value: Value): Value {
     return value;
 }
 
-// Number.isSafeInteger is already the complete check — it is false for every non-number —
-// but it carries no type predicate, so a paired `typeof` test would be a guard no test
-// could ever reach. This gives the check the narrowing it lacks instead.
 function isSafeInteger(value: FacetData | undefined): value is number {
-    return Number.isSafeInteger(value);
+    return typeof value === "number" && Number.isSafeInteger(value);
 }
 
-// Number.isFinite is already the complete JSON-number check — it is false for every
-// non-number and every non-finite — but it carries no type predicate. This gives the
-// check the narrowing it lacks instead of pairing it with a `typeof` that no test
-// could ever reach.
 export function isNumber(value: FacetData | undefined): value is number {
-    return Number.isFinite(value);
+    return typeof value === "number" && Number.isFinite(value);
+}
+
+function isArray(value: FacetData | undefined): value is readonly FacetData[] {
+    return Array.isArray(value);
 }
