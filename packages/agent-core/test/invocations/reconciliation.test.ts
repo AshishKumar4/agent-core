@@ -38,7 +38,7 @@ describe("InvocationReconciler", () => {
                     requestKey: new OperationRequestKey("request:reconcile-substituted-root"),
                     facet: canonicalBatchFacet,
                     descriptor: canonicalBatchDescriptor,
-                    shape: { kind: "batch", itemCount: 1 },
+                    cardinality: { kind: "batch", itemCount: 1 },
                     inputs: [{ value: 1 }],
                     authorization: "authorization",
                     interceptions: [[]],
@@ -142,7 +142,7 @@ describe("InvocationReconciler", () => {
                     requestKey: new OperationRequestKey("request:nondeterministic-audit-factory"),
                     facet: canonicalBatchFacet,
                     descriptor: canonicalBatchDescriptor,
-                    shape: { kind: "batch", itemCount: 1 },
+                    cardinality: { kind: "batch", itemCount: 1 },
                     inputs: [{ value: 1 }],
                     authorization: "authorization",
                     interceptions: [[]],
@@ -228,7 +228,7 @@ describe("InvocationReconciler", () => {
                     requestKey: new OperationRequestKey("request:reconcile-driver"),
                     facet: canonicalBatchFacet,
                     descriptor: canonicalBatchDescriptor,
-                    shape: { kind: "batch" as const, itemCount: 1 },
+                    cardinality: { kind: "batch" as const, itemCount: 1 },
                     inputs: [{ value: 1 }],
                     authorization: "authorization",
                     interceptions: [[]],
@@ -369,7 +369,7 @@ describe("InvocationReconciler", () => {
                                 ),
                                 facet: canonicalBatchFacet,
                                 descriptor: canonicalBatchDescriptor,
-                                shape: { kind: "batch" as const, itemCount: 1 },
+                                cardinality: { kind: "batch" as const, itemCount: 1 },
                                 inputs: [{ value: 1 }],
                                 authorization: "authorization",
                                 interceptions: [[]],
@@ -549,21 +549,25 @@ describe("InvocationReconciler", () => {
         });
     });
 
-    test("requires the prepared invocation behind a reconciled attempt", { tags: "p1" }, async () => {
-        const { harness, invocation, attempt } = await indeterminateInvocation(
-            "reconcile-missing-prepared"
-        );
-        harness.transactions.transact((transaction) => {
-            transaction.prepared.delete(invocation.value);
-        });
+    test(
+        "requires the prepared invocation behind a reconciled attempt",
+        { tags: "p1" },
+        async () => {
+            const { harness, invocation, attempt } = await indeterminateInvocation(
+                "reconcile-missing-prepared"
+            );
+            harness.transactions.transact((transaction) => {
+                transaction.prepared.delete(invocation.value);
+            });
 
-        await expect(
-            createReconciler(harness, unqueriedProvider()).reconcile(attempt.id)
-        ).rejects.toMatchObject({
-            code: "invocation.invalid",
-            message: "Reconciliation EffectAttempt has no PreparedInvocation"
-        });
-    });
+            await expect(
+                createReconciler(harness, unqueriedProvider()).reconcile(attempt.id)
+            ).rejects.toMatchObject({
+                code: "invocation.invalid",
+                message: "Reconciliation EffectAttempt has no PreparedInvocation"
+            });
+        }
+    );
 
     test(
         "requires the persisted audit cause behind a reconciled attempt",
@@ -601,7 +605,7 @@ describe("InvocationReconciler", () => {
                     requestKey: new OperationRequestKey("request:reconcile-superseded-ordinal"),
                     facet: canonicalBatchFacet,
                     descriptor: canonicalBatchDescriptor,
-                    shape: { kind: "batch" as const, itemCount: 1 },
+                    cardinality: { kind: "batch" as const, itemCount: 1 },
                     inputs: [{ value: 1 }],
                     authorization: "authorization",
                     interceptions: [[]],
@@ -650,7 +654,7 @@ describe("InvocationReconciler", () => {
                     requestKey: new OperationRequestKey("request:reconcile-direct-final"),
                     facet: canonicalBatchFacet,
                     descriptor: canonicalBatchDescriptor,
-                    shape: { kind: "batch", itemCount: 1 },
+                    cardinality: { kind: "batch", itemCount: 1 },
                     inputs: [{ value: 1 }],
                     authorization: "authorization",
                     interceptions: [[]],
@@ -889,9 +893,7 @@ describe("InvocationReconciler", () => {
                     const index = query;
                     query += 1;
                     await released;
-                    return index === 0
-                        ? { kind: "failed" }
-                        : { kind: "failed", result: added.ref };
+                    return index === 0 ? { kind: "failed" } : { kind: "failed", result: added.ref };
                 }
             });
             const left = reconciler.reconcile(attempt.id);
@@ -1016,9 +1018,7 @@ describe("InvocationReconciler", () => {
                 );
             });
             await expect(
-                createReconciler(foreign.harness, unqueriedProvider()).reconcile(
-                    foreign.attempt.id
-                )
+                createReconciler(foreign.harness, unqueriedProvider()).reconcile(foreign.attempt.id)
             ).rejects.toMatchObject({
                 code: "invocation.invalid",
                 message: "Reconciliation EffectAttempt has no exact audit evidence"
@@ -1067,7 +1067,7 @@ async function indeterminateInvocation(id: string) {
             requestKey: new OperationRequestKey(`request:${id}`),
             facet: canonicalBatchFacet,
             descriptor: canonicalBatchDescriptor,
-            shape: { kind: "batch", itemCount: 1 },
+            cardinality: { kind: "batch", itemCount: 1 },
             inputs: [{ value: 1 }],
             authorization: "authorization",
             interceptions: [[]],

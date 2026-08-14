@@ -51,7 +51,7 @@ import {
     type MediatedPreflightResult,
     type OperationInterceptionEvidence,
     type OperationInvocationPort,
-    type OperationPayloadShape,
+    type OperationPayloadCardinality,
     type ResolvedFacet
 } from "../../src/operations/gateway";
 import { FacetRuntimeHost } from "../../src/operations/lifecycle";
@@ -424,7 +424,7 @@ class GatewayInvocations implements OperationInvocationPort<
     public directContext(
         requestKey: OperationRequestKey,
         itemIndex: number,
-        _shape: OperationPayloadShape,
+        _cardinality: OperationPayloadCardinality,
         authorization: ResolutionStamp
     ): OperationContext {
         this.directCalls += 1;

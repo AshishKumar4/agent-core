@@ -144,7 +144,7 @@ export type {
     InvocationInterceptorTrace,
     MediatedReplayItem,
     MediatedReplayReservation,
-    MediatedReplayShape
+    MediatedReplayCardinality
 } from "./replay";
 export {
     PreparedInvocation,

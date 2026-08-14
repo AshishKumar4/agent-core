@@ -25,7 +25,7 @@ export class InvocationProtectedOperationPort {
                 requestKey: new OperationRequestKey(`profile:${invocation.value}`),
                 facet: request.facet,
                 descriptor: request.operation.descriptor,
-                shape: { kind: "single" },
+                cardinality: { kind: "single" },
                 inputs: [request.input],
                 authorization: request,
                 interceptions: [[]],

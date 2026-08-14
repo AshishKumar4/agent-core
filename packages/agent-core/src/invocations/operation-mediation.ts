@@ -11,23 +11,19 @@ import type {
     OperationDispatchResult,
     OperationInterceptionEvidence,
     OperationInvocationPort,
-    OperationPayloadShape,
+    OperationPayloadCardinality,
     OperationRequestKey
 } from "../operations";
 import { InvocationId } from "../interaction-references";
 import type { CanonicalBatchInvoker } from "./canonical-batch";
 import type { InvocationReplayPersistence, InvocationTransactionPort } from "./ports";
-import {
-    MediatedReplayRecord,
-    type InvocationInterceptorTrace,
-    type MediatedReplayShape
-} from "./replay";
+import { MediatedReplayRecord, type InvocationInterceptorTrace } from "./replay";
 
 export interface DirectOperationContextPort<Authorization> {
     context(
         requestKey: OperationRequestKey,
         itemIndex: number,
-        shape: OperationPayloadShape,
+        cardinality: OperationPayloadCardinality,
         authorization: Authorization
     ): OperationContext;
 }
@@ -57,10 +53,10 @@ export class ReplayOperationInvocationPort<
     public directContext(
         requestKey: OperationRequestKey,
         itemIndex: number,
-        shape: OperationPayloadShape,
+        cardinality: OperationPayloadCardinality,
         authorization: DirectAuthorization
     ): OperationContext {
-        const context = this.direct.context(requestKey, itemIndex, shape, authorization);
+        const context = this.direct.context(requestKey, itemIndex, cardinality, authorization);
         if (context.attempt !== undefined) {
             throw invalid("Direct Operation context cannot carry an EffectAttempt");
         }
@@ -275,7 +271,7 @@ function replayReservation(
         authorityIdentity: request.replayBinding.authorityIdentity,
         packageOperationPin: request.replayBinding.packageOperationPin,
         execution: request.replayBinding.execution,
-        shape: request.shape as MediatedReplayShape,
+        cardinality: request.cardinality,
         rawPayloadIdentities: request.inputs.map((input) =>
             Digest.sha256(encodeCanonicalJson(canonicalData(input)))
         )
@@ -310,7 +306,8 @@ function replayResult(record: MediatedReplayRecord): OperationDispatchResult {
     const presentations = record.items.map((item) => item.presentation!);
     return Object.freeze({
         kind: "mediated",
-        output: record.shape.kind === "single" ? presentations[0]! : Object.freeze(presentations),
+        output:
+            record.cardinality.kind === "single" ? presentations[0]! : Object.freeze(presentations),
         evidence: replayEvidence(record)
     });
 }

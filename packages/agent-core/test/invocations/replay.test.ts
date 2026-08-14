@@ -7,7 +7,7 @@ import {
     ReceiptId,
     type InvocationInterceptorTrace,
     type MediatedReplayItem,
-    type MediatedReplayShape
+    type MediatedReplayCardinality
 } from "../../src/invocations";
 import { jsonEntries, mutableObject, mutateRecord, type MutableJsonObject } from "./fixture";
 
@@ -35,7 +35,17 @@ describe("W6 mediated replay record", () => {
             execution: { kind: "route", digest: new Digest("c".repeat(64)) }
         });
         expect(record.execution.kind).toBe("route");
-        const decoded = MediatedReplayRecord.decode(MediatedReplayRecord.encode(record));
+        expect(record.id.value).toBe(
+            "5b42d5398a677a126c908f29d565b3fb9e1f2ce79db1e7c791e69907d6766e33"
+        );
+        const bytes = MediatedReplayRecord.encode(record);
+        let payloadKeys: readonly string[] = [];
+        mutateRecord(bytes, (payload) => {
+            payloadKeys = Object.keys(payload);
+        });
+        expect(payloadKeys).toContain("shape");
+        expect(payloadKeys).not.toContain("cardinality");
+        const decoded = MediatedReplayRecord.decode(bytes);
         expect(decoded.execution.kind).toBe("route");
         expect(decoded.id.equals(record.id)).toBe(true);
     });
@@ -122,21 +132,25 @@ describe("W6 mediated replay record", () => {
         }
     );
 
-    test("rejects presentation while the record has not completed preparation", { tags: "p1" }, () => {
-        const partial = directRecord(
-            { kind: "batch", itemCount: 2 },
-            [preparedItem(0), reservedItem(1)],
-            undefined,
-            0
-        );
-        let failure: unknown;
-        try {
-            partial.present(0, [], {});
-        } catch (error) {
-            failure = error;
+    test(
+        "rejects presentation while the record has not completed preparation",
+        { tags: "p1" },
+        () => {
+            const partial = directRecord(
+                { kind: "batch", itemCount: 2 },
+                [preparedItem(0), reservedItem(1)],
+                undefined,
+                0
+            );
+            let failure: unknown;
+            try {
+                partial.present(0, [], {});
+            } catch (error) {
+                failure = error;
+            }
+            expect(failure).toBeInstanceOf(TypeError);
         }
-        expect(failure).toBeInstanceOf(TypeError);
-    });
+    );
 
     test("names the replay execution kind before decoding its digest", { tags: "p2" }, () => {
         const bytes = MediatedReplayRecord.encode(
@@ -153,9 +167,11 @@ describe("W6 mediated replay record", () => {
     });
 
     test("rejects effect transitions for out-of-range items", { tags: "p1" }, () => {
-        const prepared = MediatedReplayRecord.reserve(
-            replayReservation("out-of-range")
-        ).prepare(new InvocationId("out-of-range-invocation"), [{}], [[]]);
+        const prepared = MediatedReplayRecord.reserve(replayReservation("out-of-range")).prepare(
+            new InvocationId("out-of-range-invocation"),
+            [{}],
+            [[]]
+        );
         expect(() => prepared.recordEffect(1, { value: 1 }, new ReceiptId("late"))).toThrow(
             /has not completed preparation/
         );
@@ -164,7 +180,7 @@ describe("W6 mediated replay record", () => {
     test("reports completion only when every item is complete", { tags: "p0" }, () => {
         const prepared = MediatedReplayRecord.reserve({
             ...replayReservation("completion"),
-            shape: { kind: "batch", itemCount: 2 },
+            cardinality: { kind: "batch", itemCount: 2 },
             rawPayloadIdentities: [new Digest("e".repeat(64)), new Digest("f".repeat(64))]
         }).prepare(new InvocationId("completion-invocation"), [{}, {}], [[], []]);
         const firstTerminal = prepared.recordTerminal(0, new ReceiptId("terminal-0"));
@@ -241,7 +257,7 @@ describe("W6 mediated replay record", () => {
     test("round-trips every item phase through the codec", { tags: "p0" }, () => {
         const prepared = MediatedReplayRecord.reserve({
             ...replayReservation("lifecycle"),
-            shape: { kind: "batch", itemCount: 2 },
+            cardinality: { kind: "batch", itemCount: 2 },
             rawPayloadIdentities: [new Digest("e".repeat(64)), new Digest("f".repeat(64))]
         }).prepare(
             new InvocationId("lifecycle-invocation"),
@@ -265,7 +281,7 @@ describe("W6 mediated replay record", () => {
     test("rejects corrupted codec payloads with precise diagnostics", { tags: "p2" }, () => {
         const presented = MediatedReplayRecord.reserve({
             ...replayReservation("corruption"),
-            shape: { kind: "batch", itemCount: 2 },
+            cardinality: { kind: "batch", itemCount: 2 },
             rawPayloadIdentities: [new Digest("e".repeat(64)), new Digest("f".repeat(64))]
         })
             .prepare(
@@ -285,9 +301,9 @@ describe("W6 mediated replay record", () => {
         expect(decode((payload) => (payload["id"] = "0".repeat(64)))).toThrow(
             /does not match its canonical reservation identity/
         );
-        expect(
-            decode((payload) => (payloadItem(payload, 1)["receipt"] = 42))
-        ).toThrow(/Replay Receipt is malformed/);
+        expect(decode((payload) => (payloadItem(payload, 1)["receipt"] = 42))).toThrow(
+            /Replay Receipt is malformed/
+        );
         expect(decode((payload) => (payloadItem(payload, 0)["phase"] = "bogus"))).toThrow(
             /item phase is invalid/
         );
@@ -297,9 +313,9 @@ describe("W6 mediated replay record", () => {
         expect(
             decode((payload) => (payloadTrace(payloadItem(payload, 0))["outcome"] = "bogus"))
         ).toThrow(/interceptor trace is invalid/);
-        expect(
-            decode((payload) => (payload["shape"] = { itemCount: 2, kind: "bogus" }))
-        ).toThrow(/shape is invalid/);
+        expect(decode((payload) => (payload["shape"] = { itemCount: 2, kind: "bogus" }))).toThrow(
+            /shape is invalid/
+        );
         expect(
             decode((payload) => {
                 mutableObject(payload["execution"])["kind"] = "substituted";
@@ -322,13 +338,13 @@ function replayReservation(id: string) {
         authorityIdentity: new Digest("a".repeat(64)),
         packageOperationPin: new Digest("b".repeat(64)),
         execution: { kind: "lease" as const, digest: new Digest("c".repeat(64)) },
-        shape: { kind: "single" as const },
+        cardinality: { kind: "single" as const },
         rawPayloadIdentities: [new Digest("e".repeat(64))]
     };
 }
 
 function directRecord(
-    shape: MediatedReplayShape,
+    cardinality: MediatedReplayCardinality,
     items: readonly MediatedReplayItem[],
     invocation: InvocationId | undefined,
     revision: number
@@ -344,7 +360,7 @@ function directRecord(
         reservation.authorityIdentity,
         reservation.packageOperationPin,
         reservation.execution,
-        shape,
+        cardinality,
         items,
         invocation,
         new Revision(revision)

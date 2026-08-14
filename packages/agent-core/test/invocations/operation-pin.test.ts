@@ -102,7 +102,7 @@ describe("Operation pin placement and decoding", () => {
                     schema,
                     "aa"
                 ),
-                shape: { kind: "single" },
+                cardinality: { kind: "single" },
                 traces
             });
             const trace: InterceptorTrace = {

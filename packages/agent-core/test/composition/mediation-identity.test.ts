@@ -8,7 +8,7 @@ import { OperationRequestKey } from "../../src/operations";
 import type {
     MediatedInvocationPreflight,
     MediatedReplayBinding,
-    OperationPayloadShape
+    OperationPayloadCardinality
 } from "../../src/operations";
 
 const schema = new JsonSchema({ type: "object" });
@@ -46,7 +46,7 @@ function preflight(
         requestKey: new OperationRequestKey("identity-request"),
         facet: new FacetRef("memory:primary"),
         descriptor: descriptor(),
-        shape: { kind: "single" },
+        cardinality: { kind: "single" },
         inputs: [{ query: "parking" }],
         authorization: undefined,
         replayBinding: replayBinding(),
@@ -139,8 +139,8 @@ describe("mediation identifiers derive from the evidence that determines them", 
         // single carry identical inputs, so without the shape in the derivation the two
         // reserve one Invocation and the second caller replays a result whose payload
         // shape it never asked for.
-        const batch: OperationPayloadShape = { kind: "batch", itemCount: 1 };
-        expect(identities.invocation(preflight({ shape: batch })).value).not.toBe(
+        const batch: OperationPayloadCardinality = { kind: "batch", itemCount: 1 };
+        expect(identities.invocation(preflight({ cardinality: batch })).value).not.toBe(
             identities.invocation(preflight()).value
         );
     });
@@ -267,7 +267,7 @@ describe("mediation identifiers derive from the evidence that determines them", 
                 "5732ed80ae8ad7c008a4c4ea0b07f12dc3a41826de1e4870d0e7639fbb154a0d"
         );
         expect(
-            identities.invocation(preflight({ shape: { kind: "batch", itemCount: 1 } })).value
+            identities.invocation(preflight({ cardinality: { kind: "batch", itemCount: 1 } })).value
         ).toBe(
             "agent-core.identity.invocation.v1:" +
                 "2971b6a834c5812522e47d9b900dfb126dfa9d9cb9a422bf9e0240fd17b12769"

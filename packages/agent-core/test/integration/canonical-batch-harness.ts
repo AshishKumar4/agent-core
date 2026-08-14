@@ -108,7 +108,7 @@ export class CanonicalBatchPreparation<Authorization> {
         const prepared = this.create(
             request.invocation,
             request.request.inputs,
-            request.request.shape.kind
+            request.request.cardinality.kind
         );
         return this.override?.(request, prepared) ?? prepared;
     }
@@ -116,7 +116,7 @@ export class CanonicalBatchPreparation<Authorization> {
     public create(
         invocation: InvocationId,
         inputs: readonly unknown[],
-        shape: "single" | "batch" = "batch"
+        cardinality: "single" | "batch" = "batch"
     ) {
         const placement = new InvocationPlacementPin({
             manifest: ["provider"],
@@ -152,7 +152,7 @@ export class CanonicalBatchPreparation<Authorization> {
                 idempotencySeed: `seed:${invocation.value}`,
                 ...(this.lease === undefined ? {} : { lease: this.lease })
             },
-            shape === "single"
+            cardinality === "single"
                 ? { kind: "single", item: inputs[0] as never }
                 : { kind: "batch", items: inputs as [never, ...never[]] },
             preparedReferenceCodecs

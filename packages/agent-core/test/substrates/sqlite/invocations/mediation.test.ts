@@ -79,7 +79,7 @@ describe("SqliteInvocationMediationPersistence", () => {
                 facet: "workspace:target",
                 operation: descriptor.name.value,
                 descriptorDigest: Digest.sha256(new TextEncoder().encode("descriptor")),
-                shape: { kind: "single" },
+                cardinality: { kind: "single" },
                 rawPayloadIdentities: [Digest.sha256(new TextEncoder().encode("payload"))]
             });
             const prepared = reserved.prepare(
@@ -385,9 +385,7 @@ describe("SqliteInvocationMediationPersistence", () => {
                     transact<Result>(
                         operation: (transaction: TransactionalSqlite) => Result
                     ): Result {
-                        return runSynchronousSqliteTransaction(database, () =>
-                            operation(database)
-                        );
+                        return runSynchronousSqliteTransaction(database, () => operation(database));
                     }
                 },
                 persistence,
@@ -449,7 +447,7 @@ describe("SqliteInvocationMediationPersistence", () => {
                             prepared.authorityIdentity,
                             prepared.packageOperationPin,
                             prepared.execution,
-                            prepared.shape,
+                            prepared.cardinality,
                             prepared.items,
                             prepared.invocation,
                             prepared.revision.next()
@@ -838,7 +836,7 @@ function verifyMediationContract<Transaction>(
         facet: "workspace:target",
         operation: "send",
         descriptorDigest: Digest.sha256(new TextEncoder().encode(`descriptor-${key}`)),
-        shape: { kind: "single" },
+        cardinality: { kind: "single" },
         rawPayloadIdentities: [Digest.sha256(new TextEncoder().encode(`payload-${key}`))]
     });
     const publication = InvocationPublicationOutbox.pending({
@@ -877,7 +875,7 @@ function replay(id: string): MediatedReplayRecord {
         facet: "workspace:target",
         operation: "send",
         descriptorDigest: Digest.sha256(new TextEncoder().encode(`descriptor:${id}`)),
-        shape: { kind: "single" },
+        cardinality: { kind: "single" },
         rawPayloadIdentities: [Digest.sha256(new TextEncoder().encode(`payload:${id}`))]
     });
 }

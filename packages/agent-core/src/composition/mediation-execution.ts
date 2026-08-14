@@ -1,6 +1,6 @@
 import type { ContentStore } from "../content";
 import type { OperationContext } from "../facets";
-import type { OperationPayloadShape, OperationRequestKey } from "../operations";
+import type { OperationPayloadCardinality, OperationRequestKey } from "../operations";
 import type { DirectOperationContextPort } from "../invocations";
 import type { DerivedMediationIdentities } from "./mediation-identity";
 
@@ -16,9 +16,9 @@ export interface OperationExecutionResources {
  * as mediated evidence. Its Invocation and item identities are derived from the request
  * key so a repeated direct dispatch names the same call.
  */
-export class DerivedDirectOperationContext<Authorization> implements DirectOperationContextPort<
+export class DerivedDirectOperationContext<
     Authorization
-> {
+> implements DirectOperationContextPort<Authorization> {
     public constructor(
         private readonly identities: DerivedMediationIdentities,
         private readonly resources: (
@@ -30,10 +30,10 @@ export class DerivedDirectOperationContext<Authorization> implements DirectOpera
     public context(
         requestKey: OperationRequestKey,
         itemIndex: number,
-        shape: OperationPayloadShape,
+        cardinality: OperationPayloadCardinality,
         authorization: Authorization
     ): OperationContext {
-        requireItemIndex(shape, itemIndex);
+        requireItemIndex(cardinality, itemIndex);
         const invocation = this.identities.directInvocation(requestKey.value);
         const execution = this.resources(authorization, itemIndex);
         return Object.freeze({
@@ -46,8 +46,8 @@ export class DerivedDirectOperationContext<Authorization> implements DirectOpera
     }
 }
 
-function requireItemIndex(shape: OperationPayloadShape, itemIndex: number): void {
-    const itemCount = shape.kind === "single" ? 1 : shape.itemCount;
+function requireItemIndex(cardinality: OperationPayloadCardinality, itemIndex: number): void {
+    const itemCount = cardinality.kind === "single" ? 1 : cardinality.itemCount;
     if (!Number.isSafeInteger(itemIndex) || itemIndex < 0 || itemIndex >= itemCount) {
         throw new TypeError("Operation item index is outside its payload shape");
     }

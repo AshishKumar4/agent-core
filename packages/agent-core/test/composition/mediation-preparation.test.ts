@@ -132,7 +132,7 @@ interface RequestOverrides {
     readonly authorization?: MediatedAuthorityIntent;
     readonly facet?: FacetRef;
     readonly inputs?: readonly Record<string, JsonValue>[];
-    readonly shape?: MediatedInvocationRequest<MediatedAuthorityIntent>["shape"];
+    readonly cardinality?: MediatedInvocationRequest<MediatedAuthorityIntent>["cardinality"];
 }
 
 function request(overrides: RequestOverrides = {}) {
@@ -140,7 +140,7 @@ function request(overrides: RequestOverrides = {}) {
         requestKey: new OperationRequestKey("preparation-request"),
         facet: overrides.facet ?? facet,
         descriptor: descriptor(),
-        shape: overrides.shape ?? { kind: "single" },
+        cardinality: overrides.cardinality ?? { kind: "single" },
         inputs: overrides.inputs ?? [{ query: "parking" }],
         authorization: overrides.authorization ?? intent(),
         interceptions: [],
@@ -474,7 +474,7 @@ describe("mediated preparation freezes the effect intent", () => {
 
         const batch = port.prepare(
             request({
-                shape: { kind: "batch", itemCount: 2 },
+                cardinality: { kind: "batch", itemCount: 2 },
                 inputs: [{ query: "parking" }, { query: "garage" }]
             })
         );
@@ -484,7 +484,7 @@ describe("mediated preparation freezes the effect intent", () => {
 
         // A one-item batch stays a batch: the shape is what the caller asked for, not
         // what the input count happens to allow.
-        const one = port.prepare(request({ shape: { kind: "batch", itemCount: 1 } }));
+        const one = port.prepare(request({ cardinality: { kind: "batch", itemCount: 1 } }));
         expect(one.itemCount).toBe(1);
         expect(one.header.id.equals(single.header.id)).toBe(false);
     });
@@ -549,11 +549,7 @@ describe("the ledger's preparation gate", () => {
             MediationAuthorityReference,
             MediationDomainReference,
             MediationPathEpochReference
-        >(
-            headerInit,
-            { kind: "single", item: { query: "parking" } },
-            mediationPreparedCodecs
-        );
+        >(headerInit, { kind: "single", item: { query: "parking" } }, mediationPreparedCodecs);
     }
 
     test(

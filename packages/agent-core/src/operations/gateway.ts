@@ -31,7 +31,7 @@ export type OperationPayload =
     | { readonly kind: "single"; readonly input: FacetData }
     | { readonly kind: "batch"; readonly inputs: readonly [FacetData, ...FacetData[]] };
 
-export type OperationPayloadShape =
+export type OperationPayloadCardinality =
     { readonly kind: "single" } | { readonly kind: "batch"; readonly itemCount: number };
 
 export interface OperationRequest {
@@ -100,7 +100,7 @@ export interface MediatedInvocationRequest<Authorization> {
     readonly requestKey: OperationRequestKey;
     readonly facet: FacetRef;
     readonly descriptor: OperationDescriptor;
-    readonly shape: OperationPayloadShape;
+    readonly cardinality: OperationPayloadCardinality;
     readonly inputs: readonly FacetData[];
     readonly authorization: Authorization;
     readonly replayBinding?: MediatedReplayBinding;
@@ -112,7 +112,7 @@ export interface MediatedInvocationPreflight<Authorization = unknown> {
     readonly requestKey: OperationRequestKey;
     readonly facet: FacetRef;
     readonly descriptor: OperationDescriptor;
-    readonly shape: OperationPayloadShape;
+    readonly cardinality: OperationPayloadCardinality;
     readonly inputs: readonly FacetData[];
     readonly authorization: Authorization;
     readonly replayBinding: MediatedReplayBinding;
@@ -131,7 +131,7 @@ export interface OperationInterceptionEvidence {
     readonly requestKey: OperationRequestKey;
     readonly facet: FacetRef;
     readonly descriptor: OperationDescriptor;
-    readonly shape: OperationPayloadShape;
+    readonly cardinality: OperationPayloadCardinality;
     readonly traces: readonly (readonly InterceptorTrace[])[];
 }
 
@@ -144,7 +144,7 @@ export interface OperationInvocationPort<DirectAuthorization, MediatedAuthorizat
     directContext(
         requestKey: OperationRequestKey,
         itemIndex: number,
-        shape: OperationPayloadShape,
+        cardinality: OperationPayloadCardinality,
         authorization: DirectAuthorization
     ): OperationContext;
     prepareMediated(
@@ -305,7 +305,7 @@ class ProtectedResolvedFacet<
                     request,
                     this.runtime,
                     operation,
-                    payload.shape,
+                    payload.cardinality,
                     prepared.map((item) => item.traces)
                 )
             );
@@ -315,7 +315,7 @@ class ProtectedResolvedFacet<
                     this.invocations.directContext(
                         request.requestKey,
                         itemIndex,
-                        payload.shape,
+                        payload.cardinality,
                         authorization
                     ),
                     item.value
@@ -326,7 +326,7 @@ class ProtectedResolvedFacet<
                 this.present(operation, output, itemIndex)
             );
             const value =
-                payload.shape.kind === "single"
+                payload.cardinality.kind === "single"
                     ? outputs[0]!.value
                     : Object.freeze(outputs.map((item) => item.value));
             this.invocations.recordDirectInterceptions(
@@ -334,7 +334,7 @@ class ProtectedResolvedFacet<
                     request,
                     this.runtime,
                     operation,
-                    payload.shape,
+                    payload.cardinality,
                     outputs.map((item) => item.traces)
                 )
             );
@@ -351,7 +351,7 @@ class ProtectedResolvedFacet<
                 requestKey: request.requestKey,
                 facet: this.runtime.ref,
                 descriptor: operation.descriptor,
-                shape: payload.shape,
+                cardinality: payload.cardinality,
                 inputs: Object.freeze(inputs),
                 authorization,
                 replayBinding
@@ -366,13 +366,14 @@ class ProtectedResolvedFacet<
                 });
             }
         );
-        if (preflight.kind === "replay") return canonicalReplay(preflight.result, payload.shape);
+        if (preflight.kind === "replay")
+            return canonicalReplay(preflight.result, payload.cardinality);
         const prepared = preflight.preparation;
         const result = await this.invocations.invoke({
             requestKey: request.requestKey,
             facet: this.runtime.ref,
             descriptor: operation.descriptor,
-            shape: payload.shape,
+            cardinality: payload.cardinality,
             inputs: prepared.inputs,
             authorization,
             replayBinding,
@@ -403,10 +404,10 @@ class ProtectedResolvedFacet<
                 requestKey: request.requestKey,
                 facet: this.runtime.ref,
                 descriptor: operation.descriptor,
-                shape: payload.shape
+                cardinality: payload.cardinality
             })
         );
-        const value = payload.shape.kind === "single" ? outputs[0]! : Object.freeze(outputs);
+        const value = payload.cardinality.kind === "single" ? outputs[0]! : Object.freeze(outputs);
         return Object.freeze({ kind: "mediated", output: value, evidence });
     }
 
@@ -509,17 +510,17 @@ export class ConfirmedOperationFailure extends AgentCoreError {
 }
 
 interface DispatchedPayload {
-    readonly shape: OperationPayloadShape;
+    readonly cardinality: OperationPayloadCardinality;
     readonly items: readonly FacetData[];
 }
 
 function operationPayload(payload: OperationPayload): DispatchedPayload {
     if (payload.kind === "single") {
-        return { shape: Object.freeze({ kind: "single" }), items: [payload.input] };
+        return { cardinality: Object.freeze({ kind: "single" }), items: [payload.input] };
     }
     if (payload.kind === "batch" && Array.isArray(payload.inputs) && payload.inputs.length > 0) {
         return {
-            shape: Object.freeze({ kind: "batch", itemCount: payload.inputs.length }),
+            cardinality: Object.freeze({ kind: "batch", itemCount: payload.inputs.length }),
             items: payload.inputs
         };
     }
@@ -530,28 +531,28 @@ function interceptionEvidence(
     request: OperationRequest,
     runtime: ValidatedFacet,
     operation: Operation,
-    shape: OperationPayloadShape,
+    cardinality: OperationPayloadCardinality,
     traces: readonly (readonly InterceptorTrace[])[]
 ): OperationInterceptionEvidence {
     return Object.freeze({
         requestKey: request.requestKey,
         facet: runtime.ref,
         descriptor: operation.descriptor,
-        shape,
+        cardinality,
         traces: Object.freeze(traces.map((item) => Object.freeze([...item])))
     });
 }
 
 function canonicalReplay(
     result: OperationDispatchResult,
-    shape: OperationPayloadShape
+    cardinality: OperationPayloadCardinality
 ): OperationDispatchResult {
     if (result.kind !== "mediated") {
         throw new AgentCoreError("invocation.invalid", "Mediated replay returned a direct result");
     }
     if (
-        shape.kind === "batch" &&
-        (!Array.isArray(result.output) || result.output.length !== shape.itemCount)
+        cardinality.kind === "batch" &&
+        (!Array.isArray(result.output) || result.output.length !== cardinality.itemCount)
     ) {
         throw new AgentCoreError(
             "invocation.invalid",

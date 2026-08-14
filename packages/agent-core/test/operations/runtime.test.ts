@@ -65,7 +65,7 @@ import {
     type OperationInterceptionEvidence,
     type OperationInvocationPort,
     type OperationPayload,
-    type OperationPayloadShape
+    type OperationPayloadCardinality
 } from "../../src/operations/gateway";
 import { FacetRuntimeHost } from "../../src/operations/lifecycle";
 import {
@@ -1216,12 +1216,18 @@ describe("Protected Operation gateway", () => {
                         return { proceed: true, value: held.returned };
                     }
                     for (const [subject, attempt] of [
-                        ["own pre-preparation rewrite", () => rewrite(held.returned!, "prepared", false)],
+                        [
+                            "own pre-preparation rewrite",
+                            () => rewrite(held.returned!, "prepared", false)
+                        ],
                         [
                             "value seen before preparation",
                             () => rewrite(requireObject(held.received!), "value", 2)
                         ],
-                        ["intercept context", () => rewrite(context, "cutPoint", "operation.before")],
+                        [
+                            "intercept context",
+                            () => rewrite(context, "cutPoint", "operation.before")
+                        ],
                         ["value in flight", () => rewrite(requireObject(value), "produced", false)]
                     ] as const) {
                         if (!this.surviveRefusal) {
@@ -1280,7 +1286,9 @@ describe("Protected Operation gateway", () => {
                         after,
                         invocations,
                         result: await resolved.dispatch({
-                            requestKey: new OperationRequestKey(`post-preparation-${surviveRefusal}`),
+                            requestKey: new OperationRequestKey(
+                                `post-preparation-${surviveRefusal}`
+                            ),
                             operation: new OperationName("run"),
                             payload: { kind: "single", input: { value: 1 } }
                         }),
@@ -1306,7 +1314,9 @@ describe("Protected Operation gateway", () => {
                 "value in flight: refused"
             ]);
             expect(held.returned).toEqual({ prepared: false, value: 1 });
-            expect(survived.invocations.lastRequest?.inputs).toEqual([{ prepared: true, value: 1 }]);
+            expect(survived.invocations.lastRequest?.inputs).toEqual([
+                { prepared: true, value: 1 }
+            ]);
             expect(survived.invocations.lastRequest?.inputs[0]).not.toBe(held.returned);
             expect(Object.isFrozen(survived.invocations.lastRequest?.inputs)).toBe(true);
             expect(Object.isFrozen(survived.invocations.lastRequest?.interceptions)).toBe(true);
@@ -1726,7 +1736,7 @@ describe("Protected Operation gateway", () => {
             });
             expect(events.filter((event) => event === "invoke")).toHaveLength(1);
             expect(invocations.lastRequest?.inputs).toEqual([{ item: 1 }, { item: 2 }]);
-            expect(invocations.lastRequest?.shape).toEqual({ kind: "batch", itemCount: 2 });
+            expect(invocations.lastRequest?.cardinality).toEqual({ kind: "batch", itemCount: 2 });
 
             await host.dispose();
             await expect(
@@ -2473,7 +2483,7 @@ describe("Protected Operation gateway", () => {
                 operation: new OperationName("run"),
                 payload: { kind: "single", input: { value: 1 } }
             });
-            expect(invocations.preflights[0]?.shape).toEqual({ kind: "single" });
+            expect(invocations.preflights[0]?.cardinality).toEqual({ kind: "single" });
             expect(interceptions).toBe(1);
             expect(executions).toBe(1);
 
@@ -2493,7 +2503,7 @@ describe("Protected Operation gateway", () => {
                 output: [{ replayed: true }],
                 evidence: { receipt: "existing" }
             });
-            expect(invocations.preflights[1]?.shape).toEqual({ kind: "batch", itemCount: 1 });
+            expect(invocations.preflights[1]?.cardinality).toEqual({ kind: "batch", itemCount: 1 });
             expect(interceptions).toBe(1);
             expect(executions).toBe(1);
 
@@ -3368,7 +3378,7 @@ describe("Protected Operation gateway", () => {
             expect(prepared?.requestKey.value).toBe("evidence");
             expect(prepared?.facet.value).toBe("workspace:runtime");
             expect(prepared?.descriptor.name.value).toBe("run");
-            expect(prepared?.shape).toEqual({ kind: "single" });
+            expect(prepared?.cardinality).toEqual({ kind: "single" });
             expect(prepared?.traces).toHaveLength(1);
             expect(prepared?.traces[0]).toHaveLength(1);
             expect(prepared?.traces[0]?.[0]).toMatchObject({
@@ -3917,7 +3927,7 @@ class TestInvocations implements OperationInvocationPort<string, string> {
     public lastRequest: MediatedInvocationRequest<string> | undefined;
     public presentationTraces: readonly unknown[] = [];
     public preflights: MediatedInvocationPreflight[] = [];
-    public directShapes: readonly string[] = [];
+    public directCardinalities: readonly string[] = [];
 
     public constructor(
         private readonly events: string[],
@@ -3929,12 +3939,12 @@ class TestInvocations implements OperationInvocationPort<string, string> {
     public directContext(
         requestKey: OperationRequestKey,
         itemIndex: number,
-        shape: OperationPayloadShape
+        cardinality: OperationPayloadCardinality
     ): OperationContext {
         this.events.push("context:direct");
-        this.directShapes = [
-            ...this.directShapes,
-            shape.kind === "single" ? "single" : `batch:${shape.itemCount}`
+        this.directCardinalities = [
+            ...this.directCardinalities,
+            cardinality.kind === "single" ? "single" : `batch:${cardinality.itemCount}`
         ];
         return operationContext(requestKey, itemIndex);
     }

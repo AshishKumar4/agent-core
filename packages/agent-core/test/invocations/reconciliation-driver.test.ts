@@ -81,7 +81,7 @@ async function indeterminateFixture(id: string): Promise<{
             requestKey: new OperationRequestKey(`request:${id}`),
             facet: canonicalBatchFacet,
             descriptor: canonicalBatchDescriptor,
-            shape: { kind: "batch", itemCount: 1 },
+            cardinality: { kind: "batch", itemCount: 1 },
             inputs: [{ value: 1 }],
             authorization: "authorization",
             interceptions: [[]],

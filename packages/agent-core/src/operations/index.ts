@@ -49,7 +49,7 @@ export type {
     OperationInterceptionEvidence,
     OperationInvocationPort,
     OperationPayload,
-    OperationPayloadShape,
+    OperationPayloadCardinality,
     OperationRequest
 } from "./gateway";
 export type {

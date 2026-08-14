@@ -464,7 +464,7 @@ function deviceRequest(init: {
                 deviceSchema,
                 deviceSchema
             ),
-            shape: { kind: "single" },
+            cardinality: { kind: "single" },
             inputs: init.inputs,
             authorization: {
                 facet: target,

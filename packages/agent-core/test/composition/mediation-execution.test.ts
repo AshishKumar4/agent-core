@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { MemoryContentStore } from "../../src/content";
-import { OperationRequestKey, type OperationPayloadShape } from "../../src/operations";
+import { OperationRequestKey, type OperationPayloadCardinality } from "../../src/operations";
 import { DerivedDirectOperationContext, DerivedMediationIdentities } from "../../src/composition";
 
 const identities = new DerivedMediationIdentities("execution-scope");
@@ -39,9 +39,9 @@ describe("the direct tier's Operation context", () => {
         // A batch's item count comes from the shape, not from the single tier's one item.
         // Reading it as 1 would refuse every item after the first, so a batch could never
         // run past index 0 — and each item still needs its own idempotency key.
-        const shape: OperationPayloadShape = { kind: "batch", itemCount: 3 };
+        const cardinality: OperationPayloadCardinality = { kind: "batch", itemCount: 3 };
         const keys = [0, 1, 2].map((itemIndex) => {
-            const value = context.context(requestKey, itemIndex, shape, "a");
+            const value = context.context(requestKey, itemIndex, cardinality, "a");
             expect(value.itemIndex).toBe(itemIndex);
             return value.idempotencyKey;
         });
@@ -49,14 +49,14 @@ describe("the direct tier's Operation context", () => {
     });
 
     test("refuses an item index outside its payload shape", { tags: "p0" }, () => {
-        for (const [shape, itemIndex] of [
+        for (const [cardinality, itemIndex] of [
             [{ kind: "single" } as const, 1],
             [{ kind: "batch", itemCount: 2 } as const, 2],
             [{ kind: "batch", itemCount: 2 } as const, -1],
             [{ kind: "batch", itemCount: 2 } as const, 1.5]
         ] as const) {
             expect(
-                () => context.context(requestKey, itemIndex, shape, "a"),
+                () => context.context(requestKey, itemIndex, cardinality, "a"),
                 String(itemIndex)
             ).toThrow(/payload shape/u);
         }

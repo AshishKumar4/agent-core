@@ -834,7 +834,7 @@ describe("W9 internal typed composition", () => {
                 requestKey: new OperationRequestKey("w9-request"),
                 facet,
                 descriptor,
-                shape: { kind: "batch" as const, itemCount: 2 },
+                cardinality: { kind: "batch" as const, itemCount: 2 },
                 inputs: [{ raw: 1 }, { raw: 2 }],
                 authorization: "permit",
                 replayBinding: w9ReplayBinding()
@@ -860,7 +860,7 @@ describe("W9 internal typed composition", () => {
                     requestKey: preflight.requestKey,
                     facet,
                     descriptor,
-                    shape: preflight.shape
+                    cardinality: preflight.cardinality
                 }
             );
             const replay = await composition.operations.prepareMediated(preflight, () => {

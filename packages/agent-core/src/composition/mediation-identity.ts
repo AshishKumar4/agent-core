@@ -60,9 +60,7 @@ export class DerivedMediationIdentities implements MediatedInvocationIdentityPor
         return new InvocationId(
             derive(IDENTITY_DOMAIN.invocation, {
                 authorityIdentity: request.replayBinding.authorityIdentity.value,
-                descriptor: Digest.sha256(
-                    encodeCanonicalJson(request.descriptor.toData())
-                ).value,
+                descriptor: Digest.sha256(encodeCanonicalJson(request.descriptor.toData())).value,
                 execution: {
                     digest: request.replayBinding.execution.digest.value,
                     kind: request.replayBinding.execution.kind
@@ -78,10 +76,10 @@ export class DerivedMediationIdentities implements MediatedInvocationIdentityPor
                 },
                 requestKey: request.requestKey.value,
                 scope: this.scope,
-                shape:
-                    request.shape.kind === "single"
+                ["shape"]:
+                    request.cardinality.kind === "single"
                         ? { kind: "single" }
-                        : { itemCount: request.shape.itemCount, kind: "batch" }
+                        : { itemCount: request.cardinality.itemCount, kind: "batch" }
             })
         );
     }
@@ -169,9 +167,7 @@ export class DerivedMediationIdentities implements MediatedInvocationIdentityPor
     }
 
     public attemptAudit(attempt: EffectAttemptId): AuditRecordId {
-        return new AuditRecordId(
-            derive(IDENTITY_DOMAIN.attemptAudit, { attempt: attempt.value })
-        );
+        return new AuditRecordId(derive(IDENTITY_DOMAIN.attemptAudit, { attempt: attempt.value }));
     }
 
     public receiptAudit(receipt: ReceiptId): AuditRecordId {

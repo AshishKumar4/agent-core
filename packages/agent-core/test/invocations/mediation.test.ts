@@ -167,7 +167,7 @@ describe("W6 operation mediation integration", () => {
                 facet: "workspace:codec",
                 operation: "send",
                 descriptorDigest: new Digest("b".repeat(64)),
-                shape: { kind: "single" },
+                cardinality: { kind: "single" },
                 rawPayloadIdentities: [new Digest("c".repeat(64))]
             });
             expect(MediatedReplayRecord.decode(MediatedReplayRecord.encode(replay)).id.value).toBe(
@@ -208,7 +208,7 @@ describe("W6 operation mediation integration", () => {
                 requestKey: new OperationRequestKey("request-key"),
                 facet: new FacetRef("workspace:target"),
                 descriptor,
-                shape: { kind: "single" as const },
+                cardinality: { kind: "single" as const },
                 inputs: [{ raw: true }],
                 authorization: "permit",
                 replayBinding: replayReservationBinding()
@@ -260,7 +260,7 @@ describe("W6 operation mediation integration", () => {
                     requestKey: preflight.requestKey,
                     facet: preflight.facet,
                     descriptor,
-                    shape: preflight.shape
+                    cardinality: preflight.cardinality
                 }
             );
             expect(presentation).toEqual([{ effect: true, presented: true }]);
@@ -301,7 +301,7 @@ describe("W6 operation mediation integration", () => {
                 requestKey: new OperationRequestKey("reserved-request"),
                 facet: new FacetRef("workspace:target"),
                 descriptor,
-                shape: { kind: "single" as const },
+                cardinality: { kind: "single" as const },
                 inputs: [{ raw: true }],
                 authorization: "permit",
                 replayBinding: replayReservationBinding()
@@ -608,7 +608,7 @@ describe("W6 operation mediation integration", () => {
                 requestKey: request.requestKey,
                 facet: request.facet,
                 descriptor,
-                shape: request.shape
+                cardinality: request.cardinality
             };
             for (const evidence of [null, {}, { invocation: "wrong-invocation" }] as const) {
                 await expect(
@@ -677,7 +677,7 @@ describe("W6 operation mediation integration", () => {
             expect(() =>
                 MediatedReplayRecord.reserve({
                     ...reservation,
-                    shape: { kind: "batch", itemCount: 0 },
+                    cardinality: { kind: "batch", itemCount: 0 },
                     rawPayloadIdentities: []
                 })
             ).toThrow(/nonempty payload shape/);
@@ -1371,7 +1371,7 @@ describe("W6 replay operation invocation port", () => {
             requestKey: request.requestKey,
             facet: request.facet,
             descriptor,
-            shape: request.shape
+            cardinality: request.cardinality
         };
         await expect(port.presentMediated(null, [], present, interception)).rejects.toThrow(
             /does not identify its Invocation/
@@ -1423,7 +1423,7 @@ describe("W6 replay operation invocation port", () => {
                 requestKey: request.requestKey,
                 facet: request.facet,
                 descriptor,
-                shape: request.shape
+                cardinality: request.cardinality
             }
         );
         transactions.restart();
@@ -2229,7 +2229,7 @@ describe("W6 profile mediation port", () => {
             expect(observed?.request.requestKey.value).toBe(`profile:${invocation.value}`);
             expect(observed?.request.interceptions).toEqual([[]]);
             expect(observed?.request.inputs).toEqual([{ value: 1 }]);
-            expect(observed?.request.shape).toEqual({ kind: "single" });
+            expect(observed?.request.cardinality).toEqual({ kind: "single" });
 
             const doubled = new InvocationProtectedOperationPort(
                 { invocation: () => invocation },
@@ -2450,7 +2450,7 @@ function batchPreflight(id: string) {
         requestKey: new OperationRequestKey(`request:${id}`),
         facet: new FacetRef("workspace:target"),
         descriptor,
-        shape: { kind: "batch" as const, itemCount: 2 },
+        cardinality: { kind: "batch" as const, itemCount: 2 },
         inputs: [{ raw: 0 }, { raw: 1 }],
         authorization: "permit",
         replayBinding: replayReservationBinding()
@@ -2510,7 +2510,7 @@ function preflight(id: string) {
         requestKey: new OperationRequestKey(`request:${id}`),
         facet: new FacetRef("workspace:target"),
         descriptor,
-        shape: { kind: "single" as const },
+        cardinality: { kind: "single" as const },
         inputs: [{ raw: true }],
         authorization: "permit",
         replayBinding: replayReservationBinding()
@@ -2536,7 +2536,7 @@ function replayReservation(id: string) {
         facet: "workspace:target",
         operation: "send",
         descriptorDigest: new Digest("d".repeat(64)),
-        shape: { kind: "single" as const },
+        cardinality: { kind: "single" as const },
         rawPayloadIdentities: [new Digest("e".repeat(64))]
     };
 }
@@ -2571,5 +2571,3 @@ function substitutedReplayBindings(binding: ReturnType<typeof replayReservationB
         }
     ];
 }
-
-

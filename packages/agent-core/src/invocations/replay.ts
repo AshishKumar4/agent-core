@@ -24,7 +24,7 @@ import { invocationError } from "./error";
 
 const REPLAY_ID_DOMAIN = "agent-core.mediated-replay.v1";
 
-export type MediatedReplayShape =
+export type MediatedReplayCardinality =
     { readonly kind: "single" } | { readonly kind: "batch"; readonly itemCount: number };
 
 export interface InvocationInterceptorTrace {
@@ -57,7 +57,7 @@ export interface MediatedReplayReservation {
     readonly authorityIdentity: Digest;
     readonly packageOperationPin: Digest;
     readonly execution: MediatedReplayExecutionIdentity;
-    readonly shape: MediatedReplayShape;
+    readonly cardinality: MediatedReplayCardinality;
     readonly rawPayloadIdentities: readonly Digest[];
 }
 
@@ -75,7 +75,7 @@ export class MediatedReplayRecord {
         public readonly authorityIdentity: Digest,
         public readonly packageOperationPin: Digest,
         public readonly execution: MediatedReplayExecutionIdentity,
-        public readonly shape: MediatedReplayShape,
+        public readonly cardinality: MediatedReplayCardinality,
         items: readonly MediatedReplayItem[],
         public readonly invocation: InvocationId | undefined,
         public readonly revision: Revision
@@ -91,7 +91,7 @@ export class MediatedReplayRecord {
             throw new TypeError("Replay execution identity kind is invalid");
         }
         this.principal = new PrincipalRef(principal.tenantId, principal.principalId);
-        const itemCount = shape.kind === "single" ? 1 : shape.itemCount;
+        const itemCount = cardinality.kind === "single" ? 1 : cardinality.itemCount;
         if (!Number.isSafeInteger(itemCount) || itemCount <= 0 || items.length !== itemCount) {
             throw new TypeError("Replay items must exactly match the nonempty payload shape");
         }
@@ -107,7 +107,7 @@ export class MediatedReplayRecord {
             authorityIdentity,
             packageOperationPin,
             execution,
-            shape,
+            cardinality,
             rawPayloadIdentities: this.items.map((item) => item.rawPayloadIdentity)
         });
         Object.freeze(descriptorDigest);
@@ -120,7 +120,8 @@ export class MediatedReplayRecord {
     }
 
     public static reserve(reservation: MediatedReplayReservation): MediatedReplayRecord {
-        const itemCount = reservation.shape.kind === "single" ? 1 : reservation.shape.itemCount;
+        const itemCount =
+            reservation.cardinality.kind === "single" ? 1 : reservation.cardinality.itemCount;
         if (reservation.rawPayloadIdentities.length !== itemCount) {
             throw invalidTransition("Replay reservation payload identities do not match its shape");
         }
@@ -134,7 +135,7 @@ export class MediatedReplayRecord {
             reservation.authorityIdentity,
             reservation.packageOperationPin,
             reservation.execution,
-            reservation.shape,
+            reservation.cardinality,
             reservation.rawPayloadIdentities.map((rawPayloadIdentity, itemIndex) => ({
                 itemIndex,
                 rawPayloadIdentity
@@ -264,7 +265,7 @@ export class MediatedReplayRecord {
             this.authorityIdentity,
             this.packageOperationPin,
             this.execution,
-            this.shape,
+            this.cardinality,
             items,
             invocation,
             this.revision.next()
@@ -295,7 +296,7 @@ class MediatedReplayRecordCodecV1 extends RecordCodec<MediatedReplayRecord> {
             requestKey: record.requestKey,
             revision: record.revision.value,
             scope: record.scope,
-            shape: record.shape
+            ["shape"]: record.cardinality
         };
     }
 
@@ -366,7 +367,7 @@ function replayId(reservation: MediatedReplayReservation): Digest {
             rawPayloadIdentities: reservation.rawPayloadIdentities.map((digest) => digest.value),
             requestKey: reservation.requestKey,
             scope: reservation.scope,
-            shape: reservation.shape
+            ["shape"]: reservation.cardinality
         })
     );
 }
@@ -565,7 +566,7 @@ function decodeTrace(value: JsonValue): InvocationInterceptorTrace {
     };
 }
 
-function decodeCardinality(value: JsonValue): MediatedReplayShape {
+function decodeCardinality(value: JsonValue): MediatedReplayCardinality {
     const candidate = requireObject(value, "Replay shape");
     if (candidate["kind"] === "single") {
         requireExactObject(value, ["kind"], "Single replay shape");

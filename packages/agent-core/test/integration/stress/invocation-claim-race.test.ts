@@ -39,7 +39,7 @@ function requestFor(
             requestKey: new OperationRequestKey(`request:${invocation.value}`),
             facet: canonicalBatchFacet,
             descriptor: canonicalBatchDescriptor,
-            shape: { kind: "batch", itemCount: inputs.length },
+            cardinality: { kind: "batch", itemCount: inputs.length },
             inputs,
             authorization: "authorization",
             interceptions: inputs.map(() => []),
@@ -65,8 +65,7 @@ function itemLedger(harness: Harness, invocation: InvocationId, itemIndex: numbe
         const claims = harness.persistence.claimsForItem(transaction, invocation, itemIndex);
         const attemptedClaims = claims
             .filter(
-                (claim) =>
-                    harness.persistence.attemptForClaim(transaction, claim.id) !== undefined
+                (claim) => harness.persistence.attemptForClaim(transaction, claim.id) !== undefined
             )
             .map((claim) => claim.id.value);
         return {
@@ -74,8 +73,7 @@ function itemLedger(harness: Harness, invocation: InvocationId, itemIndex: numbe
             liveClaims: claims.filter((claim) => !attemptedClaims.includes(claim.id.value)),
             attempts: harness.persistence.attemptsForItem(transaction, invocation, itemIndex),
             attemptedClaims,
-            receipts: harness.persistence.receiptsForItem(transaction, invocation, itemIndex)
-                .length
+            receipts: harness.persistence.receiptsForItem(transaction, invocation, itemIndex).length
         };
     });
 }

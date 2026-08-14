@@ -383,7 +383,7 @@ function payload(
 ): UnpreparedPayload {
     const [first, ...rest] = request.request.inputs;
     if (first === undefined) throw invalid("A mediated payload must be nonempty");
-    if (request.request.shape.kind === "single") {
+    if (request.request.cardinality.kind === "single") {
         if (rest.length !== 0) throw invalid("A single mediated payload carries one item");
         return { kind: "single", item: first };
     }

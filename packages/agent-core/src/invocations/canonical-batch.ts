@@ -631,7 +631,7 @@ export class CanonicalBatchInvocationPort<
 function requireRequestCardinality<Authorization>(
     request: MediatedInvocationRequest<Authorization>
 ): void {
-    const expected = request.shape.kind === "single" ? 1 : request.shape.itemCount;
+    const expected = request.cardinality.kind === "single" ? 1 : request.cardinality.itemCount;
     if (
         !Number.isSafeInteger(expected) ||
         expected <= 0 ||
@@ -646,7 +646,7 @@ function requirePreparedRequest<Authorization, Lease, Authority, Domain, PathEpo
     prepared: PreparedInvocation<Lease, Authority, Domain, PathEpochs>,
     request: CanonicalBatchInvocationRequest<Authorization>
 ): void {
-    const expectedKind = request.request.shape.kind;
+    const expectedKind = request.request.cardinality.kind;
     if (
         !prepared.header.id.equals(request.invocation) ||
         prepared.payload.kind !== expectedKind ||
