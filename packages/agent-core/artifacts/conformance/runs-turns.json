@@ -300,14 +300,19 @@
       "owner": "W5",
       "specAnchor": "C13-RUN-CEILING-REMAINDER",
       "specTextSha256": "sha256:e5e0e2c56f7fd8de06e3128a5a69d7a3239bf708b8a5c2450b2fd68352972f5b",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "src/agents/runs/ceiling.ts folds each dimension's remainder, src/agents/runs/runtime.ts#remainingResourcesInTransaction walks the spawn lineage for it, and src/agents/runs/run.ts#Run.recordTokens keeps the durable per-Run token total. test/agents/runs/ceiling.test.ts exercises remainingResources today, but only under [C13-RUN-RESOURCE-CEILING], and no test yet distinguishes a derived depth or wall-clock remainder from a separately accounted one. W5 must add a test titled with [C13-RUN-CEILING-REMAINDER] that does, and cite those symbols, before this atom leaves planned"
-      ]
+      "sourceSymbols": [
+        "src/agents/runs/ceiling.ts#narrowResources",
+        "src/agents/runs/runtime.ts#RunRuntime.remainingResourcesInTransaction",
+        "src/agents/runs/run.ts#Run.recordTokens"
+      ],
+      "testSelectors": [
+        "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-CEILING-REMAINDER] derives depth and wall time from lineage while model accounting alone advances durable token totals",
+        "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-RUN-RESOURCE-CEILING] advances the Run's durable token total where each model call commits"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-RUN-CHECKPOINT-KINDS",
@@ -683,9 +688,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "§5.2.1 now closes every named spec gap by composition: 'the operator' is defined as the authenticated Principal invoking the administer-impact merge-resolution Operation — there was never a second resolution path, just one mechanism the prose named twice; policies.treeMerge is specified as one more field of PolicySet (§9.2) alongside tiers/approvals/placement, not a new artifact; and the SPEC's TreeMergeResolution type now carries the base/environment fields the implementation already has, closing that mismatch",
-        "PolicySet (src/definition/policy.ts) still has no treeMerge field — a closed-key codec-major-3 change to one existing W4 record, now scoped precisely — and commit.ts's environment field is a bare string rather than EnvironmentId, a small typing fix bundled with whatever implementation lands the field",
-        "Conflict detection itself remains entirely unimplemented: no per-path tree model exists over the single opaque tree checkpoint digest, so 'paths changed on both sides' cannot be computed and no unresolved-conflict state blocks a merge commit. This is the substantial remaining piece — a real diff engine over ContentStore-addressed trees — genuine W5 implementation scope, not a spec ambiguity"
+        "Conflict detection remains unimplemented over the opaque tree checkpoint digest. Closure requires one ContentStore-backed tree codec and diff path whose decoded bytes prove each ContentRef, rather than a test-only snapshot map",
+        "The effective tree policy must be loaded by the exact PolicySet id, revision, and digest in commit.pins.effectivePolicy; an unbound RunMergePort policy projection is not sufficient evidence",
+        "The merge-resolution control evidence must prove that its authenticated caller invoked the administer-impact Operation whose successful Receipt proposal digest binds these exact path choices; generic system-control writer evidence alone is insufficient"
       ]
     },
     {
@@ -727,8 +732,9 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "SpawnReservation exists as a record, but no executor path returns an admission identity in the model's tool position, so the permission this atom grants has no implementation to cite",
-        "The testable prohibition — a spawn's `delegate` Receipt carries the child RunRef and never the child's result — needs a negative test on Receipt content; no current test inspects what a `delegate` Receipt carries"
+        "GatewayTurnInvocationPort currently returns only Operation output, so no concrete mediated pipeline path can return a verified InvocationId or child RunRef in the model tool position; a fake TurnInvocationPort returning a preconstructed handle would not prove this rule",
+        "SpawnReservation alone does not prove successful admission. Closure requires the exact EffectAttempt named by the AttemptReceipt, the succeeded Receipt and its hashed result bytes, and an exact canonical child-RunRef-only payload to be validated before constructing the handle; extra child-output fields must be rejected",
+        "The public-interface test must traverse the concrete mediated gateway and prove unchanged admission plus linked Receipt and audit evidence, then observe only the verified admission identity at the executor boundary"
       ]
     },
     {
@@ -796,14 +802,17 @@
       "owner": "W5",
       "specAnchor": "C13-TURN-LEASE-EXPIRY",
       "specTextSha256": "sha256:f6f58a20f1ab1b18d8afb192a42777fa8c7cd6a083405bccb4a3e6bcf53992ae",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "src/agents/runs/lease.ts#ensureFutureExpiration already rejects a non-future expiry on claim, renew, and reclaim, and reclaim additionally checks the recorded expiry against now; W5 must cite those symbols and add a test titled with [C13-TURN-LEASE-EXPIRY] before this atom leaves planned"
-      ]
+      "sourceSymbols": [
+        "src/agents/runs/lease.ts#TurnLease",
+        "src/agents/runs/lease.ts#ensureFutureExpiration"
+      ],
+      "testSelectors": [
+        "test/agents/runs/lease.test.ts#TurnLease [C13-TURN-LEASE-EXPIRY] requires future claim, renewal, and reclaim expirations and an expired recorded lease"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-TURN-LIFECYCLE",

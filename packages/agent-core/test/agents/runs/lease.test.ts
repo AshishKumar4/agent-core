@@ -35,6 +35,10 @@ function token(
     return { turn: tokenTurn, holder: tokenHolder, epoch };
 }
 
+function expectCode(operation: () => void, code: AgentCoreError["code"]): void {
+    expect(thrownBy(AgentCoreError, operation).code).toBe(code);
+}
+
 describe("public Run and Turn values", () => {
     test("keeps the four identifiers nominally distinct", { tags: "p2" }, () => {
         const ids = [
@@ -50,6 +54,39 @@ describe("public Run and Turn values", () => {
 });
 
 describe("TurnLease", () => {
+    test(
+        "[C13-TURN-LEASE-EXPIRY] requires future claim, renewal, and reclaim expirations and an expired recorded lease",
+        { tags: "p0" },
+        () => {
+            const unclaimed = TurnLease.unclaimed(turn);
+            for (const expiresAt of [at(9), at(10)]) {
+                expectCode(
+                    () => unclaimed.claim(holder, at(10), expiresAt),
+                    "lease.invalid"
+                );
+            }
+
+            const held = unclaimed.claim(holder, at(10), at(20));
+            for (const expiresAt of [at(14), at(15)]) {
+                expectCode(
+                    () => held.renew(holder, held.epoch, at(15), expiresAt),
+                    "lease.invalid"
+                );
+            }
+            expectCode(
+                () => held.reclaim(otherHolder, at(19), at(30)),
+                "lease.invalid"
+            );
+            expectCode(
+                () => held.reclaim(otherHolder, at(20), at(20)),
+                "lease.invalid"
+            );
+
+            expect(held.renew(holder, held.epoch, at(15), at(25)).expiresAt).toEqual(at(25));
+            expect(held.reclaim(otherHolder, at(20), at(30)).expiresAt).toEqual(at(30));
+        }
+    );
+
     test("[turn-lease-verifier] memory and repository implementations enforce the exact durable lease", { tags: "p0" }, () => {
         const seeded = seedRunningTurn();
         const verifiers = [

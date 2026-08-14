@@ -154,6 +154,60 @@ function ceiling(limits: ConstructorParameters<typeof ResourceCeiling>[0]): Spaw
 
 describe("Run resource ceilings", () => {
     it(
+        "[C13-RUN-CEILING-REMAINDER] derives depth and wall time from lineage while model accounting alone advances durable token totals",
+        { tags: "p0" },
+        () => {
+            const root = seedRunningTurn();
+            const parent = spawnChild(
+                root,
+                "remainder-parent",
+                ids.run,
+                root.token,
+                ceiling({ depth: 2, tokens: 100, wallClockMs: 1_000 }),
+                new Date(2_000)
+            );
+
+            expect(root.runtime.remainingResources(parent.run, new Date(2_400))?.toData()).toEqual({
+                depth: 2,
+                tokens: 100,
+                wallClockMs: 600
+            });
+            root.runtime.recordModelTokens(parent.run, 25);
+            expect(root.runtime.remainingResources(parent.run, new Date(2_400))?.toData()).toEqual({
+                depth: 2,
+                tokens: 75,
+                wallClockMs: 600
+            });
+
+            const child = spawnChild(
+                root,
+                "remainder-child",
+                parent.run,
+                parent.token,
+                new SpawnAttenuation(),
+                new Date(2_500)
+            );
+            expect(root.runtime.remainingResources(child.run, new Date(2_600))?.toData()).toEqual({
+                depth: 1,
+                tokens: 75,
+                wallClockMs: 300
+            });
+
+            root.runtime.recordModelTokens(child.run, 10);
+            expect(root.runtime.remainingResources(child.run, new Date(2_600))?.toData()).toEqual({
+                depth: 1,
+                tokens: 65,
+                wallClockMs: 300
+            });
+            const consumed = root.repository.transaction((transaction) => ({
+                parent: root.repository.loadRun(transaction, parent.run)?.tokensConsumed,
+                child: root.repository.loadRun(transaction, child.run)?.tokensConsumed
+            }));
+            expect(consumed).toEqual({ parent: 25, child: 10 });
+        }
+    );
+
+    it(
         "[C13-RUN-RESOURCE-CEILING] admits a spawned ceiling only at or below the parent's remaining allowance",
         { tags: "p0" },
         () => {
