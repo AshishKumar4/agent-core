@@ -216,7 +216,7 @@ describe("InvocationReconciler", () => {
     );
 
     test(
-        "persists the exact attempt before the provider and atomically finalizes complete reconciliation evidence",
+        "[C13-EFFECT-RECONCILIATION] re-queries the exact indeterminate attempt and appends one final lineage",
         { tags: "p0" },
         async () => {
             const harness = new CanonicalBatchHarness(false);

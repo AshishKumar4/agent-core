@@ -163,15 +163,17 @@
       "owner": "W6",
       "specAnchor": "C13-ADV-RECEIPT-AGGREGATE",
       "specTextSha256": "sha256:029c9361d1ea5786346e88021c3ed217e197dfb64f21cddc63c6877f1c4a886a",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/receipt.ts#Receipt"],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The cited test asserts an audit-root property, not the aggregate rule this atom states. Its kills land in the audit-root path and never reach the aggregation the rule is about, so the citation names a real test that bears on a different obligation.",
-        "Downgraded from verified after the invocations discrimination pass: the citation named a real passing test that bears on a different obligation. Closing this needs a test that exercises the rule, not a re-citation."
-      ]
+      "sourceSymbols": [
+        "src/invocations/outcome.ts#deriveBatchOutcome",
+        "src/invocations/outcome.ts#terminalBatchOutcome"
+      ],
+      "testSelectors": [
+        "test/invocations/records.test.ts#Invocation evidence records [C13-ADV-RECEIPT-AGGREGATE] covers every BatchOutcome precedence and terminal projection"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-ADV-RECEIPT-CANCELLED",
@@ -214,15 +216,17 @@
       "owner": "W6",
       "specAnchor": "C13-ADV-RECEIPT-FAILED",
       "specTextSha256": "sha256:5ca83704eeee381fd77036ed49c516b7bf2b133e52249e3d25ebc837b72258a3",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/receipt.ts#Receipt"],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The cited test does not exercise a failed Receipt's own constraints; its kills land elsewhere in the record path.",
-        "Downgraded from verified after the invocations discrimination pass: the citation named a real passing test that bears on a different obligation. Closing this needs a test that exercises the rule, not a re-citation."
-      ]
+      "sourceSymbols": [
+        "src/invocations/canonical-batch.ts#CanonicalBatchInvocationPort",
+        "src/invocations/receipt.ts#AttemptReceipt"
+      ],
+      "testSelectors": [
+        "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-ADV-RECEIPT-FAILED] binds a final failed Receipt to its exact attempted effect"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-ADV-RECEIPT-INDETERMINATE",
@@ -379,30 +383,36 @@
       "owner": "W6",
       "specAnchor": "C13-ADV-UNCHANGED-RECOVERY-OWNER",
       "specTextSha256": "sha256:7ea7d179a075011017aad9b4ebcfdd50fc079527b058662c4520a9ba097ade07",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The cited test is a memory-substitution case whose kills land in record validation. It never recovers a claim and compares owners, so nothing in it can distinguish the unchanged-owner rule from its negation.",
-        "Downgraded from verified after the invocations discrimination pass: the citation named a real passing test that bears on a different obligation. Closing this needs a test that exercises the rule, not a re-citation."
-      ]
+      "sourceSymbols": [
+        "src/invocations/claim.ts#ItemClaim",
+        "src/invocations/ledger.ts#InvocationLedger.recoverClaim"
+      ],
+      "testSelectors": [
+        "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-CLAIM-RECOVERY-NEW-OWNER] [C13-ADV-UNCHANGED-RECOVERY-OWNER] recovers only under a different worker",
+        "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-CLAIM-RECOVERY-NEW-OWNER] [C13-ADV-UNCHANGED-RECOVERY-OWNER] recovers only under a different worker"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-ATTEMPT-ORDINAL-AFTER-FAILURE",
       "owner": "W6",
       "specAnchor": "C13-ATTEMPT-ORDINAL-AFTER-FAILURE",
       "specTextSha256": "sha256:4af054163d16aa021f81fca34463d0923ee3026381cd381215655231e6de9c61",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The cited test substitutes a memory record and asserts the substitution is refused; it never advances an ordinal after a failed Receipt, which is the rule. No test in the measured lane exercises ordinal advance following a final failed Receipt.",
-        "Downgraded from verified after the invocations discrimination pass: the citation named a real passing test that bears on a different obligation. Closing this needs a test that exercises the rule, not a re-citation."
-      ]
+      "sourceSymbols": [
+        "src/invocations/ledger.ts#InvocationLedger.claimItem",
+        "src/invocations/ledger.ts#InvocationLedger.admitAttempt"
+      ],
+      "testSelectors": [
+        "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ATTEMPT-ORDINAL-AFTER-FAILURE] admits the next ordinal only after final failure",
+        "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ATTEMPT-ORDINAL-AFTER-FAILURE] admits the next ordinal only after final failure"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-AUDIT-APPEND-ONLY",
@@ -629,15 +639,18 @@
       "owner": "W6",
       "specAnchor": "C13-CLAIM-RECOVERY-NEW-OWNER",
       "specTextSha256": "sha256:0afe3c11d68399eba6a46006b370b117d83dc29269d892f67cffdf5333f1d21c",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The cited test does not construct a recovery whose replacement names a different worker, which is the rule. The distinguishing case - same invocation, item and ordinal, different owner - is unexercised.",
-        "Downgraded from verified after the invocations discrimination pass: the citation named a real passing test that bears on a different obligation. Closing this needs a test that exercises the rule, not a re-citation."
-      ]
+      "sourceSymbols": [
+        "src/invocations/claim.ts#ItemClaim",
+        "src/invocations/ledger.ts#InvocationLedger.recoverClaim"
+      ],
+      "testSelectors": [
+        "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-CLAIM-RECOVERY-NEW-OWNER] [C13-ADV-UNCHANGED-RECOVERY-OWNER] recovers only under a different worker",
+        "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-CLAIM-RECOVERY-NEW-OWNER] [C13-ADV-UNCHANGED-RECOVERY-OWNER] recovers only under a different worker"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-CLAIM-RECOVERY-NO-ATTEMPT",
@@ -688,30 +701,31 @@
       "owner": "W6",
       "specAnchor": "C13-EFFECT-IDEMPOTENCY",
       "specTextSha256": "sha256:bf3a4bce573c6bf89de55a9ff61a4ceefc8b33997a7c12deb45cf26ca8a8218c",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/attempt.ts#EffectAttempt"],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The cited integration test reaches auditEvidence only; the idempotency key's effect on replay is never observed. The rule needs a test that repeats an attempt under one key and asserts the effect happened once.",
-        "Downgraded from verified after the invocations discrimination pass: the citation named a real passing test that bears on a different obligation. Closing this needs a test that exercises the rule, not a re-citation."
-      ]
+      "sourceSymbols": [
+        "src/invocations/attempt.ts#EffectAttempt",
+        "src/invocations/canonical-batch.ts#CanonicalBatchInvocationPort"
+      ],
+      "testSelectors": [
+        "test/invocations/canonical-batch.test.ts#CanonicalBatchInvocationPort [C13-EFFECT-IDEMPOTENCY] reuses a durable claim after permit-call crash and never repeats the effect"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-EFFECT-RECONCILIATION",
       "owner": "W6",
       "specAnchor": "C13-EFFECT-RECONCILIATION",
       "specTextSha256": "sha256:bf3a4bce573c6bf89de55a9ff61a4ceefc8b33997a7c12deb45cf26ca8a8218c",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/invocations/reconciliation.ts#InvocationReconciler"],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The cited integration test reaches auditEvidence only and never drives an indeterminate Receipt to a final one, which is the rule. Reconciliation lineage is untested in the measured lane.",
-        "Downgraded from verified after the invocations discrimination pass: the citation named a real passing test that bears on a different obligation. Closing this needs a test that exercises the rule, not a re-citation."
-      ]
+      "testSelectors": [
+        "test/invocations/reconciliation.test.ts#InvocationReconciler [C13-EFFECT-RECONCILIATION] re-queries the exact indeterminate attempt and appends one final lineage"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-EFFECT-RECONCILIATION-DRIVER",
@@ -1006,30 +1020,31 @@
       "owner": "W6",
       "specAnchor": "C13-PREPARED-ROUTED-PROJECTION",
       "specTextSha256": "sha256:6f630da71bf1855fac8f276ee23a2cf7a49e2a545120e039da0c06dd60d384b1",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The cited test does not exercise a routed preparation's projection digest against its reservation; its kills land in header validation shared with local preparations.",
-        "Downgraded from verified after the invocations discrimination pass: the citation named a real passing test that bears on a different obligation. Closing this needs a test that exercises the rule, not a re-citation."
-      ]
+      "sourceSymbols": [
+        "src/composition/routing.ts#RoutedInvocationAdmissionPort",
+        "src/invocations/prepared.ts#PreparedInvocation"
+      ],
+      "testSelectors": [
+        "test/composition/behavior-branches.test.ts#W9 composition behavior branches [C13-PREPARED-ROUTED-PROJECTION] rejects every substituted routed identity and replays only byte-stable intent"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-PREPARED-SHARED-HEADER",
       "owner": "W6",
       "specAnchor": "C13-PREPARED-SHARED-HEADER",
       "specTextSha256": "sha256:7e6c07cfc476f40e57cb32f45fe288efcd14786eb488bb83e2602d0cfabec773",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The cited test does not exercise the shared-header identity the rule states; its kills land in payload validation.",
-        "Downgraded from verified after the invocations discrimination pass: the citation named a real passing test that bears on a different obligation. Closing this needs a test that exercises the rule, not a re-citation."
-      ]
+      "testSelectors": [
+        "test/invocations/prepared.test.ts#PreparedInvocation canonical identity [C13-PREPARED-SHARED-HEADER] binds every item to one complete shared identity"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-PREPARED-WHOLE-DIGEST",
@@ -1067,15 +1082,19 @@
       "owner": "W6",
       "specAnchor": "C13-RECEIPT-ID-NAMESPACE",
       "specTextSha256": "sha256:faa8213d988ce893b14721dfe6af6e2835e11eaf1973f4d3ce14baa08b46e05b",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/receipt.ts#Receipt"],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The cited test does not exercise ReceiptId allocation across both Receipt variants from one owning-Actor namespace, which is the rule.",
-        "Downgraded from verified after the invocations discrimination pass: the citation named a real passing test that bears on a different obligation. Closing this needs a test that exercises the rule, not a re-citation."
-      ]
+      "sourceSymbols": [
+        "src/invocations/ledger.ts#InvocationLedger.recordAttemptReceipt",
+        "src/invocations/ledger.ts#InvocationLedger.recordPreEffect",
+        "src/invocations/receipt.ts#Receipt"
+      ],
+      "testSelectors": [
+        "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-RECEIPT-ID-NAMESPACE] rejects ReceiptId reuse across pre-effect and attempted variants",
+        "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-RECEIPT-ID-NAMESPACE] rejects ReceiptId reuse across pre-effect and attempted variants"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-RECEIPT-IMMUTABLE",
