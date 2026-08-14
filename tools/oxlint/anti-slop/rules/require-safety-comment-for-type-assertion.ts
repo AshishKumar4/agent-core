@@ -25,12 +25,24 @@ function isConstAssertion(node: TypeAssertion): boolean {
     );
 }
 
-function classifySafetyComment(comment: Comment | undefined): SafetyComment {
-    if (comment === undefined) return "missing";
-    const match = /\bSAFETY\s*:\s*(.*)/isu.exec(comment.value);
-    if (match === null) return "missing";
-    const reason = match[1]?.trim() ?? "";
-    return reason.length === 0 || obviousPlaceholder.test(reason) ? "placeholder" : "present";
+function classifySafetyCommentBlock(comments: readonly Comment[]): SafetyComment {
+    let safetyIndex = -1;
+    let firstReason = "";
+    for (const [index, comment] of comments.entries()) {
+        const match = /\bSAFETY\s*:\s*(.*)/isu.exec(comment.value);
+        if (match === null) continue;
+        if (safetyIndex !== -1) return "placeholder";
+        safetyIndex = index;
+        firstReason = match[1]?.trim() ?? "";
+    }
+    if (safetyIndex === -1) return "missing";
+    const reasons = [
+        firstReason,
+        ...comments.slice(safetyIndex + 1).map((comment) => comment.value)
+    ]
+        .map((reason) => reason.trim())
+        .filter((reason) => reason.length > 0);
+    return reasons.every((reason) => obviousPlaceholder.test(reason)) ? "placeholder" : "present";
 }
 
 function containingStatement(node: TypeAssertion): ESTree.Node {
@@ -47,15 +59,29 @@ function assertionBoundaryStart(node: TypeAssertion): number {
     return current.start;
 }
 
-function lastCommentBefore(
+function isContiguousGap(gap: string): boolean {
+    return /^[\t ]*(?:\r?\n[\t ]*)?$/u.test(gap);
+}
+
+function contiguousCommentBlock(
     sourceCode: SourceCode,
-    position: number,
-    lowerBound: number
-): Comment | undefined {
-    const comments = sourceCode
-        .getAllComments()
-        .filter((comment) => comment.start >= lowerBound && comment.end <= position);
-    return comments.at(-1);
+    comments: readonly Comment[],
+    position: number
+): readonly Comment[] {
+    const block: Comment[] = [];
+    let boundary = position;
+    for (let index = comments.length - 1; index >= 0; index -= 1) {
+        const comment = comments[index];
+        if (
+            comment === undefined ||
+            !isContiguousGap(sourceCode.text.slice(comment.end, boundary))
+        ) {
+            break;
+        }
+        block.unshift(comment);
+        boundary = comment.start;
+    }
+    return block;
 }
 
 function inlineSafetyComment(
@@ -64,22 +90,19 @@ function inlineSafetyComment(
     assertion: TypeAssertion
 ): SafetyComment {
     const start = assertionBoundaryStart(assertion);
-    const comment = lastCommentBefore(sourceCode, start, statement.start);
-    if (comment === undefined || sourceCode.text.slice(comment.end, start).trim().length > 0) {
-        return "missing";
-    }
-    return classifySafetyComment(comment);
+    const comments = sourceCode
+        .getAllComments()
+        .filter((comment) => comment.start >= statement.start && comment.end <= start);
+    return classifySafetyCommentBlock(contiguousCommentBlock(sourceCode, comments, start));
 }
 
 function precedingStatementSafetyComment(
     sourceCode: SourceCode,
     statement: ESTree.Node
 ): SafetyComment {
-    const comment = sourceCode.getCommentsBefore(statement).at(-1);
-    if (comment === undefined) return "missing";
-    const gap = sourceCode.text.slice(comment.end, statement.start);
-    if (!/^[\t ]*(?:\r?\n[\t ]*)?$/u.test(gap)) return "missing";
-    return classifySafetyComment(comment);
+    return classifySafetyCommentBlock(
+        contiguousCommentBlock(sourceCode, sourceCode.getCommentsBefore(statement), statement.start)
+    );
 }
 
 /** Require every non-const type assertion to carry one structurally bound SAFETY rationale. */
