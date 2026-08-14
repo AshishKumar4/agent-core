@@ -1,3 +1,4 @@
+import { requireSynchronousResult } from "../../../../src/actors";
 import { AttemptReceipt, PreEffectReceipt } from "../../../../src/invocations";
 import { SqliteInvocationPersistence } from "../../../../src/substrates/sqlite/invocations";
 import type { TransactionalSqlite } from "../../../../src/substrates/sqlite";
@@ -7,6 +8,21 @@ import {
     invocationCodecs,
     preparedCodec
 } from "../../../invocations/fixture";
+
+export function runSynchronousSqliteTransaction<Result>(
+    database: TransactionalSqlite,
+    operation: () => Result
+): Result {
+    const unset = Symbol("unset");
+    let result: Result | typeof unset = unset;
+    database.transaction(() => {
+        result = requireSynchronousResult(operation());
+    });
+    if (result === unset) {
+        throw new TypeError("SQLite transaction produced no result");
+    }
+    return result;
+}
 
 export function createSqliteInvocationPersistence(database: TransactionalSqlite) {
     return new SqliteInvocationPersistence(database, {

@@ -33,6 +33,7 @@ import {
     type WorkspaceRecordKind,
     type WorkspaceRecordStorage
 } from "../../../src/workspaces";
+import { violating } from "../../helpers/malformed";
 import { FileSqlite, TestSqlite } from "../../helpers/sqlite";
 import {
     DeterministicJsonPatchEngine,
@@ -70,6 +71,20 @@ interface StorageHarness {
 }
 
 type HarnessFactory = (options?: HarnessOptions) => StorageHarness;
+
+type WorkspaceDecodedRecord =
+    | ContentRetentionReference
+    | Event
+    | RouteDelivery
+    | RouteProjection
+    | RouteReservation
+    | Subscription
+    | View
+    | ViewDelta;
+
+interface WorkspaceRecordCodec {
+    decode(bytes: Uint8Array): WorkspaceDecodedRecord;
+}
 
 const encoder = new TextEncoder();
 
@@ -585,14 +600,19 @@ describe("memory workspace record coverage", () => {
         );
         bytes[0] = 9;
 
-        const found = records.findRecord("event", "b")!;
+        const found = records.findRecord("event", "b");
+        if (found === undefined) throw new TypeError("event b was not stored");
         found.bytes[0] = 8;
         const listed = records.listRecords("event");
-        listed[0]!.bytes[0] = 7;
-        const unique = records.findUnique("unique", "key")! as { recordKey: string };
-        unique.recordKey = "changed";
-        const pointer = records.findPointer("view.current", "surface")! as { recordKey: string };
-        pointer.recordKey = "changed";
+        const firstListed = listed[0];
+        if (firstListed === undefined) throw new TypeError("event list was empty");
+        firstListed.bytes[0] = 7;
+        const unique = records.findUnique("unique", "key");
+        if (unique === undefined) throw new TypeError("unique key was not stored");
+        Object.assign(unique, { recordKey: "changed" });
+        const pointer = records.findPointer("view.current", "surface");
+        if (pointer === undefined) throw new TypeError("view pointer was not stored");
+        Object.assign(pointer, { recordKey: "changed" });
 
         expect(records.findRecord("event", "b")?.bytes).toEqual(Uint8Array.of(1, 2, 3));
         expect(records.listRecords("event").map((record) => record.id)).toEqual(["a", "b"]);
@@ -600,11 +620,7 @@ describe("memory workspace record coverage", () => {
         expect(records.findPointer("view.current", "surface")?.recordKey).toBe("surface@0");
         expect(records.clone().snapshot()).toEqual(records.snapshot());
         expect(
-            () =>
-                new MemoryWorkspaceRecords({
-                    ...records.snapshot(),
-                    version: 2
-                } as never)
+            () => new MemoryWorkspaceRecords(violating(records.snapshot(), { version: 2 }))
         ).toThrow(/version is unsupported/);
     });
 
@@ -1222,13 +1238,8 @@ describe("stored codec corruption coverage", () => {
             { id: "different-id" },
             { bytes: "not-bytes" }
         ]) {
-            const corrupt = new ReadCorruptingStorage(
-                records,
-                (record) =>
-                    ({
-                        ...record,
-                        ...malformed
-                    }) as StoredWorkspaceRecord
+            const corrupt = new ReadCorruptingStorage(records, (record) =>
+                violating(record, malformed)
             );
             expectCodecInvalid(() => persistence.findEvent(corrupt, event.id));
         }
@@ -1243,9 +1254,10 @@ describe("stored codec corruption coverage", () => {
         expectCodecInvalid(() => persistence.findEvent(records, event.id));
         typeFailure.mockRestore();
 
+        const eventCodec: WorkspaceRecordCodec = Event.codec;
         const wrongClass = vi
-            .spyOn(Event.codec, "decode")
-            .mockReturnValue(subscriptionFixture("wrong-codec-class") as unknown as Event);
+            .spyOn(eventCodec, "decode")
+            .mockReturnValue(subscriptionFixture("wrong-codec-class"));
         expectCodecInvalid(() => persistence.findEvent(records, event.id));
         wrongClass.mockRestore();
     });
@@ -1310,7 +1322,7 @@ describe("stored codec corruption coverage", () => {
             stored("viewDelta", `${delta.surface.value}@1`, ViewDelta.codec.encode(delta))
         );
 
-        const cases: readonly [object, () => unknown][] = [
+        const cases: readonly [WorkspaceRecordCodec, () => void][] = [
             [Subscription.codec, () => persistence.currentSubscription(records, subscription.id)],
             [RouteReservation.codec, () => persistence.findReservation(records, reservation.id)],
             [RouteProjection.codec, () => persistence.findProjection(records, projection.id)],
@@ -1322,9 +1334,7 @@ describe("stored codec corruption coverage", () => {
             ]
         ];
         for (const [codec, operation] of cases) {
-            const decode = vi
-                .spyOn(codec as { decode(bytes: Uint8Array): unknown }, "decode")
-                .mockReturnValue(event);
+            const decode = vi.spyOn(codec, "decode").mockReturnValue(event);
             expectCodecInvalid(operation);
             decode.mockRestore();
         }
@@ -1353,9 +1363,8 @@ describe("stored codec corruption coverage", () => {
             },
             `${view.surface.value}@0`
         );
-        const retentionDecode = vi
-            .spyOn(ContentRetentionReference.codec, "decode")
-            .mockReturnValue(event as unknown as ContentRetentionReference);
+        const retentionCodec: WorkspaceRecordCodec = ContentRetentionReference.codec;
+        const retentionDecode = vi.spyOn(retentionCodec, "decode").mockReturnValue(event);
         expectCodecInvalid(() =>
             persistence.compactView(records, view.surface.value, new Revision(1))
         );
@@ -1603,11 +1612,11 @@ function runStorageTrace(harness: StorageHarness) {
         invalidLengths,
         invalidBytes: capturedAgentCoreErrorCode(() =>
             harness.transaction((storage) => {
-                storage.insertRecord({
-                    kind: "view",
-                    id: "invalid-bytes",
-                    bytes: "invalid" as never
-                });
+                storage.insertRecord(
+                    violating(stored("view", "invalid-bytes", Uint8Array.of()), {
+                        bytes: "invalid"
+                    })
+                );
             })
         ),
         duplicateRecord: capturedAgentCoreErrorCode(() =>
@@ -1697,7 +1706,7 @@ function runStorageTrace(harness: StorageHarness) {
     }));
 }
 
-function runPersistenceTrace(harness: StorageHarness, suffix: string): unknown {
+function runPersistenceTrace(harness: StorageHarness, suffix: string) {
     const event = eventFixture(`${suffix}-event`);
     const subscription = subscriptionFixture(`${suffix}-subscription`);
     const revised = subscription.revise({

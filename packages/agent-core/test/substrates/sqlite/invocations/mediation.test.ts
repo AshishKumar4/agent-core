@@ -33,7 +33,7 @@ import {
 import { TestSqlite } from "../../../helpers/sqlite";
 import { describe, expect, test } from "vitest";
 import { admissionFor, createLedger, prepared } from "../../../invocations/fixture";
-import { createSqliteInvocationPersistence } from "./fixture";
+import { createSqliteInvocationPersistence, runSynchronousSqliteTransaction } from "./fixture";
 
 describe("SqliteInvocationMediationPersistence", () => {
     test(
@@ -385,9 +385,9 @@ describe("SqliteInvocationMediationPersistence", () => {
                     transact<Result>(
                         operation: (transaction: TransactionalSqlite) => Result
                     ): Result {
-                        return (
-                            database.transaction as unknown as (operation: () => Result) => Result
-                        )(() => operation(database));
+                        return runSynchronousSqliteTransaction(database, () =>
+                            operation(database)
+                        );
                     }
                 },
                 persistence,
@@ -915,9 +915,7 @@ function expectAgentCoreError(operation: () => void, code: AgentCoreError["code"
         operation();
     } catch (error) {
         expect(error).toBeInstanceOf(AgentCoreError);
-        // SAFETY: the line above established the value is an AgentCoreError; vitest's
-        // matcher does not narrow, so the code read needs the type restated.
-        expect((error as AgentCoreError).code).toBe(code);
+        if (error instanceof AgentCoreError) expect(error.code).toBe(code);
         return;
     }
     throw new TypeError(`Expected AgentCoreError ${code}`);

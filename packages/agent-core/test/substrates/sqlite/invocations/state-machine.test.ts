@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import fc, { type Command } from "fast-check";
 import { expect, test } from "vitest";
-import type { SynchronousResultGuard } from "../../../../src/actors";
 import { ContentRef, Digest } from "../../../../src/core";
 import { AgentCoreError } from "../../../../src/errors";
 import { TenantId } from "../../../../src/identity";
@@ -47,7 +46,7 @@ import {
     prepared,
     type TestPersistence
 } from "../../../invocations/fixture";
-import { createSqliteInvocationPersistence } from "./fixture";
+import { createSqliteInvocationPersistence, runSynchronousSqliteTransaction } from "./fixture";
 
 type TestLedger<Transaction> = InvocationLedger<
     Transaction,
@@ -331,10 +330,7 @@ class SqliteRuntime extends Runtime<TransactionalSqlite> {
     protected ledger: TestLedger<TransactionalSqlite> = createLedger(this.persistence);
 
     protected transaction<Result>(operation: (transaction: TransactionalSqlite) => Result): Result {
-        return this.#database.transaction(
-            () => operation(this.#database),
-            ...([] as SynchronousResultGuard<Result>)
-        );
+        return runSynchronousSqliteTransaction(this.#database, () => operation(this.#database));
     }
 
     public restart(): void {

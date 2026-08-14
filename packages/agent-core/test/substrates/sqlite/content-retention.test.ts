@@ -15,6 +15,7 @@ import {
     type SqliteRow,
     type SqliteValue
 } from "../../../src/substrates/sqlite";
+import { sqliteText } from "../../../src/substrates/sqlite/content";
 import { at, bindingFor, contentOwner } from "../../content/retention-contract";
 import { TestSqlite } from "../../helpers/sqlite";
 
@@ -42,9 +43,9 @@ class InterceptingSqlite extends TransactionalSqlite {
 
     public transaction<Result>(
         operation: () => Result,
-        ..._guard: SynchronousResultGuard<Result>
+        ...guard: SynchronousResultGuard<Result>
     ): Result {
-        return this.inner.transaction(operation, ...([] as SynchronousResultGuard<Result>));
+        return this.inner.transaction(operation, ...guard);
     }
 }
 
@@ -53,10 +54,10 @@ class SharedBlobRowSqlite extends TestSqlite {
     readonly #rows = new Map<string, readonly SqliteRow[]>();
 
     public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const key = bindings[0];
-        if (!statement.includes("FROM content_blobs WHERE ref") || typeof key !== "string") {
+        if (!statement.includes("FROM content_blobs WHERE ref")) {
             return super.all(statement, bindings);
         }
+        const key = sqliteText({ ref: bindings[0] ?? null }, "ref");
         const cached = this.#rows.get(key);
         if (cached !== undefined) return cached;
         const rows = super.all(statement, bindings);
@@ -83,13 +84,16 @@ class BlobRecordingSqlite extends TestSqlite {
     }
 }
 
-function caught(operation: () => void): unknown {
+/** The AgentCoreError the operation raised, so a caller can read its code and message. */
+function caught(operation: () => void): AgentCoreError {
     try {
         operation();
     } catch (error) {
-        return error;
+        expect(error).toBeInstanceOf(AgentCoreError);
+        if (error instanceof AgentCoreError) return error;
+        throw error;
     }
-    return undefined;
+    throw new TypeError("Expected the operation to raise an AgentCoreError");
 }
 
 function expectExactError(
@@ -98,8 +102,8 @@ function expectExactError(
     message: string
 ): void {
     const failure = caught(operation);
-    expect(failure).toBeInstanceOf(AgentCoreError);
-    expect(failure).toMatchObject({ code, message });
+    expect(failure.code).toBe(code);
+    expect(failure.message).toBe(message);
 }
 
 function expectErrorMatching(
@@ -108,8 +112,8 @@ function expectErrorMatching(
     pattern: RegExp
 ): void {
     const failure = caught(operation);
-    expect(failure).toBeInstanceOf(AgentCoreError);
-    expect(failure).toMatchObject({ code, message: expect.stringMatching(pattern) });
+    expect(failure.code).toBe(code);
+    expect(failure.message).toMatch(pattern);
 }
 
 async function expectExactRejection(
@@ -117,14 +121,17 @@ async function expectExactRejection(
     code: AgentCoreErrorCode,
     message: string
 ): Promise<void> {
-    let failure: unknown;
     try {
         await operation;
     } catch (error) {
-        failure = error;
+        expect(error).toBeInstanceOf(AgentCoreError);
+        if (error instanceof AgentCoreError) {
+            expect(error.code).toBe(code);
+            expect(error.message).toBe(message);
+        }
+        return;
     }
-    expect(failure).toBeInstanceOf(AgentCoreError);
-    expect(failure).toMatchObject({ code, message });
+    throw new TypeError(`Expected AgentCoreError ${code}`);
 }
 
 function collectAll(
@@ -161,14 +168,17 @@ function hideBlobReadsFrom(database: InterceptingSqlite, first: number): void {
     };
 }
 
-function harness(now: () => Date = () => at(10)): {
+/** A Content store with the retention and transient access opened over one owner. */
+interface ContentRetentionHarness {
     readonly database: TestSqlite;
     readonly store: SqliteContentStore;
     readonly tenant: TenantId;
     readonly actor: ActorRef;
     readonly retention: SqliteContentRetention;
     readonly access: ReturnType<SqliteContentStore["transient"]>;
-} {
+}
+
+function harness(now: () => Date = () => at(10)): ContentRetentionHarness {
     const database = new TestSqlite();
     const store = new SqliteContentStore(database);
     const owner = contentOwner();

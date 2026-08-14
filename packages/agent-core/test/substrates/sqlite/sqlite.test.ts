@@ -4,11 +4,12 @@ import {
     inheritSqliteProvenance,
     type ReadableSqlite
 } from "../../../src/substrates/sqlite/sqlite";
+import { malformed } from "../../helpers/malformed";
 import { TestSqlite } from "../../helpers/sqlite";
 
 test("rejects SQLite provenance transfer involving uninitialized capabilities", { tags: "p0" }, () => {
     const database = new TestSqlite();
-    const forged = Object.create(null) as ReadableSqlite;
+    const forged = malformed<ReadableSqlite>({});
 
     expect(() => inheritSqliteProvenance(forged, database)).toThrowError(
         new TypeError("SQLite provenance requires initialized capabilities")
@@ -21,7 +22,7 @@ test("rejects SQLite provenance transfer involving uninitialized capabilities", 
 test("shares SQLite provenance only across inherited capabilities", { tags: "p0" }, () => {
     const database = new TestSqlite();
     const unrelated = new TestSqlite();
-    const forged = Object.create(null) as ReadableSqlite;
+    const forged = malformed<ReadableSqlite>({});
 
     expect(hasSameSqliteProvenance(database, database)).toBe(true);
     expect(hasSameSqliteProvenance(database, unrelated)).toBe(false);

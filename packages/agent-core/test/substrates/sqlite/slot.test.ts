@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { JsonSchema } from "../../../src/core";
 import { SlotAuthorityPolicy, SlotDeclaration, SlotName } from "../../../src/facets";
 import { WorkspaceId } from "../../../src/identity";
+import { sqliteText } from "../../../src/substrates/sqlite/content";
 import { SqliteWorkspaceSlotStore } from "../../../src/substrates/sqlite/slot";
 import type { SqliteRow, SqliteValue } from "../../../src/substrates/sqlite";
 import { TestSqlite } from "../../helpers/sqlite";
@@ -412,7 +413,8 @@ class SchemaTamperSqlite extends TestSqlite {
         if (rewrite === undefined || !statement.includes("FROM sqlite_master")) return rows;
         return rows.map((row) => {
             const sql = row["sql"];
-            return typeof sql === "string" ? { ...row, sql: rewrite(sql) } : row;
+            if (sql === undefined || sql === null) return row;
+            return { ...row, sql: rewrite(sqliteText(row, "sql")) };
         });
     }
 }

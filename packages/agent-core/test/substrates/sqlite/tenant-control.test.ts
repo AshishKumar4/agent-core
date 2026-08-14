@@ -1,16 +1,10 @@
-import { Database } from "bun:sqlite";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import { describe, expect, test } from "vitest";
 import { AuthorityMutationService, Binding, Grant, GrantId } from "../../../src/authority";
 import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../../src/facets";
-import {
-    ActorId,
-    requireSynchronousResult,
-    type SynchronousResultGuard
-} from "../../../src/actors";
+import { ActorId } from "../../../src/actors";
 import { Revision } from "../../../src/core";
 import {
     MembershipId,
@@ -31,7 +25,9 @@ import {
     type SqliteRow,
     type SqliteValue
 } from "../../../src/substrates/sqlite";
+import { sqliteBytes, sqliteText } from "../../../src/substrates/sqlite/content";
 import { createSqliteTenantControlStore } from "../../../src/substrates/sqlite/tenant";
+import { FileSqlite, TestSqlite } from "../../helpers/sqlite";
 
 const tenantId = new TenantId("tenant-control");
 const principalId = new PrincipalId("principal-control");
@@ -314,7 +310,7 @@ describe("SQLite Tenant control storage", () => {
             "SELECT id, record FROM tenant_grants ORDER BY id LIMIT 1",
             []
         )[0]!;
-        const decodedGrant = Grant.decode(storedGrant["record"] as Uint8Array);
+        const decodedGrant = Grant.decode(sqliteBytes(storedGrant, "record"));
         relationDatabase.run("UPDATE tenant_grants SET subject_key = ?, record = ? WHERE id = ?", [
             "principal:missing",
             Grant.encode(
@@ -558,26 +554,7 @@ function allowGrant(id: string): Grant {
 function tableNames(database: TransactionalSqlite): readonly string[] {
     return database
         .all("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name", [])
-        .flatMap((row) => (typeof row["name"] === "string" ? [row["name"]] : []));
-}
-
-class TestSqlite extends TransactionalSqlite {
-    readonly #database = new Database(":memory:");
-
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        return this.#database.query<SqliteRow, SqliteValue[]>(statement).all(...bindings);
-    }
-
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
-        this.#database.query<SqliteRow, SqliteValue[]>(statement).run(...bindings);
-    }
-
-    public transaction<Result>(
-        operation: () => Result,
-        ..._guard: SynchronousResultGuard<Result>
-    ): Result {
-        return this.#database.transaction(() => requireSynchronousResult(operation()))();
-    }
+        .map((row) => sqliteText(row, "name"));
 }
 
 class MarkerTamperSqlite extends TestSqlite {
@@ -587,41 +564,5 @@ class MarkerTamperSqlite extends TestSqlite {
         const rows = super.all(statement, bindings);
         if (!this.tampered || !statement.includes("FROM tenant_bootstrap_marker")) return rows;
         return rows.map((row) => ({ ...row, tenant_id: null }));
-    }
-}
-
-class FileSqlite extends TransactionalSqlite {
-    readonly #database: DatabaseSync;
-
-    public constructor(path: string) {
-        super();
-        this.#database = new DatabaseSync(path);
-    }
-
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        return this.#database.prepare(statement).all(...bindings) as readonly SqliteRow[];
-    }
-
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
-        this.#database.prepare(statement).run(...bindings);
-    }
-
-    public transaction<Result>(
-        operation: () => Result,
-        ..._guard: SynchronousResultGuard<Result>
-    ): Result {
-        this.#database.exec("BEGIN");
-        try {
-            const result = requireSynchronousResult(operation());
-            this.#database.exec("COMMIT");
-            return result;
-        } catch (error) {
-            this.#database.exec("ROLLBACK");
-            throw error;
-        }
-    }
-
-    public close(): void {
-        this.#database.close();
     }
 }

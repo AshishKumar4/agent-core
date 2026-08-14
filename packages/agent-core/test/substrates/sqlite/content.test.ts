@@ -34,9 +34,9 @@ class InterceptingSqlite extends TransactionalSqlite {
 
     public transaction<Result>(
         operation: () => Result,
-        ..._guard: SynchronousResultGuard<Result>
+        ...guard: SynchronousResultGuard<Result>
     ): Result {
-        return this.inner.transaction(operation, ...([] as SynchronousResultGuard<Result>));
+        return this.inner.transaction(operation, ...guard);
     }
 }
 

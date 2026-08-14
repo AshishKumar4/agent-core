@@ -21,6 +21,7 @@ import {
     selectPlacement
 } from "../../../src/definition";
 import { TenantId } from "../../../src/identity";
+import { sqliteText } from "../../../src/substrates/sqlite/content";
 import { SqliteMaterializationStore } from "../../../src/substrates";
 import type { SqliteRow, SqliteValue } from "../../../src/substrates";
 import { TestSqlite } from "../../helpers/sqlite";
@@ -555,13 +556,14 @@ describe("SQLite materialization schema", () => {
         const database = new TestSqlite();
         const actor = actorRef("whitespace-schema");
         new SqliteMaterializationStore(database, actor);
-        const sql = database.all(
+        const stored = database.all(
             "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'definition_blueprints'",
             []
-        )[0]?.["sql"];
-        expect(typeof sql).toBe("string");
+        )[0];
+        expect(stored).toBeDefined();
+        if (stored === undefined) throw new TypeError("Missing SQL for definition_blueprints");
         database.run("DROP TABLE definition_blueprints", []);
-        database.run(String(sql).replace("IF NOT EXISTS", "IF  NOT  EXISTS"), []);
+        database.run(sqliteText(stored, "sql").replace("IF NOT EXISTS", "IF  NOT  EXISTS"), []);
 
         expect(() => new SqliteMaterializationStore(database, actor)).not.toThrow();
     });
@@ -775,8 +777,9 @@ class SchemaRowFaultSqlite extends TestSqlite {
 }
 
 function recreateTable(database: TestSqlite, table: string, edit: (sql: string) => string): void {
-    const sql = database.all("SELECT sql FROM sqlite_master WHERE name = ?", [table])[0]?.["sql"];
-    if (typeof sql !== "string") throw new TypeError(`Missing SQL for ${table}`);
+    const row = database.all("SELECT sql FROM sqlite_master WHERE name = ?", [table])[0];
+    if (row === undefined) throw new TypeError(`Missing SQL for ${table}`);
+    const sql = sqliteText(row, "sql");
     database.run(`DROP TABLE ${table}`, []);
     database.run(edit(sql), []);
 }
@@ -906,13 +909,10 @@ function legacyProjections(envelope: JsonValue): readonly MutableJsonObject[] {
     });
 }
 
-function normalizedSql(
-    rows: readonly { readonly [column: string]: string | number | Uint8Array | null }[],
-    table: string
-): string {
-    const sql = rows.find((row) => row["name"] === table)?.["sql"];
-    if (typeof sql !== "string") throw new TypeError(`Missing SQL for ${table}`);
-    return sql.replaceAll(/\s+/g, " ");
+function normalizedSql(rows: readonly SqliteRow[], table: string): string {
+    const row = rows.find((candidate) => candidate["name"] === table);
+    if (row === undefined) throw new TypeError(`Missing SQL for ${table}`);
+    return sqliteText(row, "sql").replaceAll(/\s+/g, " ");
 }
 
 /** A decoded JSON object this module owns outright and may write through. */

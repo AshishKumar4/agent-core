@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import type { SynchronousResultGuard } from "../../../src/actors";
+import { sqliteText } from "../../../src/substrates/sqlite/content";
 import { SqliteWorkspaceEventRecords } from "../../../src/substrates/sqlite/events/records";
 import {
     TransactionalSqlite,
@@ -10,6 +11,7 @@ import {
     type SqliteValue
 } from "../../../src/substrates/sqlite/sqlite";
 import { WorkspacePersistence, type CompactableWorkspaceRecordKind } from "../../../src/workspaces";
+import { malformed } from "../../helpers/malformed";
 import { FileSqlite, TestSqlite } from "../../helpers/sqlite";
 import { eventFixture, eventRetention, sourceActor, tenant } from "../../workspaces/fixtures";
 import {
@@ -96,7 +98,9 @@ test(
         records.insertRecord({ kind: "event", id: "guarded", bytes: Uint8Array.of(1) });
 
         expect(() =>
-            records.deleteCompactedRecords("event" as CompactableWorkspaceRecordKind, ["guarded"])
+            records.deleteCompactedRecords(malformed<CompactableWorkspaceRecordKind>("event"), [
+                "guarded"
+            ])
         ).toThrow(
             expect.objectContaining({
                 code: "protocol.invalid-state",
@@ -271,9 +275,9 @@ test("record writes hand the substrate bytes detached from the caller", { tags: 
 });
 
 function tableSql(database: TestSqlite, table: string): string {
-    const sql = database.all("SELECT sql FROM sqlite_master WHERE name = ?", [table])[0]?.["sql"];
-    if (typeof sql !== "string") throw new TypeError(`Missing SQLite DDL for ${table}`);
-    return sql;
+    const row = database.all("SELECT sql FROM sqlite_master WHERE name = ?", [table])[0];
+    if (row === undefined) throw new TypeError(`Missing SQLite DDL for ${table}`);
+    return sqliteText(row, "sql");
 }
 
 class BlobRecordingSqlite extends TestSqlite {
