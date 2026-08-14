@@ -29,13 +29,13 @@ contentRetentionContract("SQLite", () => {
         setNow(value: Date): void {
             now = value;
         },
-        transaction<Result>(operation: (transaction: TransactionalSqlite) => Result): Result {
-            return database.transaction(
-                () => operation(database),
-                ...([] as SynchronousResultGuard<Result>)
-            );
+        transaction<Result>(
+            operation: (transaction: TransactionalSqlite) => Result,
+            ...guard: SynchronousResultGuard<Result>
+        ): Result {
+            return database.transaction(() => operation(database), ...guard);
         },
-        acquireInTransaction(transaction, binding, operationAt, bytes): unknown {
+        acquireInTransaction(transaction, binding, operationAt, bytes) {
             return transient.acquireInTransaction(transaction, binding, operationAt, bytes);
         }
     };

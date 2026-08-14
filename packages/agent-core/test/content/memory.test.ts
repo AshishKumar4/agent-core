@@ -6,7 +6,7 @@ import { ByteRange } from "../../src/content/range";
 import { ContentOwnerEdge } from "../../src/content/retention";
 import { ContentStat } from "../../src/content/stat";
 import { TransientContentLeaseState } from "../../src/content/transient";
-import { decodeCanonicalJson, encodeCanonicalJson } from "../../src/core";
+import { decodeCanonicalJson, encodeCanonicalJson, isJsonObject } from "../../src/core";
 import { TenantId } from "../../src/identity";
 import { contentStoreContract } from "./contract";
 import { at, bindingFor, contentOwner, contentRetentionContract } from "./retention-contract";
@@ -36,11 +36,12 @@ contentRetentionContract("memory", () => {
             now = value;
         },
         transaction<Result>(
-            operation: (transaction: MemoryContentRetentionState) => Result
+            operation: (transaction: MemoryContentRetentionState) => Result,
+            ...guard: SynchronousResultGuard<Result>
         ): Result {
-            return store.transaction(operation, ...([] as SynchronousResultGuard<Result>));
+            return store.transaction(operation, ...guard);
         },
-        acquireInTransaction(transaction, binding, operationAt, bytes): unknown {
+        acquireInTransaction(transaction, binding, operationAt, bytes) {
             return transient.acquireInTransaction(transaction, binding, operationAt, bytes);
         }
     };
@@ -75,8 +76,9 @@ describe("MemoryContentStore records", () => {
                     bytes.fill(0);
                     return bytes;
                 }
-            } as unknown as ByteRange;
+            };
 
+            // @ts-expect-error Host JavaScript can supply a structural ByteRange lookalike.
             const returned = await store.get(stored.ref, hostile);
             expect(returned).not.toBe(observed);
             returned.fill(1);
@@ -91,12 +93,12 @@ describe("MemoryContentStore records", () => {
         const range = ByteRange.slice(1, 2);
         expect(Object.isFrozen(range)).toBe(true);
         expect(Object.isFrozen(ByteRange.prototype)).toBe(true);
-        expect(() =>
-            Reflect.construct(
-                ByteRange as unknown as Function,
-                [0, undefined],
-                function DerivedRange() {}
-            )
+        // @ts-expect-error ByteRange deliberately has a private constructor.
+        class DerivedRange extends ByteRange {}
+        expect(
+            () =>
+                // @ts-expect-error Runtime subclass construction must fail too.
+                new DerivedRange()
         ).toThrow(TypeError);
         expect(() =>
             Object.defineProperty(range, "read", {
@@ -115,8 +117,8 @@ describe("MemoryContentStore records", () => {
             const owner = contentOwner();
             const edge = new ContentOwnerEdge(owner.tenant, owner.actor, "codec-owner", stored.ref);
 
-            expect(stat).toBeDefined();
-            const decoded = ContentStat.decode(ContentStat.encode(stat!));
+            const storedStat = defined(stat);
+            const decoded = ContentStat.decode(ContentStat.encode(storedStat));
             expect(decoded.ref.equals(stored.ref)).toBe(true);
             expect(decoded.digest.equals(stored.digest)).toBe(true);
             expect(decoded.size).toBe(5);
@@ -140,26 +142,18 @@ describe("MemoryContentStore records", () => {
             expect(decodedLease.matches(binding)).toBe(true);
             expect(decodedLease.closedAt).toEqual(at(20));
 
-            const envelope = decodeCanonicalJson(ContentStat.encode(stat!));
-            if (envelope === null || Array.isArray(envelope) || typeof envelope !== "object") {
+            const envelope = decodeCanonicalJson(ContentStat.encode(storedStat));
+            if (!isJsonObject(envelope)) {
                 throw new TypeError("Expected content stat record envelope");
             }
-            const envelopeObject = envelope as {
-                readonly [key: string]: import("../../src/core").JsonValue;
-            };
-            const payload = envelopeObject["payload"];
-            if (
-                payload === null ||
-                payload === undefined ||
-                Array.isArray(payload) ||
-                typeof payload !== "object"
-            ) {
+            const payload = envelope["payload"];
+            if (!isJsonObject(payload)) {
                 throw new TypeError("Expected content stat record payload");
             }
             expect(() =>
                 ContentStat.decode(
                     encodeCanonicalJson({
-                        ...envelopeObject,
+                        ...envelope,
                         payload: { ...payload, unknown: true }
                     })
                 )

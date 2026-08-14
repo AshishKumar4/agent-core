@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { ActorId, ActorRef } from "../../src/actors";
+import { ActorId, ActorRef, type SynchronousResultGuard } from "../../src/actors";
 import {
     ContentOwnerEdge,
     type ContentCollectionCandidate,
@@ -7,7 +7,11 @@ import {
     type TenantContentPolicyReader
 } from "../../src/content/retention";
 import type { ContentStore } from "../../src/content/store";
-import type { TransientContentAccess, TransientContentBinding } from "../../src/content/transient";
+import type {
+    TransientContentAccess,
+    TransientContentBinding,
+    TransientContentLease
+} from "../../src/content/transient";
 import { ContentRef, Digest } from "../../src/core";
 import { TenantId } from "../../src/identity";
 import { expectAgentCoreError, expectAgentCoreRejection } from "../protocol/error-assertion";
@@ -16,18 +20,31 @@ const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
 const tenant = new TenantId("tenant-a");
 const actor = new ActorRef("workspace", new ActorId("actor-a"));
 
+export interface TestContentOwner {
+    readonly tenant: TenantId;
+    readonly actor: ActorRef;
+}
+
+interface CollectionResult {
+    readonly refs: readonly ContentRef[];
+    readonly candidates: readonly ContentCollectionCandidate[];
+}
+
 export interface ContentRetentionHarness<TTransaction> {
     readonly store: ContentStore;
     readonly retention: ContentRetention<TTransaction>;
     readonly transient: TransientContentAccess;
     setNow(now: Date): void;
-    transaction<Result>(operation: (transaction: TTransaction) => Result): Result;
+    transaction<Result>(
+        operation: (transaction: TTransaction) => Result,
+        ...guard: SynchronousResultGuard<Result>
+    ): Result;
     acquireInTransaction(
         transaction: TTransaction,
         binding: TransientContentBinding,
         operationAt: Date,
         bytes?: Uint8Array
-    ): unknown;
+    ): TransientContentLease | undefined;
 }
 
 export function contentRetentionContract<TTransaction>(
@@ -504,7 +521,7 @@ export function contentRetentionContract<TTransaction>(
     });
 }
 
-export function contentOwner(): { readonly tenant: TenantId; readonly actor: ActorRef } {
+export function contentOwner(): TestContentOwner {
     return { tenant, actor };
 }
 
@@ -533,10 +550,7 @@ function collect<TTransaction>(
     harness: ContentRetentionHarness<TTransaction>,
     observedAt: Date,
     decision: boolean | undefined
-): {
-    readonly refs: readonly ContentRef[];
-    readonly candidates: readonly ContentCollectionCandidate[];
-} {
+): CollectionResult {
     const candidates: ContentCollectionCandidate[] = [];
     const policy: TenantContentPolicyReader<TTransaction> = {
         allowsCollection(_transaction, candidate): boolean | undefined {

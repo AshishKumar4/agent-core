@@ -74,7 +74,8 @@ describe("MemoryContentStore snapshot validation", () => {
             }
         ];
         for (const snapshot of malformed) {
-            expectCorrupt(snapshot as MemoryContentSnapshot);
+            // @ts-expect-error Restore must reject malformed runtime snapshot roots.
+            expectCorrupt(snapshot);
         }
 
         const unbound = new MemoryContentStore().snapshot();
@@ -102,7 +103,7 @@ describe("MemoryContentStore snapshot validation", () => {
         { tags: "p0" },
         async () => {
             const snapshot = await populatedSnapshot();
-            const row = snapshot.content[0]!;
+            const row = defined(snapshot.content[0]);
             const otherDigest = Digest.sha256(encode("other-snapshot-content"));
             const corruptions: readonly MemoryContentSnapshot[] = [
                 { ...snapshot, content: [row, row] },
@@ -116,10 +117,11 @@ describe("MemoryContentStore snapshot validation", () => {
                 }
             ];
             for (const corruption of corruptions) expectCorrupt(corruption);
-            expectCorrupt({
-                ...snapshot,
-                content: [{ ...row, bytes: "not-bytes" as unknown as Uint8Array }]
+            const nonbinaryContent = structuredClone(snapshot);
+            Object.defineProperty(defined(nonbinaryContent.content[0]), "bytes", {
+                value: "not-bytes"
             });
+            expectCorrupt(nonbinaryContent);
         }
     );
 
@@ -128,8 +130,8 @@ describe("MemoryContentStore snapshot validation", () => {
         { tags: "p0" },
         async () => {
             const snapshot = await populatedSnapshot();
-            const edgeBytes = snapshot.edges[0]!;
-            const relation = snapshot.relations[0]!;
+            const edgeBytes = defined(snapshot.edges[0]);
+            const relation = defined(snapshot.relations[0]);
             const owner = contentOwner();
             const foreignEdge = new ContentOwnerEdge(
                 new TenantId("foreign-tenant"),
@@ -142,7 +144,6 @@ describe("MemoryContentStore snapshot validation", () => {
                 { ...snapshot, edges: [edgeBytes, edgeBytes] },
                 { ...snapshot, edges: [Uint8Array.of(1, 2, 3)] },
                 { ...snapshot, edges: [ContentOwnerEdge.encode(foreignEdge)] },
-                { ...snapshot, edges: ["not-bytes" as unknown as Uint8Array] },
                 { ...snapshot, relations: [relation, relation] },
                 { ...snapshot, relations: [{ ...relation, unownedSince: -1 }] },
                 { ...snapshot, relations: [{ ...relation, unownedSince: 1.5 }] },
@@ -156,6 +157,9 @@ describe("MemoryContentStore snapshot validation", () => {
                 { ...snapshot, relations: [] }
             ];
             for (const corruption of corruptions) expectCorrupt(corruption);
+            const nonbinaryEdge = structuredClone(snapshot);
+            Object.defineProperty(nonbinaryEdge, "edges", { value: ["not-bytes"] });
+            expectCorrupt(nonbinaryEdge);
         }
     );
 
@@ -164,7 +168,7 @@ describe("MemoryContentStore snapshot validation", () => {
         { tags: "p0" },
         async () => {
             const snapshot = await leaseOnlySnapshot();
-            const leaseBytes = snapshot.leases[0]!;
+            const leaseBytes = defined(snapshot.leases[0]);
             const decoded = TransientContentLeaseState.decode(leaseBytes);
             const foreign = new TransientContentLeaseState(
                 new TenantId("foreign-tenant"),
@@ -188,7 +192,6 @@ describe("MemoryContentStore snapshot validation", () => {
             const corruptions: readonly MemoryContentSnapshot[] = [
                 { ...snapshot, leases: [leaseBytes, leaseBytes] },
                 { ...snapshot, leases: [Uint8Array.of(1, 2, 3)] },
-                { ...snapshot, leases: ["not-bytes" as unknown as Uint8Array] },
                 { ...snapshot, leases: [TransientContentLeaseState.encode(foreign)] },
                 { ...snapshot, leases: [TransientContentLeaseState.encode(disconnected)] },
                 { ...snapshot, relations: [] },
@@ -201,6 +204,9 @@ describe("MemoryContentStore snapshot validation", () => {
                 }
             ];
             for (const corruption of corruptions) expectCorrupt(corruption);
+            const nonbinaryLease = structuredClone(snapshot);
+            Object.defineProperty(nonbinaryLease, "leases", { value: ["not-bytes"] });
+            expectCorrupt(nonbinaryLease);
         }
     );
 
@@ -263,12 +269,18 @@ describe("MemoryContentStore snapshot validation", () => {
             storedLease.acquiredAt,
             storedLease.expiresAt
         );
+        const unsupportedVersion = structuredClone(snapshot);
+        Object.defineProperty(unsupportedVersion, "version", { value: 2 });
+        const nonbinaryEdge = structuredClone(snapshot);
+        Object.defineProperty(nonbinaryEdge, "edges", { value: ["not-bytes"] });
+        const nonbinaryLease = structuredClone(snapshot);
+        Object.defineProperty(nonbinaryLease, "leases", { value: ["not-bytes"] });
         const cases: readonly {
             readonly corruption: MemoryContentSnapshot;
             readonly message: string;
         }[] = [
             {
-                corruption: { ...snapshot, version: 2 } as unknown as MemoryContentSnapshot,
+                corruption: unsupportedVersion,
                 message: "Memory content snapshot is malformed"
             },
             {
@@ -284,7 +296,7 @@ describe("MemoryContentStore snapshot validation", () => {
                 message: "Stored content or retention state is malformed"
             },
             {
-                corruption: { ...snapshot, edges: ["not-bytes" as unknown as Uint8Array] },
+                corruption: nonbinaryEdge,
                 message: "Malformed owner edge snapshot"
             },
             {
@@ -304,7 +316,7 @@ describe("MemoryContentStore snapshot validation", () => {
                 message: "Malformed content relation snapshot"
             },
             {
-                corruption: { ...snapshot, leases: ["not-bytes" as unknown as Uint8Array] },
+                corruption: nonbinaryLease,
                 message: "Malformed lease snapshot"
             },
             {
@@ -449,7 +461,7 @@ describe("MemoryContentStore transaction and lease isolation", () => {
                     "protocol.invalid-state"
                 );
             });
-            expectAgentCoreError(() => captured!.snapshot(), "actor.closed");
+            expectAgentCoreError(() => defined(captured).snapshot(), "actor.closed");
 
             const stored = await first.put(encode("binding"));
             const edge = new ContentOwnerEdge(owner.tenant, owner.actor, "binding", stored.ref);
@@ -477,16 +489,14 @@ describe("MemoryContentStore transaction and lease isolation", () => {
             const owner = contentOwner();
             store.retention(owner.tenant, owner.actor);
             let captured: MemoryContentRetentionState | undefined;
-            const invokeWithAsyncResult = store.transaction.bind(store) as unknown as (
-                operation: (transaction: MemoryContentRetentionState) => Promise<string>
-            ) => Promise<string>;
             expect(() =>
-                invokeWithAsyncResult((transaction) => {
+                // @ts-expect-error Content-store transactions must reject asynchronous callbacks.
+                store.transaction(async (transaction) => {
                     captured = transaction;
-                    return Promise.resolve("not synchronous");
+                    return "not synchronous";
                 })
             ).toThrow(TypeError);
-            expectAgentCoreError(() => captured!.snapshot(), "actor.closed");
+            expectAgentCoreError(() => defined(captured).snapshot(), "actor.closed");
         }
     );
 
@@ -513,14 +523,15 @@ describe("MemoryContentStore transaction and lease isolation", () => {
                 }),
                 "protocol.invalid-state"
             );
-            expect(lease!.matches({ ...binding, expiresAt: at(41) }, at(20))).toBe(false);
+            const acquiredLease = defined(lease);
+            expect(acquiredLease.matches({ ...binding, expiresAt: at(41) }, at(20))).toBe(false);
             now = at(30);
-            await lease!.close();
-            await lease!.close();
+            await acquiredLease.close();
+            await acquiredLease.close();
             store.transaction((transaction) =>
                 retention.collect(transaction, { allowsCollection: () => true }, at(30))
             );
-            expectAgentCoreError(() => lease!.read(), "codec.invalid");
+            expectAgentCoreError(() => acquiredLease.read(), "codec.invalid");
         }
     );
 

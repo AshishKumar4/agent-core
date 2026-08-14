@@ -17,11 +17,14 @@ import {
     Digest,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    isJsonObject,
+    type JsonObject,
     type JsonValue
 } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import { TenantId } from "../../src/identity";
 import { expectAgentCoreError } from "../protocol/error-assertion";
+import { recordCodecCase, type RecordCodecCase } from "../helpers/record-codec";
 
 const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
 const digest = Digest.sha256(encode("record"));
@@ -29,19 +32,9 @@ const ref = ContentRef.fromDigest(digest);
 const tenant = new TenantId("tenant-records");
 const actor = new ActorRef("workspace", new ActorId("actor-records"));
 
-type JsonObject = { readonly [key: string]: JsonValue };
-
-interface CodecCase {
-    readonly name: string;
-    readonly bytes: Uint8Array;
-    decode(bytes: Uint8Array): unknown;
-}
-
 function jsonObject(value: JsonValue): JsonObject {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
-        throw new TypeError("Expected JSON object");
-    }
-    return value as JsonObject;
+    if (!isJsonObject(value)) throw new TypeError("Expected JSON object");
+    return value;
 }
 
 function envelope(bytes: Uint8Array): JsonObject {
@@ -60,7 +53,7 @@ function withPayload(bytes: Uint8Array, payload: JsonValue): Uint8Array {
     return encodeCanonicalJson({ ...envelope(bytes), payload });
 }
 
-function expectCodecInvalid(operation: () => unknown, code = "codec.invalid"): void {
+function expectCodecInvalid(operation: () => void, code = "codec.invalid"): void {
     expect(operation).toThrowError(AgentCoreError);
     expect(operation).toThrow(expect.objectContaining({ code }));
 }
@@ -77,18 +70,15 @@ describe("content record codecs", () => {
         new Date(10),
         new Date(30)
     );
-    const codecs: readonly CodecCase[] = [
-        { name: "content stat", bytes: ContentStat.encode(stat), decode: ContentStat.decode },
-        {
-            name: "owner edge",
-            bytes: ContentOwnerEdge.encode(edge),
-            decode: ContentOwnerEdge.decode
-        },
-        {
-            name: "transient lease",
-            bytes: TransientContentLeaseState.encode(lease),
-            decode: TransientContentLeaseState.decode
-        }
+    const codecs: readonly RecordCodecCase[] = [
+        recordCodecCase("content stat", stat, ContentStat.encode, ContentStat.decode),
+        recordCodecCase("owner edge", edge, ContentOwnerEdge.encode, ContentOwnerEdge.decode),
+        recordCodecCase(
+            "transient lease",
+            lease,
+            TransientContentLeaseState.encode,
+            TransientContentLeaseState.decode
+        )
     ];
 
     test(
@@ -96,15 +86,7 @@ describe("content record codecs", () => {
         { tags: "p1" },
         () => {
             for (const codec of codecs) {
-                const decoded = codec.decode(codec.bytes);
-                const encoded =
-                    codec.name === "content stat"
-                        ? ContentStat.encode(decoded as ContentStat)
-                        : codec.name === "owner edge"
-                          ? ContentOwnerEdge.encode(decoded as ContentOwnerEdge)
-                          : TransientContentLeaseState.encode(
-                                decoded as TransientContentLeaseState
-                            );
+                const encoded = codec.roundTrip();
                 expect(encoded).toEqual(codec.bytes);
                 expect(typeof envelope(encoded)["kind"]).toBe("string");
             }
@@ -396,7 +378,7 @@ describe("content record diagnostics", () => {
         const leasePayload = member(envelope(leaseBytes), "payload");
         const leaseActor = member(leasePayload, "actor");
         const cases: readonly {
-            readonly decode: (bytes: Uint8Array) => unknown;
+            readonly decode: (bytes: Uint8Array) => void;
             readonly bytes: Uint8Array;
             readonly message: string;
             readonly payloads: readonly JsonValue[];
