@@ -14,12 +14,12 @@ import {
 export type FacetData = JsonValue;
 export type FacetDataMap = { readonly [name: string]: FacetData };
 
-export function isFacetData(value: unknown): value is FacetData {
+export function isFacetData<Candidate>(value: Candidate): value is Candidate & FacetData {
     return isJsonValue(value);
 }
 
-export function isFacetDataMap(value: unknown): value is FacetDataMap {
-    return isFacetData(value) && isJsonObject(value);
+export function isFacetDataMap<Candidate>(value: Candidate): value is Candidate & FacetDataMap {
+    return isJsonValue(value) && isJsonObject(value);
 }
 
 export function canonicalFacetData(value: FacetData): FacetData {
@@ -105,8 +105,9 @@ export function requireExactFields(
     }
 }
 
+/** A JSON string is exactly the value that is its own string rendering. */
 export function isString(value: FacetData | undefined): value is string {
-    return typeof value === "string";
+    return value === String(value);
 }
 
 export function requireString(value: FacetData | undefined, subject: string): string {
@@ -206,6 +207,10 @@ function isSafeInteger(value: FacetData | undefined): value is number {
     return Number.isSafeInteger(value);
 }
 
+// Number.isFinite is already the complete JSON-number check — it is false for every
+// non-number and every non-finite — but it carries no type predicate. This gives the
+// check the narrowing it lacks instead of pairing it with a `typeof` that no test
+// could ever reach.
 export function isNumber(value: FacetData | undefined): value is number {
-    return typeof value === "number";
+    return Number.isFinite(value);
 }
