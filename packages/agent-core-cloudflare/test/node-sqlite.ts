@@ -1,6 +1,4 @@
 import { DatabaseSync } from "node:sqlite";
-import { isObjectRecord } from "@agent-core/core";
-import type { ObjectRecord } from "@agent-core/core";
 import type {
     CloudflareDurableObjectStorage,
     CloudflareSqlBinding,
@@ -13,6 +11,8 @@ import type {
     SynchronousSqlitePort
 } from "../src/index.js";
 import { isFiniteNumber, isText } from "../src/platform-value.js";
+
+type NodeSqliteRow = ReturnType<ReturnType<DatabaseSync["prepare"]>["all"]>[number];
 
 /** Real SQLite semantics for structural tests, backed by an in-memory node:sqlite database. */
 export class NodeSqlite implements SynchronousSqlitePort {
@@ -87,10 +87,7 @@ export class NodeDurableObjectStorage implements CloudflareDurableObjectStorage 
         bindings: readonly CloudflareSqlBinding[]
     ): CloudflareSqlCursor<Record<string, CloudflareSqlValue>> {
         const prepared = this.#database.prepare(statement);
-        return prepared.all(...bindings.map(nodeBinding)).map((row) => {
-            if (!isObjectRecord(row)) throw new TypeError("node:sqlite returned a non-object row");
-            return storedRow(row);
-        });
+        return prepared.all(...bindings.map(nodeBinding)).map(storedRow);
     }
 }
 
@@ -104,7 +101,7 @@ function nodeBinding(value: CloudflareSqlBinding): string | number | Uint8Array 
  * anything outside the column types this package declares is the substrate disagreeing
  * with the schema rather than data to carry.
  */
-function storedRow(row: ObjectRecord): SqliteRow {
+function storedRow(row: NodeSqliteRow): SqliteRow {
     const values: Record<string, SqliteValue> = {};
     for (const [column, value] of Object.entries(row)) {
         if (

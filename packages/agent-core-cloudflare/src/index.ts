@@ -21,13 +21,11 @@ export { locateActorObject } from "./namespace.js";
 export type { ActorNamespaceLocation, DurableObjectNamespaceLike } from "./namespace.js";
 export {
     ActorPlacement,
-    PlacementMigration,
     PlacementResolver,
     SqlitePlacementRegistry,
-    UnimplementedPlacementMigration,
     placementRegistryMigration
 } from "./placement.js";
-export type { PlacementClock, PlacementMigrationRequest, PlacementRegistry } from "./placement.js";
+export type { PlacementClock, PlacementRegistry } from "./placement.js";
 export {
     CloudflareRunHosting,
     DurableObjectRunStorage,

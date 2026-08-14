@@ -12,10 +12,10 @@ import { storedRowReader } from "./sqlite.js";
 import { isWellFormedUnicode } from "./unicode.js";
 
 const CORRUPT_PLACEMENT = "Stored Actor placement is corrupt";
-const READ_PLACEMENT = `SELECT jurisdiction, pinned_at, epoch FROM agent_core_actor_placements
+const READ_PLACEMENT = `SELECT jurisdiction, pinned_at FROM agent_core_actor_placements
     WHERE actor_name = ?`;
 const INSERT_PLACEMENT = `INSERT INTO agent_core_actor_placements
-    (actor_name, jurisdiction, pinned_at, epoch) VALUES (?, ?, ?, ?)`;
+    (actor_name, jurisdiction, pinned_at) VALUES (?, ?, ?)`;
 
 /**
  * Installs the placement ledger. It is deliberately absent from the runtime migrations
@@ -31,8 +31,7 @@ export function placementRegistryMigration(version: number): SqliteApplicationMi
             `CREATE TABLE agent_core_actor_placements (
                 actor_name TEXT PRIMARY KEY,
                 jurisdiction TEXT,
-                pinned_at INTEGER NOT NULL CHECK (pinned_at >= 0),
-                epoch INTEGER NOT NULL CHECK (epoch >= 0)
+                pinned_at INTEGER NOT NULL CHECK (pinned_at >= 0)
             ) STRICT`
         ])
     });
@@ -46,14 +45,12 @@ export interface PlacementClock {
  * Binds one Actor object name to exactly one physical jurisdiction for its lifetime.
  * `jurisdiction` is `undefined` when the Actor is pinned to the default, unrestricted
  * namespace; that is itself a placement decision and may not be silently overridden.
- * `epoch` advances only through a fenced migration, never through resolution.
  */
 export class ActorPlacement {
     public constructor(
         public readonly actorName: string,
         public readonly jurisdiction: string | undefined,
-        public readonly pinnedAt: number,
-        public readonly epoch: number
+        public readonly pinnedAt: number
     ) {
         parseActorObjectName(actorName);
         if (
@@ -67,15 +64,7 @@ export class ActorPlacement {
         if (!Number.isSafeInteger(pinnedAt) || pinnedAt < 0) {
             throw new TypeError("Actor placement pinnedAt must be a non-negative safe integer");
         }
-        if (!Number.isSafeInteger(epoch) || epoch < 0) {
-            throw new TypeError("Actor placement epoch must be a non-negative safe integer");
-        }
         Object.freeze(this);
-    }
-
-    /** Produces the successor pin a fenced migration installs at the next epoch. */
-    public migratedTo(jurisdiction: string | undefined, pinnedAt: number): ActorPlacement {
-        return new ActorPlacement(this.actorName, jurisdiction, pinnedAt, this.epoch + 1);
     }
 
     public sameJurisdiction(jurisdiction: string | undefined): boolean {
@@ -118,8 +107,7 @@ export class SqlitePlacementRegistry implements PlacementRegistry {
             this.database.run(INSERT_PLACEMENT, [
                 placement.actorName,
                 placement.jurisdiction ?? null,
-                placement.pinnedAt,
-                placement.epoch
+                placement.pinnedAt
             ]);
             return placement;
         });
@@ -134,9 +122,8 @@ export class SqlitePlacementRegistry implements PlacementRegistry {
         if (row === undefined) return undefined;
         const jurisdiction = this.rows.nullableText(row, "jurisdiction");
         const pinnedAt = this.rows.integer(row, "pinned_at");
-        const epoch = this.rows.integer(row, "epoch");
         try {
-            return new ActorPlacement(actorName, jurisdiction ?? undefined, pinnedAt, epoch);
+            return new ActorPlacement(actorName, jurisdiction ?? undefined, pinnedAt);
         } catch (cause) {
             operationalFailure(this.errors, "codec.invalid", CORRUPT_PLACEMENT, { value: cause });
         }
@@ -169,7 +156,7 @@ export class PlacementResolver<ObjectId, Stub> {
         const name = actorObjectName(identity);
         const requested = location.namespaceJurisdiction;
         const placement = await this.registry.pin(
-            new ActorPlacement(name, requested, this.#clock.now(), 0)
+            new ActorPlacement(name, requested, this.#clock.now())
         );
         if (requested !== undefined && !placement.sameJurisdiction(requested)) {
             operationalFailure(
@@ -187,42 +174,6 @@ export class PlacementResolver<ObjectId, Stub> {
             placement.jurisdiction === undefined
                 ? {}
                 : { namespaceJurisdiction: placement.jurisdiction }
-        );
-    }
-}
-
-/**
- * A jurisdiction change for a pinned Actor. Draining and fencing the source object under
- * `sourceLeaseEpoch` is a precondition the executing migration MUST satisfy before it
- * installs the successor pin at the next epoch.
- */
-export interface PlacementMigrationRequest {
-    readonly actor: ActorRef;
-    readonly toJurisdiction: string | undefined;
-    readonly sourceLeaseEpoch: number;
-}
-
-/**
- * The fenced-migration seam — the single sanctioned way to move a pinned Actor. Full
- * execution (drain, fence under the source lease epoch, then install the successor pin)
- * is beyond the adapter's current scope; it is defined here as a typed contract.
- */
-export abstract class PlacementMigration {
-    public abstract migrate(request: PlacementMigrationRequest): Promise<ActorPlacement>;
-}
-
-/** Honest fail-closed contract: rejects until fenced migration is implemented. */
-export class UnimplementedPlacementMigration extends PlacementMigration {
-    public constructor(private readonly errors: CloudflareErrorPort) {
-        super();
-    }
-
-    public async migrate(request: PlacementMigrationRequest): Promise<ActorPlacement> {
-        return operationalFailure(
-            this.errors,
-            "protocol.invalid-state",
-            `Fenced placement migration for actor ${request.actor.kind}:${request.actor.id.value} ` +
-                "is not implemented"
         );
     }
 }

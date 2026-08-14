@@ -5,7 +5,6 @@ import {
     PlacementResolver,
     SqliteApplicationMigrator,
     SqlitePlacementRegistry,
-    UnimplementedPlacementMigration,
     actorObjectName,
     cloudflareRuntimeMigrations,
     placementRegistryMigration
@@ -48,7 +47,7 @@ describe("Actor placement jurisdiction encoding", () => {
     const name = actorObjectName({ kind: "run", id: new ActorId("unicode-probe") });
 
     test("accepts a jurisdiction containing well-formed surrogate pairs", () => {
-        const placement = new ActorPlacement(name, "region-\u{1F1EA}\u{1F1FA}", 0, 0);
+        const placement = new ActorPlacement(name, "region-\u{1F1EA}\u{1F1FA}", 0);
         expect(placement.jurisdiction).toBe("region-🇪🇺");
     });
 
@@ -57,7 +56,7 @@ describe("Actor placement jurisdiction encoding", () => {
         ["a high surrogate followed by a non-low unit", "eu\ud800a"],
         ["a lone low surrogate", "eu\udc00"]
     ])("rejects %s: ill-formed Unicode never names a jurisdiction", (_case, jurisdiction) => {
-        expect(() => new ActorPlacement(name, jurisdiction, 0, 0)).toThrow(
+        expect(() => new ActorPlacement(name, jurisdiction, 0)).toThrow(
             "Actor placement jurisdiction must be non-empty well-formed Unicode"
         );
     });
@@ -76,7 +75,6 @@ describe("Actor placement pinning", () => {
         expect(absent).toBe(first);
         const pin = await registry.get(actorObjectName({ kind: actor.kind, id: actor.id }));
         expect(pin?.jurisdiction).toBe("eu");
-        expect(pin?.epoch).toBe(0);
         expect(pin?.pinnedAt).toBe(1000);
     });
 
@@ -106,15 +104,15 @@ describe("Actor placement pinning", () => {
     test("registry round-trips a pin and re-pins the same jurisdiction idempotently", async () => {
         const registry = new SqlitePlacementRegistry(registryDatabase(), fakeErrors);
         const name = actorObjectName({ kind: "run", id: new ActorId("7") });
-        const placement = new ActorPlacement(name, "eu", 1000, 0);
+        const placement = new ActorPlacement(name, "eu", 1000);
 
         expect(await registry.get(name)).toBeUndefined();
         expect(await registry.pin(placement)).toBe(placement);
         expect(await registry.get(name)).toEqual(placement);
 
-        expect(await registry.pin(new ActorPlacement(name, "eu", 2000, 0))).toEqual(placement);
+        expect(await registry.pin(new ActorPlacement(name, "eu", 2000))).toEqual(placement);
         // A concurrent conflicting writer also observes the original pin, never a second one.
-        expect(await registry.pin(new ActorPlacement(name, "us", 3000, 0))).toEqual(placement);
+        expect(await registry.pin(new ActorPlacement(name, "us", 3000))).toEqual(placement);
     });
 
     test(
@@ -124,15 +122,15 @@ describe("Actor placement pinning", () => {
             const database = registryDatabase();
             const name = actorObjectName({ kind: "run", id: new ActorId("7") });
             await new SqlitePlacementRegistry(database, fakeErrors).pin(
-                new ActorPlacement(name, "eu", 1000, 0)
+                new ActorPlacement(name, "eu", 1000)
             );
 
             // A second isolate holds no pins of its own; it reads the durable ledger and
             // observes the first pin, instead of first-pinning the Actor somewhere else.
             const later = new SqlitePlacementRegistry(database, fakeErrors);
-            expect(await later.get(name)).toEqual(new ActorPlacement(name, "eu", 1000, 0));
-            expect(await later.pin(new ActorPlacement(name, "us", 2000, 0))).toEqual(
-                new ActorPlacement(name, "eu", 1000, 0)
+            expect(await later.get(name)).toEqual(new ActorPlacement(name, "eu", 1000));
+            expect(await later.pin(new ActorPlacement(name, "us", 2000))).toEqual(
+                new ActorPlacement(name, "eu", 1000)
             );
         }
     );
@@ -141,7 +139,7 @@ describe("Actor placement pinning", () => {
         const database = registryDatabase();
         const name = actorObjectName({ kind: "run", id: new ActorId("7") });
         await new SqlitePlacementRegistry(database, fakeErrors).pin(
-            new ActorPlacement(name, undefined, 1000, 0)
+            new ActorPlacement(name, undefined, 1000)
         );
 
         // The default namespace is a placement decision, not an absent pin.
@@ -159,12 +157,7 @@ describe("Actor placement pinning", () => {
         // there has no table and cannot keep a private pin.
         await expect(
             registry.pin(
-                new ActorPlacement(
-                    actorObjectName({ kind: "run", id: new ActorId("7") }),
-                    "eu",
-                    0,
-                    0
-                )
+                new ActorPlacement(actorObjectName({ kind: "run", id: new ActorId("7") }), "eu", 0)
             )
         ).rejects.toThrow();
     });
@@ -173,16 +166,16 @@ describe("Actor placement pinning", () => {
         const name = actorObjectName({ kind: "run", id: new ActorId("7") });
         const database = registryDatabase();
         database.run(
-            `INSERT INTO agent_core_actor_placements (actor_name, jurisdiction, pinned_at, epoch)
-                VALUES (?, ?, ?, ?)`,
-            [name, "", 0, 0]
+            `INSERT INTO agent_core_actor_placements (actor_name, jurisdiction, pinned_at)
+                VALUES (?, ?, ?)`,
+            [name, "", 0]
         );
         await expect(
             new SqlitePlacementRegistry(database, fakeErrors).get(name)
         ).rejects.toMatchObject({ code: "codec.invalid" });
 
         const scripted: SynchronousSqlitePort = {
-            all: () => [{ jurisdiction: new Uint8Array([1]), pinned_at: 0, epoch: 0 }],
+            all: () => [{ jurisdiction: new Uint8Array([1]), pinned_at: 0 }],
             run: () => {},
             transaction: <Result>(
                 operation: () => Result,
@@ -196,26 +189,9 @@ describe("Actor placement pinning", () => {
 
     test("ActorPlacement validates its shape", () => {
         const name = actorObjectName({ kind: "run", id: new ActorId("7") });
-        expect(() => new ActorPlacement("not-a-name", "eu", 0, 0)).toThrow(TypeError);
-        expect(() => new ActorPlacement(name, "", 0, 0)).toThrow(TypeError);
-        expect(() => new ActorPlacement(name, "eu", -1, 0)).toThrow(TypeError);
-        expect(() => new ActorPlacement(name, "eu", 0, -1)).toThrow(TypeError);
-        expect(new ActorPlacement(name, undefined, 0, 0).jurisdiction).toBeUndefined();
-        expect(new ActorPlacement(name, "eu", 0, 0).migratedTo("us", 5)).toMatchObject({
-            jurisdiction: "us",
-            epoch: 1,
-            pinnedAt: 5
-        });
-    });
-
-    test("fenced placement migration is a defined but unimplemented contract", async () => {
-        const migration = new UnimplementedPlacementMigration(fakeErrors);
-        const rejection = migration.migrate({
-            actor: new ActorRef("run", new ActorId("7")),
-            toJurisdiction: "us",
-            sourceLeaseEpoch: 3
-        });
-        await expect(rejection).rejects.toBeInstanceOf(AgentCoreError);
-        await expect(rejection).rejects.toThrow("not implemented");
+        expect(() => new ActorPlacement("not-a-name", "eu", 0)).toThrow(TypeError);
+        expect(() => new ActorPlacement(name, "", 0)).toThrow(TypeError);
+        expect(() => new ActorPlacement(name, "eu", -1)).toThrow(TypeError);
+        expect(new ActorPlacement(name, undefined, 0).jurisdiction).toBeUndefined();
     });
 });

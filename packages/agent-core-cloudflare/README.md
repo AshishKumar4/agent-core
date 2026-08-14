@@ -51,13 +51,6 @@ An explicit, conflicting per-call jurisdiction for a pinned Actor is rejected wi
 remains the low-level name lookup and selects a jurisdiction-restricted namespace only when
 its separate `namespaceJurisdiction` option is supplied.
 
-Changing an Actor's jurisdiction is a fenced migration only, expressed by the
-`PlacementMigration` contract (`PlacementMigrationRequest` carries the target jurisdiction and
-the source lease epoch under which the source object must be drained and fenced before the
-successor pin is installed at the next epoch). Full migration execution is out of the
-adapter's current scope; `UnimplementedPlacementMigration` fails closed with a typed
-not-implemented error rather than faking a move.
-
 The alarm driver exposes two sides of crash-safe scheduling: call `armAlarm()` after
 the Actor durably enqueues an outbox ID, and call `repairAlarm()` on Actor startup. A
 crash between enqueue and physical alarm creation is repaired from the outbox. The
