@@ -730,23 +730,26 @@ describe("EnvironmentController", () => {
                 "Environment provider resource outcome is malformed"
             );
 
-            provider.openOutcomeOverride = malformedResource({});
+            // @ts-expect-error Runtime validation covers a provider outcome with no discriminator.
+            provider.openOutcomeOverride = {};
             await expect(
                 fixture.controller.openSession(reserved.capability, lease)
             ).rejects.toEqual(invalidOutput);
             provider.openOutcomeOverride = undefined;
             const opened = await fixture.controller.openSession(reserved.capability, lease);
 
-            provider.inspectSessionOutcomeOverride = malformedResource({ name: "ready" });
+            // @ts-expect-error Runtime validation covers a ready outcome with no resource.
+            provider.inspectSessionOutcomeOverride = { name: "ready" };
             await expect(fixture.controller.reconcileSession(opened.id, lease)).rejects.toEqual(
                 invalidOutput
             );
             provider.inspectSessionOutcomeOverride = undefined;
 
-            provider.snapshotOutcomeOverride = malformedResource({
+            provider.snapshotOutcomeOverride = {
                 name: "ready",
+                // @ts-expect-error Runtime validation covers a snapshot resource of the wrong type.
                 value: "not-content"
-            });
+            };
             await expect(
                 fixture.controller.snapshot(
                     opened.capability,
@@ -761,16 +764,18 @@ describe("EnvironmentController", () => {
                 new EnvironmentSnapshotId("snapshot-malformed-inspect"),
                 lease
             );
-            provider.inspectSnapshotOutcomeOverride = malformedResource({
+            provider.inspectSnapshotOutcomeOverride = {
                 name: "absent",
+                // @ts-expect-error Runtime validation covers an absent outcome carrying a resource.
                 value: undefined
-            });
+            };
             await expect(
                 fixture.controller.reconcileSnapshot(creatingSnapshot.id, lease)
             ).rejects.toEqual(invalidOutput);
             provider.inspectSnapshotOutcomeOverride = undefined;
 
-            provider.exposureOutcomeOverride = malformedResource({ name: "ready", value: 4173 });
+            // @ts-expect-error Runtime validation covers an exposure resource of the wrong type.
+            provider.exposureOutcomeOverride = { name: "ready", value: 4173 };
             await expect(
                 fixture.controller.expose(
                     opened.capability,
@@ -787,7 +792,8 @@ describe("EnvironmentController", () => {
                 4174,
                 lease
             );
-            provider.inspectExposureOutcomeOverride = malformedResource({ name: "unknown" });
+            // @ts-expect-error Runtime validation covers an unknown outcome discriminator.
+            provider.inspectExposureOutcomeOverride = { name: "unknown" };
             await expect(fixture.controller.reconcileExposure(exposing.id, lease)).rejects.toEqual(
                 invalidOutput
             );
@@ -810,7 +816,8 @@ describe("EnvironmentController", () => {
                 "Environment provider resource outcome is malformed"
             );
 
-            provider.openOutcomeOverride = malformedResource(null);
+            // @ts-expect-error Runtime validation covers a null provider outcome.
+            provider.openOutcomeOverride = null;
             await expect(
                 fixture.controller.openSession(reserved.capability, lease)
             ).rejects.toEqual(invalidResource);
@@ -819,7 +826,8 @@ describe("EnvironmentController", () => {
                 { children: [{}], release() {} },
                 { children: [], release: "not-a-function" }
             ]) {
-                provider.openOutcomeOverride = malformedResource({ name: "ready", value: handle });
+                // @ts-expect-error Runtime validation covers malformed provider session handles.
+                provider.openOutcomeOverride = { name: "ready", value: handle };
                 await expect(
                     fixture.controller.openSession(reserved.capability, lease)
                 ).rejects.toEqual(invalidResource);
@@ -850,7 +858,8 @@ describe("EnvironmentController", () => {
                 "Environment provider action outcome is malformed"
             );
 
-            provider.revokeOutcomeOverride = malformedAction({ name: "succeeded", extra: true });
+            // @ts-expect-error Runtime validation covers unknown action outcome fields.
+            provider.revokeOutcomeOverride = { name: "succeeded", extra: true };
             await expect(
                 fixture.controller.revoke(opened.capability, exposure.id, lease)
             ).rejects.toEqual(invalidOutput);
@@ -860,7 +869,8 @@ describe("EnvironmentController", () => {
                 (await fixture.controller.reconcileExposure(exposure.id, lease)).state.name
             ).toBe("revoked");
 
-            provider.closeOutcomeOverride = malformedAction({ name: "absent" });
+            // @ts-expect-error Runtime validation covers a resource-only action discriminator.
+            provider.closeOutcomeOverride = { name: "absent" };
             await expect(fixture.controller.closeSession(opened.capability, lease)).rejects.toEqual(
                 invalidOutput
             );
@@ -877,7 +887,8 @@ describe("EnvironmentController", () => {
                 nullReserved.capability,
                 lease
             );
-            nullProvider.closeOutcomeOverride = malformedAction(null);
+            // @ts-expect-error Runtime validation covers a null action outcome.
+            nullProvider.closeOutcomeOverride = null;
             await expect(
                 nullFixture.controller.closeSession(nullOpened.capability, lease)
             ).rejects.toEqual(invalidOutput);
@@ -1715,7 +1726,8 @@ describe("EnvironmentController", () => {
         await fixture.controller.openSession(reserved.capability, lease);
         const snapshotId = new EnvironmentSnapshotId("snapshot-ready-reconcile");
         await fixture.controller.snapshot(reserved.capability, snapshotId, lease);
-        provider.inspectSnapshotOutcomeOverride = malformedResource({ name: "bogus" });
+        // @ts-expect-error This branch must remain unobserved for an already-ready snapshot.
+        provider.inspectSnapshotOutcomeOverride = { name: "bogus" };
 
         const reconciled = await fixture.controller.reconcileSnapshot(snapshotId, lease);
 
@@ -2130,7 +2142,7 @@ describe("EnvironmentController", () => {
                 code: "operation.invalid-output",
                 message: "Environment provider resource outcome is malformed"
             });
-            const handles: unknown[] = [
+            const handles: object[] = [
                 Object.assign(() => {}, { children: [], release: () => {} }),
                 { children: [Object.assign(() => {}, { dispose: () => {} })], release: () => {} },
                 {
@@ -2142,7 +2154,8 @@ describe("EnvironmentController", () => {
             ];
 
             for (const handle of handles) {
-                provider.openOutcomeOverride = malformedResource({ name: "ready", value: handle });
+                // @ts-expect-error Runtime validation covers hostile provider session handles.
+                provider.openOutcomeOverride = { name: "ready", value: handle };
                 await expect(
                     fixture.controller.openSession(reserved.capability, lease)
                 ).rejects.toEqual(invalidResource);
@@ -2162,7 +2175,8 @@ describe("EnvironmentController", () => {
         const opened = await fixture.controller.openSession(reserved.capability, lease);
         const succeeded = () => {};
         Reflect.deleteProperty(succeeded, "length");
-        provider.closeOutcomeOverride = malformedAction(succeeded);
+        // @ts-expect-error Runtime validation covers callable provider outcomes.
+        provider.closeOutcomeOverride = succeeded;
 
         await expect(fixture.controller.closeSession(opened.capability, lease)).rejects.toEqual(
             expect.objectContaining({
@@ -2397,26 +2411,34 @@ class MissingRevisionEnvironmentStore extends MemoryEnvironmentStore {
 
 class Deferred<Value> {
     public readonly promise: Promise<Value>;
-    public resolve!: (value: Value) => void;
+    public readonly resolve: (value: Value) => void;
 
     public constructor() {
+        let resolvePromise: ((value: Value) => void) | undefined;
         this.promise = new Promise((resolve) => {
-            this.resolve = resolve;
+            resolvePromise = resolve;
         });
+        if (resolvePromise === undefined)
+            throw new TypeError("Promise resolver was not initialized");
+        this.resolve = resolvePromise;
     }
 }
 
-function setup(providers: readonly TestProvider[]): {
+interface EnvironmentFixture {
     readonly store: MemoryEnvironmentStore;
     readonly registry: MemoryEnvironmentProviderRegistry;
     readonly verifier: TurnLeaseVerifier;
     readonly controller: EnvironmentController;
-} {
+}
+
+function setup(providers: readonly TestProvider[]): EnvironmentFixture {
+    const provider = providers[0];
+    if (provider === undefined) throw new TypeError("Expected at least one Environment provider");
     const store = new MemoryEnvironmentStore();
     const registry = new MemoryEnvironmentProviderRegistry(providers);
     const verifier: TurnLeaseVerifier = { permits: (candidate) => candidate === lease };
     const controller = new EnvironmentController(store, registry, verifier);
-    controller.provision(initialRevision(providers[0]!.descriptor), lease);
+    controller.provision(initialRevision(provider.descriptor), lease);
     return { store, registry, verifier, controller };
 }
 
@@ -2430,12 +2452,4 @@ function descriptor(id: string, digestCharacter: string): ProviderDescriptor {
 
 function content(character: string): ContentRef {
     return new ContentRef(`sha256:${character.repeat(64)}`);
-}
-
-function malformedResource<Value>(value: unknown): ResourceOutcome<Value> {
-    return value as ResourceOutcome<Value>;
-}
-
-function malformedAction(value: unknown): ActionOutcome {
-    return value as ActionOutcome;
 }

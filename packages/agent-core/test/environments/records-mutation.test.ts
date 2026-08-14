@@ -1,12 +1,5 @@
 import { describe, expect, test } from "vitest";
-import {
-    ContentRef,
-    Revision,
-    decodeCanonicalJson,
-    encodeCanonicalJson,
-    type JsonValue,
-    type RecordEnvelope
-} from "../../src/core";
+import { ContentRef, Revision, encodeCanonicalJson, type JsonValue } from "../../src/core";
 import {
     Environment,
     EnvironmentId,
@@ -23,6 +16,7 @@ import {
     ProviderDescriptor,
     ProviderId
 } from "../../src/environments";
+import { decodeRecordEnvelope } from "../helpers/record-codec";
 
 const environmentId = new EnvironmentId("environment-record-mutation");
 const sessionId = new EnvironmentSessionId("session-record-mutation");
@@ -55,8 +49,14 @@ describe("Environment record mutation kills", () => {
         const failed = sessionIn(EnvironmentSessionState.failed);
         const closed = sessionIn(EnvironmentSessionState.closed);
         const cases = [
-            [() => reserved.opened(), "Cannot complete open an Environment session in reserved state"],
-            [() => reserved.failOpen(), "Cannot fail open an Environment session in reserved state"],
+            [
+                () => reserved.opened(),
+                "Cannot complete open an Environment session in reserved state"
+            ],
+            [
+                () => reserved.failOpen(),
+                "Cannot fail open an Environment session in reserved state"
+            ],
             [() => reserved.lost(), "Cannot mark lost an Environment session in reserved state"],
             [() => closed.beginOpen(), "Cannot open an Environment session in closed state"],
             [() => failed.closed(), "Cannot complete close an Environment session in failed state"],
@@ -131,7 +131,12 @@ describe("Environment record mutation kills", () => {
             url: null,
             recordRevision: 0
         };
-        const environment = new Environment(environmentId, Revision.initial(), 0, Revision.initial());
+        const environment = new Environment(
+            environmentId,
+            Revision.initial(),
+            0,
+            Revision.initial()
+        );
         const revisionRecord = new EnvironmentRevisionRecord(
             environmentId,
             Revision.initial(),
@@ -351,20 +356,25 @@ describe("Environment record mutation kills", () => {
         }
     });
 
-    test("exposure URLs allow http, forbid credentials, and must be strings", { tags: "p1" }, () => {
-        expect(exposureWithUrl("http://preview.example.test/").url).toBe(
-            "http://preview.example.test/"
-        );
-        expect(() => exposureWithUrl("https://user@example.test/")).toThrow(
-            new TypeError("Port exposure URL must not contain credentials or bearer material")
-        );
-        expect(() => exposureWithUrl("https://:secret@example.test/")).toThrow(
-            new TypeError("Port exposure URL must not contain credentials or bearer material")
-        );
-        expect(() => exposureWithUrl(42 as unknown as string)).toThrow(
-            new TypeError("Port exposure URL must be a string")
-        );
-    });
+    test(
+        "exposure URLs allow http, forbid credentials, and must be strings",
+        { tags: "p1" },
+        () => {
+            expect(exposureWithUrl("http://preview.example.test/").url).toBe(
+                "http://preview.example.test/"
+            );
+            expect(() => exposureWithUrl("https://user@example.test/")).toThrow(
+                new TypeError("Port exposure URL must not contain credentials or bearer material")
+            );
+            expect(() => exposureWithUrl("https://:secret@example.test/")).toThrow(
+                new TypeError("Port exposure URL must not contain credentials or bearer material")
+            );
+            expect(
+                // @ts-expect-error Runtime validation covers URLs excluded by the public type.
+                () => exposureWithUrl(42)
+            ).toThrow(new TypeError("Port exposure URL must be a string"));
+        }
+    );
 
     test("provider versions admit exactly 128 characters", { tags: "p2" }, () => {
         const limit = new ProviderDescriptor(provider.id, "v".repeat(128), provider.configuration);
@@ -373,12 +383,8 @@ describe("Environment record mutation kills", () => {
             () => new ProviderDescriptor(provider.id, "v".repeat(129), provider.configuration)
         ).toThrow(new TypeError("Provider version must contain between 1 and 128 characters"));
         expect(
-            () =>
-                new ProviderDescriptor(
-                    provider.id,
-                    42 as unknown as string,
-                    provider.configuration
-                )
+            // @ts-expect-error Runtime validation covers versions excluded by the public type.
+            () => new ProviderDescriptor(provider.id, 42, provider.configuration)
         ).toThrow(new TypeError("Provider version must contain between 1 and 128 characters"));
     });
 
@@ -408,7 +414,7 @@ function expectDecodeFailure<Record>(
     payload: JsonValue,
     message: string
 ): void {
-    const envelope = decodeCanonicalJson(recordClass.encode(record)) as JsonValue & RecordEnvelope;
+    const envelope = decodeRecordEnvelope(recordClass.encode(record));
     expect(() =>
         recordClass.decode(
             encodeCanonicalJson({
