@@ -152,12 +152,6 @@
       "reason": "Run execution is generic over the host transaction and the values a Turn returns."
     },
     {
-      "file": "packages/agent-core/src/agents/runs/memory.ts",
-      "kind": "unknown",
-      "count": 1,
-      "reason": "Run execution is generic over the host transaction and the values a Turn returns."
-    },
-    {
       "file": "packages/agent-core/src/agents/runs/run.ts",
       "kind": "non-null",
       "count": 1,
@@ -576,18 +570,6 @@
       "kind": "non-null",
       "count": 1,
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
-    },
-    {
-      "file": "packages/agent-core/src/facets/slot-memory.ts",
-      "kind": "assertion",
-      "count": 1,
-      "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
-    },
-    {
-      "file": "packages/agent-core/src/facets/slot-memory.ts",
-      "kind": "unknown",
-      "count": 2,
-      "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
     },
     {
       "file": "packages/agent-core/src/facets/slot.ts",

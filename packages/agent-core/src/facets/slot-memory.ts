@@ -1,4 +1,4 @@
-import { Revision } from "../core";
+import { Revision, isObjectRecord } from "../core";
 import type { SynchronousResultGuard, TransactionOperation } from "../actors";
 import { AgentCoreError } from "../errors";
 import type { WorkspaceId } from "../identity";
@@ -242,10 +242,11 @@ function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
     );
 }
 
-function isThenable(value: unknown): value is PromiseLike<unknown> {
-    return (typeof value === "object" && value !== null) || typeof value === "function"
-        ? typeof (value as { readonly then?: unknown }).then === "function"
-        : false;
+function isThenable<Result>(value: Result): value is Result & PromiseLike<never> {
+    if (isObjectRecord(value)) {
+        return value["then"] instanceof Function;
+    }
+    return value instanceof Function && "then" in value && value["then"] instanceof Function;
 }
 
 function requireSnapshot(snapshot: MemoryWorkspaceSlotSnapshot): void {
