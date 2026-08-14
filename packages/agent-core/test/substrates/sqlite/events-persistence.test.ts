@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
 import type { SynchronousResultGuard } from "../../../src/actors";
+import { Digest, Revision } from "../../../src/core";
 import { sqliteText } from "../../../src/substrates/sqlite/content";
 import { SqliteWorkspaceEventRecords } from "../../../src/substrates/sqlite/events/records";
 import {
@@ -10,10 +11,25 @@ import {
     type SqliteRow,
     type SqliteValue
 } from "../../../src/substrates/sqlite/sqlite";
-import { WorkspacePersistence, type CompactableWorkspaceRecordKind } from "../../../src/workspaces";
+import {
+    EventCursor,
+    View,
+    ViewDelta,
+    ViewMark,
+    ViewReplayProtocol,
+    WorkspacePersistence,
+    type CompactableWorkspaceRecordKind
+} from "../../../src/workspaces";
 import { malformed } from "../../helpers/malformed";
 import { FileSqlite, TestSqlite } from "../../helpers/sqlite";
-import { eventFixture, eventRetention, sourceActor, tenant } from "../../workspaces/fixtures";
+import {
+    DeterministicJsonPatchEngine,
+    eventFixture,
+    eventRetention,
+    sourceActor,
+    tenant,
+    viewFixture
+} from "../../workspaces/fixtures";
 import {
     workspacePersistenceContract,
     type WorkspacePersistenceHarness
@@ -56,6 +72,89 @@ test("file-backed SQLite records survive a database close and reopen", { tags: "
         rmSync(directory, { recursive: true, force: true });
     }
 });
+
+test(
+    "file-backed SQLite preserves decision provenance through delta replay after reopen",
+    { tags: "p0" },
+    () => {
+        const directory = mkdtempSync(join(tmpdir(), "agent-core-view-provenance-"));
+        const path = join(directory, "events.sqlite");
+        const base = viewFixture(0, "sqlite-provenance-restart");
+        const initialIntent = Digest.sha256(new TextEncoder().encode("sqlite-initial-intent"));
+        const nextIntent = Digest.sha256(new TextEncoder().encode("sqlite-next-intent"));
+        const initial = new View({
+            ...base,
+            intentDigest: initialIntent,
+            marks: [new ViewMark("/count", "external")]
+        });
+        const delta = new ViewDelta({
+            surface: initial.surface,
+            baseRevision: initial.revision,
+            revision: initial.revision.next(),
+            patch: [
+                { op: "replace", path: "/body/count", value: 1 },
+                { op: "replace", path: "/intentDigest", value: nextIntent.value },
+                {
+                    op: "replace",
+                    path: "/marks",
+                    value: [{ path: "/count", tier: "authenticated" }]
+                }
+            ],
+            cursor: new EventCursor("cursor-sqlite-provenance-restart")
+        });
+        let database: FileSqlite | undefined;
+        try {
+            const opened = new FileSqlite(path);
+            database = opened;
+            let records = new SqliteWorkspaceEventRecords(opened);
+            let persistence = new WorkspacePersistence<TransactionalSqlite>(
+                () => records,
+                { verify: () => true, release: () => {}, discard: () => {} },
+                sourceActor,
+                tenant
+            );
+            let protocol = new ViewReplayProtocol(
+                persistence,
+                new DeterministicJsonPatchEngine(),
+                sourceActor,
+                tenant
+            );
+            opened.transaction(() => {
+                protocol.publishSnapshot(opened, initial, []);
+                protocol.publish(opened, delta, [], []);
+            });
+            opened.close();
+            database = undefined;
+
+            const reopened = new FileSqlite(path);
+            database = reopened;
+            records = new SqliteWorkspaceEventRecords(reopened);
+            persistence = new WorkspacePersistence<TransactionalSqlite>(
+                () => records,
+                { verify: () => true, release: () => {}, discard: () => {} },
+                sourceActor,
+                tenant
+            );
+            protocol = new ViewReplayProtocol(
+                persistence,
+                new DeterministicJsonPatchEngine(),
+                sourceActor,
+                tenant
+            );
+            const replay = reopened.transaction(() =>
+                protocol.replay(reopened, initial.surface, Revision.initial())
+            );
+
+            expect(replay.kind).toBe("deltas");
+            expect(replay.view.intentDigest?.equals(nextIntent)).toBe(true);
+            expect(replay.view.marks).toEqual([new ViewMark("/count", "authenticated")]);
+            expect(replay.view.body).toEqual({ count: 1, nested: { enabled: true } });
+        } finally {
+            database?.close();
+            rmSync(directory, { recursive: true, force: true });
+        }
+    }
+);
 
 test("rejects preexisting lax workspace event tables", { tags: "p1" }, () => {
     const database = new TestSqlite();

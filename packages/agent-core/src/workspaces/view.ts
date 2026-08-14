@@ -4,7 +4,9 @@ import {
     RecordCodec,
     Revision,
     isJsonObject,
+    type JsonFields,
     type JsonSchemaDocument,
+    type JsonObject,
     type JsonValue,
     type RecordVersion
 } from "../core";
@@ -15,7 +17,6 @@ import {
     encodeRevision,
     requireArray,
     requireFields,
-    requireNullableString,
     requireObject,
     requireString
 } from "./codec";
@@ -129,16 +130,17 @@ class ViewCodecV2 extends RecordCodec<View> {
             body: view.body,
             actions: view.actions.map(encodeAction),
             cursor: view.cursor.value,
-            intentDigest: view.intentDigest?.value ?? null,
-            marks: view.marks?.map(encodeViewMark) ?? null
+            ...encodeViewProvenance(view)
         };
     }
 
     protected decodePayload(payload: JsonValue, _version: RecordVersion): View {
         const object = requireObject(payload, "View payload");
-        requireFields(
+        const provenance = decodeViewProvenance(object, "View payload");
+        requireViewFields(
             object,
-            ["actions", "body", "cursor", "intentDigest", "marks", "revision", "surface"],
+            provenance,
+            ["actions", "body", "cursor", "revision", "surface"],
             "View payload"
         );
         const init = {
@@ -148,11 +150,7 @@ class ViewCodecV2 extends RecordCodec<View> {
             actions: requireArray(object["actions"], "View actions").map(decodeAction),
             cursor: new EventCursor(requireString(object["cursor"], "View cursor"))
         };
-        const intentDigest = requireNullableString(object["intentDigest"], "View intent digest");
-        const marks = decodeViewMarks(object["marks"]);
-        return intentDigest === undefined
-            ? new View(init)
-            : new View({ ...init, intentDigest: new Digest(intentDigest), marks });
+        return provenance === undefined ? new View(init) : new View({ ...init, ...provenance });
     }
 }
 
@@ -172,8 +170,8 @@ export class View {
     public readonly body: JsonValue;
     public readonly actions: readonly ActionDescriptor[];
     public readonly cursor: EventCursor;
-    public readonly intentDigest: Digest | undefined;
-    public readonly marks: readonly ViewMark[] | undefined;
+    declare public readonly intentDigest: Digest | undefined;
+    declare public readonly marks: readonly ViewMark[] | undefined;
 
     public constructor(init: ViewInit) {
         const actionIds = new Set<string>();
@@ -185,10 +183,8 @@ export class View {
             actionIds.add(action.id.value);
         }
         const body = canonicalJson(init.body);
-        if (init.marks !== undefined && init.intentDigest === undefined) {
-            throw new TypeError("Only a decision View may carry provenance marks");
-        }
-        const marks = init.marks?.map((mark) => new ViewMark(mark.path, mark.tier)) ?? [];
+        const provenance = requireViewProvenance(init);
+        const marks = provenance?.marks.map((mark) => new ViewMark(mark.path, mark.tier)) ?? [];
         marks.sort(compareViewMarks);
         for (const [index, mark] of marks.entries()) {
             if (marks[index - 1]?.path === mark.path) {
@@ -201,9 +197,10 @@ export class View {
         this.body = body;
         this.actions = Object.freeze(actions);
         this.cursor = init.cursor;
-        this.intentDigest =
-            init.intentDigest === undefined ? undefined : new Digest(init.intentDigest.value);
-        this.marks = init.intentDigest === undefined ? undefined : Object.freeze(marks);
+        if (provenance !== undefined) {
+            this.intentDigest = new Digest(provenance.intentDigest.value);
+            this.marks = Object.freeze(marks);
+        }
         Object.freeze(this);
     }
 }
@@ -286,14 +283,14 @@ export function viewDocument(view: View): JsonValue {
     return canonicalJson({
         body: view.body,
         actions: view.actions.map(encodeAction),
-        intentDigest: view.intentDigest?.value ?? null,
-        marks: view.marks?.map(encodeViewMark) ?? null
+        ...encodeViewProvenance(view)
     });
 }
 
 export function viewFromDocument(previous: View, delta: ViewDelta, document: JsonValue): View {
     const object = requireObject(document, "Patched View document");
-    requireFields(object, ["actions", "body", "intentDigest", "marks"], "Patched View document");
+    const provenance = decodeViewProvenance(object, "Patched View document");
+    requireViewFields(object, provenance, ["actions", "body"], "Patched View document");
     if (!previous.surface.equals(delta.surface) || !previous.revision.equals(delta.baseRevision)) {
         throw new AgentCoreError(
             "protocol.revision-conflict",
@@ -307,18 +304,38 @@ export function viewFromDocument(previous: View, delta: ViewDelta, document: Jso
         actions: requireArray(object["actions"], "Patched View actions").map(decodeAction),
         cursor: delta.cursor
     };
-    const intentDigest = requireNullableString(
-        object["intentDigest"],
-        "Patched View intent digest"
-    );
-    const marks = decodeViewMarks(object["marks"]);
-    return intentDigest === undefined
-        ? new View(init)
-        : new View({ ...init, intentDigest: new Digest(intentDigest), marks });
+    return provenance === undefined ? new View(init) : new View({ ...init, ...provenance });
 }
 
 function encodeViewMark(mark: ViewMark): JsonValue {
     return { path: mark.path, tier: mark.tier };
+}
+
+interface ViewProvenance {
+    readonly intentDigest: Digest;
+    readonly marks: readonly ViewMark[];
+}
+
+function requireViewProvenance(view: ViewInit | View): ViewProvenance | undefined {
+    const hasIntent = Object.hasOwn(view, "intentDigest");
+    const hasMarks = Object.hasOwn(view, "marks");
+    const intentDigest = view.intentDigest;
+    const marks = view.marks;
+    if (!hasIntent && !hasMarks) return undefined;
+    if (!hasIntent || !hasMarks || intentDigest === undefined || marks === undefined) {
+        throw new TypeError("Decision View provenance requires both intentDigest and marks");
+    }
+    return { intentDigest, marks };
+}
+
+function encodeViewProvenance(view: View): JsonObject {
+    const provenance = requireViewProvenance(view);
+    return provenance === undefined
+        ? {}
+        : {
+              intentDigest: provenance.intentDigest.value,
+              marks: provenance.marks.map(encodeViewMark)
+          };
 }
 
 function decodeViewMark(value: JsonValue): ViewMark {
@@ -328,9 +345,30 @@ function decodeViewMark(value: JsonValue): ViewMark {
     return new ViewMark(requireString(object["path"], "View mark path"), requireTrustTier(tier));
 }
 
-function decodeViewMarks(value: JsonValue | undefined): readonly ViewMark[] | undefined {
-    if (value === null) return undefined;
-    return requireArray(value, "View marks").map(decodeViewMark);
+function decodeViewProvenance(object: JsonObject, subject: string): ViewProvenance | undefined {
+    const hasIntent = Object.hasOwn(object, "intentDigest");
+    const hasMarks = Object.hasOwn(object, "marks");
+    if (!hasIntent && !hasMarks) return undefined;
+    if (!hasIntent || !hasMarks) {
+        throw new TypeError(`${subject} must carry both intentDigest and marks or omit both`);
+    }
+    return {
+        intentDigest: new Digest(requireString(object["intentDigest"], `${subject} intent digest`)),
+        marks: requireArray(object["marks"], `${subject} marks`).map(decodeViewMark)
+    };
+}
+
+function requireViewFields<Field extends string>(
+    object: JsonObject,
+    provenance: ViewProvenance | undefined,
+    fields: readonly Field[],
+    subject: string
+): asserts object is JsonFields<Field> {
+    requireFields(
+        object,
+        provenance === undefined ? fields : [...fields, "intentDigest", "marks"],
+        subject
+    );
 }
 
 function requireTrustTier(value: string): TrustTier {

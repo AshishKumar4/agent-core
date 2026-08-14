@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { ContentRef, Digest, Revision } from "../../src/core";
 import { SurfaceId } from "../../src/facets";
 import { EventCursor } from "../../src/workspaces/id";
-import { View, ViewDelta } from "../../src/workspaces/view";
+import { View, ViewDelta, ViewMark } from "../../src/workspaces/view";
 import { MemoryWorkspaceRecords } from "../../src/workspaces/memory";
 import { WorkspacePersistence } from "../../src/workspaces/persistence";
 import { ViewReplayProtocol } from "../../src/workspaces/view-replay";
@@ -27,7 +27,13 @@ describe("ViewReplayProtocol", () => {
         );
         const engine = new DeterministicJsonPatchEngine();
         const protocol = new ViewReplayProtocol(persistence, engine, sourceActor, tenant);
-        const initial = viewFixture(0, "replay");
+        const base = viewFixture(0, "replay");
+        const intentDigest = Digest.sha256(new TextEncoder().encode("replay-decision"));
+        const initial = new View({
+            ...base,
+            intentDigest,
+            marks: [new ViewMark("/count", "external")]
+        });
         const delta = viewDeltaFixture(initial, 9);
         protocol.publishSnapshot(records, initial, []);
 
@@ -63,6 +69,8 @@ describe("ViewReplayProtocol", () => {
         expect(replay.base).toEqual(Revision.initial());
         expect(replay.deltas).toEqual([delta]);
         expect(replay.view.body).toEqual(next.body);
+        expect(replay.view.intentDigest?.equals(intentDigest)).toBe(true);
+        expect(replay.view.marks).toEqual([new ViewMark("/count", "external")]);
         expect(restartedEngine.calls).toHaveLength(1);
     });
 

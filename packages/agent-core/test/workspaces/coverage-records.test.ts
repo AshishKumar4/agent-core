@@ -1146,9 +1146,7 @@ describe("views and deltas", () => {
         const next = delta(previous);
         expect(viewDocument(previous)).toEqual({
             actions: [{ arguments: null, emits: "coverage.submitted", id: "old", label: "Submit" }],
-            body: { ready: true },
-            intentDigest: null,
-            marks: null
+            body: { ready: true }
         });
         const rebuilt = viewFromDocument(previous, next, {
             actions: [
@@ -1159,9 +1157,7 @@ describe("views and deltas", () => {
                     label: "Renamed"
                 }
             ],
-            body: ["next"],
-            intentDigest: null,
-            marks: null
+            body: ["next"]
         });
         expect(rebuilt.revision.equals(next.revision)).toBe(true);
         expect(rebuilt.cursor.equals(next.cursor)).toBe(true);
@@ -1198,17 +1194,13 @@ describe("views and deltas", () => {
             viewFromDocument(previous, next, {
                 actions: [],
                 body: {},
-                intentDigest: null,
-                marks: null,
                 unknown: true
             })
         ).toThrow(/missing or unknown fields/);
         expect(() =>
             viewFromDocument(previous, next, {
                 actions: {},
-                body: {},
-                intentDigest: null,
-                marks: null
+                body: {}
             })
         ).toThrow(/must be an array/);
         expect(() =>
@@ -1222,9 +1214,7 @@ describe("views and deltas", () => {
                         label: "Second"
                     }
                 ],
-                body: {},
-                intentDigest: null,
-                marks: null
+                body: {}
             })
         ).toThrow(/action IDs must be unique/);
     });
