@@ -22,6 +22,8 @@ import * as workspaces from "../../src/workspaces";
 import {
     RecordCodec,
     encodeCanonicalJson,
+    isJsonObject,
+    isJsonValue,
     type JsonValue,
     type RecordVersion
 } from "../../src/core";
@@ -31,7 +33,7 @@ import { expectAgentCoreError } from "../protocol/error-assertion";
 // The registry names every record by its declaring module; the barrels are the
 // only way to reach the values, because a computed import specifier is a
 // reference the import-boundary checker cannot verify.
-const barrels: ReadonlyArray<Readonly<Record<string, unknown>>> = [
+const barrels: readonly object[] = [
     actors,
     agents,
     authority,
@@ -60,8 +62,10 @@ interface RecordRow {
 }
 
 interface ValueCodec {
-    decode(bytes: Uint8Array): unknown;
+    decode(bytes: Uint8Array): void;
 }
+
+type DecodeFunction = ValueCodec["decode"];
 
 const packageUrl = new URL("../../", import.meta.url);
 const rows = readRecordRegistry();
@@ -85,14 +89,16 @@ const constructedCodecs = [
 ] as const;
 
 const envelopeCodecs = rows.flatMap((row) => {
-    const codec = resolveSelector(row.codec);
-    return codec instanceof RecordCodec ? [{ row, codec }] : [];
+    const codec = select(row.codec, isRecordCodec);
+    return codec === undefined ? [] : [{ row, codec }];
 });
 const valueCodecs = rows.flatMap((row) => {
-    const decode = resolveSelector(`${row.codec.slice(0, row.codec.lastIndexOf("."))}.decode`);
-    return typeof decode === "function" && !(resolveSelector(row.codec) instanceof RecordCodec)
-        ? [{ row, codec: { decode } as ValueCodec }]
-        : [];
+    const decode = select(
+        `${row.codec.slice(0, row.codec.lastIndexOf("."))}.decode`,
+        isDecodeFunction
+    );
+    const envelopeCodec = select(row.codec, isRecordCodec);
+    return decode === undefined || envelopeCodec !== undefined ? [] : [{ row, codec: { decode } }];
 });
 
 describe("registered record decode contract", () => {
@@ -245,7 +251,7 @@ function envelopeBytes(kind: string, version: RecordVersion, payload: JsonValue)
     });
 }
 
-function expectTypedOrAccepted(operation: () => unknown): void {
+function expectTypedOrAccepted(operation: () => void): void {
     try {
         operation();
     } catch (error) {
@@ -257,30 +263,90 @@ function text(source: string): Uint8Array {
     return new TextEncoder().encode(source);
 }
 
-function resolveSelector(selector: string): unknown {
+function select<Value>(
+    selector: string,
+    accepts: (candidate: unknown) => candidate is Value
+): Value | undefined {
     const path = selector.slice(selector.indexOf("#") + 1).split(".");
-    let value = lookup(path[0]!);
-    for (const member of path.slice(1)) {
-        if (value === undefined || value === null) return undefined;
-        value = (value as Record<string, unknown>)[member];
+    const root = path[0];
+    if (root === undefined) return undefined;
+    let owner = lookupOwner(root);
+    const members = path.slice(1);
+    for (const [index, member] of members.entries()) {
+        if (owner === undefined) return undefined;
+        const descriptor = Object.getOwnPropertyDescriptor(owner, member);
+        if (descriptor === undefined) return undefined;
+        const candidate: unknown =
+            descriptor.get === undefined ? descriptor.value : descriptor.get.call(owner);
+        if (index === members.length - 1) return accepts(candidate) ? candidate : undefined;
+        owner = isSelectorOwner(candidate) ? candidate : undefined;
     }
-    return value;
+    return accepts(owner) ? owner : undefined;
 }
 
-function lookup(name: string): unknown {
+function lookupOwner(name: string): object | undefined {
     for (const barrel of barrels) {
-        if (Object.hasOwn(barrel, name)) return barrel[name];
+        const descriptor = Object.getOwnPropertyDescriptor(barrel, name);
+        if (descriptor === undefined) continue;
+        const candidate: unknown =
+            descriptor.get === undefined ? descriptor.value : descriptor.get.call(barrel);
+        if (isSelectorOwner(candidate)) return candidate;
     }
     return undefined;
 }
 
+function isSelectorOwner(value: unknown): value is object {
+    return Object(value) === value;
+}
+
+function isRecordCodec(value: unknown): value is RecordCodec<object> {
+    return value instanceof RecordCodec;
+}
+
+function isDecodeFunction(value: unknown): value is DecodeFunction {
+    return typeof value === "function";
+}
+
 function readRecordRegistry(): readonly RecordRow[] {
-    const index = readJson<{ fragments: readonly string[] }>("artifacts/records/index.json");
-    return index.fragments.flatMap(
-        (fragment) => readJson<{ records: RecordRow[] }>(`artifacts/records/${fragment}`).records
+    return readFragments("artifacts/records/index.json").flatMap((fragment) =>
+        readRows(`artifacts/records/${fragment}`)
     );
 }
 
-function readJson<Value>(path: string): Value {
-    return JSON.parse(readFileSync(new URL(path, packageUrl), "utf8")) as Value;
+function readFragments(path: string): readonly string[] {
+    const document = readJson(path);
+    if (!isJsonObject(document) || !Array.isArray(document["fragments"])) {
+        throw new TypeError("Record registry index is malformed");
+    }
+    const fragments = document["fragments"];
+    if (!fragments.every(isString)) throw new TypeError("Record registry fragment is malformed");
+    return fragments;
+}
+
+function readRows(path: string): readonly RecordRow[] {
+    const document = readJson(path);
+    if (!isJsonObject(document) || !Array.isArray(document["records"])) {
+        throw new TypeError("Record registry fragment is malformed");
+    }
+    return document["records"].map((value) => {
+        if (
+            !isJsonObject(value) ||
+            !isString(value["symbol"]) ||
+            !isString(value["kind"]) ||
+            !isString(value["codec"])
+        ) {
+            throw new TypeError("Record registry row is malformed");
+        }
+        return { symbol: value["symbol"], kind: value["kind"], codec: value["codec"] };
+    });
+}
+
+function readJson(path: string): JsonValue {
+    const value: unknown = JSON.parse(readFileSync(new URL(path, packageUrl), "utf8"));
+    if (!isJsonValue(value)) throw new TypeError("Record registry JSON is malformed");
+    return value;
+}
+
+function isString(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
 }
