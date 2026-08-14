@@ -167,21 +167,28 @@ export function mergePolicySets(policies: readonly PolicySet[]): PolicySet {
                     : Math.min(maxDirectRevocationWindowMs, policy.maxDirectRevocationWindowMs);
         }
     }
-    return new PolicySet({
+    let merged: PolicySetInit = {
         tiers,
         approvals: POLICY_IMPACTS.filter((impact) => approvals.has(impact)),
-        ...(maxDirectRevocationWindowMs === undefined ? {} : { maxDirectRevocationWindowMs }),
         // The merge answers exactly one question: which modes every policy on the chain
         // still admits. The placement record's other declarations — the trust globs and
         // the §4.7 consumer → backing mapping — are single Blueprint statements with no
         // tightening semantics to merge, so callers that need them read the Blueprint's
         // own PlacementPolicy (definition/validator.ts, composition) rather than this.
         placement: new PlacementPolicy(placement)
-    });
+    };
+    if (maxDirectRevocationWindowMs !== undefined) {
+        merged = { ...merged, maxDirectRevocationWindowMs };
+    }
+    return new PolicySet(merged);
 }
 
 function validateDirectRevocationWindow(value: number | undefined): number | undefined {
     if (value === undefined) return undefined;
+    return requireDirectRevocationWindow(value);
+}
+
+function requireDirectRevocationWindow(value: number): number {
     if (!Number.isFinite(value) || value < 0 || !Number.isSafeInteger(value)) {
         throw new TypeError(
             "Maximum direct revocation window must be a finite non-negative safe integer"
@@ -194,10 +201,10 @@ function decodeOptionalDirectRevocationWindow(
     value: JsonValue | undefined
 ): Pick<PolicySetInit, "maxDirectRevocationWindowMs"> {
     if (value === null) return {};
-    if (typeof value !== "number") {
+    if (!isNumberValue(value)) {
         throw new TypeError("Maximum direct revocation window is invalid");
     }
-    return { maxDirectRevocationWindowMs: validateDirectRevocationWindow(value)! };
+    return { maxDirectRevocationWindowMs: requireDirectRevocationWindow(value) };
 }
 
 function canonicalTiers(tiers: EnforcementTierOverrides): EnforcementTierOverrides {
@@ -225,7 +232,7 @@ function canonicalApprovals(approvals: readonly Impact[]): readonly Impact[] {
     return Object.freeze(POLICY_IMPACTS.filter((impact) => approvals.includes(impact)));
 }
 
-function requireTiers(value: JsonValue | undefined): EnforcementTierOverrides {
+function requireTiers(value: JsonValue | undefined) {
     const object = requireObject(value, "Policy tiers");
     const tiers: Partial<Record<Impact, EnforcementTier>> = {};
     for (const [impact, tier] of Object.entries(object)) {
@@ -241,25 +248,29 @@ function requireImpactArray(value: JsonValue | undefined, subject: string): read
     return value.map((impact) => requireImpact(impact, subject));
 }
 
-function requireImpact(value: unknown, subject: string): Impact {
+function requireImpact(value: JsonValue, subject: string): Impact {
     if (isMember(POLICY_IMPACTS, value)) {
         return value;
     }
     throw new TypeError(`${subject} is invalid`);
 }
 
-function requireTier(value: unknown): EnforcementTier {
+function requireTier(value: JsonValue): EnforcementTier {
     if (value === "direct" || value === "mediated") {
         return value;
     }
     throw new TypeError("Policy enforcement tier is invalid");
 }
 
-function requireMode(value: unknown): IsolationMode {
+function requireMode(value: JsonValue): IsolationMode {
     if (isMember(PLACEMENT_PREFERENCE, value)) {
         return value;
     }
     throw new TypeError("Policy placement is invalid");
+}
+
+function isNumberValue(value: JsonValue | undefined): value is number {
+    return typeof value === "number";
 }
 
 function requireObject(

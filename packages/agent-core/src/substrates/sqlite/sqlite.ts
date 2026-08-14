@@ -8,6 +8,14 @@ export interface SqliteRow {
     readonly [column: string]: SqliteValue;
 }
 
+export function isSqliteText(value: SqliteValue | undefined): value is string {
+    return typeof value === "string";
+}
+
+export function isSqliteNumber(value: SqliteValue | undefined): value is number {
+    return typeof value === "number";
+}
+
 export abstract class ReadableSqlite {
     public constructor() {
         sqliteProvenance.set(this, Object.freeze({}));

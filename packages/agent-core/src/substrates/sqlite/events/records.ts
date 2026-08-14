@@ -1,4 +1,5 @@
-import { TransactionalSqlite, type SqliteRow } from "../sqlite";
+import { isMember } from "../../../core";
+import { TransactionalSqlite, isSqliteText, type SqliteRow, type SqliteValue } from "../sqlite";
 import {
     validateWorkspacePointerAdvance,
     validateStoredWorkspaceRecord,
@@ -176,7 +177,7 @@ export class SqliteWorkspaceEventRecords {
             this.database.run(
                 `UPDATE workspace_event_pointers SET record_id = ?
                  WHERE namespace = ? AND key = ? AND record_id = ?`,
-                [pointer.recordKey, pointer.namespace, pointer.key, expectedRecordKey!]
+                [pointer.recordKey, pointer.namespace, pointer.key, current.recordKey]
             );
         }
         const updated = this.findPointer(pointer.namespace, pointer.key);
@@ -194,7 +195,7 @@ export class SqliteWorkspaceEventRecords {
             [table]
         )[0];
         const sql = row?.["sql"];
-        if (typeof sql !== "string") throw new TypeError(`Missing SQLite schema: ${table}`);
+        if (!isSqliteText(sql)) throw new TypeError(`Missing SQLite schema: ${table}`);
         if (normalizeSql(sql) !== normalizeSql(expectedSql)) {
             throw new TypeError(`SQLite schema is incompatible: ${table}`);
         }
@@ -232,25 +233,25 @@ function decodePointer(row: SqliteRow): StoredWorkspacePointer {
     };
 }
 
-function decodeRecordKind(value: unknown): WorkspaceRecordKind {
-    if (
-        value === "event" ||
-        value === "subscription" ||
-        value === "routeReservation" ||
-        value === "routeProjection" ||
-        value === "routeDelivery" ||
-        value === "view" ||
-        value === "viewDelta" ||
-        value === "contentRetention"
-    ) {
-        return value;
-    }
+const WORKSPACE_RECORD_KINDS = Object.freeze([
+    "event",
+    "subscription",
+    "routeReservation",
+    "routeProjection",
+    "routeDelivery",
+    "view",
+    "viewDelta",
+    "contentRetention"
+] as const);
+
+function decodeRecordKind(value: SqliteValue | undefined): WorkspaceRecordKind {
+    if (isMember(WORKSPACE_RECORD_KINDS, value)) return value;
     throw new TypeError("Stored workspace record kind is invalid");
 }
 
 function readText(row: SqliteRow, column: string): string {
     const value = row[column];
-    if (typeof value !== "string") throw new TypeError(`Expected text column: ${column}`);
+    if (!isSqliteText(value)) throw new TypeError(`Expected text column: ${column}`);
     return value;
 }
 

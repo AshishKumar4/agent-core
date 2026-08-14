@@ -6,7 +6,7 @@ import { EventKind, FacetPackageId, type EventVisibility } from "../facets";
 import { PrincipalRef, decodeScopeRef, encodeScopeRef, type ScopeRef } from "../identity";
 import { CorrelationId, EventId } from "../interaction-references";
 import { ContentRetentionReference } from "./retention";
-import { EventProvenance, type EventSource } from "./value";
+import { EventProvenance, type EventProvenanceInit, type EventSource } from "./value";
 
 const intentToken: unique symbol = Symbol("authenticated-event-intent");
 const authenticatedIntents = new WeakSet<AuthenticatedEventIntent>();
@@ -117,7 +117,7 @@ function detachIntent(intent: EventIntentInput): EventIntentInput {
                       new ActorId(intent.source.actor.id.value)
                   )
               };
-    return Object.freeze({
+    let detached: EventIntentInput = {
         id: intent.id,
         scope: decodeScopeRef(encodeScopeRef(intent.scope)),
         sourceActor: new ActorRef(
@@ -133,22 +133,24 @@ function detachIntent(intent: EventIntentInput): EventIntentInput {
         ),
         idempotencyKey: intent.idempotencyKey,
         correlation: intent.correlation,
-        ...(intent.causation === undefined ? {} : { causation: intent.causation }),
         provenance: copyProvenance(intent.provenance),
-        visibility: intent.visibility,
-        ...(intent.lease === undefined
-            ? {}
-            : {
-                  lease: Object.freeze({
-                      turn: intent.lease.turn,
-                      holder: new PrincipalRef(
-                          intent.lease.holder.tenantId,
-                          intent.lease.holder.principalId
-                      ),
-                      epoch: intent.lease.epoch
-                  })
-              })
-    });
+        visibility: intent.visibility
+    };
+    if (intent.causation !== undefined) detached = { ...detached, causation: intent.causation };
+    if (intent.lease !== undefined) {
+        detached = {
+            ...detached,
+            lease: Object.freeze({
+                turn: intent.lease.turn,
+                holder: new PrincipalRef(
+                    intent.lease.holder.tenantId,
+                    intent.lease.holder.principalId
+                ),
+                epoch: intent.lease.epoch
+            })
+        };
+    }
+    return Object.freeze(detached);
 }
 
 function requireIntentPayloadDigest(intent: EventIntentInput): void {
@@ -162,11 +164,12 @@ function provenanceData(provenance: EventProvenance): JsonValue {
 }
 
 function copyProvenance(provenance: EventProvenance): EventProvenance {
-    return new EventProvenance({
+    let copy: EventProvenanceInit = {
         verification: provenance.verification,
-        ...(provenance.principal === undefined ? {} : { principal: provenance.principal }),
-        ...(provenance.channel === undefined ? {} : { channel: provenance.channel }),
-        ...(provenance.group === undefined ? {} : { group: provenance.group }),
         claims: provenance.claims
-    });
+    };
+    if (provenance.principal !== undefined) copy = { ...copy, principal: provenance.principal };
+    if (provenance.channel !== undefined) copy = { ...copy, channel: provenance.channel };
+    if (provenance.group !== undefined) copy = { ...copy, group: provenance.group };
+    return new EventProvenance(copy);
 }

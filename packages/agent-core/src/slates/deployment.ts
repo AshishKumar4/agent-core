@@ -108,6 +108,10 @@ export class SlateDeployment {
 }
 
 function requireTextValue(value: JsonValue | undefined): string {
-    if (typeof value !== "string") throw new TypeError("Slate deployment target must be a string");
+    if (!isTextValue(value)) throw new TypeError("Slate deployment target must be a string");
     return value;
+}
+
+function isTextValue(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
 }

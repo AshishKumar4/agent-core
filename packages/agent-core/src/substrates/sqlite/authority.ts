@@ -10,7 +10,7 @@ import {
 import { AgentCoreError } from "../../errors";
 import type { ScopeRef } from "../../identity";
 import type { SqliteRow, SqliteValue } from "./sqlite";
-import { ReadableSqlite, TransactionalSqlite } from "./sqlite";
+import { ReadableSqlite, TransactionalSqlite, isSqliteNumber, isSqliteText } from "./sqlite";
 
 const CREATE_GRANTS = `CREATE TABLE IF NOT EXISTS tenant_grants (
     id TEXT PRIMARY KEY CHECK (length(id) > 0),
@@ -271,20 +271,20 @@ function decodeBinding(row: SqliteRow, expectedKey: string): Binding {
 
 function text(row: SqliteRow, column: string): string {
     const value = row[column];
-    if (typeof value !== "string" || value.length === 0) throw corruptAuthority();
+    if (!isSqliteText(value) || value.length === 0) throw corruptAuthority();
     return value;
 }
 
 function nullableText(row: SqliteRow, column: string): string | null {
     const value = row[column];
     if (value === null) return null;
-    if (typeof value !== "string" || value.length === 0) throw corruptAuthority();
+    if (!isSqliteText(value) || value.length === 0) throw corruptAuthority();
     return value;
 }
 
 function integer(row: SqliteRow, column: string): number {
     const value = row[column];
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    if (!isSqliteNumber(value) || !Number.isSafeInteger(value) || value < 0) {
         throw corruptAuthority();
     }
     return value;

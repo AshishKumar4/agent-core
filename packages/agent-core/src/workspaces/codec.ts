@@ -35,7 +35,7 @@ export function requireFields<Field extends string>(
 }
 
 export function requireString(value: JsonValue | undefined, subject: string): string {
-    if (typeof value !== "string") {
+    if (!isStringValue(value)) {
         throw new TypeError(`${subject} must be a string`);
     }
     return value;
@@ -50,17 +50,29 @@ export function requireNullableString(
 }
 
 export function requireBoolean(value: JsonValue | undefined, subject: string): boolean {
-    if (typeof value !== "boolean") {
+    if (!isBooleanValue(value)) {
         throw new TypeError(`${subject} must be a boolean`);
     }
     return value;
 }
 
 export function requireInteger(value: JsonValue | undefined, subject: string): number {
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    if (!isNumberValue(value) || !Number.isSafeInteger(value) || value < 0) {
         throw new TypeError(`${subject} must be a non-negative safe integer`);
     }
     return value;
+}
+
+function isStringValue(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
+}
+
+function isBooleanValue(value: JsonValue | undefined): value is boolean {
+    return typeof value === "boolean";
+}
+
+function isNumberValue(value: JsonValue | undefined): value is number {
+    return typeof value === "number";
 }
 
 export function requireArray(value: JsonValue | undefined, subject: string): readonly JsonValue[] {

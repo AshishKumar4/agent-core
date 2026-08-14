@@ -11,7 +11,7 @@ import {
     type InvocationReplayPersistence
 } from "../../../invocations";
 import type { AuditRecordId } from "../../../interaction-references";
-import { TransactionalSqlite, type SqliteRow } from "../sqlite";
+import { TransactionalSqlite, isSqliteNumber, isSqliteText, type SqliteRow } from "../sqlite";
 
 export interface SqliteInvocationAuditAppendPort {
     findAudit(transaction: TransactionalSqlite, id: AuditRecordId): AuditRecord | undefined;
@@ -243,13 +243,13 @@ function append(
 
 function text(row: SqliteRow, column: string): string {
     const value = row[column];
-    if (typeof value !== "string") corrupt();
+    if (!isSqliteText(value)) corrupt();
     return value;
 }
 
 function integer(row: SqliteRow, column: string): number {
     const value = row[column];
-    if (typeof value !== "number" || !Number.isSafeInteger(value)) corrupt();
+    if (!isSqliteNumber(value) || !Number.isSafeInteger(value)) corrupt();
     return value;
 }
 

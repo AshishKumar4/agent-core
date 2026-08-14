@@ -1,7 +1,7 @@
 import { hasExactJsonKeys, isJsonObject, type JsonValue } from "../core";
 import { Automation, type IsolationMode } from "../facets";
 import { invalidDefinition } from "./error";
-import { PlacementInput, selectPlacement } from "./placement";
+import { PlacementInput, parseIsolationMode, selectPlacement } from "./placement";
 import { PolicySet } from "./policy";
 
 type MaterializationKindValidator = (desired: JsonValue) => JsonValue;
@@ -38,7 +38,7 @@ export function canonicalMaterializationDesired(recordKind: string, desired: Jso
 }
 
 function requireMaterializationKindValidator(recordKind: string): MaterializationKindValidator {
-    if (typeof recordKind !== "string" || !Object.hasOwn(materializationKinds, recordKind)) {
+    if (!Object.hasOwn(materializationKinds, recordKind)) {
         throw new TypeError(`Unsupported materialization record kind ${recordKind}`);
     }
     return materializationKinds[recordKind]!;
@@ -108,13 +108,13 @@ function requireObject(value: JsonValue, subject: string): { readonly [key: stri
 }
 
 function requireCanonicalName(value: JsonValue | undefined, subject: string): void {
-    if (typeof value !== "string" || value.length === 0 || value !== value.trim()) {
+    if (!isStringValue(value) || value.length === 0 || value !== value.trim()) {
         throw new TypeError(`${subject} must be a nonblank canonical string`);
     }
 }
 
 function requireNonnegativeInteger(value: JsonValue | undefined, subject: string): void {
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    if (!isNumberValue(value) || !Number.isSafeInteger(value) || value < 0) {
         throw new TypeError(`${subject} must be a non-negative safe integer`);
     }
 }
@@ -123,7 +123,15 @@ function requireModes(value: JsonValue | undefined, subject: string): readonly I
     if (!Array.isArray(value)) {
         throw new TypeError(`${subject} must be an array`);
     }
-    return value as readonly IsolationMode[];
+    return value.map((mode) => parseIsolationMode(mode, subject));
+}
+
+function isStringValue(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
+}
+
+function isNumberValue(value: JsonValue | undefined): value is number {
+    return typeof value === "number";
 }
 
 function requireCanonicalModes(

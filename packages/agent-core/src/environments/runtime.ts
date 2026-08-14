@@ -13,6 +13,7 @@ import type {
 import {
     EnvironmentProviderRegistry,
     ProviderActionOutcome,
+    ProviderReadyValueParser,
     ProviderResourceOutcome,
     requireProviderActionOutcome,
     requireProviderResourceOutcome,
@@ -143,7 +144,10 @@ export class EnvironmentController {
         return this.coalesceOpen(opening, async () =>
             this.settleOpen(
                 opening,
-                await this.callResource(() => provider.openSession(request), isLiveSession)
+                await this.callResource(
+                    () => provider.openSession(request),
+                    ProviderReadyValueParser.liveSession
+                )
             )
         );
     }
@@ -160,12 +164,15 @@ export class EnvironmentController {
                 const request = this.openRequest(session);
                 const inspected = await this.callResource(
                     () => provider.inspectSession(request),
-                    isLiveSession
+                    ProviderReadyValueParser.liveSession
                 );
                 if (inspected.name === "absent") {
                     return this.settleOpen(
                         session,
-                        await this.callResource(() => provider.openSession(request), isLiveSession)
+                        await this.callResource(
+                            () => provider.openSession(request),
+                            ProviderReadyValueParser.liveSession
+                        )
                     );
                 }
                 return this.settleOpen(session, inspected);
@@ -177,7 +184,7 @@ export class EnvironmentController {
             const request = this.openRequest(session);
             const outcome = await this.callResource(
                 () => provider.inspectSession(request),
-                isLiveSession
+                ProviderReadyValueParser.liveSession
             );
             if (outcome.name === "ready") this.replaceLiveSession(session.id, outcome.value);
             if (outcome.name === "absent") {
@@ -242,7 +249,7 @@ export class EnvironmentController {
             snapshot,
             await this.callResource(
                 () => provider.createSnapshot(this.snapshotRequest(snapshot)),
-                isContentRef
+                ProviderReadyValueParser.contentRef
             )
         );
     }
@@ -258,12 +265,15 @@ export class EnvironmentController {
         const request = this.snapshotRequest(snapshot);
         const inspected = await this.callResource(
             () => provider.inspectSnapshot(request),
-            isContentRef
+            ProviderReadyValueParser.contentRef
         );
         if (inspected.name === "absent") {
             return this.settleSnapshot(
                 snapshot,
-                await this.callResource(() => provider.createSnapshot(request), isContentRef)
+                await this.callResource(
+                    () => provider.createSnapshot(request),
+                    ProviderReadyValueParser.contentRef
+                )
             );
         }
         return this.settleSnapshot(snapshot, inspected);
@@ -311,7 +321,7 @@ export class EnvironmentController {
             exposure,
             await this.callResource(
                 () => provider.exposePort(this.exposureRequest(exposure)),
-                isString
+                ProviderReadyValueParser.exposureUrl
             )
         );
     }
@@ -327,12 +337,15 @@ export class EnvironmentController {
         if (exposure.state.name === "exposing") {
             const inspected = await this.callResource(
                 () => provider.inspectExposure(request),
-                isString
+                ProviderReadyValueParser.exposureUrl
             );
             if (inspected.name === "absent") {
                 return this.settleExposure(
                     exposure,
-                    await this.callResource(() => provider.exposePort(request), isString)
+                    await this.callResource(
+                        () => provider.exposePort(request),
+                        ProviderReadyValueParser.exposureUrl
+                    )
                 );
             }
             return this.settleExposure(exposure, inspected);
@@ -340,7 +353,7 @@ export class EnvironmentController {
         if (exposure.state.name === "revoking") {
             const inspected = await this.callResource(
                 () => provider.inspectExposure(request),
-                isString
+                ProviderReadyValueParser.exposureUrl
             );
             if (inspected.name === "absent") return this.markExposureRevoked(exposure);
             return this.revokeExposureRecord(exposure);
@@ -412,7 +425,7 @@ export class EnvironmentController {
         const request = this.openRequest(current);
         const inspected = await this.callResource(
             () => provider.inspectSession(request),
-            isLiveSession
+            ProviderReadyValueParser.liveSession
         );
         if (inspected.name === "ready") {
             await this.disposeHandle(inspected.value);
@@ -754,7 +767,7 @@ export class EnvironmentController {
     }
 
     private async callAction(call: () => Promise<ActionOutcome>): Promise<ActionOutcome> {
-        let outcome: unknown;
+        let outcome: ActionOutcome;
         try {
             outcome = await call();
         } catch {
@@ -765,15 +778,15 @@ export class EnvironmentController {
 
     private async callResource<Value>(
         call: () => Promise<ResourceOutcome<Value>>,
-        isReadyValue: (candidate: unknown) => candidate is Value
+        parser: ProviderReadyValueParser<Value>
     ): Promise<ResourceOutcome<Value>> {
-        let outcome: unknown;
+        let outcome: ResourceOutcome<Value>;
         try {
             outcome = await call();
         } catch {
             return ProviderResourceOutcome.indeterminate;
         }
-        return requireProviderResourceOutcome(outcome, isReadyValue);
+        return requireProviderResourceOutcome(outcome, parser);
     }
 
     private requireLease(lease: LeaseToken): void {
@@ -835,31 +848,4 @@ function staleSession(message: string): AgentCoreError {
 
 function revisionConflict(message: string): AgentCoreError {
     return new AgentCoreError("protocol.revision-conflict", message);
-}
-
-function isContentRef(value: unknown): value is ContentRef {
-    return value instanceof ContentRef;
-}
-
-function isLiveSession(value: unknown): value is LiveEnvironmentSession {
-    if (value === null || typeof value !== "object") return false;
-    try {
-        const session = value as { readonly children?: unknown; readonly release?: unknown };
-        return (
-            Array.isArray(session.children) &&
-            session.children.every(
-                (child) =>
-                    child !== null &&
-                    typeof child === "object" &&
-                    typeof (child as { readonly dispose?: unknown }).dispose === "function"
-            ) &&
-            typeof session.release === "function"
-        );
-    } catch {
-        return false;
-    }
-}
-
-function isString(value: unknown): value is string {
-    return typeof value === "string";
 }

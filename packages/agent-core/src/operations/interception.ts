@@ -85,13 +85,12 @@ export class OperationInterceptorRunner<Resolution> {
             try {
                 result = requireSynchronousResult(candidate.interceptor.intercept(context, value));
             } catch (error) {
-                throw blocked(candidate.declaration, error);
+                const detail =
+                    error instanceof Error ? error.message : "unknown interceptor failure";
+                throw blocked(candidate.declaration, detail);
             }
             if (!isInterceptResult(result)) {
-                throw blocked(
-                    candidate.declaration,
-                    new TypeError("Interceptor returned an invalid result")
-                );
+                throw blocked(candidate.declaration, "Interceptor returned an invalid result");
             }
             if (!result.proceed) throw new AgentCoreError("authority.denied", result.reason);
             const next = canonicalFacetData(result.value);
@@ -153,7 +152,13 @@ export class OperationInterceptorRunner<Resolution> {
                         );
                     }
                 }
-                const interceptor = facet.interceptor(declaration.id)!;
+                const interceptor = facet.interceptor(declaration.id);
+                if (interceptor === undefined) {
+                    throw new AgentCoreError(
+                        "facet.inactive",
+                        `Interceptor ${declaration.id.value} is no longer active`
+                    );
+                }
                 candidates.push({ facet, declaration, interceptor });
             }
         }
@@ -224,8 +229,7 @@ function isInterceptResult(value: InterceptResult): boolean {
     return isObjectRecord(value) && (value["proceed"] === true || value["proceed"] === false);
 }
 
-function blocked(declaration: InterceptorDeclaration, cause: unknown): AgentCoreError {
-    const detail = cause instanceof Error ? cause.message : "unknown interceptor failure";
+function blocked(declaration: InterceptorDeclaration, detail: string): AgentCoreError {
     return new AgentCoreError(
         "authority.denied",
         `Interceptor ${declaration.id.value} blocked the operation: ${detail}`

@@ -102,7 +102,7 @@ class RouteReservationCodecV1 extends RecordCodec<RouteReservation> {
         );
         const projection = decodeContent(object["projectionContent"], "Route projection content");
         const initiator = decodeOptionalPrincipalRef(object["initiator"], "Route initiator");
-        return new RouteReservation({
+        let reservation: RouteReservationInit = {
             id: new RouteReservationId(requireString(object["id"], "Route reservation ID")),
             invocation: new InvocationId(
                 requireString(object["invocation"], "Route invocation ID")
@@ -125,9 +125,10 @@ class RouteReservationCodecV1 extends RecordCodec<RouteReservation> {
             ),
             projectionRef: projection.ref,
             projectionDigest: projection.digest,
-            trust: decodeTrust(object["trust"]),
-            ...(initiator === undefined ? {} : { initiator })
-        });
+            trust: decodeTrust(object["trust"])
+        };
+        if (initiator !== undefined) reservation = { ...reservation, initiator };
+        return new RouteReservation(reservation);
     }
 }
 
@@ -250,17 +251,19 @@ class RouteProjectionCodecV2 extends RecordCodec<RouteProjection> {
             object["authenticationDigest"],
             "Route projection authentication digest"
         );
-        return new RouteProjection({
+        const projection: RouteProjectionInit = {
             id: new RouteProjectionId(requireString(object["id"], "Route projection ID")),
             reservation: new RouteReservationId(
                 requireString(object["reservation"], "Projection reservation ID")
             ),
             content: content.ref,
-            digest: content.digest,
-            ...(authenticationDigest === undefined
-                ? {}
-                : { authenticationDigest: new Digest(authenticationDigest) })
-        });
+            digest: content.digest
+        };
+        return new RouteProjection(
+            authenticationDigest === undefined
+                ? projection
+                : { ...projection, authenticationDigest: new Digest(authenticationDigest) }
+        );
     }
 }
 

@@ -38,9 +38,10 @@ export abstract class PackageInstallationProvenancePort<State, Context> {
         requireInstallation(installation);
         const prepared = copyInstallation(installation);
         const stamp = Object.freeze({});
+        const reference = new PackageInstallationRef(prepared.facet, prepared.packageFacet);
         this.#prepared.set(stamp, prepared);
         return Object.freeze({
-            reference: new PackageInstallationRef(prepared.facet, prepared.packageFacet),
+            reference,
             stamp
         });
     }
@@ -48,7 +49,7 @@ export abstract class PackageInstallationProvenancePort<State, Context> {
     public resolveContributionForApply(
         state: State,
         context: Context,
-        stamp: object
+        stamp: PreparedPackageContribution["stamp"]
     ): PackageInstallationRef | undefined {
         const expected = this.#prepared.get(stamp);
         if (expected === undefined) return undefined;

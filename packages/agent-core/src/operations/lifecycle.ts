@@ -91,20 +91,25 @@ export class FacetRuntimeHost implements AsyncDisposable {
 
     public dispose(): Promise<void> {
         if (this.#state === "disposed") return Promise.resolve();
-        if (this.#state === "stopping") return this.#transition!;
+        if (this.#state === "stopping") {
+            const transition = this.#transition;
+            if (transition === undefined) {
+                return Promise.reject(inactive("Facet host stopping transition is missing"));
+            }
+            return transition;
+        }
         const pending = this.#transition;
         const starting = this.#state === "starting";
-        const completion = transitionDeferred();
         this.#state = "stopping";
-        this.#transition = completion.promise;
+        const transition = this.stop(pending, starting);
+        this.#transition = transition;
         this.#abort.abort();
-        void this.stop(pending, starting).then(completion.resolve, completion.reject);
-        void completion.promise
+        void transition
             .finally(() => {
                 this.#transition = undefined;
             })
             .catch(noop);
-        return completion.promise;
+        return transition;
     }
 
     public async [Symbol.asyncDispose](): Promise<void> {
@@ -132,7 +137,8 @@ export class FacetRuntimeHost implements AsyncDisposable {
             }
             const cleanup =
                 failed.length === 0 ? "" : `; ${failed.length} rollback stop hook(s) failed`;
-            throw lifecycleFailure(`Facet activation failed${cleanup}`, error);
+            const detail = error instanceof Error ? `: ${error.message}` : "";
+            throw inactive(`Facet activation failed${cleanup}${detail}`);
         }
     }
 
@@ -181,11 +187,6 @@ function uniqueFacets(facets: readonly ValidatedFacet[]): ValidatedFacet[] {
     return [...new Set(facets)];
 }
 
-function lifecycleFailure(message: string, cause: unknown): AgentCoreError {
-    const detail = cause instanceof Error ? `: ${cause.message}` : "";
-    return inactive(`${message}${detail}`);
-}
-
 function inactive(message: string): AgentCoreError {
     return new AgentCoreError("facet.inactive", message);
 }
@@ -197,24 +198,13 @@ interface Completion {
     readonly resolve: () => void;
 }
 
-interface SettledCompletion extends Completion {
-    readonly reject: (cause: unknown) => void;
-}
-
 function deferred(): Completion {
-    let resolve!: () => void;
+    let resolve: (() => void) | undefined;
     const promise = new Promise<void>((complete) => {
         resolve = complete;
     });
+    if (resolve === undefined) {
+        throw inactive("Facet drain completion was not initialized");
+    }
     return { promise, resolve };
-}
-
-function transitionDeferred(): SettledCompletion {
-    let resolve!: () => void;
-    let reject!: (cause: unknown) => void;
-    const promise = new Promise<void>((complete, fail) => {
-        resolve = complete;
-        reject = fail;
-    });
-    return { promise, resolve, reject };
 }

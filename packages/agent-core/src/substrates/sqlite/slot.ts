@@ -9,7 +9,7 @@ import {
     type SlotEntryId
 } from "../../facets";
 import { WorkspaceId } from "../../identity";
-import { TransactionalSqlite, type SqliteRow } from "./sqlite";
+import { TransactionalSqlite, isSqliteNumber, isSqliteText, type SqliteRow } from "./sqlite";
 
 const CREATE_MARKER = `CREATE TABLE IF NOT EXISTS facet_slot_schema (
     singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
@@ -289,7 +289,7 @@ function requireExactSchema(database: TransactionalSqlite): void {
     for (const [name, sql] of [...EXPECTED_TABLES, ...EXPECTED_INDEXES]) {
         const row = objects.get(name);
         const actual = row?.["sql"];
-        if (typeof actual !== "string" || normalizeSql(actual) !== normalizeSql(sql)) {
+        if (!isSqliteText(actual) || normalizeSql(actual) !== normalizeSql(sql)) {
             throw corrupt(`SQLite Slot schema object ${name} is malformed`);
         }
     }
@@ -383,13 +383,13 @@ function decodeEntry(row: SqliteRow, expectedId?: SlotEntryId): SlotEntry {
 
 function text(row: SqliteRow, column: string): string {
     const value = row[column];
-    if (typeof value !== "string") throw corrupt(`SQLite Slot column ${column} must be text`);
+    if (!isSqliteText(value)) throw corrupt(`SQLite Slot column ${column} must be text`);
     return value;
 }
 
 function number(row: SqliteRow, column: string): number {
     const value = row[column];
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    if (!isSqliteNumber(value) || !Number.isSafeInteger(value) || value < 0) {
         throw corrupt(`SQLite Slot column ${column} must be a non-negative integer`);
     }
     return value;

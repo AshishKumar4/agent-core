@@ -8,7 +8,12 @@ import {
 } from "../../authority";
 import { Digest } from "../../core";
 import { AgentCoreError } from "../../errors";
-import { TransactionalSqlite, hasSameSqliteProvenance, type SqliteRow } from "./sqlite";
+import {
+    TransactionalSqlite,
+    hasSameSqliteProvenance,
+    isSqliteText,
+    type SqliteRow
+} from "./sqlite";
 
 const CREATE_PERMITS = `CREATE TABLE IF NOT EXISTS authority_permit_nonces (
     nonce TEXT PRIMARY KEY CHECK (length(nonce) > 0),
@@ -187,7 +192,7 @@ export class SqliteAuthorityPermitStore implements AuthorityPermitOwnerStore<Tra
 
 function text(row: SqliteRow, column: string): string {
     const value = row[column];
-    if (typeof value !== "string" || value.length === 0) throw corrupt();
+    if (!isSqliteText(value) || value.length === 0) throw corrupt();
     return value;
 }
 

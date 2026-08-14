@@ -201,25 +201,27 @@ export class Slate {
             "Slate latest publication ID"
         );
         const active = nullableString(object["activeDeploymentId"], "Slate active deployment ID");
-        return new Slate({
+        let slate: SlateInit = {
             id: slateId(object["id"]),
             workspaceId: workspaceId(object["workspaceId"]),
             source: contentRef(object["source"], "Slate source"),
-            ...(head === undefined ? {} : { headVersionId: versionId(head) }),
-            ...(latestPublication === undefined
-                ? {}
-                : { latestPublicationId: publicationId(latestPublication) }),
-            ...(active === undefined ? {} : { activeDeploymentId: deploymentId(active) }),
-            ...(decodedFork === undefined
-                ? {}
-                : {
-                      forkedFrom: {
-                          slateId: slateId(decodedFork["slateId"]),
-                          versionId: versionId(decodedFork["versionId"])
-                      }
-                  }),
             revision: revision(object["revision"])
-        });
+        };
+        if (head !== undefined) slate = { ...slate, headVersionId: versionId(head) };
+        if (latestPublication !== undefined) {
+            slate = { ...slate, latestPublicationId: publicationId(latestPublication) };
+        }
+        if (active !== undefined) slate = { ...slate, activeDeploymentId: deploymentId(active) };
+        if (decodedFork !== undefined) {
+            slate = {
+                ...slate,
+                forkedFrom: {
+                    slateId: slateId(decodedFork["slateId"]),
+                    versionId: versionId(decodedFork["versionId"])
+                }
+            };
+        }
+        return new Slate(slate);
     }
 
     private revise(changes: {
@@ -232,16 +234,17 @@ export class Slate {
         const headVersionId = changes.headVersionId ?? this.headVersionId;
         const latestPublicationId = changes.latestPublicationId ?? this.latestPublicationId;
         const activeDeploymentId = hasActive ? changes.activeDeploymentId : this.activeDeploymentId;
-        return new Slate({
+        let revised: SlateInit = {
             id: this.id,
             workspaceId: this.workspaceId,
             source: changes.source ?? this.source,
-            ...(headVersionId === undefined ? {} : { headVersionId }),
-            ...(latestPublicationId === undefined ? {} : { latestPublicationId }),
-            ...(activeDeploymentId === undefined ? {} : { activeDeploymentId }),
-            ...(this.forkedFrom === undefined ? {} : { forkedFrom: this.forkedFrom }),
             revision: nextSlateRevision(this.revision)
-        });
+        };
+        if (headVersionId !== undefined) revised = { ...revised, headVersionId };
+        if (latestPublicationId !== undefined) revised = { ...revised, latestPublicationId };
+        if (activeDeploymentId !== undefined) revised = { ...revised, activeDeploymentId };
+        if (this.forkedFrom !== undefined) revised = { ...revised, forkedFrom: this.forkedFrom };
+        return new Slate(revised);
     }
 }
 

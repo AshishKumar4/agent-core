@@ -257,12 +257,12 @@ export class MaterializationRollout {
         );
         const previousPlanId = optionalDigest(object["previousPlanId"], "Previous plan ID");
         const compensates = optionalDigest(object["compensates"], "Compensated rollout ID");
-        return new MaterializationRollout({
-            id: digestValue(object["id"], "Materialization rollout ID"),
-            plan: MaterializationPlan.fromData(object["plan"]),
-            ...(previousPlanId === undefined ? {} : { previousPlanId }),
-            ...(compensates === undefined ? {} : { compensates })
-        });
+        return createMaterializationRollout(
+            MaterializationPlan.fromData(object["plan"]),
+            previousPlanId,
+            compensates,
+            digestValue(object["id"], "Materialization rollout ID")
+        );
     }
 
     public toData(): JsonValue {
@@ -557,11 +557,7 @@ export class MaterializationRolloutController<Transaction> {
                 );
             }
             let completePlan = unionTargetPlan(active, plan);
-            let rollout = new MaterializationRollout({
-                plan: completePlan,
-                ...(active === undefined ? {} : { previousPlanId: active.id }),
-                ...(compensates === undefined ? {} : { compensates })
-            });
+            let rollout = createMaterializationRollout(completePlan, active?.id, compensates);
             if (deployment.pendingRolloutId !== undefined) {
                 const pending = required(
                     this.store.loadRollout(transaction, deployment.pendingRolloutId),
@@ -573,11 +569,11 @@ export class MaterializationRolloutController<Transaction> {
                     pending.compensates?.equals(compensates) === true
                 ) {
                     const retryPlan = unionTargetPlan(pending.plan, completePlan);
-                    const retry = new MaterializationRollout({
-                        plan: retryPlan,
-                        ...(active === undefined ? {} : { previousPlanId: active.id }),
-                        compensates: pending.compensates
-                    });
+                    const retry = createMaterializationRollout(
+                        retryPlan,
+                        active?.id,
+                        pending.compensates
+                    );
                     if (retry.id.equals(pending.id)) return pending;
                 }
                 if (compensates?.equals(pending.id) !== true) {
@@ -586,11 +582,7 @@ export class MaterializationRolloutController<Transaction> {
                     );
                 }
                 completePlan = unionTargetPlan(pending.plan, completePlan);
-                rollout = new MaterializationRollout({
-                    plan: completePlan,
-                    ...(active === undefined ? {} : { previousPlanId: active.id }),
-                    compensates: pending.id
-                });
+                rollout = createMaterializationRollout(completePlan, active?.id, pending.id);
             }
             if (
                 compensates !== undefined &&
@@ -884,15 +876,36 @@ function requireFields<Field extends string>(
 }
 
 function requireString(value: JsonValue | undefined, subject: string): string {
-    if (typeof value !== "string") throw new TypeError(`${subject} must be a string`);
+    if (!isStringValue(value)) throw new TypeError(`${subject} must be a string`);
     return value;
 }
 
 function requireInteger(value: JsonValue | undefined, subject: string): number {
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    if (!isNumberValue(value) || !Number.isSafeInteger(value) || value < 0) {
         throw new TypeError(`${subject} must be a non-negative safe integer`);
     }
     return value;
+}
+
+function createMaterializationRollout(
+    plan: MaterializationPlan,
+    previousPlanId?: Digest,
+    compensates?: Digest,
+    id?: Digest
+): MaterializationRollout {
+    let init: MaterializationRolloutInit = { plan };
+    if (previousPlanId !== undefined) init = { ...init, previousPlanId };
+    if (compensates !== undefined) init = { ...init, compensates };
+    if (id !== undefined) init = { ...init, id };
+    return new MaterializationRollout(init);
+}
+
+function isStringValue(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
+}
+
+function isNumberValue(value: JsonValue | undefined): value is number {
+    return typeof value === "number";
 }
 
 function optionalDigest(value: JsonValue | undefined, subject: string): Digest | undefined {

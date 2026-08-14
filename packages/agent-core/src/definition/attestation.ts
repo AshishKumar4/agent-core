@@ -157,8 +157,12 @@ function requireObject(value: JsonValue, subject: string): { readonly [key: stri
 }
 
 function requireString(value: JsonValue | undefined, subject: string): string {
-    if (typeof value !== "string") throw new TypeError(`${subject} must be a string`);
+    if (!isStringValue(value)) throw new TypeError(`${subject} must be a string`);
     return value;
+}
+
+function isStringValue(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
 }
 
 function requireCanonicalName(value: string, subject: string): string {

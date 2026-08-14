@@ -45,8 +45,8 @@ export class PlatformCompatibility {
         const object = requireObject(value);
         if (
             !hasExactJsonKeys(object, ["host", "spec"]) ||
-            typeof object["host"] !== "string" ||
-            typeof object["spec"] !== "string"
+            !isCompatibilityText(object["host"]) ||
+            !isCompatibilityText(object["spec"])
         ) {
             throw new TypeError("Platform compatibility contains missing or unknown fields");
         }
@@ -63,6 +63,10 @@ export class PlatformCompatibility {
     public toData(): JsonValue {
         return { host: this.host.toString(), spec: this.spec.toString() };
     }
+}
+
+function isCompatibilityText(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
 }
 
 function requireObject(value: JsonValue): { readonly [key: string]: JsonValue } {

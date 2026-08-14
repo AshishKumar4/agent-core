@@ -17,7 +17,7 @@ import {
     requireObject,
     requireString
 } from "./codec";
-import { EventProvenance, type EventSource } from "./value";
+import { EventProvenance, type EventProvenanceInit, type EventSource } from "./value";
 
 export interface EventInit {
     readonly id: EventId;
@@ -80,7 +80,7 @@ class EventCodecV1 extends RecordCodec<Event> {
         const content = decodeContent(object["content"], "Event content");
         const causation = requireNullableString(object["causation"], "Event causation");
         const initiator = decodeOptionalPrincipalRef(object["initiator"], "Event initiator");
-        return new Event({
+        let event: EventInit = {
             id: new EventId(requireString(object["id"], "Event ID")),
             scope: decodeScope(object["scope"]),
             source: decodeSource(object["source"]),
@@ -91,12 +91,13 @@ class EventCodecV1 extends RecordCodec<Event> {
             correlation: new CorrelationId(
                 requireString(object["correlation"], "Event correlation")
             ),
-            ...(causation === undefined ? {} : { causation: new EventId(causation) }),
             provenance: decodeProvenance(object["provenance"]),
             trust: decodeTrust(object["trust"]),
-            visibility: decodeVisibility(object["visibility"]),
-            ...(initiator === undefined ? {} : { initiator })
-        });
+            visibility: decodeVisibility(object["visibility"])
+        };
+        if (causation !== undefined) event = { ...event, causation: new EventId(causation) };
+        if (initiator !== undefined) event = { ...event, initiator };
+        return new Event(event);
     }
 }
 
@@ -171,15 +172,20 @@ export class Event {
         this.idempotencyKey = init.idempotencyKey;
         this.correlation = init.correlation;
         this.causation = init.causation;
-        this.provenance = new EventProvenance({
+        let provenance: EventProvenanceInit = {
             verification: init.provenance.verification,
-            ...(init.provenance.principal === undefined
-                ? {}
-                : { principal: init.provenance.principal }),
-            ...(init.provenance.channel === undefined ? {} : { channel: init.provenance.channel }),
-            ...(init.provenance.group === undefined ? {} : { group: init.provenance.group }),
             claims: init.provenance.claims
-        });
+        };
+        if (init.provenance.principal !== undefined) {
+            provenance = { ...provenance, principal: init.provenance.principal };
+        }
+        if (init.provenance.channel !== undefined) {
+            provenance = { ...provenance, channel: init.provenance.channel };
+        }
+        if (init.provenance.group !== undefined) {
+            provenance = { ...provenance, group: init.provenance.group };
+        }
+        this.provenance = new EventProvenance(provenance);
         this.trust = init.trust;
         this.visibility = init.visibility;
         this.initiator = init.initiator;

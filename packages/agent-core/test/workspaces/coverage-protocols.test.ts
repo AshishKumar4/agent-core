@@ -81,8 +81,7 @@ import {
 import {
     PreparedEventRouting,
     SourceEventProtocol,
-    type EventDraft,
-    type EventRoutingSnapshot
+    type EventDraft
 } from "../../src/workspaces/source-protocol";
 import { Subscription } from "../../src/workspaces/subscription";
 import { TargetProjectionProtocol } from "../../src/workspaces/target-protocol";
@@ -950,18 +949,10 @@ describe("source protocol adversarial coverage", () => {
                 code: "protocol.invalid-state"
             });
 
-            // SAFETY: the constructor is host-only, so its signature is unreachable by
-            // design. Naming it is the only way to call it with a forged token, which is
-            // the guard under test.
-            const Constructor = PreparedEventRouting as new (
-                token: symbol,
-                owner: SourceEventProtocol<State>,
-                snapshot: EventRoutingSnapshot,
-                routes: readonly []
-            ) => PreparedEventRouting;
-            expect(() => new Constructor(Symbol("forged"), setup.protocol, snapshot, [])).toThrow(
-                /host-only/
-            );
+            expect(() => {
+                // @ts-expect-error A forged token must remain statically inaccessible.
+                new PreparedEventRouting(Symbol("forged"), Symbol("owner"), snapshot, []);
+            }).toThrow(/host-only/);
 
             const partial = sourceSetup("prepare-partial-first");
             partial.persistence.saveSubscription(
@@ -1787,11 +1778,7 @@ function forgedMapping(moves: readonly Partial<FieldMove>[]): PayloadMapping {
  * A move whose target answers one path when validated and another when applied. Only a
  * getter can differ between two reads, which is what makes the recheck observable.
  */
-function dynamicTarget(
-    validated: string,
-    actual: string,
-    literal: JsonValue
-): Partial<FieldMove> {
+function dynamicTarget(validated: string, actual: string, literal: JsonValue): Partial<FieldMove> {
     let reads = 0;
     return {
         get to(): string {
@@ -1892,10 +1879,7 @@ function unminted<Target>(value: EventDraft): Target {
     return value as Target;
 }
 
-function sourceSetup(
-    suffix: string,
-    subscription = subscriptionFixture(suffix)
-): SourceSetup {
+function sourceSetup(suffix: string, subscription = subscriptionFixture(suffix)): SourceSetup {
     const state = emptyState();
     const retention = new MutableRetention();
     const records = persistence(retention);

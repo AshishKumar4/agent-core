@@ -2,6 +2,7 @@ import {
     JsonSchema,
     RecordCodec,
     Revision,
+    isJsonObject,
     type JsonSchemaDocument,
     type JsonValue,
     type RecordVersion
@@ -252,23 +253,36 @@ function decodeAction(value: JsonValue): ActionDescriptor {
     const object = requireObject(value, "View action");
     requireFields(object, ["arguments", "emits", "id", "label"], "View action");
     const argumentsDocument = object["arguments"];
-    return new ActionDescriptor({
+    const action: ActionDescriptorInit = {
         id: new ActionId(requireString(object["id"], "Action ID")),
         label: requireString(object["label"], "Action label"),
-        emits: new EventKind(requireString(object["emits"], "Action Event kind")),
-        ...(argumentsDocument === null
-            ? {}
-            : { arguments: new JsonSchema(argumentsDocument as JsonSchemaDocument) })
-    });
+        emits: new EventKind(requireString(object["emits"], "Action Event kind"))
+    };
+    return new ActionDescriptor(
+        argumentsDocument === null
+            ? action
+            : { ...action, arguments: new JsonSchema(requireSchemaDocument(argumentsDocument)) }
+    );
 }
 
 function copyAction(action: ActionDescriptor): ActionDescriptor {
-    return new ActionDescriptor({
+    const copy: ActionDescriptorInit = {
         id: action.id,
         label: action.label,
-        emits: action.emits,
-        ...(action.arguments === undefined ? {} : { arguments: action.arguments })
-    });
+        emits: action.emits
+    };
+    return new ActionDescriptor(
+        action.arguments === undefined ? copy : { ...copy, arguments: action.arguments }
+    );
+}
+
+function requireSchemaDocument(value: JsonValue): JsonSchemaDocument {
+    if (isBooleanValue(value) || isJsonObject(value)) return value;
+    throw new TypeError("View action arguments must be a JSON Schema object or boolean");
+}
+
+function isBooleanValue(value: JsonValue): value is boolean {
+    return typeof value === "boolean";
 }
 
 function requireCanonicalText(value: string, subject: string): void {

@@ -8,7 +8,7 @@ import { AgentCoreError } from "../../errors";
 import type { ActorRef } from "../../actors";
 import type { TenantId } from "../../identity";
 import type { SqliteRow, SqliteValue } from "./sqlite";
-import { TransactionalSqlite } from "./sqlite";
+import { TransactionalSqlite, isSqliteNumber, isSqliteText } from "./sqlite";
 
 const CREATE_WATERMARKS = `CREATE TABLE IF NOT EXISTS actor_invalidation_watermarks (
     watermark_key TEXT PRIMARY KEY CHECK (length(watermark_key) > 0),
@@ -187,13 +187,13 @@ function decodeWatermark(row: SqliteRow, expectedKey: string): InvalidationWater
 
 function text(row: SqliteRow, column: string): string {
     const value = row[column];
-    if (typeof value !== "string" || value.length === 0) throw corruptWatermark();
+    if (!isSqliteText(value) || value.length === 0) throw corruptWatermark();
     return value;
 }
 
 function integer(row: SqliteRow, column: string): number {
     const value = row[column];
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    if (!isSqliteNumber(value) || !Number.isSafeInteger(value) || value < 0) {
         throw corruptWatermark();
     }
     return value;

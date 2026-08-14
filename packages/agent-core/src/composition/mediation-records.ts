@@ -43,11 +43,10 @@ export interface MediationRecordIdentity {
  * executor claim attempts under its own exact lease token; a system claim attempts under
  * no token at all, so a system worker cannot borrow an executor's fencing (§5.3, §7.3).
  */
-export class MediationClaimOwnerAdmission<Transaction, Admission> implements InvocationClaimOwnerPort<
+export class MediationClaimOwnerAdmission<
     Transaction,
-    MediationLeaseReference,
     Admission
-> {
+> implements InvocationClaimOwnerPort<Transaction, MediationLeaseReference, Admission> {
     public admits(
         _transaction: Transaction,
         claim: ItemClaim<MediationLeaseReference>,
@@ -88,10 +87,7 @@ export class CanonicalMediationRecords<Admission> implements CanonicalBatchRecor
         private readonly identities: DerivedMediationIdentities,
         private readonly claimLifetimeMilliseconds: number
     ) {
-        if (
-            !Number.isSafeInteger(claimLifetimeMilliseconds) ||
-            claimLifetimeMilliseconds <= 0
-        ) {
+        if (!Number.isSafeInteger(claimLifetimeMilliseconds) || claimLifetimeMilliseconds <= 0) {
             throw new TypeError("Item claim lifetime must be a positive safe integer");
         }
     }
@@ -267,7 +263,9 @@ export class CanonicalMediationRecords<Admission> implements CanonicalBatchRecor
         );
     }
 
-    private owner(invocation: MediationPreparedInvocation): ItemClaimOwner<MediationLeaseReference> {
+    private owner(
+        invocation: MediationPreparedInvocation
+    ): ItemClaimOwner<MediationLeaseReference> {
         const lease = invocation.header.lease;
         return lease === undefined
             ? { kind: "system", actor: invocation.header.actor, worker: this.identity.worker }
@@ -286,13 +284,13 @@ export class CanonicalMediationRecords<Admission> implements CanonicalBatchRecor
                 "Mediation records belong to the Actor that owns the Invocation"
             );
         }
-        return new AuditRecord({
+        const audit: ConstructorParameters<typeof AuditRecord>[0] = {
             id,
             actor: this.identity.actor,
             tenant: this.identity.tenant,
             correlation: this.identities.correlation(invocation.header.id),
-            ...(cause === undefined ? {} : { cause }),
             kind
-        });
+        };
+        return new AuditRecord(cause === undefined ? audit : { ...audit, cause });
     }
 }
