@@ -94,6 +94,33 @@ describe("AtLeastOnceQueueAdapter", () => {
         }
     );
 
+    test("rejects a non-JSON platform body without invoking the target", async () => {
+        let deliveries = 0;
+        const poison = new FakeQueueMessage("platform-non-json", Symbol("non-json"));
+        const adapter = new AtLeastOnceQueueAdapter(
+            {
+                deliver: async () => {
+                    deliveries += 1;
+                    return { disposition: "ack" as const };
+                }
+            },
+            queueCodecs,
+            fakeErrors
+        );
+
+        const result = await adapter.handle({ messages: [poison] });
+
+        expect(deliveries).toBe(0);
+        expect(result.acknowledgedDeliveryIds).toEqual([]);
+        expect(result.poisonMessages).toMatchObject([
+            {
+                messageId: new QueueMessageId("platform-non-json"),
+                cause: { code: "operation.invalid-input" }
+            }
+        ]);
+        expect(poison.retries).toEqual([undefined]);
+    });
+
     test("maps invalid target output to exact codes", async () => {
         const adapter = new AtLeastOnceQueueAdapter(
             {

@@ -1,5 +1,6 @@
 import { DatabaseSync } from "node:sqlite";
 import { isObjectRecord } from "@agent-core/core";
+import type { ObjectRecord } from "@agent-core/core";
 import type {
     CloudflareDurableObjectStorage,
     CloudflareSqlBinding,
@@ -11,6 +12,7 @@ import type {
     SynchronousResultGuard,
     SynchronousSqlitePort
 } from "../src/index.js";
+import { isFiniteNumber, isText } from "../src/platform-value.js";
 
 /** Real SQLite semantics for structural tests, backed by an in-memory node:sqlite database. */
 export class NodeSqlite implements SynchronousSqlitePort {
@@ -85,7 +87,10 @@ export class NodeDurableObjectStorage implements CloudflareDurableObjectStorage 
         bindings: readonly CloudflareSqlBinding[]
     ): CloudflareSqlCursor<Record<string, CloudflareSqlValue>> {
         const prepared = this.#database.prepare(statement);
-        return prepared.all(...bindings.map(nodeBinding)).map(storedRow);
+        return prepared.all(...bindings.map(nodeBinding)).map((row) => {
+            if (!isObjectRecord(row)) throw new TypeError("node:sqlite returned a non-object row");
+            return storedRow(row);
+        });
     }
 }
 
@@ -99,14 +104,13 @@ function nodeBinding(value: CloudflareSqlBinding): string | number | Uint8Array 
  * anything outside the column types this package declares is the substrate disagreeing
  * with the schema rather than data to carry.
  */
-function storedRow(row: unknown): SqliteRow {
-    if (!isObjectRecord(row)) throw new TypeError("node:sqlite returned a non-object row");
+function storedRow(row: ObjectRecord): SqliteRow {
     const values: Record<string, SqliteValue> = {};
     for (const [column, value] of Object.entries(row)) {
         if (
             value !== null &&
-            typeof value !== "string" &&
-            typeof value !== "number" &&
+            !isText(value) &&
+            !isFiniteNumber(value) &&
             !(value instanceof Uint8Array)
         ) {
             throw new TypeError(`Unsupported SQLite value in column ${column}`);

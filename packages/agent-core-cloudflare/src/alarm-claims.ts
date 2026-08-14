@@ -1,7 +1,9 @@
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
 import type { SynchronousSqlitePort } from "./migration.js";
+import { isFiniteNumber } from "./platform-value.js";
 import type { AlarmStorageLike } from "./reconciliation.js";
+import type { SqliteValue } from "./sqlite.js";
 
 const READ_CLAIM = "SELECT due_at FROM agent_core_alarm_claims WHERE owner = ?";
 const WRITE_CLAIM = `INSERT INTO agent_core_alarm_claims (owner, due_at) VALUES (?, ?)
@@ -55,8 +57,8 @@ export class DurableAlarmClaims {
         return this.requireStoredTime(value);
     }
 
-    private requireStoredTime(value: unknown): number {
-        if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+    private requireStoredTime(value: SqliteValue | undefined): number {
+        if (!isFiniteNumber(value) || !Number.isSafeInteger(value) || value < 0) {
             operationalFailure(
                 this.errors,
                 "codec.invalid",
@@ -100,11 +102,15 @@ class ClaimedAlarmStorage implements AlarmStorageLike {
 }
 
 function requireOwner(name: string, errors: CloudflareErrorPort): void {
-    if (typeof name !== "string" || name.length === 0 || name !== name.trim()) {
+    if (!isCanonicalOwner(name)) {
         operationalFailure(
             errors,
             "protocol.invalid-state",
             "Alarm claim owner must be nonempty canonical text"
         );
     }
+}
+
+function isCanonicalOwner(value: unknown): value is string {
+    return typeof value === "string" && value.length !== 0 && value === value.trim();
 }

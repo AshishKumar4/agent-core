@@ -37,7 +37,7 @@ export function locateActorObject<ObjectId, Stub>(
             errors,
             "protocol.invalid-state",
             "Cloudflare Durable Object namespace lookup failed",
-            cause
+            { value: cause }
         );
     }
 }

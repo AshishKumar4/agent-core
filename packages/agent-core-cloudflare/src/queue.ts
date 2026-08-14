@@ -1,7 +1,15 @@
-import { AgentCoreError } from "@agent-core/core";
+import {
+    AgentCoreError,
+    hasExactJsonKeys,
+    isJsonObject,
+    isJsonValue,
+    type JsonFields,
+    type JsonValue
+} from "@agent-core/core";
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalError, operationalFailure } from "./error.js";
 import { QueueMessageId } from "./id.js";
+import { isFiniteNumber } from "./platform-value.js";
 
 export interface QueueRetryOptionsLike {
     readonly delaySeconds?: number;
@@ -18,13 +26,13 @@ export interface QueueMessageBatchLike<Body = unknown> {
     readonly messages: readonly QueueMessageLike<Body>[];
 }
 
-export interface AuthoritativeQueueDelivery<DeliveryId, Payload = unknown> {
+export interface AuthoritativeQueueDelivery<DeliveryId, Payload = JsonValue> {
     readonly deliveryId: DeliveryId;
     readonly payload: Payload;
 }
 
 export interface QueueValueCodec<Value> {
-    decode(value: unknown): Value;
+    decode(value: JsonValue): Value;
 }
 
 export interface QueueDeliveryCodecs<DeliveryId, Payload> {
@@ -37,7 +45,7 @@ export interface QueueTargetResult {
     readonly retryDelaySeconds?: number;
 }
 
-export interface AuthoritativeQueueTarget<DeliveryId, Payload = unknown> {
+export interface AuthoritativeQueueTarget<DeliveryId, Payload = JsonValue> {
     deliver(deliveryId: DeliveryId, payload: Payload): Promise<QueueTargetResult>;
 }
 
@@ -53,7 +61,7 @@ export interface QueueBatchResult<DeliveryId> {
     readonly poisonMessages: readonly PoisonQueueMessage[];
 }
 
-export class AtLeastOnceQueueAdapter<DeliveryId, Payload = unknown> {
+export class AtLeastOnceQueueAdapter<DeliveryId, Payload = JsonValue> {
     public constructor(
         private readonly target: AuthoritativeQueueTarget<DeliveryId, Payload>,
         private readonly codecs: QueueDeliveryCodecs<DeliveryId, Payload>,
@@ -65,7 +73,9 @@ export class AtLeastOnceQueueAdapter<DeliveryId, Payload = unknown> {
         const retriedDeliveryIds: DeliveryId[] = [];
         const poisonMessages: PoisonQueueMessage[] = [];
         for (const message of batch.messages) {
-            const delivery = decodeDelivery(message.body, this.codecs, this.errors);
+            const delivery = isJsonValue(message.body)
+                ? decodeDelivery(message.body, this.codecs, this.errors)
+                : invalidDelivery(this.errors);
             if (delivery instanceof AgentCoreError) {
                 // An undecodable body never becomes deliverable, but acknowledging it here
                 // would destroy it: retrying hands it to the queue's own dead-letter policy
@@ -83,7 +93,7 @@ export class AtLeastOnceQueueAdapter<DeliveryId, Payload = unknown> {
                     this.errors,
                     "protocol.invalid-state",
                     `Authoritative queue target failed for delivery ${String(delivery.deliveryId)}`,
-                    cause
+                    { value: cause }
                 );
             }
             const disposition = decodeResult(result, this.errors);
@@ -115,7 +125,7 @@ export class AtLeastOnceQueueAdapter<DeliveryId, Payload = unknown> {
                 this.errors,
                 "protocol.invalid-state",
                 `Cloudflare queue disposition failed for ${label}`,
-                cause
+                { value: cause }
             );
         }
     }
@@ -123,17 +133,13 @@ export class AtLeastOnceQueueAdapter<DeliveryId, Payload = unknown> {
 
 /** Returns the decoding failure rather than raising it: one poison body is not a batch failure. */
 function decodeDelivery<DeliveryId, Payload>(
-    value: unknown,
+    value: JsonValue,
     codecs: QueueDeliveryCodecs<DeliveryId, Payload>,
     errors: CloudflareErrorPort
 ): AuthoritativeQueueDelivery<DeliveryId, Payload> | AgentCoreError {
     const fields = readDeliveryFields(value);
     if (fields === undefined) {
-        return operationalError(
-            errors,
-            "operation.invalid-input",
-            "Queue body must contain an authoritative delivery ID and payload"
-        );
+        return invalidDelivery(errors);
     }
     try {
         return Object.freeze({
@@ -145,13 +151,21 @@ function decodeDelivery<DeliveryId, Payload>(
             errors,
             "operation.invalid-input",
             "Queue body contains an invalid authoritative delivery identity or payload",
-            cause
+            { value: cause }
         );
     }
 }
 
-function requireMessageId(value: unknown, errors: CloudflareErrorPort): QueueMessageId {
-    if (typeof value !== "string" || value.length === 0) {
+function invalidDelivery(errors: CloudflareErrorPort): AgentCoreError {
+    return operationalError(
+        errors,
+        "operation.invalid-input",
+        "Queue body must contain an authoritative delivery ID and payload"
+    );
+}
+
+function requireMessageId(value: string, errors: CloudflareErrorPort): QueueMessageId {
+    if (!isQueueMessageId(value)) {
         operationalFailure(
             errors,
             "operation.invalid-input",
@@ -161,8 +175,8 @@ function requireMessageId(value: unknown, errors: CloudflareErrorPort): QueueMes
     return new QueueMessageId(value);
 }
 
-function decodeResult(value: unknown, errors: CloudflareErrorPort): QueueTargetResult {
-    if (!isRecord(value) || (value.disposition !== "ack" && value.disposition !== "retry")) {
+function decodeResult(value: QueueTargetResult, errors: CloudflareErrorPort): QueueTargetResult {
+    if (value.disposition !== "ack" && value.disposition !== "retry") {
         operationalFailure(
             errors,
             "operation.invalid-output",
@@ -177,15 +191,18 @@ function decodeResult(value: unknown, errors: CloudflareErrorPort): QueueTargetR
             "Acknowledged queue deliveries cannot specify a retry delay"
         );
     }
-    return Object.freeze({
-        disposition: value.disposition,
-        ...(retryDelaySeconds === undefined ? {} : { retryDelaySeconds })
-    });
+    if (retryDelaySeconds === undefined) {
+        return Object.freeze({ disposition: value.disposition });
+    }
+    return Object.freeze({ disposition: value.disposition, retryDelaySeconds });
 }
 
-function requireRetryDelay(value: unknown, errors: CloudflareErrorPort): number | undefined {
+function requireRetryDelay(
+    value: number | undefined,
+    errors: CloudflareErrorPort
+): number | undefined {
     if (value === undefined) return undefined;
-    if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
+    if (!isFiniteNumber(value) || !Number.isSafeInteger(value) || value <= 0) {
         operationalFailure(
             errors,
             "operation.invalid-output",
@@ -195,36 +212,13 @@ function requireRetryDelay(value: unknown, errors: CloudflareErrorPort): number 
     return value;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
+function isQueueMessageId(value: unknown): value is string {
+    return typeof value === "string" && value.length !== 0;
 }
 
-function hasExactKeys(value: Record<string, unknown>, keys: readonly string[]): boolean {
-    try {
-        const actual = Reflect.ownKeys(value);
-        return actual.length === keys.length && keys.every((key) => actual.includes(key));
-    } catch {
-        return false;
-    }
-}
-
-function readDeliveryFields(
-    value: unknown
-): { readonly deliveryId: unknown; readonly payload: unknown } | undefined {
-    if (!isRecord(value) || !hasExactKeys(value, ["deliveryId", "payload"])) return undefined;
-    try {
-        const deliveryId = Object.getOwnPropertyDescriptor(value, "deliveryId");
-        const payload = Object.getOwnPropertyDescriptor(value, "payload");
-        if (
-            deliveryId === undefined ||
-            payload === undefined ||
-            !("value" in deliveryId) ||
-            !("value" in payload)
-        ) {
-            return undefined;
-        }
-        return Object.freeze({ deliveryId: deliveryId.value, payload: payload.value });
-    } catch {
+function readDeliveryFields(value: JsonValue): JsonFields<"deliveryId" | "payload"> | undefined {
+    if (!isJsonObject(value) || !hasExactJsonKeys(value, ["deliveryId", "payload"])) {
         return undefined;
     }
+    return value;
 }

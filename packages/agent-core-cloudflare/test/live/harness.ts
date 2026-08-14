@@ -1,5 +1,11 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import type { JsonValue } from "@agent-core/core";
+import {
+    isJsonObject,
+    isJsonValue,
+    jsonDataParser,
+    type JsonObject,
+    type JsonValue
+} from "@agent-core/core";
 
 const url = process.env["LIVE_HARNESS_URL"];
 if (url === undefined || url.length === 0) {
@@ -16,17 +22,24 @@ const stateFile = process.env["LIVE_STATE_FILE"];
 
 export type LiveLane = "env" | "slate" | "runtime" | "queue";
 
-export interface LiveResult {
-    readonly name?: string;
-    readonly value?: string;
-    readonly materialization?: string;
-}
-
-export interface LiveOutcome<Result = LiveResult> {
+export interface LiveOutcome<Result = JsonValue> {
     readonly ok: boolean;
     readonly result?: Result | null;
     readonly code?: string;
     readonly message?: string;
+}
+
+export interface LiveResult {
+    readonly name: string | undefined;
+    readonly value: string | undefined;
+    readonly materialization: string | undefined;
+}
+
+interface DecodedLiveOutcome {
+    ok: boolean;
+    result?: JsonValue;
+    code?: string;
+    message?: string;
 }
 
 export interface LiveClaim {
@@ -52,18 +65,36 @@ export interface LiveEvent {
     readonly detail: number;
 }
 
+export type LiveResultDecoder<Result> = (value: JsonValue) => Result;
+
+const liveData = jsonDataParser((message) => new TypeError(message));
+
 // Durable Object instances persist across evidence runs; suffixing every instance
 // with the run ID keeps each run's scenarios on fresh substrate state.
 export function instanceName(instance: string): string {
     return `${instance}-${runId}`;
 }
 
-export async function call<Result = LiveResult>(
+export function call(
     lane: LiveLane,
     instance: string,
     operation: string,
-    body: Record<string, JsonValue> = {}
-): Promise<LiveOutcome<Result>> {
+    body?: Record<string, JsonValue>
+): Promise<LiveOutcome>;
+export function call<Result>(
+    lane: LiveLane,
+    instance: string,
+    operation: string,
+    body: Record<string, JsonValue>,
+    decodeResult: LiveResultDecoder<Result>
+): Promise<LiveOutcome<Result>>;
+export async function call<Result>(
+    lane: LiveLane,
+    instance: string,
+    operation: string,
+    body: Record<string, JsonValue> = {},
+    decodeResult?: LiveResultDecoder<Result>
+): Promise<LiveOutcome | LiveOutcome<Result>> {
     const response = await fetch(`${harnessUrl}/${lane}/${instanceName(instance)}/${operation}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -73,13 +104,45 @@ export async function call<Result = LiveResult>(
     if (!response.ok && response.status !== 409 && response.status !== 500) {
         throw new TypeError(`Live harness ${operation} failed with HTTP ${response.status}`);
     }
-    const outcome = (await response.json()) as LiveOutcome<Result>;
+    const decoded: unknown = await response.json();
+    if (!isJsonValue(decoded) || !isJsonObject(decoded)) {
+        throw new TypeError(`Live harness ${operation} returned an invalid outcome`);
+    }
+    const outcome = decodeOutcome(decoded, operation);
     if (response.status === 500) {
         throw new TypeError(
             `Live harness ${operation} raised an unhandled failure: ${outcome.message ?? "no cause reported"}`
         );
     }
-    return outcome;
+    if (decodeResult === undefined || outcome.result === undefined || outcome.result === null) {
+        return outcome;
+    }
+    return Object.freeze({ ...outcome, result: decodeResult(outcome.result) });
+}
+
+function decodeOutcome(value: JsonObject, operation: string): LiveOutcome {
+    const ok = liveData.boolean(value["ok"], `Live harness ${operation} outcome`);
+    const result = value["result"];
+    const code = optionalText(value["code"], `Live harness ${operation} code`);
+    const message = optionalText(value["message"], `Live harness ${operation} message`);
+    const outcome: DecodedLiveOutcome = { ok };
+    if (result !== undefined) outcome.result = result;
+    if (code !== undefined) outcome.code = code;
+    if (message !== undefined) outcome.message = message;
+    return Object.freeze(outcome);
+}
+
+function optionalText(value: JsonValue | undefined, subject: string): string | undefined {
+    return value === undefined ? undefined : liveData.string(value, subject);
+}
+
+export function decodeLiveResult(value: JsonValue): LiveResult {
+    const result = liveData.object(value, "Live result");
+    return {
+        name: optionalText(result["name"], "Live result name"),
+        value: optionalText(result["value"], "Live result value"),
+        materialization: optionalText(result["materialization"], "Live result materialization")
+    };
 }
 
 /** The successful result of a lane call, or a failure carrying the lane's own cause. */
@@ -90,6 +153,43 @@ export function resultOf<Result>(outcome: LiveOutcome<Result>): Result {
         );
     }
     return outcome.result;
+}
+
+export function decodeLiveAlarmState(value: JsonValue): LiveAlarmState {
+    const state = liveData.object(value, "Live alarm state");
+    return {
+        physicalAlarm: nullableInteger(state["physicalAlarm"], "Live physical alarm"),
+        claims: liveData.array(state["claims"], "Live alarm claims").map((claimValue) => {
+            const claim = liveData.object(claimValue, "Live alarm claim");
+            return {
+                owner: liveData.nonemptyString(claim["owner"], "Live alarm claim owner"),
+                dueAt: liveData.safeInteger(claim["dueAt"], "Live alarm claim due time")
+            };
+        })
+    };
+}
+
+export function decodeLiveOutboxState(value: JsonValue): LiveOutboxState {
+    const state = liveData.object(value, "Live outbox state");
+    const alarm = decodeLiveAlarmState(value);
+    return {
+        ...alarm,
+        entries: liveData.array(state["entries"], "Live outbox entries").map((entryValue) => {
+            const entry = liveData.object(entryValue, "Live outbox entry");
+            return {
+                id: liveData.nonemptyString(entry["id"], "Live outbox entry ID"),
+                scheduledAt: liveData.safeInteger(
+                    entry["scheduledAt"],
+                    "Live outbox entry schedule"
+                )
+            };
+        }),
+        nextDueAt: nullableInteger(state["nextDueAt"], "Live outbox next due time")
+    };
+}
+
+function nullableInteger(value: JsonValue | undefined, subject: string): number | null {
+    return value === null ? null : liveData.safeInteger(value, subject);
 }
 
 export async function abortInstance(lane: LiveLane, instance: string): Promise<void> {
@@ -127,9 +227,27 @@ export async function poll<Value>(
 }
 
 export async function events(instance: string): Promise<readonly LiveEvent[]> {
-    return resultOf(
-        await call<{ readonly events: readonly LiveEvent[] }>("runtime", instance, "events")
-    ).events;
+    return resultOf(await call("runtime", instance, "events", {}, decodeEventList)).events;
+}
+
+interface LiveEventList {
+    readonly events: readonly LiveEvent[];
+}
+
+function decodeEventList(value: JsonValue): LiveEventList {
+    const result = liveData.object(value, "Live event result");
+    return {
+        events: liveData.array(result["events"], "Live events").map((eventValue) => {
+            const event = liveData.object(eventValue, "Live event");
+            return {
+                ordinal: liveData.safeInteger(event["ordinal"], "Live event ordinal"),
+                kind: liveData.nonemptyString(event["kind"], "Live event kind"),
+                subject: liveData.nonemptyString(event["subject"], "Live event subject"),
+                at: liveData.safeInteger(event["at"], "Live event time"),
+                detail: liveData.safeInteger(event["detail"], "Live event detail")
+            };
+        })
+    };
 }
 
 export async function awaitEvent(
@@ -211,5 +329,9 @@ export function loadState(key: string): JsonValue {
 
 function readState(path: string): Record<string, JsonValue> {
     if (!existsSync(path)) return {};
-    return JSON.parse(readFileSync(path, "utf8")) as Record<string, JsonValue>;
+    const decoded: unknown = JSON.parse(readFileSync(path, "utf8"));
+    if (!isJsonValue(decoded) || !isJsonObject(decoded)) {
+        throw new TypeError("Live state file must contain a JSON object");
+    }
+    return decoded;
 }

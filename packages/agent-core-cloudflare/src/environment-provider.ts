@@ -8,6 +8,7 @@ import {
     decodeCanonicalJson,
     encodeBase64,
     encodeCanonicalJson,
+    isJsonObject,
     type JsonValue
 } from "@agent-core/core";
 import {
@@ -28,6 +29,7 @@ import type { R2ContentObjectRepository } from "./content-object.js";
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
 import type { SqliteApplicationMigration, SynchronousSqlitePort } from "./migration.js";
+import { isFiniteNumber, isText } from "./platform-value.js";
 import { requireStorableBlob } from "./sqlite.js";
 
 const SNAPSHOT_FORMAT = "agent-core-environment-snapshot/1";
@@ -518,7 +520,7 @@ export class DurableObjectEnvironmentProvider extends EnvironmentProvider {
         const entries: Array<readonly [string, string]> = [];
         for (const row of this.database.all(READ_FILES, [session])) {
             const { path, content } = row;
-            if (typeof path !== "string" || !(content instanceof Uint8Array)) {
+            if (!isText(path) || !(content instanceof Uint8Array)) {
                 this.corrupt("Environment session file row is corrupt");
             }
             entries.push([path, encodeBase64(content)]);
@@ -552,7 +554,7 @@ export class DurableObjectEnvironmentProvider extends EnvironmentProvider {
         if (!isJsonRecord(encodedFiles)) return undefined;
         const files = new Map<string, Uint8Array>();
         for (const [path, encoded] of Object.entries(encodedFiles)) {
-            if (typeof encoded !== "string") return undefined;
+            if (!isText(encoded)) return undefined;
             try {
                 files.set(path, decodeBase64(encoded));
             } catch {
@@ -575,11 +577,11 @@ export class DurableObjectEnvironmentProvider extends EnvironmentProvider {
         const restoreRef = row?.restore_ref;
         const state = row?.state;
         if (
-            typeof environmentId !== "string" ||
+            !isText(environmentId) ||
             !isRecordedNumber(revision) ||
             !isRecordedNumber(generation) ||
             !isRecordedNumber(sessionEpoch) ||
-            (restoreRef !== null && typeof restoreRef !== "string") ||
+            (restoreRef !== null && !isText(restoreRef)) ||
             (state !== "open" && state !== "closed")
         ) {
             this.corrupt("Environment session record is corrupt");
@@ -605,12 +607,12 @@ export class DurableObjectEnvironmentProvider extends EnvironmentProvider {
         const sessionEpoch = row?.session_epoch;
         const contentRef = row?.content_ref;
         if (
-            typeof environmentId !== "string" ||
-            typeof sessionId !== "string" ||
+            !isText(environmentId) ||
+            !isText(sessionId) ||
             !isRecordedNumber(revision) ||
             !isRecordedNumber(generation) ||
             !isRecordedNumber(sessionEpoch) ||
-            typeof contentRef !== "string"
+            !isText(contentRef)
         ) {
             this.corrupt("Environment snapshot record is corrupt");
         }
@@ -637,13 +639,13 @@ export class DurableObjectEnvironmentProvider extends EnvironmentProvider {
         const url = row?.url;
         const state = row?.state;
         if (
-            typeof environmentId !== "string" ||
-            typeof sessionId !== "string" ||
+            !isText(environmentId) ||
+            !isText(sessionId) ||
             !isRecordedNumber(revision) ||
             !isRecordedNumber(generation) ||
             !isRecordedNumber(sessionEpoch) ||
             !isRecordedNumber(port) ||
-            (url !== null && typeof url !== "string") ||
+            (url !== null && !isText(url)) ||
             (state !== "exposed" && state !== "revoked")
         ) {
             this.corrupt("Port exposure record is corrupt");
@@ -762,7 +764,7 @@ export class DurableObjectEnvironmentProvider extends EnvironmentProvider {
     }
 
     private requireFilePath(path: string): void {
-        if (typeof path !== "string" || path.length === 0 || path.length > MAX_FILE_PATH_LENGTH) {
+        if (!isFilePath(path)) {
             operationalFailure(
                 this.errors,
                 "operation.invalid-input",
@@ -783,9 +785,13 @@ function sessionHandle(): LiveEnvironmentSession {
 function isJsonRecord(
     value: JsonValue | undefined
 ): value is { readonly [key: string]: JsonValue } {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
+    return isJsonObject(value);
 }
 
 function isRecordedNumber(value: unknown): value is number {
-    return Number.isSafeInteger(value) && (value as number) >= 0;
+    return isFiniteNumber(value) && Number.isSafeInteger(value) && value >= 0;
+}
+
+function isFilePath(value: unknown): value is string {
+    return typeof value === "string" && value.length > 0 && value.length <= MAX_FILE_PATH_LENGTH;
 }

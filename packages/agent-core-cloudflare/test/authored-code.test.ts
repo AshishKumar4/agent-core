@@ -15,10 +15,10 @@ import {
     WORKER_LOADER_BACKING,
     WorkerLoaderAuthoredCodeBacking,
     passedCapabilities,
-    type AuthoredCodeEntrypointLike,
     type DispatchedAuthoredCodeEntrypointLike,
     type DynamicWorkerHandleLike,
     type DynamicWorkerLoadOptions,
+    type FetchServiceLike,
     type PassedCapabilities,
     type PassedCapabilityProps,
     type WorkerLoaderBindingLike
@@ -149,7 +149,13 @@ describe("Cloudflare backings for §4.7 agent-authored code", () => {
 
         const notData = new WorkerLoaderAuthoredCodeBacking(
             new DynamicWorkerLoaderAdapter(
-                new StubWorkerLoader(() => ({ run: () => ({ leaked: () => undefined }) })),
+                new StubWorkerLoader(() => ({
+                    fetch: () => new Response(),
+                    run: () =>
+                        malformedInput<FacetData, { readonly leaked: () => void }>({
+                            leaked: () => undefined
+                        })
+                })),
                 fakeErrors
             ),
             "2026-07-10",
@@ -242,7 +248,7 @@ class RecordingInvocations extends AuthoredCodeInvocationPort {
     }
 }
 
-class RecordingWorkerLoader implements WorkerLoaderBindingLike {
+class RecordingWorkerLoader implements WorkerLoaderBindingLike<FetchServiceLike> {
     public readonly calls: DynamicWorkerLoadOptions[] = [];
     public disposals = 0;
 
@@ -253,10 +259,11 @@ class RecordingWorkerLoader implements WorkerLoaderBindingLike {
         ) => FacetData | Promise<FacetData>
     ) {}
 
-    public load(options: DynamicWorkerLoadOptions): DynamicWorkerHandleLike {
+    public load(options: DynamicWorkerLoadOptions): DynamicWorkerHandleLike<FetchServiceLike> {
         this.calls.push(options);
         return {
             getEntrypoint: () => ({
+                fetch: () => new Response(),
                 run: (input: FacetData) => this.run(options.env, input)
             }),
             [Symbol.dispose]: () => {
@@ -266,10 +273,10 @@ class RecordingWorkerLoader implements WorkerLoaderBindingLike {
     }
 }
 
-class StubWorkerLoader implements WorkerLoaderBindingLike {
-    public constructor(private readonly entrypoint: () => AuthoredCodeEntrypointLike) {}
+class StubWorkerLoader implements WorkerLoaderBindingLike<FetchServiceLike> {
+    public constructor(private readonly entrypoint: () => FetchServiceLike) {}
 
-    public load(): DynamicWorkerHandleLike {
+    public load(): DynamicWorkerHandleLike<FetchServiceLike> {
         return { getEntrypoint: () => this.entrypoint(), [Symbol.dispose]: () => undefined };
     }
 }

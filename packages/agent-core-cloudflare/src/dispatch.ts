@@ -39,7 +39,7 @@ export class DispatchNamespaceAdapter<Service> {
                 this.errors,
                 "protocol.invalid-state",
                 `Dispatch namespace resolution failed for ${scriptName}`,
-                cause
+                { value: cause }
             );
         }
         if (service === undefined || service === null) {

@@ -4,8 +4,10 @@ import {
     Digest,
     RouteReservationId,
     TenantId,
+    jsonDataParser,
     isJsonObject,
-    isJsonValue
+    isJsonValue,
+    type JsonValue
 } from "@agent-core/core";
 import { BindingName, FacetRef, type FacetData } from "@agent-core/core/facets";
 import {
@@ -55,7 +57,7 @@ import {
     type FetchServiceLike,
     type WorkerLoaderBindingLike
 } from "../../src/index.js";
-import { answersPlatformMethod, platformMember } from "../../src/platform-value.js";
+import { isPlatformMethod, isPlatformObject } from "../../src/platform-value.js";
 import { queueCodecs } from "../queue-codecs.js";
 
 export type TestEnvironment = Env;
@@ -63,6 +65,7 @@ export type TestEnvironment = Env;
 const loaderCapabilities = new AuthoredCodeCapabilitySet([
     new AuthoredCodeCapability(new BindingName("CAPABILITY"), new FacetRef("mail:instance"))
 ]);
+const workerdData = jsonDataParser((message) => new TypeError(message));
 
 // A stand-in for the isolate's gateway port: the point of this scenario is that a
 // delegated capability crosses the real Worker Loader boundary and calls back into the
@@ -86,22 +89,28 @@ function acknowledgedRevision(message: string | ArrayBuffer): number {
         throw new TypeError("Expected text acknowledgement");
     }
     const frame: unknown = JSON.parse(message);
-    const acked = isJsonValue(frame) && isJsonObject(frame) ? frame["ackedRevision"] : undefined;
-    if (typeof acked !== "number") {
-        throw new TypeError("Expected numeric acknowledged revision");
+    if (!isJsonValue(frame) || !isJsonObject(frame)) {
+        throw new TypeError("Expected acknowledgement object");
     }
-    return acked;
+    return workerdData.safeInteger(frame["ackedRevision"], "Acknowledged revision");
 }
 
-function requireAuthoredCodeEntrypoint(entrypoint: unknown): AuthoredCodeEntrypointLike {
+type WorkerdAuthoredCodeEntrypointCandidate = FetchServiceLike &
+    Partial<AuthoredCodeEntrypointLike>;
+
+function requireAuthoredCodeEntrypoint(
+    entrypoint: WorkerdAuthoredCodeEntrypointCandidate
+): AuthoredCodeEntrypointLike {
     if (!isAuthoredCodeEntrypoint(entrypoint)) {
         throw new AgentCoreError("operation.invalid-output", "Loaded code declares no run");
     }
     return entrypoint;
 }
 
-function isAuthoredCodeEntrypoint(value: unknown): value is AuthoredCodeEntrypointLike {
-    return answersPlatformMethod<AuthoredCodeEntrypointLike>(value, (code) => code.run);
+function isAuthoredCodeEntrypoint(
+    value: WorkerdAuthoredCodeEntrypointCandidate
+): value is WorkerdAuthoredCodeEntrypointCandidate & AuthoredCodeEntrypointLike {
+    return isPlatformObject(value) && isPlatformMethod(value.run);
 }
 
 const errors: CloudflareErrorPort = {
@@ -137,25 +146,23 @@ interface CapabilityExports {
 
 /** As much of the worker's own context as this route uses. */
 interface WorkerContextLike {
-    readonly exports: unknown;
+    readonly exports?: Partial<CapabilityExports>;
 }
 
-function requireCapabilityExports(context: unknown): CapabilityExports {
-    const exports = platformMember<WorkerContextLike>(context, (candidate) => candidate.exports);
-    if (!isCapabilityExports(exports)) {
+function requireCapabilityExports(context: Partial<WorkerContextLike>): CapabilityExports {
+    if (!isPlatformObject(context) || !isCapabilityExports(context.exports)) {
         throw new AgentCoreError(
             "protocol.invalid-state",
             "Worker context exposes no capability entry point"
         );
     }
-    return exports;
+    return context.exports;
 }
 
-function isCapabilityExports(value: unknown): value is CapabilityExports {
-    return answersPlatformMethod<CapabilityExports>(
-        value,
-        (exports) => exports.TestPassedCapabilityEntrypoint
-    );
+function isCapabilityExports(
+    value: Partial<CapabilityExports> | undefined
+): value is CapabilityExports {
+    return isPlatformObject(value) && isPlatformMethod(value.TestPassedCapabilityEntrypoint);
 }
 
 const TestActorDelegate = createCloudflareDurableObjectClass<TestEnvironment>({
@@ -303,7 +310,7 @@ export class TestActorDurableObject extends DurableObject<TestEnvironment> {
         return this.#delegate.webSocketClose(socket, code, reason, wasClean);
     }
 
-    public webSocketError(socket: WebSocket, error: unknown): void | Promise<void> {
+    public webSocketError(socket: WebSocket, error: Error): void | Promise<void> {
         return this.#delegate.webSocketError(socket, error);
     }
 }
@@ -501,7 +508,7 @@ export class SlateProviderDurableObject extends DurableObject<TestEnvironment> {
     }
 }
 
-export default createCloudflareWorker<TestEnvironment, RouteReservationId, unknown>({
+export default createCloudflareWorker<TestEnvironment, RouteReservationId, JsonValue>({
     router: {
         async fetch(request, environment, context): Promise<Response> {
             const url = new URL(request.url);
@@ -511,10 +518,15 @@ export default createCloudflareWorker<TestEnvironment, RouteReservationId, unkno
                 });
             }
             if (url.pathname === "/loader") {
-                const adapter = new DynamicWorkerLoaderAdapter(
-                    environment.LOADER satisfies WorkerLoaderBindingLike,
-                    errors
-                );
+                // SAFETY: this is the real Workers ExecutionContext. The public adapter
+                // intentionally exposes only waitUntil, so this route restores the optional
+                // exports field and validates it before use.
+                const workerContext = context as typeof context & Partial<WorkerContextLike>;
+                const adapter =
+                    new DynamicWorkerLoaderAdapter<WorkerdAuthoredCodeEntrypointCandidate>(
+                        environment.LOADER satisfies WorkerLoaderBindingLike<WorkerdAuthoredCodeEntrypointCandidate>,
+                        errors
+                    );
                 using registered = loaderRegistry.open(LOADER_ISOLATE, loaderInvocations);
                 void registered;
                 const scope = adapter.load(
@@ -537,7 +549,9 @@ export default createCloudflareWorker<TestEnvironment, RouteReservationId, unkno
                         }
                     },
                     passedCapabilities(loaderCapabilities, LOADER_ISOLATE, (props) =>
-                        requireCapabilityExports(context).TestPassedCapabilityEntrypoint({ props })
+                        requireCapabilityExports(workerContext).TestPassedCapabilityEntrypoint({
+                            props
+                        })
                     ),
                     requireAuthoredCodeEntrypoint
                 );
@@ -548,8 +562,8 @@ export default createCloudflareWorker<TestEnvironment, RouteReservationId, unkno
                 }
             }
             if (url.pathname === "/loader-outbound") {
-                const adapter = new DynamicWorkerLoaderAdapter(
-                    environment.LOADER satisfies WorkerLoaderBindingLike,
+                const adapter = new DynamicWorkerLoaderAdapter<FetchServiceLike>(
+                    environment.LOADER satisfies WorkerLoaderBindingLike<FetchServiceLike>,
                     errors
                 );
                 const scope = adapter.load(
@@ -596,13 +610,13 @@ export default createCloudflareWorker<TestEnvironment, RouteReservationId, unkno
     )
 });
 
-function requireFetchService(value: unknown): FetchServiceLike {
+function requireFetchService(value: Partial<FetchServiceLike>): FetchServiceLike {
     if (!isFetchService(value)) {
         throw new TypeError("Dynamic Worker entrypoint must provide fetch");
     }
     return value;
 }
 
-function isFetchService(value: unknown): value is FetchServiceLike {
-    return answersPlatformMethod<FetchServiceLike>(value, (service) => service.fetch);
+function isFetchService(value: Partial<FetchServiceLike>): value is FetchServiceLike {
+    return isPlatformObject(value) && isPlatformMethod(value.fetch);
 }

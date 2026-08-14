@@ -1,12 +1,23 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { encodeCanonicalJson } from "@agent-core/core";
+import {
+    encodeCanonicalJson,
+    isJsonObject,
+    isJsonValue,
+    jsonDataParser,
+    type JsonObject,
+    type JsonValue
+} from "@agent-core/core";
+import { isText } from "../../src/platform-value.js";
 import { decodeViewStreamFrame } from "../../src/index.js";
 import { SQL_BLOB_LIMIT_BYTES } from "../../src/sqlite.js";
 import {
     abortInstance,
     awaitEvent,
     call,
+    decodeLiveAlarmState,
+    decodeLiveOutboxState,
+    decodeLiveResult,
     events,
     openSocket,
     poll,
@@ -20,14 +31,14 @@ import {
 const PREVIEW_HOST = "preview.agent-core-live.test";
 const publicationMaterialization = `sha256:${"1".repeat(64)}`;
 
-function pin(environment: string, revision = 0, generation = 0): Record<string, string | number> {
+function pin(environment: string, revision = 0, generation = 0) {
     return { environmentId: environment, environmentRevision: revision, generation };
 }
 
 function deployment(
     id: string,
     init: { readonly target?: string; readonly invocation?: string; readonly key?: string } = {}
-): Record<string, string | number> {
+) {
     return {
         workspaceId: "ws-live",
         slateId: "slate-live",
@@ -103,14 +114,16 @@ describe("live Cloudflare substrate evidence", () => {
             path: "a.json",
             contentBase64: Buffer.from("live-evidence").toString("base64")
         });
-        const snapshot = await call("env", "snap-a", "snapshot", {
-            ...session,
-            sessionEpoch: 0,
-            snapshotId: "snap-1"
-        });
+        const snapshot = await call(
+            "env",
+            "snap-a",
+            "snapshot",
+            { ...session, sessionEpoch: 0, snapshotId: "snap-1" },
+            decodeLiveResult
+        );
         expect(snapshot).toMatchObject({ ok: true, result: { name: "ready" } });
         const reference = snapshot.result?.value;
-        if (typeof reference !== "string") throw new TypeError("Expected a snapshot ContentRef");
+        if (!isText(reference)) throw new TypeError("Expected a snapshot ContentRef");
 
         await abortInstance("env", "snap-a");
 
@@ -142,7 +155,7 @@ describe("live Cloudflare substrate evidence", () => {
             exposureId: "exp-1",
             port: 8080
         };
-        const exposed = await call("env", "preview", "expose", exposure);
+        const exposed = await call("env", "preview", "expose", exposure, decodeLiveResult);
         expect(exposed).toMatchObject({ ok: true, result: { name: "ready" } });
 
         const token = createHash("sha256")
@@ -184,10 +197,10 @@ describe("live Cloudflare substrate evidence", () => {
 
     it("[P11-SLATE-DEPLOY] deploys once against the real substrate and rejects identity reuse across an instance kill", async () => {
         const request = deployment("dep-live");
-        const first = await call("slate", "deploy", "deploy", request);
+        const first = await call("slate", "deploy", "deploy", request, decodeLiveResult);
         expect(first.ok).toBe(true);
         const materialization = first.result?.materialization;
-        if (typeof materialization !== "string") throw new TypeError("Expected a materialization");
+        if (!isText(materialization)) throw new TypeError("Expected a materialization");
         expect(materialization.startsWith("sha256:")).toBe(true);
 
         await abortInstance("slate", "deploy");
@@ -224,7 +237,7 @@ describe("live Cloudflare substrate evidence", () => {
         // the outcome never observed. Reconciliation with the identical frozen intent
         // must settle to the exact recorded materialization, not repeat the effect.
         const request = deployment("dep-mediated");
-        const attempted = await call("slate", "mediated", "deploy", request);
+        const attempted = await call("slate", "mediated", "deploy", request, decodeLiveResult);
         expect(attempted.ok).toBe(true);
 
         await abortInstance("slate", "mediated");
@@ -263,7 +276,13 @@ describe("live Cloudflare substrate evidence", () => {
             itemIndex: 0,
             attemptOrdinal: 0
         };
-        const materialized = await call("slate", "mediated", "materialize-resource", resource);
+        const materialized = await call(
+            "slate",
+            "mediated",
+            "materialize-resource",
+            resource,
+            decodeLiveResult
+        );
         expect(materialized.ok).toBe(true);
         await abortInstance("slate", "mediated");
         expect(await call("slate", "mediated", "reconcile-resource", resource)).toMatchObject({
@@ -313,25 +332,160 @@ interface SocketList {
     }[];
 }
 
+interface QueuePublishResult {
+    readonly deliveryId: string;
+    readonly poison: boolean;
+}
+
+interface AttachmentState {
+    readonly version: number;
+    readonly channel: string;
+    readonly ackedRevision: number;
+}
+
 interface AttachmentProbe {
     readonly isolate: string;
-    readonly before: { readonly channel: string; readonly ackedRevision: number };
-    readonly after: { readonly channel: string; readonly ackedRevision: number };
+    readonly before: AttachmentState;
+    readonly after: AttachmentState;
     readonly currentRevision: number;
 }
 
+const probeData = jsonDataParser((message) => new TypeError(message));
+
+function resultObject(value: JsonValue, subject: string): JsonObject {
+    return probeData.object(value, subject);
+}
+
+function decodeEnqueueResult(value: JsonValue): EnqueueResult {
+    const result = resultObject(value, "Live enqueue result");
+    return {
+        ...decodeLiveOutboxState(value),
+        scheduledAt: probeData.safeInteger(result["scheduledAt"], "Live enqueue schedule")
+    };
+}
+
+function decodeClaimResult(value: JsonValue): ClaimResult {
+    const result = resultObject(value, "Live claim result");
+    return {
+        ...decodeLiveAlarmState(value),
+        dueAt: probeData.safeInteger(result["dueAt"], "Live claim due time")
+    };
+}
+
+function decodeThrowingResult(value: JsonValue): ThrowingResult {
+    const result = resultObject(value, "Live throwing alarm result");
+    return {
+        ...decodeClaimResult(value),
+        until: probeData.safeInteger(result["until"], "Live throwing alarm deadline")
+    };
+}
+
+function decodeBlobResult(value: JsonValue): BlobResult {
+    const result = resultObject(value, "Live blob result");
+    return {
+        revision: probeData.safeInteger(result["revision"], "Live blob revision"),
+        byteLength: probeData.safeInteger(result["byteLength"], "Live blob byte length")
+    };
+}
+
+function decodeBlobRead(value: JsonValue): BlobRead {
+    const result = resultObject(value, "Live blob read result");
+    const lastByteLength = result["lastByteLength"];
+    return {
+        currentRevision: probeData.safeInteger(
+            result["currentRevision"],
+            "Live blob current revision"
+        ),
+        lastByteLength:
+            lastByteLength === null
+                ? null
+                : probeData.safeInteger(lastByteLength, "Live blob byte length")
+    };
+}
+
+function decodeDeliveryList(value: JsonValue): DeliveryList {
+    const result = resultObject(value, "Live delivery list");
+    return {
+        deliveries: probeData.array(result["deliveries"], "Live deliveries").map((item) => {
+            const delivery = resultObject(item, "Live delivery");
+            return {
+                deliveryId: probeData.nonemptyString(delivery["deliveryId"], "Live delivery ID"),
+                attempts: probeData.safeInteger(delivery["attempts"], "Live delivery attempts")
+            };
+        })
+    };
+}
+
+function decodeSocketList(value: JsonValue): SocketList {
+    const result = resultObject(value, "Live socket list");
+    return {
+        count: probeData.safeInteger(result["count"], "Live socket count"),
+        attachments: probeData
+            .array(result["attachments"], "Live socket attachments")
+            .map((item) => {
+                const attachment = resultObject(item, "Live socket attachment");
+                return {
+                    channel: probeData.nonemptyString(attachment["channel"], "Live socket channel"),
+                    ackedRevision: probeData.safeInteger(
+                        attachment["ackedRevision"],
+                        "Live socket acknowledged revision"
+                    )
+                };
+            })
+    };
+}
+
+function decodeQueuePublish(value: JsonValue): QueuePublishResult {
+    const result = resultObject(value, "Live queue publication");
+    return {
+        deliveryId: probeData.nonemptyString(result["deliveryId"], "Live queue delivery ID"),
+        poison: probeData.boolean(result["poison"], "Live queue poison flag")
+    };
+}
+
+function attachmentProbe(encoded: string): AttachmentProbe {
+    const decoded: unknown = JSON.parse(encoded);
+    if (!isJsonValue(decoded) || !isJsonObject(decoded)) {
+        throw new TypeError("Attachment probe must be a JSON object");
+    }
+    return {
+        isolate: probeData.nonemptyString(decoded["isolate"], "Attachment probe isolate"),
+        before: attachmentState(decoded["before"], "before"),
+        after: attachmentState(decoded["after"], "after"),
+        currentRevision: probeData.safeInteger(
+            decoded["currentRevision"],
+            "Attachment probe current revision"
+        )
+    };
+}
+
+function attachmentState(value: JsonObject[string] | undefined, label: string): AttachmentState {
+    const state = probeData.object(value, `Attachment probe ${label}`);
+    return {
+        version: probeData.safeInteger(state["version"], `Attachment probe ${label} version`),
+        channel: probeData.nonemptyString(state["channel"], `Attachment probe ${label} channel`),
+        ackedRevision: probeData.safeInteger(
+            state["ackedRevision"],
+            `Attachment probe ${label} revision`
+        )
+    };
+}
+
 async function attempts(instance: string, deliveryId: string): Promise<number | undefined> {
-    const list = resultOf(await call<DeliveryList>("runtime", instance, "deliveries"));
+    const list = resultOf(await call("runtime", instance, "deliveries", {}, decodeDeliveryList));
     return list.deliveries.find((delivery) => delivery.deliveryId === deliveryId)?.attempts;
 }
 
 describe("live Cloudflare platform-semantics evidence", () => {
     it("[C13-CLOUDFLARE-RECONCILIATION-DRIVER] arms a real alarm from the outbox, fires it, and tears the alarm down", async () => {
         const enqueued = resultOf(
-            await call<EnqueueResult>("runtime", "alarm-sweep", "enqueue", {
-                id: "due-now",
-                delayMs: ARM_DELAY_MS
-            })
+            await call(
+                "runtime",
+                "alarm-sweep",
+                "enqueue",
+                { id: "due-now", delayMs: ARM_DELAY_MS },
+                decodeEnqueueResult
+            )
         );
         expect(enqueued.entries).toEqual([{ id: "due-now", scheduledAt: enqueued.scheduledAt }]);
         // The physical alarm is the earliest live claim, and the reconciler holds one.
@@ -343,7 +497,9 @@ describe("live Cloudflare platform-semantics evidence", () => {
         const finished = await awaitEvent("alarm-sweep", "reconcile.finished", "due-now");
         expect(finished.at).toBeGreaterThanOrEqual(enqueued.scheduledAt);
 
-        const settled = resultOf(await call<LiveOutboxState>("runtime", "alarm-sweep", "outbox"));
+        const settled = resultOf(
+            await call("runtime", "alarm-sweep", "outbox", {}, decodeLiveOutboxState)
+        );
         expect(settled).toEqual({
             entries: [],
             nextDueAt: null,
@@ -354,10 +510,13 @@ describe("live Cloudflare platform-semantics evidence", () => {
 
     it("[C13-CLOUDFLARE-ALARM-DURABILITY] fires an alarm scheduled before a real instance kill, with nothing outside the object waking it", async () => {
         const enqueued = resultOf(
-            await call<EnqueueResult>("runtime", "alarm-kill", "enqueue", {
-                id: "after-kill",
-                delayMs: 5_000
-            })
+            await call(
+                "runtime",
+                "alarm-kill",
+                "enqueue",
+                { id: "after-kill", delayMs: 5_000 },
+                decodeEnqueueResult
+            )
         );
         expect(enqueued.physicalAlarm).toBe(enqueued.scheduledAt);
 
@@ -371,18 +530,22 @@ describe("live Cloudflare platform-semantics evidence", () => {
         // no client skew: the alarm fired on its schedule, not when this test looked.
         expect(finished.at - enqueued.scheduledAt).toBeLessThan(8_000);
 
-        const settled = resultOf(await call<LiveOutboxState>("runtime", "alarm-kill", "outbox"));
+        const settled = resultOf(
+            await call("runtime", "alarm-kill", "outbox", {}, decodeLiveOutboxState)
+        );
         expect(settled.entries).toEqual([]);
         expect(settled.physicalAlarm).toBeNull();
     });
 
     it("[C13-CLOUDFLARE-RECONCILIATION-RETRY] reschedules a failed reconciliation onto a real alarm and settles it", async () => {
         const enqueued = resultOf(
-            await call<EnqueueResult>("runtime", "alarm-retry", "enqueue", {
-                id: "faulty",
-                delayMs: ARM_DELAY_MS,
-                faults: 1
-            })
+            await call(
+                "runtime",
+                "alarm-retry",
+                "enqueue",
+                { id: "faulty", delayMs: ARM_DELAY_MS, faults: 1 },
+                decodeEnqueueResult
+            )
         );
         expect(enqueued.entries).toEqual([{ id: "faulty", scheduledAt: enqueued.scheduledAt }]);
 
@@ -397,22 +560,30 @@ describe("live Cloudflare platform-semantics evidence", () => {
             ).length
         ).toBeGreaterThanOrEqual(2);
 
-        const settled = resultOf(await call<LiveOutboxState>("runtime", "alarm-retry", "outbox"));
+        const settled = resultOf(
+            await call("runtime", "alarm-retry", "outbox", {}, decodeLiveOutboxState)
+        );
         expect(settled).toEqual({ entries: [], nextDueAt: null, physicalAlarm: null, claims: [] });
     });
 
     it("[C13-CLOUDFLARE-ALARM-CLAIMS] shares one physical alarm between two claims across a real instance kill", async () => {
         const early = resultOf(
-            await call<ClaimResult>("runtime", "alarm-claims", "claim", {
-                owner: "early",
-                delayMs: 3_600_000
-            })
+            await call(
+                "runtime",
+                "alarm-claims",
+                "claim",
+                { owner: "early", delayMs: 3_600_000 },
+                decodeClaimResult
+            )
         );
         const late = resultOf(
-            await call<ClaimResult>("runtime", "alarm-claims", "claim", {
-                owner: "late",
-                delayMs: 7_200_000
-            })
+            await call(
+                "runtime",
+                "alarm-claims",
+                "claim",
+                { owner: "late", delayMs: 7_200_000 },
+                decodeClaimResult
+            )
         );
         expect(late.physicalAlarm).toBe(early.dueAt);
         expect(late.claims).toEqual([
@@ -422,7 +593,13 @@ describe("live Cloudflare platform-semantics evidence", () => {
 
         // Releasing the earliest claim must leave the other one armed, not delete the slot.
         const released = resultOf(
-            await call<LiveAlarmState>("runtime", "alarm-claims", "unclaim", { owner: "early" })
+            await call(
+                "runtime",
+                "alarm-claims",
+                "unclaim",
+                { owner: "early" },
+                decodeLiveAlarmState
+            )
         );
         expect(released).toEqual({
             physicalAlarm: late.dueAt,
@@ -431,23 +608,30 @@ describe("live Cloudflare platform-semantics evidence", () => {
 
         await abortInstance("runtime", "alarm-claims");
 
-        expect(resultOf(await call<LiveAlarmState>("runtime", "alarm-claims", "alarms"))).toEqual({
+        expect(
+            resultOf(await call("runtime", "alarm-claims", "alarms", {}, decodeLiveAlarmState))
+        ).toEqual({
             physicalAlarm: late.dueAt,
             claims: [{ owner: "probe.late", dueAt: late.dueAt }]
         });
 
         const soon = resultOf(
-            await call<ClaimResult>("runtime", "alarm-claims", "claim", {
-                owner: "soon",
-                delayMs: 1_500
-            })
+            await call(
+                "runtime",
+                "alarm-claims",
+                "claim",
+                { owner: "soon", delayMs: 1_500 },
+                decodeClaimResult
+            )
         );
         expect(soon.physicalAlarm).toBe(soon.dueAt);
         const fired = await awaitEvent("alarm-claims", "claim.fired", "probe.soon");
         expect(fired.detail).toBe(soon.dueAt);
 
         // The fired claim released itself and the slot fell back to the surviving claim.
-        expect(resultOf(await call<LiveAlarmState>("runtime", "alarm-claims", "alarms"))).toEqual({
+        expect(
+            resultOf(await call("runtime", "alarm-claims", "alarms", {}, decodeLiveAlarmState))
+        ).toEqual({
             physicalAlarm: late.dueAt,
             claims: [{ owner: "probe.late", dueAt: late.dueAt }]
         });
@@ -456,10 +640,13 @@ describe("live Cloudflare platform-semantics evidence", () => {
 
     it("[C13-CLOUDFLARE-ALARM-DURABILITY] re-fires an alarm whose handler threw, with no external re-arming", async () => {
         const armed = resultOf(
-            await call<ThrowingResult>("runtime", "alarm-throw", "arm-throwing", {
-                delayMs: 1_000,
-                throwForMs: 5_000
-            })
+            await call(
+                "runtime",
+                "alarm-throw",
+                "arm-throwing",
+                { delayMs: 1_000, throwForMs: 5_000 },
+                decodeThrowingResult
+            )
         );
         expect(armed.physicalAlarm).toBe(armed.dueAt);
         expect(armed.dueAt).toBeLessThan(armed.until);
@@ -474,30 +661,33 @@ describe("live Cloudflare platform-semantics evidence", () => {
         // The first fire fell inside the throw window, so the successful one is a re-fire.
         expect(fired?.at).toBeGreaterThanOrEqual(armed.until);
 
-        expect(resultOf(await call<LiveAlarmState>("runtime", "alarm-throw", "alarms"))).toEqual({
-            physicalAlarm: null,
-            claims: []
-        });
+        expect(
+            resultOf(await call("runtime", "alarm-throw", "alarms", {}, decodeLiveAlarmState))
+        ).toEqual({ physicalAlarm: null, claims: [] });
     });
 
     it("[C13-CLOUDFLARE-RECONCILIATION-FENCE] keeps a schedule written while reconciliation was in flight", async () => {
         const enqueued = resultOf(
-            await call<EnqueueResult>("runtime", "fence", "enqueue", {
-                id: "fenced",
-                delayMs: ARM_DELAY_MS,
-                hold: true
-            })
+            await call(
+                "runtime",
+                "fence",
+                "enqueue",
+                { id: "fenced", delayMs: ARM_DELAY_MS, hold: true },
+                decodeEnqueueResult
+            )
         );
         expect(enqueued.physicalAlarm).toBe(enqueued.scheduledAt);
 
         // The sweep is now awaiting inside reconcile with the object's input gate open.
         const started = await awaitEvent("fence", "reconcile.started", "fenced");
         const rescheduled = resultOf(
-            await call<EnqueueResult>("runtime", "fence", "enqueue", {
-                id: "fenced",
-                delayMs: 3_600_000,
-                release: true
-            })
+            await call(
+                "runtime",
+                "fence",
+                "enqueue",
+                { id: "fenced", delayMs: 3_600_000, release: true },
+                decodeEnqueueResult
+            )
         );
         const finished = await awaitEvent("fence", "reconcile.finished", "fenced");
 
@@ -515,17 +705,22 @@ describe("live Cloudflare platform-semantics evidence", () => {
 
         // The acknowledgement fenced on the schedule the sweep observed, so the newer
         // schedule survived and the alarm still points at it.
-        const settled = resultOf(await call<LiveOutboxState>("runtime", "fence", "outbox"));
+        const settled = resultOf(
+            await call("runtime", "fence", "outbox", {}, decodeLiveOutboxState)
+        );
         expect(settled.entries).toEqual([{ id: "fenced", scheduledAt: rescheduled.scheduledAt }]);
         expect(settled.physicalAlarm).toBe(rescheduled.scheduledAt);
 
         // The fence is not merely permissive: the matching schedule does clear the entry.
         expect(
             resultOf(
-                await call<LiveOutboxState>("runtime", "fence", "acknowledge", {
-                    id: "fenced",
-                    scheduledAt: rescheduled.scheduledAt
-                })
+                await call(
+                    "runtime",
+                    "fence",
+                    "acknowledge",
+                    { id: "fenced", scheduledAt: rescheduled.scheduledAt },
+                    decodeLiveOutboxState
+                )
             )
         ).toEqual({ entries: [], nextDueAt: null, physicalAlarm: null, claims: [] });
     });
@@ -540,7 +735,7 @@ describe("live Cloudflare platform-semantics evidence", () => {
             ]);
 
             socket.send({ ack: 2 });
-            const acknowledged = JSON.parse(String((await socket.take(1))[0])) as AttachmentProbe;
+            const acknowledged = attachmentProbe(String((await socket.take(1))[0]));
             expect(acknowledged.before.ackedRevision).toBe(0);
             expect(acknowledged.after).toEqual({
                 version: 1,
@@ -551,17 +746,16 @@ describe("live Cloudflare platform-semantics evidence", () => {
             await sleep(1_000);
             expect(socket.pending()).toBe(0);
 
-            expect(resultOf(await call<SocketList>("runtime", "socket", "sockets"))).toEqual({
-                count: 1,
-                attachments: [{ channel: "live", ackedRevision: 2 }]
-            });
+            expect(
+                resultOf(await call("runtime", "socket", "sockets", {}, decodeSocketList))
+            ).toEqual({ count: 1, attachments: [{ channel: "live", ackedRevision: 2 }] });
 
             // Long enough for the platform to evict the object while the socket stays open.
             await sleep(15_000);
 
             socket.send({ append: true });
             const woken = await socket.take(2);
-            const probe = JSON.parse(String(woken[0])) as AttachmentProbe;
+            const probe = attachmentProbe(String(woken[0]));
             // The persisted envelope keeps its version across the eviction, which is what
             // makes the attachment decodable at all in the isolate that resumed it.
             expect(probe.before).toEqual({ version: 1, channel: "live", ackedRevision: 2 });
@@ -573,10 +767,9 @@ describe("live Cloudflare platform-semantics evidence", () => {
                 revision: 3
             });
 
-            expect(resultOf(await call<SocketList>("runtime", "socket", "sockets"))).toEqual({
-                count: 1,
-                attachments: [{ channel: "live", ackedRevision: 2 }]
-            });
+            expect(
+                resultOf(await call("runtime", "socket", "sockets", {}, decodeSocketList))
+            ).toEqual({ count: 1, attachments: [{ channel: "live", ackedRevision: 2 }] });
         } finally {
             socket.close();
         }
@@ -585,11 +778,12 @@ describe("live Cloudflare platform-semantics evidence", () => {
     it("[C13-CLOUDFLARE-QUEUE-DISPOSITION] acknowledges, redelivers, and dead-letters through a real queue", async () => {
         expect(
             resultOf(
-                await call<{ readonly deliveryId: string; readonly poison: boolean }>(
+                await call(
                     "queue",
                     "queue-live",
                     "publish",
-                    { deliveryId: "q-ack", mode: "ack" }
+                    { deliveryId: "q-ack", mode: "ack" },
+                    decodeQueuePublish
                 )
             )
         ).toEqual({ deliveryId: "q-ack", poison: false });
@@ -624,17 +818,23 @@ describe("live Cloudflare platform-semantics evidence", () => {
         const nearLimit = SQL_BLOB_LIMIT_BYTES - 1_000;
         expect(
             resultOf(
-                await call<BlobResult>("runtime", "blob", "blob", {
-                    channel: "limits",
-                    bytes: nearLimit
-                })
+                await call(
+                    "runtime",
+                    "blob",
+                    "blob",
+                    { channel: "limits", bytes: nearLimit },
+                    decodeBlobResult
+                )
             )
         ).toEqual({ revision: 1, byteLength: nearLimit });
 
-        const oversized = await call<BlobResult>("runtime", "blob", "blob", {
-            channel: "limits",
-            bytes: SQL_BLOB_LIMIT_BYTES + 1
-        });
+        const oversized = await call(
+            "runtime",
+            "blob",
+            "blob",
+            { channel: "limits", bytes: SQL_BLOB_LIMIT_BYTES + 1 },
+            decodeBlobResult
+        );
         expect(oversized.ok).toBe(false);
         // Refused as invalid input at the seam, before any transaction opens.
         expect(oversized.code).toBe("operation.invalid-input");
@@ -642,23 +842,31 @@ describe("live Cloudflare platform-semantics evidence", () => {
         // The rejection is contained: the object still serves and the log is intact.
         expect(
             resultOf(
-                await call<BlobResult>("runtime", "blob", "blob", {
-                    channel: "limits",
-                    bytes: 1_000
-                })
+                await call(
+                    "runtime",
+                    "blob",
+                    "blob",
+                    { channel: "limits", bytes: 1_000 },
+                    decodeBlobResult
+                )
             )
         ).toEqual({ revision: 2, byteLength: 1_000 });
         expect(
-            resultOf(await call<BlobRead>("runtime", "blob", "blob-read", { channel: "limits" }))
+            resultOf(
+                await call("runtime", "blob", "blob-read", { channel: "limits" }, decodeBlobRead)
+            )
         ).toEqual({ currentRevision: 2, lastByteLength: 1_000 });
     });
 
     it("[C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY] arms durable reconciliation work for the redeployed worker to finish", async () => {
         const enqueued = resultOf(
-            await call<EnqueueResult>("runtime", "redeploy", "enqueue", {
-                id: "survivor",
-                delayMs: 3_600_000
-            })
+            await call(
+                "runtime",
+                "redeploy",
+                "enqueue",
+                { id: "survivor", delayMs: 3_600_000 },
+                decodeEnqueueResult
+            )
         );
         expect(enqueued.entries).toEqual([{ id: "survivor", scheduledAt: enqueued.scheduledAt }]);
         expect(enqueued.physicalAlarm).toBe(enqueued.scheduledAt);

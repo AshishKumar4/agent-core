@@ -1,6 +1,7 @@
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
 import { requireStorableBlob, type SqliteRow } from "./sqlite.js";
+import { isFiniteNumber } from "./platform-value.js";
 import type { SynchronousSqlitePort } from "./migration.js";
 
 const CURRENT_REVISION = `SELECT MAX(revision) AS revision FROM (
@@ -137,10 +138,10 @@ function readRevision(
     errors: CloudflareErrorPort,
     message: string
 ): number {
-    if (!Number.isSafeInteger(value) || (value as number) < 0) {
+    if (!isFiniteNumber(value) || !Number.isSafeInteger(value) || value < 0) {
         operationalFailure(errors, "codec.invalid", message);
     }
-    return value as number;
+    return value;
 }
 
 function requireChannel(channel: string, errors: CloudflareErrorPort): void {

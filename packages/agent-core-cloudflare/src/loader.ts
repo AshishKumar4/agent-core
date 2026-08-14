@@ -1,7 +1,7 @@
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
 import type { PassedCapabilities } from "./passed-capability.js";
-import { answersPlatformMethod } from "./platform-value.js";
+import { isPlatformMethod, isPlatformObject } from "./platform-value.js";
 
 export interface DynamicWorkerSource {
     readonly compatibilityDate: string;
@@ -22,29 +22,40 @@ export interface DynamicWorkerLoadOptions extends Omit<DynamicWorkerSource, "com
     readonly globalOutbound: null;
 }
 
-export interface DynamicWorkerHandleLike {
-    getEntrypoint(): unknown;
+export interface DisposableCandidate {
     [Symbol.dispose]?(): void;
 }
 
-export interface WorkerLoaderBindingLike {
-    load(options: DynamicWorkerLoadOptions): DynamicWorkerHandleLike;
+export interface DynamicWorkerHandleLike<
+    Entrypoint extends DisposableCandidate
+> extends DisposableCandidate {
+    getEntrypoint(): Entrypoint;
 }
 
-export interface DynamicWorkerScope<Entrypoint> extends Disposable {
+export interface DynamicWorkerHandleCandidate<
+    Entrypoint extends DisposableCandidate
+> extends DisposableCandidate {
+    getEntrypoint?(): Entrypoint;
+}
+
+export interface WorkerLoaderBindingLike<Entrypoint extends DisposableCandidate> {
+    load(options: DynamicWorkerLoadOptions): DynamicWorkerHandleCandidate<Entrypoint>;
+}
+
+export interface DynamicWorkerScope<Entrypoint extends DisposableCandidate> extends Disposable {
     readonly entrypoint: Entrypoint;
 }
 
-export class DynamicWorkerLoaderAdapter {
+export class DynamicWorkerLoaderAdapter<RawEntrypoint extends DisposableCandidate> {
     public constructor(
-        private readonly loader: WorkerLoaderBindingLike,
+        private readonly loader: WorkerLoaderBindingLike<RawEntrypoint>,
         private readonly errors: CloudflareErrorPort
     ) {}
 
-    public load<Entrypoint>(
+    public load<Entrypoint extends DisposableCandidate>(
         source: DynamicWorkerSource,
         capabilities: PassedCapabilities,
-        createEntrypoint: (entrypoint: unknown) => Entrypoint
+        createEntrypoint: (entrypoint: RawEntrypoint) => Entrypoint
     ): DynamicWorkerScope<Entrypoint> {
         validateSource(source);
         const required = {
@@ -60,7 +71,7 @@ export class DynamicWorkerLoaderAdapter {
             source.compatibilityFlags === undefined
                 ? required
                 : { ...required, compatibilityFlags: [...source.compatibilityFlags] };
-        let worker: DynamicWorkerHandleLike;
+        let worker: DynamicWorkerHandleCandidate<RawEntrypoint>;
         try {
             worker = this.loader.load(options);
         } catch (cause) {
@@ -68,7 +79,7 @@ export class DynamicWorkerLoaderAdapter {
                 this.errors,
                 "protocol.invalid-state",
                 "Dynamic Worker load failed",
-                cause
+                { value: cause }
             );
         }
         if (!isWorkerHandle(worker)) {
@@ -79,14 +90,14 @@ export class DynamicWorkerLoaderAdapter {
                 [worker]
             );
         }
-        let rawEntrypoint: unknown;
+        let rawEntrypoint: RawEntrypoint;
         try {
             rawEntrypoint = worker.getEntrypoint();
         } catch (cause) {
             this.failAfterLoad(
                 "protocol.invalid-state",
                 "Dynamic Worker entrypoint resolution failed",
-                cause,
+                { value: cause },
                 [worker]
             );
         }
@@ -105,7 +116,7 @@ export class DynamicWorkerLoaderAdapter {
             this.failAfterLoad(
                 "operation.invalid-output",
                 "Dynamic Worker entrypoint facet construction failed",
-                cause,
+                { value: cause },
                 [rawEntrypoint, worker]
             );
         }
@@ -115,8 +126,8 @@ export class DynamicWorkerLoaderAdapter {
     private failAfterLoad(
         code: "operation.invalid-output" | "protocol.invalid-state",
         message: string,
-        cause: unknown,
-        resources: readonly unknown[]
+        cause: CapturedFailure | undefined,
+        resources: readonly DisposableCandidate[]
     ): never {
         const failures = disposeResources(resources);
         const combinedCause = combineFailures(cause, failures);
@@ -124,13 +135,15 @@ export class DynamicWorkerLoaderAdapter {
     }
 }
 
-class OwnedDynamicWorkerScope<Entrypoint> implements DynamicWorkerScope<Entrypoint> {
+class OwnedDynamicWorkerScope<
+    Entrypoint extends DisposableCandidate
+> implements DynamicWorkerScope<Entrypoint> {
     #open = true;
 
     public constructor(
         public readonly entrypoint: Entrypoint,
-        private readonly rawEntrypoint: unknown,
-        private readonly worker: DynamicWorkerHandleLike,
+        private readonly rawEntrypoint: DisposableCandidate,
+        private readonly worker: DynamicWorkerHandleLike<DisposableCandidate>,
         private readonly errors: CloudflareErrorPort
     ) {}
 
@@ -167,37 +180,50 @@ function validateSource(source: DynamicWorkerSource): void {
     }
 }
 
-function isWorkerHandle(value: unknown): value is DynamicWorkerHandleLike {
-    return answersPlatformMethod<DynamicWorkerHandleLike>(value, (handle) => handle.getEntrypoint);
+function isWorkerHandle<Entrypoint extends DisposableCandidate>(
+    value: DynamicWorkerHandleCandidate<Entrypoint>
+): value is DynamicWorkerHandleLike<Entrypoint> {
+    return isPlatformObject(value) && isPlatformMethod(value.getEntrypoint);
 }
 
-function disposeResources(resources: readonly unknown[]): unknown[] {
-    const failures: unknown[] = [];
-    const disposed = new Set<unknown>();
+interface CapturedFailure {
+    readonly value: unknown;
+}
+
+function disposeResources(resources: readonly DisposableCandidate[]): CapturedFailure[] {
+    const failures: CapturedFailure[] = [];
+    const disposed = new Set<DisposableCandidate>();
     for (const resource of resources) {
         if (disposed.has(resource)) continue;
         disposed.add(resource);
         try {
             dispose(resource);
-        } catch (error) {
-            failures.push(error);
+        } catch (cause) {
+            failures.push(Object.freeze({ value: cause }));
         }
     }
     return failures;
 }
 
-function dispose(value: unknown): void {
+function dispose(value: DisposableCandidate): void {
     if (isDisposable(value)) value[Symbol.dispose]();
 }
 
-function isDisposable(value: unknown): value is Disposable {
-    return answersPlatformMethod<Disposable>(value, (resource) => resource[Symbol.dispose]);
+function isDisposable(value: DisposableCandidate): value is Disposable {
+    return isPlatformObject(value) && isPlatformMethod(value[Symbol.dispose]);
 }
 
-function combineFailures(cause: unknown, cleanupFailures: readonly unknown[]): unknown {
+function combineFailures(
+    cause: CapturedFailure | undefined,
+    cleanupFailures: readonly CapturedFailure[]
+): CapturedFailure | undefined {
     if (cleanupFailures.length === 0) return cause;
-    const failures = cause === undefined ? cleanupFailures : [cause, ...cleanupFailures];
-    return failures.length === 1
-        ? failures[0]
-        : new AggregateError(failures, "Dynamic Worker operation and cleanup failed");
+    const failures = cleanupFailures.map((failure) => failure.value);
+    if (cause !== undefined) failures.unshift(cause.value);
+    return Object.freeze({
+        value:
+            failures.length === 1
+                ? failures[0]
+                : new AggregateError(failures, "Dynamic Worker operation and cleanup failed")
+    });
 }

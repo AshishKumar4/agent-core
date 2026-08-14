@@ -187,12 +187,9 @@ export class SqliteRunHostingIndex {
                 requireHostingMode(row["mode"])
             );
         } catch (cause) {
-            operationalFailure(
-                this.errors,
-                "codec.invalid",
-                "Stored Run hosting is corrupt",
-                cause
-            );
+            operationalFailure(this.errors, "codec.invalid", "Stored Run hosting is corrupt", {
+                value: cause
+            });
         }
     }
 }

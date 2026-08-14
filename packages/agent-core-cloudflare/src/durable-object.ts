@@ -55,7 +55,7 @@ export interface AuthoritativeDurableObjectHost {
         reason: string,
         wasClean: boolean
     ): void | Promise<void>;
-    webSocketError(socket: HibernatingWebSocketLike, error: unknown): void | Promise<void>;
+    webSocketError(socket: HibernatingWebSocketLike, error: Error): void | Promise<void>;
 }
 
 export interface AuthoritativeDurableObjectHostFactory<Environment> {
@@ -82,7 +82,7 @@ export interface CloudflareDurableObjectInstance {
         reason: string,
         wasClean: boolean
     ): void | Promise<void>;
-    webSocketError(socket: HibernatingWebSocketLike, error: unknown): void | Promise<void>;
+    webSocketError(socket: HibernatingWebSocketLike, error: Error): void | Promise<void>;
 }
 
 export interface CloudflareDurableObjectClass<Environment> {
@@ -141,7 +141,7 @@ export function createCloudflareDurableObjectClass<Environment>(
                     options.errors,
                     "protocol.invalid-state",
                     "Durable Object startup alarm repair failed",
-                    cause
+                    { value: cause }
                 );
             }
         }
@@ -174,10 +174,7 @@ export function createCloudflareDurableObjectClass<Environment>(
             return this.#host.webSocketClose(socket, code, reason, wasClean);
         }
 
-        public async webSocketError(
-            socket: HibernatingWebSocketLike,
-            error: unknown
-        ): Promise<void> {
+        public async webSocketError(socket: HibernatingWebSocketLike, error: Error): Promise<void> {
             await this.#started();
             return this.#host.webSocketError(socket, error);
         }

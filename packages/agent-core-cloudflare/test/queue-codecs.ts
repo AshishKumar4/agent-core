@@ -1,6 +1,8 @@
-import { RouteReservationId, isJsonValue } from "@agent-core/core";
+import { RouteReservationId, jsonDataParser } from "@agent-core/core";
 import type { JsonValue } from "@agent-core/core";
 import type { QueueDeliveryCodecs } from "../src/index.js";
+
+const queueData = jsonDataParser((message) => new TypeError(message));
 
 /**
  * A queue body is JSON the platform delivered, so the payload codec decodes it to the
@@ -9,14 +11,12 @@ import type { QueueDeliveryCodecs } from "../src/index.js";
  */
 export const queueCodecs: QueueDeliveryCodecs<RouteReservationId, JsonValue> = Object.freeze({
     deliveryId: Object.freeze({
-        decode(value: unknown): RouteReservationId {
-            if (typeof value !== "string") throw new TypeError("Delivery ID must be a string");
-            return new RouteReservationId(value);
+        decode(value: JsonValue): RouteReservationId {
+            return new RouteReservationId(queueData.string(value, "Delivery ID"));
         }
     }),
     payload: Object.freeze({
-        decode(value: unknown): JsonValue {
-            if (!isJsonValue(value)) throw new TypeError("Queue payload must be JSON");
+        decode(value: JsonValue): JsonValue {
             return value;
         }
     })

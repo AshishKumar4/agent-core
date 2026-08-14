@@ -138,7 +138,7 @@ export class SqlitePlacementRegistry implements PlacementRegistry {
         try {
             return new ActorPlacement(actorName, jurisdiction ?? undefined, pinnedAt, epoch);
         } catch (cause) {
-            operationalFailure(this.errors, "codec.invalid", CORRUPT_PLACEMENT, cause);
+            operationalFailure(this.errors, "codec.invalid", CORRUPT_PLACEMENT, { value: cause });
         }
     }
 }

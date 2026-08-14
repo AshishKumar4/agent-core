@@ -23,8 +23,7 @@ export function expectOperationalFailure(
  * their real result.
  */
 export function malformedInput<Contract, Value>(value: Value): Contract {
-    // SAFETY: nothing is claimed. The value is deliberately not a Contract; every caller
-    // asserts the seam rejects it, so one that slipped through would fail that assertion
-    // rather than be trusted anywhere.
-    return value as unknown as Contract;
+    // @ts-expect-error The helper deliberately violates Contract only for adversarial
+    // public-boundary tests whose assertion requires that value to be rejected.
+    return value;
 }

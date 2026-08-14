@@ -2,17 +2,20 @@ import type { DispatchNamespaceAdapter } from "./dispatch.js";
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
 import type {
+    DisposableCandidate,
     DynamicWorkerLoaderAdapter,
     DynamicWorkerScope,
     DynamicWorkerSource
 } from "./loader.js";
-import { answersPlatformMethod } from "./platform-value.js";
+import { isPlatformMethod, isPlatformObject } from "./platform-value.js";
 
-export interface FetchServiceLike {
+export interface FetchServiceLike extends DisposableCandidate {
     fetch(request: Request): Response | Promise<Response>;
 }
 
-export interface ScopedFetchServiceLike extends FetchServiceLike, Disposable {}
+export interface ScopedFetchServiceLike extends FetchServiceLike {
+    [Symbol.dispose](): void;
+}
 
 export type CloudflareDeployment =
     | {
@@ -27,7 +30,7 @@ export type CloudflareDeployment =
 
 export class ExplicitCloudflareDeploymentAdapter {
     public constructor(
-        private readonly dynamic: DynamicWorkerLoaderAdapter,
+        private readonly dynamic: DynamicWorkerLoaderAdapter<FetchServiceLike>,
         private readonly dispatch: DispatchNamespaceAdapter<FetchServiceLike>,
         private readonly errors: CloudflareErrorPort
     ) {}
@@ -57,7 +60,7 @@ export class ExplicitCloudflareDeploymentAdapter {
         }
     }
 
-    private requireService(service: unknown): FetchServiceLike {
+    private requireService(service: Partial<FetchServiceLike>): FetchServiceLike {
         if (!isFetchService(service)) {
             operationalFailure(
                 this.errors,
@@ -69,8 +72,8 @@ export class ExplicitCloudflareDeploymentAdapter {
     }
 }
 
-function isFetchService(value: unknown): value is FetchServiceLike {
-    return answersPlatformMethod<FetchServiceLike>(value, (service) => service.fetch);
+function isFetchService(value: Partial<FetchServiceLike>): value is FetchServiceLike {
+    return isPlatformObject(value) && isPlatformMethod(value.fetch);
 }
 
 class DynamicFetchServiceScope implements ScopedFetchServiceLike {
