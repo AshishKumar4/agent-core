@@ -4,6 +4,7 @@ export { Grant } from "./authority/grant";
 export { GrantId } from "./authority/id";
 export { AuthorityPermit, AuthorityPermitExpectation } from "./authority/permit";
 export { TargetAuthorityPermitRequest } from "./authority/permit-request";
+export { TargetAuthorityPermitDenial } from "./authority/permit-denial";
 export {
     AuthorityPermitAuthenticator,
     AuthorityPermitIssuedRecordSource

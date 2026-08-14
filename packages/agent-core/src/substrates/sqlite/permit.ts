@@ -14,6 +14,7 @@ import {
     type AuthorityPermitIssueStore,
     type AuthorityPermitTargetStore,
     type TenantAuthorityReadStore,
+    TargetAuthorityPermitDenial,
     TargetAuthorityPermitRequest,
     requireAuthenticatedAuthorityPermit
 } from "../../authority";
@@ -46,6 +47,14 @@ const CREATE_CONSUMPTIONS = `CREATE TABLE IF NOT EXISTS authority_permit_consump
     permit BLOB NOT NULL
 ) STRICT`;
 
+const CREATE_DENIALS = `CREATE TABLE IF NOT EXISTS authority_permit_denials (
+    nonce TEXT PRIMARY KEY CHECK (length(nonce) > 0),
+    owner_kind TEXT NOT NULL CHECK (owner_kind IN ('tenant', 'workspace', 'run', 'environment', 'slate')),
+    owner_id TEXT NOT NULL CHECK (length(owner_id) > 0),
+    digest TEXT NOT NULL CHECK (length(digest) = 64),
+    denial BLOB NOT NULL
+) STRICT`;
+
 export class SqliteAuthorityPermitStore
     implements
         AuthorityPermitTargetStore<TransactionalSqlite>,
@@ -62,6 +71,7 @@ export class SqliteAuthorityPermitStore
             database.transaction(() => {
                 database.run(CREATE_PERMITS, []);
                 database.run(CREATE_CONSUMPTIONS, []);
+                database.run(CREATE_DENIALS, []);
             });
             this.#actors.transaction((transaction) => this.validateRows(transaction));
         } catch (error) {
@@ -99,6 +109,14 @@ export class SqliteAuthorityPermitStore
             : this.decodeConsumed(transaction, row, nonce).digest();
     }
 
+    public denied(
+        transaction: TransactionalSqlite,
+        nonce: string
+    ): TargetAuthorityPermitDenial | undefined {
+        const row = this.denialRow(transaction, nonce);
+        return row === undefined ? undefined : this.decodeDenied(transaction, row, nonce);
+    }
+
     public request(
         transaction: TransactionalSqlite,
         request: TargetAuthorityPermitRequest
@@ -125,6 +143,52 @@ export class SqliteAuthorityPermitStore
         }
         if (!stored.digest().equals(request.digest())) {
             throw denied("Authority permit nonce is bound to another target request");
+        }
+        return stored;
+    }
+
+    public deny(
+        transaction: TransactionalSqlite,
+        denial: TargetAuthorityPermitDenial
+    ): TargetAuthorityPermitDenial {
+        this.requireTransaction(transaction);
+        if (!denial.request.expectation.target.actor.equals(this.owner)) {
+            throw denied("Authority permit denial targets another Actor owner");
+        }
+        const request = this.requested(transaction, denial.request.nonce);
+        if (request === undefined || !request.digest().equals(denial.request.digest())) {
+            throw denied("Authority denial does not match its exact durable target request");
+        }
+        const existing = this.denied(transaction, denial.request.nonce);
+        if (existing !== undefined) {
+            if (!existing.digest().equals(denial.digest())) {
+                throw denied("Authority permit nonce is bound to another Tenant denial");
+            }
+            return existing;
+        }
+        if (this.consumptionRow(transaction, denial.request.nonce) !== undefined) {
+            throw denied("Authority permit nonce was already consumed by this Actor owner");
+        }
+        try {
+            transaction.run(
+                `INSERT INTO authority_permit_denials
+                    (nonce, owner_kind, owner_id, digest, denial)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [
+                    denial.request.nonce,
+                    this.owner.kind,
+                    this.owner.id.value,
+                    denial.digest().value,
+                    TargetAuthorityPermitDenial.encode(denial)
+                ]
+            );
+        } catch (error) {
+            if (error instanceof AgentCoreError) throw error;
+            throw denied("Authority permit denial could not be recorded atomically");
+        }
+        const stored = this.denied(transaction, denial.request.nonce);
+        if (stored === undefined || !stored.digest().equals(denial.digest())) {
+            throw conflict("Authority permit denial did not persist exactly");
         }
         return stored;
     }
@@ -185,6 +249,9 @@ export class SqliteAuthorityPermitStore
         if (!permit.requestDigest.equals(requested.digest())) {
             throw denied("Authority permit was issued for another target request");
         }
+        if (this.denialRow(transaction, permit.nonce) !== undefined) {
+            throw denied("Authority permit request was denied by its Tenant");
+        }
         if (this.consumptionRow(transaction, permit.nonce) !== undefined) {
             throw denied("Authority permit nonce was already used by this Actor owner");
         }
@@ -214,6 +281,7 @@ export class SqliteAuthorityPermitStore
     private requireUnused(transaction: TransactionalSqlite, nonce: string): void {
         if (
             this.row(transaction, nonce) !== undefined ||
+            this.denialRow(transaction, nonce) !== undefined ||
             this.consumptionRow(transaction, nonce) !== undefined
         ) {
             throw denied("Authority permit nonce was already used by this Actor owner");
@@ -244,12 +312,26 @@ export class SqliteAuthorityPermitStore
         }
     }
 
+    private denialRow(transaction: TransactionalSqlite, nonce: string): SqliteRow | undefined {
+        this.requireTransaction(transaction);
+        try {
+            return transaction.all("SELECT * FROM authority_permit_denials WHERE nonce = ?", [
+                nonce
+            ])[0];
+        } catch (error) {
+            if (error instanceof AgentCoreError) throw error;
+            throw corrupt("Authority permit denial read failed");
+        }
+    }
+
     private validateRows(transaction: TransactionalSqlite): void {
         this.requireTransaction(transaction);
         let rows: readonly SqliteRow[];
+        let denials: readonly SqliteRow[];
         let consumptions: readonly SqliteRow[];
         try {
             rows = transaction.all("SELECT * FROM authority_permit_nonces ORDER BY nonce", []);
+            denials = transaction.all("SELECT * FROM authority_permit_denials ORDER BY nonce", []);
             consumptions = transaction.all(
                 "SELECT * FROM authority_permit_consumptions ORDER BY nonce",
                 []
@@ -267,6 +349,11 @@ export class SqliteAuthorityPermitStore
         }
         for (const row of consumptions) {
             this.decodeConsumed(transaction, row, text(row, "nonce"));
+        }
+        for (const row of denials) {
+            const nonce = text(row, "nonce");
+            if (this.consumptionRow(transaction, nonce) !== undefined) throw corrupt();
+            this.decodeDenied(transaction, row, nonce);
         }
     }
 
@@ -339,6 +426,34 @@ export class SqliteAuthorityPermitStore
             throw corrupt();
         }
         return permit;
+    }
+
+    private decodeDenied(
+        transaction: TransactionalSqlite,
+        row: SqliteRow,
+        expectedNonce: string
+    ): TargetAuthorityPermitDenial {
+        this.validateOwner(row);
+        const bytes = row["denial"];
+        if (!(bytes instanceof Uint8Array)) throw corrupt();
+        let denial: TargetAuthorityPermitDenial;
+        try {
+            denial = TargetAuthorityPermitDenial.decode(bytes.slice());
+        } catch {
+            throw corrupt();
+        }
+        const request = this.requested(transaction, expectedNonce);
+        if (
+            request === undefined ||
+            denial.request.nonce !== expectedNonce ||
+            text(row, "nonce") !== expectedNonce ||
+            text(row, "digest") !== denial.digest().value ||
+            !denial.request.expectation.target.actor.equals(this.owner) ||
+            !denial.request.digest().equals(request.digest())
+        ) {
+            throw corrupt();
+        }
+        return denial;
     }
 
     private validateOwner(row: SqliteRow): void {

@@ -36,6 +36,7 @@ export type {
     AuthorityPermitTarget
 } from "./permit";
 export { TargetAuthorityPermitRequest } from "./permit-request";
+export { TargetAuthorityPermitDenial } from "./permit-denial";
 export {
     AuthenticatedAuthorityPermit,
     AuthorityPermitAuthenticator,

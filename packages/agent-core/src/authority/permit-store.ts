@@ -3,6 +3,7 @@ import { Digest } from "../core";
 import { AgentCoreError } from "../errors";
 import type { AuthorityCheckEvidence } from "./evidence";
 import { AuthorityPermit, AuthorityPermitExpectation } from "./permit";
+import { TargetAuthorityPermitDenial } from "./permit-denial";
 import { TargetAuthorityPermitRequest } from "./permit-request";
 import {
     type AuthenticatedAuthorityPermit,
@@ -21,11 +22,16 @@ export interface AuthorityPermitTargetStore<
     Transaction
 > extends AuthorityPermitTransactionStore<Transaction> {
     requested(transaction: Transaction, nonce: string): TargetAuthorityPermitRequest | undefined;
+    denied(transaction: Transaction, nonce: string): TargetAuthorityPermitDenial | undefined;
     consumed(transaction: Transaction, nonce: string): Digest | undefined;
     request(
         transaction: Transaction,
         request: TargetAuthorityPermitRequest
     ): TargetAuthorityPermitRequest;
+    deny(
+        transaction: Transaction,
+        denial: TargetAuthorityPermitDenial
+    ): TargetAuthorityPermitDenial;
     consume(
         transaction: Transaction,
         authentication: AuthenticatedAuthorityPermit,
@@ -122,9 +128,10 @@ export class StoredAuthorityPermitAdmissionPort<
 }
 
 export interface MemoryAuthorityPermitSnapshot {
-    readonly version: 2;
+    readonly version: 3;
     readonly requested: readonly { readonly nonce: string; readonly bytes: Uint8Array }[];
     readonly issued: readonly { readonly nonce: string; readonly bytes: Uint8Array }[];
+    readonly denied: readonly { readonly nonce: string; readonly bytes: Uint8Array }[];
     readonly consumed: readonly { readonly nonce: string; readonly bytes: Uint8Array }[];
 }
 
@@ -138,6 +145,7 @@ interface MemoryAuthorityPermitScope {
     readonly transaction: MemoryAuthorityPermitTransaction;
     readonly requested: Map<string, Uint8Array>;
     readonly issued: Map<string, Uint8Array>;
+    readonly denied: Map<string, Uint8Array>;
     readonly consumed: Map<string, Uint8Array>;
 }
 
@@ -150,6 +158,7 @@ export class MemoryAuthorityPermitStore
     #active: MemoryAuthorityPermitScope | undefined;
     #requested = new Map<string, Uint8Array>();
     #issued = new Map<string, Uint8Array>();
+    #denied = new Map<string, Uint8Array>();
     #consumed = new Map<string, Uint8Array>();
 
     public constructor(
@@ -174,6 +183,7 @@ export class MemoryAuthorityPermitStore
             transaction,
             requested: cloneBytesMap(this.#requested),
             issued: cloneBytesMap(this.#issued),
+            denied: cloneBytesMap(this.#denied),
             consumed: cloneBytesMap(this.#consumed)
         };
         this.#transactions.add(transaction);
@@ -182,6 +192,7 @@ export class MemoryAuthorityPermitStore
             const result = requireSynchronousResult(operation(transaction));
             this.#requested = cloneBytesMap(scope.requested);
             this.#issued = cloneBytesMap(scope.issued);
+            this.#denied = cloneBytesMap(scope.denied);
             this.#consumed = cloneBytesMap(scope.consumed);
             return result;
         } finally {
@@ -222,6 +233,15 @@ export class MemoryAuthorityPermitStore
         return this.decodeConsumed(transaction, nonce, bytes).digest();
     }
 
+    public denied(
+        transaction: MemoryAuthorityPermitTransaction,
+        nonce: string
+    ): TargetAuthorityPermitDenial | undefined {
+        const bytes = this.requireTransaction(transaction).denied.get(nonce);
+        if (bytes === undefined) return undefined;
+        return this.decodeDenied(transaction, nonce, bytes);
+    }
+
     public request(
         transaction: MemoryAuthorityPermitTransaction,
         request: TargetAuthorityPermitRequest
@@ -238,6 +258,30 @@ export class MemoryAuthorityPermitStore
         this.requireUnused(transaction, request.nonce);
         scope.requested.set(request.nonce, TargetAuthorityPermitRequest.encode(request));
         return request;
+    }
+
+    public deny(
+        transaction: MemoryAuthorityPermitTransaction,
+        denial: TargetAuthorityPermitDenial
+    ): TargetAuthorityPermitDenial {
+        const scope = this.requireTransaction(transaction);
+        this.assertRequestedOwner(denial.request);
+        const request = this.requested(transaction, denial.request.nonce);
+        if (request === undefined || !request.digest().equals(denial.request.digest())) {
+            throw denied("Authority denial does not match its exact durable target request");
+        }
+        const existing = this.denied(transaction, denial.request.nonce);
+        if (existing !== undefined) {
+            if (!existing.digest().equals(denial.digest())) {
+                throw denied("Authority permit nonce is bound to another Tenant denial");
+            }
+            return existing;
+        }
+        if (scope.consumed.has(denial.request.nonce)) {
+            throw denied("Authority permit nonce was already consumed by this Actor owner");
+        }
+        scope.denied.set(denial.request.nonce, TargetAuthorityPermitDenial.encode(denial));
+        return denial;
     }
 
     public issue(
@@ -277,6 +321,9 @@ export class MemoryAuthorityPermitStore
         }
         permit.assertConsumable(expected, now);
         this.requireRequestedExpectation(transaction, permit.nonce, expected, permit);
+        if (scope.denied.has(permit.nonce)) {
+            throw denied("Authority permit request was denied by its Tenant");
+        }
         if (scope.consumed.has(permit.nonce)) {
             throw denied("Authority permit nonce was already used by this Actor owner");
         }
@@ -285,7 +332,7 @@ export class MemoryAuthorityPermitStore
 
     public snapshot(): MemoryAuthorityPermitSnapshot {
         return {
-            version: 2,
+            version: 3,
             requested: Object.freeze(
                 [...this.#requested]
                     .sort(([left], [right]) => left.localeCompare(right))
@@ -293,6 +340,11 @@ export class MemoryAuthorityPermitStore
             ),
             issued: Object.freeze(
                 [...this.#issued]
+                    .sort(([left], [right]) => left.localeCompare(right))
+                    .map(([nonce, bytes]) => Object.freeze({ nonce, bytes: bytes.slice() }))
+            ),
+            denied: Object.freeze(
+                [...this.#denied]
                     .sort(([left], [right]) => left.localeCompare(right))
                     .map(([nonce, bytes]) => Object.freeze({ nonce, bytes: bytes.slice() }))
             ),
@@ -306,14 +358,16 @@ export class MemoryAuthorityPermitStore
 
     private restore(snapshot: MemoryAuthorityPermitSnapshot): void {
         if (
-            snapshot.version !== 2 ||
+            snapshot.version !== 3 ||
             !Array.isArray(snapshot.requested) ||
             !Array.isArray(snapshot.issued) ||
+            !Array.isArray(snapshot.denied) ||
             !Array.isArray(snapshot.consumed)
         )
             throw corrupt();
         const requested = new Map<string, Uint8Array>();
         const issued = new Map<string, Uint8Array>();
+        const denials = new Map<string, Uint8Array>();
         const consumed = new Map<string, Uint8Array>();
         for (const record of snapshot.requested) {
             if (!isRequestedPermitRecord(record) || requested.has(record.nonce)) throw corrupt();
@@ -329,12 +383,34 @@ export class MemoryAuthorityPermitStore
             if (permit.nonce !== record.nonce) throw corrupt();
             issued.set(record.nonce, AuthorityPermit.encode(permit));
         }
+        for (const record of snapshot.denied) {
+            if (!isDeniedPermitRecord(record) || denials.has(record.nonce)) throw corrupt();
+            const denial = TargetAuthorityPermitDenial.decode(record.bytes.slice());
+            this.assertRequestedOwner(denial.request);
+            if (denial.request.nonce !== record.nonce) throw corrupt();
+            denials.set(record.nonce, TargetAuthorityPermitDenial.encode(denial));
+        }
         for (const record of snapshot.consumed) {
             if (!isConsumedPermitRecord(record) || consumed.has(record.nonce)) throw corrupt();
             consumed.set(record.nonce, record.bytes.slice());
         }
         for (const nonce of issued.keys()) {
-            if (requested.has(nonce) || consumed.has(nonce)) throw corrupt();
+            if (requested.has(nonce) || denials.has(nonce) || consumed.has(nonce)) throw corrupt();
+        }
+        for (const [nonce, bytes] of denials) {
+            const denial = TargetAuthorityPermitDenial.decode(bytes.slice());
+            const requestBytes = requested.get(nonce);
+            const request =
+                requestBytes === undefined
+                    ? undefined
+                    : TargetAuthorityPermitRequest.decode(requestBytes.slice());
+            if (
+                request === undefined ||
+                consumed.has(nonce) ||
+                !denial.request.digest().equals(request.digest())
+            ) {
+                throw corrupt();
+            }
         }
         for (const [nonce, bytes] of consumed) {
             const permit = AuthorityPermit.decode(bytes.slice());
@@ -355,6 +431,7 @@ export class MemoryAuthorityPermitStore
         }
         this.#requested = cloneBytesMap(requested);
         this.#issued = cloneBytesMap(issued);
+        this.#denied = cloneBytesMap(denials);
         this.#consumed = cloneBytesMap(consumed);
     }
 
@@ -378,7 +455,12 @@ export class MemoryAuthorityPermitStore
 
     private requireUnused(transaction: MemoryAuthorityPermitTransaction, nonce: string): void {
         const scope = this.requireTransaction(transaction);
-        if (scope.requested.has(nonce) || scope.issued.has(nonce) || scope.consumed.has(nonce))
+        if (
+            scope.requested.has(nonce) ||
+            scope.issued.has(nonce) ||
+            scope.denied.has(nonce) ||
+            scope.consumed.has(nonce)
+        )
             throw denied("Authority permit nonce was already used by this Actor owner");
     }
 
@@ -423,6 +505,24 @@ export class MemoryAuthorityPermitStore
         return permit;
     }
 
+    private decodeDenied(
+        transaction: MemoryAuthorityPermitTransaction,
+        expectedNonce: string,
+        bytes: Uint8Array
+    ): TargetAuthorityPermitDenial {
+        const denial = TargetAuthorityPermitDenial.decode(bytes.slice());
+        const request = this.requested(transaction, expectedNonce);
+        if (
+            request === undefined ||
+            denial.request.nonce !== expectedNonce ||
+            !denial.request.digest().equals(request.digest()) ||
+            !denial.request.expectation.target.actor.equals(this.owner)
+        ) {
+            throw corrupt();
+        }
+        return denial;
+    }
+
     private assertIssuedOwner(permit: AuthorityPermit): void {
         if (!permit.issuer.equals(this.owner)) {
             throw denied("Authority permit was issued by another Actor owner");
@@ -445,6 +545,12 @@ function isRequestedPermitRecord(
 function isIssuedPermitRecord(
     value: unknown
 ): value is MemoryAuthorityPermitSnapshot["issued"][number] {
+    return isStoredBytesRecord(value);
+}
+
+function isDeniedPermitRecord(
+    value: unknown
+): value is MemoryAuthorityPermitSnapshot["denied"][number] {
     return isStoredBytesRecord(value);
 }
 

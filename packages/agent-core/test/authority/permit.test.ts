@@ -16,6 +16,7 @@ import {
     PathEpochEvidence,
     ScopeEpoch,
     StoredAuthorityPermitAdmissionPort,
+    TargetAuthorityPermitDenial,
     TargetAuthorityPermitRequest,
     requireAuthenticatedAuthorityPermit,
     type AuthorityPermitExpectationInit,
@@ -82,7 +83,7 @@ class CurrentAuthority<Transaction> {
     public lastClaim: ItemClaimId | undefined;
 
     public evidence(
-        _transaction: Transaction,
+        _transaction: Transaction | undefined,
         request: TargetAuthorityPermitRequest,
         checkedAt: Date
     ): AuthorityCheckEvidence {
@@ -559,6 +560,73 @@ function permitStoreContract<Transaction>(
                 expect(authority.lastClaim).toBeUndefined();
             }
         );
+
+        test("durably preserves the exact authenticated Tenant denial", { tags: "p0" }, () => {
+            const harness = create();
+            const request = targetRequest(`${name}-denied`);
+            const authority = new CurrentAuthority<Transaction>();
+            authority.live = false;
+            const evidence = authority.evidence(undefined, request, issuedAt);
+            const denial = new TargetAuthorityPermitDenial(request, evidence);
+
+            harness.targetStore.transaction((transaction) => {
+                harness.targetStore.request(transaction, request);
+                expect(
+                    TargetAuthorityPermitDenial.encode(
+                        harness.targetStore.deny(transaction, denial)
+                    )
+                ).toEqual(TargetAuthorityPermitDenial.encode(denial));
+            });
+
+            const restarted = harness.restartTarget();
+            expect(
+                TargetAuthorityPermitDenial.encode(
+                    restarted.transaction((transaction) => {
+                        const stored = restarted.denied(transaction, request.nonce);
+                        if (stored === undefined) throw new TypeError("Expected retained denial");
+                        return stored;
+                    })
+                )
+            ).toEqual(TargetAuthorityPermitDenial.encode(denial));
+            const substitutedRequest = targetRequest(request.nonce, {
+                claim: new ItemClaimId("permit-substituted-denial-claim")
+            });
+            expect(() =>
+                restarted.transaction((transaction) =>
+                    restarted.deny(
+                        transaction,
+                        new TargetAuthorityPermitDenial(
+                            substitutedRequest,
+                            authority.evidence(undefined, substitutedRequest, issuedAt)
+                        )
+                    )
+                )
+            ).toThrow();
+        });
+
+        test("rolls target denial evidence back with its owner transaction", { tags: "p0" }, () => {
+            const harness = create();
+            const request = targetRequest(`${name}-denial-rollback`);
+            const authority = new CurrentAuthority<Transaction>();
+            authority.live = false;
+            const denial = new TargetAuthorityPermitDenial(
+                request,
+                authority.evidence(undefined, request, issuedAt)
+            );
+
+            expect(() =>
+                harness.targetStore.transaction((transaction) => {
+                    harness.targetStore.request(transaction, request);
+                    harness.targetStore.deny(transaction, denial);
+                    throw new AgentCoreError("protocol.invalid-state", "abort target denial");
+                })
+            ).toThrow(/abort target denial/);
+            expect(
+                harness.targetStore.transaction((transaction) =>
+                    harness.targetStore.denied(transaction, request.nonce)
+                )
+            ).toBeUndefined();
+        });
 
         test(
             "closes captured transactions and rolls nested transactions back",
@@ -1037,12 +1105,13 @@ describe("AuthorityPermit", () => {
             const snapshot = issuerStore.snapshot();
             expect(
                 () =>
-                    new MemoryAuthorityPermitStore(issuerActor, violating(snapshot, { version: 3 }))
+                    new MemoryAuthorityPermitStore(issuerActor, violating(snapshot, { version: 2 }))
             ).toThrow(/malformed/);
             expect(
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 2,
+                        version: 3,
+                        denied: [],
                         requested: [],
                         issued: [snapshot.issued[0]!, snapshot.issued[0]!],
                         consumed: []
@@ -1051,7 +1120,8 @@ describe("AuthorityPermit", () => {
             expect(
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 2,
+                        version: 3,
+                        denied: [],
                         requested: [],
                         issued: [{ nonce: "wrong-nonce", bytes: snapshot.issued[0]!.bytes }],
                         consumed: []
@@ -1060,7 +1130,8 @@ describe("AuthorityPermit", () => {
             expect(
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 2,
+                        version: 3,
+                        denied: [],
                         requested: [],
                         issued: [],
                         consumed: [{ nonce: "consumed", bytes: Uint8Array.of(0) }]
@@ -1069,7 +1140,8 @@ describe("AuthorityPermit", () => {
             expect(
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 2,
+                        version: 3,
+                        denied: [],
                         requested: [],
                         issued: snapshot.issued,
                         consumed: [{ nonce: permit.nonce, bytes: AuthorityPermit.encode(permit) }]
@@ -1087,7 +1159,8 @@ describe("AuthorityPermit", () => {
             let malformedKey: unknown;
             try {
                 new MemoryAuthorityPermitStore(targetActor, {
-                    version: 2,
+                    version: 3,
+                    denied: [],
                     requested: [],
                     issued: [violating(snapshot.issued[0]!, { nonce: 5 })],
                     consumed: []
@@ -1126,7 +1199,8 @@ describe("AuthorityPermit", () => {
             const malformedStores = [
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 2,
+                        version: 3,
+                        denied: [],
                         requested: [],
                         // @ts-expect-error Issued ownership records cannot be null.
                         issued: [null],
@@ -1134,7 +1208,8 @@ describe("AuthorityPermit", () => {
                     }),
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 2,
+                        version: 3,
+                        denied: [],
                         requested: [],
                         issued: [],
                         // @ts-expect-error Consumed ownership records cannot be null.
@@ -1142,7 +1217,8 @@ describe("AuthorityPermit", () => {
                     }),
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 2,
+                        version: 3,
+                        denied: [],
                         requested: [],
                         issued: [],
                         consumed: [
@@ -1155,7 +1231,8 @@ describe("AuthorityPermit", () => {
                     }),
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 2,
+                        version: 3,
+                        denied: [],
                         requested: [],
                         issued: [],
                         consumed: [
@@ -2241,7 +2318,8 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         const error = caughtAgentCoreError(
             () =>
                 new MemoryAuthorityPermitStore(issuerActor, {
-                    version: 2,
+                    version: 3,
+                    denied: [],
                     requested: [],
                     issued: [
                         {
@@ -2261,7 +2339,8 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         const issuedHole = caughtAgentCoreError(
             () =>
                 new MemoryAuthorityPermitStore(issuerActor, {
-                    version: 2,
+                    version: 3,
+                    denied: [],
                     requested: [],
                     issued: Array.from<{ nonce: string; bytes: Uint8Array }>({ length: 1 }),
                     consumed: []
@@ -2273,7 +2352,8 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         const consumedHole = caughtAgentCoreError(
             () =>
                 new MemoryAuthorityPermitStore(issuerActor, {
-                    version: 2,
+                    version: 3,
+                    denied: [],
                     requested: [],
                     issued: [],
                     consumed: Array.from<{ nonce: string; bytes: Uint8Array }>({ length: 1 })
