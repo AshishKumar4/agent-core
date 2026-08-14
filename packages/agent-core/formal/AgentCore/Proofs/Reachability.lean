@@ -47,8 +47,7 @@ def AttemptsHavePermitEvidence (state : DistributedSystemState) : Prop :=
       state.permits.consumptions target nonce = some consumption ∧
       consumption.attempt = id ∧ consumption.permit.expectation.target = target ∧
       consumption.permit.nonce = nonce ∧
-      exactRequested state.permits
-        ⟨consumption.permit.expectation, consumption.permit.nonce⟩ ∧
+      exactRequested state.permits consumption.permit.request ∧
       exactIssued state.permits consumption.permit ∧
       consumption.permit.expectation.MatchesAttempt attempt
 
@@ -68,7 +67,8 @@ def AuthenticationsWereIssued (state : DistributedSystemState) : Prop :=
 def ConsumptionsWereIssued (state : DistributedSystemState) : Prop :=
   ∀ target nonce consumption,
     state.permits.consumptions target nonce = some consumption →
-    exactIssued state.permits consumption.permit
+    exactRequested state.permits consumption.permit.request ∧
+      exactIssued state.permits consumption.permit
 
 def PermitProtocolIntegrity (state : DistributedSystemState) : Prop :=
   TransportRequestsAreExact state ∧ TransportPermitsWereIssued state ∧
@@ -497,14 +497,13 @@ theorem permit_step_preserves_issued_records {before label after}
   cases step with
   | request ready fresh => exact issued
   | forwardRequest requested => exact issued
-  | @issue issuedRequest expiresAt observation transported ready fresh expiry =>
+  | @issue issuedRequest observation transported ready fresh expiry =>
       unfold exactIssued at issued
       change before.permits.issuerRecords issuedRequest.expectation.issuer
         issuedRequest.nonce = none at fresh
       change tableSet2 before.permits.issuerRecords issuedRequest.expectation.issuer
         issuedRequest.nonce
-        (some (.issued ⟨issuedRequest.expectation, issuedRequest.nonce,
-          before.permits.now, expiresAt⟩))
+        (some (.issued ⟨issuedRequest, before.permits.now⟩))
         permit.expectation.issuer permit.nonce = some (.issued permit)
       by_cases sameIssuer : permit.expectation.issuer = issuedRequest.expectation.issuer
       · by_cases sameNonce : permit.nonce = issuedRequest.nonce
@@ -745,6 +744,14 @@ theorem permit_step_preserves_consumption_integrity {before label after}
     (integrity : ConsumptionsWereIssued before)
     (step : PermitStep before label after) : ConsumptionsWereIssued after := by
   have issuedPreserved := permit_step_preserves_issued_records step
+  have requestedPreserved := permit_step_preserves_requested_records step
+  have preserveEvidence : ∀ target nonce consumption,
+      before.permits.consumptions target nonce = some consumption →
+      exactRequested after.permits consumption.permit.request ∧
+        exactIssued after.permits consumption.permit := by
+    intro target nonce consumption lookup
+    exact ⟨requestedPreserved _ (integrity target nonce consumption lookup).1,
+      issuedPreserved _ (integrity target nonce consumption lookup).2⟩
   cases step with
   | @consume permit attemptId attempt auditId core' observation authenticated requested fence
       issuedAt expiry unused localStep =>
@@ -757,39 +764,40 @@ theorem permit_step_preserves_consumption_integrity {before label after}
           subst nonce
           simp only [tableSet2_self] at lookup
           cases Option.some.inj lookup
-          exact issuedPreserved permit
-            (authenticationIntegrity permit.expectation.target permit.nonce
-              ⟨permit, before.permits.incarnation permit.expectation.target⟩ authenticated)
+          exact ⟨requestedPreserved _ requested,
+            issuedPreserved permit
+              (authenticationIntegrity permit.expectation.target permit.nonce
+                ⟨permit, before.permits.incarnation permit.expectation.target⟩ authenticated)⟩
         · rw [tableSet2_other] at lookup
-          · exact issuedPreserved consumption.permit (integrity target nonce consumption lookup)
+          · exact preserveEvidence target nonce consumption lookup
           · exact Or.inr sameNonce
       · rw [tableSet2_other] at lookup
-        · exact issuedPreserved consumption.permit (integrity target nonce consumption lookup)
+        · exact preserveEvidence target nonce consumption lookup
         · exact Or.inl sameTarget
   | request ready fresh =>
       intro target nonce consumption lookup
-      exact issuedPreserved consumption.permit (integrity target nonce consumption lookup)
+      exact preserveEvidence target nonce consumption lookup
   | forwardRequest requested =>
       intro target nonce consumption lookup
-      exact issuedPreserved consumption.permit (integrity target nonce consumption lookup)
+      exact preserveEvidence target nonce consumption lookup
   | issue transported ready fresh expiry =>
       intro target nonce consumption lookup
-      exact issuedPreserved consumption.permit (integrity target nonce consumption lookup)
+      exact preserveEvidence target nonce consumption lookup
   | issueUnknownBefore => exact integrity
   | emit issued =>
       intro target nonce consumption lookup
-      exact issuedPreserved consumption.permit (integrity target nonce consumption lookup)
+      exact preserveEvidence target nonce consumption lookup
   | injectMalformed => exact integrity
   | drop split =>
       intro target nonce consumption lookup
-      exact issuedPreserved consumption.permit (integrity target nonce consumption lookup)
+      exact preserveEvidence target nonce consumption lookup
   | duplicate member =>
       intro target nonce consumption lookup
-      exact issuedPreserved consumption.permit (integrity target nonce consumption lookup)
+      exact preserveEvidence target nonce consumption lookup
   | reorder permutation => exact integrity
   | authenticate transported requested fence =>
       intro target nonce consumption lookup
-      exact issuedPreserved consumption.permit (integrity target nonce consumption lookup)
+      exact preserveEvidence target nonce consumption lookup
   | consumeUnknownBefore => exact integrity
   | restart => exact integrity
   | reset => exact integrity
@@ -1012,8 +1020,15 @@ theorem reachable_consumption_has_exact_historical_issuance {state target nonce 
     (reachable : Reachable state)
     (consumed : state.permits.consumptions target nonce = some consumption) :
     exactIssued state.permits consumption.permit :=
-  (reachable_permit_protocol_has_historical_issuance reachable).2.2.2
-    target nonce consumption consumed
+  ((reachable_permit_protocol_has_historical_issuance reachable).2.2.2
+    target nonce consumption consumed).2
+
+theorem reachable_consumption_retains_exact_target_request {state target nonce consumption}
+    (reachable : Reachable state)
+    (consumed : state.permits.consumptions target nonce = some consumption) :
+    exactRequested state.permits consumption.permit.request :=
+  ((reachable_permit_protocol_has_historical_issuance reachable).2.2.2
+    target nonce consumption consumed).1
 
 theorem reachable_issue_uses_exact_target_request {before after issuer nonce observation}
     (reachable : Reachable before)
@@ -1023,7 +1038,7 @@ theorem reachable_issue_uses_exact_target_request {before after issuer nonce obs
       exactRequested before.permits request ∧
       PermitIssueReady (tenantIssueView before issuer) request := by
   cases step with
-  | @issue request expiresAt issuedObservation transported ready fresh expiry =>
+  | @issue request issuedObservation transported ready fresh expiry =>
       refine ⟨request, transported, ?_, ?_⟩
       · exact (reachable_permit_protocol_has_historical_issuance reachable).1
           request transported
@@ -1035,7 +1050,7 @@ theorem reachable_authentication_uses_historically_issued_transport
     (step : PermitStep before (.authenticate target nonce) after) :
     ∃ permit,
       target = permit.expectation.target ∧ nonce = permit.nonce ∧
-      exactRequested before.permits ⟨permit.expectation, permit.nonce⟩ ∧
+      exactRequested before.permits permit.request ∧
       exactIssued before.permits permit ∧ exactAuthenticated after.permits permit := by
   obtain ⟨permit, targetEq, nonceEq, transported, requested, authenticated⟩ :=
     authentication_requires_exact_target_request step

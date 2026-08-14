@@ -2534,24 +2534,38 @@ interface AuthorityPermit {
   readonly authority: InvocationAuthority;
   readonly lease?: LeaseToken;
   readonly nonce: string;
+  readonly requestDigest: Digest;
   readonly issuedAt: Date;
   readonly expiresAt: Date;
 }
 ```
 
 After the target has durably established the exact item claim and Run admission
-reservation, the Tenant Actor issues this short-lived permit as the final
+reservation, it MUST durably record one immutable target request containing every
+would-be permit field except `requestDigest` and `issuedAt`, together with the full
+canonical `AuthorityCheckRequest`. The request digest covers that exact record,
+including its nonce and expiry. The authenticated transport caller MUST be the target
+Actor named by the request; the Tenant does not mirror or claim ownership of the
+target's fence. The Tenant Actor issues this short-lived permit as the final
 authority-admission linearization point immediately before target attempt admission.
-Issuance is one Tenant transaction against current Grants, Binding generation, complete
-path epochs, qualified PrincipalRef, and optional exact lease. Revocation or epoch
+Issuance is one Tenant transaction against the authenticated immutable request, current
+Grants, Binding generation, complete path epochs, qualified PrincipalRef, and optional
+exact lease. The Tenant MUST reject a request whose expiry is not strictly after the
+issuance clock, and the issued permit MUST bind the exact request digest. An exact
+previous issuance may be replayed after response loss while it remains valid; its
+original `issuedAt` is immutable. Revocation or epoch
 mutation committed before issuance blocks it; mutation after issuance does not cancel
 that admitted permit but blocks every later issuance. The target Actor authenticates
 issuer and source, exact-matches every bound field to the persisted PreparedInvocation,
 Run reservation epoch, local claim id/owner, package pin, and target fence/domain,
-requires `issuedAt <= now < expiresAt`, and atomically
-consumes the nonce with EffectAttempt admission. A nonce is single-use even after
-expiry. A mismatch, substitution, replay, closed or changed reservation epoch, stale
-local claim/fence, or expiry records a pre-effect denial and no EffectAttempt. A newer
+requires `issuedAt <= now < expiresAt`, exact-matches `requestDigest` to its retained
+target request, and atomically records a separate exact-permit consumption with
+EffectAttempt admission. Consumption MUST retain rather than delete or replace the
+immutable target request; both records survive restart, and recovery MUST fail closed
+unless the request and consumption still match exactly. A nonce is single-use even
+after expiry. A missing request, mismatch, substitution, replay, closed or changed
+reservation epoch, stale local claim/fence, or expiry records a pre-effect denial and
+no EffectAttempt. A newer
 target-local watermark arriving after issuance MUST NOT reject, cancel, or stale a
 valid issued permit: issuance is irreversible authority admission. Target watermark
 join and stale-denial evidence occur only when issuance failed, the permit is
@@ -3191,7 +3205,7 @@ This section names coverage categories and trace IDs, never inferred theorem nam
 | Approval, batch effects, and Receipt lineage | `AC-APPROVAL-001`, `AC-EFFECT-001` | designated invocation-level ticket guards, first-attempt consumption, persisted continuation validation, guarded attempts, owner-changing same-ordinal no-attempt claim recovery, disjoint Receipt IDs, failed effect-attempt retry, supersession, and derived aggregates; approval UI, concrete atomicity, normative expiry detection, scheduling, provider effects, and reconciliation liveness are not proved |
 | Event routing and typed audit | `AC-EVENT-ROUTING-001`, `AC-ROUTING-001`, `AC-AUDIT-001` | lease-backed self-Event checks, authenticated target projection without a source-audit edge, designated Actor-local audit consequences, and the Subscription routing LTS — at-most-once consumption per (Subscription, event key), declared-target firing, tenant containment, channel-derived trust admission, and fail-closed disable; no reservation uniqueness, transport, storage, or complete-instrumentation claim |
 | Run settlement and graph-writer consequences | `AC-RUN-001`, `AC-GRAPH-WRITER-001` | exact source-pin identities, complete admitted unfinished frontier capture including an honest empty frontier, system-fenced forced cancellation, the formal terminal-and-unheld sibling precondition, a constructive Settled witness on a graph reached from the empty graph by `GraphStep`, unary pin inheritance, equal-pinned current merge heads, matching delivery evidence, exact-Turn controlled synthesis, and undo as fenced append-only ancestor selection — no transition writes an undo onto a branch a running Turn still holds, whatever the lease expiry, and no transition removes or rewrites a stored commit; no source-record resolvability, complete runtime lifecycle, closed writer matrix, expected-head CAS, pending-revert durability, migration execution, resource-ceiling attenuation or exhaustion, or general settlement-preservation claim |
-| Integrated admission and settlement | `AC-COMPOSED-001` | designated direct admission, non-attempt mediated preparation, and an abstract distributed mediated-permit LTS. The target first durably records an immutable request; the Tenant issues from only its authority state and the authenticated request payload; typed messages cross a lossy/duplicating/reordering transport; and the target authenticates and consumes against the exact request, volatile authentication, fence, time, claim, reservation, lease, route, and audit state without reading issuer storage. Attempt-producing generic mediated transitions are excluded, so a reachability invariant gives every modeled EffectAttempt exact request, historical Tenant issuance, target consumption, and matching-attempt evidence. No Actor-local boolean or claimed authority admission path is modeled; a future Actor-local attempt path requires ownership that permits the canonical comparison and attempt write in one transaction. Designated consequences cover reset-authentication invalidation, expiry, changed fences, and before/after commit-unknown issuance and consumption. Live authority administration is deliberately absent until a capability-mediated administration path is modeled; raw `AuthorityStep` is not admitted as a runtime transition. The abstract permit binds the modeled PreparedInvocation, claim, reservation, binding generation, fence, actor, nonce, and time fields, not every concrete §10.3 wire field. Settlement retains its constructive exact-obligation witness; no concrete transaction or refinement claim |
+| Integrated admission and settlement | `AC-COMPOSED-001` | designated direct admission, non-attempt mediated preparation, and an abstract distributed mediated-permit LTS. The target first durably records an immutable request and retains it after consumption; the Tenant issues from only its authority state and the authenticated request payload; typed messages cross a lossy/duplicating/reordering transport; and the target authenticates and consumes against the exact request, volatile authentication, fence, time, claim, reservation, lease, route, and audit state without reading issuer storage. Attempt-producing generic mediated transitions are excluded, so a reachability invariant gives every modeled EffectAttempt an exact retained request, historical Tenant issuance, target consumption, and matching-attempt evidence. No Actor-local boolean or claimed authority admission path is modeled; a future Actor-local attempt path requires ownership that permits the canonical comparison and attempt write in one transaction. Designated consequences cover reset-authentication invalidation, expiry, changed fences, and before/after commit-unknown issuance and consumption. Live authority administration is deliberately absent until a capability-mediated administration path is modeled; raw `AuthorityStep` is not admitted as a runtime transition. The abstract permit embeds the exact modeled request directly and binds its modeled PreparedInvocation, claim, reservation, binding generation, fence, actor, nonce, and time fields; it neither represents every concrete §10.3 wire field nor proves collision resistance for concrete `requestDigest`. Settlement retains its constructive exact-obligation witness; no concrete transaction or refinement claim |
 | Platform mechanism representations | `AC-REP-BROKER-001`, `AC-REP-CONSENT-001`, `AC-REP-REACTION-001`, `AC-REP-MOA-001` | proved component reductions to core modules: broker credential custody with the digest-bound approval gate, per-pair consent epochs, reaction dedup and lease-fenced injection, and aggregation-chain lineage completeness; no profile, product, UX, or implementation-refinement claim |
 | Facet manifest/runtime | `NC-FACET-MANIFEST-RUNTIME` | §4.1 correspondence, operation implementation, loading, and declared-impact truth are not modeled |
 | Contributions and slots | `AC-SLOT-001`, `NC-CONTRIBUTIONS-SLOTS` | immutable slot declarations, exclusive contribution origins, schema-conformant stored entries, and declared-order arrival-independent resolution; slot authority policy, concrete JSON-Schema validation, the viewer-filtered SlotCatalog query, and surface-backed rendering are not modeled |

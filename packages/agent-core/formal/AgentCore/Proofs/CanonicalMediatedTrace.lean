@@ -114,8 +114,8 @@ private def attemptedState : SystemState := {
 
 private def expectation : PermitExpectation :=
   ⟨prepared, scope, resolutionId, none, [], claim, issuer, owner, owner, 0, 1⟩
-private def targetRequest : TargetPermitRequest := ⟨expectation, nonce⟩
-private def permit : AuthorityPermit := ⟨expectation, nonce, ⟨1⟩, ⟨5⟩⟩
+private def targetRequest : TargetPermitRequest := ⟨expectation, nonce, ⟨5⟩⟩
+private def permit : AuthorityPermit := ⟨targetRequest, ⟨1⟩⟩
 private def requestMessage : PermitMessage := .request targetRequest
 private def candidate : PermitMessage := .issued permit
 
@@ -530,7 +530,7 @@ private theorem forwardTargetRequest :
 
 private theorem issuePermit :
     PermitStep forwardedState (.issue issuer nonce .unknown) issuedState := by
-  apply PermitStep.issue (request := targetRequest) (expiresAt := ⟨5⟩)
+  apply PermitStep.issue (request := targetRequest)
   · simp [forwardedState, forwardedPermits, requestMessage]
   · exact permitReady
   · rfl
@@ -539,7 +539,7 @@ private theorem issuePermit :
 private theorem emitPermit :
     PermitStep issuedState (.emit issuer nonce) emittedState := by
   apply PermitStep.emit (permit := permit)
-  simp [exactIssued, issuedState, issuedPermits, permit, expectation]
+  simp [exactIssued, issuedState, issuedPermits, permit, targetRequest, expectation]
 
 private theorem duplicatePermit :
     PermitStep emittedState (.duplicate candidate) duplicatedState := by
@@ -594,7 +594,7 @@ private theorem consumePermit :
   apply PermitStep.consume (permit := permit) (attempt := attempt)
       (auditId := attemptAuditId)
   · simp [exactAuthenticated, authenticatedState, authenticatedPermits,
-      permit, expectation]
+      permit, targetRequest, expectation]
   · simp [exactRequested, authenticatedState, authenticatedPermits, resetPermits,
       authenticatedOncePermits, restartedPermits, deliveredPermits, duplicatedPermits,
       emittedPermits, issuedPermits, forwardedPermits, requestedPermits,
@@ -728,22 +728,18 @@ theorem canonical_witness_reachability_preserves_exact_audit :
 theorem canonical_cross_actor_consumption_has_historical_issuance :
     ∃ consumption,
       attemptedDistributed.permits.consumptions owner nonce = some consumption ∧
-      exactRequested attemptedDistributed.permits
-        ⟨consumption.permit.expectation, consumption.permit.nonce⟩ ∧
+      exactRequested attemptedDistributed.permits consumption.permit.request ∧
       exactIssued attemptedDistributed.permits consumption.permit ∧
       exactAuthenticated attemptedDistributed.permits consumption.permit ∧
       consumption.permit.expectation.issuer ≠ owner := by
-  refine ⟨⟨permit, attemptId⟩, rfl, ?_, ?_, ?_, ?_⟩
-  · simp [exactRequested, attemptedDistributed, consumedPermits, authenticatedPermits,
-      resetPermits, authenticatedOncePermits, restartedPermits, deliveredPermits,
-      duplicatedPermits, emittedPermits, issuedPermits, forwardedPermits,
-      requestedPermits, targetRequest, permit, expectation]
   have consumed : attemptedDistributed.permits.consumptions owner nonce =
       some (⟨permit, attemptId⟩ : PermitConsumption) := by
     simp [attemptedDistributed, consumedPermits]
-  exact reachable_consumption_has_exact_historical_issuance attemptedReachable consumed
+  refine ⟨⟨permit, attemptId⟩, consumed, ?_, ?_, ?_, ?_⟩
+  · exact reachable_consumption_retains_exact_target_request attemptedReachable consumed
+  · exact reachable_consumption_has_exact_historical_issuance attemptedReachable consumed
   · simp [exactAuthenticated, attemptedDistributed, consumedPermits,
-      authenticatedPermits, permit, expectation]
+      authenticatedPermits, permit, targetRequest, expectation]
   decide
 
 theorem canonical_reset_invalidates_authentication :
@@ -753,10 +749,10 @@ theorem canonical_reset_invalidates_authentication :
     ¬ exactAuthenticated resetState.permits permit := by
   refine ⟨authenticatedOnceReachable, resetTarget, ?_, ?_⟩
   · simp [exactAuthenticated, authenticatedOnceState, authenticatedOncePermits,
-      permit, expectation]
+      permit, targetRequest, expectation]
   · exact reset_invalidates_volatile_authentication resetTarget rfl (by
       simp [exactAuthenticated, authenticatedOnceState, authenticatedOncePermits,
-        permit, expectation])
+        permit, targetRequest, expectation])
 
 theorem canonical_expired_permit_cannot_consume :
     Reachable expiredState ∧ exactAuthenticated expiredState.permits permit ∧
@@ -766,16 +762,16 @@ theorem canonical_expired_permit_cannot_consume :
   refine ⟨expiredReachable, ?_, ?_, ?_⟩
   · have authenticated : exactAuthenticated authenticatedState.permits permit := by
       simp [exactAuthenticated, authenticatedState, authenticatedPermits,
-        permit, expectation]
+        permit, targetRequest, expectation]
     simpa [expiredState, expiredPermits, authenticatedState] using authenticated
   · simp [expiredState, expiredPermits]
   · intro next observation after
     have authenticated : exactAuthenticated expiredState.permits permit := by
       have before : exactAuthenticated authenticatedState.permits permit := by
         simp [exactAuthenticated, authenticatedState, authenticatedPermits,
-          permit, expectation]
+          permit, targetRequest, expectation]
       simpa [expiredState, expiredPermits, authenticatedState] using before
-    simpa [permit, expectation] using
+    simpa [permit, targetRequest, expectation] using
       (expired_permit_cannot_consume (after := after)
         (attempt := next) (observation := observation) authenticated (by
           simp [expiredState, expiredPermits]))
@@ -789,19 +785,19 @@ theorem canonical_changed_fence_cannot_consume :
   refine ⟨fencedReachable, ?_, ?_, ?_⟩
   · have authenticated : exactAuthenticated authenticatedState.permits permit := by
       simp [exactAuthenticated, authenticatedState, authenticatedPermits,
-        permit, expectation]
+        permit, targetRequest, expectation]
     simpa [fencedState, fencedPermits, authenticatedState] using authenticated
-  · simp [fencedState, fencedPermits, permit, expectation, owner]
+  · simp [fencedState, fencedPermits, permit, targetRequest, expectation, owner]
   · intro next observation after
     have authenticated : exactAuthenticated fencedState.permits permit := by
       have before : exactAuthenticated authenticatedState.permits permit := by
         simp [exactAuthenticated, authenticatedState, authenticatedPermits,
-          permit, expectation]
+          permit, targetRequest, expectation]
       simpa [fencedState, fencedPermits, authenticatedState] using before
-    simpa [permit, expectation] using
+    simpa [permit, targetRequest, expectation] using
       (changed_target_fence_cannot_consume (after := after)
         (attempt := next) (observation := observation) authenticated (by
-          simp [fencedState, fencedPermits, permit, expectation, owner]))
+          simp [fencedState, fencedPermits, permit, targetRequest, expectation, owner]))
 
 theorem canonical_commit_unknown_before_after_issue :
     Reachable forwardedState ∧
@@ -810,7 +806,7 @@ theorem canonical_commit_unknown_before_after_issue :
     forwardedState.permits.issuerRecords issuer nonce = none ∧
     exactIssued issuedState.permits permit := by
   refine ⟨forwardedReachable, .issueUnknownBefore, issuePermit, rfl, ?_⟩
-  simp [exactIssued, issuedState, issuedPermits, permit, expectation]
+  simp [exactIssued, issuedState, issuedPermits, permit, targetRequest, expectation]
 
 theorem canonical_commit_unknown_before_after_consume :
     Reachable authenticatedState ∧
@@ -829,7 +825,7 @@ theorem canonical_replay_after_restart_is_reauthenticated_but_cannot_reconsume :
       ¬ PermitStep replayAuthenticatedState (.consume owner nonce next observation) after := by
   refine ⟨replayAuthenticatedReachable, ?_, ?_⟩
   · simp [exactAuthenticated, replayAuthenticatedState, replayAuthenticatedPermits,
-      permit, expectation]
+      permit, targetRequest, expectation]
   · intro next observation after
     apply consumed_nonce_cannot_be_consumed_again
     simp [replayAuthenticatedState, replayAuthenticatedPermits, replayRestartedPermits,

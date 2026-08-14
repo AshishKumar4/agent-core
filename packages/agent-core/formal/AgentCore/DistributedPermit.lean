@@ -42,18 +42,25 @@ def PermitExpectation.MatchesAttempt (expectation : PermitExpectation)
   ∃ item, PreparedItemAt expectation.prepared expectation.claim.itemIndex item ∧
     attempt.key = item.key
 
-structure AuthorityPermit where
-  expectation : PermitExpectation
-  nonce : PermitNonce
-  issuedAt : Time
-  expiresAt : Time
-  deriving DecidableEq, Repr
-
 /-- The target-owned immutable request from which the Tenant may issue one permit. -/
 structure TargetPermitRequest where
   expectation : PermitExpectation
   nonce : PermitNonce
+  expiresAt : Time
   deriving DecidableEq, Repr
+
+/-- Tenant-issued evidence binds the exact target-owned request, without reconstructing it. -/
+structure AuthorityPermit where
+  request : TargetPermitRequest
+  issuedAt : Time
+  deriving DecidableEq, Repr
+
+@[simp] def AuthorityPermit.expectation (permit : AuthorityPermit) : PermitExpectation :=
+  permit.request.expectation
+
+@[simp] def AuthorityPermit.nonce (permit : AuthorityPermit) : PermitNonce := permit.request.nonce
+
+@[simp] def AuthorityPermit.expiresAt (permit : AuthorityPermit) : Time := permit.request.expiresAt
 
 inductive IssuerPermitRecord where
   | issued (permit : AuthorityPermit)
@@ -319,17 +326,17 @@ inductive PermitStep : DistributedSystemState → PermitLabel → DistributedSys
       PermitStep state (.forwardRequest request.expectation.target request.nonce) {
         state with permits := { state.permits with
           transport := state.permits.transport ++ [.request request] } }
-  | issue {state request expiresAt observation} :
+  | issue {state request observation} :
       .request request ∈ state.permits.transport →
       PermitIssueReady (tenantIssueView state request.expectation.issuer) request →
       (tenantIssueView state request.expectation.issuer).records request.nonce = none →
-      (tenantIssueView state request.expectation.issuer).now.tick < expiresAt.tick →
+      (tenantIssueView state request.expectation.issuer).now.tick < request.expiresAt.tick →
       PermitStep state (.issue request.expectation.issuer request.nonce observation) {
         state with permits := { state.permits with
           issuerRecords := tableSet2 state.permits.issuerRecords
             request.expectation.issuer request.nonce
-            (some (.issued ⟨request.expectation, request.nonce,
-              (tenantIssueView state request.expectation.issuer).now, expiresAt⟩)) } }
+            (some (.issued ⟨request,
+              (tenantIssueView state request.expectation.issuer).now⟩)) } }
   | issueUnknownBefore {state issuer nonce} :
       PermitStep state (.issueUnknownBefore issuer nonce) state
   | emit {state permit} :
@@ -354,8 +361,7 @@ inductive PermitStep : DistributedSystemState → PermitLabel → DistributedSys
         transport := reordered } }
   | authenticate {state permit} :
       .issued permit ∈ state.permits.transport →
-      exactRequested state.permits
-        ⟨permit.expectation, permit.nonce⟩ →
+      exactRequested state.permits permit.request →
       permit.expectation.targetFence = state.permits.targetFence permit.expectation.target →
       PermitStep state (.authenticate permit.expectation.target permit.nonce) {
         state with permits := { state.permits with
@@ -364,8 +370,7 @@ inductive PermitStep : DistributedSystemState → PermitLabel → DistributedSys
             (some ⟨permit, state.permits.incarnation permit.expectation.target⟩) } }
   | consume {state permit attemptId attempt auditId core' observation} :
       exactAuthenticated state.permits permit →
-      exactRequested state.permits
-        ⟨permit.expectation, permit.nonce⟩ →
+      exactRequested state.permits permit.request →
       permit.expectation.targetFence = state.permits.targetFence permit.expectation.target →
       permit.issuedAt.tick ≤ state.permits.now.tick →
       state.permits.now.tick < permit.expiresAt.tick →
@@ -404,8 +409,7 @@ theorem authentication_requires_exact_target_request {before after target nonce}
     (step : PermitStep before (.authenticate target nonce) after) :
     ∃ permit, target = permit.expectation.target ∧ nonce = permit.nonce ∧
       .issued permit ∈ before.permits.transport ∧
-      exactRequested before.permits
-        ⟨permit.expectation, permit.nonce⟩ ∧
+      exactRequested before.permits permit.request ∧
       exactAuthenticated after.permits permit := by
   cases step with
   | authenticate message requested fence =>
@@ -427,11 +431,11 @@ theorem permit_issue_requires_exact_authenticated_binding
       binding.generation = permit.expectation.bindingGeneration ∧
       binding.facet = permit.expectation.prepared.header.operation.facet := by
   cases step with
-  | @issue issuedRequest expiresAt issuedObservation transported ready fresh expiry =>
+  | @issue issuedRequest issuedObservation transported ready fresh expiry =>
       obtain ⟨actor, authenticated, currentBinding, mediatedReady⟩ := ready
       obtain ⟨binding, lookup, generation, facet⟩ := currentBinding
       exact ⟨issuedRequest,
-        ⟨issuedRequest.expectation, issuedRequest.nonce, before.permits.now, expiresAt⟩,
+        ⟨issuedRequest, before.permits.now⟩,
         binding, transported, rfl, rfl, authenticated.1.1, authenticated.1.2.1,
         authenticated.1.2.2.1, authenticated.1.2.2.2, authenticated.2,
         lookup, generation, facet⟩
@@ -450,8 +454,7 @@ theorem missing_target_request_cannot_authenticate
     {before after target nonce}
     (unavailable : ∀ permit : AuthorityPermit,
       target = permit.expectation.target → nonce = permit.nonce →
-      ¬ exactRequested before.permits
-        ⟨permit.expectation, permit.nonce⟩) :
+      ¬ exactRequested before.permits permit.request) :
     ¬ PermitStep before (.authenticate target nonce) after := by
   intro step
   obtain ⟨permit, targetEq, nonceEq, _, requested, _⟩ :=
@@ -465,7 +468,8 @@ theorem restart_invalidates_volatile_authentication {before after actor}
     ¬ exactAuthenticated after.permits permit := by
   cases step
   subst actor
-  simp only [exactAuthenticated] at authenticated ⊢
+  simp only [exactAuthenticated, AuthorityPermit.expectation,
+    AuthorityPermit.nonce] at authenticated ⊢
   simp [authenticated]
 
 theorem reset_invalidates_volatile_authentication {before after actor}
@@ -475,7 +479,8 @@ theorem reset_invalidates_volatile_authentication {before after actor}
     ¬ exactAuthenticated after.permits permit := by
   cases step
   subst actor
-  simp only [exactAuthenticated] at authenticated ⊢
+  simp only [exactAuthenticated, AuthorityPermit.expectation,
+    AuthorityPermit.nonce] at authenticated ⊢
   simp [authenticated]
 
 theorem reset_preserves_durable_permit_state {before after actor}
@@ -497,10 +502,10 @@ theorem commit_unknown_after_issue_persists_exact_record {before after issuer no
     ∃ permit, exactIssued after.permits permit ∧
       permit.expectation.issuer = issuer ∧ permit.nonce = nonce := by
   cases step with
-  | @issue request expiresAt observation transported ready fresh expiry =>
-      refine ⟨⟨request.expectation, request.nonce,
-        (tenantIssueView before request.expectation.issuer).now, expiresAt⟩, ?_, rfl, rfl⟩
-      simp [exactIssued]
+  | @issue request observation transported ready fresh expiry =>
+      refine ⟨⟨request,
+        (tenantIssueView before request.expectation.issuer).now⟩, ?_, rfl, rfl⟩
+      simp [exactIssued, AuthorityPermit.expectation, AuthorityPermit.nonce]
 
 theorem commit_unknown_before_consume_preserves_state {before after target nonce}
     (step : PermitStep before (.consumeUnknownBefore target nonce) after) :
@@ -562,8 +567,7 @@ theorem consume_is_exact_requested_authenticated_and_atomic
     (step : PermitStep before (.consume target nonce attemptId observation) after) :
     ∃ permit attempt,
       exactAuthenticated before.permits permit ∧
-      exactRequested before.permits
-        ⟨permit.expectation, permit.nonce⟩ ∧
+      exactRequested before.permits permit.request ∧
       permit.expectation.ClaimReady before.core before.permits.now ∧
       target = permit.expectation.target ∧ nonce = permit.nonce ∧
       after.core.effects.attempts attemptId = some attempt ∧
@@ -582,7 +586,7 @@ theorem commit_unknown_after_consume_persists_attempt_and_consumption
     (step : PermitStep before (.consume target nonce attemptId .unknown) after) :
     ∃ permit attempt,
       exactAuthenticated before.permits permit ∧
-      exactRequested before.permits ⟨permit.expectation, permit.nonce⟩ ∧
+      exactRequested before.permits permit.request ∧
       after.core.effects.attempts attemptId = some attempt ∧
       after.permits.consumptions target nonce = some ⟨permit, attemptId⟩ ∧
       permit.expectation.MatchesAttempt attempt := by

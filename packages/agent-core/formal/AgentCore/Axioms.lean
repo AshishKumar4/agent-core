@@ -303,6 +303,7 @@ import AgentCore
 #print axioms AgentCore.consumed_nonce_cannot_be_consumed_again
 #print axioms AgentCore.reachable_permit_protocol_has_historical_issuance
 #print axioms AgentCore.reachable_consumption_has_exact_historical_issuance
+#print axioms AgentCore.reachable_consumption_retains_exact_target_request
 #print axioms AgentCore.reachable_issue_uses_exact_target_request
 #print axioms AgentCore.reachable_authentication_uses_historically_issued_transport
 #print axioms AgentCore.direct_has_no_durable_side_effect

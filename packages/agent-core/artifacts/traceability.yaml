@@ -2095,7 +2095,7 @@
       "id": "AC-COMPOSED-001",
       "summary": "Direct admission, non-attempt mediated preparation, distributed target-request and Tenant-permit attempt admission, exact mediated reservation and approval identity, and coherent settlement",
       "status": "proved-safety",
-      "boundary": "The distributed LTS separates a target-owned immutable request, Tenant-local issuance from Tenant authority plus the authenticated request payload, typed lossy/duplicating/reordering transport, volatile target authentication, and target-local nonce-consume plus EffectAttempt/audit atomicity. No cross-Actor atomic premise exists. Issuance is the only authoritative Grant/Binding/path comparison; authentication and consumption use transported evidence and target-local request, fence, time, claim, reservation, lease, route, and audit state without reading issuer storage. Attempt-producing mediated labels are excluded from the generic mediated SystemStep; every reachable EffectAttempt therefore has an exact target request, exact historical Tenant issuance, exact target consumption, and matching attempt. No Actor-local boolean or claimed authority admission is modeled. A future Actor-local attempt path remains possible only when canonical authority ownership permits the comparison and attempt write in one owner transaction. Reset invalidates volatile authentication; expired permits and changed target fences cannot consume; and separate before/after commit-unknown traces distinguish no-commit from committed issuance and consumption. Live authority administration and role rematerialization are absent until a capability-mediated path is modeled; raw AuthorityStep is not a runtime authorization boundary. This is an abstract protocol over the modeled PreparedInvocation/claim/reservation/binding fields, not the complete §10.3 wire record or any TypeScript, storage, signature, provider, or deployment refinement. Direct admission and settlement retain their prior narrow boundaries.",
+      "boundary": "The distributed LTS separates a target-owned immutable request retained after consumption, Tenant-local issuance from Tenant authority plus the authenticated request payload, typed lossy/duplicating/reordering transport, volatile target authentication, and target-local nonce-consume plus EffectAttempt/audit atomicity. No cross-Actor atomic premise exists. Issuance is the only authoritative Grant/Binding/path comparison; authentication and consumption use transported evidence and the exact retained target-local request, fence, time, claim, reservation, lease, route, and audit state without reading issuer storage. Attempt-producing mediated labels are excluded from the generic mediated SystemStep; every reachable EffectAttempt therefore has an exact target request retained at the target, exact historical Tenant issuance, exact target consumption, and matching attempt. No Actor-local boolean or claimed authority admission is modeled. A future Actor-local attempt path remains possible only when canonical authority ownership permits the comparison and attempt write in one owner transaction. Reset invalidates volatile authentication; expired permits and changed target fences cannot consume; and separate before/after commit-unknown traces distinguish no-commit from committed issuance and consumption. The permit LTS does not model a Tenant denial reply or its concrete protocol outcome/Write/Audit persistence, and treats caller authentication as an assumption rather than a proved transport property. Live authority administration and role rematerialization are absent until a capability-mediated path is modeled; raw AuthorityStep is not a runtime authorization boundary. The abstract permit embeds the exact modeled request directly; it does not represent every concrete §10.3 wire field, prove collision resistance for concrete requestDigest, or establish any TypeScript, storage, signature, provider, or deployment refinement. Direct admission and settlement retain their prior narrow boundaries.",
       "definitions": [
         "AgentCore.SystemState",
         "AgentCore.AdmissionRequest",
@@ -2188,6 +2188,7 @@
         "AgentCore.consumed_nonce_cannot_be_consumed_again",
         "AgentCore.reachable_permit_protocol_has_historical_issuance",
         "AgentCore.reachable_consumption_has_exact_historical_issuance",
+        "AgentCore.reachable_consumption_retains_exact_target_request",
         "AgentCore.reachable_issue_uses_exact_target_request",
         "AgentCore.reachable_authentication_uses_historically_issued_transport",
         "AgentCore.mediated_nonattempt_preserves_attempts",
@@ -2327,6 +2328,10 @@
           "AgentCore.Examples.nonvacuous_distributed_permit_issue_consume",
           "AgentCore.Examples.nonvacuous_distributed_permit_replay_after_restart"
         ],
+        "AgentCore.reachable_consumption_retains_exact_target_request": [
+          "AgentCore.Examples.nonvacuous_distributed_permit_issue_consume",
+          "AgentCore.Examples.nonvacuous_distributed_permit_replay_after_restart"
+        ],
         "AgentCore.reachable_issue_uses_exact_target_request": [
           "AgentCore.Examples.nonvacuous_distributed_permit_issue_consume"
         ],
@@ -2352,7 +2357,8 @@
       },
       "remainingEvidence": [
         "capability-mediated live authority administration and Role rematerialization interleavings",
-        "full §10.3 AuthorityPermit field representation, issuer signature, codec semantics, and concrete Tenant-issuance and target-consumption transactions",
+        "authenticated-caller transport and Tenant denial reply, protocol outcome, WriteRecord, and AuditRecord refinement",
+        "complete §10.3 target-request and AuthorityPermit wire representation beyond the modeled projection, issuer signature, and codec semantics",
         "TypeScript, Memory/SQLite, Cloudflare Durable Object, bundle, configuration, and deployment refinement",
         "general settlement safety theorem and complete obligation lifecycle",
         "concrete reservation validation, transaction atomicity, and single-owner storage refinement"

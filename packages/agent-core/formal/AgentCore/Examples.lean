@@ -2247,8 +2247,7 @@ theorem nonvacuous_distributed_permit_issue_consume :
     ∃ state target nonce consumption,
       Reachable state ∧
       state.permits.consumptions target nonce = some consumption ∧
-      exactRequested state.permits
-        ⟨consumption.permit.expectation, consumption.permit.nonce⟩ ∧
+      exactRequested state.permits consumption.permit.request ∧
       exactIssued state.permits consumption.permit ∧
       exactAuthenticated state.permits consumption.permit ∧
       consumption.permit.expectation.issuer ≠ target := by

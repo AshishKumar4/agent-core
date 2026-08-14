@@ -323,7 +323,7 @@
       "owner": "W2",
       "specAnchor": "C13-AUTH-MEDIATED-ADMISSION",
       "specTextSha256": "sha256:b96c2188d9cf58292de59d29740554bc75a754833daa5f628b6db96c3437ec8e",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": ["src/authority/permit.ts#AuthorityPermit"],
       "testSelectors": [
@@ -331,14 +331,16 @@
         "test/authority/permit.test.ts#[authority-permit-owner-store] memory issues and consumes exactly once across owner-store restart"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "The corrected target-request and Tenant-decision path is implemented, but complete cross-Actor admission refinement is not proved"
+      ]
     },
     {
       "id": "C13-AUTH-MEDIATED-STALE",
       "owner": "W2",
       "specAnchor": "C13-AUTH-MEDIATED-STALE",
       "specTextSha256": "sha256:b96c2188d9cf58292de59d29740554bc75a754833daa5f628b6db96c3437ec8e",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": [
         "src/composition/authority-state.ts#ActorAuthorityState",
@@ -355,7 +357,9 @@
         "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "Authenticated Tenant denial joins target watermark state, but the full target-local Receipt and Audit transaction remains to be verified end to end"
+      ]
     },
     {
       "id": "C13-AUTH-PATH-EVIDENCE",
