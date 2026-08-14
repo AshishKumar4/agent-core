@@ -2,10 +2,17 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, test } from "vitest";
-import { AuthorityMutationService, Binding, Grant, GrantId } from "../../../src/authority";
+import {
+    AuthorityMutationService,
+    Binding,
+    BindingCredentialCustody,
+    Grant,
+    GrantId
+} from "../../../src/authority";
 import { BindingName, CapabilitySpec, FacetRef, ProtectionDomain } from "../../../src/facets";
 import { ActorId } from "../../../src/actors";
-import { Revision } from "../../../src/core";
+import { Revision, SecretRef } from "../../../src/core";
+import { AgentCoreError } from "../../../src/errors";
 import {
     MembershipId,
     Principal,
@@ -128,6 +135,95 @@ describe("SQLite Tenant control storage", () => {
                     true
                 );
                 expect(restarted.isBootstrapEligible()).toBe(false);
+                restartedDatabase.close();
+            } finally {
+                rmSync(directory, { recursive: true, force: true });
+            }
+        }
+    );
+
+    test(
+        "[C13-CONFIG-SECRET-CUSTODY] preserves Binding custody through replacement and file restart",
+        { tags: "p0" },
+        () => {
+            const directory = mkdtempSync(join(tmpdir(), "agent-core-credential-custody-"));
+            const path = join(directory, "tenant.sqlite");
+            try {
+                const firstDatabase = new FileSqlite(path);
+                const first = createSqliteTenantControlStore(firstDatabase, anchor);
+                firstDatabase.transaction(() =>
+                    first.bootstrapTenant(firstDatabase, anchor, Revision.initial())
+                );
+                const service = new AuthorityMutationService(first);
+                const workspace = new Workspace(
+                    new WorkspaceId("credential-custody-file-workspace"),
+                    tenantId,
+                    undefined,
+                    Revision.initial()
+                );
+                service.createWorkspace(workspace);
+                const grant = new Grant(
+                    new GrantId("credential-custody-file-grant"),
+                    workspace.scope,
+                    SubjectRef.principal(new PrincipalRef(tenantId, principalId)),
+                    "allow",
+                    new CapabilitySpec({ facetPattern: "*", impacts: ["externalSend"] }),
+                    { kind: "direct" }
+                );
+                service.createGrant(grant);
+                const credential = new SecretRef(tenantId.value, "vault", "file-token");
+                const endpoint = "https://custody.example/v1/send";
+                const binding = Binding.active(
+                    workspace.scope,
+                    grant.subject,
+                    new ProtectionDomain("backend", "credential-custody-file", "may-hold-secrets"),
+                    new BindingName("credential-custody-file"),
+                    grant.id,
+                    new FacetRef("core:credential-custody-file"),
+                    [new BindingCredentialCustody(credential, endpoint)]
+                );
+                service.createBinding(binding);
+                const preserved = service.replaceBinding(binding.key, grant.id, binding.facet);
+                const beforeRollbackEpoch = first.epoch(workspace.scope);
+                firstDatabase.run(
+                    `CREATE TRIGGER fail_custody_epoch_update
+                     BEFORE UPDATE ON tenant_scope_epochs
+                     BEGIN SELECT RAISE(ABORT, 'injected custody epoch fault'); END`,
+                    []
+                );
+                const rotated = new SecretRef(tenantId.value, "vault", "rotated-file-token");
+                const rotatedEndpoint = "https://custody.example/v2/send";
+                const rotatedCustody = [new BindingCredentialCustody(rotated, rotatedEndpoint)];
+                let rollbackFailure: unknown;
+                try {
+                    service.replaceBinding(binding.key, grant.id, binding.facet, rotatedCustody);
+                } catch (error) {
+                    rollbackFailure = error;
+                }
+                expect(rollbackFailure).toBeInstanceOf(AgentCoreError);
+                if (rollbackFailure instanceof AgentCoreError) {
+                    expect(rollbackFailure.code).toBe("protocol.revision-conflict");
+                }
+                expect(first.binding(binding.key)?.toData()).toEqual(preserved.toData());
+                expect(first.epoch(workspace.scope).equals(beforeRollbackEpoch)).toBe(true);
+                firstDatabase.run("DROP TRIGGER fail_custody_epoch_update", []);
+                const replacement = service.replaceBinding(
+                    binding.key,
+                    grant.id,
+                    binding.facet,
+                    rotatedCustody
+                );
+                expect(replacement.generation).toBe(preserved.generation + 1);
+                expect(replacement.revision.value).toBe(preserved.revision.value + 1);
+                expect(first.epoch(workspace.scope).epoch).toBe(beforeRollbackEpoch.epoch + 1);
+                firstDatabase.close();
+
+                const restartedDatabase = new FileSqlite(path);
+                const restarted = createSqliteTenantControlStore(restartedDatabase);
+                const restored = restarted.binding(binding.key);
+                expect(restored?.toData()).toEqual(replacement.toData());
+                expect(restored?.hasCredentialCustody(credential, endpoint)).toBe(false);
+                expect(restored?.hasCredentialCustody(rotated, rotatedEndpoint)).toBe(true);
                 restartedDatabase.close();
             } finally {
                 rmSync(directory, { recursive: true, force: true });

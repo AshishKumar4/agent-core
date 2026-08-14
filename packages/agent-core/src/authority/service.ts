@@ -461,10 +461,18 @@ export class AuthorityMutationService {
         });
     }
 
-    public replaceBinding(key: string, grantId: GrantId, facet: Binding["facet"]): Binding {
+    public replaceBinding(
+        key: string,
+        grantId: GrantId,
+        facet: Binding["facet"],
+        credentialCustody?: Binding["credentialCustody"]
+    ): Binding {
         return this.store.transaction((store) => {
             const current = requireRecord(store.binding(key), "Binding");
-            const replacement = current.replace(grantId, facet);
+            const replacement =
+                credentialCustody === undefined
+                    ? current.replace(grantId, facet)
+                    : current.replace(grantId, facet, credentialCustody);
             requireBindingAuthority(store, replacement);
             store.putBinding(replacement);
             this.bump(store, [{ kind: "bindingTransition", affectedScopes: [replacement.scope] }]);

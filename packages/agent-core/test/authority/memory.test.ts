@@ -3,6 +3,7 @@ import { ActorId } from "../../src/actors";
 import {
     AuthorityMutationService,
     Binding,
+    BindingCredentialCustody,
     Grant,
     GrantId,
     PathEpochEvidence
@@ -13,6 +14,7 @@ import { createTenantControlBootstrapPlan } from "../../src/authority/service";
 import {
     Digest,
     Revision,
+    SecretRef,
     decodeCanonicalJson,
     encodeCanonicalJson,
     type JsonValue
@@ -130,6 +132,88 @@ describe("MemoryTenantControlStore", () => {
             const restarted = MemoryTenantControlStore.restore(store.snapshot());
             expect(restarted.binding(binding.key)).toEqual(binding);
             expect(restarted.epoch(workspaceScope).epoch).toBe(before + 1);
+        }
+    );
+
+    test(
+        "[C13-CONFIG-SECRET-CUSTODY] restores every Binding custody fact from Tenant-owned storage",
+        { tags: "p0" },
+        () => {
+            const store = bootstrappedStore();
+            const service = new AuthorityMutationService(store);
+            const grant = allowGrant("tenant-credential-custody-grant");
+            service.createGrant(grant);
+            const first = new SecretRef(tenantId.value, "vault", "first-token");
+            const second = new SecretRef(tenantId.value, "vault", "second-token");
+            const binding = Binding.active(
+                workspaceScope,
+                grant.subject,
+                new ProtectionDomain("backend", "tenant-credential-custody", "may-hold-secrets"),
+                new BindingName("tenant-credential-custody"),
+                grant.id,
+                new FacetRef("tenant:credential-custody"),
+                [
+                    new BindingCredentialCustody(second, "https://second.example/v1/requests"),
+                    new BindingCredentialCustody(first, "https://first.example/v1/requests")
+                ]
+            );
+
+            service.createBinding(binding);
+            const preserved = service.replaceBinding(binding.key, grant.id, binding.facet);
+            const beforeRotationEpoch = store.epoch(workspaceScope).epoch;
+            const rotated = new SecretRef(tenantId.value, "vault", "rotated-token");
+            const rotatedCustody = [
+                new BindingCredentialCustody(rotated, "https://rotated.example/v2/requests")
+            ];
+            const replacement = service.replaceBinding(
+                binding.key,
+                grant.id,
+                binding.facet,
+                rotatedCustody
+            );
+            const restarted = MemoryTenantControlStore.restore(store.snapshot());
+            const restored = restarted.binding(binding.key);
+
+            expect(preserved.credentialCustody).toHaveLength(2);
+            expect(preserved.hasCredentialCustody(first, "https://first.example/v1/requests")).toBe(
+                true
+            );
+            expect(restored?.credentialCustody).toHaveLength(1);
+            expect(restored?.hasCredentialCustody(first, "https://first.example/v1/requests")).toBe(
+                false
+            );
+            expect(
+                restored?.hasCredentialCustody(second, "https://second.example/v1/requests")
+            ).toBe(false);
+            expect(
+                restored?.hasCredentialCustody(rotated, "https://rotated.example/v2/requests")
+            ).toBe(true);
+            expect(replacement.generation).toBe(preserved.generation + 1);
+            expect(replacement.revision.value).toBe(preserved.revision.value + 1);
+            expect(store.epoch(workspaceScope).epoch).toBe(beforeRotationEpoch + 1);
+            expect(restored?.toData()).toEqual(replacement.toData());
+
+            const beforeRollback = restarted.binding(binding.key);
+            const beforeRollbackEpoch = restarted.epoch(workspaceScope);
+            expect(beforeRollback).toBeInstanceOf(Binding);
+            if (beforeRollback === undefined) {
+                throw new TypeError("Expected stored Binding before rollback test");
+            }
+            let rollbackFailure: unknown;
+            try {
+                restarted.transaction((transaction) => {
+                    transaction.putBinding(
+                        beforeRollback.replace(grant.id, binding.facet, binding.credentialCustody)
+                    );
+                    transaction.putEpoch(beforeRollbackEpoch.next());
+                    throw new TypeError("injected custody rotation fault");
+                });
+            } catch (error) {
+                rollbackFailure = error;
+            }
+            expect(rollbackFailure).toBeInstanceOf(TypeError);
+            expect(restarted.binding(binding.key)?.toData()).toEqual(beforeRollback.toData());
+            expect(restarted.epoch(workspaceScope).equals(beforeRollbackEpoch)).toBe(true);
         }
     );
 
