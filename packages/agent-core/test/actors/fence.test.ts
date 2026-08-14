@@ -26,31 +26,39 @@ class DerivedActorId extends ActorId {}
 test("ActorRef accepts only its closed kinds and exact ActorId instances", { tags: "p1" }, () => {
     expect(ActorId).toBe(CanonicalActorId);
     expect(Object.isFrozen(new ActorRef("tenant", new ActorId("valid-actor")))).toBe(true);
-    expect(() => Reflect.construct(ActorRef, ["invalid", actorId])).toThrow(TypeError);
-    expect(() => Reflect.construct(ActorRef, ["run", { value: actorId.value }])).toThrow(TypeError);
-    expect(() => Reflect.construct(ActorRef, ["run", new WrongActorId(actorId.value)])).toThrow(
-        TypeError
-    );
-    expect(() => Reflect.construct(ActorRef, ["run", new DerivedActorId(actorId.value)])).toThrow(
-        TypeError
-    );
+    expect(
+        () =>
+            // @ts-expect-error Runtime callers can supply an invalid Actor kind.
+            new ActorRef("invalid", actorId)
+    ).toThrow(TypeError);
+    expect(
+        () =>
+            // @ts-expect-error Runtime callers can supply an ActorId lookalike.
+            new ActorRef("run", { value: actorId.value })
+    ).toThrow(TypeError);
+    expect(() => new ActorRef("run", new WrongActorId(actorId.value))).toThrow(TypeError);
+    expect(() => new ActorRef("run", new DerivedActorId(actorId.value))).toThrow(TypeError);
 });
 
 describe("ActorRecoveryState codec", () => {
-    test("[actor.recovery-state] round-trips recovery state through its versioned codec", { tags: "p0" }, () => {
-        const state = new ActorRecoveryState(actor, 7, 3);
-        const encoded = ActorRecoveryState.encode(state);
+    test(
+        "[actor.recovery-state] round-trips recovery state through its versioned codec",
+        { tags: "p0" },
+        () => {
+            const state = new ActorRecoveryState(actor, 7, 3);
+            const encoded = ActorRecoveryState.encode(state);
 
-        expect(encoded).toEqual(ActorRecoveryState.codec.encode(state));
-        const decoded = ActorRecoveryState.decode(encoded);
+            expect(encoded).toEqual(ActorRecoveryState.codec.encode(state));
+            const decoded = ActorRecoveryState.decode(encoded);
 
-        expect(decoded.actor.equals(actor)).toBe(true);
-        expect(decoded.epoch).toBe(7);
-        expect(decoded.recoveries).toBe(3);
-    });
+            expect(decoded.actor.equals(actor)).toBe(true);
+            expect(decoded.epoch).toBe(7);
+            expect(decoded.recoveries).toBe(3);
+        }
+    );
 
     test("rejects malformed payloads with a typed codec error", { tags: "p1" }, () => {
-        const malformed = [
+        const malformed: readonly JsonValue[] = [
             null,
             {},
             { actor: { kind: "run", id: "actor-codec" }, epoch: "7", recoveries: 3 },
@@ -83,29 +91,33 @@ describe("ActorRecoveryState codec", () => {
         );
     });
 
-    test("enforces safe integer state invariants in constructors and decoding", { tags: "p0" }, () => {
-        const invalid = [
-            { epoch: -1, recoveries: 1 },
-            { epoch: Number.MAX_SAFE_INTEGER + 1, recoveries: 1 },
-            { epoch: 0, recoveries: 0 },
-            { epoch: 0, recoveries: Number.MAX_SAFE_INTEGER + 1 }
-        ];
+    test(
+        "enforces safe integer state invariants in constructors and decoding",
+        { tags: "p0" },
+        () => {
+            const invalid = [
+                { epoch: -1, recoveries: 1 },
+                { epoch: Number.MAX_SAFE_INTEGER + 1, recoveries: 1 },
+                { epoch: 0, recoveries: 0 },
+                { epoch: 0, recoveries: Number.MAX_SAFE_INTEGER + 1 }
+            ];
 
-        for (const values of invalid) {
-            expect(() => new ActorRecoveryState(actor, values.epoch, values.recoveries)).toThrow(
-                TypeError
-            );
-            expect(() =>
-                ActorRecoveryState.codec.decode(
-                    envelope({
-                        actor: { kind: actor.kind, id: actor.id.value },
-                        epoch: values.epoch,
-                        recoveries: values.recoveries
-                    })
-                )
-            ).toThrow(malformedError());
+            for (const values of invalid) {
+                expect(
+                    () => new ActorRecoveryState(actor, values.epoch, values.recoveries)
+                ).toThrow(TypeError);
+                expect(() =>
+                    ActorRecoveryState.codec.decode(
+                        envelope({
+                            actor: { kind: actor.kind, id: actor.id.value },
+                            epoch: values.epoch,
+                            recoveries: values.recoveries
+                        })
+                    )
+                ).toThrow(malformedError());
+            }
         }
-    });
+    );
 
     test("fails before recovery counters or fences exceed safe integers", { tags: "p0" }, () => {
         const exhaustedEpoch = new ActorRecoveryState(actor, Number.MAX_SAFE_INTEGER, 1);
@@ -155,7 +167,7 @@ describe("ActorRecoveryState codec", () => {
     });
 
     test("rejects recovery payloads whose Actor record is not exact", { tags: "p0" }, () => {
-        const hostile: readonly unknown[] = [
+        const hostile: readonly JsonValue[] = [
             null,
             [],
             "payload",
@@ -192,14 +204,16 @@ describe("Actor identity", () => {
 
     test("requires exact ActorId instances and closed Actor kinds", { tags: "p1" }, () => {
         const message = "Actor reference requires a valid kind and exact Actor ID";
-        const impostors: readonly unknown[] = [
+        const prototypeImpostor = {};
+        Object.setPrototypeOf(prototypeImpostor, ActorId.prototype);
+        const impostors = [
             actorId.value,
             null,
             undefined,
             { value: actorId.value },
             new WrongActorId(actorId.value),
             new DerivedActorId(actorId.value),
-            Object.create(ActorId.prototype) as object
+            prototypeImpostor
         ];
 
         for (const kind of ACTOR_KINDS) {
@@ -208,35 +222,45 @@ describe("Actor identity", () => {
             expect(ref.equals(new ActorRef(kind, new ActorId(`actor-${kind}`)))).toBe(true);
         }
         for (const impostor of impostors) {
-            expect(() => Reflect.construct(ActorRef, ["run", impostor])).toThrow(message);
+            expect(
+                () =>
+                    // @ts-expect-error Runtime callers can supply malformed Actor IDs.
+                    new ActorRef("run", impostor)
+            ).toThrow(message);
         }
         for (const kind of ["", "Run", "tenants", 5, null, undefined]) {
-            expect(() => Reflect.construct(ActorRef, [kind, actorId])).toThrow(message);
+            expect(
+                () =>
+                    // @ts-expect-error Runtime callers can supply malformed Actor kinds.
+                    new ActorRef(kind, actorId)
+            ).toThrow(message);
         }
     });
 });
 
-function envelope(payload: unknown): Uint8Array {
+function envelope(payload: JsonValue): Uint8Array {
     return encodeCanonicalJson({
         kind: "actor.recovery-state",
-        payload: payload as JsonValue,
+        payload,
         version: { major: 1, minor: 0 }
     });
 }
 
-function expectOperationalError(action: () => unknown, code: AgentCoreError["code"]): void {
+function expectOperationalError(action: () => void, code: AgentCoreError["code"]): void {
     try {
         action();
-        throw new Error("Expected operation to fail");
     } catch (error) {
         expect(error).toBeInstanceOf(AgentCoreError);
         expect(error).not.toBeInstanceOf(TypeError);
-        expect((error as AgentCoreError).code).toBe(code);
+        if (!(error instanceof AgentCoreError)) throw error;
+        expect(error.code).toBe(code);
+        return;
     }
+    throw new TypeError("Expected operation to fail");
 }
 
 function expectNamedFailure(
-    action: () => unknown,
+    action: () => void,
     code: AgentCoreError["code"],
     message: string
 ): void {
@@ -245,8 +269,9 @@ function expectNamedFailure(
     } catch (error) {
         expect(error).toBeInstanceOf(AgentCoreError);
         expect(error).not.toBeInstanceOf(TypeError);
-        expect((error as AgentCoreError).code).toBe(code);
-        expect((error as AgentCoreError).message).toBe(message);
+        if (!(error instanceof AgentCoreError)) throw error;
+        expect(error.code).toBe(code);
+        expect(error.message).toBe(message);
         return;
     }
     throw new TypeError(`Expected an operational failure: ${code} ${message}`);

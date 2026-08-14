@@ -36,7 +36,7 @@ import {
     WorkspaceId,
     type StoredIdentityRecord
 } from "../../src/identity";
-import { GuestVerification, Workspace } from "../identity/internal-fixture";
+import { mintGuestVerification, Workspace } from "../identity/internal-fixture";
 import {
     allowGrant,
     capability,
@@ -684,7 +684,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 "active",
                 Revision.initial()
             ),
-            new GuestVerification(
+            mintGuestVerification(
                 new PrincipalRef(home, guest),
                 trust.id,
                 trust.revision,
@@ -1420,7 +1420,7 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 "active",
                 Revision.initial()
             ),
-            new GuestVerification(
+            mintGuestVerification(
                 new PrincipalRef(home, guest),
                 trust.id,
                 trust.revision,
@@ -1809,11 +1809,7 @@ function expectDefined<Value>(value: Value | undefined, label: string): Value {
     return value;
 }
 
-function expectAgentCoreError(
-    action: () => void,
-    code: AgentCoreErrorCode,
-    message: string
-): void {
+function expectAgentCoreError(action: () => void, code: AgentCoreErrorCode, message: string): void {
     let thrown: unknown;
     try {
         action();

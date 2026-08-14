@@ -13,10 +13,39 @@ export type JsonFields<Field extends string> = JsonObject & {
     readonly [Key in Field]: JsonValue;
 };
 
+/** Every JavaScript value admitted through an untyped object-property boundary. */
+export type UntrustedProperty =
+    | boolean
+    | number
+    | string
+    | null
+    | bigint
+    | symbol
+    | CallableFunction
+    | readonly UntrustedProperty[]
+    | ObjectRecord
+    | undefined;
+
 /** An object arriving as `unknown`, before any of its properties are narrowed. */
 export type ObjectRecord = {
-    readonly [key: string]: unknown;
+    readonly [key: string]: UntrustedProperty;
 };
+
+export function isJsonString(value: unknown): value is string {
+    return typeof value === "string";
+}
+
+export function isJsonNumber(value: unknown): value is number {
+    return typeof value === "number";
+}
+
+export function isJsonBoolean(value: unknown): value is boolean {
+    return typeof value === "boolean";
+}
+
+export function isJsonArray(value: JsonValue | undefined): value is readonly JsonValue[] {
+    return Array.isArray(value);
+}
 
 export function isJsonValue(value: unknown): value is JsonValue {
     try {
@@ -31,9 +60,9 @@ export function isJsonObject(value: JsonValue | undefined): value is JsonObject 
 }
 
 /**
- * The `unknown` counterpart of isJsonObject: narrows an untrusted value to a
- * property bag whose members are still `unknown`, so each one must be narrowed
- * on its own before use.
+ * The `unknown` counterpart of isJsonObject. Its recursive property-value type
+ * covers the JavaScript value space without falsely claiming nested JSON, so
+ * every member still requires its own domain predicate before use.
  */
 export function isObjectRecord(value: unknown): value is ObjectRecord {
     return value !== null && !Array.isArray(value) && typeof value === "object";
@@ -88,7 +117,7 @@ export interface JsonDataParser {
 
 export function jsonDataParser(fail: (message: string) => Error): JsonDataParser {
     const string = (value: JsonValue | undefined, subject: string): string => {
-        if (typeof value !== "string") throw fail(`${subject} must be a string`);
+        if (!isJsonString(value)) throw fail(`${subject} must be a string`);
         return value;
     };
     return Object.freeze({
@@ -107,7 +136,7 @@ export function jsonDataParser(fail: (message: string) => Error): JsonDataParser
         },
         string,
         nonemptyString(value: JsonValue | undefined, subject: string): string {
-            if (typeof value !== "string" || value.length === 0) {
+            if (!isJsonString(value) || value.length === 0) {
                 throw fail(`${subject} must be a non-empty string`);
             }
             return value;
@@ -116,33 +145,33 @@ export function jsonDataParser(fail: (message: string) => Error): JsonDataParser
             return value === null ? undefined : string(value, subject);
         },
         boolean(value: JsonValue | undefined, subject: string): boolean {
-            if (typeof value !== "boolean") throw fail(`${subject} must be a boolean`);
+            if (!isJsonBoolean(value)) throw fail(`${subject} must be a boolean`);
             return value;
         },
         safeInteger(value: JsonValue | undefined, subject: string): number {
-            if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) {
+            if (!isJsonNumber(value) || !Number.isSafeInteger(value) || value < 0) {
                 throw fail(`${subject} must be a non-negative safe integer`);
             }
             return value;
         },
         array(value: JsonValue | undefined, subject: string): readonly JsonValue[] {
-            if (!Array.isArray(value)) throw fail(`${subject} must be an array`);
+            if (!isJsonArray(value)) throw fail(`${subject} must be an array`);
             return value;
         }
     });
 }
 
 function isJsonValueAt(value: unknown, ancestors: WeakSet<object>): value is JsonValue {
-    if (value === null || typeof value === "boolean") {
+    if (value === null || isJsonBoolean(value)) {
         return true;
     }
-    if (typeof value === "string") {
+    if (isJsonString(value)) {
         return hasOnlyUnicodeScalarValues(value);
     }
-    if (typeof value === "number") {
+    if (isJsonNumber(value)) {
         return Number.isFinite(value);
     }
-    if (typeof value !== "object") {
+    if (!Array.isArray(value) && !isObjectRecord(value)) {
         return false;
     }
     if (ancestors.has(value)) {
@@ -179,14 +208,14 @@ function isJsonArrayAt(value: unknown[], ancestors: WeakSet<object>): value is J
 }
 
 function isJsonObjectAt(
-    value: object,
+    value: ObjectRecord,
     ancestors: WeakSet<object>
 ): value is { readonly [key: string]: JsonValue } {
     if (Object.getPrototypeOf(value) !== Object.prototype) {
         return false;
     }
     for (const key of Reflect.ownKeys(value)) {
-        if (typeof key !== "string" || !hasOnlyUnicodeScalarValues(key)) {
+        if (!isStringPropertyKey(key) || !hasOnlyUnicodeScalarValues(key)) {
             return false;
         }
         const descriptor = Object.getOwnPropertyDescriptor(value, key);
@@ -200,4 +229,8 @@ function isJsonObjectAt(
         }
     }
     return true;
+}
+
+function isStringPropertyKey(value: PropertyKey): value is string {
+    return typeof value === "string";
 }

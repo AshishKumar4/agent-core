@@ -27,6 +27,7 @@ import {
     GuestTrust,
     GuestTrustId,
     GuestVerification,
+    mintGuestVerification,
     PrincipalRef,
     Workspace
 } from "../identity/internal-fixture";
@@ -1404,7 +1405,7 @@ function mintProof(
     trust: GuestTrust,
     options: { readonly trustRevision?: Revision; readonly trustId?: GuestTrustId } = {}
 ) {
-    return new GuestVerification(
+    return mintGuestVerification(
         new PrincipalRef(guestHome, guestId),
         options.trustId ?? trust.id,
         options.trustRevision ?? trust.revision,

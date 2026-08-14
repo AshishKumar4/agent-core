@@ -23,7 +23,7 @@ import {
 import {
     GuestTrust,
     GuestTrustId,
-    GuestVerification,
+    mintGuestVerification,
     PrincipalRef,
     Workspace
 } from "../identity/internal-fixture";
@@ -307,7 +307,7 @@ describe("SQLite Tenant authority mutation storage", () => {
             service.createRole(role);
             service.assignGuestMembership(
                 membership,
-                new GuestVerification(
+                mintGuestVerification(
                     new PrincipalRef(home, guest),
                     trust.id,
                     trust.revision,

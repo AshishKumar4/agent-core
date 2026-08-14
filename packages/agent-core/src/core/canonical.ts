@@ -1,5 +1,13 @@
 import { AgentCoreError } from "../errors";
-import { isJsonObject, isJsonValue, type JsonValue } from "./json";
+import {
+    isJsonArray,
+    isJsonBoolean,
+    isJsonNumber,
+    isJsonObject,
+    isJsonString,
+    isJsonValue,
+    type JsonValue
+} from "./json";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
@@ -12,10 +20,8 @@ export function encodeCanonicalJson(value: JsonValue): Uint8Array {
         return encoder.encode(canonicalString(value));
     } catch (error) {
         if (error instanceof AgentCoreError) throw error;
-        throw new AgentCoreError(
-            "codec.invalid",
-            `Invalid canonical JSON value: ${errorMessage(error)}`
-        );
+        const message = error instanceof Error ? error.message : String(error);
+        throw new AgentCoreError("codec.invalid", `Invalid canonical JSON value: ${message}`);
     }
 }
 
@@ -29,7 +35,8 @@ export function decodeCanonicalJson(bytes: Uint8Array): JsonValue {
         source = new Uint8Array(bytes);
         value = JSON.parse(decoder.decode(source));
     } catch (error) {
-        throw new AgentCoreError("codec.invalid", `Invalid canonical JSON: ${errorMessage(error)}`);
+        const message = error instanceof Error ? error.message : String(error);
+        throw new AgentCoreError("codec.invalid", `Invalid canonical JSON: ${message}`);
     }
     if (!isJsonValue(value)) {
         throw new AgentCoreError("codec.invalid", "Decoded value is not canonical JSON data");
@@ -69,16 +76,16 @@ function deepFreezeJson<Value extends JsonValue>(value: Value): Value {
 }
 
 function canonicalString(value: JsonValue): string {
-    if (value === null || typeof value === "boolean" || typeof value === "string") {
+    if (value === null || isJsonBoolean(value) || isJsonString(value)) {
         return JSON.stringify(value);
     }
-    if (typeof value === "number") {
+    if (isJsonNumber(value)) {
         if (!Number.isFinite(value)) {
             throw new AgentCoreError("codec.invalid", "Canonical JSON numbers must be finite");
         }
         return JSON.stringify(Object.is(value, -0) ? 0 : value);
     }
-    if (Array.isArray(value)) {
+    if (isJsonArray(value)) {
         return `[${value.map(canonicalString).join(",")}]`;
     }
     const entries = Object.entries(value).sort(([left], [right]) => compareCodeUnits(left, right));
@@ -93,10 +100,6 @@ function compareCodeUnits(left: string, right: string): number {
         return 1;
     }
     return 0;
-}
-
-function errorMessage(error: unknown): string {
-    return error instanceof Error ? error.message : String(error);
 }
 
 function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {

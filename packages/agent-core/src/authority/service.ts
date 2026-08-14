@@ -592,21 +592,23 @@ function closureMutation(
     return scopes.length === 0 ? [] : [{ kind, affectedScopes: nonEmpty(scopes) }];
 }
 
-function distinctScopes(scopes: readonly ScopeEpoch["scope"][]): readonly ScopeEpoch["scope"][] {
+function distinctScopes<Scope extends ScopeEpoch["scope"]>(
+    scopes: readonly Scope[]
+): readonly Scope[] {
     return [...new Map(scopes.map((scope) => [scopeKey(scope), scope])).values()];
 }
 
 function nonEmpty<Scopes extends ScopeEpoch["scope"]>(
     scopes: readonly Scopes[]
 ): readonly [Scopes, ...Scopes[]] {
-    const distinct = distinctScopes(scopes) as readonly Scopes[];
-    if (distinct.length === 0) {
+    const [first, ...remaining] = distinctScopes(scopes);
+    if (first === undefined) {
         throw new AgentCoreError(
             "protocol.invalid-state",
             "Authority mutations require an affected Scope"
         );
     }
-    return distinct as readonly [Scopes, ...Scopes[]];
+    return [first, ...remaining];
 }
 
 function requireRecord<Record>(record: Record | undefined, name: string): Record {
@@ -616,7 +618,7 @@ function requireRecord<Record>(record: Record | undefined, name: string): Record
     return record;
 }
 
-function requireAbsent(record: unknown | undefined, name: string): void {
+function requireAbsent<Record>(record: Record | undefined, name: string): void {
     if (record !== undefined) {
         throw new AgentCoreError("protocol.invalid-state", `${name} already exists`);
     }

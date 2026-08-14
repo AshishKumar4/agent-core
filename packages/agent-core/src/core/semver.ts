@@ -1,6 +1,6 @@
 import { AgentCoreError } from "../errors";
 import { RecordCodec, type RecordVersion } from "./codec";
-import { hasExactJsonKeys, isJsonObject, type JsonValue } from "./json";
+import { hasExactJsonKeys, isJsonObject, isJsonString, type JsonValue } from "./json";
 
 const SEMVER_PATTERN =
     /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
@@ -18,7 +18,7 @@ class SemVerCodec extends RecordCodec<SemVer> {
         if (
             !isJsonObject(payload) ||
             !hasExactJsonKeys(payload, ["value"]) ||
-            typeof payload["value"] !== "string"
+            !isJsonString(payload["value"])
         ) {
             throw new AgentCoreError("codec.invalid", "Semantic version payload is malformed");
         }
@@ -47,12 +47,9 @@ export class SemVer {
               ]
     ) {
         const [valueOrMajor, minor, patch, prerelease = [], build = []] = args;
-        const value =
-            typeof valueOrMajor === "string"
-                ? parseSemVer(valueOrMajor)
-                : parseSemVer(
-                      validateAndFormatSemVer(valueOrMajor, minor, patch, prerelease, build)
-                  );
+        const value = isJsonString(valueOrMajor)
+            ? parseSemVer(valueOrMajor)
+            : parseSemVer(validateAndFormatSemVer(valueOrMajor, minor, patch, prerelease, build));
         this.major = value.major;
         this.minor = value.minor;
         this.patch = value.patch;
@@ -62,7 +59,7 @@ export class SemVer {
     }
 
     public static parse(value: string): SemVer {
-        if (typeof value !== "string") {
+        if (!isJsonString(value)) {
             throw new TypeError("Semantic version must follow SemVer 2.0.0");
         }
         return new SemVer(value);

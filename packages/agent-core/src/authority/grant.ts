@@ -217,7 +217,7 @@ export class Grant {
             "Grant"
         );
         const attenuation = object["attenuationOf"];
-        if (attenuation !== null && typeof attenuation !== "string") {
+        if (attenuation !== null && !isGrantIdValue(attenuation)) {
             throw new TypeError("Grant attenuation parent must be a string or null");
         }
         return new Grant(
@@ -231,6 +231,10 @@ export class Grant {
             requireState(object["state"])
         );
     }
+}
+
+function isGrantIdValue(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
 }
 
 function encodeOrigin(origin: GrantOrigin): JsonObject {

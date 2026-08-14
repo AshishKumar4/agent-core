@@ -37,11 +37,6 @@ export class Revision {
     }
 
     public equals(other: Revision): boolean {
-        return (
-            typeof other === "object" &&
-            other !== null &&
-            #value in other &&
-            this.#value === other.#value
-        );
+        return Revision.isExact(other) && this.#value === other.#value;
     }
 }

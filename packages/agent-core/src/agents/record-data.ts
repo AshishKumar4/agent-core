@@ -1,13 +1,12 @@
 import {
-    type JsonFields,
-    isJsonObject,
     Digest,
     Revision,
+    isJsonObject,
+    type JsonFields,
+    type JsonObject,
     type JsonValue,
     type RecordCodec
 } from "../core";
-
-export type JsonObject = { readonly [key: string]: JsonValue };
 
 export abstract class CodecRecord {
     public static readonly encode = function <Value>(
@@ -43,17 +42,12 @@ export function requireExactFields<Field extends string>(
     }
 }
 
-/** A JSON string is exactly the value that is its own string rendering. */
 export function isString(value: JsonValue | undefined): value is string {
-    return value === String(value);
+    return typeof value === "string";
 }
 
-// Number.isFinite is already the complete JSON-number check — it is false for every
-// non-number and every non-finite — but it carries no type predicate. This gives the
-// check the narrowing it lacks instead of pairing it with a `typeof` that no test
-// could ever reach.
 export function isNumber(value: JsonValue | undefined): value is number {
-    return Number.isFinite(value);
+    return typeof value === "number" && Number.isFinite(value);
 }
 
 export function requireString(value: JsonValue | undefined, subject: string): string {
@@ -86,8 +80,12 @@ export function requireTimestamp(value: JsonValue | undefined, subject: string):
 }
 
 export function requireArray(value: JsonValue | undefined, subject: string): readonly JsonValue[] {
-    if (!Array.isArray(value)) throw new TypeError(`${subject} must be an array`);
+    if (!isArray(value)) throw new TypeError(`${subject} must be an array`);
     return value;
+}
+
+function isArray(value: JsonValue | undefined): value is readonly JsonValue[] {
+    return Array.isArray(value);
 }
 
 export function revisionData(revision: Revision): number {

@@ -721,7 +721,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
 }
 
 function requireSnapshot(snapshot: MemoryTenantControlSnapshot): void {
-    if (snapshot === null || typeof snapshot !== "object") {
+    if (!isSnapshotObject(snapshot)) {
         throw corruptMemoryTenantControl("Memory Tenant control snapshot is malformed");
     }
     if (snapshot.version !== SNAPSHOT_VERSION) {
@@ -742,7 +742,7 @@ function requireSnapshot(snapshot: MemoryTenantControlSnapshot): void {
         !Array.isArray(snapshot.grants) ||
         !Array.isArray(snapshot.bindings) ||
         !Array.isArray(snapshot.epochs) ||
-        (snapshot.marker !== null && typeof snapshot.marker !== "object")
+        (snapshot.marker !== null && !isSnapshotObject(snapshot.marker))
     ) {
         throw corruptMemoryTenantControl("Memory Tenant control snapshot is malformed");
     }
@@ -766,8 +766,7 @@ function copyAnchorSnapshot(
     anchor: MemoryTenantControlAnchorSnapshot
 ): MemoryTenantControlAnchorSnapshot {
     if (
-        anchor === null ||
-        typeof anchor !== "object" ||
+        !isSnapshotObject(anchor) ||
         !hasExactKeys(anchor, [
             "actorId",
             "principalId",
@@ -797,8 +796,7 @@ function copyMarkerSnapshot(
     marker: MemoryTenantControlMarkerSnapshot
 ): MemoryTenantControlMarkerSnapshot {
     if (
-        marker === null ||
-        typeof marker !== "object" ||
+        !isSnapshotObject(marker) ||
         !hasExactKeys(marker, ["ownerPrincipalId", "revision", "tenantId"]) ||
         !(marker.tenantId instanceof TenantId) ||
         !(marker.ownerPrincipalId instanceof PrincipalId) ||
@@ -827,10 +825,9 @@ function loadRecords<Record>(
     const map: RecordMap = new Map();
     for (const stored of records) {
         if (
-            stored === null ||
-            typeof stored !== "object" ||
+            !isSnapshotObject(stored) ||
             !hasExactKeys(stored, ["bytes", "id"]) ||
-            typeof stored.id !== "string" ||
+            !isStoredRecordId(stored.id) ||
             stored.id.length === 0 ||
             !(stored.bytes instanceof Uint8Array)
         ) {
@@ -961,9 +958,24 @@ function corruptMemoryTenantControl(message: string): AgentCoreError {
     return new AgentCoreError("codec.invalid", message);
 }
 
-function hasExactKeys(value: object, keys: readonly string[]): boolean {
+function hasExactKeys(
+    value:
+        | MemoryTenantControlSnapshot
+        | MemoryTenantControlAnchorSnapshot
+        | MemoryTenantControlMarkerSnapshot
+        | StoredTenantControlRecord,
+    keys: readonly string[]
+): boolean {
     const actual = Object.keys(value).sort();
     return actual.length === keys.length && actual.every((key, index) => key === keys[index]);
+}
+
+function isSnapshotObject(value: unknown): value is object {
+    return value !== null && typeof value === "object";
+}
+
+function isStoredRecordId(value: unknown): value is string {
+    return typeof value === "string";
 }
 
 function isPromiseLike(value: unknown): value is PromiseLike<unknown> {

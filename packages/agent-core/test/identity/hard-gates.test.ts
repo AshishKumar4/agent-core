@@ -11,7 +11,7 @@ import {
 import { AgentCoreError, type AgentCoreErrorCode } from "../../src/errors";
 import { CapabilitySpec } from "../../src/facets";
 import { GuestTrust } from "../../src/identity/guest-trust";
-import { GuestVerification } from "./internal-fixture";
+import { GuestVerification, mintGuestVerification } from "./internal-fixture";
 import {
     GuestTrustId,
     MembershipId,
@@ -40,7 +40,7 @@ const principalId = new PrincipalId("hard-principal");
 const homeTenant = new TenantId("hard-home");
 const guestId = new PrincipalId("hard-guest");
 const guestSubject = SubjectRef.foreign(homeTenant, guestId, GuestVerificationScheme.callback);
-const verification = new GuestVerification(
+const verification = mintGuestVerification(
     new PrincipalRef(homeTenant, guestId),
     new GuestTrustId("hard-trust"),
     Revision.initial(),
@@ -331,29 +331,27 @@ describe("guest trust and verification hard gates", () => {
     });
 
     test("separates verification shape errors from operational time errors", { tags: "p2" }, () => {
-        expect(
-            () =>
-                new GuestVerification(
-                    verification.principal,
-                    verification.trustId,
-                    verification.trustRevision,
-                    verification.verifiedVia,
-                    verification.evidenceDigest,
-                    new Date(200),
-                    new Date(100)
-                )
+        expect(() =>
+            mintGuestVerification(
+                verification.principal,
+                verification.trustId,
+                verification.trustRevision,
+                verification.verifiedVia,
+                verification.evidenceDigest,
+                new Date(200),
+                new Date(100)
+            )
         ).toThrow(TypeError);
-        expect(
-            () =>
-                new GuestVerification(
-                    verification.principal,
-                    verification.trustId,
-                    verification.trustRevision,
-                    verification.verifiedVia,
-                    verification.evidenceDigest,
-                    new Date(Number.NaN),
-                    new Date(200)
-                )
+        expect(() =>
+            mintGuestVerification(
+                verification.principal,
+                verification.trustId,
+                verification.trustRevision,
+                verification.verifiedVia,
+                verification.evidenceDigest,
+                new Date(Number.NaN),
+                new Date(200)
+            )
         ).toThrow(TypeError);
         expectAgentError(
             () => verification.admits(guestSubject, new Date(Number.NaN)),

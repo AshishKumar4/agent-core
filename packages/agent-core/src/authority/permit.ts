@@ -48,7 +48,7 @@ const EXPECTATION_FIELDS = Object.freeze([
     "tenant",
     "issuer",
     "attemptOrdinal"
-]);
+] as const);
 
 export interface AuthorityPermitTarget {
     readonly actor: ActorRef;
@@ -251,7 +251,7 @@ export class AuthorityPermitExpectation {
         requireExact(binding, ["generation", "name"], "Authority permit Binding");
         requireExact(target, ["actor", "domain", "fence"], "Authority permit target");
         const lease = object["lease"];
-        return new AuthorityPermitExpectation({
+        let init: AuthorityPermitExpectationInit = {
             tenant: new TenantId(requireString(object, "tenant")),
             issuer: decodeActor(object["issuer"]),
             source: decodeActor(object["source"]),
@@ -279,9 +279,10 @@ export class AuthorityPermitExpectation {
             argumentsDigest: new Digest(requireString(object, "argumentsDigest")),
             intentDigest: new Digest(requireString(object, "intentDigest")),
             pathEpochs: PathEpochEvidence.fromData(object["pathEpochs"]),
-            authority: decodeAuthority(object["authority"]),
-            ...(lease === null ? {} : { lease: decodeLease(lease) })
-        });
+            authority: decodeAuthority(object["authority"])
+        };
+        if (lease !== null) init = { ...init, lease: decodeLease(lease) };
+        return new AuthorityPermitExpectation(init);
     }
 }
 
@@ -434,9 +435,10 @@ export class AuthorityPermit {
             [...EXPECTATION_FIELDS, "expiresAt", "issuedAt", "nonce"],
             "Authority permit"
         );
-        const expectationData = Object.fromEntries(
-            EXPECTATION_FIELDS.map((field) => [field, object[field]])
-        ) as JsonObject;
+        const expectationData = EXPECTATION_FIELDS.reduce<JsonObject>(
+            (data, field) => ({ ...data, [field]: object[field] }),
+            {}
+        );
         const expectation = AuthorityPermitExpectation.fromData(expectationData);
         return new AuthorityPermit({
             ...expectation,

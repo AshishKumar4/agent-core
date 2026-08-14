@@ -1,3 +1,4 @@
+import { isJsonString } from "./json";
 import { hasOnlyUnicodeScalarValues } from "./unicode";
 
 export abstract class TextId {
@@ -6,7 +7,7 @@ export abstract class TextId {
 
     protected constructor(value: string, name: string) {
         if (
-            typeof value !== "string" ||
+            !isJsonString(value) ||
             value.length === 0 ||
             value.length > 256 ||
             !hasOnlyUnicodeScalarValues(value)
@@ -24,8 +25,7 @@ export abstract class TextId {
 
     public equals(other: TextId): boolean {
         return (
-            typeof other === "object" &&
-            other !== null &&
+            other instanceof TextId &&
             #value in other &&
             this.#type === other.#type &&
             this.#value === other.#value

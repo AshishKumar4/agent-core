@@ -24,7 +24,7 @@ class GuestVerificationCodec extends RecordCodec<GuestVerification> {
     }
 }
 
-const constructionToken = Object.freeze({});
+const constructionToken = Symbol("guest-verification-construction");
 const freshVerifications = new WeakSet<GuestVerification>();
 const restoredVerifications = new WeakSet<GuestVerification>();
 export const guestVerificationCodec: RecordCodec<GuestVerification> = new GuestVerificationCodec();
@@ -42,7 +42,7 @@ export class GuestVerification {
         public readonly evidenceDigest: Digest,
         verifiedAt: Date,
         expiresAt: Date,
-        token: object
+        token: symbol
     ) {
         if (token !== constructionToken) {
             throw new TypeError("Guest verification must be minted or restored by the host");
@@ -181,10 +181,14 @@ function requireMintedScheme(value: JsonValue | undefined): GuestVerificationSch
 }
 
 function requireDate(value: JsonValue | undefined, subject: string): Date {
-    if (typeof value !== "number" || !Number.isSafeInteger(value)) {
+    if (!isGuestVerificationTime(value)) {
         throw new TypeError(`${subject} must be a safe integer`);
     }
     return new Date(value);
+}
+
+function isGuestVerificationTime(value: JsonValue | undefined): value is number {
+    return typeof value === "number" && Number.isSafeInteger(value);
 }
 
 function validDate(value: Date, subject: string): number {

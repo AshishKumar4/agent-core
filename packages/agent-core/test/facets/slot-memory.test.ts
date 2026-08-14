@@ -1,3 +1,4 @@
+import { runInNewContext } from "node:vm";
 import { describe, expect, test } from "vitest";
 import type { SynchronousResultGuard, TransactionOperation } from "../../src/actors";
 import { JsonSchema, Revision } from "../../src/core";
@@ -70,24 +71,27 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
         const restored = MemoryWorkspaceSlotStore.restore(owner, detached);
         expect(restored.entries(slot().name)).toHaveLength(1);
         expect(restored.revision().value).toBe(2);
-        expect(() =>
+        expectAgentCoreError(() => {
             MemoryWorkspaceSlotStore.restore(owner, {
                 ...detached,
-                version: 2 as 1
-            })
-        ).toThrow(/malformed/);
-        expect(() =>
+                // @ts-expect-error The restore boundary must reject an unknown snapshot version.
+                version: 2
+            });
+        }, "codec.invalid");
+        expectAgentCoreError(() => {
             MemoryWorkspaceSlotStore.restore(owner, {
                 ...detached,
                 revision: 0
-            })
-        ).toThrow(/revision/);
-        expect(() =>
+            });
+        }, "codec.invalid");
+        const [encodedEntry] = detached.entries;
+        if (encodedEntry === undefined) throw new TypeError("Slot fixture has no encoded entry");
+        expectAgentCoreError(() => {
             MemoryWorkspaceSlotStore.restore(owner, {
                 ...detached,
-                entries: [detached.entries[0]!, detached.entries[0]!]
-            })
-        ).toThrow(/duplicate/);
+                entries: [encodedEntry, encodedEntry]
+            });
+        }, "codec.invalid");
     });
 
     test(
@@ -146,21 +150,32 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
             store.contribute(entry("workspace:one", 1, { title: "One" }));
             const snapshot = store.snapshot();
 
+            expectAgentCoreError(() => {
+                MemoryWorkspaceSlotStore.restore(owner, {
+                    ...snapshot,
+                    // @ts-expect-error The restore boundary must reject a non-string owner.
+                    owner: 1
+                });
+            }, "codec.invalid");
             for (const malformed of [
-                { ...snapshot, owner: 1 as unknown as string },
                 { ...snapshot, revision: -1 },
                 { ...snapshot, slots: [new Uint8Array()] },
-                { ...snapshot, entries: ["bad" as unknown as Uint8Array] },
                 { ...snapshot, extra: true }
             ]) {
-                expect(() => MemoryWorkspaceSlotStore.restore(owner, malformed)).toThrow(
-                    AgentCoreError
-                );
+                expectAgentCoreError(() => {
+                    MemoryWorkspaceSlotStore.restore(owner, malformed);
+                }, "codec.invalid");
             }
+            expectAgentCoreError(() => {
+                // @ts-expect-error The restore boundary must reject non-byte entries.
+                MemoryWorkspaceSlotStore.restore(owner, { ...snapshot, entries: ["bad"] });
+            }, "codec.invalid");
+            const [encodedSlot] = snapshot.slots;
+            if (encodedSlot === undefined) throw new TypeError("Slot fixture has no encoded slot");
             expect(() =>
                 MemoryWorkspaceSlotStore.restore(owner, {
                     ...snapshot,
-                    slots: [snapshot.slots[0]!, snapshot.slots[0]!],
+                    slots: [encodedSlot, encodedSlot],
                     revision: 3
                 })
             ).toThrow(/duplicate/);
@@ -190,7 +205,10 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
                 () => store.contribute(entry("workspace:one", 1, { title: "Changed" })),
                 "protocol.invalid-state"
             );
-            expectAgentCoreError(() => store.loadRevision({} as never), "protocol.invalid-state");
+            expectAgentCoreError(() => {
+                // @ts-expect-error A transaction from outside this store is invalid.
+                store.loadRevision({});
+            }, "protocol.invalid-state");
             const inconsistent = new MemoryWorkspaceSlotStore(new WorkspaceId("empty"));
             expectAgentCoreError(
                 () =>
@@ -266,9 +284,10 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
                 "codec.invalid"
             );
 
-            expect(() =>
-                store.transaction(() => Promise.reject(new TypeError("async")) as never)
-            ).toThrow(/synchronous/);
+            expectAgentCoreError(() => {
+                // @ts-expect-error Transaction callbacks are statically synchronous.
+                store.transaction(() => Promise.reject(new TypeError("async")));
+            }, "protocol.invalid-state");
             await Promise.resolve();
             expect(store.transaction(() => null)).toBeNull();
             expect(typeof store.transaction(() => () => true)).toBe("function");
@@ -323,8 +342,9 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
             expect(() =>
                 MemoryWorkspaceSlotStore.restore(new WorkspaceId("other"), store.snapshot())
             ).toThrow(/another Workspace/);
-            const thenable = Object.defineProperty({}, ["th", "en"].join(""), { value() {} });
-            expect(() => store.transaction(() => thenable as never)).toThrow(/synchronous/);
+            // oxlint-disable-next-line unicorn/no-thenable -- hostile transaction result
+            const thenable = Object.defineProperty({}, "then", { value() {} });
+            expectAgentCoreError(() => store.transaction(() => thenable), "protocol.invalid-state");
 
             const first = entry("workspace:facet", 1, { title: "First" });
             const second = entry("workspace:facet", 1, { title: "Second" });
@@ -467,7 +487,10 @@ describe("MemoryWorkspaceSlotStore isolation and identity", () => {
                 /advance exactly once/
             );
             expectAgentCoreError(
-                () => store.loadRevision({} as never),
+                () => {
+                    // @ts-expect-error A transaction from outside this store is invalid.
+                    store.loadRevision({});
+                },
                 "protocol.invalid-state",
                 /active transaction/
             );
@@ -564,28 +587,41 @@ describe("MemoryWorkspaceSlotStore isolation and identity", () => {
                 slots: [],
                 entries: []
             };
-            expect(() =>
-                MemoryWorkspaceSlotStore.restore(owner, { ...base, owner: 1 as unknown as string })
-            ).toThrow(/malformed/);
+            expectAgentCoreError(() => {
+                MemoryWorkspaceSlotStore.restore(owner, {
+                    ...base,
+                    // @ts-expect-error The restore boundary must reject a non-string owner.
+                    owner: 1
+                });
+            }, "codec.invalid");
             expect(() =>
                 MemoryWorkspaceSlotStore.restore(owner, { ...base, revision: -1 })
             ).toThrow(/malformed/);
-            expect(() =>
+            expectAgentCoreError(() => {
                 MemoryWorkspaceSlotStore.restore(owner, {
                     ...base,
                     revision: 2,
                     slots: [SlotDeclaration.encode(declaration)],
-                    entries: [SlotEntry.encode(valid), "bad" as unknown as Uint8Array]
-                })
-            ).toThrow(/malformed/);
+                    // @ts-expect-error The restore boundary must reject a non-byte entry.
+                    entries: [SlotEntry.encode(valid), "bad"]
+                });
+            }, "codec.invalid");
         }
     );
 
     test("rejects function thenables returned from transactions", { tags: "p1" }, () => {
         const store = new MemoryWorkspaceSlotStore(new WorkspaceId("workspace"));
-        // oxlint-disable-next-line unicorn/no-thenable -- the guard under test rejects exactly this shape
-        const thenable = Object.assign(() => true, { then: () => undefined });
-        expect(() => store.transaction(() => thenable as never)).toThrow(/synchronous/);
+        // oxlint-disable-next-line unicorn/no-thenable -- hostile transaction result
+        const thenable = Object.defineProperty(() => true, "then", { value: () => undefined });
+        expectAgentCoreError(() => store.transaction(() => thenable), "protocol.invalid-state");
+
+        const crossRealmThenable: unknown = runInNewContext(
+            "Object.assign(function () {}, { then() {} })"
+        );
+        expectAgentCoreError(
+            () => store.transaction(() => crossRealmThenable),
+            "protocol.invalid-state"
+        );
     });
 
     test(
@@ -711,7 +747,7 @@ class BareWorkspaceSlotStore extends WorkspaceSlotStore<BareSlotState> {
 }
 
 function expectAgentCoreError(
-    action: () => unknown,
+    action: () => void,
     code: AgentCoreError["code"],
     message?: RegExp
 ): void {

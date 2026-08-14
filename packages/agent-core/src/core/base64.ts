@@ -1,3 +1,5 @@
+import { isJsonString } from "./json";
+
 const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 export function encodeBase64(bytes: Uint8Array): string {
@@ -21,7 +23,7 @@ export function encodeBase64(bytes: Uint8Array): string {
 
 export function decodeBase64(value: string): Uint8Array {
     if (
-        typeof value !== "string" ||
+        !isJsonString(value) ||
         value.length % 4 !== 0 ||
         !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(value)
     ) {

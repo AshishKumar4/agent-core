@@ -178,7 +178,13 @@ export abstract class Actor<TTransaction> {
                         operationCompleted = true;
                         return result;
                     } catch (error) {
-                        throw rejectCallbackCommitUnknown(error);
+                        if (isActorCommitUnknown(error)) {
+                            throw new AgentCoreError(
+                                "protocol.invalid-state",
+                                "Commit uncertainty cannot originate inside an Actor transaction"
+                            );
+                        }
+                        throw error;
                     }
                 },
                 ...guard
@@ -210,19 +216,10 @@ function staleFence(): AgentCoreError {
 
 function noop(): void {}
 
-function isStaleFence(error: unknown): boolean {
+function isStaleFence(error: unknown): error is AgentCoreError {
     return error instanceof AgentCoreError && error.code === "actor.stale-callback";
 }
 
-function isActorCommitUnknown(error: unknown): boolean {
+function isActorCommitUnknown(error: unknown): error is ActorCommitUnknownError {
     return isObjectRecord(error) && actorCommitUnknownErrors.has(error);
-}
-
-function rejectCallbackCommitUnknown(error: unknown): unknown {
-    return isActorCommitUnknown(error)
-        ? new AgentCoreError(
-              "protocol.invalid-state",
-              "Commit uncertainty cannot originate inside an Actor transaction"
-          )
-        : error;
 }

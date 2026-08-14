@@ -69,7 +69,9 @@ class RevokedMembershipLifecycle extends MembershipLifecycle {
 const activeMembership = Object.freeze(new ActiveMembershipLifecycle());
 const suspendedMembership = Object.freeze(new SuspendedMembershipLifecycle());
 const revokedMembership = Object.freeze(new RevokedMembershipLifecycle());
-const restoredMembershipToken = Object.freeze({});
+class MembershipRestorationAuthority {}
+
+const restoredMembershipToken = Object.freeze(new MembershipRestorationAuthority());
 
 class MembershipRecordCodec extends RecordCodec<Membership> {
     public constructor() {
@@ -122,7 +124,7 @@ export class Membership {
         state: MembershipState,
         public readonly revision: Revision,
         public readonly guestVerification?: GuestVerification,
-        internalToken?: object
+        internalToken?: MembershipRestorationAuthority
     ) {
         this.#lifecycle = MembershipLifecycle.from(requireMembershipState(state));
         requireSubjectTenant(subject, scope.tenantId, "Membership");

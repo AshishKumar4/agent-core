@@ -1,6 +1,5 @@
 import { AgentCoreError } from "../../errors";
-import type { SynchronousResultGuard } from "../../actors";
-import { isObjectRecord } from "../../core";
+import { requireSynchronousResult, type SynchronousResultGuard } from "../../actors";
 import {
     RUN_RECORD_KINDS,
     type RunRecordKind,
@@ -36,9 +35,7 @@ export class MemoryRunStorage implements RunStoragePort<MemoryState> {
         const draft = cloneState(this.#state);
         this.#active = true;
         try {
-            const result = operation(draft);
-            if (isThenable(result))
-                throw invalidStorage("Run storage transactions must be synchronous");
+            const result = requireSynchronousRunResult(operation(draft));
             this.#state = cloneState(draft);
             return result;
         } finally {
@@ -209,11 +206,14 @@ function recordKey(kind: RunRecordKind, key: string): string {
 function parentKey(commit: string, ordinal: number): string {
     return `${commit}\u0000${ordinal}`;
 }
-function isThenable<Result>(value: Result): value is Result & PromiseLike<never> {
-    if (isObjectRecord(value)) {
-        return "then" in value;
+function requireSynchronousRunResult<Result>(result: Result): Result {
+    try {
+        return requireSynchronousResult(result);
+    } catch (error) {
+        if (error instanceof TypeError)
+            throw invalidStorage("Run storage transactions must be synchronous");
+        throw error;
     }
-    return value instanceof Function && "then" in value;
 }
 
 function invalidStorage(message: string): AgentCoreError {

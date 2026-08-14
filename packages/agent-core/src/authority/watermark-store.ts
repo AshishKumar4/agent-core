@@ -122,10 +122,11 @@ export function watermarkKey(watermark: InvalidationWatermark): string {
     ]);
 }
 
-function requireSnapshot(snapshot: MemoryInvalidationWatermarkSnapshot): void {
+function requireSnapshot(
+    snapshot: unknown
+): asserts snapshot is MemoryInvalidationWatermarkSnapshot {
     if (
-        snapshot === null ||
-        typeof snapshot !== "object" ||
+        !isSnapshotObject(snapshot) ||
         JSON.stringify(Object.keys(snapshot).sort()) !== JSON.stringify(["records", "version"]) ||
         snapshot.version !== 1 ||
         !Array.isArray(snapshot.records)
@@ -134,16 +135,36 @@ function requireSnapshot(snapshot: MemoryInvalidationWatermarkSnapshot): void {
     }
     for (const record of snapshot.records) {
         if (
-            record === null ||
-            typeof record !== "object" ||
+            !isWatermarkRecord(record) ||
             JSON.stringify(Object.keys(record).sort()) !== JSON.stringify(["bytes", "key"]) ||
-            typeof record.key !== "string" ||
             record.key.length === 0 ||
             !(record.bytes instanceof Uint8Array)
         ) {
             throw corruptWatermarkSnapshot("Memory watermark snapshot record is malformed");
         }
     }
+}
+
+interface InvalidationWatermarkSnapshotCandidate {
+    readonly records?: unknown;
+    readonly version?: unknown;
+}
+
+function isSnapshotObject(value: unknown): value is InvalidationWatermarkSnapshotCandidate {
+    return value !== null && typeof value === "object";
+}
+
+function isWatermarkRecord(
+    value: unknown
+): value is MemoryInvalidationWatermarkSnapshot["records"][number] {
+    return (
+        value !== null &&
+        typeof value === "object" &&
+        "key" in value &&
+        typeof value.key === "string" &&
+        "bytes" in value &&
+        value.bytes instanceof Uint8Array
+    );
 }
 
 function corruptWatermarkSnapshot(message: string): AgentCoreError {

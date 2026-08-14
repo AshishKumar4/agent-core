@@ -58,15 +58,15 @@ class TransientContentLeaseStateCodec extends RecordCodec<TransientContentLeaseS
             ]) ||
             !isObject(actor) ||
             !hasExactJsonKeys(actor, ["id", "kind"]) ||
-            typeof actor["id"] !== "string" ||
+            !isLeaseString(actor["id"]) ||
             !isActorKind(actor["kind"]) ||
-            typeof payload["acquiredAt"] !== "number" ||
-            (payload["closedAt"] !== null && typeof payload["closedAt"] !== "number") ||
-            typeof payload["digest"] !== "string" ||
-            typeof payload["envelopeDigest"] !== "string" ||
-            typeof payload["expiresAt"] !== "number" ||
-            typeof payload["ref"] !== "string" ||
-            typeof payload["tenant"] !== "string"
+            !isLeaseTime(payload["acquiredAt"]) ||
+            (payload["closedAt"] !== null && !isLeaseTime(payload["closedAt"])) ||
+            !isLeaseString(payload["digest"]) ||
+            !isLeaseString(payload["envelopeDigest"]) ||
+            !isLeaseTime(payload["expiresAt"]) ||
+            !isLeaseString(payload["ref"]) ||
+            !isLeaseString(payload["tenant"])
         ) {
             throw corruptLease("Transient content lease payload is malformed");
         }
@@ -87,6 +87,14 @@ class TransientContentLeaseStateCodec extends RecordCodec<TransientContentLeaseS
             );
         }
     }
+}
+
+function isLeaseString(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
+}
+
+function isLeaseTime(value: JsonValue | undefined): value is number {
+    return typeof value === "number";
 }
 
 export class TransientContentLeaseState {

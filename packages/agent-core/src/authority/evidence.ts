@@ -373,10 +373,14 @@ function canonicalGrantIds(ids: readonly GrantId[]): readonly GrantId[] {
 
 function decodeGrantIds(value: JsonValue | undefined, subject: string): readonly GrantId[] {
     return requireArray(value, subject).map((entry, index) => {
-        if (typeof entry !== "string")
+        if (!isGrantIdValue(entry))
             throw new TypeError(`${subject} entry ${index} must be a string`);
         return new GrantId(entry);
     });
+}
+
+function isGrantIdValue(value: JsonValue | undefined): value is string {
+    return typeof value === "string";
 }
 
 function requireActorKind(value: JsonValue | undefined): ActorKind {
