@@ -10,6 +10,7 @@ tester.run("anti-slop/no-runtime-typeof", noRuntimeTypeofRule, {
         "function isString(value: unknown): value is string { return typeof value === 'string'; }",
         "const isString = (value: unknown): value is string => typeof value === 'string';",
         "function assertString(value: unknown): asserts value is string { if (typeof value !== 'string') throw new TypeError(); }",
+        "function hasName(value: unknown): value is { name: string } { return typeof value === 'object' && value !== null && typeof value.name === 'string'; }",
         "const exportedKind = typeof exportedValue;",
         "expect(typeof exportedValue).toBe('function');"
     ],
@@ -32,6 +33,14 @@ tester.run("anti-slop/no-runtime-typeof", noRuntimeTypeofRule, {
         },
         {
             code: "switch (typeof value) { case 'string': use(value); }",
+            errors: [error]
+        },
+        {
+            code: "function length(value: unknown): number { const kind = typeof value; if (kind === 'string') return value.length; return 0; }",
+            errors: [error]
+        },
+        {
+            code: "function isString(value: unknown, config: Config): value is string { if (typeof config.mode === 'string') use(config.mode); return typeof value === 'string'; }",
             errors: [error]
         }
     ]

@@ -9,6 +9,8 @@ const BUILT_INS = new Set([
 	"Omit",
 	"PropertyKey",
 	"NonNullable",
+	"Promise",
+	"PromiseLike",
 ]);
 const TRANSPARENT_WRAPPERS = new Set(["Readonly", "Partial", "Required", "NonNullable"]);
 

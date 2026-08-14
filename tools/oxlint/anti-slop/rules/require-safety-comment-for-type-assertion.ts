@@ -1,12 +1,13 @@
 import { defineRule } from "@oxlint/plugins";
 
-import type { ESTree, SourceCode } from "@oxlint/plugins";
+import type { Comment, ESTree, SourceCode } from "@oxlint/plugins";
 
 type TypeAssertion = ESTree.TSAsExpression | ESTree.TSTypeAssertion;
-type SafetyComment = "missing" | "placeholder" | "specific";
+type SafetyComment = "empty" | "missing" | "present";
 
 const commentOwnerKinds = new Set([
     "ExpressionStatement",
+    "ExportDefaultDeclaration",
     "PropertyDefinition",
     "ReturnStatement",
     "ThrowStatement",
@@ -21,59 +22,114 @@ function isConstAssertion(node: TypeAssertion): boolean {
     );
 }
 
-function classifySafetyComment(comment: string): SafetyComment {
-    const match = /\bSAFETY\s*:\s*(.*)/isu.exec(comment);
+function classifySafetyComment(comment: Comment | undefined): SafetyComment {
+    if (comment === undefined) return "missing";
+    const match = /\bSAFETY\s*:\s*(.*)/isu.exec(comment.value);
     if (match === null) return "missing";
-    const reason = match[1]?.trim() ?? "";
-    return reason.length === 0 ||
-        /^(?:as above|same invariant|same reason|see above)\.?$/iu.test(reason)
-        ? "placeholder"
-        : "specific";
+    return (match[1]?.trim().length ?? 0) > 0 ? "present" : "empty";
 }
 
-function safetyComment(sourceCode: SourceCode, node: TypeAssertion): SafetyComment {
+function containingStatement(node: TypeAssertion): ESTree.Node {
     let current: ESTree.Node = node;
-    while (true) {
-        const comments = sourceCode.getCommentsBefore(current);
-        for (let index = comments.length - 1; index >= 0; index -= 1) {
-            const comment = comments[index];
-            if (comment === undefined || comment.end > node.start) continue;
-            const classification = classifySafetyComment(comment.value);
-            if (classification !== "missing") return classification;
-        }
-        if (commentOwnerKinds.has(current.type) || current.parent.type === "Program")
-            return "missing";
+    while (!commentOwnerKinds.has(current.type) && current.parent.type !== "Program") {
         current = current.parent;
     }
+    return current;
 }
 
-/** Require every non-const type assertion to state the invariant TypeScript cannot express. */
+function assertionBoundaryStart(node: TypeAssertion): number {
+    let current: ESTree.Node = node;
+    while (current.parent.type === "ParenthesizedExpression") current = current.parent;
+    return current.start;
+}
+
+function lastCommentBefore(
+    sourceCode: SourceCode,
+    position: number,
+    lowerBound: number
+): Comment | undefined {
+    const comments = sourceCode
+        .getAllComments()
+        .filter((comment) => comment.start >= lowerBound && comment.end <= position);
+    return comments.at(-1);
+}
+
+function inlineSafetyComment(
+    sourceCode: SourceCode,
+    statement: ESTree.Node,
+    assertion: TypeAssertion
+): SafetyComment {
+    const start = assertionBoundaryStart(assertion);
+    const comment = lastCommentBefore(sourceCode, start, statement.start);
+    if (comment === undefined || sourceCode.text.slice(comment.end, start).trim().length > 0) {
+        return "missing";
+    }
+    return classifySafetyComment(comment);
+}
+
+function precedingStatementSafetyComment(
+    sourceCode: SourceCode,
+    statement: ESTree.Node
+): SafetyComment {
+    const comment = sourceCode.getCommentsBefore(statement).at(-1);
+    if (comment === undefined) return "missing";
+    const gap = sourceCode.text.slice(comment.end, statement.start);
+    if (!/^[\t ]*(?:\r?\n[\t ]*)?$/u.test(gap)) return "missing";
+    return classifySafetyComment(comment);
+}
+
+/** Require every non-const type assertion to carry one structurally bound SAFETY rationale. */
 export const requireSafetyCommentForTypeAssertionRule = defineRule({
     meta: {
         type: "problem",
         docs: {
             description:
-                "Require a nearby SAFETY comment for every TypeScript type assertion except const assertions."
+                "Require a nonempty, structurally bound SAFETY rationale for every TypeScript type assertion except const assertions."
         },
         messages: {
             missingSafetyComment:
-                "This type assertion has no `SAFETY:` justification. State the checked invariant immediately before the assertion or its containing statement.",
+                "This type assertion has no structurally bound `SAFETY:` rationale. Put one immediately before this assertion, or before a statement containing exactly one assertion.",
             placeholderSafetyComment:
-                "This type assertion has a placeholder `SAFETY:` comment. State the concrete check and invariant that justify this assertion."
+                "This type assertion has an empty `SAFETY:` rationale. State the invariant TypeScript cannot express."
         }
     },
     create(context) {
-        const checkAssertion = (node: TypeAssertion) => {
-            if (isConstAssertion(node)) return;
-            const classification = safetyComment(context.sourceCode, node);
-            if (classification === "specific") return;
+        const assertionsByStatement = new Map<ESTree.Node, TypeAssertion[]>();
+        const coveredByStatementComment = new Set<TypeAssertion>();
+
+        const report = (assertion: TypeAssertion, classification: SafetyComment) => {
             context.report({
-                node,
+                node: assertion,
                 messageId:
-                    classification === "placeholder"
-                        ? "placeholderSafetyComment"
-                        : "missingSafetyComment"
+                    classification === "empty" ? "placeholderSafetyComment" : "missingSafetyComment"
             });
+        };
+
+        const checkAssertion = (assertion: TypeAssertion) => {
+            if (isConstAssertion(assertion)) return;
+            const statement = containingStatement(assertion);
+            const previousAssertions = assertionsByStatement.get(statement) ?? [];
+            assertionsByStatement.set(statement, [...previousAssertions, assertion]);
+
+            const inline = inlineSafetyComment(context.sourceCode, statement, assertion);
+            if (inline !== "missing") {
+                if (inline === "empty") report(assertion, inline);
+                return;
+            }
+            if (previousAssertions.length === 0) {
+                const preceding = precedingStatementSafetyComment(context.sourceCode, statement);
+                if (preceding === "present") {
+                    coveredByStatementComment.add(assertion);
+                } else {
+                    report(assertion, preceding);
+                }
+                return;
+            }
+            const first = previousAssertions[0];
+            if (first !== undefined && coveredByStatementComment.delete(first)) {
+                report(first, "missing");
+            }
+            report(assertion, "missing");
         };
 
         return {

@@ -1,5 +1,11 @@
 import { defineRule } from "@oxlint/plugins";
 
+import { createTypeEnvironment, type TypeEnvironment } from "../shared/dictionary-types.ts";
+import {
+  lexicalTypeParameterNames,
+  resolvesToTopType,
+} from "../shared/type-resolution.ts";
+
 import type { ESTree, SourceCode } from "@oxlint/plugins";
 
 type Parameter = ESTree.ParamPattern;
@@ -31,22 +37,6 @@ function parameterName(parameter: Parameter, sourceCode: SourceCode): string {
 		: sourceCode.getText(parameter).replace(/\s*:\s*object\s*$/u, "");
 }
 
-function lexicalTypeParameterNames(node: ESTree.Node): ReadonlySet<string> {
-	const names = new Set<string>();
-	let current: ESTree.Node | null = node;
-	while (current !== null && current.type !== "Program") {
-		if ("typeParameters" in current) {
-			for (const parameter of current.typeParameters?.params ?? []) {
-				names.add(parameter.name.name);
-			}
-		}
-		if (current.type === "TSMappedType") names.add(current.key.name);
-		if (current.type === "TSInferType") names.add(current.typeParameter.name.name);
-		current = current.parent;
-	}
-	return names;
-}
-
 /** Ban the broad object type on function inputs, including local aliases to object. */
 export const noObjectParametersRule = defineRule({
 	meta: {
@@ -60,46 +50,23 @@ export const noObjectParametersRule = defineRule({
 				"Parameter `{{parameter}}` uses the broad `object` type. Accept a named owner type; parse external input at its boundary before calling this function.",
 		},
 	},
-	create(context) {
-		const aliases = new Map<string, ESTree.TSType>();
-
-		const resolvesToObject = (
-			type: ESTree.TSType,
-			shadowedAliases: ReadonlySet<string>,
-			visited = new Set<string>(),
-		): boolean => {
-			if (type.type === "TSObjectKeyword") return true;
-			if (type.type === "TSParenthesizedType")
-				return resolvesToObject(type.typeAnnotation, shadowedAliases, visited);
-			if (type.type === "TSUnionType") {
-				return type.types.some((member) =>
-					resolvesToObject(member, shadowedAliases, visited),
-				);
-			}
-			if (
-				type.type !== "TSTypeReference" ||
-				type.typeName.type !== "Identifier" ||
-				(type.typeArguments !== null &&
-					type.typeArguments !== undefined &&
-					type.typeArguments.params.length > 0) ||
-				visited.has(type.typeName.name) ||
-				shadowedAliases.has(type.typeName.name)
-			) {
-				return false;
-			}
-			const alias = aliases.get(type.typeName.name);
-			if (alias === undefined) return false;
-			const nextVisited = new Set(visited);
-			nextVisited.add(type.typeName.name);
-			return resolvesToObject(alias, shadowedAliases, nextVisited);
-		};
-
-		const checkParameters = (node: ParameterOwner) => {
-			const shadowedAliases = lexicalTypeParameterNames(node);
-			for (const parameter of node.params) {
-				const annotation = parameterAnnotation(parameter);
-				if (annotation === null || annotation === undefined) continue;
-				if (!resolvesToObject(annotation.typeAnnotation, shadowedAliases)) continue;
+  createOnce(context) {
+    let environment: TypeEnvironment | null = null;
+    const checkParameters = (node: ParameterOwner) => {
+      if (environment === null) return;
+      const lexicalParameters = lexicalTypeParameterNames(node);
+      for (const parameter of node.params) {
+        const annotation = parameterAnnotation(parameter);
+        if (annotation === null || annotation === undefined) continue;
+        if (
+          !resolvesToTopType(
+            annotation.typeAnnotation,
+            "object",
+            environment,
+            lexicalParameters,
+          )
+        )
+          continue;
 				context.report({
 					node: annotation.typeAnnotation,
 					messageId: "objectParameter",
@@ -108,19 +75,10 @@ export const noObjectParametersRule = defineRule({
 			}
 		};
 
-		return {
-			Program(node) {
-				for (const statement of node.body) {
-					const declaration =
-						statement.type === "ExportNamedDeclaration" ? statement.declaration : statement;
-					if (
-						declaration?.type === "TSTypeAliasDeclaration" &&
-						(declaration.typeParameters === null || declaration.typeParameters === undefined)
-					) {
-						aliases.set(declaration.id.name, declaration.typeAnnotation);
-					}
-				}
-			},
+    return {
+      Program(node) {
+        environment = createTypeEnvironment(node);
+      },
 			ArrowFunctionExpression: checkParameters,
 			FunctionDeclaration: checkParameters,
 			FunctionExpression: checkParameters,

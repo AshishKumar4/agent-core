@@ -1,4 +1,8 @@
 import { defineRule } from "@oxlint/plugins";
+
+import { createTypeEnvironment, type TypeEnvironment } from "../shared/dictionary-types.ts";
+import { resolvesToTopType } from "../shared/type-resolution.ts";
+
 import type { ESTree } from "@oxlint/plugins";
 
 type Parameter = ESTree.ParamPattern;
@@ -46,27 +50,35 @@ function narrowedParameterName(node: ParameterOwner): string | null {
         : null;
 }
 
-/** Disallow unknown inputs except explicitly named error-cause enrichment. */
+/** Disallow unknown inputs except the subject of an explicit predicate or assertion. */
 export const noUnknownParametersRule = defineRule({
     meta: {
         type: "problem",
         docs: {
             description:
-                "Disallow explicitly unknown function parameters except `cause`; decode unknown input at its I/O boundary instead."
+                "Disallow explicitly unknown function parameters unless the function proves that parameter's type."
         },
         messages: {
             unknownParameter:
                 "Parameter `{{parameter}}` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function."
         }
     },
-    create(context) {
+    createOnce(context) {
+        let environment: TypeEnvironment | null = null;
         const checkParameters = (node: ParameterOwner) => {
+            if (environment === null) return;
             const narrowed = narrowedParameterName(node);
             for (const parameter of node.params) {
                 const annotation = parameterAnnotation(parameter);
-                if (annotation?.typeAnnotation.type !== "TSUnknownKeyword") continue;
+                if (
+                    annotation === null ||
+                    annotation === undefined ||
+                    !resolvesToTopType(annotation.typeAnnotation, "unknown", environment)
+                ) {
+                    continue;
+                }
                 const name = parameterName(parameter, context.sourceCode.getText(parameter));
-                if (name === "cause" || name === narrowed) continue;
+                if (name === narrowed) continue;
                 context.report({
                     node: annotation.typeAnnotation,
                     messageId: "unknownParameter",
@@ -76,6 +88,9 @@ export const noUnknownParametersRule = defineRule({
         };
 
         return {
+            Program(node) {
+                environment = createTypeEnvironment(node);
+            },
             ArrowFunctionExpression: checkParameters,
             FunctionDeclaration: checkParameters,
             FunctionExpression: checkParameters,
