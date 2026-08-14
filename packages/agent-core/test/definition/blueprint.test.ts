@@ -14,39 +14,43 @@ import { PackageDependency } from "../../src/definition/package";
 import { PlacementPolicy } from "../../src/definition/placement";
 import { PolicySet } from "../../src/definition/policy";
 import { SlotAuthorityPolicy, SlotDeclaration, SlotName } from "../../src/facets";
-import { requireObject } from "./record-data";
+import { recordData, requireObject } from "./record-data";
 
 describe("Blueprint", () => {
-    test("[definition.blueprint] [definition.package-install] round-trips strict canonical declaration data", { tags: "p0" }, () => {
-        const agent = { model: { policy: "balanced" }, name: "helper" };
-        const blueprint = new Blueprint({
-            meta: new BlueprintMeta("support-desk", new SemVer("1.2.0")),
-            packages: [install("acme.deploy", "^1", { region: "wnam" })],
-            scopes: { projects: [{ name: "default" }] },
-            agents: [agent],
-            slots: [
-                new SlotDeclaration(
-                    new SlotName("dashboard.card"),
-                    new JsonSchema({ type: "object" }),
-                    new SlotAuthorityPolicy(["installed"], ["scope.read"])
-                )
-            ],
-            subscriptions: [{ source: "schedule.daily" }],
-            policies: new PolicySet({ placement: new PlacementPolicy(["dynamic"]) }),
-            environments: [{ name: "sandbox" }],
-            surfaces: { dashboard: ["dashboard.card"] }
-        });
-        agent.name = "changed";
+    test(
+        "[definition.blueprint] [definition.package-install] round-trips strict canonical declaration data",
+        { tags: "p0" },
+        () => {
+            const agent = { model: { policy: "balanced" }, name: "helper" };
+            const blueprint = new Blueprint({
+                meta: new BlueprintMeta("support-desk", new SemVer("1.2.0")),
+                packages: [install("acme.deploy", "^1", { region: "wnam" })],
+                scopes: { projects: [{ name: "default" }] },
+                agents: [agent],
+                slots: [
+                    new SlotDeclaration(
+                        new SlotName("dashboard.card"),
+                        new JsonSchema({ type: "object" }),
+                        new SlotAuthorityPolicy(["installed"], ["scope.read"])
+                    )
+                ],
+                subscriptions: [{ source: "schedule.daily" }],
+                policies: new PolicySet({ placement: new PlacementPolicy(["dynamic"]) }),
+                environments: [{ name: "sandbox" }],
+                surfaces: { dashboard: ["dashboard.card"] }
+            });
+            agent.name = "changed";
 
-        const encoded = Blueprint.encode(blueprint);
-        const decoded = Blueprint.decode(encoded);
-        expect(Blueprint.encode(decoded)).toEqual(encoded);
-        expect(decoded.meta.name).toBe("support-desk");
-        expect(decoded.agents[0]).toMatchObject({ name: "helper" });
-        expect(decoded.slots?.[0]).toMatchObject({ name: "dashboard.card" });
-        expect(Object.isFrozen(decoded.policies)).toBe(true);
-        expect(Object.isFrozen(decoded.agents[0])).toBe(true);
-    });
+            const encoded = Blueprint.encode(blueprint);
+            const decoded = Blueprint.decode(encoded);
+            expect(Blueprint.encode(decoded)).toEqual(encoded);
+            expect(decoded.meta.name).toBe("support-desk");
+            expect(decoded.agents[0]).toMatchObject({ name: "helper" });
+            expect(decoded.slots?.[0]).toMatchObject({ name: "dashboard.card" });
+            expect(Object.isFrozen(decoded.policies)).toBe(true);
+            expect(Object.isFrozen(decoded.agents[0])).toBe(true);
+        }
+    );
 
     test("requires unique root package requests", { tags: "p1" }, () => {
         expect(
@@ -70,29 +74,33 @@ describe("Blueprint", () => {
         ).toThrow(/object declaration/);
     });
 
-    test("produces deterministic bytes for equivalent root and object ordering", { tags: "p0" }, () => {
-        const left = new Blueprint({
-            meta: { name: "deterministic", version: new SemVer("1.0.0") },
-            packages: [
-                install("zeta", "^2", { z: 2, a: 1 }),
-                install("alpha", "^1", { enabled: true })
-            ],
-            policies: new PolicySet({ tiers: { execute: "mediated", observe: "direct" } }),
-            agents: []
-        });
-        const right = new Blueprint({
-            meta: { version: new SemVer("1.0.0"), name: "deterministic" },
-            packages: [
-                install("alpha", "^1", { enabled: true }),
-                install("zeta", "^2", { a: 1, z: 2 })
-            ],
-            policies: new PolicySet({ tiers: { observe: "direct", execute: "mediated" } }),
-            agents: []
-        });
+    test(
+        "produces deterministic bytes for equivalent root and object ordering",
+        { tags: "p0" },
+        () => {
+            const left = new Blueprint({
+                meta: { name: "deterministic", version: new SemVer("1.0.0") },
+                packages: [
+                    install("zeta", "^2", { z: 2, a: 1 }),
+                    install("alpha", "^1", { enabled: true })
+                ],
+                policies: new PolicySet({ tiers: { execute: "mediated", observe: "direct" } }),
+                agents: []
+            });
+            const right = new Blueprint({
+                meta: { version: new SemVer("1.0.0"), name: "deterministic" },
+                packages: [
+                    install("alpha", "^1", { enabled: true }),
+                    install("zeta", "^2", { a: 1, z: 2 })
+                ],
+                policies: new PolicySet({ tiers: { observe: "direct", execute: "mediated" } }),
+                agents: []
+            });
 
-        expect(Blueprint.encode(left)).toEqual(Blueprint.encode(right));
-        expect(left.packages.map((entry) => entry.request.id.value)).toEqual(["alpha", "zeta"]);
-    });
+            expect(Blueprint.encode(left)).toEqual(Blueprint.encode(right));
+            expect(left.packages.map((entry) => entry.request.id.value)).toEqual(["alpha", "zeta"]);
+        }
+    );
 
     test("rejects unknown codec fields and malformed optional declarations", { tags: "p1" }, () => {
         const blueprint = new Blueprint({
@@ -131,24 +139,28 @@ describe("Blueprint", () => {
         );
     });
 
-    test("keeps every optional declaration group in canonical Blueprint data", { tags: "p1" }, () => {
-        const blueprint = new Blueprint({
-            meta: { name: "complete", version: new SemVer("1.0.0") },
-            packages: [],
-            policies: PolicySet.empty(),
-            scopes: { project: "default" },
-            agents: [{ name: "helper" }],
-            slots: [],
-            subscriptions: [{ event: "task.created" }],
-            environments: [{ name: "sandbox" }],
-            surfaces: { primary: "owner.slot" }
-        });
-        const data = requireObject(blueprint.toData());
-        expect(data["scopes"]).toEqual({ project: "default" });
-        expect(data["subscriptions"]).toEqual([{ event: "task.created" }]);
-        expect(data["environments"]).toEqual([{ name: "sandbox" }]);
-        expect(data["surfaces"]).toEqual({ primary: "owner.slot" });
-    });
+    test(
+        "keeps every optional declaration group in canonical Blueprint data",
+        { tags: "p1" },
+        () => {
+            const blueprint = new Blueprint({
+                meta: { name: "complete", version: new SemVer("1.0.0") },
+                packages: [],
+                policies: PolicySet.empty(),
+                scopes: { project: "default" },
+                agents: [{ name: "helper" }],
+                slots: [],
+                subscriptions: [{ event: "task.created" }],
+                environments: [{ name: "sandbox" }],
+                surfaces: { primary: "owner.slot" }
+            });
+            const data = requireObject(blueprint.toData());
+            expect(data["scopes"]).toEqual({ project: "default" });
+            expect(data["subscriptions"]).toEqual([{ event: "task.created" }]);
+            expect(data["environments"]).toEqual([{ name: "sandbox" }]);
+            expect(data["surfaces"]).toEqual({ primary: "owner.slot" });
+        }
+    );
 
     test("names each malformed declaration subject at construction", { tags: "p1" }, () => {
         const meta = { name: "subjects", version: new SemVer("1.0.0") };
@@ -175,42 +187,46 @@ describe("Blueprint", () => {
         expect(dataAgent.agents[0]).toEqual({ toData: 7 });
     });
 
-    test("rejects nonobject payloads, entry positions, and unknown metadata keys", { tags: "p1" }, () => {
-        expect(() => Blueprint.fromData([])).toThrow(/Blueprint must be an object/);
-        expect(() => Blueprint.fromData("text")).toThrow(/Blueprint must be an object/);
-        const valid = new Blueprint({
-            meta: { name: "strict", version: new SemVer("1.0.0") },
-            packages: [],
-            policies: PolicySet.empty(),
-            agents: []
-        }).toData();
-        expect(() => Blueprint.fromData({ ...(valid as object), agents: [7] })).toThrow(
-            /Blueprint agents entry 0 must be an object/
-        );
+    test(
+        "rejects nonobject payloads, entry positions, and unknown metadata keys",
+        { tags: "p1" },
+        () => {
+            expect(() => Blueprint.fromData([])).toThrow(/Blueprint must be an object/);
+            expect(() => Blueprint.fromData("text")).toThrow(/Blueprint must be an object/);
+            const valid = new Blueprint({
+                meta: { name: "strict", version: new SemVer("1.0.0") },
+                packages: [],
+                policies: PolicySet.empty(),
+                agents: []
+            });
+            expect(() => Blueprint.fromData({ ...recordData(valid), agents: [7] })).toThrow(
+                /Blueprint agents entry 0 must be an object/
+            );
 
-        expect(() => BlueprintMeta.fromData({ name: 7, version: "1.0.0" })).toThrow(
-            /Blueprint name must be a string/
-        );
-        expect(() => BlueprintMeta.fromData({ name: "x", version: 7 })).toThrow(
-            /Blueprint version must be a string/
-        );
-        expect(() => new BlueprintMeta("", new SemVer("1.0.0"))).toThrow(
-            /Blueprint name must be a nonblank canonical string/
-        );
-        expect(() => new BlueprintMeta("name ", new SemVer("1.0.0"))).toThrow(
-            /Blueprint name must be a nonblank canonical string/
-        );
+            expect(() => BlueprintMeta.fromData({ name: 7, version: "1.0.0" })).toThrow(
+                /Blueprint name must be a string/
+            );
+            expect(() => BlueprintMeta.fromData({ name: "x", version: 7 })).toThrow(
+                /Blueprint version must be a string/
+            );
+            expect(() => new BlueprintMeta("", new SemVer("1.0.0"))).toThrow(
+                /Blueprint name must be a nonblank canonical string/
+            );
+            expect(() => new BlueprintMeta("name ", new SemVer("1.0.0"))).toThrow(
+                /Blueprint name must be a nonblank canonical string/
+            );
 
-        const request = { id: "package", range: ">=1.0.0 <2.0.0-0" };
-        for (const unknown of ["legacy", "Stryker was here"]) {
-            expect(() =>
-                BlueprintMeta.fromData({ name: "x", version: "1.0.0", [unknown]: true })
-            ).toThrow(/Blueprint metadata contains missing or unknown fields/);
-            expect(() =>
-                PackageInstall.fromData({ config: {}, request, [unknown]: true })
-            ).toThrow(/Package install contains missing or unknown fields/);
+            const request = { id: "package", range: ">=1.0.0 <2.0.0-0" };
+            for (const unknown of ["legacy", "Stryker was here"]) {
+                expect(() =>
+                    BlueprintMeta.fromData({ name: "x", version: "1.0.0", [unknown]: true })
+                ).toThrow(/Blueprint metadata contains missing or unknown fields/);
+                expect(() =>
+                    PackageInstall.fromData({ config: {}, request, [unknown]: true })
+                ).toThrow(/Package install contains missing or unknown fields/);
+            }
         }
-    });
+    );
 });
 
 function install(
@@ -224,8 +240,7 @@ function install(
     });
 }
 
-
-function expectCodecError(action: () => unknown): void {
+function expectCodecError(action: () => void): void {
     try {
         action();
         throw new Error("Expected codec error");

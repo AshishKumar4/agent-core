@@ -65,11 +65,7 @@ describe("Blueprint config", () => {
                 },
                 z: 2
             });
-            expect(
-                decodeSecretRef(encodeSecretRef(reference)).equals(
-                    reference
-                )
-            ).toBe(true);
+            expect(decodeSecretRef(encodeSecretRef(reference)).equals(reference)).toBe(true);
             expect(isSecretRefData(encodeSecretRef(reference))).toBe(true);
             expect(Config.encode(Config.decode(Config.encode(config)))).toEqual(
                 Config.encode(config)
@@ -84,12 +80,9 @@ describe("Blueprint config", () => {
         () => {
             const tagged = encodeSecretRef(new SecretRef("tenant", "vault", "deploy"));
 
-            expect(
-                strictJsonSchemaValidator.validate(
-                    SECRET_REF_SCHEMA.document,
-                    tagged
-                )
-            ).toBe(true);
+            expect(strictJsonSchemaValidator.validate(SECRET_REF_SCHEMA.document, tagged)).toBe(
+                true
+            );
             expect(
                 strictJsonSchemaValidator.validate(SECRET_REF_SCHEMA.document, "raw-token")
             ).toBe(false);
@@ -139,9 +132,7 @@ describe("Blueprint config", () => {
                 }
             };
 
-            expect(strictJsonSchemaValidator.validate(schema.document, valid)).toBe(
-                true
-            );
+            expect(strictJsonSchemaValidator.validate(schema.document, valid)).toBe(true);
             expect(
                 strictJsonSchemaValidator.validate(schema.document, {
                     "acme.deploy": {
@@ -178,7 +169,9 @@ describe("Blueprint config", () => {
                 values: [true, null, "text", 1]
             });
             expect(() => new Config({ value: Number.NaN })).toThrow(/finite/);
-            expect(() => new Config({ value: new Date() as never })).toThrow(/canonical JSON/);
+            const invalid = { value: null };
+            Object.defineProperty(invalid, "value", { value: new Date() });
+            expect(() => new Config(invalid)).toThrow(/canonical JSON/);
             expect(isSecretRefData({ legacy: true })).toBe(false);
             expect(() => decodeSecretRef({ $secret: { id: "id", provider: "provider" } })).toThrow(
                 /missing or unknown/
@@ -379,7 +372,6 @@ function releaseFromManifest(
         configSchema === undefined ? required : { ...required, configSchema }
     );
 }
-
 
 function requireArray(value: JsonValue): readonly JsonValue[] {
     if (!Array.isArray(value)) {

@@ -20,7 +20,7 @@ import {
     canonicalCompatibilityRange,
     compatibilityAdmits,
     evaluatePolicy,
-    type EnforcementTierOverrides,
+    type EnforcementTierOverrides
 } from "../../src/definition";
 import {
     SlotAuthorityPolicy,
@@ -147,14 +147,14 @@ describe("definition value boundaries", () => {
                         agents: []
                     })
             ).toThrow(/PolicySet/);
-            expect(() =>
-                PackageInstall.fromData({ request: install.request.toData() } as never)
-            ).toThrow(/missing or unknown/);
+            expect(() => PackageInstall.fromData({ request: install.request.toData() })).toThrow(
+                /missing or unknown/
+            );
             expect(() => BlueprintMeta.fromData(null)).toThrow(/object/);
             expect(() => BlueprintMeta.fromData({ name: 7, version: "1.0.0" })).toThrow(/string/);
-            expect(() =>
-                Blueprint.fromData({ ...recordData(blueprint), agents: null })
-            ).toThrow(/array/);
+            expect(() => Blueprint.fromData({ ...recordData(blueprint), agents: null })).toThrow(
+                /array/
+            );
         }
     );
 
@@ -232,12 +232,16 @@ describe("definition value boundaries", () => {
                 PlacementPolicy.fromData({ allowed: "dynamic", backings: {}, trusted: ["*"] })
             ).toThrow(/array/);
             expect(
-                PlacementPolicy.fromData({ allowed: ["provider"], backings: {}, trusted: ["*"] }).allowed
+                PlacementPolicy.fromData({ allowed: ["provider"], backings: {}, trusted: ["*"] })
+                    .allowed
             ).toEqual(["provider"]);
             expect(
-                PlacementPolicy.fromData({ allowed: ["bundled"], backings: {}, trusted: ["*"] }).allowed
+                PlacementPolicy.fromData({ allowed: ["bundled"], backings: {}, trusted: ["*"] })
+                    .allowed
             ).toEqual(["bundled"]);
-            expect(() => new PlacementPolicy([forged<IsolationMode>("invalid")])).toThrow(/unknown/);
+            expect(() => new PlacementPolicy([forged<IsolationMode>("invalid")])).toThrow(
+                /unknown/
+            );
             expect(() =>
                 PolicySet.fromData({
                     approvals: [],
@@ -256,11 +260,16 @@ describe("definition value boundaries", () => {
                     tiers: {}
                 })
             ).toThrow(/array/);
-            expect(() => new PolicySet({ approvals: [forged<Impact>("invalid")] })).toThrow(/impact/);
-            expect(() => PolicySet.fromData(null)).toThrow(/object/);
-            expect(() => new PolicySet({ tiers: forged<EnforcementTierOverrides>({ unknown: "direct" }) })).toThrow(
-                /unknown impact/
+            expect(() => new PolicySet({ approvals: [forged<Impact>("invalid")] })).toThrow(
+                /impact/
             );
+            expect(() => PolicySet.fromData(null)).toThrow(/object/);
+            expect(
+                () =>
+                    new PolicySet({
+                        tiers: forged<EnforcementTierOverrides>({ unknown: "direct" })
+                    })
+            ).toThrow(/unknown impact/);
             expect(() =>
                 evaluatePolicy({
                     impact: "observe",

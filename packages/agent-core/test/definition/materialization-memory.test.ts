@@ -1,11 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { ActorId } from "../../src/actors";
-import {
-    Revision,
-    SemVer,
-    decodeCanonicalJson,
-    encodeCanonicalJson
-} from "../../src/core";
+import { Revision, SemVer, decodeCanonicalJson, encodeCanonicalJson } from "../../src/core";
 import {
     MemoryMaterializationStore,
     type MemoryMaterializationSnapshot
@@ -30,95 +25,110 @@ import {
 
 materializationStoreContract("memory", (owner) => new MemoryMaterializationStore(owner));
 
-test("[materialization-store] memory and SQLite satisfy one shared codec-storage contract", { tags: "p1" }, () => {
-    const owner = actorRef("materialization-seam");
-    const stores = [
-        new MemoryMaterializationStore(owner),
-        new SqliteMaterializationStore(new TestSqlite(), owner)
-    ];
-    for (const [index, store] of stores.entries()) {
-        const value = blueprint(`seam-${index}`, "1.0.0", { implementation: index });
-        store.addBlueprint(value);
-        expect(Blueprint.encode(store.getBlueprint(value.meta.name, value.meta.version)!)).toEqual(
-            Blueprint.encode(value)
-        );
+test(
+    "[materialization-store] memory and SQLite satisfy one shared codec-storage contract",
+    { tags: "p1" },
+    () => {
+        const owner = actorRef("materialization-seam");
+        const stores = [
+            new MemoryMaterializationStore(owner),
+            new SqliteMaterializationStore(new TestSqlite(), owner)
+        ];
+        for (const [index, store] of stores.entries()) {
+            const value = blueprint(`seam-${index}`, "1.0.0", { implementation: index });
+            store.addBlueprint(value);
+            expect(
+                Blueprint.encode(store.getBlueprint(value.meta.name, value.meta.version)!)
+            ).toEqual(Blueprint.encode(value));
+        }
     }
-});
+);
 
 describe("MemoryMaterializationStore persistence", () => {
-    test("[C13-BLUEPRINT-REMATERIALIZE] [definition.blueprint] [definition.materialization-plan] [definition.managed-state] [definition.materialization-generation] [definition.materialization-generation-pointer] restores a detached deterministic snapshot and clones all generation history", { tags: "p1" }, () => {
-        const actor = actorRef("workspace");
-        const first = materializationState(actor, 1, "first");
-        const second = materializationState(actor, 2, "second");
-        const store = new MemoryMaterializationStore(actor);
-        store.addBlueprint(blueprint("zeta", "1.0.0", { value: "zeta" }));
-        store.addBlueprint(blueprint("alpha", "1.0.0", { value: "alpha" }));
-        store.addPlan(second.plan);
-        store.addPlan(first.plan);
-        installGeneration(store, first);
-        installGeneration(store, second);
-        store.transaction((transaction) => {
-            const initial = MaterializationGenerationPointer.initial(
-                actor,
-                first.materialization.generation.origin.deploymentId,
-                first.materialization.generation.id
+    test(
+        "[C13-BLUEPRINT-REMATERIALIZE] [definition.blueprint] [definition.materialization-plan] [definition.managed-state] [definition.materialization-generation] [definition.materialization-generation-pointer] restores a detached deterministic snapshot and clones all generation history",
+        { tags: "p1" },
+        () => {
+            const actor = actorRef("workspace");
+            const first = materializationState(actor, 1, "first");
+            const second = materializationState(actor, 2, "second");
+            const store = new MemoryMaterializationStore(actor);
+            store.addBlueprint(blueprint("zeta", "1.0.0", { value: "zeta" }));
+            store.addBlueprint(blueprint("alpha", "1.0.0", { value: "alpha" }));
+            store.addPlan(second.plan);
+            store.addPlan(first.plan);
+            installGeneration(store, first);
+            installGeneration(store, second);
+            store.transaction((transaction) => {
+                const initial = MaterializationGenerationPointer.initial(
+                    actor,
+                    first.materialization.generation.origin.deploymentId,
+                    first.materialization.generation.id
+                );
+                expect(
+                    store.compareAndSetGenerationPointer(
+                        transaction,
+                        actor,
+                        first.materialization.generation.origin.deploymentId,
+                        undefined,
+                        initial
+                    )
+                ).toBe(true);
+                expect(
+                    store.compareAndSetGenerationPointer(
+                        transaction,
+                        actor,
+                        first.materialization.generation.origin.deploymentId,
+                        initial.revision,
+                        initial.activate(second.materialization.generation.id)
+                    )
+                ).toBe(true);
+            });
+
+            const detached = store.snapshot();
+            expect(detached.generations[0]!.id).toBeInstanceOf(MaterializationGenerationId);
+            expect(detached.generations[0]!.actorId).toBeInstanceOf(ActorId);
+            expect(detached.managedState[0]!.generationId).toBeInstanceOf(
+                MaterializationGenerationId
             );
+            expect(detached.pointers[0]!.actorId).toBeInstanceOf(ActorId);
+            expect(detached.blueprints.map((row) => row.name)).toEqual(["alpha", "zeta"]);
+            expect(detached.plans.map((row) => row.id)).toEqual(
+                detached.plans.map((row) => row.id).sort()
+            );
+            detached.blueprints[0]!.bytes.fill(0);
+            detached.plans[0]!.bytes.fill(0);
+            detached.generations[0]!.bytes.fill(0);
+            detached.managedState[0]!.bytes.fill(0);
+            detached.pointers[0]!.bytes.fill(0);
+
+            expect(store.getBlueprint("alpha", new SemVer("1.0.0"))).toBeDefined();
+            expect(store.listPlans()).toHaveLength(2);
+            expect(store.listGenerations()).toHaveLength(2);
+            expect(store.listManagedState()).toHaveLength(2);
             expect(
-                store.compareAndSetGenerationPointer(
-                    transaction,
+                store.getGenerationPointer(
                     actor,
-                    first.materialization.generation.origin.deploymentId,
-                    undefined,
-                    initial
-                )
-            ).toBe(true);
+                    first.materialization.generation.origin.deploymentId
+                )?.revision.value
+            ).toBe(1);
+
+            const restored = new MemoryMaterializationStore(actor, store.snapshot());
+            const cloned = restored.clone();
+            expect(cloned.listBlueprints()).toHaveLength(2);
+            expect(cloned.listPlans()).toHaveLength(2);
+            expect(cloned.listGenerations()).toHaveLength(2);
+            expect(cloned.listManagedState()).toHaveLength(2);
             expect(
-                store.compareAndSetGenerationPointer(
-                    transaction,
-                    actor,
-                    first.materialization.generation.origin.deploymentId,
-                    initial.revision,
-                    initial.activate(second.materialization.generation.id)
-                )
+                cloned
+                    .getGenerationPointer(
+                        actor,
+                        first.materialization.generation.origin.deploymentId
+                    )
+                    ?.generationId.equals(second.materialization.generation.id)
             ).toBe(true);
-        });
-
-        const detached = store.snapshot();
-        expect(detached.generations[0]!.id).toBeInstanceOf(MaterializationGenerationId);
-        expect(detached.generations[0]!.actorId).toBeInstanceOf(ActorId);
-        expect(detached.managedState[0]!.generationId).toBeInstanceOf(MaterializationGenerationId);
-        expect(detached.pointers[0]!.actorId).toBeInstanceOf(ActorId);
-        expect(detached.blueprints.map((row) => row.name)).toEqual(["alpha", "zeta"]);
-        expect(detached.plans.map((row) => row.id)).toEqual(
-            detached.plans.map((row) => row.id).sort()
-        );
-        detached.blueprints[0]!.bytes.fill(0);
-        detached.plans[0]!.bytes.fill(0);
-        detached.generations[0]!.bytes.fill(0);
-        detached.managedState[0]!.bytes.fill(0);
-        detached.pointers[0]!.bytes.fill(0);
-
-        expect(store.getBlueprint("alpha", new SemVer("1.0.0"))).toBeDefined();
-        expect(store.listPlans()).toHaveLength(2);
-        expect(store.listGenerations()).toHaveLength(2);
-        expect(store.listManagedState()).toHaveLength(2);
-        expect(
-            store.getGenerationPointer(actor, first.materialization.generation.origin.deploymentId)
-                ?.revision.value
-        ).toBe(1);
-
-        const restored = new MemoryMaterializationStore(actor, store.snapshot());
-        const cloned = restored.clone();
-        expect(cloned.listBlueprints()).toHaveLength(2);
-        expect(cloned.listPlans()).toHaveLength(2);
-        expect(cloned.listGenerations()).toHaveLength(2);
-        expect(cloned.listManagedState()).toHaveLength(2);
-        expect(
-            cloned
-                .getGenerationPointer(actor, first.materialization.generation.origin.deploymentId)
-                ?.generationId.equals(second.materialization.generation.id)
-        ).toBe(true);
-    });
+        }
+    );
 
     test("orders detached materialization snapshot rows deterministically", { tags: "p1" }, () => {
         const actor = actorRef("ordering");
@@ -136,8 +146,7 @@ describe("MemoryMaterializationStore persistence", () => {
         // Snapshot rows come back in content-addressed identity order, not the order the
         // generations were installed in.
         const ordered = [first, second, third].sort((left, right) =>
-            left.materialization.generation.id.value <
-            right.materialization.generation.id.value
+            left.materialization.generation.id.value < right.materialization.generation.id.value
                 ? -1
                 : 1
         );
@@ -256,12 +265,7 @@ describe("MemoryMaterializationStore persistence", () => {
 
     test("names malformed snapshot rows with their exact subject", { tags: "p2" }, () => {
         const snapshot = completeSnapshot();
-        const cases: readonly [
-            keyof MemoryMaterializationSnapshot,
-            string,
-            unknown,
-            RegExp
-        ][] = [
+        const cases: readonly [keyof MemoryMaterializationSnapshot, string, unknown, RegExp][] = [
             [
                 "plans",
                 "generation",
@@ -274,7 +278,12 @@ describe("MemoryMaterializationStore persistence", () => {
                 1.5,
                 /Memory materialization snapshot materialization plan generation is malformed/
             ],
-            ["blueprints", "name", 7, /Memory materialization snapshot Blueprint name is malformed/],
+            [
+                "blueprints",
+                "name",
+                7,
+                /Memory materialization snapshot Blueprint name is malformed/
+            ],
             [
                 "generations",
                 "id",
@@ -351,26 +360,31 @@ describe("MemoryMaterializationStore persistence", () => {
         for (const [collection, field, value, message] of cases) {
             const corrupted = {
                 ...snapshot,
-                [collection]: [{ ...snapshot[collection][0]!, [field]: value }]
-            } as MemoryMaterializationSnapshot;
+                [collection]: [{ ...snapshot[collection][0]! }]
+            };
+            Object.defineProperty(corrupted[collection][0]!, field, { value });
             expect(() => new MemoryMaterializationStore(actorRef("workspace"), corrupted)).toThrow(
                 message
             );
         }
     });
 
-    test("rejects asynchronous transactions without committing their draft", { tags: "p0" }, async () => {
-        const store = new MemoryMaterializationStore(actorRef("workspace"));
+    test(
+        "rejects asynchronous transactions without committing their draft",
+        { tags: "p0" },
+        async () => {
+            const store = new MemoryMaterializationStore(actorRef("workspace"));
 
-        expect(() =>
-            store.transaction(
-                async () => undefined,
-                "Actor transaction callbacks must be synchronous"
-            )
-        ).toThrow(/synchronous/);
-        expect(store.listBlueprints()).toEqual([]);
-        await Promise.resolve();
-    });
+            expect(() =>
+                store.transaction(
+                    async () => undefined,
+                    "Actor transaction callbacks must be synchronous"
+                )
+            ).toThrow(/synchronous/);
+            expect(store.listBlueprints()).toEqual([]);
+            await Promise.resolve();
+        }
+    );
 
     test.each([
         ["Blueprint", "blueprints"],
@@ -378,80 +392,93 @@ describe("MemoryMaterializationStore persistence", () => {
         ["generation", "generations"],
         ["managed state", "managedState"],
         ["pointer", "pointers"]
-    ] as const)("rejects corrupt %s codec bytes in a snapshot", { tags: "p0" }, (_subject, collection) => {
-        const snapshot = completeSnapshot();
-        const corrupted = {
-            ...snapshot,
-            [collection]: [{ ...snapshot[collection][0]!, bytes: new Uint8Array([0]) }]
-        } as MemoryMaterializationSnapshot;
+    ] as const)(
+        "rejects corrupt %s codec bytes in a snapshot",
+        { tags: "p0" },
+        (_subject, collection) => {
+            const snapshot = completeSnapshot();
+            const corrupted = {
+                ...snapshot,
+                [collection]: [{ ...snapshot[collection][0]! }]
+            };
+            Object.defineProperty(corrupted[collection][0]!, "bytes", {
+                value: new Uint8Array([0])
+            });
 
-        expect(() => new MemoryMaterializationStore(actorRef("workspace"), corrupted)).toThrowError(
-            expect.objectContaining({ code: "codec.invalid" })
-        );
-    });
+            expect(
+                () => new MemoryMaterializationStore(actorRef("workspace"), corrupted)
+            ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
+        }
+    );
 
-    test("rejects corrupt projections, dangling generation closure, and duplicate keys", { tags: "p0" }, () => {
-        const snapshot = completeSnapshot();
-        expect(
-            () =>
-                new MemoryMaterializationStore(actorRef("workspace"), {
-                    ...snapshot,
-                    blueprints: [{ ...snapshot.blueprints[0]!, digest: "0".repeat(64) }]
-                })
-        ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
-        expect(
-            () =>
-                new MemoryMaterializationStore(actorRef("workspace"), {
-                    ...snapshot,
-                    plans: [
-                        { ...snapshot.plans[0]!, generation: snapshot.plans[0]!.generation + 1 }
-                    ]
-                })
-        ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
-        expect(
-            () =>
-                new MemoryMaterializationStore(actorRef("workspace"), {
-                    ...snapshot,
-                    generations: [{ ...snapshot.generations[0]!, actorId: forged<ActorId>("other") }]
-                })
-        ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
-        expect(
-            () =>
-                new MemoryMaterializationStore(actorRef("workspace"), {
-                    ...snapshot,
-                    managedState: [{ ...snapshot.managedState[0]!, logicalKey: "other" }]
-                })
-        ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
-        expect(
-            () =>
-                new MemoryMaterializationStore(actorRef("workspace"), {
-                    ...snapshot,
-                    pointers: [{ ...snapshot.pointers[0]!, revision: new Revision(9).value }]
-                })
-        ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
-        expect(
-            () =>
-                new MemoryMaterializationStore(actorRef("workspace"), {
-                    ...snapshot,
-                    managedState: []
-                })
-        ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
-        expect(
-            () =>
-                new MemoryMaterializationStore(actorRef("workspace"), {
-                    ...snapshot,
-                    generations: [],
-                    pointers: []
-                })
-        ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
-        expect(
-            () =>
-                new MemoryMaterializationStore(actorRef("workspace"), {
-                    ...snapshot,
-                    generations: [snapshot.generations[0]!, snapshot.generations[0]!]
-                })
-        ).toThrow(/duplicate materialization generations/);
-    });
+    test(
+        "rejects corrupt projections, dangling generation closure, and duplicate keys",
+        { tags: "p0" },
+        () => {
+            const snapshot = completeSnapshot();
+            expect(
+                () =>
+                    new MemoryMaterializationStore(actorRef("workspace"), {
+                        ...snapshot,
+                        blueprints: [{ ...snapshot.blueprints[0]!, digest: "0".repeat(64) }]
+                    })
+            ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
+            expect(
+                () =>
+                    new MemoryMaterializationStore(actorRef("workspace"), {
+                        ...snapshot,
+                        plans: [
+                            { ...snapshot.plans[0]!, generation: snapshot.plans[0]!.generation + 1 }
+                        ]
+                    })
+            ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
+            expect(
+                () =>
+                    new MemoryMaterializationStore(actorRef("workspace"), {
+                        ...snapshot,
+                        generations: [
+                            { ...snapshot.generations[0]!, actorId: forged<ActorId>("other") }
+                        ]
+                    })
+            ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
+            expect(
+                () =>
+                    new MemoryMaterializationStore(actorRef("workspace"), {
+                        ...snapshot,
+                        managedState: [{ ...snapshot.managedState[0]!, logicalKey: "other" }]
+                    })
+            ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
+            expect(
+                () =>
+                    new MemoryMaterializationStore(actorRef("workspace"), {
+                        ...snapshot,
+                        pointers: [{ ...snapshot.pointers[0]!, revision: new Revision(9).value }]
+                    })
+            ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
+            expect(
+                () =>
+                    new MemoryMaterializationStore(actorRef("workspace"), {
+                        ...snapshot,
+                        managedState: []
+                    })
+            ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
+            expect(
+                () =>
+                    new MemoryMaterializationStore(actorRef("workspace"), {
+                        ...snapshot,
+                        generations: [],
+                        pointers: []
+                    })
+            ).toThrowError(expect.objectContaining({ code: "codec.invalid" }));
+            expect(
+                () =>
+                    new MemoryMaterializationStore(actorRef("workspace"), {
+                        ...snapshot,
+                        generations: [snapshot.generations[0]!, snapshot.generations[0]!]
+                    })
+            ).toThrow(/duplicate materialization generations/);
+        }
+    );
 
     test("rejects unsupported managed-state kinds during snapshot restore", { tags: "p1" }, () => {
         const snapshot = completeSnapshot();
@@ -496,8 +523,9 @@ describe("MemoryMaterializationStore persistence", () => {
         const snapshot = completeSnapshot();
         const corrupted = {
             ...snapshot,
-            [collection]: [{ ...snapshot[collection][0]!, [field]: "" }]
-        } as MemoryMaterializationSnapshot;
+            [collection]: [{ ...snapshot[collection][0]! }]
+        };
+        Object.defineProperty(corrupted[collection][0]!, field, { value: "" });
         expect(() => new MemoryMaterializationStore(actorRef("workspace"), corrupted)).toThrow(
             /malformed/
         );
@@ -577,14 +605,21 @@ describe("MemoryMaterializationStore persistence", () => {
         ["pointers", "actorKind", "run"],
         ["pointers", "actorId", "other"],
         ["pointers", "generationId", "1".repeat(64)]
-    ] as const)("rejects detached %s projection mismatch in %s", { tags: "p0" }, (collection, field, value) => {
-        const snapshot = completeSnapshot();
-        const corrupted = {
-            ...snapshot,
-            [collection]: [{ ...snapshot[collection][0]!, [field]: value }]
-        } as MemoryMaterializationSnapshot;
-        expect(() => new MemoryMaterializationStore(actorRef("workspace"), corrupted)).toThrow();
-    });
+    ] as const)(
+        "rejects detached %s projection mismatch in %s",
+        { tags: "p0" },
+        (collection, field, value) => {
+            const snapshot = completeSnapshot();
+            const corrupted = {
+                ...snapshot,
+                [collection]: [{ ...snapshot[collection][0]! }]
+            };
+            Object.defineProperty(corrupted[collection][0]!, field, { value });
+            expect(
+                () => new MemoryMaterializationStore(actorRef("workspace"), corrupted)
+            ).toThrow();
+        }
+    );
 });
 
 function reorderedProjectionPlanBytes(plan: MaterializationPlan): Uint8Array {
@@ -633,4 +668,3 @@ function completeSnapshot(): MemoryMaterializationSnapshot {
     });
     return store.snapshot();
 }
-

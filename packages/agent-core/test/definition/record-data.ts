@@ -22,6 +22,19 @@ export function requireObject(value: JsonValue | undefined, subject = "value"): 
 }
 
 /**
+ * Canonical data whose named field is still present but carries no value.
+ *
+ * Removing the field instead trips the exact-field check first and never reaches the field's
+ * own decoder, so proving that decoder rejects an empty value needs the key to survive with
+ * nothing under it — a record the JSON vocabulary has no way to write down.
+ */
+export function fieldWithoutValue(data: JsonObject, field: string): JsonValue {
+    // SAFETY: `undefined` is outside JsonValue by construction, which is the corruption being
+    // presented. Only the decoder asserted to reject this record ever reads it.
+    return { ...data, [field]: undefined } as JsonValue;
+}
+
+/**
  * A decoded value typed as a contract it does not satisfy — a string outside a closed vocabulary,
  * a stored column holding the wrong type, a required field left absent. Definition records and
  * store rows are re-validated on the way in because they arrive from decoded data and storage,
