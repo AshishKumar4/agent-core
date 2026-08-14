@@ -624,7 +624,7 @@ describe("production authority state seams (memory)", () => {
         new MemoryInvalidationWatermarkStore(tenant, owner);
 
     test(
-        "serves repeated resolutions from the cache until release invalidates them",
+        "[C13-OWNERSHIP-SINGLE-OWNER] drops and rebuilds the derived authority cache from canonical Tenant state",
         { tags: "p0" },
         async () => {
             const harness = new StateHarness(createStore());

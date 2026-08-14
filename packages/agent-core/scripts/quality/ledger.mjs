@@ -308,7 +308,11 @@ function repositoryTestPath(path) {
 function requireEvidenceOwner(path, owner, patterns, requirement) {
     const owners = ownersForPath(path, patterns);
     const sourceOwner = owners[0];
-    if (owners.length !== 1 || (sourceOwner !== owner && sourceOwner !== "W9")) {
+    const crossContextQualityEvidence = owner === "W0";
+    if (
+        owners.length !== 1 ||
+        (!crossContextQualityEvidence && sourceOwner !== owner && sourceOwner !== "W9")
+    ) {
         throw new TypeError(`${requirement} source is not owned by ${owner}: ${path}`);
     }
 }

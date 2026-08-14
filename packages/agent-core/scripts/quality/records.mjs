@@ -16,6 +16,7 @@ import {
     requirePassingTests,
     resolveSourceSymbol
 } from "./evidence.mjs";
+import { validateRecordOwnership } from "./record-ownership.mjs";
 
 const stage = stageArgument(process.argv.slice(2));
 const selectedArtifactRoot = pathArgument(process.argv.slice(2), "--artifact-root") ?? artifactRoot;
@@ -69,9 +70,8 @@ if (
 ) {
     throw new TypeError("Record fragments differ from the exact index");
 }
-const kinds = new Set();
-const symbols = new Set();
 const records = [];
+const ownershipRecords = [];
 for (const path of files.filter((path) => activeFragmentNames.includes(basename(path)))) {
     const fragment = await readCanonicalJson(path);
     if (
@@ -85,7 +85,7 @@ for (const path of files.filter((path) => activeFragmentNames.includes(basename(
         throw new TypeError(`Record fragment ${basename(path)} is owned by the wrong wave`);
     }
     for (const record of fragment.records) {
-        validateRecordStructure(record);
+        ownershipRecords.push(record);
         records.push({ ...record, fragmentOwner: fragment.owner });
     }
 }
@@ -99,8 +99,9 @@ for (const path of files.filter((path) => pendingFragmentNames.includes(basename
     ) {
         throw new TypeError(`Pending record fragment ${basename(path)} is malformed`);
     }
-    for (const record of fragment.records) validateRecordStructure(record);
+    ownershipRecords.push(...fragment.records);
 }
+validateRecordOwnership(ownershipRecords);
 const missing = [...discovered].filter(
     (selector) => !records.some((record) => record.source === selector)
 );
@@ -266,56 +267,6 @@ function kindFromCodecClass(source, className, visited) {
         if (kind !== undefined && ts.isStringLiteral(kind)) return kind.text;
     }
     return undefined;
-}
-
-function validateRecordStructure(record) {
-    const fields = [
-        "symbol",
-        "kind",
-        "durability",
-        "ownerActor",
-        "source",
-        "codec",
-        "store",
-        "tests"
-    ];
-    if (JSON.stringify(Object.keys(record).sort()) !== JSON.stringify(fields.sort())) {
-        throw new TypeError(
-            `Durable record ${record.symbol ?? "<unknown>"} has missing or unknown fields`
-        );
-    }
-    if (
-        ![record.symbol, record.kind, record.source, record.codec].every(isNonEmptyString) ||
-        kinds.has(record.kind) ||
-        symbols.has(record.symbol)
-    ) {
-        throw new TypeError(
-            `Durable record ownership is duplicated or malformed for ${record.kind}`
-        );
-    }
-    if (
-        !Array.isArray(record.tests) ||
-        record.tests.length === 0 ||
-        new Set(record.tests).size !== record.tests.length ||
-        record.tests.some(
-            (selector) => !isNonEmptyString(selector) || !selector.includes(`[${record.kind}]`)
-        )
-    ) {
-        throw new TypeError(`Record ${record.kind} requires unique kind-bearing ownership tests`);
-    }
-    if (record.durability === "durable") {
-        if (!isNonEmptyString(record.ownerActor) || !isNonEmptyString(record.store)) {
-            throw new TypeError(`Durable record ${record.kind} requires one Actor and store`);
-        }
-    } else if (
-        record.durability !== "value" ||
-        record.ownerActor !== null ||
-        record.store !== null
-    ) {
-        throw new TypeError(`Value record ${record.kind} must not claim durable ownership`);
-    }
-    kinds.add(record.kind);
-    symbols.add(record.symbol);
 }
 
 function hasModifier(node, kind) {

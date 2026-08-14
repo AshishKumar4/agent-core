@@ -30,7 +30,14 @@ import {
 } from "../../src/facets";
 import { describe, expect, test } from "vitest";
 import { validateCompleteOwnership } from "../../scripts/quality/ownership.mjs";
-import { objectsAt, readArtifact, stringAt, stringsAt } from "../quality/artifacts";
+import { validateRecordOwnership } from "../../scripts/quality/record-ownership.mjs";
+import {
+    objectsAt,
+    readArtifact,
+    readArtifactSync,
+    stringAt,
+    stringsAt
+} from "../quality/artifacts";
 
 const profiles = [
     [FILESYSTEM_CONTRIBUTIONS, FILESYSTEM_OPERATIONS],
@@ -53,6 +60,50 @@ describe("Profile base conformance", () => {
         { tags: "p1" },
         async () => {
             await expect(validateCompleteOwnership()).resolves.toBeGreaterThan(200);
+        }
+    );
+
+    test(
+        "[C13-OWNERSHIP-SINGLE-OWNER] rejects a second durable plane for every registered record kind",
+        { tags: "p0" },
+        () => {
+            const records = registeredRecords();
+
+            expect(() => validateRecordOwnership(records)).not.toThrow();
+            for (const record of records) {
+                const duplicate = {
+                    ...record,
+                    symbol: `${stringAt(record, "symbol")}Mirror`,
+                    ownerActor: "SecondActor",
+                    store: "src/composition/second-plane.ts#SecondStore"
+                };
+                expect(() => validateRecordOwnership([...records, duplicate])).toThrow(
+                    `Durable record ownership is duplicated or malformed for ${stringAt(record, "kind")}`
+                );
+            }
+        }
+    );
+
+    test(
+        "[C13-OWNERSHIP-AUTHORITY-RECORDS] declares Binding, Grant, and ScopeEpoch only in the Tenant authority plane",
+        { tags: "p0" },
+        () => {
+            const authorityKinds = new Set([
+                "authority.binding",
+                "authority.grant",
+                "authority.scope-epoch"
+            ]);
+            const authorityRecords = registeredRecords().filter((record) =>
+                authorityKinds.has(stringAt(record, "kind"))
+            );
+
+            expect(authorityRecords).toHaveLength(authorityKinds.size);
+            for (const record of authorityRecords) {
+                expect(stringAt(record, "ownerActor")).toBe("tenant");
+                expect(stringAt(record, "store")).toBe(
+                    "src/authority/service.ts#AuthorityMutationStore"
+                );
+            }
         }
     );
 
@@ -131,3 +182,10 @@ describe("Profile base conformance", () => {
         }
     );
 });
+
+function registeredRecords() {
+    const index = readArtifactSync("artifacts/records/index.json");
+    return stringsAt(index, "fragments").flatMap((fragment) =>
+        objectsAt(readArtifactSync(`artifacts/records/${fragment}`), "records")
+    );
+}

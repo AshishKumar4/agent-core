@@ -21,14 +21,15 @@
       "owner": "W0",
       "specAnchor": "C13-OWNERSHIP-ACTOR-CONTRACT",
       "specTextSha256": "sha256:1365800e5691d2b92b3726bad008432e5a9f8fcdf6af6f416ef7a2160366a542",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "src/actors/actor.ts#Actor is the coordination unit and src/actors/fence.ts#ActorRecoveryState carries the recover-before-serve and stale-fence state; W0 must cite those symbols and add a test titled with [C13-OWNERSHIP-ACTOR-CONTRACT] covering command serialization, recovery before serving, the declared linearization point, and stale-fence rejection before this atom leaves planned"
-      ]
+      "sourceSymbols": ["src/actors/actor.ts#Actor", "src/actors/fence.ts#ActorRecoveryState"],
+      "testSelectors": [
+        "test/conformance/ownership.test.ts#Actor ownership contract [C13-OWNERSHIP-ACTOR-CONTRACT] memory serializes, recovers, linearizes, and fences one command stream",
+        "test/conformance/ownership.test.ts#Actor ownership contract [C13-OWNERSHIP-ACTOR-CONTRACT] sqlite serializes, recovers, linearizes, and fences one command stream"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-OWNERSHIP-AUTHORITY-RECORDS",
@@ -41,7 +42,8 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "src/authority/memory.ts#MemoryTenantControlStore holds the Tenant-owned canonical Binding records its own version-2 note describes, and src/authority/binding.ts scopes a Binding to its Tenant; W0 must cite those symbols and add a test titled with [C13-OWNERSHIP-AUTHORITY-RECORDS] showing the Binding change and its path-epoch advance commit in one Tenant-local transaction and that no other Actor holds a canonical or mirrored copy, before this atom leaves planned"
+        "Creating, replacing, and deactivating a Binding now advances its path epoch in the same Tenant-local transaction, with memory and SQLite success, idempotence, and rollback coverage; the record registry also declares Binding, Grant, and ScopeEpoch only in the Tenant authority store",
+        "The remaining evidence must discriminate against an undeclared Workspace or Run store persisting a canonical or mirrored Binding, Grant, or ScopeEpoch; rejecting a duplicate registry row does not detect an implementation that dual-writes without registering the second plane"
       ]
     },
     {
@@ -69,12 +71,10 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "Rule 1 is mechanically enforced and already tested, but the test is not citable: scripts/quality/records.mjs#validateRecordStructure gives every durable record kind exactly one ownerActor and one authoritative store and rejects a duplicate kind or symbol, and test/quality/protocols.test.ts \"rejects duplicate durable owners\" drives that rejection — that file runs in the governance lane (vitest.governance.config.mjs), and the ledger reads only reports/quality/tests/vitest.json and the two cloudflare lanes, so no selector for it exists",
-        "Closing rule 1 needs a record-registry validator a main-lane test can import, the shape scripts/quality/ownership.mjs#validateCompleteOwnership already has for C13-OWNERSHIP-MAP; records.mjs cannot be imported as it stands because it validates at module scope over module-level kind and symbol sets, so a second call in one process would report false duplicates",
-        "Rule 2's Workspace clause has no subject: nothing in src/workspaces or src/agents/runs holds an index over dedicated Runs, so the constraint to { runId, actor locator, pins, terminal outcome, settled } and the prohibition on replayable Run state cannot be shown either way",
-        "Rule 2's rebuildable-index clause is implemented and proved — src/facets/memory/facet.ts#InMemoryMemoryIndexBackend rebuilds a dropped index from canonical content in test/integration/cache-loss.test.ts — but that is the evidence C13-ADV-CACHE-LOSS cites, and this atom needs its own; ownersForPath puts that source in W8, and requireEvidenceOwner admits only W0 and W9 paths for a W0 atom, which is why every implementation symbol behind rules 1-4 (W1, W5, W7, W8) is uncitable here and only the checker scripts and src/composition remain",
-        "Rule 3 is vacuous rather than unmet, and should be evidenced as vacuous: no cache abstraction exists in the tree, the record registry's durability vocabulary is exactly durable and value, and the only derived structure is rule 2's memory index",
-        "Rule 4's never-dual-write is declaration-level only: the registry declares one authoritative store per record kind and the checker rejects a second row for that kind, but nothing catches code that writes a declared kind through another store"
+        "The importable record-ownership validator and its all-kind adversary prove that the declared registry cannot name a second owner for a durable kind, and the authority-state contract proves one derived cache can be dropped and rebuilt",
+        "Rule 2 still needs implementation-linked evidence for the constrained dedicated-Run index and for every other Actor retaining identifiers or rebuildable indexes rather than replayable canonical state",
+        "Rule 3 still needs a complete cache inventory proving every cache is derived, versioned, rebuildable, and treats a miss as ordinary; one authority-cache loss case is not the universal claim",
+        "Rule 4 still needs a discriminator for undeclared dual writes and evidence that cross-Actor reads use RPC or explicitly versioned snapshots; a unique registry declaration alone cannot prove either absence"
       ]
     }
   ]

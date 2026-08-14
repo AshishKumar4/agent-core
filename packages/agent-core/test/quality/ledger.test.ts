@@ -455,7 +455,7 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         expect(result.stderr).toContain("stale SPEC evidence");
     });
 
-    test("admits exclusive W9 composition sources for cross-context requirement evidence", async () => {
+    test("admits W9 composition and W0 cross-context requirement evidence", async () => {
         const fixture = await ledgerFixture();
         const seed = await readFixtureJson<ConformanceFragment>(
             resolve(fixture, "conformance/seed.json")
@@ -479,6 +479,19 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         result = runFixture(fixture);
         expect(result.status).toBe(1);
         expect(result.stderr).toContain("source is not owned by W2");
+
+        const qualityRequirement = seed.requirements.find(
+            (item) => item.id === "C13-OWNERSHIP-ACTOR-CONTRACT"
+        )!;
+        const qualityFixture = await ledgerFixture();
+        const qualitySelector =
+            "test/conformance/ownership.test.ts#Actor ownership contract [C13-OWNERSHIP-ACTOR-CONTRACT] memory serializes, recovers, linearizes, and fences one command stream";
+        markVerified(qualityRequirement, "src/actors/actor.ts#Actor", qualitySelector);
+        await addFragment(qualityFixture, "quality-infrastructure.json", "W0", qualityRequirement);
+        await writePassingSelectors(qualityFixture, [qualitySelector]);
+
+        result = runFixture(qualityFixture);
+        expect(result.status, result.stderr).toBe(0);
     });
 
     test("rejects stale source symbols and tests that did not execute", async () => {
