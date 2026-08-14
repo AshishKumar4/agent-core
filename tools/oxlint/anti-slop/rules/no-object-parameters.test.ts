@@ -9,7 +9,8 @@ tester.run("anti-slop/no-object-parameters", noObjectParametersRule, {
         "function save(value: User): void {}",
         "function identity<T extends object>(value: T): T { return value; }",
         "function save(value: object & User): void {}",
-        "function save(value: Record<string, object>): void {}"
+        "function save(value: Record<string, object>): void {}",
+        "type Hidden = object; function outer(): void { type Hidden = User; function inner(value: Hidden): void {} }"
     ],
     invalid: [
         { code: "function save(value: object): void {}", errors: 1 },
@@ -17,6 +18,10 @@ tester.run("anti-slop/no-object-parameters", noObjectParametersRule, {
         { code: "type Payload = object; function save(value: Payload): void {}", errors: 1 },
         {
             code: "type Identity<T> = T; function save(value: Identity<object>): void {}",
+            errors: 1
+        },
+        {
+            code: "function outer(): void { type Hidden = object; function inner(value: Hidden): void {} }",
             errors: 1
         }
     ]

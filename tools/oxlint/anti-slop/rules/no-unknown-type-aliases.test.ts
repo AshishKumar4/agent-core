@@ -27,6 +27,14 @@ tester.run("anti-slop/no-unknown-type-aliases", noUnknownTypeAliasesRule, {
         {
             code: "type Identity<T> = T; type Middle<T> = Identity<T>; type Hidden = Middle<unknown>;",
             errors: [{ messageId: "unknownAlias", data: { alias: "Hidden" } }]
+        },
+        {
+            code: "function outer(): void { type Hidden = unknown; const value: Hidden = input; }",
+            errors: [{ messageId: "unknownAlias", data: { alias: "Hidden" } }]
+        },
+        {
+            code: "type Safe = string; function outer(): void { type Hidden = Safe | unknown; function inner(): Hidden { return input; } }",
+            errors: [{ messageId: "unknownAlias", data: { alias: "Hidden" } }]
         }
     ]
 });

@@ -1,6 +1,6 @@
 import { defineRule } from "@oxlint/plugins";
 
-import { createTypeEnvironment, type TypeEnvironment } from "../shared/dictionary-types.ts";
+import { createLexicalTypeEnvironment } from "../shared/dictionary-types.ts";
 import { lexicalTypeParameterNames, resolvesToTopType } from "../shared/type-resolution.ts";
 
 import type { ESTree } from "@oxlint/plugins";
@@ -29,16 +29,15 @@ export const noUnknownReturnsRule = defineRule({
                 "This function exposes `unknown` to its caller. Parse the value at its boundary and return a named domain type."
         }
     },
-    createOnce(context) {
-        let environment: TypeEnvironment | null = null;
+    create(context) {
         const checkReturnType = (node: FunctionWithReturnType) => {
             const annotation = node.returnType;
-            if (annotation === null || annotation === undefined || environment === null) return;
+            if (annotation === null || annotation === undefined) return;
             if (
                 !resolvesToTopType(
                     annotation.typeAnnotation,
                     "unknown",
-                    environment,
+                    createLexicalTypeEnvironment(node),
                     lexicalTypeParameterNames(node),
                     asyncValueTypes
                 )
@@ -49,9 +48,6 @@ export const noUnknownReturnsRule = defineRule({
         };
 
         return {
-            Program(node) {
-                environment = createTypeEnvironment(node);
-            },
             ArrowFunctionExpression: checkReturnType,
             FunctionDeclaration: checkReturnType,
             FunctionExpression: checkReturnType,

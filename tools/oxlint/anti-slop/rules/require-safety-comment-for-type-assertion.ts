@@ -3,7 +3,10 @@ import { defineRule } from "@oxlint/plugins";
 import type { Comment, ESTree, SourceCode } from "@oxlint/plugins";
 
 type TypeAssertion = ESTree.TSAsExpression | ESTree.TSTypeAssertion;
-type SafetyComment = "empty" | "missing" | "present";
+type SafetyComment = "missing" | "placeholder" | "present";
+
+const obviousPlaceholder =
+    /^(?:as\s+above|same\s+(?:invariant|reason)|see\s+above|trust\s+me)[\p{P}\p{S}\s]*$/iu;
 
 const commentOwnerKinds = new Set([
     "ExpressionStatement",
@@ -26,7 +29,8 @@ function classifySafetyComment(comment: Comment | undefined): SafetyComment {
     if (comment === undefined) return "missing";
     const match = /\bSAFETY\s*:\s*(.*)/isu.exec(comment.value);
     if (match === null) return "missing";
-    return (match[1]?.trim().length ?? 0) > 0 ? "present" : "empty";
+    const reason = match[1]?.trim() ?? "";
+    return reason.length === 0 || obviousPlaceholder.test(reason) ? "placeholder" : "present";
 }
 
 function containingStatement(node: TypeAssertion): ESTree.Node {
@@ -90,7 +94,7 @@ export const requireSafetyCommentForTypeAssertionRule = defineRule({
             missingSafetyComment:
                 "This type assertion has no structurally bound `SAFETY:` rationale. Put one immediately before this assertion, or before a statement containing exactly one assertion.",
             placeholderSafetyComment:
-                "This type assertion has an empty `SAFETY:` rationale. State the invariant TypeScript cannot express."
+                "This type assertion has an empty or placeholder `SAFETY:` rationale. State the invariant TypeScript cannot express."
         }
     },
     create(context) {
@@ -101,7 +105,9 @@ export const requireSafetyCommentForTypeAssertionRule = defineRule({
             context.report({
                 node: assertion,
                 messageId:
-                    classification === "empty" ? "placeholderSafetyComment" : "missingSafetyComment"
+                    classification === "placeholder"
+                        ? "placeholderSafetyComment"
+                        : "missingSafetyComment"
             });
         };
 
@@ -113,7 +119,7 @@ export const requireSafetyCommentForTypeAssertionRule = defineRule({
 
             const inline = inlineSafetyComment(context.sourceCode, statement, assertion);
             if (inline !== "missing") {
-                if (inline === "empty") report(assertion, inline);
+                if (inline === "placeholder") report(assertion, inline);
                 return;
             }
             if (previousAssertions.length === 0) {

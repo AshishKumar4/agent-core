@@ -1,6 +1,6 @@
 import { defineRule } from "@oxlint/plugins";
 
-import { createTypeEnvironment } from "../shared/dictionary-types.ts";
+import { createLexicalTypeEnvironment } from "../shared/dictionary-types.ts";
 import { resolvesToTopType } from "../shared/type-resolution.ts";
 
 /** Ban named aliases that conceal TypeScript's unknown top type. */
@@ -18,23 +18,19 @@ export const noUnknownTypeAliasesRule = defineRule({
     },
     create(context) {
         return {
-            Program(node) {
-                const environment = createTypeEnvironment(node);
-                for (const alias of environment.aliases.values()) {
-                    const parameters = new Set(
-                        (alias.typeParameters?.params ?? []).map((parameter) => parameter.name.name)
-                    );
-                    if (
-                        !resolvesToTopType(alias.typeAnnotation, "unknown", environment, parameters)
-                    ) {
-                        continue;
-                    }
-                    context.report({
-                        node: alias.id,
-                        messageId: "unknownAlias",
-                        data: { alias: alias.id.name }
-                    });
+            TSTypeAliasDeclaration(alias) {
+                const environment = createLexicalTypeEnvironment(alias);
+                const parameters = new Set(
+                    (alias.typeParameters?.params ?? []).map((parameter) => parameter.name.name)
+                );
+                if (!resolvesToTopType(alias.typeAnnotation, "unknown", environment, parameters)) {
+                    return;
                 }
+                context.report({
+                    node: alias.id,
+                    messageId: "unknownAlias",
+                    data: { alias: alias.id.name }
+                });
             }
         };
     }

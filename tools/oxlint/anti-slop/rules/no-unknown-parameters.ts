@@ -1,6 +1,6 @@
 import { defineRule } from "@oxlint/plugins";
 
-import { createTypeEnvironment, type TypeEnvironment } from "../shared/dictionary-types.ts";
+import { createLexicalTypeEnvironment } from "../shared/dictionary-types.ts";
 import { resolvesToTopType } from "../shared/type-resolution.ts";
 
 import type { ESTree } from "@oxlint/plugins";
@@ -63,10 +63,9 @@ export const noUnknownParametersRule = defineRule({
                 "Parameter `{{parameter}}` leaves input unparsed. Accept a named domain type; run the expected schema or parser at the I/O boundary before calling this function."
         }
     },
-    createOnce(context) {
-        let environment: TypeEnvironment | null = null;
+    create(context) {
         const checkParameters = (node: ParameterOwner) => {
-            if (environment === null) return;
+            const environment = createLexicalTypeEnvironment(node);
             const narrowed = narrowedParameterName(node);
             for (const parameter of node.params) {
                 const annotation = parameterAnnotation(parameter);
@@ -88,9 +87,6 @@ export const noUnknownParametersRule = defineRule({
         };
 
         return {
-            Program(node) {
-                environment = createTypeEnvironment(node);
-            },
             ArrowFunctionExpression: checkParameters,
             FunctionDeclaration: checkParameters,
             FunctionExpression: checkParameters,

@@ -9,7 +9,8 @@ tester.run("anti-slop/no-unknown-returns", noUnknownReturnsRule, {
         "function load(): User { return user; }",
         "function identity<T>(value: T): T { return value; }",
         "function refined(): unknown & User { return user; }",
-        "function values(): unknown[] { return []; }"
+        "function values(): unknown[] { return []; }",
+        "type Hidden = unknown; function outer(): void { type Hidden = string; function inner(): Hidden { return 'ok'; } }"
     ],
     invalid: [
         { code: "function load(): unknown { return value; }", errors: 1 },
@@ -21,6 +22,10 @@ tester.run("anti-slop/no-unknown-returns", noUnknownReturnsRule, {
         },
         {
             code: "type Result<T> = Promise<T>; function load(): Result<unknown> { return value; }",
+            errors: 1
+        },
+        {
+            code: "function outer(): void { type Hidden = unknown; function inner(): Hidden { return value; } }",
             errors: 1
         }
     ]

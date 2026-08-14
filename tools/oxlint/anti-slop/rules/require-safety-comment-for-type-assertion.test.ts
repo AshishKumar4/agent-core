@@ -13,8 +13,7 @@ tester.run(
             "// SAFETY: parseUserId validated the identifier before branding it.\nconst id = value as UserId;",
             "const id = /* SAFETY: parseUserId validated the identifier before branding it. */ value as UserId;",
             "const first = /* SAFETY: parseUserId validated this identifier. */ one as UserId; const second = /* SAFETY: parseUserId validated this identifier. */ two as UserId;",
-            "// SAFETY: as above.\nconst id = value as UserId;",
-            "// SAFETY: trust me.\nconst id = value as UserId;",
+            "// SAFETY: as above, for the holder member validated by parseUserId.\nconst id = value as UserId;",
             "execute(/* SAFETY: parseUserId validated this identifier. */ value as UserId);",
             "function run(): void { /* SAFETY: parseUserId validated the identifier. */ execute(value as UserId); }"
         ],
@@ -44,6 +43,26 @@ tester.run(
             },
             {
                 code: "// SAFETY:\nconst id = value as UserId;",
+                errors: [{ messageId: "placeholderSafetyComment" }]
+            },
+            {
+                code: "// SAFETY: as above.\nconst id = value as UserId;",
+                errors: [{ messageId: "placeholderSafetyComment" }]
+            },
+            {
+                code: "// SAFETY: same invariant!\nconst id = value as UserId;",
+                errors: [{ messageId: "placeholderSafetyComment" }]
+            },
+            {
+                code: "// SAFETY: same reason...\nconst id = value as UserId;",
+                errors: [{ messageId: "placeholderSafetyComment" }]
+            },
+            {
+                code: "// SAFETY: see above;\nconst id = value as UserId;",
+                errors: [{ messageId: "placeholderSafetyComment" }]
+            },
+            {
+                code: "// SAFETY: trust me?!\nconst id = value as UserId;",
                 errors: [{ messageId: "placeholderSafetyComment" }]
             }
         ]

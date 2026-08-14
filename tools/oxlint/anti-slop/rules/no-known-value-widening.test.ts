@@ -9,7 +9,8 @@ tester.run("anti-slop/no-known-value-widening", noKnownValueWideningRule, {
         "const user: User = { id: 'a' };",
         "const users: Record<string, User> = {};",
         "const user = { id: 'a' } satisfies User;",
-        "function pass(value: unknown): unknown { return value; }"
+        "function pass(value: unknown): unknown { return value; }",
+        "type Top = unknown; function build(): void { type Top = User; const value: Top = { id: 'a' }; }"
     ],
     invalid: [
         { code: "const value: unknown = { id: 'a' };", errors: 1 },
@@ -18,6 +19,10 @@ tester.run("anti-slop/no-known-value-widening", noKnownValueWideningRule, {
         { code: "const value = { id: 'a' } as unknown;", errors: 1 },
         {
             code: "type Container<T> = Record<string, T>; const values: Container<User> = { a: user };",
+            errors: 1
+        },
+        {
+            code: "function build(): void { type Top = unknown; const value: Top = { id: 'a' }; }",
             errors: 1
         }
     ]

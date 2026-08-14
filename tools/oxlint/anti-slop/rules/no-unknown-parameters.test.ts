@@ -8,7 +8,8 @@ const error = { messageId: "unknownParameter" };
 tester.run("anti-slop/no-unknown-parameters", noUnknownParametersRule, {
     valid: [
         "function isString(value: unknown): value is string { return typeof value === 'string'; }",
-        "function assertString(value: unknown): asserts value is string { if (typeof value !== 'string') throw new TypeError(); }"
+        "function assertString(value: unknown): asserts value is string { if (typeof value !== 'string') throw new TypeError(); }",
+        "type Hidden = unknown; function outer(): void { type Hidden = string; function inner(value: Hidden): void {} }"
     ],
     invalid: [
         {
@@ -33,6 +34,10 @@ tester.run("anti-slop/no-unknown-parameters", noUnknownParametersRule, {
         },
         {
             code: "type Identity<T> = T; function pass(value: Identity<unknown>): void {}",
+            errors: [error]
+        },
+        {
+            code: "function outer(): void { type Hidden = unknown; function inner(value: Hidden): void {} }",
             errors: [error]
         }
     ]
