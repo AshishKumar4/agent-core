@@ -37,6 +37,7 @@ import { sqliteText } from "../../../src/substrates/sqlite/content";
 import { SqliteRunStorage, type SqliteStoredRunRecord } from "../../../src/substrates/sqlite/run";
 import { TransactionalSqlite, type SqliteRow, type SqliteValue } from "../../../src/substrates";
 import type { SynchronousResultGuard } from "../../../src/actors";
+import { violating } from "../../helpers/malformed";
 import { FileSqlite, TestSqlite } from "../../helpers/sqlite";
 import {
     TestEvidencePort,
@@ -346,8 +347,8 @@ describe("SQLite Run storage", () => {
             const malformed = [
                 row(""),
                 row("bad-revision", -1),
-                { ...row("bad-bytes"), bytes: "bad" as never },
-                { ...row("bad-kind"), kind: "unknown" as never }
+                violating(row("bad-bytes"), { bytes: "bad" }),
+                violating(row("bad-kind"), { kind: "unknown" })
             ];
             for (const record of malformed) {
                 expect(() => storage.transaction((tx) => storage.insert(tx, record))).toThrow(
@@ -777,6 +778,8 @@ function assertCorruptExecutionScope<Transaction>(
     ).toThrow(expect.objectContaining({ code: "turn.invalid-state" }));
 }
 
+type TurnInit = ConstructorParameters<typeof Turn>[0];
+
 function replaceRunningTurn<Transaction>(
     repository: RunRepository<Transaction>,
     transaction: Transaction,
@@ -787,30 +790,29 @@ function replaceRunningTurn<Transaction>(
         readonly checkpoint: RunCheckpointId;
     }>
 ): void {
-    repository.replaceTurn(
-        transaction,
-        turn.revision,
-        new Turn({
-            id: turn.id,
-            run: turn.run,
-            branch: turn.branch,
-            startHead: turn.startHead,
-            effectiveInput: replacement.effectiveInput ?? turn.effectiveInput,
-            pins: turn.pins,
-            placement: replacement.placement ?? turn.placement,
-            input: turn.input,
-            status: turn.status,
-            lease: turn.lease,
-            ...(replacement.checkpoint === undefined
-                ? turn.checkpoint === undefined
-                    ? {}
-                    : { checkpoint: turn.checkpoint }
-                : { checkpoint: replacement.checkpoint }),
-            ...(turn.result === undefined ? {} : { result: turn.result }),
-            ...(turn.cacheLineage === undefined ? {} : { cacheLineage: turn.cacheLineage }),
-            revision: turn.revision.next()
-        })
-    );
+    const required: TurnInit = {
+        id: turn.id,
+        run: turn.run,
+        branch: turn.branch,
+        startHead: turn.startHead,
+        effectiveInput: replacement.effectiveInput ?? turn.effectiveInput,
+        pins: turn.pins,
+        placement: replacement.placement ?? turn.placement,
+        input: turn.input,
+        status: turn.status,
+        lease: turn.lease,
+        revision: turn.revision.next()
+    };
+    const checkpoint = replacement.checkpoint ?? turn.checkpoint;
+    const checkpointed: TurnInit =
+        checkpoint === undefined ? required : { ...required, checkpoint };
+    const resulted: TurnInit =
+        turn.result === undefined ? checkpointed : { ...checkpointed, result: turn.result };
+    const lineaged: TurnInit =
+        turn.cacheLineage === undefined
+            ? resulted
+            : { ...resulted, cacheLineage: turn.cacheLineage };
+    repository.replaceTurn(transaction, turn.revision, new Turn(lineaged));
 }
 
 function resultCommit(id: string, token: LeaseToken, parent: RunCommitId = ids.root): RunCommit {
@@ -1034,7 +1036,9 @@ function assertRunPinsImmutabilityBehavior<Transaction>(
     agent.revision = agent.revision.next();
     expect(immutable.packages).toHaveLength(2);
     expect(immutable.agent.revision.value).toBe(3);
-    expect(() => (immutable.packages as typeof packages).pop()).toThrow(TypeError);
+    expect(() => {
+        Array.prototype.pop.call(immutable.packages);
+    }).toThrow(TypeError);
     expect(Object.isFrozen(immutable.agent)).toBe(true);
 
     const snapshot = new RunConfigurationSnapshot({ pins: immutable });
