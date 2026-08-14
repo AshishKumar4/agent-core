@@ -1,5 +1,6 @@
 import { AgentCoreError } from "../../errors";
 import type { SynchronousResultGuard } from "../../actors";
+import { isObjectRecord } from "../../core";
 import {
     RUN_RECORD_KINDS,
     type RunRecordKind,
@@ -208,10 +209,11 @@ function recordKey(kind: RunRecordKind, key: string): string {
 function parentKey(commit: string, ordinal: number): string {
     return `${commit}\u0000${ordinal}`;
 }
-function isThenable(value: unknown): value is PromiseLike<unknown> {
-    return (typeof value === "object" && value !== null) || typeof value === "function"
-        ? "then" in value
-        : false;
+function isThenable<Result>(value: Result): value is Result & PromiseLike<never> {
+    if (isObjectRecord(value)) {
+        return "then" in value;
+    }
+    return value instanceof Function && "then" in value;
 }
 
 function invalidStorage(message: string): AgentCoreError {

@@ -198,7 +198,7 @@ interface Completion {
 }
 
 interface SettledCompletion extends Completion {
-    readonly reject: (error: unknown) => void;
+    readonly reject: (cause: unknown) => void;
 }
 
 function deferred(): Completion {
@@ -211,7 +211,7 @@ function deferred(): Completion {
 
 function transitionDeferred(): SettledCompletion {
     let resolve!: () => void;
-    let reject!: (error: unknown) => void;
+    let reject!: (cause: unknown) => void;
     const promise = new Promise<void>((complete, fail) => {
         resolve = complete;
         reject = fail;

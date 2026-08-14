@@ -1,4 +1,4 @@
-import { isMember, isObjectRecord, type JsonValue } from "../../core";
+import { isMember, isObjectRecord, type JsonValue, type ObjectRecord } from "../../core";
 import type { PrincipalRef } from "../../identity";
 import { Command } from "../command";
 import {
@@ -205,6 +205,7 @@ export class DeviceBackend {
         await this.environment.assertUsable(input.deviceId);
         const admission = context.targetAdmission;
         if (
+            admission === undefined ||
             !isDeviceAdmission(admission) ||
             !trustedAdmissions.has(admission) ||
             !admission.deviceId.equals(input.deviceId)
@@ -683,12 +684,8 @@ export class MemoryDeviceConsentBackend<
     }
 }
 
-function isDeviceAdmission(value: unknown): value is DeviceAdmission {
-    return (
-        isObjectRecord(value) &&
-        value["deviceId"] instanceof DeviceId &&
-        isObjectRecord(value["agentId"])
-    );
+function isDeviceAdmission(value: ObjectRecord): value is ObjectRecord & DeviceAdmission {
+    return value["deviceId"] instanceof DeviceId && isObjectRecord(value["agentId"]);
 }
 
 export type DeviceErrorCode =

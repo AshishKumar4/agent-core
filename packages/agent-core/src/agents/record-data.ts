@@ -43,12 +43,17 @@ export function requireExactFields<Field extends string>(
     }
 }
 
+/** A JSON string is exactly the value that is its own string rendering. */
 export function isString(value: JsonValue | undefined): value is string {
-    return typeof value === "string";
+    return value === String(value);
 }
 
+// Number.isFinite is already the complete JSON-number check — it is false for every
+// non-number and every non-finite — but it carries no type predicate. This gives the
+// check the narrowing it lacks instead of pairing it with a `typeof` that no test
+// could ever reach.
 export function isNumber(value: JsonValue | undefined): value is number {
-    return typeof value === "number";
+    return Number.isFinite(value);
 }
 
 export function requireString(value: JsonValue | undefined, subject: string): string {
