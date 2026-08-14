@@ -54,15 +54,21 @@ describe("Run admission registry integrity", () => {
             }
         };
 
-        // SAFETY: RunObligation declares `kind` as a plain literal field, so a throwing getter
-        // is unreachable through the type. It proves the registry lets a non-TypeError fault
-        // from reading the discriminant escape rather than reclassifying it as invalid input.
         expect(() =>
-            registry.accepts({ run: ids.run, registryEpoch: 0, obligation: poisoned as never })
+            registry.accepts({
+                run: ids.run,
+                registryEpoch: 0,
+                // @ts-expect-error Runtime probing must preserve a hostile getter's original error.
+                obligation: poisoned
+            })
         ).toThrow(RangeError);
-        // SAFETY: as above, on the completion path.
         expect(() =>
-            registry.complete({ run: ids.run, registryEpoch: 0, obligation: poisoned as never })
+            registry.complete({
+                run: ids.run,
+                registryEpoch: 0,
+                // @ts-expect-error Runtime completion must preserve a hostile getter's original error.
+                obligation: poisoned
+            })
         ).toThrow(RangeError);
     });
 
@@ -70,12 +76,9 @@ describe("Run admission registry integrity", () => {
         expectTypeError(
             "approval class",
             () =>
-                // SAFETY: the approval obligation types `approval` as ApprovalId. Only a
-                // foreign ID class reaches the exact-identity check that rejects a
-                // structurally identical identifier minted for another subject.
                 RunAdmissionRegistry.initial(ids.run).reserve({
                     kind: "approval",
-                    approval: ids.run as never
+                    approval: ids.run
                 }),
             "Approval obligation requires an exact canonical ID"
         );
@@ -84,10 +87,8 @@ describe("Run admission registry integrity", () => {
     test("rejects unknown obligation kinds in canonical copies", { tags: "p0" }, () => {
         expectTypeError(
             "unknown kind",
-            // SAFETY: RunObligation is a closed discriminated union, so an unknown kind cannot
-            // be written through it. The forged kind proves the copy validates the discriminant
-            // rather than falling through to a default branch.
-            () => copyRunObligation({ kind: "unknown" } as never),
+            // @ts-expect-error Runtime copying must reject an unknown closed-union discriminator.
+            () => copyRunObligation({ kind: "unknown" }),
             "Run obligation kind is invalid"
         );
     });
@@ -100,10 +101,8 @@ describe("Run admission registry integrity", () => {
                     run: ids.run,
                     epoch: 0,
                     accepting: true,
-                    // SAFETY: RunAdmissionRegistryInit types both lists as arrays, so a null
-                    // list is unreachable through the init. It proves each list is checked on
-                    // its own, and named on its own, rather than by one shared guard.
-                    reserved: null as never,
+                    // @ts-expect-error Runtime validation must reject a non-array reserved list.
+                    reserved: null,
                     completed: []
                 }),
             "Reserved Run obligations must be an array"
@@ -116,8 +115,8 @@ describe("Run admission registry integrity", () => {
                     epoch: 0,
                     accepting: true,
                     reserved: [],
-                    // SAFETY: as above, for the completed list.
-                    completed: null as never
+                    // @ts-expect-error Runtime validation must reject a non-array completed list.
+                    completed: null
                 }),
             "Completed Run obligations must be an array"
         );
@@ -145,7 +144,7 @@ describe("Run admission registry integrity", () => {
 
         for (const obligation of [{ kind: "approval", approval } as const, item]) {
             const found = registry.reservation(obligation);
-            if (found === undefined) throw new Error(`${obligation.kind} must resolve`);
+            if (found === undefined) throw new TypeError(`${obligation.kind} must resolve`);
             expect(runObligationKey(found.obligation)).toBe(runObligationKey(obligation));
             expect(found.run).toEqual(ids.run);
             expect(found.registryEpoch).toBe(registry.epoch);
@@ -159,7 +158,7 @@ describe("Run admission registry integrity", () => {
         const closed = registry.close();
         expect(closed.epoch).toBe(registry.epoch + 1);
         const afterClose = closed.reservation(item);
-        if (afterClose === undefined) throw new Error("a closed registry still resolves");
+        if (afterClose === undefined) throw new TypeError("a closed registry still resolves");
         expect(afterClose.registryEpoch).toBe(registry.epoch);
         expect(closed.complete(afterClose).completed.map(runObligationKey)).toEqual([
             runObligationKey(item)
@@ -310,7 +309,10 @@ describe("settlement obligation integrity", () => {
     test("canonicalizes obligations by identity key", { tags: "p0" }, () => {
         const obligation = new SettlementObligation({
             registryEpoch: 1,
-            obligations: [{ kind: "route", reservation: route }, { kind: "approval", approval }]
+            obligations: [
+                { kind: "route", reservation: route },
+                { kind: "approval", approval }
+            ]
         });
 
         expect(obligation.obligations.map((value) => value.kind)).toEqual(["approval", "route"]);
@@ -483,42 +485,39 @@ function cancellationInit(): ForcedTurnCancellationInit {
 
 describe("forced Turn cancellation integrity", () => {
     test("requires each identifier to use its exact context class", { tags: "p0" }, () => {
-        // SAFETY: ForcedTurnCancellationInit types each identifier with its own class, so a
-        // cross-context identifier is unreachable through the init. Forging one proves the
-        // record checks the exact class of every field instead of accepting any ID-shaped value.
         const cases = [
-            { label: "run", init: { ...cancellationInit(), run: ids.turn as never } },
+            { label: "run", init: { ...cancellationInit(), run: ids.turn } },
             {
                 label: "terminalTurn",
-                init: { ...cancellationInit(), terminalTurn: ids.run as never }
+                init: { ...cancellationInit(), terminalTurn: ids.run }
             },
-            { label: "turn", init: { ...cancellationInit(), turn: ids.run as never } },
+            { label: "turn", init: { ...cancellationInit(), turn: ids.run } },
             {
                 label: "controlReceipt",
                 init: {
                     ...cancellationInit(),
-                    controlReceipt: new AuditRecordId("asm-wrong-receipt") as never
+                    controlReceipt: new AuditRecordId("asm-wrong-receipt")
                 }
             },
             {
                 label: "controlAudit",
                 init: {
                     ...cancellationInit(),
-                    controlAudit: new ReceiptId("asm-wrong-audit") as never
+                    controlAudit: new ReceiptId("asm-wrong-audit")
                 }
             },
             {
                 label: "cancellationEvent",
                 init: {
                     ...cancellationInit(),
-                    cancellationEvent: new AuditRecordId("asm-wrong-event") as never
+                    cancellationEvent: new AuditRecordId("asm-wrong-event")
                 }
             },
             {
                 label: "cancellationAudit",
                 init: {
                     ...cancellationInit(),
-                    cancellationAudit: new EventId("asm-wrong-cancellation-audit") as never
+                    cancellationAudit: new EventId("asm-wrong-cancellation-audit")
                 }
             }
         ] as const;

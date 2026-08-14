@@ -64,7 +64,11 @@ function attempted(
 
 function frontierKeys(value: ReturnType<typeof harness>): readonly string[] {
     return value.repository
-        .transaction((tx) => value.repository.loadAdmission(tx, ids.run)!.frontier())
+        .transaction((tx) => {
+            const admission = value.repository.loadAdmission(tx, ids.run);
+            if (admission === undefined) throw new TypeError("Expected Run admission registry");
+            return admission.frontier();
+        })
         .map(runObligationKey);
 }
 
@@ -76,12 +80,7 @@ function expectTypeError(label: string, operation: () => void, message: string):
     expect(thrownBy(TypeError, operation, label).message, label).toBe(message);
 }
 
-function treeMessage(
-    id: string,
-    parent: RunCommitId,
-    token: LeaseToken,
-    tree?: string
-): RunCommit {
+function treeMessage(id: string, parent: RunCommitId, token: LeaseToken, tree?: string): RunCommit {
     const init: Assembled<RunCommitInit> = {
         id: new RunCommitId(id),
         run: ids.run,
@@ -152,10 +151,13 @@ describe("Run acceptance criteria", () => {
                     value.repository.loadAcceptanceCriterion(tx, firstId)
                 )
             ).toEqual(criterion(firstId));
+            const firstObligation = obligations[0];
+            if (firstObligation === undefined)
+                throw new TypeError("Expected acceptance obligation");
             // The generic obligation paths serve every kind uniformly, so acceptance has to
             // be carved out of both: a uniform completion would discharge a criterion with
             // no verdict at all and make "completes exactly when" false.
-            expect(() => value.runtime.reserveRunObligation(ids.run, obligations[0]!)).toThrow(
+            expect(() => value.runtime.reserveRunObligation(ids.run, firstObligation)).toThrow(
                 expect.objectContaining({
                     code: "run.invalid-state",
                     message: "Acceptance criteria are reserved when the Run declares them at open"
@@ -165,7 +167,7 @@ describe("Run acceptance criteria", () => {
                 value.runtime.completeRunObligation({
                     run: ids.run,
                     registryEpoch: 0,
-                    obligation: obligations[0]!
+                    obligation: firstObligation
                 })
             ).toThrow(
                 expect.objectContaining({
@@ -389,9 +391,11 @@ describe("Run acceptance criteria", () => {
             const snapshot = value.runtime.terminalizeRun({
                 run: ids.run,
                 turn: ids.turn,
-                expectedRunRevision: value.repository.transaction(
-                    (tx) => value.repository.loadRun(tx, ids.run)!.revision
-                ),
+                expectedRunRevision: value.repository.transaction((tx) => {
+                    const run = value.repository.loadRun(tx, ids.run);
+                    if (run === undefined) throw new TypeError("Expected active Run");
+                    return run.revision;
+                }),
                 expectedTurnRevision: value.running.revision,
                 expectedBranchRevision: new Revision(0),
                 token: value.token,
@@ -557,42 +561,40 @@ describe("Run acceptance criteria", () => {
             expect(decodedVerdict).toEqual(recorded);
             expect(Object.isFrozen(decodedVerdict)).toBe(true);
 
-            // SAFETY: every acceptance record types its identifiers with their own classes —
-            // AcceptanceId, OperationId, Digest, ReceiptId. Each forged value below is
-            // unreachable through the init, and reaches the exact-context-class check that
-            // rejects a structurally identical identifier minted for another subject.
-            expect(() => new AcceptanceCriterion({ id: ids.run as never, operation })).toThrow(
+            expect(() => new AcceptanceCriterion({ id: ids.run, operation })).toThrow(
                 /exact context classes/
             );
-            // SAFETY: as above.
             expect(
-                () => new AcceptanceCriterion({ id: firstId, operation: ids.run as never })
+                () =>
+                    new AcceptanceCriterion({
+                        id: firstId,
+                        // @ts-expect-error Runtime validation must reject the wrong operation identifier class.
+                        operation: ids.run
+                    })
             ).toThrow(/exact context classes/);
-            // SAFETY: as above.
             expect(
                 () =>
                     new AcceptanceVerdict({
-                        acceptance: ids.run as never,
+                        acceptance: ids.run,
                         subject: digest("e"),
                         receipt: new ReceiptId("codec-receipt")
                     })
             ).toThrow(/exact context classes/);
-            // SAFETY: as above.
             expect(
                 () =>
                     new AcceptanceVerdict({
                         acceptance: firstId,
-                        subject: content("e") as never,
+                        // @ts-expect-error Runtime validation must reject ContentRef as Digest evidence.
+                        subject: content("e"),
                         receipt: new ReceiptId("codec-receipt")
                     })
             ).toThrow(/exact context classes/);
-            // SAFETY: as above.
             expect(
                 () =>
                     new AcceptanceVerdict({
                         acceptance: firstId,
                         subject: digest("e"),
-                        receipt: ids.run as never
+                        receipt: ids.run
                     })
             ).toThrow(/exact context classes/);
             expect(() => AcceptanceCriterion.fromData({ id: firstId.value })).toThrow(
@@ -630,10 +632,9 @@ describe("Run acceptance criteria", () => {
                 })
             ).toThrow(/missing or unknown fields/);
             expect(() =>
-                // SAFETY: as above, for the acceptance obligation's own identifier.
                 RunAdmissionRegistry.initial(ids.run).reserve({
                     kind: "acceptance",
-                    acceptance: ids.run as never
+                    acceptance: ids.run
                 })
             ).toThrow(/exact canonical ID/);
         }
