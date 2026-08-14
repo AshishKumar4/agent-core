@@ -125,16 +125,18 @@ describe("MemoryIdentityRepository", () => {
         const snapshot = identitySnapshot();
         expect(
             () =>
+                // @ts-expect-error Runtime snapshot validation covers missing version evidence.
                 new MemoryIdentityRepository({
                     records: snapshot.records
-                } as unknown as MemoryIdentitySnapshot)
+                })
         ).toThrow(/snapshot is malformed/);
         expect(
             () =>
                 new MemoryIdentityRepository({
                     ...snapshot,
+                    // @ts-expect-error Runtime snapshot validation covers unknown top-level fields.
                     extra: true
-                } as unknown as MemoryIdentitySnapshot)
+                })
         ).toThrow(/snapshot is malformed/);
         expect(
             () =>

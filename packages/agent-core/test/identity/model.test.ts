@@ -1,6 +1,14 @@
 import { describe, expect, test } from "vitest";
 import { AgentCoreError } from "../../src/errors";
-import { Revision, decodeCanonicalJson, encodeCanonicalJson, type JsonValue } from "../../src/core";
+import {
+    Revision,
+    decodeCanonicalJson,
+    encodeCanonicalJson,
+    isJsonObject,
+    type JsonObject,
+    type JsonValue,
+    type RecordVersion
+} from "../../src/core";
 import { CapabilitySpec, type Impact } from "../../src/facets";
 import {
     BUILT_IN_ROLES,
@@ -38,70 +46,92 @@ const teamId = new TeamId("team-a");
 const projectId = new ProjectId("project-a");
 const workspaceId = new WorkspaceId("workspace-a");
 
+type IdentityRecord = Principal | Tenant | Team | Project | Role | Membership;
+
+interface IdentityCodecCase {
+    readonly name: string;
+    readonly version: RecordVersion;
+    encode(): Uint8Array;
+    decode(bytes: Uint8Array): IdentityRecord;
+    reencode(bytes: Uint8Array): Uint8Array;
+}
+
+function codecCase<Value extends IdentityRecord>(
+    name: string,
+    codec: {
+        readonly version: RecordVersion;
+        encode(value: Value): Uint8Array;
+        decode(bytes: Uint8Array): Value;
+    },
+    value: Value
+): IdentityCodecCase {
+    return {
+        name,
+        version: codec.version,
+        encode: () => codec.encode(value),
+        decode: (bytes) => codec.decode(bytes),
+        reencode: (bytes) => codec.encode(codec.decode(bytes))
+    };
+}
+
 describe("identity codecs", () => {
-    const records = [
-        {
-            name: "Principal",
-            codec: Principal.codec,
-            value: new Principal(principalId, "user", "active")
-        },
-        {
-            name: "Tenant",
-            codec: Tenant.codec,
-            value: new Tenant(tenantId, "organization", "active", new Revision(3))
-        },
-        {
-            name: "Team",
-            codec: Team.codec,
-            value: new Team(teamId, tenantId, "Operators", [principalId], new Revision(4))
-        },
-        {
-            name: "Project",
-            codec: Project.codec,
-            value: new Project(projectId, tenantId, "Runtime", new Revision(5))
-        },
-        {
-            name: "Role",
-            codec: Role.codec,
-            value: new Role(new RoleName("auditor"), [
+    const membershipRecord = new Membership(
+        new MembershipId("membership-a"),
+        ScopeRef.workspace(tenantId, projectId, workspaceId),
+        SubjectRef.team(teamId),
+        new RoleName("editor"),
+        "active",
+        new Revision(6)
+    );
+    const records: readonly IdentityCodecCase[] = [
+        codecCase("Principal", Principal.codec, new Principal(principalId, "user", "active")),
+        codecCase(
+            "Tenant",
+            Tenant.codec,
+            new Tenant(tenantId, "organization", "active", new Revision(3))
+        ),
+        codecCase(
+            "Team",
+            Team.codec,
+            new Team(teamId, tenantId, "Operators", [principalId], new Revision(4))
+        ),
+        codecCase(
+            "Project",
+            Project.codec,
+            new Project(projectId, tenantId, "Runtime", new Revision(5))
+        ),
+        codecCase(
+            "Role",
+            Role.codec,
+            new Role(new RoleName("auditor"), [
                 new RoleRule("allow", capability("logs.*", ["observe"]))
             ])
-        },
-        {
-            name: "Membership",
-            codec: Membership.codec,
-            value: new Membership(
-                new MembershipId("membership-a"),
-                ScopeRef.workspace(tenantId, projectId, workspaceId),
-                SubjectRef.team(teamId),
-                new RoleName("editor"),
-                "active",
-                new Revision(6)
-            )
-        }
-    ] as const;
+        ),
+        codecCase("Membership", Membership.codec, membershipRecord)
+    ];
 
     test.each(records)(
         "[identity.principal] [identity.tenant] [identity.team] [identity.project] [identity.role] [identity.membership] round-trips frozen $name records",
         { tags: "p1" },
-        ({ codec, value }) => {
-            const decoded = codec.decode(codec.encode(value as never));
+        ({ decode, encode, reencode }) => {
+            const encoded = encode();
+            const decoded = decode(encoded);
 
             expect(Object.isFrozen(decoded)).toBe(true);
-            expect(codec.encode(decoded as never)).toEqual(codec.encode(value as never));
+            expect(reencode(encoded)).toEqual(encoded);
         }
     );
 
     test.each(records)(
         "rejects unknown $name payload fields",
         { tags: "p1" },
-        ({ codec, value }) => {
-            const envelope = requireObject(decodeCanonicalJson(codec.encode(value as never)));
-            const payload = requireObject(envelope["payload"]!);
+        ({ decode, encode }) => {
+            const envelope = requireObject(decodeCanonicalJson(encode()));
+            const payload = requireObject(envelope["payload"]);
 
             expectCodecError(
                 () =>
-                    codec.decode(
+                    decode(
                         encodeCanonicalJson({
                             ...envelope,
                             payload: { ...payload, unexpected: true }
@@ -112,27 +142,30 @@ describe("identity codecs", () => {
         }
     );
 
-    test.each(records)("rejects unknown $name codec majors", { tags: "p2" }, ({ codec, value }) => {
-        const envelope = requireObject(decodeCanonicalJson(codec.encode(value as never)));
+    test.each(records)(
+        "rejects unknown $name codec majors",
+        { tags: "p2" },
+        ({ decode, encode, version }) => {
+            const envelope = requireObject(decodeCanonicalJson(encode()));
 
-        expectCodecError(
-            () =>
-                codec.decode(
-                    encodeCanonicalJson({
-                        ...envelope,
-                        version: { major: codec.version.major + 1, minor: 0 }
-                    })
-                ),
-            "codec.unknown-major"
-        );
-    });
+            expectCodecError(
+                () =>
+                    decode(
+                        encodeCanonicalJson({
+                            ...envelope,
+                            version: { major: version.major + 1, minor: 0 }
+                        })
+                    ),
+                "codec.unknown-major"
+            );
+        }
+    );
 
     test("keeps revisions explicit and immutable", { tags: "p0" }, () => {
-        const membership = records[5].value;
-        const suspended = membership.suspend();
+        const suspended = membershipRecord.suspend();
         const revoked = suspended.revoke();
 
-        expect(membership.state).toBe("active");
+        expect(membershipRecord.state).toBe("active");
         expect(suspended.state).toBe("suspended");
         expect(suspended.revision.value).toBe(7);
         expect(revoked.revision.value).toBe(8);
@@ -288,25 +321,29 @@ function impacts(role: Role): readonly JsonValue[] {
 }
 
 function capability(facetPattern: string, roleImpacts: readonly Impact[]): CapabilitySpec {
+    const first = roleImpacts[0];
+    if (first === undefined) throw new TypeError("Expected at least one Role impact");
     return new CapabilitySpec({
         facetPattern,
-        impacts: roleImpacts as [Impact, ...Impact[]]
+        impacts: [first, ...roleImpacts.slice(1)]
     });
 }
 
-function requireObject(value: JsonValue): { readonly [key: string]: JsonValue } {
-    if (value === null || Array.isArray(value) || typeof value !== "object") {
+function requireObject(value: JsonValue | undefined): JsonObject {
+    if (!isJsonObject(value)) {
         throw new TypeError("Expected object");
     }
-    return value as { readonly [key: string]: JsonValue };
+    return value;
 }
 
-function expectCodecError(action: () => unknown, code: AgentCoreError["code"]): void {
+function expectCodecError(action: () => void, code: AgentCoreError["code"]): void {
     try {
         action();
-        throw new Error("Expected codec error");
     } catch (error) {
         expect(error).toBeInstanceOf(AgentCoreError);
+        if (!(error instanceof AgentCoreError)) throw error;
         expect(error).toMatchObject({ code });
+        return;
     }
+    throw new TypeError("Expected codec error");
 }

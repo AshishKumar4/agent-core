@@ -5,6 +5,8 @@ import {
     SecretRef,
     decodeCanonicalJson,
     encodeCanonicalJson,
+    isJsonObject,
+    type JsonObject,
     type JsonValue
 } from "../../src/core";
 import { AgentCoreError, type AgentCoreErrorCode } from "../../src/errors";
@@ -39,13 +41,12 @@ import {
     encodeSubjectRef,
     findBuiltInRole,
     type GuestTrustVerifier,
-    type MemoryIdentitySnapshot,
     type StoredIdentityRecord
 } from "../../src/identity";
 import { GuestVerification } from "../../src/identity/guest-verification";
 import { mintGuestVerification } from "../../src/identity/internal";
 
-type IdentityPayload = { readonly [key: string]: JsonValue };
+type IdentityPayload = JsonObject;
 
 const tenantId = new TenantId("gate-tenant");
 const homeTenant = new TenantId("gate-home");
@@ -158,7 +159,14 @@ describe("memory identity repository snapshots", () => {
             Object.assign(() => undefined, { version: 1, records: [] })
         ];
         for (const snapshot of snapshots) {
-            expectIdentityError(() => repositoryOf(snapshot), "codec.invalid", malformed);
+            expectIdentityError(
+                () => {
+                    // @ts-expect-error Runtime callers can supply malformed snapshot roots.
+                    new MemoryIdentityRepository(snapshot);
+                },
+                "codec.invalid",
+                malformed
+            );
         }
     });
 
@@ -179,14 +187,20 @@ describe("memory identity repository snapshots", () => {
         ];
         for (const record of records) {
             expectIdentityError(
-                () => repositoryOf({ version: 1, records: [record] }),
+                () => {
+                    // @ts-expect-error Runtime snapshots can contain malformed records.
+                    new MemoryIdentityRepository({ version: 1, records: [record] });
+                },
                 "codec.invalid",
                 malformed
             );
         }
         expectIdentityError(
             () =>
-                repositoryOf({ version: 1, records: [{ kind: "principal", id: "other", bytes }] }),
+                new MemoryIdentityRepository({
+                    version: 1,
+                    records: [{ kind: "principal", id: "other", bytes }]
+                }),
             "codec.invalid",
             "Stored identity key does not match its codec record"
         );
@@ -304,7 +318,12 @@ describe("guest trust lifecycle gates", () => {
             },
             key: new SecretRef("tenant", "oidc", "guest-key")
         };
-        expect(expectThrown(() => trust.rotate(failing))).toBe(probe);
+        try {
+            trust.rotate(failing);
+            throw new TypeError("Expected verifier failure");
+        } catch (error) {
+            expect(error).toBe(probe);
+        }
         expectIdentityError(
             () => trust.rotate({ kind: "callback", endpoint: "guest.example/callback" }),
             "protocol.invalid-state",
@@ -399,26 +418,55 @@ describe("guest verification gates", () => {
 
     test("gates guest verification instants at their exact boundaries", { tags: "p0" }, () => {
         expectTypeError(
-            () => mintVerification(GuestVerificationScheme.callback, undefined, new Date(Number.NaN), new Date(200)),
+            () =>
+                mintVerification(
+                    GuestVerificationScheme.callback,
+                    undefined,
+                    new Date(Number.NaN),
+                    new Date(200)
+                ),
             "Guest verification time is invalid"
         );
         expectTypeError(
-            () => mintVerification(GuestVerificationScheme.callback, undefined, new Date(-1), new Date(200)),
+            () =>
+                mintVerification(
+                    GuestVerificationScheme.callback,
+                    undefined,
+                    new Date(-1),
+                    new Date(200)
+                ),
             "Guest verification time is invalid"
         );
         expectTypeError(
-            () => mintVerification(GuestVerificationScheme.callback, undefined, new Date(100), new Date(Number.NaN)),
+            () =>
+                mintVerification(
+                    GuestVerificationScheme.callback,
+                    undefined,
+                    new Date(100),
+                    new Date(Number.NaN)
+                ),
             "Guest verification expiry is invalid"
         );
         expectTypeError(
-            () => mintVerification(GuestVerificationScheme.callback, undefined, new Date(100), new Date(100)),
+            () =>
+                mintVerification(
+                    GuestVerificationScheme.callback,
+                    undefined,
+                    new Date(100),
+                    new Date(100)
+                ),
             "Guest verification must expire after verification"
         );
         expectTypeError(
             () => mintVerification(GuestVerificationScheme.handshake),
             "Guest verification is never minted via the handshake scheme"
         );
-        const epoch = mintVerification(GuestVerificationScheme.token, undefined, new Date(0), new Date(1));
+        const epoch = mintVerification(
+            GuestVerificationScheme.token,
+            undefined,
+            new Date(0),
+            new Date(1)
+        );
         expect(epoch.verifiedAt.getTime()).toBe(0);
         expect(epoch.expiresAt.getTime()).toBe(1);
     });
@@ -528,7 +576,7 @@ describe("guest verification gates", () => {
 
 describe("identity identifier vocabulary", () => {
     test("names every identity identifier in its length failure", { tags: "p2" }, () => {
-        const constructions: readonly (readonly [() => unknown, string])[] = [
+        const constructions: readonly (readonly [() => void, string])[] = [
             [() => new PrincipalId(""), "Principal ID"],
             [() => new TeamId(""), "Team ID"],
             [() => new TenantId(""), "Tenant ID"],
@@ -612,7 +660,9 @@ describe("identity subject references", () => {
         expect(GuestVerificationScheme.from("callback")).toBe(GuestVerificationScheme.callback);
         expect(GuestVerificationScheme.from("handshake")).toBe(GuestVerificationScheme.handshake);
         expectTypeError(
-            () => GuestVerificationScheme.from("bogus" as never),
+            () =>
+                // @ts-expect-error Runtime subject records can contain an unknown scheme.
+                GuestVerificationScheme.from("bogus"),
             "Guest verification scheme is invalid"
         );
     });
@@ -660,11 +710,15 @@ describe("identity record vocabularies", () => {
             expect(Principal.decode(Principal.encode(principal)).kind).toBe(expected);
         }
         expectTypeError(
-            () => new Principal(principalId, "bogus" as never, "active"),
+            () =>
+                // @ts-expect-error Runtime records can contain an unknown Principal kind.
+                new Principal(principalId, "bogus", "active"),
             "Principal kind is invalid"
         );
         expectTypeError(
-            () => new Principal(principalId, "user", "bogus" as never),
+            () =>
+                // @ts-expect-error Runtime records can contain an unknown Principal status.
+                new Principal(principalId, "user", "bogus"),
             "Principal status is invalid"
         );
         expect(new Tenant(tenantId, "personal", "active", Revision.initial()).acceptsMutation).toBe(
@@ -677,7 +731,9 @@ describe("identity record vocabularies", () => {
             "deleted"
         );
         expectTypeError(
-            () => new Tenant(tenantId, "bogus" as never, "active", Revision.initial()),
+            () =>
+                // @ts-expect-error Runtime records can contain an unknown Tenant kind.
+                new Tenant(tenantId, "bogus", "active", Revision.initial()),
             "Tenant kind is invalid"
         );
     });
@@ -687,7 +743,9 @@ describe("identity record vocabularies", () => {
         expect(active.revise("active")).toBe(active);
         expect(active.revise("suspended").authorizationRevision.value).toBe(1);
         expectIdentityError(
-            () => active.revise("bogus" as never),
+            () =>
+                // @ts-expect-error Runtime transitions can contain an unknown Tenant status.
+                active.revise("bogus"),
             "protocol.invalid-state",
             "Tenant status is invalid"
         );
@@ -913,7 +971,10 @@ describe("identity membership gates", () => {
                     readerRole,
                     "active",
                     Revision.initial(),
-                    mintVerification(GuestVerificationScheme.callback, new PrincipalRef(homeTenant, principalId))
+                    mintVerification(
+                        GuestVerificationScheme.callback,
+                        new PrincipalRef(homeTenant, principalId)
+                    )
                 ),
             "Membership guest verification does not match its subject"
         );
@@ -947,7 +1008,10 @@ describe("identity membership gates", () => {
         expectIdentityError(
             () =>
                 foreignMembership("gate-foreign").withGuestVerification(
-                    mintVerification(GuestVerificationScheme.callback, new PrincipalRef(homeTenant, principalId))
+                    mintVerification(
+                        GuestVerificationScheme.callback,
+                        new PrincipalRef(homeTenant, principalId)
+                    )
                 ),
             "authority.denied",
             denial
@@ -963,7 +1027,9 @@ describe("identity membership gates", () => {
         expect(member.suspend().state).toBe("suspended");
         expect(member.revoke().state).toBe("revoked");
         expectIdentityError(
-            () => member.revise(member.role, "bogus" as never),
+            () =>
+                // @ts-expect-error Runtime transitions can contain an unknown Membership state.
+                member.revise(member.role, "bogus"),
             "protocol.invalid-state",
             "Membership state is invalid"
         );
@@ -1051,10 +1117,6 @@ function capability(): CapabilitySpec {
     return new CapabilitySpec({ facetPattern: "*", impacts: ["observe"] });
 }
 
-function repositoryOf(snapshot: unknown): MemoryIdentityRepository {
-    return new MemoryIdentityRepository(snapshot as MemoryIdentitySnapshot);
-}
-
 function repayload<Value>(
     codec: { encode(value: Value): Uint8Array },
     value: Value,
@@ -1067,12 +1129,6 @@ function repayload<Value>(
     });
 }
 
-function isJsonObject(value: JsonValue | undefined): value is IdentityPayload {
-    return (
-        value !== null && value !== undefined && typeof value === "object" && !Array.isArray(value)
-    );
-}
-
 function requireJsonObject(value: JsonValue | undefined): IdentityPayload {
     if (!isJsonObject(value)) {
         throw new TypeError("Expected a canonical JSON object");
@@ -1080,28 +1136,27 @@ function requireJsonObject(value: JsonValue | undefined): IdentityPayload {
     return value;
 }
 
-function expectThrown(action: () => unknown): unknown {
+function expectTypeError(action: () => void, message: string): void {
     try {
         action();
     } catch (error) {
-        return error;
+        expect(error).toBeInstanceOf(TypeError);
+        if (!(error instanceof TypeError)) throw error;
+        expect(error.message).toBe(message);
+        return;
     }
-    throw new Error("Expected the action to throw");
+    throw new TypeError("Expected the action to throw");
 }
 
-function expectTypeError(action: () => unknown, message: string): void {
-    const error = expectThrown(action);
-    expect(error).toBeInstanceOf(TypeError);
-    expect(error).toHaveProperty("message", message);
-}
-
-function expectIdentityError(
-    action: () => unknown,
-    code: AgentCoreErrorCode,
-    message: string
-): void {
-    const error = expectThrown(action);
-    expect(error).toBeInstanceOf(AgentCoreError);
-    expect(error).toHaveProperty("code", code);
-    expect(error).toHaveProperty("message", message);
+function expectIdentityError(action: () => void, code: AgentCoreErrorCode, message: string): void {
+    try {
+        action();
+    } catch (error) {
+        expect(error).toBeInstanceOf(AgentCoreError);
+        if (!(error instanceof AgentCoreError)) throw error;
+        expect(error.code).toBe(code);
+        expect(error.message).toBe(message);
+        return;
+    }
+    throw new TypeError("Expected the action to throw");
 }

@@ -5,7 +5,8 @@ import {
     SecretRef,
     decodeCanonicalJson,
     encodeCanonicalJson,
-    type JsonValue
+    isJsonObject,
+    type JsonObject
 } from "../../src/core";
 import { AgentCoreError, type AgentCoreErrorCode } from "../../src/errors";
 import { CapabilitySpec } from "../../src/facets";
@@ -57,8 +58,16 @@ describe("behavior-carrying identity states", () => {
         expect(disabled.canAct).toBe(false);
         expect(disabled.disable()).toBe(disabled);
         expect(Principal.decode(Principal.encode(disabled)).status).toBe("disabled");
-        expect(() => new Principal(principalId, "bad" as never, "active")).toThrow(TypeError);
-        expect(() => new Principal(principalId, "user", "bad" as never)).toThrow(TypeError);
+        expect(
+            () =>
+                // @ts-expect-error Runtime records can contain an unknown Principal kind.
+                new Principal(principalId, "bad", "active")
+        ).toThrow(TypeError);
+        expect(
+            () =>
+                // @ts-expect-error Runtime records can contain an unknown Principal status.
+                new Principal(principalId, "user", "bad")
+        ).toThrow(TypeError);
     });
 
     test("enforces Membership transitions with AgentCoreError", { tags: "p1" }, () => {
@@ -77,7 +86,9 @@ describe("behavior-carrying identity states", () => {
         expect(revoked.revoke().state).toBe("revoked");
         expectAgentError(() => revoked.activate(), "protocol.invalid-state");
         expectAgentError(
-            () => member.revise(member.role, "bad" as never),
+            () =>
+                // @ts-expect-error Runtime transitions can contain an unknown Membership state.
+                member.revise(member.role, "bad"),
             "protocol.invalid-state"
         );
         expectAgentError(() => member.withGuestVerification(verification), "authority.denied");
@@ -166,13 +177,22 @@ describe("behavior-carrying identity states", () => {
         expect(suspended.acceptsMutation).toBe(false);
         expect(deleted.revise("deleted")).toBe(deleted);
         expectAgentError(() => deleted.revise("active"), "protocol.invalid-state");
-        expectAgentError(() => tenant.revise("bad" as never), "protocol.invalid-state");
-        expect(() => new Tenant(tenantId, "bad" as never, "active", Revision.initial())).toThrow(
-            TypeError
+        expectAgentError(
+            () =>
+                // @ts-expect-error Runtime transitions can contain an unknown Tenant status.
+                tenant.revise("bad"),
+            "protocol.invalid-state"
         );
-        expect(() => new Tenant(tenantId, "personal", "bad" as never, Revision.initial())).toThrow(
-            TypeError
-        );
+        expect(
+            () =>
+                // @ts-expect-error Runtime records can contain an unknown Tenant kind.
+                new Tenant(tenantId, "bad", "active", Revision.initial())
+        ).toThrow(TypeError);
+        expect(
+            () =>
+                // @ts-expect-error Runtime records can contain an unknown Tenant status.
+                new Tenant(tenantId, "personal", "bad", Revision.initial())
+        ).toThrow(TypeError);
     });
 
     test("uses AgentCoreError for invalid Team and Project operations", { tags: "p2" }, () => {
@@ -377,17 +397,27 @@ describe("guest trust and verification hard gates", () => {
 
 describe("identity shape and codec hard gates", () => {
     test("strictly validates Role capability declarations", { tags: "p1" }, () => {
-        expect(() => new RoleRule("bad" as never, capability())).toThrow(TypeError);
-        expect(() => new RoleRule("allow", {} as never)).toThrow(TypeError);
+        expect(
+            () =>
+                // @ts-expect-error Runtime Role rules can contain an unknown effect.
+                new RoleRule("bad", capability())
+        ).toThrow(TypeError);
+        expect(
+            () =>
+                // @ts-expect-error Runtime Role rules can contain an invalid capability.
+                new RoleRule("allow", {})
+        ).toThrow(TypeError);
         expect(() => new CapabilitySpec({ facetPattern: "bad [", impacts: ["observe"] })).toThrow(
             TypeError
         );
         expect(
             () => new CapabilitySpec({ facetPattern: "*", operations: [""], impacts: ["observe"] })
         ).toThrow(TypeError);
-        expect(() => new CapabilitySpec({ facetPattern: "*", impacts: [] as never })).toThrow(
-            TypeError
-        );
+        expect(
+            () =>
+                // @ts-expect-error Runtime capabilities can contain an empty impact list.
+                new CapabilitySpec({ facetPattern: "*", impacts: [] })
+        ).toThrow(TypeError);
         expect(
             () => new CapabilitySpec({ facetPattern: "*", impacts: ["observe", "observe"] })
         ).toThrow(TypeError);
@@ -485,7 +515,13 @@ describe("identity shape and codec hard gates", () => {
             () =>
                 new MemoryIdentityRepository({
                     version: 1,
-                    records: [{ ...record, kind: "unknown" as never }]
+                    records: [
+                        {
+                            ...record,
+                            // @ts-expect-error Runtime snapshots can contain an unknown record kind.
+                            kind: "unknown"
+                        }
+                    ]
                 })
         ).toThrow(AgentCoreError);
         expect(() => new RoleName(" ")).toThrow(TypeError);
@@ -500,37 +536,34 @@ function capability(): CapabilitySpec {
     });
 }
 
-function expectAgentError(action: () => unknown, code: AgentCoreErrorCode): void {
+function expectAgentError(action: () => void, code: AgentCoreErrorCode): void {
     try {
         action();
-        throw new Error("Expected AgentCoreError");
     } catch (error) {
         expect(error).toBeInstanceOf(AgentCoreError);
+        if (!(error instanceof AgentCoreError)) throw error;
         expect(error).toMatchObject({ code });
+        return;
     }
+    throw new TypeError("Expected AgentCoreError");
 }
 
 function expectCodecFailure<Value>(
     codec: { encode(value: Value): Uint8Array; decode(bytes: Uint8Array): Value },
     value: Value,
-    mutate: (payload: Record<string, JsonValue>) => Record<string, JsonValue>
+    mutate: (payload: JsonObject) => JsonObject
 ): void {
     const envelope = decodeCanonicalJson(codec.encode(value));
-    if (envelope === null || Array.isArray(envelope) || typeof envelope !== "object") {
+    if (!isJsonObject(envelope)) {
         throw new TypeError("Expected record envelope");
     }
-    const object = envelope as Record<string, JsonValue>;
-    if (
-        object["payload"] === null ||
-        Array.isArray(object["payload"]) ||
-        typeof object["payload"] !== "object"
-    )
-        throw new TypeError("Expected record envelope");
+    const payload = envelope["payload"];
+    if (!isJsonObject(payload)) throw new TypeError("Expected record payload");
     expect(() =>
         codec.decode(
             encodeCanonicalJson({
-                ...object,
-                payload: mutate(object["payload"] as Record<string, JsonValue>)
+                ...envelope,
+                payload: mutate(payload)
             })
         )
     ).toThrow();
