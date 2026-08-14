@@ -272,9 +272,10 @@ describe("Filesystem backend invariants", () => {
                 "path.invalid",
                 "too-large"
             ]);
-            expect(() => new FilesystemError("outside" as never, "/", "invalid")).toThrow(
-                TypeError
-            );
+            expect(
+                // @ts-expect-error Runtime rejection is required for a detail code excluded by the public type.
+                () => new FilesystemError("outside", "/", "invalid")
+            ).toThrow(TypeError);
         }
     );
 
@@ -325,8 +326,9 @@ describe("Filesystem backend invariants", () => {
             expect(() => filesystem.write("/docs", new Uint8Array())).toThrow(
                 expect.objectContaining({ detailCode: "is-a-directory" })
             );
-            expect(() =>
-                filesystem.write("/docs/file", new Uint8Array(), "invalid" as never)
+            expect(
+                // @ts-expect-error Runtime rejection is required for a mode excluded by the public type.
+                () => filesystem.write("/docs/file", new Uint8Array(), "invalid")
             ).toThrow(expect.objectContaining({ detailCode: "operation.invalid-input" }));
             expect(() => filesystem.write("/", new Uint8Array())).toThrow(
                 expect.objectContaining({ detailCode: "path.invalid" })
@@ -442,23 +444,21 @@ describe("Filesystem backend invariants", () => {
                     FILESYSTEM_OPERATION_CONTRACTS.list.encodeOutput(page)
                 )
             ).toEqual(page);
-            expect(() => FILESYSTEM_OPERATION_CONTRACTS.read.decodeOutput({} as never)).toThrow(
+            expect(() => FILESYSTEM_OPERATION_CONTRACTS.read.decodeOutput({})).toThrow(TypeError);
+            expect(() => FILESYSTEM_OPERATION_CONTRACTS.list.decodeOutput({ entries: {} })).toThrow(
                 TypeError
             );
-            expect(() =>
-                FILESYSTEM_OPERATION_CONTRACTS.list.decodeOutput({ entries: {} } as never)
-            ).toThrow(TypeError);
             expect(() =>
                 FILESYSTEM_OPERATION_CONTRACTS.stat.decodeOutput({
                     ...stat,
                     kind: "link"
-                } as never)
+                })
             ).toThrow(TypeError);
             expect(() =>
                 FILESYSTEM_OPERATION_CONTRACTS.write.decodeInput({
                     path: "/file",
                     content: ["not-a-byte"]
-                } as never)
+                })
             ).toThrow(TypeError);
 
             expect(
@@ -649,9 +649,10 @@ describe("Filesystem memory backend boundaries", () => {
         expect(() => filesystem.write("/missing", new Uint8Array(), "replace")).toThrow(
             "Path does not exist"
         );
-        expect(() => filesystem.write("/file", new Uint8Array(), "invalid" as never)).toThrow(
-            "Write mode must be create, replace, or upsert"
-        );
+        expect(
+            // @ts-expect-error Runtime rejection is required for a mode excluded by the public type.
+            () => filesystem.write("/file", new Uint8Array(), "invalid")
+        ).toThrow("Write mode must be create, replace, or upsert");
         expect(() => filesystem.move("/file", "/dir")).toThrow("Destination already exists");
         expect(() => filesystem.mkdir("/dir")).toThrow("Directory already exists");
         expect(() => filesystem.mkdir("/file")).toThrow("Path is not a directory");
@@ -825,10 +826,7 @@ class RecordingObservations extends FilesystemObservationBackend {
     }
 }
 
-function readerAndSeed(filesystem: FilesystemBackend): {
-    readonly reader: FilesystemReaderBackend;
-    readonly seed: FilesystemBackend;
-} {
+function readerAndSeed(filesystem: FilesystemBackend) {
     return { reader: filesystem, seed: filesystem };
 }
 

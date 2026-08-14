@@ -8,6 +8,7 @@ import {
     ENVIRONMENT_EVENTS,
     ENVIRONMENT_OPERATIONS,
     FILESYSTEM_ERROR_CODES,
+    FilesystemError,
     FILESYSTEM_OPERATIONS,
     InMemoryMemoryIndexBackend,
     MCP_MAXIMUM_PROMPT_BYTES,
@@ -189,9 +190,9 @@ requirement("P11-FILESYSTEM-ERROR-CLOSED", () => {
         new MemoryFilesystemBackend().read("/missing");
         throw new TypeError("Expected a closed filesystem error");
     } catch (error) {
-        expect(FILESYSTEM_ERROR_CODES).toContain(
-            (error as { readonly detailCode: (typeof FILESYSTEM_ERROR_CODES)[number] }).detailCode
-        );
+        expect(error).toBeInstanceOf(FilesystemError);
+        if (!(error instanceof FilesystemError)) throw error;
+        expect(FILESYSTEM_ERROR_CODES).toContain(error.detailCode);
     }
 });
 requirement("P11-FILESYSTEM-ERROR-CODES", () => {
@@ -264,7 +265,10 @@ requirement("P11-MCP-IMPACT-DEFAULT-REMOTE", () => {
     expect(mcpDiscovery(true).operations[0]?.impact).toBe("externalSend");
 });
 requirement("P11-MCP-IMPACT-UNKNOWN", () => {
-    expect(() => mcpDiscovery(false, { impact: "unknown" as never })).toThrow(/impact/);
+    expect(() =>
+        // @ts-expect-error The discovery boundary must reject an unknown impact annotation.
+        mcpDiscovery(false, { impact: "unknown" })
+    ).toThrow(/impact/);
 });
 requirement("P11-MCP-MALFORMED-SCHEMA", () => {
     const backend = new McpDiscoveryBackend(mcpConfig(false), {
@@ -412,17 +416,17 @@ function mcpConfig(remote: boolean) {
 }
 
 function mcpDocument(tool: { readonly impact?: OperationDescriptor["impact"] } = {}) {
+    const discoveredTool = {
+        name: "tool",
+        inputSchema: { type: "object" } as const,
+        outputSchema: { type: "object" } as const
+    };
     return {
         revision: "2025-11-25",
         tools: [
-            {
-                name: "tool",
-                inputSchema: { type: "object" } as const,
-                outputSchema: { type: "object" } as const,
-                ...(tool.impact === undefined
-                    ? {}
-                    : { _meta: { "io.agent-core/impact": tool.impact } })
-            }
+            tool.impact === undefined
+                ? discoveredTool
+                : { ...discoveredTool, _meta: { "io.agent-core/impact": tool.impact } }
         ],
         resources: [],
         prompts: []

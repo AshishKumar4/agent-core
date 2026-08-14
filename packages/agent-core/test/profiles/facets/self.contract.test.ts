@@ -1,5 +1,5 @@
 import { MemoryContentStore } from "../../../src/content";
-import { CompatRange, SemVer, type JsonValue } from "../../../src/core";
+import { CompatRange, SemVer, isJsonObject, type JsonValue } from "../../../src/core";
 import {
     FacetPackageId,
     OperationName,
@@ -98,9 +98,11 @@ describe("Self protected Run contract", () => {
             ]);
             expect(
                 admission.calls.every((call) => {
-                    const input = call.input as Record<string, unknown>;
                     return (
-                        !("lease" in input) && !("authority" in input) && !("invocationId" in input)
+                        isJsonObject(call.input) &&
+                        !("lease" in call.input) &&
+                        !("authority" in call.input) &&
+                        !("invocationId" in call.input)
                     );
                 })
             ).toBe(true);

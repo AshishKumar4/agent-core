@@ -335,7 +335,7 @@ describe("Web policy backend", () => {
             WEB_OPERATION_CONTRACTS.fetch.decodeInput({
                 url: "https://allowed.test/",
                 body: ["invalid"]
-            } as never)
+            })
         ).toThrow(TypeError);
     });
 
@@ -725,7 +725,8 @@ describe("Web policy backend", () => {
             { requestedUrl: requested, resolvedTarget: "target", token: "token" }
         ]) {
             const web = createWebBackend({
-                authorize: () => invalid as WebTransportAuthorization,
+                // @ts-expect-error The provider boundary must reject malformed authorizations.
+                authorize: () => invalid,
                 send: async () => response()
             });
             await expect(web.fetch({ url: requested }, DISPATCH)).rejects.toMatchObject({

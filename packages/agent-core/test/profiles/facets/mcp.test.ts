@@ -2,6 +2,7 @@ import {
     Digest,
     encodeCanonicalJson,
     strictJsonSchemaValidator,
+    type JsonObject,
     type JsonValue
 } from "../../../src/core";
 import {
@@ -241,9 +242,10 @@ describe("MCP normative discovery", () => {
                 { _meta: null },
                 { impact: "observe" }
             ]) {
-                expect(() => createDiscovery().discover(document(metadata as never))).toThrow(
-                    expect.objectContaining({ detailCode: "impact.invalid" })
-                );
+                expect(
+                    // @ts-expect-error Runtime discovery validates unparsed metadata documents.
+                    () => createDiscovery().discover(malformedDocument(metadata))
+                ).toThrow(expect.objectContaining({ detailCode: "impact.invalid" }));
             }
             expect(
                 createDiscovery().discover(document({ _meta: { unrelated: true } })).operations[0]
@@ -286,9 +288,10 @@ describe("MCP normative discovery", () => {
                     prompts: [{ title: "hint", body: 1 }]
                 }
             ]) {
-                expect(() => discovery.discover(malformed as never)).toThrow(
-                    expect.objectContaining({ detailCode: "schema.invalid" })
-                );
+                expect(
+                    // @ts-expect-error Runtime discovery validates malformed external documents.
+                    () => discovery.discover(malformed)
+                ).toThrow(expect.objectContaining({ detailCode: "schema.invalid" }));
             }
             const rejectingSchemas = new McpDiscoveryBackend(config(), {
                 assertSchema: () => {
@@ -322,10 +325,11 @@ describe("MCP normative discovery", () => {
             /digest/
         );
         expect(() =>
+            // @ts-expect-error Runtime restoration rejects lookalikes missing registration behavior.
             createDiscovery().restore({
                 document: document(),
                 digest: new Digest("f".repeat(64))
-            } as McpDiscoveryRegistration)
+            })
         ).toThrow(expect.objectContaining({ detailCode: "registration.invalid" }));
         expect(() =>
             createDiscovery().discover({
@@ -360,7 +364,8 @@ describe("MCP normative discovery", () => {
             for (const metadata of [[], "annotations"]) {
                 let caught: unknown;
                 try {
-                    createDiscovery().discover(document({ _meta: metadata }));
+                    // @ts-expect-error Runtime discovery validates unparsed metadata documents.
+                    createDiscovery().discover(malformedDocument({ _meta: metadata }));
                 } catch (error) {
                     caught = error;
                 }
@@ -568,7 +573,10 @@ describe("MCP normative discovery", () => {
                     prompts: [{ title: "hint", body: 1 }]
                 }
             ]) {
-                expect(() => createDiscovery().discover(malformed as never)).toThrow(
+                expect(
+                    // @ts-expect-error Runtime discovery validates malformed external documents.
+                    () => createDiscovery().discover(malformed)
+                ).toThrow(
                     expect.objectContaining({
                         name: "McpDiscoveryError",
                         detailCode: "schema.invalid",
@@ -593,8 +601,9 @@ describe("MCP normative discovery", () => {
                         tools: [],
                         resources: [],
                         prompts: [],
+                        // @ts-expect-error Runtime canonicalization validates external non-JSON members.
                         serverTime: uncodable
-                    } as never)
+                    })
                 ).toThrow(
                     expect.objectContaining({
                         name: "McpDiscoveryError",
@@ -620,7 +629,10 @@ describe("MCP normative discovery", () => {
                 local.discover(document({ _meta: { unrelated: true } })).operations[0]?.impact
             ).toBe("execute");
             for (const metadata of [{ _meta: [] }, { _meta: null }]) {
-                expect(() => createDiscovery().discover(document(metadata as never))).toThrow(
+                expect(
+                    // @ts-expect-error Runtime discovery validates unparsed metadata documents.
+                    () => createDiscovery().discover(malformedDocument(metadata))
+                ).toThrow(
                     expect.objectContaining({
                         detailCode: "impact.invalid",
                         message: "MCP tool metadata must be an object"
@@ -632,7 +644,10 @@ describe("MCP normative discovery", () => {
             ).toThrow(
                 expect.objectContaining({ message: "MCP tool impact metadata must be a string" })
             );
-            expect(() => createDiscovery().discover(document({ impact: "observe" }))).toThrow(
+            expect(
+                // @ts-expect-error Runtime discovery rejects the deprecated top-level impact field.
+                () => createDiscovery().discover(malformedDocument({ impact: "observe" }))
+            ).toThrow(
                 expect.objectContaining({
                     message: `MCP impact must use _meta["${MCP_IMPACT_ANNOTATION}"]`
                 })
@@ -914,11 +929,27 @@ function config() {
     } as const;
 }
 
-function document(tool: Record<string, unknown> = {}): McpDiscoveryDocument {
+function document(tool: Partial<McpDiscoveryDocument["tools"][number]> = {}): McpDiscoveryDocument {
     return {
         revision: MCP_PROTOCOL_REVISION,
         tools: [{ name: "tool", inputSchema: {}, outputSchema: {}, ...tool }],
         resources: [],
         prompts: []
-    } as McpDiscoveryDocument;
+    };
+}
+
+interface UnparsedMcpDiscoveryDocument {
+    readonly revision: JsonValue;
+    readonly tools: readonly JsonObject[];
+    readonly resources: readonly JsonValue[];
+    readonly prompts: readonly JsonValue[];
+}
+
+function malformedDocument(tool: JsonObject = {}): UnparsedMcpDiscoveryDocument {
+    return {
+        revision: MCP_PROTOCOL_REVISION,
+        tools: [{ name: "tool", inputSchema: {}, outputSchema: {}, ...tool }],
+        resources: [],
+        prompts: []
+    };
 }

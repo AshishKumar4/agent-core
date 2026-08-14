@@ -37,6 +37,7 @@ import {
     SurfaceId,
     canonicalFacetData,
     isFacetData,
+    isFacetDataMap,
     type FacetDataMap
 } from "../../src/facets-public";
 import {
@@ -74,11 +75,16 @@ describe("Declarative facet vocabulary", () => {
         () => {
             const source = { z: [{ b: 2, a: 1 }], a: true };
             const canonical = canonicalFacetData(source);
-            source.z[0]!.a = 9;
+            const sourceNested = source.z[0];
+            if (sourceNested === undefined) throw new TypeError("Expected source data");
+            sourceNested.a = 9;
 
             expect(canonical).toEqual({ a: true, z: [{ a: 1, b: 2 }] });
             expect(Object.isFrozen(canonical)).toBe(true);
-            expect(Object.isFrozen((canonical as { z: readonly object[] }).z[0])).toBe(true);
+            if (!isFacetDataMap(canonical)) throw new TypeError("Expected canonical data map");
+            const nestedValues = canonical["z"];
+            if (!Array.isArray(nestedValues)) throw new TypeError("Expected nested data array");
+            expect(Object.isFrozen(nestedValues[0])).toBe(true);
             expect(isFacetData(new Date())).toBe(false);
             expect(isFacetData(Object.create(null))).toBe(false);
             expect(isFacetData(Number.POSITIVE_INFINITY)).toBe(false);
@@ -160,7 +166,8 @@ describe("Declarative facet vocabulary", () => {
             expect(decoded.id.equals(entry.id)).toBe(true);
             expect(Object.isFrozen(entry)).toBe(true);
             expect(Object.isFrozen(entry.value)).toBe(true);
-            expect(Object.isFrozen((entry.value as { nested: object }).nested)).toBe(true);
+            if (!isFacetDataMap(entry.value)) throw new TypeError("Expected slot-entry data map");
+            expect(Object.isFrozen(entry.value["nested"])).toBe(true);
             expect(Object.isFrozen(decoded)).toBe(true);
             expect(Object.isFrozen(decoded.value)).toBe(true);
         }
@@ -276,7 +283,8 @@ describe("Declarative facet vocabulary", () => {
         for (const declaration of [interceptor, decoded]) {
             expect(Object.isFrozen(declaration)).toBe(true);
             expect(() => {
-                (declaration as { priority: number }).priority = 20;
+                // @ts-expect-error Runtime mutation of a readonly declaration must fail.
+                declaration.priority = 20;
             }).toThrow(TypeError);
             expect(declaration.priority).toBe(10);
         }
@@ -425,11 +433,12 @@ describe("Declarative facet vocabulary", () => {
                 "operations",
                 "prompt"
             ]);
-            expect(Object.keys(manifest.contributions.toData() as object)).toEqual([
-                "operations",
-                "prompt"
-            ]);
-            expect(Object.isFrozen(manifest.contributions.toData())).toBe(true);
+            const contributionData = manifest.contributions.toData();
+            if (!isFacetDataMap(contributionData)) {
+                throw new TypeError("Expected contribution data map");
+            }
+            expect(Object.keys(contributionData)).toEqual(["operations", "prompt"]);
+            expect(Object.isFrozen(contributionData)).toBe(true);
             expect(prompt.sections.map((section) => section.title)).toEqual([
                 "Early A",
                 "Early B",
@@ -452,7 +461,8 @@ describe("Declarative facet vocabulary", () => {
                         id: new FacetPackageId("acme.invalid"),
                         version: new SemVer("1.0.0"),
                         compat: CompatRange.any(),
-                        isolation: [] as unknown as ["dynamic"],
+                        // @ts-expect-error Runtime manifests can contain an empty isolation list.
+                        isolation: [],
                         bindings: [],
                         contributions: Contributions.empty()
                     })
@@ -468,11 +478,13 @@ describe("Declarative facet vocabulary", () => {
                         contributions: Contributions.empty()
                     })
             ).toThrow(TypeError);
-            expect(() => new EventPattern("event", [] as unknown as ["self"])).toThrow(TypeError);
+            expect(
+                () =>
+                    // @ts-expect-error Runtime event patterns can contain an empty trust list.
+                    new EventPattern("event", [])
+            ).toThrow(TypeError);
             expect(() => new EventPattern("event", ["self", "self"])).toThrow(TypeError);
-            expect(() => new FieldMove("", { from: "", literal: true } as never)).toThrow(
-                TypeError
-            );
+            expect(() => new FieldMove("", { from: "", literal: true })).toThrow(TypeError);
             expect(
                 () =>
                     new Contributions([
@@ -563,7 +575,8 @@ describe("Declarative facet vocabulary", () => {
                     new InterceptorDeclaration(
                         new InterceptorId("invalid-priority"),
                         "operation.before",
-                        undefined as never
+                        // @ts-expect-error Runtime declarations can omit the priority.
+                        undefined
                     )
             ).toThrow(/priority/);
             expect(() =>
@@ -602,11 +615,19 @@ describe("Declarative facet vocabulary", () => {
                     name: "boolean.schema"
                 }).entrySchema.document
             ).toBe(false);
-            for (const entrySchema of [undefined, null, [], "invalid"] as const) {
+            expect(() =>
+                // @ts-expect-error Canonical JSON cannot carry an undefined schema field.
+                SlotDeclaration.fromData({
+                    authority: { contribute: ["write"], visibility: ["read"] },
+                    entrySchema: undefined,
+                    name: "invalid.schema"
+                })
+            ).toThrow(/schema/);
+            for (const entrySchema of [null, [], "invalid"] as const) {
                 expect(() =>
                     SlotDeclaration.fromData({
                         authority: { contribute: ["write"], visibility: ["read"] },
-                        entrySchema: entrySchema as never,
+                        entrySchema,
                         name: "invalid.schema"
                     })
                 ).toThrow(/schema/);
@@ -832,7 +853,8 @@ describe("Declarative facet vocabulary", () => {
                         id: new FacetPackageId("bad.mode"),
                         version: new SemVer("1.0.0"),
                         compat: CompatRange.any(),
-                        isolation: ["bad" as "bundled"],
+                        // @ts-expect-error Runtime manifests can contain unknown isolation modes.
+                        isolation: ["bad"],
                         bindings: [],
                         contributions: Contributions.empty()
                     })
@@ -1100,7 +1122,9 @@ describe("Declarative facet vocabulary", () => {
                 EventPattern.fromData({ acceptedTrust: ["self", "bogus"], kind: "event" })
             ).toThrow("Trust tier is invalid");
             expect(
-                () => new EventPattern("event", ["self", "bogus"] as unknown as ["self"])
+                () =>
+                    // @ts-expect-error Runtime event patterns can contain unknown trust tiers.
+                    new EventPattern("event", ["self", "bogus"])
             ).toThrow("Trust tiers must contain known values");
 
             const declaration = EventDeclaration.fromData({
@@ -1159,9 +1183,11 @@ describe("Declarative facet vocabulary", () => {
         "[facet.field-move] [facet.operation-pattern] [facet.operation-selector] enforces mapping and selector boundaries",
         { tags: "p1" },
         () => {
-            expect(() => new FieldMove("/t", { bad: true } as never)).toThrow(
-                "Field move requires exactly one of from or literal"
-            );
+            expect(
+                () =>
+                    // @ts-expect-error Runtime field moves can contain unknown source fields.
+                    new FieldMove("/t", { bad: true })
+            ).toThrow("Field move requires exactly one of from or literal");
             expect(() => FieldMove.fromData({ literal: null, to: 7 })).toThrow(
                 "Field move target must be a string"
             );
@@ -1404,14 +1430,16 @@ function objectPayloadRecord(kind: string): Uint8Array {
     return encodeCanonicalJson({ kind, payload: {}, version: { major: 1, minor: 0 } });
 }
 
-function expectCodecError(action: () => unknown, code: AgentCoreError["code"]): void {
+function expectCodecError(action: () => void, code: AgentCoreError["code"]): void {
     try {
         action();
-        throw new Error("Expected codec to reject input");
     } catch (error) {
         expect(error).toBeInstanceOf(AgentCoreError);
+        if (!(error instanceof AgentCoreError)) throw error;
         expect(error).toMatchObject({ code });
+        return;
     }
+    throw new TypeError("Expected codec to reject input");
 }
 
 describe("Impact is derived from the seam, not declared by the callee", () => {

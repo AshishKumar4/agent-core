@@ -114,8 +114,8 @@ describe("Memory protected facade", () => {
                 "memory.prompt",
                 "forget"
             ]);
-            expect(typeof (admission.calls[0]!.input as { content: unknown }).content).toBe(
-                "string"
+            expect(admission.calls[0]?.input).toEqual(
+                expect.objectContaining({ content: expect.any(String) })
             );
             expect(admission.calls[3]?.kind).toBe("control");
         }

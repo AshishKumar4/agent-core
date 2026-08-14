@@ -73,7 +73,7 @@ const SingleTenant = {
 };
 
 interface ProfileManifestCase {
-    readonly name: string;
+    readonly name: ProfileName;
     readonly create: (init: ReturnType<typeof manifestInit>) => FacetManifest;
     readonly contributions: Contributions;
     readonly runtimeOperations: readonly OperationDescriptor[];
@@ -148,7 +148,20 @@ const profiles: readonly ProfileManifestCase[] = [
     )
 ];
 
-const expectedProfileOperations: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+type ProfileName =
+    | "filesystem"
+    | "shell"
+    | "memory"
+    | "task"
+    | "web"
+    | "mcp"
+    | "approval"
+    | "self"
+    | "environment"
+    | "device"
+    | "slate";
+
+const expectedProfileOperations = {
     filesystem: {
         read: "observe",
         stat: "observe",
@@ -188,7 +201,7 @@ const expectedProfileOperations: Readonly<Record<string, Readonly<Record<string,
         deploy: "externalSend",
         rollback: "mutate"
     }
-};
+} as const satisfies Readonly<Record<ProfileName, Readonly<Record<string, string>>>>;
 
 describe("W8 internal profile manifest/runtime correspondence", () => {
     test.each(profiles)(
@@ -492,9 +505,10 @@ describe("Facet manifest data validation", () => {
             new CompatRange("^1.0.0", "^1.0.0")
         );
         expect(Object.isFrozen(requirement)).toBe(true);
-        expect(() => canonicalIsolationModes(["dynamic", "bogus"] as never)).toThrow(
-            "Manifest isolation modes must contain known values"
-        );
+        expect(() =>
+            // @ts-expect-error The manifest boundary must reject unknown isolation modes.
+            canonicalIsolationModes(["dynamic", "bogus"])
+        ).toThrow("Manifest isolation modes must contain known values");
     });
 
     test("round-trips the config schema document through toData and codec", { tags: "p1" }, () => {
@@ -559,21 +573,21 @@ function manifestData(overrides: { readonly [key: string]: FacetData }): FacetDa
 }
 
 function profile(
-    name: string,
+    name: ProfileName,
     create: ProfileManifestCase["create"],
     contributions: Contributions,
     runtimeOperations: readonly OperationDescriptor[],
     isolation: readonly IsolationMode[],
     requiredBindings?: readonly string[]
 ): ProfileManifestCase {
-    return {
+    const manifestCase: ProfileManifestCase = {
         name,
         create,
         contributions,
         runtimeOperations,
-        isolation,
-        ...(requiredBindings === undefined ? {} : { requiredBindings })
+        isolation
     };
+    return requiredBindings === undefined ? manifestCase : { ...manifestCase, requiredBindings };
 }
 
 function manifestInit(name: string, bindings: readonly string[] = []) {

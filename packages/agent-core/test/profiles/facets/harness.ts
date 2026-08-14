@@ -10,6 +10,7 @@ import {
     ProfileRuntimeHostBinding,
     ProtectedOperationPort,
     ProtectedProfileRuntimePort,
+    isFacetDataMap,
     type EventDeclaration,
     type FacetData,
     type FilesystemBackend,
@@ -49,7 +50,18 @@ export type ProfileAdmissionRewrite = (
 export type ProfileTargetAdmission = (
     request: ProtectedOperationRequest,
     admittedInput: JsonValue
-) => unknown;
+) => object | undefined;
+
+export interface RecordingRuntimeFixture {
+    readonly admission: RecordingProfileAdmission;
+    readonly effects: RecordingProfileEffects;
+    readonly runtime: ProtectedProfileRuntimePort<TestReceipt>;
+}
+
+export interface DenyingRuntimeFixture {
+    readonly admission: DenyingProfileAdmission;
+    readonly runtime: ProtectedProfileRuntimePort<TestReceipt>;
+}
 
 export class RecordingProfileAdmission extends ProtectedOperationPort<TestReceipt> {
     public readonly calls: RecordedProfileCall[] = [];
@@ -87,7 +99,8 @@ export class RecordingProfileAdmission extends ProtectedOperationPort<TestReceip
         const effectContext = ProfileEffectContext.fromOperation(context);
         const operation = request.operation.descriptor;
         const input = request.input;
-        expect(Object.isFrozen(input) || typeof input !== "object" || input === null).toBe(true);
+        if (Array.isArray(input) || isFacetDataMap(input))
+            expect(Object.isFrozen(input)).toBe(true);
         expect(operation.input.accepts(input)).toBe(true);
         this.calls.push({
             host: new ProfileRuntimeHostBinding(request.facet, request.binding),
@@ -204,11 +217,7 @@ export function recordingRuntime(
     profile: string,
     rewrite?: ProfileAdmissionRewrite,
     targetAdmission?: ProfileTargetAdmission
-): {
-    readonly admission: RecordingProfileAdmission;
-    readonly effects: RecordingProfileEffects;
-    readonly runtime: ProtectedProfileRuntimePort<TestReceipt>;
-} {
+): RecordingRuntimeFixture {
     const admission = new RecordingProfileAdmission(rewrite, targetAdmission);
     const effects = new RecordingProfileEffects(admission.calls, admission.handlerOutputs, rewrite);
     const runtime = new ProtectedProfileRuntimePort(
@@ -224,10 +233,7 @@ export function recordingRuntime(
     };
 }
 
-export function denyingRuntime(profile: string): {
-    readonly admission: DenyingProfileAdmission;
-    readonly runtime: ProtectedProfileRuntimePort<TestReceipt>;
-} {
+export function denyingRuntime(profile: string): DenyingRuntimeFixture {
     const admission = new DenyingProfileAdmission();
     const runtime = new ProtectedProfileRuntimePort(
         new ProfileRuntimeHostBinding(new FacetRef(`profile:${profile}`), new BindingName(profile)),
@@ -310,10 +316,7 @@ export function mutableFilesystemBackendEvidence(
     });
 }
 
-function expectFilesystemCode(
-    action: () => unknown,
-    detailCode: FilesystemError["detailCode"]
-): void {
+function expectFilesystemCode(action: () => void, detailCode: FilesystemError["detailCode"]): void {
     try {
         action();
         throw new TypeError("Expected filesystem operation to fail");

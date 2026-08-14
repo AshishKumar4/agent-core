@@ -2,6 +2,7 @@ import { DeviceConsentFinalAdmissionPort } from "../../src/composition";
 import { Digest, JsonSchema, isObjectRecord, type JsonValue } from "../../src/core";
 import {
     DEVICE_OPERATION_CONTRACTS,
+    BindingName,
     DeviceAgentBinding,
     DeviceBackend,
     DeviceConsentBackend,
@@ -11,25 +12,38 @@ import {
     MemoryDeviceConsentBackend,
     OperationDescriptor,
     OperationName,
+    Operation,
     ProfileEffectContext,
     type DeviceAdmission,
     type DeviceTransportRequest,
+    type FacetData,
+    type OperationContext,
     type ProtectedOperationRequest,
     type ReverseDeviceTransportBackend
 } from "../../src/facets";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 import {
+    ClaimWorkerId,
     EffectAttemptId,
+    ItemClaim,
+    ItemClaimId,
     InvocationId,
     type CanonicalBatchInvocationRequest
 } from "../../src/invocations";
 import { OperationRequestKey } from "../../src/operations";
 import { describe, expect, test } from "vitest";
 import { CanonicalBatchHarness } from "./canonical-batch-harness";
+import { admissionFor, prepared } from "../invocations/fixture";
 
 const target = new FacetRef("profile:device");
 const phone = new DeviceId("phone");
 const agent = new PrincipalRef(new TenantId("tenant"), new PrincipalId("agent"));
+const binding = new BindingName("device");
+
+function defined<Value>(value: Value | undefined): Value {
+    if (value === undefined) throw new TypeError("Expected a defined value");
+    return value;
+}
 
 describe("Device target-local consent admission", () => {
     test(
@@ -44,11 +58,11 @@ describe("Device target-local consent admission", () => {
             );
 
             consent.grant(phone, otherAgent, 2);
-            expect(port.admit({}, request("camera", phone), {} as never)).toMatchObject({
+            expect(port.admit({}, request("camera", phone), admissionContext())).toMatchObject({
                 kind: "denied"
             });
             consent.grant(phone, agent, 2);
-            expect(port.admit({}, request("camera", phone), {} as never)).toMatchObject({
+            expect(port.admit({}, request("camera", phone), admissionContext())).toMatchObject({
                 kind: "admitted",
                 evidence: { deviceId: phone, agentId: agent }
             });
@@ -64,9 +78,11 @@ describe("Device target-local consent admission", () => {
             consent.grant(phone, agent, 2);
             const port = admissionPort(consent);
 
-            expect(port.admit({}, request("camera", phone), {} as never).kind).toBe("admitted");
+            expect(port.admit({}, request("camera", phone), admissionContext()).kind).toBe(
+                "admitted"
+            );
             now = 2;
-            expect(port.admit({}, request("camera", phone), {} as never)).toMatchObject({
+            expect(port.admit({}, request("camera", phone), admissionContext())).toMatchObject({
                 kind: "denied",
                 reason: expect.stringContaining("absent")
             });
@@ -81,7 +97,7 @@ describe("Device target-local consent admission", () => {
             consent.grant(new DeviceId("other-phone"), agent, 2);
 
             expect(
-                admissionPort(consent).admit({}, request("camera", phone), {} as never)
+                admissionPort(consent).admit({}, request("camera", phone), admissionContext())
             ).toMatchObject({
                 kind: "denied"
             });
@@ -95,7 +111,11 @@ describe("Device target-local consent admission", () => {
             const consent = new MemoryDeviceConsentBackend(() => 1);
             consent.grant(phone, agent, 2);
 
-            const result = admissionPort(consent).admit({}, request("camera", phone), {} as never);
+            const result = admissionPort(consent).admit(
+                {},
+                request("camera", phone),
+                admissionContext()
+            );
             expect(result).toMatchObject({
                 kind: "admitted",
                 evidence: { deviceId: phone, agentId: agent, admittedAt: 1, sequence: 1 }
@@ -206,7 +226,7 @@ describe("Device target-local consent admission", () => {
         { tags: "p1" },
         () => {
             const port = admissionPort(new MemoryDeviceConsentBackend(() => 1));
-            expect(port.admit({}, request("readCached", phone), {} as never)).toEqual({
+            expect(port.admit({}, request("readCached", phone), admissionContext())).toEqual({
                 kind: "admitted"
             });
         }
@@ -242,12 +262,14 @@ describe("Device target-local consent admission", () => {
                 { ...base, request: { ...base.request, inputs: [{}] } },
                 {
                     ...base,
-                    request: { ...base.request, inputs: [base.request.inputs[0]!, {}] }
+                    request: { ...base.request, inputs: [defined(base.request.inputs[0]), {}] }
                 }
             ];
 
             for (const candidate of cases) {
-                expect(port.admit({}, candidate, {} as never)).toMatchObject({ kind: "denied" });
+                expect(port.admit({}, candidate, admissionContext())).toMatchObject({
+                    kind: "denied"
+                });
             }
         }
     );
@@ -259,7 +281,7 @@ describe("Device target-local consent admission", () => {
             }
         })();
         expect(() =>
-            admissionPort(consent).admit({}, request("camera", phone), {} as never)
+            admissionPort(consent).admit({}, request("camera", phone), admissionContext())
         ).toThrow("consent store unavailable");
     });
 
@@ -269,9 +291,16 @@ describe("Device target-local consent admission", () => {
         async () => {
             const consent = new MemoryDeviceConsentBackend(() => 1);
             consent.grant(phone, agent, 2);
-            const final = admissionPort(consent).admit({}, request("camera", phone), {} as never);
+            const final = admissionPort(consent).admit(
+                {},
+                request("camera", phone),
+                admissionContext()
+            );
             expect(final.kind).toBe("admitted");
             if (final.kind !== "admitted") throw new TypeError("Expected Device admission");
+            if (!isDeviceAdmission(final.evidence)) {
+                throw new TypeError("Expected exact Device admission evidence");
+            }
             consent.revoke(phone, agent);
             const transport = new TestTransport();
             const backend = new DeviceBackend(new LiveSession(), transport, {
@@ -302,6 +331,28 @@ function admissionPort(consent: DeviceConsentBackend<object>) {
     );
 }
 
+function admissionContext() {
+    const invocation = prepared("device-final-admission");
+    const claim = new ItemClaim(
+        new ItemClaimId("claim:device-final-admission:0"),
+        invocation.header.id,
+        0,
+        0,
+        {
+            kind: "system",
+            actor: invocation.header.actor,
+            worker: new ClaimWorkerId("worker:device-final-admission")
+        },
+        new Date(2)
+    );
+    return {
+        invocation,
+        claim,
+        authorityAdmission: admissionFor(invocation.header.id.value, 0, 0),
+        admittedAt: new Date(1)
+    };
+}
+
 function request(
     operation: "camera" | "readCached",
     device: DeviceId,
@@ -325,7 +376,13 @@ function request(
             descriptor: contract.descriptor,
             cardinality: { kind: "single" },
             inputs: [input],
-            authorization: {} as ProtectedOperationRequest,
+            authorization: {
+                facet: target,
+                binding,
+                operation: new TestDeviceOperation(contract.descriptor),
+                input,
+                resultMode: "output"
+            },
             interceptions: [[]],
             execute
         }
@@ -339,6 +396,16 @@ function deviceHarness(consent: DeviceConsentBackend<object>) {
         DEVICE_OPERATION_CONTRACTS.camera.descriptor,
         admissionPort(consent)
     );
+}
+
+class TestDeviceOperation extends Operation {
+    public constructor(public readonly descriptor: OperationDescriptor) {
+        super();
+    }
+
+    public async execute(_context: OperationContext, input: FacetData): Promise<FacetData> {
+        return input;
+    }
 }
 
 class LiveSession extends DeviceEnvironmentSessionDependency {
@@ -361,7 +428,20 @@ class TestTransport implements ReverseDeviceTransportBackend {
     }
 }
 
-function effectContext(admission: unknown): ProfileEffectContext {
+function isDeviceAdmission(admission: unknown): admission is DeviceAdmission {
+    return (
+        isObjectRecord(admission) &&
+        admission["deviceId"] instanceof DeviceId &&
+        admission["deviceId"].equals(phone) &&
+        admission["agentId"] instanceof PrincipalRef &&
+        admission["agentId"].equals(agent) &&
+        admission["admittedAt"] === 1 &&
+        admission["sequence"] === 1
+    );
+}
+
+function effectContext(admission: DeviceAdmission): ProfileEffectContext {
+    if (!isObjectRecord(admission)) throw new TypeError("Expected Device admission object");
     return new ProfileEffectContext(
         new InvocationId("device-admitted"),
         0,
@@ -369,14 +449,20 @@ function effectContext(admission: unknown): ProfileEffectContext {
         new EffectAttemptId("device-admitted-attempt"),
         0,
         Digest.sha256(new TextEncoder().encode("device-admitted")),
-        isObjectRecord(admission) ? admission : undefined
+        admission
     );
 }
 
 function deferred<Value>() {
-    let resolve!: (value: Value | PromiseLike<Value>) => void;
-    const promise = new Promise<Value>((accept) => {
-        resolve = accept;
+    let accept: ((value: Value | PromiseLike<Value>) => void) | undefined;
+    const promise = new Promise<Value>((resolve) => {
+        accept = resolve;
     });
-    return { promise, resolve };
+    return {
+        promise,
+        resolve(value: Value | PromiseLike<Value>): void {
+            if (accept === undefined) throw new TypeError("Deferred promise was not initialized");
+            accept(value);
+        }
+    };
 }

@@ -1,6 +1,6 @@
 import { ActorId, ActorRef } from "../../src/actors";
 import { MemoryContentStore } from "../../src/content";
-import { encodeCanonicalJson, type JsonValue } from "../../src/core";
+import { encodeCanonicalJson, isJsonValue, jsonDataParser, type JsonValue } from "../../src/core";
 import {
     ApprovalGatewayAction,
     ApprovalGatewayBackend,
@@ -67,7 +67,7 @@ import {
 } from "../../src/invocations";
 import { CorrelationId, EventId, InvocationId } from "../../src/interaction-references";
 import { SqliteWorkspaceEventRecords } from "../../src/substrates";
-import { RunId, TurnId, TurnLease } from "../../src/agents";
+import { RunId, TurnId, TurnLease, type LeaseToken } from "../../src/agents";
 import {
     ContentRetentionId,
     ContentRetentionReference,
@@ -790,25 +790,34 @@ function selfFixture(label: string, descriptor: OperationDescriptor) {
     return profileFixture(label, descriptor);
 }
 
-function parseLease(value: string | undefined) {
+const leaseData = jsonDataParser((message) => new TypeError(message));
+
+function parseLease(value: string | undefined): LeaseToken {
     if (value === undefined)
         return {
             turn: new TurnId("missing"),
             holder: new PrincipalRef(new TenantId("missing"), new PrincipalId("missing")),
             epoch: 0
         };
-    const parsed = JSON.parse(value) as {
-        turn: string;
-        holder: { readonly principal: string; readonly tenant: string };
-        epoch: number;
-    };
+    const decoded: unknown = JSON.parse(value);
+    if (!isJsonValue(decoded)) throw new TypeError("Lease must be JSON data");
+    const parsed = leaseData.exact(
+        leaseData.object(decoded, "Lease"),
+        ["turn", "holder", "epoch"],
+        "Lease"
+    );
+    const holder = leaseData.exact(
+        leaseData.object(parsed["holder"], "Lease holder"),
+        ["principal", "tenant"],
+        "Lease holder"
+    );
     return {
-        turn: new TurnId(parsed.turn),
+        turn: new TurnId(leaseData.string(parsed["turn"], "Lease Turn")),
         holder: new PrincipalRef(
-            new TenantId(parsed.holder.tenant),
-            new PrincipalId(parsed.holder.principal)
+            new TenantId(leaseData.string(holder["tenant"], "Lease holder Tenant")),
+            new PrincipalId(leaseData.string(holder["principal"], "Lease holder Principal"))
         ),
-        epoch: parsed.epoch
+        epoch: leaseData.safeInteger(parsed["epoch"], "Lease epoch")
     };
 }
 

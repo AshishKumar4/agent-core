@@ -760,14 +760,15 @@ class ControlledTerminationClock extends ShellTerminationClock {
     }
 }
 
-function deferred<Value>(): {
-    readonly promise: Promise<Value>;
-    readonly resolve: (value: Value) => void;
-} {
-    let resolve!: (value: Value) => void;
+function deferred<Value>() {
+    let resolveValue: ((value: Value) => void) | undefined;
     const promise = new Promise<Value>((accept) => {
-        resolve = accept;
+        resolveValue = accept;
     });
+    const resolve = (value: Value): void => {
+        if (resolveValue === undefined) throw new TypeError("Deferred promise is unavailable");
+        resolveValue(value);
+    };
     return { promise, resolve };
 }
 

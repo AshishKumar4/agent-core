@@ -378,7 +378,10 @@ describe("Device transport admission and declarations", () => {
         () => {
             for (const contract of Object.values(DEVICE_OPERATION_CONTRACTS)) {
                 expect(contract.inputCodec).toBeInstanceOf(VersionedProfileWireCodec);
-                const codec = contract.inputCodec as VersionedProfileWireCodec<unknown>;
+                const codec = contract.inputCodec;
+                if (!(codec instanceof VersionedProfileWireCodec)) {
+                    throw new TypeError("Expected versioned Device input codec");
+                }
                 expect(() => codec.decodeVersion({ major: 2, minor: 0 }, {})).toThrow(
                     expect.objectContaining({
                         code: "codec.unknown-major",
@@ -408,7 +411,8 @@ describe("Device transport admission and declarations", () => {
                 })
             ).toThrow(expect.objectContaining({ detailCode: "command.invalid" }));
             await expect(
-                backend.execute("outside" as never, cameraInput(), effectContext(undefined))
+                // @ts-expect-error Runtime rejection is required for a command excluded by the public type.
+                backend.execute("outside", cameraInput(), effectContext(undefined))
             ).rejects.toMatchObject({ detailCode: "command.invalid" });
 
             const invalidClock = new (class extends DeviceConsentBackend {
@@ -626,7 +630,20 @@ describe("Device consent boundaries and error identity", () => {
             for (const admission of [null, 42]) {
                 let caught: unknown;
                 try {
-                    await backend.execute("camera", cameraInput(), effectContext(admission));
+                    await backend.execute(
+                        "camera",
+                        cameraInput(),
+                        new ProfileEffectContext(
+                            new InvocationId("device-malformed-admission"),
+                            0,
+                            "device-malformed-admission-key",
+                            new EffectAttemptId("device-malformed-admission-attempt"),
+                            0,
+                            Digest.sha256(new TextEncoder().encode("device-malformed-admission")),
+                            // @ts-expect-error Runtime admission validation covers primitive host evidence.
+                            admission
+                        )
+                    );
                 } catch (error) {
                     caught = error;
                 }
@@ -1047,15 +1064,13 @@ function principal(value: string, tenant = "tenant"): PrincipalRef {
 }
 
 function inputDevice(input: JsonValue): DeviceId {
-    if (input === null || Array.isArray(input) || typeof input !== "object") {
-        throw new TypeError("Expected Device input");
-    }
-    const value = (input as Record<string, JsonValue>)["deviceId"];
-    if (typeof value !== "string") throw new TypeError("Expected Device ID");
+    if (!isObjectRecord(input)) throw new TypeError("Expected Device input");
+    const value = input["deviceId"];
+    if (!isString(value)) throw new TypeError("Expected Device ID");
     return new DeviceId(value);
 }
 
-function effectContext(admission: unknown): ProfileEffectContext {
+function effectContext(admission: DeviceAdmission | undefined): ProfileEffectContext {
     return new ProfileEffectContext(
         new InvocationId("device-test-invocation"),
         0,
@@ -1098,7 +1113,7 @@ function requireOperation(internal: InternalProfileFacetRuntime, name: string): 
     return operation;
 }
 
-function operationContext(targetAdmission: unknown): OperationContext {
+function operationContext(targetAdmission: DeviceAdmission | undefined): OperationContext {
     return {
         invocation: new InvocationId("device-internal-invocation"),
         itemIndex: 0,
@@ -1112,4 +1127,8 @@ function operationContext(targetAdmission: unknown): OperationContext {
         signal: new AbortController().signal,
         content: new MemoryContentStore()
     };
+}
+
+function isString(value: unknown): value is string {
+    return typeof value === "string";
 }

@@ -403,7 +403,7 @@ function taskId(value: string): TaskId {
     return new TaskId(value);
 }
 
-function expectTaskError(action: () => unknown, detailCode: string, message: string): void {
+function expectTaskError(action: () => void, detailCode: string, message: string): void {
     expect(action).toThrow(
         expect.objectContaining({
             name: "TaskError",

@@ -6,11 +6,13 @@ import {
     OperationName,
     ProfileControlContract,
     ProfileOperationContract,
-    ProfileRuntimeEffectsPort,
     ProtectedOperationPort,
     ProtectedProfileRuntimePort,
+    isFacetDataMap,
+    isString,
     profileWireCodec,
     strictObjectSchema,
+    type FacetData,
     type PublicProfileInput,
     type ProtectedOperationRequest,
     type ProtectedOperationResult
@@ -32,7 +34,7 @@ const descriptor = new OperationDescriptor(
 );
 const inputCodec = profileWireCodec<ExampleInput>(
     (input) => ({ value: input.value }),
-    (data) => ({ value: (data as { value: string }).value })
+    decodeExampleInput
 );
 const outputCodec = profileWireCodec<string>(
     (value) => value,
@@ -70,12 +72,14 @@ describe("Protected profile runtime port", () => {
         async () => {
             const { runtime, admission } = recordingRuntime("validation");
             await expect(
-                runtime.invoke(contract, { value: 7 } as never, () => "unused")
+                // @ts-expect-error Runtime wire validation covers inputs excluded by ExampleInput.
+                runtime.invoke(contract, { value: 7 }, () => "unused")
             ).rejects.toMatchObject({ code: "operation.invalid-input", detailCode: "wire.input" });
             expect(admission.calls).toEqual([]);
 
             await expect(
-                runtime.invoke(contract, { value: "valid" }, () => 7 as never)
+                // @ts-expect-error Runtime output validation covers values excluded by the handler contract.
+                runtime.invoke(contract, { value: "valid" }, () => 7)
             ).rejects.toMatchObject({
                 code: "operation.invalid-output",
                 detailCode: "wire.output"
@@ -84,15 +88,7 @@ describe("Protected profile runtime port", () => {
     );
 
     test("rejects result-kind substitution from the protected port", { tags: "p0" }, async () => {
-        const { runtime: template } = recordingRuntime("kind-template");
-        const runtime = new ProtectedProfileRuntimePort(
-            template.host,
-            new ReceiptSubstitutionPort(),
-            recordingRuntime("kind-effects").effects as unknown as ProfileRuntimeEffectsPort<{
-                readonly substituted: true;
-            }>
-        );
-        runtime.activate();
+        const runtime = runtimeWith(new ReceiptKindPort());
         await expect(
             runtime.invoke(contract, { value: "input" }, () => "output")
         ).rejects.toMatchObject({ code: "operation.invalid-output", detailCode: "wire.output" });
@@ -196,12 +192,9 @@ describe("Protected profile runtime port", () => {
             "example.control",
             inputSchema,
             outputSchema,
-            profileWireCodec<ExampleInput>(
-                () => {
-                    throw new TypeError("encode");
-                },
-                (data) => ({ value: (data as { value: string }).value })
-            ),
+            profileWireCodec<ExampleInput>(() => {
+                throw new TypeError("encode");
+            }, decodeExampleInput),
             outputCodec
         );
         await expect(
@@ -245,14 +238,6 @@ describe("Protected profile runtime port", () => {
     });
 });
 
-class ReceiptSubstitutionPort extends ProtectedOperationPort<{ readonly substituted: true }> {
-    public async invoke(
-        _request: ProtectedOperationRequest
-    ): Promise<ProtectedOperationResult<{ readonly substituted: true }>> {
-        return { kind: "receipt", receipt: { substituted: true } };
-    }
-}
-
 class ReceiptKindPort extends ProtectedOperationPort<TestReceipt> {
     public async invoke(
         _request: ProtectedOperationRequest
@@ -286,6 +271,13 @@ function runtimeWith(
     const runtime = new ProtectedProfileRuntimePort(template.host, port, effects);
     runtime.activate();
     return runtime;
+}
+
+function decodeExampleInput(data: FacetData): ExampleInput {
+    if (!isFacetDataMap(data) || !isString(data["value"])) {
+        throw new TypeError("Example input must contain a string value");
+    }
+    return { value: data["value"] };
 }
 
 export function denied(): DetailedProfileError<"runtime.denied"> {

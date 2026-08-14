@@ -1,5 +1,12 @@
 import { MemoryContentStore } from "../../../src/content";
-import { CompatRange, ContentRef, Digest, SemVer, type JsonValue } from "../../../src/core";
+import {
+    CompatRange,
+    ContentRef,
+    Digest,
+    SemVer,
+    isJsonObject,
+    type JsonValue
+} from "../../../src/core";
 import {
     BindingName,
     BindingRequirement,
@@ -475,9 +482,7 @@ function content(): ContentRef {
 }
 
 function wireKeys(data: JsonValue): readonly string[] {
-    if (typeof data !== "object" || data === null || Array.isArray(data)) {
-        throw new TypeError("Wire value must be an object");
-    }
+    if (!isJsonObject(data)) throw new TypeError("Wire value must be an object");
     return Object.keys(data);
 }
 

@@ -1,4 +1,4 @@
-import { isMember, isObjectRecord, type JsonValue, type ObjectRecord } from "../../core";
+import { isMember, isObjectRecord, type JsonValue } from "../../core";
 import type { PrincipalRef } from "../../identity";
 import { Command } from "../command";
 import {
@@ -684,8 +684,12 @@ export class MemoryDeviceConsentBackend<
     }
 }
 
-function isDeviceAdmission(value: ObjectRecord): value is ObjectRecord & DeviceAdmission {
-    return value["deviceId"] instanceof DeviceId && isObjectRecord(value["agentId"]);
+function isDeviceAdmission(value: unknown): value is DeviceAdmission {
+    return (
+        isObjectRecord(value) &&
+        value["deviceId"] instanceof DeviceId &&
+        isObjectRecord(value["agentId"])
+    );
 }
 
 export type DeviceErrorCode =

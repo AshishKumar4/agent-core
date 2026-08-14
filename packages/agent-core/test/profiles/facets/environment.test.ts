@@ -213,6 +213,19 @@ describe("Environment protected control profile", () => {
                 detailCode: "environment.output",
                 message: "Environment snapshot is not ready"
             });
+            provider.exposureResult = ProviderResourceOutcome.indeterminate;
+            await expect(
+                new EnvironmentControllerPreviewPort(controller).expose(
+                    ids.capability(opened.session),
+                    ids.allocateExposure(),
+                    8081,
+                    environmentLease
+                )
+            ).rejects.toMatchObject({
+                code: "operation.invalid-output",
+                detailCode: "environment.output",
+                message: "Environment preview exposure is not ready"
+            });
             await backend.close({ session: opened.session });
             await expect(backend.use({ session: opened.session })).rejects.toThrow(
                 /Environment session/u
@@ -243,22 +256,6 @@ describe("Environment protected control profile", () => {
                     )
                 )
             ).toEqual(new EnvironmentSessionBinding("session-wire", 2, ["env.fs", "env.shell"]));
-
-            const preview = new EnvironmentControllerPreviewPort({
-                expose: async () => ({ url: undefined })
-            } as unknown as EnvironmentController);
-            await expect(
-                preview.expose(
-                    {} as import("../../../src/environments").EnvironmentSessionCapability,
-                    new PortExposureId("preview-pending"),
-                    8080,
-                    environmentLease
-                )
-            ).rejects.toMatchObject({
-                code: "operation.invalid-output",
-                detailCode: "environment.output",
-                message: "Environment preview exposure is not ready"
-            });
         }
     );
 
@@ -483,6 +480,7 @@ class ReadyProvider extends EnvironmentProvider {
     public readonly previewUrl = "https://profile-preview.test/";
     public readonly restores: (ContentRef | undefined)[] = [];
     public snapshotResult = ProviderResourceOutcome.ready(this.snapshotContent);
+    public exposureResult = ProviderResourceOutcome.ready(this.previewUrl);
     readonly #handle: LiveEnvironmentSession = { children: [], release() {} };
 
     public async openSession(request: OpenSessionRequest) {
@@ -502,7 +500,7 @@ class ReadyProvider extends EnvironmentProvider {
         return ProviderResourceOutcome.ready(this.snapshotContent);
     }
     public async exposePort(_request: ExposePortRequest) {
-        return ProviderResourceOutcome.ready(this.previewUrl);
+        return this.exposureResult;
     }
     public async inspectExposure(_request: ExposePortRequest) {
         return ProviderResourceOutcome.ready(this.previewUrl);
