@@ -10,7 +10,8 @@ import {
     RouteReservation,
     Subscription,
     View,
-    ViewDelta
+    ViewDelta,
+    ViewMark
 } from "../../src/workspaces";
 import {
     deliveryFixture,
@@ -36,6 +37,13 @@ test("[workspace.action-descriptor] codec and ownership evidence", { tags: "p1" 
     expect(
         ActionDescriptor.encode(ActionDescriptor.decode(ActionDescriptor.encode(value)))
     ).toEqual(ActionDescriptor.encode(value));
+});
+
+test("[workspace.view-mark] codec and ownership evidence", { tags: "p1" }, () => {
+    const value = new ViewMark("/request", "external");
+    expect(ViewMark.encode(ViewMark.decode(ViewMark.encode(value)))).toEqual(
+        ViewMark.encode(value)
+    );
 });
 
 test("[workspace.event] codec and ownership evidence", { tags: "p1" }, () => {

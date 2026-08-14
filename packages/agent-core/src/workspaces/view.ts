@@ -1,4 +1,5 @@
 import {
+    Digest,
     JsonSchema,
     RecordCodec,
     Revision,
@@ -8,12 +9,13 @@ import {
     type RecordVersion
 } from "../core";
 import { AgentCoreError } from "../errors";
-import { EventKind, SurfaceId } from "../facets";
+import { EventKind, JsonPointer, SurfaceId, canonicalTrustTiers, type TrustTier } from "../facets";
 import {
     decodeRevision,
     encodeRevision,
     requireArray,
     requireFields,
+    requireNullableString,
     requireObject,
     requireString
 } from "./codec";
@@ -76,11 +78,48 @@ export interface ViewInit {
     readonly body: JsonValue;
     readonly actions: readonly ActionDescriptor[];
     readonly cursor: EventCursor;
+    readonly intentDigest?: Digest | undefined;
+    readonly marks?: readonly ViewMark[] | undefined;
 }
 
-class ViewCodecV1 extends RecordCodec<View> {
+class ViewMarkCodecV1 extends RecordCodec<ViewMark> {
     public constructor() {
-        super("workspace.view", { major: 1, minor: 0 });
+        super("workspace.view-mark", { major: 1, minor: 0 });
+    }
+
+    protected encodePayload(mark: ViewMark): JsonValue {
+        return encodeViewMark(mark);
+    }
+
+    protected decodePayload(payload: JsonValue, _version: RecordVersion): ViewMark {
+        return decodeViewMark(payload);
+    }
+}
+
+export class ViewMark {
+    public static readonly codec: RecordCodec<ViewMark> = new ViewMarkCodecV1();
+    public readonly path: string;
+    public readonly tier: TrustTier;
+
+    public constructor(path: string, tier: TrustTier) {
+        new JsonPointer(path);
+        this.path = path;
+        this.tier = canonicalTrustTiers([tier])[0];
+        Object.freeze(this);
+    }
+
+    public static encode(mark: ViewMark): Uint8Array {
+        return ViewMark.codec.encode(mark);
+    }
+
+    public static decode(bytes: Uint8Array): ViewMark {
+        return ViewMark.codec.decode(bytes);
+    }
+}
+
+class ViewCodecV2 extends RecordCodec<View> {
+    public constructor() {
+        super("workspace.view", { major: 2, minor: 0 });
     }
 
     protected encodePayload(view: View): JsonValue {
@@ -89,25 +128,36 @@ class ViewCodecV1 extends RecordCodec<View> {
             revision: encodeRevision(view.revision),
             body: view.body,
             actions: view.actions.map(encodeAction),
-            cursor: view.cursor.value
+            cursor: view.cursor.value,
+            intentDigest: view.intentDigest?.value ?? null,
+            marks: view.marks?.map(encodeViewMark) ?? null
         };
     }
 
     protected decodePayload(payload: JsonValue, _version: RecordVersion): View {
         const object = requireObject(payload, "View payload");
-        requireFields(object, ["actions", "body", "cursor", "revision", "surface"], "View payload");
-        return new View({
+        requireFields(
+            object,
+            ["actions", "body", "cursor", "intentDigest", "marks", "revision", "surface"],
+            "View payload"
+        );
+        const init = {
             surface: new SurfaceId(requireString(object["surface"], "View Surface ID")),
             revision: decodeRevision(object["revision"], "View revision"),
             body: canonicalJson(object["body"]),
             actions: requireArray(object["actions"], "View actions").map(decodeAction),
             cursor: new EventCursor(requireString(object["cursor"], "View cursor"))
-        });
+        };
+        const intentDigest = requireNullableString(object["intentDigest"], "View intent digest");
+        const marks = decodeViewMarks(object["marks"]);
+        return intentDigest === undefined
+            ? new View(init)
+            : new View({ ...init, intentDigest: new Digest(intentDigest), marks });
     }
 }
 
 export class View {
-    public static readonly codec: RecordCodec<View> = new ViewCodecV1();
+    public static readonly codec: RecordCodec<View> = new ViewCodecV2();
 
     public static encode(view: View): Uint8Array {
         return View.codec.encode(view);
@@ -122,6 +172,8 @@ export class View {
     public readonly body: JsonValue;
     public readonly actions: readonly ActionDescriptor[];
     public readonly cursor: EventCursor;
+    public readonly intentDigest: Digest | undefined;
+    public readonly marks: readonly ViewMark[] | undefined;
 
     public constructor(init: ViewInit) {
         const actionIds = new Set<string>();
@@ -132,11 +184,26 @@ export class View {
             }
             actionIds.add(action.id.value);
         }
+        const body = canonicalJson(init.body);
+        if (init.marks !== undefined && init.intentDigest === undefined) {
+            throw new TypeError("Only a decision View may carry provenance marks");
+        }
+        const marks = init.marks?.map((mark) => new ViewMark(mark.path, mark.tier)) ?? [];
+        marks.sort(compareViewMarks);
+        for (const [index, mark] of marks.entries()) {
+            if (marks[index - 1]?.path === mark.path) {
+                throw new TypeError("View mark paths must be unique");
+            }
+            requireMarkedValue(body, mark.path);
+        }
         this.surface = init.surface;
         this.revision = init.revision;
-        this.body = canonicalJson(init.body);
+        this.body = body;
         this.actions = Object.freeze(actions);
         this.cursor = init.cursor;
+        this.intentDigest =
+            init.intentDigest === undefined ? undefined : new Digest(init.intentDigest.value);
+        this.marks = init.intentDigest === undefined ? undefined : Object.freeze(marks);
         Object.freeze(this);
     }
 }
@@ -218,26 +285,93 @@ export interface JsonPatchEngine {
 export function viewDocument(view: View): JsonValue {
     return canonicalJson({
         body: view.body,
-        actions: view.actions.map(encodeAction)
+        actions: view.actions.map(encodeAction),
+        intentDigest: view.intentDigest?.value ?? null,
+        marks: view.marks?.map(encodeViewMark) ?? null
     });
 }
 
 export function viewFromDocument(previous: View, delta: ViewDelta, document: JsonValue): View {
     const object = requireObject(document, "Patched View document");
-    requireFields(object, ["actions", "body"], "Patched View document");
+    requireFields(object, ["actions", "body", "intentDigest", "marks"], "Patched View document");
     if (!previous.surface.equals(delta.surface) || !previous.revision.equals(delta.baseRevision)) {
         throw new AgentCoreError(
             "protocol.revision-conflict",
             "View delta does not continue the supplied View"
         );
     }
-    return new View({
+    const init = {
         surface: previous.surface,
         revision: delta.revision,
         body: canonicalJson(object["body"]),
         actions: requireArray(object["actions"], "Patched View actions").map(decodeAction),
         cursor: delta.cursor
-    });
+    };
+    const intentDigest = requireNullableString(
+        object["intentDigest"],
+        "Patched View intent digest"
+    );
+    const marks = decodeViewMarks(object["marks"]);
+    return intentDigest === undefined
+        ? new View(init)
+        : new View({ ...init, intentDigest: new Digest(intentDigest), marks });
+}
+
+function encodeViewMark(mark: ViewMark): JsonValue {
+    return { path: mark.path, tier: mark.tier };
+}
+
+function decodeViewMark(value: JsonValue): ViewMark {
+    const object = requireObject(value, "View mark");
+    requireFields(object, ["path", "tier"], "View mark");
+    const tier = requireString(object["tier"], "View mark trust tier");
+    return new ViewMark(requireString(object["path"], "View mark path"), requireTrustTier(tier));
+}
+
+function decodeViewMarks(value: JsonValue | undefined): readonly ViewMark[] | undefined {
+    if (value === null) return undefined;
+    return requireArray(value, "View marks").map(decodeViewMark);
+}
+
+function requireTrustTier(value: string): TrustTier {
+    if (
+        value === "owner" ||
+        value === "authenticated" ||
+        value === "external" ||
+        value === "self"
+    ) {
+        return value;
+    }
+    throw new TypeError("View mark trust tier is invalid");
+}
+
+function compareViewMarks(left: ViewMark, right: ViewMark): number {
+    return left.path < right.path ? -1 : left.path > right.path ? 1 : 0;
+}
+
+function requireMarkedValue(body: JsonValue, pointer: string): void {
+    let value = body;
+    for (const token of new JsonPointer(pointer).tokens) {
+        if (Array.isArray(value)) {
+            if (!/^(?:0|[1-9][0-9]*)$/u.test(token)) {
+                throw new TypeError("View mark path does not resolve within the View body");
+            }
+            const index = Number(token);
+            const next = Number.isSafeInteger(index) ? value[index] : undefined;
+            if (next === undefined) {
+                throw new TypeError("View mark path does not resolve within the View body");
+            }
+            value = next;
+        } else if (isJsonObject(value) && Object.hasOwn(value, token)) {
+            const next = value[token];
+            if (next === undefined) {
+                throw new TypeError("View mark path does not resolve within the View body");
+            }
+            value = next;
+        } else {
+            throw new TypeError("View mark path does not resolve within the View body");
+        }
+    }
 }
 
 function encodeAction(action: ActionDescriptor): JsonValue {

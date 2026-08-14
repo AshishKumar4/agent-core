@@ -45,8 +45,12 @@ function recordPayload(bytes: Uint8Array): JsonObject {
     return envelope["payload"];
 }
 
-function recordBytes(kind: string, payload: JsonValue): Uint8Array {
-    return encodeCanonicalJson({ kind, payload, version: { major: 1, minor: 0 } });
+function recordBytes(
+    kind: string,
+    payload: JsonValue,
+    version = { major: 1, minor: 0 }
+): Uint8Array {
+    return encodeCanonicalJson({ kind, payload, version });
 }
 
 function signature(message: Uint8Array): Uint8Array {
@@ -177,7 +181,13 @@ describe("View record mutation coverage", () => {
         ];
         for (const entry of cases) {
             expect(() =>
-                View.decode(recordBytes("workspace.view", { ...payload, [entry.field]: entry.value }))
+                View.decode(
+                    recordBytes(
+                        "workspace.view",
+                        { ...payload, [entry.field]: entry.value },
+                        { major: 2, minor: 0 }
+                    )
+                )
             ).toThrow(
                 expect.objectContaining({
                     code: "codec.invalid",

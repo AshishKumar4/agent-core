@@ -27,6 +27,18 @@
       ]
     },
     {
+      "symbol": "ViewMark",
+      "kind": "workspace.view-mark",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/workspaces/view.ts#ViewMark",
+      "codec": "src/workspaces/view.ts#ViewMark.codec",
+      "store": null,
+      "tests": [
+        "test/workspaces/registry.test.ts#[workspace.view-mark] codec and ownership evidence"
+      ]
+    },
+    {
       "symbol": "Event",
       "kind": "workspace.event",
       "durability": "durable",

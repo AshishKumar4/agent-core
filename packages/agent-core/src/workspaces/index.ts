@@ -120,5 +120,12 @@ export type {
 } from "./value";
 export { ViewReplayProtocol } from "./view-replay";
 export type { ViewReplayResult } from "./view-replay";
-export { ActionDescriptor, View, ViewDelta, viewDocument, viewFromDocument } from "./view";
+export {
+    ActionDescriptor,
+    View,
+    ViewDelta,
+    ViewMark,
+    viewDocument,
+    viewFromDocument
+} from "./view";
 export type { ActionDescriptorInit, JsonPatchEngine, ViewDeltaInit, ViewInit } from "./view";

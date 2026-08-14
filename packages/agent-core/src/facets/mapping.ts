@@ -20,13 +20,13 @@ export class FieldMove {
         public readonly to: string,
         init: { readonly from: string } | { readonly literal: FacetData }
     ) {
-        requireJsonPointer(to, "Field move target");
+        new JsonPointer(to);
         const keys = Object.keys(init);
         if (keys.length !== 1 || (keys[0] !== "from" && keys[0] !== "literal")) {
             throw new TypeError("Field move requires exactly one of from or literal");
         }
         if ("from" in init) {
-            requireJsonPointer(init.from, "Field move source");
+            new JsonPointer(init.from);
             this.from = init.from;
             this.literal = undefined;
         } else {
@@ -255,9 +255,22 @@ function ensureUnique(values: readonly string[], message: string): void {
     }
 }
 
-function requireJsonPointer(value: string, subject: string): void {
-    if (value !== "" && (!value.startsWith("/") || /~(?:[^01]|$)/.test(value))) {
-        throw new TypeError(`${subject} must be an RFC 6901 JSON Pointer`);
+export class JsonPointer {
+    public readonly tokens: readonly string[];
+
+    public constructor(public readonly value: string) {
+        if (value !== "" && (!value.startsWith("/") || /~(?:[^01]|$)/.test(value))) {
+            throw new TypeError("Value must be an RFC 6901 JSON Pointer");
+        }
+        this.tokens = Object.freeze(
+            value === ""
+                ? []
+                : value
+                      .slice(1)
+                      .split("/")
+                      .map((token) => token.replaceAll("~1", "/").replaceAll("~0", "~"))
+        );
+        Object.freeze(this);
     }
 }
 

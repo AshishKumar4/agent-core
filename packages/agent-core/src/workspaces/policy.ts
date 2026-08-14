@@ -1,5 +1,11 @@
 import { decodeCanonicalJson, encodeCanonicalJson, isJsonObject, type JsonValue } from "../core";
-import { EventPattern, PayloadMapping, type DedupePolicy, type TrustTier } from "../facets";
+import {
+    EventPattern,
+    JsonPointer,
+    PayloadMapping,
+    type DedupePolicy,
+    type TrustTier
+} from "../facets";
 import { AgentCoreError } from "../errors";
 import type { PrincipalRef } from "../identity";
 import { Event } from "./event";
@@ -108,7 +114,7 @@ function eventSourceId(source: EventSource): string {
 }
 
 export function validatePayloadMapping(mapping: PayloadMapping): void {
-    const paths = mapping.moves.map((move) => parsePointer(move.to));
+    const paths = mapping.moves.map((move) => new JsonPointer(move.to).tokens);
     for (const [leftIndex, left] of paths.entries()) {
         for (const right of paths.slice(leftIndex + 1)) {
             if (isPrefix(left, right) || isPrefix(right, left)) {
@@ -124,7 +130,7 @@ function isPrefix(left: readonly string[], right: readonly string[]): boolean {
 
 function readPointer(document: JsonValue, pointer: string): JsonValue {
     let current: JsonValue = document;
-    for (const token of parsePointer(pointer)) {
+    for (const token of new JsonPointer(pointer).tokens) {
         if (Array.isArray(current)) {
             const index = parseArrayIndex(token);
             if (index >= current.length) throw missingPointer(pointer);
@@ -143,7 +149,7 @@ function readPointer(document: JsonValue, pointer: string): JsonValue {
 }
 
 function writePointer(document: MutableJson, pointer: string, value: MutableJson): MutableJson {
-    const tokens = parsePointer(pointer);
+    const tokens = new JsonPointer(pointer).tokens;
     if (tokens.length === 0) return value;
     if (!isMutableContainer(document)) {
         throw invalidSubscription("Mapping target traverses a scalar value");
@@ -209,14 +215,6 @@ function defineDataProperty(
         writable: true,
         value
     });
-}
-
-function parsePointer(pointer: string): readonly string[] {
-    if (pointer === "") return [];
-    return pointer
-        .slice(1)
-        .split("/")
-        .map((token) => token.replaceAll("~1", "/").replaceAll("~0", "~"));
 }
 
 function parseArrayIndex(token: string): number {

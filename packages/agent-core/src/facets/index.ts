@@ -66,6 +66,7 @@ export type { AutomationAuthority, AutomationInit, DedupePolicy } from "./automa
 export {
     FieldMapping,
     FieldMove,
+    JsonPointer,
     OperationPattern,
     OperationSelector,
     PayloadMapping,

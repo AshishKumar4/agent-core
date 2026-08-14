@@ -28,7 +28,7 @@ import { ContentRetentionReference } from "../../src/workspaces/retention";
 import { RouteDelivery, RouteProjection, RouteReservation } from "../../src/workspaces/route";
 import { Subscription } from "../../src/workspaces/subscription";
 import { EventProvenance, EventVerification } from "../../src/workspaces/value";
-import { View, ViewDelta } from "../../src/workspaces/view";
+import { View, ViewDelta, ViewMark } from "../../src/workspaces/view";
 import {
     deliveryFixture,
     eventFixture,
@@ -59,6 +59,7 @@ describe("workspace durable records", () => {
         ["RouteProjection", codecCase(RouteProjection.codec, projection)],
         ["RouteDelivery", codecCase(RouteDelivery.codec, delivery)],
         ["View", codecCase(View.codec, view)],
+        ["ViewMark", codecCase(ViewMark.codec, new ViewMark("/value", "external"))],
         ["ViewDelta", codecCase(ViewDelta.codec, delta)],
         ["InboxEventReference", codecCase(InboxEventReference.codec, inbox)],
         ["ContentRetentionReference", codecCase(ContentRetentionReference.codec, retention)]

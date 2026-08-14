@@ -1146,7 +1146,9 @@ describe("views and deltas", () => {
         const next = delta(previous);
         expect(viewDocument(previous)).toEqual({
             actions: [{ arguments: null, emits: "coverage.submitted", id: "old", label: "Submit" }],
-            body: { ready: true }
+            body: { ready: true },
+            intentDigest: null,
+            marks: null
         });
         const rebuilt = viewFromDocument(previous, next, {
             actions: [
@@ -1157,7 +1159,9 @@ describe("views and deltas", () => {
                     label: "Renamed"
                 }
             ],
-            body: ["next"]
+            body: ["next"],
+            intentDigest: null,
+            marks: null
         });
         expect(rebuilt.revision.equals(next.revision)).toBe(true);
         expect(rebuilt.cursor.equals(next.cursor)).toBe(true);
@@ -1191,11 +1195,22 @@ describe("views and deltas", () => {
             /missing or unknown fields/
         );
         expect(() =>
-            viewFromDocument(previous, next, { actions: [], body: {}, unknown: true })
+            viewFromDocument(previous, next, {
+                actions: [],
+                body: {},
+                intentDigest: null,
+                marks: null,
+                unknown: true
+            })
         ).toThrow(/missing or unknown fields/);
-        expect(() => viewFromDocument(previous, next, { actions: {}, body: {} })).toThrow(
-            /must be an array/
-        );
+        expect(() =>
+            viewFromDocument(previous, next, {
+                actions: {},
+                body: {},
+                intentDigest: null,
+                marks: null
+            })
+        ).toThrow(/must be an array/);
         expect(() =>
             viewFromDocument(previous, next, {
                 actions: [
@@ -1207,7 +1222,9 @@ describe("views and deltas", () => {
                         label: "Second"
                     }
                 ],
-                body: {}
+                body: {},
+                intentDigest: null,
+                marks: null
             })
         ).toThrow(/action IDs must be unique/);
     });
@@ -1215,6 +1232,7 @@ describe("views and deltas", () => {
     test("rejects malformed View and ViewDelta codec fields and discriminants", { tags: "p2" }, () => {
         const previous = view();
         const viewPayload = recordPayload(View.encode(previous));
+        const viewVersion = { major: 2, minor: 0 };
         const viewActions = viewPayload["actions"];
         if (!Array.isArray(viewActions) || !isJsonObject(viewActions[0])) {
             throw new TypeError("View action fixture changed shape");
@@ -1222,33 +1240,47 @@ describe("views and deltas", () => {
         const validAction = viewActions[0];
         const { cursor, ...missingCursor } = viewPayload;
         expect(cursor).toBe("cursor-coverage-0");
-        expectCodecInvalid(() => View.decode(recordBytes(View.codec.kind, "view")));
-        expectCodecInvalid(() => View.decode(recordBytes(View.codec.kind, missingCursor)));
+        expectCodecInvalid(() => View.decode(recordBytes(View.codec.kind, "view", viewVersion)));
         expectCodecInvalid(() =>
-            View.decode(recordBytes(View.codec.kind, { ...viewPayload, unknown: true }))
-        );
-        expectCodecInvalid(() =>
-            View.decode(recordBytes(View.codec.kind, { ...viewPayload, actions: {} }))
+            View.decode(recordBytes(View.codec.kind, missingCursor, viewVersion))
         );
         expectCodecInvalid(() =>
             View.decode(
-                recordBytes(View.codec.kind, {
-                    ...viewPayload,
-                    actions: [{ ...validAction, unknown: true }]
-                })
+                recordBytes(View.codec.kind, { ...viewPayload, unknown: true }, viewVersion)
+            )
+        );
+        expectCodecInvalid(() =>
+            View.decode(recordBytes(View.codec.kind, { ...viewPayload, actions: {} }, viewVersion))
+        );
+        expectCodecInvalid(() =>
+            View.decode(
+                recordBytes(
+                    View.codec.kind,
+                    {
+                        ...viewPayload,
+                        actions: [{ ...validAction, unknown: true }]
+                    },
+                    viewVersion
+                )
             )
         );
         expectCodecInvalid(() =>
             View.decode(
-                recordBytes(View.codec.kind, {
-                    ...viewPayload,
-                    actions: [{ ...validAction, arguments: [] }]
-                })
+                recordBytes(
+                    View.codec.kind,
+                    {
+                        ...viewPayload,
+                        actions: [{ ...validAction, arguments: [] }]
+                    },
+                    viewVersion
+                )
             )
         );
-        expectCodecInvalid(() => View.decode(recordBytes("workspace.other", viewPayload)));
+        expectCodecInvalid(() =>
+            View.decode(recordBytes("workspace.other", viewPayload, viewVersion))
+        );
         expect(() =>
-            View.decode(recordBytes(View.codec.kind, viewPayload, { major: 2, minor: 0 }))
+            View.decode(recordBytes(View.codec.kind, viewPayload, { major: 3, minor: 0 }))
         ).toThrow(expect.objectContaining({ code: "codec.unknown-major" }));
 
         const viewDelta = delta(previous);
