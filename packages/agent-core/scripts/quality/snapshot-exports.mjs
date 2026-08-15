@@ -2,7 +2,14 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import ts from "typescript";
-import { artifactRoot, packageRoot, parseCanonicalJson, portablePath, writeCanonicalJson } from "./project.mjs";
+import { exportedDeclarations } from "./export-registry.mjs";
+import {
+    artifactRoot,
+    packageRoot,
+    parseCanonicalJson,
+    portablePath,
+    writeCanonicalJson
+} from "./project.mjs";
 
 if (process.env.QUALITY_WRITE_BASELINE !== "1" || process.env.CI) {
     throw new TypeError("Snapshotting exports requires QUALITY_WRITE_BASELINE=1 outside CI");
@@ -31,15 +38,15 @@ for (const [specifier, path] of declarationPaths) {
     const source = program.getSourceFile(path);
     const symbol = source === undefined ? undefined : checker.getSymbolAtLocation(source);
     if (symbol === undefined) throw new TypeError(`Missing declaration module ${specifier}`);
-    declarations[specifier] = checker
-        .getExportsOfModule(symbol)
-        .map((item) => item.name)
-        .sort();
+    declarations[specifier] = exportedDeclarations(checker, symbol);
 }
 let governance = {};
 try {
     const exportsPath = resolve(artifactRoot, "quality/exports.json");
-    const previous = parseCanonicalJson(await readFile(exportsPath, "utf8"), portablePath(exportsPath));
+    const previous = parseCanonicalJson(
+        await readFile(exportsPath, "utf8"),
+        portablePath(exportsPath)
+    );
     governance = {
         forbiddenSymbols: previous.forbiddenSymbols ?? {},
         forbiddenSubpaths: previous.forbiddenSubpaths ?? [],
@@ -49,7 +56,7 @@ try {
     if (error?.code !== "ENOENT") throw error;
 }
 await writeCanonicalJson(resolve(artifactRoot, "quality/exports.json"), {
-    edition: "1.0.0",
+    edition: "2.0.0",
     exports: packageJson.exports,
     runtime,
     declarations,

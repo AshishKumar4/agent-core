@@ -12,6 +12,7 @@ import {
     oracleOperationManifest,
     passingLiveAtoms
 } from "./quality/release-chain-evidence.ts";
+import { specRequirements } from "./quality/spec.mjs";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const formalRoot = join(packageRoot, "formal");
@@ -623,7 +624,7 @@ if (checkExactKeys(boundary, ["requiredAreaIds", "areas"], "formalBoundary")) {
  * a link cannot be closed by assertion; an open link names a reason and carries no
  * evidence, so a gap cannot be closed by silence either.
  */
-function checkReleaseChain() {
+async function checkReleaseChain() {
     const chain = traceability.releaseChain;
     if (!checkExactKeys(chain, ["summary", "entries"], "releaseChain")) return;
     checkString(chain.summary, "releaseChain.summary");
@@ -631,7 +632,9 @@ function checkReleaseChain() {
         fail("releaseChain.entries must be an array");
         return;
     }
-    const specSource = readFileSync(specPath, "utf8");
+    const specAtomIds = new Set(
+        (await specRequirements(specPath)).map((requirement) => requirement.id)
+    );
     let servedOracleOperations = new Map();
     try {
         servedOracleOperations = readOracleOperations();
@@ -710,7 +713,7 @@ function checkReleaseChain() {
         for (const atom of checkStringArray(entry.specAtoms, `${location}.specAtoms`, {
             nonempty: true
         })) {
-            if (!specSource.includes(`**${atom}**`)) {
+            if (!specAtomIds.has(atom)) {
                 fail(`${location}.specAtoms names an atom absent from SPEC.md: ${atom}`);
             }
         }
@@ -868,7 +871,7 @@ function checkReleaseChain() {
     }
 }
 
-checkReleaseChain();
+await checkReleaseChain();
 
 if (failures.length > 0) reportFailures();
 

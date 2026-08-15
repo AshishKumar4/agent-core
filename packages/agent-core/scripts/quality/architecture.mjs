@@ -17,6 +17,8 @@ import {
     sha256,
     writeCanonicalJson
 } from "./project.mjs";
+import { vocabularyDeclarationNames } from "./export-registry.mjs";
+import { canonicalSpec } from "./spec.mjs";
 
 // Weakening a type is how a wrong program stops being rejected, so every escape is
 // bound to an exact symbol and source anchor under a reasoned permit. Product code may
@@ -70,7 +72,7 @@ for (const path of files) {
 }
 
 reconcilePermits();
-if (options.root === repositoryRoot) await checkSpecVocabulary();
+await checkSpecVocabulary(options.spec, options.exports, options.vocabulary);
 
 for (const [name, locations] of identifiers) {
     if (locations.length > 1) {
@@ -385,57 +387,53 @@ function reconcilePermits() {
 // implementation machinery legitimately earns nouns beneath the SPEC's altitude (Init,
 // Options, preflight), so such a word stands only while spec-vocabulary.json records a
 // written reason for it, and a reviewed word that falls out of use or gets adopted by
-// the SPEC is flagged as stale rather than silently retained. Lowercase-initial exports
-// (functions) name behavior, not seam nouns, and are out of scope.
-async function checkSpecVocabulary() {
-    const registryPath = "packages/agent-core/artifacts/quality/exports.json";
-    const vocabularyPath = "packages/agent-core/artifacts/quality/spec-vocabulary.json";
-    const spec = await readFile(resolve(packageRoot, "SPEC.md"), "utf8");
-    const registry = await readCanonicalJson(resolve(artifactRoot, "quality/exports.json"));
-    const vocabulary = await readCanonicalJson(
-        resolve(artifactRoot, "quality/spec-vocabulary.json")
-    );
+// the SPEC is flagged as stale rather than silently retained. The declaration registry
+// identifies type nouns directly; identifier capitalization never stands in for kind.
+async function checkSpecVocabulary(specFile, exportsFile, vocabularyFile) {
+    const registryPath = portable(relative(options.root, exportsFile));
+    const vocabularyPath = portable(relative(options.root, vocabularyFile));
+    const { visibleBlocks } = await canonicalSpec(specFile);
+    const registry = await readCanonicalJson(exportsFile);
+    const vocabulary = await readCanonicalJson(vocabularyFile);
     const { foreign, reviewed } = validateSpecVocabulary(vocabulary);
     const specWords = new Set();
-    for (const word of spec.match(/[A-Za-z][A-Za-z0-9]*/gu) ?? []) {
-        specWords.add(word.toLowerCase());
-        for (const token of nameTokens(word)) specWords.add(token.toLowerCase());
-    }
-    const containsWord = (token) => {
-        const candidates = [token, `${token}s`, `${token}es`];
-        if (token.endsWith("s")) candidates.push(token.slice(0, -1));
-        if (token.endsWith("es")) candidates.push(token.slice(0, -2));
-        if (token.endsWith("ies")) candidates.push(`${token.slice(0, -3)}y`);
-        if (token.endsWith("y")) candidates.push(`${token.slice(0, -1)}ies`);
-        return candidates.some((candidate) => specWords.has(candidate));
-    };
-    const symbols = new Set();
-    for (const section of [registry.runtime, registry.declarations]) {
-        for (const names of Object.values(section)) {
-            for (const name of names) symbols.add(name);
+    for (const block of visibleBlocks) {
+        for (const word of block.rendered.match(/[A-Za-z][A-Za-z0-9]*/gu) ?? []) {
+            specWords.add(word.toLowerCase());
+            for (const token of nameTokens(word)) specWords.add(token.toLowerCase());
         }
     }
+    const containsWord = (token) =>
+        singularForms(token).some(
+            (candidate) =>
+                specWords.has(candidate) ||
+                specWords.has(`${candidate}s`) ||
+                specWords.has(`${candidate}es`) ||
+                (candidate.endsWith("y") && specWords.has(`${candidate.slice(0, -1)}ies`))
+        );
+    const symbols = vocabularyDeclarationNames(registry);
     const usedReviews = new Set();
     for (const symbol of [...symbols].sort()) {
-        if (!/^[A-Z]/u.test(symbol)) continue;
         const flagged = new Set();
         for (const token of nameTokens(symbol)) {
             const word = token.toLowerCase();
             if (flagged.has(word)) continue;
             flagged.add(word);
-            const translation = foreign.get(word);
+            const foreignWord = singularForms(word).find((candidate) => foreign.has(candidate));
+            const translation = foreignWord === undefined ? undefined : foreign.get(foreignWord);
             if (translation !== undefined) {
                 issue(
                     "ACQ-SPEC-VOCAB",
                     registryPath,
                     symbol,
-                    `${symbol} uses the foreign term "${word}"; the SPEC's word is ${translation} (SPEC.md Appendix A)`
+                    `${symbol} uses the foreign term "${foreignWord}"; the SPEC's word is ${translation} (SPEC.md Appendix A)`
                 );
                 continue;
             }
             if (containsWord(word)) continue;
-            if (reviewed.has(word)) {
-                usedReviews.add(word);
+            const reviewedWord = singularForms(word).find((candidate) => reviewed.has(candidate));
+            if (reviewedWord !== undefined) {
+                usedReviews.add(reviewedWord);
                 continue;
             }
             issue(
@@ -463,6 +461,14 @@ async function checkSpecVocabulary() {
             );
         }
     }
+}
+
+function singularForms(word) {
+    const forms = [word];
+    if (word.endsWith("ies") && word.length > 3) forms.push(`${word.slice(0, -3)}y`);
+    if (/(?:ches|shes|ses|xes|zes)$/u.test(word)) forms.push(word.slice(0, -2));
+    if (word.endsWith("s") && !/(?:ss|us|is)$/u.test(word)) forms.push(word.slice(0, -1));
+    return [...new Set(forms)];
 }
 
 function validateSpecVocabulary(document) {
@@ -760,6 +766,9 @@ function parseArguments(args) {
     let root = repositoryRoot;
     let baseline = resolve(artifactRoot, "quality/architecture-baseline.json");
     let permits = resolve(artifactRoot, "quality/weak-type-permits.json");
+    let spec = resolve(packageRoot, "SPEC.md");
+    let exportsFile = resolve(artifactRoot, "quality/exports.json");
+    let vocabulary = resolve(artifactRoot, "quality/spec-vocabulary.json");
     let writeBaseline = false;
     for (let index = 0; index < args.length; index += 1) {
         const argument = args[index];
@@ -767,11 +776,24 @@ function parseArguments(args) {
         else if (argument === "--root") root = resolve(required(args, ++index, argument));
         else if (argument === "--baseline") baseline = resolve(required(args, ++index, argument));
         else if (argument === "--permits") permits = resolve(required(args, ++index, argument));
+        else if (argument === "--spec") spec = resolve(required(args, ++index, argument));
+        else if (argument === "--exports") exportsFile = resolve(required(args, ++index, argument));
+        else if (argument === "--vocabulary")
+            vocabulary = resolve(required(args, ++index, argument));
         else if (argument === "--write-baseline") writeBaseline = true;
         else throw new TypeError(`Unknown architecture argument ${argument}`);
     }
     if (stage !== "building" && stage !== "final") throw new TypeError(`Unknown stage ${stage}`);
-    return { stage, root, baseline, permits, writeBaseline };
+    return {
+        stage,
+        root,
+        baseline,
+        permits,
+        spec,
+        exports: exportsFile,
+        vocabulary,
+        writeBaseline
+    };
 }
 
 function required(args, index, option) {

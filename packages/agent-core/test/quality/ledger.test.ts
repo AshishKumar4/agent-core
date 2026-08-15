@@ -2,7 +2,7 @@ import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
-import { specRequirements } from "../../scripts/quality/spec.mjs";
+import { canonicalSpec, specRequirements } from "../../scripts/quality/spec.mjs";
 import { runQualitySubprocess, subprocessTestOptions } from "./subprocess";
 import { objectsAt, readArtifact, stringAt, stringsAt } from "./artifacts";
 
@@ -102,19 +102,29 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
     });
 
     test("extracts a unique owner and digest for every §13 atom and §11 profile", async () => {
-        const requirements = await specRequirements();
+        const root = await mkdtemp(resolve(tmpdir(), "agent-core-ledger-wrapped-profile-"));
+        temporary.push(root);
+        const specPath = resolve(root, "SPEC.md");
+        const source = (await readFile(resolve(packageRoot, "SPEC.md"), "utf8")).replace(
+            "- **P11-SHELL-CANCEL** Operation `cancel` has `mutate` impact.",
+            "- [**P11-SHELL-CANCEL**](#cancel) Operation `cancel` has `mutate` impact."
+        );
+        expect(source).toContain("[**P11-SHELL-CANCEL**](#cancel)");
+        await writeFile(specPath, source, "utf8");
+        const parsed = await canonicalSpec(specPath);
+        const requirements = parsed.requirements;
         expect(requirements.length).toBeGreaterThan(300);
         expect(new Set(requirements.map((item) => item.id)).size).toBe(requirements.length);
         expect(requirements.every((item) => /^W\d+$/.test(item.owner))).toBe(true);
         expect(requirements.every((item) => /^sha256:[a-f0-9]{64}$/.test(item.digest))).toBe(true);
-        const spec = await readFile(resolve(packageRoot, "SPEC.md"), "utf8");
-        const explicitProfileLabels = [...spec.matchAll(/^- \*\*(P11-[A-Z0-9-]+)\*\*/gmu)]
-            .map((match) => match[1]!)
+        const profileAnchorIds = parsed.anchors
+            .filter((anchor) => anchor.id.startsWith("P11-"))
+            .map((anchor) => anchor.id)
             .sort();
         expect(
             requirements.filter((item) => item.id.startsWith("P11-")).map((item) => item.id)
-        ).toEqual(explicitProfileLabels);
-        expect(explicitProfileLabels.some((id) => /^P11-\d/u.test(id))).toBe(false);
+        ).toEqual(profileAnchorIds);
+        expect(profileAnchorIds.some((id) => /^P11-\d/u.test(id))).toBe(false);
         for (const id of [
             "C13-TURN-NO-RETRY",
             "C13-TURN-NO-RETRY-RUNTIME",
@@ -249,7 +259,7 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         }
     });
 
-    test("hashes authoritative normalized prose and enforces reviewed outside anchors", async () => {
+    test("hashes authoritative prose with its conformance summary and outside anchor", async () => {
         const root = await mkdtemp(resolve(tmpdir(), "agent-core-normative-"));
         temporary.push(root);
         const originalPath = resolve(packageRoot, "SPEC.md");
@@ -258,16 +268,14 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         const id = "C13-RUN-ADMISSION-REGISTRY";
 
         const summaryOnlyPath = resolve(root, "summary.md");
-        await writeFile(
-            summaryOnlyPath,
-            original.replace(
-                "Every Run-associated asynchronous obligation reserves a canonical Run-owner registry entry before admission.",
-                "Every Run-associated asynchronous obligation reserves a canonical Run-owner registry entry before remote or local admission."
-            ),
-            "utf8"
+        const changedSummary = original.replace(
+            "Every Run-associated asynchronous obligation uses canonical pre-remote identity reserve, completion, and close transitions in the Run-owner registry.",
+            "Every Run-associated asynchronous obligation skips canonical pre-remote identity reserve, completion, and close transitions in the Run-owner registry."
         );
+        expect(changedSummary).not.toBe(original);
+        await writeFile(summaryOnlyPath, changedSummary, "utf8");
         const summaryOnly = await specRequirements(summaryOnlyPath);
-        expect(summaryOnly.find((item) => item.id === id)?.digest).toBe(
+        expect(summaryOnly.find((item) => item.id === id)?.digest).not.toBe(
             baseline.find((item) => item.id === id)?.digest
         );
 

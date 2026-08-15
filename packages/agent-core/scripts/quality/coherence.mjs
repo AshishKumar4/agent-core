@@ -14,19 +14,10 @@ import {
     sha256,
     writeCanonicalJson
 } from "./project.mjs";
-import { profileLabels, specAtoms } from "./spec.mjs";
+import { canonicalSpec, compareSectionIds } from "./spec.mjs";
 
-/**
- * §3.3 illustrates deny-Grant precedence with Workspaces literally named W1 and W2, which
- * collide with the development-wave codenames. The exemption is the exact example sentence
- * and must still match the document, so a wave codename anywhere else remains a finding.
- */
-const waveCodenameExamples = [
-    "Example: Team A holds `reader` on Project P, so its members read every Workspace in P; a deny-Grant for W2 removes W2 without touching W1."
-];
 const testCallees = ["describe", "it", "test", "suite", "bench"];
 const atomLabel = /\[((?:C13|P11|AC|NC)-[A-Z0-9-]+)\]/gu;
-const atomAnchor = /\*\*(?:C13|P11)-[A-Z0-9-]+\*\*/u;
 
 const options = parseArguments(process.argv.slice(2));
 const testRoots =
@@ -39,20 +30,35 @@ const testRoots =
 const files = (await Promise.all(testRoots.map((root) => collectFiles(root, isTypeScript))))
     .flat()
     .sort();
-const specSource = await readFile(options.spec, "utf8");
 const specFile = portable(relative(options.root, options.spec));
 const coverageFile = portable(relative(options.root, options.coverage));
-const normativeMap = await readCanonicalJson(resolve(artifactRoot, "quality/normative-map.json"));
 const traceability = await readCanonicalJson(resolve(packageRoot, "artifacts/traceability.yaml"));
 const coverage = await readCanonicalJson(options.coverage);
-const atoms = specAtoms(specSource, normativeMap);
-const prose = maskCode(specSource);
+const {
+    requirements,
+    atoms,
+    anchors,
+    units: structuralUnits,
+    unsupportedBlocks,
+    visibleBlocks,
+    inlineCodePlaceholder,
+    sections: specSections,
+    normativeSections,
+    normativeKeywords
+} = await canonicalSpec(options.spec);
+/** The exact §3.3 Workspace example is the sole collision with wave codenames. */
+const waveCodenameExamples = [
+    {
+        prose: `Example: Team A holds ${inlineCodePlaceholder} on Project P, so its members read every Workspace in P; a deny-Grant for W2 removes W2 without touching W1.`,
+        rendered:
+            "Example: Team A holds reader on Project P, so its members read every Workspace in P; a deny-Grant for W2 removes W2 without touching W1."
+    }
+];
+const normativeSectionIds = new Set(normativeSections);
+const normativeKeyword = new RegExp(`\\b(?:${normativeKeywords.join("|")})\\b`, "u");
 const issues = [];
-let sectionCache;
-let vocabularyCache;
 const known = new Set([
-    ...atoms.map((atom) => atom.id),
-    ...profileLabels(specSource),
+    ...requirements.map((requirement) => requirement.id),
     ...traceability.requirements.map((item) => item.id),
     ...traceability.nonClaims.map((item) => item.id)
 ]);
@@ -136,27 +142,42 @@ if (options.writeBaseline) {
  * input it silently re-digests the atom.
  */
 function checkWaveCodenames() {
-    const exempt = exemptSpans();
-    const normative = prose.slice(0, prose.indexOf("## 13. Conformance"));
-    for (const match of normative.matchAll(/\bW[0-9]\b/gu)) {
-        if (exempt.some(([start, end]) => match.index >= start && match.index < end)) continue;
-        const section = sectionAt(match.index);
-        issue(
-            "COH-UNDEFINED-TOKEN",
-            specFile,
-            `${section} ${match[0]}`,
-            `Undefined wave codename ${match[0]} in §${section} normative prose`
-        );
+    const exemptions = waveCodenameExemptions();
+    for (const block of visibleBlocks) {
+        const exempt = exemptions.get(block.start) ?? [];
+        for (const match of block.prose.matchAll(/\bW[0-9]+\b/gu)) {
+            if (exempt.some(([start, end]) => match.index >= start && match.index < end)) continue;
+            const section = sectionAt(block.start);
+            issue(
+                "COH-UNDEFINED-TOKEN",
+                specFile,
+                `${section} ${match[0]}`,
+                `Undefined wave codename ${match[0]} in §${section} visible SPEC prose`
+            );
+        }
+        for (const match of mixedInlineCodeMatches(block, /\bW[0-9]+\b/u)) {
+            const section = sectionAt(block.start);
+            issue(
+                "COH-UNDEFINED-TOKEN",
+                specFile,
+                `${section} ${match[0]}`,
+                `Undefined wave codename ${match[0]} in §${section} visible SPEC prose`
+            );
+        }
     }
 }
 
 /** Normative obligations that no atom binds cannot be verified, so they drift silently. */
 function checkNormativeSections() {
-    const { sections: normative, keyword } = vocabulary();
-    for (const section of sections()) {
-        if (!section.id.includes(".") || !normative.has(section.id)) continue;
-        const body = prose.slice(section.start, section.end);
-        if (!keyword.test(body) || atomAnchor.test(body)) continue;
+    for (const section of specSections) {
+        if (!section.id.includes(".") || !normativeSectionIds.has(section.id)) continue;
+        const carriesKeyword = visibleBlocks.some(
+            (block) =>
+                block.start >= section.bodyStart &&
+                block.start < section.end &&
+                hasSemanticToken(block, normativeKeyword)
+        );
+        if (!carriesKeyword || hasRequirementAnchor(section.bodyStart, section.end)) continue;
         issue(
             "COH-SECTION-NO-ATOM",
             specFile,
@@ -167,11 +188,9 @@ function checkNormativeSections() {
 }
 
 /**
- * Section coverage is too coarse to bind anything: an atom hashes only the blank-line
- * block its anchor sits in, so a keyword rule in an unanchored block is bound by nothing
- * — it can be weakened without restaling an atom — and a keyword rule beside an anchored
- * sibling in one numbered list is hashed by that atom without being required by it. Both
- * are the defect, so the unit is the block, split at its own list items and table rows.
+ * Section coverage is too coarse to bind anything: every anchor belongs to one structural
+ * rule unit, so a keyword rule in an unanchored unit is bound by nothing. Paragraphs, list
+ * items, and table rows are separate units under the canonical Markdown model.
  *
  * Units the review holds non-binding are exempted individually by the digest of their
  * exact source text, so rewording one reopens the question instead of inheriting the
@@ -186,7 +205,17 @@ function checkNormativeUnits() {
     for (const unit of units) {
         const recorded = dispositions.get(unit.digest);
         seen.add(unit.digest);
-        if (atomAnchor.test(unit.text)) {
+        if (!unit.supported) {
+            issue(
+                "ACQ-NORM",
+                specFile,
+                unit.symbol,
+                `Normative §${unit.section} ${unit.kind} is not a supported rule unit (${unit.digest}): ${unit.excerpt}`
+            );
+            unrecorded.push(issues.at(-1).fingerprint);
+            continue;
+        }
+        if (unit.anchors.length > 0) {
             counts.anchored += 1;
             continue;
         }
@@ -260,7 +289,7 @@ function normativeDispositions() {
         if (entry.disposition === "unanchored" && !anchorable(entry.atom)) {
             throw new TypeError(`Normative disposition ${entry.sha256} names no atom`);
         }
-        if (!/^\d+(?:\.\d+)?$/u.test(entry.section)) {
+        if (!/^\d+(?:\.\d+)*$/u.test(entry.section)) {
             throw new TypeError(`Normative disposition ${entry.sha256} names no section`);
         }
         if (!/^sha256:[0-9a-f]{64}$/u.test(entry.sha256)) {
@@ -280,102 +309,45 @@ function normativeDispositions() {
  * exemption would otherwise let anyone rewrite.
  */
 function normativeUnits() {
-    const { sections: normative, keyword } = vocabulary();
     const units = [];
-    for (const section of sections()) {
-        if (!normative.has(section.id)) continue;
-        for (const block of proseBlocks(section.start, section.end)) {
-            for (const [start, end] of blockUnits(block)) {
-                const text = prose.slice(start, end);
-                if (!keyword.test(text)) continue;
-                const full = normalize(specSource.slice(start, end));
-                const digest = `sha256:${sha256(full)}`;
-                units.push({
-                    section: section.id,
-                    text,
-                    full,
-                    excerpt: full.length > 90 ? `${full.slice(0, 90)}…` : full,
-                    digest,
-                    symbol: `${section.id}:${digest.slice(7, 19)}`
-                });
-            }
+    for (const unit of structuralUnits) {
+        const section = sectionAt(unit.start);
+        if (!normativeSectionIds.has(section) || !hasSemanticToken(unit, normativeKeyword))
+            continue;
+        const full = normalize(unit.source);
+        const digest = `sha256:${sha256(full)}`;
+        units.push({
+            ...unit,
+            supported: true,
+            section,
+            full,
+            excerpt: full.length > 90 ? `${full.slice(0, 90)}…` : full,
+            digest,
+            symbol: `${section}:${digest.slice(7, 19)}`
+        });
+    }
+    for (const block of unsupportedBlocks) {
+        const section = sectionAt(block.start);
+        if (!normativeSectionIds.has(section) || !hasSemanticToken(block, normativeKeyword)) {
+            continue;
         }
+        const full = normalize(block.source);
+        const digest = `sha256:${sha256(full)}`;
+        units.push({
+            ...block,
+            supported: false,
+            section,
+            full,
+            excerpt: full.length > 90 ? `${full.slice(0, 90)}…` : full,
+            digest,
+            symbol: `${section}:${digest.slice(7, 19)}`
+        });
     }
     return units;
 }
 
-/** The blank-line-delimited blocks of one section body, excluding headings and rules. */
-function proseBlocks(from, to) {
-    const blocks = [];
-    let lines = [];
-    const close = () => {
-        const start = lines[0]?.start;
-        const end = lines.at(-1)?.end;
-        lines = [];
-        if (start === undefined) return;
-        if (/^\s*(?:#|-{3,}\s*$|!\[)/u.test(prose.slice(start, end))) return;
-        blocks.push({ start, end });
-    };
-    for (const line of lineSpans(from, to)) {
-        if (prose.slice(line.start, line.end).trim().length === 0) close();
-        else lines.push(line);
-    }
-    close();
-    return blocks;
-}
-
-/**
- * A block's normative units: its own list items and table rows, which state separate
- * rules that separate atoms must name, and otherwise the whole block.
- */
-function blockUnits(block) {
-    const boundaries = [block.start];
-    for (const line of lineSpans(block.start, block.end)) {
-        const text = prose.slice(line.start, line.end);
-        if (/^\s{0,3}(?:\d+\.|[-*|])\s/u.test(text)) boundaries.push(line.start);
-    }
-    const unique = [...new Set(boundaries)].sort((left, right) => left - right);
-    return unique.map((start, index) => [start, unique[index + 1] ?? block.end]);
-}
-
-function lineSpans(from, to) {
-    const spans = [];
-    let start = from;
-    while (start < to) {
-        const next = prose.indexOf("\n", start);
-        const end = next < 0 || next > to ? to : next;
-        spans.push({ start, end });
-        start = end + 1;
-    }
-    return spans;
-}
-
-/**
- * §1.3 declares which sections bind and which keywords carry an obligation. The gates
- * read that declaration rather than a copy of it, so widening the document's normative
- * reach widens theirs instead of silently leaving prose ungated.
- */
-function vocabulary() {
-    if (vocabularyCache !== undefined) return vocabularyCache;
-    const declaration = /\bSections ([^;]+?) are normative;/u.exec(prose);
-    const keywords = /\b([A-Z]+(?:, [A-Z]+)*,? and [A-Z]+) are RFC 2119 keywords\b/u.exec(prose);
-    if (declaration === null || keywords === null) {
-        throw new TypeError("SPEC §1.3 no longer declares its normative sections and keywords");
-    }
-    const normative = new Set();
-    for (const token of terms(declaration[1])) {
-        const range = /^(\d+(?:\.\d+)?)(?:[–-](\d+))?$/u.exec(token);
-        if (range === null) throw new TypeError(`SPEC §1.3 names an unreadable section ${token}`);
-        const to = range[2] === undefined ? range[1] : range[2];
-        for (const section of sections()) {
-            if (inRange(section.id, range[1], to)) normative.add(section.id);
-        }
-    }
-    vocabularyCache = {
-        sections: normative,
-        keyword: new RegExp(`\\b(?:${terms(keywords[1]).join("|")})\\b`, "u")
-    };
-    return vocabularyCache;
+function hasRequirementAnchor(start, end) {
+    return anchors.some((anchor) => anchor.start >= start && anchor.end <= end);
 }
 
 /** `none` records that §13 has no atom for the rule at all; anything else must be one. */
@@ -383,34 +355,18 @@ function anchorable(atom) {
     return atom === "none" || atoms.some((candidate) => candidate.id === atom);
 }
 
-/** The members of one of §1.3's comma-and-`and` lists. */
-function terms(list) {
-    return list
-        .split(/,|\band\b/u)
-        .map((term) => term.trim())
-        .filter((term) => term.length > 0);
-}
-
-/** A section id falls in a §1.3 range when the range is exact or spans its chapter. */
-function inRange(id, from, to) {
-    if (from.includes(".")) return id === from;
-    const chapter = Number.parseInt(id, 10);
-    return chapter >= Number.parseInt(from, 10) && chapter <= Number.parseInt(to, 10);
-}
-
 function normalize(text) {
     return text.replaceAll(/\s+/gu, " ").trim();
 }
 
 /**
- * Atoms anchored in one blank-line-delimited block all hash that whole block, so an edit
- * anywhere inside it re-digests every one of them at once.
+ * Atoms anchored in one structural rule unit share its digest by construction.
  */
 function checkSharedBlocks() {
     const blocks = new Map();
     for (const atom of atoms) {
         if (atom.occurrences !== 1) continue;
-        blocks.set(atom.digest, [...(blocks.get(atom.digest) ?? []), atom.id]);
+        blocks.set(atom.sourceDigest, [...(blocks.get(atom.sourceDigest) ?? []), atom.id]);
     }
     for (const ids of blocks.values()) {
         if (ids.length <= options.maxSharedAtoms) continue;
@@ -419,30 +375,42 @@ function checkSharedBlocks() {
             "COH-SHARED-BLOCK",
             specFile,
             sorted[0],
-            `One prose block is the hash input for ${sorted.length} atoms: ${sorted.join(", ")}`
+            `One structural rule unit is the hash input for ${sorted.length} atoms: ${sorted.join(", ")}`
         );
     }
 }
 
 /** A cross-reference to a heading that does not exist sends the reader nowhere. */
 function checkCrossReferences() {
-    const headings = new Set(sections().map((section) => section.id));
-    for (const match of prose.matchAll(/§{1,2}(\d+(?:\.\d+)?)(?:[–-](\d+(?:\.\d+)?))?/gu)) {
-        const [reference, from, to] = match;
-        const targets =
-            to === undefined
-                ? [from]
-                : from.includes(".") || to.includes(".")
-                  ? [from, to]
-                  : range(Number.parseInt(from, 10), Number.parseInt(to, 10));
-        for (const target of targets) {
-            if (headings.has(target)) continue;
-            issue(
-                "COH-XREF",
-                specFile,
-                reference,
-                `Cross-reference ${reference} resolves to no §${target} heading`
-            );
+    const headings = new Set(specSections.map((section) => section.id));
+    for (const block of visibleBlocks) {
+        for (const token of block.prose.matchAll(/§[^\s,;:()[\]{}'"!?]*/gu)) {
+            const reference = token[0];
+            const parsed = /^§{1,2}(\d+(?:\.\d+)*)(?:[–-]§?(\d+(?:\.\d+)*))?\.?$/u.exec(reference);
+            if (parsed === null) {
+                issue("COH-XREF", specFile, reference, `Malformed cross-reference ${reference}`);
+                continue;
+            }
+            const [, from, to] = parsed;
+            if (to !== undefined && compareSectionIds(from, to) > 0) {
+                issue("COH-XREF", specFile, reference, `Cross-reference ${reference} is reversed`);
+                continue;
+            }
+            const targets =
+                to === undefined
+                    ? [from]
+                    : from.includes(".") || to.includes(".")
+                      ? [from, to]
+                      : range(Number.parseInt(from, 10), Number.parseInt(to, 10));
+            for (const target of targets) {
+                if (headings.has(target)) continue;
+                issue(
+                    "COH-XREF",
+                    specFile,
+                    reference,
+                    `Cross-reference ${reference} resolves to no §${target} heading`
+                );
+            }
         }
     }
 }
@@ -472,49 +440,63 @@ function checkAtomAnchors() {
     }
 }
 
-function exemptSpans() {
-    return waveCodenameExamples.map((example) => {
-        const pattern = new RegExp(
-            example.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&").replaceAll(/\s+/gu, "\\s+"),
-            "gu"
-        );
-        // Masking preserves offsets, so the unmasked document locates spans the prose shares.
-        const matches = [...specSource.matchAll(pattern)];
-        if (matches.length !== 1) {
+function waveCodenameExemptions() {
+    const exemptions = new Map();
+    for (const example of waveCodenameExamples) {
+        const semanticMatches = visibleMatches(example.prose, "prose");
+        const renderedMatches = visibleMatches(example.rendered, "rendered");
+        if (
+            semanticMatches.length !== 1 ||
+            renderedMatches.length !== 1 ||
+            semanticMatches[0].block.start !== renderedMatches[0].block.start
+        ) {
             throw new TypeError(
-                `Wave codename exemption does not match SPEC prose once: ${example}`
+                `Wave codename exemption does not match SPEC prose once: ${example.rendered}`
             );
         }
-        return [matches[0].index, matches[0].index + matches[0][0].length];
-    });
+        const [{ block, match }] = semanticMatches;
+        const ranges = exemptions.get(block.start) ?? [];
+        ranges.push([match.index, match.index + match[0].length]);
+        exemptions.set(block.start, ranges);
+    }
+    return exemptions;
 }
 
-/** Every numbered `##` chapter and `###` section, with the offsets its body spans. */
-function sections() {
-    if (sectionCache === undefined) {
-        const found = [];
-        for (const match of prose.matchAll(/^#{2,3} (\d+(?:\.\d+)?)[.\s]/gmu)) {
-            found.push({ id: match[1], start: match.index + match[0].length, end: prose.length });
-            if (found.length > 1) found[found.length - 2].end = match.index;
-        }
-        sectionCache = found;
-    }
-    return sectionCache;
+function visibleMatches(example, field) {
+    const pattern = new RegExp(
+        example.replaceAll(/[.*+?^${}()|[\]\\]/gu, "\\$&").replaceAll(/\s+/gu, "\\s+"),
+        "gu"
+    );
+    return visibleBlocks.flatMap((block) =>
+        [...block[field].matchAll(pattern)].map((match) => ({ block, match }))
+    );
+}
+
+function hasSemanticToken(block, pattern) {
+    const prosePattern = new RegExp(pattern.source, pattern.flags.replace("g", ""));
+    return prosePattern.test(block.prose) || mixedInlineCodeMatches(block, pattern).length > 0;
+}
+
+function mixedInlineCodeMatches(block, pattern) {
+    const flags = pattern.flags.includes("g") ? pattern.flags : `${pattern.flags}g`;
+    return [...block.rendered.matchAll(new RegExp(pattern.source, flags))].filter((match) => {
+        const start = match.index;
+        const end = start + match[0].length;
+        const codeLength = block.inlineCodeRanges.reduce(
+            (length, [codeStart, codeEnd]) =>
+                length + Math.max(0, Math.min(end, codeEnd) - Math.max(start, codeStart)),
+            0
+        );
+        return codeLength > 0 && codeLength < match[0].length;
+    });
 }
 
 /** The innermost numbered section an offset falls in; "0" is the front matter before §1. */
 function sectionAt(offset) {
-    return sections().findLast((section) => section.start <= offset)?.id ?? "0";
-}
-
-/**
- * The document with every fenced and inline code region blanked, preserving offsets and
- * line structure so prose rules never fire on an example or a type signature.
- */
-function maskCode(source) {
-    const blank = (text) => text.replaceAll(/[^\n]/gu, " ");
-    const masked = source.replaceAll(/^```[\s\S]*?^```/gmu, blank);
-    return masked.replaceAll(/`[^`\n]+`/gu, blank);
+    return (
+        specSections.findLast((section) => section.start <= offset && offset < section.end)?.id ??
+        "0"
+    );
 }
 
 function testTitles(parsed) {

@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
@@ -10,6 +10,7 @@ const temporary: string[] = [];
 // Split so this file's own fixtures are not counted as the pragmas they describe.
 const SUPPRESSION = `@ts-${"ignore"}`;
 const EXPECTED_ERROR = `@ts-${"expect-error"}`;
+const spec = await readFile(resolve(packageRoot, "SPEC.md"), "utf8");
 
 afterEach(async () => {
     await Promise.all(
@@ -23,7 +24,8 @@ describe("generic AGENTS architecture rules", subprocessTestOptions, () => {
             "src/id.ts": "export class NoteId {}\n",
             "test/note.test.ts": "export const tested = true;\n"
         });
-        expect(run(fixture).status).toBe(0);
+        const result = run(fixture);
+        expect(result.status, result.stderr).toBe(0);
     });
 
     test("rejects error, ID, codec, immutability, test, and coverage violations", async () => {
@@ -100,6 +102,94 @@ describe("generic AGENTS architecture rules", subprocessTestOptions, () => {
         expect(result.stderr).toContain("src/weak.ts uses an unpermitted unknown escape");
         expect(result.stderr).toContain("test/weak.test.ts uses an unpermitted suppression");
         expect(result.stderr).toContain("permit for decode.value is stale");
+    });
+
+    test("does not admit public vocabulary found only in fenced SPEC examples", async () => {
+        const fixture = await createFixture({});
+        await writeExports(fixture, ["CompatRange", "InterceptContext", "InterceptResult"]);
+
+        const result = run(fixture);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            'introduces vocabulary the SPEC does not contain: "compat"'
+        );
+        expect(result.stderr).toContain(
+            'introduces vocabulary the SPEC does not contain: "intercept"'
+        );
+    });
+
+    test("rejects case and plural forms of foreign SPEC aliases without stemming prefixes", async () => {
+        const fixture = await createFixture({});
+        await writeProjectExports(fixture, [
+            "TOOLS",
+            "Extensions",
+            "Hooks",
+            "Conversations",
+            "Plugins",
+            "Toolsets",
+            "Webhooks",
+            "Toolbox",
+            "Hooked"
+        ]);
+
+        const result = run(fixture);
+
+        expect(result.status).toBe(1);
+        for (const [symbol, word] of [
+            ["TOOLS", "tool"],
+            ["Extensions", "extension"],
+            ["Hooks", "hook"],
+            ["Conversations", "conversation"],
+            ["Plugins", "plugin"],
+            ["Toolsets", "toolset"],
+            ["Webhooks", "webhook"]
+        ]) {
+            expect(result.stderr).toContain(`${symbol} uses the foreign term "${word}"`);
+        }
+        expect(result.stderr).not.toContain('Toolbox uses the foreign term "tool"');
+        expect(result.stderr).not.toContain('Hooked uses the foreign term "hook"');
+    });
+
+    test("checks vocabulary for public type declarations regardless of identifier prefix", async () => {
+        const fixture = await createFixture({
+            "src/public-types.ts": [
+                "export class plugin {}",
+                "export interface _Plugin {}",
+                "export type $Plugin = string;"
+            ].join("\n")
+        });
+        await writeDeclarationExports(fixture, [
+            { name: "plugin", kind: "class" },
+            { name: "_Plugin", kind: "interface" },
+            { name: "$Plugin", kind: "type" }
+        ]);
+        await writeForeignVocabulary(fixture, "plugin");
+
+        const result = run(fixture);
+
+        expect(result.status).toBe(1);
+        for (const symbol of ["plugin", "_Plugin", "$Plugin"]) {
+            expect(result.stderr).toContain(`${symbol} uses the foreign term "plugin"`);
+        }
+    });
+
+    test("uses declaration kind rather than capitalization to exclude functions", async () => {
+        const fixture = await createFixture({
+            "src/public-functions.ts": [
+                "export function Plugin() {}",
+                "export function plugin() {}"
+            ].join("\n"),
+            "test/public-functions.test.ts": "export const tested = true;\n"
+        });
+        await writeDeclarationExports(fixture, [
+            { name: "Plugin", kind: "function" },
+            { name: "plugin", kind: "function" }
+        ]);
+        await writeForeignVocabulary(fixture, "plugin");
+
+        const result = run(fixture);
+        expect(result.status, result.stderr).toBe(0);
     });
 
     test("admits a validator that narrows and a permitted escape", async () => {
@@ -211,6 +301,99 @@ async function writePermits(
     );
 }
 
+async function writeExports(root: string, symbols: readonly string[]): Promise<void> {
+    await writeFile(
+        resolve(root, "exports.json"),
+        `${JSON.stringify(
+            {
+                edition: "2.0.0",
+                runtime: { "@fixture/core": symbols },
+                declarations: {
+                    "@fixture/core": Object.fromEntries(
+                        [...symbols]
+                            .sort((left, right) => left.localeCompare(right))
+                            .map((name) => [name, "class"])
+                    )
+                }
+            },
+            null,
+            2
+        )}\n`,
+        "utf8"
+    );
+}
+
+async function writeDeclarationExports(
+    root: string,
+    declarations: readonly { name: string; kind: string }[]
+): Promise<void> {
+    await writeFile(
+        resolve(root, "exports.json"),
+        `${JSON.stringify(
+            {
+                edition: "2.0.0",
+                runtime: { "@fixture/core": declarations.map(({ name }) => name) },
+                declarations: {
+                    "@fixture/core": Object.fromEntries(
+                        [...declarations]
+                            .sort((left, right) => left.name.localeCompare(right.name))
+                            .map(({ name, kind }) => [name, kind])
+                    )
+                }
+            },
+            null,
+            2
+        )}\n`,
+        "utf8"
+    );
+}
+
+async function writeProjectExports(root: string, symbols: readonly string[]): Promise<void> {
+    const registry: {
+        declarations: Record<string, Record<string, string>>;
+    } = JSON.parse(await readFile(resolve(packageRoot, "artifacts/quality/exports.json"), "utf8"));
+    const core = registry.declarations["@agent-core/core"];
+    if (core === undefined) throw new TypeError("Project export registry has no core package");
+    for (const name of symbols) core[name] = "class";
+    registry.declarations["@agent-core/core"] = Object.fromEntries(
+        Object.entries(core).sort(([left], [right]) => left.localeCompare(right))
+    );
+    await writeFile(
+        resolve(root, "exports.json"),
+        `${JSON.stringify(registry, null, 2)}\n`,
+        "utf8"
+    );
+    await writeFile(
+        resolve(root, "vocabulary.json"),
+        await readFile(resolve(packageRoot, "artifacts/quality/spec-vocabulary.json"), "utf8"),
+        "utf8"
+    );
+}
+
+async function writeVocabulary(root: string): Promise<void> {
+    await writeFile(
+        resolve(root, "vocabulary.json"),
+        '{\n  "edition": "1.0.0",\n  "foreign": [],\n  "reviewed": []\n}\n',
+        "utf8"
+    );
+}
+
+async function writeForeignVocabulary(root: string, word: string): Promise<void> {
+    await writeFile(
+        resolve(root, "vocabulary.json"),
+        `${JSON.stringify(
+            {
+                edition: "1.0.0",
+                foreign: [{ word, specTerm: "Operation" }],
+                reviewed: []
+            },
+            null,
+            2
+        )}\n`,
+        "utf8"
+    );
+}
+
 async function createFixture(files: Record<string, string>): Promise<string> {
     const root = await mkdtemp(resolve(tmpdir(), "agent-core-architecture-"));
     temporary.push(root);
@@ -224,7 +407,10 @@ async function createFixture(files: Record<string, string>): Promise<string> {
         '{\n  "edition": "1.0.0",\n  "issues": []\n}\n',
         "utf8"
     );
+    await writeFile(resolve(root, "SPEC.md"), spec, "utf8");
     await writePermits(root, []);
+    await writeExports(root, []);
+    await writeVocabulary(root);
     return root;
 }
 
@@ -240,7 +426,13 @@ function run(root: string): ReturnType<typeof runQualitySubprocess> {
             "--baseline",
             resolve(root, "baseline.json"),
             "--permits",
-            resolve(root, "permits.json")
+            resolve(root, "permits.json"),
+            "--spec",
+            resolve(root, "SPEC.md"),
+            "--exports",
+            resolve(root, "exports.json"),
+            "--vocabulary",
+            resolve(root, "vocabulary.json")
         ],
         packageRoot
     );
