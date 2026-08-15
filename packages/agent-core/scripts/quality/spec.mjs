@@ -1,8 +1,10 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { fromMarkdown } from "mdast-util-from-markdown";
 import { artifactRoot, packageRoot, readCanonicalJson, sha256 } from "./project.mjs";
 
-const profileAtomPattern = /^- \*\*(P11-[A-Z0-9-]+)\*\* (.+)$/u;
+const conformanceAtomPattern = /^C13-[A-Z0-9-]+$/u;
+const profileAtomPattern = /^P11-[A-Z0-9-]+$/u;
 
 export async function specRequirements(path = resolve(packageRoot, "SPEC.md")) {
     const source = await readFile(path, "utf8");
@@ -31,6 +33,7 @@ export async function specRequirements(path = resolve(packageRoot, "SPEC.md")) {
  * checker can report a contradiction that the ledger refuses to parse past.
  */
 export function specAtoms(source, normativeMap) {
+    const document = fromMarkdown(source);
     const reviewed = new Set(normativeMap.authoritativeOutsideSection13);
     if (
         !Array.isArray(normativeMap.authoritativeOutsideSection13) ||
@@ -38,30 +41,32 @@ export function specAtoms(source, normativeMap) {
     ) {
         throw new TypeError("Normative map outside-section labels must be a unique array");
     }
-    const summaries = section13(source);
+    const conformance = section(document, "13. Conformance");
+    const summaries = section13(source, conformance.children);
     const summaryIds = new Set(summaries.map((item) => item.id));
     for (const id of reviewed) {
         if (!summaryIds.has(id)) throw new TypeError(`Normative map references unknown atom ${id}`);
     }
-    const normativeSource = source.slice(0, source.indexOf("## 13. Conformance"));
+    const normativeSource = source.slice(0, conformance.heading.position.start.offset);
+    const normativeLabels = strongLabels(document, conformance.heading.position.start.offset);
     return summaries.map((summary) => {
-        const marker = `**${summary.id}**`;
-        const occurrences = normativeSource.split(marker).length - 1;
-        const text = occurrences === 1 ? containingBlock(normativeSource, marker) : summary.text;
+        const occurrences = normativeLabels.filter((label) => label.id === summary.id);
+        const text =
+            occurrences.length === 1
+                ? containingBlock(normativeSource, occurrences[0].position.start.offset)
+                : summary.text;
         return {
             ...requirement(summary.id, normalizeNormativeText(text), summary.owner),
             reviewed: reviewed.has(summary.id),
-            occurrences
+            occurrences: occurrences.length
         };
     });
 }
 
 /** The explicit `P11-*` labels of §11, in document order. */
 export function profileLabels(source) {
-    return between(source, "## 11. Profiles", "## 12. Assembly sketches")
-        .split("\n")
-        .map((line) => profileAtomPattern.exec(line)?.[1])
-        .filter((id) => id !== undefined);
+    const profileSection = section(fromMarkdown(source), "11. Profiles");
+    return atomicListItems(source, profileSection.children).map((atom) => atom.id);
 }
 
 function authoritativeRequirements(source, normativeMap) {
@@ -78,10 +83,9 @@ function authoritativeRequirements(source, normativeMap) {
     });
 }
 
-function containingBlock(source, marker) {
-    const at = source.indexOf(marker);
-    const end = source.indexOf("\n\n", at + marker.length);
-    if (at < 0 || end < 0) throw new TypeError(`Malformed normative mapping ${marker}`);
+function containingBlock(source, at) {
+    const end = source.indexOf("\n\n", at);
+    if (end < 0) throw new TypeError("Malformed normative mapping");
     const start = source.lastIndexOf("\n\n", at);
     return source.slice(tableBefore(source, start < 0 ? 0 : start + 2), tableAfter(source, end));
 }
@@ -118,85 +122,135 @@ function normalizeNormativeText(text) {
     return text.replaceAll(/\s+/gu, " ").trim();
 }
 
-function section13(source) {
-    const section = between(source, "## 13. Conformance", "## 14. The formal model");
-    const requirements = [];
-    const lines = section.split("\n");
-    for (let index = 0; index < lines.length; index += 1) {
-        const match = /^- \*\*(C13-[A-Z0-9-]+)\*\* (.+)$/.exec(lines[index]);
-        if (match === null) continue;
-        const text = [match[2]];
-        while (index + 1 < lines.length && !lines[index + 1].startsWith("- **C13-")) {
-            const continuation = lines[index + 1].trim();
-            text.push(continuation);
-            index += 1;
-        }
-        requirements.push(requirement(match[1], text.join("\n").trim(), ownerFor(match[1])));
-    }
+function section13(source, children) {
+    const requirements = atomicListItems(source, children, conformanceAtomPattern).map((atom) =>
+        requirement(atom.id, atom.text, ownerFor(atom.id))
+    );
     if (requirements.length === 0)
         throw new TypeError("SPEC section 13 contains no atomic requirement IDs");
     return requirements;
 }
 
 function profiles(source, requiredProfiles) {
-    const section = between(source, "## 11. Profiles", "## 12. Assembly sketches");
-    const matches = [...section.matchAll(/^### 11\.(\d+) (.+)$/gm)];
-    const discovered = matches.map((match) => `11.${match[1]}`);
+    const profileSection = section(fromMarkdown(source), "11. Profiles");
+    const headings = profileSection.children.filter(
+        (node) => node.type === "heading" && node.depth === 3
+    );
+    const parsedHeadings = headings.map((heading) => ({
+        heading,
+        match: /^11\.(\d+) (.+)$/u.exec(plainText(heading))
+    }));
+    const discovered = parsedHeadings.flatMap(({ match }) =>
+        match === null ? [] : [`11.${match[1]}`]
+    );
     if (JSON.stringify(discovered) !== JSON.stringify(requiredProfiles)) {
         throw new TypeError(`SPEC profile denominator changed: ${discovered.join(",")}`);
     }
-    const preamble = explicitProfileAtoms(section.slice(0, matches[0].index), "BASE");
+    const profiles = parsedHeadings.map(({ heading, match }) => {
+        if (match === null) throw new TypeError("SPEC profile heading is malformed");
+        return { heading, number: match[1], name: match[2] };
+    });
+    const firstHeading = profiles[0]?.heading;
+    if (firstHeading === undefined) throw new TypeError("SPEC profiles are missing");
+    const preamble = explicitProfileAtoms(
+        source,
+        profileSection.children.filter(
+            (node) => node.position.start.offset < firstHeading.position.start.offset
+        ),
+        "BASE"
+    );
     return [
         ...preamble,
-        ...matches.flatMap((match, index) => {
-            const start = match.index;
-            const end = matches[index + 1]?.index ?? section.length;
-            const body = section.slice(start + match[0].length, end).trim();
-            const family = match[2].toUpperCase().replaceAll(/[^A-Z0-9]+/gu, "-");
-            return explicitProfileAtoms(body, family, match[2]);
+        ...profiles.flatMap((profile, index) => {
+            const end = profiles[index + 1]?.heading.position.start.offset ?? profileSection.end;
+            const body = profileSection.children.filter(
+                (node) =>
+                    node.position.start.offset > profile.heading.position.end.offset &&
+                    node.position.start.offset < end
+            );
+            const family = profile.name.toUpperCase().replaceAll(/[^A-Z0-9]+/gu, "-");
+            return explicitProfileAtoms(source, body, family, profile.name);
         })
     ];
 }
 
-function explicitProfileAtoms(body, family, name) {
-    const lines = body.split("\n");
-    const atoms = [];
-    for (let index = 0; index < lines.length; index += 1) {
-        const line = lines[index];
-        if (line.trim().length === 0 || line.trim() === "---") continue;
-        const match = profileAtomPattern.exec(line);
-        if (match === null) {
-            throw new TypeError(`SPEC profile ${family} contains unlabeled normative prose`);
+function explicitProfileAtoms(source, children, family, name) {
+    const structural = children.filter((node) => node.type !== "thematicBreak");
+    if (structural.some((node) => node.type !== "list")) {
+        throw new TypeError(`SPEC profile ${family} contains unlabeled normative prose`);
+    }
+    const atoms = atomicListItems(source, structural);
+    for (const atom of atoms) {
+        if (!atom.id.startsWith(`P11-${family}-`)) {
+            throw new TypeError(`SPEC profile label ${atom.id} is outside family ${family}`);
         }
-        if (!match[1].startsWith(`P11-${family}-`)) {
-            throw new TypeError(`SPEC profile label ${match[1]} is outside family ${family}`);
-        }
-        const text = [match[2].trim()];
-        while (index + 1 < lines.length && /^\s{2,}\S/u.test(lines[index + 1])) {
-            text.push(lines[index + 1].trim());
-            index += 1;
-        }
-        atoms.push(
-            requirement(
-                match[1],
-                name === undefined ? text.join(" ") : `${name}: ${text.join(" ")}`,
-                "W8"
-            )
-        );
     }
     if (atoms.length === 0) throw new TypeError(`SPEC profile ${family} has no explicit atoms`);
-    return atoms;
+    return atoms.map((atom) =>
+        requirement(atom.id, name === undefined ? atom.text : `${name}: ${atom.text}`, "W8")
+    );
+}
+
+function atomicListItems(source, children, pattern = profileAtomPattern) {
+    return children.flatMap((node) => {
+        if (node.type !== "list") return [];
+        if (node.ordered) throw new TypeError("SPEC atomic requirements must be unordered");
+        return node.children.map((item) => atomicListItem(source, item, pattern));
+    });
+}
+
+function atomicListItem(source, item, pattern) {
+    const paragraph = item.children[0];
+    const label = paragraph?.type === "paragraph" ? paragraph.children[0] : undefined;
+    const id = label?.type === "strong" ? plainText(label) : undefined;
+    if (id === undefined || !pattern.test(id)) {
+        throw new TypeError("SPEC contains an unlabeled atomic requirement");
+    }
+    return {
+        id,
+        text: normalizeNormativeText(
+            source.slice(label.position.end.offset, item.position.end.offset)
+        )
+    };
+}
+
+function section(document, title) {
+    const start = document.children.findIndex(
+        (node) => node.type === "heading" && node.depth === 2 && plainText(node) === title
+    );
+    const end = document.children.findIndex(
+        (node, index) => index > start && node.type === "heading" && node.depth === 2
+    );
+    if (start < 0 || end < 0) throw new TypeError(`SPEC is missing ${title}`);
+    return {
+        heading: document.children[start],
+        children: document.children.slice(start + 1, end),
+        end: document.children[end].position.start.offset
+    };
+}
+
+function strongLabels(document, before) {
+    const labels = [];
+    visit(document, (node) => {
+        if (node.type !== "strong" || node.position.start.offset >= before) return;
+        const id = plainText(node);
+        if (conformanceAtomPattern.test(id)) labels.push({ id, position: node.position });
+    });
+    return labels;
+}
+
+function visit(node, visitor) {
+    visitor(node);
+    for (const child of node.children ?? []) visit(child, visitor);
+}
+
+function plainText(node) {
+    if (node.type === "text" || node.type === "inlineCode") return node.value;
+    return (node.children ?? []).map((child) => plainText(child)).join("");
 }
 
 function requirement(id, text, owner) {
     return { id, owner, text, digest: `sha256:${sha256(text)}` };
-}
-
-function between(source, start, end) {
-    const from = source.indexOf(start);
-    const to = source.indexOf(end, from + start.length);
-    if (from < 0 || to < 0) throw new TypeError(`SPEC is missing ${start} or ${end}`);
-    return source.slice(from + start.length, to);
 }
 
 function ownerFor(id) {
