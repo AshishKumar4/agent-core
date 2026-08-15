@@ -28,15 +28,15 @@ const IMPACTS: readonly Impact[] = [
 ];
 const MODES: readonly IsolationMode[] = ["bundled", "provider", "dynamic"];
 
-let oracle: LeanOracle;
-beforeAll(() => {
-    oracle = LeanOracle.start(["policy.tier", "policy.placement"]);
-}, 900_000);
-afterAll(() => {
-    oracle?.stop();
-});
-
 describe("enforcement tier agrees with the verified model", () => {
+    let oracle: LeanOracle;
+    beforeAll(() => {
+        oracle = LeanOracle.start(["policy.tier"]);
+    }, 900_000);
+    afterAll(() => {
+        oracle?.stop();
+    });
+
     test(
         "tier agreement over the full (impact, session, placement) domain",
         { tags: "p0" },
@@ -99,6 +99,14 @@ describe("enforcement tier agrees with the verified model", () => {
 });
 
 describe("placement selection agrees with the verified model", () => {
+    let oracle: LeanOracle;
+    beforeAll(() => {
+        oracle = LeanOracle.start(["policy.placement"]);
+    }, 900_000);
+    afterAll(() => {
+        oracle?.stop();
+    });
+
     const modeSubset = fc.uniqueArray(fc.constantFrom(...MODES), { minLength: 0, maxLength: 3 });
 
     test("selection agreement over random four-source intersections", { tags: "p1" }, async () => {
