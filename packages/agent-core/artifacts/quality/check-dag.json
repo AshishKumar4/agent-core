@@ -1,188 +1,142 @@
 {
-    "edition": "1.0.0",
-    "evidenceNodes": [
-        "coverage",
-        "exports"
+  "edition": "1.0.0",
+  "evidenceNodes": ["coverage", "exports"],
+  "nodes": {
+    "format": [],
+    "anti-slop-integrity": [],
+    "lint": ["anti-slop-integrity"],
+    "core-declarations": [],
+    "types": ["core-declarations"],
+    "dag": [],
+    "backlog": [],
+    "claims": [],
+    "normative": [],
+    "doctrine": ["backlog", "claims", "normative"],
+    "governance": [],
+    "governance-tests": ["governance", "types"],
+    "quality-tests": ["types", "dag", "doctrine"],
+    "priority-tests": ["types", "dag"],
+    "scope": ["governance"],
+    "imports": [],
+    "records": ["tests"],
+    "requests": [],
+    "seams": ["tests"],
+    "migrations": ["tests"],
+    "architecture": [],
+    "coherence": [],
+    "tests": [
+      "types",
+      "dag",
+      "quality-tests",
+      "priority-tests",
+      "scope",
+      "imports",
+      "requests",
+      "architecture",
+      "coherence"
     ],
-    "nodes": {
-        "format": [],
-        "lint": [],
-        "core-declarations": [],
-        "types": [
-            "core-declarations"
-        ],
-        "dag": [],
-        "governance": [],
-        "governance-tests": [
-            "governance",
-            "types"
-        ],
-        "quality-tests": [
-            "types",
-            "dag"
-        ],
-        "priority-tests": [
-            "types",
-            "dag"
-        ],
-        "scope": [
-            "governance"
-        ],
-        "imports": [],
-        "records": [
-            "tests"
-        ],
-        "requests": [],
-        "seams": [
-            "tests"
-        ],
-        "migrations": [
-            "tests"
-        ],
-        "architecture": [],
-        "coherence": [],
-        "tests": [
-            "types",
-            "dag",
-            "quality-tests",
-            "priority-tests",
-            "scope",
-            "imports",
-            "requests",
-            "architecture",
-            "coherence"
-        ],
-        "test-priorities": [
-            "tests",
-            "priority-tests"
-        ],
-        "coverage": [
-            "test-priorities"
-        ],
-        "mutation": [
-            "tests",
-            "quality-tests"
-        ],
-        "agents": [
-            "governance-tests",
-            "quality-tests",
-            "tests"
-        ],
-        "invariants": [
-            "dag",
-            "scope",
-            "imports",
-            "records",
-            "seams",
-            "coverage",
-            "mutation",
-            "agents",
-            "live-evidence",
-            "integration"
-        ],
-        "ledger": [
-            "invariants"
-        ],
-        "build": [
-            "types"
-        ],
-        "exports": [
-            "build"
-        ],
-        "traceability": [],
-        "integration": [
-            "build",
-            "tests",
-            "coverage",
-            "exports",
-            "quality-tests",
-            "governance-tests"
-        ],
-        "conformance": [
-            "ledger",
-            "migrations",
-            "architecture",
-            "integration",
-            "discrimination"
-        ],
-        "building-attestation": [
-            "format",
-            "governance",
-            "governance-tests",
-            "lint",
-            "scope",
-            "migrations",
-            "coverage",
-            "agents",
-            "exports",
-            "integration",
-            "ledger",
-            "traceability",
-            "discrimination"
-        ],
-        "attestation": [
-            "format",
-            "governance",
-            "governance-tests",
-            "lint",
-            "scope",
-            "imports",
-            "records",
-            "requests",
-            "seams",
-            "migrations",
-            "coverage",
-            "agents",
-            "exports",
-            "traceability",
-            "conformance"
-        ],
-        "live-evidence": [],
-        "discrimination": [
-            "ledger"
-        ]
-    },
-    "hermetic": {
-        "format": false,
-        "lint": true,
-        "core-declarations": true,
-        "types": true,
-        "dag": true,
-        "governance": false,
-        "governance-tests": false,
-        "quality-tests": true,
-        "priority-tests": true,
-        "scope": false,
-        "imports": true,
-        "records": true,
-        "requests": false,
-        "seams": true,
-        "migrations": true,
-        "architecture": true,
-        "coherence": true,
-        "tests": true,
-        "test-priorities": true,
-        "coverage": true,
-        "mutation": true,
-        "agents": false,
-        "invariants": true,
-        "ledger": true,
-        "build": true,
-        "exports": true,
-        "traceability": true,
-        "integration": false,
-        "conformance": true,
-        "building-attestation": false,
-        "attestation": false,
-        "live-evidence": true,
-        "discrimination": true
-    },
-    "stages": {
-        "building": [
-            "building-attestation"
-        ],
-        "final": [
-            "attestation"
-        ]
-    }
+    "test-priorities": ["tests", "priority-tests"],
+    "coverage": ["test-priorities"],
+    "mutation": ["tests", "quality-tests"],
+    "agents": ["governance-tests", "quality-tests", "tests"],
+    "invariants": [
+      "dag",
+      "doctrine",
+      "scope",
+      "imports",
+      "records",
+      "seams",
+      "coverage",
+      "mutation",
+      "agents",
+      "live-evidence",
+      "integration"
+    ],
+    "ledger": ["invariants"],
+    "build": ["types"],
+    "exports": ["build"],
+    "traceability": [],
+    "integration": ["build", "tests", "coverage", "exports", "quality-tests", "governance-tests"],
+    "conformance": ["ledger", "migrations", "architecture", "integration", "discrimination"],
+    "building-attestation": [
+      "doctrine",
+      "format",
+      "governance",
+      "governance-tests",
+      "lint",
+      "scope",
+      "migrations",
+      "coverage",
+      "agents",
+      "exports",
+      "integration",
+      "ledger",
+      "traceability",
+      "discrimination"
+    ],
+    "attestation": [
+      "doctrine",
+      "format",
+      "governance",
+      "governance-tests",
+      "lint",
+      "scope",
+      "imports",
+      "records",
+      "requests",
+      "seams",
+      "migrations",
+      "coverage",
+      "agents",
+      "exports",
+      "traceability",
+      "conformance"
+    ],
+    "live-evidence": [],
+    "discrimination": ["ledger"]
+  },
+  "hermetic": {
+    "format": false,
+    "anti-slop-integrity": true,
+    "lint": true,
+    "core-declarations": true,
+    "types": true,
+    "dag": true,
+    "backlog": true,
+    "claims": true,
+    "normative": true,
+    "doctrine": true,
+    "governance": false,
+    "governance-tests": false,
+    "quality-tests": true,
+    "priority-tests": true,
+    "scope": false,
+    "imports": true,
+    "records": true,
+    "requests": false,
+    "seams": true,
+    "migrations": true,
+    "architecture": true,
+    "coherence": true,
+    "tests": true,
+    "test-priorities": true,
+    "coverage": true,
+    "mutation": true,
+    "agents": false,
+    "invariants": true,
+    "ledger": true,
+    "build": true,
+    "exports": true,
+    "traceability": true,
+    "integration": false,
+    "conformance": true,
+    "building-attestation": false,
+    "attestation": false,
+    "live-evidence": true,
+    "discrimination": true
+  },
+  "stages": {
+    "building": ["building-attestation"],
+    "final": ["attestation"]
+  }
 }

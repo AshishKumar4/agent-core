@@ -3,7 +3,7 @@
   "rules": [
     {
       "id": "ACQ-CODEC",
-      "instructions": ["AGENTS.md:141-145"],
+      "instructionSources": ["AGENTS.md"],
       "instructionContains": "Every record type gets a codec",
       "checker": "scripts/quality/architecture.mjs",
       "tests": [
@@ -12,10 +12,7 @@
     },
     {
       "id": "ACQ-COVERAGE",
-      "instructions": [
-        "AGENTS.md:50-62",
-        "packages/agent-core/artifacts/quality/root-agents.md:10-12"
-      ],
+      "instructionSources": ["AGENTS.md"],
       "instructionContains": "Test Coverage",
       "checker": "scripts/quality/architecture.mjs",
       "tests": [
@@ -24,7 +21,7 @@
     },
     {
       "id": "ACQ-DAG",
-      "instructions": ["AGENTS.md:9", "AGENTS.md:276-278"],
+      "instructionSources": ["AGENTS.md"],
       "instructionContains": "Automated formatting tools are mandatory",
       "checker": "scripts/quality/run.mjs",
       "tests": [
@@ -32,8 +29,18 @@
       ]
     },
     {
+      "id": "ACQ-DOCTRINE",
+      "instructionSources": ["AGENTS.md"],
+      "instructionContains": "governs claim integrity",
+      "checker": "scripts/quality/doctrine.mjs",
+      "policy": "artifacts/quality/doctrine.json",
+      "tests": [
+        "test/quality/doctrine.test.ts#agent operating doctrine keeps every doctrine rule classified and the formal scope registry exact"
+      ]
+    },
+    {
       "id": "ACQ-EQUIV",
-      "instructions": ["AGENTS.md:351"],
+      "instructionSources": ["AGENTS.md"],
       "instructionContains": "A surviving mutant is excused from the actionability ratchet only by its own entry",
       "checker": "scripts/quality/mutation.mjs",
       "tests": [
@@ -43,7 +50,7 @@
     },
     {
       "id": "ACQ-ERR",
-      "instructions": ["AGENTS.md:223-225"],
+      "instructionSources": ["AGENTS.md"],
       "instructionContains": "Runtime/domain failures",
       "checker": "scripts/quality/architecture.mjs",
       "tests": [
@@ -52,7 +59,7 @@
     },
     {
       "id": "ACQ-ID",
-      "instructions": ["AGENTS.md:84-86", "AGENTS.md:121-124"],
+      "instructionSources": ["AGENTS.md"],
       "instructionContains": "Identifiers",
       "checker": "scripts/quality/architecture.mjs",
       "tests": [
@@ -61,7 +68,7 @@
     },
     {
       "id": "ACQ-IMMUTABLE",
-      "instructions": ["AGENTS.md:134-145"],
+      "instructionSources": ["AGENTS.md"],
       "instructionContains": "Durable records are immutable",
       "checker": "scripts/quality/architecture.mjs",
       "tests": [
@@ -70,7 +77,7 @@
     },
     {
       "id": "ACQ-IMPORT",
-      "instructions": ["AGENTS.md:109-114"],
+      "instructionSources": ["AGENTS.md"],
       "instructionContains": "Cross-context imports",
       "checker": "scripts/check-import-boundaries.mjs",
       "tests": [
@@ -79,7 +86,7 @@
     },
     {
       "id": "ACQ-LIVE",
-      "instructions": ["AGENTS.md:345"],
+      "instructionSources": ["AGENTS.md"],
       "instructionContains": "Live Substrate Evidence",
       "checker": "scripts/quality/live-evidence.mjs",
       "tests": [
@@ -88,7 +95,7 @@
     },
     {
       "id": "ACQ-NORM",
-      "instructions": ["AGENTS.md:349"],
+      "instructionSources": ["AGENTS.md"],
       "instructionContains": "is anchored to a conformance atom in the same block",
       "checker": "scripts/quality/coherence.mjs",
       "tests": [
@@ -101,7 +108,7 @@
     },
     {
       "id": "ACQ-OUTCOME",
-      "instructions": ["AGENTS.md:347-347"],
+      "instructionSources": ["AGENTS.md"],
       "instructionContains": "Ratified Outcome Evidence",
       "checker": "scripts/quality/integration.mjs",
       "tests": [
@@ -112,7 +119,7 @@
     },
     {
       "id": "ACQ-OWNER",
-      "instructions": ["AGENTS.md:164-166"],
+      "instructionSources": ["AGENTS.md"],
       "instructionContains": "Respect the ownership map",
       "checker": "scripts/quality/records.mjs",
       "tests": [
@@ -121,7 +128,7 @@
     },
     {
       "id": "ACQ-SCOPE",
-      "instructions": ["packages/agent-core/artifacts/quality/root-agents.md:8-9"],
+      "instructionSources": ["packages/agent-core/artifacts/quality/root-agents.md"],
       "instructionContains": "isolated worktrees",
       "checker": "scripts/quality/ownership.mjs",
       "tests": [
@@ -130,7 +137,7 @@
     },
     {
       "id": "ACQ-SEAM",
-      "instructions": ["AGENTS.md:148-150", "AGENTS.md:254-255"],
+      "instructionSources": ["AGENTS.md"],
       "instructionContains": "Seams are interfaces",
       "checker": "scripts/quality/seams.mjs",
       "tests": [
@@ -139,7 +146,7 @@
     },
     {
       "id": "ACQ-TEST",
-      "instructions": ["AGENTS.md:50-62", "AGENTS.md:248-259"],
+      "instructionSources": ["AGENTS.md"],
       "instructionContains": "Unit Tests",
       "checker": "scripts/quality/architecture.mjs",
       "tests": [
@@ -148,7 +155,7 @@
     },
     {
       "id": "ACQ-TYPE",
-      "instructions": ["AGENTS.md:205-220"],
+      "instructionSources": ["AGENTS.md"],
       "instructionContains": "A type is never weakened to make code compile",
       "checker": "scripts/quality/architecture.mjs",
       "tests": [
@@ -157,8 +164,8 @@
     },
     {
       "id": "ACQ-VOCAB",
-      "instructions": ["AGENTS.md:23-25", "AGENTS.md:43"],
-      "instructionContains": "Avoid hard coding",
+      "instructionSources": ["AGENTS.md"],
+      "instructionContains": "**Avoid hard coding strings and values:**",
       "checker": "scripts/quality/architecture.mjs",
       "tests": [
         "test/quality/architecture.test.ts#generic AGENTS architecture rules rejects error, ID, codec, immutability, test, and coverage violations"

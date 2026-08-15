@@ -1,0 +1,2110 @@
+{
+  "edition": "1.0.0",
+  "generatedFrom": {
+    "doctrine": "artifacts/quality/doctrine.json",
+    "traceability": "artifacts/traceability.yaml",
+    "conformance": "artifacts/conformance/index.json"
+  },
+  "items": [
+    {
+      "id": "T-INFRA:A-2",
+      "type": "T-INFRA",
+      "source": { "kind": "doctrine", "id": "A-2" },
+      "owner": "W0",
+      "priority": 1,
+      "summary": "Activate doctrine milestone A-2",
+      "notes": [],
+      "oracle": {
+        "kind": "checker-artifacts",
+        "checker": "scripts/quality/adversary.mjs",
+        "registry": "artifacts/findings/index.json",
+        "evidence": "artifacts/findings/resolutions.json",
+        "expected": "open-findings-quarantined-and-resolutions-independently-approved"
+      }
+    },
+    {
+      "id": "T-INFRA:M-1",
+      "type": "T-INFRA",
+      "source": { "kind": "doctrine", "id": "M-1" },
+      "owner": "W0",
+      "priority": 1,
+      "summary": "Activate doctrine milestone M-1",
+      "notes": [],
+      "oracle": {
+        "kind": "github-default-branch-controls",
+        "repository": "AshishKumar4/agent-core",
+        "branch": "main",
+        "requiredChecks": ["change-control", "verify"],
+        "allowBypass": false,
+        "approvalRoutes": "independent-codeowner-review-or-required-signed-commits",
+        "codeOwnerRoute": "required-review-and-stale-dismissal",
+        "signatureRoute": "required-signed-commits-and-non-agent-held-key"
+      }
+    },
+    {
+      "id": "T-INFRA:M-2",
+      "type": "T-INFRA",
+      "source": { "kind": "doctrine", "id": "M-2" },
+      "owner": "W0",
+      "priority": 1,
+      "summary": "Activate doctrine milestone M-2",
+      "notes": [],
+      "oracle": {
+        "kind": "typed-source-obligations",
+        "source": "artifacts/traceability.yaml#requirements[].remainingEvidence[]",
+        "schema": "traceability-source-obligation-v1",
+        "expectedLegacyCount": 0
+      }
+    },
+    {
+      "id": "T-INFRA:M-3",
+      "type": "T-INFRA",
+      "source": { "kind": "doctrine", "id": "M-3" },
+      "owner": "W0",
+      "priority": 1,
+      "summary": "Activate doctrine milestone M-3",
+      "notes": [],
+      "oracle": {
+        "kind": "checker-artifacts",
+        "checker": "scripts/quality/executable-models.mjs",
+        "registry": "artifacts/executable-models/index.json",
+        "evidence": "artifacts/executable-models/runs.json",
+        "expected": "all-registered-bounded-runs-pass"
+      }
+    },
+    {
+      "id": "T-INFRA:M-4",
+      "type": "T-INFRA",
+      "source": { "kind": "doctrine", "id": "M-4" },
+      "owner": "W0",
+      "priority": 1,
+      "summary": "Activate doctrine milestone M-4",
+      "notes": [],
+      "oracle": {
+        "kind": "checker-artifacts",
+        "checker": "scripts/quality/formal-mutation.mjs",
+        "registry": "artifacts/quality/formal-mutation-equivalence.json",
+        "evidence": "artifacts/quality/formal-mutation.json",
+        "expected": "zero-actionable-survivors"
+      }
+    },
+    {
+      "id": "T-INFRA:M-5",
+      "type": "T-INFRA",
+      "source": { "kind": "doctrine", "id": "M-5" },
+      "owner": "W0",
+      "priority": 1,
+      "summary": "Activate doctrine milestone M-5",
+      "notes": [],
+      "oracle": {
+        "kind": "checker-artifacts",
+        "checker": "scripts/quality/scenarios.mjs",
+        "registry": "artifacts/scenarios/index.json",
+        "evidence": "artifacts/scenarios/legacy-witnesses.json",
+        "expected": "all-scenarios-signed-and-type-hash-bound"
+      }
+    },
+    {
+      "id": "T-INFRA:M-6",
+      "type": "T-INFRA",
+      "source": { "kind": "doctrine", "id": "M-6" },
+      "owner": "W0",
+      "priority": 1,
+      "summary": "Activate doctrine milestone M-6",
+      "notes": [],
+      "oracle": {
+        "kind": "composite-checker-artifacts",
+        "transpilerChecker": "scripts/quality/transpiler.mjs",
+        "transpilerEvidence": "artifacts/executable-models/transpiler.json",
+        "quintChecker": "scripts/quality/quint.mjs",
+        "quintEvidence": "artifacts/model-checking/quint.json",
+        "expected": "reviewed-transpiler-and-pinned-quint-pass"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:AC-CAPABILITY-001:deployedBundle",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "release-chain", "id": "AC-CAPABILITY-001", "link": "deployedBundle" },
+      "owner": "W0",
+      "priority": 5,
+      "summary": "Close AC-CAPABILITY-001 release-chain link deployedBundle",
+      "notes": ["No live scenario, so no deployed bundle carries this decision."],
+      "oracle": {
+        "kind": "release-link-status",
+        "requirementId": "AC-CAPABILITY-001",
+        "link": "deployedBundle",
+        "expected": "recorded"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:AC-CAPABILITY-001:liveScenario",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "release-chain", "id": "AC-CAPABILITY-001", "link": "liveScenario" },
+      "owner": "W0",
+      "priority": 5,
+      "summary": "Close AC-CAPABILITY-001 release-chain link liveScenario",
+      "notes": ["No live scenario exercises capability attenuation."],
+      "oracle": {
+        "kind": "release-link-status",
+        "requirementId": "AC-CAPABILITY-001",
+        "link": "liveScenario",
+        "expected": "recorded"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:AC-CAPABILITY-001:substrateContract",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "release-chain", "id": "AC-CAPABILITY-001", "link": "substrateContract" },
+      "owner": "W0",
+      "priority": 5,
+      "summary": "Close AC-CAPABILITY-001 release-chain link substrateContract",
+      "notes": [
+        "Grant attenuation and lineage validation are exercised against memory authority stores only (test/authority/*); no contract runs them against the SQLite authority ledger."
+      ],
+      "oracle": {
+        "kind": "release-link-status",
+        "requirementId": "AC-CAPABILITY-001",
+        "link": "substrateContract",
+        "expected": "recorded"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:AC-ENVIRONMENT-001:executableDecision",
+      "type": "T-EVIDENCE",
+      "source": {
+        "kind": "release-chain",
+        "id": "AC-ENVIRONMENT-001",
+        "link": "executableDecision"
+      },
+      "owner": "W0",
+      "priority": 5,
+      "summary": "Close AC-ENVIRONMENT-001 release-chain link executableDecision",
+      "notes": [
+        "The Session LTS has no executable decision and no oracle operation; its admission rules are relational only."
+      ],
+      "oracle": {
+        "kind": "release-link-status",
+        "requirementId": "AC-ENVIRONMENT-001",
+        "link": "executableDecision",
+        "expected": "recorded"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:AC-ENVIRONMENT-001:refinementEvidence",
+      "type": "T-EVIDENCE",
+      "source": {
+        "kind": "release-chain",
+        "id": "AC-ENVIRONMENT-001",
+        "link": "refinementEvidence"
+      },
+      "owner": "W0",
+      "priority": 5,
+      "summary": "Close AC-ENVIRONMENT-001 release-chain link refinementEvidence",
+      "notes": ["No executable decision, so no differential suite compares one."],
+      "oracle": {
+        "kind": "release-link-status",
+        "requirementId": "AC-ENVIRONMENT-001",
+        "link": "refinementEvidence",
+        "expected": "recorded"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:AC-ENVIRONMENT-001:substrateContract",
+      "type": "T-EVIDENCE",
+      "source": {
+        "kind": "release-chain",
+        "id": "AC-ENVIRONMENT-001",
+        "link": "substrateContract"
+      },
+      "owner": "W0",
+      "priority": 5,
+      "summary": "Close AC-ENVIRONMENT-001 release-chain link substrateContract",
+      "notes": ["Session state is provider-held, not Memory/SQLite record storage."],
+      "oracle": {
+        "kind": "release-link-status",
+        "requirementId": "AC-ENVIRONMENT-001",
+        "link": "substrateContract",
+        "expected": "recorded"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:AC-LEASE-001:deployedBundle",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "release-chain", "id": "AC-LEASE-001", "link": "deployedBundle" },
+      "owner": "W0",
+      "priority": 5,
+      "summary": "Close AC-LEASE-001 release-chain link deployedBundle",
+      "notes": ["No live scenario, so no deployed bundle carries this decision."],
+      "oracle": {
+        "kind": "release-link-status",
+        "requirementId": "AC-LEASE-001",
+        "link": "deployedBundle",
+        "expected": "recorded"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:AC-LEASE-001:liveScenario",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "release-chain", "id": "AC-LEASE-001", "link": "liveScenario" },
+      "owner": "W0",
+      "priority": 5,
+      "summary": "Close AC-LEASE-001 release-chain link liveScenario",
+      "notes": ["No live scenario exercises Turn lease admission."],
+      "oracle": {
+        "kind": "release-link-status",
+        "requirementId": "AC-LEASE-001",
+        "link": "liveScenario",
+        "expected": "recorded"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:AC-LEASE-001:substrateContract",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "release-chain", "id": "AC-LEASE-001", "link": "substrateContract" },
+      "owner": "W0",
+      "priority": 5,
+      "summary": "Close AC-LEASE-001 release-chain link substrateContract",
+      "notes": [
+        "The Turn lease persists inside the Turn record, and no contract runs the same lease transitions against a Memory and a SQLite run store; test/substrates/sqlite/run.test.ts exercises SQLite only."
+      ],
+      "oracle": {
+        "kind": "release-link-status",
+        "requirementId": "AC-LEASE-001",
+        "link": "substrateContract",
+        "expected": "recorded"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:AC-PERSISTENCE-001:deployedBundle",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "release-chain", "id": "AC-PERSISTENCE-001", "link": "deployedBundle" },
+      "owner": "W0",
+      "priority": 5,
+      "summary": "Close AC-PERSISTENCE-001 release-chain link deployedBundle",
+      "notes": ["No live scenario, so no deployed bundle carries this decision."],
+      "oracle": {
+        "kind": "release-link-status",
+        "requirementId": "AC-PERSISTENCE-001",
+        "link": "deployedBundle",
+        "expected": "recorded"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:AC-PERSISTENCE-001:liveScenario",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "release-chain", "id": "AC-PERSISTENCE-001", "link": "liveScenario" },
+      "owner": "W0",
+      "priority": 5,
+      "summary": "Close AC-PERSISTENCE-001 release-chain link liveScenario",
+      "notes": [
+        "The Cloudflare live harness never constructs an ActorStore: no package under packages/agent-core-cloudflare imports SqliteActorStore, MemoryActorStore, or the protocol dispatcher, so no live scenario exercises this decision."
+      ],
+      "oracle": {
+        "kind": "release-link-status",
+        "requirementId": "AC-PERSISTENCE-001",
+        "link": "liveScenario",
+        "expected": "recorded"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-CONFIG-SECRET-CUSTODY",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CONFIG-SECRET-CUSTODY" },
+      "owner": "W4",
+      "priority": 5,
+      "summary": "Advance C13-CONFIG-SECRET-CUSTODY from planned with exact evidence",
+      "notes": [
+        "The Binding foundation is present: the Tenant-owned Binding record carries canonical, unique (SecretRef, endpoint) custody facts, validates each SecretRef source against its exact TenantId, preserves or explicitly rotates those facts through the Binding mutation path, and restores the same record through Memory and SQLite storage. This is constituent data in the Binding codec, not a second durable custody record or mirror",
+        "The remaining authority work is to bind that complete Binding snapshot to the target-owned request and Tenant-issued permit used for cross-Actor mediated admission. Tenant issuance must compare it with the current canonical Binding in the Tenant transaction, and target consumption must authenticate the exact retained request and permit without a synchronous cross-Actor read or a copied Binding authority plane",
+        "The remaining provider work is a concrete credential-isolation adapter that accepts only authenticated permit/request evidence, rejects inactive, substituted, guest, cross-Tenant, SecretRef, consumer, and endpoint mismatches, and injects raw credential material directly into transport. Confirmed custody refusal must become a failed attempted Receipt, while unavailable or unknown provider outcomes remain indeterminate. Redirect/repoint behavior, restart/replay, raw-secret non-escape, and the deployed Cloudflare boundary still need behavioral evidence before this atom can be verified"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CONFIG-SECRET-CUSTODY",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-CONTENT-CUSTODY",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CONTENT-CUSTODY" },
+      "owner": "W1",
+      "priority": 5,
+      "summary": "Advance C13-CONTENT-CUSTODY from planned with exact evidence",
+      "notes": [
+        "The §8.4 ownership map now declares ContentRef-bearing fields and their retention owner in its existing artifacts/records/*.json rows. The records checker derives the live denominator from the registered TypeScript record shapes, including nested fields and concrete subclasses of abstract registered records, and rejects missing, stale, wrong, duplicate, or mis-owned declarations. The current registry has 30 ContentRef-bearing kinds: 24 durable records and 6 value records; value records name fields but correctly claim no independent durable retainer",
+        "This prerequisite does not implement custody. Every write path for the 24 declared durable kinds must register its exact referenced content in the owning Actor's transaction, every defined removal path must release it in that transaction, append-only records must retain it for their full durable lifetime, and collection must exclude content held by every declared owner",
+        "Closure still requires memory and SQLite behavior tests covering create, replace, rollback, restart, release, collection, nested definition and Environment references, inherited AttemptReceipt.result, and concurrent collection attempts. AC-CONTENT-001 remains limited to retention safety after an ownership edge exists and does not prove registration-on-naming"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CONTENT-CUSTODY",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-FACET-DISPOSAL",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-FACET-DISPOSAL" },
+      "owner": "W3",
+      "priority": 5,
+      "summary": "Advance C13-FACET-DISPOSAL from implemented with exact evidence",
+      "notes": [
+        "The W9 mediation pipeline releases provider and dynamic resolutions after each invocation, and the W5 executor behavior covers Turn completion, failure, cancellation, suspension, thrown execution, and authority loss; W9-owned cancellation and authority-loss selectors plus fresh mutation attribution must discriminate those disposal paths before verification"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-FACET-DISPOSAL",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-OWNERSHIP-AUTHORITY-RECORDS",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-OWNERSHIP-AUTHORITY-RECORDS" },
+      "owner": "W0",
+      "priority": 5,
+      "summary": "Advance C13-OWNERSHIP-AUTHORITY-RECORDS from planned with exact evidence",
+      "notes": [
+        "Creating, replacing, and deactivating a Binding now advances its path epoch in the same Tenant-local transaction, with memory and SQLite success, idempotence, and rollback coverage; the record registry also declares Binding, Grant, and ScopeEpoch only in the Tenant authority store",
+        "The remaining evidence must discriminate against an undeclared Workspace or Run store persisting a canonical or mirrored Binding, Grant, or ScopeEpoch; rejecting a duplicate registry row does not detect an implementation that dual-writes without registering the second plane"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-OWNERSHIP-AUTHORITY-RECORDS",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-OWNERSHIP-SINGLE-OWNER",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-OWNERSHIP-SINGLE-OWNER" },
+      "owner": "W0",
+      "priority": 5,
+      "summary": "Advance C13-OWNERSHIP-SINGLE-OWNER from planned with exact evidence",
+      "notes": [
+        "The importable record-ownership validator and its all-kind adversary prove that the declared registry cannot name a second owner for a durable kind, and the authority-state contract proves one derived cache can be dropped and rebuilt",
+        "Rule 2 still needs implementation-linked evidence for the constrained dedicated-Run index and for every other Actor retaining identifiers or rebuildable indexes rather than replayable canonical state",
+        "Rule 3 still needs a complete cache inventory proving every cache is derived, versioned, rebuildable, and treats a miss as ordinary; one authority-cache loss case is not the universal claim",
+        "Rule 4 still needs a discriminator for undeclared dual writes and evidence that cross-Actor reads use RPC or explicitly versioned snapshots; a unique registry declaration alone cannot prove either absence"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-OWNERSHIP-SINGLE-OWNER",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-PLACEMENT-AUTHORED-BACKING",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-PLACEMENT-AUTHORED-BACKING" },
+      "owner": "W4",
+      "priority": 5,
+      "summary": "Advance C13-PLACEMENT-AUTHORED-BACKING from planned with exact evidence",
+      "notes": [
+        "The declaration half is built and discrimination-tested. PlacementPolicy carries `backings` (src/definition/placement.ts#AuthoredCodeBackingPolicy), a partial map from the closed §4.7 consumer set to an opaque AuthoredCodeBackingId, read through PlacementPolicy.backingFor(consumer, profileDefault); an unmapped consumer takes the substrate profile's declared default and never another offered backing. test/definition/authored-code-backing.test.ts covers it under this atom's id, and four mutations — ignoring the declaration, sending an unmapped consumer to a declared backing, dropping the mapping on encode, and opening the consumer set — each break a cited test.",
+        "Worker Loader is the only §4.7 backing currently implemented by the Cloudflare package. It loads the isolate with `globalOutbound: null`, `disallow_importable_env`, and an `env` holding one entrypoint stub per delegated Binding and nothing else, all three exercised against real workerd in the cloudflare lane.",
+        "The former dispatch-namespace adapter was removed because it could not establish the abstract AuthoredCodeBacking contract it claimed: outbound posture is a property of the binding's deployed outbound Worker, not of `DispatchNamespace.get()`. Restoring the §10.2 dispatch backing requires a configured deny-all outbound Worker, the exact deployed binding, and a real substrate test proving both `fetch` and `connect` are unavailable while passed Binding capabilities remain callable.",
+        "C13-PLACEMENT-DYNAMIC-NO-EGRESS remains an explicit prerequisite. Verification also requires ownership-correct integration evidence connecting the W4 declaration to every W8 backing the profile actually offers; Worker Loader evidence cannot stand in for an unimplemented dispatch backing."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-PLACEMENT-AUTHORED-BACKING",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-PLACEMENT-DYNAMIC-NO-EGRESS",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-PLACEMENT-DYNAMIC-NO-EGRESS" },
+      "owner": "W4",
+      "priority": 5,
+      "summary": "Advance C13-PLACEMENT-DYNAMIC-NO-EGRESS from planned with exact evidence",
+      "notes": [
+        "The rule is enforced by domain construction at the substrate (SPEC §1.5: policy code inside the domain is not a security boundary); W4's definition plane can declare only the dynamic mode and cannot establish the network posture of a W8 backing",
+        "No substrate-neutral interface, nominal token, or local reference can prove zero ambient egress. Verification requires ownership-correct integration between the W4 placement decision and every concrete backing the selected profile offers, together with evidence from each backing's real enforcement boundary",
+        "For Worker Loader, adversarial code running in the real substrate must fail both global fetch and connect while an explicitly passed Binding remains callable. A dispatch-namespace backing additionally requires the exact deployed namespace and deny-all outbound Worker configuration; local fakes do not satisfy either obligation"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-PLACEMENT-DYNAMIC-NO-EGRESS",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-POLICY-EPOCH-RECHECK",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-POLICY-EPOCH-RECHECK" },
+      "owner": "W4",
+      "priority": 5,
+      "summary": "Advance C13-POLICY-EPOCH-RECHECK from implemented with exact evidence",
+      "notes": [
+        "The current-epoch check this rule states is the authority-admission comparison of SPEC 3.4 rule 7, and src/definition holds no epoch state to compare: evaluatePolicy decides only whether an effect is mediated at all. Discriminating evidence has to come from the authority admission path, so this fragment carries the tier decision and states the rest as outstanding rather than verifying the rule on plan-assembly kind rechecks, which bear on no epoch."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-POLICY-EPOCH-RECHECK",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-RUN-TREE-CONFLICT-EXPLICIT",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-RUN-TREE-CONFLICT-EXPLICIT" },
+      "owner": "W5",
+      "priority": 5,
+      "summary": "Advance C13-RUN-TREE-CONFLICT-EXPLICIT from planned with exact evidence",
+      "notes": [
+        "Conflict detection remains unimplemented over the opaque tree checkpoint digest. Closure requires one ContentStore-backed tree codec and diff path whose decoded bytes prove each ContentRef, rather than a test-only snapshot map",
+        "The effective tree policy must be loaded by the exact PolicySet id, revision, and digest in commit.pins.effectivePolicy; an unbound RunMergePort policy projection is not sufficient evidence",
+        "The merge-resolution control evidence must prove that its authenticated caller invoked the administer-impact Operation whose successful Receipt proposal digest binds these exact path choices; generic system-control writer evidence alone is insufficient"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-RUN-TREE-CONFLICT-EXPLICIT",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-TURN-ADMISSION-HANDLE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-TURN-ADMISSION-HANDLE" },
+      "owner": "W5",
+      "priority": 5,
+      "summary": "Advance C13-TURN-ADMISSION-HANDLE from planned with exact evidence",
+      "notes": [
+        "GatewayTurnInvocationPort currently returns only Operation output, so no concrete mediated pipeline path can return a verified InvocationId or child RunRef in the model tool position; a fake TurnInvocationPort returning a preconstructed handle would not prove this rule",
+        "SpawnReservation alone does not prove successful admission. Closure requires the exact EffectAttempt named by the AttemptReceipt, the succeeded Receipt and its hashed result bytes, and an exact canonical child-RunRef-only payload to be validated before constructing the handle; extra child-output fields must be rejected",
+        "The public-interface test must traverse the concrete mediated gateway and prove unchanged admission plus linked Receipt and audit evidence, then observe only the verified admission identity at the executor boundary"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-TURN-ADMISSION-HANDLE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-VIEW-APPROVAL-PROVENANCE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-VIEW-APPROVAL-PROVENANCE" },
+      "owner": "W7",
+      "priority": 5,
+      "summary": "Advance C13-VIEW-APPROVAL-PROVENANCE from planned with exact evidence",
+      "notes": [
+        "§6.3 now defines every missing term by composition: a decision View is discriminated by the presence of a new optional `intentDigest` field; provenance uses a new optional `marks: readonly ViewMark[]` field whose `path` reuses the existing FieldMapping/PayloadMapping JSON Pointer vocabulary (§6.2) rather than inventing pointer syntax; and platform voice is defined functionally — any rendered position a viewer would attribute to the platform rather than to the marked value's own source",
+        "The durable record and replay prerequisite is implemented: View codec major 2 and ViewDelta documents omit provenance fields on ordinary Views, require both intentDigest and marks on decision Views, reject inconsistent provenance shapes and marks outside the exact body, and preserve decision provenance through memory snapshot restore and file-backed SQLite reopen",
+        "The rendering conjunct has no production enforcement point today: Facet Surface.render and ProfileRuntimeEffectsPort.render return generic FacetData, and no production Surface-to-View presenter constructs or validates a View. A codec-only change could preserve marks yet still render marked input as a headline, button label, or unattributed host prose, so it cannot verify this atom",
+        "Closing the atom still requires one canonical production presentation path that constructs a decision View from the exact prepared intent, proves every non-host body value is marked with its actual TrustTier, and constrains marked values to data presentation rather than platform voice; no current Surface renderer or ProfileRuntimeEffectsPort performs that composition"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-VIEW-APPROVAL-PROVENANCE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:P11-ENVIRONMENT-NO-AMBIENT-EGRESS",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "P11-ENVIRONMENT-NO-AMBIENT-EGRESS" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance P11-ENVIRONMENT-NO-AMBIENT-EGRESS from planned with exact evidence",
+      "notes": [
+        "No Session egress plane exists in the runtime: environments model files, snapshots, and exposures but no EgressGrant or destination Binding, so the positive half (a send reaches exactly its named Binding's destination and an unbound destination refuses) has no source symbol; it is currently claimed only formally (AC-ENVIRONMENT-001, session_egress_is_explicitly_bound / unbound_send_is_refused) with NC-ENVIRONMENT-LIFECYCLE deferring the runtime",
+        "The adversarial half — code inside the Session cannot open a connection the platform did not pass — is a substrate property (globalOutbound: null, cf. the Slate loader) and needs either an isolate-backed Session provider with a local negative test or a new W8 consent gate and ACQ-LIVE scenario; no local emulation may substitute",
+        "Checked at HEAD: the only globalOutbound assertion in the tree is packages/agent-core-cloudflare/test/hosting.test.ts \"forces one-time Dynamic Worker load with null outbound and only passed Bindings\", which drives DynamicWorkerLoaderAdapter against FakeWorkerLoader and so records the argument the adapter passes, never a refused connection; being local emulation it is exactly what this atom excludes, and it is cited by no requirement"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "P11-ENVIRONMENT-NO-AMBIENT-EGRESS",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-APPROVAL-001:10b4e57b43a8d31ca183d06e0e368fb7af60724a8dda4fc118ac9219d7010064",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-APPROVAL-001",
+        "digest": "10b4e57b43a8d31ca183d06e0e368fb7af60724a8dda4fc118ac9219d7010064"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-APPROVAL-001 evidence 10b4e57b43a8d31ca183d06e0e368fb7af60724a8dda4fc118ac9219d7010064",
+      "notes": [
+        "authenticated approval interaction and durable consume/start/continuation atomicity"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-APPROVAL-001",
+        "evidenceDigest": "10b4e57b43a8d31ca183d06e0e368fb7af60724a8dda4fc118ac9219d7010064",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-APPROVAL-001:58ca60a95789eaf0ba1b9b69faf9e90cf0cccf95ba4c625e3e9e7459c12b6416",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-APPROVAL-001",
+        "digest": "58ca60a95789eaf0ba1b9b69faf9e90cf0cccf95ba4c625e3e9e7459c12b6416"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-APPROVAL-001 evidence 58ca60a95789eaf0ba1b9b69faf9e90cf0cccf95ba4c625e3e9e7459c12b6416",
+      "notes": ["concrete canonical intent digest implementation"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-APPROVAL-001",
+        "evidenceDigest": "58ca60a95789eaf0ba1b9b69faf9e90cf0cccf95ba4c625e3e9e7459c12b6416",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-AUDIT-001:1115ae0d0b940f9d79cabe98bac24c69466798ef6445692b3f483d674ef6ef97",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-AUDIT-001",
+        "digest": "1115ae0d0b940f9d79cabe98bac24c69466798ef6445692b3f483d674ef6ef97"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-AUDIT-001 evidence 1115ae0d0b940f9d79cabe98bac24c69466798ef6445692b3f483d674ef6ef97",
+      "notes": ["append-only durable Actor-local storage refinement"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-AUDIT-001",
+        "evidenceDigest": "1115ae0d0b940f9d79cabe98bac24c69466798ef6445692b3f483d674ef6ef97",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-AUDIT-001:ebff1cc5c3be069b802dbcd952f2bef25983755668f1afa5914de497e0b35229",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-AUDIT-001",
+        "digest": "ebff1cc5c3be069b802dbcd952f2bef25983755668f1afa5914de497e0b35229"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-AUDIT-001 evidence ebff1cc5c3be069b802dbcd952f2bef25983755668f1afa5914de497e0b35229",
+      "notes": ["complete concrete causal instrumentation and reservation bridge validation"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-AUDIT-001",
+        "evidenceDigest": "ebff1cc5c3be069b802dbcd952f2bef25983755668f1afa5914de497e0b35229",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-AUTH-001:0385841629dee4f7cbb8d905644d8d37b4d717e571f4ad3abc058365307b4345",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-AUTH-001",
+        "digest": "0385841629dee4f7cbb8d905644d8d37b4d717e571f4ad3abc058365307b4345"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-AUTH-001 evidence 0385841629dee4f7cbb8d905644d8d37b4d717e571f4ad3abc058365307b4345",
+      "notes": ["authenticated Principal, Team, foreign-principal, and tenant inputs"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-AUTH-001",
+        "evidenceDigest": "0385841629dee4f7cbb8d905644d8d37b4d717e571f4ad3abc058365307b4345",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-AUTH-001:038e4dea5b4dac3d67aafc7daa16c13eaadb89275a93a7e98623c7ce7f2a2ea0",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-AUTH-001",
+        "digest": "038e4dea5b4dac3d67aafc7daa16c13eaadb89275a93a7e98623c7ce7f2a2ea0"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-AUTH-001 evidence 038e4dea5b4dac3d67aafc7daa16c13eaadb89275a93a7e98623c7ce7f2a2ea0",
+      "notes": ["concrete canonical Grant/Binding storage and resolver refinement"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-AUTH-001",
+        "evidenceDigest": "038e4dea5b4dac3d67aafc7daa16c13eaadb89275a93a7e98623c7ce7f2a2ea0",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-AUTH-001:76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-AUTH-001",
+        "digest": "76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-AUTH-001 evidence 76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
+      "notes": [
+        "TypeScript refinement, for which oracle agreement is empirical only (NC-DIFFERENTIAL-EMPIRICAL)"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-AUTH-001",
+        "evidenceDigest": "76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-AUTH-001:bd862844400a7cfe1b426e8dacd85a2e97e04596b438376b6b1638150ee09660",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-AUTH-001",
+        "digest": "bd862844400a7cfe1b426e8dacd85a2e97e04596b438376b6b1638150ee09660"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-AUTH-001 evidence bd862844400a7cfe1b426e8dacd85a2e97e04596b438376b6b1638150ee09660",
+      "notes": ["guest Grant origin provenance and Membership/GuestTrust verification currency"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-AUTH-001",
+        "evidenceDigest": "bd862844400a7cfe1b426e8dacd85a2e97e04596b438376b6b1638150ee09660",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-AUTH-RESOLUTION-001:9abf33474d88dfe4fef57fd549f9cb55735c29d0fb721818e3cb746f0e934bf8",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-AUTH-RESOLUTION-001",
+        "digest": "9abf33474d88dfe4fef57fd549f9cb55735c29d0fb721818e3cb746f0e934bf8"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-AUTH-RESOLUTION-001 evidence 9abf33474d88dfe4fef57fd549f9cb55735c29d0fb721818e3cb746f0e934bf8",
+      "notes": ["holder-scoped invalidation observation and delivery refinement"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-AUTH-RESOLUTION-001",
+        "evidenceDigest": "9abf33474d88dfe4fef57fd549f9cb55735c29d0fb721818e3cb746f0e934bf8",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-AUTH-RESOLUTION-001:e95b08e8a1a405b93e71f0fe786ded15197a7ccab7281609ccf82b57124a4508",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-AUTH-RESOLUTION-001",
+        "digest": "e95b08e8a1a405b93e71f0fe786ded15197a7ccab7281609ccf82b57124a4508"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-AUTH-RESOLUTION-001 evidence e95b08e8a1a405b93e71f0fe786ded15197a7ccab7281609ccf82b57124a4508",
+      "notes": ["trusted monotonic time and immutable deadline implementation"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-AUTH-RESOLUTION-001",
+        "evidenceDigest": "e95b08e8a1a405b93e71f0fe786ded15197a7ccab7281609ccf82b57124a4508",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-CAPABILITY-001:588880d6d9647bcc74b02614a14a823e2858301446ba3ae7e1f65402b935d1c2",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-CAPABILITY-001",
+        "digest": "588880d6d9647bcc74b02614a14a823e2858301446ba3ae7e1f65402b935d1c2"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-CAPABILITY-001 evidence 588880d6d9647bcc74b02614a14a823e2858301446ba3ae7e1f65402b935d1c2",
+      "notes": [
+        "TypeScript CapabilitySpec.covers and matches refinement against the executable decision"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-CAPABILITY-001",
+        "evidenceDigest": "588880d6d9647bcc74b02614a14a823e2858301446ba3ae7e1f65402b935d1c2",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-CAPABILITY-001:76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-CAPABILITY-001",
+        "digest": "76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-CAPABILITY-001 evidence 76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
+      "notes": [
+        "TypeScript refinement, for which oracle agreement is empirical only (NC-DIFFERENTIAL-EMPIRICAL)"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-CAPABILITY-001",
+        "evidenceDigest": "76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-CAPABILITY-001:b87b0a8aaba700e78dfc6d27ea6f4070c1e755672079910d73d11c79adace236",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-CAPABILITY-001",
+        "digest": "b87b0a8aaba700e78dfc6d27ea6f4070c1e755672079910d73d11c79adace236"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-CAPABILITY-001 evidence b87b0a8aaba700e78dfc6d27ea6f4070c1e755672079910d73d11c79adace236",
+      "notes": ["canonical JSON encoding and argument path projection"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-CAPABILITY-001",
+        "evidenceDigest": "b87b0a8aaba700e78dfc6d27ea6f4070c1e755672079910d73d11c79adace236",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-CAPABILITY-001:dc81b425f3b582ab1ce1b1fec6d8670c1fcbb6d884897da4dba36f14c916c7db",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-CAPABILITY-001",
+        "digest": "dc81b425f3b582ab1ce1b1fec6d8670c1fcbb6d884897da4dba36f14c916c7db"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-CAPABILITY-001 evidence dc81b425f3b582ab1ce1b1fec6d8670c1fcbb6d884897da4dba36f14c916c7db",
+      "notes": ["untrusted pattern, impact, and constraint validation at the trust boundary"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-CAPABILITY-001",
+        "evidenceDigest": "dc81b425f3b582ab1ce1b1fec6d8670c1fcbb6d884897da4dba36f14c916c7db",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-COMMAND-001:8f1b13e4c98b68af1ce0639f666b8461dc92c50c6826601c3baa8351c3737a57",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-COMMAND-001",
+        "digest": "8f1b13e4c98b68af1ce0639f666b8461dc92c50c6826601c3baa8351c3737a57"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-COMMAND-001 evidence 8f1b13e4c98b68af1ce0639f666b8461dc92c50c6826601c3baa8351c3737a57",
+      "notes": [
+        "dispatcher envelope gate ordering and command.completed conformance (see AC-DISPATCHER-001 for the generic gate-order and duplicate-never-mutates claims)"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-COMMAND-001",
+        "evidenceDigest": "8f1b13e4c98b68af1ce0639f666b8461dc92c50c6826601c3baa8351c3737a57",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-COMMAND-001:a5399c8e2163b96b0dd81f41cb28ad50aeea6b520e8fd9f9f201c63190ae2140",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-COMMAND-001",
+        "digest": "a5399c8e2163b96b0dd81f41cb28ad50aeea6b520e8fd9f9f201c63190ae2140"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-COMMAND-001 evidence a5399c8e2163b96b0dd81f41cb28ad50aeea6b520e8fd9f9f201c63190ae2140",
+      "notes": [
+        "synthesizing a full InvocationHeader from a CommandRoute so deriveSubscription's target does not need to be supplied externally"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-COMMAND-001",
+        "evidenceDigest": "a5399c8e2163b96b0dd81f41cb28ad50aeea6b520e8fd9f9f201c63190ae2140",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-COMMAND-001:ac43bcb86bacb6888ec96d1e952db3b09e9b9fc873e38d6e529bf7c0e493bf97",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-COMMAND-001",
+        "digest": "ac43bcb86bacb6888ec96d1e952db3b09e9b9fc873e38d6e529bf7c0e493bf97"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-COMMAND-001 evidence ac43bcb86bacb6888ec96d1e952db3b09e9b9fc873e38d6e529bf7c0e493bf97",
+      "notes": [
+        "syntactic mapping compatibility check soundness against the semantic install guarantee"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-COMMAND-001",
+        "evidenceDigest": "ac43bcb86bacb6888ec96d1e952db3b09e9b9fc873e38d6e529bf7c0e493bf97",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-COMPOSED-001:3e3312db7fd74c911d3569272f4eb1600247367e4ee4dcdda15e991fa4172e6c",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-COMPOSED-001",
+        "digest": "3e3312db7fd74c911d3569272f4eb1600247367e4ee4dcdda15e991fa4172e6c"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-COMPOSED-001 evidence 3e3312db7fd74c911d3569272f4eb1600247367e4ee4dcdda15e991fa4172e6c",
+      "notes": [
+        "concrete reservation validation, transaction atomicity, and single-owner storage refinement"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-COMPOSED-001",
+        "evidenceDigest": "3e3312db7fd74c911d3569272f4eb1600247367e4ee4dcdda15e991fa4172e6c",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-COMPOSED-001:50967d489628e2fb426d2b900e3cbf6efd8feb4061ab1d3510ac95cf59378114",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-COMPOSED-001",
+        "digest": "50967d489628e2fb426d2b900e3cbf6efd8feb4061ab1d3510ac95cf59378114"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-COMPOSED-001 evidence 50967d489628e2fb426d2b900e3cbf6efd8feb4061ab1d3510ac95cf59378114",
+      "notes": ["general settlement safety theorem and complete obligation lifecycle"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-COMPOSED-001",
+        "evidenceDigest": "50967d489628e2fb426d2b900e3cbf6efd8feb4061ab1d3510ac95cf59378114",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-COMPOSED-001:89111a4175966a70ae5b4d4cbde28ec9b65dff18aa41af7c48592e5512cad64f",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-COMPOSED-001",
+        "digest": "89111a4175966a70ae5b4d4cbde28ec9b65dff18aa41af7c48592e5512cad64f"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-COMPOSED-001 evidence 89111a4175966a70ae5b4d4cbde28ec9b65dff18aa41af7c48592e5512cad64f",
+      "notes": [
+        "capability-mediated live authority administration and Role rematerialization interleavings"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-COMPOSED-001",
+        "evidenceDigest": "89111a4175966a70ae5b4d4cbde28ec9b65dff18aa41af7c48592e5512cad64f",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-COMPOSED-001:ab2b816efa8b5373b5efb18df9b3abb9fdea3f36e89e684425daf0a37061c249",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-COMPOSED-001",
+        "digest": "ab2b816efa8b5373b5efb18df9b3abb9fdea3f36e89e684425daf0a37061c249"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-COMPOSED-001 evidence ab2b816efa8b5373b5efb18df9b3abb9fdea3f36e89e684425daf0a37061c249",
+      "notes": [
+        "full §10.3 AuthorityPermit field representation, issuer signature, codec semantics, and concrete Tenant-issuance and target-consumption transactions"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-COMPOSED-001",
+        "evidenceDigest": "ab2b816efa8b5373b5efb18df9b3abb9fdea3f36e89e684425daf0a37061c249",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-COMPOSED-001:f640e11ffa744c0b962041402ba82cc3f35d7ed5a3f42702b3ed8d010d1022e6",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-COMPOSED-001",
+        "digest": "f640e11ffa744c0b962041402ba82cc3f35d7ed5a3f42702b3ed8d010d1022e6"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-COMPOSED-001 evidence f640e11ffa744c0b962041402ba82cc3f35d7ed5a3f42702b3ed8d010d1022e6",
+      "notes": [
+        "TypeScript, Memory/SQLite, Cloudflare Durable Object, bundle, configuration, and deployment refinement"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-COMPOSED-001",
+        "evidenceDigest": "f640e11ffa744c0b962041402ba82cc3f35d7ed5a3f42702b3ed8d010d1022e6",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-CONTENT-001:677f3dc491662a1b732ba781001acbb6de056d840e90ea7c5f027589c87d58e1",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-CONTENT-001",
+        "digest": "677f3dc491662a1b732ba781001acbb6de056d840e90ea7c5f027589c87d58e1"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-CONTENT-001 evidence 677f3dc491662a1b732ba781001acbb6de056d840e90ea7c5f027589c87d58e1",
+      "notes": ["retention/GC policy timing and scheduling over unowned content"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-CONTENT-001",
+        "evidenceDigest": "677f3dc491662a1b732ba781001acbb6de056d840e90ea7c5f027589c87d58e1",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-CONTENT-001:7525018d192f6c7a82f5ac3e65c45ee6b5f963d1e8044a3f2f5929f2f5463313",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-CONTENT-001",
+        "digest": "7525018d192f6c7a82f5ac3e65c45ee6b5f963d1e8044a3f2f5929f2f5463313"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-CONTENT-001 evidence 7525018d192f6c7a82f5ac3e65c45ee6b5f963d1e8044a3f2f5929f2f5463313",
+      "notes": ["concrete ContentStore put/get/stat transport and persistence conformance"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-CONTENT-001",
+        "evidenceDigest": "7525018d192f6c7a82f5ac3e65c45ee6b5f963d1e8044a3f2f5929f2f5463313",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-CONTENT-001:90740fb65b114d0171320ca88365c497280a398c471c6323c7533df2295c7b20",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-CONTENT-001",
+        "digest": "90740fb65b114d0171320ca88365c497280a398c471c6323c7533df2295c7b20"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-CONTENT-001 evidence 90740fb65b114d0171320ca88365c497280a398c471c6323c7533df2295c7b20",
+      "notes": ["the ContentRef wire representation and digest binding to stored bytes"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-CONTENT-001",
+        "evidenceDigest": "90740fb65b114d0171320ca88365c497280a398c471c6323c7533df2295c7b20",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-CONTENT-001:9a223e05b994e11b03d4142200004c10f6060fedc73bb872561e2062c586fcee",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-CONTENT-001",
+        "digest": "9a223e05b994e11b03d4142200004c10f6060fedc73bb872561e2062c586fcee"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-CONTENT-001 evidence 9a223e05b994e11b03d4142200004c10f6060fedc73bb872561e2062c586fcee",
+      "notes": [
+        "the coverage half of custody: deriving ownership registration from concrete record types' own fields (TurnResult, Receipt, Slate, ...) rather than treating `own` as a primitive action -- currently reported false in the implementation (Turn results, Receipts, and Slates never retain)"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-CONTENT-001",
+        "evidenceDigest": "9a223e05b994e11b03d4142200004c10f6060fedc73bb872561e2062c586fcee",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-DISPATCHER-001:64b8c745226666b9628763d4e27774fb1f9cdf2eb43ad0b97e2fe81a856e7a24",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-DISPATCHER-001",
+        "digest": "64b8c745226666b9628763d4e27774fb1f9cdf2eb43ad0b97e2fe81a856e7a24"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-DISPATCHER-001 evidence 64b8c745226666b9628763d4e27774fb1f9cdf2eb43ad0b97e2fe81a856e7a24",
+      "notes": [
+        "the raw envelope decoder's concrete shape/schema validation and command.completed rendering"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-DISPATCHER-001",
+        "evidenceDigest": "64b8c745226666b9628763d4e27774fb1f9cdf2eb43ad0b97e2fe81a856e7a24",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-DISPATCHER-001:7ee955c69f364824e828662ef4940eac075507351cf9ace07bdd666a56bcdb14",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-DISPATCHER-001",
+        "digest": "7ee955c69f364824e828662ef4940eac075507351cf9ace07bdd666a56bcdb14"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-DISPATCHER-001 evidence 7ee955c69f364824e828662ef4940eac075507351cf9ace07bdd666a56bcdb14",
+      "notes": [
+        "threading the dispatcher-created audit id through AC-AUDIT-001's typed AuditKind/MayCause causal chain so the permitted-typed-cause rule for callerCause is proved, not just the fresh bijective link"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-DISPATCHER-001",
+        "evidenceDigest": "7ee955c69f364824e828662ef4940eac075507351cf9ace07bdd666a56bcdb14",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-DISPATCHER-001:d1a4f5ddef555757bea352d58d8c259e96adc31d17a984519dc91a76118c924b",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-DISPATCHER-001",
+        "digest": "d1a4f5ddef555757bea352d58d8c259e96adc31d17a984519dc91a76118c924b"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-DISPATCHER-001 evidence d1a4f5ddef555757bea352d58d8c259e96adc31d17a984519dc91a76118c924b",
+      "notes": [
+        "concrete family-specific authenticate/authority/lifecycle/revision semantics for each protocol command family (Grant, Binding, RouteReservation, RunPins migration, PreparedInvocation, Approval consumption, EffectAttempt, Receipt, AuditRecord append)"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-DISPATCHER-001",
+        "evidenceDigest": "d1a4f5ddef555757bea352d58d8c259e96adc31d17a984519dc91a76118c924b",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-EFFECT-001:3841abfa55bf532b0dbcdb71d5ae54b6003649f063fe1d39f244ab8b088c1c7e",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-EFFECT-001",
+        "digest": "3841abfa55bf532b0dbcdb71d5ae54b6003649f063fe1d39f244ab8b088c1c7e"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-EFFECT-001 evidence 3841abfa55bf532b0dbcdb71d5ae54b6003649f063fe1d39f244ab8b088c1c7e",
+      "notes": [
+        "concrete atomic attempt, Receipt, audit, aggregate, crash-recovery, and reconciliation persistence refinement"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-EFFECT-001",
+        "evidenceDigest": "3841abfa55bf532b0dbcdb71d5ae54b6003649f063fe1d39f244ab8b088c1c7e",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-EFFECT-001:a2c5737cb6950de9524b0498ce91b240c0e90a12f750e3f411665d8be313b390",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-EFFECT-001",
+        "digest": "a2c5737cb6950de9524b0498ce91b240c0e90a12f750e3f411665d8be313b390"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-EFFECT-001 evidence a2c5737cb6950de9524b0498ce91b240c0e90a12f750e3f411665d8be313b390",
+      "notes": ["trusted concrete time, expiry scheduling fairness, and provider idempotency"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-EFFECT-001",
+        "evidenceDigest": "a2c5737cb6950de9524b0498ce91b240c0e90a12f750e3f411665d8be313b390",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-ENVIRONMENT-001:601916b80480387f02f50dd14df9e34d45d7b33dc2cc3b00c4634dba004adf70",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-ENVIRONMENT-001",
+        "digest": "601916b80480387f02f50dd14df9e34d45d7b33dc2cc3b00c4634dba004adf70"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-ENVIRONMENT-001 evidence 601916b80480387f02f50dd14df9e34d45d7b33dc2cc3b00c4634dba004adf70",
+      "notes": ["snapshot content format and preview-host token derivation"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-ENVIRONMENT-001",
+        "evidenceDigest": "601916b80480387f02f50dd14df9e34d45d7b33dc2cc3b00c4634dba004adf70",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-ENVIRONMENT-001:d9216e0fa56dce0f76a7d996c736f7dda0b750fc37d8776c0ff8c813b24dfb80",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-ENVIRONMENT-001",
+        "digest": "d9216e0fa56dce0f76a7d996c736f7dda0b750fc37d8776c0ff8c813b24dfb80"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-ENVIRONMENT-001 evidence d9216e0fa56dce0f76a7d996c736f7dda0b750fc37d8776c0ff8c813b24dfb80",
+      "notes": ["concrete provider lifecycle, container, and reconciliation semantics"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-ENVIRONMENT-001",
+        "evidenceDigest": "d9216e0fa56dce0f76a7d996c736f7dda0b750fc37d8776c0ff8c813b24dfb80",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-EVENT-ROUTING-001:144af05503b13b382f969ebe11ebd0023e4f4e359a918f7c629fd0f0b4748c64",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-EVENT-ROUTING-001",
+        "digest": "144af05503b13b382f969ebe11ebd0023e4f4e359a918f7c629fd0f0b4748c64"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-EVENT-ROUTING-001 evidence 144af05503b13b382f969ebe11ebd0023e4f4e359a918f7c629fd0f0b4748c64",
+      "notes": ["Subscription matching and reconciliation conformance"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-EVENT-ROUTING-001",
+        "evidenceDigest": "144af05503b13b382f969ebe11ebd0023e4f4e359a918f7c629fd0f0b4748c64",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-EVENT-ROUTING-001:1d85b578a057986f53a3760fff52a6ad6fbd87c54c56e9d1c067b35a5c2de98c",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-EVENT-ROUTING-001",
+        "digest": "1d85b578a057986f53a3760fff52a6ad6fbd87c54c56e9d1c067b35a5c2de98c"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-EVENT-ROUTING-001 evidence 1d85b578a057986f53a3760fff52a6ad6fbd87c54c56e9d1c067b35a5c2de98c",
+      "notes": ["source-owned reservation and authenticated projection transport refinement"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-EVENT-ROUTING-001",
+        "evidenceDigest": "1d85b578a057986f53a3760fff52a6ad6fbd87c54c56e9d1c067b35a5c2de98c",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-GRAPH-WRITER-001:6acba0486bbb157a26d1f2e092dccb759835247e1ac22cf1b156495678256d5b",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-GRAPH-WRITER-001",
+        "digest": "6acba0486bbb157a26d1f2e092dccb759835247e1ac22cf1b156495678256d5b"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-GRAPH-WRITER-001 evidence 6acba0486bbb157a26d1f2e092dccb759835247e1ac22cf1b156495678256d5b",
+      "notes": ["concrete graph and merge implementation conformance"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-GRAPH-WRITER-001",
+        "evidenceDigest": "6acba0486bbb157a26d1f2e092dccb759835247e1ac22cf1b156495678256d5b",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-GRAPH-WRITER-001:e974b33cec78521467f729e525d97cb551bab61ec0a623b388b264dd1b302e40",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-GRAPH-WRITER-001",
+        "digest": "e974b33cec78521467f729e525d97cb551bab61ec0a623b388b264dd1b302e40"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-GRAPH-WRITER-001 evidence e974b33cec78521467f729e525d97cb551bab61ec0a623b388b264dd1b302e40",
+      "notes": [
+        "complete writer matrix, expected-head CAS, migration execution, and pending-revert durability"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-GRAPH-WRITER-001",
+        "evidenceDigest": "e974b33cec78521467f729e525d97cb551bab61ec0a623b388b264dd1b302e40",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-INTERCEPTOR-001:9a933147e23eec64a748ccf8a68323ba0cea9adb56820c40850b189a704b0f1b",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-INTERCEPTOR-001",
+        "digest": "9a933147e23eec64a748ccf8a68323ba0cea9adb56820c40850b189a704b0f1b"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-INTERCEPTOR-001 evidence 9a933147e23eec64a748ccf8a68323ba0cea9adb56820c40850b189a704b0f1b",
+      "notes": ["runtime candidate discovery and durable trace persistence refinement"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-INTERCEPTOR-001",
+        "evidenceDigest": "9a933147e23eec64a748ccf8a68323ba0cea9adb56820c40850b189a704b0f1b",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-INTERCEPTOR-001:a3a203935a71995fbcc97559479590b33acffe8c20459a79cb4b5cb448b8c21f",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-INTERCEPTOR-001",
+        "digest": "a3a203935a71995fbcc97559479590b33acffe8c20459a79cb4b5cb448b8c21f"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-INTERCEPTOR-001 evidence a3a203935a71995fbcc97559479590b33acffe8c20459a79cb4b5cb448b8c21f",
+      "notes": ["prompt.assemble, input.submitted, and turn.step cut points"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-INTERCEPTOR-001",
+        "evidenceDigest": "a3a203935a71995fbcc97559479590b33acffe8c20459a79cb4b5cb448b8c21f",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-KEY-001:068e8955ccfa78c4a74bda168850e4e189cb9963841afecb9c48ace8d42810f2",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-KEY-001",
+        "digest": "068e8955ccfa78c4a74bda168850e4e189cb9963841afecb9c48ace8d42810f2"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-KEY-001 evidence 068e8955ccfa78c4a74bda168850e4e189cb9963841afecb9c48ace8d42810f2",
+      "notes": ["per-key discharge of the delimiter-free side across every record store"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-KEY-001",
+        "evidenceDigest": "068e8955ccfa78c4a74bda168850e4e189cb9963841afecb9c48ace8d42810f2",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-KEY-001:47e6f3818e9e46ce626af4d780e62a9d224649358f38d5b87d71b55b85b1d44f",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-KEY-001",
+        "digest": "47e6f3818e9e46ce626af4d780e62a9d224649358f38d5b87d71b55b85b1d44f"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-KEY-001 evidence 47e6f3818e9e46ce626af4d780e62a9d224649358f38d5b87d71b55b85b1d44f",
+      "notes": [
+        "distinct JavaScript numbers rendering to distinct tokens (ASM-CANONICAL-KEY-INJECTIVE)"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-KEY-001",
+        "evidenceDigest": "47e6f3818e9e46ce626af4d780e62a9d224649358f38d5b87d71b55b85b1d44f",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-KEY-001:76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-KEY-001",
+        "digest": "76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-KEY-001 evidence 76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
+      "notes": [
+        "TypeScript refinement, for which oracle agreement is empirical only (NC-DIFFERENTIAL-EMPIRICAL)"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-KEY-001",
+        "evidenceDigest": "76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-KEY-001:af4a70373c9dd158f37d09c0360ab5b6b4705ce63397106f716c70c1edf6ad12",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-KEY-001",
+        "digest": "af4a70373c9dd158f37d09c0360ab5b6b4705ce63397106f716c70c1edf6ad12"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-KEY-001 evidence af4a70373c9dd158f37d09c0360ab5b6b4705ce63397106f716c70c1edf6ad12",
+      "notes": ["UTF-8 byte encoding of the canonical string"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-KEY-001",
+        "evidenceDigest": "af4a70373c9dd158f37d09c0360ab5b6b4705ce63397106f716c70c1edf6ad12",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-KEY-001:d901535558e8b8c56b7ea0f162840194d3bfe5c07d5fa38a2fcdf0a88a7a3c2f",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-KEY-001",
+        "digest": "d901535558e8b8c56b7ea0f162840194d3bfe5c07d5fa38a2fcdf0a88a7a3c2f"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-KEY-001 evidence d901535558e8b8c56b7ea0f162840194d3bfe5c07d5fa38a2fcdf0a88a7a3c2f",
+      "notes": ["identifier validation excluding the delimiter at the trust boundary"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-KEY-001",
+        "evidenceDigest": "d901535558e8b8c56b7ea0f162840194d3bfe5c07d5fa38a2fcdf0a88a7a3c2f",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-LEASE-001:2a9cb3cfcfedf67b457f973757efdf02d71bf732576b9a349b94ac741551d87e",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-LEASE-001",
+        "digest": "2a9cb3cfcfedf67b457f973757efdf02d71bf732576b9a349b94ac741551d87e"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-LEASE-001 evidence 2a9cb3cfcfedf67b457f973757efdf02d71bf732576b9a349b94ac741551d87e",
+      "notes": ["atomic durable lease operations and checks on every concrete writer path"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-LEASE-001",
+        "evidenceDigest": "2a9cb3cfcfedf67b457f973757efdf02d71bf732576b9a349b94ac741551d87e",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-LEASE-001:76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-LEASE-001",
+        "digest": "76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-LEASE-001 evidence 76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
+      "notes": [
+        "TypeScript refinement, for which oracle agreement is empirical only (NC-DIFFERENTIAL-EMPIRICAL)"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-LEASE-001",
+        "evidenceDigest": "76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-LEASE-001:f2743346843df5478bc81a366995311e74073132f55068cbcef3574ae3cfddeb",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-LEASE-001",
+        "digest": "f2743346843df5478bc81a366995311e74073132f55068cbcef3574ae3cfddeb"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-LEASE-001 evidence f2743346843df5478bc81a366995311e74073132f55068cbcef3574ae3cfddeb",
+      "notes": ["trusted monotonic clock and full lifecycle conformance"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-LEASE-001",
+        "evidenceDigest": "f2743346843df5478bc81a366995311e74073132f55068cbcef3574ae3cfddeb",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-MATERIALIZE-001:2003adc1bc1272ed485a195f32461a18a434d0930e10cd377e966f9b502f7109",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-MATERIALIZE-001",
+        "digest": "2003adc1bc1272ed485a195f32461a18a434d0930e10cd377e966f9b502f7109"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-MATERIALIZE-001 evidence 2003adc1bc1272ed485a195f32461a18a434d0930e10cd377e966f9b502f7109",
+      "notes": ["Blueprint validation and idempotent materializer conformance"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-MATERIALIZE-001",
+        "evidenceDigest": "2003adc1bc1272ed485a195f32461a18a434d0930e10cd377e966f9b502f7109",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-MATERIALIZE-001:3c0f8e4cbf83062c1589eea7282ae026d014539a38c573f4480428d6a09cf061",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-MATERIALIZE-001",
+        "digest": "3c0f8e4cbf83062c1589eea7282ae026d014539a38c573f4480428d6a09cf061"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-MATERIALIZE-001 evidence 3c0f8e4cbf83062c1589eea7282ae026d014539a38c573f4480428d6a09cf061",
+      "notes": ["concrete Role catalog and source-owned Grant reconciliation"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-MATERIALIZE-001",
+        "evidenceDigest": "3c0f8e4cbf83062c1589eea7282ae026d014539a38c573f4480428d6a09cf061",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-MATERIALIZER-001:82910c972eb6f5293d7176960c0893398419d856f287aabc4ad9005eb7a95d6e",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-MATERIALIZER-001",
+        "digest": "82910c972eb6f5293d7176960c0893398419d856f287aabc4ad9005eb7a95d6e"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-MATERIALIZER-001 evidence 82910c972eb6f5293d7176960c0893398419d856f287aabc4ad9005eb7a95d6e",
+      "notes": [
+        "concrete SubscriptionId derivation/allocation mechanics and Blueprint-managed-record adoption/removal semantics"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-MATERIALIZER-001",
+        "evidenceDigest": "82910c972eb6f5293d7176960c0893398419d856f287aabc4ad9005eb7a95d6e",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-MATERIALIZER-001:f2dc167ba3e139acaf7b0840810edfdea1ec4fd176c3631fd2b3999a3bebb882",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-MATERIALIZER-001",
+        "digest": "f2dc167ba3e139acaf7b0840810edfdea1ec4fd176c3631fd2b3999a3bebb882"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-MATERIALIZER-001 evidence f2dc167ba3e139acaf7b0840810edfdea1ec4fd176c3631fd2b3999a3bebb882",
+      "notes": [
+        "general Package/Blueprint validation, loading, and contribution assembly beyond Subscription materialization"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-MATERIALIZER-001",
+        "evidenceDigest": "f2dc167ba3e139acaf7b0840810edfdea1ec4fd176c3631fd2b3999a3bebb882",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-MATERIALIZER-001:fae929fe768bbd01f3911ce04b4c64d1e3baa56b2dcfce35cc69a009f3a0b927",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-MATERIALIZER-001",
+        "digest": "fae929fe768bbd01f3911ce04b4c64d1e3baa56b2dcfce35cc69a009f3a0b927"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-MATERIALIZER-001 evidence fae929fe768bbd01f3911ce04b4c64d1e3baa56b2dcfce35cc69a009f3a0b927",
+      "notes": [
+        "materialization of Facet installs, Bindings, slots, policies, and scope scaffolding"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-MATERIALIZER-001",
+        "evidenceDigest": "fae929fe768bbd01f3911ce04b4c64d1e3baa56b2dcfce35cc69a009f3a0b927",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-PERSISTENCE-001:28fd98ac7234dcc73e2cd13c488c4073c93dd69315aa918a76c50c5804349038",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-PERSISTENCE-001",
+        "digest": "28fd98ac7234dcc73e2cd13c488c4073c93dd69315aa918a76c50c5804349038"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-PERSISTENCE-001 evidence 28fd98ac7234dcc73e2cd13c488c4073c93dd69315aa918a76c50c5804349038",
+      "notes": ["mailbox serialization, command ordering, and the closing-before-closed latch"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-PERSISTENCE-001",
+        "evidenceDigest": "28fd98ac7234dcc73e2cd13c488c4073c93dd69315aa918a76c50c5804349038",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-PERSISTENCE-001:76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-PERSISTENCE-001",
+        "digest": "76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-PERSISTENCE-001 evidence 76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
+      "notes": [
+        "TypeScript refinement, for which oracle agreement is empirical only (NC-DIFFERENTIAL-EMPIRICAL)"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-PERSISTENCE-001",
+        "evidenceDigest": "76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-PERSISTENCE-001:e35f4e3cbad0af4414697f88e6b622dbe6190660a815f4f6460a727b0dc096d4",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-PERSISTENCE-001",
+        "digest": "e35f4e3cbad0af4414697f88e6b622dbe6190660a815f4f6460a727b0dc096d4"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-PERSISTENCE-001 evidence e35f4e3cbad0af4414697f88e6b622dbe6190660a815f4f6460a727b0dc096d4",
+      "notes": [
+        "substrate atomicity for SQLite and Durable Object storage (ASM-ACTOR-LOCAL-ATOMICITY)"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-PERSISTENCE-001",
+        "evidenceDigest": "e35f4e3cbad0af4414697f88e6b622dbe6190660a815f4f6460a727b0dc096d4",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-PLACEMENT-001:302a15c7b1e7d88ca7dc1670b6d03768831862e5122983aa938f522e9e44db69",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-PLACEMENT-001",
+        "digest": "302a15c7b1e7d88ca7dc1670b6d03768831862e5122983aa938f522e9e44db69"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-PLACEMENT-001 evidence 302a15c7b1e7d88ca7dc1670b6d03768831862e5122983aa938f522e9e44db69",
+      "notes": ["truthful four-set input construction"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-PLACEMENT-001",
+        "evidenceDigest": "302a15c7b1e7d88ca7dc1670b6d03768831862e5122983aa938f522e9e44db69",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-PLACEMENT-001:76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-PLACEMENT-001",
+        "digest": "76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-PLACEMENT-001 evidence 76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
+      "notes": [
+        "TypeScript refinement, for which oracle agreement is empirical only (NC-DIFFERENTIAL-EMPIRICAL)"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-PLACEMENT-001",
+        "evidenceDigest": "76b2b394bf38e8390ab6327b00f144df2c697f01f78e93b2f1b11a81420c5859",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-PLACEMENT-001:baf43efd0faba1991e46f2bedaa2f3f7a227de4e4a9c369f451882084e86f06f",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-PLACEMENT-001",
+        "digest": "baf43efd0faba1991e46f2bedaa2f3f7a227de4e4a9c369f451882084e86f06f"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-PLACEMENT-001 evidence baf43efd0faba1991e46f2bedaa2f3f7a227de4e4a9c369f451882084e86f06f",
+      "notes": ["runtime isolation-mode enforcement"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-PLACEMENT-001",
+        "evidenceDigest": "baf43efd0faba1991e46f2bedaa2f3f7a227de4e4a9c369f451882084e86f06f",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-REP-BROKER-001:34d3e16402fa796f0319bb47f20ec3eaa45043b2afa7f9a352328b1da1b284ba",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-REP-BROKER-001",
+        "digest": "34d3e16402fa796f0319bb47f20ec3eaa45043b2afa7f9a352328b1da1b284ba"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-REP-BROKER-001 evidence 34d3e16402fa796f0319bb47f20ec3eaa45043b2afa7f9a352328b1da1b284ba",
+      "notes": ["refinement from a concrete broker provider implementation"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-REP-BROKER-001",
+        "evidenceDigest": "34d3e16402fa796f0319bb47f20ec3eaa45043b2afa7f9a352328b1da1b284ba",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-REP-CONSENT-001:7ceaed37e93f6ad336ff7e6ac355c98e4574e05c4a0696132151ae98d7ed2101",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-REP-CONSENT-001",
+        "digest": "7ceaed37e93f6ad336ff7e6ac355c98e4574e05c4a0696132151ae98d7ed2101"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-REP-CONSENT-001 evidence 7ceaed37e93f6ad336ff7e6ac355c98e4574e05c4a0696132151ae98d7ed2101",
+      "notes": ["refinement from a concrete device-transport implementation"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-REP-CONSENT-001",
+        "evidenceDigest": "7ceaed37e93f6ad336ff7e6ac355c98e4574e05c4a0696132151ae98d7ed2101",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-REP-MOA-001:7f604a536b21254ca68c11a3b3e157ed413ddf522b7a45bdae1b0276aa566a82",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-REP-MOA-001",
+        "digest": "7f604a536b21254ca68c11a3b3e157ed413ddf522b7a45bdae1b0276aa566a82"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-REP-MOA-001 evidence 7f604a536b21254ca68c11a3b3e157ed413ddf522b7a45bdae1b0276aa566a82",
+      "notes": ["refinement from a concrete orchestration profile"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-REP-MOA-001",
+        "evidenceDigest": "7f604a536b21254ca68c11a3b3e157ed413ddf522b7a45bdae1b0276aa566a82",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-REP-REACTION-001:d6b24abb449d046f1b1c29cee937771b60f13f892cc10c9f98604097b113ea02",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-REP-REACTION-001",
+        "digest": "d6b24abb449d046f1b1c29cee937771b60f13f892cc10c9f98604097b113ea02"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-REP-REACTION-001 evidence d6b24abb449d046f1b1c29cee937771b60f13f892cc10c9f98604097b113ea02",
+      "notes": ["refinement from concrete channel adapters and inbox runtime"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-REP-REACTION-001",
+        "evidenceDigest": "d6b24abb449d046f1b1c29cee937771b60f13f892cc10c9f98604097b113ea02",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-ROUTING-001:5c548473a3799cf1b3492c2b6cdf5741bd3a7fc0bdac30ee38d3858149106ea6",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-ROUTING-001",
+        "digest": "5c548473a3799cf1b3492c2b6cdf5741bd3a7fc0bdac30ee38d3858149106ea6"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-ROUTING-001 evidence 5c548473a3799cf1b3492c2b6cdf5741bd3a7fc0bdac30ee38d3858149106ea6",
+      "notes": ["runtime binding of fired targets to the composed mediated pipeline"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-ROUTING-001",
+        "evidenceDigest": "5c548473a3799cf1b3492c2b6cdf5741bd3a7fc0bdac30ee38d3858149106ea6",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-ROUTING-001:be836a83ccce6cc94687a2e437a9c23e69f8bf204c5013db72c955566c3a2780",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-ROUTING-001",
+        "digest": "be836a83ccce6cc94687a2e437a9c23e69f8bf204c5013db72c955566c3a2780"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-ROUTING-001 evidence be836a83ccce6cc94687a2e437a9c23e69f8bf204c5013db72c955566c3a2780",
+      "notes": ["delivery transport and retry semantics"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-ROUTING-001",
+        "evidenceDigest": "be836a83ccce6cc94687a2e437a9c23e69f8bf204c5013db72c955566c3a2780",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-RUN-001:02552bb0ed183c49709e970c647f9dd8411c2cc0dc5bea65f985cf1c03357f29",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-RUN-001",
+        "digest": "02552bb0ed183c49709e970c647f9dd8411c2cc0dc5bea65f985cf1c03357f29"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-RUN-001 evidence 02552bb0ed183c49709e970c647f9dd8411c2cc0dc5bea65f985cf1c03357f29",
+      "notes": [
+        "source-record resolvability and concrete RunPins, registry, migration, terminalization, cancellation inbox, and settlement refinement"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-RUN-001",
+        "evidenceDigest": "02552bb0ed183c49709e970c647f9dd8411c2cc0dc5bea65f985cf1c03357f29",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-RUN-001:82df4fb148c4d6c75bb8014664aaed1b9f5c95fefae79381c312140f296abd88",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-RUN-001",
+        "digest": "82df4fb148c4d6c75bb8014664aaed1b9f5c95fefae79381c312140f296abd88"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-RUN-001 evidence 82df4fb148c4d6c75bb8014664aaed1b9f5c95fefae79381c312140f296abd88",
+      "notes": [
+        "concrete acceptance-criterion declaration at Run genesis, verifier Operation dispatch, verdict recording, and head-tree-digest computation in the owning implementation wave (C13-RUN-ACCEPTANCE-OBLIGATION, C13-RUN-ACCEPTANCE-SUBJECT)"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-RUN-001",
+        "evidenceDigest": "82df4fb148c4d6c75bb8014664aaed1b9f5c95fefae79381c312140f296abd88",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-RUN-001:ade80b32cc7871a20d544da88a7c3918dc46b48e0b8a2923e717455626ee70da",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-RUN-001",
+        "digest": "ade80b32cc7871a20d544da88a7c3918dc46b48e0b8a2923e717455626ee70da"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-RUN-001 evidence ade80b32cc7871a20d544da88a7c3918dc46b48e0b8a2923e717455626ee70da",
+      "notes": [
+        "ResourceCeiling monotone attenuation on spawn and exhaustion cancellation with a recorded reason (C13-RUN-RESOURCE-CEILING)"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-RUN-001",
+        "evidenceDigest": "ade80b32cc7871a20d544da88a7c3918dc46b48e0b8a2923e717455626ee70da",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-RUN-001:b6b01db270b00cc3745ee8f8d88b95dd5a1768e4758503c003e070c6bcef03ab",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-RUN-001",
+        "digest": "b6b01db270b00cc3745ee8f8d88b95dd5a1768e4758503c003e070c6bcef03ab"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-RUN-001 evidence b6b01db270b00cc3745ee8f8d88b95dd5a1768e4758503c003e070c6bcef03ab",
+      "notes": [
+        "complete lifecycle, canonical obligation-key, and remote reservation validation conformance"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-RUN-001",
+        "evidenceDigest": "b6b01db270b00cc3745ee8f8d88b95dd5a1768e4758503c003e070c6bcef03ab",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-SECRET-001:3391274947b87eaa09a3ce980ea9415d389ab5a7178a8f23358331ae8aceda4b",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-SECRET-001",
+        "digest": "3391274947b87eaa09a3ce980ea9415d389ab5a7178a8f23358331ae8aceda4b"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-SECRET-001 evidence 3391274947b87eaa09a3ce980ea9415d389ab5a7178a8f23358331ae8aceda4b",
+      "notes": [
+        "linking this custody model to the narrower Environment/Session AgentValue.ref usage so the two SecretRef-adjacent models are proved consistent rather than independently sound"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-SECRET-001",
+        "evidenceDigest": "3391274947b87eaa09a3ce980ea9415d389ab5a7178a8f23358331ae8aceda4b",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-SECRET-001:63bf6007f0db5c8a2854b0fb805157d72c47f9a3bf004090dd325154859171b5",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-SECRET-001",
+        "digest": "63bf6007f0db5c8a2854b0fb805157d72c47f9a3bf004090dd325154859171b5"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-SECRET-001 evidence 63bf6007f0db5c8a2854b0fb805157d72c47f9a3bf004090dd325154859171b5",
+      "notes": [
+        "concrete provider verification of an accepted credential and secret rotation semantics"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-SECRET-001",
+        "evidenceDigest": "63bf6007f0db5c8a2854b0fb805157d72c47f9a3bf004090dd325154859171b5",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-SECRET-001:7c1436da5613e82c537edc50ee0d57fe488ec9d2e0eacf5fa355d2c95d48e373",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-SECRET-001",
+        "digest": "7c1436da5613e82c537edc50ee0d57fe488ec9d2e0eacf5fa355d2c95d48e373"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-SECRET-001 evidence 7c1436da5613e82c537edc50ee0d57fe488ec9d2e0eacf5fa355d2c95d48e373",
+      "notes": ["the wire representation and codec of SecretRef and its provider field"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-SECRET-001",
+        "evidenceDigest": "7c1436da5613e82c537edc50ee0d57fe488ec9d2e0eacf5fa355d2c95d48e373",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-SLATE-001:5afd27d7d4c6a93016bdb80191dfd24bd444d418a0c4340bc01f31b7d557703d",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-SLATE-001",
+        "digest": "5afd27d7d4c6a93016bdb80191dfd24bd444d418a0c4340bc01f31b7d557703d"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-SLATE-001 evidence 5afd27d7d4c6a93016bdb80191dfd24bd444d418a0c4340bc01f31b7d557703d",
+      "notes": ["generated application behavior and concrete deployment-provider effects"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-SLATE-001",
+        "evidenceDigest": "5afd27d7d4c6a93016bdb80191dfd24bd444d418a0c4340bc01f31b7d557703d",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-SLATE-001:d469dde51ef3f8a1272ed8334b742990cde9115af2b31300d80d40b5603ae5ae",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-SLATE-001",
+        "digest": "d469dde51ef3f8a1272ed8334b742990cde9115af2b31300d80d40b5603ae5ae"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-SLATE-001 evidence d469dde51ef3f8a1272ed8334b742990cde9115af2b31300d80d40b5603ae5ae",
+      "notes": ["per-app resource provisioning records"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-SLATE-001",
+        "evidenceDigest": "d469dde51ef3f8a1272ed8334b742990cde9115af2b31300d80d40b5603ae5ae",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-SLOT-001:30494f95b18eb7b1b3a6ef258267b1158754185187d2baf0bea22f1eb6a79102",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-SLOT-001",
+        "digest": "30494f95b18eb7b1b3a6ef258267b1158754185187d2baf0bea22f1eb6a79102"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-SLOT-001 evidence 30494f95b18eb7b1b3a6ef258267b1158754185187d2baf0bea22f1eb6a79102",
+      "notes": [
+        "the concrete default contribute-authority policy (\"any installed Facet in scope\") over real Facet installation state"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-SLOT-001",
+        "evidenceDigest": "30494f95b18eb7b1b3a6ef258267b1158754185187d2baf0bea22f1eb6a79102",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-SLOT-001:729b7bb7425d32b67ea62caf7576f975c924a402fc95853b89cdd74fd6cc77bd",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-SLOT-001",
+        "digest": "729b7bb7425d32b67ea62caf7576f975c924a402fc95853b89cdd74fd6cc77bd"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-SLOT-001 evidence 729b7bb7425d32b67ea62caf7576f975c924a402fc95853b89cdd74fd6cc77bd",
+      "notes": ["concrete entry-schema validation and store transaction conformance"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-SLOT-001",
+        "evidenceDigest": "729b7bb7425d32b67ea62caf7576f975c924a402fc95853b89cdd74fd6cc77bd",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-SLOT-001:ffbee4d3b95dac8d81811bc368e53621af2b7beecd5b111c1a29c8447aada6bc",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-SLOT-001",
+        "digest": "ffbee4d3b95dac8d81811bc368e53621af2b7beecd5b111c1a29c8447aada6bc"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-SLOT-001 evidence ffbee4d3b95dac8d81811bc368e53621af2b7beecd5b111c1a29c8447aada6bc",
+      "notes": ["slot visibility authority policy enforcement conformance"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-SLOT-001",
+        "evidenceDigest": "ffbee4d3b95dac8d81811bc368e53621af2b7beecd5b111c1a29c8447aada6bc",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-STRUCTURAL-001:883d0c40012fbdbd36813f31b5be29812acc92612be39c6b16db9a06b680fe17",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-STRUCTURAL-001",
+        "digest": "883d0c40012fbdbd36813f31b5be29812acc92612be39c6b16db9a06b680fe17"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-STRUCTURAL-001 evidence 883d0c40012fbdbd36813f31b5be29812acc92612be39c6b16db9a06b680fe17",
+      "notes": ["RFC 6902 and Surface runtime conformance"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-STRUCTURAL-001",
+        "evidenceDigest": "883d0c40012fbdbd36813f31b5be29812acc92612be39c6b16db9a06b680fe17",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-STRUCTURAL-001:8b12d762222ca0e4b4d8f983ffc030b6618fe16cd853e252a694130457ed0b56",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-STRUCTURAL-001",
+        "digest": "8b12d762222ca0e4b4d8f983ffc030b6618fe16cd853e252a694130457ed0b56"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-STRUCTURAL-001 evidence 8b12d762222ca0e4b4d8f983ffc030b6618fe16cd853e252a694130457ed0b56",
+      "notes": ["canonical codec and cryptographic digest refinement"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-STRUCTURAL-001",
+        "evidenceDigest": "8b12d762222ca0e4b4d8f983ffc030b6618fe16cd853e252a694130457ed0b56",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-TRUST-001:309dac4c14ee684a88dcc244e70cbbdc467479ef80f1f485104afa1cbc43b886",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-TRUST-001",
+        "digest": "309dac4c14ee684a88dcc244e70cbbdc467479ef80f1f485104afa1cbc43b886"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-TRUST-001 evidence 309dac4c14ee684a88dcc244e70cbbdc467479ef80f1f485104afa1cbc43b886",
+      "notes": ["rejection of source assertions at every concrete channel boundary"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-TRUST-001",
+        "evidenceDigest": "309dac4c14ee684a88dcc244e70cbbdc467479ef80f1f485104afa1cbc43b886",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-TRUST-001:eacc5fe01099429a31e08730972371952df9645f5f4b6788e4d4e0ceaee9b71b",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-TRUST-001",
+        "digest": "eacc5fe01099429a31e08730972371952df9645f5f4b6788e4d4e0ceaee9b71b"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-TRUST-001 evidence eacc5fe01099429a31e08730972371952df9645f5f4b6788e4d4e0ceaee9b71b",
+      "notes": ["authenticated ingress and provenance mapping refinement"],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-TRUST-001",
+        "evidenceDigest": "eacc5fe01099429a31e08730972371952df9645f5f4b6788e4d4e0ceaee9b71b",
+        "expected": "migrated-or-permanent"
+      }
+    }
+  ]
+}

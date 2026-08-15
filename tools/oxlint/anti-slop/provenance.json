@@ -1,0 +1,31 @@
+{
+  "edition": "1.0.0",
+  "upstreamRepository": "https://github.com/dmmulroy/anti-slop",
+  "upstreamCommit": "9b80d9a5c317d3af94d88a577bdbde4d9a45f7be",
+  "localImportCommit": "f5eb93ebf1b4adf526ce207679d5fedb54d07426",
+  "localImportRoot": "tools/oxlint/anti-slop",
+  "importedFilesSha256": "sha256:e9acf3b9c0465c483b456a0d890ece3c4cc6a1e70f5e8b2bcee3f1682e8dfd91",
+  "importedFiles": [
+    "index.ts",
+    "rules/no-chained-type-assertions.ts",
+    "rules/no-conditional-empty-object-spread.ts",
+    "rules/no-known-value-widening.ts",
+    "rules/no-module-mocking.ts",
+    "rules/no-object-parameters.ts",
+    "rules/no-reflect-apply.ts",
+    "rules/no-reflect-get.ts",
+    "rules/no-runtime-typeof.ts",
+    "rules/no-shape-in-symbol-names.ts",
+    "rules/no-unknown-parameters.ts",
+    "rules/no-unknown-returns.ts",
+    "rules/no-unknown-type-aliases.ts",
+    "rules/no-unsafe-dictionary-type.ts",
+    "rules/no-widen-then-assert.ts",
+    "rules/require-safety-comment-for-type-assertion.ts",
+    "shared/dictionary-types.ts",
+    "shared/reflect-method.ts"
+  ],
+  "maintenance": "vendored-project-owned",
+  "config": ".oxlintrc.json",
+  "severity": "error"
+}

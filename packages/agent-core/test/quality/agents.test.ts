@@ -2,12 +2,12 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
-import { requireCitedText } from "../../scripts/quality/citations.mjs";
+import { requireInstructionText } from "../../scripts/quality/citations.mjs";
 import { requireSuccessfulTestReport } from "../../scripts/quality/evidence.mjs";
 
 describe("AGENTS instruction provenance", () => {
-    test("binds a citation to the expected instruction text", async () => {
-        const root = await mkdtemp(resolve(tmpdir(), "agent-core-citation-"));
+    test("binds each rule to one exact instruction in its owning source", async () => {
+        const root = await mkdtemp(resolve(tmpdir(), "agent-core-instruction-source-"));
         try {
             await writeFile(
                 resolve(root, "AGENTS.md"),
@@ -15,11 +15,22 @@ describe("AGENTS instruction provenance", () => {
                 "utf8"
             );
             await expect(
-                requireCitedText(["AGENTS.md:2"], "typed errors", "ACQ-ERR", root)
+                requireInstructionText(["AGENTS.md"], "typed errors", "ACQ-ERR", root)
             ).resolves.toBeUndefined();
             await expect(
-                requireCitedText(["AGENTS.md:1"], "typed errors", "ACQ-ERR", root)
-            ).rejects.toThrow(/do not contain/);
+                requireInstructionText(["AGENTS.md"], "missing rule", "ACQ-ERR", root)
+            ).rejects.toThrow(/0 copies/);
+            await expect(
+                requireInstructionText(["AGENTS.md", "AGENTS.md"], "typed errors", "ACQ-ERR", root)
+            ).rejects.toThrow(/2 copies/);
+            await expect(
+                requireInstructionText(
+                    [resolve(root, "AGENTS.md")],
+                    "typed errors",
+                    "ACQ-ERR",
+                    root
+                )
+            ).rejects.toThrow(/invalid instruction source/);
         } finally {
             await rm(root, { recursive: true, force: true });
         }

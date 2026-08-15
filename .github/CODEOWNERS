@@ -9,11 +9,16 @@
 /.prettierrc.json @AshishKumar4
 /.github/ @AshishKumar4
 /AGENTS.md @AshishKumar4
+/AGENT_OPERATING_DOCTRINE.md @AshishKumar4
 /packages/agent-core/SPEC.md @AshishKumar4
 /packages/agent-core/package.json @AshishKumar4
 /packages/agent-core/vitest.config.mjs @AshishKumar4
 /packages/agent-core/scripts/ @AshishKumar4
 /packages/agent-core/artifacts/quality/ @AshishKumar4
+/packages/agent-core/artifacts/normative.lock @AshishKumar4
+/packages/agent-core/artifacts/scenarios/ @AshishKumar4
+/packages/agent-core/artifacts/stuck/ @AshishKumar4
+/packages/agent-core/artifacts/findings/ @AshishKumar4
 /packages/agent-core/artifacts/integration/ @AshishKumar4
 /packages/agent-core/artifacts/records/index.json @AshishKumar4
 /packages/agent-core/artifacts/traceability.yaml @AshishKumar4

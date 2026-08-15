@@ -91,13 +91,15 @@
     "check:records": "node ./scripts/quality/records.mjs --stage building",
     "check:exports": "node ./scripts/quality/run.mjs --stage building --target exports",
     "check:coverage": "node ./scripts/quality/run.mjs --stage building --target coverage",
+    "check:doctrine": "node ./scripts/check-normative.mjs && node ./scripts/quality/doctrine.mjs && node ./scripts/quality/claims.mjs && node ./scripts/quality/backlog.mjs --check",
     "check:mutation": "node ./scripts/quality/mutation.mjs --gate",
     "check:normative": "node ./scripts/check-normative.mjs",
     "check:test-priorities": "node ./scripts/quality/run.mjs --stage building --target test-priorities",
     "check:traceability": "node ./scripts/check-traceability.mjs",
     "check:implementation": "node ./scripts/quality/run.mjs --stage building --target ledger",
     "check:final": "node ./scripts/quality/run.mjs --stage final",
-    "check:hermetic": "node ./scripts/quality/run.mjs --stage hermetic"
+    "check:hermetic": "node ./scripts/quality/run.mjs --stage hermetic",
+    "backlog:update": "node ./scripts/quality/backlog.mjs --write"
   },
   "devDependencies": {
     "@stryker-mutator/core": "^9.6.1",
@@ -106,9 +108,11 @@
     "@types/semver": "7.7.1",
     "@vitest/coverage-v8": "4.1.9",
     "fast-check": "^4.9.0",
+    "mdast-util-from-markdown": "2.0.3",
     "typescript": "^6.0.3",
     "vite": "^8.1.0",
-    "vitest": "4.1.9"
+    "vitest": "4.1.9",
+    "yaml": "2.9.0"
   },
   "dependencies": {
     "ajv": "8.20.0",

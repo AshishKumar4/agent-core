@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { loadConfigFromFile } from "vite";
 import type {} from "vitest/config";
@@ -15,6 +16,7 @@ const governanceTests = [
     "test/quality/ownership.test.ts",
     "test/quality/protocols.test.ts"
 ];
+const repositoryRoot = resolve(import.meta.dirname, "../../../..");
 
 function graph(nodes: Record<string, readonly string[]>) {
     return {
@@ -68,11 +70,55 @@ describe("quality DAG", subprocessTestOptions, () => {
                 "check-wrapper.mjs": "import './quality/coverage.mjs';"
             })
         ).toThrow(/imports another checker/);
+        expect(() =>
+            validateLeafSources({
+                "quality/wrapper.mjs": "const checker = import('./doctrine.mjs');"
+            })
+        ).toThrow(/imports another checker/);
+        expect(() =>
+            validateLeafSources({
+                "quality/wrapper.mjs": "export { value } from '../check-normative.mjs';"
+            })
+        ).toThrow(/imports another checker/);
+        expect(() => validateLeafSources({ "bad.mjs": "const = ;" })).toThrow(
+            /not valid JavaScript/
+        );
+        expect(() =>
+            validateLeafSources({
+                "manifest.mjs": "export const checker = 'scripts/check-normative.mjs';"
+            })
+        ).not.toThrow();
         expect(() => validateLeafSources({ "good.mjs": "export const value = 1;" })).not.toThrow();
     });
 
     test("keeps every quality checker entrypoint an independent leaf", async () => {
         await expect(validateNonrecursiveQualityScripts()).resolves.toBeUndefined();
+    });
+
+    test("runs the single anti-slop integrity entrypoint in the hermetic quality graph", async () => {
+        const actual = JSON.parse(
+            await readFile(
+                resolve(repositoryRoot, "packages/agent-core/artifacts/quality/check-dag.json"),
+                "utf8"
+            )
+        );
+        validateGraph(actual);
+        expect(actual.nodes.lint).toContain("anti-slop-integrity");
+        expect(actual.hermetic["anti-slop-integrity"]).toBe(true);
+        expect(
+            dependencyClosure(actual.stages.building, actual.nodes).has("anti-slop-integrity")
+        ).toBe(true);
+        expect(
+            dependencyClosure(actual.stages.final, actual.nodes).has("anti-slop-integrity")
+        ).toBe(true);
+
+        const rootPackage = JSON.parse(
+            await readFile(resolve(repositoryRoot, "package.json"), "utf8")
+        );
+        const entrypoint = "node tools/oxlint/anti-slop/verify.mjs";
+        expect(rootPackage.scripts["check:anti-slop"]).toBe(entrypoint);
+        expect(rootPackage.scripts["test:anti-slop"]).toBe(entrypoint);
+        expect(rootPackage.scripts.lint).toBe("pnpm check:anti-slop && pnpm --recursive lint");
     });
 
     test("keeps process governance tests isolated from the hermetic quality suite", async () => {

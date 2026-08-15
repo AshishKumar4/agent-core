@@ -1,0 +1,355 @@
+{
+  "edition": "1.0.0",
+  "adoptionBase": "09ecf1bf41a52079533631e9965aa30965a6aeec",
+  "tierOrder": ["P", "I", "L", "D", "S"],
+  "approvalTiers": ["L", "D", "S"],
+  "trustRoot": {
+    "path": ".github/CODEOWNERS",
+    "protectedPath": "/AGENT_OPERATING_DOCTRINE.md",
+    "bootstrapPath": "/AGENTS.md"
+  },
+  "formalScope": {
+    "source": "artifacts/traceability.yaml#formalBoundary"
+  },
+  "claimSurfaces": [
+    "README.md",
+    "packages/agent-core-cloudflare/README.md",
+    "package.json",
+    "packages/agent-core/package.json",
+    "packages/agent-core-cloudflare/package.json",
+    "packages/agent-core-harness/package.json"
+  ],
+  "rules": [
+    {
+      "id": "D-1",
+      "state": "active",
+      "checker": "scripts/quality/doctrine.mjs",
+      "testSelectors": [
+        "test/quality/normative.test.ts#normative structural encoder rejects an undesignated custom axiom anywhere in the project environment"
+      ]
+    },
+    {
+      "id": "D-2",
+      "state": "active",
+      "checker": "scripts/quality/claims.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine rejects system-level formal claims and requires plane-correct citations"
+      ]
+    },
+    {
+      "id": "D-3",
+      "state": "active",
+      "checker": "scripts/check-normative.mjs",
+      "testSelectors": [
+        "test/quality/normative.test.ts#normative structural encoder changes for a theorem statement, reachable helper, witness type, or membership"
+      ]
+    },
+    {
+      "id": "D-4",
+      "state": "active",
+      "checker": "scripts/quality/change-control.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine freezes normative semantics until scenarios and adversary controls are active"
+      ]
+    },
+    {
+      "id": "D-5",
+      "state": "active",
+      "checker": "scripts/quality/change-control.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine treats contributor metadata as declarations, never approval"
+      ]
+    },
+    {
+      "id": "D-6",
+      "state": "active",
+      "checker": "scripts/quality/doctrine.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine keeps every doctrine rule classified and the formal scope registry exact"
+      ]
+    },
+    {
+      "id": "D-7",
+      "state": "active",
+      "checker": "scripts/quality/claims.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine rejects system-level formal claims and requires plane-correct citations"
+      ]
+    },
+    {
+      "id": "G-1",
+      "state": "active",
+      "checker": "scripts/check-normative.mjs",
+      "testSelectors": [
+        "test/quality/normative.test.ts#normative structural encoder regenerates the complete committed lock byte-identically"
+      ]
+    },
+    {
+      "id": "G-2",
+      "state": "active",
+      "checker": "scripts/check-normative.mjs",
+      "testSelectors": [
+        "test/quality/normative.test.ts#normative structural encoder fails closed on custom axioms and sorryAx"
+      ]
+    },
+    {
+      "id": "G-3",
+      "state": "milestone-gated",
+      "milestone": "M-5",
+      "checker": "scripts/quality/change-control.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine freezes normative semantics until scenarios and adversary controls are active"
+      ]
+    },
+    {
+      "id": "G-4",
+      "state": "milestone-gated",
+      "milestone": "A-2",
+      "checker": "scripts/quality/change-control.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine freezes normative semantics until scenarios and adversary controls are active"
+      ]
+    },
+    {
+      "id": "G-5",
+      "state": "active",
+      "checker": "scripts/quality/claims.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine rejects system-level formal claims and requires plane-correct citations"
+      ]
+    },
+    {
+      "id": "W-1",
+      "state": "milestone-gated",
+      "milestone": "M-5",
+      "checker": "scripts/quality/change-control.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine freezes normative semantics until scenarios and adversary controls are active"
+      ]
+    },
+    {
+      "id": "W-2",
+      "state": "milestone-gated",
+      "milestone": "M-2",
+      "checker": "scripts/quality/backlog.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine derives one stable task per typed source without promoting nonclaims or assumptions",
+        "test/quality/doctrine.test.ts#agent operating doctrine keeps M-2 gated while traceability sources remain untyped"
+      ]
+    },
+    {
+      "id": "W-3",
+      "state": "milestone-gated",
+      "milestone": "M-3",
+      "checker": "scripts/quality/doctrine.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine binds every gated milestone to a non-circular machine oracle"
+      ]
+    },
+    {
+      "id": "W-4",
+      "state": "milestone-gated",
+      "milestone": "M-6",
+      "checker": "scripts/quality/doctrine.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine binds every gated milestone to a non-circular machine oracle"
+      ]
+    },
+    {
+      "id": "W-5",
+      "state": "active",
+      "checker": "scripts/quality/doctrine.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine keeps every doctrine rule classified and the formal scope registry exact"
+      ]
+    },
+    {
+      "id": "W-6",
+      "state": "milestone-gated",
+      "milestone": "M-4",
+      "checker": "scripts/quality/doctrine.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine binds every gated milestone to a non-circular machine oracle"
+      ]
+    },
+    {
+      "id": "A-1",
+      "state": "milestone-gated",
+      "milestone": "M-4",
+      "checker": "scripts/quality/doctrine.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine binds every gated milestone to a non-circular machine oracle"
+      ]
+    },
+    {
+      "id": "A-2",
+      "state": "milestone-gated",
+      "milestone": "A-2",
+      "checker": "scripts/quality/doctrine.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine binds every gated milestone to a non-circular machine oracle"
+      ]
+    },
+    {
+      "id": "A-3",
+      "state": "milestone-gated",
+      "milestone": "A-2",
+      "checker": "scripts/quality/doctrine.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine binds every gated milestone to a non-circular machine oracle"
+      ]
+    },
+    {
+      "id": "M-1",
+      "state": "milestone-gated",
+      "milestone": "M-1",
+      "checker": "scripts/quality/doctrine.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine binds every gated milestone to a non-circular machine oracle",
+        "test/quality/doctrine.test.ts#agent operating doctrine pins the CI workflow to its reviewed fail-closed semantics",
+        "test/quality/doctrine.test.ts#agent operating doctrine accepts only a trusted, exact-head, maintainer-controlled commit signature"
+      ]
+    },
+    {
+      "id": "M-2",
+      "state": "milestone-gated",
+      "milestone": "M-2",
+      "checker": "scripts/quality/backlog.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine keeps M-2 gated while traceability sources remain untyped"
+      ]
+    },
+    {
+      "id": "M-3",
+      "state": "milestone-gated",
+      "milestone": "M-3",
+      "checker": "scripts/quality/doctrine.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine binds every gated milestone to a non-circular machine oracle"
+      ]
+    },
+    {
+      "id": "M-4",
+      "state": "milestone-gated",
+      "milestone": "M-4",
+      "checker": "scripts/quality/doctrine.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine binds every gated milestone to a non-circular machine oracle"
+      ]
+    },
+    {
+      "id": "M-5",
+      "state": "milestone-gated",
+      "milestone": "M-5",
+      "checker": "scripts/quality/doctrine.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine binds every gated milestone to a non-circular machine oracle"
+      ]
+    },
+    {
+      "id": "M-6",
+      "state": "milestone-gated",
+      "milestone": "M-6",
+      "checker": "scripts/quality/doctrine.mjs",
+      "testSelectors": [
+        "test/quality/doctrine.test.ts#agent operating doctrine binds every gated milestone to a non-circular machine oracle"
+      ]
+    }
+  ],
+  "infrastructureObligations": [
+    {
+      "id": "M-1",
+      "disposition": "candidate",
+      "owner": "W0",
+      "priority": 1,
+      "oracle": {
+        "kind": "github-default-branch-controls",
+        "repository": "AshishKumar4/agent-core",
+        "branch": "main",
+        "requiredChecks": ["change-control", "verify"],
+        "allowBypass": false,
+        "approvalRoutes": "independent-codeowner-review-or-required-signed-commits",
+        "codeOwnerRoute": "required-review-and-stale-dismissal",
+        "signatureRoute": "required-signed-commits-and-non-agent-held-key"
+      }
+    },
+    {
+      "id": "M-2",
+      "disposition": "candidate",
+      "owner": "W0",
+      "priority": 1,
+      "oracle": {
+        "kind": "typed-source-obligations",
+        "source": "artifacts/traceability.yaml#requirements[].remainingEvidence[]",
+        "schema": "traceability-source-obligation-v1",
+        "expectedLegacyCount": 0
+      }
+    },
+    {
+      "id": "M-3",
+      "disposition": "candidate",
+      "owner": "W0",
+      "priority": 1,
+      "oracle": {
+        "kind": "checker-artifacts",
+        "checker": "scripts/quality/executable-models.mjs",
+        "registry": "artifacts/executable-models/index.json",
+        "evidence": "artifacts/executable-models/runs.json",
+        "expected": "all-registered-bounded-runs-pass"
+      }
+    },
+    {
+      "id": "M-4",
+      "disposition": "candidate",
+      "owner": "W0",
+      "priority": 1,
+      "oracle": {
+        "kind": "checker-artifacts",
+        "checker": "scripts/quality/formal-mutation.mjs",
+        "registry": "artifacts/quality/formal-mutation-equivalence.json",
+        "evidence": "artifacts/quality/formal-mutation.json",
+        "expected": "zero-actionable-survivors"
+      }
+    },
+    {
+      "id": "M-5",
+      "disposition": "candidate",
+      "owner": "W0",
+      "priority": 1,
+      "oracle": {
+        "kind": "checker-artifacts",
+        "checker": "scripts/quality/scenarios.mjs",
+        "registry": "artifacts/scenarios/index.json",
+        "evidence": "artifacts/scenarios/legacy-witnesses.json",
+        "expected": "all-scenarios-signed-and-type-hash-bound"
+      }
+    },
+    {
+      "id": "M-6",
+      "disposition": "candidate",
+      "owner": "W0",
+      "priority": 1,
+      "oracle": {
+        "kind": "composite-checker-artifacts",
+        "transpilerChecker": "scripts/quality/transpiler.mjs",
+        "transpilerEvidence": "artifacts/executable-models/transpiler.json",
+        "quintChecker": "scripts/quality/quint.mjs",
+        "quintEvidence": "artifacts/model-checking/quint.json",
+        "expected": "reviewed-transpiler-and-pinned-quint-pass"
+      }
+    },
+    {
+      "id": "A-2",
+      "disposition": "candidate",
+      "owner": "W0",
+      "priority": 1,
+      "oracle": {
+        "kind": "checker-artifacts",
+        "checker": "scripts/quality/adversary.mjs",
+        "registry": "artifacts/findings/index.json",
+        "evidence": "artifacts/findings/resolutions.json",
+        "expected": "open-findings-quarantined-and-resolutions-independently-approved"
+      }
+    }
+  ]
+}

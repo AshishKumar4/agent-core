@@ -1,5 +1,11 @@
 # Important instructions:
 
+**Stop line:** `AGENT_OPERATING_DOCTRINE.md` governs claim integrity and contributor
+process. Read it before changing the SPEC, formal model, traceability or conformance
+claims, public correctness prose, or their enforcement. If it conflicts with the SPEC
+on product semantics, stop and obtain a maintainer ruling; neither document silently
+overrides the other.
+
 **This codebase has not been public. Remove stale compatibility code and artifacts
 instead of preserving them. This does not waive SPEC §5.2 Run migration: RunPins
 migration is a domain operation with durable evidence, not legacy compatibility.**

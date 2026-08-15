@@ -109,6 +109,7 @@ if (stage === "final" && status.trim().length > 0) {
     throw new TypeError("Final quality attestation requires a clean worktree");
 }
 const rootPackage = JSON.parse(await readFile(resolve(repositoryRoot, "package.json"), "utf8"));
+const antiSlopProvenancePath = resolve(repositoryRoot, "tools/oxlint/anti-slop/provenance.json");
 const attestation = {
     edition: "1.0.0",
     stage,
@@ -119,6 +120,10 @@ const attestation = {
         node: process.version,
         bun: commandVersion("bun", ["--version"]),
         packageManager: rootPackage.packageManager,
+        antiSlop: {
+            provenance: await readCanonicalJson(antiSlopProvenancePath),
+            provenanceSha256: await fileSha256(antiSlopProvenancePath)
+        },
         oxlint: await packageVersion(resolve(repositoryRoot, "node_modules/oxlint/package.json")),
         prettier: await packageVersion(
             resolve(repositoryRoot, "node_modules/prettier/package.json")

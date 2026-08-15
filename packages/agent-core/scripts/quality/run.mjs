@@ -169,6 +169,10 @@ async function execute(node, context) {
             if (context.transition === undefined) args.push("--owner", context.owner);
             run(command, args, { cwd: packageRoot });
         },
+        "anti-slop-integrity": () =>
+            run(process.execPath, [resolve(repositoryRoot, "tools/oxlint/anti-slop/verify.mjs")], {
+                cwd: repositoryRoot
+            }),
         lint: async () => {
             const paths = [
                 "packages/agent-core/src",
@@ -221,6 +225,24 @@ async function execute(node, context) {
             }
         },
         dag: () => undefined,
+        backlog: () =>
+            run(
+                process.execPath,
+                [resolve(packageRoot, "scripts/quality/backlog.mjs"), "--check"],
+                { cwd: packageRoot }
+            ),
+        claims: () =>
+            run(process.execPath, [resolve(packageRoot, "scripts/quality/claims.mjs")], {
+                cwd: packageRoot
+            }),
+        normative: () =>
+            run(process.execPath, [resolve(packageRoot, "scripts/check-normative.mjs")], {
+                cwd: packageRoot
+            }),
+        doctrine: () =>
+            run(process.execPath, [resolve(packageRoot, "scripts/quality/doctrine.mjs")], {
+                cwd: packageRoot
+            }),
         governance: () => runNode("governance", context),
         "governance-tests": () => runQualityTests("governance", "vitest.governance.config.mjs"),
         "quality-tests": () => runQualityTests("quality", "vitest.quality.config.mjs"),

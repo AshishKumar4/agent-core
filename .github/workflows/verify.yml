@@ -4,36 +4,76 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, reopened, synchronize, edited]
+  pull_request_review:
+    types: [submitted, dismissed]
+
+permissions:
+  contents: read
+  pull-requests: read
 
 jobs:
+  change-control:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .node-version
+
+      - name: Verify tier and exact-head approval
+        env:
+          CHANGE_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          CHANGE_HEAD: ${{ github.event.pull_request.head.sha || github.event.after }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: >-
+          node packages/agent-core/scripts/quality/change-control.mjs
+          --base "$CHANGE_BASE"
+          --head "$CHANGE_HEAD"
+          --event "$GITHUB_EVENT_PATH"
+          --repository "$GITHUB_REPOSITORY"
+
   verify:
-    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request_review'
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       # Full history: the coverage ratchet validates its seed against the commit it was
       # measured at (git ls-tree of the seed's baseCommit).
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 22
+          node-version-file: .node-version
 
       # The materialization suite proves native SQLite behavior on a second
       # runtime; the W4 focused coverage sweep runs it too.
-      - uses: oven-sh/setup-bun@v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version-file: .bun-version
 
       - name: Enable the pinned package manager
         run: corepack enable
 
       - name: Install the pinned Lean toolchain
         run: |
-          curl -sSfL https://elan.lean-lang.org/elan-init.sh | sh -s -- -y --default-toolchain none
+          curl -fL --proto '=https' --tlsv1.2 \
+            https://github.com/leanprover/elan/releases/download/v4.2.3/elan-x86_64-unknown-linux-gnu.tar.gz \
+            -o "$RUNNER_TEMP/elan.tar.gz"
+          echo 'df0b2b3a439961ffcbb3985214365ffe40f49bc871df04dff268c7d8e21ca8b2  '"$RUNNER_TEMP/elan.tar.gz" | sha256sum -c -
+          tar -xzf "$RUNNER_TEMP/elan.tar.gz" -C "$RUNNER_TEMP"
+          "$RUNNER_TEMP/elan-init" -y --default-toolchain none
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
       - name: Cache Lean toolchain and build products
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ~/.elan/toolchains
@@ -57,7 +97,7 @@ jobs:
       # the console summaries cannot.
       - name: Upload quality reports
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: quality-reports
           path: |
