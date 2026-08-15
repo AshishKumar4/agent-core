@@ -26,7 +26,6 @@ import {
     TurnInboxEntry,
     TurnInboxEntryId,
     TurnInvocationPort,
-    TurnInvocationSession,
     type TurnContext,
     type TurnExecutorHostInit,
     type TurnModelCall,
@@ -91,25 +90,13 @@ class FunctionExecutor extends TurnExecutor {
 }
 
 class FunctionInvocationPort extends TurnInvocationPort {
-    public constructor(private readonly run: TurnInvocationSession["invoke"]) {
+    public constructor(private readonly run: TurnInvocationPort["invoke"]) {
         super();
     }
 
-    public async open(): Promise<TurnInvocationSession> {
-        return new FunctionInvocationSession(this.run);
-    }
-}
-
-class FunctionInvocationSession extends TurnInvocationSession {
-    public constructor(private readonly run: TurnInvocationSession["invoke"]) {
-        super();
-    }
-
-    public invoke(request: Parameters<TurnInvocationSession["invoke"]>[0]) {
+    public invoke(request: Parameters<TurnInvocationPort["invoke"]>[0]) {
         return this.run(request);
     }
-
-    public [Symbol.dispose](): void {}
 }
 
 async function rejectedBy<Failure extends Error>(
@@ -335,45 +322,6 @@ describe("TurnExecutor seam", () => {
         expect(resolved.disposed).toBe(true);
     });
 
-    it(
-        "binds a Turn invocation session to its exact Turn, lease token, and cancellation signal",
-        { tags: "p0" },
-        async () => {
-            const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
-            const tool = boundTool("read", "memory.read", "observe", "Read memory.");
-            const resolved = new TestResolvedFacet(tool, { kind: "direct", output: {} });
-            const adapter = invocationAdapter(resolved);
-            const controller = new AbortController();
-            const session = await adapter.open({
-                turn: seeded.running,
-                token: seeded.token,
-                signal: controller.signal
-            });
-            const request = invocationRequest(seeded, tool, controller.signal);
-            const otherTurn = seedRunningTurn(
-                undefined,
-                { id: new TurnId("other-invocation-session-turn") },
-                [memoryPlacement()]
-            ).running;
-
-            for (const substituted of [
-                { ...request, signal: new AbortController().signal },
-                { ...request, token: { ...request.token, epoch: request.token.epoch + 1 } },
-                { ...request, turn: otherTurn }
-            ]) {
-                const rejection = await rejectedBy(AgentCoreError, () =>
-                    session.invoke(substituted)
-                );
-                expect(rejection.code).toBe("lease.invalid");
-            }
-
-            await expect(session.invoke(request)).resolves.toEqual({ tier: "direct", output: {} });
-            expect(resolved.disposals).toBe(0);
-            session[Symbol.dispose]();
-            expect(resolved.disposals).toBe(1);
-        }
-    );
-
     it.each([
         [
             "completion",
@@ -425,7 +373,7 @@ describe("TurnExecutor seam", () => {
             }
         ]
     ] as const)(
-        "[C13-FACET-DISPOSAL] holds resolved Facets through Turn work and releases them on %s",
+        "[C13-FACET-DISPOSAL] releases each resolved Facet before Turn %s",
         { tags: "p0" },
         async (_, settle) => {
             const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
@@ -438,7 +386,7 @@ describe("TurnExecutor seam", () => {
                     new OperationRequestKey("facet-scope-call"),
                     {}
                 );
-                expect(resolved.disposals).toBe(0);
+                expect(resolved.disposals).toBe(1);
                 return settle(context, boundaries);
             });
 
@@ -451,7 +399,7 @@ describe("TurnExecutor seam", () => {
     );
 
     it(
-        "[C13-FACET-DISPOSAL] releases held Facets when Turn execution throws",
+        "[C13-FACET-DISPOSAL] releases a resolved Facet before later Turn execution throws",
         { tags: "p0" },
         async () => {
             const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
@@ -464,7 +412,7 @@ describe("TurnExecutor seam", () => {
                     new OperationRequestKey("facet-scope-thrown-call"),
                     {}
                 );
-                expect(resolved.disposals).toBe(0);
+                expect(resolved.disposals).toBe(1);
                 throw new TypeError("Turn execution failed");
             });
 
@@ -477,8 +425,49 @@ describe("TurnExecutor seam", () => {
         }
     );
 
+    it.each(["provider", "dynamic"] as const)(
+        "[C13-AUTH-RESOLUTION-LIFETIME] releases a %s resolution before the next invocation",
+        { tags: "p0" },
+        async (placement) => {
+            const seeded = seedRunningTurn(undefined, {}, [memoryPlacement(placement)]);
+            const tool = boundTool("read", "memory.read", "observe", "Read memory.");
+            const boundaries = await TestBoundaries.create([tool]);
+            const first = new TestResolvedFacet(tool, { kind: "direct", output: { call: 1 } });
+            const second = new TestResolvedFacet(tool, { kind: "direct", output: { call: 2 } });
+            const executor = new FunctionExecutor(async (context) => {
+                await context.invocation.invoke(
+                    tool,
+                    new OperationRequestKey(`${placement}-resolution-first-call`),
+                    {}
+                );
+                expect([first.disposals, second.disposals]).toEqual([1, 0]);
+
+                await context.invocation.invoke(
+                    tool,
+                    new OperationRequestKey(`${placement}-resolution-second-call`),
+                    {}
+                );
+                expect([first.disposals, second.disposals]).toEqual([1, 1]);
+                return context.outcome.fail(
+                    resultCommit(
+                        context,
+                        `${placement}-resolution-lifetime`,
+                        boundaries.output,
+                        ids.root
+                    )
+                );
+            });
+
+            await boundaries
+                .host(seeded, executor, { invocations: invocationAdapter([first, second]) })
+                .execute(seeded.token);
+
+            expect([first.disposals, second.disposals]).toEqual([1, 1]);
+        }
+    );
+
     it(
-        "[C13-FACET-DISPOSAL] releases the Turn Facet set immediately on authority loss",
+        "[C13-FACET-DISPOSAL] releases each Facet and re-resolves after authority loss",
         { tags: "p0" },
         async () => {
             const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
@@ -496,13 +485,14 @@ describe("TurnExecutor seam", () => {
                     )
                 }
             );
+            const afterDenial = new TestResolvedFacet(firstTool, { kind: "direct", output: {} });
             const executor = new FunctionExecutor(async (context) => {
                 await context.invocation.invoke(
                     firstTool,
                     new OperationRequestKey("facet-scope-first-call"),
                     {}
                 );
-                expect(first.disposals).toBe(0);
+                expect(first.disposals).toBe(1);
 
                 const denial = await rejectedBy(AgentCoreError, () =>
                     context.invocation.invoke(
@@ -513,24 +503,26 @@ describe("TurnExecutor seam", () => {
                 );
                 expect(denial.code).toBe("authority.denied");
                 expect([first.disposals, denied.disposals]).toEqual([1, 1]);
-                const inactive = await rejectedBy(AgentCoreError, () =>
+                await expect(
                     context.invocation.invoke(
                         firstTool,
                         new OperationRequestKey("facet-scope-after-denial"),
                         {}
                     )
-                );
-                expect(inactive.code).toBe("facet.inactive");
+                ).resolves.toEqual({ tier: "direct", output: {} });
+                expect(afterDenial.disposals).toBe(1);
                 return context.outcome.fail(
                     resultCommit(context, "facet-scope-authority-loss", boundaries.output, ids.root)
                 );
             });
 
             await boundaries
-                .host(seeded, executor, { invocations: invocationAdapter([first, denied]) })
+                .host(seeded, executor, {
+                    invocations: invocationAdapter([first, denied, afterDenial])
+                })
                 .execute(seeded.token);
 
-            expect([first.disposals, denied.disposals]).toEqual([1, 1]);
+            expect([first.disposals, denied.disposals, afterDenial.disposals]).toEqual([1, 1, 1]);
         }
     );
 
@@ -600,7 +592,12 @@ describe("TurnExecutor seam", () => {
         const cancelled = new TestResolvedFacet(
             tool,
             { kind: "mediated", output: {}, evidence: {} },
-            { afterDispatch: () => controller.abort() }
+            {
+                afterDispatch: (facet) => {
+                    controller.abort();
+                    expect(facet.disposed).toBe(true);
+                }
+            }
         );
         await expect(
             invocationAdapter(cancelled).invoke(invocationRequest(seeded, tool, controller.signal))
@@ -2080,7 +2077,7 @@ class TestResolvedFacet extends ResolvedFacet {
             readonly package?: FacetPackageId;
             readonly descriptor?: OperationDescriptor | null;
             readonly dispatchError?: AgentCoreError;
-            readonly afterDispatch?: () => void;
+            readonly afterDispatch?: (facet: TestResolvedFacet) => void;
         } = {}
     ) {
         super();
@@ -2098,7 +2095,7 @@ class TestResolvedFacet extends ResolvedFacet {
 
     public async dispatch(request: OperationRequest): Promise<OperationDispatchResult> {
         this.requests.push(request);
-        this.options.afterDispatch?.();
+        this.options.afterDispatch?.(this);
         if (this.options.dispatchError !== undefined) throw this.options.dispatchError;
         return this.result;
     }
@@ -2108,14 +2105,14 @@ class TestResolvedFacet extends ResolvedFacet {
     }
 }
 
-function memoryPlacement(): PlacementPin {
+function memoryPlacement(selected: "bundled" | "provider" | "dynamic" = "dynamic"): PlacementPin {
     return new PlacementPin({
         facet: new FacetRef("memory:primary"),
-        manifest: ["dynamic"],
-        policy: ["dynamic"],
-        substrate: ["dynamic"],
-        trust: ["dynamic"],
-        selected: "dynamic"
+        manifest: [selected],
+        policy: [selected],
+        substrate: [selected],
+        trust: [selected],
+        selected
     });
 }
 
@@ -2304,8 +2301,9 @@ function publishedUsage(publication: TurnStreamPublication | undefined): TurnMod
 function invocationAdapter(
     resolved: ResolvedFacet | readonly ResolvedFacet[]
 ): GatewayTurnInvocationPort {
+    const gateway = new TestOperationGateway(resolved);
     return new GatewayTurnInvocationPort({
-        open: async () => new TestOperationGateway(resolved)
+        open: async () => gateway
     });
 }
 

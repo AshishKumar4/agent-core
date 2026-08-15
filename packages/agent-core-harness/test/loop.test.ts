@@ -4,10 +4,8 @@ import {
     TurnInboxEntry,
     TurnInboxEntryId,
     TurnInvocationPort,
-    TurnInvocationSession,
     TurnModelPort,
     TurnStreamPort,
-    type TurnGatewayScope,
     type TurnInvocationRequest,
     type TurnInvocationResult,
     type TurnModelResult,
@@ -53,11 +51,7 @@ class RecordingInvocationPort extends TurnInvocationPort {
     public outcome: (input: FacetData) => FacetData = (input) => ({ echoed: input });
     public tier: "direct" | "mediated" = "mediated";
 
-    public async open(_scope: TurnGatewayScope): Promise<TurnInvocationSession> {
-        return new RecordingInvocationSession(this);
-    }
-
-    public record(request: TurnInvocationRequest): TurnInvocationResult {
+    public async invoke(request: TurnInvocationRequest): Promise<TurnInvocationResult> {
         this.requests.push(request);
         const output = this.outcome(request.input);
         const result: TurnInvocationResult = Object.freeze(
@@ -72,18 +66,6 @@ class RecordingInvocationPort extends TurnInvocationPort {
         this.served.push(result);
         return result;
     }
-}
-
-class RecordingInvocationSession extends TurnInvocationSession {
-    public constructor(private readonly port: RecordingInvocationPort) {
-        super();
-    }
-
-    public async invoke(request: TurnInvocationRequest): Promise<TurnInvocationResult> {
-        return this.port.record(request);
-    }
-
-    public [Symbol.dispose](): void {}
 }
 
 class RecordingStreamPort extends TurnStreamPort {

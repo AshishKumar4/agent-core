@@ -11,7 +11,6 @@ describe("W3 operations context barrel", () => {
         expect("Surface" in operations).toBe(true);
         expect("OperationGateway" in operations).toBe(true);
         expect("ResolvedFacet" in operations).toBe(true);
-        expect("ResolvedFacetScope" in operations).toBe(true);
         expect("OperationGatewayHost" in operations).toBe(false);
         expect("FacetRuntimeHost" in operations).toBe(false);
         expect("WorkspaceSlotCatalog" in operations).toBe(false);

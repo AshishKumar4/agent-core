@@ -52,7 +52,6 @@ export type {
     OperationPayloadCardinality,
     OperationRequest
 } from "./gateway";
-export { ResolvedFacetScope } from "./resolved-facet-scope";
 export type {
     InterceptionResult,
     InterceptorAuthorityPort,

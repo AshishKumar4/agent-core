@@ -102,7 +102,6 @@ export {
     TurnInboxHandle,
     TurnInvocationHandle,
     TurnInvocationPort,
-    TurnInvocationSession,
     TurnModelHandle,
     TurnModelPort,
     TurnOutcomeHandle,

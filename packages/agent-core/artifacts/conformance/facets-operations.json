@@ -163,14 +163,14 @@
       "specTextSha256": "sha256:21e197907a85ada71eb00129342078c36ec69fd09a442da1bd5d761d244ff955",
       "status": "implemented",
       "prerequisites": [],
-      "sourceSymbols": ["src/operations/resolved-facet-scope.ts#ResolvedFacetScope"],
+      "sourceSymbols": ["src/composition/mediation.ts#MediatedOperationPipeline"],
       "testSelectors": [
-        "test/operations/resolved-facet-scope.test.ts#ResolvedFacetScope [C13-FACET-DISPOSAL] releases held and concurrently resolving Facets on cancellation",
-        "test/operations/resolved-facet-scope.test.ts#ResolvedFacetScope [C13-FACET-DISPOSAL] closes the whole scope when protected dispatch reports authority loss"
+        "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-AUTH-RESOLUTION-LIFETIME] [C13-FACET-DISPOSAL] releases a provider resolution before resolving the next invocation",
+        "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-AUTH-RESOLUTION-LIFETIME] [C13-FACET-DISPOSAL] releases a dynamic resolution before resolving the next invocation"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "The W5 TurnExecutorHost now owns one ResolvedFacetScope-backed session and its W5 behavior tests cover completion, failure, cancellation, suspension, thrown execution, and authority loss; a W9-owned end-to-end selector must admit that cross-wave integration into the W3 atom, then fresh operations mutation attribution must show the cited selector constrains ResolvedFacetScope before verification"
+        "The W9 mediation pipeline releases provider and dynamic resolutions after each invocation, and the W5 executor behavior covers Turn completion, failure, cancellation, suspension, thrown execution, and authority loss; W9-owned cancellation and authority-loss selectors plus fresh mutation attribution must discriminate those disposal paths before verification"
       ]
     },
     {

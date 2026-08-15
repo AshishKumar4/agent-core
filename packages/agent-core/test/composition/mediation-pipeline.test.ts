@@ -8,7 +8,17 @@ import {
     ScopeEpoch
 } from "../../src/authority";
 import { MemoryContentStore, type ContentStore } from "../../src/content";
-import { CompatRange, ContentRef, Digest, JsonSchema, Revision, SemVer, encodeCanonicalJson, jsonDataParser, type JsonValue } from "../../src/core";
+import {
+    CompatRange,
+    ContentRef,
+    Digest,
+    JsonSchema,
+    Revision,
+    SemVer,
+    encodeCanonicalJson,
+    jsonDataParser,
+    type JsonValue
+} from "../../src/core";
 import { PackageId, PackagePin, PolicySet } from "../../src/definition";
 import {
     BindingName,
@@ -246,6 +256,7 @@ class DemoAuthorityState implements OperationAuthorityStatePort<MediatedTurnCall
     public readonly watermark = InvalidationWatermark.empty(tenant, owner, principal);
     public readonly lease = TurnLease.restore(turnId, principal, 1, new Date(500_000));
     public resolutions = 0;
+    public releases = 0;
     /**
      * Whether the resolver reports this Binding as direct-tier eligible (§7.2): a
      * bundled Facet, a local authority projection on the Turn Actor, the Grant-plane
@@ -253,6 +264,7 @@ class DemoAuthorityState implements OperationAuthorityStatePort<MediatedTurnCall
      * default because the pipeline's subject is the mediated chain.
      */
     public directEligible = false;
+    public remotePlacement: "provider" | "dynamic" = "provider";
 
     public resolve(
         caller: MediatedTurnCaller,
@@ -275,7 +287,11 @@ class DemoAuthorityState implements OperationAuthorityStatePort<MediatedTurnCall
                 digest("1")
             ),
             placement: new InvocationPlacementPin(
-                this.directEligible ? bundledModes : providerModes
+                this.directEligible
+                    ? bundledModes
+                    : this.remotePlacement === "provider"
+                      ? providerModes
+                      : dynamicModes
             ),
             owner,
             policies: [
@@ -313,7 +329,9 @@ class DemoAuthorityState implements OperationAuthorityStatePort<MediatedTurnCall
     public admitsInterception(): boolean {
         return false;
     }
-    public release(): void {}
+    public release(): void {
+        this.releases += 1;
+    }
     public observeStale(): void {
         throw new TypeError("Authority went stale");
     }
@@ -325,6 +343,14 @@ const providerModes = {
     substrate: ["provider"],
     trust: ["provider"],
     selected: "provider"
+} as const;
+
+const dynamicModes = {
+    manifest: ["dynamic"],
+    policy: ["dynamic"],
+    substrate: ["dynamic"],
+    trust: ["dynamic"],
+    selected: "dynamic"
 } as const;
 
 const bundledModes = {
@@ -623,6 +649,22 @@ describe("the published mediation composition root", () => {
         expect(value.observed.calls).toBe(1);
         await value.pipeline.dispose();
     });
+
+    it.each(["provider", "dynamic"] as const)(
+        "[C13-AUTH-RESOLUTION-LIFETIME] [C13-FACET-DISPOSAL] releases a %s resolution before resolving the next invocation",
+        { tags: "p0" },
+        async (placement) => {
+            const value = await harness();
+            value.authority.remotePlacement = placement;
+
+            await value.pipeline.invocations.invoke(invocationRequest(undefined, `${placement}-1`));
+            expect([value.authority.resolutions, value.authority.releases]).toEqual([1, 1]);
+
+            await value.pipeline.invocations.invoke(invocationRequest(undefined, `${placement}-2`));
+            expect([value.authority.resolutions, value.authority.releases]).toEqual([2, 2]);
+            await value.pipeline.dispose();
+        }
+    );
 
     it(
         "serves a direct-tier Turn call from memory and writes no durable evidence",
