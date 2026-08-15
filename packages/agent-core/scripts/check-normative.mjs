@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,7 +14,13 @@ const toolchainPath = join(formalRoot, "lean-toolchain");
 const lakeManifestPath = join(formalRoot, "lake-manifest.json");
 const lockPath = join(packageRoot, "artifacts", "normative.lock");
 const lakeCommand = process.env.LEAN_LAKE?.trim() || "lake";
-const schemaVersion = 1;
+const schemaVersion = 2;
+const formalModuleRoot = "AgentCore";
+const moduleComponentPattern = /^[A-Za-z][A-Za-z0-9_']*$/u;
+
+function compareCodeUnits(left, right) {
+    return left < right ? -1 : left > right ? 1 : 0;
+}
 
 function sha256(value) {
     return `sha256:${createHash("sha256").update(value).digest("hex")}`;
@@ -67,11 +73,15 @@ function stringField(value, field, location) {
 }
 
 function structuralPackage(source) {
-    const line = source
+    const lines = source
         .split(/\r?\n/u)
-        .find((candidate) => candidate.startsWith('{"encodingVersion":'));
-    if (line === undefined) throw new TypeError("Lean emitted no normative structural package");
-    const value = parseCanonicalJson(line, "Lean normative structural package");
+        .filter((candidate) => candidate.startsWith('{"encodingVersion":'));
+    if (lines.length !== 1) {
+        throw new TypeError(
+            `Lean emitted ${lines.length} normative structural packages; expected exactly one`
+        );
+    }
+    const value = parseCanonicalJson(lines[0], "Lean normative structural package");
     if (!isJsonObject(value))
         throw new TypeError("Lean normative structural package must be an object");
     return value;
@@ -102,7 +112,7 @@ function readPins() {
         lakeManifest: {
             dependencies: objectArray(manifest.packages, "lake-manifest.json packages")
                 .map(dependencyIdentity)
-                .sort((left, right) => left.name.localeCompare(right.name)),
+                .sort((left, right) => compareCodeUnits(left.name, right.name)),
             manifestSha256: sha256(JSON.stringify(manifest)),
             manifestVersion: stringField(manifest, "version", "lake-manifest.json"),
             packageName: stringField(manifest, "name", "lake-manifest.json")
@@ -114,22 +124,81 @@ function readPins() {
     };
 }
 
-function driverSource(designations) {
+function collectFormalModules(directory, modulePrefix) {
+    const modules = [];
+    const entries = readdirSync(directory, { withFileTypes: true }).sort((left, right) =>
+        left.name < right.name ? -1 : left.name > right.name ? 1 : 0
+    );
+    for (const entry of entries) {
+        if (entry.isSymbolicLink()) {
+            throw new TypeError(
+                `formal source tree contains symbolic link ${join(directory, entry.name)}`
+            );
+        }
+        if (entry.isDirectory()) {
+            if (!moduleComponentPattern.test(entry.name)) {
+                throw new TypeError(`invalid Lean module directory ${join(directory, entry.name)}`);
+            }
+            modules.push(
+                ...collectFormalModules(
+                    join(directory, entry.name),
+                    `${modulePrefix}.${entry.name}`
+                )
+            );
+        } else if (entry.isFile() && entry.name.endsWith(".lean")) {
+            const component = entry.name.slice(0, -".lean".length);
+            if (!moduleComponentPattern.test(component)) {
+                throw new TypeError(`invalid Lean module source ${join(directory, entry.name)}`);
+            }
+            modules.push(`${modulePrefix}.${component}`);
+        } else if (!entry.isFile()) {
+            throw new TypeError(
+                `formal source tree contains unsupported entry ${join(directory, entry.name)}`
+            );
+        }
+    }
+    return modules;
+}
+
+function auditedFormalModules() {
+    const rootSource = join(formalRoot, `${formalModuleRoot}.lean`);
+    if (!lstatSync(rootSource).isFile()) {
+        throw new TypeError(`${rootSource} must be a regular Lean source file`);
+    }
+    const modules = [
+        formalModuleRoot,
+        ...collectFormalModules(join(formalRoot, formalModuleRoot), formalModuleRoot)
+    ].sort();
+    if (new Set(modules).size !== modules.length) {
+        throw new TypeError("formal source tree resolves to duplicate Lean modules");
+    }
+    return modules;
+}
+
+function driverSource(designations, auditedModules) {
     const tokens = [
         ...allowedBuiltInAxioms.map((name) => `allowed:${name}`),
         ...designations.map(({ kind, name }) => `${kind}:${name}`)
     ];
     return [
-        "import AgentCore",
-        "import AgentCore.Normative",
+        ...auditedModules.map((moduleName) => `import ${moduleName}`),
         "",
         `#agent_core_normative ${tokens.map((token) => JSON.stringify(token)).join(" ")}`,
         ""
     ].join("\n");
 }
 
-function validateAndHash(raw, expectedDesignations) {
+function validateAndHash(raw, expectedDesignations, expectedModules) {
     const encodingVersion = stringField(raw, "encodingVersion", "structural package");
+    const auditedModules = strings(raw.auditedModules, "structural package auditedModules");
+    if (new Set(auditedModules).size !== auditedModules.length) {
+        throw new TypeError("Lean structural package contains duplicate audited modules");
+    }
+    if (JSON.stringify([...auditedModules].sort()) !== JSON.stringify(expectedModules)) {
+        throw new TypeError(
+            "Lean structural package audited module closure does not match formal sources"
+        );
+    }
     const emittedAllowlist = strings(raw.allowedAxioms, "structural package allowedAxioms");
     if (JSON.stringify(emittedAllowlist) !== JSON.stringify(allowedBuiltInAxioms)) {
         throw new TypeError("Lean structural package axiom allowlist does not match formal policy");
@@ -201,7 +270,7 @@ function validateAndHash(raw, expectedDesignations) {
     }
     const declarationEntries = [...declarations]
         .map(([name, declarationSha256]) => ({ name, sha256: declarationSha256 }))
-        .sort((left, right) => left.name.localeCompare(right.name));
+        .sort((left, right) => compareCodeUnits(left.name, right.name));
     const semanticClosures = new Map();
     const normalizedDesignations = designations.map(({ semanticClosureNames, ...designation }) => {
         const closureEntries = semanticClosureNames.map((name) => ({
@@ -221,6 +290,7 @@ function validateAndHash(raw, expectedDesignations) {
         return { ...designation, semanticClosureSha256: closureSha256 };
     });
     return {
+        auditedModules: [...auditedModules].sort(),
         declarations: declarationEntries,
         designations: normalizedDesignations,
         encodingVersion,
@@ -229,24 +299,26 @@ function validateAndHash(raw, expectedDesignations) {
                 declarations: closure.declarations,
                 sha256: closureSha256
             }))
-            .sort((left, right) => left.sha256.localeCompare(right.sha256))
+            .sort((left, right) => compareCodeUnits(left.sha256, right.sha256))
     };
 }
 
 export function generateNormativeLock() {
     const axiomsSource = readFileSync(axiomsPath, "utf8");
     const designations = extractAxiomDesignations(axiomsSource);
-    runLake(["build", "AgentCore", "AgentCore.Normative"], "Lean build");
+    const auditedModules = auditedFormalModules();
+    runLake(["build", ...auditedModules], "Lean build");
     const directory = mkdtempSync(join(tmpdir(), "agent-core-normative-driver-"));
     const driverPath = join(directory, "NormativeDriver.lean");
     try {
-        writeFileSync(driverPath, driverSource(designations), "utf8");
+        writeFileSync(driverPath, driverSource(designations, auditedModules), "utf8");
         const encoded = structuralPackage(
             runLake(["env", "lean", driverPath], "structural export")
         );
-        const normalized = validateAndHash(encoded, designations);
+        const normalized = validateAndHash(encoded, designations, auditedModules);
         return canonicalJson({
             allowedAxioms: [...allowedBuiltInAxioms],
+            auditedModules: normalized.auditedModules,
             declarations: normalized.declarations,
             designations: normalized.designations,
             encodingVersion: normalized.encodingVersion,

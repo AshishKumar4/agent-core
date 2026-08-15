@@ -10,6 +10,9 @@ const execFileAsync = promisify(execFile);
 const packageRoot = resolve(import.meta.dirname, "../..");
 const formalRoot = resolve(packageRoot, "formal");
 const temporary: string[] = [];
+const allowedAxiomTokens = ["Classical.choice", "Quot.sound", "propext"]
+    .map((name) => JSON.stringify(`allowed:${name}`))
+    .join(" ");
 
 interface StructuralPackage {
     allowedAxioms: string[];
@@ -98,8 +101,55 @@ theorem claim (${binder} : Nat) : ${statement} := by ${proof}
 theorem witness : ${witness} := by exact ${witnessProof}
 end AgentCore.NormativeFixture
 
-#agent_core_normative ${designations.join(" ")}
+#agent_core_normative ${allowedAxiomTokens} ${designations.join(" ")}
 `;
+}
+
+function semanticFixture(declarations: string): string {
+    return `
+import AgentCore
+import AgentCore.Normative
+
+namespace AgentCore.NormativeFixture
+${declarations}
+end AgentCore.NormativeFixture
+
+#agent_core_normative ${allowedAxiomTokens} "claim:AgentCore.NormativeFixture.claim"
+`;
+}
+
+function proofCarryingFixture(proof: string): string {
+    return semanticFixture(`
+def carried (n : Nat) : { value : Nat // value = value } :=
+  let evidence : ∀ value : Nat, value = value := fun value => ${proof}
+  ⟨n, evidence n⟩
+def project (n : Nat) : Nat := (carried n).val
+theorem claim (n : Nat) : project n = n := rfl
+`);
+}
+
+function privateHelperFixture(helper: string): string {
+    return semanticFixture(`
+private def hiddenHelper (n : Nat) : Nat := ${helper}
+def project (n : Nat) : Nat := hiddenHelper n
+theorem claim (n : Nat) : project n = project n := rfl
+`);
+}
+
+function predicateFixture(predicate: string): string {
+    return semanticFixture(`
+def predicate (n : Nat) : Prop := ${predicate}
+theorem claim (n : Nat) : predicate n ↔ predicate n := Iff.rfl
+`);
+}
+
+function proofIndexedTypeFixture(proof: string): string {
+    return semanticFixture(`
+def proposition (_evidence : True) : Prop := True
+def carrier (_evidence : True) : Type := Nat
+def value : carrier (${proof}) := (0 : Nat)
+theorem claim : proposition (${proof}) ∧ value = value := ⟨True.intro, rfl⟩
+`);
 }
 
 describe("normative structural encoder", { timeout: 120_000 }, () => {
@@ -134,6 +184,36 @@ describe("normative structural encoder", { timeout: 120_000 }, () => {
         expect(concise.output).toBeDefined();
         expect(rewritten.stderr).toBe("");
         expect(rewritten.output).toEqual(concise.output);
+    });
+
+    test("erases nested proof terms throughout reachable semantic values", async () => {
+        const direct = await runLean(proofCarryingFixture("Eq.refl value"));
+        const derived = await runLean(
+            proofCarryingFixture("Eq.symm (Eq.trans (Eq.refl value) (Eq.refl value))")
+        );
+
+        expect(direct.stderr).toBe("");
+        expect(direct.output).toBeDefined();
+        expect(derived.stderr).toBe("");
+        expect(derived.output).toEqual(direct.output);
+    });
+
+    test("retains propositions constructed by reachable semantic values", async () => {
+        const reflexive = await runLean(predicateFixture("n = n"));
+        const zero = await runLean(predicateFixture("n = 0"));
+
+        expect(reflexive.stderr).toBe("");
+        expect(zero.stderr).toBe("");
+        expect(zero.output).not.toEqual(reflexive.output);
+    });
+
+    test("erases proof arguments nested inside designated and reachable definition types", async () => {
+        const direct = await runLean(proofIndexedTypeFixture("True.intro"));
+        const derived = await runLean(proofIndexedTypeFixture("And.left ⟨True.intro, True.intro⟩"));
+
+        expect(direct.stderr).toBe("");
+        expect(derived.stderr).toBe("");
+        expect(derived.output).toEqual(direct.output);
     });
 
     test("erases expression metadata but retains binder information", async () => {
@@ -206,6 +286,15 @@ open Lean
         ).toBe(true);
     });
 
+    test("captures the computation of a reachable private project helper", async () => {
+        const baseline = await runLean(privateHelperFixture("n + 1"));
+        const changed = await runLean(privateHelperFixture("n + 2"));
+
+        expect(baseline.stderr).toBe("");
+        expect(changed.stderr).toBe("");
+        expect(changed.output).not.toEqual(baseline.output);
+    });
+
     test("fails closed on custom axioms and sorryAx", async () => {
         const custom = await runLean(`
 import AgentCore
@@ -214,7 +303,7 @@ namespace AgentCore.NormativeFixture
 axiom poison : False
 theorem claim : False := poison
 end AgentCore.NormativeFixture
-#agent_core_normative "claim:AgentCore.NormativeFixture.claim"
+#agent_core_normative ${allowedAxiomTokens} "allowed:AgentCore.NormativeFixture.poison" "claim:AgentCore.NormativeFixture.claim"
 `);
         const sorry = await runLean(`
 import AgentCore
@@ -222,12 +311,114 @@ import AgentCore.Normative
 namespace AgentCore.NormativeFixture
 theorem claim : False := by sorry
 end AgentCore.NormativeFixture
-#agent_core_normative "claim:AgentCore.NormativeFixture.claim"
+#agent_core_normative ${allowedAxiomTokens} "claim:AgentCore.NormativeFixture.claim"
 `);
 
         expect(custom.output).toBeUndefined();
-        expect(custom.stderr).toContain("disallowed axiom AgentCore.NormativeFixture.poison");
+        expect(custom.stderr).toContain(
+            "project declaration AgentCore.NormativeFixture.poison is a forbidden custom axiom"
+        );
         expect(sorry.output).toBeUndefined();
         expect(sorry.stderr).toContain("sorryAx");
+    });
+
+    test("rejects an undesignated custom axiom anywhere in the project environment", async () => {
+        const result = await runLean(`
+import AgentCore
+import AgentCore.Normative
+namespace AgentCore.NormativeFixture
+axiom unusedPoison : False
+theorem claim : True := True.intro
+end AgentCore.NormativeFixture
+#agent_core_normative ${allowedAxiomTokens} "claim:AgentCore.NormativeFixture.claim"
+`);
+
+        expect(result.output).toBeUndefined();
+        expect(result.stderr).toContain(
+            "project declaration AgentCore.NormativeFixture.unusedPoison is a forbidden custom axiom"
+        );
+    });
+
+    test("rejects private custom axioms outside the AgentCore namespace", async () => {
+        const result = await runLean(`
+import AgentCore
+import AgentCore.Normative
+namespace Other
+private axiom hiddenPoison : False
+end Other
+namespace AgentCore.NormativeFixture
+theorem claim : True := True.intro
+end AgentCore.NormativeFixture
+#agent_core_normative ${allowedAxiomTokens} "claim:AgentCore.NormativeFixture.claim"
+`);
+
+        expect(result.output).toBeUndefined();
+        expect(result.stderr).toContain(
+            "project declaration Other.hiddenPoison is a forbidden custom axiom"
+        );
+    });
+
+    test("rejects custom axioms whose names resemble compiler auxiliaries", async () => {
+        const result = await runLean(`
+import AgentCore
+import AgentCore.Normative
+namespace AgentCore.NormativeFixture
+axiom _elambda_123 : False
+theorem claim : True := True.intro
+end AgentCore.NormativeFixture
+#agent_core_normative ${allowedAxiomTokens} "claim:AgentCore.NormativeFixture.claim"
+`);
+
+        expect(result.output).toBeUndefined();
+        expect(result.stderr).toContain(
+            "project declaration AgentCore.NormativeFixture._elambda_123 is a forbidden custom axiom"
+        );
+    });
+
+    test("rejects undesignated unsafe and partial project definitions", async () => {
+        const unsafe = await runLean(`
+import AgentCore
+import AgentCore.Normative
+namespace AgentCore.NormativeFixture
+unsafe def unusedDanger : Nat := 0
+theorem claim : True := True.intro
+end AgentCore.NormativeFixture
+#agent_core_normative ${allowedAxiomTokens} "claim:AgentCore.NormativeFixture.claim"
+`);
+        const partial = await runLean(`
+import AgentCore
+import AgentCore.Normative
+namespace AgentCore.NormativeFixture
+partial def unusedLoop (_unit : Unit) : Nat := unusedLoop ()
+theorem claim : True := True.intro
+end AgentCore.NormativeFixture
+#agent_core_normative ${allowedAxiomTokens} "claim:AgentCore.NormativeFixture.claim"
+`);
+
+        expect(unsafe.output).toBeUndefined();
+        expect(unsafe.stderr).toContain(
+            "project declaration AgentCore.NormativeFixture.unusedDanger is unsafe or partial"
+        );
+        expect(partial.output).toBeUndefined();
+        expect(partial.stderr).toContain(
+            "project declaration AgentCore.NormativeFixture.unusedLoop is unsafe or partial"
+        );
+    });
+
+    test("rejects a nondesignated theorem proved by a forbidden kernel primitive", async () => {
+        const result = await runLean(`
+import AgentCore
+import AgentCore.Normative
+namespace AgentCore.NormativeFixture
+theorem poisoned : 1 + 1 = 2 := by native_decide
+theorem claim : True := True.intro
+end AgentCore.NormativeFixture
+#agent_core_normative ${allowedAxiomTokens} "allowed:Lean.ofReduceBool" "claim:AgentCore.NormativeFixture.claim"
+`);
+
+        expect(result.output).toBeUndefined();
+        expect(result.stderr).toMatch(
+            /project theorem set depends on disallowed axiom .*ofReduceBool/u
+        );
     });
 });
