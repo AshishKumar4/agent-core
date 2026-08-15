@@ -1246,6 +1246,7 @@
         "AgentCore.LeaseToken",
         "AgentCore.TurnLease",
         "AgentCore.TurnLease.Admits",
+        "AgentCore.TurnLease.admitsBool",
         "AgentCore.LeaseLabel",
         "AgentCore.LeaseStep",
         "AgentCore.leaseStepExec"
@@ -3563,7 +3564,8 @@
           "status": "recorded",
           "reason": "",
           "leanDefinitions": [
-            "AgentCore.leaseStepExec"
+            "AgentCore.leaseStepExec",
+            "AgentCore.TurnLease.admitsBool"
           ],
           "oracleOps": [
             "lease.step",

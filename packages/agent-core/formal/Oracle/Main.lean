@@ -343,58 +343,57 @@ def parsePlacementSet (json : Json) : Except String PlacementSet := do
   let dynamic ← (← json.getObjVal? "dynamic").getBool?
   pure ⟨bundled, provider, dynamic⟩
 
-def respond (request : Json) : Json :=
-  match handle request with
-  | .ok response => response
-  | .error message => Json.mkObj [("error", Json.str message)]
-where
-  handle (request : Json) : Except String Json := do
-    let op ← (← request.getObjVal? "op").getStr?
-    match op with
-    | "lease.admits" => do
+structure OracleOperation where
+  name : String
+  definitions : List Name
+  handle : Json → Except String Json
+
+private def oracleOperations : List OracleOperation :=
+  [
+    ⟨"lease.admits", [`AgentCore.TurnLease.admitsBool], fun request => do
         let lease ← parseLease (← request.getObjVal? "lease")
         let token ← parseToken (← request.getObjVal? "token")
         let now ← parseTime (← request.getObjVal? "now")
-        pure (Json.mkObj [("admits", Json.bool (lease.admitsBool token now))])
-    | "lease.step" => do
+        pure (Json.mkObj [("admits", Json.bool (lease.admitsBool token now))])⟩,
+    ⟨"lease.step", [`AgentCore.leaseStepExec], fun request => do
         let lease ← parseLease (← request.getObjVal? "lease")
         let label ← parseLabel (← request.getObjVal? "label")
         match leaseStepExec lease label with
         | some after => pure (Json.mkObj [("ok", Json.bool true), ("after", leaseJson after)])
-        | none => pure (Json.mkObj [("ok", Json.bool false)])
-    | "policy.tier" => do
+        | none => pure (Json.mkObj [("ok", Json.bool false)])⟩,
+    ⟨"policy.tier", [`AgentCore.effectiveTier], fun request => do
         let impact ← parseImpact (← (← request.getObjVal? "impact").getStr?)
         let sessionScoped ← (← request.getObjVal? "sessionScoped").getBool?
         let placement ← parsePlacement (← (← request.getObjVal? "placement").getStr?)
         let intercepted ← (← request.getObjVal? "intercepted").getBool?
         let tier := effectiveTier placement impact sessionScoped intercepted
         pure (Json.mkObj [("tier", Json.str (match tier with
-          | .direct => "direct" | .mediated => "mediated"))])
-    | "capability.matches" => do
+          | .direct => "direct" | .mediated => "mediated"))])⟩,
+    ⟨"capability.matches", [`AgentCore.Capability.matchesBool], fun request => do
         let spec ← parseCapability (← request.getObjVal? "capability")
         let intent ← parseCapabilityIntent (← request.getObjVal? "intent")
-        pure (Json.mkObj [("matches", Json.bool (spec.matchesBool intent))])
-    | "capability.covers" => do
+        pure (Json.mkObj [("matches", Json.bool (spec.matchesBool intent))])⟩,
+    ⟨"capability.covers", [`AgentCore.Capability.coversBool], fun request => do
         let parent ← parseCapability (← request.getObjVal? "parent")
         let child ← parseCapability (← request.getObjVal? "child")
-        pure (Json.mkObj [("covers", Json.bool (parent.coversBool child))])
-    | "json.canonical" => do
+        pure (Json.mkObj [("covers", Json.bool (parent.coversBool child))])⟩,
+    ⟨"json.canonical", [`AgentCore.encodeJson], fun request => do
         let tree ← parseJsonTree (← request.getObjVal? "value")
-        pure (Json.mkObj [("encoded", Json.str (String.mk (encodeJson tree)))])
-    | "authority.scopeKey" => do
+        pure (Json.mkObj [("encoded", Json.str (String.mk (encodeJson tree)))])⟩,
+    ⟨"authority.scopeKey", [`AgentCore.scopeKeyText], fun request => do
         let scope ← parseScopeRefText (← request.getObjVal? "scope")
-        pure (Json.mkObj [("key", Json.str (String.mk (scopeKeyText scope)))])
-    | "authority.subjectKey" => do
+        pure (Json.mkObj [("key", Json.str (String.mk (scopeKeyText scope)))])⟩,
+    ⟨"authority.subjectKey", [`AgentCore.subjectKeyText], fun request => do
         let subject ← parseSubjectRefText (← request.getObjVal? "subject")
-        pure (Json.mkObj [("key", Json.str (String.mk (subjectKeyText subject)))])
-    | "authority.evaluate" => do
+        pure (Json.mkObj [("key", Json.str (String.mk (subjectKeyText subject)))])⟩,
+    ⟨"authority.evaluate", [`AgentCore.evaluateExec], fun request => do
         let grants ← (← (← request.getObjVal? "grants").getArr?).toList.mapM parseAuthorityGrant
         let evaluated ← parseAuthorityRequest (← request.getObjVal? "request")
         let guest ← (← request.getObjVal? "guest").getBool?
         let backing ← (← request.getObjVal? "backing").getNat?
         pure (Json.mkObj [("decision",
-          Json.str (decisionName (evaluateExec ⟨grants, evaluated, guest, .manual backing⟩)))])
-    | "actor.activate" => do
+          Json.str (decisionName (evaluateExec ⟨grants, evaluated, guest, .manual backing⟩)))])⟩,
+    ⟨"actor.activate", [`AgentCore.activateExec], fun request => do
         let storage ← parseActorStorage (← request.getObjVal? "storage")
         let actor ← parseActorRef (← request.getObjVal? "actor")
         match activateExec storage actor with
@@ -408,24 +407,41 @@ where
                 | some state => recoveryJson state)])
         | .error fault =>
             pure (Json.mkObj [("ok", Json.bool false),
-              ("fault", Json.str (activationFaultName fault))])
-    | "actor.admits" => do
+              ("fault", Json.str (activationFaultName fault))])⟩,
+    ⟨"actor.admits", [`AgentCore.admitsCommand], fun request => do
         let self ← parseActorRef (← request.getObjVal? "self")
         let held ← parseFence (← request.getObjVal? "held")
         let expectedField ← request.getObjVal? "expected"
         let expected ← if expectedField.isNull then pure none
           else do pure (some (← parseFence expectedField))
         let stored ← parseRecovery (← request.getObjVal? "stored")
-        pure (Json.mkObj [("admits", Json.bool (admitsCommand self held expected stored))])
-    | "policy.placement" => do
+        pure (Json.mkObj [("admits", Json.bool (admitsCommand self held expected stored))])⟩,
+    ⟨"policy.placement", [`AgentCore.choosePlacement], fun request => do
         let manifest ← parsePlacementSet (← request.getObjVal? "manifest")
         let policy ← parsePlacementSet (← request.getObjVal? "policy")
         let substrate ← parsePlacementSet (← request.getObjVal? "substrate")
         let trust ← parsePlacementSet (← request.getObjVal? "trust")
         pure (Json.mkObj [("selected", match choosePlacement manifest policy substrate trust with
           | none => Json.null
-          | some placement => Json.str (placementName placement))])
-    | other => throw s!"unknown op {other}"
+          | some placement => Json.str (placementName placement))])⟩
+  ]
+
+private def operationManifest : Json :=
+  .arr (oracleOperations.map (fun operation => Json.mkObj [
+    ("op", Json.str operation.name),
+    ("definitions", .arr (operation.definitions.map (fun name => Json.str name.toString)).toArray)
+  ])).toArray
+
+def respond (request : Json) : Json :=
+  match handle request with
+  | .ok response => response
+  | .error message => Json.mkObj [("error", Json.str message)]
+where
+  handle (request : Json) : Except String Json := do
+    let name ← (← request.getObjVal? "op").getStr?
+    let some operation := oracleOperations.find? (·.name == name)
+      | throw s!"unknown op {name}"
+    operation.handle request
 
 partial def serve (stream : IO.FS.Stream) : IO Unit := do
   let line ← stream.getLine
@@ -439,5 +455,14 @@ partial def serve (stream : IO.FS.Stream) : IO Unit := do
   (← IO.getStdout).flush
   serve stream
 
-def main : IO Unit := do
-  serve (← IO.getStdin)
+def main (arguments : List String) : IO UInt32 := do
+  match arguments with
+  | ["--operations"] =>
+    IO.println operationManifest.compress
+    pure 0
+  | [] =>
+    serve (← IO.getStdin)
+    pure 0
+  | _ =>
+    IO.eprintln "usage: oracle [--operations]"
+    pure 64

@@ -30,7 +30,7 @@ const MODES: readonly IsolationMode[] = ["bundled", "provider", "dynamic"];
 
 let oracle: LeanOracle;
 beforeAll(() => {
-    oracle = LeanOracle.start();
+    oracle = LeanOracle.start(["policy.tier", "policy.placement"]);
 }, 900_000);
 afterAll(() => {
     oracle?.stop();

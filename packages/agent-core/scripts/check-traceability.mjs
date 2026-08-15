@@ -5,10 +5,16 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { allowedBuiltInAxioms } from "./formal-policy.mjs";
 import { isJsonObject, isNonEmptyString, parseCanonicalJson } from "./quality/project.mjs";
+import {
+    declaredContractBackings,
+    declaredOracleOperations,
+    deployedVersionIds,
+    oracleOperationManifest,
+    passingLiveAtoms
+} from "./quality/release-chain-evidence.ts";
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
 const formalRoot = join(packageRoot, "formal");
-const oraclePath = join(formalRoot, "Oracle", "Main.lean");
 const specPath = join(packageRoot, "SPEC.md");
 const traceabilityPath = join(packageRoot, "artifacts", "traceability.yaml");
 const lakeCommand = process.env.LEAN_LAKE?.trim() || "lake";
@@ -224,6 +230,17 @@ function runLakeOrExit(args, label) {
         console.error(error.message);
         process.exit(1);
     }
+}
+
+function readOracleOperations() {
+    runLakeOrExit(["build", "oracle"], "lake build oracle");
+    const binary = join(formalRoot, ".lake", "build", "bin", "oracle");
+    const result = spawnSync(binary, ["--operations"], { encoding: "utf8" });
+    if (result.error || result.status !== 0) {
+        const detail = result.error?.message ?? result.stderr.trimEnd();
+        throw new Error(`check-traceability: unable to read oracle operations: ${detail}`);
+    }
+    return oracleOperationManifest(result.stdout.trim(), "oracle --operations");
 }
 
 function checkLeanDefinitions(definitions) {
@@ -615,7 +632,12 @@ function checkReleaseChain() {
         return;
     }
     const specSource = readFileSync(specPath, "utf8");
-    const oracleSource = readFileSync(oraclePath, "utf8");
+    let servedOracleOperations = new Map();
+    try {
+        servedOracleOperations = readOracleOperations();
+    } catch (error) {
+        fail(error.message);
+    }
     checkExactIds(
         chain.entries.map((entry) => entry?.requirementId),
         requiredChainRequirementIds,
@@ -714,30 +736,37 @@ function checkReleaseChain() {
         const declaredDefinitions = new Set(requirement.definitions);
         if (decision === "recorded") {
             const field = `${location}.executableDecision`;
-            for (const definition of checkStringArray(
+            const definitions = checkStringArray(
                 entry.executableDecision.leanDefinitions,
                 `${field}.leanDefinitions`,
                 { nonempty: true }
-            )) {
+            );
+            for (const definition of definitions) {
                 if (!declaredDefinitions.has(definition)) {
                     fail(
                         `${field} names a definition ${entry.requirementId} does not declare: ${definition}`
                     );
                 }
-                const local = definition.split(".").pop();
-                if (!oracleSource.includes(local)) {
-                    fail(`${field} names a definition the oracle never runs: ${definition}`);
-                }
             }
-            for (const op of checkStringArray(
+            const operations = checkStringArray(
                 entry.executableDecision.oracleOps,
                 `${field}.oracleOps`,
                 { nonempty: true }
-            )) {
-                if (!oracleSource.includes(`"${op}"`)) {
+            );
+            const registeredDefinitions = new Set();
+            for (const op of operations) {
+                const registered = servedOracleOperations.get(op);
+                if (registered === undefined) {
                     fail(`${field} names an operation the oracle does not serve: ${op}`);
+                    continue;
                 }
+                for (const definition of registered) registeredDefinitions.add(definition);
             }
+            checkExactIds(
+                definitions,
+                [...registeredDefinitions],
+                `${field} oracle definition map`
+            );
         }
 
         const refinement = linkStatus(entry, "refinementEvidence", ["paths"]);
@@ -750,13 +779,18 @@ function checkReleaseChain() {
             })) {
                 const source = readEvidence(path, `${field}.paths`);
                 if (source === undefined) continue;
-                for (const op of entry.executableDecision.oracleOps ?? []) {
-                    if (!source.includes(op)) {
-                        fail(
-                            `${field} names a suite that never asks the oracle for ${op}: ${path}`
-                        );
-                    }
+                let operations;
+                try {
+                    operations = declaredOracleOperations(source, path);
+                } catch (error) {
+                    fail(`${field} has invalid oracle evidence in ${path}: ${error.message}`);
+                    continue;
                 }
+                checkExactIds(
+                    [...operations],
+                    entry.executableDecision.oracleOps ?? [],
+                    `${field} oracle declaration in ${path}`
+                );
             }
         }
 
@@ -776,13 +810,14 @@ function checkReleaseChain() {
             })) {
                 const source = readEvidence(path, `${field}.paths`);
                 if (source === undefined) continue;
-                for (const backing of backings) {
-                    if (!source.includes(`"${backing}"`)) {
-                        fail(
-                            `${field} names a contract that never runs against ${backing}: ${path}`
-                        );
-                    }
+                let declared;
+                try {
+                    declared = declaredContractBackings(source, path);
+                } catch (error) {
+                    fail(`${field} has invalid contract evidence in ${path}: ${error.message}`);
+                    continue;
                 }
+                checkExactIds([...declared], backings, `${field} backing declaration in ${path}`);
             }
         }
 
@@ -794,20 +829,15 @@ function checkReleaseChain() {
                 nonempty: true
             });
             if (source !== undefined) {
-                let passing = [];
                 try {
-                    const report = JSON.parse(source);
-                    passing = (report.testResults ?? [])
-                        .flatMap((result) => result.assertionResults ?? [])
-                        .filter((assertion) => assertion.status === "passed")
-                        .map((assertion) => String(assertion.fullName ?? assertion.title ?? ""));
+                    const passing = passingLiveAtoms(source, entry.liveScenario.report);
+                    for (const atom of atoms) {
+                        if (!passing.has(atom)) {
+                            fail(`${field} names an atom with no passing live assertion: ${atom}`);
+                        }
+                    }
                 } catch (error) {
                     fail(`${field}.report is not a readable vitest report: ${error.message}`);
-                }
-                for (const atom of atoms) {
-                    if (!passing.some((name) => name.includes(`[${atom}]`))) {
-                        fail(`${field} names an atom with no passing live assertion: ${atom}`);
-                    }
                 }
             }
         }
@@ -817,12 +847,20 @@ function checkReleaseChain() {
             const field = `${location}.deployedBundle`;
             if (live !== "recorded") fail(`${field} is recorded without a live scenario`);
             const source = readEvidence(entry.deployedBundle.run, `${field}.run`);
+            let deployed = new Set();
+            if (source !== undefined) {
+                try {
+                    deployed = deployedVersionIds(source, entry.deployedBundle.run);
+                } catch (error) {
+                    fail(`${field}.run is not a valid deployment record: ${error.message}`);
+                }
+            }
             for (const versionId of checkStringArray(
                 entry.deployedBundle.versionIds,
                 `${field}.versionIds`,
                 { nonempty: true }
             )) {
-                if (source !== undefined && !source.includes(versionId)) {
+                if (source !== undefined && !deployed.has(versionId)) {
                     fail(`${field} names a version the run record does not contain: ${versionId}`);
                 }
             }

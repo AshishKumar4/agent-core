@@ -62,7 +62,7 @@ type ProjectionEntry = {
 
 let oracle: LeanOracle;
 beforeAll(() => {
-    oracle = LeanOracle.start();
+    oracle = LeanOracle.start(["capability.matches", "capability.covers"]);
 }, 900_000);
 afterAll(() => {
     oracle?.stop();

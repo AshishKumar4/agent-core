@@ -212,7 +212,7 @@ class GateActor extends Actor<Counter> {
 
 let oracle: LeanOracle;
 beforeAll(() => {
-    oracle = LeanOracle.start();
+    oracle = LeanOracle.start(["actor.activate", "actor.admits"]);
 }, 900_000);
 afterAll(() => {
     oracle?.stop();

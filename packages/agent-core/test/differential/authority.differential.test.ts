@@ -214,7 +214,7 @@ function subjectLabel(subject: SubjectRef): string {
 
 let oracle: LeanOracle;
 beforeAll(() => {
-    oracle = LeanOracle.start();
+    oracle = LeanOracle.start(["authority.evaluate"]);
 }, 900_000);
 afterAll(() => {
     oracle?.stop();

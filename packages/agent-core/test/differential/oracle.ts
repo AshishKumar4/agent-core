@@ -27,14 +27,17 @@ const buildLock = resolve(
  */
 export class LeanOracle {
     readonly #child: ChildProcess;
+    readonly #expectedOperations: ReadonlySet<string>;
+    readonly #observedOperations = new Set<string>();
     readonly #pending: Array<{
         resolve: (value: JsonObject) => void;
         reject: (reason: Error) => void;
     }> = [];
     #buffer = "";
 
-    private constructor(child: ChildProcess) {
+    private constructor(child: ChildProcess, expectedOperations: ReadonlySet<string>) {
         this.#child = child;
+        this.#expectedOperations = expectedOperations;
         if (child.stdout === null || child.stdin === null) {
             throw new Error("Lean oracle must be spawned with piped stdio");
         }
@@ -58,7 +61,11 @@ export class LeanOracle {
     }
 
     /** Builds the oracle if needed (cached by lake) and starts the server process. */
-    public static start(): LeanOracle {
+    public static start(expectedOperations: readonly string[]): LeanOracle {
+        const expected = new Set(expectedOperations);
+        if (expected.size === 0 || expected.size !== expectedOperations.length) {
+            throw new TypeError("Lean oracle operations must be a nonempty unique list");
+        }
         // Concurrent suites on a cold cache race elan's toolchain installation
         // inside lake; one builder holds the lock, the rest wait and then reuse
         // lake's cached build.
@@ -77,10 +84,18 @@ export class LeanOracle {
         } finally {
             rmSync(buildLock, { recursive: true, force: true });
         }
-        return new LeanOracle(spawn(oracleBinary, [], { stdio: ["pipe", "pipe", "inherit"] }));
+        return new LeanOracle(
+            spawn(oracleBinary, [], { stdio: ["pipe", "pipe", "inherit"] }),
+            expected
+        );
     }
 
     public async ask(request: JsonObject): Promise<JsonObject> {
+        const operation = request["op"];
+        if (!isMember([...this.#expectedOperations], operation)) {
+            throw new TypeError(`Unexpected Lean oracle operation: ${String(operation)}`);
+        }
+        this.#observedOperations.add(operation);
         const response = await new Promise<JsonObject>((resolvePromise, reject) => {
             this.#pending.push({ resolve: resolvePromise, reject });
             this.#child.stdin?.write(`${JSON.stringify(request)}\n`);
@@ -95,8 +110,19 @@ export class LeanOracle {
     }
 
     public stop(): void {
-        this.#child.stdin?.end();
-        this.#child.kill();
+        try {
+            const missing = [...this.#expectedOperations].filter(
+                (operation) => !this.#observedOperations.has(operation)
+            );
+            if (missing.length > 0) {
+                throw new TypeError(
+                    `Lean oracle operations were not exercised: ${missing.join(", ")}`
+                );
+            }
+        } finally {
+            this.#child.stdin?.end();
+            this.#child.kill();
+        }
     }
 }
 

@@ -77,7 +77,7 @@ const HOSTILE_IDENTIFIERS: readonly string[] = [
 
 let oracle: LeanOracle;
 beforeAll(() => {
-    oracle = LeanOracle.start();
+    oracle = LeanOracle.start(["json.canonical", "authority.scopeKey", "authority.subjectKey"]);
 }, 900_000);
 afterAll(() => {
     oracle?.stop();

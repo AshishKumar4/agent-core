@@ -87,7 +87,7 @@ const timeArbitrary = fc.integer({ min: 0, max: 14 });
 
 let oracle: LeanOracle;
 beforeAll(() => {
-    oracle = LeanOracle.start();
+    oracle = LeanOracle.start(["lease.admits", "lease.step"]);
 }, 900_000);
 afterAll(() => {
     oracle?.stop();
