@@ -33,6 +33,12 @@ describe("release-chain evidence", () => {
             )
         ).toThrow(/repeats Lean oracle operation/u);
         expect(() =>
+            declaredOracleOperations(
+                'LeanOracle.start([]); LeanOracle.start(["actor.activate"]);',
+                "suite.ts"
+            )
+        ).toThrow(/empty Lean oracle declaration/u);
+        expect(() =>
             declaredOracleOperations("LeanOracle.start([operation]);", "suite.ts")
         ).toThrow(/non-literal/u);
     });

@@ -28,6 +28,9 @@ export function declaredOracleOperations(source: string, path: string): Readonly
                     `${path} must declare Lean oracle operations as a literal list`
                 );
             }
+            if (argument.elements.length === 0) {
+                throw new TypeError(`${path} contains an empty Lean oracle declaration`);
+            }
             for (const element of argument.elements) {
                 const operation = stringLiteral(element);
                 if (operation === undefined) {
