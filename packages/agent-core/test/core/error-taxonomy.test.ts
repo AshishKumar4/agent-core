@@ -4,9 +4,8 @@ import { describe, expect, test } from "vitest";
 import {
     anchorKey,
     constructionKey,
-    duplicateKeys,
+    reconcileAnchors,
     scanSource,
-    siteKey,
     type ErrorTaxonomy,
     type TypeErrorClassification
 } from "./w1-scanner";
@@ -32,7 +31,7 @@ const classifications = new Set<TypeErrorClassification>([
 
 describe("W1 error taxonomy", { timeout: 30_000 }, () => {
     test("classifies every remaining TypeError construction exactly once", { tags: "p2" }, () => {
-        expect(taxonomy.schemaVersion).toBe("agent-core.error-taxonomy/v3");
+        expect(taxonomy.schemaVersion).toBe("agent-core.error-taxonomy/v4");
         expect(taxonomy.sources).toEqual(coverageInventory);
         expect(new Set(taxonomy.sources).size).toBe(taxonomy.sources.length);
         expect(taxonomy.sources.every((source) => existsSync(new URL(source, packageUrl)))).toBe(
@@ -47,28 +46,18 @@ describe("W1 error taxonomy", { timeout: 30_000 }, () => {
             source: entry.source,
             sourceAnchor: entry.sourceAnchor
         }));
-        const actualSites = actual.map(({ file, line }) => ({ file, line }));
-        const classifiedSites = taxonomy.entries.map(({ file, line }) => ({ file, line }));
-        const duplicateLiveSites = duplicateKeys(actualSites.map(siteKey));
-
         expect(scans.flatMap((scan) => scan.unresolved)).toEqual([]);
         expect(new Set(taxonomy.entries.map((entry) => entry.id)).size).toBe(
             taxonomy.entries.length
         );
-        expect(duplicateLiveSites, "multiple live TypeError sites share one source line").toEqual(
-            []
+        expect(taxonomy.entries.map((entry) => entry.id)).toEqual(
+            taxonomy.entries.map((entry) => entry.id).sort()
         );
         expect(
-            taxonomy.entries.every((entry) => entry.file !== undefined && entry.line !== undefined)
-        ).toBe(true);
-        expect(
             taxonomy.entries.every(
-                (entry) =>
-                    entry.file === entry.source && Number.isInteger(entry.line) && entry.line > 0
+                (entry) => !Object.hasOwn(entry, "file") && !Object.hasOwn(entry, "line")
             )
         ).toBe(true);
-        expect(new Set(classifiedSites.map(siteKey)).size).toBe(classifiedSites.length);
-        expect(classifiedSites.map(siteKey).sort()).toEqual(actualSites.map(siteKey).sort());
         expect(new Set(classified.map(anchorKey)).size).toBe(classified.length);
         expect(classified.map(anchorKey).sort()).toEqual(actual.map(anchorKey).sort());
         expect(taxonomy.entries.map(constructionKey).sort()).toEqual(
@@ -108,13 +97,17 @@ describe("W1 error taxonomy", { timeout: 30_000 }, () => {
         ).toBe(true);
     });
 
-    test("contains no bare or unresolved Error construction in W1 runtime sources", { tags: "p2" }, () => {
-        const scans = taxonomy.sources.map((source) =>
-            scanSource(source, readFileSync(new URL(source, packageUrl), "utf8"))
-        );
-        expect(scans.flatMap((scan) => scan.bareErrors)).toEqual([]);
-        expect(scans.flatMap((scan) => scan.unresolved)).toEqual([]);
-    });
+    test(
+        "contains no bare or unresolved Error construction in W1 runtime sources",
+        { tags: "p2" },
+        () => {
+            const scans = taxonomy.sources.map((source) =>
+                scanSource(source, readFileSync(new URL(source, packageUrl), "utf8"))
+            );
+            expect(scans.flatMap((scan) => scan.bareErrors)).toEqual([]);
+            expect(scans.flatMap((scan) => scan.unresolved)).toEqual([]);
+        }
+    );
 
     test.each<readonly [string, string, number, number]>([
         ["direct new", "return new TypeError('direct')", 1, 0],
@@ -254,6 +247,57 @@ describe("W1 error taxonomy", { timeout: 30_000 }, () => {
         expect(scan.bareErrors).toHaveLength(1);
         expect(scan.unresolved).toEqual([]);
     });
+
+    test(
+        "anchors classifications to semantics rather than source positions",
+        { tags: "p2" },
+        () => {
+            const original = scanSource(
+                "fixture.ts",
+                "function decode(value: string) { if (value === '') throw new TypeError('blank'); }"
+            );
+            const relocated = scanSource(
+                "fixture.ts",
+                [
+                    "// unrelated insertion",
+                    "",
+                    "function decode(value: string) {",
+                    "  if (value /* harmless */ === '')",
+                    "    throw new TypeError(/* harmless */ 'blank');",
+                    "}"
+                ].join("\n")
+            );
+            const changedGuard = scanSource(
+                "fixture.ts",
+                "function decode(value: string) { if (value.length === 0) throw new TypeError('blank'); }"
+            );
+
+            expect(original.typeErrors).toHaveLength(1);
+            expect(relocated.typeErrors).toHaveLength(1);
+            expect(changedGuard.typeErrors).toHaveLength(1);
+            expect(relocated.typeErrors[0]?.sourceAnchor).toEqual(
+                original.typeErrors[0]?.sourceAnchor
+            );
+            expect(changedGuard.typeErrors[0]?.sourceAnchor).not.toEqual(
+                original.typeErrors[0]?.sourceAnchor
+            );
+            expect(reconcileAnchors(original.typeErrors, relocated.typeErrors)).toEqual({
+                duplicateReviewed: [],
+                duplicateLive: [],
+                unclassified: [],
+                stale: []
+            });
+            const changed = reconcileAnchors(original.typeErrors, changedGuard.typeErrors);
+            expect(changed.unclassified).toHaveLength(1);
+            expect(changed.stale).toHaveLength(1);
+            expect(
+                reconcileAnchors(
+                    [...original.typeErrors, ...original.typeErrors],
+                    relocated.typeErrors
+                ).duplicateReviewed
+            ).toHaveLength(1);
+        }
+    );
 });
 
 const testNames = new Map<string, ReadonlySet<string>>();

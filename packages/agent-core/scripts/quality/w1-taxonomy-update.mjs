@@ -1,7 +1,7 @@
-// Regenerates artifacts/quality/w1-error-taxonomy.json (v3) from a
-// live scan of the audited sources. Existing entries are matched by anchor identity and
-// keep their id, classification, rationale, and testedBy; a scan site with no matching
-// entry fails the run and must be classified by a reviewer before the artifact updates.
+// Regenerates artifacts/quality/w1-error-taxonomy.json (v4) from a
+// live scan of the audited sources. Entries match by semantic anchor and keep their
+// reviewed content. A new or vanished site fails until a reviewer updates the artifact;
+// regeneration never classifies or removes evidence by itself.
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -29,82 +29,42 @@ const transpiled = ts
 const scannerDir = mkdtempSync(join(tmpdir(), "w1-scanner-"));
 const scannerPath = join(scannerDir, "scanner.mjs");
 writeFileSync(scannerPath, transpiled);
-const { anchorKey, scanSource } = await import(scannerPath);
+const { reconcileAnchors, scanSource } = await import(scannerPath);
 rmSync(scannerDir, { recursive: true, force: true });
 
 const taxonomy = parseCanonicalJson(readFileSync(artifactPath, "utf8"), portablePath(artifactPath));
-const previous = new Map(taxonomy.entries.map((entry) => [anchorKey(entry), entry]));
-const byExpression = new Map();
-for (const entry of taxonomy.entries) {
-    const key = `${entry.source}\u0000${entry.sourceAnchor.container}\u0000${entry.sourceAnchor.expression}`;
-    if (!byExpression.has(key)) byExpression.set(key, []);
-    byExpression.get(key).push(entry);
+if (taxonomy.schemaVersion !== "agent-core.error-taxonomy/v4") {
+    throw new TypeError("W1 taxonomy must use schema agent-core.error-taxonomy/v4");
 }
 const live = sources.flatMap(
     (source) => scanSource(source, readFileSync(resolve(packageRoot, source), "utf8")).typeErrors
 );
-
-const unmatched = [];
-const entries = live.map((construction) => {
-    let existing = previous.get(anchorKey(construction));
-    if (existing === undefined) {
-        const key = `${construction.source}\u0000${construction.sourceAnchor.container}\u0000${construction.sourceAnchor.expression}`;
-        existing = (byExpression.get(key) ?? []).find((candidate) =>
-            previous.has(anchorKey(candidate))
-        );
-        if (existing !== undefined) {
-            console.error(
-                `note: rematched ${construction.file}:${construction.line} by container+expression (guard drift)`
-            );
-        }
-    }
-    if (existing === undefined) {
-        unmatched.push(construction);
-        return undefined;
-    }
-    previous.delete(anchorKey(existing));
-    return {
-        ...existing,
-        file: construction.file,
-        line: construction.line,
-        source: construction.source,
-        sourceAnchor: construction.sourceAnchor
-    };
-});
-if (unmatched.length > 0) {
-    console.error("Unclassified TypeError sites require reviewed entries:");
-    for (const construction of unmatched) {
-        console.error(JSON.stringify(construction, null, 2));
-    }
-    process.exit(1);
+const reconciliation = reconcileAnchors(taxonomy.entries, live);
+for (const [label, keys] of Object.entries(reconciliation)) {
+    if (keys.length > 0) console.error(`${label}:\n${keys.join("\n")}`);
 }
-for (const removed of previous.values()) {
-    console.error(
-        `note: removed entry for vanished site ${removed.file}:${removed.line} (${removed.id})`
-    );
-}
-const sorted = entries
-    .filter((entry) => entry !== undefined)
-    .sort(
-        (left, right) =>
-            (left.file + left.line).localeCompare(right.file + right.line) || left.line - right.line
-    );
-const testCases = Object.fromEntries(
-    Object.entries(taxonomy.testCases).filter(([source]) =>
-        sorted.some((entry) => entry.source === source)
-    )
-);
+if (Object.values(reconciliation).some((keys) => keys.length > 0)) process.exit(1);
+const entries = taxonomy.entries
+    .map((entry) => ({
+        id: entry.id,
+        source: entry.source,
+        sourceAnchor: entry.sourceAnchor,
+        classification: entry.classification,
+        rationale: entry.rationale,
+        testedBy: entry.testedBy
+    }))
+    .sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
 writeFileSync(
     artifactPath,
     JSON.stringify(
         {
-            schemaVersion: "agent-core.error-taxonomy/v3",
+            schemaVersion: "agent-core.error-taxonomy/v4",
             sources,
-            testCases,
-            entries: sorted
+            testCases: taxonomy.testCases,
+            entries
         },
         null,
         4
     ) + "\n"
 );
-console.log(`W1 taxonomy regenerated: ${sorted.length} entries across ${sources.length} sources`);
+console.log(`W1 taxonomy regenerated: ${entries.length} entries across ${sources.length} sources`);

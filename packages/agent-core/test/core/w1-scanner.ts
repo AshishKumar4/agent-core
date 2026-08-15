@@ -14,8 +14,6 @@ export interface SourceAnchor {
 
 export interface ErrorTaxonomyEntry {
     readonly id: string;
-    readonly file: string;
-    readonly line: number;
     readonly source: string;
     readonly sourceAnchor: SourceAnchor;
     readonly classification: TypeErrorClassification;
@@ -43,6 +41,13 @@ export interface SourceScan {
     readonly unresolved: readonly string[];
 }
 
+export interface AnchorReconciliation {
+    readonly duplicateReviewed: readonly string[];
+    readonly duplicateLive: readonly string[];
+    readonly unclassified: readonly string[];
+    readonly stale: readonly string[];
+}
+
 interface Binding {
     readonly initializer?: ts.Expression;
     readonly destructuredProperty?: string;
@@ -51,6 +56,7 @@ interface Binding {
 const TYPE_ERROR = 1;
 const BARE_ERROR = 2;
 const DYNAMIC_ERROR = 4;
+const printer = ts.createPrinter({ removeComments: true });
 
 export function scanSource(source: string, text: string): SourceScan {
     const sourceFile = ts.createSourceFile(
@@ -73,7 +79,7 @@ export function scanSource(source: string, text: string): SourceScan {
             sourceAnchor: {
                 container: declarationContainer(node, sourceFile),
                 guard: nearestGuard(node, sourceFile),
-                expression: normalize(node.getText(sourceFile))
+                expression: printExpression(node, sourceFile)
             }
         };
         if ((kinds & TYPE_ERROR) !== 0) typeErrors.push(construction);
@@ -414,9 +420,13 @@ function className(node: ts.ClassLikeDeclaration, sourceFile: ts.SourceFile): st
 
 function nearestGuard(node: ts.Node, sourceFile: ts.SourceFile): string | null {
     for (let current = node.parent; current !== undefined; current = current.parent) {
-        if (ts.isIfStatement(current)) return normalize(current.expression.getText(sourceFile));
+        if (ts.isIfStatement(current)) return printExpression(current.expression, sourceFile);
     }
     return null;
+}
+
+function printExpression(node: ts.Expression, sourceFile: ts.SourceFile): string {
+    return normalize(printer.printNode(ts.EmitHint.Expression, node, sourceFile));
 }
 
 function normalize(value: string): string {
@@ -437,11 +447,23 @@ export function constructionKey(value: {
     return `${value.source}:${value.sourceAnchor.expression.replaceAll(/\s/gu, "")}`;
 }
 
-export function siteKey(value: { readonly file: string; readonly line: number }): string {
-    return `${value.file}:${value.line}`;
+export function reconcileAnchors(
+    reviewed: readonly { readonly source: string; readonly sourceAnchor: SourceAnchor }[],
+    live: readonly { readonly source: string; readonly sourceAnchor: SourceAnchor }[]
+): AnchorReconciliation {
+    const reviewedKeys = reviewed.map(anchorKey);
+    const liveKeys = live.map(anchorKey);
+    const reviewedSet = new Set(reviewedKeys);
+    const liveSet = new Set(liveKeys);
+    return {
+        duplicateReviewed: duplicateValues(reviewedKeys),
+        duplicateLive: duplicateValues(liveKeys),
+        unclassified: [...liveSet].filter((key) => !reviewedSet.has(key)).sort(),
+        stale: [...reviewedSet].filter((key) => !liveSet.has(key)).sort()
+    };
 }
 
-export function duplicateKeys(values: readonly string[]): string[] {
+function duplicateValues(values: readonly string[]): string[] {
     const seen = new Set<string>();
     const duplicates = new Set<string>();
     for (const value of values) {
