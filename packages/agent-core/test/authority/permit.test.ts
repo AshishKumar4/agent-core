@@ -561,7 +561,7 @@ function permitStoreContract<Transaction>(
             }
         );
 
-        test("durably preserves the exact authenticated Tenant denial", { tags: "p0" }, () => {
+        test("[authority.target-permit-denial] stores exact denial", { tags: "p0" }, () => {
             const harness = create();
             const request = targetRequest(`${name}-denied`);
             const authority = new CurrentAuthority<Transaction>();

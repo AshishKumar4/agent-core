@@ -282,5 +282,5 @@ function projectReceipt(record: Receipt) {
             ? projected
             : { ...projected, previous: record.previous.value };
     }
-    throw new TypeError("Unknown Receipt record");
+    throw new AgentCoreError("codec.invalid", "Stored Receipt record has an unknown variant");
 }

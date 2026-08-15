@@ -139,6 +139,18 @@
             ]
         },
         {
+            "symbol": "TargetAuthorityPermitDenial",
+            "kind": "authority.target-permit-denial",
+            "durability": "durable",
+            "ownerActor": "permit-target-actor",
+            "source": "src/authority/permit-denial.ts#TargetAuthorityPermitDenial",
+            "codec": "src/authority/permit-denial.ts#TargetAuthorityPermitDenial.codec",
+            "store": "src/authority/permit-store.ts#AuthorityPermitTargetDenialStore",
+            "tests": [
+                "test/authority/permit.test.ts#[authority-permit-owner-store] memory [authority.target-permit-denial] stores exact denial"
+            ]
+        },
+        {
             "symbol": "GuestTrust",
             "kind": "identity.guest-trust",
             "durability": "durable",

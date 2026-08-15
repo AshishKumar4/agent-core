@@ -230,6 +230,7 @@
     ],
     "W9": [
       "packages/agent-core/src/composition/**",
+      "packages/agent-core/src/substrates/sqlite/target-mediation.ts",
       "packages/agent-core/test/composition/**",
       "packages/agent-core/test/conformance/**",
       "packages/agent-core/test/integration/**",
