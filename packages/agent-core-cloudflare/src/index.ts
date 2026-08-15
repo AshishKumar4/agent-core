@@ -1,10 +1,4 @@
 export { actorObjectName, parseActorObjectName } from "./actor-name.js";
-export {
-    DurableObjectPermitAdmission,
-    DurableObjectPermitRecordSource,
-    PermitIssuerDurableObjectHost
-} from "./authority-permit-transport.js";
-export type { PermitIssuerObjectStub } from "./authority-permit-transport.js";
 export type { ActorObjectIdentity } from "./actor-name.js";
 export { R2ContentObjectRepository, contentObjectAddress } from "./content-object.js";
 export type {

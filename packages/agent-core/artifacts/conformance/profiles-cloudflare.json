@@ -40,20 +40,15 @@
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING",
       "specTextSha256": "sha256:ea97517e59f5a67677d68f6010db78ad01cc6107b9f07e302fe7fadd24a4d7cd",
-      "status": "implemented",
+      "status": "planned",
       "prerequisites": ["C13-AUTH-MEDIATED-ADMISSION"],
-      "sourceSymbols": [
-        "cloudflare/src/authority-permit-transport.ts#DurableObjectPermitRecordSource",
-        "cloudflare/src/authority-permit-transport.ts#PermitIssuerDurableObjectHost"
-      ],
-      "testSelectors": [
-        "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] never consults a foreign issuer's store, even for a matching expectation",
-        "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects a permit that was never issued by the Tenant object",
-        "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING] rejects substitution of every bound field before any EffectAttempt"
-      ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
       "remainingEvidence": [
-        "The Durable Object request-record and authentication path is covered locally; live deployed Tenant issuance transport evidence is outstanding"
+        "A trusted profile bootstrap must mint an unforgeable target-bound RPC capability before the Tenant accepts a permit command; direct Durable Object RPC does not authenticate the calling Actor",
+        "The target capability must carry the exact immutable request through the Tenant command dispatcher, preserve duplicate and response-loss semantics, and authenticate every issued or denied reply in a real isolate",
+        "Deployed evidence must bind the exact Tenant and target source hashes without replacing the target capability with caller-supplied identity"
       ]
     },
     {
@@ -61,21 +56,15 @@
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION",
       "specTextSha256": "sha256:ea97517e59f5a67677d68f6010db78ad01cc6107b9f07e302fe7fadd24a4d7cd",
-      "status": "implemented",
+      "status": "planned",
       "prerequisites": ["C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING"],
-      "sourceSymbols": [
-        "cloudflare/src/authority-permit-transport.ts#DurableObjectPermitAdmission"
-      ],
-      "testSelectors": [
-        "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] admits an authenticated permit exactly once, atomic with the EffectAttempt",
-        "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] consumes a valid issued permit regardless of newer post-issuance watermark",
-        "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] keeps the consumed nonce across a real instance restart",
-        "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] rejects an expired permit before any EffectAttempt",
-        "cloudflare/test/cloudflare/authority-permit.test.ts#Cloudflare cross-DO authority permits [C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION] rolls back the nonce when the EffectAttempt append fails"
-      ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
       "remainingEvidence": [
-        "Real-isolate SQLite request retention and consumption are covered, but deployed cross-Actor denial and retry evidence is outstanding"
+        "The complete target mediation aggregate must be hosted in one Durable Object transaction and consume only an issued permit authenticated through the target-bound capability path",
+        "Real-isolate adversaries must cover request retention, exact claim and reservation admission, single use, expiry, rollback, restart, authenticated Tenant denial, response loss, and post-issuance watermark movement",
+        "Deployed cross-Actor evidence remains required after the local real-isolate vertical is complete"
       ]
     },
     {

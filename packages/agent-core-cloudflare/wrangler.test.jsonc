@@ -9,8 +9,6 @@
       { "name": "ACTORS", "class_name": "TestActorDurableObject" },
       { "name": "ENVIRONMENTS", "class_name": "EnvironmentProviderDurableObject" },
       { "name": "SLATES", "class_name": "SlateProviderDurableObject" },
-      { "name": "PERMIT_TENANTS", "class_name": "PermitTenantDurableObject" },
-      { "name": "PERMIT_TARGETS", "class_name": "PermitTargetDurableObject" },
       { "name": "PLACEMENTS", "class_name": "PlacementRegistryDurableObject" },
       { "name": "RUN_WORKSPACES", "class_name": "RunWorkspaceDurableObject" },
       { "name": "RUN_OBJECTS", "class_name": "RunDurableObject" }
@@ -23,10 +21,6 @@
       "new_sqlite_classes": ["EnvironmentProviderDurableObject"]
     },
     { "tag": "v3", "new_sqlite_classes": ["SlateProviderDurableObject"] },
-    {
-      "tag": "v4",
-      "new_sqlite_classes": ["PermitTenantDurableObject", "PermitTargetDurableObject"]
-    },
     { "tag": "v5", "new_sqlite_classes": ["PlacementRegistryDurableObject"] },
     {
       "tag": "v6",
