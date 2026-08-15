@@ -89,7 +89,7 @@ function ledger(...outcomes: readonly RecordedReview[]) {
 }
 
 describe("ratification-bound artifact pins", () => {
-    test("accepts pins that match their ratification commit and reports them verifiable", () => {
+    test("accepts ratification-bound pins after the working tree evolves", () => {
         expect(verifyCompletionArtifacts("fixture", outcome(), fixture.root)).toBe(true);
     });
 

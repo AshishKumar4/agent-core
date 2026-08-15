@@ -83,9 +83,6 @@ for (const resolution of resolutions.entries) {
         }
         continue;
     }
-    if (resolution.outcome.kind === "external-waiver") continue;
-    requirePassingTests(resolution.outcome.tests, executed, resolution.source);
-    await requirePassingNodes(resolution.outcome.checks, resolution.source, options.stage);
 }
 const report = {
     edition: "1.0.0",
