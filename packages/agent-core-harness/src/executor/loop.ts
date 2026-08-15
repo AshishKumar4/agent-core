@@ -8,7 +8,6 @@ import type {
 import { RunCommitId } from "@agent-core/core/agents/runs";
 import type { ContentRef } from "@agent-core/core/core";
 import { OperationRequestKey } from "@agent-core/core/operations";
-import type { FacetData } from "@agent-core/core/facets";
 import { HarnessError } from "../error.js";
 import { AssistantMessageCodec } from "../model/port.js";
 import {
@@ -160,7 +159,8 @@ export class AgentLoopTurnExecutor extends TurnExecutor {
             return new ToolResultMessage(call.id, result.output, false);
         } catch (error) {
             if (turn.cancellation.aborted) throw error;
-            return new ToolResultMessage(call.id, toolFailure(error), true);
+            const message = error instanceof Error ? error.message : String(error);
+            return new ToolResultMessage(call.id, { error: message }, true);
         }
     }
 
@@ -199,10 +199,6 @@ function boundOperation(
         );
     }
     return operation;
-}
-
-function toolFailure(cause: unknown): FacetData {
-    return { error: cause instanceof Error ? cause.message : String(cause) };
 }
 
 function messageCommit(

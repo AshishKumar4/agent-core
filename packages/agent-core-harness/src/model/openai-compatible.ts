@@ -75,9 +75,10 @@ export class OpenAiCompatibleModelProvider extends ModelProvider {
             });
         } catch (error) {
             if (signal.aborted) throw error;
+            const message = error instanceof Error ? error.message : String(error);
             throw new HarnessError(
                 "model.unavailable",
-                `Model endpoint is unreachable: ${errorMessage(error)}`
+                `Model endpoint is unreachable: ${message}`
             );
         }
     }
@@ -238,8 +239,4 @@ function requireObject(
 
 function malformed(message: string): HarnessError {
     return new HarnessError("model.malformed-response", message);
-}
-
-function errorMessage(cause: unknown): string {
-    return cause instanceof Error ? cause.message : String(cause);
 }

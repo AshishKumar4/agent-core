@@ -188,6 +188,9 @@ describe("OpenAI-compatible model provider", () => {
         await expect(
             provider(() => Promise.reject(new TypeError("dns"))).complete(request)
         ).rejects.toMatchObject({ code: "model.unavailable" });
+        await expect(
+            provider(() => Promise.reject("offline")).complete(request)
+        ).rejects.toMatchObject({ code: "model.unavailable" });
     });
 
     test("rejects a malformed provider response", { tags: "p1" }, async () => {
