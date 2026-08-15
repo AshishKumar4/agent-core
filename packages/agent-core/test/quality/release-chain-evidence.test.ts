@@ -8,12 +8,13 @@ import {
 } from "../../scripts/quality/release-chain-evidence.js";
 
 describe("release-chain evidence", () => {
-    test("accepts only the runtime-enforced oracle declaration", () => {
+    test("accepts only runtime-enforced oracle declarations", () => {
         const source = `
             // LeanOracle.start(["comment.operation"])
             const inert = 'LeanOracle.start(["string.operation"])';
             const request = { op: "object.operation" };
-            const oracle = LeanOracle.start(["actor.activate", "actor.admits"]);
+            const activation = LeanOracle.start(["actor.activate"]);
+            const admission = LeanOracle.start(["actor.admits"]);
         `;
 
         expect(declaredOracleOperations(source, "suite.ts")).toEqual(
@@ -21,16 +22,16 @@ describe("release-chain evidence", () => {
         );
         expect(() =>
             declaredOracleOperations('const value = "actor.activate";', "suite.ts")
-        ).toThrow(/exactly one nonempty Lean oracle declaration/u);
+        ).toThrow(/nonempty Lean oracle declaration/u);
     });
 
     test("rejects ambiguous or nonliteral oracle declarations", () => {
         expect(() =>
             declaredOracleOperations(
-                'LeanOracle.start(["actor.activate"]); LeanOracle.start(["actor.admits"]);',
+                'LeanOracle.start(["actor.activate"]); LeanOracle.start(["actor.activate"]);',
                 "suite.ts"
             )
-        ).toThrow(/exactly one/u);
+        ).toThrow(/repeats Lean oracle operation/u);
         expect(() =>
             declaredOracleOperations("LeanOracle.start([operation]);", "suite.ts")
         ).toThrow(/non-literal/u);

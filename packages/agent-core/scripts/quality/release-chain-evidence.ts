@@ -42,8 +42,8 @@ export function declaredOracleOperations(source: string, path: string): Readonly
         ts.forEachChild(node, visit);
     };
     visit(file);
-    if (declarations !== 1 || operations.size === 0) {
-        throw new TypeError(`${path} must contain exactly one nonempty Lean oracle declaration`);
+    if (declarations === 0 || operations.size === 0) {
+        throw new TypeError(`${path} must contain a nonempty Lean oracle declaration`);
     }
     return operations;
 }
