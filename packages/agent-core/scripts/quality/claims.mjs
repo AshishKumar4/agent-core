@@ -22,10 +22,19 @@ const NEGATED =
     /\b(?:does\s+not|is\s+not|are\s+not|not|never)\s+(?:claim\s+)?(?:formal\s+verification|formally\s+verified|formally\s+proven|provably\s+correct)\b$/iu;
 const CONFORMANCE_NEGATED =
     /\b(?:does\s+not|is\s+not|are\s+not|not|never)\s+(?:claim\s+)?(?:formally\s+)?(?:verified|proven|conformant)\b$/iu;
-const SYSTEM_FORMAL_VERIFICATION =
-    /\b(?:agent\s+core|system|implementation|substrate|profile|product|platform)\b.*\b(?:provides?\s+)?formal\s+verification\b|\bformal\s+verification\b.*\b(?:of|for)\s+(?:agent\s+core|the\s+system|the\s+implementation|the\s+substrate|the\s+profile|the\s+product|the\s+platform)\b/iu;
-const SYSTEM_CORRECTNESS_ASSURANCE =
-    /\b(?:lean|kernel|machine\s+checked|mechanically\s+checked)\b.*\b(?:proves?|guarantees?|certifies?)\b.*\b(?:agent\s+core|system|implementation|substrate|profile|product|platform)\b.*\b(?:correct|correctness|safe|safety|secure|security)\b|\b(?:agent\s+core|system|implementation|substrate|profile|product|platform)\b.*\b(?:has|provides?|offers?)\b.*\b(?:machine\s+checked|mechanically\s+checked|kernel\s+checked|lean\s+checked)\b.*\b(?:correctness|safety|security)?\s*guarantees?\b/iu;
+const FORMAL_VERIFICATION_ASSURANCE =
+    /\b(?:provides?|offers?|has)\s+formal\s+verification\b|\bformal\s+verification\s+(?:of|for)\b/iu;
+const ASSURANCE_MARKER =
+    /\b(?:lean|kernel|machine\s+checked|mechanically\s+checked|kernel\s+checked|lean\s+checked|mathematically|formally|provably|proved|proven|verified|certified|guaranteed|guarantees?)\b/u;
+const ASSURANCE_PROPERTY = /\b(?:correct|correctness|safe|safety|secure|security)\b/u;
+const NEGATED_COPULA_ASSURANCE =
+    /\b(?:is|are|was|were)\s+not\s+(?:(?:mathematically|formally|provably|proved|proven|verified|certified)\s+)*(?:correct|correctness|safe|safety|secure|security)$/u;
+const NEGATED_EPISTEMIC_ASSURANCE =
+    /\b(?:(?:does|do|can|will)\s+not|cannot)\s+(?:prove|guarantee|certify|ensure)\b.*\b(?:correct|correctness|safe|safety|secure|security)$/u;
+const NEGATED_PROPERTY_ASSURANCE =
+    /\b(?:correctness|safety|security)\s+(?:is|are)\s+not\s+(?:guaranteed|certified|proved|proven|verified)$/u;
+const INFALLIBILITY_ASSERTION =
+    /\b(?:cannot|can\s+never|will\s+never)\b.*\b(?:incorrect|wrong|unsafe|insecure|invalid)\b/u;
 
 export function validateClaimText(source, label) {
     const visible = markdownProse(source);
@@ -37,11 +46,12 @@ export function validateClaimText(source, label) {
                 .toLowerCase()
                 .replace(/\p{Cf}+/gu, "")
                 .replace(/[\p{P}\p{S}]+/gu, " ")
-                .replace(/\s+/gu, " ");
+                .replace(/\s+/gu, " ")
+                .trim();
             if (
                 hasUnnegatedMatch(BANNED, normalized) ||
-                hasUnnegatedMatch(SYSTEM_FORMAL_VERIFICATION, normalized) ||
-                SYSTEM_CORRECTNESS_ASSURANCE.test(normalized)
+                hasUnnegatedMatch(FORMAL_VERIFICATION_ASSURANCE, normalized) ||
+                makesUnboundedAssurance(normalized)
             ) {
                 throw new TypeError(`${label} makes a banned system-level formal claim`);
             }
@@ -56,6 +66,20 @@ export function validateClaimText(source, label) {
             }
         }
     }
+}
+
+function makesUnboundedAssurance(text) {
+    if (
+        NEGATED_COPULA_ASSURANCE.test(text) ||
+        NEGATED_EPISTEMIC_ASSURANCE.test(text) ||
+        NEGATED_PROPERTY_ASSURANCE.test(text)
+    ) {
+        return false;
+    }
+    return (
+        (ASSURANCE_MARKER.test(text) && ASSURANCE_PROPERTY.test(text)) ||
+        INFALLIBILITY_ASSERTION.test(text)
+    );
 }
 
 function hasUnnegatedMatch(pattern, text, negation = NEGATED) {

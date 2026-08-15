@@ -291,6 +291,27 @@ describe("agent operating doctrine", () => {
         expect(() =>
             validateClaimText("Agent Core has machine-checked correctness guarantees.", "README.md")
         ).toThrow(/banned/);
+        for (const claim of [
+            "The authorization system is mathematically guaranteed correct.",
+            "The authority layer is proven secure.",
+            "The policy engine cannot make an incorrect decision.",
+            "The dispatcher is mathematically correct."
+        ]) {
+            expect(() => validateClaimText(claim, "README.md")).toThrow(/banned/);
+        }
+        for (const boundary of [
+            "The authority layer is not proven secure.",
+            "The policy engine cannot guarantee correctness.",
+            "The dispatcher is not mathematically correct."
+        ]) {
+            expect(() => validateClaimText(boundary, "README.md")).not.toThrow();
+        }
+        expect(() =>
+            validateClaimText(
+                "The authority layer is not proven secure, but the authority layer is proven secure.",
+                "README.md"
+            )
+        ).toThrow(/banned/);
         expect(() => validateClaimText("Agent Core is formally—verified.", "README.md")).toThrow(
             /banned/
         );
