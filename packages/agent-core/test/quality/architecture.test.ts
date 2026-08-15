@@ -85,7 +85,7 @@ describe("generic AGENTS architecture rules", subprocessTestOptions, () => {
             {
                 file: "src/permitted.ts",
                 kind: "unknown",
-                count: 4,
+                anchors: [{ symbol: "decode.value", source: "value: unknown", count: 4 }],
                 reason: "A stale permit must fail as loudly as a new escape does."
             }
         ]);
@@ -94,12 +94,12 @@ describe("generic AGENTS architecture rules", subprocessTestOptions, () => {
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain("ACQ-TYPE");
-        expect(result.stderr).toContain("src/weak.ts uses 1 unpermitted any escape(s)");
-        expect(result.stderr).toContain("src/weak.ts uses 1 unpermitted assertion escape(s)");
-        expect(result.stderr).toContain("src/weak.ts uses 1 unpermitted non-null escape(s)");
-        expect(result.stderr).toContain("src/weak.ts uses 1 unpermitted unknown escape(s)");
-        expect(result.stderr).toContain("test/weak.test.ts uses 1 unpermitted suppression");
-        expect(result.stderr).toContain("the permit for 4 is stale");
+        expect(result.stderr).toContain("src/weak.ts uses an unpermitted any escape");
+        expect(result.stderr).toContain("src/weak.ts uses an unpermitted assertion escape");
+        expect(result.stderr).toContain("src/weak.ts uses an unpermitted non-null escape");
+        expect(result.stderr).toContain("src/weak.ts uses an unpermitted unknown escape");
+        expect(result.stderr).toContain("test/weak.test.ts uses an unpermitted suppression");
+        expect(result.stderr).toContain("permit for decode.value is stale");
     });
 
     test("admits a validator that narrows and a permitted escape", async () => {
@@ -125,22 +125,88 @@ describe("generic AGENTS architecture rules", subprocessTestOptions, () => {
             {
                 file: "src/permitted.ts",
                 kind: "unknown",
-                count: 1,
+                anchors: [{ symbol: "widen.value", source: "value: unknown", count: 1 }],
                 reason: "The subject of a widening helper stays open until a caller narrows it."
             }
         ]);
 
         expect(run(fixture).status).toBe(0);
     });
+
+    test("binds a weak-type permit to the exact escape it reviews", async () => {
+        const fixture = await createFixture({
+            "src/id.ts": "export class NoteId {}\n",
+            "src/permitted.ts": [
+                "export function decode(value: unknown): string {",
+                "  return String(value);",
+                "}"
+            ].join("\n")
+        });
+        const permits = [
+            {
+                file: "src/permitted.ts",
+                kind: "unknown",
+                anchors: [{ symbol: "decode.value", source: "value: unknown", count: 1 }],
+                reason: "The decoder narrows one exact external value at its trust boundary."
+            }
+        ];
+        await writePermits(fixture, permits);
+        expect(run(fixture).status).toBe(0);
+
+        await writeFile(
+            resolve(fixture, "permits.json"),
+            `${JSON.stringify({
+                edition: "1.0.0",
+                permits: [
+                    {
+                        file: "src/permitted.ts",
+                        kind: "unknown",
+                        count: 1,
+                        reason: "A count alone cannot identify the escape that was reviewed."
+                    }
+                ]
+            })}\n`,
+            "utf8"
+        );
+        expect(run(fixture).stderr).toContain("must use edition 2.0.0");
+        await writePermits(fixture, permits);
+
+        await writeFile(
+            resolve(fixture, "src/permitted.ts"),
+            [
+                "export function decode(value: unknown | never): string {",
+                "  return String(value);",
+                "}"
+            ].join("\n"),
+            "utf8"
+        );
+        expect(run(fixture).status).toBe(1);
+
+        await writeFile(
+            resolve(fixture, "src/permitted.ts"),
+            [
+                "export function unrelated(value: unknown): string {",
+                "  return String(value);",
+                "}"
+            ].join("\n"),
+            "utf8"
+        );
+        expect(run(fixture).status).toBe(1);
+    });
 });
 
 async function writePermits(
     root: string,
-    permits: readonly { file: string; kind: string; count: number; reason: string }[]
+    permits: readonly {
+        file: string;
+        kind: string;
+        anchors: readonly { symbol: string; source: string; count: number }[];
+        reason: string;
+    }[]
 ): Promise<void> {
     await writeFile(
         resolve(root, "permits.json"),
-        `${JSON.stringify({ edition: "1.0.0", permits }, null, 2)}\n`,
+        `${JSON.stringify({ edition: "2.0.0", permits }, null, 2)}\n`,
         "utf8"
     );
 }

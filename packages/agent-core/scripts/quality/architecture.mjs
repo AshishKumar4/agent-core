@@ -3,6 +3,10 @@ import { basename, relative, resolve } from "node:path";
 import ts from "typescript";
 import {
     artifactRoot,
+    assertArray,
+    assertExactKeys,
+    assertObject,
+    assertString,
     collectFiles,
     isNonEmptyString,
     packageRoot,
@@ -15,12 +19,12 @@ import {
 } from "./project.mjs";
 
 // Weakening a type is how a wrong program stops being rejected, so every escape is
-// counted per file and reconciled against a reasoned permit. Product code may keep an
-// escape only where the permit names it. Test code carries the narrower ban: building a
-// deliberately invalid value needs an assertion, so assertions stay, but `any` describes
-// nothing and a suppression proves nothing. `@ts-expect-error` is not a suppression —
-// the compiler fails when the line it marks stops erroring, which makes it an assertion
-// that something does not typecheck.
+// bound to an exact symbol and source anchor under a reasoned permit. Product code may
+// keep an escape only where the permit names it. Test code carries the narrower ban:
+// building a deliberately invalid value needs an assertion, so assertions stay, but
+// `any` describes nothing and a suppression proves nothing. `@ts-expect-error` is not
+// a suppression — the compiler fails when the line it marks stops erroring, which makes
+// it an assertion that something does not typecheck.
 const WEAK_KINDS = ["any", "assertion", "non-null", "unknown", "suppression"];
 const TEST_KINDS = ["any", "suppression"];
 const SUPPRESSION = /@ts-(?:ignore|nocheck)\b/gu;
@@ -204,23 +208,108 @@ function inspectNode(node, source, file, aliases) {
 
 function checkWeakTypes(parsed, source, file, testFile) {
     const kinds = testFile ? TEST_KINDS : WEAK_KINDS;
-    const count = (kind) => {
+    const record = (kind, node) => {
         if (!kinds.includes(kind)) return;
-        const counts = observed.get(file) ?? new Map();
-        counts.set(kind, (counts.get(kind) ?? 0) + 1);
-        observed.set(file, counts);
+        recordWeakEscape(file, kind, {
+            symbol: weakSymbolAt(node, parsed),
+            source: weakAnchorSource(node, parsed)
+        });
     };
     visit(parsed, (node) => {
-        if (node.kind === ts.SyntaxKind.AnyKeyword) count("any");
+        if (node.kind === ts.SyntaxKind.AnyKeyword) record("any", node);
         if (node.kind === ts.SyntaxKind.UnknownKeyword && !narrowsExplicitly(node))
-            count("unknown");
-        if (ts.isNonNullExpression(node)) count("non-null");
-        if (ts.isTypeAssertionExpression(node)) count("assertion");
-        if (ts.isAsExpression(node) && !isConstAssertion(node)) count("assertion");
+            record("unknown", node);
+        if (ts.isNonNullExpression(node)) record("non-null", node);
+        if (ts.isTypeAssertionExpression(node)) record("assertion", node);
+        if (ts.isAsExpression(node) && !isConstAssertion(node)) record("assertion", node);
     });
     const suppression = testFile ? SUPPRESSION : SOURCE_SUPPRESSION;
     suppression.lastIndex = 0;
-    for (const _match of source.matchAll(suppression)) count("suppression");
+    for (const match of source.matchAll(suppression)) {
+        const offset = match.index ?? 0;
+        const start = source.lastIndexOf("\n", offset - 1) + 1;
+        const end = source.indexOf("\n", offset);
+        recordWeakEscape(file, "suppression", {
+            symbol: weakSymbolAtOffset(parsed, offset),
+            source: source.slice(start, end === -1 ? source.length : end).trim()
+        });
+    }
+}
+
+function weakSymbolAtOffset(source, offset) {
+    let owner = source;
+    visit(source, (node) => {
+        if (
+            node.getFullStart() <= offset &&
+            offset <= node.end &&
+            node.end - node.pos < owner.end - owner.pos
+        ) {
+            owner = node;
+        }
+    });
+    return weakSymbolAt(owner, source);
+}
+
+function weakSymbolAt(node, source) {
+    const names = [];
+    let current = node.parent;
+    while (current !== undefined) {
+        const name = weakDeclarationName(current, source);
+        if (name !== undefined) names.unshift(name);
+        current = current.parent;
+    }
+    return names.join(".") || "<module>";
+}
+
+function weakDeclarationName(node, source) {
+    if (ts.isConstructorDeclaration(node)) return "constructor";
+    if (
+        (ts.isFunctionDeclaration(node) ||
+            ts.isMethodDeclaration(node) ||
+            ts.isClassDeclaration(node) ||
+            ts.isInterfaceDeclaration(node) ||
+            ts.isTypeAliasDeclaration(node) ||
+            ts.isPropertyDeclaration(node) ||
+            ts.isPropertySignature(node) ||
+            ts.isParameter(node) ||
+            ts.isVariableDeclaration(node)) &&
+        node.name !== undefined
+    ) {
+        return node.name.getText(source);
+    }
+    return undefined;
+}
+
+function weakAnchorSource(node, source) {
+    if (node.kind !== ts.SyntaxKind.AnyKeyword && node.kind !== ts.SyntaxKind.UnknownKeyword) {
+        return node.getText(source);
+    }
+    let current = node;
+    while (current.parent !== undefined && ts.isTypeNode(current.parent)) {
+        current = current.parent;
+    }
+    const owner = current.parent;
+    if (
+        owner !== undefined &&
+        (ts.isParameter(owner) ||
+            ts.isPropertyDeclaration(owner) ||
+            ts.isPropertySignature(owner) ||
+            ts.isVariableDeclaration(owner) ||
+            ts.isTypeAliasDeclaration(owner))
+    ) {
+        return owner.getText(source);
+    }
+    return current.getText(source);
+}
+
+function recordWeakEscape(file, kind, anchor) {
+    const byKind = observed.get(file) ?? new Map();
+    const anchors = byKind.get(kind) ?? new Map();
+    const key = JSON.stringify([anchor.symbol, anchor.source]);
+    const existing = anchors.get(key);
+    anchors.set(key, { ...anchor, count: (existing?.count ?? 0) + 1 });
+    byKind.set(kind, anchors);
+    observed.set(file, byKind);
 }
 
 function isConstAssertion(node) {
@@ -250,21 +339,39 @@ function narrowsExplicitly(node) {
 
 function reconcilePermits() {
     for (const permit of permits.permits) {
-        const actual = observed.get(permit.file)?.get(permit.kind) ?? 0;
+        const actual = observed.get(permit.file)?.get(permit.kind) ?? new Map();
+        for (const anchor of permit.anchors) {
+            const key = JSON.stringify([anchor.symbol, anchor.source]);
+            const occurrence = actual.get(key);
+            actual.delete(key);
+            if (occurrence?.count === anchor.count) continue;
+            issue(
+                "ACQ-TYPE",
+                permit.file,
+                anchor.symbol,
+                `${permit.file} ${permit.kind} permit for ${anchor.symbol} is stale`
+            );
+        }
+        for (const occurrence of actual.values()) {
+            issue(
+                "ACQ-TYPE",
+                permit.file,
+                occurrence.symbol,
+                `${permit.file} uses an unpermitted ${permit.kind} escape in ${occurrence.symbol}`
+            );
+        }
         observed.get(permit.file)?.delete(permit.kind);
-        if (actual === permit.count) continue;
-        issue(
-            "ACQ-TYPE",
-            permit.file,
-            permit.kind,
-            actual > permit.count
-                ? `${permit.file} uses ${actual} ${permit.kind} escapes where ${permit.count} are permitted`
-                : `${permit.file} uses ${actual} ${permit.kind} escapes; the permit for ${permit.count} is stale`
-        );
     }
-    for (const [file, counts] of observed) {
-        for (const [kind, actual] of counts) {
-            issue("ACQ-TYPE", file, kind, `${file} uses ${actual} unpermitted ${kind} escape(s)`);
+    for (const [file, byKind] of observed) {
+        for (const [kind, anchors] of byKind) {
+            for (const occurrence of anchors.values()) {
+                issue(
+                    "ACQ-TYPE",
+                    file,
+                    occurrence.symbol,
+                    `${file} uses an unpermitted ${kind} escape in ${occurrence.symbol}`
+                );
+            }
         }
     }
 }
@@ -593,21 +700,50 @@ async function loadPermits(path) {
         document = await readCanonicalJson(path);
     } catch (error) {
         if (error?.code !== "ENOENT") throw error;
-        return { edition: "1.0.0", permits: [] };
+        return { edition: "2.0.0", permits: [] };
     }
+    assertExactKeys(document, ["edition", "permits"], "Weak-type permit document");
+    if (document.edition !== "2.0.0") {
+        throw new TypeError("Weak-type permit document must use edition 2.0.0");
+    }
+    assertArray(document.permits, "Weak-type permits");
     const seen = new Set();
     for (const permit of document.permits) {
+        assertObject(permit, "Weak-type permit");
+        assertExactKeys(permit, ["file", "kind", "anchors", "reason"], "Weak-type permit");
+        assertString(permit.file, "Weak-type permit file");
+        assertString(permit.kind, "Weak-type permit kind");
         const key = `${permit.file}:${permit.kind}`;
         if (seen.has(key)) throw new TypeError(`Duplicate weak-type permit ${key}`);
         seen.add(key);
         if (!WEAK_KINDS.includes(permit.kind)) {
             throw new TypeError(`Weak-type permit ${key} names an unknown escape kind`);
         }
-        if (!Number.isSafeInteger(permit.count) || permit.count < 1) {
-            throw new TypeError(`Weak-type permit ${key} must record a positive count`);
-        }
         if (!isNonEmptyString(permit.reason) || permit.reason.trim().length < 24) {
             throw new TypeError(`Weak-type permit ${key} must record why the escape stands`);
+        }
+        assertArray(permit.anchors, `Weak-type permit ${key} anchors`);
+        if (permit.anchors.length === 0) {
+            throw new TypeError(`Weak-type permit ${key} must name at least one exact anchor`);
+        }
+        const anchors = new Set();
+        for (const anchor of permit.anchors) {
+            assertObject(anchor, `Weak-type permit ${key} anchor`);
+            assertExactKeys(
+                anchor,
+                ["symbol", "source", "count"],
+                `Weak-type permit ${key} anchor`
+            );
+            assertString(anchor.symbol, `Weak-type permit ${key} anchor symbol`);
+            assertString(anchor.source, `Weak-type permit ${key} anchor source`);
+            if (!Number.isSafeInteger(anchor.count) || anchor.count < 1) {
+                throw new TypeError(`Weak-type permit ${key} anchor must record a positive count`);
+            }
+            const anchorKey = JSON.stringify([anchor.symbol, anchor.source]);
+            if (anchors.has(anchorKey)) {
+                throw new TypeError(`Weak-type permit ${key} duplicates an exact anchor`);
+            }
+            anchors.add(anchorKey);
         }
     }
     return document;

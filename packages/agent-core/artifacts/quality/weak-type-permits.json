@@ -1,598 +1,1872 @@
 {
-  "edition": "1.0.0",
+  "edition": "2.0.0",
   "permits": [
     {
       "file": "packages/agent-core-cloudflare/src/error.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "CloudflareCapturedCause.value",
+          "source": "readonly value: unknown;",
+          "count": 1
+        }
+      ],
       "reason": "A captured JavaScript throw has no static type; the wrapper prevents that open value from spreading beyond the error-mapping boundary."
     },
     {
       "file": "packages/agent-core-cloudflare/src/loader.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "CapturedFailure.value",
+          "source": "readonly value: unknown;",
+          "count": 1
+        }
+      ],
       "reason": "A resource cleanup throw has no static type; it is captured immediately and never used as a resource or entrypoint contract."
     },
     {
       "file": "packages/agent-core-cloudflare/src/queue.ts",
       "kind": "unknown",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "QueueMessageBatchLike",
+          "source": "unknown",
+          "count": 1
+        },
+        {
+          "symbol": "QueueMessageLike",
+          "source": "unknown",
+          "count": 1
+        }
+      ],
       "reason": "Cloudflare queue bodies are untrusted until isJsonValue narrows them; the default generic records that platform boundary without weakening decoded deliveries."
     },
     {
       "file": "packages/agent-core-cloudflare/src/sqlite.ts",
       "kind": "assertion",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "isThenable.candidate",
+          "source": "value as Partial<PromiseLike<void>>",
+          "count": 1
+        }
+      ],
       "reason": "Thenable detection reads only then after proving an object boundary and proves callability before treating the transaction result as asynchronous."
     },
     {
       "file": "packages/agent-core-cloudflare/src/websocket.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "decodeViewStreamFrame.parsed",
+          "source": "parsed: unknown = JSON.parse(value)",
+          "count": 1
+        }
+      ],
       "reason": "JSON.parse returns an untrusted JavaScript value, which is immediately narrowed by isJsonValue before frame decoding."
     },
     {
       "file": "packages/agent-core/src/actors/store.ts",
       "kind": "assertion",
-      "count": 5,
+      "anchors": [
+        {
+          "symbol": "cloneView.{ BYTES_PER_ELEMENT }",
+          "source": "value as ArrayBufferView & { readonly BYTES_PER_ELEMENT: number }",
+          "count": 1
+        },
+        {
+          "symbol": "cloneView.constructor",
+          "source": "value.constructor as new (\n        buffer: ArrayBuffer,\n        byteOffset: number,\n        length: number\n    ) => ArrayBufferView",
+          "count": 1
+        },
+        {
+          "symbol": "createActorStateTarget",
+          "source": "Object.create(prototype) as ActorStateObject",
+          "count": 1
+        },
+        {
+          "symbol": "readonlyArrayBufferView.sourceBuffer",
+          "source": "value.buffer as ArrayBuffer",
+          "count": 1
+        },
+        {
+          "symbol": "readonlyValue",
+          "source": "view as Value",
+          "count": 1
+        }
+      ],
       "reason": "The read view preserves a generic state's public shape, Object.create returns `any`, and ArrayBufferView does not expose the built-in typed-array constructor and element-width facts established by the surrounding runtime checks."
     },
     {
       "file": "packages/agent-core/src/actors/store.ts",
       "kind": "unknown",
-      "count": 30,
+      "anchors": [
+        {
+          "symbol": "ActorStateGraph.values",
+          "source": "Generator<unknown>",
+          "count": 1
+        },
+        {
+          "symbol": "ActorStateGraph.values.pending",
+          "source": "pending: unknown[] = [this.root]",
+          "count": 1
+        },
+        {
+          "symbol": "ActorStateGraph.values.propertyValue",
+          "source": "propertyValue: unknown = descriptor.value",
+          "count": 1
+        },
+        {
+          "symbol": "ActorStateTarget",
+          "source": "type ActorStateTarget = ActorStateObject | unknown[];",
+          "count": 1
+        },
+        {
+          "symbol": "arrayWithLength",
+          "source": "unknown[]",
+          "count": 1
+        },
+        {
+          "symbol": "arrayWithLength.value",
+          "source": "value: unknown[] = []",
+          "count": 1
+        },
+        {
+          "symbol": "collectionHandler.get.accessed",
+          "source": "accessed: unknown =\n                member.kind === \"accessor\" ? member.descriptor.get?.call(target) : member.value",
+          "count": 1
+        },
+        {
+          "symbol": "copyReadonlyProperties.descriptorValue",
+          "source": "descriptorValue: unknown = \"value\" in descriptor ? descriptor.value : undefined",
+          "count": 1
+        },
+        {
+          "symbol": "InspectableActorState",
+          "source": "type InspectableActorState =\n    | ActorStateTarget\n    | ArrayBuffer\n    | ArrayBufferView\n    | Date\n    | Map<unknown, unknown>\n    | Set<unknown>\n    | TextId;",
+          "count": 3
+        },
+        {
+          "symbol": "InspectedProperty.value",
+          "source": "readonly value: unknown",
+          "count": 1
+        },
+        {
+          "symbol": "inspectProperty.descriptorValue",
+          "source": "descriptorValue: unknown = descriptor.value",
+          "count": 1
+        },
+        {
+          "symbol": "isSnapshotActor",
+          "source": "value is MemoryActorStoreSnapshot<unknown>[\"actor\"]",
+          "count": 1
+        },
+        {
+          "symbol": "isSnapshotActor.value",
+          "source": "value: MemoryActorStoreSnapshot<unknown>[\"actor\"]",
+          "count": 1
+        },
+        {
+          "symbol": "readonlyArrayBuffer.proxy.get.accessed",
+          "source": "accessed: unknown =\n                member.kind === \"accessor\" ? member.descriptor.get?.call(target) : member.value",
+          "count": 1
+        },
+        {
+          "symbol": "readonlyArrayBufferView.proxy.get.accessed",
+          "source": "accessed: unknown =\n                member.kind === \"accessor\" ? member.descriptor.get?.call(target) : member.value",
+          "count": 1
+        },
+        {
+          "symbol": "readonlyDate.proxy.get.accessed",
+          "source": "accessed: unknown =\n                member.kind === \"accessor\" ? member.descriptor.get?.call(target) : member.value",
+          "count": 1
+        },
+        {
+          "symbol": "readonlyMap",
+          "source": "Map<unknown, unknown>",
+          "count": 2
+        },
+        {
+          "symbol": "readonlyMap.copy",
+          "source": "unknown",
+          "count": 2
+        },
+        {
+          "symbol": "readonlyMap.proxy",
+          "source": "Map<unknown, unknown>",
+          "count": 2
+        },
+        {
+          "symbol": "readonlyMap.value",
+          "source": "value: Map<unknown, unknown>",
+          "count": 2
+        },
+        {
+          "symbol": "readonlySet",
+          "source": "Set<unknown>",
+          "count": 1
+        },
+        {
+          "symbol": "readonlySet.copy",
+          "source": "unknown",
+          "count": 1
+        },
+        {
+          "symbol": "readonlySet.proxy",
+          "source": "Set<unknown>",
+          "count": 1
+        },
+        {
+          "symbol": "readonlySet.value",
+          "source": "value: Set<unknown>",
+          "count": 1
+        }
+      ],
       "reason": "Actor snapshots, clone validation, and readonly views traverse host-supplied state graphs whose values remain unknown until the graph walk narrows each one; collection members are deliberately keyed by identity, not a declared element type."
     },
     {
       "file": "packages/agent-core/src/actors/types.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "SynchronousResultGuard",
+          "source": "export type SynchronousResultGuard<TResult> = [Extract<TResult, PromiseLike<unknown>>] extends [\n    never\n]\n    ? []\n    : [error: \"Actor transaction callbacks must be synchronous\"];",
+          "count": 1
+        }
+      ],
       "reason": "The Actor primitive is generic over the state and transaction its host supplies, and a caught commit failure has no static type; both are unknown by construction rather than by omission."
     },
     {
       "file": "packages/agent-core/src/agents/runs/admission.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "RunAdmissionRegistry.complete.obligation",
+          "source": "this.reserved.find((value) => runObligationKey(value) === key)!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/agents/runs/commit.ts",
       "kind": "non-null",
-      "count": 9,
+      "anchors": [
+        {
+          "symbol": "migrationFromData",
+          "source": "object[\"from\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "migrationFromData",
+          "source": "object[\"to\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "requireCommitWriter",
+          "source": "object[\"token\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "requireCommitWriter.cause",
+          "source": "object[\"cause\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "requireMergeResolution",
+          "source": "object[\"token\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "RunCommit.fromData",
+          "source": "object[\"pins\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "RunCommit.fromData",
+          "source": "object[\"writer\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "validateClosedKind",
+          "source": "commit.parents[0]!",
+          "count": 1
+        },
+        {
+          "symbol": "validateClosedKind",
+          "source": "commit.parents[1]!",
+          "count": 1
+        }
+      ],
       "reason": "A ratified W2 or W5 outcome artifact pins this file by blob hash. The field assertions its decoder no longer needs stay until the resolution is re-ratified."
     },
     {
       "file": "packages/agent-core/src/agents/runs/commit.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "validateClosedKind.forbidden.values",
+          "source": "...values: readonly unknown[]",
+          "count": 1
+        }
+      ],
       "reason": "Run execution is generic over the host transaction and the values a Turn returns."
     },
     {
       "file": "packages/agent-core/src/agents/runs/run.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "Run.constructor",
+          "source": "configurations[0]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/agents/runs/runtime.ts",
       "kind": "non-null",
-      "count": 9,
+      "anchors": [
+        {
+          "symbol": "RunRuntime.appendInTransaction",
+          "source": "commit.parents[0]!",
+          "count": 1
+        },
+        {
+          "symbol": "RunRuntime.appendInTransaction",
+          "source": "commit.selects!",
+          "count": 1
+        },
+        {
+          "symbol": "RunRuntime.appendInTransaction.parent",
+          "source": "commit.parents[0]!",
+          "count": 1
+        },
+        {
+          "symbol": "RunRuntime.effectiveCommitInTransaction",
+          "source": "commit.selects!",
+          "count": 1
+        },
+        {
+          "symbol": "RunRuntime.requireConfigurationForPins",
+          "source": "matching[0]!",
+          "count": 1
+        },
+        {
+          "symbol": "RunRuntime.terminalizeRunInTransaction.completed",
+          "source": "request.commit.content!",
+          "count": 1
+        },
+        {
+          "symbol": "RunRuntime.validateMerge",
+          "source": "commit.parents[0]!",
+          "count": 1
+        },
+        {
+          "symbol": "RunRuntime.validateMerge",
+          "source": "commit.parents[1]!",
+          "count": 1
+        },
+        {
+          "symbol": "RunRuntime.validateMerge.source",
+          "source": "commit.parents[1]!",
+          "count": 1
+        }
+      ],
       "reason": "A ratified W2 or W5 outcome artifact pins this file by blob hash. The field assertions its decoder no longer needs stay until the resolution is re-ratified."
     },
     {
       "file": "packages/agent-core/src/agents/runs/store.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "RunRepository.isAncestor.current",
+          "source": "pending.pop()!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/authority/epoch.ts",
       "kind": "non-null",
-      "count": 6,
+      "anchors": [
+        {
+          "symbol": "PathEpochEvidence",
+          "source": "this.path[this.path.length - 1]!",
+          "count": 1
+        },
+        {
+          "symbol": "PathEpochEvidence.equals",
+          "source": "other.path[index]!",
+          "count": 1
+        },
+        {
+          "symbol": "PathEpochEvidence.staleScopes.previous",
+          "source": "this.path[index]!",
+          "count": 1
+        },
+        {
+          "symbol": "ScopeEpoch.fromData",
+          "source": "object[\"scope\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "validatePath",
+          "source": "path[index]!",
+          "count": 1
+        },
+        {
+          "symbol": "validatePath.target",
+          "source": "path[path.length - 1]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/authority/memory.ts",
       "kind": "non-null",
-      "count": 3,
+      "anchors": [
+        {
+          "symbol": "decodeRecords",
+          "source": "decodeRecord(map, id, decode, key, name)!",
+          "count": 1
+        },
+        {
+          "symbol": "MemoryTenantControlStore.assertRestoredState",
+          "source": "bootstrap.epochs[0]!",
+          "count": 2
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/authority/memory.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "isPromiseLike",
+          "source": "value is PromiseLike<unknown>",
+          "count": 1
+        }
+      ],
       "reason": "Authority storage must reject promise-like results to preserve its synchronous transaction span; the resolved type of a detected thenable is deliberately irrelevant."
     },
     {
       "file": "packages/agent-core/src/authority/permit.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "AuthorityPermitExpectation.fromData.init",
+          "source": "object[\"package\"]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/authority/runtime.ts",
       "kind": "assertion",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "TenantAuthorityRuntime.currentPath",
+          "source": "epochs as [ScopeEpoch, ...ScopeEpoch[]]",
+          "count": 1
+        }
+      ],
       "reason": "The Scope path tuple is asserted only to reach PathEpochEvidence's constructor, whose validatePath rejects any path outside one to three Scopes and owns the message naming the permitted chain."
     },
     {
       "file": "packages/agent-core/src/authority/runtime.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "TenantAuthorityRuntime.evaluate",
+          "source": "exactPath[exactPath.length - 1]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/authority/service.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "revokeGrantClosure.parent",
+          "source": "pending.pop()!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/authority/watermark-store.ts",
       "kind": "unknown",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "InvalidationWatermarkSnapshotCandidate.records",
+          "source": "readonly records?: unknown;",
+          "count": 1
+        },
+        {
+          "symbol": "InvalidationWatermarkSnapshotCandidate.version",
+          "source": "readonly version?: unknown;",
+          "count": 1
+        }
+      ],
       "reason": "The snapshot candidate represents untrusted decoded storage; its optional records and version fields remain unknown until the snapshot validator narrows them."
     },
     {
       "file": "packages/agent-core/src/composition/authority-commands.ts",
       "kind": "unknown",
-      "count": 3,
+      "anchors": [
+        {
+          "symbol": "ClosedTenantAuthorityComposition",
+          "source": "unknown",
+          "count": 1
+        },
+        {
+          "symbol": "ClosedTenantAuthorityCompositionInit",
+          "source": "unknown",
+          "count": 1
+        },
+        {
+          "symbol": "createClosedTenantAuthorityComposition",
+          "source": "unknown",
+          "count": 1
+        }
+      ],
       "reason": "Composition wires substrate-supplied transactions and transports it never inspects, so their types stay open to the host that closes them."
     },
     {
       "file": "packages/agent-core/src/composition/authority.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "TenantOperationAuthority.replayBinding.execution",
+          "source": "authorization.route!",
+          "count": 1
+        }
+      ],
       "reason": "A binding or route read back through the store that just produced it is present by that write."
     },
     {
       "file": "packages/agent-core/src/composition/mediation-identity.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "DerivedMediationIdentities.invocation.request",
+          "source": "request: MediatedInvocationPreflight<unknown>",
+          "count": 1
+        }
+      ],
       "reason": "MediatedInvocationIdentityPort mints an Invocation identity from a preflight whose authorization the port never inspects, so the contract it implements declares that generic open."
     },
     {
       "file": "packages/agent-core/src/composition/package-runtime.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "PackageFacetRuntime.dispose.failure",
+          "source": "failure: unknown",
+          "count": 1
+        }
+      ],
       "reason": "Package runtime cleanup retains a thrown host failure until both disposal steps complete, and JavaScript thrown values have no static type."
     },
     {
       "file": "packages/agent-core/src/composition/single-tenant.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "assembleSingleTenantPolicy",
+          "source": "control.binding(binding.key)!",
+          "count": 1
+        }
+      ],
       "reason": "A binding or route read back through the store that just produced it is present by that write."
     },
     {
       "file": "packages/agent-core/src/content/memory.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "MemoryTransientContentAccess.closeInTransaction",
+          "source": "closed.closedAt!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/core/base64.ts",
       "kind": "non-null",
-      "count": 5,
+      "anchors": [
+        {
+          "symbol": "decodeBase64.first",
+          "source": "value[index]!",
+          "count": 1
+        },
+        {
+          "symbol": "decodeBase64.fourth",
+          "source": "value[index + 3]!",
+          "count": 1
+        },
+        {
+          "symbol": "decodeBase64.second",
+          "source": "value[index + 1]!",
+          "count": 1
+        },
+        {
+          "symbol": "decodeBase64.third",
+          "source": "value[index + 2]!",
+          "count": 1
+        },
+        {
+          "symbol": "encodeBase64.first",
+          "source": "source[index]!",
+          "count": 1
+        }
+      ],
       "reason": "A capture group of a regular expression that matched, and an index within a length the loop just bounded, are present by the match and the bound."
     },
     {
       "file": "packages/agent-core/src/core/canonical.ts",
       "kind": "assertion",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "canonicalJsonCopy",
+          "source": "decodeCanonicalJson(encodeCanonicalJson(value)) as Value",
+          "count": 1
+        }
+      ],
       "reason": "A canonical round trip reproduces exactly the members it was given, so the detached copy inhabits its input's type; TypeScript cannot carry that identity across encode and decode."
     },
     {
       "file": "packages/agent-core/src/core/canonical.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "decodeCanonicalJson.value",
+          "source": "value: unknown",
+          "count": 1
+        }
+      ],
       "reason": "JSON.parse returns untrusted decoded data, which remains unknown until canonical JSON validation narrows it."
     },
     {
       "file": "packages/agent-core/src/core/codec.ts",
       "kind": "unknown",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "validateAndDetachVersion.major",
+          "source": "major: unknown = majorDescriptor.value",
+          "count": 1
+        },
+        {
+          "symbol": "validateAndDetachVersion.minor",
+          "source": "minor: unknown = minorDescriptor.value",
+          "count": 1
+        }
+      ],
       "reason": "PropertyDescriptor.value is typed as any by the standard library; restating the major and minor fields as unknown makes the following numeric and range checks type-safe instead of vacuous."
     },
     {
       "file": "packages/agent-core/src/core/content-ref.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "ContentRef.constructor",
+          "source": "match[1]!",
+          "count": 1
+        }
+      ],
       "reason": "A capture group of a regular expression that matched, and an index within a length the loop just bounded, are present by the match and the bound."
     },
     {
       "file": "packages/agent-core/src/core/json.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "isJsonArrayAt.value",
+          "source": "value: unknown[]",
+          "count": 1
+        }
+      ],
       "reason": "The recursive JSON-array predicate inspects arbitrary elements and narrows each one before admitting the array as canonical JSON."
     },
     {
       "file": "packages/agent-core/src/core/semver.ts",
       "kind": "non-null",
-      "count": 3,
+      "anchors": [
+        {
+          "symbol": "parseSemVer",
+          "source": "match[1]!",
+          "count": 1
+        },
+        {
+          "symbol": "parseSemVer",
+          "source": "match[2]!",
+          "count": 1
+        },
+        {
+          "symbol": "parseSemVer",
+          "source": "match[3]!",
+          "count": 1
+        }
+      ],
       "reason": "A capture group of a regular expression that matched, and an index within a length the loop just bounded, are present by the match and the bound."
     },
     {
       "file": "packages/agent-core/src/definition/attestation.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "ValidationAttestation.fromData",
+          "source": "object[\"target\"]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/loader.ts",
       "kind": "non-null",
-      "count": 3,
+      "anchors": [
+        {
+          "symbol": "entrypointReachesModule",
+          "source": "release.codeManifest.module(specifier)!",
+          "count": 1
+        },
+        {
+          "symbol": "entrypointReachesModule.specifier",
+          "source": "pending.pop()!",
+          "count": 1
+        },
+        {
+          "symbol": "selectedMode",
+          "source": "modes[0]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/loader.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "disposeModules.preserved.error",
+          "source": "readonly error: unknown",
+          "count": 1
+        }
+      ],
       "reason": "Materialization reports failures whose thrown value has no static type and carries substrate rows it does not interpret."
     },
     {
       "file": "packages/agent-core/src/definition/materialization-kind.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "requireMaterializationKindValidator",
+          "source": "materializationKinds[recordKind]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/materialization-store.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "requireOwnedPlan",
+          "source": "plan.actors[0]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/materializer.ts",
       "kind": "non-null",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "LocalMaterializer.applyTransaction",
+          "source": "previousGeneration!",
+          "count": 1
+        },
+        {
+          "symbol": "requireLocalActorPlan",
+          "source": "plan.actors[0]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/memory.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "MemoryMaterializationControlStore.isDeploymentLineageValid",
+          "source": "next.activePlanId!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/package-store.ts",
       "kind": "non-null",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "ProjectedPackageStore.list",
+          "source": "releases[index - 1]!",
+          "count": 1
+        },
+        {
+          "symbol": "ProjectedPackageStore.list",
+          "source": "releases[index]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/package.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "PackageRelease.fromData.compatibility",
+          "source": "object[\"compatibility\"]!",
+          "count": 1
+        }
+      ],
       "reason": "The package decoder reads the compatibility field only after the exact-key and required-field checks have established its presence."
     },
     {
       "file": "packages/agent-core/src/definition/resolver.ts",
       "kind": "non-null",
-      "count": 6,
+      "anchors": [
+        {
+          "symbol": "canonicalCycle",
+          "source": "canonical[0]!",
+          "count": 1
+        },
+        {
+          "symbol": "canonicalCycle",
+          "source": "members[start]!",
+          "count": 1
+        },
+        {
+          "symbol": "dependencyCycle.visit.release",
+          "source": "selected.get(id)!",
+          "count": 1
+        },
+        {
+          "symbol": "explicitlyAdmitsPrerelease.candidate",
+          "source": "new Range(`=${value}`).set[0]!",
+          "count": 1
+        },
+        {
+          "symbol": "explicitlyAdmitsPrerelease.candidate",
+          "source": "new Range(`=${value}`).set[0]![0]!",
+          "count": 1
+        },
+        {
+          "symbol": "search",
+          "source": "firstFailure!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/definition/rollout.ts",
       "kind": "non-null",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "MaterializationOutboxEntry.acknowledge",
+          "source": "this.replyDigest!",
+          "count": 1
+        },
+        {
+          "symbol": "requireExactOutboxClosure.candidate",
+          "source": "actual[index]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/environments/provider.ts",
       "kind": "unknown",
-      "count": 3,
+      "anchors": [
+        {
+          "symbol": "ProviderArrayValueSource.value",
+          "source": "readonly value: readonly unknown[];",
+          "count": 1
+        },
+        {
+          "symbol": "ProviderDataDescriptor.value",
+          "source": "readonly value: unknown;",
+          "count": 1
+        },
+        {
+          "symbol": "UnparsedProviderReadyValueSource.value",
+          "source": "readonly value: unknown;",
+          "count": 1
+        }
+      ],
       "reason": "The Environment seam accepts provider-supplied resources and outcomes whose types belong to the provider, not to this package."
     },
     {
       "file": "packages/agent-core/src/facets/automation.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "Automation.fromData",
+          "source": "object[\"source\"]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/device/facet.ts",
       "kind": "assertion",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "liveOperation",
+          "source": "decoded as Input",
+          "count": 1
+        }
+      ],
       "reason": "Facet data is canonical JSON whose declared shape is established by the manifest and the schema gate, not by the type of the value the codec receives."
     },
     {
       "file": "packages/agent-core/src/facets/device/facet.ts",
       "kind": "non-null",
-      "count": 3,
+      "anchors": [
+        {
+          "symbol": "DEVICE_COMMAND_EVENT_CONTRACTS",
+          "source": "event[\"arguments\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "DEVICE_COMMANDS",
+          "source": "DEVICE_OPERATIONS.find(\n                    (descriptor) => descriptor.name.value === operation\n                )!",
+          "count": 1
+        },
+        {
+          "symbol": "liveOperation.decoded",
+          "source": "object[\"arguments\"]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/device/facet.ts",
       "kind": "unknown",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "DeviceConsentBackend",
+          "source": "unknown",
+          "count": 1
+        },
+        {
+          "symbol": "MemoryDeviceConsentBackend",
+          "source": "unknown",
+          "count": 1
+        }
+      ],
       "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
     },
     {
       "file": "packages/agent-core/src/facets/environment/facet.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "ENVIRONMENT_CONTROL_CONTRACTS.credential",
+          "source": "object[\"credential\"]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/event.ts",
       "kind": "non-null",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "IngressDeclaration.fromData",
+          "source": "object[\"verification\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "IngressVerification.fromData.secret",
+          "source": "object[\"secret\"]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/filesystem/facet.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "decodeWriteInput.input",
+          "source": "object[\"content\"]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/filesystem/memory.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "MemoryFilesystemBackend.read.content",
+          "source": "node.content!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/manifest.ts",
       "kind": "non-null",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "BindingRequirement.fromData.compat",
+          "source": "object[\"compat\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "FacetManifest.fromData.compat",
+          "source": "object[\"compat\"]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/mapping.ts",
       "kind": "non-null",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "FieldMove.fromData",
+          "source": "object[\"literal\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "FieldMove.toData",
+          "source": "this.literal!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/memory/facet.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "InMemoryMemoryIndexBackend.search.ids",
+          "source": "terms[0]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/profile-runtime/contract.ts",
       "kind": "unknown",
-      "count": 6,
+      "anchors": [
+        {
+          "symbol": "AnyProfileOperationContract",
+          "source": "export type AnyProfileOperationContract = Pick<\n    ProfileOperationContract<string, unknown, unknown, ProfileOperationResultMode>,\n    \"name\" | \"descriptor\" | \"resultMode\"\n>;",
+          "count": 2
+        },
+        {
+          "symbol": "ProfileControlInput",
+          "source": "export type ProfileControlInput<Contract> =\n    Contract extends ProfileControlContract<string, infer Input, unknown> ? Input : never;",
+          "count": 1
+        },
+        {
+          "symbol": "ProfileOperationInput",
+          "source": "export type ProfileOperationInput<Contract> =\n    Contract extends ProfileOperationContract<\n        string,\n        infer Input,\n        unknown,\n        ProfileOperationResultMode\n    >\n        ? Input\n        : never;",
+          "count": 1
+        },
+        {
+          "symbol": "ProfileOperationOutput",
+          "source": "export type ProfileOperationOutput<Contract> =\n    Contract extends ProfileOperationContract<\n        string,\n        unknown,\n        infer Output,\n        ProfileOperationResultMode\n    >\n        ? Output\n        : never;",
+          "count": 1
+        },
+        {
+          "symbol": "ProfileOperationResult",
+          "source": "export type ProfileOperationResult<Contract, Receipt> =\n    Contract extends ProfileOperationContract<string, unknown, infer Output, infer ResultMode>\n        ? ResultMode extends \"receipt\"\n            ? Receipt\n            : Output\n        : never;",
+          "count": 1
+        }
+      ],
       "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
     },
     {
       "file": "packages/agent-core/src/facets/profile-runtime/runtime.ts",
       "kind": "assertion",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "ProtectedProfileRuntimePort.invoke",
+          "source": "decode(contract.outputCodec, encodedOutput, \"output\") as Mode extends \"receipt\"\n            ? Receipt\n            : Output",
+          "count": 1
+        },
+        {
+          "symbol": "ProtectedProfileRuntimePort.invoke",
+          "source": "result.receipt as Mode extends \"receipt\" ? Receipt : Output",
+          "count": 1
+        }
+      ],
       "reason": "The profile runtime is generic over each Operation's input, output, and receipt, and a conditional return type cannot be proven from inside the branch that produces it."
     },
     {
       "file": "packages/agent-core/src/facets/profile-runtime/runtime.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "ProfileRuntimeEffectsPort",
+          "source": "unknown",
+          "count": 1
+        }
+      ],
       "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
     },
     {
       "file": "packages/agent-core/src/facets/runtime.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "OperationContext.targetAdmission",
+          "source": "readonly targetAdmission?: unknown;",
+          "count": 1
+        }
+      ],
       "reason": "Facet contracts are generic over profile-supplied inputs and receipts, and a discovered server's annotations arrive untyped."
     },
     {
       "file": "packages/agent-core/src/facets/slot-entry.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "SlotEntry.fromData",
+          "source": "object[\"value\"]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/slot.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "SlotDeclaration.fromData",
+          "source": "object[\"authority\"]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/task/facet.ts",
       "kind": "non-null",
-      "count": 5,
+      "anchors": [
+        {
+          "symbol": "decodeTaskEntry",
+          "source": "object[\"attributes\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "TASK_ACTION_CONTROL",
+          "source": "object[\"action\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "TASK_ACTION_EVENT_CONTRACT",
+          "source": "object[\"action\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "TASK_OPERATION_CONTRACTS",
+          "source": "object[\"update\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "TASK_OPERATION_CONTRACTS",
+          "source": "requireDataObject(data, \"Task create input\")[\"task\"]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/facets/web/facet.ts",
       "kind": "non-null",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "decodeWebResponse",
+          "source": "object[\"body\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "decodeWebResponse",
+          "source": "object[\"headers\"]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/identity/guest-verification.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "restoreGuestVerification.principal",
+          "source": "object[\"principal\"]!",
+          "count": 1
+        }
+      ],
       "reason": "The guest-verification decoder reads the principal field only after its exact-field check has established that the field is present."
     },
     {
       "file": "packages/agent-core/src/identity/member.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "Membership.revise",
+          "source": "this.guestVerification!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/identity/repository.ts",
       "kind": "unknown",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "IdentitySnapshotCandidate.records",
+          "source": "readonly records?: unknown;",
+          "count": 1
+        },
+        {
+          "symbol": "IdentitySnapshotCandidate.version",
+          "source": "readonly version?: unknown;",
+          "count": 1
+        }
+      ],
       "reason": "The identity snapshot candidate represents untrusted decoded storage; its optional records and version fields remain unknown until the repository validator narrows them."
     },
     {
       "file": "packages/agent-core/src/invocations/audit.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "validateAuditRelation.cause",
+          "source": "records.get(record.cause)!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/invocations/canonical-batch.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "CanonicalBatchFinalAdmissionResult.evidence",
+          "source": "readonly evidence?: unknown",
+          "count": 1
+        }
+      ],
       "reason": "Mediation is generic over the authorization and transaction its host supplies, and effect output is opaque to the invocation layer."
     },
     {
       "file": "packages/agent-core/src/invocations/memory.ts",
       "kind": "non-null",
-      "count": 4,
+      "anchors": [
+        {
+          "symbol": "MemoryInvocationPersistence.attemptsForItem",
+          "source": "this.attempt(transaction, new EffectAttemptId(id))!",
+          "count": 1
+        },
+        {
+          "symbol": "MemoryInvocationPersistence.claimsForItem",
+          "source": "this.claim(transaction, new ItemClaimId(id))!",
+          "count": 1
+        },
+        {
+          "symbol": "MemoryInvocationPersistence.receiptsForAttempt",
+          "source": "this.receipt(transaction, new ReceiptId(id))!",
+          "count": 1
+        },
+        {
+          "symbol": "MemoryInvocationPersistence.receiptsForItem",
+          "source": "this.receipt(transaction, new ReceiptId(id))!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/invocations/operation-mediation.ts",
       "kind": "non-null",
-      "count": 12,
+      "anchors": [
+        {
+          "symbol": "preparation",
+          "source": "item.before!",
+          "count": 1
+        },
+        {
+          "symbol": "preparation",
+          "source": "item.preparedArguments!",
+          "count": 1
+        },
+        {
+          "symbol": "replayEvidence",
+          "source": "item.receipt!",
+          "count": 1
+        },
+        {
+          "symbol": "ReplayOperationInvocationPort.invoke",
+          "source": "item.effectOutput!",
+          "count": 2
+        },
+        {
+          "symbol": "ReplayOperationInvocationPort.invoke.recorded.item",
+          "source": "current.items[itemIndex]!",
+          "count": 1
+        },
+        {
+          "symbol": "ReplayOperationInvocationPort.invoke.recorded.resultItem",
+          "source": "result.items[itemIndex]!",
+          "count": 1
+        },
+        {
+          "symbol": "ReplayOperationInvocationPort.presentMediated",
+          "source": "item.presentation!",
+          "count": 1
+        },
+        {
+          "symbol": "ReplayOperationInvocationPort.presentMediated",
+          "source": "outputs[itemIndex]!",
+          "count": 1
+        },
+        {
+          "symbol": "ReplayOperationInvocationPort.presentMediated.item",
+          "source": "replay.items[itemIndex]!",
+          "count": 1
+        },
+        {
+          "symbol": "replayResult",
+          "source": "presentations[0]!",
+          "count": 1
+        },
+        {
+          "symbol": "replayResult.presentations",
+          "source": "item.presentation!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/invocations/operation-mediation.ts",
       "kind": "unknown",
-      "count": 3,
+      "anchors": [
+        {
+          "symbol": "MediatedInvocationIdentityPort.request",
+          "source": "request: MediatedInvocationPreflight<unknown>",
+          "count": 1
+        },
+        {
+          "symbol": "replayBindingMatches.binding",
+          "source": "binding: MediatedInvocationPreflight<unknown>[\"replayBinding\"]",
+          "count": 1
+        },
+        {
+          "symbol": "replayReservation.request",
+          "source": "request: MediatedInvocationPreflight<unknown>",
+          "count": 1
+        }
+      ],
       "reason": "Mediation is generic over the authorization and transaction its host supplies, and effect output is opaque to the invocation layer."
     },
     {
       "file": "packages/agent-core/src/invocations/prepared.ts",
       "kind": "non-null",
-      "count": 10,
+      "anchors": [
+        {
+          "symbol": "decodeHeader",
+          "source": "lease!",
+          "count": 1
+        },
+        {
+          "symbol": "decodeHeader",
+          "source": "object[\"authority\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "decodeHeader",
+          "source": "object[\"domain\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "decodeHeader",
+          "source": "object[\"operation\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "decodeHeader",
+          "source": "object[\"pathEpochs\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "decodeItem",
+          "source": "object[\"arguments\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "decodePayload",
+          "source": "exact[\"item\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "PreparedInvocation.create.preparedPayload",
+          "source": "items[0]!",
+          "count": 1
+        },
+        {
+          "symbol": "PreparedInvocationCodec.decodePayload.encodedPayload",
+          "source": "object[\"payload\"]!",
+          "count": 1
+        },
+        {
+          "symbol": "PreparedInvocationCodec.decodePayload.header",
+          "source": "object[\"header\"]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/invocations/publication.ts",
       "kind": "non-null",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "copyState",
+          "source": "commitAppendedAt!",
+          "count": 1
+        },
+        {
+          "symbol": "copyState",
+          "source": "eventPublishedAt!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/invocations/replay.ts",
       "kind": "non-null",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "MediatedReplayRecord.prepare",
+          "source": "argumentsByItem[index]!",
+          "count": 1
+        },
+        {
+          "symbol": "MediatedReplayRecord.prepare",
+          "source": "tracesByItem[index]!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/operations/command-runtime.ts",
       "kind": "non-null",
-      "count": 3,
+      "anchors": [
+        {
+          "symbol": "applyMove.value",
+          "source": "move.literal!",
+          "count": 1
+        },
+        {
+          "symbol": "readPointer",
+          "source": "current[segment]!",
+          "count": 1
+        },
+        {
+          "symbol": "validateMapping",
+          "source": "move.literal!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/operations/correspondence.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "requireUnique.values",
+          "source": "values: ReadonlyMap<string, unknown>",
+          "count": 1
+        }
+      ],
       "reason": "Operation interception and lifecycle report failures whose thrown value has no static type."
     },
     {
       "file": "packages/agent-core/src/operations/gateway.ts",
       "kind": "non-null",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "ProtectedResolvedFacet.dispatchWithLease.value",
+          "source": "outputs[0]!",
+          "count": 2
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/operations/gateway.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "MediatedInvocationPreflight",
+          "source": "unknown",
+          "count": 1
+        }
+      ],
       "reason": "Operation interception and lifecycle report failures whose thrown value has no static type."
     },
     {
       "file": "packages/agent-core/src/protocol/bootstrap-memory.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "MemoryTenantBootstrapSnapshot.opaque",
+          "source": "readonly opaque: unknown;",
+          "count": 1
+        }
+      ],
       "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
     },
     {
       "file": "packages/agent-core/src/protocol/dispatcher.ts",
       "kind": "assertion",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "CommandCommitUnknownError.constructor",
+          "source": "canonical as CommandCommitUnknownError",
+          "count": 1
+        },
+        {
+          "symbol": "CommandDispatcher.readForGate",
+          "source": "[] as SynchronousResultGuard<Read>",
+          "count": 1
+        }
+      ],
       "reason": "The canonical Actor commit error is upgraded only after installing its subclass prototype, while the empty conditional rest tuple encodes ActorLocalStore's synchronous read contract without a runtime value."
     },
     {
       "file": "packages/agent-core/src/protocol/dispatcher.ts",
       "kind": "unknown",
-      "count": 3,
+      "anchors": [
+        {
+          "symbol": "RegisteredProtocolCommand",
+          "source": "export type RegisteredProtocolCommand<Transaction, Read> = ProtocolCommand<\n    Transaction,\n    Read,\n    unknown,\n    unknown,\n    unknown\n>;",
+          "count": 3
+        }
+      ],
       "reason": "A heterogeneous command registry erases each command's distinct request, reply, and observation types, while the decoder and every consumer remain captured in one typed decision."
     },
     {
       "file": "packages/agent-core/src/protocol/ingress.ts",
       "kind": "unknown",
-      "count": 3,
+      "anchors": [
+        {
+          "symbol": "CommandIngress",
+          "source": "unknown",
+          "count": 1
+        },
+        {
+          "symbol": "CommandIngressInit",
+          "source": "unknown",
+          "count": 1
+        },
+        {
+          "symbol": "PreDispatchFailure.cause",
+          "source": "readonly cause: unknown;",
+          "count": 1
+        }
+      ],
       "reason": "Ingress is generic over a host transport, and a caught failure remains untyped until the commit-uncertainty predicate narrows it."
     },
     {
       "file": "packages/agent-core/src/protocol/materialization-commands.ts",
       "kind": "non-null",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "requireCanonicalTargetPlan",
+          "source": "canonical.actors[0]!",
+          "count": 1
+        },
+        {
+          "symbol": "storedPlanTargets",
+          "source": "plan.actors[0]!",
+          "count": 1
+        }
+      ],
       "reason": "A payload field read after the envelope's exact-field check is present by that check, which the index signature cannot carry."
     },
     {
       "file": "packages/agent-core/src/protocol/payload.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "CommandPayloadCodec",
+          "source": "unknown",
+          "count": 1
+        }
+      ],
       "reason": "A command payload codec defaults to an untyped boundary value until a concrete registration supplies its decoded payload type."
     },
     {
       "file": "packages/agent-core/src/protocol/registration.ts",
       "kind": "unknown",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "ProtocolCommand",
+          "source": "unknown",
+          "count": 1
+        },
+        {
+          "symbol": "ProtocolCommandRegistration",
+          "source": "unknown",
+          "count": 1
+        }
+      ],
       "reason": "Protocol payloads arrive as bytes from an untrusted caller, so the decoding surface is unknown until a codec narrows it."
     },
     {
       "file": "packages/agent-core/src/slates/runtime.ts",
       "kind": "unknown",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "SlateResultDataProperty.value",
+          "source": "readonly value: unknown;",
+          "count": 1
+        }
+      ],
       "reason": "A provider invocation result crosses an external seam, so an own data property's value remains unknown until the Slate result validator narrows it."
     },
     {
       "file": "packages/agent-core/src/slates/store.ts",
       "kind": "non-null",
-      "count": 6,
+      "anchors": [
+        {
+          "symbol": "MemorySlateStore.listSlates",
+          "source": "this.getSlate(new SlateId(id))!",
+          "count": 1
+        },
+        {
+          "symbol": "MemorySlateStore.verifyAll",
+          "source": "history.at(-1)!",
+          "count": 1
+        },
+        {
+          "symbol": "MemorySlateStore.verifyAll",
+          "source": "history[0]!",
+          "count": 1
+        },
+        {
+          "symbol": "MemorySlateStore.verifyAll",
+          "source": "history[index - 1]!",
+          "count": 1
+        },
+        {
+          "symbol": "MemorySlateStore.verifyAll",
+          "source": "this.getDeploymentReservation(new SlateDeploymentId(id))!",
+          "count": 1
+        },
+        {
+          "symbol": "MemorySlateStore.verifyAll",
+          "source": "this.getResourceReservation(new SlateResourceId(id))!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/substrates/sqlite/content-retention.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "SqliteTransientContentAccess.closeInTransaction",
+          "source": "closed.closedAt!",
+          "count": 1
+        }
+      ],
       "reason": "A row read back at an index the query's own limit or ordering established, and a state field the record's variant guarantees, are present by those facts."
     },
     {
       "file": "packages/agent-core/src/substrates/sqlite/invocations/persistence.ts",
       "kind": "unknown",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "SqliteConstraintFailure.code",
+          "source": "readonly code?: unknown;",
+          "count": 1
+        },
+        {
+          "symbol": "SqliteConstraintFailure.message",
+          "source": "readonly message?: unknown;",
+          "count": 1
+        }
+      ],
       "reason": "SQLite constraint failures cross the host boundary as untyped objects; their optional code and message fields remain unknown until the constraint classifier narrows them."
     },
     {
       "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
       "kind": "non-null",
-      "count": 6,
+      "anchors": [
+        {
+          "symbol": "requireOwnedPlan",
+          "source": "plan.actors[0]!",
+          "count": 1
+        },
+        {
+          "symbol": "SqliteMaterializationControlStore.compareAndSetDeployment",
+          "source": "rows[0]!",
+          "count": 1
+        },
+        {
+          "symbol": "SqliteMaterializationControlStore.compareAndSetOutbox",
+          "source": "rows[0]!",
+          "count": 1
+        },
+        {
+          "symbol": "SqliteMaterializationControlStore.isDeploymentLineageValid",
+          "source": "next.activePlanId!",
+          "count": 1
+        },
+        {
+          "symbol": "SqliteMaterializationControlStore.validateControlState.rollout",
+          "source": "this.loadRollout(transaction, new Digest(text(row, \"id\")))!",
+          "count": 1
+        },
+        {
+          "symbol": "SqliteMaterializationStore.writeGenerationPointer",
+          "source": "rows[0]!",
+          "count": 1
+        }
+      ],
       "reason": "A row read back at an index the query's own limit or ordering established, and a state field the record's variant guarantees, are present by those facts."
     },
     {
       "file": "packages/agent-core/src/substrates/sqlite/package.ts",
       "kind": "non-null",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "SqlitePackageStore.list",
+          "source": "releases[index - 1]!",
+          "count": 1
+        },
+        {
+          "symbol": "SqlitePackageStore.list",
+          "source": "releases[index]!",
+          "count": 1
+        }
+      ],
       "reason": "A row read back at an index the query's own limit or ordering established, and a state field the record's variant guarantees, are present by those facts."
     },
     {
       "file": "packages/agent-core/src/substrates/sqlite/run.ts",
       "kind": "non-null",
-      "count": 3,
+      "anchors": [
+        {
+          "symbol": "SqliteRunStorage.validateSchema",
+          "source": "marker[0]!",
+          "count": 3
+        }
+      ],
       "reason": "A row read back at an index the query's own limit or ordering established, and a state field the record's variant guarantees, are present by those facts."
     },
     {
       "file": "packages/agent-core/src/substrates/sqlite/slot.ts",
       "kind": "non-null",
-      "count": 3,
+      "anchors": [
+        {
+          "symbol": "SqliteWorkspaceSlotStore.constructor",
+          "source": "markers[0]!",
+          "count": 2
+        },
+        {
+          "symbol": "validateStoredState",
+          "source": "revisionRows[0]!",
+          "count": 1
+        }
+      ],
       "reason": "A row read back at an index the query's own limit or ordering established, and a state field the record's variant guarantees, are present by those facts."
     },
     {
       "file": "packages/agent-core/src/substrates/sqlite/tenant.ts",
       "kind": "non-null",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "SqliteTenantControlStore.assertCompleteClosureUnchecked",
+          "source": "plan.epochs[0]!",
+          "count": 2
+        }
+      ],
       "reason": "A row read back at an index the query's own limit or ordering established, and a state field the record's variant guarantees, are present by those facts."
     },
     {
       "file": "packages/agent-core/src/workspaces/codec.ts",
       "kind": "non-null",
-      "count": 1,
+      "anchors": [
+        {
+          "symbol": "decodeOptionalPrincipalRef.object",
+          "source": "value!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     },
     {
       "file": "packages/agent-core/src/workspaces/route.ts",
       "kind": "non-null",
-      "count": 2,
+      "anchors": [
+        {
+          "symbol": "RouteDelivery.constructor",
+          "source": "init.state.reason!",
+          "count": 1
+        },
+        {
+          "symbol": "RouteDeliveryCodecV1.decodePayload",
+          "source": "reason!",
+          "count": 1
+        }
+      ],
       "reason": "An entry read back at an index, key, or optional field the surrounding code has already established — a length check, a prior write, or a validated variant — which noUncheckedIndexedAccess and optionality cannot carry to the read."
     }
   ]
