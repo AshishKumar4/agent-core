@@ -307,6 +307,74 @@
       }
     },
     {
+      "id": "T-EVIDENCE:C13-AUTH-MEDIATED-ADMISSION",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-AUTH-MEDIATED-ADMISSION" },
+      "owner": "W2",
+      "priority": 5,
+      "summary": "Advance C13-AUTH-MEDIATED-ADMISSION from implemented with exact evidence",
+      "notes": [
+        "The corrected target-request and Tenant-decision path is implemented, but complete cross-Actor admission refinement is not proved"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-AUTH-MEDIATED-ADMISSION",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-AUTH-MEDIATED-STALE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-AUTH-MEDIATED-STALE" },
+      "owner": "W2",
+      "priority": 5,
+      "summary": "Advance C13-AUTH-MEDIATED-STALE from implemented with exact evidence",
+      "notes": [
+        "Authenticated Tenant denial joins target watermark state, but the full target-local Receipt and Audit transaction remains to be verified end to end"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-AUTH-MEDIATED-STALE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING from planned with exact evidence",
+      "notes": [
+        "A trusted profile bootstrap must mint an unforgeable target-bound RPC capability before the Tenant accepts a permit command; direct Durable Object RPC does not authenticate the calling Actor",
+        "The target capability must carry the exact immutable request through the Tenant command dispatcher, preserve duplicate and response-loss semantics, and authenticate every issued or denied reply in a real isolate",
+        "Deployed evidence must bind the exact Tenant and target source hashes without replacing the target capability with caller-supplied identity"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION from planned with exact evidence",
+      "notes": [
+        "The complete target mediation aggregate must be hosted in one Durable Object transaction and consume only an issued permit authenticated through the target-bound capability path",
+        "Real-isolate adversaries must cover request retention, exact claim and reservation admission, single use, expiry, rollback, restart, authenticated Tenant denial, response loss, and post-issuance watermark movement",
+        "Deployed cross-Actor evidence remains required after the local real-isolate vertical is complete"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION",
+        "expected": "verified"
+      }
+    },
+    {
       "id": "T-EVIDENCE:C13-CONFIG-SECRET-CUSTODY",
       "type": "T-EVIDENCE",
       "source": { "kind": "conformance", "id": "C13-CONFIG-SECRET-CUSTODY" },
@@ -444,6 +512,70 @@
       "oracle": {
         "kind": "conformance-status",
         "requirementId": "C13-POLICY-EPOCH-RECHECK",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-PROTOCOL-ATOMIC-EVIDENCE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-PROTOCOL-ATOMIC-EVIDENCE" },
+      "owner": "W1",
+      "priority": 5,
+      "summary": "Advance C13-PROTOCOL-ATOMIC-EVIDENCE from implemented with exact evidence",
+      "notes": [
+        "End-to-end target denial handling must prove the Tenant decision and target deniedPreEffect evidence across the cross-Actor boundary without a refinement shortcut"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-PROTOCOL-ATOMIC-EVIDENCE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-PROTOCOL-DUPLICATE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-PROTOCOL-DUPLICATE" },
+      "owner": "W1",
+      "priority": 5,
+      "summary": "Advance C13-PROTOCOL-DUPLICATE from implemented with exact evidence",
+      "notes": [
+        "Duplicate denial replay is covered for the Tenant command, but the complete command-family duplicate matrix remains outside this vertical"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-PROTOCOL-DUPLICATE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-PROTOCOL-OUTCOMES",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-PROTOCOL-OUTCOMES" },
+      "owner": "W1",
+      "priority": 5,
+      "summary": "Advance C13-PROTOCOL-OUTCOMES from implemented with exact evidence",
+      "notes": [
+        "The Tenant permit command now returns a closed authority-denial outcome; complete end-to-end outcome coverage remains outstanding"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-PROTOCOL-OUTCOMES",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-PROTOCOL-REJECTION-ROOT",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-PROTOCOL-REJECTION-ROOT" },
+      "owner": "W1",
+      "priority": 5,
+      "summary": "Advance C13-PROTOCOL-REJECTION-ROOT from implemented with exact evidence",
+      "notes": [
+        "The Tenant permit denial uses dispatcher rejection roots, but the cross-Actor denial chain is not yet verified as a complete conformance atom"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-PROTOCOL-REJECTION-ROOT",
         "expected": "verified"
       }
     },
@@ -858,6 +990,27 @@
       }
     },
     {
+      "id": "T-TRIAGE:AC-COMPOSED-001:271e850a0a91746728ad36fe3dc9b869d447a2d55888c82705ff7cf15df41996",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-COMPOSED-001",
+        "digest": "271e850a0a91746728ad36fe3dc9b869d447a2d55888c82705ff7cf15df41996"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-COMPOSED-001 evidence 271e850a0a91746728ad36fe3dc9b869d447a2d55888c82705ff7cf15df41996",
+      "notes": [
+        "authenticated-caller transport and Tenant denial reply, protocol outcome, WriteRecord, and AuditRecord refinement"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-COMPOSED-001",
+        "evidenceDigest": "271e850a0a91746728ad36fe3dc9b869d447a2d55888c82705ff7cf15df41996",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
       "id": "T-TRIAGE:AC-COMPOSED-001:3e3312db7fd74c911d3569272f4eb1600247367e4ee4dcdda15e991fa4172e6c",
       "type": "T-TRIAGE",
       "source": {
@@ -919,23 +1072,23 @@
       }
     },
     {
-      "id": "T-TRIAGE:AC-COMPOSED-001:ab2b816efa8b5373b5efb18df9b3abb9fdea3f36e89e684425daf0a37061c249",
+      "id": "T-TRIAGE:AC-COMPOSED-001:bdc9af7a2d5044a00236c5147a60e72c44b3a9e37f708e9623d724f6f40a1cb1",
       "type": "T-TRIAGE",
       "source": {
         "kind": "traceability-remaining-evidence",
         "id": "AC-COMPOSED-001",
-        "digest": "ab2b816efa8b5373b5efb18df9b3abb9fdea3f36e89e684425daf0a37061c249"
+        "digest": "bdc9af7a2d5044a00236c5147a60e72c44b3a9e37f708e9623d724f6f40a1cb1"
       },
       "owner": "maintainer-triage",
       "priority": 5,
-      "summary": "Type the disposition and oracle for AC-COMPOSED-001 evidence ab2b816efa8b5373b5efb18df9b3abb9fdea3f36e89e684425daf0a37061c249",
+      "summary": "Type the disposition and oracle for AC-COMPOSED-001 evidence bdc9af7a2d5044a00236c5147a60e72c44b3a9e37f708e9623d724f6f40a1cb1",
       "notes": [
-        "full §10.3 AuthorityPermit field representation, issuer signature, codec semantics, and concrete Tenant-issuance and target-consumption transactions"
+        "complete §10.3 target-request and AuthorityPermit wire representation beyond the modeled projection, issuer signature, and codec semantics"
       ],
       "oracle": {
         "kind": "typed-disposition",
         "requirementId": "AC-COMPOSED-001",
-        "evidenceDigest": "ab2b816efa8b5373b5efb18df9b3abb9fdea3f36e89e684425daf0a37061c249",
+        "evidenceDigest": "bdc9af7a2d5044a00236c5147a60e72c44b3a9e37f708e9623d724f6f40a1cb1",
         "expected": "migrated-or-permanent"
       }
     },
