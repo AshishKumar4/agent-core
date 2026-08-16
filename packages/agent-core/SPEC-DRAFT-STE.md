@@ -2966,11 +2966,11 @@ folded in caller-supplied order. A judge Turn writes a verdict commit, and fan-o
 
 ## 13. Conformance
 
-The bold labels below are the stable atomic conformance map for binding prose in §§1.4–1.5,
-§§2–10, and §13. Repeated explanations and cross-references map to the same concept
-label rather than creating duplicate requirements; modified clauses carry an inline
-map where their primary atom would otherwise be ambiguous. Every §11 atom carries its
-own authoritative `P11-*` label. Label order has no semantic meaning.
+The bold labels below are the stable atomic conformance map for binding prose in
+§§1.4–1.5, §§2–10, and §13. A repeated explanation or cross-reference maps to the same
+concept label rather than creating a duplicate requirement. A modified clause carries an
+inline map where its primary atom would otherwise be ambiguous. Every §11 atom carries
+its own authoritative `P11-*` label. Label order has no semantic meaning.
 
 A conforming implementation provides:
 
@@ -2995,17 +2995,25 @@ A conforming implementation provides:
 - **C13-AUTH-DIRECT-WATERMARK** Direct admission requires an unstaled watermark.
 - **C13-AUTH-MEDIATED-STALE** A mediated stale comparison atomically advances the watermark before recording pre-effect denial.
 - **C13-AUTH-MEDIATED-ADMISSION** Cross-DO permit issuance after exact claim identity is the final authority-admission linearization point.
-- **C13-AUTH-RESOLUTION-LIFETIME** A `bundled` resolution expires with its Turn and deadline; a `provider` or `dynamic` resolution lasts one Turn step and re-resolves against current path epochs.
-- **C13-AUTH-ISOLATE-DELEGATION** A capability passed into a `dynamic` isolate is a delegation bounded by the §3.4 rules, and the isolate's Invocations present its own delegated authority, never its loader's.
+- **C13-AUTH-RESOLUTION-LIFETIME** A `bundled` resolution expires with its Turn and
+  deadline. A `provider` or `dynamic` resolution lasts one Turn step and re-resolves
+  against current path epochs.
+- **C13-AUTH-ISOLATE-DELEGATION** A capability passed into a `dynamic` isolate is a
+  delegation bounded by the §3.4 rules. The isolate's Invocations present its own
+  delegated authority, never its loader's.
 - **C13-PLACEMENT-INTERSECTION** Deterministic placement by admissible-set intersection over manifest, policy, substrate, and trust sets.
 - **C13-PLACEMENT-ORDER** Placement uses the one fixed preference order.
 - **C13-PLACEMENT-EMPTY** An empty placement intersection is rejected.
 - **C13-PLACEMENT-UNTRUSTED-BUNDLED** Untrusted placement excludes `bundled`.
 - **C13-PLACEMENT-DYNAMIC-NO-EGRESS** A `dynamic` domain starts with no ambient network reach; every destination arrives as an explicitly passed Binding.
-- **C13-PLACEMENT-AUTHORED-BACKING** A platform declares which backing hosts each agent-authored code consumer, and every offered backing preserves identical `dynamic` authority semantics.
+- **C13-PLACEMENT-AUTHORED-BACKING** A platform declares which backing hosts each
+  agent-authored code consumer. Every offered backing preserves identical `dynamic`
+  authority semantics.
 - **C13-POLICY-DIRECT-COLOCATION** The `direct`-tier co-location requirement is enforced.
 - **C13-POLICY-DIRECT-ESCALATION** A direct call that cannot be co-located escalates to `mediated` (§7.2).
-- **C13-POLICY-MEDIATION-FLOOR** No policy can make `externalSend`, `delegate`, `administer`, `execute` outside a Turn-owned Session, or `mutate` outside that Session's own filesystem direct.
+- **C13-POLICY-MEDIATION-FLOOR** No policy can make `externalSend`, `delegate`,
+  `administer`, `execute` outside a Turn-owned Session, or `mutate` outside that
+  Session's own filesystem direct.
 - **C13-POLICY-APPROVAL-FLOOR** No policy can remove mandatory approval.
 - **C13-POLICY-EPOCH-RECHECK** Every mediated effect performs the current-epoch check.
 - **C13-CONFIG-SECRET-REF** Configuration is SecretRef-only, with no raw credentials in manifests or Blueprints.
@@ -3023,7 +3031,10 @@ A conforming implementation provides:
 - **C13-COMMAND-SUBSCRIPTION-DEFAULTS** Derived Subscription defaults are deterministic.
 - **C13-COMMAND-COLLISION** Command collisions are rejected.
 - **C13-COMMAND-COMPLETION-IMPACT** A command's `completion` Operation carries `observe` impact, so argument completion never leaves the direct tier.
-- **C13-COMMAND-INVOCATION-CORRELATION** `Event(command.invoked)` correlation carries the originating SurfaceId and, from a conversation, the RunRef and branch, and the derived Subscription admits no inferred compatibility relation or alternate authority source.
+- **C13-COMMAND-INVOCATION-CORRELATION** `Event(command.invoked)` correlation carries
+  the originating SurfaceId and, from a conversation, the RunRef and branch. The derived
+  Subscription admits no inferred compatibility relation and no alternate authority
+  source.
 - **C13-COMMAND-RESULT** Command results are delivered as correlated `command.completed` Events.
 - **C13-INTERCEPTOR-DOMAIN-CONFINEMENT** Interception happens only within one protection domain, and crossing one uses asynchronous Events.
 - **C13-INTERCEPTOR-POST-PREPARATION** No interceptor rewrites a PreparedInvocation, Approval, EffectAttempt, or effect arguments after preparation.
@@ -3059,7 +3070,9 @@ A conforming implementation provides:
 - **C13-PREPARED-WHOLE-DIGEST** Whole-intent digesting is canonical and structural.
 - **C13-PREPARED-REPLAY-IDENTITY** Mediated replay keys bind caller, request key, raw payload identity, target pin, lease, and route before interceptors.
 - **C13-PREPARED-REPLAY-PRE** Matching mediated replay reuses exact ordered per-item pre-effect transformations and prepared arguments.
-- **C13-PREPARED-REPLAY-POST** Matching batch replay preserves item-indexed output association while reusing exact per-item post-effect transformations and presentations; direct writes no replay record.
+- **C13-PREPARED-REPLAY-POST** Matching batch replay preserves item-indexed output
+  association while it reuses exact per-item post-effect transformations and
+  presentations. A direct call writes no replay record.
 - **C13-PREPARED-ROUTED-PROJECTION** Routed preparation obeys the exact projection rules.
 - **C13-PREPARED-NO-TURN-OWNER** No-Turn mediation authenticates the domain owner.
 - **C13-PREPARED-NO-TURN-AUDIT** No-Turn mediation requires a preexisting local audit cause.
@@ -3068,7 +3081,10 @@ A conforming implementation provides:
 - **C13-PREPARED-APPROVAL-UNIQUE** At most one Approval exists per Invocation.
 - **C13-PREPARED-CONTINUATION-ABSENT** Invocation continuation is absent before first Approval consumption.
 - **C13-PREPARED-APPROVAL-FIRST-ATTEMPT** Approval consumption is atomic with the first admitted EffectAttempt and persisted continuation.
-- **C13-PREPARED-APPROVAL-CONTINUATION** Where an Approval was required, later batch items and retries validate that the exact first EffectAttempt belongs to the continuation Invocation and PreparedInvocation item without consuming another Approval; where none was required, no continuation exists.
+- **C13-PREPARED-APPROVAL-CONTINUATION** Where an Approval was required, later batch
+  items and retries validate that the exact first EffectAttempt belongs to the
+  continuation Invocation and PreparedInvocation item, and they consume no further
+  Approval. Where none was required, no continuation exists.
 - **C13-RECEIPT-PRE-EFFECT** Terminal pre-effect Receipts are distinct from attempted Receipts.
 - **C13-EFFECT-ATTEMPT-IMMUTABLE** EffectAttempts are immutable.
 - **C13-RECEIPT-ATTEMPT-CHAIN** Attempted Receipts form the specified attempt chains.
@@ -3114,27 +3130,44 @@ A conforming implementation provides:
 - **C13-RUN-PINS-VALIDITY** RunPins bind Run.agent and a nonempty Package closure unique by PackageId.
 - **C13-RUN-PIN-IDENTITY-TYPES** `PackageId` and `FacetPackageId` are distinct opaque identities and are never converted or compared by string value.
 - **C13-RUN-CHECKPOINT-KINDS** Run checkpoints and tree checkpoints are distinct records and are never conflated.
-- **C13-RUN-TREE-CONFLICT-EXPLICIT** A path changed on both sides is surfaced, no merge commit is appended while any tree conflict is unresolved, and the explicit side for each conflict comes from the operator or an `administer`-impact Operation and is recorded in the merge.
+- **C13-RUN-TREE-CONFLICT-EXPLICIT** A path changed on both sides is surfaced, and no
+  merge commit is appended while any tree conflict is unresolved. The explicit side for
+  each conflict comes from the operator or an `administer`-impact Operation, and the
+  merge records it.
 - **C13-RUN-PARENT-PIN-INHERITANCE** Every non-migration unary commit inherits exact parent pins.
 - **C13-RUN-MIGRATED-TURN-REJECTION** A Turn retaining pre-migration pins cannot terminalize a migrated Run.
 - **C13-RUN-PLACEMENT-SNAPSHOT** Each Turn has a separate immutable placement snapshot.
 - **C13-RUN-EQUAL-PIN-MERGE** Merge admission requires equal pins.
 - **C13-RUN-EXPLICIT-MIGRATION** Run migration is explicit, durably evidenced, and rejects invalid target RunPins before installation.
-- **C13-RUN-ADMISSION-REGISTRY** Every Run-associated asynchronous obligation uses canonical pre-remote identity reserve, completion, and close transitions in the Run-owner registry.
+- **C13-RUN-ADMISSION-REGISTRY** Every Run-associated asynchronous obligation uses
+  canonical pre-remote identity reserve, completion, and close transitions in the
+  Run-owner registry.
 - **C13-RUN-RESERVATION-EPOCH** Remote admission validates the exact reserved identity and open Run registry epoch.
-- **C13-RUN-ACCEPTANCE-OBLIGATION** A declared acceptance criterion is a reserved Run obligation that only a succeeded verifier Receipt discharges, and declaring none changes nothing.
+- **C13-RUN-ACCEPTANCE-OBLIGATION** A declared acceptance criterion is a reserved Run
+  obligation that only a succeeded verifier Receipt discharges. Declaring none changes
+  nothing.
 - **C13-RUN-ACCEPTANCE-SUBJECT** An acceptance verdict is evidence for its exact subject digest, and a further attempt requires a subject no recorded verdict names.
-- **C13-RUN-RESOURCE-CEILING** A spawned Run's declared resource ceiling never exceeds its parent's remainder in any declared dimension, an undeclared dimension inherits that remainder, and declaring none bounds nothing.
-- **C13-RUN-CEILING-EXHAUSTION** An exhausted ceiling cancels the Run through the ordinary §5.3 terminal rows, naming the exhausted dimension only when that dimension has no allowance left.
-- **C13-RUN-CEILING-REMAINDER** `depth` and `wallClockMs` remainders are derived from the spawn lineage and the root RunCommit timestamp rather than separately accounted, and `tokens` is a durable per-Run running total accumulated where a model call commits.
+- **C13-RUN-RESOURCE-CEILING** A spawned Run's declared resource ceiling never exceeds
+  its parent's remainder in any declared dimension. An undeclared dimension inherits
+  that remainder, and declaring none bounds nothing.
+- **C13-RUN-CEILING-EXHAUSTION** An exhausted ceiling cancels the Run through the
+  ordinary §5.3 terminal rows. It names the exhausted dimension only when that dimension
+  has no allowance left.
+- **C13-RUN-CEILING-REMAINDER** `depth` and `wallClockMs` remainders are derived from
+  the spawn lineage and the root RunCommit timestamp rather than separately accounted.
+  `tokens` is a durable per-Run running total, accumulated where a model call commits.
 - **C13-RUN-TERMINAL-SIBLINGS** Run terminalization closes only after every sibling Turn is terminal and unheld.
 - **C13-RUN-FORCED-CANCELLATION** Forced cancellation is terminalization-only, distinct-sibling, administer-authorized fencing and cancellation evidence without Turn impersonation.
 - **C13-RUN-TERMINAL-OBLIGATIONS** Run terminalization captures a finite obligation set.
 - **C13-RUN-FRONTIER-COMPLETE** The terminal snapshot captures exactly reserved-minus-completed obligations with no omissions or extras.
 - **C13-RUN-FRONTIER-EMPTY** An honestly empty admitted unfinished frontier is valid.
 - **C13-RUN-SETTLED-DERIVED** Settled is derived from captured obligations, including exact Approval and reconciliation lineage discharge.
-- **C13-TURN-ADMISSION-HANDLE** An executor may return a mediated Invocation's admission identity in the model's tool position without changing admission, and a spawn's `delegate` Receipt carries the child RunRef, never the child's result.
-- **C13-TURN-CANCEL-INBOX** Mid-turn delivery appends to the running Turn's lease-fenced inbox, cancellation is the reserved `turn.cancel` Event, and a conforming executor observes it between steps and stops committing.
+- **C13-TURN-ADMISSION-HANDLE** An executor may return a mediated Invocation's admission
+  identity in the model's tool position without changing admission. A spawn's `delegate`
+  Receipt carries the child RunRef, never the child's result.
+- **C13-TURN-CANCEL-INBOX** Mid-turn delivery appends to the running Turn's lease-fenced
+  inbox, and cancellation is the reserved `turn.cancel` Event. A conforming executor
+  observes it between steps and stops committing.
 - **C13-TURN-EXACT-LEASE** Turn leases are exact-Turn.
 - **C13-TURN-LEASE-EXPIRY** Every lease claim, renew, or reclaim requires a future `expiresAt`, and reclaim additionally requires the recorded expiry to be at or before now.
 - **C13-TURN-MODEL-CALL** A model call happens only inside a Turn.
@@ -3144,15 +3177,22 @@ A conforming implementation provides:
 - **C13-TURN-NO-RETRY-PROTOCOL** Protocol integration contains no Turn retry command family.
 - **C13-TURN-NO-RETRY-EXPORT** Package integration exposes no Turn retry symbol.
 - **C13-TURN-NO-RETRY-RECORD** Record and migration registries contain no Turn retry record or upcast.
-- **C13-TURN-EXECUTOR-WRITER** Every executor-authored write — RunCommit, Invocation intent, EffectAttempt, child-Run spawn, callback, checkpoint, and terminal result — rejects stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
+- **C13-TURN-EXECUTOR-WRITER** Every executor-authored write — RunCommit, Invocation
+  intent, EffectAttempt, child-Run spawn, callback, checkpoint, and terminal result —
+  rejects stale, expired, wrong-Turn, wrong-holder, and terminal-transition leases.
 - **C13-VIEW-NO-LIVE-STATE** Views satisfy the no-live-state invariant.
 - **C13-VIEW-DELTA-REPLAY** ViewDelta supports revision replay.
-- **C13-VIEW-APPROVAL-PROVENANCE** A decision View marks every value the host did not originate with its TrustTier, names the exact `intentDigest` it authorizes, and its Surface renders a marked value as data rather than as platform voice.
+- **C13-VIEW-APPROVAL-PROVENANCE** A decision View marks every value the host did not
+  originate with its TrustTier, and names the exact `intentDigest` it authorizes. Its
+  Surface renders a marked value as data rather than as platform voice.
 - **C13-CONTENT-RESOLUTION** Every ContentRef resolves through a ContentStore that belongs to exactly one Tenant, and only for a caller whose authority reaches that Tenant.
 - **C13-CONTENT-CUSTODY** Every record naming a `ContentRef` retains that content until the record releases it.
 - **C13-CODEC-VERSIONING** Every durable record codec satisfies §8.3.
 - **C13-PROTOCOL-EXACT-ENVELOPE** The command dispatcher enforces exact caller and optional LeaseToken envelopes.
-- **C13-PROTOCOL-FAMILY-ENVELOPE-POLICY** Each command family declares whether `expectedRevision` is required and whether a LeaseToken is required, optional, or forbidden, and a violated declaration is `rejectedMalformed` except for token policy, which is `rejectedLease`.
+- **C13-PROTOCOL-FAMILY-ENVELOPE-POLICY** Each command family declares whether
+  `expectedRevision` is required, and whether a LeaseToken is required, optional, or
+  forbidden. A violated declaration is `rejectedMalformed`, except for token policy,
+  which is `rejectedLease`.
 - **C13-PROTOCOL-OUTCOMES** The command dispatcher produces deterministic complete outcomes.
 - **C13-PROTOCOL-DUPLICATE** Duplicate commands return duplicate replies without repeating mutation.
 - **C13-PROTOCOL-REJECTION-ROOT** Host rejection roots follow §8.5.
@@ -3161,21 +3201,38 @@ A conforming implementation provides:
 - **C13-OWNERSHIP-MAP** Conformance includes the state-ownership map required by §8.4 rule 6.
 - **C13-OWNERSHIP-SINGLE-OWNER** Every record type has one owning Actor; other Actors hold only rebuildable indexes and derived caches, and never dual-write.
 - **C13-OWNERSHIP-ACTOR-CONTRACT** An Actor serializes conflicting commands, recovers state before serving, commits at declared linearization points, and rejects stale fences.
-- **C13-OWNERSHIP-AUTHORITY-RECORDS** The Tenant Actor is the sole durable owner of Binding, Grant, and ScopeEpoch records, a Binding change and its path-epoch advance commit in one Tenant-local control transaction, and other Actors retain no canonical or mirrored copy.
+- **C13-OWNERSHIP-AUTHORITY-RECORDS** The Tenant Actor is the sole durable owner of
+  Binding, Grant, and ScopeEpoch records. A Binding change and its path-epoch advance
+  commit in one Tenant-local control transaction, and other Actors retain no canonical
+  or mirrored copy.
 - **C13-BLUEPRINT-VALIDATE-BEFORE-LOAD** Blueprint validation completes before package code loads.
 - **C13-BLUEPRINT-REMATERIALIZE** Blueprint re-materialization is idempotent.
 - **C13-BLUEPRINT-RUN-PINS** Re-materialization preserves RunPins (§9.3).
-- **C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING** A Cloudflare cross-DO authority permit binds every specified tenant, source, target, authority, intent, item, claim, pin, epoch, nonce, and time field.
-- **C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION** The target validates local claim, fence, reservation identity/epoch, single use, and expiry, then irreversibly consumes a valid issued permit regardless of newer post-issuance watermark.
-- **C13-CLOUDFLARE-RUN-HOSTING** A Run is Workspace-owned by default and may be pinned `dedicated` at start; its owner retains RunPins, active/terminal outcome, graph, and derived Settled obligations, and migration follows §5.2.
+- **C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING** A Cloudflare cross-DO authority permit
+  binds every specified tenant, source, target, authority, intent, item, claim, pin,
+  epoch, nonce, and time field.
+- **C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION** The target validates local claim,
+  fence, reservation identity and epoch, single use, and expiry. It then irreversibly
+  consumes a valid issued permit, regardless of a newer post-issuance watermark.
+- **C13-CLOUDFLARE-RUN-HOSTING** A Run is Workspace-owned by default and may be pinned
+  `dedicated` at start. Its owner retains RunPins, active or terminal outcome, graph,
+  and derived Settled obligations, and migration follows §5.2.
 - **C13-CLOUDFLARE-ALARM-CLAIMS** The object's single alarm is arbitrated by durable per-owner claims and tracks the earliest live one, so no owner clobbers another's wakeup.
-- **C13-CLOUDFLARE-RECONCILIATION-DRIVER** The reconciliation driver's claim tracks the earliest durable outbox entry, armed on enqueue, rebuilt at startup, and released when the outbox drains.
+- **C13-CLOUDFLARE-RECONCILIATION-DRIVER** The reconciliation driver's claim tracks the
+  earliest durable outbox entry. The claim is armed on enqueue, rebuilt at startup, and
+  released when the outbox drains.
 - **C13-CLOUDFLARE-ALARM-DURABILITY** An armed alarm survives instance loss and a throwing handler, and the platform, not an external re-arming path, recovers it.
 - **C13-CLOUDFLARE-RECONCILIATION-RETRY** A failed reconciliation is rescheduled to a bounded retry time rather than acknowledged, and settles on a later sweep.
 - **C13-CLOUDFLARE-RECONCILIATION-FENCE** Outbox acknowledgement and reschedule fence on the schedule the sweep observed, so a mid-sweep reschedule survives.
-- **C13-CLOUDFLARE-VIEW-ATTACHMENT** The per-socket acknowledged-revision cursor survives hibernation and eviction in the attachment, and replay is exactly the unacknowledged suffix.
-- **C13-CLOUDFLARE-QUEUE-DISPOSITION** Accepted deliveries are acknowledged, declined ones redelivered, and an undecodable body is neither delivered nor acknowledged but left to dead-lettering.
-- **C13-CLOUDFLARE-STORAGE-LIMIT** The declared DO SQLite size bound is one the deployed platform accepts, and write seams refuse an over-limit payload before opening a transaction.
+- **C13-CLOUDFLARE-VIEW-ATTACHMENT** The per-socket acknowledged-revision cursor
+  survives hibernation and eviction in the attachment, and replay is exactly the
+  unacknowledged suffix.
+- **C13-CLOUDFLARE-QUEUE-DISPOSITION** Accepted deliveries are acknowledged, and
+  declined ones are redelivered. An undecodable body is neither delivered nor
+  acknowledged, and is left to dead-lettering.
+- **C13-CLOUDFLARE-STORAGE-LIMIT** The declared DO SQLite size bound is one the deployed
+  platform accepts, and write seams refuse an over-limit payload before they open a
+  transaction.
 - **C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY** Alarm claims, armed alarms, outbox entries, and the view revision log survive a Worker deployment, and the new version resumes that work.
 - **C13-ADV-STALE-LEASE** Adversarial tests cover a stale lease.
 - **C13-ADV-WRONG-TURN-LEASE** Adversarial tests cover a wrong-Turn lease.
@@ -3234,8 +3291,9 @@ A conforming implementation provides:
 ## 14. The formal model
 
 The Lean package models an abstract subset only. `artifacts/traceability.yaml` is the
-sole detailed claim ledger: its status and remaining-evidence fields bound every claim.
-This section names coverage categories and trace IDs, never inferred theorem names.
+sole detailed claim ledger, and its status and remaining-evidence fields bound every
+claim. This section names coverage categories and trace IDs, never inferred theorem
+names.
 
 | Coverage category | Trace IDs | Boundary |
 | --- | --- | --- |
@@ -3259,35 +3317,42 @@ This section names coverage categories and trace IDs, never inferred theorem nam
 | Liveness, cryptography, and concrete refinement | `NC-TEMPORAL-LIVENESS`, `NC-CRYPTOGRAPHIC-COLLISION-RESISTANCE`, `NC-TYPESCRIPT-SUBSTRATE-REFINEMENT` | explicit non-claims; assumptions are listed separately in the ledger |
 
 No structural View result implies RFC 6902 correctness, the no-live-handle runtime
-boundary, Surface semantics, or profile behavior. No representation helper implies a
-profile implementation is safe or conforming. The ledger claims only the designated
+boundary, Surface semantics, or profile behavior. No representation helper implies that
+a profile implementation is safe or conforming. The ledger claims only the designated
 abstract consequences in each row and its narrower per-ID boundary. It does not close
 the full Run writer matrix, expected-head CAS, complete lifecycle, item-claim scheduler,
 command dispatcher, or any concrete persistence, authentication, timing, network,
 provider, resource-bound, or UI implementation.
 
-Operational use relies on these external assumptions, not hidden formal conclusions:
+Operational use relies on these external assumptions, not on hidden formal conclusions:
 
 - authentication and provenance map requests to the correct Principal, Actor, and
   Tenant;
-- cross-tenant verification authenticates the claimed home Tenant and explicit bridge
-  Binding;
+
+- cross-tenant verification authenticates the claimed home Tenant and the explicit
+  bridge Binding;
+
 - trusted monotonic time enforces lease expiry and immutable resolution deadlines;
-- codecs are canonical and chosen digests meet their stated collision assumptions;
+
+- codecs are canonical, and the chosen digests meet their stated collision assumptions;
+
 - each owning Actor's persistence linearizes its own guarded transaction and preserves
-  append-only records; there is no cross-Actor atomicity assumption. Commit-unknown is
+  append-only records. There is no cross-Actor atomicity assumption. Commit-unknown is
   observed as either the before-state or the fully committed local after-state, never a
   partial write;
+
 - loaded Facet code matches its manifest, schemas, declared impact, and placement;
+
 - provider idempotency keys identify the intended effect;
-- invalidation transport, cross-Actor delivery, reconciliation, and provider queries
-  are eventually scheduled only under an explicit fairness/eventual-delivery premise
-  when an eventual-liveness result is required. No designated liveness theorem is
-  claimed; safety rules fail closed and do not assume eventual progress.
+
+- invalidation transport, cross-Actor delivery, reconciliation, and provider queries are
+  eventually scheduled only under an explicit fairness or eventual-delivery premise, and
+  only when an eventual-liveness result is required. No designated liveness theorem is
+  claimed. Safety rules fail closed and do not assume eventual progress.
 
 Proving that TypeScript, an adapter, or a deployment refines Lean is explicitly not a
-goal of this formal package. Implementation conformance comes only from §13 evidence
-and tests under the declared operational assumptions.
+goal of this formal package. Implementation conformance comes only from §13 evidence and
+tests under the declared operational assumptions.
 
 ## 15. Open questions
 
@@ -3296,18 +3361,17 @@ One decision remains:
 1. **The public name.** "Agent Core" collides with a shipping AWS product (Bedrock
    AgentCore). Undecided.
 
-**Run/Turn vocabulary — decided; the current names stand.** Three levels exist here:
-a Run holds the lineage, a Turn is one execution attempt, and a Turn step is one
-iteration of the Turn's loop. The last two already match how agent harnesses name
-them. Only the container differs: this document says Run where others say session or
-thread.
+**Run/Turn vocabulary — decided; the current names stand.** Three levels exist here. A
+Run holds the lineage, a Turn is one execution attempt, and a Turn step is one iteration
+of the Turn's loop. The last two already match how agent harnesses name them. Only the
+container differs: this document says Run where others say session or thread.
 
 Session cannot take that role, because §4.5 gives the name to Environment sessions.
-Thread is free, and it is the closest industry word, but it describes a straight line.
-A Run branches, merges, and keeps named heads over immutable commits. Thread would
-make the most distinctive property of the structure harder to see, and this document
-also uses "single-threaded" for Durable Objects in §10. The rename trades one lookup
-for a permanent inaccuracy, so the names stay and Appendix A carries the translation.
+Thread is free, and it is the closest industry word, but it describes a straight line. A
+Run branches, merges, and keeps named heads over immutable commits. Thread would make
+the most distinctive property of the structure harder to see, and this document also
+uses "single-threaded" for Durable Objects in §10. The rename trades one lookup for a
+permanent inaccuracy, so the names stay, and Appendix A carries the translation.
 
 ## Appendix A — Translation table *(informative)*
 
@@ -3328,8 +3392,7 @@ for a permanent inaccuracy, so the names stay and Appendix A carries the transla
 
 ## Appendix B — Artifacts
 
-Future machine-readable record and protocol schemas MUST be generated from the
-versioned codecs required by §8.3 rather than maintained as a competing source of
-truth. The Lean model lives under `formal/`; its claim ledger is
-`artifacts/traceability.yaml`. The condensed introduction is the repository's
-[README](../../README.md).
+Future machine-readable record and protocol schemas MUST be generated from the versioned
+codecs §8.3 requires, rather than maintained as a competing source of truth. The Lean
+model lives under `formal/`, and its claim ledger is `artifacts/traceability.yaml`. The
+condensed introduction is the repository's [README](../../README.md).
