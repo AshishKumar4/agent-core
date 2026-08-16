@@ -98,14 +98,14 @@ Identifiers that end in `Id` or `Name` (`PrincipalId`, `SurfaceId`, `BindingName
 `ActorRef` are the same kind of type.
 
 The structured record `Ref` types are `PrincipalRef`, `SecretRef` (§3.5),
-`ForeignPrincipalRef` (§3.3), and `SubjectRef`. `SubjectRef` is the `PrincipalRef | Team
-| ForeignPrincipalRef` union that a Membership or Grant names (§3.1, §3.3).
-`PrincipalRef` is always tenant-qualified: `{ tenant: TenantId, id: PrincipalId }`.
-Every caller, authority initiator or delegate, lease holder, route initiator,
-cross-Actor permit, and Membership or Grant subject carries this canonical form. An
-unqualified id or a mismatched tenant rejects; nothing is inferred. A record that names
-both a Scope and a Principal subject rejects a subject qualified by another Tenant,
-instead of reading the Tenant off wherever the record is stored. This maps to
+`ForeignPrincipalRef` (§3.3), and `SubjectRef`. `SubjectRef` is the union
+`PrincipalRef | Team | ForeignPrincipalRef`, which is what a Membership or a Grant
+names (§3.1, §3.3). `PrincipalRef` is always tenant-qualified: `{ tenant: TenantId,
+id: PrincipalId }`. Every caller, authority initiator or delegate, lease holder, route
+initiator, cross-Actor permit, and Membership or Grant subject carries this canonical
+form. An unqualified id or a mismatched tenant rejects; nothing is inferred. A record
+that names both a Scope and a Principal subject rejects a subject qualified by another
+Tenant, instead of reading the Tenant off wherever the record is stored. This maps to
 **C13-AUTH-PRINCIPAL-REF**.
 
 These type-name suffixes mark JSON-Schema-validated records:
@@ -453,11 +453,11 @@ Authority rules:
    the exact permit under `C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION`. This rule maps
    to **C13-AUTH-MEDIATED-ADMISSION** and **C13-AUTH-MEDIATED-STALE**.
 8. Resolved-facet lifetime follows the isolation mode. A `bundled` resolution lasts no
-   longer than its exact Turn and deadline: a held or cached resolution admits only
-   while it still names the exact current LeaseToken for that Turn, so fencing,
-   reclaiming, or completing the Turn ends it at once rather than at the next unrelated
+   longer than its exact Turn and deadline. A held or cached resolution admits only
+   while it still names the exact current LeaseToken for that Turn. Fencing, reclaiming,
+   or completing the Turn therefore ends it at once, rather than at the next unrelated
    check. A **Turn step** is one iteration of the Turn's execution loop, the interval
-   between two successive firings of the `turn.step` interceptor cut point (§4.4); the
+   between two successive firings of the `turn.step` interceptor cut point (§4.4). The
    executor seam (§5.6) fixes what one iteration comprises, and this document places no
    further structure on it. A `provider` or `dynamic` resolution lasts one Turn step.
    The capability stub it wraps MUST NOT be held or reused past the step in which it was
@@ -1763,7 +1763,7 @@ whatever the data direction, and reading the response is `observe`. A web fetch 
 **seam** the call leaves through, never from what the callee declares about itself, and
 a seam is fixed by whoever controls the destination, never by the destination itself.
 For an Operation whose destination is the platform's own first-party code, `bundled`
-placement (§9.2) already is that control: a Blueprint that trusts a Package enough to
+placement (§9.2) already is that control. A Blueprint that trusts a Package enough to
 run it in-process has already trusted every claim in its manifest, impact included, so
 the manifest's declared impact stands as the seam. For an Operation whose destination is
 externally configurable — an integration that reaches an endpoint the Tenant chose — the
@@ -2485,11 +2485,12 @@ those facts.
 
 Projects are records in the Tenant DO, so grouping adds zero DOs. Authority resolution
 returns complete PathEpochEvidence. The profile MUST monotonically deliver invalidation
-watermarks, atomically advance them on mediated stale observation, enforce the exact
-Turn lease and immutable deadline for direct calls, perform Actor-local final authority
-admission in the attempt transaction, and perform cross-DO final authority admission at
-Tenant permit issuance after the exact claim identity is known (§3.4, §10.3). The
-watermark obligation maps to **C13-AUTH-WATERMARK-MONOTONE**.
+watermarks. It MUST atomically advance them on mediated stale observation. It MUST
+enforce the exact Turn lease and immutable deadline for direct calls. It MUST perform
+Actor-local final authority admission in the attempt transaction. It MUST perform
+cross-DO final authority admission at Tenant permit issuance, after the exact claim
+identity is known (§3.4, §10.3). The watermark obligation maps to
+**C13-AUTH-WATERMARK-MONOTONE**.
 
 ![Cloudflare topology](diagrams/cloudflare.svg)
 
@@ -2575,25 +2576,24 @@ Grants, Binding generation, complete path epochs, qualified PrincipalRef, and op
 exact lease. The Tenant MUST reject a request whose expiry is not strictly after the
 issuance clock, and the issued permit MUST bind the exact request digest. An exact
 previous issuance may be replayed after response loss while it remains valid; its
-original `issuedAt` is immutable. Revocation or epoch
-mutation committed before issuance blocks it; mutation after issuance does not cancel
-that admitted permit but blocks every later issuance. The target Actor authenticates
-issuer and source, exact-matches every bound field to the persisted PreparedInvocation,
-Run reservation epoch, local claim id/owner, package pin, and target fence/domain,
-requires `issuedAt <= now < expiresAt`, exact-matches `requestDigest` to its retained
-target request, and atomically records a separate exact-permit consumption with
-EffectAttempt admission. Consumption MUST retain rather than delete or replace the
-immutable target request; both records survive restart, and recovery MUST fail closed
-unless the request and consumption still match exactly. A nonce is single-use even
-after expiry. A missing request, mismatch, substitution, replay, closed or changed
-reservation epoch, stale local claim/fence, or expiry records a pre-effect denial and
-no EffectAttempt. A newer
-target-local watermark arriving after issuance MUST NOT reject, cancel, or stale a
-valid issued permit: issuance is irreversible authority admission. Target watermark
-join and stale-denial evidence occur only when issuance failed, the permit is
+original `issuedAt` is immutable. Revocation or epoch mutation committed before issuance
+blocks it; mutation after issuance does not cancel that admitted permit but blocks every
+later issuance. The target Actor authenticates issuer and source. It exact-matches every
+bound field to the persisted PreparedInvocation, Run reservation epoch, local claim id
+and owner, package pin, and target fence and domain. It requires `issuedAt <= now <
+expiresAt`. It exact-matches `requestDigest` to its retained target request. It then
+atomically records a separate exact-permit consumption with EffectAttempt admission.
+Consumption MUST retain rather than delete or replace the immutable target request; both
+records survive restart, and recovery MUST fail closed unless the request and
+consumption still match exactly. A nonce is single-use even after expiry. A missing
+request, mismatch, substitution, replay, closed or changed reservation epoch, stale
+local claim/fence, or expiry records a pre-effect denial and no EffectAttempt. A newer
+target-local watermark arriving after issuance MUST NOT reject, cancel, or stale a valid
+issued permit: issuance is irreversible authority admission. Target watermark join and
+stale-denial evidence occur only when issuance failed, the permit is
 expired/substituted/invalid, or an unissued intent is compared. Post-issuance revocation
-blocks only future permit issuance. The permit
-delegates no ambient authority and creates no cross-DO transaction. These clauses map to
+blocks only future permit issuance. The permit delegates no ambient authority and
+creates no cross-DO transaction. These clauses map to
 **C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING** and
 **C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION**.
 
