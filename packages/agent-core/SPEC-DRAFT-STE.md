@@ -1506,21 +1506,20 @@ than adapting it. This maps to **C13-TURN-NO-RETRY-RECORD**.
 An **Event** is an immutable occurrence record: scope, source (Facet or Actor),
 category, payload reference and digest, idempotency key, correlation and causation,
 **provenance**, derived **TrustTier**, and visibility policy. A webhook, a schedule
-firing, a chat message, a button press, and a command invocation are all Events: one
-input model, one routing mechanism, and one audit trail for everything that enters the
-system.
+firing, a chat message, a button press, and a command invocation are all Events. That
+gives one input model, one routing mechanism, and one audit trail for everything that
+enters the system.
 
 **Trust tiers MUST be host-derived, never facet-asserted**, which maps to
-**C13-TRUST-HOST-DERIVED**. A Facet supplies raw
-provenance — authenticated identity, channel, group, transport verification result —
-and the host derives the tier from that provenance and the Blueprint's trust-tier
-policy:
+**C13-TRUST-HOST-DERIVED**. A Facet supplies raw provenance — authenticated identity,
+channel, group, transport verification result — and the host derives the tier from that
+provenance and the Blueprint's trust-tier policy:
 
 - `owner` — the authenticated owning Principal of the scope;
 - `authenticated` — a verified non-owner principal;
-- `external` — unauthenticated or third-party origin;
-- `self` — emitted by a Turn executor under a valid lease. Assignable only by the
-  host for lease-fenced emissions.
+- `external` — an unauthenticated or third-party origin;
+- `self` — emitted by a Turn executor under a valid lease. Only the host assigns this tier,
+  and only for lease-fenced emissions.
 
 TrustTier is categorical, not ordered. Consumers MUST declare an explicit accepted set;
 there is no minimum-tier comparison. This maps to **C13-SUBSCRIPTION-ACCEPTED-TIERS**.
@@ -1540,13 +1539,13 @@ interface IngressDeclaration {
 }
 ```
 
-The host exposes declared endpoints, verifies per `verification`, and mints Events
-with derived provenance; unverified requests MUST NOT mint Events. This maps to
-**C13-TRUST-VERIFIED-INGRESS**.
+The host exposes declared endpoints, verifies each request per `verification`, and mints
+Events with derived provenance. An unverified request MUST NOT mint an Event. This maps
+to **C13-TRUST-VERIFIED-INGRESS**.
 
 The standard source actions enter through ordinary mediated host Operations and the
-closed Receipt-to-Event causal edge; they do not create a WriteRecord-to-Event edge or
-another audit root. The exact mapping is:
+closed Receipt-to-Event causal edge. They create no WriteRecord-to-Event edge and no
+second audit root. The exact mapping is:
 
 | Source Event | Host Operation | Required source outcome |
 | --- | --- | --- |
@@ -1557,14 +1556,13 @@ another audit root. The exact mapping is:
 
 The successful Receipt's AuditRecord causes the Event AuditRecord, after which routing
 continues `Event → RouteReserved`. A denied, cancelled, failed, indeterminate, or
-unverified source action emits no source Event. `command.completed` is similarly caused
-by the target Operation's terminal Receipt. This maps to
+unverified source action emits no source Event. `command.completed` is caused the same
+way, by the target Operation's terminal Receipt. This maps to
 **C13-PROFILE-SOURCE-EVENT-CAUSALITY**.
 
 **Ownership.** An Event is owned by the Actor that accepts it (§8.4). Appending and
-routing are transactional within that owning Actor; routing over Events owned by a
-different Actor is an asynchronous, at-least-once, idempotency-keyed projection
-(§10.1).
+routing are transactional within that owning Actor. Routing over Events owned by a
+different Actor is an asynchronous, at-least-once, idempotency-keyed projection (§10.1).
 
 ### 6.2 Subscription
 
@@ -1644,47 +1642,47 @@ interface FieldMove {
 }
 ```
 
-Routing is at-least-once with deduplication on the subscription's dedupe key: `event`
+Routing is at-least-once, with deduplication on the subscription's dedupe key. `event`
 dedupes on the Event id, `causation` on its cause, `payload` on its payload digest, and
 `none` assigns each delivery a distinct key. Before delivery, the Event-owning source
-Actor MUST authenticate the Event and mapping, derive trust, validate it is in
-`acceptedTrust`, map the payload, and append the authoritative **RouteReservation**.
-The reservation's projection and digest MUST be immutable; the target never remaps
-source data or accepts an unauthenticated projection. These map to
+Actor MUST authenticate the Event and mapping, derive trust, validate that the tier is
+in `acceptedTrust`, map the payload, and append the authoritative **RouteReservation**.
+The reservation's projection and digest MUST be immutable. The target never remaps
+source data and never accepts an unauthenticated projection. These map to
 **C13-ROUTE-SOURCE-OWNED** and **C13-ROUTE-PROJECTION-DIGEST**.
 
-`initiator` uses the authenticated initiating Principal recorded by the source Actor in
-the reservation through exactly its named Binding; an Event without one cannot use that
-source. The target copies that Principal into InvocationAuthority and cannot substitute
-another principal. The complete PrincipalRef, including tenant, MUST exact-match the
-source Event, RouteReservation tenant relation, PreparedInvocation authority, optional
-LeaseToken holder, and any AuthorityPermit; matching `PrincipalId` values in different
-Tenants are different principals.
-`delegated` uses the named Binding independently of the initiator. A same-tenant reservation prohibits cross-tenant authority. A cross-tenant
-reservation requires the `TenantRelation.cross.authority` Binding in addition to the
-Subscription's AuthoritySource; absence or tenant mismatch denies delivery. These map to
+`initiator` uses the authenticated initiating Principal that the source Actor recorded
+in the reservation, through exactly its named Binding. An Event without one cannot use
+that source. The target copies that Principal into InvocationAuthority and cannot
+substitute another principal. The complete PrincipalRef, tenant included, MUST
+exact-match the source Event, the RouteReservation tenant relation, the
+PreparedInvocation authority, the optional LeaseToken holder, and any AuthorityPermit.
+Matching `PrincipalId` values in different Tenants are different principals. `delegated`
+uses the named Binding independently of the initiator. A same-tenant reservation
+prohibits cross-tenant authority. A cross-tenant reservation requires the
+`TenantRelation.cross.authority` Binding in addition to the Subscription's
+AuthoritySource; an absent Binding or a tenant mismatch denies delivery. These map to
 **C13-SUBSCRIPTION-AUTHORITY** and **C13-ROUTE-CROSS-TENANT-BINDING**.
 
 For a deduplicating policy, `(subscription, dedupeKey)` identifies one reservation and
-one stable InvocationId; redelivery reuses both and cannot prepare another intent.
-A reservation has at most one terminal RouteDelivery — admission writes it, so a
-reservation the target has not admitted has none — and it is written once: a redelivery
-that finds it returns it rather than appending another. `sourceAuditCause` MUST
-be the preexisting source-Actor Event AuditRecord for that reservation's `event` field and
-causes the source-local reservation audit entry. This maps to **C13-ROUTE-DELIVERY-ONCE**.
-The source-owned reservation is the only cross-Actor causal
-bridge. Its authenticated projection admits a cause-free, target-local
-`routeProjected` bridge root; that root is not caused by any source AuditRecord.
-Target-local delivery and preparation cite the bridge root. A scheduled automation is a Subscription from a
-scheduler Event (idempotency key derived from `(subscription, fireTime)`); a webhook
-automation is a Subscription from a verified ingress Event. Example:
-`{ source: { kind: "schedule.daily-report", acceptedTrust: ["self"] },
-target: "report.generate", dedupe: "event",
-authority: { kind: "delegated", binding: "daily-report" } }`.
+one stable InvocationId. Redelivery reuses both and cannot prepare another intent. A
+reservation has at most one terminal RouteDelivery. Admission writes it, so a
+reservation the target has not admitted has none, and it is written once: a redelivery
+that finds it returns it rather than appending another. `sourceAuditCause` MUST be the
+preexisting source-Actor Event AuditRecord for that reservation's `event` field, and it
+causes the source-local reservation audit entry. This maps to
+**C13-ROUTE-DELIVERY-ONCE**. The source-owned reservation is the only cross-Actor causal
+bridge. Its authenticated projection admits a cause-free, target-local `routeProjected`
+bridge root, and no source AuditRecord causes that root. Target-local delivery and
+preparation cite the bridge root. A scheduled automation is a Subscription from a
+scheduler Event, with an idempotency key derived from `(subscription, fireTime)`. A
+webhook automation is a Subscription from a verified ingress Event. Example: `{ source:
+{ kind: "schedule.daily-report", acceptedTrust: ["self"] }, target: "report.generate",
+dedupe: "event", authority: { kind: "delegated", binding: "daily-report" } }`.
 
 ### 6.3 Surface, View, ViewDelta
 
-A **Surface** is a stable UI contribution from a Facet; a **View** is one rendered
+A **Surface** is a stable UI contribution from a Facet. A **View** is one rendered
 snapshot of it.
 
 ```ts
@@ -1725,27 +1723,28 @@ interface ActionDescriptor {
 // A reconnecting client presents its last cursor to resume ViewDelta replay (§10.3).
 ```
 
-A View MUST carry no live Facets, stubs, credentials, or hidden state — refs only.
-Surfaces stream via **ViewDelta** events: RFC 6902 JSON Patches against a View
-revision (compatible with AG-UI's `STATE_DELTA` convention), so clients update
-without re-snapshotting. Surface actions emit Events; Subscriptions route them to
-Operations. Aggregating surfaces — dashboards — compose slot-contributed child Views
-per §4.2. Token-level model-output streaming is an executor and transport concern
-(§5.6), not Events. This maps to **C13-VIEW-NO-LIVE-STATE**.
+A View MUST carry no live Facets, no stubs, no credentials, and no hidden state: refs
+only. Surfaces stream through **ViewDelta** events, which are RFC 6902 JSON Patches
+against a View revision, compatible with AG-UI's `STATE_DELTA` convention, so clients
+update without re-snapshotting. Surface actions emit Events, and Subscriptions route
+them to Operations. Aggregating surfaces such as dashboards compose slot-contributed
+child Views per §4.2. Token-level model-output streaming is an executor and transport
+concern (§5.6), not Events. This maps to **C13-VIEW-NO-LIVE-STATE**.
 
 A View that presents an intent for a human decision carries the provenance of what it
-shows. A **decision View** is exactly a View whose `intentDigest` field is present — the
-field's presence is the discriminator, naming the exact intent (§7.3) the decision
-authorizes; an ordinary View omits it. Every body value the host did not originate MUST be
-marked with the TrustTier of the Event or Operation input it came from (§6.1) in that
-View's `marks` list. A Surface MUST render a marked value as data and never as **platform
-voice** — platform voice is any rendered position a viewer would attribute to the platform
-itself rather than to the marked value's own source: unquoted body copy, a headline, a
-button label synthesized from the value. Rendering as data means a position and treatment —
-a quoted or clearly labeled field, never host-authored prose — that a reasonable viewer
-reads as showing someone else's input, not the platform speaking. Without this the last
-step of the chain — a person reading rendered text — is the one step decided on
-unattributed input. This maps to **C13-VIEW-APPROVAL-PROVENANCE**.
+shows. A **decision View** is exactly a View whose `intentDigest` field is present. The
+field's presence is the discriminator, and it names the exact intent (§7.3) the decision
+authorizes; an ordinary View omits it. Every body value the host did not originate MUST
+be marked in that View's `marks` list with the TrustTier of the Event or Operation input
+it came from (§6.1). A Surface MUST render a marked value as data, never as **platform
+voice**. Platform voice is any rendered position a viewer would attribute to the
+platform itself rather than to the marked value's own source: unquoted body copy, a
+headline, a button label synthesized from the value. To render as data is to use a
+position and treatment — a quoted or clearly labeled field, never host-authored prose —
+that a reasonable viewer reads as showing someone else's input rather than the platform
+speaking. Without this rule, the last step of the chain, a person reading rendered text,
+is the one step decided on unattributed input. This maps to
+**C13-VIEW-APPROVAL-PROVENANCE**.
 
 ---
 
@@ -1753,84 +1752,86 @@ unattributed input. This maps to **C13-VIEW-APPROVAL-PROVENANCE**.
 
 ### 7.1 Impact taxonomy
 
-The six impacts are defined in §1.4. The **trust boundary** encloses the protection
-domains (§1.5) the Tenant controls. A request crosses it when its destination is not one
-of them: another Tenant, a third party, or any endpoint reached over a network the
-platform does not own.
+§1.4 defines the six impacts. The **trust boundary** encloses the protection domains
+(§1.5) the Tenant controls. A request crosses it when its destination is not one of
+them: another Tenant, a third party, or any endpoint reached over a network the platform
+does not own.
 
-Boundary rule: an operation whose request crosses the trust boundary is `externalSend`
-regardless of data direction, and reading the response is `observe`. A web fetch is
+Boundary rule: an operation whose request crosses the trust boundary is `externalSend`,
+whatever the data direction, and reading the response is `observe`. A web fetch is
 `externalSend`; listing its cached result is `observe`. The host derives this from the
-**seam** the call leaves through — never from what the callee declares about itself — and a
-seam is fixed by whoever controls the destination, never by the destination itself.
+**seam** the call leaves through, never from what the callee declares about itself, and
+a seam is fixed by whoever controls the destination, never by the destination itself.
 For an Operation whose destination is the platform's own first-party code, `bundled`
-placement (§9.2) already is that control: a Blueprint that trusts a Package enough to run
-it in-process has already trusted every claim in its manifest, impact included, so the
-manifest's declared impact stands as the seam. For an Operation whose destination is
-externally configurable — an integration reaching an endpoint the Tenant chose — the seam
-is the Tenant's own install-time configuration (the `configSchema`-validated vocabulary
-§4.1 already has, not a new one): a boundary fact the Blueprint or Package config records
-when the integration is installed, never a value the configured endpoint returns at call
-time. A declared impact is a claim by the party whose reach is in question, so a host that
-accepted one uncritically would let any remote name its own enforcement tier — such a claim
-MAY raise the §7.2 floor the seam derives, never lower it: it is refused whenever it would
-admit `direct` under any condition where the derived impact requires `mediated`. §11's MCP
-profile is one instance of this rule, not an exception to it: its `remote` install
-configuration is the seam, and a tool's own impact annotation may only raise the floor
-`remote` derives. This maps to **C13-FACET-IMPACT-BOUNDARY**.
+placement (§9.2) already is that control: a Blueprint that trusts a Package enough to
+run it in-process has already trusted every claim in its manifest, impact included, so
+the manifest's declared impact stands as the seam. For an Operation whose destination is
+externally configurable — an integration that reaches an endpoint the Tenant chose — the
+seam is the Tenant's own install-time configuration. That configuration uses the
+`configSchema`-validated vocabulary §4.1 already has, not a new one: it is a boundary
+fact the Blueprint or Package config records when the integration is installed, never a
+value the configured endpoint returns at call time. A declared impact is a claim by the
+party whose reach is in question, and a host that accepted one uncritically would let
+any remote name its own enforcement tier. So such a claim MAY raise the §7.2 floor the
+seam derives, never lower it: it is refused whenever it would admit `direct` under any
+condition where the derived impact requires `mediated`. §11's MCP profile is one
+instance of this rule, not an exception to it: its `remote` install configuration is the
+seam, and a tool's own impact annotation may only raise the floor `remote` derives. This
+maps to **C13-FACET-IMPACT-BOUNDARY**.
 
 ### 7.2 Enforcement tiers
 
-Every protected call is an **Invocation**; enforcement is tiered. Workspace policy maps an
-Operation's `Impact` to an `EnforcementTier`. Impact is the key because it is the class the
-policy is about; the facet and the Operation are derivable from the call itself, and a
-policy keyed on them would be an instance list rather than a rule. Event trust tier decides
-whether an Event may invoke a Command at all (§6.1), which is an admission question and not
-a tiering one.
+Every protected call is an **Invocation**, and enforcement is tiered. Workspace policy
+maps an Operation's `Impact` to an `EnforcementTier`. Impact is the key because it is
+the class the policy is about. The facet and the Operation are derivable from the call
+itself, and a policy keyed on them would be an instance list rather than a rule. Event
+trust tier decides whether an Event may invoke a Command at all (§6.1), which is an
+admission question and not a tiering one.
 
-- **mediated** — the durable pipeline: resolve initiator or delegated-Binding authority → durably record intent →
-  reserve the Run obligation when Run-associated → evaluate policy → Approval when
-  required (§7.3) → establish the exact item claim → perform the final Actor-local
-  authority admission or issue the cross-Actor §10.3 permit → pre-effect Receipt
-  **or** EffectAttempt → invoke under stable operation identity →
+- **mediated** — the durable pipeline: resolve initiator or delegated-Binding authority
+  → durably record intent → reserve the Run obligation when Run-associated → evaluate
+  policy → Approval when required (§7.3) → establish the exact item claim → perform the
+  final Actor-local authority admission or issue the cross-Actor §10.3 permit →
+  pre-effect Receipt **or** EffectAttempt → invoke under stable operation identity →
   attempted Receipt → AuditRecord → Event.
+
 - **direct** — an in-process call. Authority, exact current Turn lease, delivered
-  watermark, PathEpochEvidence, and immutable §3.4 deadline are checked in memory; no durable
-  writes occur on the call path; telemetry MAY be sampled. A `direct` call MUST resolve a
-  facet `bundled` in the Actor that owns the Turn lease; a
-  provider- or dynamic-mode facet is never `direct`, because its authority check would
-  cross an isolate boundary. This co-location requirement maps to
+  watermark, PathEpochEvidence, and the immutable §3.4 deadline are checked in memory.
+  No durable writes occur on the call path, and telemetry MAY be sampled. A `direct`
+  call MUST resolve a facet `bundled` in the Actor that owns the Turn lease. A provider-
+  or dynamic-mode facet is never `direct`, because its authority check would cross an
+  isolate boundary. This co-location requirement maps to
   **C13-POLICY-DIRECT-COLOCATION**.
 
 Enforcement is a floor, not a bidirectional override. The floor is: `observe` → direct;
 on a Turn-owned Session (§4.5), `execute` and `mutate` whose target is that Session's
-own filesystem → direct; every other `execute` and `mutate`, plus
-`externalSend`, `delegate`, and `administer` → mediated. Policy MAY raise a direct floor
-to mediated, and MAY add approval, which raises it too: an approval has nowhere to be
-recorded on the direct path. It MUST NOT lower a mediated floor or remove an approval
-required by a profile, Operation, Package, or ancestor policy. Three further conditions
-raise direct to mediated: lack of bundled co-location; an applicable `operation.before`
-or `operation.after` interceptor, whose rewrite evidence (§4.4 rule 3) has no direct
-channel to be recorded through; and the absence of a configured
+own filesystem → direct; every other `execute` and `mutate`, plus `externalSend`,
+`delegate`, and `administer` → mediated. Policy MAY raise a direct floor to mediated,
+and it MAY add approval, which raises it too, because an approval has nowhere to be
+recorded on the direct path. It MUST NOT lower a mediated floor, and it MUST NOT remove
+an approval required by a profile, Operation, Package, or ancestor policy. Three further
+conditions raise direct to mediated: lack of bundled co-location; an applicable
+`operation.before` or `operation.after` interceptor, whose rewrite evidence (§4.4 rule
+3) has no direct channel to be recorded through; and the absence of a configured
 `maxDirectRevocationWindowMs`, without which §3.4 rule 6 can bound no revocation window.
-An interceptor contributed over an `observe` operation therefore moves that read onto the
-mediated path, and a host SHOULD surface that consequence at contribution time rather than
-leave it to be discovered as latency. These tightenings are monotone.
-A write inside a Turn-owned Session crosses no seam (§7.1) and acquires no authority, so it
-can neither exfiltrate nor escalate, and the durable evidence for that filesystem is the
-tree checkpoint the writes produce (§5.4) rather than a receipt per write — which is the
-digest acceptance criteria and merges consume anyway. `mutate` against anything else — a
-platform record, another facet, a shared or longer-lived Session — keeps its mediated
-floor, and so does every `externalSend`, `delegate`, and `administer`. The two
+An interceptor contributed over an `observe` operation therefore moves that read onto
+the mediated path, and a host SHOULD surface that consequence at contribution time
+rather than leave it to be discovered as latency. These tightenings are monotone. A
+write inside a Turn-owned Session crosses no seam (§7.1) and acquires no authority, so
+it can neither exfiltrate nor escalate. The durable evidence for that filesystem is the
+tree checkpoint the writes produce (§5.4) rather than a receipt per write, and that is
+the digest acceptance criteria and merges consume anyway. `mutate` against anything else
+— a platform record, another facet, a shared or longer-lived Session — keeps its
+mediated floor, and so does every `externalSend`, `delegate`, and `administer`. The two
 prohibitions this floor states map to **C13-POLICY-MEDIATION-FLOOR** and
 **C13-POLICY-APPROVAL-FLOOR**.
 
-Every mediated effect, including an internal mutation or execution, uses the one final
+Every mediated effect, an internal mutation or execution included, uses the one final
 authority-admission linearization point in §3.4 rule 7. Actor-local admission performs
 the comparison in the attempt-admission transaction. Cross-Actor admission performs it
-when the Tenant Actor issues the exact-claim permit; target consumption validates local
-claim, fence, reservation epoch, watermark, single use, and expiry but does not reopen
-the Grant decision. This rule is not limited to external sends and maps to
+when the Tenant Actor issues the exact-claim permit. Target consumption validates local
+claim, fence, reservation epoch, watermark, single use, and expiry, but it does not
+reopen the Grant decision. This rule is not limited to external sends, and it maps to
 **C13-POLICY-EPOCH-RECHECK**.
 
 ![Tiers and the approval continuation](diagrams/mediation.svg)
@@ -1932,7 +1933,7 @@ interface InvocationContinuation {
 ```
 
 A PreparedInvocation MUST have exactly one shared header. A batch is nonempty and
-ordered; homogeneity is structural because operation, impact, target, authority,
+ordered. Homogeneity is structural, because operation, impact, target, authority,
 optional exact LeaseToken, and evidence occur only in that header. Every item MUST
 validate against the shared Operation input schema. A single is not encoded as a
 one-item batch, item order is part of identity, and a batch is not atomic. These map to
@@ -1942,78 +1943,80 @@ one-item batch, item order is part of identity, and a batch is not atomic. These
 The host MUST derive, never accept, each item key from the complete tuple
 `("agent-core.item.v1", structuralDigest(completeSharedHeaderIdentity), payloadShape,
 itemIndex, structuralDigest(arguments), header.idempotencySeed)`. The shared-header
-identity commits every header field, not merely InvocationId; payload shape is `single`
-or `batch(itemCount)`. The derivation is domain-separated and collision resistant;
-index is zero for a single. `intentDigest` MUST cover the canonical structural
-encoding of the complete header and payload, including shape, order, exact optional
-LeaseToken, authority, evidence, arguments, and every derived key. Invocation identity
-therefore explicitly binds both InvocationId and exact lease epoch. It is not byte
-concatenation and omits no field. Format, derivation, and digest algorithm are
+identity commits every header field, not only InvocationId. Payload shape is `single` or
+`batch(itemCount)`. The derivation is domain-separated and collision resistant, and the
+index is zero for a single. `intentDigest` MUST cover the canonical structural encoding
+of the complete header and payload, including shape, order, exact optional LeaseToken,
+authority, evidence, arguments, and every derived key. Invocation identity therefore
+explicitly binds both InvocationId and the exact lease epoch. The digest is not byte
+concatenation, and it omits no field. Format, derivation, and digest algorithm are
 codec-versioned (§8.3). These map to **C13-PREPARED-ITEM-KEYS** and
 **C13-PREPARED-WHOLE-DIGEST**.
 
 Before any mutating interceptor runs, the host atomically looks up the
 `MediatedReplayRecord` by authenticated caller plus `OperationRequestKey`. A miss
-reserves that key together with the canonical raw structural payload identity, target
-Facet/Operation/Package pin, exact optional lease, and exact optional route. A hit with
-any changed bound field rejects before interceptors. A matching hit reuses the persisted
-per-item `before` transformations and prepared arguments; after completion it also
-reuses each item's persisted `after` transformations and presentation. `items` is the
-exact payload length and order, every `itemIndex` equals its position, each transformation
-chain is ordered and nested (`next.input = previous.output`), and an after chain remains
-associated with the output of that same item. Batch replay cannot reorder, merge, or
-substitute item traces or presentations. The record is completed atomically as each
-phase becomes durable, so process death cannot cause either interceptor phase to rerun.
-`direct` Invocations create no durable replay record or trace. These rules map to
+reserves that key together with the canonical raw structural payload identity, the
+target Facet, Operation, and Package pin, the exact optional lease, and the exact
+optional route. A hit with any changed bound field rejects before interceptors. A
+matching hit reuses the persisted per-item `before` transformations and prepared
+arguments, and after completion it also reuses each item's persisted `after`
+transformations and presentation. `items` is the exact payload length and order, every
+`itemIndex` equals its position, each transformation chain is ordered and nested
+(`next.input = previous.output`), and an after chain stays associated with the output of
+that same item. Batch replay cannot reorder, merge, or substitute item traces or
+presentations. The record is completed atomically as each phase becomes durable, so
+process death cannot cause either interceptor phase to rerun. `direct` Invocations
+create no durable replay record and no trace. These rules map to
 **C13-PREPARED-REPLAY-IDENTITY**, **C13-PREPARED-REPLAY-PRE**, and
 **C13-PREPARED-REPLAY-POST**.
 
 A routed preparation MUST use its RouteReservation's stable InvocationId, authority,
-projection digest, target Actor/domain, and audit bridge. `route` and `projectionDigest`
-are either both absent or both present; when present, the digest MUST equal the
-reservation's authenticated projection digest and `auditCause` MUST be the target
-Actor's `routeProjected` AuditRecord for that reservation. Initiator authority MUST name
-exactly the authenticated Principal owned by the source reservation. This maps to
-**C13-PREPARED-ROUTED-PROJECTION**.
+projection digest, target Actor and domain, and audit bridge. `route` and
+`projectionDigest` are either both absent or both present. When they are present, the
+digest MUST equal the reservation's authenticated projection digest, and `auditCause`
+MUST be the target Actor's `routeProjected` AuditRecord for that reservation. Initiator
+authority MUST name exactly the authenticated Principal the source reservation owns.
+This maps to **C13-PREPARED-ROUTED-PROJECTION**.
 
-A local preparation has neither `route` nor `projectionDigest`, and allocates one stable
-InvocationId. The host also assigns the immutable idempotency seed. If `lease` is
+A local preparation has neither `route` nor `projectionDigest`, and it allocates one
+stable InvocationId. The host also assigns the immutable idempotency seed. If `lease` is
 present, preparation and every executor effect require that exact current token and the
-matching entry in the TurnPlacementSnapshot. If absent, `actor` MUST be authenticated as
-the exact owner of `domain`; only that Actor may prepare or continue the invocation.
-In all cases `auditCause` MUST be a preexisting compatible record in that Actor's local
-audit chain with matching tenant and correlation. These map to
-**C13-PREPARED-NO-TURN-OWNER** and **C13-PREPARED-NO-TURN-AUDIT**.
+matching entry in the TurnPlacementSnapshot. If it is absent, `actor` MUST be
+authenticated as the exact owner of `domain`, and only that Actor may prepare or
+continue the invocation. In all cases `auditCause` MUST be a preexisting compatible
+record in that Actor's local audit chain, with matching tenant and correlation. These
+map to **C13-PREPARED-NO-TURN-OWNER** and **C13-PREPARED-NO-TURN-AUDIT**.
 
-An **Approval** authorizes exactly one InvocationId and its `intentDigest`; an
+An **Approval** authorizes exactly one InvocationId and its `intentDigest`, and an
 Invocation has at most one Approval record. An `InvocationContinuation` MUST be absent
 before first consumption. This maps to **C13-PREPARED-APPROVAL-UNIQUE** and
 **C13-PREPARED-CONTINUATION-ABSENT**.
-Approval is invocation-level, single-use, and MAY expire; expiry is terminal from `pending`
-and from `approved`, so an approved Approval its Invocation never consumed still resolves.
-Pending state survives process death, but resume
-requires the exact token only when the header carries one. Denial or authority/digest
-mismatch emits one `deniedPreEffect` Receipt per untouched item; expiry, cancellation,
-or loss of a required Turn emits `cancelledPreEffect`. Neither creates an EffectAttempt.
-Approval consumption, persistence of one `InvocationContinuation`, and admission of the
-first EffectAttempt of the invocation are one guarded transition, so concurrent resumes
+
+Approval is invocation-level, single-use, and MAY expire. Expiry is terminal from
+`pending` and from `approved`, so an approved Approval its Invocation never consumed
+still resolves. Pending state survives process death, but resume requires the exact
+token only when the header carries one. Denial, or an authority or digest mismatch,
+emits one `deniedPreEffect` Receipt per untouched item. Expiry, cancellation, or loss of
+a required Turn emits `cancelledPreEffect`. Neither creates an EffectAttempt. Approval
+consumption, persistence of one `InvocationContinuation`, and admission of the
+invocation's first EffectAttempt are one guarded transition, so concurrent resumes
 cannot both execute. The continuation binds the exact first EffectAttempt id, item
-index, ordinal, claim id/owner, and item key, and the persisted attempt MUST exact-match
-all of them. That EffectAttempt's `invocation` MUST equal the continuation InvocationId,
-and its item index/key MUST identify an item in the bound PreparedInvocation. A malformed
-or substituted firstAttempt makes the continuation invalid. The Approval is consumed
-exactly once, not once per item. Where an Approval was required, every
-later batch item and retry validates the persisted continuation's InvocationId,
-whole-intent digest, ApprovalId, and exact persisted first-attempt identity before its own normal
-authority, epoch, claim, and effect admission; it neither consumes nor recreates an
-Approval. Where none was required no continuation exists, and later items and retries
-proceed on that same normal admission alone. This maps to **C13-PREPARED-APPROVAL-FIRST-ATTEMPT** and
-**C13-PREPARED-APPROVAL-CONTINUATION**.
+index, ordinal, claim id and owner, and item key, and the persisted attempt MUST
+exact-match all of them. That EffectAttempt's `invocation` MUST equal the continuation
+InvocationId, and its item index and key MUST identify an item in the bound
+PreparedInvocation. A malformed or substituted firstAttempt makes the continuation
+invalid. The Approval is consumed exactly once, not once per item. Where an Approval was
+required, every later batch item and retry validates the persisted continuation's
+InvocationId, whole-intent digest, ApprovalId, and exact persisted first-attempt
+identity before its own normal authority, epoch, claim, and effect admission; it neither
+consumes nor recreates an Approval. Where none was required, no continuation exists, and
+later items and retries proceed on that same normal admission alone. This maps to
+**C13-PREPARED-APPROVAL-FIRST-ATTEMPT** and **C13-PREPARED-APPROVAL-CONTINUATION**.
 
 ### 7.4 EffectAttempt, Receipt, AuditRecord, reconciliation
 
 An **EffectAttempt** MUST be immutable write-ahead evidence that one item may cross the
-effect boundary. Retry appends a new ordinal; pre-effect denial or cancellation never
+effect boundary. Retry appends a new ordinal. Pre-effect denial or cancellation never
 creates one. This maps to **C13-EFFECT-ATTEMPT-IMMUTABLE**.
 
 ```ts
@@ -2071,64 +2074,63 @@ type TerminalBatchOutcome = "succeeded" | "partiallySucceeded" | "failed"
   | "denied" | "cancelled";
 ```
 
-A PreEffectReceipt is terminal for its item and has no EffectAttempt or supersession.
-An AttemptReceipt references one existing EffectAttempt. Its first record has no
-`previous`; only an `indeterminate` chain head may be superseded, exactly once, by
-`succeeded` or `failed` for the same attempt. No final Receipt may be superseded.
-Attempts and Receipts are never updated or deleted. An item's current Receipt is its
-PreEffectReceipt, or the chain head for its greatest attempt ordinal. A new ordinal is
-allowed only after the prior ordinal is finally `failed`; neither `succeeded` nor
+A PreEffectReceipt is terminal for its item and has no EffectAttempt and no
+supersession. An AttemptReceipt references one existing EffectAttempt. Its first record
+has no `previous`. Only an `indeterminate` chain head may be superseded, exactly once,
+by `succeeded` or `failed` for the same attempt. No final Receipt may be superseded.
+Attempts and Receipts are never updated and never deleted. An item's current Receipt is
+its PreEffectReceipt, or the chain head for its greatest attempt ordinal. A new ordinal
+is allowed only after the prior ordinal is finally `failed`; neither `succeeded` nor
 `indeterminate` admits a concurrent retry. These lineage rules map to
 **C13-RECEIPT-IMMUTABLE**.
 
-ReceiptId MUST be allocated from one owning-Actor namespace across both Receipt variants
-and all items; `AttemptReceipt.previous` and `AuditKind.receiptSuperseded`'s `previous`
-and `next` all refer to that same namespace. An id is never reused. This maps to
-**C13-RECEIPT-ID-NAMESPACE**.
+ReceiptId MUST be allocated from one owning-Actor namespace, across both Receipt
+variants and all items. `AttemptReceipt.previous` and the `previous` and `next` of
+`AuditKind.receiptSuperseded` all refer to that same namespace. An id is never reused.
+This maps to **C13-RECEIPT-ID-NAMESPACE**.
 
-Each nonterminal item has at most one live claim. Claiming is an atomic
-compare-and-set over `(InvocationId, itemIndex)`; the first claim uses attempt ordinal 0
-and requires `expiresAt > now`. Claim ownership and expiry are scheduling state,
-separate from attempt ordinal. An executor claim embeds the exact LeaseToken; a system
-claim names its owning Actor. Only the current claim owner may append the one matching
-EffectAttempt for that ordinal: when an EffectAttempt is appended, its invocation, item
-index, ordinal, and optional token MUST equal the admitting claim's invocation, item
-index, attemptOrdinal, and owner token. These map to **C13-CLAIM-INITIAL-ATOMIC** and
+Each nonterminal item has at most one live claim. Claiming is an atomic compare-and-set
+over `(InvocationId, itemIndex)`. The first claim uses attempt ordinal 0 and requires
+`expiresAt > now`. Claim ownership and expiry are scheduling state, separate from
+attempt ordinal. An executor claim embeds the exact LeaseToken; a system claim names its
+owning Actor. Only the current claim owner may append the one matching EffectAttempt for
+that ordinal. When an EffectAttempt is appended, its invocation, item index, ordinal,
+and optional token MUST equal the admitting claim's invocation, item index,
+attemptOrdinal, and owner token. These map to **C13-CLAIM-INITIAL-ATOMIC** and
 **C13-CLAIM-FUTURE-EXPIRY**.
 
 An abandoned claim may be recovered only when `expiresAt <= now` and no EffectAttempt
-exists for that claim's ordinal. Its replacement retains the same invocation, item index,
-and ordinal, names a different worker, and requires a new `expiresAt > now`. Recovery
-never advances the ordinal. An ordinal that already has an EffectAttempt is not eligible
-for abandoned-claim recovery and follows Receipt reconciliation instead. These map to
-**C13-CLAIM-RECOVERY-NO-ATTEMPT**, **C13-CLAIM-RECOVERY-NEW-OWNER**,
+exists for that claim's ordinal. Its replacement retains the same invocation, item
+index, and ordinal, names a different worker, and requires a new `expiresAt > now`.
+Recovery never advances the ordinal. An ordinal that already has an EffectAttempt is not
+eligible for abandoned-claim recovery and follows Receipt reconciliation instead. These
+map to **C13-CLAIM-RECOVERY-NO-ATTEMPT**, **C13-CLAIM-RECOVERY-NEW-OWNER**,
 **C13-CLAIM-RECOVERY-FUTURE-EXPIRY**, and **C13-CLAIM-RECOVERY-SAME-ORDINAL**.
 
-A new ordinal is claimed only after the prior ordinal has a final `failed` Receipt, which
-maps to **C13-ATTEMPT-ORDINAL-AFTER-FAILURE**. Scoping recovery and ordinal advance to
-the ordinal rather than the item is what keeps an item recoverable after a worker claims a
-retry ordinal and stops before appending its EffectAttempt: no attempt at that ordinal
-means no effect was attempted at it, because the attempt is appended in the same guarded
-transaction that admits it. Pre-effect policy may terminalize an unclaimed item. A final
-Receipt clears the claim; `succeeded` terminalizes the item while `failed` permits the
-next ordinal. These rules apply to index 0 of a single too, and prevent two executors
-from continuing one item.
+A new ordinal is claimed only after the prior ordinal has a final `failed` Receipt,
+which maps to **C13-ATTEMPT-ORDINAL-AFTER-FAILURE**. Scoping recovery and ordinal
+advance to the ordinal rather than the item is what keeps an item recoverable after a
+worker claims a retry ordinal and stops before it appends its EffectAttempt. No attempt
+at that ordinal means no effect was attempted at it, because the attempt is appended in
+the same guarded transaction that admits it. Pre-effect policy may terminalize an
+unclaimed item. A final Receipt clears the claim: `succeeded` terminalizes the item, and
+`failed` permits the next ordinal. These rules apply to index 0 of a single too, and
+they prevent two executors from continuing one item.
 
-`BatchOutcome` MUST be unavailable until every item has a current Receipt; those
+`BatchOutcome` MUST be unavailable until every item has a current Receipt. Those
 Receipts need not be final, so the derived outcome may be `indeterminate`. A
 `TerminalBatchOutcome` MUST be available exactly when the derived BatchOutcome is
-non-indeterminate. Neither aggregate is a Receipt or substitutes for item evidence.
-These map to **C13-BATCH-OUTCOME-COMPLETE** and **C13-BATCH-OUTCOME-TERMINAL**.
-Aggregate `denied` and
-`cancelled` therefore cannot be confused with the item outcomes `deniedPreEffect` and
-`cancelledPreEffect`. Derivation is the first matching rule: any indeterminate →
-`indeterminate`; all succeeded → `succeeded`; some succeeded → `partiallySucceeded`;
-otherwise any failed → `failed`; otherwise any cancelledPreEffect → `cancelled`;
-otherwise → `denied`.
+non-indeterminate. Neither aggregate is a Receipt, and neither substitutes for item
+evidence. These map to **C13-BATCH-OUTCOME-COMPLETE** and
+**C13-BATCH-OUTCOME-TERMINAL**. Aggregate `denied` and `cancelled` therefore cannot be
+confused with the item outcomes `deniedPreEffect` and `cancelledPreEffect`. Derivation
+is the first matching rule: any indeterminate → `indeterminate`; all succeeded →
+`succeeded`; some succeeded → `partiallySucceeded`; otherwise any failed → `failed`;
+otherwise any cancelledPreEffect → `cancelled`; otherwise → `denied`.
 
 For mediated external effects, intent and EffectAttempt evidence MUST precede the
 effect. The call MUST carry the item's idempotency key. If its result is not known, the
-pipeline appends `indeterminate`; reconciliation re-queries that same attempt by
+pipeline appends `indeterminate`, and reconciliation re-queries that same attempt by
 idempotency key and appends its superseding final Receipt. A resend after final failure
 is a new EffectAttempt through the normal mediated path, never an unrecorded reconciler
 action. Eventual reconciliation depends only on the external liveness assumptions stated
@@ -2174,41 +2176,39 @@ Receipt or ReceiptSuperseded → Commit
 source RouteReservation ═ authenticated projection ═> target RouteProjected(root) → Delivery → Commit
 ```
 
-The permitted local typed edges are exactly: Invocation → Approval, EffectAttempt,
-pre-effect Receipt, or WriteRecord; approved Approval → EffectAttempt; denied Approval
-→ denied Receipt; expired Approval → cancelled Receipt; EffectAttempt → attempted
-Receipt; indeterminate Receipt → ReceiptSuperseded; Receipt → Event or Commit;
-ReceiptSuperseded → Event or Commit; Event →
-RouteReserved; RouteProjected → Delivery; Delivery → Commit. ReceiptSuperseded is a
-specialized append caused by its prior indeterminate Receipt and names the final next
-Receipt. Every cause MUST exist before append and share tenant and correlation; append
-never rewrites an entry.
-Invocation records are ordinary roots. A `routeProjected` record is the special
-target-local bridge root described below, not an ordinary root. A host-created
-command-rejection WriteRecord MAY also be a root only under the §8.5 no-caller-cause
-rule. These map to **C13-AUDIT-EDGE-RELATION**, **C13-AUDIT-PREEXISTING-CAUSE**, and
+The permitted local typed edges are exactly these: Invocation → Approval, EffectAttempt,
+pre-effect Receipt, or WriteRecord; approved Approval → EffectAttempt; denied Approval →
+denied Receipt; expired Approval → cancelled Receipt; EffectAttempt → attempted Receipt;
+indeterminate Receipt → ReceiptSuperseded; Receipt → Event or Commit; ReceiptSuperseded
+→ Event or Commit; Event → RouteReserved; RouteProjected → Delivery; Delivery → Commit.
+ReceiptSuperseded is a specialized append caused by its prior indeterminate Receipt, and
+it names the final next Receipt. Every cause MUST exist before append and MUST share
+tenant and correlation; append never rewrites an entry. Invocation records are ordinary
+roots. A `routeProjected` record is the special target-local bridge root described
+below, not an ordinary root. A host-created command-rejection WriteRecord MAY also be a
+root, only under the §8.5 no-caller-cause rule. These map to
+**C13-AUDIT-EDGE-RELATION**, **C13-AUDIT-PREEXISTING-CAUSE**, and
 **C13-AUDIT-APPEND-ONLY**.
 
 Cross-Actor causality MUST NOT point directly into another Audit log. The source-owned
 RouteReservation is the authenticated bridge. The target's `routeProjected` entry is a
-target-local bridge root with no AuditRecord cause; it is admitted only by authenticating
-that reservation projection. Delivery is caused by the target-local projection entry.
-This maps to **C13-AUDIT-ROUTE-BRIDGE**.
+target-local bridge root with no AuditRecord cause, and it is admitted only by
+authentication of that reservation projection. Delivery is caused by the target-local
+projection entry. This maps to **C13-AUDIT-ROUTE-BRIDGE**.
 
-The reservation cites the preexisting source Event audit cause and MUST authenticate
+The reservation cites the preexisting source Event audit cause, and it MUST authenticate
 source Actor, target Actor, tenants, projection, authority, and stable InvocationId.
 Cross-tenant delivery also verifies the reservation's explicit cross-tenant Binding.
 These map to **C13-ROUTE-SOURCE-EVENT**, **C13-ROUTE-AUDIT-CAUSE**,
 **C13-ROUTE-TENANT-RELATION**, and **C13-ROUTE-STABLE-INVOCATION**.
 
 Every Receipt outcome has an AuditRecord. Attempted outcomes are caused by their
-EffectAttempt audit; pre-effect outcomes are caused by Invocation or terminal Approval
-audit. Indeterminate supersession gets a separate `receiptSuperseded` entry linking both
-Receipt ids before the final Receipt is observed. Every SystemCause MUST name the exact
-preexisting receipt, delivery, or control AuditRecord required by the writer
-matrix. Telemetry is diagnostic
-and never substitutes for a Receipt, RouteReservation, WriteRecord, or AuditRecord. This
-maps to **C13-AUDIT-TELEMETRY-EXCLUDED**.
+EffectAttempt audit, and pre-effect outcomes are caused by Invocation or terminal
+Approval audit. Indeterminate supersession gets a separate `receiptSuperseded` entry
+that links both Receipt ids before the final Receipt is observed. Every SystemCause MUST
+name the exact preexisting receipt, delivery, or control AuditRecord the writer matrix
+requires. Telemetry is diagnostic and never substitutes for a Receipt, RouteReservation,
+WriteRecord, or AuditRecord. This maps to **C13-AUDIT-TELEMETRY-EXCLUDED**.
 
 ---
 
