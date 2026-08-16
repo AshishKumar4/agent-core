@@ -786,36 +786,29 @@ Rules:
 
 1. Interceptors run only within one protection domain. Cross-domain interception MUST
    use asynchronous Events. This maps to **C13-INTERCEPTOR-DOMAIN-CONFINEMENT**.
-
 2. `appliesTo` defaults to the contributing facet's own operations. To intercept another
    facet's operations, that facet must declare the operation `interceptable`, and the
    interceptor's facet must hold a Grant for it. A shared domain confers no interception
    rights.
-
 3. Ordering is total and deterministic: ascending `(priority, facetId, interceptorId)`.
    Interceptor ids MUST be unique within a Facet. Hosts record which interceptor last
    rewrote a value. This maps to **C13-INTERCEPTOR-ORDER**.
-
 4. A thrown error blocks. The block is scoped to the interceptor's `appliesTo` and
    surfaces as a typed operation error, never as a silent global veto.
-
 5. Mutating interceptions are attributable. The host records interceptor identity plus
    before and after value digests through the mediated audit channel. There is no second
    channel to choose between, because an applicable interceptor raises the call to
    mediated (§7.2); a direct invocation that presented interception evidence would be an
    invalid state rather than a case to record.
-
 6. `operation.before` completes before preparation. Its final rewritten input is what
    the PreparedInvocation freezes and structurally digests. An interceptor MUST NOT
    rewrite a PreparedInvocation, Approval, EffectAttempt, or effect arguments afterward.
    This maps to **C13-INTERCEPTOR-POST-PREPARATION**.
-
 7. The host persists the ordered `operation.before` transformation trace with the
    PreparedInvocation, including each interceptor identity and its before and after
    digest. A replay reuses the persisted transformed input and trace, and it does not
    rerun mutating pre-effect interceptors. A new interceptor pass creates a new
    InvocationId and a new whole-intent digest.
-
 8. `operation.after` may rewrite only the returned presentation value. It cannot alter
    the effect, the Receipt, or the audit lineage. The host persists its ordered
    transformations and trace with the returned invocation evidence. A replay of the same
@@ -2505,7 +2498,6 @@ benefit:
    hosting Actor. Resolutions are Turn-scoped, and the facet is eligible for `direct`
    (§7.2). First-party facets — fs, shell, memory, tasks, chat — live here, by policy
    grant.
-
 2. **Provider** — a separate Worker or service behind a service binding or
    capability-RPC stub (Workers RPC or Cap'n Web). This is where custody demands
    isolation: third-party integrations and credential-holding approval gateways. RPC
@@ -2513,7 +2505,6 @@ benefit:
    provider resolutions are scoped to a single Turn step and re-resolved with current
    path epochs each step (§3.4 rules 7–8). Revocation drops the stub, and so do platform
    lifecycle events. Re-resolution is the uniform recovery for both.
-
 3. **Dynamic** — two named backings (§4.7), both loading code into a fresh isolate:
    `workerLoader`, code loaded through Worker Loader, and `dispatchNamespace`,
    pre-deployed code loaded through a Workers-for-Platforms dispatch namespace. The
