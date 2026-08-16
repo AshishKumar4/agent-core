@@ -23,7 +23,7 @@
     {
       "id": "D-1",
       "state": "active",
-      "checker": "scripts/quality/doctrine.mjs",
+      "checker": "scripts/check-normative.mjs",
       "testSelectors": [
         "test/quality/normative.test.ts#normative structural encoder rejects an undesignated custom axiom anywhere in the project environment"
       ]
@@ -158,7 +158,7 @@
     {
       "id": "W-5",
       "state": "active",
-      "checker": "scripts/quality/doctrine.mjs",
+      "checker": "scripts/check-traceability.mjs",
       "testSelectors": [
         "test/quality/doctrine.test.ts#agent operating doctrine keeps every doctrine rule classified and the formal scope registry exact"
       ]

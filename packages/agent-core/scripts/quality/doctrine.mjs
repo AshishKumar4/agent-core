@@ -22,8 +22,11 @@ const SOURCE_DISPOSITIONS = new Set([
     "mechanize",
     "conformance"
 ]);
+// A rule must be able to name its real enforcer: an allowlist too small to spell the
+// actual checker forces misattribution, which reads as enforcement that is not there.
 const CHECKER_PATHS = new Set([
     "scripts/check-normative.mjs",
+    "scripts/check-traceability.mjs",
     "scripts/quality/backlog.mjs",
     "scripts/quality/change-control.mjs",
     "scripts/quality/claims.mjs",

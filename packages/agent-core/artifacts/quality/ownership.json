@@ -21,7 +21,6 @@
       "packages/agent-core-harness/quality/**",
       "packages/agent-core-harness/tsconfig*.json",
       "packages/agent-core/AGENTS.md",
-      "packages/agent-core/PROJECT-SHORTCOMINGS.md",
       "packages/agent-core/SPEC-DRAFT-STE.md",
       "packages/agent-core/SPEC.md",
       "packages/agent-core/artifacts/conformance/index.json",

@@ -3248,13 +3248,17 @@ and tests under the declared operational assumptions.
 
 ## 15. Open questions
 
-Two decisions remain:
+One decision remains:
 
 1. **The public name.** "Agent Core" collides with a shipping AWS product (Bedrock
    AgentCore). Undecided.
-2. **Run/Turn vocabulary.** Industry convention uses Run for one execution and
-   Session or Thread for the container; Session/Run and Run/Attempt are the candidate
-   alternatives. This document keeps the current names until decided.
+
+**Run/Turn vocabulary — decided; the current names stand.** Industry convention uses
+Run for one execution and Session or Thread for the container, so this document is
+offset by one word. Both candidate renames collide with vocabulary this document
+already spends: Session names the Environment sessions of §4.5, and Attempt names the
+EffectAttempt of §7.4. Renaming would give one concept a familiar word by giving
+another an ambiguous one. Appendix A carries the translation instead.
 
 ## Appendix A — Translation table *(informative)*
 
