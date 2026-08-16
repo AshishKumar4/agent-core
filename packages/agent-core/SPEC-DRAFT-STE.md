@@ -1252,9 +1252,9 @@ its parents without re-running anything. `synthesize` is the mixture-of-agents c
 
 **Tree conflicts.** Tree merge is defined only for the same binary parent pair, over the
 same Environment and one common-ancestor tree. The platform MUST resolve the tree
-separately and record the outcome on the merge commit's `treeCheckpoint`. A merge with
-more than two tree inputs is invalid rather than implementation-defined. This maps to
-**C13-RUN-BINARY-TREE-MERGE**.
+separately, and it MUST record the outcome on the merge commit's `treeCheckpoint`. A
+merge with more than two tree inputs is invalid rather than implementation-defined. This
+maps to **C13-RUN-BINARY-TREE-MERGE**.
 
 `policies.treeMerge` is a field of `PolicySet` (§9.2) beside `tiers`, `approvals`, and
 `placement` — one more declared policy, not a new artifact. It names three settings and
@@ -2346,9 +2346,10 @@ caller, duplicate lookup on `(caller, idempotencyKey)`, authority, lifecycle, ex
 revision, optional LeaseToken, then mutation. A Turn-owned command requires a token, and
 a supplied token MUST always be checked for exact Turn, holder, epoch, and non-expiry. A
 missing required, unexpected, stale, wrong-Turn, or expired token yields
-`rejectedLease`. A duplicate MUST return the original reply and record `duplicateOf`,
-without re-running later gates or the mutation. These map to **C13-PROTOCOL-OUTCOMES**,
-**C13-PROTOCOL-EXACT-ENVELOPE**, and **C13-PROTOCOL-DUPLICATE**.
+`rejectedLease`. A duplicate MUST return the original reply, and it MUST record
+`duplicateOf`, without re-running later gates or the mutation. These map to
+**C13-PROTOCOL-OUTCOMES**, **C13-PROTOCOL-EXACT-ENVELOPE**, and
+**C13-PROTOCOL-DUPLICATE**.
 
 Each command family MUST declare whether `expectedRevision` is required, and whether a
 LeaseToken is required, optional, or forbidden. Missing required envelope fields and
