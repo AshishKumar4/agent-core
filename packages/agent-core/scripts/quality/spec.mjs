@@ -155,6 +155,15 @@ function structuralFacts(model) {
         model.document,
         (node, ancestors) => {
             const target = owningTarget(ancestors, targetByNode);
+            // Struck content is dropped from the visible census, so a struck rule would
+            // leave the normative unit it states and never be counted. A struck atom
+            // label is reported precisely by validateAtomLabels; anything else struck is
+            // prose the document still shows and the census would silently lose.
+            if (node.type === "delete" && !carriesAtomLabel(node)) {
+                throw new TypeError(
+                    `SPEC strikethrough hides prose: ${renderedInlineText(node).slice(0, 80)}`
+                );
+            }
             const deleted = ancestors.some((ancestor) => ancestor.type === "delete");
             const fragment = deleted ? undefined : visibleFragment(node);
             if (fragment !== undefined) {
@@ -703,6 +712,12 @@ function exactStrongLabel(strong) {
         current = current.children[0];
     }
     return current?.type === "text" ? { id: current.value } : undefined;
+}
+
+/** Whether a struck subtree contains an exact atom label, which is reported by id instead. */
+function carriesAtomLabel(node) {
+    if (node.type === "strong" && exactStrongLabel(node) !== undefined) return true;
+    return (node.children ?? []).some(carriesAtomLabel);
 }
 
 function labelWrapper(node) {

@@ -187,6 +187,17 @@ describe("SPEC Markdown model", () => {
         );
     });
 
+    test("rejects struck-through normative prose carrying no atom label", async () => {
+        const source = original.replace(
+            "### 3.4 Grant, Binding, resolution, revocation",
+            "~~A revoked Grant MUST NOT be reinstated by a later Role materialization.~~\n\n### 3.4 Grant, Binding, resolution, revocation"
+        );
+
+        await expect(canonicalSpec(await specFixture(source))).rejects.toThrow(
+            "SPEC strikethrough hides prose: A revoked Grant MUST NOT be reinstated"
+        );
+    });
+
     test.each([
         [
             "paragraph",
