@@ -226,32 +226,32 @@ Every feature in the assembly sketches of §12 is a composition of these three p
 A **Principal** is an accountable actor: a human, a service account, a CI bot, or an
 independently accountable Agent. Principals authenticate; Scopes own resources.
 
-A **Team** is a named set of Principals recorded in a Tenant. Teams are Membership
-subjects, not a separate primitive: wherever a Membership names a subject, the subject
-is `PrincipalRef | Team`, and a Principal's effective access derives from the union of its
-direct and team Memberships under the precedence rule of §3.3.
+A **Team** is a named set of Principals recorded in a Tenant. A Team is a Membership
+subject, not a separate primitive. Wherever a Membership names a subject, that subject
+is `PrincipalRef | Team`. A Principal's effective access is the union of its direct and
+team Memberships, under the precedence rule of §3.3.
 
 ### 3.2 The Scope chain
 
-**Scope** is one primitive with three roles forming a fixed chain
-`Tenant ⊇ Project ⊇ Workspace`, with Project optional:
+**Scope** is one primitive with three roles. The roles form the fixed chain `Tenant ⊇
+Project ⊇ Workspace`, and Project is optional:
 
 - a **Tenant** is the ownership and isolation boundary. It owns Projects, Workspaces,
   Teams, credentials, stored content, installed Packages, quotas, and retention. A
-  single-user installation still has a Tenant — one Principal, one personal Tenant.
-- a **Project** groups Workspaces for organization, policy, and sharing. It is a
-  record owned by the Tenant's Actor, not a coordination unit of its own (§8.1,
-  §10.1) — grouping your workspaces costs nothing at runtime.
+  single-user installation still has a Tenant: one Principal, one personal Tenant.
+- a **Project** groups Workspaces for organization, policy, and sharing. It is a record
+  owned by the Tenant's Actor, not a coordination unit of its own (§8.1, §10.1), so
+  grouping your workspaces costs nothing at runtime.
 - a **Workspace** is the composition boundary. It hosts Facet installs and the
-  subject-local names selected by Bindings, plus Events, Subscriptions, Agents, Runs,
-  and Slates, and enforces workspace policy. The Tenant Actor owns each canonical
-  Binding alongside its backing Grants and path epochs; a Workspace retains only
-  Binding ids or disposable lookup indexes.
+  subject-local names that Bindings select, plus Events, Subscriptions, Agents, Runs, and
+  Slates, and it enforces workspace policy. The Tenant Actor owns each canonical Binding
+  together with its backing Grants and path epochs. A Workspace keeps only Binding ids or
+  disposable lookup indexes.
 
 *Why a fixed chain rather than arbitrary nesting:* two container levels are what most
-mature resource hierarchies converged on (cloud providers, code forges), they cover
-the sharing shapes that actually come up, and they keep policy resolution bounded at
-three steps. Recursive workspaces would turn policy resolution, the UI, and the
+mature resource hierarchies converged on, in cloud providers and code forges alike. They
+cover the sharing shapes that actually come up, and they keep policy resolution bounded
+at three steps. Recursive workspaces would turn policy resolution, the UI, and the
 substrate mapping into graph problems, and I have yet to see a platform that needed
 them.
 
@@ -273,27 +273,27 @@ interface RoleRule {
 ```
 
 A `CapabilitySpec` describes one grantable authority: a Facet or Facet pattern, the
-Operations (or Operation impacts) it covers, and any argument constraints. Rule order
-is stable for materialization but does not alter precedence: any matching deny
-overrides every matching allow. Roles are
-declared in a Blueprint (`policies.roles`) or supplied by a Package; the spec fixes
-three built-in roles every platform provides — `owner` (all capabilities at the scope,
-including `administer`), `editor` (everything except `administer`), and `reader`
-(`observe`-impact capabilities only) — each as allow rules, and platforms MAY declare
-more rules including denies. A Role is a template; it becomes authority only when a
-Membership assigns it. This stable rule order and allow/deny rule shape are what a
-Membership materializes into Grants, and map to **C13-AUTH-ROLE-MATERIALIZATION**.
+Operations (or Operation impacts) it covers, and any argument constraints. Rule order is
+stable for materialization, but it does not alter precedence: any matching deny
+overrides every matching allow. Roles are declared in a Blueprint (`policies.roles`) or
+supplied by a Package. This document fixes three built-in roles that every platform
+provides, each as allow rules — `owner` (all capabilities at the scope, including
+`administer`), `editor` (everything except `administer`), and `reader` (`observe`-impact
+capabilities only) — and platforms MAY declare more rules, including denies. A Role is a
+template. It becomes authority only when a Membership assigns it. This stable rule order
+and this allow/deny rule shape are what a Membership materializes into Grants, and they
+map to **C13-AUTH-ROLE-MATERIALIZATION**.
 
-**Roles materialize Grants.** A Membership is not itself callable authority. Assigning
-a Role at a Scope materializes — idempotently, exactly as a Blueprint materializes
-records (§9.3) — one durable allow- or deny-Grant per Role rule, identified by
-`(membership, rule ordinal)`, for that subject at that Scope. Reapplying the same Role
-reconciles those Grants rather than adding authority. Downward flow, attenuation, and
+**Roles materialize Grants.** A Membership is not itself callable authority. Assigning a
+Role at a Scope materializes one durable allow- or deny-Grant per Role rule for that
+subject at that Scope, identified by `(membership, rule ordinal)`. Materialization is
+idempotent, exactly as a Blueprint materializes records (§9.3). Reapplying the same Role
+reconciles those Grants instead of adding authority. Downward flow, attenuation, and
 revocation MUST operate only on Grants. The enforcement plane MUST resolve only Grants
 and Bindings; Roles and Memberships have no second path. Revoking or changing a
-Membership revokes its obsolete materialized Grants and advances the affected path
-epoch (§3.4). A guest Membership materializes the same way after removing all allow
-rules that could grant `delegate` or `administer`; deny rules are retained. This single
+Membership revokes its obsolete materialized Grants and advances the affected path epoch
+(§3.4). A guest Membership materializes the same way after removal of every allow rule
+that could grant `delegate` or `administer`; deny rules are retained. This single
 enforcement plane maps to **C13-AUTH-PLANE**.
 
 *Why:* the moment roles and grants are two separate enforcement systems, they drift
@@ -303,67 +303,66 @@ exactly one answer, computed one way.
 
 **Precedence.** Effective authority exists exactly when at least one live matching
 allow-Grant reaches the target Scope and no live matching deny-Grant exists on the
-ordered Tenant-to-target path. Direct and team Grants are considered together. A
-descendant allow MUST NOT re-widen an ancestor deny; this deny-overrides precedence
-maps to **C13-AUTH-DENY-PRECEDENCE**. Example: Team A holds `reader` on
-Project P, so its members read every Workspace in P; a deny-Grant for W2 removes W2
-without touching W1. A guest subject is matched by effect: an allow-Grant matches a
-`ForeignPrincipalRef` exactly, `verifiedVia` included, so an allow issued to a guest
-verified under one scheme is authority under that scheme only, while a deny-Grant
-matches on `{ homeTenant, principalId }` alone. A deny names who is refused and
-`verifiedVia` names only how that guest proved it, so a deny MUST NOT be escapable by
-re-verifying under another scheme — and the stamp does change, both because a
-`handshake` link downgrades to `token` and because one home Tenant may hold several
-trusts at once.
+ordered Tenant-to-target path. Direct and team Grants count together. A descendant allow
+MUST NOT re-widen an ancestor deny; this deny-overrides precedence maps to
+**C13-AUTH-DENY-PRECEDENCE**. Example: Team A holds `reader` on Project P, so its
+members read every Workspace in P; a deny-Grant for W2 removes W2 without touching W1. A
+guest subject is matched by effect. An allow-Grant matches a `ForeignPrincipalRef`
+exactly, `verifiedVia` included, so an allow issued to a guest verified under one scheme
+is authority under that scheme only. A deny-Grant matches on `{ homeTenant, principalId
+}` alone. A deny names who is refused, and `verifiedVia` names only how that guest
+proved it, so a deny MUST NOT be escapable by re-verification under another scheme. The
+stamp does change: a `handshake` link downgrades to `token`, and one home Tenant may
+hold several trusts at once.
 
-**Sharing** is Membership issuance — there is no second mechanism. Sharing a Project
-with a user is a Membership at that Project; a team owning a Project is a Team
+**Sharing** is Membership issuance, and there is no second mechanism. Sharing a Project
+with a user is a Membership at that Project. A team owning a Project is a Team
 Membership at that Project, and every member inherits access by default. Cross-tenant
-sharing uses a **guest Membership** whose subject is a `ForeignPrincipalRef
-{ homeTenant, principalId, verifiedVia }`. Guest-materialized Grants are always
+sharing uses a **guest Membership** whose subject is a `ForeignPrincipalRef {
+homeTenant, principalId, verifiedVia }`. Guest-materialized Grants are always
 attenuated, MUST NOT carry `delegate` or `administer` capability, and MUST NOT resolve
 the host Tenant's credentials. Credential custody never leaves the owning Tenant. The
-same Grant precedence and Binding resolver apply to guests. This prohibition maps to
-**C13-AUTH-GUEST-ELEVATION**.
+same Grant precedence and the same Binding resolver apply to guests. This prohibition
+maps to **C13-AUTH-GUEST-ELEVATION**.
 
 **Verifying a guest.** `verifiedVia` names how the host Tenant establishes that a
-request actually comes from the foreign principal. It is one of three schemes, in
+request really comes from the foreign principal. It is one of three schemes, in
 increasing order of coupling:
 
-- `token` — the host and home Tenants share an out-of-band trust configuration (a
-  signing key or an OIDC issuer URL registered in the host Tenant's policy). The guest
-  presents a token issued by the home Tenant; the host verifies its signature and the
-  `{ homeTenant, principalId }` claims against the registered issuer. This is the
-  default and needs no live contact between tenants.
-- `callback` — the host holds no key; at authorization time it asks the home Tenant's
-  declared verification endpoint "is this token yours, and is this principal active?"
-  and caches the answer for the token's lifetime. Used when the home Tenant will not
-  share a key but will answer queries.
-- `handshake` — for a first-time link, the two Tenants perform a one-time exchange (the
-  home Tenant's owner approves the link, the host records the resulting trust
-  configuration) that downgrades all future verifications to `token`. `handshake` is
-  the bootstrap and never materializes a Grant itself; steady state is always `token` or
-  `callback`, and a subject still stamped `handshake` at materialization MUST be denied.
+- `token` — the host and home Tenants share an out-of-band trust configuration: a
+  signing key or an OIDC issuer URL registered in the host Tenant's policy. The guest
+  presents a token issued by the home Tenant. The host verifies the signature and the
+  `{ homeTenant, principalId }` claims against the registered issuer. This is the default,
+  and it needs no live contact between tenants.
+- `callback` — the host holds no key. At authorization time it asks the home Tenant's
+  declared verification endpoint whether the token is theirs and the principal is active,
+  then caches the answer for the token's lifetime. Use this scheme when the home Tenant
+  will not share a key but will answer queries.
+- `handshake` — for a first-time link, the two Tenants perform a one-time exchange: the
+  home Tenant's owner approves the link, and the host records the resulting trust
+  configuration. That exchange downgrades all future verifications to `token`. `handshake`
+  is the bootstrap and never materializes a Grant itself. Steady state is always `token`
+  or `callback`, and a subject still stamped `handshake` at materialization MUST be denied.
   This maps to **C13-AUTH-GUEST-HANDSHAKE-BOOTSTRAP**.
 
-Whichever scheme is used, the host verifies provenance *before* materializing any guest
-Grant, and a verification failure denies. The wire protocol for a token or a callback
-is a substrate/profile concern — the host Tenant's policy declares the issuer or
-endpoint; this document fixes the three schemes and the before-materialization ordering.
-This maps to **C13-AUTH-GUEST-VERIFICATION**.
+Whichever scheme is used, the host verifies provenance *before* it materializes any
+guest Grant, and a verification failure denies. The wire protocol for a token or a
+callback is a substrate or profile concern: the host Tenant's policy declares the issuer
+or the endpoint. This document fixes the three schemes and the before-materialization
+ordering. This maps to **C13-AUTH-GUEST-VERIFICATION**.
 
 ### 3.4 Grant, Binding, resolution, revocation
 
 A **Grant** is a durable authority rule: subject, Scope, `allow | deny` effect,
-capability, origin, attenuation lineage, and revocation state. An allow may be
-delegated only to an equal or narrower capability; a deny is not callable or
-delegable. A **Binding** associates a subject-local name with an allow-Grant-backed
-Facet instance in one protection domain. Binding resolution evaluates all matching
-allow and deny Grants through §3.3 precedence. There is no deny list or role check
-beside this plane. Callable access requires a **ResolvedFacet** produced by that
-resolver; identifiers alone confer nothing. A Binding authorizes only the Operations
-of the Facet it names; an Invocation whose Operation belongs to another Facet MUST NOT
-be authorized by it. This maps to **C13-AUTH-BINDING-RESOLUTION**.
+capability, origin, attenuation lineage, and revocation state. An allow may be delegated
+only to an equal or narrower capability. A deny is neither callable nor delegable. A
+**Binding** associates a subject-local name with an allow-Grant-backed Facet instance in
+one protection domain. Binding resolution evaluates all matching allow and deny Grants
+through §3.3 precedence. There is no deny list or role check beside this plane. Callable
+access requires a **ResolvedFacet** produced by that resolver; identifiers alone confer
+nothing. A Binding authorizes only the Operations of the Facet it names. An Invocation
+whose Operation belongs to another Facet MUST NOT be authorized by it. This maps to
+**C13-AUTH-BINDING-RESOLUTION**.
 
 ![One authority plane](diagrams/authority.svg)
 
@@ -408,107 +407,103 @@ Authority rules:
 
 1. Missing authority denies.
 2. Delegation never widens: a delegated capability is equal to or narrower than its
-   source, at every depth of the lineage, matching the Grant rule above. Where this
-   document requires strict narrowing it says so at the site — guest-materialized
-   Grants drop `delegate` and `administer` (§3.3), and `spawn` runs its child under
-   attenuated Grants (§11.8).
-3. Raw credentials remain in Tenant custody under §3.5; delegation moves capability stubs,
-   not secrets.
+   source, at every depth of the lineage, which matches the Grant rule above. Where this
+   document requires strict narrowing it says so at the site — guest-materialized Grants
+   drop `delegate` and `administer` (§3.3), and `spawn` runs its child under attenuated
+   Grants (§11.8).
+3. Raw credentials remain in Tenant custody under §3.5; delegation moves capability
+   stubs, not secrets.
 4. Discovery is policy-controlled: a Turn receives a redacted view of installed Facets
    under the same policy that governs direct reads.
 5. **Path evidence is complete.** Each Scope carries a monotonically increasing
-   authority epoch. Every ResolvedFacet carries a `ResolutionStamp` whose
-   `PathEpochEvidence` is the exact ordered
-   Tenant-to-target Scope path and the current epoch of every Scope on it. It contains
-   each path Scope exactly once, in order, with no omissions, duplicates, or extra
-   Scopes. Evidence is
-   fresh only if the path is still exact and every recorded epoch equals the current
-   epoch. Creating, revoking, or changing any allow or deny advances the epoch of its
-   Scope.
+   authority epoch. Every ResolvedFacet carries a `ResolutionStamp`. Its
+   `PathEpochEvidence` is the exact ordered Tenant-to-target Scope path and the current
+   epoch of every Scope on it. It contains each path Scope exactly once, in order, with
+   no omissions, duplicates, or extra Scopes. Evidence is fresh only while the path is
+   still exact and every recorded epoch equals the current epoch. Creating, revoking, or
+   changing any allow or deny advances the epoch of its Scope.
 6. **Direct revocation has one bounded window.** Each holder has one Scope → epoch
-   delivered invalidation map shared by all its resolutions. Delivery and observation
-   join maps pointwise with `max`; entries never decrease. A direct-capable resolution
-   records the expiry of the stamp's exact LeaseToken at issuance as
-   `originalLeaseExpiresAt` and sets
-   `resolutionDeadline = min(originalLeaseExpiresAt, resolvedAt +
-   policy.maxDirectRevocationWindow)` at resolution; renewal never extends that
-   immutable deadline. The configured window is finite and nonnegative. After a relevant epoch advances, let `deliveredAt` be invalidation
-   delivery to the holder and `observedAt` be the first mediated check by that holder
-   that observes any stale path epoch; an absent time is infinity. The resolution
-   ceases to authorize direct calls at
-   `min(deliveredAt, observedAt, resolutionDeadline)`. A direct call requires the
-   stamp's exact Turn id, holder, and lease epoch to be current, current time strictly before the
-   immutable deadline, and, for every Scope on its path, holder watermark ≤ recorded
-   epoch.
+   delivered invalidation map, shared by all its resolutions. Delivery and observation
+   join maps pointwise with `max`, and entries never decrease. A direct-capable
+   resolution records the expiry of the stamp's exact LeaseToken at issuance as
+   `originalLeaseExpiresAt`. At resolution it sets `resolutionDeadline =
+   min(originalLeaseExpiresAt, resolvedAt + policy.maxDirectRevocationWindow)`, and
+   renewal never extends that immutable deadline. The configured window is finite and
+   nonnegative. After a relevant epoch advances, let `deliveredAt` be invalidation
+   delivery to the holder, and let `observedAt` be the first mediated check by that
+   holder that observes any stale path epoch; an absent time is infinity. The resolution
+   stops authorizing direct calls at `min(deliveredAt, observedAt, resolutionDeadline)`.
+   A direct call requires the stamp's exact Turn id, holder, and lease epoch to be
+   current, the current time strictly before the immutable deadline, and, for every
+   Scope on its path, holder watermark ≤ recorded epoch.
 7. **Mediated authority has one final admission point.** Actor-local mediation compares
    canonical authority and current path epochs in the guarded transaction that admits
    its EffectAttempt. Cross-Actor mediation performs that final comparison in the
-   authoritative Tenant Actor only after the exact target claim, target fence,
-   reservation epoch, item key, ordinal, arguments digest, and whole intent are known;
-   issuing the §10.3 `AuthorityPermit` is the final authority-admission linearization
-   point immediately before target attempt admission. Permit issuance linearizes
+   authoritative Tenant Actor, and only after the exact target claim, target fence,
+   reservation epoch, item key, ordinal, arguments digest, and whole intent are known.
+   Issuing the §10.3 `AuthorityPermit` is the final authority-admission linearization
+   point, immediately before target attempt admission. Permit issuance linearizes
    against Grant, Binding-generation, and path-epoch mutation. Revocation committed
-   before issuance blocks the permit; revocation committed after issuance cannot cancel
-   the already admitted attempt, but blocks every not-yet-issued permit. Before permit
-   issuance, or during Actor-local admission, a stale comparison atomically joins the
-   current path Scope epochs into the holder map, invalidates the cached resolution,
-   and records `deniedPreEffect` without an EffectAttempt. The target does not perform
-   a contradictory second authoritative Grant/epoch decision; it validates and consumes
+   before issuance blocks the permit. Revocation committed after issuance cannot cancel
+   the already admitted attempt, but it blocks every not-yet-issued permit. Before
+   permit issuance, or during Actor-local admission, a stale comparison atomically joins
+   the current path Scope epochs into the holder map, invalidates the cached resolution,
+   and records `deniedPreEffect` without an EffectAttempt. The target does not make a
+   contradictory second authoritative Grant or epoch decision; it validates and consumes
    the exact permit under `C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION`. This rule maps
    to **C13-AUTH-MEDIATED-ADMISSION** and **C13-AUTH-MEDIATED-STALE**.
-8. Resolved-facet lifetime follows the isolation mode: `bundled` resolutions last no
-   longer than their exact Turn and deadline — a held or cached resolution admits only
+8. Resolved-facet lifetime follows the isolation mode. A `bundled` resolution lasts no
+   longer than its exact Turn and deadline: a held or cached resolution admits only
    while it still names the exact current LeaseToken for that Turn, so fencing,
    reclaiming, or completing the Turn ends it at once rather than at the next unrelated
    check. A **Turn step** is one iteration of the Turn's execution loop, the interval
    between two successive firings of the `turn.step` interceptor cut point (§4.4); the
-   executor seam (§5.6) fixes what one iteration comprises and this document places no
-   further structure on it. `provider`/`dynamic` resolutions last one Turn step: the
-   capability stub they wrap MUST NOT be held or reused past the step in which it was
-   obtained, and every mediated use of it — inside that step or any later one —
-   independently re-authorizes against current path epochs regardless of how recently the
-   resolution was obtained (§10.2, rule 7 above). This maps to
-   **C13-AUTH-RESOLUTION-LIFETIME**.
+   executor seam (§5.6) fixes what one iteration comprises, and this document places no
+   further structure on it. A `provider` or `dynamic` resolution lasts one Turn step.
+   The capability stub it wraps MUST NOT be held or reused past the step in which it was
+   obtained. Every mediated use of it, inside that step or any later one, independently
+   re-authorizes against current path epochs, however recently the resolution was
+   obtained (§10.2, rule 7 above). This maps to **C13-AUTH-RESOLUTION-LIFETIME**.
 
-*Why bounded-window rather than instantaneous:* no distributed substrate can update
-every live holder atomically. Rules 6–7 give direct calls a safety bound without a
-delivery-liveness assumption and require current evidence for mediated effects.
-Eventual delivery and reconciliation use only the external liveness assumptions in
-§14.
+*Why a bounded window rather than instant revocation:* no distributed substrate can
+update every live holder atomically. Rules 6–7 give direct calls a safety bound without
+a delivery-liveness assumption, and they require current evidence for mediated effects.
+Eventual delivery and reconciliation use only the external liveness assumptions in §14.
 
 ### 3.5 SecretRef
 
 A **SecretRef** `{ source, provider, id }` names a credential held in Tenant custody.
-Configuration, manifests, and Blueprints carry SecretRefs, never raw credential
-values. A SecretRef is custody delegation, not process isolation: if plaintext is
-readable in an agent-visible filesystem, the ref does not protect it. Substrates
-SHOULD provide credential-injecting seams — proxy-injected headers, masked environment
-variables — so raw values never enter agent-visible domains at all. The ref-only rule
-maps to **C13-CONFIG-SECRET-REF**.
+Configuration, manifests, and Blueprints carry SecretRefs, never raw credential values.
+A SecretRef is custody delegation, not process isolation: if plaintext is readable in an
+agent-visible filesystem, the ref does not protect it. Substrates SHOULD provide
+credential-injecting seams — proxy-injected headers, masked environment variables — so
+raw values never enter agent-visible domains at all. The ref-only rule maps to
+**C13-CONFIG-SECRET-REF**.
 
 Custody is about who may present a credential, not only about where the bytes live. A
 SecretRef resolves only inside the Tenant named by its `source`, and only for the exact
-Binding and target endpoint that Tenant recorded when it accepted the credential:
-repointing an integration at a new endpoint invalidates the old resolution rather than
+Binding and target endpoint that Tenant recorded when it accepted the credential. So
+repointing an integration at a new endpoint invalidates the old resolution instead of
 presenting the old credential to the new place. `source` MUST equal the exact canonical
-value of that Tenant's `TenantId` — never a free-form label — checked by whatever records
-custody; `SecretRef` itself stays a self-contained core value type (§1.4) and does not
-import the identity types it names. Acceptance is recorded custody: whichever Tenant-owned
-consumer accepts a SecretRef for use (a Binding, an Environment, an ingress declaration's
-`verification.secret`, or any other consumer this document or a profile names) durably
-pairs it with the exact consumer identity and target endpoint the Tenant authorized — that
-`(SecretRef, consumer, endpoint)` triple is the **custody record**. This document does not
-fix where a substrate stores it beyond that it is Tenant-owned data under the one-owner
-rule every durable record already follows (§8.4); it is a fact a consumer's own record
-carries, not a new durable record kind. A resolution seam — the credential-isolation seam
-of §4.5 is the one this document names, and a profile MAY name others — MUST check the
-presenting consumer and target endpoint against the custody record before returning a
-value, and MUST fail the resolution attempt, never degrade to the raw value, for a
-mismatched or unrecorded pair. For a mediated `externalSend` effect that failure is an
-ordinary failed AttemptReceipt (§7.4); custody denial needs no separate record kind or
-vocabulary of its own. A delegation, a guest Membership, and a cross-tenant reservation
-each carry the ref and never the value. §3.4 rule 3 and §3.3's guest prohibition are
-consequences of this clause, which is the only place it is stated. This maps to
+value of that Tenant's `TenantId`, never a free-form label, and whatever records custody
+checks it. `SecretRef` itself stays a self-contained core value type (§1.4) and does not
+import the identity types it names. Acceptance is recorded custody. Whichever
+Tenant-owned consumer accepts a SecretRef for use — a Binding, an Environment, an
+ingress declaration's `verification.secret`, or any other consumer this document or a
+profile names — durably pairs it with the exact consumer identity and target endpoint
+the Tenant authorized. That `(SecretRef, consumer, endpoint)` triple is the **custody
+record**. This document does not fix where a substrate stores it, beyond the requirement
+that it is Tenant-owned data under the one-owner rule every durable record already
+follows (§8.4). It is a fact a consumer's own record carries, not a new durable record
+kind. A resolution seam MUST check the presenting consumer and target endpoint against
+the custody record before it returns a value, and MUST fail the resolution attempt for a
+mismatched or unrecorded pair; it never degrades to the raw value. The
+credential-isolation seam of §4.5 is the seam this document names, and a profile MAY
+name others. For a mediated `externalSend` effect that failure is an ordinary failed
+AttemptReceipt (§7.4); custody denial needs no separate record kind and no vocabulary of
+its own. A delegation, a guest Membership, and a cross-tenant reservation each carry the
+ref and never the value. §3.4 rule 3 and §3.3's guest prohibition are consequences of
+this clause, which is the only place it is stated. This maps to
 **C13-CONFIG-SECRET-CUSTODY**.
 
 ---
