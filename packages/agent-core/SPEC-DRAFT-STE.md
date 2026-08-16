@@ -2216,11 +2216,11 @@ WriteRecord, or AuditRecord. This maps to **C13-AUDIT-TELEMETRY-EXCLUDED**.
 
 ### 8.1 Actor
 
-An **Actor** is a durably addressable state machine with one authoritative
-coordination unit owning its mailbox, local transaction boundary, lifecycle, recovery,
-and fencing state. It MUST serialize conflicting commands, recover state before serving,
-commit at declared linearization points, and reject stale fences. Actor roles:
-Tenant, Workspace, Run (when dedicated), Environment, Slate host. This maps to
+An **Actor** is a durably addressable state machine with one authoritative coordination
+unit. That unit owns its mailbox, local transaction boundary, lifecycle, recovery, and
+fencing state. It MUST serialize conflicting commands, recover state before it serves,
+commit at declared linearization points, and reject stale fences. The Actor roles are
+Tenant, Workspace, Run (when dedicated), Environment, and Slate host. This maps to
 **C13-OWNERSHIP-ACTOR-CONTRACT**.
 
 ### 8.2 ContentStore
@@ -2233,34 +2233,34 @@ abstract class ContentStore {
 }
 ```
 
-Every `ContentRef` in this specification MUST resolve through a ContentStore — run
+Every `ContentRef` in this specification MUST resolve through a ContentStore: run
 inputs, checkpoints, instructions, results, slate sources. A ContentStore belongs to
 exactly one Tenant (§3.2, §8.4 rule 1), and a `ContentRef` resolves only for a caller
-whose authority reaches that Tenant; there is no cross-Tenant content read without a
+whose authority reaches that Tenant. There is no cross-Tenant content read without a
 Grant that says so. This maps to **C13-CONTENT-RESOLUTION**.
 
-A reference alone keeps nothing alive. Every durable record type that names a `ContentRef`
-is a retained owner of that content for as long as the record exists, and the §8.4 rule 6
-ownership map — record type → owning Actor, already required — is where that fact is
-declared: which field names the reference and which retention owner holds it, one more
-column on a map that already exists, not a new artifact. Collection offers only content no
-declared retainer owns. For a record kind whose lifecycle defines removal — a compacted
-View or ViewDelta revision, for instance — removing the record releases its ownership. For
-a record kind this document declares append-only and undeletable — a Receipt, an
-AuditRecord, a RunCommit (§5.2, §7.4, §8.3) — removal never occurs, so release never fires
-for it either: such a record retains its named content for its own full durable lifetime,
-bounded only by Tenant-level retention policy (export, legal deletion, Tenant closure), not
-by a per-record release step. Either way, retention and GC follow Tenant policy over content
-no declared retainer owns, so a record cannot outlive the bytes it names. This maps to
-**C13-CONTENT-CUSTODY**.
+A reference alone keeps nothing alive. Every durable record type that names a
+`ContentRef` is a retained owner of that content for as long as the record exists. The
+§8.4 rule 6 ownership map — record type → owning Actor, already required — is where that
+fact is declared: which field names the reference, and which retention owner holds it.
+That is one more column on a map that already exists, not a new artifact. Collection
+offers only content no declared retainer owns. For a record kind whose lifecycle defines
+removal, such as a compacted View or ViewDelta revision, removing the record releases
+its ownership. For a record kind this document declares append-only and undeletable — a
+Receipt, an AuditRecord, a RunCommit (§5.2, §7.4, §8.3) — removal never occurs, so
+release never fires for it either. Such a record retains its named content for its own
+full durable lifetime, bounded only by Tenant-level retention policy (export, legal
+deletion, Tenant closure), not by a per-record release step. Either way, retention and
+collection follow Tenant policy over content no declared retainer owns, so a record
+cannot outlive the bytes it names. This maps to **C13-CONTENT-CUSTODY**.
 
 ### 8.3 Records and codecs
 
 Durable records are data. Every record type defines a stable serialized form with a
 **versioned codec**, used identically for storage, the command protocol, and
-export/import. A codec MUST upcast records of an older minor within the same major, and
-MUST reject an unknown major — newer or older — and an unknown newer minor with a typed
-error, never a silent truncation. Live behavior wraps records; it never *is* the
+export/import. A codec MUST upcast records of an older minor within the same major. It
+MUST reject an unknown major, newer or older, and an unknown newer minor, with a typed
+error and never a silent truncation. Live behavior wraps records; it never *is* the
 record, and durable records never own live substrate resources. This maps to
 **C13-CODEC-VERSIONING**.
 
@@ -2268,13 +2268,13 @@ record, and durable records never own live substrate resources. This maps to
 
 1. Every record type names exactly **one owning Actor**.
 2. Other actors hold identifiers and rebuildable indexes only. An index maps id →
-   locator and is disposable; a Workspace's index over dedicated Runs is constrained
-   to `{ runId, actor locator, pins, terminal outcome, settled }` and never carries replayable
-   Run state.
-3. Caches are derived, versioned, rebuildable; a cache miss is never an error.
-4. Cross-actor reads use RPC or explicitly versioned snapshots — never dual writes.
-5. Authority resolution returns complete PathEpochEvidence; direct and mediated paths
-   enforce §3.4 rules 5–8. Rules 1–4 map to **C13-OWNERSHIP-SINGLE-OWNER**.
+   locator and is disposable. A Workspace's index over dedicated Runs is constrained to
+   `{ runId, actor locator, pins, terminal outcome, settled }` and never carries
+   replayable Run state.
+3. Caches are derived, versioned, and rebuildable; a cache miss is never an error.
+4. Cross-actor reads use RPC or explicitly versioned snapshots, never dual writes.
+5. Authority resolution returns complete PathEpochEvidence, and the direct and mediated
+   paths enforce §3.4 rules 5–8. Rules 1–4 map to **C13-OWNERSHIP-SINGLE-OWNER**.
 6. Conformance includes an **ownership map** artifact — record type → owning Actor —
    verified against the implementation.
 
@@ -2285,22 +2285,22 @@ Run Actors MAY retain Binding ids and rebuildable indexes, never canonical or mi
 Binding records. This maps to **C13-OWNERSHIP-AUTHORITY-RECORDS**.
 
 These rules exist because mirrored state is the most expensive class of bug a durable
-platform can have: two copies of the truth always eventually disagree, and by the time
+platform can have. Two copies of the truth always eventually disagree, and by the time
 they do, both copies have already been read by something.
 
 ### 8.5 The command protocol
 
-Protocol **commands** (controller contracts — distinct from the user-facing Commands
-of §4.3) are how coordination is implemented. Every mutating command defines
-authority, valid lifecycle state, linearization point, durable mutation, emitted
-observation, reply, retry, and reconciliation behavior. Reference command families: Tenant,
+Protocol **commands** — controller contracts, distinct from the user-facing Commands of
+§4.3 — are how coordination is implemented. Every mutating command defines authority,
+valid lifecycle state, linearization point, durable mutation, emitted observation,
+reply, retry, and reconciliation behavior. The reference command families are Tenant,
 membership, resource, Grant, Binding, Event, Subscription, Run, Turn, RunBranch,
 RunCommit, Invocation, Approval, Environment, and Workspace portability.
 
 A conforming substrate provides a **dispatcher** that enforces the envelope at the
 protocol boundary. The families include allow/deny Grant, Binding, RouteReservation,
-RunPins migration, PreparedInvocation, Approval consumption, EffectAttempt, Receipt,
-and AuditRecord append commands.
+RunPins migration, PreparedInvocation, Approval consumption, EffectAttempt, Receipt, and
+AuditRecord append commands.
 
 ```ts
 type CommandCaller =
@@ -2341,30 +2341,30 @@ interface WriteRecord {
 }
 ```
 
-The dispatcher MUST evaluate in this order: decode/shape, authenticate exact caller,
-duplicate lookup on `(caller, idempotencyKey)`, authority, lifecycle, expected revision,
-optional LeaseToken, then mutation. A Turn-owned command requires a token; a supplied
-token MUST always be checked for exact Turn, holder, epoch, and non-expiry. Missing
-required, unexpected, stale, wrong-Turn, or expired tokens yield `rejectedLease`.
-Duplicate MUST return the original reply and record `duplicateOf` without re-running
-later gates or mutation. These map to **C13-PROTOCOL-OUTCOMES**,
+The dispatcher MUST evaluate in this order: decode and shape, authenticate the exact
+caller, duplicate lookup on `(caller, idempotencyKey)`, authority, lifecycle, expected
+revision, optional LeaseToken, then mutation. A Turn-owned command requires a token, and
+a supplied token MUST always be checked for exact Turn, holder, epoch, and non-expiry. A
+missing required, unexpected, stale, wrong-Turn, or expired token yields
+`rejectedLease`. A duplicate MUST return the original reply and record `duplicateOf`,
+without re-running later gates or the mutation. These map to **C13-PROTOCOL-OUTCOMES**,
 **C13-PROTOCOL-EXACT-ENVELOPE**, and **C13-PROTOCOL-DUPLICATE**.
 
-Each command family MUST declare whether `expectedRevision` is required and whether a
+Each command family MUST declare whether `expectedRevision` is required, and whether a
 LeaseToken is required, optional, or forbidden. Missing required envelope fields and
 forbidden fields are `rejectedMalformed`, except token-policy violations, which are
 `rejectedLease`. This maps to **C13-PROTOCOL-FAMILY-ENVELOPE-POLICY**.
 
-Every request appends exactly one WriteRecord and one linked AuditRecord, including
-malformed and rejected requests. A valid `callerCause` MUST preexist and be a permitted
-typed cause. When rejection has no usable caller cause, the host creates an attributable
-root `write` AuditRecord; malformed input may omit caller and command. An accepted
-request without a caller cause first receives a host-created Invocation root. The
-envelope digest covers the raw submitted envelope even when decode fails. WriteRecord
-and AuditRecord contain each other's preallocated ids and commit atomically
-with the decision. RunCommit commands additionally enforce §5.2. Cross-Actor
-observation is post-commit and uses §6.2 reservation bridges. The rejection-root rule
-maps to **C13-PROTOCOL-REJECTION-ROOT**.
+Every request appends exactly one WriteRecord and one linked AuditRecord, malformed and
+rejected requests included. A valid `callerCause` MUST preexist and MUST be a permitted
+typed cause. When a rejection has no usable caller cause, the host creates an
+attributable root `write` AuditRecord; malformed input may omit caller and command. An
+accepted request without a caller cause first receives a host-created Invocation root.
+The envelope digest covers the raw submitted envelope even when decode fails.
+WriteRecord and AuditRecord contain each other's preallocated ids and commit atomically
+with the decision. RunCommit commands additionally enforce §5.2. Cross-Actor observation
+is post-commit and uses §6.2 reservation bridges. The rejection-root rule maps to
+**C13-PROTOCOL-REJECTION-ROOT**.
 
 ---
 
@@ -2373,9 +2373,9 @@ maps to **C13-PROTOCOL-REJECTION-ROOT**.
 ### 9.1 Package
 
 A **Package** is the distributable unit: one or more FacetManifests, code references,
-version, compatibility range, provenance, config-schema fragments. Packages are
-inspectable without execution — hosts, registries, and the Blueprint validator read
-manifests as data. Registry governance is out of scope; the package shape is not.
+version, compatibility range, provenance, and config-schema fragments. Packages are
+inspectable without execution, because hosts, registries, and the Blueprint validator
+read manifests as data. Registry governance is out of scope; the package shape is not.
 
 ### 9.2 Blueprint
 
@@ -2397,24 +2397,24 @@ interface Blueprint {
 }
 ```
 
-`policies.placement` decides isolation (§1.5) using one explicit preference order.
-For each Facet, compute exactly `manifest ∩ policy ∩ substrate ∩ trust`, where each term
-is an independently derived admissible-mode set. One preference order applies
-everywhere: `dynamic`, then `provider`, then `bundled`. Placement MUST be the first
-member of the intersection in that order. An empty intersection MUST reject the
-Blueprint; no fallback is inferred. These map to **C13-PLACEMENT-INTERSECTION**,
+`policies.placement` decides isolation (§1.5) with one explicit preference order. For
+each Facet, compute exactly `manifest ∩ policy ∩ substrate ∩ trust`, where each term is
+an independently derived admissible-mode set. One preference order applies everywhere:
+`dynamic`, then `provider`, then `bundled`. Placement MUST be the first member of the
+intersection in that order. An empty intersection MUST reject the Blueprint, and no
+fallback is inferred. These map to **C13-PLACEMENT-INTERSECTION**,
 **C13-PLACEMENT-ORDER**, and **C13-PLACEMENT-EMPTY**.
 
-`policies.placement.trusted` names the Packages the trust set
-admits to `bundled`, as a nonempty list of globs matched against the whole `PackageId`:
-`*` matches any sequence of characters, including none, everywhere it appears in the
-pattern; every other character matches itself; a pattern with no `*` matches only that
-exact id. The trust set MUST exclude `bundled` for every Package no glob matches. If the
-chosen mode cannot admit a policy-selected direct call, that call MUST escalate to
-mediated (§7.2); placement itself does not change. These map to
-**C13-PLACEMENT-UNTRUSTED-BUNDLED** and **C13-POLICY-DIRECT-ESCALATION**.
+`policies.placement.trusted` names the Packages the trust set admits to `bundled`, as a
+nonempty list of globs matched against the whole `PackageId`. `*` matches any sequence
+of characters, including none, everywhere it appears in the pattern. Every other
+character matches itself, and a pattern with no `*` matches only that exact id. The
+trust set MUST exclude `bundled` for every Package no glob matches. If the chosen mode
+cannot admit a policy-selected direct call, that call MUST escalate to mediated (§7.2),
+and placement itself does not change. These map to **C13-PLACEMENT-UNTRUSTED-BUNDLED**
+and **C13-POLICY-DIRECT-ESCALATION**.
 
-The composed platform config schema is the spec's base schema plus every installed
+The composed platform config schema is this document's base schema plus every installed
 package's `settings` fragments, and a Blueprint MUST validate against it **before any
 package code loads**. This maps to **C13-BLUEPRINT-VALIDATE-BEFORE-LOAD**.
 
@@ -2441,33 +2441,33 @@ A skeleton:
 ### 9.3 Materialization
 
 A **materializer** MUST project a Blueprint into records — Facet installs, Bindings,
-Subscriptions, slots, policies, scope scaffolding — **idempotently**: re-applying
-reconciles (create, update, remove-managed) rather than duplicates. Materialized
-records are marked Blueprint-managed; manual edits to managed records are rejected or
+Subscriptions, slots, policies, scope scaffolding — **idempotently**. Re-applying
+reconciles (create, update, remove-managed) rather than duplicates. Materialized records
+are marked Blueprint-managed, and manual edits to managed records are rejected or
 adopted explicitly, per policy. The materializer enforces slot contribute-authority
-(§4.2), command uniqueness (§4.3), and role→Grant materialization (§3.3) through the
+(§4.2), command uniqueness (§4.3), and role-to-Grant materialization (§3.3) through the
 same records the runtime uses. Reconciliation on a live platform MUST order changes so
-existing RunPins remain resolvable (§5.2); removing a pinned Package is deferred until
-no Run references it or performed through explicit Run migration — never silent. These
-map to **C13-BLUEPRINT-REMATERIALIZE** and **C13-BLUEPRINT-RUN-PINS**.
+that existing RunPins remain resolvable (§5.2). Removing a pinned Package is deferred
+until no Run references it, or performed through explicit Run migration; it is never
+silent. These map to **C13-BLUEPRINT-REMATERIALIZE** and **C13-BLUEPRINT-RUN-PINS**.
 
 ![From Blueprint to running platform](diagrams/blueprint.svg)
 
-This is the control plane, and honestly, the goal of this whole project: a platform
-is a Blueprint plus Packages, deployed onto a substrate profile. The same document
-that configures your platform is the one a registry can inspect, a reviewer can diff,
-and a second substrate can materialize.
+This is the control plane, and honestly it is the goal of this whole project: a platform
+is a Blueprint plus Packages, deployed onto a substrate profile. The same document that
+configures your platform is the one a registry can inspect, a reviewer can diff, and a
+second substrate can materialize.
 
 ---
 
 ## 10. The Cloudflare profile (normative)
 
-Cloudflare Durable Objects are the first-class substrate: a DO is very nearly an Actor
+Cloudflare Durable Objects are the first-class substrate. A DO is very nearly an Actor
 already — single-threaded, durably addressed, with private transactional storage — so
-the mapping is short. What the profile mostly adds is discipline about the things DOs
-do *not* give you: there is no transaction across two DOs, RPC stubs do not outlive an
-execution context, and queues deliver at least once. The rules below are written
-against those facts.
+the mapping is short. What the profile mostly adds is discipline about the things DOs do
+*not* give you. There is no transaction across two DOs. RPC stubs do not outlive an
+execution context. Queues deliver at least once. The rules below are written against
+those facts.
 
 ### 10.1 Topology
 
@@ -2482,44 +2482,48 @@ against those facts.
 | ContentStore | R2, with DO SQLite for small content, content-addressed; the store and its owner edges are owned by the Tenant Actor |
 | Events | owned by the accepting Actor. Cross-Actor delivery uses a source-owned authenticated RouteReservation with stable InvocationId and a target-local delivery record; Queues/RPC may redeliver but cannot remap or duplicate intent. |
 
-Projects are records in the Tenant DO — grouping adds zero DOs. Authority resolution
+Projects are records in the Tenant DO, so grouping adds zero DOs. Authority resolution
 returns complete PathEpochEvidence. The profile MUST monotonically deliver invalidation
 watermarks, atomically advance them on mediated stale observation, enforce the exact
 Turn lease and immutable deadline for direct calls, perform Actor-local final authority
 admission in the attempt transaction, and perform cross-DO final authority admission at
-Tenant permit issuance after exact claim identity is known (§3.4, §10.3). The watermark
-obligation maps to **C13-AUTH-WATERMARK-MONOTONE**.
+Tenant permit issuance after the exact claim identity is known (§3.4, §10.3). The
+watermark obligation maps to **C13-AUTH-WATERMARK-MONOTONE**.
 
 ![Cloudflare topology](diagrams/cloudflare.svg)
 
 ### 10.2 Facet hosting
 
 Placement follows the §9.2 admissible-set intersection and preference order. It is
-**not** one Worker per Facet — isolation boundaries are drawn exactly
-where protection domains change, and same-domain separation is fanout and cold-start
-tax with no security benefit:
+**not** one Worker per Facet. Isolation boundaries are drawn exactly where protection
+domains change, and same-domain separation is fanout and cold-start tax with no security
+benefit:
 
-1. **Bundled** — facet code ships in the platform Worker and runs in-process inside
-   the hosting Actor. Turn-scoped resolutions; eligible for `direct` (§7.2).
-   First-party facets — fs, shell, memory, tasks, chat — live here, by policy grant.
+1. **Bundled** — facet code ships in the platform Worker and runs in-process inside the
+   hosting Actor. Resolutions are Turn-scoped, and the facet is eligible for `direct`
+   (§7.2). First-party facets — fs, shell, memory, tasks, chat — live here, by policy
+   grant.
+
 2. **Provider** — a separate Worker or service behind a service binding or
-   capability-RPC stub (Workers RPC / Cap'n Web). This is where custody demands
-   isolation: third-party integrations and credential-holding approval gateways. RPC stubs
-   do not survive execution contexts, hibernation, or isolate eviction, so provider
-   resolutions are scoped to a single Turn step and re-resolved with current path
-   epochs each step (§3.4 rules 7–8). Revocation drops the stub; so do platform
-   lifecycle events; re-resolution is the uniform recovery for both.
+   capability-RPC stub (Workers RPC or Cap'n Web). This is where custody demands
+   isolation: third-party integrations and credential-holding approval gateways. RPC
+   stubs do not survive execution contexts, hibernation, or isolate eviction, so
+   provider resolutions are scoped to a single Turn step and re-resolved with current
+   path epochs each step (§3.4 rules 7–8). Revocation drops the stub, and so do platform
+   lifecycle events. Re-resolution is the uniform recovery for both.
+
 3. **Dynamic** — two named backings (§4.7), both loading code into a fresh isolate:
-   `workerLoader`, code loaded via Worker Loader, and `dispatchNamespace`, pre-deployed
-   code loaded via a Workers-for-Platforms dispatch namespace — the agent-authored code
-   of §4.7 (programmatic tool calls, Slate backends, agent-authored facets) runs under
-   either. Hosts pass `globalOutbound: null` (or equivalent); this is how the substrate
-   satisfies §1.5's no-ambient-egress requirement, and capabilities arrive only as
-   explicitly passed Bindings — a delegation under §3.4 (§4.7), not a copy of the
-   loader's authority. Worker Loader is in open beta at the time of writing;
-   `dispatchNamespace` serves as the GA fallback for pre-deployed code — Slate backends,
-   agent-authored facets — with identical authority semantics, including that one.
-   Which backing serves which §4.7 consumer is the platform's declaration to make.
+   `workerLoader`, code loaded through Worker Loader, and `dispatchNamespace`,
+   pre-deployed code loaded through a Workers-for-Platforms dispatch namespace. The
+   agent-authored code of §4.7 — programmatic tool calls, Slate backends, agent-authored
+   facets — runs under either. Hosts pass `globalOutbound: null` or the equivalent; this
+   is how the substrate satisfies the no-ambient-egress requirement of §1.5.
+   Capabilities arrive only as explicitly passed Bindings, a delegation under §3.4
+   (§4.7) and not a copy of the loader's authority. Worker Loader is in open beta at the
+   time of writing, and `dispatchNamespace` serves as the GA fallback for pre-deployed
+   code — Slate backends and agent-authored facets — with identical authority semantics,
+   that one included. Which backing serves which §4.7 consumer is the platform's
+   declaration to make.
 
 ### 10.3 Implementation constraints
 
@@ -2600,80 +2604,82 @@ delegates no ambient authority and creates no cross-DO transaction. These clause
 ### 10.4 Durable execution
 
 This profile rests its durability on four platform mechanisms: the object's alarm, its
-reconciliation outbox, its hibernating sockets, and its SQLite storage. Each is a place
-a substrate can satisfy the local runtime and still diverge in production, so the
+reconciliation outbox, its hibernating sockets, and its SQLite storage. At each one a
+substrate can satisfy the local runtime and still diverge in production, so the
 conformance evidence for the rules below is taken from a deployed account.
 
 A Durable Object has exactly one alarm, so no scheduler inside it writes that alarm
-directly: each records a durable per-owner claim, and the physical alarm tracks the
-earliest live claim. Setting, advancing, or releasing one owner's claim MUST leave every
-other owner's wakeup armed, a claim that fires releases only itself, and the alarm falls
-back to the earliest surviving claim or is torn down when none remains. The claim table,
-not the platform's alarm slot, is the state that arbitration is repaired from. This maps
-to **C13-CLOUDFLARE-ALARM-CLAIMS**.
+directly. Each scheduler records a durable per-owner claim, and the physical alarm
+tracks the earliest live claim. Setting, advancing, or releasing one owner's claim MUST
+leave every other owner's wakeup armed. A claim that fires releases only itself. The
+alarm then falls back to the earliest surviving claim, or is torn down when none
+remains. The claim table, not the platform's alarm slot, is the state that arbitration
+is repaired from. This maps to **C13-CLOUDFLARE-ALARM-CLAIMS**.
 
-Alarms drive schedules (idempotency key = `(subscription, fireTime)`) and serve as the
-reconciliation driver (§7.4): an alarm sweep re-queries indeterminate attempts and
-appends final Receipts; retry creates a new mediated EffectAttempt. Workflows
+Alarms drive schedules, with idempotency key `(subscription, fireTime)`, and they serve
+as the reconciliation driver (§7.4): an alarm sweep re-queries indeterminate attempts
+and appends final Receipts, and retry creates a new mediated EffectAttempt. Workflows
 `step.waitForEvent` MAY serve as the driver for provider-callback flows instead. The
-driver holds one claim tracking the earliest entry of a durable reconciliation outbox —
-armed when an entry is enqueued, rebuilt from the outbox when the Actor starts, and
-released once the outbox drains — so no due entry is left without a wakeup and no
-drained outbox is left holding one. This maps to
+driver holds one claim that tracks the earliest entry of a durable reconciliation
+outbox. The claim is armed when an entry is enqueued, rebuilt from the outbox when the
+Actor starts, and released once the outbox drains. So no due entry is left without a
+wakeup, and no drained outbox is left holding one. This maps to
 **C13-CLOUDFLARE-RECONCILIATION-DRIVER**.
 
 An armed alarm is durable state rather than a live timer, and its recovery belongs to
 the platform. Losing the instance MUST NOT drop the schedule: the platform
-re-instantiates the object and fires the alarm on schedule without anything outside the
-object having touched it. A handler that throws MUST NOT drop it either — the entry
-stays unacknowledged and the alarm re-fires until a sweep completes. Because recovery is
-the platform's, a conforming deployment MUST NOT need an external timer, cron, or
-keepalive request to re-arm work it has already armed. This maps to
+re-instantiates the object and fires the alarm on schedule, without anything outside the
+object having touched it. A handler that throws MUST NOT drop it either. The entry stays
+unacknowledged, and the alarm re-fires until a sweep completes. Because recovery is the
+platform's, a conforming deployment MUST NOT need an external timer, cron, or keepalive
+request to re-arm work it has already armed. This maps to
 **C13-CLOUDFLARE-ALARM-DURABILITY**.
 
-A reconciliation that fails is rescheduled, never acknowledged: the sweep records the
-failure, moves that entry to a bounded retry time, re-arms the alarm for it, and the
-entry settles under the same driver on a later sweep. A sweep that fails before reaching
-its entries floors the re-arm one retry delay out instead of at the past schedules it
-never read, which would refire immediately and spin. This maps to
+A reconciliation that fails is rescheduled, never acknowledged. The sweep records the
+failure, moves that entry to a bounded retry time, and re-arms the alarm for it, and the
+entry settles under the same driver on a later sweep. A sweep that fails before it
+reaches its entries floors the re-arm one retry delay out, rather than at the past
+schedules it never read, which would refire immediately and spin. This maps to
 **C13-CLOUDFLARE-RECONCILIATION-RETRY**.
 
 Reconciliation awaits application work with the object's input gate open, so a request
 can reschedule an entry while the sweep that read it is still running. Acknowledgement
-and reschedule therefore fence on the schedule the sweep observed: an entry whose
-schedule moved underneath the sweep MUST survive it with the newer schedule intact and
-the alarm pointing at that schedule, and an entry whose schedule still matches is
-cleared. This maps to **C13-CLOUDFLARE-RECONCILIATION-FENCE**.
+and reschedule therefore fence on the schedule the sweep observed. An entry whose
+schedule moved underneath the sweep MUST survive it with the newer schedule intact, and
+the alarm MUST point at that schedule. An entry whose schedule still matches is cleared.
+This maps to **C13-CLOUDFLARE-RECONCILIATION-FENCE**.
 
 WebSocket surfaces use hibernation. ViewDelta streaming requires a durable, compactable
-delta/snapshot log keyed by revision in the owning DO, and the per-socket last-acked
-revision cursor in the WebSocket attachment (≤ 16 KB); replay cost is bounded by
+delta and snapshot log keyed by revision in the owning DO, and the per-socket last-acked
+revision cursor in the WebSocket attachment (≤ 16 KB). Replay cost is bounded by
 periodic snapshots. The attachment is that cursor's only home, so the cursor MUST
-survive hibernation and isolate eviction in the attachment alongside the open socket: a socket resumed in a new
-isolate replays exactly the revisions past its acknowledged cursor, and an acknowledged
-revision is never replayed to it again. This maps to **C13-CLOUDFLARE-VIEW-ATTACHMENT**.
+survive hibernation and isolate eviction in the attachment alongside the open socket. A
+socket resumed in a new isolate replays exactly the revisions past its acknowledged
+cursor, and an acknowledged revision is never replayed to it again. This maps to
+**C13-CLOUDFLARE-VIEW-ATTACHMENT**.
 
-Queues and Workflows are at-least-once with no platform-fenced DO callback; all fencing
-is the application-level lease epoch (§5.3). A delivery the target accepts is
-acknowledged and MUST NOT be handed back; one the target declines is retried and
+Queues and Workflows are at-least-once, with no platform-fenced DO callback, so all
+fencing is the application-level lease epoch (§5.3). A delivery the target accepts is
+acknowledged and MUST NOT be handed back. One the target declines is retried and
 redelivered. A message whose body carries no decodable delivery identity MUST NOT reach
-the target and MUST NOT be acknowledged either, because acknowledging destroys it: it is
-retried until the queue's own dead-letter policy takes custody, while the rest of its
-batch keeps its own dispositions. This maps to **C13-CLOUDFLARE-QUEUE-DISPOSITION**.
+the target, and it MUST NOT be acknowledged either, because acknowledging destroys it.
+Such a message is retried until the queue's own dead-letter policy takes custody, while
+the rest of its batch keeps its own dispositions. This maps to
+**C13-CLOUDFLARE-QUEUE-DISPOSITION**.
 
-DO SQLite bounds the size of a stored string, BLOB, or row, and this profile declares
-that bound as a value the deployed platform accepts with row overhead included — not
-merely one the local runtime accepts. Every durable write seam MUST refuse an
-over-limit payload as invalid input before opening a transaction, since the runtime
-would otherwise surface the bound as an opaque statement failure partway through one,
-and the refusal MUST leave the object serving and its durable log unchanged. This maps
-to **C13-CLOUDFLARE-STORAGE-LIMIT**.
+DO SQLite bounds the size of a stored string, BLOB, or row. This profile declares that
+bound as a value the deployed platform accepts, row overhead included, not merely one
+the local runtime accepts. Every durable write seam MUST refuse an over-limit payload as
+invalid input before it opens a transaction, because the runtime would otherwise surface
+the bound as an opaque statement failure partway through one. The refusal MUST leave the
+object serving and its durable log unchanged. This maps to
+**C13-CLOUDFLARE-STORAGE-LIMIT**.
 
 Durable state is independent of the deployed code version. Deploying a new Worker MUST
 NOT clear alarm claims, the physical alarm, reconciliation outbox entries, or the view
-revision log, and the new version resumes that work rather than restarting it: a
-schedule armed by the previous version fires under the new one and settles there. This
-maps to **C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY**.
+revision log. The new version resumes that work rather than restarting it: a schedule
+armed by the previous version fires under the new one and settles there. This maps to
+**C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY**.
 
 ---
 
@@ -3270,12 +3276,18 @@ One decision remains:
 1. **The public name.** "Agent Core" collides with a shipping AWS product (Bedrock
    AgentCore). Undecided.
 
-**Run/Turn vocabulary — decided; the current names stand.** Industry convention uses
-Run for one execution and Session or Thread for the container, so this document is
-offset by one word. Both candidate renames collide with vocabulary this document
-already spends: Session names the Environment sessions of §4.5, and Attempt names the
-EffectAttempt of §7.4. Renaming would give one concept a familiar word by giving
-another an ambiguous one. Appendix A carries the translation instead.
+**Run/Turn vocabulary — decided; the current names stand.** Three levels exist here:
+a Run holds the lineage, a Turn is one execution attempt, and a Turn step is one
+iteration of the Turn's loop. The last two already match how agent harnesses name
+them. Only the container differs: this document says Run where others say session or
+thread.
+
+Session cannot take that role, because §4.5 gives the name to Environment sessions.
+Thread is free, and it is the closest industry word, but it describes a straight line.
+A Run branches, merges, and keeps named heads over immutable commits. Thread would
+make the most distinctive property of the structure harder to see, and this document
+also uses "single-threaded" for Durable Objects in §10. The rename trades one lookup
+for a permanent inaccuracy, so the names stay and Appendix A carries the translation.
 
 ## Appendix A — Translation table *(informative)*
 
