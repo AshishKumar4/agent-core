@@ -515,11 +515,11 @@ this clause, which is the only place it is stated. This maps to
 A **Facet** is a live, named, typed capability exposed to a protection domain. It is
 defined in two halves:
 
-- the **FacetManifest** — declarative, schema-validated, inspectable *without executing
-  code*: identity, version, compatibility range, config-schema fragment, binding
-  requirements, isolation requirement, and contributions;
+- the **FacetManifest** — declarative, schema-validated, and inspectable *without
+  execution of code*: identity, version, compatibility range, config-schema fragment,
+  binding requirements, isolation requirement, and contributions;
 - the **runtime class** — the behavior: operation handlers, surface rendering,
-  interceptors, lifecycle, child facets.
+  interceptors, lifecycle, and child facets.
 
 ```ts
 interface FacetManifest {
@@ -557,32 +557,31 @@ abstract class Operation<I, O> {
 }
 ```
 
-The host verifies at install time that the runtime provides every implementation the
-manifest declares and refuses contributions the manifest does not declare. This maps to
-**C13-FACET-INSTALL-VERIFICATION**. Placement
-uses the deterministic admissible-set rule in §9.2. A manifest listing `bundled` does not
-thereby obtain it — the trust set independently excludes `bundled` for untrusted Packages
-(§9.2) — and a manifest may exclude modes it will not accept.
+At install time the host verifies that the runtime provides every implementation the
+manifest declares, and it refuses contributions the manifest does not declare. This maps
+to **C13-FACET-INSTALL-VERIFICATION**. Placement uses the deterministic admissible-set
+rule in §9.2. A manifest that lists `bundled` does not obtain `bundled` for that reason:
+the trust set independently excludes `bundled` for untrusted Packages (§9.2). A manifest
+may also exclude modes it will not accept.
 
-Facet lifecycle hooks are idempotent from the caller's perspective. Protected
-invocation requires an active, undisposed Facet whose Grant, Binding, lease, and
-revocation state are valid per §3.4. Turns dispose resolved Facets on completion,
-failure, cancellation, suspension, or authority loss. This maps to **C13-FACET-DISPOSAL**.
+Facet lifecycle hooks are idempotent from the caller's perspective. Protected invocation
+requires an active, undisposed Facet whose Grant, Binding, lease, and revocation state
+are valid per §3.4. Turns dispose resolved Facets on completion, failure, cancellation,
+suspension, or authority loss. This maps to **C13-FACET-DISPOSAL**.
 
-*Why the split:* everything a host, a registry, or the Blueprint validator needs to
-know about a facet is data it can read without running anything. This is the property
-that makes a config-defined platform possible at all — and it is the shape that both
-VS Code extensions and the most successful open agent platforms independently arrived
-at.
+*Why the split:* everything a host, a registry, or the Blueprint validator needs to know
+about a facet is data it can read without running anything. That property is what makes
+a config-defined platform possible at all. It is also the shape that VS Code extensions
+and the most successful open agent platforms arrived at independently.
 
 ### 4.2 Contributions and slots
 
-A **Contribution** is a typed, schema-validated manifest entry targeting a **Slot** —
-the extension points of a platform. The spec defines the core slots; the `slots`
-meta-contribution declares new ones. Contributions are data that compiles down to
-existing primitives, and a conforming host MUST materialize them through the same paths
-it offers imperatively, so declared and programmatic behavior cannot diverge. This maps
-to **C13-FACET-CONTRIBUTION-MATERIALIZATION**.
+A **Contribution** is a typed, schema-validated manifest entry that targets a **Slot**.
+Slots are the extension points of a platform. This document defines the core slots, and
+the `slots` meta-contribution declares new ones. Contributions are data that compiles
+down to existing primitives, and a conforming host MUST materialize them through the
+same paths it offers imperatively, so declared and programmatic behavior cannot diverge.
+This maps to **C13-FACET-CONTRIBUTION-MATERIALIZATION**.
 
 | Core slot | Entry | Materializes as |
 | --- | --- | --- |
@@ -605,8 +604,8 @@ interface SlotDeclaration {
 }
 ```
 
-**Reading slots.** Hosts expose a query API — the data source for composers, palettes,
-and dashboards:
+**Reading slots.** Hosts expose a query API. It is the data source for composers,
+palettes, and dashboards:
 
 ```ts
 abstract class SlotCatalog {
@@ -614,26 +613,26 @@ abstract class SlotCatalog {
 }
 ```
 
-`query` MUST filter by the slot's visibility policy; the materializer (§9.3) MUST
-reject contributions that violate the slot's contribute-authority. Core slots carry an
-implicit default policy: contribute = any installed Facet in scope; visibility = the
-same policy as direct reads (§3.4 rule 4). These map to **C13-FACET-SLOT-VISIBILITY**
-and **C13-FACET-SLOT-AUTHORITY**.
+`query` MUST filter by the slot's visibility policy. The materializer (§9.3) MUST reject
+a contribution that violates the slot's contribute-authority. Core slots carry an
+implicit default policy: contribute is any installed Facet in scope, and visibility is
+the same policy as direct reads (§3.4 rule 4). These map to
+**C13-FACET-SLOT-VISIBILITY** and **C13-FACET-SLOT-AUTHORITY**.
 
-Slot entries come in two flavors: *declarative* (the entry is data validated against
-`entrySchema`; the reading Surface renders it) and *surface-backed* (the entry carries
-a `SurfaceId`; an aggregating platform Surface embeds the referenced child Views —
-refs, never live stubs, per §6.3). A `dashboard.card` slot is the canonical
-surface-backed case: the platform's dashboard Surface queries the slot and composes
-the contributed cards' Views.
+Slot entries come in two flavors. A *declarative* entry is data validated against
+`entrySchema`, and the reading Surface renders it. A *surface-backed* entry carries a
+`SurfaceId`, and an aggregating platform Surface embeds the referenced child Views as
+refs, never as live stubs (§6.3). A `dashboard.card` slot is the canonical
+surface-backed case: the platform's dashboard Surface queries the slot and composes the
+contributed cards' Views.
 
 ### 4.3 Commands
 
-A **Command** is the general form of slash commands, palette entries, and CLI verbs —
-a user-invocable, parameterized shortcut to an Operation. It is a contribution kind,
-not a primitive: it compiles entirely to catalog entries plus a derived Subscription,
-which means installing a command changes *no code anywhere* and the full authority,
-approval, and audit machinery applies to it automatically.
+A **Command** is the general form of slash commands, palette entries, and CLI verbs: a
+user-invocable, parameterized shortcut to an Operation. It is a contribution kind, not a
+primitive. It compiles entirely to catalog entries plus a derived Subscription. So
+installing a command changes *no code anywhere*, and the full authority, approval, and
+audit machinery applies to it automatically.
 
 ```ts
 interface Command {
@@ -660,8 +659,8 @@ interface SubscriptionTemplate {
 ```
 
 Materialization is deterministic. A Command first applies `mapping`, or identity when
-absent, and emits `command.invoked` with the validated Operation input at `/input`. Its
-derived Subscription is exactly:
+`mapping` is absent. It then emits `command.invoked` with the validated Operation input
+at `/input`. Its derived Subscription is exactly:
 
 ```ts
 {
@@ -677,47 +676,46 @@ derived Subscription is exactly:
 }
 ```
 
-An automation template defaults `mapping` to root-to-root identity, `dedupe` to
-`event`, and `authority` to initiator using its `binding`. Delegated automation MUST be
-explicit. Its `source.acceptedTrust` is always explicit and nonempty. These defaults map
-to **C13-COMMAND-SUBSCRIPTION-DEFAULTS**.
+An automation template defaults `mapping` to root-to-root identity, `dedupe` to `event`,
+and `authority` to initiator using its `binding`. Delegated automation MUST be explicit.
+Its `source.acceptedTrust` is always explicit and nonempty. These defaults map to
+**C13-COMMAND-SUBSCRIPTION-DEFAULTS**.
 
 The lifecycle, end to end:
 
 1. **Install.** The materializer registers the command in each declared surface slot.
-   Command `name` MUST be unique per surface slot per Scope; a collision rejects the
-   later contribution unless the Scope configures an alias. Per-Scope visibility
-   policy (§9.2) MAY disable individual commands. This maps to
-   **C13-COMMAND-COLLISION**.
+   Command `name` MUST be unique per surface slot per Scope. A collision rejects the
+   later contribution unless the Scope configures an alias. Per-Scope visibility policy
+   (§9.2) MAY disable individual commands. This maps to **C13-COMMAND-COLLISION**.
 
-2. **Discovery.** Surfaces render catalogs via `SlotCatalog.query`. For dynamic
-   argument completion beyond schema enums, the host MAY call the command's
-   `completion` Operation (`observe` impact) with the partial argument context. The
-   impact is what keeps completion off the mediated tier, and maps to
+2. **Discovery.** Surfaces render catalogs through `SlotCatalog.query`. For dynamic
+   argument completion beyond schema enums, the host MAY call the command's `completion`
+   Operation (`observe` impact) with the partial argument context. The impact is what
+   keeps completion off the mediated tier, and it maps to
    **C13-COMMAND-COMPLETION-IMPACT**.
 
-3. **Argument binding.** A Surface owns its input grammar and produces a `FacetData`
+3. **Argument binding.** A Surface owns its input grammar. It produces a `FacetData`
    value that validates against `arguments` before any Event is emitted. CLI token
-   ordering, quoting, and flags belong to the CLI Surface profile, not this core
-   contract. With no `mapping`, the validated value is passed through unchanged;
-   otherwise the declared pure mapping produces the Operation input. The mapping and both
-   schemas MUST be checked at install; the produced value MUST validate against the
-   Operation input schema at execution. These map to **C13-COMMAND-INSTALL-MAPPING**
-   and **C13-COMMAND-ARGUMENT-BINDING**.
+   ordering, quoting, and flags belong to the CLI Surface profile, not to this core
+   contract. With no `mapping`, the validated value passes through unchanged. Otherwise
+   the declared pure mapping produces the Operation input. The mapping and both schemas
+   MUST be checked at install, and the produced value MUST validate against the
+   Operation input schema at execution. These map to **C13-COMMAND-INSTALL-MAPPING** and
+   **C13-COMMAND-ARGUMENT-BINDING**.
 
-4. **Invocation.** The surface emits `Event(command.invoked)` whose correlation MUST
-   carry the originating `SurfaceId` and, when invoked from a conversation, the
-   `RunRef`/branch. The derived Subscription routes it to the target Operation.
-   The derived Subscription uses exactly the fixed defaults above; no inferred
-   compatibility relation or alternate authority source is permitted. This maps to
+4. **Invocation.** The surface emits `Event(command.invoked)`. Its correlation MUST
+   carry the originating `SurfaceId`, and, for invocation from a conversation, the
+   `RunRef` and branch. The derived Subscription routes the Event to the target
+   Operation. That Subscription uses exactly the fixed defaults above; no inferred
+   compatibility relation and no alternate authority source is permitted. This maps to
    **C13-COMMAND-INVOCATION-CORRELATION**.
 
-5. **Result.** The host MUST emit `Event(command.completed)` correlated to the
-   invoking Event's id, carrying the Operation's output reference (or the failure).
-   Surfaces that render a `commands` slot MUST subscribe to `command.completed` for
-   their own invocations and render results via ViewDelta (§6.3). A command whose
-   effect belongs in the conversation appends a RunCommit to the correlated Run under
-   the invoker's authority. This maps to **C13-COMMAND-RESULT**.
+5. **Result.** The host MUST emit `Event(command.completed)` correlated to the invoking
+   Event's id, and it carries the Operation's output reference or the failure. A Surface
+   that renders a `commands` slot MUST subscribe to `command.completed` for its own
+   invocations and MUST render results through ViewDelta (§6.3). A command whose effect
+   belongs in the conversation appends a RunCommit to the correlated Run under the
+   invoker's authority. This maps to **C13-COMMAND-RESULT**.
 
 A worked example — a deploy facet adds `/deploy` to a chat platform:
 
@@ -733,20 +731,20 @@ contributions: {
 ```
 
 Installing the facet makes `/deploy` discoverable wherever the `commands` slot renders.
-`/deploy --target staging` binds, validates, emits `command.invoked` with the Run
-correlation, routes through a mediated Invocation (`externalSend`), and the receipt and
-result flow back to the composer through `command.completed`. Adding a whole new
-affordance category — composer suggestions, dashboard cards — is a `slots` declaration,
-not a spec change.
+`/deploy --target staging` binds and validates the arguments, emits `command.invoked`
+with the Run correlation, and routes through a mediated Invocation (`externalSend`). The
+receipt and the result flow back to the composer through `command.completed`. Adding a
+whole new affordance category, such as composer suggestions or dashboard cards, is a
+`slots` declaration rather than a change to this document.
 
 ![Command lifecycle](diagrams/command-flow.svg)
 
 ### 4.4 Interceptors
 
-An **Interceptor** is an ordered, synchronous, in-process hook at a spec-defined cut
-point that can observe, block, or rewrite the value in flight. It is the one thing
-asynchronous events cannot express: a veto or a transform has to return a value *now*.
-The value in flight at each cut point:
+An **Interceptor** is an ordered, synchronous, in-process hook at a cut point this
+document defines. It can observe, block, or rewrite the value in flight. It is the one
+thing asynchronous events cannot express, because a veto or a transform has to return a
+value *now*. The value in flight at each cut point:
 
 | Cut point | Value in flight | May |
 | --- | --- | --- |
@@ -786,84 +784,91 @@ type InterceptResult =
 
 Rules:
 
-1. Interceptors run only within one protection domain; cross-domain interception MUST
+1. Interceptors run only within one protection domain. Cross-domain interception MUST
    use asynchronous Events. This maps to **C13-INTERCEPTOR-DOMAIN-CONFINEMENT**.
-2. `appliesTo` defaults to the contributing facet's own operations. Intercepting
-   another facet's operations requires that facet to declare the operation
-   `interceptable` and the interceptor's facet to hold a Grant for it. Sharing a
-   domain confers no interception rights.
-3. Ordering is total and deterministic: ascending `(priority, facetId, interceptorId)`;
-   interceptor ids MUST be unique within a Facet. Hosts record
-   which interceptor last rewrote a value. This maps to **C13-INTERCEPTOR-ORDER**.
-4. A thrown error blocks — scoped to the interceptor's `appliesTo`, surfaced as a
-   typed operation error, never as a silent global veto.
-5. Mutating interceptions are attributable: the host records interceptor identity plus
-   before/after value digests through the mediated audit channel. There is no second
+
+2. `appliesTo` defaults to the contributing facet's own operations. To intercept another
+   facet's operations, that facet must declare the operation `interceptable`, and the
+   interceptor's facet must hold a Grant for it. A shared domain confers no interception
+   rights.
+
+3. Ordering is total and deterministic: ascending `(priority, facetId, interceptorId)`.
+   Interceptor ids MUST be unique within a Facet. Hosts record which interceptor last
+   rewrote a value. This maps to **C13-INTERCEPTOR-ORDER**.
+
+4. A thrown error blocks. The block is scoped to the interceptor's `appliesTo` and
+   surfaces as a typed operation error, never as a silent global veto.
+
+5. Mutating interceptions are attributable. The host records interceptor identity plus
+   before and after value digests through the mediated audit channel. There is no second
    channel to choose between, because an applicable interceptor raises the call to
    mediated (§7.2); a direct invocation that presented interception evidence would be an
    invalid state rather than a case to record.
+
 6. `operation.before` completes before preparation. Its final rewritten input is what
    the PreparedInvocation freezes and structurally digests. An interceptor MUST NOT
-   rewrite a PreparedInvocation, Approval, EffectAttempt, or effect arguments
-   afterward. This maps to **C13-INTERCEPTOR-POST-PREPARATION**.
-7. The host persists the ordered `operation.before` transformation trace, including
-   each interceptor identity and before/after digest, with the PreparedInvocation. A
-   replay reuses the persisted transformed input and trace and does not rerun mutating
-   pre-effect interceptors. A new interceptor pass creates a new InvocationId and
-   whole-intent digest.
-8. `operation.after` may rewrite only the returned presentation value; it cannot alter
-   the effect, Receipt, or audit lineage. The host persists its ordered transformations
-   and trace with the returned invocation evidence. Replaying the same invocation
-   presentation reuses that persisted post-effect value and trace and does not rerun
-   `operation.after`. These replay clauses map to **C13-INTERCEPTOR-REPLAY**.
+   rewrite a PreparedInvocation, Approval, EffectAttempt, or effect arguments afterward.
+   This maps to **C13-INTERCEPTOR-POST-PREPARATION**.
 
-Example: a policy facet contributes `{ cutPoint: "operation.before",
-appliesTo: own("web.fetch"), priority: 10 }` that rewrites outbound URLs onto an
-allowlisted proxy — its own operation, no opt-in needed, and the rewrite is
+7. The host persists the ordered `operation.before` transformation trace with the
+   PreparedInvocation, including each interceptor identity and its before and after
+   digest. A replay reuses the persisted transformed input and trace, and it does not
+   rerun mutating pre-effect interceptors. A new interceptor pass creates a new
+   InvocationId and a new whole-intent digest.
+
+8. `operation.after` may rewrite only the returned presentation value. It cannot alter
+   the effect, the Receipt, or the audit lineage. The host persists its ordered
+   transformations and trace with the returned invocation evidence. A replay of the same
+   invocation presentation reuses that persisted post-effect value and trace, and it
+   does not rerun `operation.after`. These replay clauses map to
+   **C13-INTERCEPTOR-REPLAY**.
+
+Example: a policy facet contributes `{ cutPoint: "operation.before", appliesTo:
+own("web.fetch"), priority: 10 }` that rewrites outbound URLs onto an allowlisted proxy.
+It is the facet's own operation, so it needs no opt-in, and the rewrite is
 digest-logged.
 
 ### 4.5 Environment and Session
 
-An **Environment** is an execution endpoint that opens live **Sessions**; a Session
-exposes session-scoped child Facets (`env.fs`, `env.shell`, `env.ports`, `env.proc`).
-An Environment is the agent's computer.
+An **Environment** is an execution endpoint that opens live **Sessions**. A Session
+exposes session-scoped child Facets (`env.fs`, `env.shell`, `env.ports`, `env.proc`). An
+Environment is the agent's computer.
 
-Rules: stale Sessions MUST fail; closing a Session MUST dispose its child Facets;
+Rules: a stale Session MUST fail; closing a Session MUST dispose its child Facets;
 rotation MUST change future Sessions without retargeting open ones. These map to
 **C13-ENVIRONMENT-STALE-SESSION**, **C13-ENVIRONMENT-DISPOSE-CLOSE**, and
-**C13-ENVIRONMENT-ROTATION**. Environment profiles further define
-**snapshot/restore** (boot from a known image), **ephemeral-filesystem durability**
-(backup and restore for container-backed environments), **preview exposure** (how a
-port becomes an authenticated URL), and the **credential-isolation seam** (secrets
-injected by proxy, never present inside the environment).
+**C13-ENVIRONMENT-ROTATION**. Environment profiles also define **snapshot/restore**
+(boot from a known image), **ephemeral-filesystem durability** (backup and restore for
+container-backed environments), **preview exposure** (how a port becomes an
+authenticated URL), and the **credential-isolation seam** (secrets injected by proxy,
+never present inside the environment).
 
 A Session is **Turn-owned** when exactly one Turn opened it, no other Turn may use it,
 and it closes when that Turn reaches a terminal status. A Turn-owned Session cannot be
-shared and cannot outlive its Turn, which is what makes its contents reachable by that
-Turn alone. §7.2 keys an enforcement floor on this property, so it is a condition a
+shared and cannot outlive its Turn, and that is what makes its contents reachable by
+that Turn alone. §7.2 keys an enforcement floor on this property, so it is a condition a
 platform tests rather than assumes. This maps to **C13-ENVIRONMENT-TURN-OWNED**.
 
-A **device environment** (§11) is an Environment behind a reverse-connection
-transport — the user's laptop or phone. Its profile adds pairing (key exchange plus
-operator approval), transport-attached consent (per device × agent, fail-closed), and
-typed device command surfaces. These are Environment-profile concerns, not new
-primitives.
+A **device environment** (§11) is an Environment behind a reverse-connection transport:
+the user's laptop or phone. Its profile adds pairing (key exchange plus operator
+approval), transport-attached consent (per device × agent, fail-closed), and typed
+device command surfaces. These are Environment-profile concerns, not new primitives.
 
 ### 4.6 Slate
 
 A **Slate** is a programmable, user-facing application produced inside the platform —
-the thing your agent builds for you: a **source document** (content-addressed; a
-git-shaped history is a permitted canonical representation), **immutable versions**,
-and **deployments**. A Slate composes with the other primitives rather than
-duplicating them:
+the thing your agent builds for you. It has a **source document** (content-addressed; a
+git-shaped history is a permitted canonical representation), **immutable versions**, and
+**deployments**. A Slate composes with the other primitives rather than duplicating
+them:
 
 - live preview *is* an Environment Session — a running process with ports — not a
   rendered View;
-- the Slate backend is agent-authored code (§4.7): it executes in the `dynamic`
-  isolation mode with zero ambient authority, and capabilities arrive only through
-  explicitly passed Bindings;
-- publishing or embedding a Slate contributes Surfaces; app-private data is owned by
-  the Slate's Actor.
+- the Slate backend is agent-authored code (§4.7). It executes in the `dynamic` isolation
+  mode with zero ambient authority, and capabilities arrive only through explicitly passed
+  Bindings;
+- publishing or embedding a Slate contributes Surfaces. App-private data is owned by the
+  Slate's Actor.
 
 Operations: `update`, `commit`, `fork`, `publish`, `deploy`, `rollback`.
 
@@ -871,44 +876,45 @@ Operations: `update`, `commit`, `fork`, `publish`, `deploy`, `rollback`.
 
 Three consumers execute code the agent wrote. **Programmatic tool calling**: a Turn
 submits code that strings Operation calls together, the host runs it once, and the
-returned value is the tool call's result — one isolate per submission, gone when the
-submission ends. **Slate backends** (§4.6): durable, versioned application code.
-**Agent-authored facets**: ordinary Facets whose Package the agent produced, installed
-and alive as long as any install references them. The three differ in lifetime and in
-nothing else, and this section states the shared shape once so they cannot drift apart.
+returned value is the tool call's result. That isolate lives for one submission and is
+gone when the submission ends. **Slate backends** (§4.6): durable, versioned application
+code. **Agent-authored facets**: ordinary Facets whose Package the agent produced,
+installed and alive as long as any install references them. The three differ in lifetime
+and in nothing else. This section states the shared shape once so they cannot drift
+apart.
 
-The shape is a composition of primitives this document already has, not a seventeenth:
-placement (§9.2) puts the code in a `dynamic` domain — the trust set never hands
-agent-authored code `bundled`, and holding nothing is the point of it — which §1.5
-strips of ambient authority and ambient egress; the capability set arrives only as
-explicitly passed Bindings; every call the code makes against one is an ordinary
-Invocation, tiered by §7.2; and nothing crosses back out except the code's returned
-value and asynchronous Events. From the model's side a programmatic tool call is one
-Operation invocation — code in, value out — while every Operation the code called in
-between carries its own admission and evidence.
+The shape composes primitives this document already has; it is not a seventeenth.
+Placement (§9.2) puts the code in a `dynamic` domain, and the trust set never hands
+agent-authored code `bundled`, because holding nothing is the point of it. §1.5 strips
+that domain of ambient authority and ambient egress. The capability set arrives only as
+explicitly passed Bindings. Every call the code makes against one is an ordinary
+Invocation, tiered by §7.2. Nothing crosses back out except the code's returned value
+and asynchronous Events. From the model's side a programmatic tool call is one Operation
+invocation — code in, value out — while every Operation the code called in between
+carries its own admission and evidence.
 
 Handing the capability set to the isolate is not transport; it is delegation. §1.5
-already says nothing else crosses a domain boundary, and the §3.4 rules bound the
-passed set exactly as they bound any other delegate: equal at most, never wider, deny
-not delegable. The isolate's Invocations present its own delegated authority — never
-the authority of the code that loaded it — so revoking a passed Grant severs the
-isolate without touching its loader. This maps to **C13-AUTH-ISOLATE-DELEGATION**.
+already says that nothing else crosses a domain boundary, and the §3.4 rules bound the
+passed set exactly as they bound any other delegate: equal at most, never wider, and a
+deny is not delegable. The isolate's Invocations present its own delegated authority,
+never the authority of the code that loaded it. So revoking a passed Grant severs the
+isolate and leaves its loader untouched. This maps to **C13-AUTH-ISOLATE-DELEGATION**.
 
 One `dynamic` semantics does not mean one hosting mechanism. A substrate profile MAY
-offer more than one backing for loaded code — §10.2 names two, `workerLoader` and
-`dispatchNamespace` — identified by a substrate-defined, opaque, nonempty id; this
-document fixes no enum of them. A platform declares which backing serves each of the
-three consumers this section names — programmatic tool calling, Slate backends,
-agent-authored facets, a closed set, since nothing else is agent-authored code under
-this section — as part of `policies.placement` (§9.2): one more mapping,
-consumer → backing id, alongside the isolation-mode admissibility that record already
+offer more than one backing for loaded code, identified by a substrate-defined, opaque,
+nonempty id; §10.2 names two, `workerLoader` and `dispatchNamespace`, and this document
+fixes no enum of them. A platform declares which backing serves each of the three
+consumers this section names — programmatic tool calling, Slate backends, and
+agent-authored facets, a closed set, because nothing else is agent-authored code under
+this section — as part of `policies.placement` (§9.2). That is one more mapping,
+consumer → backing id, beside the isolation-mode admissibility the same record already
 declares, not a new artifact. A consumer the Blueprint does not map uses the profile's
 declared default backing. Every offered backing MUST preserve identical authority
-semantics — zero ambient authority, zero ambient egress, capabilities only as explicitly
-passed Bindings — so the choice between backings is operational, never an authority
-decision; each backing demonstrates this independently, the same way any `dynamic`-mode
-implementation does (§1.5's no-ambient-egress requirement), never by comparison
-against another backing. This maps to **C13-PLACEMENT-AUTHORED-BACKING**.
+semantics: zero ambient authority, zero ambient egress, and capabilities only as
+explicitly passed Bindings. So the choice between backings is operational, never an
+authority decision. Each backing demonstrates this independently, the same way any
+`dynamic`-mode implementation does (the no-ambient-egress requirement of §1.5), never by
+comparison against another backing. This maps to **C13-PLACEMENT-AUTHORED-BACKING**.
 
 ---
 
