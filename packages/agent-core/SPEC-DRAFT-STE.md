@@ -924,16 +924,16 @@ comparison against another backing. This maps to **C13-PLACEMENT-AUTHORED-BACKIN
 
 An **Agent** is durable identity, profile, and policy: instructions, model policy (a
 ModelPolicy seam — providers are out of scope), ambient and bound Facet specs, memory
-and task relationships, Run history. A model call happens only inside a Turn. This maps to
-**C13-TURN-MODEL-CALL**.
+and task relationships, and Run history. A model call happens only inside a Turn. This
+maps to **C13-TURN-MODEL-CALL**.
 
 ### 5.2 Run, RunBranch, RunCommit
 
-A **Run** is a branchable, durable work session and conversation lineage. It owns
-input history, RunBranches (named movable heads), RunCommits (immutable records:
-root, message, checkpoint, invocation, event delivery, result, merge, verdict, undo,
+A **Run** is a branchable, durable work session and conversation lineage. It owns input
+history, RunBranches (named movable heads), RunCommits (immutable records: root,
+message, checkpoint, invocation, event delivery, result, merge, verdict, undo,
 migration), status, an optional parent Run, and results. There is no separate
-conversation primitive — conversation state *is* the Run's branch/commit graph.
+conversation primitive: conversation state *is* the Run's branch and commit graph.
 
 ```ts
 interface RunPins {
@@ -1048,83 +1048,79 @@ interface ResourceCeiling {
 
 `PackagePin.id` identifies the distributable Package release, not a contained
 `FacetManifest.id`. `PackageId` and `FacetPackageId` are distinct opaque identities and
-MUST NOT be converted or compared by string value. One Package may contain multiple
+MUST NOT be converted or compared by string value. One Package may contain several
 independently identified FacetManifests. This maps to **C13-RUN-PIN-IDENTITY-TYPES**.
 
-- Starting a Run creates one root RunCommit and immutable **RunPins** fixing the exact
-  Blueprint id, version, and digest; complete transitive Package version closure; Agent
-  id, revision, and digest; effective PolicySet id, revision, and digest; ModelPolicy
-  id, revision, and digest; and Environment id, revision, and digest. `Run.agent` MUST
-  equal `RunPins.agent.id`, and the complete Package closure MUST be nonempty and unique
-  by `PackagePin.id`. Package ranges never appear in RunPins.
-  Every referenced source record and Package release remains resolvable while any Run,
-  Turn, Session, tree checkpoint, or Snapshot pins it. These exact identities map to
-  **C13-RUN-PINS-SOURCES**, **C13-RUN-PINS-ENVIRONMENT**, and
-  **C13-RUN-PINS-VALIDITY**.
-  Every commit names its RunPins. Every non-root, non-migration unary commit inherits
-  its exact parent's pins; a merge requires equal pins on both parents. **Run migration** is
-  an `administer`-impact Operation that appends a unary migration commit naming exact
-  `from` and `to` RunPins; its parent uses `from` and the migration commit uses `to`.
-  Before installation, the target `to` pins MUST satisfy the same
-  `RunPins.Valid(Run.agent)` constraints as Run creation; invalid Agent identity,
-  empty/duplicate Package closure, or malformed source identity rejects without
-  appending or installing the migration commit.
-  A Turn retains the pins captured at its start; only Turns
-  started from the migration commit or its descendants use the new pins. Migration is
-  never implicit, and branches with different pins cannot merge until explicitly
-  migrated to equal pins. Parent inheritance maps to
-  **C13-RUN-PARENT-PIN-INHERITANCE**.
+- Starting a Run creates one root RunCommit and immutable **RunPins**. The pins fix the
+  exact Blueprint id, version, and digest; the complete transitive Package version
+  closure; the Agent id, revision, and digest; the effective PolicySet id, revision, and
+  digest; the ModelPolicy id, revision, and digest; and the Environment id, revision,
+  and digest. `Run.agent` MUST equal `RunPins.agent.id`, and the complete Package
+  closure MUST be nonempty and unique by `PackagePin.id`. Package ranges never appear in
+  RunPins. Every referenced source record and Package release remains resolvable while
+  any Run, Turn, Session, tree checkpoint, or Snapshot pins it. These exact identities
+  map to **C13-RUN-PINS-SOURCES**, **C13-RUN-PINS-ENVIRONMENT**, and
+  **C13-RUN-PINS-VALIDITY**. Every commit names its RunPins. Every non-root,
+  non-migration unary commit inherits its exact parent's pins, and a merge requires
+  equal pins on both parents. **Run migration** is an `administer`-impact Operation that
+  appends a unary migration commit naming exact `from` and `to` RunPins; its parent uses
+  `from` and the migration commit uses `to`. Before installation, the target `to` pins
+  MUST satisfy the same `RunPins.Valid(Run.agent)` constraints as Run creation. An
+  invalid Agent identity, an empty or duplicate Package closure, or a malformed source
+  identity rejects without appending or installing the migration commit. A Turn retains
+  the pins captured at its start, so only Turns started from the migration commit or its
+  descendants use the new pins. Migration is never implicit, and branches with different
+  pins cannot merge until they are explicitly migrated to equal pins. Parent inheritance
+  maps to **C13-RUN-PARENT-PIN-INHERITANCE**.
 
 - Each Turn separately captures one immutable **TurnPlacementSnapshot** after §9.2
-  selection. RunPins do not encode placement, and later policy or substrate changes do
-  not retarget that Turn. Terminalization requires the terminal Turn's snapshot pins to
-  equal the Run's current pins and its terminal commit to inherit those exact pins from
-  the current head. A Turn retained across migration keeps its old pins and MUST be
-  rejected as terminalizer after the Run migrates. These pin-validity clauses map to
-  **C13-RUN-MIGRATED-TURN-REJECTION**.
+  selection. RunPins do not encode placement, and a later policy or substrate change
+  does not retarget that Turn. Terminalization requires the terminal Turn's snapshot
+  pins to equal the Run's current pins, and its terminal commit to inherit those exact
+  pins from the current head. A Turn retained across migration keeps its old pins and
+  MUST be rejected as terminalizer after the Run migrates. These pin-validity clauses
+  map to **C13-RUN-MIGRATED-TURN-REJECTION**.
 
-- Before any Run-associated Approval, Invocation item, RouteReservation,
-  reconciliation, or required system commit is admitted locally or remotely, the
-  Run-owning Actor MUST reserve its canonical `RunObligation` in the durable
-  `RunAdmissionRegistry` transaction. Reservation uses only identities known before
-  remote work: ApprovalId; InvocationId plus item index and item key;
-  RouteReservationId; EffectAttemptId for reconciliation; or planned RunCommitId.
-  Receipt, delivery, projection, and Audit ids are never reserved. Duplicate canonical
-  keys reuse the existing reservation. Completion atomically adds that exact reserved
-  identity to `completed`; an unreserved identity cannot complete. Every remote actor
-  validates the exact `RunAdmissionReservation` identity, Run, and registry epoch before
-  admission; a substituted identity or closed/changed epoch rejects. This maps to
+- Before any Run-associated Approval, Invocation item, RouteReservation, reconciliation,
+  or required system commit is admitted locally or remotely, the Run-owning Actor MUST
+  reserve its canonical `RunObligation` in the durable `RunAdmissionRegistry`
+  transaction. Reservation uses only identities known before remote work: ApprovalId;
+  InvocationId plus item index and item key; RouteReservationId; EffectAttemptId for
+  reconciliation; or planned RunCommitId. Receipt, delivery, projection, and Audit ids
+  are never reserved. Duplicate canonical keys reuse the existing reservation.
+  Completion atomically adds that exact reserved identity to `completed`; an unreserved
+  identity cannot complete. Every remote actor validates the exact
+  `RunAdmissionReservation` identity, Run, and registry epoch before admission; a
+  substituted identity or a closed or changed epoch rejects. This maps to
   **C13-RUN-ADMISSION-REGISTRY** and **C13-RUN-RESERVATION-EPOCH**.
 
 - **Terminalization** is one Run-owner transaction: close the admission registry,
-  advance its epoch, snapshot exactly `reserved − completed`, append the
-  terminal result commit under the exact current Turn token, fence that Turn, record the
-  Run outcome, and capture one finite SettlementObligation. Every sibling Turn MUST
-  already be both terminal and unheld, or, only while this terminalization is open, the
+  advance its epoch, snapshot exactly `reserved − completed`, append the terminal result
+  commit under the exact current Turn token, fence that Turn, record the Run outcome,
+  and capture one finite SettlementObligation. Every sibling Turn MUST already be both
+  terminal and unheld; otherwise, and only while this terminalization is open, the
   system MUST force-cancel it through the closed §5.3 rows. The sibling MUST be a
   distinct Turn in the same Run. One exact successful `administer` control Receipt and
-  its matching AuditRecord authorize the sequence. Each cancellation fences the
-  sibling, appends token-scoped `turn.cancel` inbox and Audit evidence, and records
-  `ForcedTurnCancellation` with both fence epochs and the exact control evidence.
-  Forced cancellation appends no sibling result commit and never presents or
-  impersonates the sibling's LeaseToken or `CommitWriter.turn`.
-  Terminalization commits only after every sibling is both terminal and unheld. No
-  running sibling retains admission. This maps to **C13-RUN-FORCED-CANCELLATION**. Once closed, the Run rejects new routes,
+  its matching AuditRecord authorize the sequence. Each cancellation fences the sibling,
+  appends token-scoped `turn.cancel` inbox and Audit evidence, and records
+  `ForcedTurnCancellation` with both fence epochs and the exact control evidence. Forced
+  cancellation appends no sibling result commit, and it never presents or impersonates
+  the sibling's LeaseToken or `CommitWriter.turn`. Terminalization commits only after
+  every sibling is both terminal and unheld. No running sibling retains admission. This
+  maps to **C13-RUN-FORCED-CANCELLATION**. Once closed, the Run rejects new routes,
   preparations, Turns, migrations, merges, undo, and other control writes; system
   writers may complete only captured evidence obligations.
 
 - The terminal snapshot is exactly the just-closed registry's reserved-minus-completed
-  set, not a remote discovery
-  query: all pending Approvals, admitted Invocation items without a terminal current
-  Receipt, RouteReservations without terminal delivery, EffectAttempts requiring
-  reconciliation, and required system commits. It
-  contains no completed or unreserved work. The finite registry MAY honestly be empty
-  when no reservation was admitted; empty does not mean discovery was skipped. This
-  maps to **C13-RUN-FRONTIER-COMPLETE** and
-  **C13-RUN-FRONTIER-EMPTY**.
+  set, not a remote discovery query: all pending Approvals, admitted Invocation items
+  without a terminal current Receipt, RouteReservations without terminal delivery,
+  EffectAttempts that require reconciliation, and required system commits. It contains
+  no completed and no unreserved work. The finite registry MAY honestly be empty when no
+  reservation was admitted; empty does not mean discovery was skipped. This maps to
+  **C13-RUN-FRONTIER-COMPLETE** and **C13-RUN-FRONTIER-EMPTY**.
 
-- Terminal does not assert all asynchronous evidence has arrived. **Settled** is
-  derived, never assigned: a Run is Settled exactly when every captured Invocation item
+- Terminal does not assert that all asynchronous evidence has arrived. **Settled** is
+  derived, never assigned. A Run is Settled exactly when every captured Invocation item
   has a terminal current Receipt, no indeterminate Receipt is current, every captured
   RouteReservation has delivery or terminal rejection evidence, and every captured
   system RunCommit exists. Every required audit obligation MUST resolve to an existing
@@ -1133,99 +1129,101 @@ independently identified FacetManifests. This maps to **C13-RUN-PIN-IDENTITY-TYP
   its exact Invocation as consumed, denied, or expired. Every captured reconciliation
   MUST resolve the exact captured indeterminate Receipt to one final Receipt for the
   same EffectAttempt with the required `receiptSuperseded` lineage. Every captured
-  acceptance criterion MUST hold a current satisfying verdict. BatchOutcome is available when every item has
-  a current Receipt; its terminal form additionally requires non-indeterminate outcome.
-  This maps to **C13-RUN-SETTLED-DERIVED**.
+  acceptance criterion MUST hold a current satisfying verdict. BatchOutcome is available
+  when every item has a current Receipt, and its terminal form additionally requires a
+  non-indeterminate outcome. This maps to **C13-RUN-SETTLED-DERIVED**.
 
 - `spawn` creates a child Run under attenuated authority (`delegate` impact, §11 Self
   profile).
 
 - The commit graph MUST be **append-only**. An `undo` appends an undo RunCommit `U`
-  whose parent is the current head and whose `selects` field names an ancestor commit;
-  the branch head advances to `U`, and the branch's **effective state** becomes the
-  selected commit. Redo appends another undo commit selecting the prior effective
-  commit. The interval until the next non-undo commit is the **pending revert**: it is
-  durable and reversible. Prior heads remain reachable; ancestry
-  queries are unaffected. This maps to **C13-RUN-UNDO-REDO**.
+  whose parent is the current head and whose `selects` field names an ancestor commit.
+  The branch head advances to `U`, and the branch's **effective state** becomes the
+  selected commit. Redo appends another undo commit that selects the prior effective
+  commit. The interval until the next non-undo commit is the **pending revert**; it is
+  durable and reversible. Prior heads remain reachable, and ancestry queries are
+  unaffected. This maps to **C13-RUN-UNDO-REDO**.
 
-- Undo targeting a branch with a held Turn MUST first fence that Turn (§5.3), whether or
-  not its lease has expired — an expired lease is still reclaimable until someone fences
-  it. An undo that would orphan an in-flight Turn is rejected until the Turn is fenced or
-  completes. This maps to **C13-RUN-UNDO-FENCE**.
+- Undo that targets a branch with a held Turn MUST first fence that Turn (§5.3), whether
+  or not its lease has expired, because an expired lease is still reclaimable until
+  someone fences it. An undo that would orphan an in-flight Turn is rejected until the
+  Turn is fenced or completes. This maps to **C13-RUN-UNDO-FENCE**.
 
-- `merge` is binary: it appends one RunCommit whose ordered parents are exactly the
+- `merge` is binary. It appends one RunCommit whose ordered parents are exactly the
   target branch's current head followed by the distinct source branch's current head.
-  Multiway merge is a deterministic left fold of binary merges in caller-supplied
-  branch order. A merge records one of the three content resolutions in §5.2.1; the
-  graph records lineage and does not compute content.
+  Multiway merge is a deterministic left fold of binary merges in caller-supplied branch
+  order. A merge records one of the three content resolutions in §5.2.1. The graph
+  records lineage and does not compute content.
 
-- Conforming stores MUST support ancestry and reachability queries, not merely head
-  moves. This maps to **C13-RUN-ANCESTRY**.
+- Conforming stores MUST support ancestry and reachability queries, not only head moves.
+  This maps to **C13-RUN-ANCESTRY**.
 
-The **canonical graph** MUST have one root with zero parents; every non-root, non-merge
-commit has exactly one parent equal to its branch head at append; every merge has
-exactly the two parents above; and no other parent arity is valid. Appending atomically
-advances only the target branch head. Commit records and parent order never change.
-This maps to **C13-RUN-GRAPH-ARITY**.
+The **canonical graph** MUST have one root with zero parents. Every non-root, non-merge
+commit has exactly one parent, equal to its branch head at append. Every merge has
+exactly the two parents above. No other parent arity is valid. Appending atomically
+advances only the target branch head. Commit records and parent order never change. This
+maps to **C13-RUN-GRAPH-ARITY**.
 
-A Run MAY declare **acceptance criteria** when it opens, so that finishing is something it
-proves rather than something it asserts. Each criterion names an Operation that decides
-whether the work is done, and the Run-owning Actor reserves its `AcceptanceId` as an
-`acceptance` RunObligation. An `AcceptanceId` is unique across the store, so two Runs
-cannot declare the same criterion identity with different verifiers and a verdict names
-exactly one criterion. The obligation is never completed as bookkeeping: it stays
-outstanding and is snapshotted at terminalization like any other, and it is discharged only
-by evaluation at settlement. It is satisfied exactly when an `AcceptanceVerdict` for that
-`AcceptanceId` names an attempted Receipt whose outcome is `succeeded` and whose `subject`
-equals the Run's current head tree digest — the tree digest of the head of the Run's
-`initialBranch`, the one branch the Run record itself names, so that satisfaction is never
-selectable by the caller that asks. Completing it when the verdict arrives would freeze it
-against whatever tree was current at that instant, and a later commit carrying a new
-`treeCheckpoint` would leave the Run settling on a proof about a tree it no longer has. The verifier is an ordinary
-Operation, so its Receipt carries the whole §7 admission and audit chain, and the Receipt
-MUST come from the exact Operation the criterion names — a succeeded Receipt from any other
-Operation is not evidence for this criterion, or the declared verifier would be decoration
-and any success anywhere would discharge it. An unsatisfied acceptance obligation is exactly as
-unfinished as an outstanding Approval: it is snapshotted into the SettlementObligation and
-the Run is not Settled while it stands. A criterion bounds nothing — not time, not cost,
-not attempts — and a Run that declares none is settled by the same rule as before. This
-maps to **C13-RUN-ACCEPTANCE-OBLIGATION**.
+A Run MAY declare **acceptance criteria** when it opens, so that finishing is something
+it proves rather than something it asserts. Each criterion names an Operation that
+decides whether the work is done, and the Run-owning Actor reserves its `AcceptanceId`
+as an `acceptance` RunObligation. An `AcceptanceId` is unique across the store, so two
+Runs cannot declare the same criterion identity with different verifiers, and a verdict
+names exactly one criterion. The obligation is never completed as bookkeeping. It stays
+outstanding, it is snapshotted at terminalization like any other, and it is discharged
+only by evaluation at settlement. It is satisfied exactly when an `AcceptanceVerdict`
+for that `AcceptanceId` names an attempted Receipt whose outcome is `succeeded` and
+whose `subject` equals the Run's current head tree digest. That digest is the tree
+digest of the head of the Run's `initialBranch`, the one branch the Run record itself
+names, so satisfaction is never selectable by the caller that asks. Completing the
+obligation when the verdict arrives would freeze it against whatever tree was current at
+that instant, and a later commit carrying a new `treeCheckpoint` would leave the Run
+settling on a proof about a tree it no longer has. The verifier is an ordinary
+Operation, so its Receipt carries the whole §7 admission and audit chain. The Receipt
+MUST come from the exact Operation the criterion names; a succeeded Receipt from any
+other Operation is not evidence for this criterion, or the declared verifier would be
+decoration and any success anywhere would discharge it. An unsatisfied acceptance
+obligation is exactly as unfinished as an outstanding Approval: it is snapshotted into
+the SettlementObligation, and the Run is not Settled while it stands. A criterion bounds
+nothing — not time, not cost, not attempts — and a Run that declares none is settled by
+the same rule as before. This maps to **C13-RUN-ACCEPTANCE-OBLIGATION**.
 
 A verdict is evidence for its exact `subject` and for nothing else. While a criterion
-holds a verdict naming the current head tree digest, that verdict is current evidence and
-the system MUST NOT run the verifier again. A further attempt is admissible only against a
-head tree digest that no recorded verdict for that criterion names, so what makes a retry
-possible is changed input rather than elapsed time or a counted attempt. A Run therefore
-cannot spin against inputs it has not moved, and one that keeps failing is visible as a
-criterion undischarged across distinct subjects. This maps to
+holds a verdict naming the current head tree digest, that verdict is current evidence,
+and the system MUST NOT run the verifier again. A further attempt is admissible only
+against a head tree digest that no recorded verdict for that criterion names. So what
+makes a retry possible is changed input, not elapsed time and not a counted attempt. A
+Run therefore cannot spin against inputs it has not moved, and one that keeps failing is
+visible as a criterion undischarged across distinct subjects. This maps to
 **C13-RUN-ACCEPTANCE-SUBJECT**.
 
 A `delegate`-impact spawn MAY attenuate resources alongside capability, by carrying an
-optional `ResourceCeiling` on the spawn's attenuation — the same content-addressed
-attenuation `SpawnReservation.attenuation`'s digest already commits (§5.2), not a new
-record. The same rule governs it as governs capability (§3.4 rule 2): a child ceiling MUST
-NOT exceed the parent's remaining allowance in any declared dimension, and a dimension the
-child does not declare inherits the parent's remainder. A Run that declares no ceiling is
-unbounded — the platform imposes none — so fan-out narrows downward without anything
-capping work nobody chose to bound. This maps to **C13-RUN-RESOURCE-CEILING**.
+optional `ResourceCeiling` on the spawn's attenuation. That is the same
+content-addressed attenuation whose digest `SpawnReservation.attenuation` already
+commits (§5.2), not a new record. The same rule governs it as governs capability (§3.4
+rule 2): a child ceiling MUST NOT exceed the parent's remaining allowance in any
+declared dimension, and a dimension the child does not declare inherits the parent's
+remainder. A Run that declares no ceiling is unbounded, because the platform imposes
+none, so fan-out narrows downward without anything capping work nobody chose to bound.
+This maps to **C13-RUN-RESOURCE-CEILING**.
 
 The three dimensions differ in how their remainder is known. `depth` and `wallClockMs`
-MUST be derived, never separately accounted: depth is the length of the spawn lineage
-from the Run back to the ancestor that declared the ceiling, and wall-clock consumption
-is the current time minus the Run's root RunCommit timestamp — both computable from
+MUST be derived, never separately accounted. Depth is the length of the spawn lineage
+from the Run back to the ancestor that declared the ceiling. Wall-clock consumption is
+the current time minus the Run's root RunCommit timestamp. Both are computable from
 records this document already requires, with no running total to maintain. `tokens` has
-no such derivation: consuming it needs a durable running total per Run, which a host
-MUST accumulate at the same point a model call commits (§5.1, C13-TURN-MODEL-CALL) — a
-counter this document requires without further shaping its storage, left to the executor
-seam (§5.6) like every other model-call detail. This maps to
+no such derivation. Consuming it needs a durable running total per Run, which a host
+MUST accumulate at the same point a model call commits (§5.1, C13-TURN-MODEL-CALL). This
+document requires that counter without shaping its storage further, which is left to the
+executor seam (§5.6) like every other model-call detail. This maps to
 **C13-RUN-CEILING-REMAINDER**.
 
-Exhaustion is neither silence nor a new mechanism: the host cancels the Run through the
-closed §5.3 rows with outcome `cancelled` and the exhausted dimension recorded in
-`RunLifecycle`'s terminal `exhausted` field, and the Run's acceptance criteria still say
-whether the work was finished, so an exhausted Run with an undischarged criterion reads as
-exactly that. A ceiling is scheduling state, like claim expiry (§7.4); it never appears in
-authority admission and changes no admission decision. This maps to
+Exhaustion is neither silence nor a new mechanism. The host cancels the Run through the
+closed §5.3 rows with outcome `cancelled`, and it records the exhausted dimension in
+`RunLifecycle`'s terminal `exhausted` field. The Run's acceptance criteria still say
+whether the work was finished, so an exhausted Run with an undischarged criterion reads
+as exactly that. A ceiling is scheduling state, like claim expiry (§7.4). It never
+appears in authority admission and it changes no admission decision. This maps to
 **C13-RUN-CEILING-EXHAUSTION**.
 
 #### 5.2.1 Merge resolution and tree conflicts
@@ -1236,43 +1234,49 @@ They are handled separately, because §5.4 already separates their checkpoints.
 **Conversation resolution.** A merge's `resolution` names one of three kinds over its
 ordered pair of parents:
 
-- `pick` — the content is one parent's content verbatim (the chosen branch wins). The
+- `pick` — the content is one parent's content verbatim, so the chosen branch wins. The
   resolution records which parent was picked.
-- `concat` — the content is the parent-order concatenation of their contents (used
-  when the branches contributed to disjoint parts of the answer).
+
+- `concat` — the content is the parent-order concatenation of their contents. Use it
+  when the branches contributed to disjoint parts of the answer.
+
 - `synthesize` — the content is produced by an aggregating Turn that read the parent
-  heads. The resolution records its exact LeaseToken and a successful `execute`
-  Receipt whose PreparedInvocation binds that token and whose result is the synthesized
-  content. A separate successful `administer` control Receipt authorizes the system
-  writer to append the merge.
+  heads. The resolution records its exact LeaseToken and a successful `execute` Receipt
+  whose PreparedInvocation binds that token and whose result is the synthesized content.
+  A separate successful `administer` control Receipt authorizes the system writer to
+  append the merge.
 
 Because these are the only three kinds, a reader can tell how merge content relates to
 its parents without re-running anything. `synthesize` is the mixture-of-agents case
 (§12).
 
-**Tree conflicts.** Tree merge is defined only for the same binary parent pair, over
-the same Environment and one common-ancestor tree. The platform MUST resolve the tree
+**Tree conflicts.** Tree merge is defined only for the same binary parent pair, over the
+same Environment and one common-ancestor tree. The platform MUST resolve the tree
 separately and record the outcome on the merge commit's `treeCheckpoint`. A merge with
 more than two tree inputs is invalid rather than implementation-defined. This maps to
 **C13-RUN-BINARY-TREE-MERGE**.
-`policies.treeMerge` is a field of `PolicySet` (§9.2) alongside `tiers`, `approvals`, and
-`placement` — one more declared policy, not a new artifact — naming three settings and
-never picking silently:
 
-- `ours` / `theirs` — take one side's tree wholesale (the resolution records which);
-- `perPath` — take, per path, the side that changed it relative to the common ancestor;
-  paths changed on **both** sides are conflicts and are surfaced, not guessed. No merge
-  commit is appended while any conflict is unresolved. **The operator** is the
-  authenticated Principal who invokes the `administer`-impact merge-resolution Operation
-  for this Run's Scope — the term names who that Operation's caller is, not a second
-  resolution path: there is exactly one mechanism, an `administer`-impact Operation, and
-  "the operator" is how this document refers to whoever legitimately calls it. That
-  Operation supplies an explicit side for every conflict; the final merge records those
-  path resolutions. A platform that never merges over a shared tree (each branch owns a
-  disjoint Environment, the Cognition read/write-split pattern) never encounters tree
-  conflicts and MAY omit `policies.treeMerge`; one that omitted it and then merges two
-  branches over one Environment rejects that merge, because no explicit side can be
-  supplied. This maps to **C13-RUN-TREE-CONFLICT-EXPLICIT**.
+`policies.treeMerge` is a field of `PolicySet` (§9.2) beside `tiers`, `approvals`, and
+`placement` — one more declared policy, not a new artifact. It names three settings and
+never picks silently:
+
+- `ours` / `theirs` — take one side's tree wholesale, and the resolution records which
+  side;
+
+- `perPath` — take, per path, the side that changed it relative to the common ancestor.
+  Paths changed on **both** sides are conflicts, and they are surfaced rather than
+  guessed. No merge commit is appended while any conflict is unresolved. **The
+  operator** is the authenticated Principal who invokes the `administer`-impact
+  merge-resolution Operation for this Run's Scope. The term names who that Operation's
+  caller is, not a second resolution path: there is exactly one mechanism, an
+  `administer`-impact Operation, and "the operator" is how this document refers to
+  whoever legitimately calls it. That Operation supplies an explicit side for every
+  conflict, and the final merge records those path resolutions. A platform that never
+  merges over a shared tree — each branch owns a disjoint Environment, the Cognition
+  read/write-split pattern — never meets a tree conflict and MAY omit
+  `policies.treeMerge`. A platform that omitted it and then merges two branches over one
+  Environment rejects that merge, because no explicit side can be supplied. This maps to
+  **C13-RUN-TREE-CONFLICT-EXPLICIT**.
 
 ![The commit graph: undo as selection](diagrams/undo-graph.svg)
 
@@ -1342,25 +1346,25 @@ commit-kind matrix is closed:
 | `system(control)` | `merge`, `undo`, `migration` | exact successful `administer` Receipt and matching audit |
 
 No other pair commits; a host MUST reject any CommitWriter and kind pair this matrix
-does not name. Root, Turn-authored content, Receipt evidence, and delivery
-evidence do not require a successful Invocation. Only control effects do. A system
-writer MAY append Receipt or delivery evidence after the originating Turn is fenced;
-it gains no Turn authority. Every merge MUST be system-authored by its successful
-matching control Receipt. A `synthesize` merge additionally MUST record a LeaseToken
-and a successful `execute` Receipt whose PreparedInvocation binds that exact token and
-content. These map to **C13-WRITER-MATRIX**, **C13-WRITER-POST-FENCE-EVIDENCE**,
+does not name. Root, Turn-authored content, Receipt evidence, and delivery evidence do
+not require a successful Invocation. Only control effects do. A system writer MAY append
+Receipt or delivery evidence after the originating Turn is fenced, and it gains no Turn
+authority. Every merge MUST be system-authored by its successful matching control
+Receipt. A `synthesize` merge additionally MUST record a LeaseToken and a successful
+`execute` Receipt whose PreparedInvocation binds that exact token and content. These map
+to **C13-WRITER-MATRIX**, **C13-WRITER-POST-FENCE-EVIDENCE**,
 **C13-WRITER-SYSTEM-MERGE**, and **C13-WRITER-SYNTHESIS**.
 
-*Why selection instead of head-rewind:* an append-only graph means nothing is ever
-lost, undo is itself undoable, ancestry queries stay simple, and two observers can
-never disagree about history — they can only disagree about which commit is currently
-selected, which is one field.
+*Why selection instead of head-rewind:* an append-only graph means nothing is ever lost,
+undo is itself undoable, ancestry queries stay simple, and two observers can never
+disagree about history. They can only disagree about which commit is currently selected,
+which is one field.
 
 ### 5.3 Turn: lease-fenced execution attempts
 
 A **Turn** is one lease-fenced execution attempt inside a Run: input, status, lease,
 branch, immutable TurnPlacementSnapshot, resolved FacetSet, checkpoints, Invocations,
-result.
+and result.
 
 ```ts
 interface LeaseToken {
@@ -1382,7 +1386,7 @@ abstract class TurnLease {
 ```
 
 A Turn starts `queued` with an unheld exact-Turn lease at epoch 0. The only lifecycle
-transitions are those in the table below; a Turn MUST NOT take any other, and the
+transitions are those in the table below. A Turn MUST NOT take any other, and the
 complete table maps to **C13-TURN-LIFECYCLE**:
 
 | From | Operation | To | Lease rule |
@@ -1401,26 +1405,26 @@ complete table maps to **C13-TURN-LIFECYCLE**:
 | `running` sibling | system force-cancel during terminalization | `cancelled` | exact administer control evidence; fence epoch + 1; token-scoped cancellation inbox/audit |
 | `suspended` sibling | system force-cancel during terminalization | `cancelled` | exact administer control evidence; fence epoch + 1; token-scoped cancellation inbox/audit |
 
-Terminal Turns MUST NOT transition. A lease never changes its `turn` and MUST NOT
+Terminal Turns MUST NOT transition. A lease never changes its `turn`, and it MUST NOT
 authorize a write for another Turn. Every executor-authored RunCommit, Invocation
 intent, EffectAttempt, child-Run spawn, callback, checkpoint, and terminal result MUST
-present that exact Turn id and the current lease epoch; mismatch, expiry, or stale
-epoch rejects it. A system writer MAY append only the evidence and control kinds
-allowed by the §5.2 CommitWriter matrix. These map to **C13-TURN-EXACT-LEASE** and
+present that exact Turn id and the current lease epoch. A mismatch, an expiry, or a
+stale epoch rejects it. A system writer MAY append only the evidence and control kinds
+the §5.2 CommitWriter matrix allows. These map to **C13-TURN-EXACT-LEASE** and
 **C13-TURN-EXECUTOR-WRITER**.
 
 Every claim, renew, or reclaim requires `expiresAt > now` and MUST be rejected without
-it; reclaim additionally requires the recorded expiry to be at or before `now`. This
+it. Reclaim additionally requires the recorded expiry to be at or before `now`. This
 maps to **C13-TURN-LEASE-EXPIRY**.
 
 For running success, failure, or cancellation, the terminal result commit is validated
-with the current LeaseToken and the fence is applied in the same transition, with the
+with the current LeaseToken, and the fence is applied in the same transition, with the
 result logically before the fence. Queued and suspended cancellation produces no Turn
 result commit unless Run terminalization records it as a captured system obligation.
 
 ![Turn lease lifecycle](diagrams/turn-lease.svg)
 
-The lease is deliberately application-visible: your code can hand the epoch to an
+The lease is deliberately application-visible. Your code can hand the epoch to an
 external system and ask it to check, and that check is the only kind of fencing that
 still works across a network partition.
 
@@ -1429,18 +1433,18 @@ still works across a network partition.
 Two checkpoint kinds are distinct and MUST NOT be conflated: **run checkpoints**
 (conversation and executor state, recorded as RunCommits) and **tree checkpoints**
 (filesystem state of an Environment, content-addressed snapshots). Undoing a
-conversation and undoing files are separate operations — a RunCommit MAY carry
-`treeCheckpoint` (§5.2) naming the tree snapshot current at that commit, which is what
-makes *coordinated* undo expressible as two explicit steps, never one implicit one. This
-maps to **C13-RUN-CHECKPOINT-KINDS**.
+conversation and undoing files are separate operations. A RunCommit MAY carry
+`treeCheckpoint` (§5.2) naming the tree snapshot current at that commit, and that is
+what makes *coordinated* undo expressible as two explicit steps, never one implicit
+step. This maps to **C13-RUN-CHECKPOINT-KINDS**.
 
 ### 5.5 Cache lineage
 
-A Turn may carry an advisory `cacheLineage` hint identifying the Turn and prompt
-prefix it descends from, so executors can preserve provider-side prefix caches across
-forked or parallel attempts. Purely advisory; no correctness semantics. Systems that
-exploit prefix-cache sharing across forks have measured roughly a quarter of inference
-cost saved, which is what earns this a dedicated field.
+A Turn may carry an advisory `cacheLineage` hint. The hint identifies the Turn and
+prompt prefix it descends from, so executors can preserve provider-side prefix caches
+across forked or parallel attempts. It is purely advisory and carries no correctness
+semantics. Systems that exploit prefix-cache sharing across forks have measured roughly
+a quarter of inference cost saved, which is what earns this a dedicated field.
 
 ### 5.6 The executor seam
 
@@ -1453,33 +1457,32 @@ abstract class TurnExecutor {
 }
 ```
 
-Existing harnesses — the Claude Agent SDK, Pydantic AI, the Vercel AI SDK, bespoke
-loops — are hosted behind this seam. Prompt assembly derives from platform rules,
-Agent instructions, Workspace/Run context, the branch's **effective state** (§5.2 —
-not the raw head, which may be an undo marker), `prompt` contributions, and operation
-help, and is interceptable at `prompt.assemble`.
+Existing harnesses — the Claude Agent SDK, Pydantic AI, the Vercel AI SDK, bespoke loops
+— are hosted behind this seam. Prompt assembly derives from platform rules, Agent
+instructions, Workspace and Run context, the branch's **effective state** (§5.2, not the
+raw head, which may be an undo marker), `prompt` contributions, and operation help. It
+is interceptable at `prompt.assemble`.
 
-Mid-turn input uses `turn.deliverEvent`: a lease-fenced operation appending an Event
-to the running Turn's inbox; hosts MAY implement delivery as "the durable log is the
-queue" — re-read the inbox each step. **Cancellation** is the reserved inbox Event
-`turn.cancel`: fencing a Turn (undo, takeover, timeout) delivers it, and a conforming
-executor observes the cancellation signal between steps and stops committing. This maps
-to **C13-TURN-CANCEL-INBOX**.
+Mid-turn input uses `turn.deliverEvent`, a lease-fenced operation that appends an Event
+to the running Turn's inbox. Hosts MAY implement delivery as "the durable log is the
+queue" and re-read the inbox each step. **Cancellation** is the reserved inbox Event
+`turn.cancel`. Fencing a Turn — by undo, takeover, or timeout — delivers it, and a
+conforming executor observes the cancellation signal between steps and stops committing.
+This maps to **C13-TURN-CANCEL-INBOX**.
 
-An executor MAY hand the model a handle instead of a result: a mediated Invocation's
-tool position then returns its admission identity — the InvocationId, or the child
-RunRef for a `delegate`-impact spawn — and the outcome arrives later as an ordinary
-Event, delivered mid-turn through `turn.deliverEvent` or read from the inbox by a
-later Turn if this one ends first. Nothing about admission changes: the pipeline runs
-unaltered, the Receipt and audit chain attach to the identity the handle names, and a
-spawn's `delegate` Receipt carries the child RunRef, never the child's result. This
-is the non-blocking shape — a parent spawns, ends its Turn, and reads the answer as
-history instead of holding its context open to wait. This maps to
-**C13-TURN-ADMISSION-HANDLE**.
+An executor MAY hand the model a handle instead of a result. A mediated Invocation's
+tool position then returns its admission identity: the InvocationId, or the child RunRef
+for a `delegate`-impact spawn. The outcome arrives later as an ordinary Event, delivered
+mid-turn through `turn.deliverEvent`, or read from the inbox by a later Turn if this one
+ends first. Nothing about admission changes. The pipeline runs unaltered, the Receipt
+and audit chain attach to the identity the handle names, and a spawn's `delegate`
+Receipt carries the child RunRef, never the child's result. This is the non-blocking
+shape: a parent spawns, ends its Turn, and reads the answer as history instead of
+holding its context open to wait. This maps to **C13-TURN-ADMISSION-HANDLE**.
 
-The Turn lifecycle above is closed. There is no normative `retryTurn` transition, a failed
-or cancelled Turn is never resurrected, and ordinary admission of another Turn creates no
-retry linkage or inherited authority. This maps to **C13-TURN-NO-RETRY**.
+The Turn lifecycle above is closed. There is no normative `retryTurn` transition, a
+failed or cancelled Turn is never resurrected, and ordinary admission of another Turn
+creates no retry linkage and no inherited authority. This maps to **C13-TURN-NO-RETRY**.
 
 The runtime MUST contain no Turn-retry operation that can recreate a terminal Turn. This
 maps to **C13-TURN-NO-RETRY-RUNTIME**.
@@ -1490,9 +1493,9 @@ The command protocol MUST contain no Turn-retry command family. This maps to
 The supported package surface MUST expose no Turn-retry symbol. This maps to
 **C13-TURN-NO-RETRY-EXPORT**.
 
-The durable record and migration registries MUST contain no Turn-retry record or upcast. A
-later integration that finds such a pre-public extension deletes it rather than adapting
-it. This maps to **C13-TURN-NO-RETRY-RECORD**.
+The durable record and migration registries MUST contain no Turn-retry record and no
+upcast. A later integration that finds such a pre-public extension deletes it rather
+than adapting it. This maps to **C13-TURN-NO-RETRY-RECORD**.
 
 ---
 
