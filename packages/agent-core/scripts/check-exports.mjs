@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import ts from "typescript";
+import { declarationRegistry, exportedDeclarations } from "./quality/export-registry.mjs";
 import {
     artifactRoot,
     isNonEmptyString,
@@ -13,6 +14,7 @@ import {
 
 const packageJson = JSON.parse(await readFile(resolve(packageRoot, "package.json"), "utf8"));
 const registry = await readCanonicalJson(resolve(artifactRoot, "quality/exports.json"));
+const registeredDeclarations = declarationRegistry(registry);
 if (JSON.stringify(packageJson.files) !== JSON.stringify(["dist"])) {
     throw new TypeError("Package files manifest must contain only dist");
 }
@@ -46,9 +48,9 @@ for (const [specifier, path] of declarationPaths) {
     const source = program.getSourceFile(path);
     const module = source === undefined ? undefined : checker.getSymbolAtLocation(source);
     if (module === undefined) throw new TypeError(`Missing declaration module ${specifier}`);
-    assertExact(
-        checker.getExportsOfModule(module).map((symbol) => symbol.name),
-        registry.declarations[specifier],
+    assertExactDeclarations(
+        exportedDeclarations(checker, module),
+        registeredDeclarations[specifier],
         `${specifier} declarations`
     );
 }
@@ -60,7 +62,7 @@ for (const [specifier, symbols] of Object.entries(registry.forbiddenSymbols ?? {
     const source = program.getSourceFile(declarationPath);
     const module = source === undefined ? undefined : checker.getSymbolAtLocation(source);
     const declarations = new Set(
-        module === undefined ? [] : checker.getExportsOfModule(module).map((symbol) => symbol.name)
+        module === undefined ? [] : Object.keys(exportedDeclarations(checker, module))
     );
     for (const symbol of symbols) {
         if (Object.hasOwn(runtime, symbol) || declarations.has(symbol)) {
@@ -262,6 +264,12 @@ function assertExact(actual, expected, owner) {
         !Array.isArray(expected) ||
         JSON.stringify([...actual].sort()) !== JSON.stringify([...expected].sort())
     ) {
+        throw new TypeError(`${owner} symbols differ from the W0-owned export registry`);
+    }
+}
+
+function assertExactDeclarations(actual, expected, owner) {
+    if (JSON.stringify(actual) !== JSON.stringify(expected)) {
         throw new TypeError(`${owner} symbols differ from the W0-owned export registry`);
     }
 }

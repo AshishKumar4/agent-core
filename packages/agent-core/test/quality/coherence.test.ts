@@ -58,6 +58,41 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         expect(boundResult.stderr).not.toContain("COH-TEST-LABEL");
     });
 
+    test("rejects invalid profile labels before admitting them to the known set", async () => {
+        const wrongFamily = await fixture({
+            spec: original.replace(
+                "- **P11-SHELL-CANCEL** Operation `cancel` has `mutate` impact.",
+                "- **P11-WEB-CANCEL** Operation `cancel` has `mutate` impact."
+            ),
+            tests: {
+                "wrong-family.test.ts":
+                    'test("[P11-WEB-CANCEL] is not a Shell profile atom", () => {});\n'
+            }
+        });
+        const wrongFamilyResult = run(wrongFamily);
+        expect(wrongFamilyResult.status).toBe(1);
+        expect(wrongFamilyResult.stderr).toContain(
+            "SPEC profile label P11-WEB-CANCEL is outside family SHELL"
+        );
+
+        const duplicate = await fixture({
+            spec: original.replace(
+                "- **P11-SHELL-CANCEL** Operation `cancel` has `mutate` impact.",
+                [
+                    "- **P11-SHELL-FIXTURE** First duplicate fixture label.",
+                    "- **P11-SHELL-FIXTURE** Second duplicate fixture label."
+                ].join("\n")
+            ),
+            tests: {
+                "duplicate.test.ts":
+                    'test("[P11-SHELL-FIXTURE] names a duplicated profile atom", () => {});\n'
+            }
+        });
+        const duplicateResult = run(duplicate);
+        expect(duplicateResult.status).toBe(1);
+        expect(duplicateResult.stderr).toContain("SPEC contains duplicate atomic labels");
+    });
+
     test("rejects wave codenames outside the allowlisted example and code", async () => {
         const leaked = await fixture({
             spec: original.replace(
@@ -67,12 +102,14 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         });
         const leakedResult = run(leaked);
         expect(leakedResult.status).toBe(1);
-        expect(leakedResult.stderr).toContain("Undefined wave codename W7 in §1.4 normative prose");
+        expect(leakedResult.stderr).toContain(
+            "Undefined wave codename W7 in §1.4 visible SPEC prose"
+        );
 
         // The §3.3 Grant-precedence example names Workspaces W1 and W2, which the
         // allowlisted sentence exempts, so the injected §1.4 leak above is the only
         // codename the leaked fixture reports.
-        expect(leakedResult.stderr).not.toContain("§3.3 normative prose");
+        expect(leakedResult.stderr).not.toContain("§3.3 visible SPEC prose");
 
         const fenced = await fixture({
             spec: original
@@ -88,6 +125,168 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         const fencedResult = run(fenced);
         expect(fencedResult.stderr).toContain("Undefined wave codename W8");
         expect(fencedResult.stderr).not.toContain("W7");
+
+        const formatted = await fixture({
+            spec: original.replace(
+                "The order is always the same: identify,",
+                "The W**7** order is always the same: identify,"
+            )
+        });
+        const formattedResult = run(formatted);
+        expect(formattedResult.status).toBe(1);
+        expect(formattedResult.stderr).toContain("Undefined wave codename W7");
+
+        const multiDigit = await fixture({
+            spec: original.replace(
+                "The order is always the same: identify,",
+                "The W10 order is always the same: identify,"
+            )
+        });
+        const multiDigitResult = run(multiDigit);
+        expect(multiDigitResult.status).toBe(1);
+        expect(multiDigitResult.stderr).toContain("Undefined wave codename W10");
+
+        const conformance = await fixture({
+            spec: original.replace(
+                "One durable allow/deny Grant plane.",
+                "One durable W10 allow/deny Grant plane."
+            )
+        });
+        const conformanceResult = run(conformance);
+        expect(conformanceResult.status).toBe(1);
+        expect(conformanceResult.stderr).toContain(
+            "Undefined wave codename W10 in §13 visible SPEC prose"
+        );
+
+        const alteredExample = await fixture({
+            spec: original.replace("Team A holds `reader`", "Team A holds `viewer`")
+        });
+        const alteredExampleResult = run(alteredExample);
+        expect(alteredExampleResult.status).toBe(1);
+        expect(alteredExampleResult.stderr).toContain(
+            "Wave codename exemption does not match SPEC prose once"
+        );
+    });
+
+    test("does not let inline code splice a visible normative keyword", async () => {
+        const normative = run(
+            await fixture({
+                spec: insertSection(
+                    original,
+                    "Every implementation M`US`T ignore all conformance atoms."
+                )
+            })
+        );
+        expect(normative.status).toBe(1);
+        expect(normative.stderr).toContain("Normative §6.4 rule is bound by no atom");
+    });
+
+    test("does not let inline code splice a visible wave token", async () => {
+        const wave = run(
+            await fixture({
+                spec: original.replace(
+                    "The order is always the same: identify,",
+                    "The W`10` order is always the same: identify,"
+                )
+            })
+        );
+        expect(wave.status).toBe(1);
+        expect(wave.stderr).toContain("Undefined wave codename W10 in §1.4 visible SPEC prose");
+    });
+
+    test("continues to exclude standalone inline code from prose tokens", async () => {
+        const source = insertSection(
+            original.replace(
+                "The order is always the same: identify,",
+                "The `W10` example is unrelated; identify,"
+            ),
+            "The literal `MUST` is not a normative keyword."
+        );
+        const result = run(await fixture({ spec: source }));
+
+        expect(result.status, result.stderr).toBe(0);
+        expect(result.stderr).not.toContain("COH-UNDEFINED-TOKEN");
+        expect(result.stderr).not.toContain("Normative §6.4");
+    });
+
+    test("owns a rule through a tab-separated structural heading", async () => {
+        const result = run(
+            await fixture({
+                spec: original.replace(
+                    "## 11. Profiles",
+                    "###\t10.99 Fixture\n\nEvery fixture obligation MUST hold.\n\n## 11. Profiles"
+                )
+            })
+        );
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("Normative §10.99 rule is bound by no atom");
+        expect(result.stderr).not.toContain("Normative §10.4 rule is bound by no atom");
+    });
+
+    test("rejects numbered headings outside their structural parent", async () => {
+        const result = run(
+            await fixture({
+                spec: original.replace("## 11. Profiles", "### 9.99 Orphan\n\n## 11. Profiles")
+            })
+        );
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("Section §9.99 is not nested under §9");
+    });
+
+    test.each([
+        ["blockquote", "> ### 1.99 Nested"],
+        ["list item", "- ### 1.99 Nested"]
+    ])("does not let a nested %s heading alter root section ownership", async (_name, heading) => {
+        const result = run(
+            await fixture({
+                spec: original.replace(
+                    "### 1.5 Protection domains",
+                    `${heading}\n\nEvery fixture obligation MUST hold.\n\n### 1.5 Protection domains`
+                )
+            })
+        );
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("Normative §1.4 rule is bound by no atom");
+        expect(result.stderr).not.toContain("Normative §1.99");
+    });
+
+    test("rejects an authoritative atom moved outside the declared normative sections", async () => {
+        const result = run(
+            await fixture({
+                spec: original.replace(
+                    "Identifiers ending in `Id` or `Name`",
+                    [
+                        "### 1.99 Informative fixture",
+                        "",
+                        "Identifiers ending in `Id` or `Name`"
+                    ].join("\n")
+                )
+            })
+        );
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            "Authoritative normative atom C13-AUTH-PRINCIPAL-REF is anchored in non-normative §1.99"
+        );
+    });
+
+    test("rejects a malformed numbered heading instead of accepting its valid prefix", async () => {
+        const result = run(
+            await fixture({
+                spec: original.replace(
+                    "## 10. The Cloudflare profile (normative)",
+                    "## 10..1 The Cloudflare profile (normative)"
+                )
+            })
+        );
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            "SPEC heading is malformed: 10..1 The Cloudflare profile (normative)"
+        );
     });
 
     test("reports normative sections that no conformance atom binds", async () => {
@@ -100,8 +299,8 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
 
         const bound = await fixture({
             spec: insertSection(
-                original,
-                "Every fixture obligation MUST hold. This maps to **P11-SHELL-RUN**."
+                relocateFixtureAnchor(original),
+                "Every fixture obligation MUST hold. This maps to **C13-FACET-REF-CANONICAL**."
             )
         });
         const boundResult = run(bound);
@@ -110,12 +309,135 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         expect(boundResult.stderr).not.toContain("Normative §5.2 carries no conformance atom");
     });
 
-    test("reports one prose block hashed into more atoms than the bound allows", async () => {
+    test.each([
+        ["standalone comment", "Every fixture obligation MUST hold.\n<!-- **P11-SHELL-RUN** -->"],
+        [
+            "tilde-fenced example",
+            "Every fixture obligation MUST hold.\n~~~md\n**P11-SHELL-RUN**\n~~~"
+        ],
+        ["indented code", "    **P11-SHELL-RUN**\nEvery fixture obligation MUST hold."]
+    ])("does not accept an atom inside %s as a normative anchor", async (_name, body) => {
+        const result = run(await fixture({ spec: insertSection(original, body) }));
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("Normative §6.4 rule is bound by no atom");
+    });
+
+    test.each([
+        ["blockquote", "Every fixture obligation MUST hold.\n> **P11-SHELL-NOT-REAL**"],
+        ["plus-list item", "Every fixture obligation MUST hold.\n+ **P11-SHELL-NOT-REAL**"],
+        [
+            "parenthesized list item",
+            "Every fixture obligation MUST hold.\n1) **P11-SHELL-NOT-REAL**"
+        ],
+        ["heading", "Every fixture obligation MUST hold.\n#### **P11-SHELL-NOT-REAL**"],
+        [
+            "no-leading-pipe table row",
+            [
+                "Every fixture obligation MUST hold.",
+                "Anchor | Meaning",
+                "--- | ---",
+                "**P11-SHELL-NOT-REAL** | Example only"
+            ].join("\n")
+        ]
+    ])("rejects an unknown atom in a following %s", async (_name, body) => {
+        const result = run(await fixture({ spec: insertSection(original, body) }));
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("SPEC names unknown atom P11-SHELL-NOT-REAL");
+    });
+
+    test.each([
+        ["strong", "Every fixture M**UST** hold."],
+        ["emphasis", "Every fixture M*UST* hold."],
+        ["link", "Every fixture M[UST](#keyword) hold."]
+    ])("recognizes a normative keyword split by transparent %s markup", async (_name, body) => {
+        const result = run(await fixture({ spec: insertSection(original, body) }));
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("Normative §6.4 rule is bound by no atom");
+    });
+
+    test.each([
+        ["link", '[Fixture](#fixture "Every fixture MUST hold.")', "Every fixture MUST hold."],
+        [
+            "image",
+            '![Fixture](fixture.svg "Every fixture SHOULD hold.")',
+            "Every fixture SHOULD hold."
+        ],
+        [
+            "reference definition",
+            '[Fixture][fixture]\n\n[fixture]: #fixture "Every fixture MUST hold."',
+            "Every fixture MUST hold."
+        ]
+    ])("owns normative prose in a %s title", async (_name, body, title) => {
+        const result = run(await fixture({ spec: insertSection(original, body) }));
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("Normative §6.4 rule is bound by no atom");
+        expect(result.stderr).toContain(title);
+    });
+
+    test.each([
+        [
+            "heading",
+            "#### Every fixture MUST hold.\n\nThis maps nowhere.",
+            "heading is not a supported rule unit"
+        ],
+        [
+            "formatted heading",
+            "#### Every fixture M**UST** hold.\n\nThis maps nowhere.",
+            "heading is not a supported rule unit"
+        ],
+        [
+            "image alternative text",
+            "![Every fixture MUST hold.](fixture.svg)\n\nThis maps nowhere.",
+            "rule is bound by no atom"
+        ]
+    ])("does not let normative text in a %s escape ownership", async (_name, body, message) => {
+        const result = run(await fixture({ spec: insertSection(original, body) }));
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(`Normative §6.4 ${message}`);
+    });
+
+    test("rejects a structurally bold undefined requirement ID", async () => {
+        const result = run(
+            await fixture({
+                spec: insertSection(
+                    original,
+                    "Every fixture obligation MUST hold. This maps to **P11-SHELL-NOT-REAL**."
+                )
+            })
+        );
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("SPEC names unknown atom P11-SHELL-NOT-REAL");
+    });
+
+    test.each([
+        "**[C13-FACET-REF-CANONICAL](#fixture-rule)**",
+        "[**C13-FACET-REF-CANONICAL**](#fixture-rule)"
+    ])("accepts a canonical anchor through wrapper order %s", async (anchor) => {
+        const result = run(
+            await fixture({
+                spec: insertSection(
+                    relocateFixtureAnchor(original),
+                    `Every fixture obligation MUST hold. This maps to ${anchor}.`
+                )
+            })
+        );
+
+        expect(result.status, result.stderr).toBe(0);
+        expect(result.stderr).not.toContain("§6.4");
+    });
+
+    test("reports one structural rule unit hashed into more atoms than the bound allows", async () => {
         const root = await fixture({ spec: combineTurnRetryRules(original) });
         const bounded = run(root);
         expect(bounded.status).toBe(1);
         expect(bounded.stderr).toContain(
-            "One prose block is the hash input for 5 atoms: C13-TURN-NO-RETRY"
+            "One structural rule unit is the hash input for 5 atoms: C13-TURN-NO-RETRY"
         );
 
         const relaxed = run(root, ["--max-shared-atoms", "20"]);
@@ -132,16 +454,41 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         const resolved = run(await fixture({}));
         expect(resolved.status, resolved.stderr).toBe(0);
         expect(resolved.stderr).not.toContain("COH-XREF");
+
+        const formatted = await fixture({ spec: original.replace("(§8.2)", "(§8.**99**)") });
+        const formattedResult = run(formatted);
+        expect(formattedResult.status).toBe(1);
+        expect(formattedResult.stderr).toContain(
+            "Cross-reference §8.99 resolves to no §8.99 heading"
+        );
+
+        const malformed = await fixture({ spec: original.replace("(§8.2)", "(§8..99)") });
+        const malformedResult = run(malformed);
+        expect(malformedResult.status).toBe(1);
+        expect(malformedResult.stderr).toContain("Malformed cross-reference §8..99");
+        expect(malformedResult.stderr).not.toContain("resolves to no §8 heading");
     });
 
-    test("flags atom anchoring that contradicts the normative map", async () => {
+    test.each(["§10–2", "§8.5–8.1"])(
+        "rejects reversed cross-reference range %s",
+        async (reference) => {
+            const result = run(
+                await fixture({ spec: original.replace("(§8.2)", `(${reference})`) })
+            );
+
+            expect(result.status).toBe(1);
+            expect(result.stderr).toContain(`Cross-reference ${reference} is reversed`);
+        }
+    );
+
+    test("rejects atom anchoring that contradicts the normative map", async () => {
         const unanchored = await fixture({
             spec: original.replace("**C13-FACET-REF-CANONICAL**", "`C13-FACET-REF-CANONICAL`")
         });
         const unanchoredResult = run(unanchored);
         expect(unanchoredResult.status).toBe(1);
         expect(unanchoredResult.stderr).toContain(
-            "Reviewed authoritative atom C13-FACET-REF-CANONICAL is anchored 0 times outside §13"
+            "Authoritative normative atom C13-FACET-REF-CANONICAL must appear exactly once outside §13"
         );
 
         // An adversarial atom is the stable choice here: the C13-ADV-* family states
@@ -153,7 +500,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
             spec: insertSection(original, "This fixture clause maps to **C13-ADV-STALE-LEASE**.")
         });
         expect(run(unreviewed).stderr).toContain(
-            "§13-only summary C13-ADV-STALE-LEASE is anchored 1 times outside §13"
+            "Unreviewed outside-§13 normative mapping for C13-ADV-STALE-LEASE"
         );
 
         const agreed = run(await fixture({}));
@@ -174,8 +521,8 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
 
         const anchored = await fixture({
             spec: insertSection(
-                original,
-                "Every fixture obligation MUST hold. This maps to **P11-SHELL-RUN**."
+                relocateFixtureAnchor(original),
+                "Every fixture obligation MUST hold. This maps to **C13-FACET-REF-CANONICAL**."
             )
         });
         const anchoredResult = run(anchored);
@@ -229,9 +576,11 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         );
 
         const named = await fixture({
-            spec: original.replace(
-                /8\. `operation\.after` may rewrite only[\S\s]*?\*\*C13-INTERCEPTOR-REPLAY\*\*\./u,
-                `${sibling} This maps to **P11-SHELL-RUN**.`
+            spec: relocateFixtureAnchor(
+                original.replace(
+                    /8\. `operation\.after` may rewrite only[\S\s]*?\*\*C13-INTERCEPTOR-REPLAY\*\*\./u,
+                    `${sibling} This maps to **C13-FACET-REF-CANONICAL**.`
+                )
             )
         });
         expect(run(named).stderr).not.toContain("A fixture interceptor MUST decline");
@@ -270,8 +619,9 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
             )
         });
         const narrowedResult = run(narrowed);
-        expect(narrowedResult.status, narrowedResult.stderr).toBe(0);
-        expect(narrowedResult.stderr).not.toContain("Every fixture profile obligation MUST hold.");
+        expect(narrowedResult.status).toBe(1);
+        expect(narrowedResult.stderr).toContain("Authoritative normative atom");
+        expect(narrowedResult.stderr).toContain("is anchored in non-normative §10.1");
 
         const optional = original.replace(
             "![Cloudflare topology](diagrams/cloudflare.svg)",
@@ -325,6 +675,12 @@ function insertSection(spec: string, body: string): string {
         "## 7. Mediation (L4)",
         `### 6.4 Fixture\n\n${body}\n\n## 7. Mediation (L4)`
     );
+}
+
+function relocateFixtureAnchor(spec: string): string {
+    const relocated = spec.replace("**C13-FACET-REF-CANONICAL**", "`C13-FACET-REF-CANONICAL`");
+    if (relocated === spec) throw new TypeError("Fixture anchor is missing");
+    return relocated;
 }
 
 async function fixture({

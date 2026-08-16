@@ -80,6 +80,10 @@
       "reason": "OperationPayloadCardinality and MediatedReplayCardinality name the SPEC §7.3 single-versus-nonempty-batch payload discriminator precisely while the versioned wire field remains shape."
     },
     {
+      "word": "compat",
+      "reason": "CompatRange is the exact public type used by the §4.1 FacetManifest interface; the canonical prose model excludes its fenced TypeScript declaration."
+    },
+    {
       "word": "clone",
       "reason": "ActorCloneOwnedState carries owned records for the §8.5 Workspace-portability command family; the SPEC names the family, not the copied payload."
     },
@@ -128,8 +132,16 @@
       "reason": "PackageModuleInspector reads §9.1 package code without executing it; the SPEC requires inspectability but names no inspecting component."
     },
     {
+      "word": "intercept",
+      "reason": "InterceptContext and InterceptResult implement the abstract intercept method declared by the §4.4 fenced interface; visible prose uses the related Interceptor noun."
+    },
+    {
       "word": "lock",
       "reason": "PackageLock pins a resolved §9.1 dependency closure, following the ecosystem's lockfile idiom."
+    },
+    {
+      "word": "media",
+      "reason": "MediaHint classifies ContentStore payload metadata below the §8.2 content-custody contract; the SPEC does not name this optional implementation hint."
     },
     {
       "word": "metadata",
@@ -156,6 +168,10 @@
       "reason": "MaterializationRollout orders §9.3 reconciliation on a live platform so existing RunPins stay resolvable; deployment vocabulary the SPEC does not use."
     },
     {
+      "word": "sem",
+      "reason": "SemVer is the exact version type used throughout the SPEC's fenced interfaces; the export-name tokenizer exposes its Sem and Ver fragments separately."
+    },
+    {
       "word": "transient",
       "reason": "TransientContent* hold content no durable record owns yet, bridging put and first retained owner under §8.2 custody; the SPEC describes ownership, not the interim state."
     },
@@ -166,6 +182,10 @@
     {
       "word": "usage",
       "reason": "TurnModelUsage reports model token accounting through the §5.6 executor seam; provider-API vocabulary with no SPEC counterpart."
+    },
+    {
+      "word": "ver",
+      "reason": "SemVer is the exact version type used throughout the SPEC's fenced interfaces; the export-name tokenizer exposes its Sem and Ver fragments separately."
     }
   ]
 }
