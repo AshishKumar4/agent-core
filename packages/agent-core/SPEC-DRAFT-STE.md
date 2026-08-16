@@ -2686,7 +2686,9 @@ armed by the previous version fires under the new one and settles there. This ma
 ## 11. Profiles
 
 - **P11-BASE-COMPOSITION** A profile is a named, conformance-testable composition of primitives, never a new primitive.
-- **P11-BASE-CONTRACT** Each profile specifies its Operations, Events, invariants, and conformance obligations; a profile with no listed Event makes no Event-emission promise.
+- **P11-BASE-CONTRACT** Each profile specifies its Operations, Events, invariants, and
+  conformance obligations. A profile with no listed Event makes no Event-emission
+  promise.
 - **P11-BASE-NAMES** Operation names are conventional; a platform MAY rename them but MUST preserve applicable impacts and invariants.
 - **P11-BASE-TESTS** Each claimed profile MUST provide tests for its listed Operations and invariants, plus Event shape and causality where Events are listed.
 - **P11-BASE-EVIDENCE** Conformance evidence is governed by §13; this section makes no claim about test implementation status.
@@ -2701,8 +2703,10 @@ armed by the previous version fires under the new one and settles there. This ma
 - **P11-FILESYSTEM-MOVE** Operation `move` has `mutate` impact and is same-filesystem only.
 - **P11-FILESYSTEM-MKDIR** Operation `mkdir` has `mutate` impact.
 - **P11-FILESYSTEM-SESSION-DIRECT** A mutating Operation is direct-tier eligible only under the §7.2 floor, which requires the target to be a Turn-owned Session's own filesystem.
-- **P11-FILESYSTEM-RECEIPT** Every mediated mutating Operation records the canonical mediated Invocation `Receipt`; the profile defines no second Receipt type.
-- **P11-FILESYSTEM-PATHS** Paths are normalized and cannot traverse outside the root; escape rejects with stable `path.invalid`, never a silent clamp.
+- **P11-FILESYSTEM-RECEIPT** Every mediated mutating Operation records the canonical
+  mediated Invocation `Receipt`. The profile defines no second Receipt type.
+- **P11-FILESYSTEM-PATHS** Paths are normalized and cannot traverse outside the root. An
+  escape rejects with the stable code `path.invalid`, never a silent clamp.
 - **P11-FILESYSTEM-RANGES** Reads are byte-ranged.
 - **P11-FILESYSTEM-ATOMIC-WRITE** Writes are atomic at path granularity.
 - **P11-FILESYSTEM-ERROR-CLOSED** Filesystem errors use one fixed, stable code set.
@@ -2710,7 +2714,9 @@ armed by the previous version fires under the new one and settles there. This ma
 - **P11-FILESYSTEM-ERROR-BRANCHING** Callers branch on stable codes, not messages.
 - **P11-FILESYSTEM-SUITE** Conformance uses the parameterized filesystem suite.
 - **P11-FILESYSTEM-BACKINGS** The suite runs against every backing store and every observed and mount-composition wrapper.
-- **P11-FILESYSTEM-READONLY** A readonly wrapper exposes only the reader contract and no mutating Operations; it does not accept a mutation and synthesize a profile-specific error.
+- **P11-FILESYSTEM-READONLY** A readonly wrapper exposes only the reader contract and no
+  mutating Operations. It does not accept a mutation and synthesize a profile-specific
+  error.
 - **P11-FILESYSTEM-CODE-ASSERTIONS** The suite asserts the complete stable code set.
 - **P11-FILESYSTEM-ATOMICITY-ASSERTIONS** The suite asserts write atomicity.
 - **P11-FILESYSTEM-PAGING-ASSERTIONS** The suite asserts stat-inclusive paging.
@@ -2777,16 +2783,22 @@ armed by the previous version fires under the new one and settles there. This ma
 
 - **P11-MCP-ADAPTER** MCP is an adapter Facet.
 - **P11-MCP-TOOLS** Discovered MCP tools become Operations.
-- **P11-MCP-RESOURCES** Discovered resources become Operations whose impact the host derives the same way: reading one from a remote server is `externalSend`, and only a platform-side cached projection of a completed read is `observe`.
+- **P11-MCP-RESOURCES** Discovered resources become Operations whose impact the host
+  derives the same way. Reading one from a remote server is `externalSend`, and only a
+  platform-side cached projection of a completed read is `observe`.
 - **P11-MCP-PROMPTS** Discovered prompts become prompt contributions.
 - **P11-MCP-SCHEMA-BOUNDARY** Tools, resources, and prompts are schema-validated at discovery.
 - **P11-MCP-LIFECYCLE** MCP start, health, and stop are the Facet lifecycle.
-- **P11-MCP-REVISION** The profile targets exact MCP protocol revision `2025-11-25`; any other negotiated revision rejects discovery.
+- **P11-MCP-REVISION** The profile targets exact MCP protocol revision `2025-11-25`. Any
+  other negotiated revision rejects discovery.
 - **P11-MCP-PROMPT-COUNT** A server contributes at most 32 prompt items per discovery.
 - **P11-MCP-PROMPT-BYTES** The canonical UTF-8 encoding of all contributed prompt titles and bodies is at most 262144 bytes per discovery.
 - **P11-MCP-POSITIVE-BOUNDS** Both MCP prompt maxima are positive, finite, and enforced before materialization.
 - **P11-MCP-INVOCATION** An MCP tool call is an ordinary Invocation.
-- **P11-MCP-IMPACT-ANNOTATION** Tool `_meta["io.agent-core/impact"]` is a claim by the discovered server, so the host applies it only when it does not lower the §7.2 enforcement floor of the impact the host derived under `C13-FACET-IMPACT-BOUNDARY` (§7.1); otherwise the derived impact stands.
+- **P11-MCP-IMPACT-ANNOTATION** Tool `_meta["io.agent-core/impact"]` is a claim by the
+  discovered server. The host derives the impact under `C13-FACET-IMPACT-BOUNDARY`
+  (§7.1), and applies the claim only when it does not lower the §7.2 enforcement floor
+  of that derived impact. Otherwise the derived impact stands.
 - **P11-MCP-IMPACT-UNKNOWN** An annotation value outside the closed `Impact` set rejects discovery.
 - **P11-MCP-IMPACT-DEFAULT-REMOTE** A remote tool's host-derived impact is `externalSend`.
 - **P11-MCP-IMPACT-DEFAULT-LOCAL** A local tool's host-derived impact is `execute`.
@@ -2795,9 +2807,13 @@ armed by the previous version fires under the new one and settles there. This ma
 
 ### 11.7 Approval gateway
 
-- **P11-APPROVAL-GATEWAY-OBSERVE** Operation `observe` reads the credential-holding external resource, so it has `externalSend` impact; only a platform-side cached projection of a completed read is `observe`.
+- **P11-APPROVAL-GATEWAY-OBSERVE** Operation `observe` reads the credential-holding
+  external resource, so it has `externalSend` impact. Only a platform-side cached
+  projection of a completed read is `observe`.
 - **P11-APPROVAL-GATEWAY-APPLY** Operation `applyAction` has `externalSend` impact and is always mediated.
-- **P11-APPROVAL-GATEWAY-PROVIDER** The gateway's manifest admits `provider` only, so §9.2 can select nothing else for it; it mediates a credential-holding external resource.
+- **P11-APPROVAL-GATEWAY-PROVIDER** The gateway's manifest admits `provider` only, so
+  §9.2 can select nothing else for it. It mediates a credential-holding external
+  resource.
 - **P11-APPROVAL-GATEWAY-READS** Observations are authorized reads.
 - **P11-APPROVAL-GATEWAY-CONTINUATION** Actions are whole-intent-digest-bound Invocations through the invocation-level approval continuation.
 - **P11-APPROVAL-GATEWAY-RECEIPTS** The gateway persists canonical Receipts.
@@ -2836,7 +2852,10 @@ armed by the previous version fires under the new one and settles there. This ma
 - **P11-ENVIRONMENT-EPHEMERAL-DURABILITY** It specifies ephemeral-filesystem durability.
 - **P11-ENVIRONMENT-PREVIEW** It specifies an authenticated preview URL per exposed port.
 - **P11-ENVIRONMENT-CREDENTIAL-SEAM** It specifies the credential-isolation seam.
-- **P11-ENVIRONMENT-NO-AMBIENT-EGRESS** A Session starts with no network reach of its own; every destination its child Facets can address arrives as an explicitly passed Binding, so code written inside the Session cannot route around the outbound policy its `externalSend` Operations enforce.
+- **P11-ENVIRONMENT-NO-AMBIENT-EGRESS** A Session starts with no network reach of its
+  own. Every destination its child Facets can address arrives as an explicitly passed
+  Binding. So code written inside the Session cannot route around the outbound policy
+  its `externalSend` Operations enforce.
 - **P11-ENVIRONMENT-NO-BASE-OPERATIONS** The base profile declares no Operations.
 - **P11-ENVIRONMENT-NO-BASE-EVENTS** The base profile declares no Events.
 - **P11-ENVIRONMENT-CHILD-CONTRACTS** Session child Facet profiles declare their own Operations, Events, and impacts.
@@ -2876,7 +2895,9 @@ armed by the previous version fires under the new one and settles there. This ma
 - **P11-SLATE-ROLLBACK** Operation `rollback` has `mutate` impact.
 - **P11-SLATE-SPECIFICATION** The Slate profile is specified with §4.6.
 - **P11-SLATE-SOURCE** Source is content-addressed with immutable version history.
-- **P11-SLATE-DYNAMIC** The backend's manifest admits `dynamic` only, so §9.2 selects a `dynamic` domain for it, and §1.5's zero-ambient-authority and zero-ambient-egress rules apply to it as to any other `dynamic` domain.
+- **P11-SLATE-DYNAMIC** The backend's manifest admits `dynamic` only, so §9.2 selects a
+  `dynamic` domain for it. The zero-ambient-authority and zero-ambient-egress rules of
+  §1.5 apply to it as to any other `dynamic` domain.
 - **P11-SLATE-PREVIEW** Live preview is an Environment Session.
 - **P11-SLATE-IMMUTABLE-PUBLICATION** A published version is immutable.
 - **P11-SLATE-MEDIATED-DEPLOY** `deploy` is a mediated Invocation.
@@ -2902,45 +2923,44 @@ armed by the previous version fires under the new one and settles there. This ma
 ## 12. Assembly sketches *(informative)*
 
 Four platforms, assembled from the same box of blocks. These are inspired by real
-systems; where the real system does something the primitives don't capture, the sketch
+systems. Where the real system does something the primitives don't capture, the sketch
 says so.
 
-**An exploration platform** (Proteus-shaped). A Workspace DO per agent workspace;
-sibling RunBranches as parallel heads; an orchestration Facet owning search state.
+**An exploration platform** (Proteus-shaped). A Workspace DO per agent workspace,
+sibling RunBranches as parallel heads, and an orchestration Facet owning search state.
 Search statistics — visit counts, value estimates, preference ledgers — are the
-orchestration Facet's own records referenced from RunCommits: the commit graph records
+orchestration Facet's own records, referenced from RunCommits: the commit graph records
 lineage and results, not algorithm state. Self-modifying scaffolds are a versioned
-Slate-like resource; shadow evaluation runs as child Runs spawned under attenuated
-Grants and ResourceCeilings (§5.2); promotion is a mediated `administer` Invocation.
-The primary calling convention is programmatic tool calling (§4.7): one code
-submission per tool call, capabilities passed as Bindings, in-Session writes on
-§7.2's Turn-owned floor, results returnable as handles (§5.6). One thing the real
-system does that these primitives deliberately do not capture: it amortizes admission
-across a whole code execution, performing hundreds of boundary-crossing effects with
-no per-effect admission, where here every `externalSend` and every non-Session
-`mutate` pays its own mediated pipeline and §7.3 batching amortizes only homogeneous
-items of one Operation. A rebuild on these primitives keeps per-effect evidence and
-pays that cost knowingly.
+Slate-like resource. Shadow evaluation runs as child Runs spawned under attenuated
+Grants and ResourceCeilings (§5.2), and promotion is a mediated `administer` Invocation.
+The primary calling convention is programmatic tool calling (§4.7): one code submission
+per tool call, capabilities passed as Bindings, in-Session writes on §7.2's Turn-owned
+floor, and results returnable as handles (§5.6). One thing the real system does that
+these primitives deliberately do not capture: it amortizes admission across a whole code
+execution, and performs hundreds of boundary-crossing effects with no per-effect
+admission. Here every `externalSend` and every non-Session `mutate` pays its own
+mediated pipeline, and §7.3 batching amortizes only homogeneous items of one Operation.
+A rebuild on these primitives keeps per-effect evidence and pays that cost knowingly.
 
-**An app generator** (vibesdk-shaped). One Workspace per generated app; the generator
-Agent runs in the Workspace DO; the app is a Slate whose source history is git-shaped
-content in the ContentStore; live preview is an Environment Session — a container with
-an exposed port; deploys are mediated `externalSend` Invocations into a dispatch
-namespace; chat arrives as Events.
+**An app generator** (vibesdk-shaped). One Workspace per generated app. The generator
+Agent runs in the Workspace DO. The app is a Slate whose source history is git-shaped
+content in the ContentStore. Live preview is an Environment Session, a container with an
+exposed port. Deploys are mediated `externalSend` Invocations into a dispatch namespace,
+and chat arrives as Events.
 
 **A personal assistant** (OpenClaw-shaped). Single-tenant profile. Channel facets
-contribute `ingress`, outbound `externalSend` Operations, and `commands`; routing
-rules are Subscriptions; per-group trust downgrades are trust-tier policy over ingress
-provenance (§6.1); devices are Device-profile Environments; skills are
+contribute `ingress`, outbound `externalSend` Operations, and `commands`. Routing rules
+are Subscriptions. Per-group trust downgrades are trust-tier policy over ingress
+provenance (§6.1). Devices are Device-profile Environments, and skills are
 prompt-contribution Packages. The whole assistant is one Blueprint, and hot-reload is
 re-materialization.
 
-**Mixture-of-agents orchestration.** Proposer Turns use sibling branches from one
-parent commit; an aggregator Turn reads two sibling heads and produces synthesis
-content under an exact LeaseToken and successful `execute` Receipt. After a matching
-`administer` control Receipt succeeds, a system writer appends the binary merge. More
-proposers are folded in caller-supplied order. A judge Turn writes a verdict commit;
-fan-out is `delegate`-impact spawning under attenuated Grants.
+**Mixture-of-agents orchestration.** Proposer Turns use sibling branches from one parent
+commit. An aggregator Turn reads two sibling heads and produces synthesis content under
+an exact LeaseToken and a successful `execute` Receipt. After a matching `administer`
+control Receipt succeeds, a system writer appends the binary merge. More proposers are
+folded in caller-supplied order. A judge Turn writes a verdict commit, and fan-out is
+`delegate`-impact spawning under attenuated Grants.
 
 ---
 
