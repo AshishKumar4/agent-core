@@ -3253,12 +3253,18 @@ One decision remains:
 1. **The public name.** "Agent Core" collides with a shipping AWS product (Bedrock
    AgentCore). Undecided.
 
-**Run/Turn vocabulary — decided; the current names stand.** Industry convention uses
-Run for one execution and Session or Thread for the container, so this document is
-offset by one word. Both candidate renames collide with vocabulary this document
-already spends: Session names the Environment sessions of §4.5, and Attempt names the
-EffectAttempt of §7.4. Renaming would give one concept a familiar word by giving
-another an ambiguous one. Appendix A carries the translation instead.
+**Run/Turn vocabulary — decided; the current names stand.** Three levels exist here:
+a Run holds the lineage, a Turn is one execution attempt, and a Turn step is one
+iteration of the Turn's loop. The last two already match how agent harnesses name
+them. Only the container differs: this document says Run where others say session or
+thread.
+
+Session cannot take that role, because §4.5 gives the name to Environment sessions.
+Thread is free, and it is the closest industry word, but it describes a straight line.
+A Run branches, merges, and keeps named heads over immutable commits. Thread would
+make the most distinctive property of the structure harder to see, and this document
+also uses "single-threaded" for Durable Objects in §10. The rename trades one lookup
+for a permanent inaccuracy, so the names stay and Appendix A carries the translation.
 
 ## Appendix A — Translation table *(informative)*
 
