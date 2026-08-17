@@ -396,12 +396,16 @@ async function checkSpecVocabulary(specFile, exportsFile, vocabularyFile) {
             for (const token of nameTokens(word)) specWords.add(token.toLowerCase());
         }
     }
+    // `+es` only pluralizes a word already ending in a sibilant. Applying it to every word
+    // makes an unrelated longer word discharge a reviewed entry: `plan` + `es` matched the
+    // SPEC's `planes` (as in the authority plane), which is not a plural of `plan`.
+    const sibilant = (candidate) => /(?:s|x|z|ch|sh)$/u.test(candidate);
     const containsWord = (token) =>
         singularForms(token).some(
             (candidate) =>
                 specWords.has(candidate) ||
                 specWords.has(`${candidate}s`) ||
-                specWords.has(`${candidate}es`) ||
+                (sibilant(candidate) && specWords.has(`${candidate}es`)) ||
                 (candidate.endsWith("y") && specWords.has(`${candidate.slice(0, -1)}ies`))
         );
     const symbols = vocabularyDeclarationNames(registry);
