@@ -62,6 +62,20 @@
           "defect": "Struck content was dropped from the visible census, so striking a rule deleted it from coverage while the document still shows it."
         }
       ]
+    },
+    {
+      "rule": "ACQ-EQUIV",
+      "node": "mutation",
+      "mutations": [
+        {
+          "id": "ACQ-EQUIV/anchor-keeps-its-source-and-loses-its-mutant",
+          "find": "\"mutator\": \"ArrowFunction\"",
+          "replace": "\"mutator\": \"ConditionalExpression\"",
+          "expects": "names 0 mutants Stryker generates at its anchor, not one",
+          "diagnostic": "mutants Stryker generates at its ",
+          "defect": "An entry named a mutator that cannot apply at its anchored source, so the anchored text was still present, the audit passed it, and every run reported it stale forever with nothing there to rewrite the proof against."
+        }
+      ]
     }
   ],
   "unregistered": [
@@ -69,7 +83,6 @@
     "ACQ-COVERAGE",
     "ACQ-DAG",
     "ACQ-DOCTRINE",
-    "ACQ-EQUIV",
     "ACQ-ERR",
     "ACQ-ID",
     "ACQ-IMMUTABLE",

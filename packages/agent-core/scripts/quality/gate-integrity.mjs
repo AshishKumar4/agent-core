@@ -78,6 +78,43 @@ const harnesses = {
                 resolve(root, "coherence-baseline.json")
             ];
         }
+    },
+    mutation: {
+        input: "artifacts/quality/mutation-equivalence.json",
+        sources: [
+            "scripts/quality/mutation.mjs",
+            "scripts/quality/mutation-equivalence.mjs",
+            "scripts/quality/mutation-instrumenter.mjs"
+        ],
+        async scaffold(root, input) {
+            await writeFile(resolve(root, "equivalence.json"), input, "utf8");
+            // The gate's other two inputs are neutralized rather than copied. An empty
+            // baseline records no measured area, and at the building stage an unmeasured
+            // area is a note; so the only thing left that can turn this run red is the
+            // register, which is what the corpus mutates. Copying the real baseline would
+            // let a stale fingerprint — the tree's normal state while tests are being
+            // written — stand in for a defect the checker never caught.
+            await writeCanonicalJson(resolve(root, "baseline.json"), {
+                edition: "1.0.0",
+                areas: {}
+            });
+            await writeCanonicalJson(resolve(root, "stage.json"), {
+                edition: "1.0.0",
+                stage: "building"
+            });
+        },
+        argv(root) {
+            return [
+                resolve(packageRoot, "scripts/quality/mutation.mjs"),
+                "--gate",
+                "--register",
+                resolve(root, "equivalence.json"),
+                "--baseline",
+                resolve(root, "baseline.json"),
+                "--stage-artifact",
+                resolve(root, "stage.json")
+            ];
+        }
     }
 };
 

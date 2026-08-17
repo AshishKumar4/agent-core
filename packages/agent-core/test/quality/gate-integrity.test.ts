@@ -11,9 +11,12 @@ const checker = resolve(packageRoot, "scripts/quality/gate-integrity.mjs");
 const temporary: string[] = [];
 
 // Real corpus, perturbed one field at a time: what is under test is the verdict the meta
-// gate reaches, so every fixture keeps the committed gate, harness and mutation and
-// changes exactly the thing the case is about.
-let committedGate: JsonObject;
+// gate reaches, so every fixture keeps the committed gates, harnesses and mutations and
+// changes exactly the thing the case is about. Both registered gates are carried in every
+// fixture because `validateCorpus` refuses a harness no gate exercises — a corpus that
+// dropped one would fail for that reason instead of the one the case is about.
+let coherenceGate: JsonObject;
+let mutationGate: JsonObject;
 let committedMutation: JsonObject;
 let committedDebt: readonly string[];
 let committedMutations: number;
@@ -21,16 +24,20 @@ let committedMutations: number;
 beforeAll(async () => {
     const corpusArtifact = await readArtifact("artifacts/quality/gate-corpus.json");
     const gates = objectsAt(corpusArtifact, "gates");
-    const gate = gates[0];
-    if (gates.length !== 1 || gate === undefined) {
-        throw new TypeError("Committed gate corpus no longer registers exactly one gate");
+    const coherence = gates.find((gate) => stringAt(gate, "rule") === "ACQ-NORM");
+    const mutation = gates.find((gate) => stringAt(gate, "rule") === "ACQ-EQUIV");
+    if (coherence === undefined || mutation === undefined) {
+        throw new TypeError("Committed gate corpus no longer registers ACQ-NORM and ACQ-EQUIV");
     }
-    const mutations = objectsAt(gate, "mutations");
-    const first = mutations[0];
-    if (first === undefined) throw new TypeError("Committed gate corpus states no mutation");
-    committedGate = gate;
+    const first = objectsAt(coherence, "mutations")[0];
+    if (first === undefined) throw new TypeError("Committed ACQ-NORM gate states no mutation");
+    coherenceGate = coherence;
+    mutationGate = mutation;
     committedMutation = first;
-    committedMutations = mutations.length;
+    committedMutations = gates.reduce(
+        (total, gate) => total + objectsAt(gate, "mutations").length,
+        0
+    );
     committedDebt = stringsAt(corpusArtifact, "unregistered");
 });
 
@@ -55,7 +62,7 @@ const harmless: JsonObject = {
 function corpus(gate: JsonObject = {}, unregistered?: readonly string[]): JsonObject {
     return {
         edition: "1.0.0",
-        gates: [{ ...committedGate, mutations: [committedMutation], ...gate }],
+        gates: [{ ...coherenceGate, mutations: [committedMutation], ...gate }, mutationGate],
         unregistered: unregistered ?? committedDebt
     };
 }
@@ -73,7 +80,7 @@ async function run(value: JsonObject, stage = "building") {
 }
 
 describe("gate integrity", subprocessTestOptions, () => {
-    test("turns its registered gate red on every committed mutation", () => {
+    test("turns every registered gate red on every committed mutation", () => {
         const result = runQualitySubprocess(
             process.execPath,
             [checker, "--stage", "building"],
@@ -82,7 +89,7 @@ describe("gate integrity", subprocessTestOptions, () => {
 
         expect(result.status, result.stderr).toBe(0);
         expect(result.stdout).toContain(
-            `gate integrity incomplete: ${committedMutations} mutation(s) turned 1 of 18 rule(s) red`
+            `gate integrity incomplete: ${committedMutations} mutation(s) turned 2 of 18 rule(s) red`
         );
     });
 
@@ -119,6 +126,7 @@ describe("gate integrity", subprocessTestOptions, () => {
         expect(result.stderr).toContain("Quality rule has no mutation corpus and no recorded debt");
         expect(result.stderr).toContain("ACQ-TYPE");
         expect(result.stderr).not.toContain("  ACQ-NORM\n");
+        expect(result.stderr).not.toContain("  ACQ-EQUIV\n");
     });
 
     test("fails when the debt list retains a rule the corpus now proves", async () => {
