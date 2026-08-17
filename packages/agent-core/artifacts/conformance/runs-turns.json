@@ -907,6 +907,26 @@
       ]
     },
     {
+      "id": "C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH",
+      "specTextSha256": "sha256:10268d6c2ecc045627e1720ec7b1c991b7737e4a46eaab718fd9c491ceff4f7a",
+      "status": "planned",
+      "prerequisites": [
+        "C13-TURN-MODEL-INPUT-RECONSTRUCTABLE"
+      ],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The ordering has no record to order yet. src/agents/runs/executor.ts#ScopedModelHandle.call already establishes the pre-dispatch guard this atom needs — it awaits `scope.requireContent(request.prompt)` before reaching `scope.init.model.call`, and it is the single site every model call passes through — but that guard proves a ContentRef exists, not that a committed record describes the request, and the only durable consequence the method writes is `runtime.recordModelTokens` after the response returns. The model-input record owed by C13-TURN-MODEL-INPUT-RECONSTRUCTABLE is this atom's prerequisite in the strict sense: the commit that must precede dispatch is that record's commit, so neither the guard nor its test can be written first",
+        "The conformance test is an ordering test, not a state test, and it is owed in four shapes, each driving a TurnModelPort test double that fails the assertion if it is called at all: a model-input commit the store rejects; a commit the Turn's lease rejects under the §5.3 fencing that C13-TURN-EXECUTOR-WRITER already requires of every executor-authored write; a commit whose outcome the substrate reports as unknown, which src/actors/actor.ts already distinguishes through isActorCommitUnknown and which MUST refuse dispatch rather than assume success; and the positive case, where the port asserts on entry that the record naming its request is already durable",
+        "The adversarial case is the one that separates this atom from its prerequisite and it must fail: a host that dispatches the call and commits the model-input record from the same async region without awaiting the commit first, and a host that commits after the response arrives. Both leave the identical durable state once the Turn completes, so every at-rest byte-compare the prerequisite's test performs passes on both. The test must therefore observe the order — a port that reads the store on entry, or a substrate that fails the commit after dispatch has already happened and asserts the response was never consumed — and MUST NOT be satisfied by inspecting the records the Turn ends with",
+        "A fail-closed refusal needs a distinguishable outcome, so what is owed alongside the guard is that a refused dispatch terminates the Turn through the §5.3 lifecycle without a model call rather than surfacing as a model-call failure. The Turn lifecycle is closed under C13-TURN-NO-RETRY, so reaching durability on a further attempt at the same commit is a retry of that commit inside the live Turn and never a resurrection of a terminal one; the test must assert that a Turn which exhausts its commit attempts fails without having called the model",
+        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
+      ]
+    },
+    {
       "id": "C13-TURN-MODEL-INPUT-RETENTION-LOSS",
       "owner": "W5",
       "specAnchor": "C13-TURN-MODEL-INPUT-RETENTION-LOSS",
