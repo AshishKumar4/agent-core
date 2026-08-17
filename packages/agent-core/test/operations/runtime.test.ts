@@ -190,6 +190,7 @@ describe("Facet runtime", () => {
         const duplicate = new InterceptorDeclaration(
             new InterceptorId("duplicate"),
             "operation.before",
+            "rewrite",
             OperationSelector.own(),
             1
         );
@@ -257,6 +258,7 @@ describe("Facet runtime", () => {
             const guard = new InterceptorDeclaration(
                 new InterceptorId("guard"),
                 "operation.before",
+                "rewrite",
                 OperationSelector.own(),
                 1
             );
@@ -289,6 +291,7 @@ describe("Facet runtime", () => {
                 const declaration = new InterceptorDeclaration(
                     new InterceptorId("unhosted"),
                     cutPoint,
+                    "rewrite",
                     OperationSelector.own(),
                     1
                 );
@@ -573,6 +576,7 @@ describe("Facet runtime", () => {
             const interceptor = new InterceptorDeclaration(
                 new InterceptorId("required"),
                 "operation.before",
+                "rewrite",
                 1
             );
             const interceptorManifest = manifest("acme.missing-interceptor", [], [interceptor]);
@@ -1102,12 +1106,14 @@ describe("Protected Operation gateway", () => {
             const declaration = new InterceptorDeclaration(
                 new InterceptorId("rewrite"),
                 "operation.before",
+                "rewrite",
                 OperationSelector.own("run"),
                 10
             );
             const afterDeclaration = new InterceptorDeclaration(
                 new InterceptorId("present"),
                 "operation.after",
+                "rewrite",
                 OperationSelector.own("run"),
                 20
             );
@@ -1173,12 +1179,14 @@ describe("Protected Operation gateway", () => {
             const beforeDeclaration = new InterceptorDeclaration(
                 new InterceptorId("prepare"),
                 "operation.before",
+                "rewrite",
                 OperationSelector.own("run"),
                 10
             );
             const afterDeclaration = new InterceptorDeclaration(
                 new InterceptorId("present"),
                 "operation.after",
+                "rewrite",
                 OperationSelector.own("run"),
                 20
             );
@@ -1775,6 +1783,7 @@ describe("Protected Operation gateway", () => {
             const declaration = new InterceptorDeclaration(
                 new InterceptorId("async"),
                 "operation.before",
+                "rewrite",
                 OperationSelector.own("run"),
                 1
             );
@@ -1821,6 +1830,7 @@ describe("Protected Operation gateway", () => {
         const declaration = new InterceptorDeclaration(
             new InterceptorId("veto"),
             "operation.before",
+            "rewrite",
             OperationSelector.own("run"),
             1
         );
@@ -1876,6 +1886,7 @@ describe("Protected Operation gateway", () => {
             const declaration = new InterceptorDeclaration(
                 new InterceptorId("cross"),
                 "operation.before",
+                "rewrite",
                 new OperationSelector([
                     new OperationPattern("run", new FacetPackageId("acme.target"))
                 ]),
@@ -1930,6 +1941,7 @@ describe("Protected Operation gateway", () => {
             const declaration = new InterceptorDeclaration(
                 new InterceptorId("confined"),
                 "operation.before",
+                "rewrite",
                 new OperationSelector([
                     new OperationPattern("run", new FacetPackageId("acme.target"))
                 ]),
@@ -2165,6 +2177,7 @@ describe("Protected Operation gateway", () => {
             const after = new InterceptorDeclaration(
                 new InterceptorId("after-drain"),
                 "operation.after",
+                "rewrite",
                 OperationSelector.own("run"),
                 1
             );
@@ -2235,12 +2248,14 @@ describe("Protected Operation gateway", () => {
             const before = new InterceptorDeclaration(
                 new InterceptorId("before"),
                 "operation.before",
+                "rewrite",
                 OperationSelector.own("run"),
                 1
             );
             const after = new InterceptorDeclaration(
                 new InterceptorId("after"),
                 "operation.after",
+                "rewrite",
                 OperationSelector.own("run"),
                 2
             );
@@ -2345,6 +2360,7 @@ describe("Protected Operation gateway", () => {
             const invalid = new InterceptorDeclaration(
                 new InterceptorId("invalid"),
                 "operation.before",
+                "rewrite",
                 OperationSelector.own("run"),
                 1
             );
@@ -2414,6 +2430,7 @@ describe("Protected Operation gateway", () => {
             const cross = new InterceptorDeclaration(
                 new InterceptorId("cross"),
                 "operation.before",
+                "rewrite",
                 new OperationSelector([
                     new OperationPattern("run", new FacetPackageId("acme.runtime"))
                 ]),
@@ -2462,6 +2479,7 @@ describe("Protected Operation gateway", () => {
             const declaration = new InterceptorDeclaration(
                 new InterceptorId("count"),
                 "operation.before",
+                "rewrite",
                 OperationSelector.own("run"),
                 1
             );
@@ -2562,12 +2580,14 @@ describe("Protected Operation gateway", () => {
             const before = new InterceptorDeclaration(
                 new InterceptorId("attribute"),
                 "operation.before",
+                "rewrite",
                 OperationSelector.own("run"),
                 1
             );
             const after = new InterceptorDeclaration(
                 new InterceptorId("present"),
                 "operation.after",
+                "rewrite",
                 OperationSelector.own("run"),
                 2
             );
@@ -2656,6 +2676,7 @@ describe("Protected Operation gateway", () => {
             const declaration = new InterceptorDeclaration(
                 new InterceptorId("freeze"),
                 "operation.before",
+                "rewrite",
                 OperationSelector.own("run"),
                 1
             );
@@ -2726,12 +2747,14 @@ describe("Protected Operation gateway", () => {
             const before = new InterceptorDeclaration(
                 new InterceptorId("before"),
                 "operation.before",
+                "rewrite",
                 OperationSelector.own("run"),
                 1
             );
             const after = new InterceptorDeclaration(
                 new InterceptorId("after"),
                 "operation.after",
+                "rewrite",
                 OperationSelector.own("run"),
                 2
             );
@@ -2826,6 +2849,7 @@ describe("Protected Operation gateway", () => {
             const declaration = new InterceptorDeclaration(
                 new InterceptorId("self-only"),
                 "operation.before",
+                "rewrite",
                 1
             );
             const runtimeDescriptor = operationDescriptor("run", "mutate", true);
@@ -2998,12 +3022,14 @@ describe("Protected Operation gateway", () => {
             const ownB = new InterceptorDeclaration(
                 new InterceptorId("b"),
                 "operation.before",
+                "rewrite",
                 OperationSelector.own("r*"),
                 5
             );
             const ownA = new InterceptorDeclaration(
                 new InterceptorId("a"),
                 "operation.before",
+                "rewrite",
                 OperationSelector.own("run"),
                 5
             );
@@ -3033,12 +3059,14 @@ describe("Protected Operation gateway", () => {
             const cross = new InterceptorDeclaration(
                 new InterceptorId("cross"),
                 "operation.before",
+                "rewrite",
                 new OperationSelector([new OperationPattern("r*", new FacetPackageId("acme.*"))]),
                 5
             );
             const skipped = new InterceptorDeclaration(
                 new InterceptorId("skipped"),
                 "operation.before",
+                "rewrite",
                 new OperationSelector([
                     new OperationPattern("other", new FacetPackageId("different.*"))
                 ]),
@@ -3225,6 +3253,7 @@ describe("Protected Operation gateway", () => {
             const declaration = new InterceptorDeclaration(
                 new InterceptorId("repair"),
                 "operation.after",
+                "rewrite",
                 OperationSelector.own("run"),
                 1
             );
@@ -3362,6 +3391,7 @@ describe("Protected Operation gateway", () => {
             const declaration = new InterceptorDeclaration(
                 new InterceptorId("rewrite"),
                 "operation.before",
+                "rewrite",
                 OperationSelector.own("run"),
                 1
             );
@@ -3473,12 +3503,14 @@ describe("Protected Operation gateway", () => {
             const beforeDeclaration = new InterceptorDeclaration(
                 new InterceptorId("before-probe"),
                 "operation.before",
+                "rewrite",
                 OperationSelector.own("guarded"),
                 1
             );
             const afterDeclaration = new InterceptorDeclaration(
                 new InterceptorId("after-probe"),
                 "operation.after",
+                "rewrite",
                 OperationSelector.own("watched"),
                 1
             );
@@ -3549,6 +3581,7 @@ describe("Protected Operation gateway", () => {
         const declaration = new InterceptorDeclaration(
             new InterceptorId("aware"),
             "operation.before",
+            "rewrite",
             OperationSelector.own("run"),
             1
         );
@@ -3593,6 +3626,7 @@ describe("Protected Operation gateway", () => {
             const declaration = new InterceptorDeclaration(
                 new InterceptorId("shape"),
                 "operation.before",
+                "rewrite",
                 OperationSelector.own("run"),
                 1
             );
@@ -3654,6 +3688,7 @@ describe("Protected Operation gateway", () => {
             const declaration = new InterceptorDeclaration(
                 new InterceptorId("multi"),
                 "operation.before",
+                "rewrite",
                 new OperationSelector([new OperationPattern("other"), new OperationPattern("run")]),
                 1
             );
@@ -3715,6 +3750,7 @@ describe("Protected Operation gateway", () => {
                     new InterceptorDeclaration(
                         new InterceptorId(id),
                         "operation.before",
+                        "rewrite",
                         OperationSelector.own("run"),
                         5
                     )
@@ -3722,12 +3758,14 @@ describe("Protected Operation gateway", () => {
             const laterButHigher = new InterceptorDeclaration(
                 new InterceptorId("y"),
                 "operation.before",
+                "rewrite",
                 OperationSelector.own("other"),
                 2
             );
             const earlierPriority = new InterceptorDeclaration(
                 new InterceptorId("z"),
                 "operation.before",
+                "rewrite",
                 OperationSelector.own("other"),
                 1
             );
@@ -3772,6 +3810,124 @@ describe("Protected Operation gateway", () => {
                 payload: { kind: "single", input: {} }
             });
             expect(calls).toEqual(["a", "b", "c", "z", "y"]);
+            await host.dispose();
+        }
+    );
+
+    test(
+        "[C13-INTERCEPTOR-ORDER] runs every rewrite ahead of every gate whatever the local priorities say",
+        { tags: "p1" },
+        async () => {
+            const calls: string[] = [];
+            const run = operationDescriptor("run");
+            // The gates carry priorities that would win outright under a single scalar:
+            // the expectation below can only hold if the declared band dominates them.
+            const declarations = [
+                new InterceptorDeclaration(
+                    new InterceptorId("early-gate"),
+                    "operation.before",
+                    "gate",
+                    OperationSelector.own("run"),
+                    -100
+                ),
+                new InterceptorDeclaration(
+                    new InterceptorId("late-gate"),
+                    "operation.before",
+                    "gate",
+                    OperationSelector.own("run"),
+                    -50
+                ),
+                new InterceptorDeclaration(
+                    new InterceptorId("rewriter"),
+                    "operation.before",
+                    "rewrite",
+                    OperationSelector.own("run"),
+                    100
+                )
+            ];
+            const facetManifest = manifest("acme.runtime", [run], declarations);
+            const facet = new TestFacet(
+                "workspace:runtime",
+                facetManifest,
+                [],
+                new Map([["run", new TestOperation(run, async (input) => input)]]),
+                new Map(
+                    declarations.map((declaration) => [
+                        declaration.id.value,
+                        new TestInterceptor(declaration, (value) => {
+                            calls.push(declaration.id.value);
+                            return { proceed: true, value };
+                        })
+                    ])
+                )
+            );
+            const host = new FacetRuntimeHost([facetManifest], [facet]);
+            await host.activate();
+            const gateway = new OperationGatewayHost(
+                { caller: "authenticated" },
+                host,
+                new TestAuthority([], "direct"),
+                new TestInvocations([])
+            );
+            using resolved = await gateway.resolve(new BindingName("runtime"));
+            await resolved.dispatch({
+                requestKey: new OperationRequestKey("mode-band"),
+                operation: new OperationName("run"),
+                payload: { kind: "single", input: {} }
+            });
+            expect(calls).toEqual(["rewriter", "early-gate", "late-gate"]);
+            await host.dispose();
+        }
+    );
+
+    test(
+        "[C13-INTERCEPTOR-MODE-FIDELITY] refuses a gate interceptor that returns a value it was not given",
+        { tags: "p1" },
+        async () => {
+            const run = operationDescriptor("run");
+            const declaration = new InterceptorDeclaration(
+                new InterceptorId("dishonest-gate"),
+                "operation.before",
+                "gate",
+                OperationSelector.own("run"),
+                0
+            );
+            const facetManifest = manifest("acme.runtime", [run], [declaration]);
+            const facet = new TestFacet(
+                "workspace:runtime",
+                facetManifest,
+                [],
+                new Map([["run", new TestOperation(run, async (input) => input)]]),
+                new Map([
+                    [
+                        "dishonest-gate",
+                        new TestInterceptor(declaration, () => ({
+                            proceed: true,
+                            value: { smuggled: true }
+                        }))
+                    ]
+                ])
+            );
+            const host = new FacetRuntimeHost([facetManifest], [facet]);
+            await host.activate();
+            const gateway = new OperationGatewayHost(
+                { caller: "authenticated" },
+                host,
+                new TestAuthority([], "direct"),
+                new TestInvocations([])
+            );
+            using resolved = await gateway.resolve(new BindingName("runtime"));
+            await expect(
+                resolved.dispatch({
+                    requestKey: new OperationRequestKey("gate-rewrote"),
+                    operation: new OperationName("run"),
+                    payload: { kind: "single", input: {} }
+                })
+            ).rejects.toMatchObject({
+                code: "authority.denied",
+                message:
+                    "Interceptor dishonest-gate blocked the operation: A gate interceptor rewrote the value in flight"
+            });
             await host.dispose();
         }
     );

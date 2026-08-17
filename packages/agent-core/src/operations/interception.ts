@@ -95,6 +95,12 @@ export class OperationInterceptorRunner<Resolution> {
             if (!result.proceed) throw new AgentCoreError("authority.denied", result.reason);
             const next = canonicalFacetData(result.value);
             const after = Digest.sha256(encodeCanonicalJson(next));
+            if (candidate.declaration.mode === "gate" && !before.equals(after)) {
+                throw blocked(
+                    candidate.declaration,
+                    "A gate interceptor rewrote the value in flight"
+                );
+            }
             traces.push(
                 Object.freeze({
                     interceptor: candidate.declaration.id.value,
@@ -164,6 +170,7 @@ export class OperationInterceptorRunner<Resolution> {
         }
         return candidates.sort(
             (left, right) =>
+                left.declaration.modeRank - right.declaration.modeRank ||
                 left.declaration.priority - right.declaration.priority ||
                 compareText(left.facet.manifest.id.value, right.facet.manifest.id.value) ||
                 compareText(left.declaration.id.value, right.declaration.id.value)

@@ -402,6 +402,7 @@ describe("Blueprint validation", () => {
                 new InterceptorDeclaration(
                     new InterceptorId("guard"),
                     "operation.before",
+                    "rewrite",
                     new OperationSelector([OperationPattern.own("*")]),
                     1
                 ).toData()

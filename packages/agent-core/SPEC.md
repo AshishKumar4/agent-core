@@ -120,6 +120,7 @@ type EnforcementTier = "mediated" | "direct";                                 //
 type IsolationMode   = "bundled" | "provider" | "dynamic";                    // §1.5, §10.2
 type CutPoint        = "operation.before" | "operation.after" | "prompt.assemble"
                      | "input.submitted" | "turn.step";                       // §4.4
+type InterceptorMode = "rewrite" | "gate";                                    // §4.4
 type Contributions   = { readonly [slot: SlotName]: readonly unknown[] };     // validated against
                                                                               // the slot's schema (§4.2)
 ```
@@ -877,8 +878,9 @@ The value in flight at each cut point:
 interface InterceptorDeclaration {
   readonly id: InterceptorId;
   readonly cutPoint: CutPoint;
+  readonly mode: InterceptorMode;           // ordered band: every rewrite runs first
   readonly appliesTo: OperationSelector;    // DEFAULT: the contributing facet's own operations
-  readonly priority: number;                // total order: (priority, facetId, id)
+  readonly priority: number;                // ties inside one mode: (priority, facetId, id)
 }
 
 abstract class Interceptor {
@@ -909,9 +911,11 @@ Rules:
    another facet's operations requires that facet to declare the operation
    `interceptable` and the interceptor's facet to hold a Grant for it. Sharing a
    domain confers no interception rights.
-3. Ordering is total and deterministic: ascending `(priority, facetId, interceptorId)`;
-   interceptor ids MUST be unique within a Facet. Hosts record
-   which interceptor last rewrote a value. This maps to **C13-INTERCEPTOR-ORDER**.
+3. Ordering is total and deterministic: ascending `(mode, priority, facetId,
+   interceptorId)`, where `mode` runs every `rewrite` interceptor ahead of every `gate`
+   interceptor and dominates every local priority; interceptor ids MUST be unique within
+   a Facet. Hosts record which interceptor last rewrote a value. This maps to
+   **C13-INTERCEPTOR-ORDER**.
 4. A thrown error blocks — scoped to the interceptor's `appliesTo`, surfaced as a
    typed operation error, never as a silent global veto.
 5. Mutating interceptions are attributable: the host records interceptor identity plus
@@ -933,8 +937,22 @@ Rules:
    and trace with the returned invocation evidence. Replaying the same invocation
    presentation reuses that persisted post-effect value and trace and does not rerun
    `operation.after`. These replay clauses map to **C13-INTERCEPTOR-REPLAY**.
+9. `mode` states what an interceptor is, and `priority` states only how it breaks ties
+   against its neighbours in the same mode, so no priority reaches across modes. A
+   declaration whose mode is absent or outside the union is refused at contribution: a
+   defaulted mode is an ordering claim its author never made, and independently authored
+   Facets share one cut point without sharing a numeric scale, so a later contributor's
+   number would otherwise silently reorder a semantic decision. This maps to
+   **C13-INTERCEPTOR-MODE-DECLARED**.
+10. A `gate` interceptor observes and may block, and MUST NOT rewrite: a `gate` result
+    whose value differs from the value it received is an invalid state, refused as a
+    scoped block naming that interceptor. Every rewrite therefore precedes every gate at
+    a cut point, each gate reads the final value of that cut point rather than an
+    intermediate one, and the mutating distinction the attribution and replay clauses
+    depend on is declared rather than discovered from a completed run. This maps to
+    **C13-INTERCEPTOR-MODE-FIDELITY**.
 
-Example: a policy facet contributes `{ cutPoint: "operation.before",
+Example: a policy facet contributes `{ cutPoint: "operation.before", mode: "rewrite",
 appliesTo: own("web.fetch"), priority: 10 }` that rewrites outbound URLs onto an
 allowlisted proxy — its own operation, no opt-in needed, and the rewrite is
 digest-logged.
@@ -3446,7 +3464,9 @@ A conforming implementation provides:
 - **C13-COMMAND-RESULT** Command results are delivered as correlated `command.completed` Events.
 - **C13-INTERCEPTOR-DOMAIN-CONFINEMENT** Interception happens only within one protection domain, and crossing one uses asynchronous Events.
 - **C13-INTERCEPTOR-POST-PREPARATION** No interceptor rewrites a PreparedInvocation, Approval, EffectAttempt, or effect arguments after preparation.
-- **C13-INTERCEPTOR-ORDER** Interceptors order by `(priority, facetId, interceptorId)`.
+- **C13-INTERCEPTOR-ORDER** Interceptors order by `(mode, priority, facetId, interceptorId)`, and a declared mode dominates local priority.
+- **C13-INTERCEPTOR-MODE-DECLARED** An interceptor declares its mode, and an absent or unknown mode is refused rather than defaulted.
+- **C13-INTERCEPTOR-MODE-FIDELITY** A `gate` interceptor never rewrites the value it received.
 - **C13-INTERCEPTOR-SELF-SCOPE** Interceptors default to self-scope.
 - **C13-INTERCEPTOR-CROSS-FACET** Cross-facet interception is opt-in.
 - **C13-INTERCEPTOR-ATTRIBUTION** Pre-preparation rewrites are attributable.
@@ -3689,7 +3709,7 @@ This section names coverage categories and trace IDs, never inferred theorem nam
 | Facet manifest/runtime | `NC-FACET-MANIFEST-RUNTIME` | §4.1 correspondence, operation implementation, loading, and declared-impact truth are not modeled |
 | Contributions and slots | `AC-SLOT-001`, `NC-CONTRIBUTIONS-SLOTS` | immutable slot declarations, exclusive contribution origins, schema-conformant stored entries, and declared-order arrival-independent resolution; slot authority policy, concrete JSON-Schema validation, the viewer-filtered SlotCatalog query, and surface-backed rendering are not modeled |
 | Commands | `AC-COMMAND-001`, `NC-COMMANDS` | per-surface per-Scope collision rejection, exact derived-Subscription defaults, install-checked mappings with validated `command.invoked` input, and duplicate-submission idempotency; concrete schema-compatibility checking, argument grammar, completion providers, alias and visibility configuration, dispatcher gate ordering, and `command.completed` rendering are not modeled |
-| Interceptors | `NC-INTERCEPTORS` | §4.4 runtime candidate discovery, durable trace persistence, transactional replay lookup, new-pass InvocationId allocation, and the `prompt.assemble`, `input.submitted`, and `turn.step` cut points are not modeled; the operation cut points are claimed under `AC-INTERCEPTOR-001` |
+| Interceptors | `NC-INTERCEPTORS` | §4.4 runtime candidate discovery, durable trace persistence, transactional replay lookup, new-pass InvocationId allocation, the declared-mode band and gate fidelity, and the `prompt.assemble`, `input.submitted`, and `turn.step` cut points are not modeled; the operation cut points are claimed under `AC-INTERCEPTOR-001`, whose ordering claim is the within-mode `(priority, facetId, interceptorId)` key over the schedule the host supplies |
 | Surface, profile, and patch semantics | `NC-SURFACE-RUNTIME-ACTIONS`, `NC-PROFILE-RUNTIME`, `NC-RFC6902-PATCH` | explicit non-claims beyond the structural View result |
 | Substrate and definition-plane behavior | `AC-COMPOSED-001`, `NC-CONTENTSTORE`, `NC-CODECS`, `NC-PROTOCOL-DISPATCHER`, `NC-BLUEPRINT-MATERIALIZATION`, `NC-CLOUDFLARE-BEHAVIOR` | the abstract distributed permit safety relation is modeled; concrete command-envelope rejection ordering, complete §10.3 permit representation, signatures/codecs, Durable Object transactions, storage/RPC failure semantics, network topology, bundles, configuration, and deployments are not |
 | Liveness, cryptography, and concrete refinement | `NC-TEMPORAL-LIVENESS`, `NC-CRYPTOGRAPHIC-COLLISION-RESISTANCE`, `NC-TYPESCRIPT-SUBSTRATE-REFINEMENT` | explicit non-claims; assumptions are listed separately in the ledger |

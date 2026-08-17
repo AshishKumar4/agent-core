@@ -820,6 +820,7 @@ describe("Tenant operation authority membrane", () => {
             const declaration = new InterceptorDeclaration(
                 new InterceptorId("membrane-interceptor"),
                 "operation.before",
+                "rewrite",
                 0
             );
             const base = await resolveOf(leasedCandidate());

@@ -748,6 +748,7 @@ describe("W3 internal profile facet runtime", () => {
         const declaration = new InterceptorDeclaration(
             new InterceptorId("guard"),
             "operation.before",
+            "rewrite",
             0
         );
         const interceptor = new PassThroughInterceptor(declaration);

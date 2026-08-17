@@ -258,6 +258,7 @@ describe("W9 internal typed composition", () => {
             const interceptor = new InterceptorDeclaration(
                 new InterceptorId("w9-interceptor"),
                 "operation.before",
+                "rewrite",
                 0
             );
             expect(

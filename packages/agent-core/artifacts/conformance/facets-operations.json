@@ -423,15 +423,52 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-INTERCEPTOR-MODE-DECLARED",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-MODE-DECLARED",
+      "specTextSha256": "sha256:fe4860822b7ebbc34308bd47e16827fa29dddbcc43f377a7f6cee0e2bc2055ac",
+      "status": "implemented",
+      "prerequisites": [],
+      "sourceSymbols": ["src/facets/interceptor.ts#InterceptorDeclaration"],
+      "testSelectors": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-INTERCEPTOR-MODE-DECLARED] refuses an absent or unknown interceptor mode instead of defaulting one"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": [
+        "Refusal is evidenced at the declaration boundary only. The rule says a declaration is refused at contribution, and the slot contribution path admits interceptor entries through FacetSlotContributeCommand, so closure needs a contribution-time case proving an entry carrying no mode or an unknown mode is rejected before any Facet activates, with no partially admitted manifest left behind",
+        "Mutation attribution has not been measured against the new selector: the declaration's mode branch must be shown to kill a mutant inside InterceptorDeclaration rather than merely execute it",
+        "The formal interceptor model orders contributions by the within-mode key alone, so the AC-INTERCEPTOR-001 schedule carries no evidence that a declared mode dominates local priority; the order relation and its totality and uniqueness theorems must be lifted to the banded key"
+      ]
+    },
+    {
+      "id": "C13-INTERCEPTOR-MODE-FIDELITY",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-MODE-FIDELITY",
+      "specTextSha256": "sha256:d277264d33ab9b54311ccbe1598ea90911a7dd2986b3b5b5a7fb3b43da9af08a",
+      "status": "implemented",
+      "prerequisites": [],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
+      "testSelectors": [
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-MODE-FIDELITY] refuses a gate interceptor that returns a value it was not given"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": [
+        "Only the two operation cut points have a runtime, so a gate's read-only claim is enforced where the runner runs and is unevidenced at prompt.assemble, input.submitted, and turn.step; each needs its own refusal case once those cut points exist",
+        "The refusal must be shown to leave no trace entry attributing a rewrite to the refused gate, and to leave the persisted transformation chain identical to the one a lawful gate would have produced",
+        "Mutation attribution has not been measured against the new selector, so the fidelity comparison is not yet known to discriminate from a nearby test that merely runs the runner"
+      ]
+    },
+    {
       "id": "C13-INTERCEPTOR-ORDER",
       "owner": "W3",
       "specAnchor": "C13-INTERCEPTOR-ORDER",
-      "specTextSha256": "sha256:93b3bd44d526035c3178ed7ac19aff70e1bf741c20e3347bb9e3fd9ac12a4f9d",
+      "specTextSha256": "sha256:7a8430d3dced3bb4ecac1193092fde0d9a820b1394af515c2c9f433b9cc601fa",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
-        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-ORDER] orders interceptors by priority before contributor and id"
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-ORDER] orders interceptors by priority before contributor and id",
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-ORDER] runs every rewrite ahead of every gate whatever the local priorities say"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

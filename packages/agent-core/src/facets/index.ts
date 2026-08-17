@@ -73,7 +73,7 @@ export {
     ProvenanceMapping
 } from "./mapping";
 export { InterceptorDeclaration } from "./interceptor";
-export type { CutPoint } from "./interceptor";
+export type { CutPoint, InterceptorMode } from "./interceptor";
 export { ProtectionDomain } from "./protection";
 export { PackageInstallationRef } from "./installation";
 export { Facet, Interceptor, Operation, ProtectedOperationPort, Surface } from "./runtime";

@@ -907,6 +907,7 @@ describe("production authority state seams (memory)", () => {
             const declaration = new InterceptorDeclaration(
                 new InterceptorId("authority-state-interceptor"),
                 "operation.before",
+                "rewrite",
                 0
             );
             const contributor = new FacetRef("workspace:interceptor-contributor");

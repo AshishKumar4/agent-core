@@ -243,6 +243,7 @@ describe("Declarative facet vocabulary", () => {
             const interceptor = new InterceptorDeclaration(
                 new InterceptorId("policy.urls"),
                 "operation.before",
+                "rewrite",
                 new OperationSelector([
                     new OperationPattern("fetch*", new FacetPackageId("core.web")),
                     OperationPattern.own("deploy.*")
@@ -276,6 +277,7 @@ describe("Declarative facet vocabulary", () => {
         const interceptor = new InterceptorDeclaration(
             new InterceptorId("immutable"),
             "operation.before",
+            "rewrite",
             10
         );
         const decoded = InterceptorDeclaration.decode(InterceptorDeclaration.encode(interceptor));
@@ -318,6 +320,7 @@ describe("Declarative facet vocabulary", () => {
             const defaultInterceptor = new InterceptorDeclaration(
                 new InterceptorId("own-only"),
                 "operation.before",
+                "rewrite",
                 5
             );
 
@@ -575,6 +578,7 @@ describe("Declarative facet vocabulary", () => {
                     new InterceptorDeclaration(
                         new InterceptorId("invalid-priority"),
                         "operation.before",
+                        "rewrite",
                         // @ts-expect-error Runtime declarations can omit the priority.
                         undefined
                     )
@@ -584,6 +588,7 @@ describe("Declarative facet vocabulary", () => {
                     appliesTo: {},
                     cutPoint: "operation.before",
                     id: "invalid-selector",
+                    mode: "rewrite",
                     priority: 0
                 })
             ).toThrow(/selector/);
@@ -598,12 +603,18 @@ describe("Declarative facet vocabulary", () => {
                     InterceptorDeclaration.fromData({
                         cutPoint,
                         id: `interceptor.${cutPoint}`,
+                        mode: "rewrite",
                         priority: 0
                     }).cutPoint
                 ).toBe(cutPoint);
             }
             expect(() =>
-                InterceptorDeclaration.fromData({ cutPoint: "unknown", id: "invalid", priority: 0 })
+                InterceptorDeclaration.fromData({
+                    cutPoint: "unknown",
+                    id: "invalid",
+                    mode: "rewrite",
+                    priority: 0
+                })
             ).toThrow(/cut point/);
 
             expect(() => new SlotAuthorityPolicy([], ["read"])).toThrow(/must not be empty/);
@@ -632,6 +643,65 @@ describe("Declarative facet vocabulary", () => {
                     })
                 ).toThrow(/schema/);
             }
+        }
+    );
+
+    test(
+        "[C13-INTERCEPTOR-MODE-DECLARED] refuses an absent or unknown interceptor mode instead of defaulting one",
+        { tags: "p0" },
+        () => {
+            // An omitted mode never reaches a default: the exact-field gate refuses the
+            // declaration outright, the same way an omitted cut point or priority is refused.
+            expect(() =>
+                InterceptorDeclaration.fromData({
+                    cutPoint: "operation.before",
+                    id: "no-mode",
+                    priority: 0
+                })
+            ).toThrow(/missing or unknown fields/);
+            expect(() =>
+                InterceptorDeclaration.fromData({
+                    cutPoint: "operation.before",
+                    id: "unknown-mode",
+                    mode: "enrich",
+                    priority: 0
+                })
+            ).toThrow(/Interceptor mode is invalid/);
+            expect(
+                () =>
+                    new InterceptorDeclaration(
+                        new InterceptorId("cast-mode"),
+                        "operation.before",
+                        // @ts-expect-error A mode outside the union reaches the constructor only by cast.
+                        "enrich",
+                        0
+                    )
+            ).toThrow(/Interceptor mode is invalid/);
+            for (const mode of ["rewrite", "gate"] as const) {
+                const declaration = InterceptorDeclaration.fromData({
+                    cutPoint: "operation.before",
+                    id: `interceptor.${mode}`,
+                    mode,
+                    priority: 0
+                });
+                expect(declaration.mode).toBe(mode);
+                expect(declaration.toData()).toMatchObject({ mode });
+            }
+            expect(
+                InterceptorDeclaration.fromData({
+                    cutPoint: "operation.before",
+                    id: "banded",
+                    mode: "gate",
+                    priority: 0
+                }).modeRank
+            ).toBeGreaterThan(
+                InterceptorDeclaration.fromData({
+                    cutPoint: "operation.before",
+                    id: "banded",
+                    mode: "rewrite",
+                    priority: 0
+                }).modeRank
+            );
         }
     );
 
@@ -1385,12 +1455,19 @@ describe("Declarative facet vocabulary", () => {
         { tags: "p1" },
         () => {
             expect(
-                () => new InterceptorDeclaration(new InterceptorId("x"), "operation.before", 1.5)
+                () =>
+                    new InterceptorDeclaration(
+                        new InterceptorId("x"),
+                        "operation.before",
+                        "rewrite",
+                        1.5
+                    )
             ).toThrow("Interceptor priority must be a safe integer");
             expect(() =>
                 InterceptorDeclaration.fromData({
                     cutPoint: "operation.before",
                     id: 7,
+                    mode: "rewrite",
                     priority: 0
                 })
             ).toThrow("Interceptor ID must be a string");
