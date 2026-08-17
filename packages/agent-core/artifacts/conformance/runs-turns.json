@@ -892,7 +892,7 @@
       "id": "C13-TURN-MODEL-INPUT-RECONSTRUCTABLE",
       "owner": "W5",
       "specAnchor": "C13-TURN-MODEL-INPUT-RECONSTRUCTABLE",
-      "specTextSha256": "PENDING",
+      "specTextSha256": "sha256:9a22412b0c7ea6da15fc133c9e0124ae94345b4be2ecbc38bf83b7743a38b3f3",
       "status": "planned",
       "prerequisites": ["C13-TURN-MODEL-CALL"],
       "sourceSymbols": [],
@@ -903,6 +903,23 @@
         "The conformance test is a byte-compare, and it is owed in three configurations: reconstruction over committed records reproduces the exact request bytes for a prompt recorded inline; reproduces them for a prompt recorded by ContentRef, so a digest-only record still rebuilds exact bytes rather than an equivalent-looking prompt; and reproduces them after a restart that discards the executor process, which is the only configuration that distinguishes durable records from surviving executor memory",
         "The adversarial cases are owed and each must fail: a host that records a `prompt.assemble` interceptor rewrite as the fact that an interceptor ran rather than as the result it produced; a host that injects model-visible content from ambient executor state with no durable trace; and a host whose reconstruction approximates a separately assembled request instead of being the value the call issues, which the byte-compare catches only if the assembled request and the reconstruction are not permitted to diverge by construction",
         "The owed model-call record carries a custody obligation, because C13-CONTENT-CUSTODY grants permanent retention only to the kinds §8.2 declares append-only and undeletable — a Receipt, an AuditRecord, a RunCommit — and Event is not among them: §6.1 declares an Event immutable, never undeletable, so a host-defined Event lifecycle releases its payload while every digest that named it survives. The record that carries a call's reconstructable request MUST therefore itself name the content of every Event it admitted, so retention is transitive through an undeletable RunCommit and covers exactly the Events a model observed, leaving unadmitted inbox Events releasable. §5.2's `eventDelivery` RunCommit already establishes this for routed ingress via its `content` field, but the commit matrix admits that kind only for `system(delivery)` with exact terminal RouteDelivery evidence, so the §5.6 `turn.deliverEvent` inbox path and the reserved `turn.cancel` Event are not covered by it and this obligation is what closes them. §4.2 forbids a withdrawal from releasing a ContentRef a RunCommit or an admitted inbox Event names, which closes the withdrawal path specifically and leaves every other Event-removal lifecycle to this obligation",
+        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
+      ]
+    },
+    {
+      "id": "C13-TURN-MODEL-INPUT-RETENTION-LOSS",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-MODEL-INPUT-RETENTION-LOSS",
+      "specTextSha256": "sha256:db7199906d47e1b5e80a5739a653b52e41683be02c8b6a53cf94d170b9fa5e85",
+      "status": "planned",
+      "prerequisites": ["C13-TURN-MODEL-INPUT-RECONSTRUCTABLE"],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The typed failure does not exist because the reconstruction it is a property of does not exist; C13-TURN-MODEL-INPUT-RECONSTRUCTABLE is an explicit prerequisite and this atom cannot reach verified before it does. What is owed here beyond that atom is a named error in the §8.5 rejection taxonomy that identifies the missing Event or ContentRef, distinct from a reconstruction that succeeded, so a caller can tell an unrebuildable request from a rebuilt one without inspecting the result",
+        "The conformance test releases content a committed request names and then reconstructs. It is owed in two shapes: a released `ContentRef` a prompt section names, and a no-longer-retained Event that was admitted before the call. Each MUST produce the typed failure naming what is missing. Retention loss is legitimate under Tenant policy (export, legal deletion, Tenant closure), so the test asserts observability, never that content survives",
+        "The adversarial case is the one that makes this atom worth separating from its prerequisite: a reconstruction that drops the unretained section and returns a shorter prefix, a partial request, or a best-effort approximation satisfies `the request is rebuildable` on every input whose records are intact while silently violating this rule, and a byte-compare against a request assembled from the same degraded records would compare two wrong values and pass. The test must therefore compare against the request as originally sent, not against a re-assembly, and must fail a reconstruction that returns anything other than the typed error",
         "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
       ]
     },
