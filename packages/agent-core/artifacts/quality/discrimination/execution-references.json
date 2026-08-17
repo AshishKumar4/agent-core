@@ -1,8 +1,8 @@
 {
   "edition": "1.0.0",
   "area": "execution-references",
-  "measuredAt": "be905bac8dbec599a2a50ff105947e1eeced2771",
-  "fingerprint": "sha256:60b7e1bfcdb0f66b2ccdd4cfe91c782d43fad282a62b660260a1e6f1a66e4e3f",
+  "measuredAt": "b7d1cb948a2c6bf2c6aaa1acd056cf60f3ea7170",
+  "fingerprint": "sha256:cc49aaa94b10390131e3c6baa2d9185bfd130cb5e3a65a54db67159bff645663",
   "files": {
     "src/execution-references/id.ts": {
       "mutants": 6,
@@ -10,7 +10,1189 @@
     }
   },
   "killed": {
+    "test/agents/runs/acceptance.test.ts#Run acceptance criteria [C13-RUN-ACCEPTANCE-OBLIGATION] leaves a Run declaring no criteria on the exact prior genesis bytes": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/acceptance.test.ts#Run acceptance criteria [C13-RUN-ACCEPTANCE-OBLIGATION] reserves each declared criterion at open and completes only through a succeeded current-subject verdict": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/acceptance.test.ts#Run acceptance criteria [C13-RUN-ACCEPTANCE-OBLIGATION] snapshots an unsatisfied criterion into the terminal frontier and blocks Settled until a current satisfying verdict": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/acceptance.test.ts#Run acceptance criteria [C13-RUN-ACCEPTANCE-SUBJECT] treats a verdict as evidence for its exact subject and admits a further attempt only against an unnamed head tree digest": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/acceptance.test.ts#Run acceptance criteria [C13-RUN-ACCEPTANCE-SUBJECT] withholds admission and completion while the head names no tree digest": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/acceptance.test.ts#Run acceptance criteria [run.acceptance-criterion] [run.acceptance-verdict] persists criteria, verdicts, and completion across a memory restart": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/acceptance.test.ts#Run acceptance criteria [run.acceptance-criterion] [run.acceptance-verdict] round-trips exact records and rejects malformed identities": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/agents/runs/acceptance.test.ts#Run acceptance criteria binds a verdict to the declaring Run's own reserved criterion": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/acceptance.test.ts#Run acceptance criteria rejects duplicate and preexisting criterion identities at genesis": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#forced Turn cancellation integrity names each cancellation field in decode errors": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#forced Turn cancellation integrity rejects unknown cancellation fields": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#forced Turn cancellation integrity requires each identifier to use its exact context class": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#forced Turn cancellation integrity requires exactly one lease fence increment": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#forced Turn cancellation integrity round-trips through the static codec surface": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#Run admission registry integrity decodes each obligation kind exactly": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#settlement obligation integrity binds an exhausted dimension to a cancelled outcome": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#settlement obligation integrity names terminal snapshot fields in decode errors": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/admission-settlement-mutation.test.ts#settlement obligation integrity rejects unknown settlement record fields": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/admission.test.ts#durable Run admission registry [C13-ADV-POST-TERMINAL-ROUTE] reuses duplicate reservations, completes idempotently, and rejects substitutions": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/agents/runs/admission.test.ts#durable Run admission registry fails closed when durable admission is omitted and when its epoch is exhausted": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/admission.test.ts#durable Run admission registry persists reservations and completion across a memory restart": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/admission.test.ts#durable Run admission registry round-trips immutable canonical state and rejects malformed completion sets": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-ADV-POST-TERMINAL-CONTROL] rolls back close on terminalization failure": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-RUN-FRONTIER-EMPTY] records an honestly empty frontier": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-RUN-SETTLED-DERIVED] captures a nonempty exact frontier and derives all settlement categories": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-ADV-TURN-MERGE] rejects completing one Turn with another Turn's valid commit": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-ADV-WRONG-TURN-LEASE] rejects undo while a branch Turn holds an unexpired lease": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-RUN-BINARY-TREE-MERGE] rejects arbitrary merge picks and tree sides": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-RUN-EXPLICIT-MIGRATION] [MIGRATE-RUN-PINS] preserves old Turn pins, adopts exact new pins, rejects unequal merges, and survives restart": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-RUN-PINS-PACKAGES] [MIGRATE-RUN-PINS] rejects incomplete Package closure and a wrong Agent": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-TURN-CANCEL-INBOX] delivers reserved cancellation to the exact live lease without fencing it": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-TURN-CANCEL-INBOX] rejects delivered cancellation that names a lease other than the caller's": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-TURN-EXECUTOR-WRITER] rejects nonfresh ordinary Turn genesis": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-WRITER-SYSTEM-MERGE] admits only captured system evidence after terminalization": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [MIGRATE-RUN-PINS] rejects an invalid target pin snapshot without partial persistence": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants atomically commits held cancellation result, inbox event, and fence": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants atomically records displaced-token cancellation on reclaim": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants composes transaction-scoped genesis with outer rollback and rejects nesting": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants delivers an ordinary event at the next durable inbox sequence": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants permits unary commits to carry an independent tree checkpoint": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants persists a verified explicit migration snapshot and commit": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants records one cancellation per lease and settles the delivered request": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants rejects corrupted keys and parent projections after restore": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants requires symmetric optional Turn attribution in evidence": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants returns false for missing ancestry endpoints": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants times out only an expired held Turn and records its exact displaced token": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-CEILING-REMAINDER] derives depth and wall time from lineage while model accounting alone advances durable token totals": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] admits a spawned ceiling only at or below the parent's remaining allowance": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] binds the ceiling to the attenuation content the reservation digests": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] cancels an exhausted Run through the ordinary terminal rows and refuses to name a dimension with allowance left": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] inherits an undeclared dimension from the parent's remainder and bounds nothing without a declaration": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] narrows a child when the parent spends after the spawn": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] refuses to name an exhausted dimension for a Run under no ceiling": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] spends wall clock from the spawn that started the Run": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/codec-matrix.test.ts#Run commit codec matrix round-trips delivery and every tree resolution shape": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/codec-matrix.test.ts#Run commit codec matrix round-trips pick and synthesis resolution evidence": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/codec-matrix.test.ts#Settlement codec and lifecycle derives every typed audit obligation from the frontier and round-trips": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/codec-matrix.test.ts#Settlement codec and lifecycle keeps terminal state immutable and permits only captured evidence revision": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-ADV-UNAUTHORIZED-WRITER] rejects substitution between SystemCause and returned evidence IDs": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-TURN-EXECUTOR-WRITER] accepts root and exact Turn writers and rejects forged writer pairs": {
+      "src/execution-references/id.ts": [
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-WRITER-MATRIX] rejects every Receipt evidence mismatch": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-WRITER-POST-FENCE-EVIDENCE] rejects every delivery and control evidence mismatch": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-WRITER-SYNTHESIS] requires exact synthesis Run, token, and content evidence": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/commit-exhaustive.test.ts#closed RunCommit shapes [C13-RUN-GRAPH-ARITY] rejects invalid root, merge, and unary arities": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-exhaustive.test.ts#closed RunCommit shapes [C13-TURN-EXECUTOR-WRITER] rejects incomplete invocation, delivery, undo, migration, and Turn commits": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-exhaustive.test.ts#closed RunCommit shapes rejects malformed serialized writer and resolution variants": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation-codec.test.ts#commit kind decode guard rejects an unknown commit kind before shape validation": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation-codec.test.ts#Run commit decode guards names each malformed scalar payload field exactly": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation-codec.test.ts#Run commit decode guards names malformed writer, resolution, and tree payloads exactly": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation-codec.test.ts#Run commit decode guards rejects the exact alien optional field at every decode site": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation-codec.test.ts#Run commit decode guards rejects unknown commit kinds instead of admitting them": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation-codec.test.ts#Run commit decode guards round-trips the verdict kind and every optional payload exactly": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations constrains merge pick and tree sides to the ordered parents": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations rejects event delivery commits that violate exactly one delivery requirement": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations rejects invocation commits that violate exactly one receipt requirement": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations rejects lease tokens whose members are not canonical references": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations rejects merge commits that violate exactly one merge requirement": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations rejects migration commits that break the pin bind and accepts the exact migration": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations rejects root commits that carry any non-root field or writer": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations rejects turn-authored commits that violate exactly one turn requirement": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations rejects undo commits that violate exactly one control requirement": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#closed commit shape single violations requires the tree resolution and checkpoint to occur together": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#writer authority single mismatches accepts exact synthesis evidence and denies token identity mismatches": {
+      "src/execution-references/id.ts": [
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#writer authority single mismatches denies a turn writer when the commit carries no subject Turn": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#writer authority single mismatches denies commits that omit their own evidence reference fields": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#writer authority single mismatches denies system writers whose commit kind does not match the cause evidence": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#writer authority single mismatches matches receipt evidence subject Turns exactly in both directions": {
+      "src/execution-references/id.ts": [
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/commit-mutation.test.ts#writer authority single mismatches states the exact refusal for a root writer beyond the root commit": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-AUTH-RESOLUTION-LIFETIME] releases a dynamic resolution before the next invocation": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-AUTH-RESOLUTION-LIFETIME] releases a provider resolution before the next invocation": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-FACET-DISPOSAL] releases a resolved Facet before later Turn execution throws": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-FACET-DISPOSAL] releases each Facet and re-resolves after authority loss": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-FACET-DISPOSAL] releases each resolved Facet before Turn cancellation": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-FACET-DISPOSAL] releases each resolved Facet before Turn completion": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-FACET-DISPOSAL] releases each resolved Facet before Turn failure": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-FACET-DISPOSAL] releases each resolved Facet before Turn suspension": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-RUN-RESOURCE-CEILING] advances the Run's durable token total where each model call commits": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-CANCEL-INBOX] fences a boundary result when cancellation arrives during the operation": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] hosts a model call only inside the exact live Turn and commits its complete output": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam accepts only the exact immutable bound-tool object for mediated invocation": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam adapts one exact bound tool to the existing mediated OperationGateway and disposes it": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam appends verdict commits through the ordinary Turn commit handle": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam assembles the prompt from the complete immutable execution scope": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam atomically suspends with the canonical checkpoint and recovers it after restart": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam canonicalizes ephemeral stream events and validates complete model usage": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam does not let a prior lease epoch cancel the current holder": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam durably records explicit failure and self-cancellation outcomes": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam fails closed before execution for duplicate bindings or tools absent from placement": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
     "test/agents/runs/executor.test.ts#TurnExecutor seam identifies exact Turn authorship by commit kind and complete lease token": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam keeps content access owned and rejects a mismatched put identity": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam leaves canonical state unchanged when the executor crashes before a transition": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam lets the live lease holder observe a delivered cancellation and settle the Turn itself": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam observes exact takeover cancellation and fences every effectful handle": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam propagates cancellation across the gateway boundary": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam recovers a committed result when the executor crashes before returning and never reruns it": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam recovers only the terminal result matching the Turn outcome": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam refuses to execute against a result commit its own token left unpaired": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam refuses to execute against two cancellation entries for one lease": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a commit mismatch between returned and durable cancellation outcomes": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a commit mismatch between returned and durable terminal outcomes": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a content mismatch between returned and durable cancellation outcomes": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a content mismatch between returned and durable terminal outcomes": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a gateway descriptor schema and policy mismatch and disposes the resolution": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a gateway facet identity mismatch and disposes the resolution": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a gateway missing descriptor mismatch and disposes the resolution": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a gateway package identity mismatch and disposes the resolution": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a kind mismatch between returned and durable terminal outcomes": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a prompt that is absent or reported under another exact content identity": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a result commit with wrong branch": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a result commit with wrong run": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a result commit with wrong token holder": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a returned checkpoint that differs from the durable checkpoint record": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a structural tool substitute from the tool source": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects a wrong-Turn or stale-head commit at the handle call without mutation": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects ambiguous same-token terminal result evidence": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects an executor that returns without a canonical outcome transition": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects checkpoint and result commits outside their atomic lifecycle transitions": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects checkpoint commits through the ordinary append handle": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects every stale content operation and stale inbox reads without exact cancellation": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects fractional model usage at the model boundary": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects negative model usage at the model boundary": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects unsafe model usage at the model boundary": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects wrong-Turn, wrong-holder, and stale-epoch host admission before executor code": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam reports a direct gateway dispatch as the direct tier and carries no evidence": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam requires optional checkpoint tree content before suspension": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam returns the exact inclusive inbox cursor slice": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/executor.test.ts#TurnExecutor seam uses the exact current head after an intermediate message commit": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/forced-cancellation.test.ts#ForcedTurnCancellation record [run.forced-turn-cancellation] persists immutably through memory snapshot restart and rejects identity conflict": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/agents/runs/forced-cancellation.test.ts#ForcedTurnCancellation record [run.forced-turn-cancellation] round-trips every exact evidence identity and fence epoch": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/agents/runs/forced-cancellation.test.ts#ForcedTurnCancellation record rejects same-Turn, nonincrementing fences, unknown fields, and unknown codec majors": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#Agent and Run records [C13-RUN-PLACEMENT-SNAPSHOT] binds placement snapshots to one Turn and one pin set": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#Agent and Run records enforces the closed writer matrix and complete control proposal binding": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime [C13-RUN-EQUAL-PIN-MERGE] accepts only ordered equal-pin current heads for binary merge": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime [C13-RUN-GRAPH-ARITY] atomically creates and restores a canonical Run graph": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime [C13-RUN-PINS-SOURCES] rejects migration ahead of an admitted old-pin Turn": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime [C13-RUN-TERMINAL-OBLIGATIONS] derives settlement from every captured obligation": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime [C13-RUN-UNDO-REDO] appends undo selection without rewinding ancestry": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime [C13-TURN-EXECUTOR-WRITER] anchors a Turn, rejects stale tokens, and terminalizes with derived settlement": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime [C13-TURN-NO-RETRY-RECORD] exposes no Turn retry runtime or record field": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime [C13-TURN-NO-RETRY-RUNTIME] cancels an unheld queued Turn without creating a result commit": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime atomically persists checkpoint before suspension fencing": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime creates one attenuated child through lease-bound atomic spawn genesis": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime rolls back incomplete genesis and rejects unresolved source revisions": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#memory Run runtime uses expected-head CAS without leaving an orphan losing commit": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/foundation.test.ts#Turn lifecycle [C13-TURN-NO-RETRY-EXPORT] keeps checkpoint and cancellation inbox records distinct": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/lease-state-machine.test.ts#generated lease histories never restore authority to a stale token": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#Turn lease verifiers mutation kills memory verifier defaults are safe and enforce the stored lease clock": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#Turn lease verifiers mutation kills repository verifier defaults are safe for missing and expired leases": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#Turn mutation kills checkpoint record decoding names each malformed field exactly": {
+      "src/execution-references/id.ts": [
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#Turn mutation kills turn record decoding names each malformed field exactly": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#TurnInboxEntry mutation kills inbox entries require an event, a key, and an exact cancellation token": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#TurnInboxEntry mutation kills inbox record decoding names each malformed field exactly": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#TurnLease mutation kills admits rejects tokens that differ from the live lease in exactly one field": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#TurnLease mutation kills lease payload decoding rejects every single-field forgery": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/lease-turn-mutation.test.ts#TurnLease mutation kills lease token decoding enforces shape, exact fields, and field types": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/lease.test.ts#lease admission trust boundary decoding a token with a null holder reports codec corruption": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/lease.test.ts#public Run and Turn values keeps the four identifiers nominally distinct": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/lease.test.ts#TurnLease [C13-ADV-STALE-LEASE] rejects a displaced durable lease after epoch advancement": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/lease.test.ts#TurnLease [turn-lease-verifier] memory and repository implementations enforce the exact durable lease": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/lease.test.ts#TurnLease [turn-lease] preserves the tenant-qualified holder through the canonical codec": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/memory-mutation.test.ts#RunRepository over MemoryRunStorage mutation kills a restored snapshot preserves every table and its commit ancestry": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/memory-mutation.test.ts#RunRepository over MemoryRunStorage mutation kills forced cancellation listing returns only the requested Run": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/memory-mutation.test.ts#RunRepository over MemoryRunStorage mutation kills inbox listing filters by Turn and orders by sequence": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/record-contract.test.ts#constituent shape validation rejects malformed spawn reservations": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/agents/runs/record-contract.test.ts#Run lifecycle record errors reports revision exhaustion with closed domain errors": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/record-contract.test.ts#Run lifecycle record errors separates constructor shape errors from operational transition errors": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record": {
       "src/execution-references/id.ts": [
         4,
         10,
@@ -19,9 +1201,2493 @@
     },
     "test/agents/runs/records-mutation.test.ts#nominal identifier subjects every Agent and Run scoped ID names its exact subject": {
       "src/execution-references/id.ts": [
+        4,
         5,
+        10,
         11,
+        16,
         17
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#placement pins canonicalizes snapshot placements by facet order": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#placement pins names snapshot fields and rejects unknown placement fields": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#Run lifecycle record names each Run branch field in decode errors": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#Run lifecycle record names each Run field in decode errors": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#Run lifecycle record reports exact closed codes for terminal transitions": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#spawn reservations accepts epoch zero and rejects malformed token holders": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#spawn reservations names each spawn field in decode errors": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/agents/runs/records-mutation.test.ts#spawn reservations rejects unknown spawn reservation fields": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-ADV-NONBINARY-MERGE] rejects missing merge sources and invalid picked content": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-RUN-MIGRATED-TURN-REJECTION] rejects duplicate commits, stale parents, pin changes, and foreign Turn writers": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-RUN-PARENT-PIN-INHERITANCE] rejects migration evidence whose from pins do not match the durable parent": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-TURN-NO-RETRY-PROTOCOL] has no retry transition and rejects a wrong effective Run": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix rejects invalid branches and generic migration append": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix uses run.invalid-state for malformed and duplicate genesis": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#Turn and terminalization rejection matrix [C13-ADV-ADMITTED-SIBLING] rejects missing and malformed held sibling cancellation evidence": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#Turn and terminalization rejection matrix [C13-RUN-TERMINAL-SIBLINGS] atomically fences queued, running, and suspended siblings with durable evidence": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#Turn and terminalization rejection matrix rejects duplicate inbox idempotency keys": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#Turn and terminalization rejection matrix rejects malformed cancellation attribution on reclaim": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#Turn and terminalization rejection matrix rejects ordinary inbox sequence and suspend/complete mismatches with turn.invalid-state": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#Turn and terminalization rejection matrix rejects terminalization with mismatched result and sibling cancellation evidence": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#Turn and terminalization rejection matrix rejects unsuccessful control and mismatched fence evidence atomically": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-exhaustive.test.ts#Turn and terminalization rejection matrix rolls back sibling fences, records, and registry close when the terminal commit fails": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation fences a queued sibling with exact durable evidence": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation fences a running sibling with exact durable evidence": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation rejects every administer control evidence mismatch": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation rejects every forced cancellation evidence mismatch": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation rejects preexisting forced cancellation records": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation rejects unused forced cancellation evidence": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation requires one control and exact evidence for every active sibling": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation requires sibling cancellation evidence under the exact Turn key": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#forced sibling cancellation terminalizes cleanly over succeeded, failed, and cancelled siblings": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#held cancellation and timeout fencing cancels a held Turn with a cancelled result and inbox fence": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#held cancellation and timeout fencing fences a held Turn after ordinary inbox traffic": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#held cancellation and timeout fencing held cancellation requires a cancelled result": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#held cancellation and timeout fencing timeout rejects a suspended Turn whose fenced lease has expired": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#held cancellation and timeout fencing timeout requires an expired running lease": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#held cancellation and timeout fencing times out exactly at lease expiry and fences the epoch": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#terminal sibling read-back re-checks the control and cancellation evidence each record names": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#terminal sibling read-back refuses a cancellation record for a Turn it never fenced": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#terminal sibling read-back refuses a cancellation record read back under another Turn": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#terminal sibling read-back refuses a cancellation record the store never hands back": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#terminal sibling read-back refuses a fenced sibling the store no longer lists": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#terminal sibling read-back refuses a record read back naming another terminal Turn": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#terminal sibling read-back refuses a sibling read back in a terminal state it was not fenced into": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#terminal sibling read-back refuses a sibling the store still reports as live": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#terminal sibling read-back refuses a sibling whose read-back lease epoch is not the fenced one": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#terminalization guards rejects an already-closed admission registry": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#terminalization guards terminal result must name the finishing Turn": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#turn cancellation appends cannot displace a Turn that holds no lease": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#turn cancellation appends reclaims an expired lease with an exact displaced cancellation": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#turn cancellation appends rejects a cancellation reusing an inbox idempotency key": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation-terminal.test.ts#turn cancellation appends rejects each malformed displaced-token cancellation entry": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#admission registry plumbing reports a missing admission registry as corruption": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#admission registry plumbing reserving the same obligation twice keeps the stored registry": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards each typed append door admits only its own commit kinds": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards names the missing Run exactly": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards non-migration commits must inherit the parent pins": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards rejects a parent commit that belongs to another Run": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards rejects duplicate commit identifiers and foreign branches": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards rejects stale and absent parents with a revision conflict": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards rejects Turn writers outside the commit lineage": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards system evidence takes delivery commits as well as invocations": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards terminal Runs reject ordinary commits with the exact error": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards undo ignores running Turns of other Runs and branches": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards undo requires the in-flight Turn to be fenced first": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#append guards undo selection must be an ancestor of the head": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#branch creation guards rejects a duplicate branch name among several branches": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#branch creation guards rejects each invalid branch creation field individually": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#branch creation guards requires an existing active Run": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#captured evidence guards appends exact invocation and delivery obligations after terminal": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#captured evidence guards names the missing Run exactly": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#captured evidence guards non-commit obligations never satisfy a captured commit": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#captured evidence guards rejects a commit that is not a settled obligation": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#captured evidence guards rejects captured evidence on an active Run": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#captured evidence guards rejects forged writer and commit kinds for captured obligations": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#completion guards completes a running Turn with an exact result commit": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#completion guards rejects each non-result completion commit individually": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#event delivery appends successive entries with distinct idempotency keys": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#event delivery appends the next unique inbox entry": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#event delivery names the missing Turn exactly": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#merge validation accepts exact ours, theirs, and per-path tree resolutions": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#merge validation concat resolution requires canonical parent-order verification": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#merge validation merge parents must be the distinct ordered current heads": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#merge validation merge requires an exact source branch and stored head commits": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#merge validation pick resolution must copy one exact parent content": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#merge validation tree resolution sides must name the ordered merge parents": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#merge validation tree side resolution must copy the selected parent tree": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#migration guards migrateRun rejects a commit that is not a migration": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#migration guards rejects migration ahead of an admitted Turn on the branch": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#migration guards rejects migration evidence whose from pins differ from the parent": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#migration guards the non-transition Turn append refuses migrations": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#Run genesis guards rejects each non-canonical genesis record field": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#Run genesis guards rejects each preexisting genesis identifier individually": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#runtime lookup errors effective commits reject a branch of another Run": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#runtime lookup errors turn updates name the missing Turn exactly": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#spawn reservation guards rejects every non-exact attenuated child genesis field": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#spawn reservation guards replays an identical reservation only when the spawned child Run exists": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#suspension guards names the missing Turn exactly": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#suspension guards rejects each checkpoint and commit mismatch individually": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#suspension guards suspends with matching absent tree checkpoints": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#suspension guards suspends with matching present tree checkpoints": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#Turn genesis guards rejects a duplicate Turn identifier": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#Turn genesis guards rejects each non-canonical Turn genesis field individually": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/runtime-mutation.test.ts#Turn genesis guards requires exactly one configuration snapshot for the head pins": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior [C13-RUN-ANCESTRY] detects missing and foreign ancestry while preserving valid ancestry": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior [C13-RUN-PINS-BLUEPRINT] fails closed after restart when the active pin snapshot is omitted": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior detects key and revision projection corruption through the repository": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior enforces exact revision increments": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior fails closed after restart when ancestry loses an intermediate commit": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/storage-exhaustive.test.ts#MemoryRunStorage exhaustive behavior rejects admission identity changes before compare-and-swap": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#Run execution scope join admits a message commit the running token left on the branch": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#Run execution scope join loads the scope a resumed suspended Turn presents": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#Run execution scope join names the joined record that is absent rather than dereferencing it": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#Run execution scope join pairs the checkpoint's tree with its commit's, present or absent": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#Run execution scope join refuses a checkpoint or result commit the running token left on the branch": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#Run execution scope join refuses a checkpoint record whose Turn is not the one resuming": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#Run execution scope join refuses a checkpoint whose commit is not a checkpoint commit": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#RunRepository ancestry returns an exact false verdict after full traversal": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#RunRepository ancestry terminates traversal over cyclic parent records": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#RunRepository corruption detection detects a missing parent edge for a merge commit": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#RunRepository corruption detection detects a tampered parent edge ordinal with the exact parent value": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#RunRepository corruption detection detects a tampered parent edge value": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#RunRepository corruption detection detects key corruption on the list path": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#RunRepository corruption detection detects revision corruption on the single-record load path": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#RunRepository projections filters forced cancellations to the requested Run": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#RunRepository projections orders inbox entries by sequence within the addressed Turn": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/store-mutation.test.ts#RunRepository spawn reservations refuses to answer with one of several reservations for a child": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#checkpoint and inbox codecs round-trips ordinary and cancellation inbox entries and rejects every malformed shape": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#checkpoint and inbox codecs round-trips tree and no-tree checkpoints and rejects cursor shape": {
+      "src/execution-references/id.ts": [
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#decode and constructor trust boundaries rejects a negative inbox timestamp on decode": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#decode and constructor trust boundaries rejects an unknown Turn status on decode": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#Turn aggregate exhaustive behavior rejects every invalid aggregate shape": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#Turn aggregate exhaustive behavior rejects lifecycle methods outside running and exact-token state": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#Turn aggregate exhaustive behavior round-trips advisory cache lineage without affecting transitions": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/agents/runs/turn-exhaustive.test.ts#Turn aggregate exhaustive behavior round-trips optional checkpoint, result, lease, and every status": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] memory [authority-permit-target-store] [authority.target-permit-request] durably records one exact target request across restart": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] memory [authority.target-permit-denial] stores exact denial": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] memory closes captured transactions and rolls nested transactions back": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] memory concurrent deterministic issuance converges on one exact permit": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] memory denies conflicting nonce reuse and foreign owner transactions": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] memory issues and consumes exactly once across owner-store restart": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] memory refuses a non-future request expiry before authority evaluation": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] memory refuses a permit issued for a substituted full authority request": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] memory refuses consumption without the exact durable target request across restart": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] memory replays an exact issuance after response loss and restart": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] memory rolls issue and consume back with their owner transactions": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] memory rolls target denial evidence back with its owner transaction": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] sqlite [authority-permit-target-store] [authority.target-permit-request] durably records one exact target request across restart": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] sqlite [authority.target-permit-denial] stores exact denial": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] sqlite closes captured transactions and rolls nested transactions back": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] sqlite concurrent deterministic issuance converges on one exact permit": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] sqlite denies conflicting nonce reuse and foreign owner transactions": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] sqlite issues and consumes exactly once across owner-store restart": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] sqlite refuses a non-future request expiry before authority evaluation": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] sqlite refuses a permit issued for a substituted full authority request": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] sqlite refuses consumption without the exact durable target request across restart": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] sqlite replays an exact issuance after response loss and restart": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] sqlite rolls issue and consume back with their owner transactions": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#[authority-permit-owner-store] sqlite rolls target denial evidence back with its owner transaction": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit [authority.permit] codec preserves every normative field and immutable dates": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit authentication mutation gates admission evidence binds to the exact authenticated permit bytes": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit authentication mutation gates authenticates only the canonical issuer record with exact denials": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit authentication mutation gates rejects authentications minted without the module issuer": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit fails closed for substituted bindings and expiry without consuming": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit mutation gates decodes only canonical Actor and claim owner kinds": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit mutation gates exposes every expectation field through the permit getters": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit mutation gates is consumable at the exact issuance instant with exact time denials": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit mutation gates pins the reservation obligation to the exact invocation item": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit mutation gates rejects blank and non-canonical nonces exactly": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit mutation gates requires lease tokens to carry exact qualified identities": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit mutation gates requires the Tenant to qualify the path even when the principal matches": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit mutation gates validates issuance and expiry times with exact subjects": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit post-issuance Grant or epoch revocation cannot cancel the admitted permit": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit rejects a lease holder with the same PrincipalId from another Tenant": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit rejects malformed codec variants fail closed": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit rejects malformed memory recovery and wrong Actor ownership": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit rejects malformed permit identities and times before issuance": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit rejects reservation obligations that are not invocation items": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit round-trips delegated system authority and an absent optional lease": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit SQLite permit storage fails closed on read, write, and projection faults": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#AuthorityPermit SQLite recovery rejects a substituted owner and malformed permit bytes": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates a consumed nonce retains its exact request and cannot be consumed twice": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates detects issued records filed under a foreign nonce": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates issue is idempotent for the exact expectation and denies conflicts": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates snapshot bytes stay detached from committed state": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/authority/permit.test.ts#MemoryAuthorityPermitStore mutation gates snapshots order issued and consumed records canonically": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/composition/admission-ports.test.ts#authority permit composition ports consumed authority admission converts denials and propagates other faults": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/admission-ports.test.ts#authority permit composition ports consumed authority admission denies each missing admission precondition": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/admission-ports.test.ts#authority permit composition ports target permit authentication binds the reply to the claim expectation": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/admission-ports.test.ts#authority permit composition ports target permit authentication refuses malformed replies and digest substitution": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/admission-ports.test.ts#durable Run admission validation an absent admission registry refuses the reservation without faulting": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#closed Tenant authority command gates a substituted issued permit fails closed": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#closed Tenant authority command gates an exact prior issuance can be replayed after response loss": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#closed Tenant authority command gates permit issuance admits only the owning Tenant and authenticated target Actor": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#closed Tenant authority command gates permit issuance requires the envelope lease to equal the expectation lease exactly": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) [protocol.authority-permit-issuance-request] [protocol.authority-permit-issuance-reply] issues a source-bound permit only for the current path": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) admits exact current check and permit leases while rejecting stale epochs": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) replays the original authority denial and cannot later issue under the same identity": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#closed Tenant authority commands (memory) rolls permit issuance back when linked WriteRecord evidence rejects": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#closed Tenant authority commands (SQLite) [protocol.authority-permit-issuance-request] [protocol.authority-permit-issuance-reply] issues a source-bound permit only for the current path": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#closed Tenant authority commands (SQLite) admits exact current check and permit leases while rejecting stale epochs": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/composition/authority-commands.test.ts#closed Tenant authority commands (SQLite) replays the original authority denial and cannot later issue under the same identity": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#closed Tenant authority commands (SQLite) rolls permit issuance back when linked WriteRecord evidence rejects": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (memory) authenticates the target ActorRef without a Tenant-side target-fence mirror": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (memory) evaluates the target request's full canonical arguments rather than its digest alone": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (memory) issues only from an authenticated target-owned request after both Actors restart": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (memory) rechecks current Tenant authority after revocation and restart before issuing": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (memory) rolls permit issuance back when durable command evidence cannot commit": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (SQLite) authenticates the target ActorRef without a Tenant-side target-fence mirror": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (SQLite) evaluates the target request's full canonical arguments rather than its digest alone": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (SQLite) issues only from an authenticated target-owned request after both Actors restart": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (SQLite) rechecks current Tenant authority after revocation and restart before issuing": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (SQLite) rolls permit issuance back when durable command evidence cannot commit": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/composition/authority-membrane.test.ts#Tenant operation authority membrane resolve requires the exact current Turn lease": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state (memory) [C13-ADV-DELAYED-WATERMARK] a relevant epoch advance with delayed delivery keeps direct calls inside the bounded window and denies mediated calls": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state (memory) [C13-ADV-IMMUTABLE-DEADLINE] lease renewal cannot extend an existing resolution deadline": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state (memory) [C13-ADV-MEDIATED-STALE] a failed denial append propagates and leaves no partial denial evidence": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-DIRECT-DEADLINE] admits direct calls strictly before the derived deadline and never at or after it": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-DIRECT-LEASE] rejects direct admission for a wrong Turn, holder, or epoch": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-DIRECT-WATERMARK] a delivered higher epoch ends direct authorization; equal or lower does not": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-WATERMARK-MONOTONE] delivery and observation share one monotone per-holder watermark": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-ADV-DELAYED-WATERMARK] a relevant epoch advance with delayed delivery keeps direct calls inside the bounded window and denies mediated calls": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-ADV-IMMUTABLE-DEADLINE] lease renewal cannot extend an existing resolution deadline": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-ADV-MEDIATED-STALE] a failed denial append propagates and leaves no partial denial evidence": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-DIRECT-DEADLINE] admits direct calls strictly before the derived deadline and never at or after it": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-DIRECT-LEASE] rejects direct admission for a wrong Turn, holder, or epoch": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-DIRECT-WATERMARK] a delivered higher epoch ends direct authorization; equal or lower does not": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-WATERMARK-MONOTONE] delivery and observation share one monotone per-holder watermark": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state seams (memory) [C13-AUTH-RESOLUTION-LIFETIME] a bundled resolution cannot outlive its Turn without an explicit release": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state seams (memory) [C13-OWNERSHIP-SINGLE-OWNER] drops and rebuilds the derived authority cache from canonical Tenant state": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state seams (memory) authorizes a fresh mediated intent through the composed Actor state": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state seams (memory) delegates interception admission and contributor domains to the host": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state seams (memory) mints operation resolution states only under the Tenant authority capability": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state seams (memory) persists only watermark records that establish or advance holder state": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state seams (memory) requires a deniedPreEffect Receipt before persisting a stale denial": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state seams (memory) requires at least one Scope epoch for invalidation delivery": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/authority-state.test.ts#production authority state seams (memory) resolves mediated-only candidates that carry no direct authority evidence": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/behavior-branches.test.ts#W9 composition behavior branches maps Run inbox conflicts, duplicates, lease rejection, and lifecycle rejection": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/behavior-branches.test.ts#W9 composition behavior branches treats an unimplemented evidence source as absent evidence, never as satisfied": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-AUTH-RESOLUTION-LIFETIME] [C13-FACET-DISPOSAL] releases a dynamic resolution before resolving the next invocation": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-AUTH-RESOLUTION-LIFETIME] [C13-FACET-DISPOSAL] releases a provider resolution before resolving the next invocation": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root assembles authenticated permit denial over one SQLite target aggregate": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root produces the whole §7 evidence chain for one mediated call": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root refuses a Binding the authority plane does not resolve": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root replays one Invocation for a repeated request key": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root runs each Operation under its own Turn's cancellation signal": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/composition/mediation-pipeline.test.ts#the published mediation composition root serves a direct-tier Turn call from memory and writes no durable evidence": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/composition/mediation-preparation.test.ts#structural references cross the invocations boundary as data carries a Lease token through its reference unchanged": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) repeated stale invocations add no unbounded duplicate denial evidence": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/definition/pins.test.ts#RunPins integration ports fails closed when W5 reservation and migration evidence is unavailable": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/environments/runtime.test.ts#EnvironmentController [C13-ENVIRONMENT-TURN-OWNED] rejects use under another Turn's lease and fails closed once the owning lease is fenced": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition accepts an exact response-loss replay and rejects substituted or impossible transport replies": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition admits a target-pulled canonical Tenant permit exactly once": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition captures exact reserved-minus-completed Run frontier across restart and close races": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition concurrent duplicate requests accept replies delivered in reverse order": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition denies an exact locally constructed permit before target admission": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition denies an expired authenticated permit without consuming its nonce": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition fails closed for malformed permits while preserving infrastructure failures": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition fails closed on substituted resolution evidence and exposes both interception domains": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition joins authenticated Tenant denial epochs and invalidates the exact target resolution idempotently": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition rejects invalid permit lifetimes before issuing authority": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition rejects stale authority and preserves an opaque no-write direct stamp": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition returns witness-free durable permit data and remints authentication after runtime reconstruction": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition settles every Run obligation through canonical identity adapters": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition uses a recovered claim and new nonce after the retained request expires": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (memory) refuses a check naming a foreign owning Tenant before evaluating authority": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (memory) replays a duplicate check without re-evaluating authority": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (memory) validates a Binding, checks the intent, and issues the permit as linked evidence": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (SQLite) refuses a check naming a foreign owning Tenant before evaluating authority": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (SQLite) replays a duplicate check without re-evaluating authority": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/e2e/authority-journey.test.ts#closed Tenant authority journey (SQLite) validates a Binding, checks the intent, and issues the permit as linked evidence": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/integration/e2e/tenant-isolation-journey.test.ts#multi-Tenant isolation (memory) refuses a foreign Tenant Actor caller at authority": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/e2e/tenant-isolation-journey.test.ts#multi-Tenant isolation (memory) refuses a foreign Tenant Principal caller at authentication": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/e2e/tenant-isolation-journey.test.ts#multi-Tenant isolation (memory) reserves the same idempotency key independently per Tenant": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/e2e/tenant-isolation-journey.test.ts#multi-Tenant isolation (SQLite) refuses a foreign Tenant Actor caller at authority": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/e2e/tenant-isolation-journey.test.ts#multi-Tenant isolation (SQLite) refuses a foreign Tenant Principal caller at authentication": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/e2e/tenant-isolation-journey.test.ts#multi-Tenant isolation (SQLite) reserves the same idempotency key independently per Tenant": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-SELF-ATTENUATION] creates a child Run under a durably attenuated Grant": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-SELF-LEASE] denies every Self Operation under a stale exact-Turn lease before EffectAttempt": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-SELF-NO-WIDENING] rejects a spawned child authority outside the parent closure": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/invocations/audit-relation.test.ts#audit evidence substantiation requires commit evidence bound to the delivered reservation": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit-relation.test.ts#audit evidence substantiation requires receipt-linked event and commit evidence": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-EDGE-RELATION] fails closed for evidence substitutions across every mediation edge": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-RECEIPT-OUTCOMES] admits the exact routed approval, effect, Receipt, Event, route, and commit graph": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-ROUTE-BRIDGE] rejects Invocation roots nested below the route projection bridge": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-SETTLED-OBLIGATION] admits only evidence-backed route projection roots": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-SYSTEM-WRITER] admits direct, denied, expired, and Receipt-caused local edges": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-EFFECT-WRITE-AHEAD] rejects structurally permitted edges with substituted domain evidence": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-PREPARED-NO-TURN-AUDIT] requires exact Write evidence when an evidence resolver is supplied": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported approval consumed -> commit causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported attempt -> commit causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported commit -> approval consumed causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported commit -> attempt causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported commit -> commit causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported commit -> delivery causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported commit -> event causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported commit -> invocation causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported commit -> receipt indeterminate causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported commit -> receipt superseded causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported commit -> route projected causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported commit -> route reserved causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported commit -> write duplicate causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported delivery -> commit causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported event -> commit causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported invocation -> commit causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported receipt indeterminate -> commit causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported receipt superseded -> commit causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported root commit": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported route projected -> commit causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported route reserved -> commit causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord append validation rejects unsupported write duplicate -> commit causality": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord codec round-trips the complete commit vocabulary": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord failure codes reports every validation failure with its exact code and message": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord identity and copies copies evidence identifiers into their own reference classes": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord stored shape relation permits the stored delivery -> commit edge": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord stored shape relation permits the stored receipt -> commit edge": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord stored shape relation permits the stored receiptSuperseded -> commit edge": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord stored shape relation rejects the stored attempt -> commit edge": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord stored shape relation rejects the stored commit -> commit edge": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord stored shape relation rejects the stored commit -> event edge": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord stored shape relation rejects the stored event -> commit edge": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord stored shape relation rejects the stored invocation -> commit edge": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord stored shape relation rejects the stored routeProjected -> commit edge": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord stored shape relation rejects the stored routeReserved -> commit edge": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/audit.test.ts#AuditRecord stored shape relation rejects the stored write -> commit edge": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/invocations/command.test.ts#Invocation protocol command families [C13-ADV-REORDERED-INTENT] uses strict canonical payloads and delegates synchronously": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway binds immutable resolution authority and call stamps to descriptor and canonical input": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway derives the minimum deadline once and cannot be extended by renewal or mutation": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway rejects an unsafe resolvedAt plus policy window": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway rejects wrong Turn, holder tenant, and epoch through the same gateway": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway tightens to mediated when the Turn Actor lacks local versioned Binding authority": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/operations/direct-authority-gateway.test.ts#direct authority through the protected Operation gateway uses delayed watermark, exact lease, and immutable deadline cutoffs before execution": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/profiles/facets/task.test.ts#Task declarations and backend [P11-TASK-HIERARCHY] validates task identity, parents, duplicates, and missing targets": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/profiles/facets/task.test.ts#Task declarations and backend decodes wire task payloads to context-owned identifiers": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/profiles/facets/task.test.ts#Task declarations and backend enforces context-owned task identifier classes": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/profiles/facets/task.test.ts#Task declarations and backend preserves parent and Run links when an update omits them": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/profiles/facets/task.test.ts#Task declarations and backend round-trips absent, concrete, and cleared optional task updates": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/profiles/facets/task.test.ts#Task protected facade [P11-TASK-COMPOSITION] routes three Operations through invoke and task actions only through emit": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/protocol/authority-evidence.test.ts#authority protocol evidence [authority.target-permit-request] binds the complete current-authority input to the exact target admission": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/protocol/authority-evidence.test.ts#permit issuance codec rejects every inexact payload with its stable code": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/protocol/authority-evidence.test.ts#permit issuance replies and payload codecs round-trip frozen permits": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions memory rejects forged caller, revision, lease, and payload records": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/bootstrap.test.ts#tenant.bootstrap concrete compositions SQLite rejects forged caller, revision, lease, and payload records": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#authentication matching rejects every non-issued value shape": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#CommandEnvelope codec [C13-PROTOCOL-EXACT-ENVELOPE] [command-envelope] round-trips absent optional fields and every Actor caller kind": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#CommandEnvelope codec rejects empty command at construction": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#CommandEnvelope codec rejects empty key at construction": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#CommandEnvelope codec rejects long command at construction": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#CommandEnvelope codec rejects long key at construction": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#envelope and write record boundaries accepts boundary-length names, keys, revisions, and epochs": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#envelope and write record boundaries detaches exact actor callers into frozen references": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#envelope and write record boundaries envelope construction rejects null caller and lease containers": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#envelope and write record boundaries envelope decoding rejects non-object containers exactly": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#envelope and write record boundaries envelope decoding rejects unknown caller and Actor kinds exactly": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#envelope and write record boundaries envelope decoding reports exact field type diagnostics": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#envelope and write record boundaries rejects wrong-shaped and hidden caller or lease fields exactly": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#envelope and write record boundaries reports missing or unknown envelope fields exactly": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#protocol callers and authentication envelopes deeply detach and freeze authenticated caller and lease state": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#protocol callers and authentication rejects exact-shape callers with invalid identity values": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#protocol callers and authentication rejects exact-shape leases with invalid values": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#protocol callers and authentication rejects non-enumerable and accessor caller fields without invoking accessors": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#protocol callers and authentication rejects non-plain caller and lease values": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#protocol callers and authentication requires exact plain runtime fields for callers and leases": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#protocol callers and authentication validates issued authentication before invoking token behavior": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#rejects callers whose identity contradicts their declared kind": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/codec.test.ts#rejects non-string command names and idempotency keys": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-PROTOCOL-FAMILY-ENVELOPE-POLICY] enforces every revision and lease field policy": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) evaluates post-payload gates in deterministic order": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) registration callbacks cannot mutate authenticated envelope state": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects expired required lease tokens": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects missing required lease tokens": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects wrong epoch required lease tokens": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects wrong holder required lease tokens": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects wrong turn required lease tokens": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) [C13-PROTOCOL-FAMILY-ENVELOPE-POLICY] enforces every revision and lease field policy": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) evaluates post-payload gates in deterministic order": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) registration callbacks cannot mutate authenticated envelope state": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) rejects expired required lease tokens": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) rejects missing required lease tokens": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) rejects wrong epoch required lease tokens": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) rejects wrong holder required lease tokens": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) rejects wrong turn required lease tokens": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#leases without a current holder, expiry, or record are fenced": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/dispatcher.test.ts#rejects a lease expiring exactly at the decision time": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/materialization-commands.test.ts#materialization.applyLocal protocol command requires the target plan revision and forbids a supplied lease": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/persistence-memory.test.ts#memory reads every hand-seeded codec-representable non-write audit projection": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/protocol/persistence-memory.test.ts#ProtocolPersistence (memory) rejects a codec-representable unsupported causal path without persistence": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/protocol/persistence-sqlite.test.ts#ProtocolPersistence (SQLite) rejects a codec-representable unsupported causal path without persistence": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/protocol/persistence-sqlite.test.ts#SQLite reads every hand-seeded codec-representable non-write audit projection": {
+      "src/execution-references/id.ts": [
+        16
+      ]
+    },
+    "test/protocol/run-commands.test.ts#Run protocol family delegates decoded requests to the typed transaction port": {
+      "src/execution-references/id.ts": [
+        4
+      ]
+    },
+    "test/protocol/run-commands.test.ts#Run protocol family delegates every deterministic gate through the typed port": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/run-commands.test.ts#Run protocol family rejects every malformed payload shape before typed port execution": {
+      "src/execution-references/id.ts": [
+        10,
+        16
+      ]
+    },
+    "test/protocol/run-commands.test.ts#Run protocol family rejects fractional expirations and admits every terminal outcome": {
+      "src/execution-references/id.ts": [
+        10,
+        16
+      ]
+    },
+    "test/protocol/run-commands.test.ts#Run protocol family round-trips exact canonical payloads through command-specific codecs": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/protocol/run-commands.test.ts#run protocol owners admit Run Actors and boundary expirations": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/protocol/run-commands.test.ts#run protocol record references carry their exact kind labels": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior consume replay at a valid time reports exact nonce reuse": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior consume that does not persist reports the exact conflict": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior consumed digest columns fail closed as typed corruption": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior issue binds each nonce to one exact expectation": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior issued and consumed project only their exact states": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior issued rejects driver rows for another nonce": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior issued rows must decode to the exact stored nonce": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior recovery rejects limbo states and resurrected consumed records": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior recovery validates consumed rows against the exact owner": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior requires the active Actor transaction scope even for the same database": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior target aggregate closes every permit view and rolls denial state back as one Actor span": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/permit.test.ts#SQLite authority permit store exact behavior target aggregate rejects nested and foreign scopes without leaking writes": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage [C13-RUN-ADMISSION-REGISTRY] memory and SQLite durably reserve, complete, close, restart, and reject stale epoch and CAS": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage [C13-RUN-FORCED-CANCELLATION] memory and SQLite require exact administer evidence and CAS before persisting a sibling fence across restart": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage [C13-RUN-PINS-IMMUTABLE] memory and SQLite preserve immutable lifetime pins across caller mutation and restart": {
+      "src/execution-references/id.ts": [
+        4,
+        16
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage [C13-TURN-EXACT-LEASE] memory and SQLite admit only the exact tenant-qualified durable Turn lease across restart, CAS, and terminal fencing": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage [C13-TURN-EXECUTOR-WRITER] memory and SQLite admit only the exact live checkpoint writer across restart and CAS": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage [C13-TURN-EXECUTOR-WRITER] memory and SQLite admit only the exact live terminal result writer and reject reuse": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage [MIGRATE-RUN-PINS] survives SQLite close and reopen with old and new Turn pins": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage [run.forced-turn-cancellation] survives file-backed close and reopen with owner and bytes intact": {
+      "src/execution-references/id.ts": [
+        4,
+        10
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage fails closed across memory and SQLite when any joined execution-scope record is corrupt": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/substrates/sqlite/run.test.ts#SQLite Run storage rolls back records and edges together": {
+      "src/execution-references/id.ts": [
+        4,
+        10,
+        16
+      ]
+    },
+    "test/workspaces/codec-id-mutations.test.ts#InboxEventReference mutation coverage decode reports each tampered field with its exact subject label": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/workspaces/codec-id-mutations.test.ts#InboxEventReference mutation coverage lease epoch accepts zero and rejects negative values exactly": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/workspaces/coverage-protocols.test.ts#inbox protocol outcomes rejects reference turn and epoch mismatches before calling the run port": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/workspaces/coverage-protocols.test.ts#inbox protocol outcomes returns appended and duplicate and maps all rejection reasons": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/workspaces/coverage-protocols.test.ts#source protocol adversarial coverage [C13-ADV-HOSTILE-TIER] accepts only complete authenticated intents": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/workspaces/coverage-records.test.ts#all W7 records expose uniform static encode/decode entry points": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/workspaces/coverage-records.test.ts#authenticated event intents authenticates and detaches complete and minimal intent variants": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/workspaces/coverage-records.test.ts#retention and inbox records accepts boundary inbox counters and rejects every invalid counter shape": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/workspaces/coverage-records.test.ts#retention and inbox records rejects malformed Inbox payload fields and envelope versions": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/workspaces/protocols.test.ts#InboxProtocol accepts only the exact live Turn lease and preserves sequence uniqueness": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/workspaces/records.test.ts#workspace durable records round-trips InboxEventReference through canonical codec bytes": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/workspaces/registry.test.ts#[workspace.inbox-reference] codec and ownership evidence": {
+      "src/execution-references/id.ts": [
+        10
+      ]
+    },
+    "test/workspaces/view-origin-mutations.test.ts#Event intent mutation coverage event intent bytes bind the exact signing domain and source shapes": {
+      "src/execution-references/id.ts": [
+        10
       ]
     }
   }

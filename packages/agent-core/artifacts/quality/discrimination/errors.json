@@ -1,24 +1,200 @@
 {
   "edition": "1.0.0",
   "area": "errors",
-  "measuredAt": "be905bac8dbec599a2a50ff105947e1eeced2771",
-  "fingerprint": "sha256:8d1b76d0ef809ab9a68e469221e09013dbb5a638ffcd3ea187e3e39d1984b24c",
+  "measuredAt": "b7d1cb948a2c6bf2c6aaa1acd056cf60f3ea7170",
+  "fingerprint": "sha256:be58f7ddb13bcdb46774e505312bae5cc0f0ea3c83c9f9e35ea3c74c7a42c350",
   "files": {
     "src/errors.ts": {
       "mutants": 6,
-      "sha256": "sha256:d3eff75dba4dc5c48bcc214cdfcd16596bf2e988b57163c8c03f443956d59f05"
+      "sha256": "sha256:91bf6cfe4bd8bbd9cfdb261d4a4c8b6c5422eaa7ec12771d57f9b497e70f810c"
     }
   },
   "killed": {
+    "test/core/errors.test.ts#AgentCoreError carries its exact code, message, and name": {
+      "src/errors.ts": [
+        36
+      ]
+    },
     "test/core/errors.test.ts#AgentCoreError invariant throws the coded error exactly when its condition fails": {
       "src/errors.ts": [
-        43,
-        44
+        36,
+        44,
+        45
+      ]
+    },
+    "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior rejects a drifted generation-pointer projection on restart": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior rejects a foreign generation with an empty closure on restart": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior rejects a generation closure whose managed state repeats one logical key": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior rejects a generation pointer row returned for a different deployment": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior rejects a pointer CAS read-back that returns a truncated record prefix": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior rejects Blueprint rows returned for a different name or version": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior rejects managed state whose Actor differs from its own generation": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior rejects raw column values whose SQLite type is malformed": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior rejects stored rows returned under a different immutable key": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior reports repeated stored rows as a duplicate immutable key": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior requires strictly increasing generation ordinals on pointer activation": {
+      "src/errors.ts": [
+        36
       ]
     },
     "test/substrates/sqlite/materialization-behavior.test.ts#SQLite materialization store durability and ownership behavior verifies persisted pointer bytes through the CAS read-back seam": {
       "src/errors.ts": [
-        35
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-control.test.ts#SQLite materialization rollout control corruption and lineage enforces deployment lineage against stored rollouts on CAS": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-control.test.ts#SQLite materialization rollout control corruption and lineage fails deployment lineage closed when a referenced rollout is missing": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-control.test.ts#SQLite materialization rollout control corruption and lineage fails outbox CAS closed before validating an illegal transition": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-control.test.ts#SQLite materialization rollout control corruption and lineage requires exactly one control marker row bound to the owning Tenant kind": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-schema.test.ts#SQLite materialization schema compares marked schema SQL under exact whitespace normalization": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-schema.test.ts#SQLite materialization schema names the exact legacy and unmarked schema reset reasons": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-schema.test.ts#SQLite materialization schema names the marker as malformed when its row cannot be read": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-schema.test.ts#SQLite materialization schema rejects a sqlite_master sql column that is neither text nor null": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/substrates/sqlite/materialization-schema.test.ts#SQLite materialization schema requires exactly one schema marker row without rewriting the extra one": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/workspaces/persistence-mutations.test.ts#storage trust boundary kills a View revision CAS on an empty Surface is a revision conflict": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/workspaces/persistence-mutations.test.ts#storage trust boundary kills compaction refuses kinds outside the compactable set": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/workspaces/persistence-mutations.test.ts#storage trust boundary kills insertRecord reports non-buffer bytes as codec corruption": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/workspaces/persistence-mutations.test.ts#storage trust boundary kills pointer record keys must carry a parseable revision": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/workspaces/policy-mutations.test.ts#payload mapping array creation a freshly created nested array admits no sparse positions": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/workspaces/policy-mutations.test.ts#payload mapping reads pointers with strict bounds and container typing": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/workspaces/policy-mutations.test.ts#payload mapping rejects sparse array writes with the exact error": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/workspaces/policy-mutations.test.ts#payload mapping rejects traversal through scalar and null values in both container branches": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/workspaces/policy-mutations.test.ts#route dedupe keys rejects unroutable dedupe requests with exact subscription errors": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/workspaces/route-mutations.test.ts#authenticated projection provenance a prototype-forged projection lacks host authentication": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/workspaces/source-protocol-mutations.test.ts#source commit trust boundary kills commit rejects a routing handle this runtime did not prepare": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/workspaces/source-protocol-mutations.test.ts#source commit trust boundary kills commit rejects cross-tenant relation drift after preparation": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/workspaces/source-protocol-mutations.test.ts#source commit trust boundary kills commit rejects same-tenant relation drift after preparation": {
+      "src/errors.ts": [
+        36
+      ]
+    },
+    "test/workspaces/target-protocol-mutations.test.ts#TargetProjectionProtocol mutation coverage projection targeting another Actor is denied with the exact authority error": {
+      "src/errors.ts": [
+        36
       ]
     }
   }
