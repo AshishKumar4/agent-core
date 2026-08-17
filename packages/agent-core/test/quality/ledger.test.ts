@@ -598,6 +598,157 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         expect(result.status).toBe(1);
         expect(result.stderr).toContain("test did not pass");
     });
+
+    // An `implemented` row's citations were examined by nothing: the deep checks ran over
+    // `verified` and `external-gated` only, so a selector naming a test that did not exist —
+    // or one that existed and failed — was as green as a citation that held. A citation is a
+    // claim whichever status carries it.
+    test("deep-checks an implemented row's citations exactly as a verified row's", async () => {
+        const fixture = await ledgerFixture();
+        const seed = await readFixtureJson<ConformanceFragment>(
+            resolve(fixture, "conformance/seed.json")
+        );
+        const requirement = seed.requirements.find((item) => item.owner === "W1")!;
+        const selector = "test/core/id.test.ts#TextId [C13-FIXTURE] refuses an empty identifier";
+
+        // A gate observed only going red is indistinguishable from one that always does.
+        markImplemented(requirement, "src/core/id.ts#TextId", selector);
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        await writePassingSelectors(fixture, [selector]);
+        let result = runFixture(fixture);
+        expect(result.status, result.stderr).toBe(0);
+
+        // (a) The cited test does not exist. Exact string, not an aggregate: the report
+        // executes a case in the same file, so any count-based check would still balance.
+        markImplemented(requirement, "src/core/id.ts#TextId", `${selector} and a suffix`);
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        result = runFixture(fixture);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("test did not pass");
+
+        // (b) The cited test ran and failed, in the shape a real reporter emits it: the run
+        // is unsuccessful and the assertion is not passing. Before the widening this fixture
+        // never opened the report at all, because no row was verified or external-gated, so a
+        // row could cite a test the report recorded as failed and stay green.
+        markImplemented(requirement, "src/core/id.ts#TextId", selector);
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        await writeFile(
+            resolve(fixture, "vitest.json"),
+            `${JSON.stringify(
+                {
+                    success: false,
+                    numTotalTests: 1,
+                    numPassedTests: 0,
+                    numFailedTests: 1,
+                    numPendingTests: 0,
+                    numTodoTests: 0,
+                    testResults: [
+                        {
+                            name: selector.slice(0, selector.indexOf("#")),
+                            assertionResults: [
+                                {
+                                    fullName: selector.slice(selector.indexOf("#") + 1),
+                                    status: "failed"
+                                }
+                            ]
+                        }
+                    ]
+                },
+                null,
+                2
+            )}\n`,
+            "utf8"
+        );
+        result = runFixture(fixture);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("Test report is not successful");
+
+        // (c) The cited source symbol no longer resolves.
+        await writePassingSelectors(fixture, [selector]);
+        markImplemented(requirement, "src/core/id.ts#MissingSymbol", selector);
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        result = runFixture(fixture);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("Stale source symbol");
+
+        // (d) The cited test belongs to another wave.
+        markImplemented(
+            requirement,
+            "src/core/id.ts#TextId",
+            "test/facets/declarations.test.ts#a W3 case"
+        );
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        result = runFixture(fixture);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("test is owned by another wave");
+
+        // (e) The cited symbol belongs to another wave.
+        markImplemented(requirement, "src/facets/id.ts#BindingName", selector);
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        result = runFixture(fixture);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("source is not owned by W1");
+    });
+
+    // The asymmetry between the two examined sets is deliberate. `implemented` MEANS
+    // "declared incomplete" — validateStatus requires its remaining evidence to be
+    // non-empty — so demanding a completed evidence run of it would collapse it into
+    // `verified` rather than check it, and a row citing nothing is an honest declaration
+    // rather than a false claim.
+    test("keeps the implemented status distinct from verified while checking its claims", async () => {
+        const fixture = await ledgerFixture();
+        const seed = await readFixtureJson<ConformanceFragment>(
+            resolve(fixture, "conformance/seed.json")
+        );
+        const requirement = seed.requirements.find((item) => item.owner === "W1")!;
+        const selector = "test/core/id.test.ts#TextId [C13-FIXTURE] refuses an empty identifier";
+
+        // An unexecuted checker invariant and a non-empty remainder are what make the row
+        // incomplete; neither is held against it.
+        markImplemented(requirement, "src/core/id.ts#TextId", selector);
+        requirement.checkerInvariants = ["ACQ-ID"];
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        await writePassingSelectors(fixture, [selector]);
+        await writeFile(
+            resolve(fixture, "invariants.json"),
+            `${JSON.stringify({ passed: [] }, null, 2)}\n`,
+            "utf8"
+        );
+        let result = runFixture(fixture);
+        expect(result.status, result.stderr).toBe(0);
+        const report = await readFixtureJson<{ uncitedImplemented: string[] }>(
+            resolve(packageRoot, "reports/quality/conformance.json")
+        );
+        expect(report.uncitedImplemented).not.toContain(requirement.id);
+
+        // A row citing nothing is enumerated, never failed.
+        requirement.testSelectors = [];
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        result = runFixture(fixture);
+        expect(result.status, result.stderr).toBe(0);
+        expect(
+            (
+                await readFixtureJson<{ uncitedImplemented: string[] }>(
+                    resolve(packageRoot, "reports/quality/conformance.json")
+                )
+            ).uncitedImplemented
+        ).toContain(requirement.id);
+
+        // The same evidence at `verified` still has to be complete, and its invariant still
+        // has to have executed.
+        markVerified(requirement, "src/core/id.ts#TextId", selector);
+        requirement.remainingEvidence = ["Fixture: an unclosed obligation."];
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        result = runFixture(fixture);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("incomplete verified evidence");
+
+        markVerified(requirement, "src/core/id.ts#TextId", selector);
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        result = runFixture(fixture);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("invariant did not execute: ACQ-ID");
+    });
 });
 
 /**
@@ -698,7 +849,11 @@ async function ledgerFixture(
               )
           )
               .flat()
-              .filter((requirement) => ["verified", "external-gated"].includes(requirement.status))
+              // The ledger deep-checks a cited selector at `implemented` too, so the
+              // fixture's report must execute those citations as well.
+              .filter((requirement) =>
+                  ["verified", "external-gated", "implemented"].includes(requirement.status)
+              )
               .flatMap((requirement) => requirement.testSelectors)
         : [];
     const testResults = testSelectors.map((selector) => {
@@ -815,4 +970,22 @@ function markVerified(
     requirement.testSelectors = [testSelector];
     requirement.checkerInvariants = ["ACQ-ID"];
     requirement.remainingEvidence = [];
+}
+
+/**
+ * Evidence a row cites while declaring itself incomplete: source symbols and test selectors
+ * that must resolve, a non-empty remainder that keeps the row below `verified`, and no
+ * checker invariants — validateStatus admits an `implemented` row only with remaining
+ * evidence, so its invariants are never required to have executed.
+ */
+function markImplemented(
+    requirement: ConformanceRequirement,
+    source: string,
+    testSelector: string
+): void {
+    requirement.status = "implemented";
+    requirement.sourceSymbols = [source];
+    requirement.testSelectors = [testSelector];
+    requirement.checkerInvariants = [];
+    requirement.remainingEvidence = ["Fixture: the rule's remaining evidence is unwritten."];
 }

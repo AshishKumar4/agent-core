@@ -188,18 +188,29 @@ const verified = requirements.filter((requirement) => requirement.status === "ve
 const externallyGated = requirements.filter(
     (requirement) => requirement.status === "external-gated"
 );
+// Two examined sets, and the asymmetry between them is deliberate rather than incidental.
+// `evidenced` is the set asked to prove a COMPLETED evidence run: every checker invariant it
+// names actually executed, and its cited tests clear the non-P2 priority floor. `cited` adds
+// `implemented`, which is asked only whether its CITATIONS ARE TRUE — a cited source symbol
+// still resolves, a cited test exists and passed, and both live under the citing wave. Those
+// three are answerable about a row that is honestly incomplete, and nothing examined them on
+// an `implemented` row before, so a citation could name a test that had nothing to do with
+// the atom and every gate stayed green. The completeness checks stay out because
+// validateStatus REQUIRES an `implemented` row to carry remaining evidence: demanding
+// executed invariants or an empty remainder of it asks the row to prove the completeness the
+// status is defined not to have, which would collapse `implemented` into `verified` rather
+// than check it. A row citing nothing stays clean here — an uncited `implemented` row is an
+// honest declaration of incompleteness while a citation resolving to nothing is a false
+// statement, and one verdict for both facts would hide the difference. The uncited rows are
+// reported instead, below.
 const evidenced = [...verified, ...externallyGated];
-if (evidenced.length > 0) {
-    const rules = await readCanonicalJson(resolve(ledgerArtifactRoot, "quality/rules.json"));
-    assertUniqueIds(rules.rules, (rule) => rule.id, "quality/rules.json rules");
-    const knownInvariants = new Set(rules.rules.map((rule) => rule.id));
-    const executedInvariants = new Set((await readCanonicalJson(options.invariantsReport)).passed);
-    const priorityEvidence =
-        options.priorityReport === undefined
-            ? undefined
-            : await readCanonicalJson(options.priorityReport);
+const cited = [
+    ...evidenced,
+    ...requirements.filter((requirement) => requirement.status === "implemented")
+];
+if (cited.length > 0) {
     const project = sourceProject();
-    for (const requirement of evidenced) {
+    for (const requirement of cited) {
         for (const source of requirement.sourceSymbols) {
             requireEvidenceOwner(
                 sourcePath(source),
@@ -216,6 +227,29 @@ if (evidenced.length > 0) {
                 throw new TypeError(`${requirement.id} test is owned by another wave: ${testPath}`);
             }
         }
+    }
+    const executedTests = await executedTestSelectors(options.testReports);
+    // Live substrate scenarios are archived by the consented lane rather than re-run here, so
+    // they are part of the passing set for an ACQ-LIVE row whatever status carries it.
+    if (cited.some((requirement) => requirement.checkerInvariants.includes("ACQ-LIVE"))) {
+        for (const selector of liveEvidenceSelectors(ledgerArtifactRoot)) {
+            executedTests.add(selector);
+        }
+    }
+    for (const requirement of cited) {
+        requirePassingTests(requirement.testSelectors, executedTests, requirement.id);
+    }
+}
+if (evidenced.length > 0) {
+    const rules = await readCanonicalJson(resolve(ledgerArtifactRoot, "quality/rules.json"));
+    assertUniqueIds(rules.rules, (rule) => rule.id, "quality/rules.json rules");
+    const knownInvariants = new Set(rules.rules.map((rule) => rule.id));
+    const executedInvariants = new Set((await readCanonicalJson(options.invariantsReport)).passed);
+    const priorityEvidence =
+        options.priorityReport === undefined
+            ? undefined
+            : await readCanonicalJson(options.priorityReport);
+    for (const requirement of evidenced) {
         if (priorityEvidence !== undefined) {
             requireNonP2ConformanceEvidence(
                 requirement.id,
@@ -231,17 +265,14 @@ if (evidenced.length > 0) {
             }
         }
     }
-    const executedTests = await executedTestSelectors(options.testReports);
-    if (evidenced.some((requirement) => requirement.checkerInvariants.includes("ACQ-LIVE"))) {
-        for (const selector of liveEvidenceSelectors(ledgerArtifactRoot)) {
-            executedTests.add(selector);
-        }
-    }
-    for (const requirement of evidenced) {
-        requirePassingTests(requirement.testSelectors, executedTests, requirement.id);
-    }
 }
 
+// The third outcome of the citation check, enumerated rather than failed: a row admitted at
+// `implemented` while citing no test is exempt from the check above by construction, so the
+// exemption is published instead of being left invisible.
+const uncitedImplemented = requirements.filter(
+    (requirement) => requirement.status === "implemented" && requirement.testSelectors.length === 0
+);
 const incomplete = requirements.filter(
     (requirement) => requirement.status !== "verified" && requirement.status !== "external-gated"
 );
@@ -256,6 +287,7 @@ const report = {
     incomplete: incomplete.map((requirement) => requirement.id).sort(),
     pendingFragments: pendingFragmentNames,
     pendingStale: pendingStale.sort(),
+    uncitedImplemented: uncitedImplemented.map((requirement) => requirement.id).sort(),
     complete:
         incomplete.length === 0 &&
         pendingFragmentNames.length === 0 &&
@@ -271,7 +303,7 @@ if (
     );
 }
 console.log(
-    `conformance ${report.complete ? "complete" : "incomplete"}: ${verified.length}/${requirements.length - externallyGated.length} local applicable verified, ${externallyGated.length} external gated`
+    `conformance ${report.complete ? "complete" : "incomplete"}: ${verified.length}/${requirements.length - externallyGated.length} local applicable verified, ${externallyGated.length} external gated, ${cited.length - evidenced.length} implemented citing evidence of which ${uncitedImplemented.length} cite no test`
 );
 
 function validateFragment(fragment, name, seed, fragmentOwners) {
