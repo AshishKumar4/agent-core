@@ -255,9 +255,9 @@ describe("Cloudflare runtime integration", () => {
         const context = createExecutionContext();
         const response = await worker.fetch(new Request("https://test/loader"), env, context);
         expect(await response.json()).toEqual({
-            names: ["CAPABILITY"],
+            names: ["capability"],
             result: {
-                binding: "CAPABILITY",
+                binding: "capability",
                 operation: "read",
                 input: { path: "/a" }
             }

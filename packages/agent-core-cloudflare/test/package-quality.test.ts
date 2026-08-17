@@ -17,7 +17,9 @@ describe("clean package fixture", () => {
                 "package.json",
                 "tsconfig.json",
                 "tsconfig.build.json",
-                "scripts/build.mjs",
+                // The build script imports the shared compiler seam under scripts/quality,
+                // so the fixture carries the whole tree rather than tracking its imports.
+                "scripts",
                 "src"
             ]);
             await copyPackageFiles(cloudflareRoot, fixtureCloudflare, ["tsconfig.json", "src"]);

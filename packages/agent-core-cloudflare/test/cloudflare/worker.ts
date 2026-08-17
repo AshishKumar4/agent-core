@@ -55,7 +55,7 @@ import { queueCodecs } from "../queue-codecs.js";
 export type TestEnvironment = Env;
 
 const loaderCapabilities = new AuthoredCodeCapabilitySet([
-    new AuthoredCodeCapability(new BindingName("CAPABILITY"), new FacetRef("mail:instance"))
+    new AuthoredCodeCapability(new BindingName("capability"), new FacetRef("mail:instance"))
 ]);
 const workerdData = jsonDataParser((message) => new TypeError(message));
 
@@ -445,7 +445,7 @@ export default createCloudflareWorker<TestEnvironment, RouteReservationId, JsonV
                                 async run(input) {
                                     return {
                                         names: Object.keys(this.env).sort(),
-                                        result: await this.env.CAPABILITY.invoke("read", input)
+                                        result: await this.env.capability.invoke("read", input)
                                     };
                                 }
                             }`
