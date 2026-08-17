@@ -1,0 +1,86 @@
+{
+  "edition": "1.0.0",
+  "gates": [
+    {
+      "rule": "ACQ-NORM",
+      "node": "coherence",
+      "mutations": [
+        {
+          "id": "ACQ-NORM/fenced-code-block-hides-an-anchor",
+          "find": "The command protocol MUST contain no Turn-retry command family. This maps to\n**C13-TURN-NO-RETRY-PROTOCOL**.",
+          "replace": "```md\nThe command protocol MUST contain no Turn-retry command family. This maps to\n**C13-TURN-NO-RETRY-PROTOCOL**.\n```",
+          "expects": "Authoritative normative atom C13-TURN-NO-RETRY-PROTOCOL must appear exactly once outside §13",
+          "diagnostic": "must appear exactly once outside §13",
+          "defect": "A fenced example counted as normative prose, so moving a rule into one hid it from the census while its atom still looked anchored."
+        },
+        {
+          "id": "ACQ-NORM/html-comment-hides-an-anchor",
+          "find": "The command protocol MUST contain no Turn-retry command family. This maps to\n**C13-TURN-NO-RETRY-PROTOCOL**.",
+          "replace": "<!--\nThe command protocol MUST contain no Turn-retry command family. This maps to\n**C13-TURN-NO-RETRY-PROTOCOL**.\n-->",
+          "expects": "Authoritative normative atom C13-TURN-NO-RETRY-PROTOCOL must appear exactly once outside §13",
+          "diagnostic": "must appear exactly once outside §13",
+          "defect": "An HTML comment counted as normative prose, so commenting a rule out left its atom anchored by text the document never shows."
+        },
+        {
+          "id": "ACQ-NORM/nested-blockquote-heading-impersonates-a-section",
+          "find": "### 1.5 Protection domains",
+          "replace": "> ### 1.99 Nested\n\nEvery fixture obligation MUST hold.\n\n### 1.5 Protection domains",
+          "expects": "Normative §1.4 rule is bound by no atom and no disposition judges it",
+          "diagnostic": "rule is bound by no atom and no disposition judges it",
+          "defect": "A heading nested inside a blockquote or list item took ownership of the rules after it, so unanchored prose was attributed to a section that does not exist."
+        },
+        {
+          "id": "ACQ-NORM/malformed-heading-keeps-its-valid-prefix",
+          "find": "## 10. The Cloudflare profile (normative)",
+          "replace": "## 10..1 The Cloudflare profile (normative)",
+          "expects": "SPEC heading is malformed: 10..1 The Cloudflare profile (normative)",
+          "diagnostic": "SPEC heading is malformed: ",
+          "defect": "A malformed heading number was matched by prefix, so 10..1 was silently read as §10 and its rules were attributed to the wrong section."
+        },
+        {
+          "id": "ACQ-NORM/malformed-cross-reference-keeps-its-valid-prefix",
+          "find": "(§8.2)",
+          "replace": "(§8..99)",
+          "expects": "Malformed cross-reference §8..99",
+          "diagnostic": "Malformed cross-reference ",
+          "defect": "A malformed cross-reference was matched by prefix, so §8..99 resolved to §8 and pointed at a section it never named."
+        },
+        {
+          "id": "ACQ-NORM/informative-heading-relocates-atom-prose",
+          "find": "Identifiers ending in `Id` or `Name`",
+          "replace": "### 1.99 Informative fixture\n\nIdentifiers ending in `Id` or `Name`",
+          "expects": "Authoritative normative atom C13-AUTH-PRINCIPAL-REF is anchored in non-normative §1.99",
+          "diagnostic": "is anchored in non-normative §",
+          "defect": "Inserting an informative heading moved an authoritative atom's prose out of the declared normative sections while the atom still counted as covered."
+        },
+        {
+          "id": "ACQ-NORM/strikethrough-hides-normative-prose",
+          "find": "### 3.4 Grant, Binding, resolution, revocation",
+          "replace": "~~A revoked Grant MUST NOT be reinstated by a later Role materialization.~~\n\n### 3.4 Grant, Binding, resolution, revocation",
+          "expects": "SPEC strikethrough hides prose: A revoked Grant MUST NOT be reinstated",
+          "diagnostic": "SPEC strikethrough hides prose: ",
+          "defect": "Struck content was dropped from the visible census, so striking a rule deleted it from coverage while the document still shows it."
+        }
+      ]
+    }
+  ],
+  "unregistered": [
+    "ACQ-CODEC",
+    "ACQ-COVERAGE",
+    "ACQ-DAG",
+    "ACQ-DOCTRINE",
+    "ACQ-EQUIV",
+    "ACQ-ERR",
+    "ACQ-ID",
+    "ACQ-IMMUTABLE",
+    "ACQ-IMPORT",
+    "ACQ-LIVE",
+    "ACQ-OUTCOME",
+    "ACQ-OWNER",
+    "ACQ-SCOPE",
+    "ACQ-SEAM",
+    "ACQ-TEST",
+    "ACQ-TYPE",
+    "ACQ-VOCAB"
+  ]
+}

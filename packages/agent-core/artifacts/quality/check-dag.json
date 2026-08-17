@@ -24,6 +24,7 @@
     "migrations": ["tests"],
     "architecture": [],
     "coherence": [],
+    "gate-integrity": ["coherence"],
     "tests": [
       "types",
       "dag",
@@ -50,7 +51,8 @@
       "mutation",
       "agents",
       "live-evidence",
-      "integration"
+      "integration",
+      "gate-integrity"
     ],
     "ledger": ["invariants"],
     "build": ["types"],
@@ -118,6 +120,7 @@
     "migrations": true,
     "architecture": true,
     "coherence": true,
+    "gate-integrity": true,
     "tests": true,
     "test-priorities": true,
     "coverage": true,

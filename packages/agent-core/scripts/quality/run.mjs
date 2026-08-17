@@ -274,6 +274,7 @@ async function execute(node, context) {
         migrations: () => runNode("migrations", context),
         architecture: () => runNode("architecture", context),
         coherence: () => runNode("coherence", context),
+        "gate-integrity": () => runNode("gate-integrity", context),
         discrimination: () => runNode("discrimination", context),
         ledger: () =>
             runNode("ledger", context, false, [

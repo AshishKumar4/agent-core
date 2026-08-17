@@ -62,6 +62,7 @@ const nodeReports = {
     coherence: "coherence.json",
     discrimination: "discrimination.json",
     governance: "governance.json",
+    "gate-integrity": "gate-integrity.json",
     integration: "integration.json",
     invariants: "invariants.json",
     ledger: "conformance.json",
