@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { isJsonObject, jsonDataParser, type JsonObject, type JsonValue } from "@agent-core/core";
-import { awaitEvent, call, decodeLiveOutboxState, resultOf, type LiveOutboxState } from "./harness";
+import {
+    awaitEvent,
+    call,
+    decodeLiveOutboxState,
+    harnessUrl,
+    resultOf,
+    type LiveOutboxState
+} from "./harness";
 
 /** Matches phase 2: short enough to settle inside this phase, long enough to observe. */
 const ARM_DELAY_MS = 500;
@@ -22,6 +29,15 @@ interface BlobReadResult {
  * reached.
  */
 describe("live Cloudflare substrate evidence after rolling forward again", () => {
+    it("runs against the rolled-forward release", async () => {
+        // Same reason as phase 3: one commit spans every deployment in this walk, so the
+        // release is the only thing that says which of them answered. Asserting it here is
+        // what makes the rest of this phase's evidence self-describing.
+        const meta = await fetch(`${harnessUrl}/meta`);
+        expect(meta.ok).toBe(true);
+        expect(await meta.json()).toMatchObject({ release: "next" });
+    });
+
     it("[C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY] keeps the view revision log across a rollback and roll-forward", async () => {
         expect(
             resultOf(

@@ -117,17 +117,22 @@ function deploy(release) {
     };
 }
 
-async function awaitReady(url) {
-    // A workers.dev route can lag deployment; wait until the deployed harness answers
-    // with the exact commit this run is evidencing. Three minutes because a 60-second
-    // window timed out on a version that then served the right commit moments later.
+async function awaitReady(url, release) {
+    // A workers.dev route can lag deployment, so wait until the deployed harness answers
+    // with the exact commit AND the exact release this phase is evidencing. Commit alone
+    // is not a witness: every deployment in this walk carries the same commit, so a check
+    // that matched only the commit was satisfied by the version it was replacing, and a
+    // phase meant to run against the rolled-back release ran against its predecessor.
+    // Three minutes because a 60-second window timed out on a version that then served the
+    // right commit moments later.
     let observed = "no response";
     for (let attempt = 0; attempt < 90; attempt += 1) {
         try {
             const response = await fetch(`${url}/meta`);
             if (response.ok) {
-                observed = (await response.json()).commit;
-                if (observed === commit) return;
+                const meta = await response.json();
+                observed = `${meta.commit} (${meta.release ?? "no release"})`;
+                if (meta.commit === commit && meta.release === release) return;
             }
         } catch {
             // Edge not ready yet.
@@ -135,7 +140,8 @@ async function awaitReady(url) {
         await new Promise((settle) => setTimeout(settle, 2000));
     }
     throw new TypeError(
-        `Live harness at ${url} never became ready for ${commit}; it last served ${observed}`
+        `Live harness at ${url} never became ready for ${commit} release ${release};` +
+            ` it last served ${observed}`
     );
 }
 
@@ -196,7 +202,7 @@ for (const [index, release] of releases.entries()) {
         throw new TypeError(`Deployment for phase ${phase} did not produce a new worker version`);
     }
     deployments.push(deployment);
-    await awaitReady(deployment.url);
+    await awaitReady(deployment.url, release);
     console.log(
         `phase ${phase} against ${deployment.url} (release ${release}, version ${deployment.versionId})`
     );

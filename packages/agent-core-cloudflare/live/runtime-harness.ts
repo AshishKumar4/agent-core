@@ -104,6 +104,14 @@ const liveHarnessMigration: SqliteApplicationMigration = Object.freeze({
  */
 declare const LIVE_SCHEMA_RELEASE: string;
 
+/**
+ * Which release is deployed, so `/meta` can report it. Every deployment of this lane
+ * carries the same commit, so a readiness check that waits only for the commit is
+ * satisfied by the very version it is replacing — which is how a phase intended to run
+ * against the rolled-back release ran against its predecessor instead.
+ */
+export const liveSchemaRelease: string = LIVE_SCHEMA_RELEASE;
+
 const liveRolloutMigration: SqliteApplicationMigration = Object.freeze({
     version: cloudflareRuntimeMigrations.length + 2,
     name: "live-harness-rollout",

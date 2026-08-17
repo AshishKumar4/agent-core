@@ -56,7 +56,11 @@ import {
     readBody,
     type LiveBody
 } from "./protocol.js";
-import { LiveRuntimeHarness, type LiveRuntimeEnvironment } from "./runtime-harness.js";
+import {
+    LiveRuntimeHarness,
+    liveSchemaRelease,
+    type LiveRuntimeEnvironment
+} from "./runtime-harness.js";
 import { isText } from "../src/platform-value.js";
 
 export { LiveRuntimeHarness };
@@ -427,6 +431,9 @@ export default {
         if (url.pathname === "/meta") {
             return Response.json({
                 commit: environment.GIT_COMMIT ?? null,
+                // The lane walks base, next, base, next at one commit, so the release is
+                // the only thing that distinguishes one deployment from the next.
+                release: liveSchemaRelease,
                 tenant: LIVE_TENANT,
                 previewHost: PREVIEW_HOST
             });

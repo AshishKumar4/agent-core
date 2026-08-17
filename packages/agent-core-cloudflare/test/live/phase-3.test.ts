@@ -8,15 +8,38 @@ import { call, harnessUrl } from "./harness";
  */
 describe("live Cloudflare substrate evidence after a one-release rollback", () => {
     it("[C13-CLOUDFLARE-ROLLBACK-WINDOW] refuses every operation on an object whose applied schema this release does not declare", async () => {
+        // Assert the release, not just that something answered. Every deployment in this
+        // walk carries one commit, so "the harness is up" is not evidence that the harness
+        // is the rolled-back one — and a phase that cannot name the release it tested
+        // cannot tell a missing refusal from a stale edge.
         const meta = await fetch(`${harnessUrl}/meta`);
         expect(meta.ok).toBe(true);
+        expect(await meta.json()).toMatchObject({ release: "base" });
 
-        for (const operation of ["blob-read", "outbox", "alarms", "events"]) {
-            const refused = await call("runtime", "blob", operation, { channel: "limits" });
-            expect(refused.ok, `${operation} must refuse`).toBe(false);
-            expect(refused.code, `${operation} must name the schema`).toBe("schema.unreadable");
-            expect(refused.message).toContain("live-harness-rollout");
-        }
+        // Collect every operation before asserting any of them: the shape of the gap is
+        // which operations refuse, and a loop that throws on the first tells you only its
+        // first symptom.
+        const operations = ["blob-read", "outbox", "alarms", "events"];
+        const outcomes = await Promise.all(
+            operations.map(async (operation) => {
+                const outcome = await call("runtime", "blob", operation, { channel: "limits" });
+                return {
+                    operation,
+                    ok: outcome.ok,
+                    code: outcome.code ?? null,
+                    names: (outcome.message ?? "").includes("live-harness-rollout")
+                };
+            })
+        );
+
+        expect(outcomes).toEqual(
+            operations.map((operation) => ({
+                operation,
+                ok: false,
+                code: "schema.unreadable",
+                names: true
+            }))
+        );
     });
 
     it("[C13-CLOUDFLARE-ROLLBACK-WINDOW] keeps serving an object whose applied schema this release does declare", async () => {
