@@ -32,6 +32,9 @@ import AgentCore
 -- authority, and the mediated-tier raise.
 #print axioms AgentCore.interceptor_order_total
 #print axioms AgentCore.ordered_schedule_unique
+#print axioms AgentCore.rewrite_precedes_every_gate
+#print axioms AgentCore.gate_never_rewrites
+#print axioms AgentCore.gate_rewrite_is_refused
 #print axioms AgentCore.intercept_step_deterministic
 #print axioms AgentCore.interception_outcome_deterministic
 #print axioms AgentCore.run_records_transformation_chain
@@ -431,6 +434,7 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_reachable_stale_verdict_not_settled
 #print axioms AgentCore.Examples.nonvacuous_reachable_settled_obligations_and_acceptance
 #print axioms AgentCore.Examples.nonvacuous_interception_pipeline_run
+#print axioms AgentCore.Examples.nonvacuous_gate_band_dominates_and_refuses_rewrite
 #print axioms AgentCore.Examples.nonvacuous_interceptor_block_scoped_and_final
 #print axioms AgentCore.Examples.nonvacuous_tampered_interception_replay_refused
 #print axioms AgentCore.Examples.nonvacuous_interception_replay_item_bridge

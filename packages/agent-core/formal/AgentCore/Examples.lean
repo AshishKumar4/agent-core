@@ -5006,18 +5006,18 @@ theorem nonvacuous_slate_lifecycle :
     slatePreviewed.providerContacts = [slateDeploymentTwo, slateDeploymentOne] ∧
     slatePreviewed.previews slatePreviewRef = some ⟨slateId, sessionId, exposureId⟩ :=
   ⟨slateReachablePreviewed, slateRollbackStep, rfl, rfl, rfl, rfl, rfl⟩
-/-! §4.4 interception pipeline witnesses. Three interceptors over one value in flight:
-`alpha` rewrites, `gamma` passes through unchanged, `beta` rewrites again. `gamma` and
-`beta` share a priority, so only the facet component separates them — the order tie the
-total `(priority, facetId, interceptorId)` key exists to break. -/
+/-! §4.4 interception pipeline witnesses. Three `rewrite` interceptors over one value in
+flight: `alpha` rewrites, `gamma` passes through unchanged, `beta` rewrites again. `gamma` and
+`beta` share a mode and a priority, so only the facet component separates them — the order tie
+the total `(mode, priority, facetId, interceptorId)` key exists to break. -/
 
 private def alphaRef : InterceptorRef := ⟨⟨1⟩, 1⟩
 private def gammaRef : InterceptorRef := ⟨⟨1⟩, 2⟩
 private def betaRef : InterceptorRef := ⟨⟨2⟩, 1⟩
 private def rogueRef : InterceptorRef := ⟨⟨3⟩, 1⟩
-private def alphaContribution : InterceptorContribution := ⟨alphaRef, .before, 1⟩
-private def gammaContribution : InterceptorContribution := ⟨gammaRef, .before, 2⟩
-private def betaContribution : InterceptorContribution := ⟨betaRef, .before, 2⟩
+private def alphaContribution : InterceptorContribution := ⟨alphaRef, .before, .rewrite, 1⟩
+private def gammaContribution : InterceptorContribution := ⟨gammaRef, .before, .rewrite, 2⟩
+private def betaContribution : InterceptorContribution := ⟨betaRef, .before, .rewrite, 2⟩
 private def pipelineSchedule : List InterceptorContribution :=
   [alphaContribution, gammaContribution, betaContribution]
 
@@ -5037,16 +5037,18 @@ private def pipelineFinal : InterceptionState :=
   ⟨rawValue, stampedValue, pipelineTrace, [], none⟩
 
 private theorem pipelineOrdered : ScheduleOrdered pipelineSchedule :=
-  ⟨Or.inl (by decide), Or.inr ⟨rfl, Or.inl (by decide)⟩, trivial⟩
+  ⟨Or.inr ⟨rfl, Or.inl (by decide)⟩,
+    Or.inr ⟨rfl, Or.inr ⟨rfl, Or.inl (by decide)⟩⟩, trivial⟩
 
 private theorem pipelineRun : InterceptRun pipelineBehavior
     (startInterception pipelineSchedule rawValue) pipelineFinal :=
   .step (.proceed (next := alphaContribution)
-      (rest := [gammaContribution, betaContribution]) (output := proxiedValue) rfl rfl rfl)
+      (rest := [gammaContribution, betaContribution]) (output := proxiedValue) rfl rfl rfl
+      (by simp [alphaContribution]))
     (.step (.proceed (next := gammaContribution) (rest := [betaContribution])
-        (output := proxiedValue) rfl rfl rfl)
+        (output := proxiedValue) rfl rfl rfl (by simp [gammaContribution]))
       (.step (.proceed (next := betaContribution) (rest := [])
-          (output := stampedValue) rfl rfl rfl)
+          (output := stampedValue) rfl rfl rfl (by simp [betaContribution]))
         (.refl pipelineFinal)))
 
 /-- The pipeline consequences on one concrete run. Discrimination: the misordered
@@ -5075,7 +5077,7 @@ theorem nonvacuous_interception_pipeline_run :
   refine ⟨pipelineOrdered, ?_, ?_, pipelineRun, ⟨rfl, rfl⟩, rfl, by decide, by decide, ?_⟩
   · intro misordered
     exact interceptor_order_asymm (left := gammaContribution) (right := betaContribution)
-      (Or.inr ⟨rfl, Or.inl (by decide)⟩) misordered.2.1
+      (Or.inr ⟨rfl, Or.inr ⟨rfl, Or.inl (by decide)⟩⟩) misordered.2.1
   · intro schedule ordered same
     exact ordered_schedule_unique ordered pipelineOrdered same
   · intro outcome run halted
@@ -5093,7 +5095,8 @@ private def blockedFinal : InterceptionState :=
 private theorem blockedRun : InterceptRun blockingBehavior
     (startInterception pipelineSchedule rawValue) blockedFinal :=
   .step (.proceed (next := alphaContribution)
-      (rest := [gammaContribution, betaContribution]) (output := proxiedValue) rfl rfl rfl)
+      (rest := [gammaContribution, betaContribution]) (output := proxiedValue) rfl rfl rfl
+      (by simp [alphaContribution]))
     (.step (.block (next := gammaContribution) (rest := [betaContribution]) rfl rfl rfl)
       (.refl blockedFinal))
 
@@ -5120,6 +5123,36 @@ theorem nonvacuous_interceptor_block_scoped_and_final :
   · intro outcome run
     exact blocked_pipeline_never_completes rfl run
 
+private def guardRef : InterceptorRef := ⟨⟨1⟩, 3⟩
+/-- A `gate` declared at priority 0 — lower than every `rewrite` in the schedule. -/
+private def gateContribution : InterceptorContribution := ⟨guardRef, .before, .gate, 0⟩
+private def gateState : InterceptionState :=
+  ⟨rawValue, proxiedValue, [], [gateContribution], none⟩
+private def passingGateBehavior : InterceptorBehavior := fun _ _ => .proceed proxiedValue
+private def rewritingGateBehavior : InterceptorBehavior := fun _ _ => .proceed stampedValue
+
+/-- The §4.4 rule 3 band and rule 10 fidelity on one concrete gate. Discrimination: this gate
+carries the *lowest* priority in the pipeline and still runs after every rewrite, so the
+declared mode dominates the number rather than tie-breaking with it; a gate that passes the
+value through is admitted and leaves it unchanged; and a gate that returns a different value is
+refused as a scoped block naming that interceptor, with no other step available from that
+state — so the refusal is not merely permitted, it is forced. -/
+theorem nonvacuous_gate_band_dominates_and_refuses_rewrite :
+    gateContribution.priority < alphaContribution.priority ∧
+      InterceptorOrder alphaContribution gateContribution ∧
+      (∀ next, InterceptStep passingGateBehavior gateState next → next.blocked = none →
+        next.value = gateState.value) ∧
+      InterceptStep rewritingGateBehavior gateState
+        ⟨gateState.input, gateState.value, gateState.trace, [],
+          some ⟨guardRef, gateRewriteRefusal⟩⟩ ∧
+      (∀ next, InterceptStep rewritingGateBehavior gateState next → next.blocked ≠ none) := by
+  have refused := gate_rewrite_is_refused (behave := rewritingGateBehavior) (state := gateState)
+    (contribution := gateContribution) (rest := []) (output := stampedValue)
+    rfl rfl rfl rfl (by decide)
+  refine ⟨by decide, rewrite_precedes_every_gate rfl rfl, ?_, refused.1, refused.2⟩
+  intro next step unblocked
+  exact gate_never_rewrites rfl rfl step unblocked
+
 private def tamperedTrace : List InterceptorTransformation :=
   [⟨alphaRef, rawValue, proxiedValue⟩, ⟨betaRef, stampedValue, stampedValue⟩]
 
@@ -5136,7 +5169,7 @@ theorem nonvacuous_tampered_interception_replay_refused :
   exact replay_refuses_exactly_broken_chains.mp (by decide)
 
 private def firstPreparedItem : PreparedItem := ⟨0, firstArgs, firstKey⟩
-private def afterContribution : InterceptorContribution := ⟨betaRef, .after, 1⟩
+private def afterContribution : InterceptorContribution := ⟨betaRef, .after, .rewrite, 1⟩
 
 private def phaseBehavior : InterceptorBehavior := fun interceptor _ =>
   if interceptor = alphaRef then .proceed firstPreparedArgs else .proceed firstPresentation
@@ -5150,13 +5183,13 @@ private def afterPhaseFinal : InterceptionState :=
 private theorem beforePhaseRun : InterceptRun phaseBehavior
     (startInterception [alphaContribution] firstArgs) beforePhaseFinal :=
   .step (.proceed (next := alphaContribution) (rest := [])
-      (output := firstPreparedArgs) rfl rfl rfl)
+      (output := firstPreparedArgs) rfl rfl rfl (by simp [alphaContribution]))
     (.refl beforePhaseFinal)
 
 private theorem afterPhaseRun : InterceptRun phaseBehavior
     (startInterception [afterContribution] firstEffectOutput) afterPhaseFinal :=
   .step (.proceed (next := afterContribution) (rest := [])
-      (output := firstPresentation) rfl rfl rfl)
+      (output := firstPresentation) rfl rfl rfl (by simp [afterContribution]))
     (.refl afterPhaseFinal)
 
 private def bridgedReplayItem : ReplayItem :=
@@ -5214,7 +5247,7 @@ theorem nonvacuous_unauthorized_interceptor_never_attributed :
       pipelineSchedule ∧
     interceptionDomains rogueRef.facet = interceptionSite.domain ∧
     ¬ MayIntercept interceptionGrants interceptionDomains interceptionSite
-      ⟨rogueRef, .before, 3⟩ ∧
+      ⟨rogueRef, .before, .rewrite, 3⟩ ∧
     ¬ MayIntercept interceptionGrants (fun _ => .run tenant runId) interceptionSite
       betaContribution ∧
     ¬ MayIntercept interceptionGrants interceptionDomains
@@ -5231,7 +5264,7 @@ theorem nonvacuous_unauthorized_interceptor_never_attributed :
           (by rw [named]; decide) fun granted => absurd (named ▸ granted.1) (by decide)
 
 private def interceptedObligation : OpenObligation := .item invocationId 0 firstKey
-private def observedInterceptor : InterceptorContribution := ⟨⟨facet, 9⟩, .before, 5⟩
+private def observedInterceptor : InterceptorContribution := ⟨⟨facet, 9⟩, .before, .rewrite, 5⟩
 private def interceptedObservation : AdmissionRequest :=
   ⟨prepared, scope, resolution.id, some ⟨runId, 0, interceptedObligation⟩, ⟨1⟩,
     [observedInterceptor]⟩

@@ -5,7 +5,8 @@ import AgentCore.Model
 
 The §4.4 interception pipeline at the two operation cut points, as a small-step
 relation. A schedule is the applicable contributions in the total
-`(priority, facetId, interceptorId)` order; each step consumes the next contribution
+`(mode, priority, facetId, interceptorId)` order, in which the declared mode dominates
+every local priority; each step consumes the next contribution
 and either records its transformation or blocks with its exact identity. The recorded
 trace is the same `InterceptorTransformation` list a `ReplayItem` persists, so run
 consequences land directly on the structural replay model. Replay reads only the
@@ -16,21 +17,38 @@ namespace AgentCore
 
 inductive CutPoint where | before | after deriving DecidableEq, Repr
 
+/-- What an interceptor *is*, not how it breaks ties (§4.4 rule 9). A `rewrite` may change
+the value in flight; a `gate` observes and may block. The union is closed and the field below
+is required, so a mode that is absent or outside the union is unrepresentable here rather
+than defaulted — a defaulted mode would be an ordering claim its author never made. -/
+inductive InterceptorMode where | rewrite | gate deriving DecidableEq, Repr
+
+/-- The dominant ordering band (§4.4 rule 3): every `rewrite` precedes every `gate`. -/
+def InterceptorMode.rank : InterceptorMode → Nat
+  | .rewrite => 0
+  | .gate => 1
+
 structure InterceptorContribution where
   interceptor : InterceptorRef
   cutPoint : CutPoint
+  mode : InterceptorMode
   priority : Nat
   deriving DecidableEq, Repr
 
-def InterceptorContribution.key (contribution : InterceptorContribution) : Nat × Nat × Nat :=
-  (contribution.priority, contribution.interceptor.facet.value, contribution.interceptor.id)
+def InterceptorContribution.key (contribution : InterceptorContribution) :
+    Nat × Nat × Nat × Nat :=
+  (contribution.mode.rank, contribution.priority,
+    contribution.interceptor.facet.value, contribution.interceptor.id)
 
-/-- Ascending `(priority, facetId, interceptorId)` (§4.4 rule 3). -/
+/-- Ascending `(mode, priority, facetId, interceptorId)` (§4.4 rule 3). The mode rank is the
+leading component, so it dominates priority rather than merely tie-breaking with it. -/
 def InterceptorOrder (left right : InterceptorContribution) : Prop :=
   left.key.1 < right.key.1 ∨
     (left.key.1 = right.key.1 ∧
       (left.key.2.1 < right.key.2.1 ∨
-        (left.key.2.1 = right.key.2.1 ∧ left.key.2.2 < right.key.2.2)))
+        (left.key.2.1 = right.key.2.1 ∧
+          (left.key.2.2.1 < right.key.2.2.1 ∨
+            (left.key.2.2.1 = right.key.2.2.1 ∧ left.key.2.2.2 < right.key.2.2.2)))))
 
 theorem interceptor_order_irrefl (contribution : InterceptorContribution) :
     ¬ InterceptorOrder contribution contribution := by
@@ -45,16 +63,27 @@ theorem interceptor_order_trans {left middle right : InterceptorContribution}
     InterceptorOrder left right := by
   unfold InterceptorOrder at *; omega
 
-/-- The order is total: two contributions it cannot separate name the same interceptor,
-which §4.4 rule 3 forbids a Facet to contribute twice. -/
+/-- The order is total: two contributions it cannot separate name the same interceptor in the
+same mode, which §4.4 rule 3 forbids a Facet to contribute twice. -/
 theorem interceptor_order_total (left right : InterceptorContribution) :
-    left.interceptor = right.interceptor ∨
+    (left.interceptor = right.interceptor ∧ left.mode = right.mode) ∨
       InterceptorOrder left right ∨ InterceptorOrder right left := by
-  obtain ⟨⟨⟨leftFacet⟩, leftId⟩, leftCut, leftPriority⟩ := left
-  obtain ⟨⟨⟨rightFacet⟩, rightId⟩, rightCut, rightPriority⟩ := right
-  simp only [InterceptorOrder, InterceptorContribution.key, InterceptorRef.mk.injEq,
-    FacetId.mk.injEq]
-  omega
+  obtain ⟨⟨⟨leftFacet⟩, leftId⟩, leftCut, leftMode, leftPriority⟩ := left
+  obtain ⟨⟨⟨rightFacet⟩, rightId⟩, rightCut, rightMode, rightPriority⟩ := right
+  cases leftMode <;> cases rightMode <;>
+    simp only [InterceptorOrder, InterceptorContribution.key, InterceptorMode.rank,
+      InterceptorRef.mk.injEq, FacetId.mk.injEq, and_true, true_and, reduceCtorEq,
+      and_false, false_or, or_false] <;>
+    omega
+
+/-- **The declared mode dominates local priority (§4.4 rule 3).** Every `rewrite` precedes
+every `gate` at a cut point whatever their priorities, so no number reaches across the band.
+This is what makes the band a property of the order rather than a comment on it. -/
+theorem rewrite_precedes_every_gate {rewriting gating : InterceptorContribution}
+    (isRewrite : rewriting.mode = .rewrite) (isGate : gating.mode = .gate) :
+    InterceptorOrder rewriting gating := by
+  simp [InterceptorOrder, InterceptorContribution.key, isRewrite, isGate,
+    InterceptorMode.rank]
 
 /-- Strictly ascending schedule: the §4.4 rule 3 execution order. -/
 def ScheduleOrdered : List InterceptorContribution → Prop
@@ -161,10 +190,16 @@ def InterceptionState.Completed (state : InterceptionState) : Prop :=
 def InterceptionState.Halted (state : InterceptionState) : Prop :=
   state.pending = [] ∨ state.blocked ≠ none
 
+/-- The scoped block a host raises when a `gate` returns a value other than the one it
+received (§4.4 rule 10). -/
+def gateRewriteRefusal : String := "gate interceptor rewrote the value it received"
+
 /-- One interceptor fires: the head of the pending schedule decides now. A proceed
 records its transformation under its identity; a block records the exact blocker
-(§4.4 rule 4) and, because both constructors require an unblocked state, nothing
-runs afterward. -/
+(§4.4 rule 4) and, because every constructor requires an unblocked state, nothing
+runs afterward. A `gate` that returns a different value is refused rather than applied
+(§4.4 rule 10): `proceed` admits it only when the value is unchanged, and
+`gateRewriteRefused` turns the attempt into a scoped block naming that interceptor. -/
 inductive InterceptStep (behave : InterceptorBehavior) :
     InterceptionState → InterceptionState → Prop
   | proceed {state : InterceptionState} {next : InterceptorContribution}
@@ -172,6 +207,7 @@ inductive InterceptStep (behave : InterceptorBehavior) :
       state.blocked = none →
       state.pending = next :: rest →
       behave next.interceptor state.value = .proceed output →
+      (next.mode = .gate → output = state.value) →
       InterceptStep behave state
         ⟨state.input, output,
           state.trace ++ [⟨next.interceptor, state.value, output⟩], rest, none⟩
@@ -182,6 +218,16 @@ inductive InterceptStep (behave : InterceptorBehavior) :
       behave next.interceptor state.value = .block reason →
       InterceptStep behave state
         ⟨state.input, state.value, state.trace, rest, some ⟨next.interceptor, reason⟩⟩
+  | gateRewriteRefused {state : InterceptionState} {next : InterceptorContribution}
+      {rest : List InterceptorContribution} {output : StructuralValue} :
+      state.blocked = none →
+      state.pending = next :: rest →
+      next.mode = .gate →
+      behave next.interceptor state.value = .proceed output →
+      output ≠ state.value →
+      InterceptStep behave state
+        ⟨state.input, state.value, state.trace, rest,
+          some ⟨next.interceptor, gateRewriteRefusal⟩⟩
 
 inductive InterceptRun (behave : InterceptorBehavior) :
     InterceptionState → InterceptionState → Prop
@@ -206,9 +252,9 @@ theorem intercept_step_deterministic {behave : InterceptorBehavior}
     {state left right : InterceptionState} (one : InterceptStep behave state left)
     (two : InterceptStep behave state right) : left = right := by
   cases one with
-  | proceed leftLive leftPending leftDecision =>
+  | proceed leftLive leftPending leftDecision leftFidelity =>
       cases two with
-      | proceed rightLive rightPending rightDecision =>
+      | proceed rightLive rightPending rightDecision rightFidelity =>
           rw [leftPending] at rightPending
           cases rightPending
           rw [leftDecision] at rightDecision
@@ -219,9 +265,15 @@ theorem intercept_step_deterministic {behave : InterceptorBehavior}
           cases rightPending
           rw [leftDecision] at rightDecision
           cases rightDecision
+      | gateRewriteRefused rightLive rightPending rightGate rightDecision rightRewrote =>
+          rw [leftPending] at rightPending
+          cases rightPending
+          rw [leftDecision] at rightDecision
+          cases rightDecision
+          exact absurd (leftFidelity rightGate) rightRewrote
   | block leftLive leftPending leftDecision =>
       cases two with
-      | proceed rightLive rightPending rightDecision =>
+      | proceed rightLive rightPending rightDecision rightFidelity =>
           rw [leftPending] at rightPending
           cases rightPending
           rw [leftDecision] at rightDecision
@@ -231,6 +283,28 @@ theorem intercept_step_deterministic {behave : InterceptorBehavior}
           cases rightPending
           rw [leftDecision] at rightDecision
           cases rightDecision
+          rfl
+      | gateRewriteRefused rightLive rightPending rightGate rightDecision rightRewrote =>
+          rw [leftPending] at rightPending
+          cases rightPending
+          rw [leftDecision] at rightDecision
+          cases rightDecision
+  | gateRewriteRefused leftLive leftPending leftGate leftDecision leftRewrote =>
+      cases two with
+      | proceed rightLive rightPending rightDecision rightFidelity =>
+          rw [leftPending] at rightPending
+          cases rightPending
+          rw [leftDecision] at rightDecision
+          cases rightDecision
+          exact absurd (rightFidelity leftGate) leftRewrote
+      | block rightLive rightPending rightDecision =>
+          rw [leftPending] at rightPending
+          cases rightPending
+          rw [leftDecision] at rightDecision
+          cases rightDecision
+      | gateRewriteRefused rightLive rightPending rightGate rightDecision rightRewrote =>
+          rw [leftPending] at rightPending
+          cases rightPending
           rfl
 
 theorem halted_state_has_no_step {behave : InterceptorBehavior}
@@ -239,11 +313,58 @@ theorem halted_state_has_no_step {behave : InterceptorBehavior}
   intro step
   rcases halted with empty | blockedNow
   · cases step with
-    | proceed live pending decision => rw [empty] at pending; cases pending
-    | block live pending decision => rw [empty] at pending; cases pending
+    | proceed live pending _ _ => rw [empty] at pending; cases pending
+    | block live pending _ => rw [empty] at pending; cases pending
+    | gateRewriteRefused live pending _ _ _ => rw [empty] at pending; cases pending
   · cases step with
-    | proceed live pending decision => exact blockedNow live
-    | block live pending decision => exact blockedNow live
+    | proceed live _ _ _ => exact blockedNow live
+    | block live _ _ => exact blockedNow live
+    | gateRewriteRefused live _ _ _ _ => exact blockedNow live
+
+/-- **A `gate` never rewrites the value it received (§4.4 rule 10).** Any step that advances
+past a gate contribution without blocking leaves the value in flight exactly as it was, so the
+mutating distinction the attribution and replay clauses depend on is declared rather than
+discovered from a completed run. -/
+theorem gate_never_rewrites {behave : InterceptorBehavior} {current next : InterceptionState}
+    {contribution : InterceptorContribution} {rest : List InterceptorContribution}
+    (pending : current.pending = contribution :: rest)
+    (gate : contribution.mode = .gate)
+    (step : InterceptStep behave current next) (unblocked : next.blocked = none) :
+    next.value = current.value := by
+  cases step with
+  | @proceed head tail candidate _ statePending _ fidelity =>
+      rw [pending] at statePending
+      obtain ⟨sameHead, _⟩ := List.cons.inj statePending
+      exact fidelity (sameHead ▸ gate)
+  | block _ _ _ => simp at unblocked
+  | gateRewriteRefused _ _ _ _ _ => simp at unblocked
+
+/-- **A `gate` result whose value differs is refused as a scoped block naming that
+interceptor (§4.4 rule 10).** The refusal is available, and it is the only step available:
+`proceed` cannot admit the rewrite, so every step out of this state blocks. -/
+theorem gate_rewrite_is_refused {behave : InterceptorBehavior} {state : InterceptionState}
+    {contribution : InterceptorContribution} {rest : List InterceptorContribution}
+    {output : StructuralValue}
+    (unblocked : state.blocked = none) (pending : state.pending = contribution :: rest)
+    (gate : contribution.mode = .gate)
+    (decision : behave contribution.interceptor state.value = .proceed output)
+    (rewrote : output ≠ state.value) :
+    InterceptStep behave state
+        ⟨state.input, state.value, state.trace, rest,
+          some ⟨contribution.interceptor, gateRewriteRefusal⟩⟩ ∧
+      ∀ after, InterceptStep behave state after → after.blocked ≠ none := by
+  refine ⟨.gateRewriteRefused unblocked pending gate decision rewrote, ?_⟩
+  intro after step
+  cases step with
+  | @proceed head tail candidate _ statePending stepDecision fidelity =>
+      rw [pending] at statePending
+      obtain ⟨sameHead, _⟩ := List.cons.inj statePending
+      subst sameHead
+      rw [decision] at stepDecision
+      obtain sameOutput := InterceptDecision.proceed.inj stepDecision
+      exact absurd (sameOutput ▸ fidelity gate) rewrote
+  | block _ _ _ => simp
+  | gateRewriteRefused _ _ _ _ _ => simp
 
 theorem halted_run_is_stationary {behave : InterceptorBehavior}
     {state last : InterceptionState} (halted : state.Halted)
@@ -290,8 +411,10 @@ theorem run_records_transformation_chain {behave : InterceptorBehavior}
     ?_ run ⟨rfl, rfl⟩
   intro current next invariant step
   cases step with
-  | proceed live pending decision => exact ⟨invariant.1, transformation_chain_snoc invariant.2⟩
+  | proceed live pending decision fidelity =>
+      exact ⟨invariant.1, transformation_chain_snoc invariant.2⟩
   | block live pending decision => exact invariant
+  | gateRewriteRefused live pending gate decision rewrote => exact invariant
 
 /-- The last recorded rewriting transformation: later entries all passed the value
 through unchanged. -/
@@ -388,7 +511,8 @@ theorem run_attributes_last_rewriter {behave : InterceptorBehavior}
   intro current next invariant step
   cases step with
   | block live pending decision => exact invariant
-  | @proceed contribution rest output live pending decision =>
+  | gateRewriteRefused live pending gate decision rewrote => exact invariant
+  | @proceed contribution rest output live pending decision fidelity =>
       show match lastRewrite
           (current.trace ++ [⟨contribution.interceptor, current.value, output⟩]) with
         | some entry => entry.output = output
@@ -450,7 +574,7 @@ theorem run_consumes_schedule_in_order {behave : InterceptorBehavior}
   intro current next invariant step
   obtain ⟨consumed, split, traced⟩ := invariant
   cases step with
-  | @proceed contribution rest output live pending decision =>
+  | @proceed contribution rest output live pending decision fidelity =>
       simp only [live] at traced
       refine ⟨consumed ++ [contribution], ?_, ?_⟩
       · rw [split, pending, List.append_assoc]; rfl
@@ -467,6 +591,16 @@ theorem run_consumes_schedule_in_order {behave : InterceptorBehavior}
       · show ∃ ran blocker, consumed ++ [contribution] = ran ++ [blocker] ∧
             blocker.interceptor =
               (⟨contribution.interceptor, reason⟩ : InterceptionBlock).interceptor ∧
+            current.trace.map InterceptorTransformation.interceptor =
+              ran.map InterceptorContribution.interceptor
+        exact ⟨consumed, contribution, rfl, rfl, traced⟩
+  | @gateRewriteRefused contribution rest output live pending gate decision rewrote =>
+      simp only [live] at traced
+      refine ⟨consumed ++ [contribution], ?_, ?_⟩
+      · rw [split, pending, List.append_assoc]; rfl
+      · show ∃ ran blocker, consumed ++ [contribution] = ran ++ [blocker] ∧
+            blocker.interceptor =
+              (⟨contribution.interceptor, gateRewriteRefusal⟩ : InterceptionBlock).interceptor ∧
             current.trace.map InterceptorTransformation.interceptor =
               ran.map InterceptorContribution.interceptor
         exact ⟨consumed, contribution, rfl, rfl, traced⟩

@@ -2959,9 +2959,9 @@
     },
     {
       "id": "AC-INTERCEPTOR-001",
-      "summary": "Operation-cut-point interception: total deterministic order, last-rewriter attribution, scoped final blocks, behavior-free trace replay, ReplayItem assembly, interception authority, and the mediated-tier raise",
+      "summary": "Operation-cut-point interception: the banded total order in which a declared mode dominates local priority, gate fidelity, last-rewriter attribution, scoped final blocks, behavior-free trace replay, ReplayItem assembly, interception authority, and the mediated-tier raise",
       "status": "proved-safety",
-      "boundary": "Interception is modeled at the two operation cut points as a small-step pipeline over an admitted schedule and behavior the host supplies. Attribution, ordering, block finality, replay reuse, authority, and the direct-tier refusal are invariants of that relation and of the admission step relation; runtime candidate discovery from installed contributions, durable trace persistence, transactional replay lookup, new-pass InvocationId allocation, and the non-operation cut points are not modeled.",
+      "boundary": "Interception is modeled at the two operation cut points as a small-step pipeline over an admitted schedule and behavior the host supplies. The declared mode is a required field of a closed union, so a mode that is absent or outside the union is unrepresentable rather than refused, and the runtime owns the contribution-time refusal. Attribution, ordering, block finality, replay reuse, authority, and the direct-tier refusal are invariants of that relation and of the admission step relation; runtime candidate discovery from installed contributions, durable trace persistence, transactional replay lookup, new-pass InvocationId allocation, and the non-operation cut points are not modeled.",
       "definitions": [
         "AgentCore.InterceptorRef",
         "AgentCore.CutPoint",
@@ -2984,7 +2984,10 @@
         "AgentCore.MayIntercept",
         "AgentCore.AdmittedSchedule",
         "AgentCore.AdmissionRequest.interceptors",
-        "AgentCore.AdmissionRequest.intercepted"
+        "AgentCore.AdmissionRequest.intercepted",
+        "AgentCore.InterceptorMode",
+        "AgentCore.InterceptorMode.rank",
+        "AgentCore.gateRewriteRefusal"
       ],
       "theorems": [
         "AgentCore.interceptor_order_total",
@@ -3012,7 +3015,10 @@
         "AgentCore.unauthorized_interceptor_never_attributed",
         "AgentCore.interception_raises_direct_floor",
         "AgentCore.direct_admission_has_no_applicable_interceptor",
-        "AgentCore.applicable_interceptor_forbids_direct_admission"
+        "AgentCore.applicable_interceptor_forbids_direct_admission",
+        "AgentCore.rewrite_precedes_every_gate",
+        "AgentCore.gate_never_rewrites",
+        "AgentCore.gate_rewrite_is_refused"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_interception_pipeline_run",
@@ -3020,7 +3026,8 @@
         "AgentCore.Examples.nonvacuous_tampered_interception_replay_refused",
         "AgentCore.Examples.nonvacuous_interception_replay_item_bridge",
         "AgentCore.Examples.nonvacuous_unauthorized_interceptor_never_attributed",
-        "AgentCore.Examples.nonvacuous_intercepted_observe_escalates_to_mediated"
+        "AgentCore.Examples.nonvacuous_intercepted_observe_escalates_to_mediated",
+        "AgentCore.Examples.nonvacuous_gate_band_dominates_and_refuses_rewrite"
       ],
       "witnessCoverage": {
         "AgentCore.interceptor_order_total": [
@@ -3102,6 +3109,15 @@
         ],
         "AgentCore.applicable_interceptor_forbids_direct_admission": [
           "AgentCore.Examples.nonvacuous_intercepted_observe_escalates_to_mediated"
+        ],
+        "AgentCore.rewrite_precedes_every_gate": [
+          "AgentCore.Examples.nonvacuous_gate_band_dominates_and_refuses_rewrite"
+        ],
+        "AgentCore.gate_never_rewrites": [
+          "AgentCore.Examples.nonvacuous_gate_band_dominates_and_refuses_rewrite"
+        ],
+        "AgentCore.gate_rewrite_is_refused": [
+          "AgentCore.Examples.nonvacuous_gate_band_dominates_and_refuses_rewrite"
         ]
       },
       "remainingEvidence": [
