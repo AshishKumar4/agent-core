@@ -597,19 +597,26 @@ describe("live Cloudflare platform-semantics evidence", () => {
         // killed handler never acknowledged is re-fired by the platform, the constructor
         // rebuilds the alarm from the outbox, and the second attempt is the object's own.
         const settled = await poll("resumed operation on resume-kill", async () => {
-            const observed = (await events("resume-kill")).filter(
-                (event) => event.kind === "resume.observed"
+            const journalled = await events("resume-kill");
+            const attempts = journalled.filter(
+                (event) => event.kind === "resume.observed" || event.kind === "resume.resumed"
             );
-            const finished = (await events("resume-kill")).filter(
+            const finished = journalled.filter(
                 (event) => event.kind === "resume.step" && event.subject === "resumable#second"
             );
-            return observed.length === 2 && finished.length === 1 ? observed : undefined;
+            return attempts.length === 2 && finished.length === 1 ? attempts : undefined;
         });
 
-        // `detail` carries the attempt, negated when the attempt did not follow a lost
-        // one: attempt 1 started clean, attempt 2 found the operation still claimed.
-        expect(settled.map((event) => event.detail)).toEqual([-1, 2]);
-        // A different isolate ran the second attempt, so the reset was real.
+        // The kind says whether an attempt followed a lost one and `detail` carries only
+        // the attempt number: attempt 1 started clean, attempt 2 found the operation still
+        // claimed by the isolate that went away.
+        expect(settled.map((event) => [event.kind, event.detail])).toEqual([
+            ["resume.observed", 1],
+            ["resume.resumed", 2]
+        ]);
+        // A different instance ran the second attempt, so the reset was real. Instance and
+        // not isolate: abort() guarantees a new instance and does not promise a new
+        // isolate, so an isolate witness reads the same across a real reset.
         expect(settled[0]?.subject).not.toBe(settled[1]?.subject);
 
         const journal = await events("resume-kill");

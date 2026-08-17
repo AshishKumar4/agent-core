@@ -160,7 +160,20 @@ function integerColumn(row: SqliteRow, column: string): number {
 class LiveJournal {
     public constructor(private readonly database: SynchronousSqlitePort) {}
 
+    /**
+     * `detail` is a magnitude — a time, an attempt, a revision, a count — and the lane's
+     * event decoder reads it as a non-negative safe integer. Refusing here rather than
+     * trusting the caller is what stops a scenario encoding a second fact in the sign and
+     * only discovering it a deploy later; anything that needs to say more owes an event
+     * kind of its own.
+     */
     public record(kind: string, subject: string, detail = 0): void {
+        if (!Number.isSafeInteger(detail) || detail < 0) {
+            throw new AgentCoreError(
+                "operation.invalid-input",
+                `Live event ${kind} detail must be a non-negative safe integer, got ${detail}`
+            );
+        }
         this.database.run(
             "INSERT INTO live_events (kind, subject, at, detail) VALUES (?, ?, ?, ?)",
             [kind, subject, Date.now(), detail]
@@ -186,6 +199,15 @@ class LiveRuntimeHost implements AuthoritativeDurableObjectHost {
     readonly #outbox: SqliteReconciliationOutbox;
     readonly #reconciler: AlarmOutboxReconciler;
     readonly #operations: DurableOperationJournal;
+    /**
+     * Minted once per constructed instance, which is a strictly finer witness than
+     * `currentIsolate()`. `abort()` discards the instance and guarantees a new one, but it
+     * does not promise a new isolate, and module scope is per-isolate — so the isolate
+     * nonce can be identical across a real abort. It stays the right instrument for
+     * hibernation and eviction, where a wake in a new isolate is the thing being proven,
+     * and it is the wrong one for proving that a reset happened.
+     */
+    readonly #instance = crypto.randomUUID();
 
     public constructor(
         private readonly runtime: CloudflareDurableObjectRuntime<LiveRuntimeEnvironment>
@@ -347,12 +369,23 @@ class LiveRuntimeHost implements AuthoritativeDurableObjectHost {
      * inside their checkpoint, so a step that committed is visible exactly once however
      * many attempts the operation takes, and the hold between them is where a real
      * instance kill lands mid-attempt.
+     *
+     * Whether this attempt follows a lost one is a distinct event kind, not a sign on the
+     * attempt number. Encoding the flag in the sign made `detail` negative, which the
+     * lane's own event decoder rejects and rightly so: every other event records a time,
+     * an attempt or a count, and a field that is sometimes a magnitude and sometimes a
+     * magnitude-plus-a-boolean cannot be read strictly by anything.
+     *
+     * The subject witnesses the instance, not the isolate, because what an abort-based
+     * scenario can prove is that a new instance ran the second attempt. The isolate nonce
+     * read the same across a real abort, which is a true statement about the platform and
+     * a false one about the reset.
      */
     async #runResumable(attempt: ResumableAttempt): Promise<void> {
         this.#journal.record(
-            "resume.observed",
-            `${attempt.id.value}#${currentIsolate()}`,
-            attempt.interrupted ? attempt.attempt : -attempt.attempt
+            attempt.interrupted ? "resume.resumed" : "resume.observed",
+            `${attempt.id.value}#${this.#instance}`,
+            attempt.attempt
         );
         attempt.checkpoint("first", () =>
             this.#journal.record("resume.step", `${attempt.id.value}#first`, attempt.attempt)

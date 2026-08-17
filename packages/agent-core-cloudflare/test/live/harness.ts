@@ -104,6 +104,20 @@ export async function call<Result>(
     if (!response.ok && response.status !== 409 && response.status !== 500) {
         throw new TypeError(`Live harness ${operation} failed with HTTP ${response.status}`);
     }
+    // A 500 from the worker carries a structured outcome; a 500 from Cloudflare's edge
+    // carries an HTML error page, and the two are the same status code. Parsing the second
+    // as the first is what turned a mid-swap redeployment window into
+    // `Unexpected token '<'`. The content type is the only thing that separates them, so
+    // an answer that is not JSON is a platform-level transient and says so.
+    const contentType = response.headers.get("content-type") ?? "";
+    if (!contentType.toLowerCase().includes("application/json")) {
+        // Carry a prefix of the page. Cloudflare names its own failure in it — 1101 for a
+        // worker exception, 1102 for exceeded resources, a plain 5xx for an unavailable or
+        // mid-swap worker — and that string is the only thing that tells a deployment
+        // window apart from the worker having actually died. Without it this costs a
+        // second deploy to learn.
+        throw new PlatformTransient(operation, response.status, contentType, await response.text());
+    }
     const decoded: unknown = await response.json();
     if (!isJsonValue(decoded) || !isJsonObject(decoded)) {
         throw new TypeError(`Live harness ${operation} returned an invalid outcome`);
@@ -226,6 +240,67 @@ export async function poll<Value>(
     }
 }
 
+/**
+ * Cloudflare answered instead of the worker: an HTML error page, a 5xx from the edge
+ * while the worker is unavailable, or the window during a redeployment when the new
+ * version has not taken over. It is not a worker outcome and MUST NOT be read as one.
+ */
+export class PlatformTransient extends Error {
+    public constructor(
+        public readonly operation: string,
+        public readonly status: number,
+        public readonly contentType: string,
+        public readonly page: string
+    ) {
+        super(
+            `Live harness ${operation} was answered by the platform, not the worker: ` +
+                `HTTP ${status} with content-type ${contentType.length === 0 ? "(absent)" : contentType}` +
+                ` — ${collapse(page)}`
+        );
+    }
+}
+
+/** The page's own words, on one line and bounded: enough to read Cloudflare's error code. */
+function collapse(page: string): string {
+    const text = page
+        .replace(/<[^>]*>/gu, " ")
+        .replace(/\s+/gu, " ")
+        .trim();
+    return text.length === 0
+        ? "(empty body)"
+        : text.length <= 400
+          ? text
+          : `${text.slice(0, 400)}…`;
+}
+
+/**
+ * Retries `attempt` only while the platform is answering instead of the worker, and only
+ * inside a stated window. A worker-authored failure is never retried — it is the evidence
+ * the scenario exists to collect, and swallowing it would make this a decoder that shrugs.
+ * Use it exactly where a scenario deliberately spans a deployment.
+ */
+export async function throughDeploymentWindow<Value>(
+    label: string,
+    attempt: () => Promise<Value>,
+    windowMs: number,
+    intervalMs = 1_000
+): Promise<Value> {
+    const deadline = Date.now() + windowMs;
+    for (;;) {
+        try {
+            return await attempt();
+        } catch (cause) {
+            if (!(cause instanceof PlatformTransient)) throw cause;
+            if (Date.now() >= deadline) {
+                throw new TypeError(
+                    `Live harness saw only the platform for ${windowMs} ms at ${label}: ${cause.message}`
+                );
+            }
+            await sleep(intervalMs);
+        }
+    }
+}
+
 export async function events(instance: string): Promise<readonly LiveEvent[]> {
     return resultOf(await call("runtime", instance, "events", {}, decodeEventList)).events;
 }
@@ -239,7 +314,10 @@ function decodeEventList(value: JsonValue): LiveEventList {
     return {
         events: liveData.array(result["events"], "Live events").map((eventValue) => {
             const event = liveData.object(eventValue, "Live event");
-            return {
+            // Every rejection here names the row it rejected. The lane costs a deploy per
+            // attempt, so a decoder that reports its constraint without its input turns
+            // one bad field into a second live run.
+            return withOffendingValue(event, () => ({
                 ordinal: liveData.safeInteger(event["ordinal"], "Live event ordinal"),
                 kind: liveData.nonemptyString(event["kind"], "Live event kind"),
                 // An object-wide event has no subject: the worker records alarm.fired with
@@ -247,10 +325,24 @@ function decodeEventList(value: JsonValue): LiveEventList {
                 // scenario the moment the decoder was tightened.
                 subject: liveData.string(event["subject"], "Live event subject"),
                 at: liveData.safeInteger(event["at"], "Live event time"),
+                // Non-negative on purpose. A worker that needs to say more than a
+                // magnitude here owes a distinct event kind, not a sign bit: this
+                // rejected a resumption event that had encoded "was interrupted" as a
+                // negated attempt number, and the worker was the thing that was wrong.
                 detail: liveData.safeInteger(event["detail"], "Live event detail")
-            };
+            }));
         })
     };
+}
+
+/** Re-raises a decoding refusal with the exact row that caused it. */
+function withOffendingValue<Decoded>(offending: JsonValue, decode: () => Decoded): Decoded {
+    try {
+        return decode();
+    } catch (cause) {
+        const reason = cause instanceof Error ? cause.message : String(cause);
+        throw new TypeError(`${reason} — rejected ${JSON.stringify(offending)}`);
+    }
 }
 
 export async function awaitEvent(

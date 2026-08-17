@@ -26,6 +26,7 @@ import {
     CloudflareSqlite,
     DurableObjectEnvironmentProvider,
     DurableObjectSlateProvider,
+    DynamicWorkerLimits,
     DynamicWorkerLoaderAdapter,
     PassedCapabilityRegistry,
     passedCapabilities,
@@ -113,6 +114,12 @@ const errors: CloudflareErrorPort = {
 const delivered = new Map<string, number>();
 
 const LOADER_ISOLATE = "invocation:loader-1";
+/**
+ * Real workerd enforces these, so they are sized for what the probes actually do: a few
+ * milliseconds of JavaScript and one loopback call to the passed capability. Small on
+ * purpose — a bound wide enough never to bite would not prove the loader carries one.
+ */
+const LOADER_LIMITS = new DynamicWorkerLimits(50, 8);
 const loaderRegistry = new PassedCapabilityRegistry(errors);
 
 // The host's capability entry point, exactly as cloudflare-os exports GatekeeperLoopback:
@@ -428,6 +435,7 @@ export default createCloudflareWorker<TestEnvironment, RouteReservationId, JsonV
                 const adapter =
                     new DynamicWorkerLoaderAdapter<WorkerdAuthoredCodeEntrypointCandidate>(
                         environment.LOADER satisfies WorkerLoaderBindingLike<WorkerdAuthoredCodeEntrypointCandidate>,
+                        LOADER_LIMITS,
                         errors
                     );
                 using registered = loaderRegistry.open(LOADER_ISOLATE, loaderInvocations);
@@ -467,6 +475,7 @@ export default createCloudflareWorker<TestEnvironment, RouteReservationId, JsonV
             if (url.pathname === "/loader-outbound") {
                 const adapter = new DynamicWorkerLoaderAdapter<FetchServiceLike>(
                     environment.LOADER satisfies WorkerLoaderBindingLike<FetchServiceLike>,
+                    LOADER_LIMITS,
                     errors
                 );
                 const scope = adapter.load(
