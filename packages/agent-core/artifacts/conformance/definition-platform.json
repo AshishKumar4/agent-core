@@ -98,15 +98,32 @@
       "owner": "W4",
       "specAnchor": "C13-CONFIG-SECRET-CUSTODY",
       "specTextSha256": "sha256:99a5f4c3105e0e49e9e453a4ec3933f1644255029c0699aff1bc0098509cf778",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
+      "sourceSymbols": [
+        "src/definition/credential-custody.ts#CredentialIsolationSeam",
+        "src/definition/credential-custody.ts#RecordedCustodySeam",
+        "src/definition/credential-custody.ts#CredentialCustody",
+        "src/definition/credential-custody.ts#CredentialConsumerRef",
+        "src/definition/credential-custody.ts#CredentialResolutionRequest",
+        "src/definition/credential-custody.ts#CredentialResolution",
+        "src/definition/credential-custody.ts#CredentialProvider"
+      ],
+      "testSelectors": [
+        "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] refuses a triple no custody record authorizes and never reaches the provider",
+        "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] refuses every resolution once the recorded consumer stops resolving",
+        "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] refuses a cross-Tenant presentation and refuses to record a foreign source",
+        "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] invalidates a ref presented outside the endpoint and generation that recorded it",
+        "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] decides from the triple alone and refuses a key carrying any further discriminant",
+        "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] separates a confirmed custody refusal from a provider outcome it does not hold",
+        "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] reads custody from the consumer's own durable record and adds no store of its own"
+      ],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The Binding foundation is present: the Tenant-owned Binding record carries canonical, unique (SecretRef, endpoint) custody facts, validates each SecretRef source against its exact TenantId, preserves or explicitly rotates those facts through the Binding mutation path, and restores the same record through Memory and SQLite storage. This is constituent data in the Binding codec, not a second durable custody record or mirror",
-        "The remaining authority work is to bind that complete Binding snapshot to the target-owned request and Tenant-issued permit used for cross-Actor mediated admission. Tenant issuance must compare it with the current canonical Binding in the Tenant transaction, and target consumption must authenticate the exact retained request and permit without a synchronous cross-Actor read or a copied Binding authority plane",
-        "The remaining provider work is a concrete credential-isolation adapter that accepts only authenticated permit/request evidence, rejects inactive, substituted, guest, cross-Tenant, SecretRef, consumer, and endpoint mismatches, and injects raw credential material directly into transport. Confirmed custody refusal must become a failed attempted Receipt, while unavailable or unknown provider outcomes remain indeterminate. Redirect/repoint behavior, restart/replay, raw-secret non-escape, and the deployed Cloudflare boundary still need behavioral evidence before this atom can be verified"
+        "The resolution seam this clause names now exists and every MUST about its decision is discriminated by a killed mutation, measured in a detached worktree at an explicit sha rather than in the shared tree: Tenant scope by SecretRef source at read time and at write time, the exact recorded consumer, the exact recorded endpoint with a repoint answered distinctly from a ref never accepted, the check standing before any value is produced (the provider is never consulted on a refusal), and no member on a resolution a credential could travel back to a caller in. Custody stays constituent data a consumer's own record carries: the seam takes the (SecretRef, consumer, endpoint) triple as data, adds no store, and a Binding's custody projects into it through the Binding codec unchanged",
+        "Only one of the three consumer kinds this clause names by name actually records a custody record, so for the other two there is nothing for the seam to check and the acceptance clause is unmet in the tree. Measured: src/environments/environment.ts#Environment carries no credential at all, and a SecretRef reaches an Environment only as the runtime values src/environments/provider.ts#EnvironmentCredentialProxyCapability and src/facets/environment/facet.ts#EnvironmentCredentialInput, neither of which is durable nor paired with a target endpoint; src/facets/event.ts#IngressVerification is durable inside an EventDeclaration codec but pairs verification.secret with a scheme and no endpoint, and its requireExactFields(['scheme','secret']) refuses one. Closing this atom needs the endpoint pairing on both consumers, which is a W3 shape change on src/facets/event.ts plus an Environment-side custody record, and W3 evidence a W4 row cannot cite",
+        "The mediated disposition has no caller. This clause says that for a mediated externalSend effect a custody failure is an ordinary failed AttemptReceipt, and no operation in the tree resolves a SecretRef, so the positive half is unreachable rather than unevidenced and a test asserting it would assert its own mapping. The negative half is proven and must stay proven: a refusal is a returned outcome rather than a thrown control-flow signal, carries exactly an outcome and a custody reason, registers no codec in artifacts/records, and adds no code to src/errors.ts, so custody denial has no record kind or vocabulary of its own",
+        "Two inherited items are dropped rather than carried, because measurement contradicts their basis. Binding-snapshot-to-permit/request binding for cross-Actor mediated admission is C13-AUTH-MEDIATED-ADMISSION's mechanism and appears nowhere in this clause's text, so it is that row's to evidence. A deployed Cloudflare boundary was named as blocking verification, but this clause's substrate credential injection is a SHOULD and the ref-only MUST belongs to the verified C13-CONFIG-SECRET-REF, so no W8 evidence is owed here and none is cited"
       ]
     },
     {

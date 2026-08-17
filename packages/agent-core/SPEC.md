@@ -1527,21 +1527,6 @@ exactly the two parents above; and no other parent arity is valid. Appending ato
 advances only the target branch head. Commit records and parent order never change.
 This maps to **C13-RUN-GRAPH-ARITY**.
 
-Arity is not distinctness. The parent list above admits two entries naming one commit, so a
-merge joining a lineage to itself is constructable, survives its codec, and is refused only
-later where a runtime compares the two named heads — that refusal is correct today, and what
-is absent is any reason for the illegal value to exist. Where a rule reads a record to tell
-two cases apart, that record MUST carry the distinction rather than a shape a checker can
-measure: a merge's parents are two distinct lineages and no value naming one commit twice is
-constructable; and a model input's coverage statement (§5.6) attributes each omission to the
-commit whose content it withheld, because a coverage list recorded per record beside an
-omission recorded per section leaves a commit carried in fully abridged form
-indistinguishable from one carried whole. Neither case makes a wrong answer reachable — the
-merge is refused before it lands, and a reconstruction stays byte-exact either way — so what
-is missing is resolution rather than correctness: whether a join has two lineages, and which
-commit an abridgement withheld, are facts about what the Run did that the Run's own records
-cannot answer. This maps to **C13-RUN-DISTINCTION-REPRESENTABLE**.
-
 A Run's commit graph is closed over that Run. Every RunCommit names the Run it belongs to,
 that Run owns the RunBranch the commit's `branch` field names, and every parent a commit
 names MUST be a commit of the same Run — its unary parent, and both merge parents, whose
@@ -2133,19 +2118,6 @@ it can read for itself and cancels itself through its own rows. A host that want
 parent's cancellation to stop its children cancels those Runs, each under its own authority
 and each leaving its own evidence, rather than treating one cancellation as reaching many.
 This maps to **C13-TURN-HANDLE-DETACHMENT**.
-
-The evidence a handle is admitted over answers two questions, and one value cannot carry
-both. A Receipt that reached no EffectAttempt is a denial: nothing was attempted, so nothing
-is owed a result. A Receipt whose attempt did not succeed is an attempt that ran and failed.
-Both refuse a handle, and an operator reading the refusal took a different action in each
-case — naming an item admission never reached, or naming one whose effect failed — so a
-pre-effect Receipt and an unsuccessful attempt Receipt MUST be distinguishable at the
-admission seam rather than reported as one unsuccessful outcome. Distinct shapes are how an
-implementation reaches that: an evidence value admitting a handle carries the EffectAttempt
-it admits over together with the result content that attempt produced, while a value for
-either non-admitting case carries neither, so no admitting value names no result and no
-denial names an attempt.
-This maps to **C13-TURN-ADMISSION-FACTS-DISTINCT**.
 
 The Turn lifecycle above is closed. There is no normative `retryTurn` transition, a failed
 or cancelled Turn is never resurrected, and ordinary admission of another Turn creates no
@@ -4017,7 +3989,6 @@ A conforming implementation provides:
 - **C13-AUDIT-TELEMETRY-EXCLUDED** Telemetry never substitutes for a Receipt, RouteReservation, WriteRecord, or AuditRecord.
 - **C13-RUN-GRAPH-ARITY** The canonical Run graph enforces every parent arity, including that a merge has exactly two ordered parents.
 - **C13-RUN-GRAPH-CLOSED** Every RunCommit names the one Run it belongs to and every parent it names, including both merge parents, is a commit of that same Run, so a Run's ancestry holds nothing the Run did not author and another Run's material enters only as the content of a commit the Run appended.
-- **C13-RUN-DISTINCTION-REPRESENTABLE** A record a rule reads to tell two cases apart carries the distinction rather than a measurable shape: a merge's parents are two distinct lineages with no value naming one commit twice constructable, and a model input's coverage attributes each omission to the commit whose content it withheld, so neither a unary merge wearing binary shape nor an abridgement unattributable to its commit is representable.
 - **C13-RUN-BINARY-TREE-MERGE** Tree merge is binary.
 - **C13-RUN-UNDO-REDO** Undo and redo are append-only selection.
 - **C13-RUN-UNDO-FENCE** Undo fences a held Turn before appending, regardless of lease expiry.
@@ -4059,7 +4030,6 @@ A conforming implementation provides:
 - **C13-RUN-SETTLED-DERIVED** Settled is derived from captured obligations, including exact Approval and reconciliation lineage discharge.
 - **C13-TURN-ADMISSION-HANDLE** An executor may return a mediated Invocation's admission identity in the model's tool position without changing admission, and a spawn's `delegate` Receipt carries the child RunRef, never the child's result.
 - **C13-TURN-HANDLE-DETACHMENT** Admission is where a handled item passes from the issuing Turn to the Run, so §7.4's owning-Turn-or-Run cancellation resolves to the Run for an item whose admission identity the Turn published and the issuing Turn's later cancellation never reaches it, while a child `RunRef` handle passes to the child Run, which only its own §5.3 rows and its own authority cancel.
-- **C13-TURN-ADMISSION-FACTS-DISTINCT** The evidence a handle is admitted over distinguishes a Receipt that reached no EffectAttempt from an attempt that ran and did not succeed, so a refusal names which of the two it is rather than reporting one unsuccessful outcome for both, and the admitting value carries the EffectAttempt together with its result content while neither non-admitting value carries either.
 - **C13-TURN-CANCEL-INBOX** Mid-turn delivery appends to the running Turn's lease-fenced inbox, cancellation is the reserved `turn.cancel` Event, and a conforming executor observes it between steps and stops committing.
 - **C13-TURN-EXACT-LEASE** Turn leases are exact-Turn.
 - **C13-TURN-FACET-SET-STABLE** A Turn's FacetSet is exactly the refs its immutable TurnPlacementSnapshot names and its membership does not change for the Turn's lifetime, while capture fixes membership only: every use of a member re-authorizes under §3.4, so a Grant revoked mid-Turn severs the capability without changing the set the Turn composes.
