@@ -45,6 +45,8 @@ export { TurnLease } from "./lease";
 export type { LeaseToken, TurnLeaseVerifier } from "./lease";
 export { MemoryTurnLeaseVerifier, RepositoryTurnLeaseVerifier } from "./lease-verifier";
 export { RunCommit } from "./commit";
+export { effectiveTranscript, orderedAncestry, unbalancedCut } from "./transcript";
+export type { RunCommitLoader, UnbalancedCut } from "./transcript";
 export { AgentId, AgentPolicyId, ModelPolicyId } from "../id";
 export { RunSourceRevisionPort } from "../source";
 export { BlueprintPin, RunConfigurationSnapshot, RunPins } from "./pins";
@@ -64,6 +66,7 @@ export type {
 } from "./store";
 export { RunEvidencePort, RunMergePort } from "./evidence";
 export type {
+    AbandonedRewriteEvidence,
     AcceptanceReceiptEvidence,
     AdministerControlEvidence,
     ControlCommitEvidence,

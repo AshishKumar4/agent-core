@@ -38,6 +38,20 @@ export interface ControlCommitEvidence {
     readonly proposalDigest: string;
 }
 
+/**
+ * The one commit this platform admits on failed control evidence: a rewrite whose attempt
+ * ended without installing anything. The outcome is pinned by the type so a host cannot
+ * satisfy the abandoned form by simply losing the record of the failure.
+ */
+export interface AbandonedRewriteEvidence {
+    readonly kind: "abandonedRewrite";
+    readonly run: RunId;
+    readonly receipt: ReceiptId;
+    readonly audit: AuditRecordId;
+    readonly proposalDigest: string;
+    readonly outcome: "failed";
+}
+
 export interface SynthesisCommitEvidence {
     readonly kind: "synthesis";
     readonly run: RunId;
@@ -97,6 +111,12 @@ export abstract class RunEvidencePort<Transaction> {
         receipt: ReceiptId,
         audit: AuditRecordId
     ): ControlCommitEvidence | undefined;
+
+    public abstract abandonedRewrite(
+        transaction: Transaction,
+        receipt: ReceiptId,
+        audit: AuditRecordId
+    ): AbandonedRewriteEvidence | undefined;
 
     public abstract synthesis(
         transaction: Transaction,

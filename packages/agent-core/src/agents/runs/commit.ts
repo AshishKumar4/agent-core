@@ -51,7 +51,8 @@ export const RUN_COMMIT_KINDS = [
     "merge",
     "verdict",
     "undo",
-    "migration"
+    "migration",
+    "rewrite"
 ] as const;
 
 export type RunCommitKind = (typeof RUN_COMMIT_KINDS)[number];
@@ -62,6 +63,14 @@ const TURN_AUTHORED_KINDS: readonly RunCommitKind[] = [
     "checkpoint",
     "result",
     "verdict"
+];
+
+/** The kinds a system writer may append on control evidence. */
+const CONTROL_AUTHORED_KINDS: readonly RunCommitKind[] = [
+    "merge",
+    "undo",
+    "migration",
+    "rewrite"
 ];
 
 export type CommitWriter =
@@ -104,6 +113,14 @@ export interface RunCommitInit {
     readonly subjectTurn?: TurnId | undefined;
     readonly content?: ContentRef | undefined;
     readonly selects?: RunCommitId | undefined;
+    /**
+     * Rewrite only: the exact commit identities this rewrite removes from the effective
+     * transcript, empty when the attempt was abandoned. Identities rather than a span,
+     * because once one rewrite exists the commits a second covers are not an interval.
+     */
+    readonly shadows?: readonly RunCommitId[] | undefined;
+    /** Message only: the Invocations this commit's content requests. */
+    readonly requests?: readonly InvocationId[] | undefined;
     readonly treeCheckpoint?: ContentRef | undefined;
     readonly resolution?: MergeResolution | undefined;
     readonly treeResolution?: TreeMergeResolution | undefined;
@@ -127,6 +144,8 @@ export class RunCommit extends CodecRecord {
     public readonly subjectTurn: TurnId | undefined;
     public readonly content: ContentRef | undefined;
     public readonly selects: RunCommitId | undefined;
+    public readonly shadows: readonly RunCommitId[] | undefined;
+    public readonly requests: readonly InvocationId[] | undefined;
     public readonly treeCheckpoint: ContentRef | undefined;
     public readonly resolution: MergeResolution | undefined;
     public readonly treeResolution: TreeMergeResolution | undefined;
@@ -148,6 +167,8 @@ export class RunCommit extends CodecRecord {
         this.subjectTurn = init.subjectTurn;
         this.content = init.content;
         this.selects = init.selects;
+        this.shadows = init.shadows === undefined ? undefined : Object.freeze([...init.shadows]);
+        this.requests = init.requests === undefined ? undefined : Object.freeze([...init.requests]);
         this.treeCheckpoint = init.treeCheckpoint;
         this.resolution =
             init.resolution === undefined ? undefined : copyResolution(init.resolution);
@@ -192,6 +213,8 @@ export class RunCommit extends CodecRecord {
             subjectTurn: this.subjectTurn?.value ?? null,
             content: this.content?.value ?? null,
             selects: this.selects?.value ?? null,
+            shadows: this.shadows?.map((shadowed) => shadowed.value) ?? null,
+            requests: this.requests?.map((invocation) => invocation.value) ?? null,
             treeCheckpoint: this.treeCheckpoint?.value ?? null,
             resolution: this.resolution === undefined ? null : resolutionData(this.resolution),
             treeResolution:
@@ -221,9 +244,11 @@ export class RunCommit extends CodecRecord {
                 "pins",
                 "receipt",
                 "reservation",
+                "requests",
                 "resolution",
                 "run",
                 "selects",
+                "shadows",
                 "subjectTurn",
                 "treeCheckpoint",
                 "treeResolution",
@@ -256,6 +281,16 @@ export class RunCommit extends CodecRecord {
                 (value) => new RunCommitId(value),
                 "Run selection"
             ),
+            shadows: optionalIds(
+                object["shadows"],
+                (value) => new RunCommitId(value),
+                "Rewrite shadow"
+            ),
+            requests: optionalIds(
+                object["requests"],
+                (value) => new InvocationId(value),
+                "Message request"
+            ),
             treeCheckpoint: optionalId(
                 object["treeCheckpoint"],
                 (value) => new ContentRef(value),
@@ -285,7 +320,7 @@ export class RunCommit extends CodecRecord {
 
 class CommitCodec extends RecordCodec<RunCommit> {
     public constructor() {
-        super("run.commit", { major: 2, minor: 0 });
+        super("run.commit", { major: 3, minor: 0 });
     }
 
     protected encodePayload(value: RunCommit): JsonValue {
@@ -353,11 +388,17 @@ export function validateCommitWriter<Transaction>(
         }
         return;
     }
+    // The matrix's system(control) row admits an abandoned rewrite on failed control
+    // evidence and nothing else, so the abandoned form resolves its own evidence question
+    // rather than reusing the successful-Receipt lookup every other control commit uses.
+    const abandoned = commit.kind === "rewrite" && commit.shadows?.length === 0;
     const found = requireSynchronousResult(
-        evidence.control(transaction, cause.receipt, cause.audit)
+        abandoned
+            ? evidence.abandonedRewrite(transaction, cause.receipt, cause.audit)
+            : evidence.control(transaction, cause.receipt, cause.audit)
     );
     if (
-        !(commit.kind === "merge" || commit.kind === "undo" || commit.kind === "migration") ||
+        !CONTROL_AUTHORED_KINDS.includes(commit.kind) ||
         found === undefined ||
         !found.run.equals(commit.run) ||
         !found.audit.equals(cause.audit) ||
@@ -389,6 +430,18 @@ export function validateCommitWriter<Transaction>(
 function validateClosedKind(commit: RunCommit): void {
     const forbidden = (...values: readonly unknown[]): boolean =>
         values.every((value) => value === undefined);
+    const requests = commit.requests;
+    if (
+        requests !== undefined &&
+        (commit.kind !== "message" ||
+            requests.length === 0 ||
+            new Set(requests.map((invocation) => invocation.value)).size !== requests.length)
+    ) {
+        throw new TypeError("Only a message commit names a distinct nonempty request set");
+    }
+    if (commit.shadows !== undefined && commit.kind !== "rewrite") {
+        throw new TypeError("Only a rewrite commit shadows commit identities");
+    }
     if (commit.kind === "root") {
         if (
             commit.writer.kind !== "root" ||
@@ -516,6 +569,31 @@ function validateClosedKind(commit: RunCommit): void {
             )
         ) {
             throw new TypeError("Migration commit fields are invalid");
+        }
+        return;
+    }
+    if (commit.kind === "rewrite") {
+        requireControl(commit);
+        const shadows = commit.shadows;
+        if (
+            shadows === undefined ||
+            // An installed rewrite carries the content read where the shadowed commits
+            // stood; an abandoned one shadows nothing and carries none.
+            (shadows.length === 0) !== (commit.content === undefined) ||
+            shadows.some((shadowed) => shadowed.equals(commit.id)) ||
+            new Set(shadows.map((shadowed) => shadowed.value)).size !== shadows.length ||
+            !forbidden(
+                commit.subjectTurn,
+                commit.selects,
+                commit.treeCheckpoint,
+                commit.resolution,
+                commit.treeResolution,
+                commit.invocation,
+                commit.reservation,
+                commit.migration
+            )
+        ) {
+            throw new TypeError("Rewrite commit fields are invalid");
         }
         return;
     }
@@ -777,4 +855,13 @@ function optionalId<Value>(
 ): Value | undefined {
     const decoded = requireOptionalString(value, subject);
     return decoded === undefined ? undefined : create(decoded);
+}
+
+function optionalIds<Value>(
+    value: JsonValue | undefined,
+    create: (value: string) => Value,
+    subject: string
+): readonly Value[] | undefined {
+    if (value === undefined || value === null) return undefined;
+    return requireArray(value, subject).map((entry) => create(requireString(entry, subject)));
 }

@@ -38,6 +38,11 @@ import {
     type RunOutcome
 } from "./settlement";
 import { RunRepository } from "./store";
+import {
+    effectiveTranscript,
+    unbalancedCut,
+    type RunCommitLoader
+} from "./transcript";
 import { RunCheckpoint, Turn, TurnInboxEntry, type TurnTerminalStatus } from "./turn";
 
 export interface RunGenesis {
@@ -394,6 +399,7 @@ export class RunRuntime<Transaction> {
         if (
             !branch.run.equals(runId) ||
             branch.revision.value !== 0 ||
+            branch.rewrite !== undefined ||
             head === undefined ||
             !head.run.equals(runId) ||
             this.repository
@@ -403,6 +409,17 @@ export class RunRuntime<Transaction> {
         ) {
             throw invalidRun("Run branch creation is invalid");
         }
+        // A branch created below its source branch's head is a cut, and the source branch is
+        // the one the head commit itself names.
+        const source = requireValue(
+            this.repository.loadBranch(tx, head.branch),
+            "Run branch head names a branch that does not exist"
+        );
+        requireBalancedCut(
+            this.transcriptAt(tx, source.head),
+            this.transcriptAt(tx, head.id),
+            "Run branch creation"
+        );
         this.repository.insertBranch(tx, branch);
         this.repository.replaceRun(tx, run.revision, run.revise());
     }
@@ -487,6 +504,99 @@ export class RunRuntime<Transaction> {
             throw invalidRun("Run undo requires a system-authored undo commit");
         }
         this.appendInTransaction(tx, commit, expectedBranchRevision, now);
+    }
+
+    /**
+     * Opens a rewrite bracket: reserves the planned rewrite's RunCommitId as a systemCommit
+     * obligation and records it on the branch, which is what makes a second uncompleted
+     * rewrite attempt on that branch rejected rather than raced.
+     */
+    public reserveRunRewrite(
+        runId: RunId,
+        branchId: RunBranchId,
+        planned: RunCommitId,
+        expectedBranchRevision: Revision
+    ): RunAdmissionReservation {
+        return this.repository.transaction((tx) =>
+            this.reserveRunRewriteInTransaction(tx, runId, branchId, planned, expectedBranchRevision)
+        );
+    }
+
+    public reserveRunRewriteInTransaction(
+        tx: Transaction,
+        runId: RunId,
+        branchId: RunBranchId,
+        planned: RunCommitId,
+        expectedBranchRevision: Revision
+    ): RunAdmissionReservation {
+        const branch = requireValue(
+            this.repository.loadBranch(tx, branchId),
+            "Run branch does not exist"
+        );
+        requireRevision(branch.revision, expectedBranchRevision);
+        if (!branch.run.equals(runId)) throw invalidRun("Run branch belongs to another Run");
+        if (this.repository.loadCommit(tx, planned) !== undefined) {
+            throw invalidRun("A rewrite reserves a planned commit that does not exist yet");
+        }
+        const reservation = this.reserveRunObligationInTransaction(tx, runId, {
+            kind: "systemCommit",
+            commit: planned
+        });
+        this.repository.replaceBranch(tx, branch.revision, branch.reserveRewrite(planned));
+        return reservation;
+    }
+
+    /**
+     * Closes a rewrite bracket by appending exactly the reserved commit, installed with the
+     * commits it shadows or abandoned on that attempt's failed Receipt. Both forms complete
+     * the obligation, so an attempt that produced nothing neither blocks settlement nor
+     * disappears from the log.
+     */
+    public rewriteRun(commit: RunCommit, expectedBranchRevision: Revision, now: Date): void {
+        this.repository.transaction((tx) =>
+            this.rewriteRunInTransaction(tx, commit, expectedBranchRevision, now)
+        );
+    }
+
+    public rewriteRunInTransaction(
+        tx: Transaction,
+        commit: RunCommit,
+        expectedBranchRevision: Revision,
+        now: Date
+    ): void {
+        if (commit.kind !== "rewrite" || commit.writer.kind !== "system") {
+            throw invalidRun("Run rewrite requires a system-authored rewrite commit");
+        }
+        const branch = requireValue(
+            this.repository.loadBranch(tx, commit.branch),
+            "Run branch does not exist"
+        );
+        if (branch.rewrite?.equals(commit.id) !== true) {
+            throw invalidRun("A rewrite closes only the exact RunCommitId its branch reserved");
+        }
+        const shadows = commit.shadows ?? [];
+        if (shadows.length > 0) {
+            const reduced = this.transcriptAt(tx, commit.parents[0]!);
+            const visible = new Set(reduced.map((entry) => entry.id.value));
+            for (const shadowed of shadows) {
+                if (!visible.has(shadowed.value)) {
+                    throw invalidRun(
+                        `Rewrite shadows ${shadowed.value}, which its effective transcript does not contain`
+                    );
+                }
+            }
+            requireBalancedCut(
+                reduced,
+                this.transcriptAt(tx, commit.id, commit),
+                "Rewrite shadow set"
+            );
+        }
+        this.appendInTransaction(tx, commit, expectedBranchRevision, now);
+        this.completeRunObligationInTransaction(tx, {
+            run: commit.run,
+            registryEpoch: this.requireAdmission(tx, commit.run).epoch,
+            obligation: { kind: "systemCommit", commit: commit.id }
+        });
     }
 
     public migrateRun(
@@ -602,7 +712,7 @@ export class RunRuntime<Transaction> {
             !genesis.placement.turn.equals(genesis.turn.id) ||
             !genesis.placement.pins.equals(genesis.turn.pins) ||
             !genesis.placement.digest.equals(genesis.turn.placement) ||
-            !this.effectiveCommitInTransaction(tx, branch.head).equals(
+            !this.effectiveCommitOf(this.commitLoader(tx), branch.head).id.equals(
                 genesis.turn.effectiveInput
             ) ||
             this.repository.loadTurn(tx, genesis.turn.id) !== undefined
@@ -1012,7 +1122,43 @@ export class RunRuntime<Transaction> {
             "Run branch does not exist"
         );
         if (!branch.run.equals(runId)) throw invalidRun("Run branch belongs to another Run");
-        return this.effectiveCommitInTransaction(tx, branch.head);
+        return this.effectiveCommitOf(this.commitLoader(tx), branch.head).id;
+    }
+
+    /**
+     * The model-visible sequence a call reads. With `base` omitted it derives at the
+     * branch's effective state; with `base` given it derives at exactly that commit, which
+     * is how a reconstruction stays fixed by ancestry rather than by when it runs.
+     */
+    public effectiveTranscript(
+        runId: RunId,
+        branchId: RunBranchId,
+        base?: RunCommitId
+    ): readonly RunCommit[] {
+        return this.repository.transaction((tx) =>
+            this.effectiveTranscriptInTransaction(tx, runId, branchId, base)
+        );
+    }
+
+    public effectiveTranscriptInTransaction(
+        tx: Transaction,
+        runId: RunId,
+        branchId: RunBranchId,
+        base?: RunCommitId
+    ): readonly RunCommit[] {
+        const branch = requireValue(
+            this.repository.loadBranch(tx, branchId),
+            "Run branch does not exist"
+        );
+        if (!branch.run.equals(runId)) throw invalidRun("Run branch belongs to another Run");
+        if (base === undefined) return this.transcriptAt(tx, branch.head);
+        if (!this.repository.isAncestor(tx, base, branch.head)) {
+            throw invalidRun("Transcript base is not an ancestor of the branch head");
+        }
+        return effectiveTranscript(
+            requireValue(this.repository.loadCommit(tx, base), "Transcript base does not exist"),
+            this.commitLoader(tx)
+        );
     }
 
     private appendInTransaction(
@@ -1086,6 +1232,13 @@ export class RunRuntime<Transaction> {
             !this.repository.isAncestor(tx, commit.selects!, branch.head)
         ) {
             throw invalidRun("Undo selection must be an ancestor of the current head");
+        }
+        if (commit.kind === "undo") {
+            requireBalancedCut(
+                this.transcriptAt(tx, branch.head),
+                this.transcriptAt(tx, commit.selects!),
+                "Undo selection"
+            );
         }
         if (
             commit.kind === "undo" &&
@@ -1512,13 +1665,38 @@ export class RunRuntime<Transaction> {
         return head.treeCheckpoint?.digest;
     }
 
-    private effectiveCommitInTransaction(tx: Transaction, head: RunCommitId): RunCommitId {
-        const commit = requireValue(
-            this.repository.loadCommit(tx, head),
-            "Run head commit does not exist"
-        );
-        return commit.kind === "undo" ? commit.selects! : commit.id;
+    /**
+     * Which commit is current: an undo marker answers with its selection, every other head
+     * with itself. One derivation, so a transcript and an effective-commit query can never
+     * disagree about where a branch stands.
+     */
+    private effectiveCommitOf(load: RunCommitLoader, head: RunCommitId): RunCommit {
+        const commit = requireValue(load(head), "Run head commit does not exist");
+        return commit.kind === "undo"
+            ? requireValue(load(commit.selects!), "Run undo selection does not exist")
+            : commit;
     }
+
+    /**
+     * Resolves a commit identity against the store, answering for `pending` itself so the
+     * same derivation decides a cut a commit proposes and one it already made.
+     */
+    private commitLoader(tx: Transaction, pending?: RunCommit): RunCommitLoader {
+        return (id) =>
+            pending !== undefined && id.equals(pending.id)
+                ? pending
+                : this.repository.loadCommit(tx, id);
+    }
+
+    private transcriptAt(
+        tx: Transaction,
+        head: RunCommitId,
+        pending?: RunCommit
+    ): readonly RunCommit[] {
+        const load = this.commitLoader(tx, pending);
+        return effectiveTranscript(this.effectiveCommitOf(load, head), load);
+    }
+
 
     private requireActiveRun(tx: Transaction, id: RunId): Run {
         const run = requireValue(this.repository.loadRun(tx, id), "Run does not exist");
@@ -1563,6 +1741,26 @@ function requireRevision(actual: Revision, expected: Revision): void {
 function requireValue<Value>(value: Value | undefined, message: string): Value {
     if (value === undefined) throw new AgentCoreError("run.invalid-state", message);
     return value;
+}
+
+/**
+ * Every cut leaves each retained request holding its `invocation` commit and each retained
+ * `invocation` commit holding the request it answers. Providers reject either half alone, so
+ * a cut that would produce one is rejected before it lands rather than repaired afterwards.
+ */
+function requireBalancedCut(
+    before: readonly RunCommit[],
+    after: readonly RunCommit[],
+    subject: string
+): void {
+    const unbalanced = unbalancedCut(before, after);
+    if (unbalanced === undefined) return;
+    throw new AgentCoreError(
+        "run.invalid-state",
+        unbalanced.kind === "unanswered"
+            ? `${subject} leaves Invocation ${unbalanced.invocation.value}, requested by ${unbalanced.commit.value}, unanswered`
+            : `${subject} orphans the result of Invocation ${unbalanced.invocation.value} in ${unbalanced.commit.value} from the request that called it`
+    );
 }
 
 function isTerminalTurn(turn: Turn): boolean {

@@ -28,6 +28,7 @@ import { RunCommitId, TurnId } from "../../../src/execution-references";
 import { RunCommit } from "../../../src/agents/runs/commit";
 import {
     RunEvidencePort,
+    type AbandonedRewriteEvidence,
     type AcceptanceReceiptEvidence,
     type AdministerControlEvidence,
     type ControlCommitEvidence,
@@ -150,6 +151,7 @@ export class TestEvidencePort<Transaction = object> extends RunEvidencePort<Tran
     public readonly receipts = new Map<string, ReceiptCommitEvidence>();
     public readonly deliveries = new Map<string, DeliveryCommitEvidence>();
     public readonly controls = new Map<string, ControlCommitEvidence>();
+    public readonly abandonedRewrites = new Map<string, AbandonedRewriteEvidence>();
     public readonly syntheses = new Map<string, SynthesisCommitEvidence>();
     public readonly administers = new Map<string, AdministerControlEvidence>();
     public readonly cancellations = new Map<string, ForcedCancellationEvidence>();
@@ -163,6 +165,9 @@ export class TestEvidencePort<Transaction = object> extends RunEvidencePort<Tran
     }
     public control(_tx: Transaction, receipt: ReceiptId, audit: AuditRecordId) {
         return this.controls.get(`${receipt.value}:${audit.value}`);
+    }
+    public abandonedRewrite(_tx: Transaction, receipt: ReceiptId, audit: AuditRecordId) {
+        return this.abandonedRewrites.get(`${receipt.value}:${audit.value}`);
     }
     public synthesis(_tx: Transaction, receipt: ReceiptId) {
         return this.syntheses.get(receipt.value);

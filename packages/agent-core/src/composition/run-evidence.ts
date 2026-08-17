@@ -6,6 +6,7 @@ import {
     SettlementEvidencePort,
     type AcceptanceId,
     type AcceptanceReceiptEvidence,
+    type AbandonedRewriteEvidence,
     type ControlCommitEvidence,
     type AdministerControlEvidence,
     type DeliveryCommitEvidence,
@@ -43,6 +44,11 @@ export interface CanonicalRunEvidenceSource<Transaction> {
         receipt: ReceiptId,
         audit: AuditRecordId
     ): ControlCommitEvidence | undefined;
+    abandonedRewrite?(
+        transaction: Transaction,
+        receipt: ReceiptId,
+        audit: AuditRecordId
+    ): AbandonedRewriteEvidence | undefined;
     synthesis(transaction: Transaction, receipt: ReceiptId): SynthesisCommitEvidence | undefined;
     administer?(
         transaction: Transaction,
@@ -76,6 +82,9 @@ export class CanonicalRunEvidencePort<Transaction> extends RunEvidencePort<Trans
     }
     public control(transaction: Transaction, receipt: ReceiptId, audit: AuditRecordId) {
         return this.source.control(transaction, receipt, audit);
+    }
+    public abandonedRewrite(transaction: Transaction, receipt: ReceiptId, audit: AuditRecordId) {
+        return this.source.abandonedRewrite?.(transaction, receipt, audit);
     }
     public synthesis(transaction: Transaction, receipt: ReceiptId) {
         return this.source.synthesis(transaction, receipt);

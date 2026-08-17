@@ -272,15 +272,49 @@ export class RunBranch extends CodecRecord {
         public readonly run: RunId,
         public readonly name: string,
         public readonly head: RunCommitId,
-        public readonly revision: Revision
+        public readonly revision: Revision,
+        /**
+         * The planned rewrite commit this branch has reserved and not yet closed. A branch
+         * holds at most one, which is what makes a second rewrite attempt on it rejected
+         * rather than raced (§5.2, C13-RUN-REWRITE-BRACKET).
+         */
+        public readonly rewrite?: RunCommitId | undefined
     ) {
         super();
         if (name.trim().length === 0) throw new TypeError("Run branch name must not be blank");
+        if (rewrite?.equals(head) === true) {
+            throw new TypeError("Run branch cannot reserve a rewrite it already holds as head");
+        }
         Object.freeze(this);
     }
 
+    /** Advancing onto the reserved rewrite closes the reservation, by identity. */
     public advance(head: RunCommitId): RunBranch {
-        return new RunBranch(this.id, this.run, this.name, head, nextRunRevision(this.revision));
+        return new RunBranch(
+            this.id,
+            this.run,
+            this.name,
+            head,
+            nextRunRevision(this.revision),
+            this.rewrite?.equals(head) === true ? undefined : this.rewrite
+        );
+    }
+
+    public reserveRewrite(commit: RunCommitId): RunBranch {
+        if (this.rewrite !== undefined) {
+            throw new AgentCoreError(
+                "run.invalid-state",
+                "Run branch already holds an uncompleted rewrite reservation"
+            );
+        }
+        return new RunBranch(
+            this.id,
+            this.run,
+            this.name,
+            this.head,
+            nextRunRevision(this.revision),
+            commit
+        );
     }
 
     public toData(): JsonValue {
@@ -289,26 +323,34 @@ export class RunBranch extends CodecRecord {
             id: this.id.value,
             name: this.name,
             revision: revisionData(this.revision),
+            rewrite: this.rewrite?.value ?? null,
             run: this.run.value
         };
     }
 
     public static fromData(value: JsonValue): RunBranch {
         const object = requireObject(value, "Run branch");
-        requireExactFields(object, ["head", "id", "name", "revision", "run"], [], "Run branch");
+        requireExactFields(
+            object,
+            ["head", "id", "name", "revision", "rewrite", "run"],
+            [],
+            "Run branch"
+        );
+        const rewrite = requireOptionalString(object["rewrite"], "Run branch rewrite");
         return new RunBranch(
             new RunBranchId(requireString(object["id"], "Run branch ID")),
             new RunId(requireString(object["run"], "Run branch Run")),
             requireString(object["name"], "Run branch name"),
             new RunCommitId(requireString(object["head"], "Run branch head")),
-            revisionFromData(object["revision"], "Run branch revision")
+            revisionFromData(object["revision"], "Run branch revision"),
+            rewrite === undefined ? undefined : new RunCommitId(rewrite)
         );
     }
 }
 
 class BranchCodec extends RecordCodec<RunBranch> {
     public constructor() {
-        super("run.branch", { major: 1, minor: 0 });
+        super("run.branch", { major: 2, minor: 0 });
     }
     protected encodePayload(value: RunBranch): JsonValue {
         return value.toData();

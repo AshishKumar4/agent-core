@@ -1,0 +1,892 @@
+import { describe, expect, it } from "vitest";
+import { Revision, type ContentRef } from "../../../src/core";
+import { MemoryContentStore } from "../../../src/content";
+import { AgentCoreError } from "../../../src/errors";
+import { RunCommitId, TurnId } from "../../../src/execution-references";
+import { InvocationId } from "../../../src/interaction-references";
+import { ReceiptId } from "../../../src/invocations";
+import { RunCommit, type RunCommitInit } from "../../../src/agents/runs/commit";
+import { RunBranch } from "../../../src/agents/runs/run";
+import { RunBranchId } from "../../../src/agents/runs/id";
+import {
+    content,
+    genesis,
+    harness,
+    ids,
+    pins,
+    refs,
+    seedRunningTurn,
+    thrownBy,
+    type Assembled
+} from "./fixture";
+
+type Harness = ReturnType<typeof seedRunningTurn>;
+
+const secondInvocation = new InvocationId("invocation-2");
+const secondReceipt = new ReceiptId("receipt-2");
+const rewriteReceipt = new ReceiptId("receipt-rewrite");
+
+function branchRevision(value: Harness, branch = ids.branch): Revision {
+    return value.repository.transaction(
+        (tx) => value.repository.loadBranch(tx, branch)!.revision
+    );
+}
+
+function runRevision(value: Harness): Revision {
+    return value.repository.transaction((tx) => value.repository.loadRun(tx, ids.run)!.revision);
+}
+
+function transcriptIds(value: Harness, base?: RunCommitId, branch = ids.branch): string[] {
+    return value.runtime
+        .effectiveTranscript(ids.run, branch, base)
+        .map((commit) => commit.id.value);
+}
+
+function message(
+    value: Harness,
+    id: string,
+    parent: RunCommitId,
+    requests?: readonly InvocationId[],
+    body?: ContentRef,
+    branch = ids.branch,
+    turn = ids.turn
+): RunCommit {
+    const init: Assembled<RunCommitInit> = {
+        id: new RunCommitId(id),
+        run: ids.run,
+        branch,
+        kind: "message",
+        parents: [parent],
+        pins: pins(),
+        writer: { kind: "turn", token: { turn, holder: ids.holder, epoch: 1 } },
+        subjectTurn: turn,
+        content: body ?? content("1")
+    };
+    if (requests !== undefined) init.requests = requests;
+    const commit = new RunCommit(init);
+    value.runtime.appendTurnCommit(commit, branchRevision(value, branch), new Date(1100));
+    return commit;
+}
+
+function answer(
+    value: Harness,
+    id: string,
+    parent: RunCommitId,
+    invocation: InvocationId,
+    receipt: ReceiptId
+): RunCommit {
+    const commit = new RunCommit({
+        id: new RunCommitId(id),
+        run: ids.run,
+        branch: ids.branch,
+        kind: "invocation",
+        parents: [parent],
+        pins: pins(),
+        writer: {
+            kind: "system",
+            cause: { kind: "receipt", audit: refs.audit, receipt }
+        },
+        subjectTurn: ids.turn,
+        invocation,
+        receipt
+    });
+    value.evidence.receipts.set(`${receipt.value}:${refs.audit.value}`, {
+        kind: "receipt",
+        run: ids.run,
+        receipt,
+        audit: refs.audit,
+        invocation,
+        subjectTurn: ids.turn
+    });
+    value.runtime.appendSystemEvidenceCommit(commit, branchRevision(value), new Date(1200));
+    return commit;
+}
+
+function finish(value: Harness, id: string, parent: RunCommitId): RunCommit {
+    const commit = new RunCommit({
+        id: new RunCommitId(id),
+        run: ids.run,
+        branch: ids.branch,
+        kind: "result",
+        parents: [parent],
+        pins: pins(),
+        writer: { kind: "turn", token: value.token },
+        subjectTurn: ids.turn,
+        content: content("2")
+    });
+    value.runtime.completeTurn({
+        turn: ids.turn,
+        expectedTurnRevision: value.running.revision,
+        expectedBranchRevision: branchRevision(value),
+        token: value.token,
+        outcome: "succeeded",
+        commit,
+        now: new Date(1300)
+    });
+    return commit;
+}
+
+/** An undo commit selecting `selects`, with the control evidence that binds its proposal. */
+function undo(value: Harness, id: string, parent: RunCommitId, selects: RunCommitId): RunCommit {
+    const commit = new RunCommit({
+        id: new RunCommitId(id),
+        run: ids.run,
+        branch: ids.branch,
+        kind: "undo",
+        parents: [parent],
+        pins: pins(),
+        writer: {
+            kind: "system",
+            cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
+        },
+        selects,
+        receipt: refs.receipt
+    });
+    value.evidence.controls.set(`${refs.receipt.value}:${refs.audit.value}`, {
+        kind: "control",
+        run: ids.run,
+        receipt: refs.receipt,
+        audit: refs.audit,
+        proposalDigest: commit.proposalDigest.value
+    });
+    return commit;
+}
+
+/**
+ * A rewrite proposal plus the evidence its form requires: a successful administer Receipt
+ * when it installs a replacement, that attempt's failed Receipt when it is abandoned.
+ */
+function rewrite(
+    value: Harness,
+    id: string,
+    parent: RunCommitId,
+    shadows: readonly RunCommitId[],
+    branch = ids.branch
+): RunCommit {
+    const init: Assembled<RunCommitInit> = {
+        id: new RunCommitId(id),
+        run: ids.run,
+        branch,
+        kind: "rewrite",
+        parents: [parent],
+        pins: pins(),
+        writer: {
+            kind: "system",
+            cause: { kind: "control", audit: refs.audit, receipt: rewriteReceipt }
+        },
+        shadows,
+        receipt: rewriteReceipt
+    };
+    if (shadows.length > 0) init.content = content("9");
+    const commit = new RunCommit(init);
+    const key = `${rewriteReceipt.value}:${refs.audit.value}`;
+    if (shadows.length === 0) {
+        value.evidence.abandonedRewrites.set(key, {
+            kind: "abandonedRewrite",
+            run: ids.run,
+            receipt: rewriteReceipt,
+            audit: refs.audit,
+            proposalDigest: commit.proposalDigest.value,
+            outcome: "failed"
+        });
+    } else {
+        value.evidence.controls.set(key, {
+            kind: "control",
+            run: ids.run,
+            receipt: rewriteReceipt,
+            audit: refs.audit,
+            proposalDigest: commit.proposalDigest.value
+        });
+    }
+    return commit;
+}
+
+/** root -> message requesting invocation-1 -> its invocation commit -> the Turn's result. */
+function onePair() {
+    const value = seedRunningTurn();
+    const request = message(value, "message-one", ids.root, [refs.invocation]);
+    const result = answer(value, "answer-one", request.id, refs.invocation, refs.receipt);
+    const done = finish(value, "result-one", result.id);
+    return { value, request, result, done };
+}
+
+/** Two independently paired Invocations, so a cut can strand one half of each. */
+function twoPairs() {
+    const value = seedRunningTurn();
+    const firstRequest = message(value, "message-one", ids.root, [refs.invocation]);
+    const firstAnswer = answer(value, "answer-one", firstRequest.id, refs.invocation, refs.receipt);
+    const secondRequest = message(value, "message-two", firstAnswer.id, [secondInvocation]);
+    const secondAnswer = answer(
+        value,
+        "answer-two",
+        secondRequest.id,
+        secondInvocation,
+        secondReceipt
+    );
+    const done = finish(value, "result-two", secondAnswer.id);
+    return { value, firstRequest, firstAnswer, secondRequest, secondAnswer, done };
+}
+
+/** A chain of plain messages, for shadow sets that are not intervals in any order. */
+function chain(length: number, body?: ContentRef) {
+    const value = seedRunningTurn();
+    const commits: RunCommit[] = [];
+    let parent = ids.root;
+    for (let index = 1; index <= length; index += 1) {
+        const commit = message(value, `chain-${index}`, parent, undefined, body);
+        commits.push(commit);
+        parent = commit.id;
+    }
+    return { value, commits };
+}
+
+function installed(value: Harness, commit: RunCommit, branch = ids.branch): void {
+    value.runtime.reserveRunRewrite(ids.run, branch, commit.id, branchRevision(value, branch));
+    value.runtime.rewriteRun(commit, branchRevision(value, branch), new Date(1400));
+}
+
+describe("Run effective transcript, rewrite bracket, and cut balance", () => {
+    it(
+        "[C13-RUN-CUT-BALANCE] rejects an undo and a fork that strand an Invocation, and admits ones that do not",
+        { tags: "p0" },
+        () => {
+            const { value, request, result, done } = onePair();
+
+            const stranding = undo(value, "undo-strands", done.id, request.id);
+            const undoFailure = thrownBy(AgentCoreError, () =>
+                value.runtime.undoRun(stranding, branchRevision(value), new Date(1400))
+            );
+            expect(undoFailure.code).toBe("run.invalid-state");
+            expect(undoFailure.message).toContain("Undo selection");
+            expect(undoFailure.message).toContain(refs.invocation.value);
+            expect(undoFailure.message).toContain("unanswered");
+            expect(
+                value.repository.transaction((tx) =>
+                    value.repository.loadCommit(tx, stranding.id)
+                )
+            ).toBeUndefined();
+
+            const fork = new RunBranch(
+                new RunBranchId("branch-fork"),
+                ids.run,
+                "fork",
+                request.id,
+                new Revision(0)
+            );
+            const forkFailure = thrownBy(AgentCoreError, () =>
+                value.runtime.createBranch(ids.run, fork, runRevision(value))
+            );
+            expect(forkFailure.code).toBe("run.invalid-state");
+            expect(forkFailure.message).toContain("Run branch creation");
+            expect(forkFailure.message).toContain(refs.invocation.value);
+            expect(forkFailure.message).toContain("unanswered");
+            expect(
+                value.repository.transaction((tx) => value.repository.loadBranch(tx, fork.id))
+            ).toBeUndefined();
+
+            // Both directions: a cut that keeps the whole pair, and one that drops it whole.
+            const keepsPair = new RunBranch(
+                new RunBranchId("branch-answered"),
+                ids.run,
+                "answered",
+                result.id,
+                new Revision(0)
+            );
+            value.runtime.createBranch(ids.run, keepsPair, runRevision(value));
+            expect(transcriptIds(value, undefined, keepsPair.id)).toEqual([
+                ids.root.value,
+                request.id.value,
+                result.id.value
+            ]);
+
+            const dropsPair = undo(value, "undo-drops-pair", done.id, ids.root);
+            value.runtime.undoRun(dropsPair, branchRevision(value), new Date(1500));
+            expect(value.runtime.effectiveCommit(ids.run, ids.branch).equals(ids.root)).toBe(true);
+            expect(transcriptIds(value)).toEqual([ids.root.value]);
+        }
+    );
+
+    it(
+        "[C13-RUN-CUT-BALANCE] judges an asymmetric cut on which Invocation is stranded rather than on how many are",
+        { tags: "p0" },
+        () => {
+            const { value, firstRequest, firstAnswer, secondRequest, secondAnswer, done } =
+                twoPairs();
+
+            // Dropping one request and one unrelated result leaves any counter balanced.
+            const asymmetric = rewrite(value, "rewrite-asymmetric", done.id, [
+                firstRequest.id,
+                secondAnswer.id
+            ]);
+            value.runtime.reserveRunRewrite(
+                ids.run,
+                ids.branch,
+                asymmetric.id,
+                branchRevision(value)
+            );
+            const failure = thrownBy(AgentCoreError, () =>
+                value.runtime.rewriteRun(asymmetric, branchRevision(value), new Date(1400))
+            );
+            expect(failure.code).toBe("run.invalid-state");
+            expect(failure.message).toContain("Rewrite shadow set");
+            expect(failure.message).toContain(refs.invocation.value);
+            expect(failure.message).toContain("orphans");
+            expect(failure.message).not.toContain(secondInvocation.value);
+
+            // A counter would pass this proposal: it removes exactly one request commit and
+            // exactly one invocation commit, so the retained counts of each stay equal while
+            // both surviving halves are stranded.
+            const removed = [firstRequest, secondAnswer];
+            expect(removed.filter((commit) => commit.requests !== undefined)).toHaveLength(1);
+            expect(removed.filter((commit) => commit.kind === "invocation")).toHaveLength(1);
+            expect(transcriptIds(value)).toEqual([
+                ids.root.value,
+                firstRequest.id.value,
+                firstAnswer.id.value,
+                secondRequest.id.value,
+                secondAnswer.id.value,
+                done.id.value
+            ]);
+
+            // The bracket stays open, so the same reserved identity retries with whole pairs.
+            const whole = rewrite(value, asymmetric.id.value, done.id, [
+                firstRequest.id,
+                firstAnswer.id,
+                secondRequest.id,
+                secondAnswer.id
+            ]);
+            value.runtime.rewriteRun(whole, branchRevision(value), new Date(1500));
+            expect(transcriptIds(value)).toEqual([
+                ids.root.value,
+                whole.id.value,
+                done.id.value
+            ]);
+        }
+    );
+
+    it(
+        "[C13-RUN-CUT-BALANCE] rejects a rewrite that removes a request while keeping the commit answering it",
+        { tags: "p0" },
+        () => {
+            const { value, request, result, done } = onePair();
+
+            const halfPair = rewrite(value, "rewrite-half-pair", done.id, [request.id]);
+            value.runtime.reserveRunRewrite(
+                ids.run,
+                ids.branch,
+                halfPair.id,
+                branchRevision(value)
+            );
+            const failure = thrownBy(AgentCoreError, () =>
+                value.runtime.rewriteRun(halfPair, branchRevision(value), new Date(1400))
+            );
+            expect(failure.message).toContain("orphans");
+            expect(failure.message).toContain(refs.invocation.value);
+            expect(failure.message).toContain(result.id.value);
+        }
+    );
+
+    it(
+        "[C13-RUN-EFFECTIVE-TRANSCRIPT] equals the full ancestry replay when no rewrite exists",
+        { tags: "p0" },
+        () => {
+            const { value, request, result, done } = onePair();
+            expect(transcriptIds(value)).toEqual([
+                ids.root.value,
+                request.id.value,
+                result.id.value,
+                done.id.value
+            ]);
+            expect(
+                value.repository
+                    .transaction((tx) => value.repository.listCommits(tx))
+                    .filter((commit) => commit.kind === "rewrite")
+            ).toEqual([]);
+        }
+    );
+
+    it(
+        "[C13-RUN-EFFECTIVE-TRANSCRIPT] omits exactly the named identities and reads the rewrite where they stood",
+        { tags: "p0" },
+        () => {
+            const { value, commits } = chain(4);
+            const reduction = rewrite(value, "rewrite-middle", commits[3]!.id, [
+                commits[1]!.id,
+                commits[2]!.id
+            ]);
+            installed(value, reduction);
+
+            expect(transcriptIds(value)).toEqual([
+                ids.root.value,
+                commits[0]!.id.value,
+                reduction.id.value,
+                commits[3]!.id.value
+            ]);
+            const read = value.runtime.effectiveTranscript(ids.run, ids.branch);
+            expect(read[2]!.content?.value).toBe(content("9").value);
+        }
+    );
+
+    it(
+        "[C13-RUN-EFFECTIVE-TRANSCRIPT] removes the exact identities a second rewrite names though they are not an interval",
+        { tags: "p0" },
+        () => {
+            const { value, commits } = chain(4);
+            const first = rewrite(value, "rewrite-first", commits[3]!.id, [commits[1]!.id]);
+            installed(value, first);
+            expect(transcriptIds(value)).toEqual([
+                ids.root.value,
+                commits[0]!.id.value,
+                first.id.value,
+                commits[2]!.id.value,
+                commits[3]!.id.value
+            ]);
+
+            const fifth = message(value, "chain-5", first.id);
+            const second = rewrite(value, "rewrite-second", fifth.id, [
+                commits[0]!.id,
+                commits[2]!.id,
+                fifth.id
+            ]);
+            installed(value, second);
+
+            // chain-1, chain-3 and chain-5 are separated in the transcript by the first
+            // rewrite and by chain-4, so no positional span names them.
+            expect(transcriptIds(value)).toEqual([
+                ids.root.value,
+                second.id.value,
+                first.id.value,
+                commits[3]!.id.value
+            ]);
+        }
+    );
+
+    it(
+        "[C13-RUN-EFFECTIVE-TRANSCRIPT] keeps a shadowed commit reachable, immutable, and named by its content",
+        { tags: "p0" },
+        async () => {
+            const store = new MemoryContentStore();
+            const body = new TextEncoder().encode("what the shadowed commit said");
+            const stored = await store.put(body);
+            const { value, commits } = chain(3, stored.ref);
+            const before = value.repository.transaction((tx) =>
+                value.repository.loadCommit(tx, commits[1]!.id)
+            );
+            const reduction = rewrite(value, "rewrite-retains", commits[2]!.id, [commits[1]!.id]);
+            installed(value, reduction);
+
+            const after = value.repository.transaction((tx) =>
+                value.repository.loadCommit(tx, commits[1]!.id)
+            );
+            expect(after).toBeDefined();
+            expect(RunCommit.codec.encode(after!)).toEqual(RunCommit.codec.encode(before!));
+            expect(after!.parents.map((parent) => parent.value)).toEqual([commits[0]!.id.value]);
+            expect(after!.content?.value).toBe(before!.content?.value);
+            expect(
+                value.repository.transaction((tx) =>
+                    value.repository.isAncestor(tx, commits[1]!.id, reduction.id)
+                )
+            ).toBe(true);
+
+            // A store that pruned the shadowed row would fail to reload after a restart.
+            const restarted = harness(value.storage.snapshot());
+            const reloaded = restarted.repository.transaction((tx) =>
+                restarted.repository.loadCommit(tx, commits[1]!.id)
+            );
+            expect(reloaded?.content?.value).toBe(before!.content?.value);
+
+            // Shadowing supersedes without releasing: nothing on the rewrite path touches
+            // custody, so the content an earlier request named still resolves.
+            expect(await store.stat(stored.ref)).toBeDefined();
+            expect(await store.get(stored.ref)).toEqual(body);
+            expect(transcriptIds(value)).not.toContain(commits[1]!.id.value);
+        }
+    );
+
+    it(
+        "[C13-RUN-EFFECTIVE-TRANSCRIPT] rejects a shadow that is not visible, is repeated, or is already shadowed",
+        { tags: "p0" },
+        () => {
+            const { value, commits } = chain(3);
+
+            expect(
+                () =>
+                    new RunCommit({
+                        id: new RunCommitId("rewrite-repeated"),
+                        run: ids.run,
+                        branch: ids.branch,
+                        kind: "rewrite",
+                        parents: [commits[2]!.id],
+                        pins: pins(),
+                        writer: {
+                            kind: "system",
+                            cause: { kind: "control", audit: refs.audit, receipt: rewriteReceipt }
+                        },
+                        shadows: [commits[0]!.id, commits[0]!.id],
+                        content: content("9"),
+                        receipt: rewriteReceipt
+                    })
+            ).toThrow(/Rewrite commit fields are invalid/);
+
+            // A real commit of the same Run that the rewrite's ancestry does not reach.
+            const sibling = new RunBranch(
+                new RunBranchId("branch-elsewhere"),
+                ids.run,
+                "elsewhere",
+                ids.root,
+                new Revision(0)
+            );
+            value.runtime.createBranch(ids.run, sibling, runRevision(value));
+            const siblingTurn = new TurnId("turn-elsewhere");
+            seedRunningTurn(value, {
+                id: siblingTurn,
+                branch: sibling.id,
+                startHead: ids.root,
+                effectiveInput: ids.root
+            });
+            const elsewhere = message(
+                value,
+                "elsewhere-1",
+                ids.root,
+                undefined,
+                undefined,
+                sibling.id,
+                siblingTurn
+            );
+            expect(
+                value.repository.transaction((tx) =>
+                    value.repository.isAncestor(tx, elsewhere.id, commits[2]!.id)
+                )
+            ).toBe(false);
+            const outside = rewrite(value, "rewrite-outside", commits[2]!.id, [elsewhere.id]);
+            value.runtime.reserveRunRewrite(
+                ids.run,
+                ids.branch,
+                outside.id,
+                branchRevision(value)
+            );
+            expect(() =>
+                value.runtime.rewriteRun(outside, branchRevision(value), new Date(1400))
+            ).toThrow(/effective transcript does not contain/);
+
+            const restarted = seedRunningTurn();
+            const chained = [
+                message(restarted, "again-1", ids.root),
+                message(restarted, "again-2", new RunCommitId("again-1"))
+            ];
+            const first = rewrite(restarted, "rewrite-once", chained[1]!.id, [chained[0]!.id]);
+            installed(restarted, first);
+            const twice = rewrite(restarted, "rewrite-twice", first.id, [chained[0]!.id]);
+            restarted.runtime.reserveRunRewrite(
+                ids.run,
+                ids.branch,
+                twice.id,
+                branchRevision(restarted)
+            );
+            expect(() =>
+                restarted.runtime.rewriteRun(twice, branchRevision(restarted), new Date(1500))
+            ).toThrow(/effective transcript does not contain/);
+        }
+    );
+
+    it(
+        "[C13-RUN-REWRITE-BRACKET] completes exactly the obligation it reserved and excludes a second attempt per branch",
+        { tags: "p0" },
+        () => {
+            const { value, commits } = chain(2);
+            const planned = new RunCommitId("rewrite-reserved");
+            const reservation = value.runtime.reserveRunRewrite(
+                ids.run,
+                ids.branch,
+                planned,
+                branchRevision(value)
+            );
+            expect(reservation.obligation).toEqual({ kind: "systemCommit", commit: planned });
+            const reserved = value.repository.transaction((tx) =>
+                value.repository.loadAdmission(tx, ids.run)
+            );
+            expect(reserved?.reserved).toEqual([reservation.obligation]);
+            expect(reserved?.completed).toEqual([]);
+
+            expect(() =>
+                value.runtime.reserveRunRewrite(
+                    ids.run,
+                    ids.branch,
+                    new RunCommitId("rewrite-second"),
+                    branchRevision(value)
+                )
+            ).toThrow(/uncompleted rewrite reservation/);
+
+            // The exclusion is per branch, not per Run.
+            const sibling = new RunBranch(
+                new RunBranchId("branch-sibling"),
+                ids.run,
+                "sibling",
+                commits[1]!.id,
+                new Revision(0)
+            );
+            value.runtime.createBranch(ids.run, sibling, runRevision(value));
+            const siblingPlanned = new RunCommitId("rewrite-sibling");
+            value.runtime.reserveRunRewrite(
+                ids.run,
+                sibling.id,
+                siblingPlanned,
+                branchRevision(value, sibling.id)
+            );
+
+            // A rewrite closes only the identity its own branch reserved.
+            const wrong = rewrite(value, "rewrite-unreserved", commits[1]!.id, [commits[0]!.id]);
+            expect(() =>
+                value.runtime.rewriteRun(wrong, branchRevision(value), new Date(1400))
+            ).toThrow(/exact RunCommitId its branch reserved/);
+
+            const closing = new RunCommit({
+                id: planned,
+                run: ids.run,
+                branch: ids.branch,
+                kind: "rewrite",
+                parents: [commits[1]!.id],
+                pins: pins(),
+                writer: {
+                    kind: "system",
+                    cause: { kind: "control", audit: refs.audit, receipt: rewriteReceipt }
+                },
+                shadows: [commits[0]!.id],
+                content: content("9"),
+                receipt: rewriteReceipt
+            });
+            value.evidence.controls.set(`${rewriteReceipt.value}:${refs.audit.value}`, {
+                kind: "control",
+                run: ids.run,
+                receipt: rewriteReceipt,
+                audit: refs.audit,
+                proposalDigest: closing.proposalDigest.value
+            });
+            value.runtime.rewriteRun(closing, branchRevision(value), new Date(1400));
+
+            const closed = value.repository.transaction((tx) =>
+                value.repository.loadAdmission(tx, ids.run)
+            );
+            expect(closed?.completed).toEqual([{ kind: "systemCommit", commit: planned }]);
+            expect(
+                closed?.reserved.some((obligation) =>
+                    obligation.kind === "systemCommit" &&
+                    obligation.commit.equals(siblingPlanned)
+                )
+            ).toBe(true);
+            expect(
+                value.repository.transaction((tx) => value.repository.loadBranch(tx, ids.branch))
+                    ?.rewrite
+            ).toBeUndefined();
+        }
+    );
+
+    it(
+        "[C13-RUN-REWRITE-BRACKET] records an abandoned attempt as the reserved commit on its failed Receipt",
+        { tags: "p0" },
+        () => {
+            const { value, commits } = chain(2);
+            const beforeAttempt = transcriptIds(value);
+
+            const abandoned = rewrite(value, "rewrite-abandoned", commits[1]!.id, []);
+            installed(value, abandoned);
+
+            expect(transcriptIds(value)).toEqual(beforeAttempt);
+            const stored = value.repository.transaction((tx) =>
+                value.repository.listCommits(tx)
+            ).filter((commit) => commit.id.equals(abandoned.id));
+            expect(stored).toHaveLength(1);
+            expect(stored[0]!.kind).toBe("rewrite");
+            expect(stored[0]!.shadows).toEqual([]);
+            expect(stored[0]!.content).toBeUndefined();
+            expect(stored[0]!.receipt?.value).toBe(rewriteReceipt.value);
+            expect(
+                value.evidence.abandonedRewrites.get(
+                    `${rewriteReceipt.value}:${refs.audit.value}`
+                )?.outcome
+            ).toBe("failed");
+            expect(
+                value.repository
+                    .transaction((tx) => value.repository.loadAdmission(tx, ids.run))
+                    ?.completed
+            ).toEqual([{ kind: "systemCommit", commit: abandoned.id }]);
+        }
+    );
+
+    it(
+        "[C13-WRITER-MATRIX] admits a rewrite only on the evidence its form requires",
+        { tags: "p0" },
+        () => {
+            const { value, commits } = chain(2);
+
+            // An abandoned rewrite whose failed Receipt the host never recorded.
+            const unrecorded = rewrite(value, "rewrite-unrecorded", commits[1]!.id, []);
+            value.evidence.abandonedRewrites.clear();
+            value.runtime.reserveRunRewrite(
+                ids.run,
+                ids.branch,
+                unrecorded.id,
+                branchRevision(value)
+            );
+            const missing = thrownBy(AgentCoreError, () =>
+                value.runtime.rewriteRun(unrecorded, branchRevision(value), new Date(1400))
+            );
+            expect(missing.code).toBe("authority.denied");
+
+            // An installed rewrite may not stand on the abandoned form's failed evidence.
+            const second = chain(2);
+            const installing = rewrite(second.value, "rewrite-installing", second.commits[1]!.id, [
+                second.commits[0]!.id
+            ]);
+            second.value.evidence.controls.clear();
+            second.value.evidence.abandonedRewrites.set(
+                `${rewriteReceipt.value}:${refs.audit.value}`,
+                {
+                    kind: "abandonedRewrite",
+                    run: ids.run,
+                    receipt: rewriteReceipt,
+                    audit: refs.audit,
+                    proposalDigest: installing.proposalDigest.value,
+                    outcome: "failed"
+                }
+            );
+            second.value.runtime.reserveRunRewrite(
+                ids.run,
+                ids.branch,
+                installing.id,
+                branchRevision(second.value)
+            );
+            expect(() =>
+                second.value.runtime.rewriteRun(
+                    installing,
+                    branchRevision(second.value),
+                    new Date(1400)
+                )
+            ).toThrow(/Control writer evidence/);
+        }
+    );
+
+    it(
+        "[C13-TURN-TRANSCRIPT-RECONSTRUCTION] derives at the exact base commit, so a later rewrite cannot enter it",
+        { tags: "p0" },
+        () => {
+            const { value, commits } = chain(3);
+            const base = commits[2]!.id;
+            const asRead = value.runtime.effectiveTranscript(ids.run, ids.branch, base);
+            expect(asRead.map((commit) => commit.id.value)).toEqual([
+                ids.root.value,
+                commits[0]!.id.value,
+                commits[1]!.id.value,
+                commits[2]!.id.value
+            ]);
+
+            const reduction = rewrite(value, "rewrite-after-call", base, [
+                commits[0]!.id,
+                commits[1]!.id
+            ]);
+            installed(value, reduction);
+
+            // The earlier call reconstructs to the same sequence and the same content.
+            const again = value.runtime.effectiveTranscript(ids.run, ids.branch, base);
+            expect(again.map((commit) => commit.id.value)).toEqual(
+                asRead.map((commit) => commit.id.value)
+            );
+            expect(again.map((commit) => commit.content?.value)).toEqual(
+                asRead.map((commit) => commit.content?.value)
+            );
+
+            // Forward, the next call carries the rewrite's content and not the shadowed
+            // commits', so the reduction is visible to the model it was made for.
+            const next = value.runtime.effectiveTranscript(ids.run, ids.branch);
+            expect(next.map((commit) => commit.id.value)).toEqual([
+                ids.root.value,
+                reduction.id.value,
+                commits[2]!.id.value
+            ]);
+            expect(next[1]!.content?.value).toBe(content("9").value);
+        }
+    );
+
+    it(
+        "[C13-RUN-EFFECTIVE-TRANSCRIPT] reads a merge's first-parent ancestry before what only its second parent reaches",
+        { tags: "p1" },
+        () => {
+            const { value, commits } = chain(1);
+            const source = new RunBranch(
+                new RunBranchId("branch-source"),
+                ids.run,
+                "source",
+                ids.root,
+                new Revision(0)
+            );
+            value.runtime.createBranch(ids.run, source, runRevision(value));
+            const sourceTurn = new TurnId("turn-source");
+            seedRunningTurn(value, {
+                id: sourceTurn,
+                branch: source.id,
+                startHead: ids.root,
+                effectiveInput: ids.root
+            });
+            const sourceHead = message(
+                value,
+                "source-1",
+                ids.root,
+                undefined,
+                undefined,
+                source.id,
+                sourceTurn
+            );
+            const merge = new RunCommit({
+                id: new RunCommitId("merge-commit"),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "merge",
+                parents: [commits[0]!.id, sourceHead.id],
+                pins: pins(),
+                writer: {
+                    kind: "system",
+                    cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
+                },
+                content: content("3"),
+                resolution: { kind: "concat" },
+                receipt: refs.receipt
+            });
+            value.evidence.controls.set(`${refs.receipt.value}:${refs.audit.value}`, {
+                kind: "control",
+                run: ids.run,
+                receipt: refs.receipt,
+                audit: refs.audit,
+                proposalDigest: merge.proposalDigest.value
+            });
+            value.runtime.mergeRun(merge, branchRevision(value), new Date(1400));
+
+            expect(transcriptIds(value)).toEqual([
+                ids.root.value,
+                commits[0]!.id.value,
+                sourceHead.id.value,
+                merge.id.value
+            ]);
+        }
+    );
+
+    it(
+        "[C13-RUN-EFFECTIVE-TRANSCRIPT] refuses a base commit the branch head does not reach",
+        { tags: "p1" },
+        () => {
+            const value = harness();
+            value.runtime.createRun(genesis());
+            expect(
+                value.runtime
+                    .effectiveTranscript(ids.run, ids.branch)
+                    .map((commit) => commit.id.value)
+            ).toEqual([ids.root.value]);
+            expect(() =>
+                value.runtime.effectiveTranscript(
+                    ids.run,
+                    ids.branch,
+                    new RunCommitId("absent-base")
+                )
+            ).toThrow(/not an ancestor of the branch head/);
+        }
+    );
+});

@@ -35,9 +35,12 @@ export {
     SpawnAttenuation,
     SpawnAttenuationCodec,
     exhaustedResource,
+    effectiveTranscript,
     isSettled,
     narrowResources,
+    orderedAncestry,
     widensResourceCeiling,
+    unbalancedCut,
     SettlementEvidencePort,
     SettlementObligation,
     SpawnReservation,
@@ -65,6 +68,7 @@ export type {
 } from "./runs";
 export type {
     AcceptanceCriterionInit,
+    AbandonedRewriteEvidence,
     AcceptanceReceiptEvidence,
     AcceptanceVerdictInit,
     AdministerControlEvidence,
