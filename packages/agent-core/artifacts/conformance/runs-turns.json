@@ -35,19 +35,18 @@
       "owner": "W5",
       "specAnchor": "C13-ADV-NONBINARY-MERGE",
       "specTextSha256": "sha256:3e3b6f2b958433fd31c9e31ada78092355954c73622132d5b2dcc302af14e369",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
         "src/agents/runs/commit.ts#RunCommit",
         "src/agents/runs/runtime.ts#RunRuntime.mergeRunInTransaction"
       ],
       "testSelectors": [
-        "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-ADV-NONBINARY-MERGE] rejects missing merge sources and invalid picked content"
+        "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-ADV-NONBINARY-MERGE] rejects missing merge sources and invalid picked content",
+        "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-ADV-NONBINARY-MERGE] rejects every merge arity but two distinct ordered parents"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": [
-        "Names a non-binary merge. Its only test asserts missing merge sources and invalid picked content are rejected; arity is not exercised."
-      ]
+      "remainingEvidence": []
     },
     {
       "id": "C13-ADV-POST-FENCE-SYSTEM-EVIDENCE",
@@ -102,19 +101,18 @@
       "owner": "W5",
       "specAnchor": "C13-ADV-POST-TERMINAL-ROUTE",
       "specTextSha256": "sha256:93e54c54ae2a9b7fc2bb079a27e82a5b4508bcf371b11a4cb38e58f9b7a14560",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
         "src/agents/runs/admission.ts#RunAdmissionRegistry",
         "src/agents/runs/runtime.ts#RunRuntime"
       ],
       "testSelectors": [
-        "test/agents/runs/admission.test.ts#durable Run admission registry [C13-ADV-POST-TERMINAL-ROUTE] reuses duplicate reservations, completes idempotently, and rejects substitutions"
+        "test/agents/runs/admission.test.ts#durable Run admission registry [C13-ADV-POST-TERMINAL-ROUTE] reuses duplicate reservations, completes idempotently, and rejects substitutions",
+        "test/agents/runs/admission.test.ts#transactional terminal frontier [C13-ADV-POST-TERMINAL-ROUTE] refuses every route admitted after terminalization while the pre-terminal reservation still drains"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": [
-        "Names a post-terminal route. Its only test asserts duplicate reservations are reused, completion is idempotent, and substitutions are rejected, none of which routes after terminalization."
-      ]
+      "remainingEvidence": []
     },
     {
       "id": "C13-ADV-STALE-LEASE",

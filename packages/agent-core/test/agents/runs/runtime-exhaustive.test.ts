@@ -19,6 +19,7 @@ import {
     genesis,
     harness,
     ids,
+    mutableData,
     pins,
     refs,
     seedRunningTurn,
@@ -381,6 +382,57 @@ describe("RunRuntime rejection matrix", () => {
         value.merge.acceptsConcat = true;
         value.runtime.mergeRun(concat, new Revision(0), new Date(1000));
     });
+
+    it(
+        "[C13-ADV-NONBINARY-MERGE] rejects every merge arity but two distinct ordered parents",
+        { tags: "p0" },
+        () => {
+            const value = harness();
+            value.runtime.createRun(genesis());
+            const mergeInit = (parents: readonly RunCommitId[]) => ({
+                id: new RunCommitId(`merge-arity-${parents.length}`),
+                run: ids.run,
+                branch: ids.branch,
+                kind: "merge" as const,
+                parents,
+                pins: pins(),
+                writer: {
+                    kind: "system" as const,
+                    cause: { kind: "control" as const, audit: refs.audit, receipt: refs.receipt }
+                },
+                content: content("7"),
+                resolution: { kind: "concat" as const },
+                receipt: refs.receipt
+            });
+            // Arity is a property of the record, so a nullary, unary or octopus merge never
+            // becomes a value the runtime has to refuse.
+            for (const parents of [
+                [],
+                [ids.root],
+                [ids.root, new RunCommitId("second-parent"), new RunCommitId("third-parent")]
+            ]) {
+                expect(() => new RunCommit(mergeInit(parents))).toThrow(/Merge commit fields/);
+            }
+            // The wire edge supplies the parent list directly, so the same bound holds on
+            // decode rather than only on the constructor a remote host never calls.
+            const second = new RunCommitId("second-parent");
+            const octopus = mutableData(new RunCommit(mergeInit([ids.root, second])).toData());
+            octopus["parents"] = [ids.root.value, second.value, "third-parent"];
+            expect(() => RunCommit.fromData(octopus)).toThrow(/Merge commit fields/);
+
+            // The one non-binary merge that IS constructable names two parents that are one
+            // commit, which is a unary merge wearing binary shape; only the runtime sees it.
+            expectCode(
+                () =>
+                    value.runtime.mergeRun(
+                        new RunCommit(mergeInit([ids.root, ids.root])),
+                        new Revision(0),
+                        new Date(1000)
+                    ),
+                "protocol.revision-conflict"
+            );
+        }
+    );
 });
 
 describe("Turn and terminalization rejection matrix", () => {

@@ -17,14 +17,17 @@ import {
     TerminalSnapshot,
     isSettled
 } from "../../../src/agents/runs/settlement";
+import { AgentCoreError } from "../../../src/errors";
 import {
     content,
     genesis,
     harness,
     ids,
     pins,
+    refs,
     seedRunningTurn,
-    settlementAuditKey
+    settlementAuditKey,
+    thrownBy
 } from "./fixture";
 
 const invocation = new InvocationId("admission-invocation");
@@ -384,6 +387,93 @@ describe("transactional terminal frontier", () => {
         expect(snapshot.obligation.registryEpoch).toBe(1);
         expect(value.runtime.settled(ids.run)).toBe(true);
     });
+
+    it(
+        "[C13-ADV-POST-TERMINAL-ROUTE] refuses every route admitted after terminalization while the pre-terminal reservation still drains",
+        { tags: "p0" },
+        () => {
+            const value = seedRunningTurn();
+            const reserved = value.runtime.reserveRunObligation(ids.run, {
+                kind: "route",
+                reservation: route
+            });
+            expect(value.runtime.acceptsRunAdmission(reserved)).toBe(true);
+            value.runtime.terminalizeRun(terminalRequest(value, "post-terminal-route"));
+
+            // The runtime refuses a late reservation on the Run's lifecycle, and the
+            // registry refuses it again on its own closed state; neither covers the other,
+            // so the record-level clauses are exercised on the record.
+            expect(value.runtime.acceptsRunAdmission(reserved)).toBe(false);
+            expect(
+                thrownBy(AgentCoreError, () =>
+                    value.runtime.reserveRunObligation(ids.run, {
+                        kind: "route",
+                        reservation: new RouteReservationId("late-route")
+                    })
+                ).code
+            ).toBe("run.invalid-state");
+            const closed = value.repository.transaction((transaction) => {
+                const admission = value.repository.loadAdmission(transaction, ids.run);
+                if (admission === undefined) throw new TypeError("Expected closed admission");
+                return admission;
+            });
+            expect(closed.accepting).toBe(false);
+            expect(
+                thrownBy(AgentCoreError, () =>
+                    closed.reserve({
+                        kind: "route",
+                        reservation: new RouteReservationId("forged-route")
+                    })
+                ).code
+            ).toBe("run.invalid-state");
+            // The sharpest forgery re-presents the reservation at the epoch the close
+            // itself advanced to, so the epoch comparison alone would admit it.
+            expect(closed.accepts({ ...reserved, registryEpoch: closed.epoch })).toBe(false);
+
+            // The commit door is the second way in, and it is refused by the Run's
+            // lifecycle rather than by the registry, so closing one does not cover both.
+            value.evidence.deliveries.set(`${route.value}:${refs.audit.value}`, {
+                kind: "delivery",
+                run: ids.run,
+                reservation: route,
+                audit: refs.audit
+            });
+            expect(
+                thrownBy(AgentCoreError, () =>
+                    value.runtime.appendSystemEvidenceCommit(
+                        new RunCommit({
+                            id: new RunCommitId("post-terminal-delivery"),
+                            run: ids.run,
+                            branch: ids.branch,
+                            kind: "eventDelivery",
+                            parents: [new RunCommitId("post-terminal-route")],
+                            pins: pins(),
+                            writer: {
+                                kind: "system",
+                                cause: {
+                                    kind: "delivery",
+                                    audit: refs.audit,
+                                    reservation: route
+                                }
+                            },
+                            reservation: route
+                        }),
+                        new Revision(1),
+                        new Date(2500)
+                    )
+                ).message
+            ).toMatch(/Terminal Runs reject ordinary commits/);
+
+            // Refusal must not seize the frontier: the route reserved before the close is
+            // still completable, or a terminal Run holding one could never settle.
+            value.runtime.completeRunObligation(reserved);
+            expect(
+                value.repository.transaction((transaction) =>
+                    value.repository.loadAdmission(transaction, ids.run)?.frontier()
+                )
+            ).toEqual([]);
+        }
+    );
 
     it(
         "[C13-ADV-POST-TERMINAL-CONTROL] rolls back close on terminalization failure",
