@@ -29,7 +29,7 @@ import {
     OperationDescriptor
 } from "../../src/facets";
 import { describe, expect, test } from "vitest";
-import { createProgram } from "../../scripts/quality/evidence.mjs";
+import { sourceProject } from "../../scripts/quality/evidence.mjs";
 import { validateCompleteOwnership } from "../../scripts/quality/ownership.mjs";
 import {
     validateRecordContentRetention,
@@ -117,8 +117,8 @@ describe("Profile base conformance", () => {
         { tags: "p0", timeout: 60_000 },
         () => {
             const records = registeredRecords();
-            const program = createProgram();
-            expect(() => validateRecordContentRetention(records, program)).not.toThrow();
+            const project = sourceProject();
+            expect(() => validateRecordContentRetention(records, project)).not.toThrow();
 
             expect(contentFields(records, "definition.metadata-snapshot")).toEqual([
                 "releases[].codeManifest.modules[].content"
@@ -176,7 +176,7 @@ describe("Profile base conformance", () => {
                 }
             ];
             for (const candidate of adversarial) {
-                expect(() => validateRecordContentRetention([candidate], program)).toThrow(
+                expect(() => validateRecordContentRetention([candidate], project)).toThrow(
                     TypeError
                 );
             }

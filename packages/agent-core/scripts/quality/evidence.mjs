@@ -1,25 +1,35 @@
 import { readFile } from "node:fs/promises";
 import { relative, resolve, sep } from "node:path";
-import ts from "typescript-api";
-import { packageRoot, parseCanonicalJson, portablePath, reportRoot, repositoryRoot } from "./project.mjs";
+import * as ts from "typescript/unstable/ast";
+import { configuration, openProject, sourceFile } from "./compiler.mjs";
+import {
+    packageRoot,
+    parseCanonicalJson,
+    portablePath,
+    reportRoot,
+    repositoryRoot
+} from "./project.mjs";
 
-export function createProgram() {
-    const roots = [packageRoot, resolve(repositoryRoot, "packages/agent-core-cloudflare")];
-    const parsed = roots.map((root) => {
-        const configPath = resolve(root, "tsconfig.json");
-        const config = ts.readConfigFile(configPath, ts.sys.readFile);
-        if (config.error)
-            throw new TypeError(ts.flattenDiagnosticMessageText(config.error.messageText, "\n"));
-        return ts.parseJsonConfigFileContent(config.config, ts.sys, root);
-    });
-    return ts.createProgram([...new Set(parsed.flatMap((config) => config.fileNames))], {
-        ...parsed[0].options,
-        skipLibCheck: true
+/**
+ * One project over both packages' sources, and the checker that spans them. Cloudflare
+ * records extend base classes declared in the core package, so subclass and ContentRef
+ * resolution needs a single program across both configurations: a type produced by one
+ * project's checker is not comparable with a type produced by another's.
+ */
+export function sourceProject() {
+    const configurations = [
+        packageRoot,
+        resolve(repositoryRoot, "packages/agent-core-cloudflare")
+    ].map((root) => configuration(resolve(root, "tsconfig.json")));
+    return openProject({
+        files: [...new Set(configurations.flatMap((parsed) => parsed.fileNames))],
+        extend: resolve(packageRoot, "tsconfig.json"),
+        compilerOptions: { skipLibCheck: true }
     });
 }
 
-export function resolveSourceSymbol(program, selector) {
-    return locateSourceSymbol(selector, (path) => program.getSourceFile(path)).node;
+export function resolveSourceSymbol(project, selector) {
+    return locateSourceSymbol(selector, (path) => project.program.getSourceFile(path)).node;
 }
 
 /**
@@ -63,17 +73,7 @@ function locateSourceSymbol(selector, getSourceFile) {
             `Source symbol must identify one top-level declaration and optional member: ${selector}`
         );
     }
-    const source =
-        getSourceFile(path) ??
-        (ts.sys.fileExists(path)
-            ? ts.createSourceFile(
-                  path,
-                  ts.sys.readFile(path),
-                  ts.ScriptTarget.Latest,
-                  true,
-                  path.endsWith(".mjs") ? ts.ScriptKind.JS : ts.ScriptKind.TS
-              )
-            : undefined);
+    const source = getSourceFile(path) ?? sourceFile(path);
     if (source === undefined) throw new TypeError(`Missing source file for ${selector}`);
     const declaration = source.statements.find(
         (node) =>
@@ -125,7 +125,10 @@ export async function executedTestSelectors(path) {
     for (const reportPath of paths) {
         let report;
         try {
-            report = parseCanonicalJson(await readFile(reportPath, "utf8"), portablePath(reportPath));
+            report = parseCanonicalJson(
+                await readFile(reportPath, "utf8"),
+                portablePath(reportPath)
+            );
         } catch (error) {
             if (path === undefined && reportPath !== coreReport && error?.code === "ENOENT")
                 continue;

@@ -152,15 +152,23 @@ function release(paths) {
  * names a real configuration to inherit — the only way to reuse its resolved options,
  * since the server reports them as resolved enum values rather than as written.
  */
-export function project({ files, extend, compilerOptions = {} }) {
+export function openProject({ files, extend, compilerOptions = {} }) {
     const path = resolve(packageRoot, `tsconfig.quality-${(projectCount += 1)}.json`);
     const settings = { compilerOptions, files, include: [] };
     if (extend !== undefined) settings.extends = extend;
     overlay.set(path, JSON.stringify(settings));
+    return loadProject(path, `a project over ${files.length} file(s)`);
+}
+
+/** The project a configuration file on disk describes, with its own program and checker. */
+export function configuredProject(path) {
+    const absolute = resolve(packageRoot, path);
+    return loadProject(absolute, absolute);
+}
+
+function loadProject(path, description) {
     const loaded = update({ openProjects: [path] }).getProject(path);
-    if (loaded === undefined) {
-        throw new TypeError(`Cannot open a project over ${files.length} file(s)`);
-    }
+    if (loaded === undefined) throw new TypeError(`Cannot open ${description}`);
     return loaded;
 }
 

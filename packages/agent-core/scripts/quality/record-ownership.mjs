@@ -1,4 +1,5 @@
-import ts from "typescript-api";
+import * as ts from "typescript/unstable/ast";
+import { hasModifier } from "./compiler.mjs";
 import { resolveSourceSymbol } from "./evidence.mjs";
 import { isJsonObject, isNonEmptyString } from "./project.mjs";
 
@@ -25,18 +26,21 @@ export function validateRecordOwnership(records) {
     }
 }
 
-export function validateRecordContentRetention(records, program) {
+export function validateRecordContentRetention(records, project) {
     validateRecordOwnership(records);
-    const checker = program.getTypeChecker();
-    const classes = program
-        .getSourceFiles()
-        .filter(
-            (source) => !source.isDeclarationFile && !source.fileName.includes("/node_modules/")
-        )
+    const checker = project.checker;
+    // Names first, files second: a program spanning both packages also carries every
+    // library declaration it resolved, and materialising those across the API boundary
+    // to discard them is the one avoidable cost in this walk.
+    const classes = project.program
+        .getSourceFileNames()
+        .filter((name) => !name.includes("/node_modules/"))
+        .map((name) => project.program.getSourceFile(name))
+        .filter((source) => source !== undefined && !source.isDeclarationFile)
         .flatMap((source) => source.statements.filter(ts.isClassDeclaration));
 
     for (const record of records) {
-        const declaration = resolveSourceSymbol(program, record.source);
+        const declaration = resolveSourceSymbol(project, record.source);
         if (!ts.isClassDeclaration(declaration)) {
             throw new TypeError(`Record source is not a class: ${record.source}`);
         }
@@ -161,14 +165,14 @@ function collectContentRefFields(checker, type, path, active, fields, topLevel) 
     }
     if (active.has(type.id)) return;
     const next = new Set(active).add(type.id);
-    if (type.isUnionOrIntersection()) {
-        for (const constituent of type.types) {
+    if (type.isUnionType() || type.isIntersectionType()) {
+        for (const constituent of type.getTypes()) {
             collectContentRefFields(checker, constituent, path, next, fields, topLevel);
         }
         return;
     }
     if (checker.isArrayType(type) || checker.isTupleType(type)) {
-        for (const element of checker.getTypeArguments(type)) {
+        for (const element of typeArguments(checker, type)) {
             collectContentRefFields(checker, element, `${path}[]`, next, fields, false);
         }
         return;
@@ -187,14 +191,15 @@ function collectContentRefFields(checker, type, path, active, fields, topLevel) 
         collectContentRefFields(checker, fieldType, fieldPath, next, fields, false);
     }
 
-    const indexed = checker.getIndexTypeOfType(type, ts.IndexKind.String);
-    if (indexed !== undefined && containsContentRef(checker, indexed, new Set())) {
-        throw new TypeError(
-            `ContentRef-bearing index shape is not a declared record field: ${path}`
-        );
+    for (const indexed of stringIndexTypes(checker, type)) {
+        if (containsContentRef(checker, indexed, new Set())) {
+            throw new TypeError(
+                `ContentRef-bearing index shape is not a declared record field: ${path}`
+            );
+        }
     }
     if (!isLocallyDeclaredRecordType(type)) {
-        for (const argument of checker.getTypeArguments(type)) {
+        for (const argument of typeArguments(checker, type)) {
             if (containsContentRef(checker, argument, new Set())) {
                 throw new TypeError(
                     `ContentRef-bearing container is not a declared record field: ${path}`
@@ -208,13 +213,13 @@ function containsContentRef(checker, type, active) {
     if (isContentRef(type)) return true;
     if (active.has(type.id)) return false;
     const next = new Set(active).add(type.id);
-    if (type.isUnionOrIntersection()) {
-        return type.types.some((constituent) => containsContentRef(checker, constituent, next));
+    if (type.isUnionType() || type.isIntersectionType()) {
+        return type
+            .getTypes()
+            .some((constituent) => containsContentRef(checker, constituent, next));
     }
     if (
-        checker
-            .getTypeArguments(type)
-            .some((argument) => containsContentRef(checker, argument, next))
+        typeArguments(checker, type).some((argument) => containsContentRef(checker, argument, next))
     ) {
         return true;
     }
@@ -223,13 +228,35 @@ function containsContentRef(checker, type, active) {
     );
 }
 
+/**
+ * The type arguments of a generic reference, and nothing for anything else. The walk
+ * asks this of every type it reaches, and the TypeScript 7 checker dereferences a nil
+ * target when asked of a type that is not a reference, which crashes the compiler server
+ * rather than returning empty.
+ */
+function typeArguments(checker, type) {
+    return type.isTypeReference() ? checker.getTypeArguments(type) : [];
+}
+
+/**
+ * The value types of every index signature a string key selects. TypeScript 7 reports
+ * index signatures as key/value pairs rather than by index kind, so applicability is the
+ * assignability question the kind used to stand for.
+ */
+function stringIndexTypes(checker, type) {
+    return checker
+        .getIndexInfosOfType(type)
+        .filter((info) => checker.isTypeAssignableTo(checker.getStringType(), info.keyType))
+        .map((info) => info.valueType);
+}
+
 function dataProperties(checker, type) {
     return checker.getPropertiesOfType(type).flatMap((symbol) => {
-        const declaration = symbol.valueDeclaration ?? symbol.declarations?.[0];
+        const declaration = (symbol.valueDeclaration ?? symbol.declarations[0])?.resolve();
         if (
             declaration === undefined ||
             ts.isMethodDeclaration(declaration) ||
-            ts.isMethodSignature(declaration) ||
+            ts.isMethodSignatureDeclaration(declaration) ||
             ("name" in declaration && ts.isPrivateIdentifier(declaration.name)) ||
             hasModifier(declaration, ts.SyntaxKind.PrivateKeyword) ||
             hasModifier(declaration, ts.SyntaxKind.ProtectedKeyword) ||
@@ -249,39 +276,34 @@ function extendsClass(checker, candidate, base) {
         const current = pending.pop();
         if (current === undefined || visited.has(current.id)) continue;
         visited.add(current.id);
-        for (const parent of checker.getBaseTypes(current) ?? []) {
-            if (parent.getSymbol() === baseSymbol) return true;
+        for (const parent of current.getBaseTypes() ?? []) {
+            if (baseSymbol !== undefined && parent.getSymbol()?.id === baseSymbol.id) return true;
             pending.push(parent);
         }
     }
     return false;
 }
 
+// A symbol's declarations arrive as handles carrying their kind and their file, which is
+// all either question needs; resolving them to nodes would answer the same thing after a
+// round trip per declaration.
 function isContentRef(type) {
+    const symbol = type.getSymbol();
     return (
-        type.getSymbol()?.name === "ContentRef" &&
-        (type.getSymbol()?.declarations ?? []).some(
+        symbol?.name === "ContentRef" &&
+        symbol.declarations.some(
             (declaration) =>
-                declaration
-                    .getSourceFile()
-                    .fileName.replaceAll("\\", "/")
-                    .endsWith("/src/core/content-ref.ts") && ts.isClassDeclaration(declaration)
+                declaration.path.replaceAll("\\", "/").endsWith("/src/core/content-ref.ts") &&
+                declaration.kind === ts.SyntaxKind.ClassDeclaration
         )
     );
 }
 
 function isLocallyDeclaredRecordType(type) {
     return (type.getSymbol()?.declarations ?? []).some((declaration) => {
-        const source = declaration.getSourceFile();
-        return !source.isDeclarationFile && !source.fileName.includes("/node_modules/");
+        const path = declaration.path.replaceAll("\\", "/");
+        return !/\.d\.[cm]?ts$/u.test(path) && !path.includes("/node_modules/");
     });
-}
-
-function hasModifier(node, kind) {
-    return (
-        ts.canHaveModifiers(node) &&
-        (ts.getModifiers(node) ?? []).some((modifier) => modifier.kind === kind)
-    );
 }
 
 function isContentFieldPath(value) {

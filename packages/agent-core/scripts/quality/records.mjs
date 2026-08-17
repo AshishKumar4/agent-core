@@ -1,6 +1,6 @@
 import { basename, relative, resolve } from "node:path";
-import { readFile } from "node:fs/promises";
-import ts from "typescript-api";
+import * as ts from "typescript/unstable/ast";
+import { hasModifier, sourceFiles } from "./compiler.mjs";
 import {
     artifactRoot,
     assertFlatFragmentNames,
@@ -11,10 +11,10 @@ import {
     writeCanonicalJson
 } from "./project.mjs";
 import {
-    createProgram,
     executedTestSelectors,
     requirePassingTests,
-    resolveSourceSymbol
+    resolveSourceSymbol,
+    sourceProject
 } from "./evidence.mjs";
 import { validateRecordContentRetention, validateRecordOwnership } from "./record-ownership.mjs";
 
@@ -103,9 +103,9 @@ for (const path of files.filter((path) => pendingFragmentNames.includes(basename
     }
     ownershipRecords.push(...fragment.records);
 }
-const program = createProgram();
+const project = sourceProject();
 validateRecordOwnership(ownershipRecords);
-validateRecordContentRetention(activeOwnershipRecords, program);
+validateRecordContentRetention(activeOwnershipRecords, project);
 const missing = [...discovered].filter(
     (selector) => !records.some((record) => record.source === selector)
 );
@@ -123,7 +123,7 @@ if (records.length > 0) {
             );
         }
         for (const selector of [record.source, record.codec, record.store].filter(Boolean)) {
-            resolveSourceSymbol(program, selector);
+            resolveSourceSymbol(project, selector);
         }
         requirePassingTests(record.tests, executedTests, record.kind);
     }
@@ -162,9 +162,7 @@ async function discoverCodecRecords(root, prefix) {
         root,
         (path) => /\.(?:[cm]?ts|tsx)$/.test(path) && !/\.d\.[cm]?ts$/.test(path)
     );
-    for (const path of files) {
-        const source = await readFile(path, "utf8");
-        const parsed = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
+    for (const [path, parsed] of sourceFiles(files)) {
         for (const statement of parsed.statements) {
             if (!ts.isClassDeclaration(statement) || statement.name === undefined) continue;
             const staticCodec = statement.members.some((member) => isStaticCodec(member, parsed));
@@ -270,13 +268,6 @@ function kindFromCodecClass(source, className, visited) {
         if (kind !== undefined && ts.isStringLiteral(kind)) return kind.text;
     }
     return undefined;
-}
-
-function hasModifier(node, kind) {
-    return (
-        ts.canHaveModifiers(node) &&
-        (ts.getModifiers(node) ?? []).some((modifier) => modifier.kind === kind)
-    );
 }
 
 function isStaticCodec(member, source) {
