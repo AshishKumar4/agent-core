@@ -7,6 +7,7 @@ export {
     FilesystemBackend,
     FilesystemFacet,
     FilesystemReaderBackend,
+    FilesystemTargetState,
     FilesystemWriteMode
 } from "./facet";
 export type {
@@ -20,6 +21,7 @@ export type {
     FilesystemRemoveInput,
     FilesystemStat,
     FilesystemStatInput,
+    FilesystemTargetCases,
     FilesystemWriteInput
 } from "./facet";
 export { MemoryFilesystemBackend } from "./memory";

@@ -172,7 +172,11 @@ requirement("P11-FILESYSTEM-ATOMICITY-ASSERTIONS", () => {
     const filesystem = new MemoryFilesystemBackend(1);
     filesystem.write("/file", new Uint8Array([1]));
     expect(() =>
-        filesystem.write("/file", new Uint8Array([2, 3]), FilesystemWriteMode.replace)
+        filesystem.write(
+            "/file",
+            new Uint8Array([2, 3]),
+            FilesystemWriteMode.replace(Digest.sha256(new Uint8Array([1])))
+        )
     ).toThrow();
     expect(filesystem.read("/file")).toEqual(new Uint8Array([1]));
 });

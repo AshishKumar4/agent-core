@@ -1,7 +1,9 @@
+import { Digest } from "../../core";
 import { Contributions, Contribution, OperationDescriptor } from "../contribution";
-import type { FacetData } from "../data";
+import type { FacetData, FacetDataMap } from "../data";
 import {
     dataRecord,
+    isFacetDataMap,
     requireBytes,
     requireDataObject,
     requireSafeInteger,
@@ -26,17 +28,64 @@ import { FilesystemError } from "./error";
 export type FilesystemEntryKind = "file" | "directory";
 
 /**
- * A write mode owns the existence precondition that makes it distinct: `create` requires the
- * target absent, `replace` requires it present, `upsert` requires nothing. The precondition is
- * a per-case method rather than a caller-side branch, so no write path can reach the store
- * without discharging it.
+ * What the store found at the write target when it reached its atomic step. `absent` and
+ * `present` are separate shapes rather than a nullable content field, so a backing store
+ * cannot report a present target without naming the content it holds: the state that would
+ * let a guarded write pass against content nobody looked at is unconstructable rather than
+ * checked. `fold` is total, so every consumer answers both cases or does not compile.
+ */
+export abstract class FilesystemTargetState {
+    public static get absent(): FilesystemTargetState {
+        return absentTargetState;
+    }
+    public static present(content: Uint8Array): FilesystemTargetState {
+        return new PresentTargetState(content);
+    }
+
+    public abstract fold<Result>(cases: FilesystemTargetCases<Result>): Result;
+}
+
+export interface FilesystemTargetCases<Result> {
+    readonly absent: () => Result;
+    readonly present: (content: Uint8Array) => Result;
+}
+
+class AbsentTargetState extends FilesystemTargetState {
+    public fold<Result>(cases: FilesystemTargetCases<Result>): Result {
+        return cases.absent();
+    }
+}
+
+class PresentTargetState extends FilesystemTargetState {
+    public constructor(private readonly content: Uint8Array) {
+        super();
+        Object.freeze(this);
+    }
+    public fold<Result>(cases: FilesystemTargetCases<Result>): Result {
+        return cases.present(this.content);
+    }
+}
+
+const absentTargetState = Object.freeze(new AbsentTargetState());
+
+/**
+ * A write mode owns the precondition that makes it distinct: `create` requires the target
+ * absent, `replace` requires it present and holding the content the request names, `upsert`
+ * requires nothing. The precondition is a per-case method rather than a caller-side branch,
+ * so no write path can reach the store without discharging it.
+ *
+ * `replace` is the one parameterized case, and it is a factory taking its guard rather than a
+ * singleton: a `replace` that names no content is unconstructable, which is what makes the
+ * request carry its own proof of observation instead of the profile keeping a per-session
+ * observed-state ledger. `create` and `upsert` carry no guard and stay argument-less getters,
+ * so the illegal pairings — a guarded `create`, an unguarded `replace` — are unrepresentable.
  */
 export abstract class FilesystemWriteMode {
     public static get create(): FilesystemWriteMode {
         return createWriteMode;
     }
-    public static get replace(): FilesystemWriteMode {
-        return replaceWriteMode;
+    public static replace(expected: Digest): FilesystemWriteMode {
+        return new ReplaceWriteMode(expected);
     }
     public static get upsert(): FilesystemWriteMode {
         return upsertWriteMode;
@@ -45,39 +94,112 @@ export abstract class FilesystemWriteMode {
     /** The wire label this mode serializes to. */
     public abstract readonly name: string;
 
-    /** Rejects the write when the target's presence contradicts this mode's precondition. */
-    public abstract requireWritable(path: string, present: boolean): void;
+    /** Rejects the write when the target's state contradicts this mode's precondition. */
+    public abstract requireWritable(path: string, target: FilesystemTargetState): void;
+
+    /** The wire form: the label, plus the guard for the one case that carries one. */
+    public abstract toData(): FacetData;
 }
 
 class CreateWriteMode extends FilesystemWriteMode {
     public readonly name = "create";
-    public requireWritable(path: string, present: boolean): void {
-        if (present) throw new FilesystemError("exists", path, "Path already exists");
+    public requireWritable(path: string, target: FilesystemTargetState): void {
+        target.fold({
+            absent: () => {},
+            present: () => {
+                throw new FilesystemError("exists", path, "Path already exists");
+            }
+        });
+    }
+    public toData(): FacetData {
+        return { name: this.name };
     }
 }
 
 class ReplaceWriteMode extends FilesystemWriteMode {
     public readonly name = "replace";
-    public requireWritable(path: string, present: boolean): void {
-        if (!present) throw new FilesystemError("not-found", path, "Path does not exist");
+
+    public constructor(public readonly expected: Digest) {
+        super();
+        if (!(expected instanceof Digest)) {
+            throw new TypeError("Replace guard must be a Digest");
+        }
+        Object.freeze(this);
+    }
+
+    public requireWritable(path: string, target: FilesystemTargetState): void {
+        target.fold({
+            absent: () => {
+                throw new FilesystemError("not-found", path, "Path does not exist");
+            },
+            present: (content) => {
+                // Derived from the content and from nothing else, so the same guard is
+                // meaningful against every backing store without a token translation.
+                if (!Digest.sha256(content).equals(this.expected)) {
+                    throw new FilesystemError(
+                        "content-mismatch",
+                        path,
+                        "Path content differs from the digest the write names"
+                    );
+                }
+            }
+        });
+    }
+
+    public toData(): FacetData {
+        return { name: this.name, expected: this.expected.value };
     }
 }
 
 class UpsertWriteMode extends FilesystemWriteMode {
     public readonly name = "upsert";
     public requireWritable(): void {}
+    public toData(): FacetData {
+        return { name: this.name };
+    }
 }
 
 const createWriteMode = Object.freeze(new CreateWriteMode());
-const replaceWriteMode = Object.freeze(new ReplaceWriteMode());
 const upsertWriteMode = Object.freeze(new UpsertWriteMode());
 
-/** Every mode the wire admits; the codec resolves a decoded label against exactly this set. */
-const FILESYSTEM_WRITE_MODES: readonly FilesystemWriteMode[] = Object.freeze([
-    createWriteMode,
-    replaceWriteMode,
-    upsertWriteMode
+/**
+ * Every mode the wire admits, paired with the decoder that owns its exact field set. The
+ * unguarded cases refuse a guard and `replace` requires one, so the illegal pairings the
+ * domain makes unconstructable — a guarded `create`, an unguarded `replace` — are equally
+ * unrepresentable on the wire rather than normalized on the way in.
+ */
+const FILESYSTEM_WRITE_MODE_TERMS: readonly {
+    readonly name: string;
+    readonly decode: (mode: FacetDataMap) => FilesystemWriteMode;
+}[] = Object.freeze([
+    Object.freeze({
+        name: "create",
+        decode: (mode: FacetDataMap): FilesystemWriteMode => {
+            requireExactWriteModeFields(mode, ["name"]);
+            return createWriteMode;
+        }
+    }),
+    Object.freeze({
+        name: "replace",
+        decode: (mode: FacetDataMap): FilesystemWriteMode => {
+            requireExactWriteModeFields(mode, ["name", "expected"]);
+            return FilesystemWriteMode.replace(
+                new Digest(requireString(mode["expected"], "Filesystem replace guard"))
+            );
+        }
+    }),
+    Object.freeze({
+        name: "upsert",
+        decode: (mode: FacetDataMap): FilesystemWriteMode => {
+            requireExactWriteModeFields(mode, ["name"]);
+            return upsertWriteMode;
+        }
+    })
 ]);
+
+const FILESYSTEM_WRITE_MODE_NAMES: readonly string[] = Object.freeze(
+    FILESYSTEM_WRITE_MODE_TERMS.map((term) => term.name)
+);
 
 export interface FilesystemStat {
     readonly path: string;
@@ -142,6 +264,18 @@ const statSchema = {
         modifiedAt: nonNegativeInteger
     },
     required: ["path", "kind", "size", "modifiedAt"],
+    additionalProperties: false
+} as const;
+// The model-facing shape of a mode: a label plus, for `replace`, the digest it guards
+// against. Per-case field exactness is the decoder's, since one schema cannot say that
+// exactly one label requires the guard.
+const writeModeSchema = {
+    type: "object",
+    properties: {
+        name: { enum: FILESYSTEM_WRITE_MODE_NAMES },
+        expected: { type: "string", pattern: "^[a-f0-9]{64}$" }
+    },
+    required: ["name"],
     additionalProperties: false
 } as const;
 const voidSchema = schema({ type: "null" });
@@ -265,7 +399,7 @@ export const FILESYSTEM_OPERATION_CONTRACTS = Object.freeze({
             {
                 path: pathProperty,
                 content: { type: "array", items: { type: "integer", minimum: 0, maximum: 255 } },
-                mode: { enum: FILESYSTEM_WRITE_MODES.map((mode) => mode.name) }
+                mode: writeModeSchema
             },
             ["path", "content"]
         ),
@@ -275,7 +409,7 @@ export const FILESYSTEM_OPERATION_CONTRACTS = Object.freeze({
                 dataRecord({
                     path: input.path,
                     content: [...input.content],
-                    mode: input.mode?.name
+                    mode: input.mode?.toData()
                 }),
             decodeWriteInput
         ),
@@ -505,18 +639,37 @@ function decodeBytes(data: FacetData): Uint8Array {
 }
 
 /**
- * The single parse-at-the-edge: the wire carries a mode label, the domain carries a mode
- * object, and an unrecognised label never reaches a write path.
+ * The single parse-at-the-edge: the wire carries a mode label and, for `replace`, the digest
+ * it guards against; the domain carries a mode object. An unrecognised label never reaches a
+ * write path, and neither does a `replace` that names no digest — the term's own decoder owns
+ * its exact field set, so an unguarded `replace` produces no mode rather than a permissive one.
  */
 function requireWriteMode(value: FacetData): FilesystemWriteMode {
-    const name = requireString(value, "Filesystem write mode");
-    const mode = FILESYSTEM_WRITE_MODES.find((candidate) => candidate.name === name);
-    if (mode !== undefined) return mode;
+    if (isFacetDataMap(value)) {
+        const term = FILESYSTEM_WRITE_MODE_TERMS.find(
+            (candidate) => candidate.name === value["name"]
+        );
+        if (term !== undefined) return term.decode(value);
+    }
+    // A bare label is the pre-guard wire form, and it is refused with the profile's own code
+    // rather than as a shape error: an unguarded `replace` is invalid input, not a type
+    // confusion, and a caller branching on stable codes has to be able to see that.
     throw new DetailedProfileError(
         "operation.invalid-input",
         "operation.invalid-input",
         "Write mode must be create, replace, or upsert"
     );
+}
+
+function requireExactWriteModeFields(mode: FacetDataMap, admitted: readonly string[]): void {
+    const keys = Object.keys(mode);
+    if (keys.length !== admitted.length || admitted.some((field) => !(field in mode))) {
+        throw new DetailedProfileError(
+            "operation.invalid-input",
+            "operation.invalid-input",
+            `Write mode ${String(mode["name"])} admits exactly ${admitted.join(", ")}`
+        );
+    }
 }
 
 function decodePage(data: FacetData): FilesystemPage {

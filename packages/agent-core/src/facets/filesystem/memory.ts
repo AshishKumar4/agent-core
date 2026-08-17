@@ -2,6 +2,7 @@ import { FilesystemError } from "./error";
 import { DetailedProfileError } from "../profile-runtime";
 import {
     FilesystemBackend,
+    FilesystemTargetState,
     FilesystemWriteMode,
     type FilesystemPage,
     type FilesystemReadRange,
@@ -99,7 +100,14 @@ export class MemoryFilesystemBackend extends FilesystemBackend {
         const existing = this.#nodes.get(normalized);
         if (existing?.kind === "directory")
             throw fileError("is-a-directory", normalized, "Path is a directory");
-        mode.requireWritable(normalized, existing !== undefined);
+        // The comparison and the replacement occupy one step: nothing runs between reading
+        // the node and setting it, so a guard cannot pass against content it did not replace.
+        mode.requireWritable(
+            normalized,
+            existing === undefined
+                ? FilesystemTargetState.absent
+                : FilesystemTargetState.present(existing.content!)
+        );
         this.#nodes.set(normalized, {
             kind: "file",
             content: content.slice(),

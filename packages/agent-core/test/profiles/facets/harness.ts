@@ -308,7 +308,12 @@ export function mutableFilesystemBackendEvidence(
                 "exists"
             );
             expectFilesystemCode(
-                () => filesystem.write("/missing", new Uint8Array(), FilesystemWriteMode.replace),
+                () =>
+                    filesystem.write(
+                        "/missing",
+                        new Uint8Array(),
+                        FilesystemWriteMode.replace(Digest.sha256(new Uint8Array()))
+                    ),
                 "not-found"
             );
             filesystem.move("/a", "/b");

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { CompatRange, SemVer } from "../../../src/core";
+import { CompatRange, Digest, SemVer } from "../../../src/core";
 import { MemoryContentStore } from "../../../src/content";
 import { evaluatePolicy } from "../../../src/definition";
 import { InvocationId } from "../../../src/invocations";
@@ -11,6 +11,8 @@ import {
     FilesystemError,
     FilesystemFacet,
     FilesystemObservationBackend,
+    FilesystemTargetState,
+    type FilesystemTargetCases,
     FilesystemWriteMode,
     type FacetData,
     type FilesystemBackend,
@@ -251,6 +253,222 @@ describe("Filesystem backend invariants", () => {
     );
 
     test(
+        "[P11-FILESYSTEM-WRITE-OBSERVED] admits a guarded replace only against the content it names, on every backing",
+        { tags: "p0" },
+        () => {
+            for (const [name, create] of guardedWriteBackings()) {
+                const filesystem = create();
+                filesystem.mkdir("/guarded");
+                const seeded = new Uint8Array([1, 2, 3]);
+                filesystem.write("/guarded/file", seeded, FilesystemWriteMode.create);
+
+                // A guard naming the target's current content is admitted, and it is the
+                // content that decides: the same digest presented twice cannot pass twice.
+                filesystem.write(
+                    "/guarded/file",
+                    new Uint8Array([9]),
+                    FilesystemWriteMode.replace(Digest.sha256(seeded))
+                );
+                expect([...filesystem.read("/guarded/file")], name).toEqual([9]);
+                expectFilesystemDetail(
+                    () =>
+                        filesystem.write(
+                            "/guarded/file",
+                            new Uint8Array([8]),
+                            FilesystemWriteMode.replace(Digest.sha256(seeded))
+                        ),
+                    "content-mismatch",
+                    name
+                );
+                expect([...filesystem.read("/guarded/file")], name).toEqual([9]);
+
+                // The three-way branch: a host collapsing the middle case into either
+                // neighbour denies the caller the one recovery that differs.
+                expectFilesystemDetail(
+                    () =>
+                        filesystem.write(
+                            "/guarded/absent",
+                            new Uint8Array([1]),
+                            FilesystemWriteMode.replace(Digest.sha256(new Uint8Array([1])))
+                        ),
+                    "not-found",
+                    name
+                );
+                expectFilesystemDetail(
+                    () =>
+                        filesystem.write(
+                            "/guarded/file",
+                            new Uint8Array([7]),
+                            FilesystemWriteMode.create
+                        ),
+                    "exists",
+                    name
+                );
+
+                // An absent target is not a target holding nothing: the digest of empty
+                // content is a well-formed guard and it still cannot match an absent path.
+                expectFilesystemDetail(
+                    () =>
+                        filesystem.write(
+                            "/guarded/absent",
+                            new Uint8Array([1]),
+                            FilesystemWriteMode.replace(Digest.sha256(new Uint8Array()))
+                        ),
+                    "not-found",
+                    name
+                );
+            }
+        }
+    );
+
+    test(
+        "[P11-FILESYSTEM-WRITE-OBSERVED] refuses an observation that is stale, partial, or absent",
+        { tags: "p0" },
+        () => {
+            const filesystem = new MemoryFilesystemBackend();
+            filesystem.write("/observed", new Uint8Array([1, 2, 3]), FilesystemWriteMode.create);
+
+            // Stale but genuine: the read demonstrably happened, and a later write
+            // superseded it. A host that remembers that a read occurred admits this.
+            const observed = filesystem.read("/observed");
+            filesystem.write("/observed", new Uint8Array([4, 5, 6]), FilesystemWriteMode.upsert);
+            expectFilesystemDetail(
+                () =>
+                    filesystem.write(
+                        "/observed",
+                        new Uint8Array([7]),
+                        FilesystemWriteMode.replace(Digest.sha256(observed))
+                    ),
+                "content-mismatch"
+            );
+            expect([...filesystem.read("/observed")]).toEqual([4, 5, 6]);
+
+            // Partial: a caller that read one byte of three has not observed the content
+            // it proposes to replace.
+            expectFilesystemDetail(
+                () =>
+                    filesystem.write(
+                        "/observed",
+                        new Uint8Array([7]),
+                        FilesystemWriteMode.replace(
+                            Digest.sha256(filesystem.read("/observed", { offset: 0, length: 1 }))
+                        )
+                    ),
+                "content-mismatch"
+            );
+
+            // Absent: a write issued without reading the target cannot produce a passing
+            // guard, whatever it guesses.
+            expectFilesystemDetail(
+                () =>
+                    filesystem.write(
+                        "/observed",
+                        new Uint8Array([7]),
+                        FilesystemWriteMode.replace(Digest.sha256(new Uint8Array([4, 5])))
+                    ),
+                "content-mismatch"
+            );
+
+            // The path is normalized before the guard is consulted, so a degenerate path
+            // reports its own code rather than a mismatch against nothing.
+            for (const path of ["", "/../escape"]) {
+                expectFilesystemDetail(
+                    () =>
+                        filesystem.write(
+                            path,
+                            new Uint8Array([7]),
+                            FilesystemWriteMode.replace(Digest.sha256(new Uint8Array([4, 5, 6])))
+                        ),
+                    "path.invalid"
+                );
+            }
+
+            // A refused guarded write is not an observed write: the audit trail must not
+            // record a mutation that did not happen.
+            const observations = new RecordingObservations();
+            const wrapped = new ObservedFilesystemBackend(
+                new MemoryFilesystemBackend(),
+                observations
+            );
+            wrapped.write("/audited", new Uint8Array([1]), FilesystemWriteMode.create);
+            expectFilesystemDetail(
+                () =>
+                    wrapped.write(
+                        "/audited",
+                        new Uint8Array([2]),
+                        FilesystemWriteMode.replace(Digest.sha256(new Uint8Array([9])))
+                    ),
+                "content-mismatch"
+            );
+            expect(observations.values.filter((value) => value.operation === "write")).toEqual([
+                { operation: "write", paths: ["/audited"] }
+            ]);
+        }
+    );
+
+    test(
+        "[P11-FILESYSTEM-WRITE-OBSERVED] leaves an unguarded replace unconstructable and unrepresentable",
+        { tags: "p0" },
+        () => {
+            const guard = Digest.sha256(new Uint8Array([1]));
+
+            // `replace` is the one parameterized case, so it is a call and not a value: an
+            // unguarded replace cannot be named in the domain at all.
+            expect(typeof FilesystemWriteMode.replace).toBe("function");
+            // @ts-expect-error A replace that names no content it replaces is illegal.
+            expect(() => FilesystemWriteMode.replace()).toThrow(TypeError);
+            expect(() => FilesystemWriteMode.replace(guard.value as never)).toThrow(TypeError);
+
+            // `create` and `upsert` carry no guard, so they stay argument-less getters
+            // yielding one frozen value each rather than factories.
+            expect(typeof FilesystemWriteMode.create).toBe("object");
+            expect(typeof FilesystemWriteMode.upsert).toBe("object");
+            expect(Object.isFrozen(FilesystemWriteMode.create)).toBe(true);
+
+            const decoded = FILESYSTEM_OPERATION_CONTRACTS.write.decodeInput({
+                path: "/file",
+                content: [1],
+                mode: { name: "replace", expected: guard.value }
+            });
+            expect(decoded.mode?.toData()).toEqual({ name: "replace", expected: guard.value });
+
+            // Every rejected wire shape carries the profile's stable code, because a caller
+            // branches on codes: an unguarded replace, a guarded create, and the pre-guard
+            // bare-label form are each invalid input rather than a shape error.
+            for (const mode of [
+                { name: "replace" },
+                { name: "replace", expected: guard.value, extra: 1 },
+                { name: "create", expected: guard.value },
+                { name: "upsert", expected: guard.value },
+                "replace",
+                "create"
+            ]) {
+                expectFilesystemDetail(
+                    () =>
+                        FILESYSTEM_OPERATION_CONTRACTS.write.decodeInput({
+                            path: "/file",
+                            content: [1],
+                            mode
+                        }),
+                    "operation.invalid-input"
+                );
+            }
+
+            // The store's report of what it found is a two-case value, so a backing store
+            // cannot claim a present target without naming the content it holds.
+            const bytes = new Uint8Array([1]);
+            const cases: FilesystemTargetCases<string | Uint8Array> = {
+                absent: () => "absent",
+                present: (held) => held
+            };
+            expect(FilesystemTargetState.absent.fold(cases)).toBe("absent");
+            expect(FilesystemTargetState.present(bytes).fold(cases)).toBe(bytes);
+            // @ts-expect-error A present target without its content is illegal.
+            expect(FilesystemTargetState.present().fold(cases)).toBeUndefined();
+        }
+    );
+
+    test(
         "[P11-FILESYSTEM-PATHS] normalizes inside the root and publishes the fixed branchable detail codes",
         { tags: "p0" },
         () => {
@@ -289,7 +507,11 @@ describe("Filesystem backend invariants", () => {
             filesystem.mkdir("/tree/child", true);
             filesystem.write("/tree/file", new Uint8Array([1]));
             expect(() =>
-                filesystem.write("/tree/file", new Uint8Array([2, 3]), FilesystemWriteMode.replace)
+                filesystem.write(
+                    "/tree/file",
+                    new Uint8Array([2, 3]),
+                    FilesystemWriteMode.replace(Digest.sha256(new Uint8Array([1])))
+                )
             ).toThrow(expect.objectContaining({ detailCode: "too-large" }));
             expect(() => filesystem.move("/tree", "/tree/child/moved")).toThrow(
                 expect.objectContaining({ detailCode: "path.invalid" })
@@ -332,7 +554,7 @@ describe("Filesystem backend invariants", () => {
                 FILESYSTEM_OPERATION_CONTRACTS.write.decodeInput({
                     path: "/docs/file",
                     content: [],
-                    mode: "invalid"
+                    mode: { name: "invalid" }
                 })
             ).toThrow(expect.objectContaining({ detailCode: "operation.invalid-input" }));
             expect(() => filesystem.write("/", new Uint8Array())).toThrow(
@@ -424,19 +646,24 @@ describe("Filesystem backend invariants", () => {
                     })
                 )
             ).toEqual({ path: "/docs", cursor: "/docs/a", limit: 1 });
+            const guard = Digest.sha256(new Uint8Array([1]));
             const writeWire = FILESYSTEM_OPERATION_CONTRACTS.write.encodeInput({
                 path: "/file",
                 content: new Uint8Array([1]),
-                mode: FilesystemWriteMode.replace
+                mode: FilesystemWriteMode.replace(guard)
             });
-            expect(writeWire).toEqual({ path: "/file", content: [1], mode: "replace" });
+            expect(writeWire).toEqual({
+                path: "/file",
+                content: [1],
+                mode: { name: "replace", expected: guard.value }
+            });
             const decodedWrite = FILESYSTEM_OPERATION_CONTRACTS.write.decodeInput(writeWire);
             expect(decodedWrite).toEqual({
                 path: "/file",
                 content: new Uint8Array([1]),
-                mode: FilesystemWriteMode.replace
+                mode: FilesystemWriteMode.replace(guard)
             });
-            expect(decodedWrite.mode).toBe(FilesystemWriteMode.replace);
+            expect(decodedWrite.mode?.name).toBe("replace");
             expect(
                 FILESYSTEM_OPERATION_CONTRACTS.mkdir.decodeInput(
                     FILESYSTEM_OPERATION_CONTRACTS.mkdir.encodeInput({
@@ -574,7 +801,11 @@ describe("Filesystem memory backend boundaries", () => {
     test("replaces and upserts existing files with the new content", { tags: "p1" }, () => {
         const filesystem = new MemoryFilesystemBackend();
         filesystem.write("/file", new Uint8Array([1]), FilesystemWriteMode.create);
-        filesystem.write("/file", new Uint8Array([9]), FilesystemWriteMode.replace);
+        filesystem.write(
+            "/file",
+            new Uint8Array([9]),
+            FilesystemWriteMode.replace(Digest.sha256(new Uint8Array([1])))
+        );
         expect([...filesystem.read("/file")]).toEqual([9]);
         filesystem.write("/file", new Uint8Array([7]), FilesystemWriteMode.upsert);
         expect([...filesystem.read("/file")]).toEqual([7]);
@@ -592,10 +823,18 @@ describe("Filesystem memory backend boundaries", () => {
                 filesystem.write("/present", new Uint8Array([2]), FilesystemWriteMode.create)
             ).toThrow(expect.objectContaining({ detailCode: "exists" }));
             expect(() =>
-                filesystem.write("/absent", new Uint8Array([2]), FilesystemWriteMode.replace)
+                filesystem.write(
+                    "/absent",
+                    new Uint8Array([2]),
+                    FilesystemWriteMode.replace(Digest.sha256(new Uint8Array([2])))
+                )
             ).toThrow(expect.objectContaining({ detailCode: "not-found" }));
             filesystem.write("/absent", new Uint8Array([3]), FilesystemWriteMode.create);
-            filesystem.write("/present", new Uint8Array([4]), FilesystemWriteMode.replace);
+            filesystem.write(
+                "/present",
+                new Uint8Array([4]),
+                FilesystemWriteMode.replace(Digest.sha256(new Uint8Array([1])))
+            );
             filesystem.write("/present", new Uint8Array([5]), FilesystemWriteMode.upsert);
             filesystem.write("/fresh", new Uint8Array([6]), FilesystemWriteMode.upsert);
             expect([...filesystem.read("/present")]).toEqual([5]);
@@ -607,11 +846,7 @@ describe("Filesystem memory backend boundaries", () => {
                 public readonly name = "unregistered";
             }
 
-            for (const mode of [
-                FilesystemWriteMode.create,
-                FilesystemWriteMode.replace,
-                FilesystemWriteMode.upsert
-            ]) {
+            for (const mode of [FilesystemWriteMode.create, FilesystemWriteMode.upsert]) {
                 const wire = FILESYSTEM_OPERATION_CONTRACTS.write.encodeInput({
                     path: "/present",
                     content: new Uint8Array(),
@@ -623,7 +858,7 @@ describe("Filesystem memory backend boundaries", () => {
                 FILESYSTEM_OPERATION_CONTRACTS.write.decodeInput({
                     path: "/present",
                     content: [],
-                    mode: new UnregisteredWriteMode().name
+                    mode: { name: new UnregisteredWriteMode().name }
                 })
             ).toThrow(expect.objectContaining({ detailCode: "operation.invalid-input" }));
         }
@@ -703,13 +938,17 @@ describe("Filesystem memory backend boundaries", () => {
             filesystem.write("/file", new Uint8Array(), FilesystemWriteMode.create)
         ).toThrow("Path already exists");
         expect(() =>
-            filesystem.write("/missing", new Uint8Array(), FilesystemWriteMode.replace)
+            filesystem.write(
+                "/missing",
+                new Uint8Array(),
+                FilesystemWriteMode.replace(Digest.sha256(new Uint8Array()))
+            )
         ).toThrow("Path does not exist");
         expect(() =>
             FILESYSTEM_OPERATION_CONTRACTS.write.decodeInput({
                 path: "/file",
                 content: [],
-                mode: "invalid"
+                mode: { name: "invalid" }
             })
         ).toThrow("Write mode must be create, replace, or upsert");
         expect(() => filesystem.move("/file", "/dir")).toThrow("Destination already exists");
@@ -883,6 +1122,30 @@ class RecordingObservations extends FilesystemObservationBackend {
     public record(observation: (typeof this.values)[number]): void {
         this.values.push(observation);
     }
+}
+
+function guardedWriteBackings(): ReadonlyArray<readonly [string, () => FilesystemBackend]> {
+    return [
+        ["memory", () => new MemoryFilesystemBackend()],
+        [
+            "observed",
+            () =>
+                new ObservedFilesystemBackend(new MemoryFilesystemBackend(), new NullObservations())
+        ],
+        [
+            "mount",
+            () =>
+                new MountFilesystemBackend([{ path: "/", backend: new MemoryFilesystemBackend() }])
+        ]
+    ];
+}
+
+function expectFilesystemDetail(
+    action: () => unknown,
+    detailCode: FilesystemError["detailCode"] | "operation.invalid-input",
+    label?: string
+): void {
+    expect(action, label).toThrow(expect.objectContaining({ detailCode }));
 }
 
 function readerAndSeed(filesystem: FilesystemBackend) {
