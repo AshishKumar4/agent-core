@@ -280,7 +280,7 @@
         "src/invocations/ledger.ts#InvocationLedger.supersedeReceiptUnchecked",
         "src/invocations/ledger.ts#InvocationLedger.supersedeReceiptWithAudit",
         "src/invocations/receipt.ts#Receipt",
-        "src/invocations/receipt.ts#ReceiptCodecV1"
+        "src/invocations/receipt.ts#ReceiptCodecV2"
       ],
       "testSelectors": [
         "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-RECEIPT-SUPERSESSION] [invocation.receipt] supersedes one indeterminate Receipt exactly once and derives batch outcomes",
