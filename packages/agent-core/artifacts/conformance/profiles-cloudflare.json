@@ -187,7 +187,7 @@
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-STORAGE-LIMIT",
       "specTextSha256": "sha256:849b6d4f04bf226cdfc9a2bedb813ad3672fc985acd246bfe1fb9e6599367bce",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": [
         "cloudflare/src/revision-log.ts#DurableViewRevisionLog",
@@ -197,7 +197,9 @@
         "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-STORAGE-LIMIT] stores a row at the declared blob limit and refuses one past it"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "The named live case claims it stores a row at the declared limit, and its own comment says the seam is only correct if production accepts a row that large with overhead included, but it wrote SQL_BLOB_LIMIT_BYTES - 1_000 and exercised neither boundary. It now writes at the limit and owes a live run. The documented bound covers a string, BLOB or row while requireStorableBlob measures only the payload, so at-limit acceptance rests on workerd's undocumented SQLITE_LIMIT_LENGTH headroom rather than on anything Cloudflare promises."
+      ]
     },
     {
       "id": "C13-CLOUDFLARE-VIEW-ATTACHMENT",

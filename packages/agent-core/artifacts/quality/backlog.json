@@ -408,6 +408,22 @@
       }
     },
     {
+      "id": "T-EVIDENCE:C13-CLOUDFLARE-STORAGE-LIMIT",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-STORAGE-LIMIT" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-CLOUDFLARE-STORAGE-LIMIT from implemented with exact evidence",
+      "notes": [
+        "The named live case claims it stores a row at the declared limit, and its own comment says the seam is only correct if production accepts a row that large with overhead included, but it wrote SQL_BLOB_LIMIT_BYTES - 1_000 and exercised neither boundary. It now writes at the limit and owes a live run. The documented bound covers a string, BLOB or row while requireStorableBlob measures only the payload, so at-limit acceptance rests on workerd's undocumented SQLITE_LIMIT_LENGTH headroom rather than on anything Cloudflare promises."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CLOUDFLARE-STORAGE-LIMIT",
+        "expected": "verified"
+      }
+    },
+    {
       "id": "T-EVIDENCE:C13-CONFIG-SECRET-CUSTODY",
       "type": "T-EVIDENCE",
       "source": { "kind": "conformance", "id": "C13-CONFIG-SECRET-CUSTODY" },

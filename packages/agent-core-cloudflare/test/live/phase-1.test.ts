@@ -814,19 +814,22 @@ describe("live Cloudflare platform-semantics evidence", () => {
 
     it("[C13-CLOUDFLARE-STORAGE-LIMIT] stores a row at the declared blob limit and refuses one past it", async () => {
         // The seam's limit is only correct if production actually accepts a row that
-        // large, row overhead included — the one thing workerd cannot answer for it.
-        const nearLimit = SQL_BLOB_LIMIT_BYTES - 1_000;
+        // large, row overhead included — the one thing workerd cannot answer for it. So
+        // this writes AT the limit, not near it: the documented bound covers the row, the
+        // seam checks only the payload, and the margin between them is workerd's
+        // undocumented SQLITE_LIMIT_LENGTH headroom. Writing under the limit exercises
+        // none of that.
         expect(
             resultOf(
                 await call(
                     "runtime",
                     "blob",
                     "blob",
-                    { channel: "limits", bytes: nearLimit },
+                    { channel: "limits", bytes: SQL_BLOB_LIMIT_BYTES },
                     decodeBlobResult
                 )
             )
-        ).toEqual({ revision: 1, byteLength: nearLimit });
+        ).toEqual({ revision: 1, byteLength: SQL_BLOB_LIMIT_BYTES });
 
         const oversized = await call(
             "runtime",
