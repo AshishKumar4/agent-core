@@ -2358,7 +2358,7 @@
       "id": "C13-PACKAGE-DEPENDENCY-DECLARED",
       "owner": "W4",
       "specAnchor": "C13-PACKAGE-DEPENDENCY-DECLARED",
-      "specTextSha256": "sha256:9e2876d6871de1f5a33e0fa3c518e61164df5f794c1f4be75e0a53e28a700c34",
+      "specTextSha256": "sha256:c6326e2ee08a9cb3c1575d04fc5631ec1639b3ba2d0ef8be539f198e12072d57",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
