@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
 import { relative, resolve } from "node:path";
-import ts from "typescript-api";
+import * as ts from "typescript/unstable/ast";
+import { sourceFiles } from "./compiler.mjs";
 import {
     artifactRoot,
     assertExactKeys,
@@ -63,16 +63,8 @@ const known = new Set([
     ...traceability.nonClaims.map((item) => item.id)
 ]);
 
-for (const path of files) {
-    const source = await readFile(path, "utf8");
+for (const [path, parsed] of sourceFiles(files)) {
     const file = portable(relative(options.root, path));
-    const parsed = ts.createSourceFile(
-        path,
-        source,
-        ts.ScriptTarget.Latest,
-        true,
-        scriptKind(path)
-    );
     for (const title of testTitles(parsed)) {
         for (const [, label] of title.matchAll(atomLabel)) {
             if (!known.has(label)) {
@@ -504,7 +496,7 @@ function testTitles(parsed) {
     visit(parsed, (node) => {
         if (!ts.isCallExpression(node) || !isTestCallee(node.expression)) return;
         const title = node.arguments[0];
-        if (title !== undefined && ts.isStringLiteralLike(title)) titles.push(title.text);
+        if (title !== undefined && ts.isStringLiteralLikeNode(title)) titles.push(title.text);
     });
     return titles;
 }
@@ -538,10 +530,6 @@ function issue(rule, file, symbol, message) {
 
 function isTypeScript(path) {
     return /\.(?:[cm]?ts|tsx)$/.test(path) && !/\.d\.[cm]?ts$/.test(path);
-}
-
-function scriptKind(path) {
-    return path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
 }
 
 async function loadBaseline(path) {
