@@ -358,6 +358,42 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-RUN-CUT-BALANCE",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-CUT-BALANCE",
+      "specTextSha256": "sha256:9617767de51c9e05f934a4ca9d7aeef5a71180be65a864cff9f5e2410fac3673",
+      "status": "planned",
+      "prerequisites": ["C13-RUN-EFFECTIVE-TRANSCRIPT"],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "This atom names a live defect, not only a rule for a feature the platform lacks. Two of the three cuts it governs exist today and neither is checked. src/agents/runs/runtime.ts#RunRuntime gates an undo inside appendInTransaction on exactly two conditions, that isAncestor holds between the selected commit and the branch head and that no running held Turn sits on the branch, and it gates a new branch inside createBranchInTransaction on exactly the head commit existing in the Run and the branch name being unused. Observed on 2026-08-17 against the memory harness in test/agents/runs/fixture.ts: with a branch holding root, then a turn-authored message commit standing for the request of invocation-1, then the system-authored invocation commit carrying its Receipt, createBranch at the message commit and undoRun selecting the message commit are both accepted, each leaving an effective state whose replay asks for an Invocation nothing in it answers",
+        "The runtime structurally cannot decide this today, which is why the rule adds a record rather than only a check. A request lives in RunCommit.content, which is a ContentRef digest, and RunRuntime is constructed with a repository and the source, evidence, settlement, spawn, and merge ports and no ContentStore, so it has no way to read what a commit asked for. The requests field on RunCommitInit is what makes the closure property decidable from the graph alone; it is owed together with the checks, and until it exists no conforming check can be written",
+        "The conformance test is owed per cut and in both directions, because a runtime that rejected every cut would satisfy a rejection-only test. An undo selecting a commit that strands its invocation commit is rejected and an undo selecting a commit whose pairs are all closed is accepted; a branch created at a commit that strands one is rejected and one created at a balanced commit is accepted; a rewrite whose shadow set removes a request but keeps the invocation commit answering it is rejected and one that removes both is accepted",
+        "The adversarial case is a cut judged by counting rather than by identity, which is the shape the tool-pairing counter this rule generalizes actually has. A cut that removes one request and one unrelated invocation commit leaves any counter balanced while orphaning both surviving halves, so the test must cut asymmetric pairs and assert on which Invocation is unanswered rather than on how many are",
+        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
+      ]
+    },
+    {
+      "id": "C13-RUN-EFFECTIVE-TRANSCRIPT",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-EFFECTIVE-TRANSCRIPT",
+      "specTextSha256": "sha256:3e420a21a12e69b0cb13398f4cd3093527b184ff91171dc5a9be468467e7e9e0",
+      "status": "planned",
+      "prerequisites": ["C13-RUN-UNDO-REDO"],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "Neither the derivation nor the record exists. src/agents/runs/commit.ts#RUN_COMMIT_KINDS closes the kind set at ten kinds with no rewrite among them and RunCommitInit carries no shadows field, so a rewrite commit cannot be constructed. src/agents/runs/runtime.ts#RunRuntime derives effective state as one commit identity, returning selects for an undo commit and the commit's own id otherwise, which answers which commit is current and nothing about what a model reads. Both halves are owed: the rewrite kind with its shadow set, and a derivation that walks the effective state's ancestry and omits what a reachable rewrite names",
+        "The conformance test is owed in three shapes. A transcript over a branch carrying no rewrite equals the full ancestry replay, so the derivation is a generalization rather than a second history. One rewrite removes exactly the commits its shadows field names and reads its own content where they stood. A second rewrite whose shadow set covers commits the first left non-adjacent still removes exactly the named identities, which is the case a positional span cannot express and the whole reason the field is a set of identities",
+        "The append-only obligations are owed as their own assertions, because a host could satisfy every transcript assertion by deleting. After a rewrite lands, each shadowed commit still loads by id, still reports its original parents and content reference, still answers ancestry and reachability queries as it did before, and the content it names still resolves through the ContentStore under C13-CONTENT-CUSTODY. A test that checked only the transcript would pass against a store that pruned the shadowed rows",
+        "The rejection cases are owed and each must fail rather than be silently ignored: a rewrite naming a commit that is not an ancestor of it, a rewrite naming the same commit twice, and a rewrite naming a commit that a reachable earlier rewrite already shadows, which would price a removal a reader cannot observe",
+        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
+      ]
+    },
+    {
       "id": "C13-RUN-EQUAL-PIN-MERGE",
       "owner": "W5",
       "specAnchor": "C13-RUN-EQUAL-PIN-MERGE",
@@ -653,6 +689,25 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-REWRITE-BRACKET",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-REWRITE-BRACKET",
+      "specTextSha256": "sha256:6b9161571dbf9db5b3c5621b7e74d772af0b3eb210bb7b4338dd52c5b6076e56",
+      "status": "planned",
+      "prerequisites": ["C13-RUN-EFFECTIVE-TRANSCRIPT", "C13-RUN-ADMISSION-REGISTRY"],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The bracket has no runtime, though half of it needs no new record. src/agents/runs/admission.ts already carries the systemCommit RunObligation over a planned RunCommitId, so the reservation the rule uses as the bracket exists; what is missing is that nothing reserves a rewrite, nothing enforces at most one reserved and uncompleted rewrite obligation per branch, and src/agents/runs/commit.ts#validateCommitWriter requires control evidence to be a successful administer Receipt, so the abandoned form cannot be appended at all",
+        "The conformance test for the reservation half is owed in three shapes: an installed rewrite completes exactly the obligation it reserved and no other; a second attempt on the same branch while the first obligation is uncompleted is rejected; and an attempt on a different branch of the same Run is admitted, so the exclusion is proven to be per branch rather than per Run",
+        "The abandoned form is owed its own test: a bracket that opens and then fails appends the exact reserved commit naming that attempt's failed administer Receipt, shadows nothing, leaves the effective transcript identical to the one before the attempt, and completes the obligation. The last clause carries the most weight, because a rewrite that neither installs nor completes leaves a captured system commit that never exists and the Run permanently unsettleable under C13-RUN-SETTLED-DERIVED",
+        "The adversarial case is a host that simply drops the record of a failed attempt. It passes every transcript assertion, because an abandoned rewrite changes no transcript by definition, so the test must assert on the log rather than on the transcript: exactly one commit exists for the reserved identity, it names the attempt's failed administer Receipt, and the closed failure kind on that Receipt under C13-RECEIPT-FAILURE-KIND says why the attempt ended",
+        "C13-WRITER-MATRIX carries a consequence of this rule that is owed alongside it. Its system(control) row now admits rewrite and excepts an abandoned rewrite from the successful-Receipt requirement, and src/agents/runs/commit.ts#validateCommitWriter implements neither the kind nor the exception. That atom's own claim, that the runtime rejects every writer and kind pair the matrix does not name, still holds because the rewrite kind does not exist in code; what is owed here is the permission and its one exception",
+        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
+      ]
     },
     {
       "id": "C13-RUN-SETTLED-DERIVED",
@@ -1020,10 +1075,31 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-TURN-TRANSCRIPT-RECONSTRUCTION",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-TRANSCRIPT-RECONSTRUCTION",
+      "specTextSha256": "sha256:1b07b735eda91d9ad7ed3df548079d30a1947b7bd3ad361ff6ae8757d1175440",
+      "status": "planned",
+      "prerequisites": [
+        "C13-TURN-MODEL-INPUT-RECONSTRUCTABLE",
+        "C13-RUN-EFFECTIVE-TRANSCRIPT"
+      ],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "Neither side of this composition exists yet: the reconstruction is owed by C13-TURN-MODEL-INPUT-RECONSTRUCTABLE and the rewrite by C13-RUN-EFFECTIVE-TRANSCRIPT, both explicit prerequisites. What is owed here beyond them is the binding that makes stability structural rather than incidental, namely that the durable record of a model call names the exact commit its transcript was derived from, so the derivation's inputs are fixed by ancestry rather than by when a reconstruction happens to run",
+        "The conformance test is a byte-compare across a rewrite: reconstruct a call, append a rewrite that shadows commits that call read, reconstruct the same call again, and compare against the request as originally sent. A host that derives the transcript at the branch's current head rather than at the call's base commit fails exactly here and passes every test that does not rewrite history between the call and the reconstruction",
+        "That shadowing supersedes without releasing is owed its own assertion, because it is what keeps this atom disjoint from C13-TURN-MODEL-INPUT-RETENTION-LOSS. After a rewrite, the ContentRef of every shadowed commit still resolves and the earlier call reconstructs whole rather than failing typed. A reconstruction that reported missing content after a mere reduction would be reporting a retention loss that did not happen, and Tenant retention policy would stop being the only thing that ends custody",
+        "The forward direction is owed too: with a rewrite in force, the next call's request omits the shadowed content and carries the rewrite's content, so the byte-compare C13-TURN-MODEL-INPUT-RECONSTRUCTABLE requires is over the reduced request. Without this case a host could satisfy stability by ignoring rewrites entirely, which would make every reduction invisible to the model it was meant to fit",
+        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
+      ]
+    },
+    {
       "id": "C13-WRITER-MATRIX",
       "owner": "W5",
       "specAnchor": "C13-WRITER-MATRIX",
-      "specTextSha256": "sha256:7f057a366efffe0aef5915d5cd6c44be1091c0bf110b7e86962afea69c0a8080",
+      "specTextSha256": "sha256:c8af21c0e6ea74c6429214650aa655abf664880e466ee50ff0938e826d09b645",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [

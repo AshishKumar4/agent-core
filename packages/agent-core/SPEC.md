@@ -1280,6 +1280,59 @@ exactly the two parents above; and no other parent arity is valid. Appending ato
 advances only the target branch head. Commit records and parent order never change.
 This maps to **C13-RUN-GRAPH-ARITY**.
 
+A branch's effective state answers which commit is current; it does not answer what a model
+reads. The **effective transcript** is the second derivation over the same append-only
+graph: the model-visible content of the effective state's ancestry in commit order, with
+every commit a **rewrite** commit shadows omitted and that rewrite's own content read where
+they stood. A rewrite appends a RunCommit whose parent is the current head and whose
+`shadows` field names the exact commit identities it removes; each MUST be a distinct
+ancestor present in the effective transcript at the rewrite's parent, so a rewrite cannot
+claim to remove something a reader cannot see it removing. Nothing is mutated and nothing is
+deleted. A shadowed commit keeps its identity, its content, its parents, and its
+reachability; ancestry queries answer exactly as they did before; and because a RunCommit is
+append-only and undeletable it still retains the content it names (§8.2). Shadowing reduces
+what the next model call sends and never releases what an earlier one read. `shadows` names
+identities rather than a positional span because a rewrite is appended at the head while the
+commits it shadows lie deep in the ancestry: once one rewrite exists, the commits a second
+rewrite covers are not an interval in any order the graph has, and a span would stop naming
+them at exactly the moment a span is wanted. This maps to
+**C13-RUN-EFFECTIVE-TRANSCRIPT**.
+
+A rewrite is not one instant. Choosing what to shadow, producing the replacement — a
+summarized replacement is itself a model call, so by C13-TURN-MODEL-CALL that work runs
+inside a Turn — and installing the result span an interval, and the branch MUST NOT move
+under an attempt in progress. The bracket around that interval is built from records this
+document already has. Before the attempt begins, the Run-owning Actor reserves the planned
+rewrite's `RunCommitId` as a `systemCommit` RunObligation, and a branch holds at most one
+reserved and uncompleted rewrite obligation, so a second attempt on that branch is rejected
+rather than raced. The bracket closes by appending exactly that reserved commit, in one of
+two forms. An installed rewrite names a successful `administer` control Receipt and the
+commits it shadows. An abandoned rewrite names that attempt's failed `administer` Receipt,
+shadows nothing, and changes no transcript; it is the one commit this document admits on
+failed control evidence, and the closed failure kind on that Receipt (§7.4) already says why
+the attempt ended. Both forms complete the obligation, so an attempt that produced nothing
+neither blocks settlement nor disappears. Keeping the failure is the point: under context
+pressure, a reduction that silently did not happen is indistinguishable from one nobody
+tried, and those two states differ by whether the next call fits. When to attempt a rewrite,
+how much to shadow, whether the replacement is summarized by a model or assembled without
+one, and how remaining context is measured are host discretion — this document specifies a
+platform, not a compaction engine. This maps to **C13-RUN-REWRITE-BRACKET**.
+
+Every operation that makes an effective transcript something other than a full ancestry
+replay is a **cut**: an undo's selection, a branch created at a commit that is not its
+parent branch's head, and a rewrite's shadow set. A cut MUST leave a well-formed transcript,
+and well-formedness is one closure property over Invocations — every `invocation` commit the
+transcript retains answers a request the transcript still contains, and every request it
+retains keeps its `invocation` commit. A cut that keeps a request whose result it dropped
+leaves the next model call ending on an Invocation nothing answers; a cut that keeps a
+result whose request it dropped leaves one answering an Invocation the model never made.
+Providers reject both, so a cut that would produce either is rejected before it lands rather
+than repaired afterwards. Deciding this requires the pairing to live in the graph and not
+inside opaque content, so a `message` commit whose content requests Invocations names them
+in `requests` while the `invocation` commit already names the same identity: a cut is then
+judged on which Invocation is unanswered rather than on how many are. This maps to
+**C13-RUN-CUT-BALANCE**.
+
 A Run MAY declare **acceptance criteria** when it opens, so that finishing is something it
 proves rather than something it asserts. Each criterion names an Operation that decides
 whether the work is done, and the Run-owning Actor reserves its `AcceptanceId` as an
@@ -1411,13 +1464,15 @@ interface RunCommit {
   readonly id: RunCommitId;
   readonly branch: RunBranchId;
   readonly kind: "root" | "message" | "checkpoint" | "invocation" | "eventDelivery"
-               | "result" | "merge" | "verdict" | "undo" | "migration";
+               | "result" | "merge" | "verdict" | "undo" | "migration" | "rewrite";
   readonly parents: readonly RunCommitId[];
   readonly pins: RunPins;
   readonly writer: CommitWriter;
   readonly subjectTurn?: TurnId;
   readonly content?: ContentRef;
   readonly selects?: RunCommitId;                 // undo/redo only
+  readonly shadows?: readonly RunCommitId[];      // rewrite only (§5.2) — none when abandoned
+  readonly requests?: readonly InvocationId[];    // message only — Invocations its content requests
   readonly treeCheckpoint?: ContentRef;           // §5.4 — associated tree snapshot, if any
   readonly resolution?: MergeResolution;          // merge only (§5.2.1)
   readonly treeResolution?: TreeMergeResolution;  // merge only (§5.2.1)
@@ -1469,12 +1524,13 @@ commit-kind matrix is closed:
 | `turn(token)` | `message`, `checkpoint`, `result`, `verdict` | exact current LeaseToken; `subjectTurn = token.turn` |
 | `system(receipt)` | `invocation` | exact Receipt for any outcome and matching Receipt audit |
 | `system(delivery)` | `eventDelivery` | exact terminal RouteDelivery and matching delivery audit |
-| `system(control)` | `merge`, `undo`, `migration` | exact successful `administer` Receipt and matching audit |
+| `system(control)` | `merge`, `undo`, `migration`, `rewrite` | exact `administer` Receipt and matching audit, successful except an abandoned `rewrite` (§5.2) |
 
 No other pair commits; a host MUST reject any CommitWriter and kind pair this matrix
 does not name. Root, Turn-authored content, Receipt evidence, and delivery
-evidence do not require a successful Invocation. Only control effects do. A system
-writer MAY append Receipt or delivery evidence after the originating Turn is fenced;
+evidence do not require a successful Invocation. Only control effects do, and only an
+abandoned rewrite (§5.2) is excepted. A system writer MAY append Receipt or delivery
+evidence after the originating Turn is fenced;
 it gains no Turn authority. Every merge MUST be system-authored by its successful
 matching control Receipt. A `synthesize` merge additionally MUST record a LeaseToken
 and a successful `execute` Receipt whose PreparedInvocation binds that exact token and
@@ -1662,6 +1718,21 @@ request, or a best-effort approximation. Losing content is legitimate; losing it
 is not. A reconstruction that quietly yields a different request is worse than one that
 refuses, because the byte-compare that makes reconstructability testable would then compare
 two wrong values and pass. This maps to **C13-TURN-MODEL-INPUT-RETENTION-LOSS**.
+
+A rewrite (§5.2) changes what the next model call sends without changing what an earlier one
+reconstructs to, and the two rules compose without a further record because of where a
+rewrite lands. A reconstruction derives the effective transcript from the exact commit its
+call read, and a rewrite appended afterwards is a descendant of that commit and never an
+ancestor, so it cannot enter that derivation: the transcript is monotone in the commit it is
+derived from, and reduction is forward-only. A rewrite also releases nothing an earlier
+request named, because a shadowed RunCommit is still append-only and undeletable and still
+retains the content it names (§8.2); shadowing supersedes without releasing, so it never
+produces the missing-content failure C13-TURN-MODEL-INPUT-RETENTION-LOSS names, which stays
+what it was — Tenant retention policy ending custody, not history being rewritten. Prompt
+assembly accordingly derives from the branch's effective transcript rather than from the
+effective state commit alone, and a reconstruction reads every rewrite that is an ancestor
+of its base commit whichever Turn appended it. This maps to
+**C13-TURN-TRANSCRIPT-RECONSTRUCTION**.
 
 Mid-turn input uses `turn.deliverEvent`: a lease-fenced operation appending an Event
 to the running Turn's inbox; hosts MAY implement delivery as "the durable log is the
@@ -3419,6 +3490,9 @@ A conforming implementation provides:
 - **C13-RUN-BINARY-TREE-MERGE** Tree merge is binary.
 - **C13-RUN-UNDO-REDO** Undo and redo are append-only selection.
 - **C13-RUN-UNDO-FENCE** Undo fences a held Turn before appending, regardless of lease expiry.
+- **C13-RUN-EFFECTIVE-TRANSCRIPT** A branch's effective transcript is derived from committed records — the effective state's ancestry with every commit a rewrite commit's `shadows` field names omitted and that rewrite's content read where they stood — and a shadowed commit stays reachable, immutable, and retained.
+- **C13-RUN-REWRITE-BRACKET** A rewrite reserves its planned `RunCommitId` as a `systemCommit` obligation that excludes a second uncompleted rewrite on the same branch, and closes by appending that exact commit either as an installed rewrite on a successful `administer` Receipt or as an abandoned one on that attempt's failed Receipt which shadows nothing.
+- **C13-RUN-CUT-BALANCE** Every cut — an undo's selection, a branch created below a head, a rewrite's shadow set — leaves a transcript in which each retained request keeps its `invocation` commit and each retained `invocation` commit keeps the request it answers, and a `message` commit names the Invocations its content requests.
 - **C13-RUN-ANCESTRY** Run storage supports ancestry queries.
 - **C13-WRITER-MATRIX** Run commits enforce the exact root/Turn/system CommitWriter matrix.
 - **C13-WRITER-POST-FENCE-EVIDENCE** Receipt and delivery evidence may complete after fencing only as specified.
@@ -3461,6 +3535,7 @@ A conforming implementation provides:
 - **C13-TURN-MODEL-INPUT-RECONSTRUCTABLE** The executor seam exposes a reconstruction that yields a model call's exact request — assembled prompt sections in final order, the operation catalog as offered, and every inbox Event admitted before the call — from records the Turn has already committed, inline or by `ContentRef`, and the call issues that reconstruction's output rather than a separately assembled value.
 - **C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH** The records a model call's reconstruction depends on are durable before the call is dispatched, and a rejected, unavailable, or indeterminate commit prevents dispatch rather than proceeding with an unrecorded request.
 - **C13-TURN-MODEL-INPUT-RETENTION-LOSS** A reconstruction whose named Event or `ContentRef` is no longer retained fails with a typed error naming what is missing rather than assembling a shorter prefix, a partial request, or a best-effort approximation.
+- **C13-TURN-TRANSCRIPT-RECONSTRUCTION** A model call's reconstruction derives its transcript from the exact commit that call read, so a rewrite appended later is a descendant that cannot enter it, and shadowing supersedes without releasing content an earlier request named.
 - **C13-TURN-LIFECYCLE** Turns implement the complete lifecycle table.
 - **C13-TURN-NO-RETRY** The closed Turn lifecycle contains no retry transition.
 - **C13-TURN-NO-RETRY-RUNTIME** Runtime integration contains no Turn retry operation.
