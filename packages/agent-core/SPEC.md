@@ -236,6 +236,24 @@ direct and team Memberships under the precedence rule of §3.3.
   Binding alongside its backing Grants and path epochs; a Workspace retains only
   Binding ids or disposable lookup indexes.
 
+The chain has one direction, and it carries declarations rather than records. Authority
+and declared policy resolve downward along it: a live allow-Grant reaches every Scope
+below the one holding it unless a deny on the ordered Tenant-to-target path removes it
+(§3.3, §3.4), and quotas, retention, and the rest of a `PolicySet` (§9.2) resolve the
+same way, which is what makes grouping Workspaces under a Project worth doing. Nothing
+else traverses the chain. A record belongs to exactly the Scope that holds it: a Package
+the Tenant installed becomes a Workspace's composition only through that Workspace's own
+Facet install, so an ancestor's install MUST NOT compose into a descendant, and the
+installed Facets a §4.2 slot policy admits as contributors are the queried Scope's own.
+Events do not ascend either. An Event MUST be matched only by Subscriptions its accepting
+Actor holds (§6.1, §6.2), so an `EventPattern` naming no Scope is confined rather than
+ambient, and a Tenant that would react to a Workspace's Events declares a Subscription
+whose delivery authority is checked (§6.2) rather than reading them by containment.
+Containment is therefore a resolution path for what is declared and never an inheritance
+of what is recorded, which is what keeps one Scope's composition and one Scope's history
+from reaching another's without an authorized route. This maps to
+**C13-AUTH-SCOPE-DIRECTION**.
+
 *Why a fixed chain rather than arbitrary nesting:* two container levels are what most
 mature resource hierarchies converged on (cloud providers, code forges), they cover
 the sharing shapes that actually come up, and they keep policy resolution bounded at
@@ -547,8 +565,12 @@ interface OperationDescriptor<I = unknown, O = unknown> {
   readonly input: JsonSchema;
   readonly output: JsonSchema;
   readonly help?: string;
-  readonly interceptable?: boolean;            // opt-in for cross-facet interception (§4.4)
+  readonly interceptable?: true;               // consent for cross-facet interception (§4.4)
+  readonly availability?: OperationAvailability; // §4.7 — absent is "native"
 }
+
+// Which callers an Operation is offered to (§4.7); absent is "native" alone.
+type OperationAvailability = "native" | "code" | "both";
 
 abstract class Operation<I, O> {
   abstract readonly descriptor: OperationDescriptor<I, O>;
@@ -572,6 +594,21 @@ manifest declares and refuses contributions the manifest does not declare. This 
 uses the deterministic admissible-set rule in §9.2. A manifest listing `bundled` does not
 thereby obtain it — the trust set independently excludes `bundled` for untrusted Packages
 (§9.2) — and a manifest may exclude modes it will not accept.
+
+A manifest declares what a Facet has and never what it lacks. Where a declared field is
+the condition of a capability rather than a datum — `interceptable`, the target's consent
+§4.4 requires before another Facet's interceptor may reach an Operation — it MUST be
+present exactly when the capability is offered and absent otherwise, and a present
+negative form MUST be refused at install rather than read as absence. A withheld
+capability encoded as a value is a capability a reader can find, a policy can key on, and
+a later edit can flip, and it gives one meaning two `manifestDigest` values where §5.2
+pins a release by that digest; an absent key is none of those things. Nor does absence
+read as a negative value the host then re-derives: it reads as the capability not being
+offered, so the host implements no second path and holds no state in which the two
+disagree. This document uses the same shape wherever a field carries a condition rather
+than a datum — `terminal` on a retired Surface's last View (§6.3), `failure` on a failed
+Receipt (§7.4) — and a capability this document declares by presence MUST NOT acquire a
+negative encoding. This maps to **C13-FACET-CAPABILITY-ABSENCE**.
 
 Facet lifecycle hooks are idempotent from the caller's perspective. Protected
 invocation requires an active, undisposed Facet whose Grant, Binding, lease, and
@@ -1044,6 +1081,25 @@ passed Bindings — so the choice between backings is operational, never an auth
 decision; each backing demonstrates this independently, the same way any `dynamic`-mode
 implementation does (§1.5's no-ambient-egress requirement), never by comparison
 against another backing. This maps to **C13-PLACEMENT-AUTHORED-BACKING**.
+
+Which Operations agent-authored code may reach is declared, not discovered. An
+`operations` contribution states each Operation's `availability` — `native` to the model
+as a tool call, `code` to agent-authored code, or `both` — and an absent declaration is
+`native`, so an author who never considered code mode offers it nothing. Availability is
+a property of the composition rather than of a submission: a Turn's captured FacetSet
+(§5.3) fixes it for that Turn, and the materialized record carries its contributor's
+attribution like every other contribution (§4.2), so it enters a withdrawal set with the
+Facet that declared it (§4.1). The Bindings passed into an isolate MUST name only `code`-
+or `both`-available Operations, bounded further by the §3.4 delegation rules, and an
+Operation declared `native` MUST NOT be passable — so the catalog offered to the model
+and the set the isolate can reach are one declared set rather than two a host keeps in
+agreement, and the offered catalog §5.6 requires to be reconstructable is the same fact
+the isolate enforces. A declaration the platform cannot serve — a `code` or `both`
+Operation where `policies.placement` maps the programmatic-tool-calling consumer to no
+backing and the profile declares no default (§9.2) — MUST reject the Blueprint at
+validation before any package code loads, never at the first submission that needs it,
+because an Operation the model was offered and the isolate cannot reach is a catalog that
+was already wrong when it was assembled. This maps to **C13-FACET-CODE-AVAILABILITY**.
 
 ---
 
@@ -3407,6 +3463,7 @@ own authoritative `P11-*` label. Label order has no semantic meaning.
 
 A conforming implementation provides:
 
+- **C13-AUTH-SCOPE-DIRECTION** Authority and declared policy resolve downward along the Scope chain, while a composition record belongs to exactly the Scope holding it and an Event is matched only by its accepting Actor's Subscriptions.
 - **C13-AUTH-PLANE** One durable allow/deny Grant plane.
 - **C13-AUTH-ROLE-MATERIALIZATION** Idempotent Role-rule materialization.
 - **C13-AUTH-DENY-PATH** The `AuthorityService.deny` path.
@@ -3456,6 +3513,8 @@ A conforming implementation provides:
 - **C13-FACET-WITHDRAWAL-DRAIN** A withdrawal does not complete while an admitted Invocation item naming the withdrawing Facet lacks a terminal current Receipt.
 - **C13-FACET-START-ATOMIC** A Facet whose `start` does not complete contributes nothing, and the host retires the partial activation through the same attributed withdrawal set.
 - **C13-FACET-DEPENDENCY-ORDER** A Facet starts only once every `BindingRequirement` resolves, a Facet an active Facet's resolved requirement names is relied upon so its withdrawal is held as a pending obligation, and a withdrawing Facet keeps resolving its own requirements throughout its teardown.
+- **C13-FACET-CAPABILITY-ABSENCE** A capability a manifest withholds is the declaration's absence rather than a present negative value, and a present negative form is refused at install.
+- **C13-FACET-CODE-AVAILABILITY** An Operation's availability to agent-authored code is declared per contribution, is native-only when absent, bounds the Bindings an isolate receives, and rejects the Blueprint at validation when the platform maps no backing to serve it.
 - **C13-COMMAND-ARGUMENT-BINDING** The Command lifecycle performs argument binding (§4.3).
 - **C13-COMMAND-INSTALL-MAPPING** Command mapping validates at install.
 - **C13-COMMAND-SUBSCRIPTION-DEFAULTS** Derived Subscription defaults are deterministic.
