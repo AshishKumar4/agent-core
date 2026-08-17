@@ -211,19 +211,31 @@
       "owner": "W3",
       "specAnchor": "C13-FACET-CAPABILITY-ABSENCE",
       "specTextSha256": "sha256:f24587b45b32f68bb19c6814fd0acc37b5cb8babb30c7928b4676017979b4d02",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": [
         "C13-FACET-INSTALL-VERIFICATION"
       ],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "src/facets/data.ts#requireOfferedCapability",
+        "src/facets/contribution.ts#OperationDescriptor",
+        "src/composition/authority.ts#TenantOperationAuthority"
+      ],
+      "testSelectors": [
+        "test/w3/capability-declaration.test.ts#W3 capability declarations [C13-FACET-CAPABILITY-ABSENCE] withholds a capability by absence and refuses every present negative form",
+        "test/w3/capability-declaration.test.ts#W3 capability declarations [C13-FACET-CAPABILITY-ABSENCE] gives a withheld capability one manifest digest and refuses the negative form at install verification"
+      ],
+      "checkerInvariants": [
+        "ACQ-PRESENCE",
+        "ACQ-CODEC",
+        "ACQ-IMMUTABLE"
+      ],
       "remainingEvidence": [
-        "The implementation currently contradicts the rule and is the first thing that must change: src/facets/contribution.ts#OperationDescriptor declares `public readonly interceptable = false` and its codec lists interceptable among the REQUIRED fields, decoded through requireBoolean and re-emitted by toData(), so a withheld capability is today a mandatory present false both on the wire and in the manifest digest input. The presence-typed form has to replace it in the class, in the codec's required/optional split, and in toData() together, or one of the three keeps the negative encoding alive",
-        "Both readers test the flag for truth rather than for presence — src/composition/authority.ts#admitsInterception uses descriptor.interceptable and src/operations/interception.ts refuses on its negation — so both keep working after the change and neither discriminates. The clause with no implementation at all is the refusal: a manifest carrying interceptable false must be REFUSED at install rather than accepted as equivalent to absence, and that refusal needs its own case",
-        "The digest consequence is the reason the rule is stated and is unmeasured: two manifests differing only in a present false versus an absent key must be shown to produce one manifestDigest under the §5.2 PackagePin rather than two, so an inert declaration cannot change the release a RunPin names",
-        "The generality clause needs a conformance assertion rather than a case, because it forbids a negative encoding for every capability this document declares by presence: a check over the declared record shapes — terminal, failure, projectionDigest, duplicateOf, authenticationDigest — proving none has acquired a boolean or nullable form is what keeps the defect from reappearing elsewhere, and no current gate performs it",
-        "Mutation attribution needs two mutants, not one: flipping the install refusal to accept a present false must kill a cited test, and so must flipping the decoder to read absence as false and re-emit it, because the second is exactly how the negative form returns after the first is fixed"
+        "Discharged: the negative encoding is gone from the class, the codec's required/optional split and toData() together. OperationDescriptor.interceptable is `true | undefined` and requireOfferedCapability is the single place the presence rule is implemented, called by both the constructor and the decoder, so no construction path leaves the negative form alive and the host holds no second state in which the two disagree.",
+        "Discharged: both readers now test presence rather than truth (authority.ts#allowsInterception and the interceptor runner's refusal), and the refusal that had no implementation has one. Refused at install verification, correspondence.ts:134, where a contribution entry is actually decoded \u2014 NOT at the manifest codec, because `operations` travels through FacetManifest as opaque slot data. The test asserts the manifest codec's acceptance too, so no later reader mistakes it for the gate.",
+        "Discharged: the digest consequence is measured. Two independently built withheld manifests pin one manifestDigest, and the offered manifest pins a different one \u2014 the second half is the anti-adjacency guard, because deleting the field from the digest input would satisfy the first alone while answering a different question.",
+        "Discharged: mutation attribution exceeds the two the clause asked for. Five hand mutants run in a clean detached worktree at the commit, each killed by a cited test, each restored byte-identically: A refusal-accepts-present-false (3 failed), B absence-decoded-as-false (3), C declaration-dropped-from-digest-input (2), D decoder-ignores-the-declaration (4), E reader-ignores-declaration-presence (1, test/composition/authority-membrane.test.ts). Every failure is an assertion on the rule's own behaviour, not a cascade or a reference error.",
+        "Not discharged, and it is why this row is implemented rather than verified: ACQ-PRESENCE exists and discriminates \u2014 0 issues over 1312 codec-backed record fields in 773 files, red under all five defect forms including the un-annotated `= false` this change removed, seeded from SPEC \u00a74.1's own paragraph so it survives a full revert \u2014 but it joins the architecture debt list at 17 rather than being registered in gate-corpus.json, because gate-integrity.mjs has no `architecture` harness. So nothing but its own measurement says the checker can go red, which is the standard ACQ-EQUIV was held to.",
+        "Not discharged: the `architecture` node is red at this revision on two peers' in-flight files (ACQ-ERR in src/invocations/receipt.ts, ACQ-VOCAB across the enforcement twins), so invariants.mjs certifies none of this row's three checkerInvariants. That blocks every W3 row citing ACQ-* equally and is not specific to this atom, but a verified status may not be claimed while the certification it names has not executed."
       ]
     },
     {
