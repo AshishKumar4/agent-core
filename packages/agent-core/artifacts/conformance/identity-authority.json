@@ -93,6 +93,23 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-AUTH-BINDING-NAME-CANONICAL",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-BINDING-NAME-CANONICAL",
+      "specTextSha256": "sha256:d323a559dae174a3c575a61a09449e85468c71d53ce86da3bcd8c9023f822053",
+      "status": "planned",
+      "prerequisites": ["C13-AUTH-BINDING-RESOLUTION"],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "W3 holds the identifier vocabulary: src/facets/id.ts#BindingName now applies the §1.4 canonical segment form and test/facets/id.test.ts covers the admissible and inadmissible sets, but the evidence-ownership rule forbids a W2 row from citing a W3 path, so promotion needs a W3 evidence row or an ownership decision",
+        "Refusal at `bind` is unproven: no test asserts AuthorityService.bind rejects a noncanonical name rather than the BindingName constructor alone",
+        "Refusal at a manifest BindingRequirement (§4.1) and at Blueprint validation (§9.2) is unproven for a noncanonical name",
+        "No checker asserts the SPEC pattern and src/facets/id.ts share one source, so the two forms can drift"
+      ]
+    },
+    {
       "id": "C13-AUTH-BINDING-RESOLUTION",
       "owner": "W2",
       "specAnchor": "C13-AUTH-BINDING-RESOLUTION",
@@ -321,6 +338,23 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
+    },
+    {
+      "id": "C13-AUTH-ISOLATE-NAMESPACE-CLOSED",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-ISOLATE-NAMESPACE-CLOSED",
+      "specTextSha256": "sha256:aad6bba45210c6c34f7a67ae810503dad0087705555ad0c21e6642124c4611b2",
+      "status": "planned",
+      "prerequisites": ["C13-AUTH-BINDING-NAME-CANONICAL", "C13-AUTH-ISOLATE-DELEGATION"],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "W3 holds the isolate channel: src/operations/authored-code.ts#AuthoredCodeCapabilitySet keys the namespace by a Map and GatewayAuthoredCodeInvocationPort checks passed-set membership before resolving, with test/operations/authored-code.test.ts covering an unpassed language-supplied name, a passed one, and the fixed set, so a W2 row cannot cite them under the evidence-ownership rule",
+        "Closure is unproven for the Slate-backend and agent-authored-facet consumers: only the programmatic-tool-call channel has a covered namespace",
+        "No checker forbids a host from assembling a capability namespace as a prototype-bearing structure, so the Map keying is a convention rather than an enforced one",
+        "The no-renaming half is unproven: no test asserts a host refuses rather than normalizes a passed capability whose name is inadmissible"
+      ]
     },
     {
       "id": "C13-AUTH-MEDIATED-ADMISSION",

@@ -50,6 +50,50 @@ describe("Facet identifier vocabulary", () => {
         expect(new BindingName("x").value).toBe("x");
     });
 
+    test(
+        "[C13-AUTH-BINDING-NAME-CANONICAL] admits exactly the §1.4 canonical segment form",
+        { tags: "p0" },
+        () => {
+            for (const admissible of ["mail", "a1", "binding.route", "cross-tenant", "a.b-c.d9"]) {
+                expect(new BindingName(admissible).value).toBe(admissible);
+            }
+            const refusal = "Binding name must be one canonical segment";
+            // A leading underscore, an uppercase letter, and a colon are each a form some
+            // consumer of the name would have to normalize away, which is the fold that
+            // lets one name reach another name's Grant.
+            for (const inadmissible of [
+                "__proto__",
+                "_mail",
+                "Mail",
+                "mAil",
+                "mail_box",
+                "workspace:target",
+                "1mail",
+                ".mail",
+                "mail.",
+                "mail..box",
+                "mail box",
+                "β\0γ",
+                "γ"
+            ]) {
+                expect(() => new BindingName(inadmissible)).toThrow(refusal);
+            }
+        }
+    );
+
+    test(
+        "[C13-AUTH-BINDING-NAME-CANONICAL] refuses a noncanonical name rather than renaming it",
+        { tags: "p0" },
+        () => {
+            // The refusal is the whole outcome: no admissible neighbour is substituted, so
+            // nothing downstream can hold a Binding under a name the caller did not write.
+            expect(() => new BindingName("Mail")).toThrow(TypeError);
+            expect(new BindingName("mail").value).toBe("mail");
+            expect(() => new BindingName("mail-")).toThrow(TypeError);
+            expect(new BindingName("mail-box").value).toBe("mail-box");
+        }
+    );
+
     test("requires exactly one interior operation reference separator", { tags: "p1" }, () => {
         const separatorRefusal =
             "Operation reference must be '<facet-package-id>:<operation-name>'";

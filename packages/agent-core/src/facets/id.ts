@@ -23,6 +23,7 @@ export class BindingName extends TextId {
     public constructor(value: string) {
         super(value, "Binding name");
         requireCanonicalId(value, "Binding name");
+        requireBindingName(value);
         Object.freeze(this);
     }
 }
@@ -116,12 +117,27 @@ function requireCanonicalId(value: string, subject: string): void {
     }
 }
 
+// §1.4 fixes one canonical segment form for the identifiers that name things across a
+// protection domain boundary. A FacetRef spends it twice; a BindingName spends it once
+// (SPEC §3.4). Sharing the source keeps the two from drifting into two forms.
+const CANONICAL_SEGMENT = "[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*";
+const BINDING_NAME = new RegExp(`^${CANONICAL_SEGMENT}$`, "u");
+const FACET_REF = new RegExp(`^${CANONICAL_SEGMENT}:${CANONICAL_SEGMENT}$`, "u");
+
+// The form is decided from the name alone, so an inadmissible name is refused where it is
+// written rather than surfacing as a failed lookup at the call that used it.
+function requireBindingName(value: string): void {
+    if (!BINDING_NAME.test(value)) {
+        throw new TypeError("Binding name must be one canonical segment");
+    }
+}
+
 // The pattern already fixes the separator: exactly one colon, with a canonical segment
 // on each side of it. Restating that as separator arithmetic beforehand decides nothing
 // the pattern does not.
 function requireFacetRef(value: string): void {
     requireCanonicalId(value, "Facet reference");
-    if (!/^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*:[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$/u.test(value)) {
+    if (!FACET_REF.test(value)) {
         throw new TypeError(
             "Facet reference must be '<facet-package-id>:<instance>' with canonical segments"
         );

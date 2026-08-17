@@ -90,6 +90,10 @@ const mailBinding = new BindingName("mail");
 const secretsBinding = new BindingName("secrets");
 const loaderOnlyBinding = new BindingName("credentials");
 const impostorBinding = new BindingName("impostor");
+// An admissible BindingName (§3.4) that is also a property every object in the hosting
+// language inherits. A namespace built from a plain object would answer it without being
+// passed anything, which is the ambient reach §4.7 exists to remove.
+const languageBinding = new BindingName("constructor");
 const objectSchema = new JsonSchema({ type: "object" });
 const readName = new OperationName("read");
 
@@ -124,6 +128,44 @@ describe("the one channel out of a §4.7 isolate", () => {
                 code: "authority.denied"
             });
             expect(harness.executions).toEqual([]);
+            await harness.dispose();
+        }
+    );
+
+    test(
+        "[C13-AUTH-ISOLATE-NAMESPACE-CLOSED] denies an unpassed name the hosting language supplies rather than reaching it",
+        { tags: "p0" },
+        async () => {
+            const harness = await MembraneHarness.create();
+
+            // `constructor` is an admissible BindingName and a property every object in the
+            // hosting language inherits. Nothing passed it, so it names nothing here — the
+            // isolate reaches neither a capability nor the language's own value for it.
+            await expect(harness.invoke(languageBinding, "read")).rejects.toMatchObject({
+                code: "authority.denied"
+            });
+            expect(harness.state.resolvable(languageBinding, isolateDomain)).toBe(false);
+            expect(harness.executions).toEqual([]);
+            await harness.dispose();
+        }
+    );
+
+    test(
+        "[C13-AUTH-ISOLATE-NAMESPACE-CLOSED] carries a passed name the hosting language also uses as an ordinary one",
+        { tags: "p0" },
+        async () => {
+            const harness = await MembraneHarness.create({
+                passed: [new AuthoredCodeCapability(languageBinding, mailFacet)],
+                bound: [[languageBinding, mailFacet]]
+            });
+
+            // Closure is why no reserved-name list is needed: the language's own value for
+            // the name is unreachable, so the name is free for a Binding to take.
+            await expect(harness.invoke(languageBinding, "read")).resolves.toEqual({
+                folder: "inbox",
+                facet: mailFacet.value
+            });
+            expect(harness.executions).toEqual([`${mailFacet.value}:read`]);
             await harness.dispose();
         }
     );
@@ -504,6 +546,52 @@ describe("the sets a §4.7 isolate is built from", () => {
         expect(AuthoredCodeCapabilitySet.none.capability(mailBinding)).toBeUndefined();
     });
 
+    test(
+        "[C13-AUTH-ISOLATE-NAMESPACE-CLOSED] resolves nothing for any name the passed set does not hold",
+        { tags: "p0" },
+        () => {
+            const passed = new AuthoredCodeCapabilitySet([
+                new AuthoredCodeCapability(mailBinding, mailFacet)
+            ]);
+            // Every one of these is an admissible BindingName and a property a plain object
+            // in the hosting language answers. Lookup is total over the passed set alone, so
+            // each is absent rather than inherited.
+            for (const inherited of ["constructor", "get", "has", "keys", "size", "name"]) {
+                expect(passed.capability(new BindingName(inherited))).toBeUndefined();
+                expect(
+                    AuthoredCodeCapabilitySet.none.capability(new BindingName(inherited))
+                ).toBeUndefined();
+            }
+            expect(passed.names.map((name) => name.value)).toEqual(["mail"]);
+        }
+    );
+
+    test(
+        "[C13-AUTH-ISOLATE-NAMESPACE-CLOSED] holds a name the hosting language also uses as an ordinary entry",
+        { tags: "p0" },
+        () => {
+            const capability = new AuthoredCodeCapability(languageBinding, mailFacet);
+            const passed = new AuthoredCodeCapabilitySet([capability]);
+            expect(passed.capability(languageBinding)).toBe(capability);
+            expect(passed.names.map((name) => name.value)).toEqual(["constructor"]);
+            expect(passed.capability(mailBinding)).toBeUndefined();
+        }
+    );
+
+    test(
+        "[C13-AUTH-ISOLATE-NAMESPACE-CLOSED] fixes the passed set when the isolate is built",
+        { tags: "p0" },
+        () => {
+            const source = [new AuthoredCodeCapability(mailBinding, mailFacet)];
+            const passed = new AuthoredCodeCapabilitySet(source);
+            source.push(new AuthoredCodeCapability(secretsBinding, secretsFacet));
+            // The namespace acquires no entry after construction, so a later addition to
+            // whatever the set was built from reaches nothing the isolate can name.
+            expect(passed.capability(secretsBinding)).toBeUndefined();
+            expect(passed.names.map((name) => name.value)).toEqual(["mail"]);
+        }
+    );
+
     test("passes only capabilities minted as the canonical record", { tags: "p0" }, () => {
         expect(() => new AuthoredCodeCapabilitySet([impostorCapability])).toThrow(
             new TypeError("Passed capabilities must use the canonical contract")
@@ -567,6 +655,8 @@ interface MembraneOptions {
      * channel is the only thing left that could refuse it.
      */
     readonly output?: FacetData;
+    /** Extra Bindings in the isolate's own domain, beyond the four the state always holds. */
+    readonly bound?: readonly (readonly [BindingName, FacetRef])[];
 }
 
 /**
@@ -577,7 +667,7 @@ interface MembraneOptions {
 class MembraneHarness {
     public readonly executions: string[] = [];
     public readonly requestKeys: string[] = [];
-    public readonly state = new IsolateAuthorityState();
+    public readonly state: IsolateAuthorityState;
     public readonly gateway: OperationGateway;
     public readonly port: GatewayAuthoredCodeInvocationPort;
 
@@ -585,6 +675,7 @@ class MembraneHarness {
     readonly #cancellation = new AbortController();
 
     private constructor(options: MembraneOptions) {
+        this.state = new IsolateAuthorityState(options.bound ?? []);
         // The Package `vault` answers for a Facet whose reference claims `mail`, so a
         // resolution's Facet and its Package are independently substitutable here.
         // An Operation may legitimately declare an output schema that admits arrays; what
@@ -666,11 +757,12 @@ class IsolateAuthorityState implements OperationAuthorityStatePort<PrincipalRef>
         ScopeEpoch.initial(workspaceScope)
     ]);
 
-    public constructor() {
+    public constructor(bound: readonly (readonly [BindingName, FacetRef])[] = []) {
         this.bind(mailBinding, isolateDomain, mailFacet);
         this.bind(secretsBinding, isolateDomain, secretsFacet);
         this.bind(impostorBinding, isolateDomain, impostorFacet);
         this.bind(loaderOnlyBinding, loaderDomain, secretsFacet);
+        for (const [name, facet] of bound) this.bind(name, isolateDomain, facet);
     }
 
     public resolvable(name: BindingName, domain: ProtectionDomain): boolean {

@@ -705,21 +705,26 @@ describe("production authority state seams (memory)", () => {
     );
 
     test(
-        "keeps same-Tenant Principal and Binding tuples distinct across Unicode and NUL boundaries",
+        "keeps same-Tenant Principal tuples distinct across Unicode and NUL boundaries a Binding name can no longer straddle",
         { tags: "p0" },
         async () => {
             const localTenant = new TenantId("tenant:雪");
             const firstPrincipal = new PrincipalRef(localTenant, new PrincipalId("α"));
             const secondPrincipal = new PrincipalRef(localTenant, new PrincipalId("α\0β"));
-            const firstBinding = new BindingName("β\0γ");
-            const secondBinding = new BindingName("γ");
+            // The pair that once made the naive join ambiguous carried the delimiter in the
+            // Binding half. §3.4's canonical form refuses both names outright, so that
+            // straddle is unconstructible rather than merely keyed around.
+            expect(() => new BindingName("β\0γ")).toThrow(TypeError);
+            expect(() => new BindingName("γ")).toThrow(TypeError);
+            const firstBinding = new BindingName("mail");
+            const secondBinding = new BindingName("vault");
             const harness = new IdentityCacheHarness(localTenant);
             harness.register(firstPrincipal, firstBinding);
             harness.register(secondPrincipal, secondBinding);
 
             expect(
                 `${localTenant.value}\0${firstPrincipal.principalId.value}\0${firstBinding.value}`
-            ).toBe(
+            ).not.toBe(
                 `${localTenant.value}\0${secondPrincipal.principalId.value}\0${secondBinding.value}`
             );
 

@@ -736,7 +736,7 @@ describe("W6 operation mediation integration", () => {
             };
             const request = {
                 facet: new FacetRef("workspace:target"),
-                binding: new BindingName("workspace:target"),
+                binding: new BindingName("workspace-target"),
                 operation,
                 input: { value: 1 },
                 resultMode: "receipt" as const
@@ -2479,7 +2479,7 @@ function observation(id: string): ReceiptObservation {
 function profileRequest(): ProtectedOperationRequest {
     return {
         facet: new FacetRef("workspace:target"),
-        binding: new BindingName("workspace:target"),
+        binding: new BindingName("workspace-target"),
         operation: {
             descriptor,
             execute: async (_context: OperationContext, input: FacetData) => input
