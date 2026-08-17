@@ -437,10 +437,14 @@ export class RunRuntime<Transaction> {
         now: Date
     ): void {
         if (
-            (commit.kind !== "message" && commit.kind !== "verdict") ||
+            (commit.kind !== "message" &&
+                commit.kind !== "verdict" &&
+                commit.kind !== "modelInput") ||
             commit.writer.kind !== "turn"
         ) {
-            throw invalidRun("Non-transition Turn append requires a message or verdict commit");
+            throw invalidRun(
+                "Non-transition Turn append requires a message, verdict, or model input commit"
+            );
         }
         this.appendInTransaction(tx, commit, expectedBranchRevision, now);
     }

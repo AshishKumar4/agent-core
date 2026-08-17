@@ -26,9 +26,14 @@ import {
     TurnInboxEntry,
     TurnInboxEntryId,
     TurnInvocationPort,
+    TurnPromptSection,
+    TurnPromptSectionName,
+    TurnShownContent,
     type TurnContext,
     type TurnExecutorHostInit,
     type TurnModelCall,
+    type TurnModelDraft,
+    type TurnModelRequest,
     type TurnModelUsage,
     type TurnOutcome,
     type TurnStreamPublication
@@ -59,14 +64,14 @@ class HostedExecutor extends TurnExecutor {
             kind: "content",
             bytes: new TextEncoder().encode("ephemeral")
         });
-        const response = await turn.model.call({ prompt: turn.prompt });
+        const response = await turn.model.call(promptDraft(turn.prompt, turn.operations));
         return turn.outcome.succeed(
             new RunCommit({
                 id: new RunCommitId("executor-result"),
                 run: turn.turn.run,
                 branch: turn.turn.branch,
                 kind: "result",
-                parents: [turn.turn.startHead],
+                parents: [response.input],
                 pins: turn.turn.pins,
                 writer: { kind: "turn", token: turn.token },
                 subjectTurn: turn.turn.id,
@@ -225,7 +230,7 @@ describe("TurnExecutor seam", () => {
                 .ref;
             const read = boundTool("read", "memory.read", "observe", "Read memory.");
             const write = boundTool("write", "memory.write", "mutate", "Write memory.");
-            const modelCalls: ReturnType<typeof content>[] = [];
+            const modelCalls: string[] = [];
             const invocationCalls: TurnBoundOperation[] = [];
             const stream: Uint8Array[] = [];
             const host = new TurnExecutorHost({
@@ -246,8 +251,8 @@ describe("TurnExecutor seam", () => {
                 }),
                 model: {
                     call: async (request) => {
-                        modelCalls.push(request.prompt);
-                        expect(request.operations).toEqual([write, read]);
+                        modelCalls.push(sectionText(request));
+                        expect(request.catalog).toEqual([write, read]);
                         return {
                             output,
                             usage: { inputTokens: 2, outputTokens: 3 }
@@ -269,7 +274,7 @@ describe("TurnExecutor seam", () => {
                 result: output,
                 commit: new RunCommitId("executor-result")
             });
-            expect(modelCalls).toEqual([prompt]);
+            expect(modelCalls).toEqual(["prompt"]);
             expect(invocationCalls).toEqual([write]);
             expect(stream.map((bytes) => new TextDecoder().decode(bytes))).toEqual(["ephemeral"]);
             const persisted = seeded.repository.transaction((transaction) => ({
@@ -787,7 +792,7 @@ describe("TurnExecutor seam", () => {
                 const calls = [
                     () => context.content.get(boundaries.prompt),
                     async () => {
-                        const call = context.model.call({ prompt: boundaries.prompt });
+                        const call = context.model.call(promptDraft(boundaries.prompt));
                         modelSignal = boundaries.lastModelSignal;
                         return call;
                     },
@@ -1586,12 +1591,11 @@ describe("TurnExecutor seam", () => {
                     usage: { inputTokens: -1, outputTokens: 0 }
                 })
             ).rejects.toBeInstanceOf(TypeError);
-            await expect(context.model.call({ prompt: boundaries.prompt })).resolves.toEqual({
-                output: boundaries.output,
-                usage: { inputTokens: 1, outputTokens: 1 }
-            });
+            const exchange = await context.model.call(promptDraft(boundaries.prompt));
+            expect(exchange.output).toEqual(boundaries.output);
+            expect(exchange.usage).toEqual({ inputTokens: 1, outputTokens: 1 });
             return context.outcome.succeed(
-                resultCommit(context, "stream-result", boundaries.output, ids.root)
+                resultCommit(context, "stream-result", boundaries.output, exchange.input)
             );
         });
 
@@ -1625,15 +1629,17 @@ describe("TurnExecutor seam", () => {
         const seeded = seedRunningTurn();
         const boundaries = await TestBoundaries.create();
         const executor = new FunctionExecutor(async (context) => {
-            await expect(context.model.call({ prompt: boundaries.prompt })).rejects.toBeInstanceOf(
-                TypeError
-            );
+            await expect(
+                context.model.call(promptDraft(boundaries.prompt))
+            ).rejects.toBeInstanceOf(TypeError);
             return context.outcome.succeed(
                 resultCommit(
                     context,
                     `usage-result-${String(invalid)}`,
                     boundaries.output,
-                    ids.root
+                    seeded.repository.transaction(
+                        (tx) => seeded.repository.loadBranch(tx, ids.branch)!.head
+                    )
                 )
             );
         });
@@ -1921,12 +1927,12 @@ describe("TurnExecutor seam", () => {
             expect(tokens()).toBe(0);
 
             const executor = new FunctionExecutor(async (context) => {
-                await context.model.call({ prompt: boundaries.prompt });
+                await context.model.call(promptDraft(boundaries.prompt));
                 expect(tokens()).toBe(4);
-                await context.model.call({ prompt: boundaries.prompt });
+                const second = await context.model.call(promptDraft(boundaries.prompt));
                 expect(tokens()).toBe(8);
                 return context.outcome.succeed(
-                    resultCommit(context, "token-total", boundaries.output, ids.root)
+                    resultCommit(context, "token-total", boundaries.output, second.input)
                 );
             });
 
@@ -2288,6 +2294,31 @@ function inboxEntry(
 
 function errorCode(error: Error): string {
     return error instanceof AgentCoreError ? error.code : String(error);
+}
+
+/**
+ * The one-section draft the pre-§5.6 tests expressed as a bare prompt reference: the
+ * assembled prompt recorded by reference, with nothing withheld.
+ */
+function promptDraft(
+    prompt: ContentRef,
+    catalog: readonly TurnBoundOperation[] = []
+): TurnModelDraft {
+    return {
+        sections: [
+            new TurnPromptSection(
+                new TurnPromptSectionName("prompt"),
+                TurnShownContent.reference(prompt)
+            )
+        ],
+        catalog,
+        admitted: []
+    };
+}
+
+/** The text of every section a request carries, in the order the model observed them. */
+function sectionText(request: TurnModelRequest): string {
+    return request.sections.map((section) => new TextDecoder().decode(section.bytes)).join("");
 }
 
 /** Reads the usage a stream publication carries, naming any other event kind that arrived. */

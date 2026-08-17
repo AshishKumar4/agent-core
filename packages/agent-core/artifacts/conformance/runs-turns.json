@@ -1004,74 +1004,94 @@
       "owner": "W5",
       "specAnchor": "C13-TURN-MODEL-INPUT-RECONSTRUCTABLE",
       "specTextSha256": "sha256:9a22412b0c7ea6da15fc133c9e0124ae94345b4be2ecbc38bf83b7743a38b3f3",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": ["C13-TURN-MODEL-CALL"],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The reconstruction surface does not exist. src/agents/runs/executor.ts hosts the model call (TurnExecutorHost, TurnModelPort, TurnModelHandle, ScopedModelHandle) and commits the model's complete output, but nothing commits the model's complete input: there is no RunCommit shape carrying the assembled prompt sections in their final order, the operation catalog as offered, or the inbox admission cut the call observed, and no seam member that takes a Turn's committed records alone and yields the exact request. Both halves are owed — the records, and the reconstruction the model call issues its request from",
-        "The conformance test is a byte-compare, and it is owed in three configurations: reconstruction over committed records reproduces the exact request bytes for a prompt recorded inline; reproduces them for a prompt recorded by ContentRef, so a digest-only record still rebuilds exact bytes rather than an equivalent-looking prompt; and reproduces them after a restart that discards the executor process, which is the only configuration that distinguishes durable records from surviving executor memory",
-        "The adversarial cases are owed and each must fail: a host that records a `prompt.assemble` interceptor rewrite as the fact that an interceptor ran rather than as the result it produced; a host that records only §4.4 rule 5's before/after value digests for that rewrite, which is the likely implementation and is not sufficient, because a `Digest` proves what the value was while only a `ContentRef` resolves to it (§1.4), and §4.4 persists the transformed value itself for `operation.before` and `operation.after` in rules 7 and 8 but states no such clause for `prompt.assemble`; a host that injects model-visible content from ambient executor state with no durable trace; and a host whose reconstruction approximates a separately assembled request instead of being the value the call issues, which the byte-compare catches only if the assembled request and the reconstruction are not permitted to diverge by construction. §4.4's silence about `prompt.assemble` is deliberate and not a gap to close there: rules 7 and 8 persist a transformed operation value because PreparedInvocation identity and replay require it, so that persistence is a consequence of invocation identity rather than a general interceptor obligation. Prompt recoverability has one owner, this atom, and its gate is the byte-compare; a parallel §4.4 clause would make two paragraphs normative over one fact and let them drift",
-        "The owed model-call record carries a custody obligation, because C13-CONTENT-CUSTODY grants permanent retention only to the kinds §8.2 declares append-only and undeletable — a Receipt, an AuditRecord, a RunCommit — and Event is not among them: §6.1 declares an Event immutable, never undeletable, so a host-defined Event lifecycle releases its payload while every digest that named it survives. The record that carries a call's reconstructable request MUST therefore itself name the content of every Event it admitted, so retention is transitive through an undeletable RunCommit and covers exactly the Events a model observed, leaving unadmitted inbox Events releasable. §5.2's `eventDelivery` RunCommit already establishes this for routed ingress via its `content` field, but the commit matrix admits that kind only for `system(delivery)` with exact terminal RouteDelivery evidence, so the §5.6 `turn.deliverEvent` inbox path and the reserved `turn.cancel` Event are not covered by it and this obligation is what closes them. §4.2 forbids a withdrawal from releasing a ContentRef a RunCommit or an admitted inbox Event names, which closes the withdrawal path specifically and leaves every other Event-removal lifecycle to this obligation",
-        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
-      ]
+      "sourceSymbols": [
+        "src/agents/runs/commit.ts#RUN_COMMIT_KINDS",
+        "src/agents/runs/executor.ts#ScopedModelHandle",
+        "src/agents/runs/executor.ts#ScopedModelInputHandle",
+        "src/agents/runs/executor.ts#TurnAdmittedEvent",
+        "src/agents/runs/executor.ts#TurnModelInput",
+        "src/agents/runs/executor.ts#TurnModelInputHandle",
+        "src/agents/runs/executor.ts#TurnModelInputReplay",
+        "src/agents/runs/executor.ts#TurnModelRequest",
+        "src/agents/runs/executor.ts#TurnPromptSection",
+        "src/agents/runs/executor.ts#TurnShownContent",
+        "src/agents/runs/executor.ts#turnModelRequestBytes"
+      ],
+      "testSelectors": [
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RECONSTRUCTABLE] replays the exact request bytes from committed records inline, by reference, and across a restart",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RECONSTRUCTABLE] refuses model-visible content that no committed record carries",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RECONSTRUCTABLE] holds only the observed bytes, never a digest of them and never a bare record that an interceptor ran",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RECONSTRUCTABLE] names every admitted Event's content in the request and leaves an unadmitted Event out of it",
+        "test/agents/runs/model-input.test.ts#Turn model input [turn.model-input] provides static codec, encode, decode, and frozen records with an exact shape"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH",
       "owner": "W5",
       "specAnchor": "C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH",
       "specTextSha256": "sha256:10268d6c2ecc045627e1720ec7b1c991b7737e4a46eaab718fd9c491ceff4f7a",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [
         "C13-TURN-MODEL-INPUT-RECONSTRUCTABLE"
       ],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The ordering has no record to order yet. src/agents/runs/executor.ts#ScopedModelHandle.call already establishes the pre-dispatch guard this atom needs — it awaits `scope.requireContent(request.prompt)` before reaching `scope.init.model.call`, and it is the single site every model call passes through — but that guard proves a ContentRef exists, not that a committed record describes the request, and the only durable consequence the method writes is `runtime.recordModelTokens` after the response returns. The model-input record owed by C13-TURN-MODEL-INPUT-RECONSTRUCTABLE is this atom's prerequisite in the strict sense: the commit that must precede dispatch is that record's commit, so neither the guard nor its test can be written first",
-        "The conformance test is an ordering test, not a state test, and it is owed in four shapes, each driving a TurnModelPort test double that fails the assertion if it is called at all: a model-input commit the store rejects; a commit the Turn's lease rejects under the §5.3 fencing that C13-TURN-EXECUTOR-WRITER already requires of every executor-authored write; a commit whose outcome the substrate reports as unknown, which src/actors/actor.ts already distinguishes through isActorCommitUnknown and which MUST refuse dispatch rather than assume success; and the positive case, where the port asserts on entry that the record naming its request is already durable",
-        "The adversarial case is the one that separates this atom from its prerequisite and it must fail: a host that dispatches the call and commits the model-input record from the same async region without awaiting the commit first, and a host that commits after the response arrives. Both leave the identical durable state once the Turn completes, so every at-rest byte-compare the prerequisite's test performs passes on both. The test must therefore observe the order — a port that reads the store on entry, or a substrate that fails the commit after dispatch has already happened and asserts the response was never consumed — and MUST NOT be satisfied by inspecting the records the Turn ends with",
-        "A fail-closed refusal needs a distinguishable outcome, so what is owed alongside the guard is that a refused dispatch terminates the Turn through the §5.3 lifecycle without a model call rather than surfacing as a model-call failure. The Turn lifecycle is closed under C13-TURN-NO-RETRY, so reaching durability on a further attempt at the same commit is a retry of that commit inside the live Turn and never a resurrection of a terminal one; the test must assert that a Turn which exhausts its commit attempts fails without having called the model",
-        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
-      ]
+      "sourceSymbols": [
+        "src/agents/runs/executor.ts#LeaseScopedTurn",
+        "src/agents/runs/executor.ts#ScopedModelHandle",
+        "src/agents/runs/runtime.ts#RunRuntime.appendTurnCommitInTransaction"
+      ],
+      "testSelectors": [
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] refuses to dispatch on a store that rejects the record",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] refuses to dispatch on a store that is unavailable",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] refuses to dispatch on an outcome the substrate cannot report",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] a fenced Turn's rejected commit prevents dispatch and leaves the branch head where it was",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] the port observes its request already durable on entry, which no after-the-fact record inspection could establish",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] settles an unknown outcome by re-reading that exact commit rather than assuming either branch",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] reaches durability on a further attempt at that same commit, and fails without a model call when its attempts are exhausted"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-TURN-MODEL-INPUT-RETENTION-LOSS",
       "owner": "W5",
       "specAnchor": "C13-TURN-MODEL-INPUT-RETENTION-LOSS",
       "specTextSha256": "sha256:1934799615d0db74b66d71fa9879a81d131f89920c668cb4dbbfe538a553ba22",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": ["C13-TURN-MODEL-INPUT-RECONSTRUCTABLE"],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The typed failure does not exist because the reconstruction it is a property of does not exist; C13-TURN-MODEL-INPUT-RECONSTRUCTABLE is an explicit prerequisite and this atom cannot reach verified before it does. What is owed here beyond that atom is a named error in the §8.5 rejection taxonomy that identifies the missing Event or ContentRef, distinct from a reconstruction that succeeded, so a caller can tell an unrebuildable request from a rebuilt one without inspecting the result",
-        "The conformance test releases content a committed request names and then reconstructs. It is owed in two shapes: a released `ContentRef` a prompt section names, and a no-longer-retained Event that was admitted before the call. Each MUST produce the typed failure naming what is missing. Retention loss is legitimate under Tenant policy (export, legal deletion, Tenant closure), so the test asserts observability, never that content survives",
-        "The adversarial case is the one that makes this atom worth separating from its prerequisite: a reconstruction that drops the unretained section and returns a shorter prefix, a partial request, or a best-effort approximation satisfies `the request is rebuildable` on every input whose records are intact while silently violating this rule, and a byte-compare against a request assembled from the same degraded records would compare two wrong values and pass. The test must therefore compare against the request as originally sent, not against a re-assembly, and must fail a reconstruction that returns anything other than the typed error",
-        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
-      ]
+      "sourceSymbols": [
+        "src/agents/runs/executor.ts#TurnModelInputReplay"
+      ],
+      "testSelectors": [
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RETENTION-LOSS] fails typed on a released prompt section reference and names what is missing",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RETENTION-LOSS] fails typed on a no-longer-retained admitted Event and names what is missing",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RETENTION-LOSS] never yields a shorter prefix, a partial request, or an approximation"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-TURN-MODEL-INPUT-ABRIDGED",
       "owner": "W5",
       "specAnchor": "C13-TURN-MODEL-INPUT-ABRIDGED",
       "specTextSha256": "sha256:83c2c34d2be4cfd461b90399f1ea7cd0e28d0ed119919d36e12b222688e6f258",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": ["C13-TURN-MODEL-INPUT-RECONSTRUCTABLE"],
-      "sourceSymbols": [],
+      "sourceSymbols": [
+        "src/agents/runs/executor.ts#TurnModelInput",
+        "src/agents/runs/executor.ts#TurnOmission",
+        "src/agents/runs/executor.ts#TurnPromptSection",
+        "src/agents/runs/executor.ts#TurnShownContent"
+      ],
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The vocabulary does not exist. Nothing in src/ names an omission: there is no type distinguishing an amount withheld exactly from an amount withheld unknown, and no field on a recorded request carrying either. Owed: an omission value with exactly three cases — nothing withheld, a withheld amount known exactly, and a withheld amount not known because the host bounded a stream it never read to the end — because a two-case shape forces a host to report a guess as exact, which is the false precision this rule exists to prevent",
-        "The abridged bytes have no home, and that is the load-bearing half. This atom names C13-TURN-MODEL-INPUT-RECONSTRUCTABLE as a prerequisite because the shown form must be what the request record holds: the model observed the abridged bytes, so the reconstruction must yield those bytes and the byte-compare must compare against them. Owed: the model-call record carries the shown form inline or by a resolvable `ContentRef`, never by a digest of it and never as a derivation over the whole result's `ContentRef`, since ending retention of that content would leave the shown form unrebuildable and invite the re-derivation C13-TURN-MODEL-INPUT-RETENTION-LOSS forbids",
-        "The separation from the result's own completeness is owed in the records, not only in prose. §7.4's `AttemptReceipt.result` records the whole result and `partiallySucceeded` already names a batch that covered less than was asked, so the owed change places the omission on the request record and leaves source incompleteness with the result, and no field carries both. A test is owed asserting that a host cannot express one as the other: a complete result abridged under a bound and an incomplete source shown whole must produce different records, and neither record may be reachable from the other's inputs",
-        "The conformance test is owed in four shapes: a result abridged under a bound reconstructs to exactly the abridged bytes the model received; the same request records the withheld amount exactly; a stream bounded before its end records the withheld amount as unknown rather than as a computed number; and a complete result records no omission at all rather than an omission of zero, so the absence of an omission is distinguishable from an omission that happened to withhold nothing",
-        "The adversarial cases are owed and each must fail: a host recording the whole result plus a flag that it was shortened, which reconstructs a longer request than the one sent while satisfying every wording that does not name the shown bytes; a host recording only a digest of the shown bytes, which proves what was shown and cannot retrieve it; a host reporting a byte-ranged `read` or a `list` page as an omission under a bound, which tells a model to retry a source that has nothing more; and a host reporting an omission under a bound as source incompleteness, which tells a model that retrievable content does not exist",
-        "The boundary this atom deliberately does not cross is owed as a negative obligation: retention strategies (head, tail, head-and-tail), UTF-8 boundary preservation at a cut, elision wording, spill locators, and retrieval hints are executor concerns below the §5.6 seam. This rule constrains what a request records and what a model is told about it, never how a host chooses what to keep, so a conformance test MUST NOT assert a strategy or a notice format",
-        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
+        "One of this rule's four adversarial cases is not closable inside the request record, and it is the only reason this row is not verified: a host reporting a byte-ranged `read` or a `list` page as an omission under a bound. An omission is a count of withheld bytes and says nothing about the source's own coverage, so that report is byte-for-byte indistinguishable from a truthful budget omission of the same size, and closing it here would mean carrying source coverage on the request, which this rule's own separation clause forbids. Discharging it needs the §7.4 Receipt for the same Invocation read alongside the request, so what is owed is a composition test across the two records rather than further work on this one",
+        "The other three adversarial cases are closed by construction and covered by executed tests: a host recording the whole result plus a shortened flag cannot mislead, because src/agents/runs/executor.ts#ScopedModelHandle issues the reconstruction of the record and a model therefore observes exactly the shown form the record holds; a digest of the shown bytes is not an expressible shown form, because src/agents/runs/executor.ts#TurnShownContent admits inline bytes or a resolving `ContentRef` and rejects every other shape; and an omission under a bound cannot be recorded as source incompleteness, because src/agents/runs/executor.ts#TurnOmission has no case for it and the record's exact field set admits no completeness field",
+        "testSelectors and checkerInvariants stay empty because scripts/quality/ledger.mjs#validateStatus admits them only on a row whose remaining evidence is empty. The three executed [C13-TURN-MODEL-INPUT-ABRIDGED] cases in test/agents/runs/model-input.test.ts already cover the four owed shapes, the record-level separation, and the three closed adversarial cases; they move onto this row together with the composition test above"
       ]
     },
     {
@@ -1173,7 +1193,7 @@
       "id": "C13-WRITER-MATRIX",
       "owner": "W5",
       "specAnchor": "C13-WRITER-MATRIX",
-      "specTextSha256": "sha256:c8af21c0e6ea74c6429214650aa655abf664880e466ee50ff0938e826d09b645",
+      "specTextSha256": "sha256:7da1d96dc7f7a8c5ded8c76aa9b8af4f119c481f33689330db4c86cb79614016",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
@@ -1191,7 +1211,7 @@
       "id": "C13-WRITER-POST-FENCE-EVIDENCE",
       "owner": "W5",
       "specAnchor": "C13-WRITER-POST-FENCE-EVIDENCE",
-      "specTextSha256": "sha256:5ec63d5ca9b1226be2296533ff0659ae970c069ff2aa0ffdcf359a2a020d04df",
+      "specTextSha256": "sha256:947d93e3ae17873a91515b40eaaff772cf16b1a2499460eb40faaba722c9ec9b",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
@@ -1209,7 +1229,7 @@
       "id": "C13-WRITER-SYNTHESIS",
       "owner": "W5",
       "specAnchor": "C13-WRITER-SYNTHESIS",
-      "specTextSha256": "sha256:69a0e270340254a2367a54a9a06c211b2e44b1d67f48a2463de88dab8b6f148d",
+      "specTextSha256": "sha256:bc60e6011881375f86335f6397fcfc2afe3aff65e06b64f854480b4c7a429797",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
@@ -1227,7 +1247,7 @@
       "id": "C13-WRITER-SYSTEM-MERGE",
       "owner": "W5",
       "specAnchor": "C13-WRITER-SYSTEM-MERGE",
-      "specTextSha256": "sha256:e32fc83078d016462e334ebbca95a33ab4a3718092e5e3387165a431d18ef5dd",
+      "specTextSha256": "sha256:329edeef0eb9d545a7c6b5250ece2000cb61cc3fb745859c20ce09060ade5e9c",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [

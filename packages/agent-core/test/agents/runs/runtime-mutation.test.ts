@@ -580,7 +580,7 @@ describe("migration guards", () => {
                     new Date(1000)
                 ),
             "run.invalid-state",
-            "Non-transition Turn append requires a message or verdict commit"
+            "Non-transition Turn append requires a message, verdict, or model input commit"
         );
     });
 
@@ -1406,7 +1406,7 @@ describe("append guards", () => {
         expectCode(
             () => value.runtime.appendTurnCommit(parentless, new Revision(1), new Date(1500)),
             "run.invalid-state",
-            "Non-transition Turn append requires a message or verdict commit"
+            "Non-transition Turn append requires a message, verdict, or model input commit"
         );
     });
 

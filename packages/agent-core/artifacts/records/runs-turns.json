@@ -281,6 +281,22 @@
       ]
     },
     {
+      "symbol": "TurnModelInput",
+      "kind": "turn.model-input",
+      "durability": "value",
+      "ownerActor": null,
+      "contentRetention": {
+        "fields": ["admitted[].content", "sections[].shown.ref"],
+        "retentionOwner": null
+      },
+      "source": "src/agents/runs/executor.ts#TurnModelInput",
+      "codec": "src/agents/runs/executor.ts#TurnModelInput.codec",
+      "store": null,
+      "tests": [
+        "test/agents/runs/model-input.test.ts#Turn model input [turn.model-input] provides static codec, encode, decode, and frozen records with an exact shape"
+      ]
+    },
+    {
       "symbol": "TurnPlacementSnapshot",
       "kind": "turn.placement-snapshot",
       "durability": "durable",

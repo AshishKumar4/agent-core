@@ -1181,8 +1181,8 @@ and task relationships, Run history. A model call happens only inside a Turn. Th
 
 A **Run** is a branchable, durable work session and conversation lineage. It owns
 input history, RunBranches (named movable heads), RunCommits (immutable records:
-root, message, checkpoint, invocation, event delivery, result, merge, verdict, undo,
-migration), status, an optional parent Run, and results. There is no separate
+root, message, modelInput, checkpoint, invocation, event delivery, result, merge, verdict,
+undo, migration), status, an optional parent Run, and results. There is no separate
 conversation primitive — conversation state *is* the Run's branch/commit graph.
 
 ```ts
@@ -1695,7 +1695,7 @@ commit-kind matrix is closed:
 | CommitWriter | Permitted kinds | Additional requirement |
 | --- | --- | --- |
 | `root` | `root` | atomic with Run creation |
-| `turn(token)` | `message`, `checkpoint`, `result`, `verdict` | exact current LeaseToken; `subjectTurn = token.turn` |
+| `turn(token)` | `message`, `modelInput`, `checkpoint`, `result`, `verdict` | exact current LeaseToken; `subjectTurn = token.turn` |
 | `system(receipt)` | `invocation` | exact Receipt for any outcome and matching Receipt audit |
 | `system(delivery)` | `eventDelivery` | exact terminal RouteDelivery and matching delivery audit |
 | `system(control)` | `merge`, `undo`, `migration`, `rewrite` | exact `administer` Receipt and matching audit, successful except an abandoned `rewrite` (§5.2) |

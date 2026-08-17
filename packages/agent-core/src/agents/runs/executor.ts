@@ -1,24 +1,43 @@
 import type { ContentPutResult } from "../../content";
 import { ContentStore, type ContentStat, type MediaHint } from "../../content";
-import { encodeBase64, encodeCanonicalJson, type ContentRef, type JsonValue } from "../../core";
-import type { RunCommitId } from "../../execution-references";
+import {
+    ContentRef,
+    Digest,
+    RecordCodec,
+    TextId,
+    decodeBase64,
+    encodeBase64,
+    encodeCanonicalJson,
+    type JsonValue
+} from "../../core";
+import { RunCommitId } from "../../execution-references";
 import { AgentCoreError } from "../../errors";
 import {
+    BindingName,
     FacetPackageId,
+    FacetRef,
     OperationDescriptor,
+    OperationRef,
     canonicalFacetData,
-    type BindingName,
-    type FacetData,
-    type FacetRef,
-    type OperationRef
+    type FacetData
 } from "../../facets";
 import { OperationGateway, type OperationRequestKey, type ResolvedFacet } from "../../operations";
 import { RunCommit } from "./commit";
+import { TurnInboxEntryId } from "./id";
 import { leaseTokensEqual, type LeaseToken } from "./lease";
 import type { TurnPlacementSnapshot } from "./placement";
-import { bytesEqual } from "../record-data";
+import {
+    CodecRecord,
+    bytesEqual,
+    requireArray,
+    requireExactFields,
+    requireInteger,
+    requireObject,
+    requireString
+} from "../record-data";
 import type { RunBranch } from "./run";
 import { RunRuntime } from "./runtime";
+import { RunRepository } from "./store";
 import { RunCheckpoint, Turn, TurnInboxEntry } from "./turn";
 
 export class TurnBoundOperation {
@@ -156,14 +175,328 @@ export interface TurnModelUsage {
     readonly cacheWriteTokens?: number;
 }
 
+/**
+ * One prompt section's name, so a request records the order it was assembled in as
+ * nameable parts rather than as one opaque blob.
+ */
+export class TurnPromptSectionName extends TextId {
+    public constructor(value: string) {
+        super(value, "Prompt section name");
+    }
+}
+
+/**
+ * How much of a value the model was NOT shown, as metadata about the bytes it WAS shown
+ * (SPEC §5.6). `none` withholds nothing, `exact` states a positive withheld amount, and
+ * `unknown` is the honest case for a host that bounded a stream it never read to the end.
+ * A two-case shape would force that host to report a guess as exact, and `exact` refuses
+ * a zero so the absence of an omission stays distinguishable from one that withheld
+ * nothing. An omission is always a budget decision about a value recorded whole
+ * elsewhere, never a report that its source had less to give (§7.4).
+ */
+export class TurnOmission {
+    public static readonly none = new TurnOmission("none", undefined);
+    public static readonly unknown = new TurnOmission("unknown", undefined);
+
+    public static exact(withheldBytes: number): TurnOmission {
+        if (!Number.isSafeInteger(withheldBytes) || withheldBytes <= 0) {
+            throw new TypeError(
+                "An exact omission withholds at least one byte; withholding nothing is TurnOmission.none"
+            );
+        }
+        return new TurnOmission("exact", withheldBytes);
+    }
+
+    private constructor(
+        public readonly kind: "none" | "exact" | "unknown",
+        public readonly withheldBytes: number | undefined
+    ) {
+        Object.freeze(this);
+    }
+
+    public equals(other: TurnOmission): boolean {
+        return this.kind === other.kind && this.withheldBytes === other.withheldBytes;
+    }
+
+    public toData(): JsonValue {
+        return this.withheldBytes === undefined
+            ? { kind: this.kind }
+            : { kind: this.kind, withheldBytes: this.withheldBytes };
+    }
+
+    public static fromData(value: JsonValue): TurnOmission {
+        const object = requireObject(value, "Turn omission");
+        requireExactFields(object, ["kind"], ["withheldBytes"], "Turn omission");
+        const kind = requireString(object["kind"], "Turn omission kind");
+        if (kind === "exact") {
+            return TurnOmission.exact(
+                requireInteger(object["withheldBytes"], "Turn omission withheld amount")
+            );
+        }
+        if (object["withheldBytes"] !== undefined) {
+            throw new TypeError("Only an exact omission states a withheld amount");
+        }
+        if (kind === "none") return TurnOmission.none;
+        if (kind === "unknown") return TurnOmission.unknown;
+        throw new TypeError("Turn omission kind is unknown");
+    }
+}
+
+/**
+ * The bytes the model observed, held inline or by a `ContentRef` that resolves to exactly
+ * them. Never by a digest of them: a digest proves what a value was while only a
+ * reference retrieves it (SPEC §1.4), and never as a derivation over some larger value,
+ * because ending retention of that value would leave the observed form unrebuildable.
+ */
+export class TurnShownContent {
+    readonly #bytes: Uint8Array | undefined;
+
+    public static inline(bytes: Uint8Array): TurnShownContent {
+        if (!(bytes instanceof Uint8Array)) {
+            throw new TypeError("Inline shown content must be a Uint8Array");
+        }
+        return new TurnShownContent(bytes.slice(), undefined);
+    }
+
+    public static reference(ref: ContentRef): TurnShownContent {
+        if (!(ref instanceof ContentRef)) {
+            throw new TypeError("Shown content reference must be a ContentRef");
+        }
+        return new TurnShownContent(undefined, ref);
+    }
+
+    private constructor(
+        bytes: Uint8Array | undefined,
+        public readonly ref: ContentRef | undefined
+    ) {
+        this.#bytes = bytes;
+        Object.freeze(this);
+    }
+
+    /** The inline bytes, copied, or nothing when this content is held by reference. */
+    public inlineBytes(): Uint8Array | undefined {
+        return this.#bytes?.slice();
+    }
+
+    public toData(): JsonValue {
+        return this.#bytes === undefined
+            ? { ref: required(this.ref, "Shown content requires bytes or a reference").value }
+            : { inline: encodeBase64(this.#bytes) };
+    }
+
+    public static fromData(value: JsonValue): TurnShownContent {
+        const object = requireObject(value, "Shown content");
+        requireExactFields(object, [], ["inline", "ref"], "Shown content");
+        const inline = object["inline"];
+        const ref = object["ref"];
+        if ((inline === undefined) === (ref === undefined)) {
+            throw new TypeError("Shown content is held either inline or by one reference");
+        }
+        return inline === undefined
+            ? TurnShownContent.reference(
+                  new ContentRef(requireString(ref, "Shown content reference"))
+              )
+            : TurnShownContent.inline(decodeBase64(requireString(inline, "Inline shown content")));
+    }
+}
+
+/** One assembled prompt section as the model observed it, in the request's final order. */
+export class TurnPromptSection {
+    public constructor(
+        public readonly name: TurnPromptSectionName,
+        public readonly shown: TurnShownContent,
+        public readonly omission: TurnOmission = TurnOmission.none
+    ) {
+        Object.freeze(this);
+    }
+
+    public toData(): JsonValue {
+        return {
+            name: this.name.value,
+            omission: this.omission.toData(),
+            shown: this.shown.toData()
+        };
+    }
+
+    public static fromData(value: JsonValue): TurnPromptSection {
+        const object = requireObject(value, "Prompt section");
+        requireExactFields(object, ["name", "omission", "shown"], [], "Prompt section");
+        return new TurnPromptSection(
+            new TurnPromptSectionName(requireString(object["name"], "Prompt section name")),
+            TurnShownContent.fromData(object["shown"]!),
+            TurnOmission.fromData(object["omission"]!)
+        );
+    }
+}
+
+/**
+ * An inbox Event the call admitted. The request names the Event's content directly, so a
+ * reconstruction depends on the undeletable RunCommit that carries it rather than on the
+ * Event record, which SPEC §6.1 declares immutable and never undeletable. Events the cut
+ * covered but the call did not admit are absent, and so stay releasable.
+ */
+export class TurnAdmittedEvent {
+    public constructor(
+        public readonly entry: TurnInboxEntryId,
+        public readonly sequence: number,
+        public readonly event: string,
+        public readonly content: ContentRef
+    ) {
+        if (!Number.isSafeInteger(sequence) || sequence < 0) {
+            throw new TypeError("Admitted Event sequence must be a non-negative safe integer");
+        }
+        if (event.length === 0) throw new TypeError("Admitted Event kind is required");
+        Object.freeze(this);
+    }
+
+    public toData(): JsonValue {
+        return {
+            content: this.content.value,
+            entry: this.entry.value,
+            event: this.event,
+            sequence: this.sequence
+        };
+    }
+
+    public static fromData(value: JsonValue): TurnAdmittedEvent {
+        const object = requireObject(value, "Admitted Event");
+        requireExactFields(object, ["content", "entry", "event", "sequence"], [], "Admitted Event");
+        return new TurnAdmittedEvent(
+            new TurnInboxEntryId(requireString(object["entry"], "Admitted Event entry")),
+            requireInteger(object["sequence"], "Admitted Event sequence"),
+            requireString(object["event"], "Admitted Event kind"),
+            new ContentRef(requireString(object["content"], "Admitted Event content"))
+        );
+    }
+}
+
+export interface TurnModelInputInit {
+    readonly sections: readonly TurnPromptSection[];
+    readonly catalog: readonly TurnBoundOperation[];
+    readonly admitted: readonly TurnAdmittedEvent[];
+    readonly admissionCut: number;
+}
+
+/**
+ * The complete model input one call issued, as the model observed it: the assembled
+ * sections in their final order, the operation catalog as offered, and the inbox
+ * admission cut. It is the content of a `modelInput` RunCommit, whose parent is the exact
+ * commit the call read, so the base of any derivation over history is fixed by ancestry
+ * rather than by when a reconstruction happens to run.
+ */
+export class TurnModelInput extends CodecRecord {
+    public static get codec(): RecordCodec<TurnModelInput> {
+        return TurnModelInputCodec;
+    }
+    public readonly sections: readonly TurnPromptSection[];
+    public readonly catalog: readonly TurnBoundOperation[];
+    public readonly admitted: readonly TurnAdmittedEvent[];
+    public readonly admissionCut: number;
+
+    public constructor(init: TurnModelInputInit) {
+        super();
+        if (init.sections.length === 0) {
+            throw new TypeError("A model input records at least one prompt section");
+        }
+        if (!Number.isSafeInteger(init.admissionCut) || init.admissionCut < 0) {
+            throw new TypeError("An inbox admission cut is a non-negative safe integer");
+        }
+        let previous = -1;
+        for (const admitted of init.admitted) {
+            if (admitted.sequence <= previous || admitted.sequence >= init.admissionCut) {
+                throw new TypeError(
+                    "Admitted Events must ascend by sequence and fall inside the admission cut"
+                );
+            }
+            previous = admitted.sequence;
+        }
+        this.sections = Object.freeze([...init.sections]);
+        this.catalog = Object.freeze(validateOfferedCatalog(init.catalog));
+        this.admitted = Object.freeze([...init.admitted]);
+        this.admissionCut = init.admissionCut;
+        Object.freeze(this);
+    }
+
+    public toData(): JsonValue {
+        return {
+            admissionCut: this.admissionCut,
+            admitted: this.admitted.map((admitted) => admitted.toData()),
+            catalog: this.catalog.map(boundOperationData),
+            sections: this.sections.map((section) => section.toData())
+        };
+    }
+
+    public static fromData(value: JsonValue): TurnModelInput {
+        const object = requireObject(value, "Model input");
+        requireExactFields(
+            object,
+            ["admissionCut", "admitted", "catalog", "sections"],
+            [],
+            "Model input"
+        );
+        return new TurnModelInput({
+            sections: requireArray(object["sections"], "Model input sections").map(
+                TurnPromptSection.fromData
+            ),
+            catalog: requireArray(object["catalog"], "Model input catalog").map(
+                boundOperationFromData
+            ),
+            admitted: requireArray(object["admitted"], "Model input admitted Events").map(
+                TurnAdmittedEvent.fromData
+            ),
+            admissionCut: requireInteger(object["admissionCut"], "Model input admission cut")
+        });
+    }
+}
+
+class ModelInputCodec extends RecordCodec<TurnModelInput> {
+    public constructor() {
+        super("turn.model-input", { major: 1, minor: 0 });
+    }
+
+    protected encodePayload(value: TurnModelInput): JsonValue {
+        return value.toData();
+    }
+    protected decodePayload(value: JsonValue): TurnModelInput {
+        return TurnModelInput.fromData(value);
+    }
+}
+
+export const TurnModelInputCodec: RecordCodec<TurnModelInput> = new ModelInputCodec();
+
+/** One section's observed bytes, with the omission fact that accompanies them. */
+export interface TurnShownSection {
+    readonly name: TurnPromptSectionName;
+    readonly bytes: Uint8Array;
+    readonly omission: TurnOmission;
+}
+
+/** One admitted Event's observed payload, resolved from the content the request names. */
+export interface TurnAdmittedContent {
+    readonly entry: TurnInboxEntryId;
+    readonly sequence: number;
+    readonly event: string;
+    readonly content: ContentRef;
+    readonly bytes: Uint8Array;
+}
+
+/**
+ * The complete request as the model observed it, reconstructed from committed records
+ * alone. A model call issues this value rather than a separately assembled one, so the
+ * request and its record cannot drift.
+ */
 export interface TurnModelRequest {
-    readonly prompt: ContentRef;
+    readonly input: RunCommitId;
+    readonly baseCommit: RunCommitId;
+    readonly sections: readonly TurnShownSection[];
+    readonly catalog: readonly TurnBoundOperation[];
+    readonly admitted: readonly TurnAdmittedContent[];
+    readonly admissionCut: number;
 }
 
 export interface TurnModelCall extends TurnModelRequest {
     readonly turn: Turn;
     readonly token: LeaseToken;
-    readonly operations: readonly TurnBoundOperation[];
     readonly signal: AbortSignal;
 }
 
@@ -174,6 +507,110 @@ export interface TurnModelResult {
 
 export abstract class TurnModelPort {
     public abstract call(request: TurnModelCall): Promise<TurnModelResult>;
+}
+
+/** The canonical bytes of a request, so a replay compares byte for byte against what was sent. */
+export function turnModelRequestBytes(request: TurnModelRequest): Uint8Array {
+    return encodeCanonicalJson({
+        admissionCut: request.admissionCut,
+        admitted: request.admitted.map((admitted) => ({
+            bytes: encodeBase64(admitted.bytes),
+            content: admitted.content.value,
+            entry: admitted.entry.value,
+            event: admitted.event,
+            sequence: admitted.sequence
+        })),
+        baseCommit: request.baseCommit.value,
+        catalog: request.catalog.map(boundOperationData),
+        input: request.input.value,
+        sections: request.sections.map((section) => ({
+            bytes: encodeBase64(section.bytes),
+            name: section.name.value,
+            omission: section.omission.toData()
+        }))
+    });
+}
+
+export interface TurnModelInputRecords<Transaction> {
+    readonly repository: RunRepository<Transaction>;
+    readonly content: ContentStore;
+}
+
+/**
+ * The records-only reconstruction SPEC §5.6 requires. It reads a Turn's committed records
+ * alone — a `modelInput` RunCommit, the content that commit names, and nothing from
+ * executor memory — and yields the exact request the model received, which is why it
+ * survives a restart that discards the executor process. Content a request names that is
+ * no longer retained fails typed and names what is missing; it never yields a shorter
+ * prefix, a partial request, or a best-effort approximation.
+ */
+export class TurnModelInputReplay<Transaction> {
+    public constructor(private readonly records: TurnModelInputRecords<Transaction>) {}
+
+    public async reconstruct(input: RunCommitId): Promise<TurnModelRequest> {
+        const commit = this.records.repository.transaction((transaction) =>
+            this.records.repository.loadCommit(transaction, input)
+        );
+        if (commit === undefined || commit.kind !== "modelInput") {
+            throw unrebuildable(`no model input commit ${input.value}`);
+        }
+        const document = required(commit.content, "Model input commit requires content");
+        const baseCommit = required(commit.parents[0], "Model input commit requires one parent");
+        const record = TurnModelInput.decode(
+            await this.resolve(document, `model input ${input.value}`)
+        );
+        const sections: TurnShownSection[] = [];
+        for (const section of record.sections) {
+            sections.push(
+                Object.freeze({
+                    name: section.name,
+                    bytes: await this.shown(section),
+                    omission: section.omission
+                })
+            );
+        }
+        const admitted: TurnAdmittedContent[] = [];
+        for (const event of record.admitted) {
+            admitted.push(
+                Object.freeze({
+                    entry: event.entry,
+                    sequence: event.sequence,
+                    event: event.event,
+                    content: event.content,
+                    bytes: await this.resolve(event.content, `admitted Event ${event.entry.value}`)
+                })
+            );
+        }
+        return Object.freeze({
+            input,
+            baseCommit,
+            sections: Object.freeze(sections),
+            catalog: record.catalog,
+            admitted: Object.freeze(admitted),
+            admissionCut: record.admissionCut
+        });
+    }
+
+    private async shown(section: TurnPromptSection): Promise<Uint8Array> {
+        const inline = section.shown.inlineBytes();
+        return inline === undefined
+            ? this.resolve(
+                  required(section.shown.ref, "Shown content requires bytes or a reference"),
+                  `prompt section ${section.name.value}`
+              )
+            : inline;
+    }
+
+    private async resolve(ref: ContentRef, subject: string): Promise<Uint8Array> {
+        try {
+            return (await this.records.content.get(ref)).slice();
+        } catch {
+            // Retention is legitimately finite (SPEC §8.2), so unresolvable content is a
+            // reportable outcome rather than an internal failure. Losing content is
+            // allowed; losing it silently is what this rule forbids.
+            throw unrebuildable(`${subject} names unretained content ${ref.value}`);
+        }
+    }
 }
 
 export type TurnStreamEvent =
@@ -214,8 +651,29 @@ export abstract class TurnContentHandle {
     public abstract stat(ref: ContentRef): Promise<ContentStat | undefined>;
 }
 
+/**
+ * What an executor proposes to put in front of the model. It is a draft rather than the
+ * request: the host records it, then issues the reconstruction of what it recorded.
+ */
+export interface TurnModelDraft {
+    readonly sections: readonly TurnPromptSection[];
+    readonly catalog: readonly TurnBoundOperation[];
+    readonly admitted: readonly TurnInboxEntry[];
+}
+
+/** One model exchange: the durable record its request was issued from, and the response. */
+export interface TurnModelExchange {
+    readonly input: RunCommitId;
+    readonly output: ContentRef;
+    readonly usage: TurnModelUsage;
+}
+
 export abstract class TurnModelHandle {
-    public abstract call(request: TurnModelRequest): Promise<TurnModelResult>;
+    public abstract call(draft: TurnModelDraft): Promise<TurnModelExchange>;
+}
+
+export abstract class TurnModelInputHandle {
+    public abstract reconstruct(input: RunCommitId): Promise<TurnModelRequest>;
 }
 
 export abstract class TurnStreamHandle {
@@ -259,6 +717,7 @@ export interface TurnContext extends TurnExecutionScope {
     readonly checkpoint: TurnCheckpointHandle;
     readonly invocation: TurnInvocationHandle;
     readonly model: TurnModelHandle;
+    readonly modelInput: TurnModelInputHandle;
     readonly stream: TurnStreamHandle;
     readonly outcome: TurnOutcomeHandle;
     readonly cancellation: AbortSignal;
@@ -290,6 +749,10 @@ export class TurnExecutorHost<Transaction> {
         const initial = scope.active();
         const operations = await scope.resolveOperations(initial);
         const prompt = await scope.assemblePrompt({ ...initial.scope, operations });
+        const replay = new TurnModelInputReplay({
+            repository: this.init.runtime.repository,
+            content: this.init.content
+        });
         const context = Object.freeze<TurnContext>({
             ...initial.scope,
             operations,
@@ -299,7 +762,8 @@ export class TurnExecutorHost<Transaction> {
             commit: new ScopedCommitHandle(scope),
             checkpoint: new ScopedCheckpointHandle(scope),
             invocation: new ScopedInvocationHandle(scope, operations),
-            model: new ScopedModelHandle(scope, operations),
+            model: new ScopedModelHandle(scope, operations, replay),
+            modelInput: new ScopedModelInputHandle(scope, replay),
             stream: new ScopedStreamHandle(scope),
             outcome: new ScopedOutcomeHandle(scope),
             cancellation: scope.signal
@@ -382,6 +846,45 @@ class LeaseScopedTurn<Transaction> {
         const stat = await this.withActive(() => this.init.content.stat(ref));
         if (stat === undefined || !stat.ref.equals(ref) || !stat.digest.equals(ref.digest)) {
             throw new AgentCoreError("content.not-found", "Turn content is not available");
+        }
+    }
+
+    /**
+     * The dispatch waits on this commit (SPEC §5.6). A commit the Turn's lease rejects, a
+     * store that is unavailable, and a commit whose outcome the substrate cannot report
+     * all refuse dispatch: the record's identity is derived from its content and its
+     * parent, so an unknown outcome is settled by re-reading that exact commit rather than
+     * by assuming either branch, and a further attempt at the same commit can still reach
+     * durability. A durability failure is never grounds to proceed.
+     */
+    public commitModelInput(commit: RunCommit): void {
+        const snapshot = this.active();
+        let failure: Error | undefined;
+        try {
+            this.init.runtime.appendTurnCommit(commit, snapshot.branch.revision, snapshot.now);
+        } catch (error) {
+            failure = error instanceof Error ? error : new TypeError(String(error));
+        }
+        if (!this.durablyStored(commit)) {
+            throw new AgentCoreError(
+                "turn.model-input-undurable",
+                `The model call is refused because its request is not durably recorded${
+                    failure === undefined ? "" : `: ${failure.message}`
+                }`
+            );
+        }
+    }
+
+    private durablyStored(commit: RunCommit): boolean {
+        try {
+            const stored = this.init.runtime.repository.transaction((transaction) =>
+                this.init.runtime.repository.loadCommit(transaction, commit.id)
+            );
+            return stored?.proposalDigest.equals(commit.proposalDigest) === true;
+        } catch {
+            // A store that cannot answer whether the record landed has not established
+            // durability, which is the same refusal as one that rejected the append.
+            return false;
         }
     }
 
@@ -510,21 +1013,47 @@ class ScopedContentHandle<Transaction> extends TurnContentHandle {
 class ScopedModelHandle<Transaction> extends TurnModelHandle {
     public constructor(
         private readonly scope: LeaseScopedTurn<Transaction>,
-        private readonly operations: readonly TurnBoundOperation[]
+        private readonly operations: readonly TurnBoundOperation[],
+        private readonly replay: TurnModelInputReplay<Transaction>
     ) {
         super();
     }
 
-    public async call(request: TurnModelRequest): Promise<TurnModelResult> {
-        await this.scope.requireContent(request.prompt);
+    /**
+     * Records the model input, then issues the reconstruction of what it recorded. Nothing
+     * the model observes is assembled a second time here, so a request and its record
+     * cannot drift (SPEC §5.6), and the record is durable before the request is dispatched.
+     */
+    public async call(draft: TurnModelDraft): Promise<TurnModelExchange> {
         const snapshot = this.scope.active();
+        const record = this.record(draft);
+        for (const section of record.sections) {
+            const ref = section.shown.ref;
+            if (ref !== undefined) await this.scope.requireContent(ref);
+        }
+        for (const admitted of record.admitted) await this.scope.requireContent(admitted.content);
+        const document = await this.scope.withActive(() =>
+            this.scope.init.content.put(TurnModelInput.encode(record))
+        );
+        const commit = new RunCommit({
+            id: modelInputCommitId(snapshot.head.id, document.ref),
+            run: snapshot.scope.turn.run,
+            branch: snapshot.scope.turn.branch,
+            kind: "modelInput",
+            parents: [snapshot.head.id],
+            pins: snapshot.scope.turn.pins,
+            writer: { kind: "turn", token: this.scope.token },
+            subjectTurn: snapshot.scope.turn.id,
+            content: document.ref
+        });
+        this.scope.commitModelInput(commit);
+        const request = await this.scope.withActive(() => this.replay.reconstruct(commit.id));
         const result = await this.scope.withActive(() =>
             this.scope.init.model.call(
                 Object.freeze({
+                    ...request,
                     turn: snapshot.scope.turn,
                     token: this.scope.token,
-                    prompt: request.prompt,
-                    operations: this.operations,
                     signal: this.scope.signal
                 })
             )
@@ -536,7 +1065,60 @@ class ScopedModelHandle<Transaction> extends TurnModelHandle {
             snapshot.scope.turn.run,
             totalTokens(result.usage)
         );
-        return Object.freeze({ output: result.output, usage: freezeUsage(result.usage) });
+        return Object.freeze({
+            input: commit.id,
+            output: result.output,
+            usage: freezeUsage(result.usage)
+        });
+    }
+
+    /**
+     * The record a draft names, with every claim checked against the Turn's own state: an
+     * offered Operation is one the placement snapshot already resolved, and an admitted
+     * Event is one this Turn's inbox carries at that exact sequence and payload. The
+     * admission cut is the inbox length the host observed, not a number the draft supplies.
+     */
+    private record(draft: TurnModelDraft): TurnModelInput {
+        const inbox = this.scope.readInbox(0);
+        for (const offered of draft.catalog) {
+            if (!this.operations.includes(offered)) {
+                throw new AgentCoreError(
+                    "operation.missing",
+                    "A model input offers an Operation outside the Turn's resolved catalog"
+                );
+            }
+        }
+        const admitted = draft.admitted.map((entry) => {
+            const stored = inbox.find((candidate) => candidate.id.equals(entry.id));
+            if (
+                stored === undefined ||
+                stored.sequence !== entry.sequence ||
+                stored.event !== entry.event ||
+                !stored.payload.equals(entry.payload)
+            ) {
+                throw invalidTurn("A model input admits an Event this Turn's inbox does not carry");
+            }
+            return new TurnAdmittedEvent(stored.id, stored.sequence, stored.event, stored.payload);
+        });
+        return new TurnModelInput({
+            sections: draft.sections,
+            catalog: draft.catalog,
+            admitted,
+            admissionCut: inbox.length
+        });
+    }
+}
+
+class ScopedModelInputHandle<Transaction> extends TurnModelInputHandle {
+    public constructor(
+        private readonly scope: LeaseScopedTurn<Transaction>,
+        private readonly replay: TurnModelInputReplay<Transaction>
+    ) {
+        super();
+    }
+
+    public async reconstruct(input: RunCommitId): Promise<TurnModelRequest> {
+        return this.scope.withActive(() => this.replay.reconstruct(input));
     }
 }
 
@@ -723,6 +1305,71 @@ function validateOperations(
         return operation;
     });
     return Object.freeze(canonical);
+}
+
+/**
+ * The offered catalog, checked for the one property a record must carry independently of
+ * the Turn it came from: a binding names at most one Operation, so a reconstruction cannot
+ * offer the model two meanings for one name.
+ */
+function validateOfferedCatalog(
+    catalog: readonly TurnBoundOperation[]
+): readonly TurnBoundOperation[] {
+    const bindings = new Set<string>();
+    for (const operation of catalog) {
+        if (!(operation instanceof TurnBoundOperation)) {
+            throw new TypeError("An offered catalog holds canonical bound Operations");
+        }
+        if (bindings.has(operation.binding.value)) {
+            throw new TypeError("An offered catalog binds each name once");
+        }
+        bindings.add(operation.binding.value);
+    }
+    return [...catalog];
+}
+
+function boundOperationData(operation: TurnBoundOperation): JsonValue {
+    return {
+        binding: operation.binding.value,
+        descriptor: operation.descriptor.toData(),
+        facet: operation.facet.value,
+        operation: operation.operation.value
+    };
+}
+
+function boundOperationFromData(value: JsonValue): TurnBoundOperation {
+    const object = requireObject(value, "Offered Operation");
+    requireExactFields(
+        object,
+        ["binding", "descriptor", "facet", "operation"],
+        [],
+        "Offered Operation"
+    );
+    return new TurnBoundOperation(
+        new BindingName(requireString(object["binding"], "Offered Operation binding")),
+        new FacetRef(requireString(object["facet"], "Offered Operation Facet")),
+        new OperationRef(requireString(object["operation"], "Offered Operation reference")),
+        OperationDescriptor.fromData(object["descriptor"]!)
+    );
+}
+
+/**
+ * A model input commit's identity, derived from the record it names and the commit it
+ * descends from. Deriving rather than minting is what makes a second attempt at a commit
+ * whose outcome was unknown the same commit rather than a second one.
+ */
+function modelInputCommitId(parent: RunCommitId, document: ContentRef): RunCommitId {
+    const digest = Digest.sha256(
+        encodeCanonicalJson({ document: document.value, parent: parent.value })
+    );
+    return new RunCommitId(`model-input:${digest.value}`);
+}
+
+function unrebuildable(missing: string): AgentCoreError {
+    return new AgentCoreError(
+        "run.model-input-unrebuildable",
+        `A committed model call request cannot be rebuilt: ${missing}`
+    );
 }
 
 function canonicalInvocationResult(result: TurnInvocationResult): TurnInvocationResult {

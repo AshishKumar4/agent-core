@@ -96,6 +96,7 @@ export type { RunOutcome, SettlementAuditObligation, SettlementObligationInit } 
 export { RunCheckpoint, Turn, TurnInboxEntry } from "./turn";
 export {
     GatewayTurnInvocationPort,
+    TurnAdmittedEvent,
     TurnBoundOperation,
     TurnCheckpointHandle,
     TurnCommitHandle,
@@ -106,27 +107,42 @@ export {
     TurnInvocationHandle,
     TurnInvocationPort,
     TurnModelHandle,
+    TurnModelInput,
+    TurnModelInputCodec,
+    TurnModelInputHandle,
+    TurnModelInputReplay,
     TurnModelPort,
+    TurnOmission,
     TurnOutcomeHandle,
+    TurnPromptSection,
+    TurnPromptSectionName,
+    TurnShownContent,
     TurnGatewaySource,
     TurnPromptAssembler,
     TurnStreamHandle,
     TurnStreamPort,
-    TurnOperationSource
+    TurnOperationSource,
+    turnModelRequestBytes
 } from "./executor";
 export type {
+    TurnAdmittedContent,
     TurnContext,
     TurnExecutionScope,
     TurnExecutorHostInit,
     TurnInvocationRequest,
     TurnInvocationResult,
     TurnModelCall,
+    TurnModelDraft,
+    TurnModelExchange,
+    TurnModelInputInit,
+    TurnModelInputRecords,
     TurnModelRequest,
     TurnModelResult,
     TurnModelUsage,
     TurnGatewayScope,
     TurnOutcome,
     TurnPromptAssembly,
+    TurnShownSection,
     TurnStreamEvent,
     TurnStreamPublication
 } from "./executor";

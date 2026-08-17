@@ -52,7 +52,8 @@ export const RUN_COMMIT_KINDS = [
     "verdict",
     "undo",
     "migration",
-    "rewrite"
+    "rewrite",
+    "modelInput"
 ] as const;
 
 export type RunCommitKind = (typeof RUN_COMMIT_KINDS)[number];
@@ -60,6 +61,7 @@ export type RunCommitKind = (typeof RUN_COMMIT_KINDS)[number];
 /** The kinds a Turn's own lease may append. */
 const TURN_AUTHORED_KINDS: readonly RunCommitKind[] = [
     "message",
+    "modelInput",
     "checkpoint",
     "result",
     "verdict"

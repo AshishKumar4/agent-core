@@ -21,11 +21,13 @@ export type AgentCoreErrorCode =
     | "protocol.invalid-state"
     | "protocol.revision-conflict"
     | "run.invalid-state"
+    | "run.model-input-unrebuildable"
     | "schema.unreadable"
     | "slate.invalid-version"
     | "slate.unpublished"
     | "subscription.invalid"
-    | "turn.invalid-state";
+    | "turn.invalid-state"
+    | "turn.model-input-undurable";
 
 export class AgentCoreError extends Error {
     public constructor(
