@@ -3134,10 +3134,10 @@ A conforming implementation provides:
 - **C13-CLOUDFLARE-QUEUE-DISPOSITION** Accepted deliveries are acknowledged, declined ones redelivered, and an undecodable body is neither delivered nor acknowledged but left to dead-lettering.
 - **C13-CLOUDFLARE-STORAGE-LIMIT** The declared DO SQLite size bound is one the deployed platform accepts, and write seams refuse an over-limit payload before opening a transaction.
 - **C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY** Alarm claims, armed alarms, outbox entries, and the view revision log survive a Worker deployment, and the new version resumes that work.
-- **C13-ADV-STALE-LEASE** Adversarial tests cover a stale lease.
+- **C13-ADV-STALE-LEASE** A displaced durable lease is rejected after its epoch advances.
 - **C13-ADV-WRONG-TURN-LEASE** Adversarial tests cover a wrong-Turn lease.
-- **C13-ADV-REVOKED-ALLOW** Adversarial tests cover a revoked allow.
-- **C13-ADV-NEW-DENY** Adversarial tests cover a newly created deny.
+- **C13-ADV-REVOKED-ALLOW** A revoked backing allow Grant no longer authorizes an intent.
+- **C13-ADV-NEW-DENY** A new matching deny denies an intent an allow previously admitted.
 - **C13-ADV-DELAYED-WATERMARK** Adversarial tests cover a delayed watermark.
 - **C13-ADV-MEDIATED-STALE** Adversarial tests cover mediated stale observation.
 - **C13-ADV-IMMUTABLE-DEADLINE** Adversarial tests cover an immutable direct deadline.

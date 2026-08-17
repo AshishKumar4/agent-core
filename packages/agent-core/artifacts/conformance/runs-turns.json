@@ -116,7 +116,7 @@
       "id": "C13-ADV-STALE-LEASE",
       "owner": "W5",
       "specAnchor": "C13-ADV-STALE-LEASE",
-      "specTextSha256": "sha256:593ce99bdc2992136e5847ea433af3a7cdd2faf86ad2b04a6e50aa77e4d4818a",
+      "specTextSha256": "sha256:49921ad2a52afdc95e42c3c15ab4c6f6748f611fd5bdb9dbce5758c66a2022b1",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
