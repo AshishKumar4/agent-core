@@ -6,6 +6,19 @@ export { SqliteContentRetention, SqliteTransientContentAccess } from "./content-
 export { SqliteIdentityReader } from "./identity";
 export { SqlitePackageStore } from "./package";
 export { SqliteProtocolPersistence } from "./protocol";
+export {
+    SqliteInvocationMediationPersistence,
+    SqliteInvocationPersistence
+} from "./invocations";
+export type {
+    ApprovalProjection,
+    AttemptProjection,
+    ClaimProjection,
+    PreparedProjection,
+    ReceiptProjection,
+    SqliteInvocationAuditAppendPort,
+    SqliteInvocationCodecs
+} from "./invocations";
 export { ReadableSqlite, TransactionalSqlite } from "./sqlite";
 export type { SqliteRow, SqliteValue } from "./sqlite";
 export { SqliteAuthorityPermitStore, SqliteTenantAuthorityPermitStore } from "./permit";
