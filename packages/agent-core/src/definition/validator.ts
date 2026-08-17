@@ -34,6 +34,7 @@ import { resolvePackageLock } from "./resolver";
 import { ValidationAttestation } from "./attestation";
 import { PlacementInput, type PlacementSelection, selectPlacement } from "./placement";
 import { compareText } from "./order";
+import type { DefinitionPinSet } from "./pins";
 import { invalidDefinition } from "./error";
 
 export const CORE_SLOT_NAMES = new Set([
@@ -242,6 +243,55 @@ export class ValidatedBlueprint {
 
     public bytes(): Uint8Array {
         return this.#bytes.slice();
+    }
+
+    /**
+     * Refuse a pinned Package closure that is not this Blueprint's closure (SPEC §9.1).
+     * `validate` has already proven `lock` is the deterministic resolution of the declared
+     * dependency relation from the Blueprint's own `packages` list, so equality against
+     * `lock.packages` is equality against the transitive closure resolved to exact
+     * versions — a pinned closure needs no second derivation to be checkable. A pin set
+     * that merely looks complete is refused by the member it diverges on: naming a Package
+     * the closure does not resolve, and pinning a resolved Package at another release, are
+     * different errors and get different refusals.
+     */
+    public requirePinnedClosure(pins: DefinitionPinSet): void {
+        const declaredVersion = this.#blueprint.meta.version;
+        if (
+            !pins.blueprint.version.equals(declaredVersion) ||
+            !pins.blueprint.digest.equals(this.#attestation.blueprintDigest)
+        ) {
+            throw invalidDefinition(
+                `Pinned Blueprint ${pins.blueprint.version.toString()} is not the validated Blueprint ${declaredVersion.toString()}`
+            );
+        }
+        const closure = this.#lock.packages;
+        for (const pin of pins.packages) {
+            const declared = closure.find((candidate) => candidate.id.equals(pin.id));
+            if (declared === undefined) {
+                throw invalidDefinition(
+                    `Pinned Package ${pin.id.value} is outside the declared closure`
+                );
+            }
+            if (!declared.equals(pin)) {
+                throw invalidDefinition(
+                    `Pinned Package ${pin.id.value} is pinned at a release the declared closure does not resolve`
+                );
+            }
+        }
+        const absent = closure.find(
+            (declared) => !pins.packages.some((pin) => pin.id.equals(declared.id))
+        );
+        if (absent !== undefined) {
+            throw invalidDefinition(
+                `Declared closure member ${absent.id.value} is absent from the pinned closure`
+            );
+        }
+        // Every declared member is pinned and every pin is a declared member, so a count
+        // above the closure's can only be one Package pinned twice.
+        if (pins.packages.length !== closure.length) {
+            throw invalidDefinition("Pinned Package closure repeats a Package ID");
+        }
     }
 }
 

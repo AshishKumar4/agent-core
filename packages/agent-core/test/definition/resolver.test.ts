@@ -159,21 +159,31 @@ describe("deterministic package resolution", () => {
         }
     );
 
-    test("rejects self and multi-package cycles with canonical paths", { tags: "p1" }, () => {
-        const self = metadata([release("self", "1.0.0", [dependency("self", "*")])]);
-        expect(() => resolvePackageLock(self, [dependency("self", "*")])).toThrow(
-            "Package dependency cycle: self -> self"
-        );
+    test(
+        "[C13-PACKAGE-DEPENDENCY-DECLARED] resolves a cyclic declared relation to a finite closure unique by pin id",
+        { tags: "p1" },
+        () => {
+            // SPEC §9.1: the closure is "finite and unique by PackagePin.id, so it is
+            // computable whether or not the declared relation is acyclic". The cycle SPEC
+            // rejects is §4.1 Facet reliance (C13-FACET-DEPENDENCY-ORDER), a different
+            // relation; refusing one for the other refuses a legitimate Blueprint.
+            const self = metadata([release("self", "1.0.0", [dependency("self", "*")])]);
+            expect(versions(resolvePackageLock(self, [dependency("self", "*")]))).toEqual({
+                self: "1.0.0"
+            });
 
-        const cycle = metadata([
-            release("z", "1.0.0", [dependency("a", "*")]),
-            release("a", "1.0.0", [dependency("m", "*")]),
-            release("m", "1.0.0", [dependency("z", "*")])
-        ]);
-        expect(() => resolvePackageLock(cycle, [dependency("z", "*")])).toThrow(
-            "Package dependency cycle: a -> m -> z -> a"
-        );
-    });
+            const triangle = metadata([
+                release("z", "1.0.0", [dependency("a", "*")]),
+                release("a", "1.0.0", [dependency("m", "*")]),
+                release("m", "1.0.0", [dependency("z", "*")])
+            ]);
+            const lock = resolvePackageLock(triangle, [dependency("z", "*")]);
+            expect(versions(lock)).toEqual({ a: "1.0.0", m: "1.0.0", z: "1.0.0" });
+            expect(new Set(lock.packages.map((pin) => pin.id.value)).size).toBe(
+                lock.packages.length
+            );
+        }
+    );
 
     test("a wildcard range skips prerelease candidates instead of crashing", { tags: "p1" }, () => {
         const snapshot = metadata([release("app", "2.0.0-beta.2"), release("app", "1.0.0")]);
@@ -184,9 +194,13 @@ describe("deterministic package resolution", () => {
     });
 
     test(
-        "backtracks away from a cyclic candidate when a complete closure exists",
+        "[C13-PACKAGE-DEPENDENCY-DECLARED] selects the highest admissible versions of a mutually dependent pair",
         { tags: "p1" },
         () => {
+            // A cycle detector over this relation does not merely refuse: it silently
+            // downgrades. Both 2.0.0 releases satisfy each other's declared range, so the
+            // closure at the top of the preference order is the correct resolution, and a
+            // host that treated the mutual reference as invalid would pin 1.0.0 instead.
             const snapshot = metadata([
                 release("a", "2.0.0", [dependency("b", "^2")]),
                 release("a", "1.0.0", [dependency("b", "^1")]),
@@ -195,8 +209,8 @@ describe("deterministic package resolution", () => {
             ]);
 
             expect(versions(resolvePackageLock(snapshot, [dependency("a", "*")]))).toEqual({
-                a: "1.0.0",
-                b: "1.0.0"
+                a: "2.0.0",
+                b: "2.0.0"
             });
         }
     );
@@ -356,96 +370,8 @@ describe("deterministic package resolution", () => {
         ).toThrow("No version of package shared satisfies >=1.0.0 <2.0.0-0 && >=2.0.0 <3.0.0-0");
     });
 
-    test("reports the canonical rotation of the detected cycle", { tags: "p2" }, () => {
-        const entered = metadata([
-            release("a", "1.0.0", [dependency("m", "*")]),
-            release("m", "1.0.0", [dependency("z", "*")]),
-            release("z", "1.0.0", [dependency("m", "*")])
-        ]);
-        expect(() => resolvePackageLock(entered, [dependency("a", "*")])).toThrow(
-            "Package dependency cycle: m -> z -> m"
-        );
-
-        const reversed = metadata([
-            release("a", "1.0.0", [dependency("z", "*")]),
-            release("z", "1.0.0", [dependency("b", "*")]),
-            release("b", "1.0.0", [dependency("z", "*")])
-        ]);
-        expect(() => resolvePackageLock(reversed, [dependency("a", "*")])).toThrow(
-            "Package dependency cycle: b -> z -> b"
-        );
-
-        const prefixed = metadata([
-            release("a", "1.0.0", [dependency("a-b", "*")]),
-            release("a-b", "1.0.0", [dependency("a", "*")])
-        ]);
-        expect(() => resolvePackageLock(prefixed, [dependency("a", "*")])).toThrow(
-            "Package dependency cycle: a -> a-b -> a"
-        );
-
-        const outerEntry = metadata([
-            release("0", "1.0.0", [dependency("a-b", "*")]),
-            release("a-b", "1.0.0", [dependency("a", "*")]),
-            release("a", "1.0.0", [dependency("a-b", "*")])
-        ]);
-        expect(() => resolvePackageLock(outerEntry, [dependency("0", "*")])).toThrow(
-            "Package dependency cycle: a -> a-b -> a"
-        );
-
-        const detached = metadata([
-            release("a", "1.0.0"),
-            release("m", "1.0.0", [dependency("z", "*")]),
-            release("z", "1.0.0", [dependency("m", "*")])
-        ]);
-        expect(() =>
-            resolvePackageLock(detached, [dependency("a", "*"), dependency("m", "*")])
-        ).toThrow("Package dependency cycle: m -> z -> m");
-    });
-
     test(
-        "canonicalizes NUL-bearing PackageId cycles by structured sequence identity",
-        { tags: "p0" },
-        () => {
-            const enteredAtCollidingRotation = metadata([
-                release("0", "1.0.0", [dependency("a\0b", "*")]),
-                release("a\0b", "1.0.0", [dependency("c", "*")]),
-                release("c", "1.0.0", [dependency("a", "*")]),
-                release("a", "1.0.0", [dependency("b\0c", "*")]),
-                release("b\0c", "1.0.0", [dependency("a\0b", "*")])
-            ]);
-
-            expect(() =>
-                resolvePackageLock(enteredAtCollidingRotation, [dependency("0", "*")])
-            ).toThrow("Package dependency cycle: a -> b\0c -> a\0b -> c -> a");
-        }
-    );
-
-    test("reports each cycle rotation exactly once", { tags: "p1" }, () => {
-        const self = metadata([release("self", "1.0.0", [dependency("self", "*")])]);
-        expect(() => resolvePackageLock(self, [dependency("self", "*")])).toThrow(
-            /^Package dependency cycle: self -> self$/
-        );
-
-        const pair = metadata([
-            release("b", "1.0.0", [dependency("z", "*")]),
-            release("z", "1.0.0", [dependency("b", "*")])
-        ]);
-        expect(() => resolvePackageLock(pair, [dependency("b", "*")])).toThrow(
-            /^Package dependency cycle: b -> z -> b$/
-        );
-
-        const triple = metadata([
-            release("a", "1.0.0", [dependency("m", "*")]),
-            release("m", "1.0.0", [dependency("z", "*")]),
-            release("z", "1.0.0", [dependency("a", "*")])
-        ]);
-        expect(() => resolvePackageLock(triple, [dependency("a", "*")])).toThrow(
-            /^Package dependency cycle: a -> m -> z -> a$/
-        );
-    });
-
-    test(
-        "resolves multi-dependency graphs without reporting spurious cycles",
+        "resolves multi-dependency graphs to exactly one pin per declared package",
         { tags: "p1" },
         () => {
             const snapshot = metadata([
@@ -468,9 +394,8 @@ describe("deterministic package resolution", () => {
         "resolves a deep shared-dependency lattice without revisiting subgraphs",
         { tags: "p1" },
         () => {
-            // kills src/definition/resolver.ts:188 (cycle detection's visited guard:
-            // without it the 2-wide lattice below is re-traversed once per path, which
-            // is exponential in depth and can never finish inside the test timeout)
+            // A 2-wide lattice re-traversed once per path is exponential in depth; this
+            // finishes only because resolution descends on ids absent from the selection.
             const levels = 30;
             const releases: PackageRelease[] = [];
             for (let level = 0; level < levels; level += 1) {

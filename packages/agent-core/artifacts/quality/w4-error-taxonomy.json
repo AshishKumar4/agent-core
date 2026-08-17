@@ -175,14 +175,14 @@
   ],
   "allowedPreservedRethrows": ["src/definition/loader.ts:251"],
   "expected": {
-    "agentCoreOperationalThrows": 236,
+    "agentCoreOperationalThrows": 241,
     "allowedTypeErrors": 159,
     "preservedRethrows": 1,
     "bareErrors": 0
   },
   "expectedOperationalByCode": {
     "codec.invalid": 113,
-    "operation.invalid-input": 30,
+    "operation.invalid-input": 35,
     "protocol.invalid-envelope": 5,
     "protocol.invalid-state": 71,
     "protocol.revision-conflict": 17

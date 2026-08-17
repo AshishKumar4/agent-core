@@ -32,14 +32,14 @@ describe("W4 error taxonomy", () => {
             readFileSync(resolve(packageRoot, "artifacts/quality/w4-error-taxonomy.json"), "utf8")
         );
         expect(taxonomy.expected).toEqual({
-            agentCoreOperationalThrows: 236,
+            agentCoreOperationalThrows: 241,
             allowedTypeErrors: 159,
             preservedRethrows: 1,
             bareErrors: 0
         });
         expect(taxonomy.expectedOperationalByCode).toEqual({
             "codec.invalid": 113,
-            "operation.invalid-input": 30,
+            "operation.invalid-input": 35,
             "protocol.invalid-envelope": 5,
             "protocol.invalid-state": 71,
             "protocol.revision-conflict": 17

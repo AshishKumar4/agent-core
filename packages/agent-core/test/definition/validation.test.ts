@@ -217,33 +217,44 @@ describe("Blueprint validation", () => {
         ).toThrow(/deterministic resolution/);
     });
 
-    test("re-resolves exact snapshot metadata to reject cycles and prerelease bypasses", { tags: "p0" }, () => {
-        const cyclicRoot = packageRelease("root", {
-            dependencies: [new PackageDependency(new PackageId("dep"), "*")]
-        });
-        const cyclicDependency = packageRelease("dep", {
-            dependencies: [new PackageDependency(new PackageId("root"), "*")]
-        });
-        expect(() =>
-            validateBlueprint(blueprint([install("root", "*")]), {
+    test(
+        "re-resolves exact snapshot metadata to admit a cyclic relation and reject prerelease bypasses",
+        { tags: "p0" },
+        () => {
+            // SPEC §9.1 makes the closure computable whether or not the declared relation is
+            // acyclic, and lists exactly two rejections: an unsatisfiable range and a
+            // dependency the Blueprint does not install. Refusing a mutual dependency here
+            // would refuse a legitimate Blueprint; the cycle §13 rejects is §4.1 Facet
+            // reliance, C13-FACET-DEPENDENCY-ORDER, over a different relation.
+            const cyclicRoot = packageRelease("root", {
+                dependencies: [new PackageDependency(new PackageId("dep"), "*")]
+            });
+            const cyclicDependency = packageRelease("dep", {
+                dependencies: [new PackageDependency(new PackageId("root"), "*")]
+            });
+            const cyclic = validateBlueprint(blueprint([install("root", "*")]), {
                 lock: packageLock(
                     [cyclicRoot, cyclicDependency],
                     [new PackageDependency(cyclicRoot.id, "*")]
                 ),
                 releases: [cyclicRoot, cyclicDependency],
                 schemaValidator
-            })
-        ).toThrow(/cycle/);
+            });
+            expect(cyclic.lock.packages.map((pin) => pin.id.value)).toEqual(["dep", "root"]);
 
-        const prerelease = packageRelease("preview", { version: "2.0.0-beta.1" });
-        expect(() =>
-            validateBlueprint(blueprint([install("preview", ">=1.0.0")]), {
-                lock: packageLock([prerelease], [new PackageDependency(prerelease.id, ">=1.0.0")]),
-                releases: [prerelease],
-                schemaValidator
-            })
-        ).toThrow(/No version/);
-    });
+            const prerelease = packageRelease("preview", { version: "2.0.0-beta.1" });
+            expect(() =>
+                validateBlueprint(blueprint([install("preview", ">=1.0.0")]), {
+                    lock: packageLock(
+                        [prerelease],
+                        [new PackageDependency(prerelease.id, ">=1.0.0")]
+                    ),
+                    releases: [prerelease],
+                    schemaValidator
+                })
+            ).toThrow(/No version/);
+        }
+    );
 
     test("rejects a lock whose bytes differ from deterministic resolution", { tags: "p0" }, () => {
         const lower = packageRelease("app", { version: "1.0.0" });

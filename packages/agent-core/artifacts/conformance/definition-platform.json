@@ -145,18 +145,28 @@
       "owner": "W4",
       "specAnchor": "C13-PACKAGE-DEPENDENCY-DECLARED",
       "specTextSha256": "sha256:c6326e2ee08a9cb3c1575d04fc5631ec1639b3ba2d0ef8be539f198e12072d57",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": ["C13-BLUEPRINT-VALIDATE-BEFORE-LOAD", "C13-RUN-PINS-PACKAGES"],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The relation does not exist as data anywhere: no Package record, manifest, or codec carries a dependency set, so the first obligation is the declared `{ id: PackageId, range: CompatRange }` set on the Package shape, its codec with decode rejection of a duplicate id, and a restore round-trip through the stores the Package shape already uses",
-        "The closure claim is the load-bearing one and is currently unfalsifiable. C13-RUN-PINS-PACKAGES rejects an incomplete or duplicated closure but compares it against nothing, so verification needs a check that RunPins.packages equals the transitive closure of the declared relation from the Blueprint's packages list resolved to exact versions, and a mutation supplying a complete-looking closure that is not that closure must be rejected rather than accepted",
-        "Pre-load rejection needs two negative tests on the no-code-loaded terms C13-BLUEPRINT-VALIDATE-BEFORE-LOAD already establishes: an unsatisfiable range, and a dependency on a Package the Blueprint does not install, each rejecting the Blueprint with no package code resolved or evaluated",
-        "The non-derivation clause is checkable today and must be tested rather than assumed: a dependency names a PackageId and a BindingRequirement names a FacetPackageId (src/facets/manifest.ts#BindingRequirement), which C13-RUN-PIN-IDENTITY-TYPES already forbids converting or comparing by string value. Evidence must show a binding requirement never becomes a dependency and a dependency never satisfies a binding requirement",
-        "Termination under a cyclic declared relation needs a mutual-dependency pair proving the closure computation is finite and unique by PackagePin.id, because this rule deliberately does not reject a package-level cycle — only the reliance cycle of C13-FACET-DEPENDENCY-ORDER is rejected, and an implementation that conflated the two relations would wrongly refuse a legitimate Blueprint"
-      ]
+      "sourceSymbols": [
+        "src/definition/loader.ts#BlueprintLoader.load",
+        "src/definition/package.ts#PackageDependency",
+        "src/definition/package.ts#PackageRelease",
+        "src/definition/resolver.ts#resolvePackageLock",
+        "src/definition/validator.ts#ValidatedBlueprint.requirePinnedClosure"
+      ],
+      "testSelectors": [
+        "test/definition/package-dependency.test.ts#§9.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] admits exactly the declared closure as a pinned closure and names each divergence",
+        "test/definition/package-dependency.test.ts#§9.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] carries the declared relation as data through the codec and refuses a repeated id",
+        "test/definition/package-dependency.test.ts#§9.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] never derives a dependency from a BindingRequirement or a requirement from a dependency",
+        "test/definition/package-dependency.test.ts#§9.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] refuses a complete-looking lock that is not the closure of the declared relation",
+        "test/definition/package-dependency.test.ts#§9.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] rejects a dependency the Blueprint does not install before any package code loads",
+        "test/definition/package-dependency.test.ts#§9.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] rejects an unsatisfiable dependency range before any package code loads",
+        "test/definition/package-dependency.test.ts#§9.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] resolves and pins a cyclic declared relation rather than refusing the Blueprint",
+        "test/definition/resolver.test.ts#deterministic package resolution [C13-PACKAGE-DEPENDENCY-DECLARED] resolves a cyclic declared relation to a finite closure unique by pin id",
+        "test/definition/resolver.test.ts#deterministic package resolution [C13-PACKAGE-DEPENDENCY-DECLARED] selects the highest admissible versions of a mutually dependent pair"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-PLACEMENT-AUTHORED-BACKING",
@@ -186,9 +196,10 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The rule is enforced by domain construction at the substrate (SPEC §1.5: policy code inside the domain is not a security boundary); W4's definition plane can declare only the dynamic mode and cannot establish the network posture of a W8 backing",
-        "No substrate-neutral interface, nominal token, or local reference can prove zero ambient egress. Verification requires ownership-correct integration between the W4 placement decision and every concrete backing the selected profile offers, together with evidence from each backing's real enforcement boundary",
-        "For Worker Loader, adversarial code running in the real substrate must fail both global fetch and connect while an explicitly passed Binding remains callable. A dispatch-namespace backing additionally requires the exact deployed namespace and deny-all outbound Worker configuration; local fakes do not satisfy either obligation"
+        "The rule is enforced by domain construction at the substrate (SPEC §1.5: the clause is placed there expressly because an outbound policy code can reach around is advice). W4's definition plane selects the mode and constructs no domain, so no W4 symbol can witness a refused connection and no substrate-neutral interface, nominal token, or local reference can stand in for one.",
+        "The rule is not closeable by any single substrate's evidence either: one backing demonstrating zero ambient egress says nothing about another, so this is a rule about what every backing must preserve rather than a claim any one of them discharges. C13-PLACEMENT-AUTHORED-BACKING carries the per-backing declaration half.",
+        "The substrate obligation is C13-CLOUDFLARE-DYNAMIC-NO-EGRESS (W8, §10.2): adversarial code in a real isolate failing both global fetch and connect while an explicitly passed Binding stays callable. That obligation cannot be cited from here — ownerFor maps C13-PLACEMENT-* to W4, W4's globs in artifacts/quality/ownership.json name no packages/agent-core-cloudflare path, and ledger.mjs#requireEvidenceOwner admits only W4 or W9 source, so a W4 row citing the enforcement boundary fails the ledger by name even with live evidence in hand.",
+        "The one globalOutbound assertion in the tree is not evidence for this rule and must not be cited: packages/agent-core-cloudflare/test/{hosting,authored-code}.test.ts drive DynamicWorkerLoaderAdapter against a recording fake and assert the argument the adapter passed, so they cannot fail on any egress the platform did or did not refuse."
       ]
     },
     {

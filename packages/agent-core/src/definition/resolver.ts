@@ -9,14 +9,11 @@ import { invalidDefinition } from "./error";
 type Constraints = ReadonlyMap<string, readonly string[]>;
 type Selection = ReadonlyMap<string, PackageRelease>;
 
-interface ResolutionFailure {
-    readonly kind: "conflict" | "cycle" | "missing";
-    readonly message: string;
-}
-
+// Nothing reads a failure's category; the message is the whole of what resolution
+// reports, so the category was a second answer to a question no caller asked.
 type SearchResult =
     | { readonly complete: true; readonly selected: Selection }
-    | { readonly complete: false; readonly failure: ResolutionFailure };
+    | { readonly complete: false; readonly failure: string };
 
 export class PackageResolver {
     public resolve(
@@ -27,7 +24,7 @@ export class PackageResolver {
         const constraints = rootConstraints(roots);
         const result = search(snapshot, new Map(), constraints, target);
         if (!result.complete) {
-            throw invalidDefinition(result.failure.message);
+            throw invalidDefinition(result.failure);
         }
         return new PackageLock({
             target,
@@ -68,16 +65,16 @@ function search(
         }
     }
 
-    const cycle = dependencyCycle(selected);
-    if (cycle !== undefined) {
-        return {
-            complete: false,
-            failure: {
-                kind: "cycle",
-                message: `Package dependency cycle: ${cycle.join(" -> ")}`
-            }
-        };
-    }
+    // A package-level dependency cycle is NOT rejected. SPEC §9.1 states the closure is
+    // "finite and unique by PackagePin.id, so it is computable whether or not the declared
+    // relation is acyclic", and lists exactly two rejections: an unsatisfiable range and a
+    // dependency the Blueprint does not install. The cycle SPEC does reject belongs to a
+    // different relation — §4.1 Facet reliance, FacetRef via BindingRequirement,
+    // C13-FACET-DEPENDENCY-ORDER — and rejecting one for the other refuses a legitimate
+    // Blueprint. Termination needs no cycle check: this recursion descends only on ids
+    // absent from `selected`, so `selected` grows by exactly one per level and is bounded
+    // by the snapshot's id set. A cycle whose accumulated ranges disagree still fails the
+    // admittedByAll re-check above, as a conflict rather than as a shape.
 
     const unresolved = [...constraints]
         .filter(([id]) => !selected.has(id))
@@ -92,10 +89,7 @@ function search(
 
     const releases = snapshot.releasesFor(new PackageId(id));
     if (releases.length === 0) {
-        return {
-            complete: false,
-            failure: { kind: "missing", message: `Missing package ${id}` }
-        };
+        return { complete: false, failure: `Missing package ${id}` };
     }
     const candidates = releases
         .filter((release) => admittedByAll(release, ranges) && compatibleWith(release, target))
@@ -104,7 +98,7 @@ function search(
         return failedConflict(id, ranges);
     }
 
-    let firstFailure: ResolutionFailure | undefined;
+    let firstFailure: string | undefined;
     for (const candidate of candidates) {
         const nextSelected = new Map(selected);
         nextSelected.set(id, candidate);
@@ -182,60 +176,10 @@ function compareCandidates(left: PackageRelease, right: PackageRelease): number 
     );
 }
 
-function dependencyCycle(selected: Selection): readonly string[] | undefined {
-    const visited = new Set<string>();
-    const active = new Map<string, number>();
-    const path: string[] = [];
-
-    const visit = (id: string): readonly string[] | undefined => {
-        const activeIndex = active.get(id);
-        if (activeIndex !== undefined) {
-            return canonicalCycle([...path.slice(activeIndex), id]);
-        }
-        if (visited.has(id)) return undefined;
-        active.set(id, path.length);
-        path.push(id);
-        const release = selected.get(id)!;
-        for (const dependency of release.dependencies) {
-            if (!selected.has(dependency.id.value)) continue;
-            const cycle = visit(dependency.id.value);
-            if (cycle !== undefined) return cycle;
-        }
-        path.pop();
-        active.delete(id);
-        visited.add(id);
-        return undefined;
-    };
-
-    for (const id of [...selected.keys()].sort(compareText)) {
-        const cycle = visit(id);
-        if (cycle !== undefined) return cycle;
-    }
-    return undefined;
-}
-
-// The reported cycle is the smallest of its rotations, so that one cycle has one
-// spelling whichever member the walk entered it from. Every rotation holds the same
-// members and a cycle's members are distinct, so the rotations differ at their first
-// element and the smallest is the one starting at the smallest member. Building and
-// sorting all n rotations decided nothing this does not.
-function canonicalCycle(cycle: readonly string[]): readonly string[] {
-    const members = cycle.slice(0, -1);
-    let start = 0;
-    for (const [index, member] of members.entries()) {
-        if (compareText(member, members[start]!) < 0) start = index;
-    }
-    const canonical = [...members.slice(start), ...members.slice(0, start)];
-    return [...canonical, canonical[0]!];
-}
-
 function failedConflict(id: string, ranges: readonly string[]): SearchResult {
     const constraint = [...new Set(ranges)].sort(compareText).join(" && ");
     return {
         complete: false,
-        failure: {
-            kind: "conflict",
-            message: `No version of package ${id} satisfies ${constraint}`
-        }
+        failure: `No version of package ${id} satisfies ${constraint}`
     };
 }
