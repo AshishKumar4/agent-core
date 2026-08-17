@@ -520,6 +520,26 @@
       ]
     },
     {
+      "id": "C13-RUN-DISTINCTION-REPRESENTABLE",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-DISTINCTION-REPRESENTABLE",
+      "specTextSha256": "sha256:6027bd9e5f21aae4a195b4161b4113ffe8cc2e9516e2aec03f6abbdd22c5b663",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The merge half, in its discloser's own words. `RunCommit.parents` is a flat `readonly RunCommitId[]` with arity validated per kind, so `parents.length === 2` answers whether this has two entries while the rule needs whether this joins two distinct lineages. A merge naming ONE commit as both parents is fully constructable, passes the codec, and is refused only later by `RunRuntime.validateMerge` — a unary merge wearing binary shape. That is demonstrated rather than argued: dropping the runtime's distinctness clause survives every record-level check, so the record-level mutant is the one that lives. The absent mechanism is a `MergeParents` value object in src/agents/runs/commit.ts that cannot hold one commit twice, plus the codec path that admits only it",
+        "Stated honestly because the row must not read as a correctness gap: `RunRuntime.validateMerge` refuses the unary-merge case correctly today, and src/agents/runs/commit.ts refuses every arity but two. No wrong merge lands and no wrong answer is returned. This is a representability rule — the illegal value exists and is checked rather than being unconstructable — so the evidence owed is that the value cannot be built, never that a build is rejected",
+        "The omission-attribution half, in its discloser's own words. `TurnModelInput.covers` is per-RECORD, a flat `readonly RunCommitId[]`, while `TurnOmission` is per-SECTION, so the two facts sit at different granularities with no third field joining them. `covers` therefore answers whether a commit was in scope of the assembly while being read as whether the model observed that commit's content, and a host that lists a commit and renders zero bytes of it — fully abridging it inside a multi-commit section — is indistinguishable in the record from one that rendered it whole. The withheld byte count exists but cannot be attributed to a commit. The absent mechanism is a per-commit coverage entry in src/agents/runs/executor.ts",
+        "What the omission half does and does not break, from the same disclosure. Reconstruction stays byte-exact either way because the bytes come from the sections and not from the accounting, so C13-TURN-MODEL-INPUT-RECONSTRUCTABLE is unaffected, and C13-TURN-SURFACE-ACCOUNTED claims coverage equals the transcript and that abridgement states the withheld amount without claiming per-commit attribution, so no landed row overclaims and no test asserts something false. What is unavailable is the audit question of which commit was abridged — exactly the question a reader of the phrase compaction and abridgement compose would assume is answerable. It composes for reconstruction; it does not compose for attribution",
+        "Why it is owed rather than settled, in the discloser's own judgement: per-commit entries carrying carried versus withheld were considered and dropped as duplicative of the section-level omission, and that objection treated two different questions as one fact. Per-commit omission attribution is a fact about the world, so the duplication objection was wrong and the gap is debt rather than a decision",
+        "SHAPE WARNING for whoever discharges the omission half, because the choice is load-bearing and the discloser corrected their own first estimate here. Replacing the field — `covers: readonly TurnCoveredCommit[]` with `{commit, omission}` per entry — changes the canonical value of an existing key, and `TurnModelInput.toData()` reaches `modelInputCommitId` through a content-addressed ref, so that shape forks every `modelInput` RunCommitId exactly as presence-typing `interceptable` forked InvocationIds, and it is a migration rather than a refactor. An ADDITIVE optional field emitted only when non-empty forks nothing: existing records serialise byte-identically and only records that use it differ, with `TurnShownContent.toData()` emitting `inline` XOR `ref` as the in-record precedent. Take the additive form; the residual cost is then §5.6 prose and one digest re-affirmation, not a durable-identity migration",
+        "Both halves are unmeasured against the mutation campaign, so no discrimination attribution exists for either mechanism. Discharging this row means the two value objects, a record-level test that a unary merge cannot be constructed rather than that it is rejected, a test that a fully abridged carried commit is distinguishable from a whole one, and the mutation attribution that shows each new test dies when its own clause is removed"
+      ]
+    },
+    {
       "id": "C13-RUN-MIGRATED-TURN-REJECTION",
       "owner": "W5",
       "specAnchor": "C13-RUN-MIGRATED-TURN-REJECTION",
@@ -851,6 +871,21 @@
         "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-ADMISSION-HANDLE] refuses a delegate Receipt carrying the child's output beside its RunRef",
         "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-TURN-ADMISSION-HANDLE] offers the verified admission identity at the executor boundary without changing admission",
         "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-TURN-ADMISSION-HANDLE] carries the child RunRef for a delegate spawn and never the child's result"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-TURN-ADMISSION-FACTS-DISTINCT",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-ADMISSION-FACTS-DISTINCT",
+      "specTextSha256": "sha256:329d0ee3f45ca1d7eaaead4735e58e2e494d46968b6a60abd45e44e4026d70cd",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/handle.ts#TurnAdmissionReceiptFacts"],
+      "testSelectors": [
+        "test/agents/runs/handle.test.ts#distinguishing the admission Receipt shapes [C13-TURN-ADMISSION-FACTS-DISTINCT] refuses a pre-effect denial and an unsuccessful attempt with different reasons",
+        "test/agents/runs/handle.test.ts#distinguishing the admission Receipt shapes [C13-TURN-ADMISSION-FACTS-DISTINCT] admits the succeeded shape alone, carrying both the attempt and its result"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
