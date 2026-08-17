@@ -1,14 +1,18 @@
 import { assertExactKeys, isJsonObject } from "./project.mjs";
 
 export const HARD_COVERAGE_THRESHOLD = 95;
+export const HARD_PER_FILE_COVERAGE_THRESHOLD = 90;
 export const REQUIRED_COVERAGE_METRICS = ["statements", "branches", "functions", "lines"];
 
 export function validateCoveragePolicy(coverage) {
     if (
         coverage?.threshold !== HARD_COVERAGE_THRESHOLD ||
+        coverage.perFileThreshold !== HARD_PER_FILE_COVERAGE_THRESHOLD ||
         JSON.stringify(coverage.metrics) !== JSON.stringify(REQUIRED_COVERAGE_METRICS)
     ) {
-        throw new TypeError("Coverage policy must enforce all four metrics at 95%");
+        throw new TypeError(
+            "Coverage policy must enforce all four metrics at 95% per universe and 90% per file"
+        );
     }
 }
 
@@ -24,6 +28,43 @@ export function failedUniverseMetrics(universes, names, threshold) {
     return Object.entries(universes).flatMap(([universe, metrics]) =>
         failedMetrics(metrics, names, threshold).map((metric) => `${universe}/${metric}`)
     );
+}
+
+/**
+ * A universe total is blind to distribution: one well-covered file subsidises three bare
+ * ones inside a passing aggregate, and a new file may land at nothing without moving it.
+ * The per-file floor closes that, and the seed is its exemption record rather than a
+ * curated exclusion list — a file may sit below the floor only where the reviewed seed
+ * already measured it below, and then never by more. That ratchets every below-floor file
+ * whether or not its content changed, which the unchanged-source ratchet alone does not.
+ *
+ * An empty denominator is vacuous per file and a failure per universe: one file with no
+ * branches has no branch coverage to lose, while a universe with no branches measured
+ * nothing at all.
+ */
+export function failedFileMetrics(files, seeded, names, threshold) {
+    const failures = [];
+    for (const [path, metrics] of files) {
+        for (const name of names) {
+            const metric = metrics[name];
+            if (metric.total === 0 || 100 * metric.covered >= threshold * metric.total) continue;
+            const floor = seeded?.[path]?.metrics[name];
+            if (floor === undefined) {
+                failures.push(
+                    `${path}: ${name} ${metric.covered}/${metric.total} is unseeded source below the floor`
+                );
+            } else if (100 * floor.covered >= threshold * floor.total) {
+                failures.push(
+                    `${path}: ${name} ${metric.covered}/${metric.total} fell below the floor from ${floor.covered}/${floor.total}`
+                );
+            } else if (metric.covered * floor.total < floor.covered * metric.total) {
+                failures.push(
+                    `${path}: ${name} ${metric.covered}/${metric.total} is under the floor and below its seeded ${floor.covered}/${floor.total}`
+                );
+            }
+        }
+    }
+    return failures;
 }
 
 export function metricRatios(metrics, names) {

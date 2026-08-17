@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
     assertCoverageAgreement,
+    failedFileMetrics,
     failedMetrics,
     failedUniverseMetrics,
     mergeRawCoverage,
@@ -44,14 +45,85 @@ describe("coverage policy", () => {
     });
 
     test("rejects attempts to weaken any hard final metric", () => {
-        expect(() => validateCoveragePolicy({ metrics, threshold: 94.99 })).toThrow(/95%/);
+        expect(() =>
+            validateCoveragePolicy({ metrics, threshold: 94.99, perFileThreshold: 90 })
+        ).toThrow(/95%/);
         expect(() =>
             validateCoveragePolicy({
                 metrics: metrics.filter((metric) => metric !== "branches"),
-                threshold: 95
+                threshold: 95,
+                perFileThreshold: 90
             })
         ).toThrow(/all four metrics/);
-        expect(() => validateCoveragePolicy({ metrics, threshold: 95 })).not.toThrow();
+        expect(() => validateCoveragePolicy({ metrics, threshold: 95 })).toThrow(/per file/);
+        expect(() =>
+            validateCoveragePolicy({ metrics, threshold: 95, perFileThreshold: 89 })
+        ).toThrow(/per file/);
+        expect(() =>
+            validateCoveragePolicy({ metrics, threshold: 95, perFileThreshold: 90 })
+        ).not.toThrow();
+    });
+
+    test("holds every file to the per-file floor a passing aggregate hides", () => {
+        const files = [
+            ["src/rich.ts", coverageMetrics(100)],
+            ["src/bare.ts", coverageMetrics(40)]
+        ] as const;
+
+        expect(
+            failedUniverseMetrics(
+                { node: sumMetrics(coverageMetrics(100), coverageMetrics(40)) },
+                metrics,
+                70
+            )
+        ).toEqual([]);
+        expect(failedFileMetrics(files, {}, metrics, 90)).toEqual(
+            metrics.map(
+                (metric) => `src/bare.ts: ${metric} 40/100 is unseeded source below the floor`
+            )
+        );
+        expect(failedFileMetrics([files[0]], {}, metrics, 90)).toEqual([]);
+    });
+
+    test("admits a below-floor file only at its seeded counters and never worse", () => {
+        const seeded = {
+            "src/debt.ts": { sha256: "a".repeat(64), metrics: coverageMetrics(80) },
+            "src/kept.ts": { sha256: "b".repeat(64), metrics: coverageMetrics(100) }
+        };
+
+        expect(
+            failedFileMetrics([["src/debt.ts", coverageMetrics(80)]], seeded, metrics, 90)
+        ).toEqual([]);
+        expect(
+            failedFileMetrics([["src/debt.ts", coverageMetrics(85)]], seeded, metrics, 90)
+        ).toEqual([]);
+        expect(
+            failedFileMetrics([["src/debt.ts", coverageMetrics(79)]], seeded, metrics, 90)
+        ).toEqual(
+            metrics.map(
+                (metric) =>
+                    `src/debt.ts: ${metric} 79/100 is under the floor and below its seeded 80/100`
+            )
+        );
+        expect(
+            failedFileMetrics([["src/kept.ts", coverageMetrics(89)]], seeded, metrics, 90)
+        ).toEqual(
+            metrics.map(
+                (metric) => `src/kept.ts: ${metric} 89/100 fell below the floor from 100/100`
+            )
+        );
+    });
+
+    test("treats an empty denominator as vacuous per file and empty per universe", () => {
+        const branchless = {
+            statements: { covered: 10, total: 10 },
+            branches: { covered: 0, total: 0 },
+            functions: { covered: 2, total: 2 },
+            lines: { covered: 10, total: 10 }
+        };
+
+        expect(failedFileMetrics([["src/branchless.ts", branchless]], {}, metrics, 90)).toEqual([]);
+        expect(failedUniverseMetrics({ node: branchless }, metrics, 90)).toEqual(["node/branches"]);
     });
 
     test("derives raw counters and rejects a forged summary", () => {

@@ -4,6 +4,7 @@
   "coverage": {
     "metrics": ["statements", "branches", "functions", "lines"],
     "threshold": 95,
+    "perFileThreshold": 90,
     "sourceUniverses": [
       {
         "id": "node",

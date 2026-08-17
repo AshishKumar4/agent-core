@@ -5,7 +5,13 @@ export interface CoverageCount {
     readonly total: number;
 }
 
+export interface SeededCoverage {
+    readonly sha256: string;
+    readonly metrics: Readonly<Record<string, CoverageCount>>;
+}
+
 export const HARD_COVERAGE_THRESHOLD: 95;
+export const HARD_PER_FILE_COVERAGE_THRESHOLD: 90;
 export const REQUIRED_COVERAGE_METRICS: readonly ["statements", "branches", "functions", "lines"];
 export function validateCoveragePolicy(coverage: JsonValue): void;
 
@@ -16,6 +22,12 @@ export function failedMetrics(
 ): string[];
 export function failedUniverseMetrics(
     universes: Readonly<Record<string, Readonly<Record<string, CoverageCount>>>>,
+    names: readonly string[],
+    threshold: number
+): string[];
+export function failedFileMetrics(
+    files: Iterable<readonly [string, Readonly<Record<string, CoverageCount>>]>,
+    seeded: Readonly<Record<string, SeededCoverage>> | undefined,
     names: readonly string[],
     threshold: number
 ): string[];

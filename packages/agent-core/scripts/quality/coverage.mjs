@@ -18,6 +18,7 @@ import {
 import { changedPaths, loadOwnership, ownersForPath } from "./ownership.mjs";
 import {
     assertCoverageAgreement,
+    failedFileMetrics,
     failedMetrics,
     failedUniverseMetrics,
     mergeRawCoverage,
@@ -88,6 +89,15 @@ const regressions =
               policy.coverage.metrics,
               approvedRemovals
           );
+const perFileFailures =
+    seed === undefined
+        ? []
+        : failedFileMetrics(
+              reportData.files,
+              seed.files,
+              policy.coverage.metrics,
+              policy.coverage.perFileThreshold
+          );
 const ownerCoverage =
     options.owner === undefined
         ? undefined
@@ -123,6 +133,8 @@ const attestation = {
     universeRatios,
     threshold: policy.coverage.threshold,
     thresholdFailures,
+    perFileThreshold: policy.coverage.perFileThreshold,
+    perFileFailures,
     missingUniverses: discovery.missingUniverses,
     regressions,
     approvedRemovedSources: [...approvedRemovals].sort(),
@@ -132,6 +144,7 @@ const attestation = {
     complete:
         discovery.missingUniverses.length === 0 &&
         thresholdFailures.length === 0 &&
+        perFileFailures.length === 0 &&
         regressions.length === 0 &&
         ownerFailures.length === 0
 };
@@ -163,6 +176,10 @@ if (options.writeSeed) {
     if (seed === undefined) throw new TypeError("Coverage seed is missing");
     if (regressions.length > 0)
         throw new TypeError(`Unchanged coverage regressed:\n${regressions.join("\n")}`);
+    if (perFileFailures.length > 0)
+        throw new TypeError(
+            `Per-file coverage is below ${policy.coverage.perFileThreshold}%:\n${perFileFailures.join("\n")}`
+        );
     if (ownerFailures.length > 0)
         throw new TypeError(
             `Owned changed-source coverage is below 95%: ${ownerFailures.join(", ")}`
