@@ -15,33 +15,37 @@ import {
 import { invocationCodecs, prepared } from "./fixture";
 
 describe("invocation operational error taxonomy", () => {
-    test("[C13-ADV-STALE-RECOVERY-OWNER] uses AgentCoreError for append conflicts and missing persisted evidence", { tags: "p1" }, () => {
-        const state = createInvocationMemoryState();
-        const persistence = new MemoryInvocationPersistence(invocationCodecs);
-        const invocation = prepared("duplicate-error");
-        persistence.insertPrepared(state, invocation);
-        expectFailure(
-            () => persistence.insertPrepared(state, invocation),
-            "store.duplicate-record"
-        );
+    test(
+        "uses AgentCoreError for append conflicts and missing persisted evidence",
+        { tags: "p1" },
+        () => {
+            const state = createInvocationMemoryState();
+            const persistence = new MemoryInvocationPersistence(invocationCodecs);
+            const invocation = prepared("duplicate-error");
+            persistence.insertPrepared(state, invocation);
+            expectFailure(
+                () => persistence.insertPrepared(state, invocation),
+                "store.duplicate-record"
+            );
 
-        const audit = new AuditRecord({
-            id: new AuditRecordId("missing-cause-audit"),
-            actor: new ActorRef("run", new ActorId("error-actor")),
-            tenant: new TenantId("error-tenant"),
-            correlation: new CorrelationId("error-correlation"),
-            cause: new AuditRecordId("missing-cause"),
-            kind: {
-                kind: "write",
-                id: new WriteRecordId("missing-cause-write"),
-                outcome: "committed"
-            }
-        });
-        expectFailure(
-            () => validateAuditAppend(audit, { get: () => undefined }),
-            "audit.missing-cause"
-        );
-    });
+            const audit = new AuditRecord({
+                id: new AuditRecordId("missing-cause-audit"),
+                actor: new ActorRef("run", new ActorId("error-actor")),
+                tenant: new TenantId("error-tenant"),
+                correlation: new CorrelationId("error-correlation"),
+                cause: new AuditRecordId("missing-cause"),
+                kind: {
+                    kind: "write",
+                    id: new WriteRecordId("missing-cause-write"),
+                    outcome: "committed"
+                }
+            });
+            expectFailure(
+                () => validateAuditAppend(audit, { get: () => undefined }),
+                "audit.missing-cause"
+            );
+        }
+    );
 
     test("names invocation errors and preserves the failure taxonomy", { tags: "p1" }, () => {
         const error = invocationError("state.invalid-transition", "invalid transition");

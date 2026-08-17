@@ -347,7 +347,7 @@ describe("W6 operation mediation integration", () => {
     );
 
     test(
-        "[C13-ADV-RECEIPT-CANCELLED] [invocation.publication-outbox] [invocation-evidence-persistence] durably drains Receipt publication without fire-and-forget",
+        "[invocation.publication-outbox] [invocation-evidence-persistence] durably drains Receipt publication without fire-and-forget",
         { tags: "p0" },
         async () => {
             const transactions = new MemoryTransactions();

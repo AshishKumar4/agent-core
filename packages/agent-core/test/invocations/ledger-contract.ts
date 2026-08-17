@@ -338,6 +338,84 @@ export function invocationLedgerContract<Transaction>(
         );
 
         test(
+            "[C13-ADV-STALE-RECOVERY-OWNER] refuses a recovery taken off a superseded claim and an attempt from the worker it replaced",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const invocation = prepared("stale-recovery", { run: true }, { lease: "lease:1" });
+                const first = executorClaim(
+                    invocation.header.id,
+                    0,
+                    0,
+                    "claim:stale-first",
+                    "worker:1",
+                    time(5)
+                );
+                const second = executorClaim(
+                    invocation.header.id,
+                    0,
+                    0,
+                    "claim:stale-second",
+                    "worker:2",
+                    time(20)
+                );
+                const third = executorClaim(
+                    invocation.header.id,
+                    0,
+                    0,
+                    "claim:stale-third",
+                    "worker:3",
+                    time(30)
+                );
+                harness.transaction((transaction) => {
+                    harness.ledger.prepare(transaction, invocation);
+                    harness.ledger.claimItem(transaction, first, time(1));
+                });
+                harness.transaction((transaction) =>
+                    harness.ledger.recoverClaim(transaction, first.id, second, time(5))
+                );
+
+                // Every check the claim record can make on its own passes for worker:3: the
+                // claim it names is genuinely expired and the worker genuinely differs. What
+                // makes the recovery illegal is that the claim was already superseded, which
+                // only the ledger's compare against the current claim can see.
+                expect(() =>
+                    first.recover(third.id, third.owner, time(30), time(25))
+                ).not.toThrow();
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.recoverClaim(transaction, first.id, third, time(25))
+                        ),
+                    /exact current no-attempt claim/
+                );
+
+                // The replaced worker must lose the effect and not merely the claim, or a
+                // recovered item would run twice.
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.admitAttempt(
+                                transaction,
+                                effectAttempt(invocation, first, "attempt:stale-owner", time(6)),
+                                time(6)
+                            )
+                        ),
+                    /live current claim/
+                );
+                // The recovered owner's attempt at that same ordinal is admitted, so the
+                // refusal above is about which worker holds the claim, not about the ordinal.
+                harness.transaction((transaction) =>
+                    harness.ledger.admitAttempt(
+                        transaction,
+                        effectAttempt(invocation, second, "attempt:recovered-owner", time(10)),
+                        time(10)
+                    )
+                );
+            }
+        );
+
+        test(
             "recovers an unattempted retry claim despite a prior failed ordinal",
             { tags: "p0" },
             () => {
@@ -484,6 +562,140 @@ export function invocationLedgerContract<Transaction>(
                 )
             ).toBe("denied");
         });
+
+        test(
+            "[C13-ADV-RECEIPT-CANCELLED] keeps a cancelled pre-effect Receipt terminal, outside attempted lineage, and ahead of denial",
+            { tags: "p0" },
+            () => {
+                const harness = open();
+                const invocation = prepared("cancelled-lineage", [{ item: 0 }, { item: 1 }], {
+                    lease: "lease:1"
+                });
+                const cancelled = new PreEffectReceipt(
+                    new ReceiptId("receipt:cancelled-lineage"),
+                    invocation.header.id,
+                    0,
+                    "cancelledPreEffect",
+                    time(2),
+                    "the required Turn was cancelled"
+                );
+                harness.transaction((transaction) => {
+                    harness.ledger.prepare(transaction, invocation);
+                    harness.ledger.recordPreEffect(transaction, cancelled);
+                });
+
+                // A cancellation before the effect attempts nothing, so the item's attempted
+                // lineage stays empty rather than acquiring a synthetic entry to hang on.
+                expect(
+                    harness.transaction((transaction) =>
+                        harness.persistence.attemptsForItem(transaction, invocation.header.id, 0)
+                    )
+                ).toEqual([]);
+
+                // It is terminal for its item: neither a retry claim nor a second pre-effect
+                // Receipt may follow, and the two refusals come from different rules.
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.claimItem(
+                                transaction,
+                                executorClaim(
+                                    invocation.header.id,
+                                    0,
+                                    1,
+                                    "claim:after-cancelled",
+                                    "worker:after",
+                                    time(20)
+                                ),
+                                time(10)
+                            )
+                        ),
+                    /final failed Receipt/
+                );
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.recordPreEffect(
+                                transaction,
+                                new PreEffectReceipt(
+                                    new ReceiptId("receipt:cancelled-again"),
+                                    invocation.header.id,
+                                    0,
+                                    "cancelledPreEffect",
+                                    time(11),
+                                    "cancelled twice"
+                                )
+                            )
+                        ),
+                    /untouched item/
+                );
+
+                // Cancellation outranks denial in the derived batch outcome, so a batch that
+                // lost its Turn does not read as one the platform refused.
+                harness.transaction((transaction) =>
+                    harness.ledger.recordPreEffect(
+                        transaction,
+                        new PreEffectReceipt(
+                            new ReceiptId("receipt:cancelled-lineage-denied"),
+                            invocation.header.id,
+                            1,
+                            "deniedPreEffect",
+                            time(3),
+                            "authority denied"
+                        )
+                    )
+                );
+                expect(
+                    harness.transaction((transaction) =>
+                        harness.ledger.batchOutcome(transaction, invocation.header.id)
+                    )
+                ).toBe("cancelled");
+
+                // And an item that already attempted cannot be back-filled with one: the
+                // cancellation says no effect was attempted, which an attempt contradicts.
+                const attempted = prepared(
+                    "cancelled-after-attempt",
+                    { item: 0 },
+                    {
+                        lease: "lease:1"
+                    }
+                );
+                const claim = executorClaim(
+                    attempted.header.id,
+                    0,
+                    0,
+                    "claim:cancelled-after-attempt",
+                    "worker:attempted",
+                    time(20)
+                );
+                harness.transaction((transaction) => {
+                    harness.ledger.prepare(transaction, attempted);
+                    harness.ledger.claimItem(transaction, claim, time(1));
+                    harness.ledger.admitAttempt(
+                        transaction,
+                        effectAttempt(attempted, claim, "attempt:cancelled-after", time(2)),
+                        time(2)
+                    );
+                });
+                expectAgentCoreError(
+                    () =>
+                        harness.transaction((transaction) =>
+                            harness.ledger.recordPreEffect(
+                                transaction,
+                                new PreEffectReceipt(
+                                    new ReceiptId("receipt:cancelled-after-attempt"),
+                                    attempted.header.id,
+                                    0,
+                                    "cancelledPreEffect",
+                                    time(3),
+                                    "cancelled after attempting"
+                                )
+                            )
+                        ),
+                    /untouched item/
+                );
+            }
+        );
 
         test(
             "[C13-RECEIPT-ID-NAMESPACE] rejects ReceiptId reuse across pre-effect and attempted variants",

@@ -180,19 +180,19 @@
       "owner": "W6",
       "specAnchor": "C13-ADV-RECEIPT-CANCELLED",
       "specTextSha256": "sha256:3314c35cc95c3904d2f8018294093a18355772cc5f7590c5ca7ac671daf1ddbe",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
-        "src/invocations/publication.ts#InvocationPublicationOutbox",
-        "src/invocations/publisher.ts#InvocationPublicationDrainer"
+        "src/invocations/ledger.ts#InvocationLedger",
+        "src/invocations/outcome.ts#deriveBatchOutcome",
+        "src/invocations/receipt.ts#PreEffectReceipt"
       ],
       "testSelectors": [
-        "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-ADV-RECEIPT-CANCELLED] [invocation.publication-outbox] [invocation-evidence-persistence] durably drains Receipt publication without fire-and-forget"
+        "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-RECEIPT-CANCELLED] keeps a cancelled pre-effect Receipt terminal, outside attempted lineage, and ahead of denial",
+        "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-RECEIPT-CANCELLED] keeps a cancelled pre-effect Receipt terminal, outside attempted lineage, and ahead of denial"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": [
-        "Names cancelled pre-effect Receipt lineage. Its only test asserts Receipt publication drains durably without fire-and-forget, which is publication delivery, not cancelled lineage."
-      ]
+      "remainingEvidence": []
     },
     {
       "id": "C13-ADV-RECEIPT-DENIED",
@@ -328,16 +328,18 @@
       "owner": "W6",
       "specAnchor": "C13-ADV-STALE-RECOVERY-OWNER",
       "specTextSha256": "sha256:aabb47ba0a85fa4056f1baf2704341f488cebc007da760c31e206e0daf91255f",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
+      "sourceSymbols": [
+        "src/invocations/claim.ts#ItemClaim",
+        "src/invocations/ledger.ts#InvocationLedger"
+      ],
       "testSelectors": [
-        "test/invocations/error.test.ts#invocation operational error taxonomy [C13-ADV-STALE-RECOVERY-OWNER] uses AgentCoreError for append conflicts and missing persisted evidence"
+        "test/invocations/ledger-memory.test.ts#[invocation-persistence] InvocationLedger (memory) [C13-ADV-STALE-RECOVERY-OWNER] refuses a recovery taken off a superseded claim and an attempt from the worker it replaced",
+        "test/substrates/sqlite/invocations/persistence.test.ts#[invocation-persistence] InvocationLedger (sqlite) [C13-ADV-STALE-RECOVERY-OWNER] refuses a recovery taken off a superseded claim and an attempt from the worker it replaced"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": [
-        "Names a stale recovery owner. Its only test asserts the invocation error taxonomy uses AgentCoreError for append conflicts and missing persisted evidence, which is error typing, not claim-owner staleness."
-      ]
+      "remainingEvidence": []
     },
     {
       "id": "C13-ADV-STRUCTURAL-INTENT-CHANGE",
