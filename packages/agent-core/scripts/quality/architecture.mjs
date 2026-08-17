@@ -291,10 +291,12 @@ function collectRecordFields(node, shape, source, file) {
             shape,
             name: field.name.getText(source),
             form,
-            optional:
-                field.questionToken !== undefined ||
-                field.initializer !== undefined ||
-                /\bundefined\b/u.test(form)
+            // A default is not a presence declaration: a field with an initializer always
+            // carries a value, so it may seed nothing. The initializer is read only by
+            // `declaredForm`, to see the un-annotated `= false` this rule removes — reusing
+            // it here would let one flag answer "may this be absent" and "does this have a
+            // default" with one value, which is the collapse the rule itself is about.
+            optional: field.questionToken !== undefined || /\bundefined\b/u.test(form)
         });
     }
 }
