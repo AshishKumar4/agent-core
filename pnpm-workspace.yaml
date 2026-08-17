@@ -1,2 +1,12 @@
 packages:
   - "packages/*"
+
+# A dependency's lifecycle script runs arbitrary code at install time, before any gate in
+# this repository has read a byte. pnpm blocks those scripts by default, but a default is
+# not a policy: it moves with the package manager and `pnpm approve-builds` writes an entry
+# here without ceremony. Declaring the allowlist empty makes the absence a stated invariant
+# that scripts/quality/supply-chain.mjs holds, so permitting a build becomes a reviewed diff
+# rather than a silent one. Nothing needs an exception today — esbuild is the only
+# dependency shipping a postinstall, and its binary arrives through the platform package
+# `@esbuild/linux-x64`, so the script has nothing left to do.
+onlyBuiltDependencies: []

@@ -3,7 +3,11 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import { canonicalSpec, specRequirements } from "../../scripts/quality/spec.mjs";
-import { runQualitySubprocess, subprocessTestOptions } from "./subprocess";
+import {
+    type QualitySubprocessResult,
+    runQualitySubprocess,
+    subprocessTestOptions
+} from "./subprocess";
 import { objectsAt, readArtifact, stringAt, stringsAt } from "./artifacts";
 
 /**
@@ -777,7 +781,7 @@ async function writePassingSelectors(root: string, selectors: readonly string[])
     );
 }
 
-function run(args: string[]): ReturnType<typeof runQualitySubprocess> {
+function run(args: string[]): QualitySubprocessResult {
     return runQualitySubprocess(process.execPath, [checker, ...args], packageRoot);
 }
 
@@ -785,7 +789,7 @@ function runFixture(
     root: string,
     stage: "building" | "final" = "building",
     hermetic = false
-): ReturnType<typeof runQualitySubprocess> {
+): QualitySubprocessResult {
     return run([
         ...(hermetic ? ["--hermetic"] : []),
         "--stage",

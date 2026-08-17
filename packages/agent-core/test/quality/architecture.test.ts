@@ -2,7 +2,11 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
-import { runQualitySubprocess, subprocessTestOptions } from "./subprocess";
+import {
+    type QualitySubprocessResult,
+    runQualitySubprocess,
+    subprocessTestOptions
+} from "./subprocess";
 
 const packageRoot = resolve(import.meta.dirname, "../..");
 const checker = resolve(packageRoot, "scripts/quality/architecture.mjs");
@@ -414,7 +418,7 @@ async function createFixture(files: Record<string, string>): Promise<string> {
     return root;
 }
 
-function run(root: string): ReturnType<typeof runQualitySubprocess> {
+function run(root: string): QualitySubprocessResult {
     return runQualitySubprocess(
         process.execPath,
         [

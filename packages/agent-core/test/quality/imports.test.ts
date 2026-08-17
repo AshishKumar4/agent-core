@@ -2,7 +2,11 @@ import { dirname, resolve } from "node:path";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { afterEach, describe, expect, test } from "vitest";
-import { runQualitySubprocess, subprocessTestOptions } from "./subprocess";
+import {
+    type QualitySubprocessResult,
+    runQualitySubprocess,
+    subprocessTestOptions
+} from "./subprocess";
 
 const packageRoot = resolve(import.meta.dirname, "../..");
 const checker = resolve(packageRoot, "scripts/check-import-boundaries.mjs");
@@ -75,7 +79,7 @@ async function fixture(files: Record<string, string>): Promise<string> {
     return root;
 }
 
-function run(root: string): ReturnType<typeof runQualitySubprocess> {
+function run(root: string): QualitySubprocessResult {
     return runQualitySubprocess(
         process.execPath,
         [checker, "--root", root, "--baseline", resolve(root, "artifacts/import-boundaries.json")],
@@ -83,7 +87,7 @@ function run(root: string): ReturnType<typeof runQualitySubprocess> {
     );
 }
 
-function output(result: ReturnType<typeof runQualitySubprocess>): string {
+function output(result: QualitySubprocessResult): string {
     expect(result.status).toBe(1);
     return `${result.stdout}${result.stderr}`;
 }

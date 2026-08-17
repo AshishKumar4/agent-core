@@ -74,7 +74,8 @@
       "integration",
       "ledger",
       "traceability",
-      "discrimination"
+      "discrimination",
+      "supply-chain"
     ],
     "attestation": [
       "doctrine",
@@ -92,10 +93,12 @@
       "agents",
       "exports",
       "traceability",
-      "conformance"
+      "conformance",
+      "supply-chain"
     ],
     "live-evidence": [],
-    "discrimination": ["ledger"]
+    "discrimination": ["ledger"],
+    "supply-chain": []
   },
   "hermetic": {
     "format": false,
@@ -136,7 +139,8 @@
     "building-attestation": false,
     "attestation": false,
     "live-evidence": true,
-    "discrimination": true
+    "discrimination": true,
+    "supply-chain": true
   },
   "stages": {
     "building": ["building-attestation"],

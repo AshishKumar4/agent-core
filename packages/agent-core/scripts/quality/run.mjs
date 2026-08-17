@@ -268,6 +268,7 @@ async function execute(node, context) {
                 cwd: packageRoot
             }),
         records: () => runNode("records", context),
+        "supply-chain": () => runNode("supply-chain", context),
         "live-evidence": () => runNode("live-evidence", context),
         requests: () => runNode("requests", context),
         seams: () => runNode("seams", context),

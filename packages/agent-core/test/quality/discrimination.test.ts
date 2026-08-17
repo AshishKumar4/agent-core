@@ -5,7 +5,11 @@ import { join, resolve } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import { objectAt, readArtifact, stringsAt } from "./artifacts";
 import { sourceSymbolLines } from "../../scripts/quality/evidence.mjs";
-import { runQualitySubprocess, subprocessTestOptions } from "./subprocess";
+import {
+    type QualitySubprocessResult,
+    runQualitySubprocess,
+    subprocessTestOptions
+} from "./subprocess";
 
 const packageRoot = resolve(import.meta.dirname, "../..");
 const checker = resolve(packageRoot, "scripts/quality/discrimination.mjs");
@@ -108,7 +112,7 @@ function verifiedAtom(overrides: Partial<FixtureRequirement> = {}): FixtureRequi
     };
 }
 
-function runChecker(root: string): ReturnType<typeof runQualitySubprocess> {
+function runChecker(root: string): QualitySubprocessResult {
     return runQualitySubprocess(
         process.execPath,
         [checker, "--stage", "building", "--artifact-root", root],

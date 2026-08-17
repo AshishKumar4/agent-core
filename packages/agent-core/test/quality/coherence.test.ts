@@ -3,7 +3,11 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { beforeAll, afterEach, describe, expect, test } from "vitest";
-import { runQualitySubprocess, subprocessTestOptions } from "./subprocess";
+import {
+    type QualitySubprocessResult,
+    runQualitySubprocess,
+    subprocessTestOptions
+} from "./subprocess";
 
 const packageRoot = resolve(import.meta.dirname, "../..");
 const checker = resolve(packageRoot, "scripts/quality/coherence.mjs");
@@ -706,7 +710,7 @@ async function fixture({
     return root;
 }
 
-function run(root: string, extra: string[] = []): ReturnType<typeof runQualitySubprocess> {
+function run(root: string, extra: string[] = []): QualitySubprocessResult {
     return runQualitySubprocess(
         process.execPath,
         [

@@ -5,7 +5,11 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import type { JsonValue } from "../../scripts/quality/project.mjs";
-import { runQualitySubprocess, subprocessTestOptions } from "./subprocess";
+import {
+    type QualitySubprocessResult,
+    runQualitySubprocess,
+    subprocessTestOptions
+} from "./subprocess";
 import { extractRequestObligations } from "../../scripts/quality/request-obligations.mjs";
 
 const packageRoot = resolve(import.meta.dirname, "../..");
@@ -613,7 +617,7 @@ function git(repository: string, args: string[]): string {
     return execFileSync("git", args, { cwd: repository, encoding: "utf8" }).trim();
 }
 
-function run(name: string, args: string[]): ReturnType<typeof runQualitySubprocess> {
+function run(name: string, args: string[]): QualitySubprocessResult {
     return runQualitySubprocess(
         process.execPath,
         [resolve(packageRoot, `scripts/quality/${name}.mjs`), ...args],

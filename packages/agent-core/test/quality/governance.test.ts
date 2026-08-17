@@ -4,7 +4,11 @@ import { resolve } from "node:path";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { describe, expect, test } from "vitest";
-import { runQualitySubprocess, subprocessTestOptions } from "./subprocess";
+import {
+    type QualitySubprocessResult,
+    runQualitySubprocess,
+    subprocessTestOptions
+} from "./subprocess";
 import { arrayAt, objectsAt, readArtifact, stringAt, stringsAt } from "./artifacts";
 import { validateFinalRequestArchive } from "../../scripts/quality/request-archive.mjs";
 import { validateBomImportDenominator } from "../../scripts/quality/bom.mjs";
@@ -367,7 +371,7 @@ describe("R1 integration governance", subprocessTestOptions, () => {
     });
 });
 
-function run(stage: string): ReturnType<typeof runQualitySubprocess> {
+function run(stage: string): QualitySubprocessResult {
     return runQualitySubprocess(process.execPath, [checker, "--stage", stage], packageRoot);
 }
 
