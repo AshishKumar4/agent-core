@@ -3685,6 +3685,48 @@
       ]
     },
     {
+      "id": "C13-SLATE-INSTANTIATE-SCOPE",
+      "owner": "W8",
+      "specAnchor": "C13-SLATE-INSTANTIATE-SCOPE",
+      "specTextSha256": "sha256:6bfe0c5a34099f8368bad654da39e01c16f39d00d4aa9871a4cd3625e3c54ebc",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-SLATE-SKELETON-ARTIFACT",
+      "owner": "W8",
+      "specAnchor": "C13-SLATE-SKELETON-ARTIFACT",
+      "specTextSha256": "sha256:957786e0f908a0516a87560c808001e63124ac33ae5e218111cea49c1b0c4cc9",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-SLATE-SKELETON-CREDENTIAL-FREE",
+      "owner": "W8",
+      "specAnchor": "C13-SLATE-SKELETON-CREDENTIAL-FREE",
+      "specTextSha256": "sha256:a537cfa37ed4494d38f1559fb1c9f71eadc3317e3081eb40d5c5c3230517cff7",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-SUBSCRIPTION-ACCEPTED-TIERS",
       "owner": "W7",
       "specAnchor": "C13-SUBSCRIPTION-ACCEPTED-TIERS",
