@@ -1639,26 +1639,25 @@
       "owner": "W8",
       "specAnchor": "P11-FILESYSTEM-WRITE-OBSERVED",
       "specTextSha256": "sha256:77990015ec8b32e7d731101f247cc5ee0e789f609435506bb18b78f64a67b8fd",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [
         "P11-BASE-CONTRACT",
         "P11-BASE-TESTS",
         "P11-FILESYSTEM-WRITE",
         "P11-FILESYSTEM-READ"
       ],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The guard value has no home in the operation surface. src/facets/filesystem/facet.ts#FilesystemWriteInput is `{ path, content, mode? }` and `FilesystemWriteMode` exposes `create`, `replace` and `upsert` as frozen singleton getters, so a `replace` cannot name the content it replaces. Owed: `replace` becomes the one parameterized case of the value object — a static factory taking the `Digest` it expects and holding it in a readonly field — while `create` and `upsert` stay singletons. The precondition stays inside the mode rather than becoming a sibling field beside it, which is the property commit 4a414a4 established and this rule extends rather than dilutes; the cost is that `FilesystemWriteMode.replace` moves from a getter to a call at every migrated call site (facet.ts, memory.ts, harness.ts, filesystem.test.ts, conformance-ledger.test.ts)",
-        "The precondition needs the current content, which the write seam does not expose. src/facets/filesystem/facet.ts#FilesystemWriteMode discharges `requireWritable(path: string, present: boolean)` and each backing store calls it (src/facets/filesystem/memory.ts passes `existing !== undefined`), so a boolean cannot express content identity. Owed: widen that one per-case method to take the target's current `Digest` or `undefined` for absent, so presence and content identity are decided together in one place — `create` rejects a present target with `exists`, `replace` rejects an absent one with `not-found` and a differing digest with `content-mismatch`, and `upsert` rejects nothing. Every backend and wrapper on that seam (memory.ts, mount.ts, observed.ts) discharges the same widened comparison, and no backend adds a parallel digest branch beside it",
-        "The wire codec is owed. src/facets/filesystem/facet.ts#requireWriteMode resolves a decoded label against a fixed set of three singletons and returns whichever matched, so a `replace` carrying a digest needs the codec to decode a mode plus its guard value and to reject a `replace` label that carries none — the parse-at-the-edge property that an unrecognised mode never reaches a write path must extend to an unguarded `replace` never reaching one",
-        "The conformance test is owed in four shapes: a `replace` naming the digest of the target's current content succeeds; a `replace` naming a digest the target no longer matches rejects with `content-mismatch` and leaves the prior content intact; a `replace` naming no digest is unconstructable rather than permissive; and a `replace` whose digest was taken from a byte-ranged `read` rather than the whole content rejects, because a caller that observed part of a file has not observed the content it proposes to replace",
-        "The adversarial case is the one that motivates this atom over a per-session observed-state ledger: a write issued in a Turn that never read the target must be unable to produce a passing guard, and a guard taken from a read that a later write superseded must fail even though an observation demonstrably happened. A host that satisfies the rule by remembering that a read occurred rather than by comparing the content the read produced passes the first case and fails the second, so the test must include a stale-but-genuine observation",
-        "The suite obligation follows from P11-FILESYSTEM-SUITE and P11-FILESYSTEM-BACKINGS: the guarded write contract is part of the one mutator contract and is owed against every backing store and against the observed and mount-composition wrappers, not against the memory backend alone",
-        "Landing the shape change invalidates the recorded evidence of five verified atoms that this rule sits downstream of, so their selectors are re-run rather than assumed: P11-FILESYSTEM-WRITE and P11-FILESYSTEM-ATOMIC-WRITE and P11-FILESYSTEM-BACKINGS and P11-FILESYSTEM-RANGES and P11-FILESYSTEM-SUITE all point at src/facets/filesystem/facet.ts#FilesystemWriteMode, which is the symbol this rule alters, and three of their tests construct the mode factories directly so they stop compiling the moment `replace` takes an argument — the compiler enumerating the call sites is the intended mechanism rather than a hazard. test/profiles/facets/harness.ts#runFilesystemMutationContract is the shared mutation contract P11-FILESYSTEM-BACKINGS runs against memory, mount and observed, so one signature change there re-proves the guard on every backing at once, which is exactly what P11-FILESYSTEM-WRITE-GUARD-PORTABLE claims and the reason that atom needs no backing-specific evidence of its own",
-        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
-      ]
+      "sourceSymbols": [
+        "src/facets/filesystem/facet.ts#FilesystemWriteMode",
+        "src/facets/filesystem/facet.ts#FilesystemTargetState",
+        "src/facets/filesystem/memory.ts#MemoryFilesystemBackend"
+      ],
+      "testSelectors": [
+        "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-WRITE-OBSERVED] admits a guarded replace only against the content it names, on every backing",
+        "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-WRITE-OBSERVED] refuses an observation that is stale, partial, or absent",
+        "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-WRITE-OBSERVED] leaves an unguarded replace unconstructable and unrepresentable"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "P11-FILESYSTEM-WRITE-UNOBSERVED",
