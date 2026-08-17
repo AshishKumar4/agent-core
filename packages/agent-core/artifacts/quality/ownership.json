@@ -106,6 +106,8 @@
       "packages/agent-core/test/protocol/persistence-*.test.ts",
       "packages/agent-core/test/protocol/persistence-contract.ts",
       "packages/agent-core/test/protocol/sqlite-counter-fixture.ts",
+      "packages/agent-core/test/protocol/tenant-decision-fixture.ts",
+      "packages/agent-core/test/protocol/tenant-decision.test.ts",
       "packages/agent-core/test/substrates/sqlite/actor.test.ts",
       "packages/agent-core/test/substrates/sqlite/content-retention.test.ts",
       "packages/agent-core/test/substrates/sqlite/content.test.ts",
