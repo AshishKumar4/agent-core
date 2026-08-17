@@ -96,7 +96,9 @@
       "specTextSha256": "sha256:667eba9093ab3ac811f0c3f01938db604b49da102488b551ce838725c800012f",
       "status": "implemented",
       "prerequisites": ["C13-CLOUDFLARE-ALARM-DURABILITY"],
-      "sourceSymbols": ["cloudflare/src/durable-object.ts#createCloudflareDurableObjectClass"],
+      "sourceSymbols": [
+        "cloudflare/src/durable-object.ts#createCloudflareDurableObjectClass"
+      ],
       "testSelectors": [
         "cloudflare/test/deployment-rollback.test.ts#Cloudflare release rollback [C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY] keeps durable work across N to N+1 and back to N",
         "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY] arms durable reconciliation work for the redeployed worker to finish",
@@ -217,7 +219,10 @@
       "specAnchor": "C13-CLOUDFLARE-RECONCILIATION-DRIVER",
       "specTextSha256": "sha256:26d74a52eddb03130915f8ef61fce22c9f2fe0dbcdea5295751b29d6ec0d3f5e",
       "status": "verified",
-      "prerequisites": ["C13-CLOUDFLARE-ALARM-CLAIMS", "C13-EFFECT-RECONCILIATION-DRIVER"],
+      "prerequisites": [
+        "C13-CLOUDFLARE-ALARM-CLAIMS",
+        "C13-EFFECT-RECONCILIATION-DRIVER"
+      ],
       "sourceSymbols": [
         "cloudflare/src/reconciliation.ts#AlarmOutboxReconciler",
         "cloudflare/src/reconciliation.ts#SqliteReconciliationOutbox"
@@ -252,7 +257,9 @@
       "specTextSha256": "sha256:75715c649403aae26f3daf99ae7786dc92fd76c56340399203b2c0c0263bc078",
       "status": "verified",
       "prerequisites": ["C13-CLOUDFLARE-RECONCILIATION-DRIVER"],
-      "sourceSymbols": ["cloudflare/src/reconciliation.ts#AlarmOutboxReconciler"],
+      "sourceSymbols": [
+        "cloudflare/src/reconciliation.ts#AlarmOutboxReconciler"
+      ],
       "testSelectors": [
         "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-RECONCILIATION-RETRY] reschedules a failed reconciliation onto a real alarm and settles it"
       ],
@@ -474,10 +481,12 @@
       ],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "Absence is asserted over the encoded bytes by component substring -- a SecretRef's source, provider and id separately, plus the exporting Workspace, Slate, version and publication ids and the \"sha256:\" ContentRef prefix -- rather than by matching an encoded object shape, so a future encoder that flattened or renamed the components could not pass vacuously. Four discriminating mutants were killed by hand at this rev: a non-exact skeleton payload key set, a digest decoder tolerating a ContentRef, a dropped duplicate-name check, and an exported publication id",
+        "Discriminating evidence, re-audited and corrected: four mutants are killed by the cited tests -- a non-exact skeleton payload key set, a digest decoder tolerating a ContentRef, a dropped duplicate-BindingName check, and exportSkeleton reading publication.materialization.digest where the rule requires the published version's own source digest (2 tests fail). An earlier revision of this row claimed a fourth mutant, 'an exported publication id', that was never run; it is removed rather than left standing",
+        "The SecretRef substring assertions are a regression tripwire, NOT a witness, and must not be read as one. The SecretRef in those tests is constructed in the test and never reaches the exporter, so no mutation of src/slates kills them: they answer 'does this string appear in these bytes', which is trivially no, rather than 'would a credential the Workspace holds reach the export'. What actually witnesses credential absence is structural and IS discriminating -- the payload's exact two-key set and the five smuggling payloads asserted refused -- because SlateSkeleton's only two field types, Digest and BindingRequirement, have total canonical validators and cannot represent a credential. The tripwire earns its place only against a future field that could carry one",
+        "Absence is asserted over encoded bytes by component substring rather than by matching an encoded object shape, so a future encoder that flattened or renamed BindingCredentialCustody's components could not pass vacuously. The originating-Scope half of that assertion IS discriminating: the Workspace, Slate, version, publication and materialization values genuinely exist in the source records that exportSkeleton reads",
         "src/slates/skeleton.ts is new and src/slates/{publication,codec}.ts changed, so artifacts/quality/discrimination/slates.json holds no attribution for the cited symbols; a slates-area mutation re-measurement is required before verified",
         "The prerequisite C13-CONFIG-SECRET-CUSTODY is planned. This atom does not depend on custody being implemented -- it forbids the ref rather than relying on the ref failing to resolve -- but the topology-leak justification this rule states is only as strong as that rule, so raising this atom to verified should wait on it",
-        "Declaring requirements at publish is reachable through SlateRuntime.publish only; the §11 profile publish operation declares the empty set, so an agent publishing through the facet cannot yet state a requirement. Extending SLATE_OPERATION_CONTRACTS.publish is a separate P11 slice"
+        "Declaring requirements at publish is reachable through SlateRuntime.publish only; the section 11 profile publish operation declares the empty set, so an agent publishing through the facet cannot yet state a requirement. Extending SLATE_OPERATION_CONTRACTS.publish is a separate P11 slice"
       ]
     },
     {
@@ -487,7 +496,9 @@
       "specTextSha256": "sha256:3abbd2e6aa3a107c6216bd01ab850b2a2d7f3404cb0031e6cb6891f06f1d85a2",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"],
+      "sourceSymbols": [
+        "src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"
+      ],
       "testSelectors": [
         "test/profiles/facets/approval-gateway.contract.test.ts#Approval gateway protected provider profile [P11-APPROVAL-GATEWAY-APPLY] protected admission denial prevents approval action access"
       ],
@@ -501,7 +512,9 @@
       "specTextSha256": "sha256:e8e6de6aa042ad5d13f9084ea323ff6c1abbbbdb31c9b7ec72dc1ef63db3c724",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"],
+      "sourceSymbols": [
+        "src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"
+      ],
       "testSelectors": [
         "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-APPROVAL-GATEWAY-CONTINUATION] resumes through the persisted whole-intent continuation after restart"
       ],
@@ -515,7 +528,9 @@
       "specTextSha256": "sha256:af14242dc74f5ff7b65aed13a08c5f4ff454a96ee5e8cbb366b9d8b771fd74b9",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"],
+      "sourceSymbols": [
+        "src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"
+      ],
       "testSelectors": [
         "test/profiles/facets/approval-gateway.contract.test.ts#Approval gateway protected provider profile [P11-APPROVAL-GATEWAY-CREDENTIAL] rejects mismatched digest or resource before credential effects"
       ],
@@ -529,7 +544,9 @@
       "specTextSha256": "sha256:9b3326b69aa68702dbd7e82d3d0b9b65aeb06eaf4ea6dd65522071bc4e44df59",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"],
+      "sourceSymbols": [
+        "src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"
+      ],
       "testSelectors": [
         "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-APPROVAL-GATEWAY-MATCH] rejects an action not matching the approved PreparedInvocation and continuation"
       ],
@@ -543,7 +560,9 @@
       "specTextSha256": "sha256:d0fc593d6ffb7f270af7a183c90e2029fb623804d9f4b4031d1021ff3b2c0d5e",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"],
+      "sourceSymbols": [
+        "src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"
+      ],
       "testSelectors": [
         "test/profiles/facets/approval-gateway.contract.test.ts#Approval gateway protected provider profile [P11-APPROVAL-GATEWAY-OBSERVE] mediates observe at externalSend impact and returns the authorized resource"
       ],
@@ -557,7 +576,9 @@
       "specTextSha256": "sha256:cf3570700ba7292234b4998ec7df3c5aadc12f03471cdcb20a881eb0ef54d8af",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"],
+      "sourceSymbols": [
+        "src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"
+      ],
       "testSelectors": [
         "test/profiles/facets/approval-gateway.contract.test.ts#Approval gateway protected provider profile [P11-APPROVAL-GATEWAY-PROVIDER] accesses the provider resource only inside admitted execution"
       ],
@@ -571,7 +592,9 @@
       "specTextSha256": "sha256:9b624fb3bf5e2e37f355824b796f17d137abe5f92b59e66b91e9b54c97a3c1a7",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"],
+      "sourceSymbols": [
+        "src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"
+      ],
       "testSelectors": [
         "test/profiles/facets/approval-gateway.contract.test.ts#Approval gateway protected provider profile [P11-APPROVAL-GATEWAY-READS] denies an observation before the provider read"
       ],
@@ -585,7 +608,9 @@
       "specTextSha256": "sha256:d87ebc041059108e527d7b205e29ed654f691d6b0c173284808ab5a602664ec2",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"],
+      "sourceSymbols": [
+        "src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"
+      ],
       "testSelectors": [
         "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-APPROVAL-GATEWAY-RECEIPTS] persists and replays the canonical W6 Receipt across restart"
       ],
@@ -599,7 +624,9 @@
       "specTextSha256": "sha256:4549036c80b41c1f807c92135a459745055353431b84d7e2838a6abdee58a0a1",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"],
+      "sourceSymbols": [
+        "src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"
+      ],
       "testSelectors": [
         "test/integration/profile-receipt-mediation.test.ts#Canonical profile Receipt mediation [P11-APPROVAL-GATEWAY-RECONCILIATION] reconciles one indeterminate W6 attempt after restart without repeating the effect"
       ],
@@ -613,7 +640,9 @@
       "specTextSha256": "sha256:64596ecf9a4f7d82f9da3eef8d8a198aec170905e6e31c5bb4f406498af2ff6a",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"],
+      "sourceSymbols": [
+        "src/facets/approval-gateway/facet.ts#ApprovalGatewayFacet"
+      ],
       "testSelectors": [
         "test/profiles/facets/approval-gateway.contract.test.ts#Approval gateway protected provider profile [P11-APPROVAL-GATEWAY-SURFACE] declares provider isolation, approval Surface, and exact contributions"
       ],
@@ -669,7 +698,9 @@
       "specTextSha256": "sha256:d3c4e75dd18d886fe40bc9ea4817a8466ed89664bae6cb6e7e23aad00da5e6cb",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/facets/filesystem/facet.ts#FILESYSTEM_OPERATION_CONTRACTS"],
+      "sourceSymbols": [
+        "src/facets/filesystem/facet.ts#FILESYSTEM_OPERATION_CONTRACTS"
+      ],
       "testSelectors": [
         "test/integration/profile-conformance.test.ts#Exact profile runtime conformance [P11-BASE-NAMES] executes a platform alias without changing impact or invariants"
       ],
@@ -795,7 +826,9 @@
       "specTextSha256": "sha256:2ec4a8fcbbd4c528aed4ad4ad9057775959aa6e0472e11c2a206cc932877fb36",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/device/facet.ts#MemoryDeviceConsentBackend"],
+      "sourceSymbols": [
+        "src/facets/device/facet.ts#MemoryDeviceConsentBackend"
+      ],
       "testSelectors": [
         "test/integration/device-consent-admission.test.ts#Device target-local consent admission [P11-DEVICE-CONSENT-LIVE] rejects exact-pair consent at its expiration boundary"
       ],
@@ -980,7 +1013,9 @@
       "specTextSha256": "sha256:5fe49507963cb5c7238de925379d10cc31159e1abc1ec05bf109fe9640552902",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/environment/facet.ts#EnvironmentControllerBackend"],
+      "sourceSymbols": [
+        "src/facets/environment/facet.ts#EnvironmentControllerBackend"
+      ],
       "testSelectors": [
         "test/profiles/facets/environment.test.ts#Environment protected control profile [P11-ENVIRONMENT-CHILD-CONTRACTS] adapts typed EnvironmentController lease, IDs, children, preview, and credentials"
       ],
@@ -994,7 +1029,9 @@
       "specTextSha256": "sha256:f19522d5faba07de056ff316f2c070503d5ba3de92b470d744533befc134010f",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/environment/facet.ts#EnvironmentSessionBinding"],
+      "sourceSymbols": [
+        "src/facets/environment/facet.ts#EnvironmentSessionBinding"
+      ],
       "testSelectors": [
         "test/profiles/facets/environment.test.ts#Environment protected control profile [P11-ENVIRONMENT-CHILD-FACETS] validates canonical session bindings and freezes child capabilities"
       ],
@@ -1022,7 +1059,9 @@
       "specTextSha256": "sha256:438273aead09a41b117f1309b8e2cb87bc9e17679697435a8aff585b44f0df43",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/environments/provider.ts#EnvironmentCredentialProxyCapability"],
+      "sourceSymbols": [
+        "src/environments/provider.ts#EnvironmentCredentialProxyCapability"
+      ],
       "testSelectors": [
         "test/environments/records.test.ts#Environment records [P11-ENVIRONMENT-CREDENTIAL-SEAM] credential isolation passes only a bound capability and content references"
       ],
@@ -1379,7 +1418,9 @@
       "specTextSha256": "sha256:d4a90810214ba7cff9e5198e10da312fbb630c5a20108aeed7d31b26606cc622",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/filesystem/memory.ts#MemoryFilesystemBackend"],
+      "sourceSymbols": [
+        "src/facets/filesystem/memory.ts#MemoryFilesystemBackend"
+      ],
       "testSelectors": [
         "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-MOVE] handles root, recursive creation, idempotent moves, and destination conflicts"
       ],
@@ -1393,7 +1434,9 @@
       "specTextSha256": "sha256:34229921764fe9862445487b0b10326c3d0f4e2b5746b7bcf24ff58382b01df6",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/filesystem/mount.ts#MountFilesystemBackend"],
+      "sourceSymbols": [
+        "src/facets/filesystem/mount.ts#MountFilesystemBackend"
+      ],
       "testSelectors": [
         "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-MOVE-ASSERTIONS] rejects moves across mounts without changing either backend"
       ],
@@ -1792,7 +1835,9 @@
       "specTextSha256": "sha256:10cc7d1fabee71506c31227217b86f0b500f6dc7f61d0c60992ee1a54a77ecc8",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/mcp/facet.ts#McpPromptMaterializationContract"],
+      "sourceSymbols": [
+        "src/facets/mcp/facet.ts#McpPromptMaterializationContract"
+      ],
       "testSelectors": [
         "test/profiles/facets/mcp.test.ts#MCP normative discovery [P11-MCP-POSITIVE-BOUNDS] [P11-MCP-PROMPT-COUNT] [P11-MCP-PROMPT-BYTES] enforces positive finite normative prompt item and canonical byte bounds"
       ],
@@ -1806,7 +1851,9 @@
       "specTextSha256": "sha256:1c06afd81b9ba380efefff472c85f8e4553d9c15351f1ec7387aa47a1546eeec",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/mcp/facet.ts#McpPromptMaterializationContract"],
+      "sourceSymbols": [
+        "src/facets/mcp/facet.ts#McpPromptMaterializationContract"
+      ],
       "testSelectors": [
         "test/profiles/facets/conformance-ledger.test.ts#[P11-MCP-PROMPT-BYTES] exact profile manifest or runtime contract"
       ],
@@ -1820,7 +1867,9 @@
       "specTextSha256": "sha256:d1f407d43632f2647dd26d9926a41276e066a2034f8287b9d4b1578d622c3d0e",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/mcp/facet.ts#McpPromptMaterializationContract"],
+      "sourceSymbols": [
+        "src/facets/mcp/facet.ts#McpPromptMaterializationContract"
+      ],
       "testSelectors": [
         "test/profiles/facets/conformance-ledger.test.ts#[P11-MCP-PROMPT-COUNT] exact profile manifest or runtime contract"
       ],
@@ -1946,7 +1995,9 @@
       "specTextSha256": "sha256:b02a2e0944ba15b3ed4474f5bcddc2e60367e8f23b4749d89aa4ab4bd495fa1d",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/memory/facet.ts#MEMORY_OPERATION_CONTRACTS"],
+      "sourceSymbols": [
+        "src/facets/memory/facet.ts#MEMORY_OPERATION_CONTRACTS"
+      ],
       "testSelectors": [
         "test/profiles/facets/memory.test.ts#Memory backends [P11-MEMORY-FORGET] validates entries, duplicate IDs, limits, time, and forget authority"
       ],
@@ -1960,7 +2011,9 @@
       "specTextSha256": "sha256:ada33a6233622b7e4bc06405d6c3fedfa77ce022277cf1b8e14970b275074f13",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/memory/facet.ts#InMemoryMemoryIndexBackend"],
+      "sourceSymbols": [
+        "src/facets/memory/facet.ts#InMemoryMemoryIndexBackend"
+      ],
       "testSelectors": [
         "test/profiles/facets/conformance-ledger.test.ts#[P11-MEMORY-INDEXES] exact profile manifest or runtime contract"
       ],
@@ -2016,7 +2069,9 @@
       "specTextSha256": "sha256:47f60812cfdaa610c630a5c76aa4d5b933497775838756d2490df0519bf3dc5c",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/memory/facet.ts#InMemoryMemoryIndexBackend"],
+      "sourceSymbols": [
+        "src/facets/memory/facet.ts#InMemoryMemoryIndexBackend"
+      ],
       "testSelectors": [
         "test/profiles/facets/memory.test.ts#Memory backends [P11-MEMORY-REBUILD] prunes only elapsed retention and keeps derived index rebuild invisible"
       ],
@@ -2436,7 +2491,9 @@
       "specTextSha256": "sha256:3dfb54cde077f43bcd467f85883b47693d822f7a171623f751b17d187d3ae087",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"],
+      "sourceSymbols": [
+        "src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"
+      ],
       "testSelectors": [
         "test/integration/single-tenant-policy.test.ts#Single-tenant policy assembly [P11-SINGLE-TENANT-ASSEMBLY] assembles a personal assistant from ordinary policy records"
       ],
@@ -2450,7 +2507,9 @@
       "specTextSha256": "sha256:2315e4577e33ddcba8c3aa661ed9f1f941db99369fde8f70b6e09ad37366c9b0",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"],
+      "sourceSymbols": [
+        "src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"
+      ],
       "testSelectors": [
         "test/profiles/facets/single-tenant.declaration.test.ts#Single-tenant policy profile [P11-SINGLE-TENANT-NO-EVENTS] exposes no Event or impact declaration"
       ],
@@ -2464,7 +2523,9 @@
       "specTextSha256": "sha256:c0c0495bf1e1c7a7d0674a67eeab06aa9891c9d70e2239053837f942f394ba1b",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"],
+      "sourceSymbols": [
+        "src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"
+      ],
       "testSelectors": [
         "test/profiles/facets/single-tenant.declaration.test.ts#Single-tenant policy profile [P11-SINGLE-TENANT-NO-MACHINERY] declares no Operations, Events, Facet runtime, or installation machinery"
       ],
@@ -2478,7 +2539,9 @@
       "specTextSha256": "sha256:fabacf20177ee2fdd1446c3547f1282f385f5a676017fd9902cd84a2fbb7ff0c",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"],
+      "sourceSymbols": [
+        "src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"
+      ],
       "testSelectors": [
         "test/profiles/facets/single-tenant.declaration.test.ts#Single-tenant policy profile [P11-SINGLE-TENANT-NO-OPERATIONS] exposes no Operation entry point"
       ],
@@ -2492,7 +2555,9 @@
       "specTextSha256": "sha256:d1314b9336432ed60c6f4043e874b650be66cee687c94b8fc5011b9537865830",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"],
+      "sourceSymbols": [
+        "src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"
+      ],
       "testSelectors": [
         "test/integration/single-tenant-policy.test.ts#Single-tenant policy assembly [P11-SINGLE-TENANT-OWNER] materializes an active owner Membership for the Principal"
       ],
@@ -2506,7 +2571,9 @@
       "specTextSha256": "sha256:7502e3efa434f7a655ec8318f7537c245e256fae97681e95b4487828c36d855a",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"],
+      "sourceSymbols": [
+        "src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"
+      ],
       "testSelectors": [
         "test/integration/single-tenant-policy.test.ts#Single-tenant policy assembly [P11-SINGLE-TENANT-POLICY] admits the initial Tenant and denies creating a second Tenant"
       ],
@@ -2520,7 +2587,9 @@
       "specTextSha256": "sha256:757ac6e01b21ca70da63894f04985027d3197c0ae01860526934ab437a2ac071",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"],
+      "sourceSymbols": [
+        "src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"
+      ],
       "testSelectors": [
         "test/integration/single-tenant-policy.test.ts#Single-tenant policy assembly [P11-SINGLE-TENANT-PRINCIPAL] persists exactly the one anchored Principal"
       ],
@@ -2534,7 +2603,9 @@
       "specTextSha256": "sha256:57d2190658c7e2bbb1998949ba970c439b697f27128d556212b116cfb2084c6f",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"],
+      "sourceSymbols": [
+        "src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"
+      ],
       "testSelectors": [
         "test/integration/single-tenant-policy.test.ts#Single-tenant policy assembly [P11-SINGLE-TENANT-PROMOTION] changes only Tenant multiplicity policy"
       ],
@@ -2548,7 +2619,9 @@
       "specTextSha256": "sha256:d9a31068af75591788782a0714cec6c1888b2cde0dee43dddd65d2de53b8429b",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"],
+      "sourceSymbols": [
+        "src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"
+      ],
       "testSelectors": [
         "test/integration/single-tenant-policy.test.ts#Single-tenant policy assembly [P11-SINGLE-TENANT-RECORDS] restores ordinary Grant and Binding records from durable snapshots"
       ],
@@ -2562,7 +2635,9 @@
       "specTextSha256": "sha256:b778a92dc97fc32b5a132827eed58ecfca4674185c05a8f738ef4da6114e058e",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"],
+      "sourceSymbols": [
+        "src/facets/single-tenant/facet.ts#SINGLE_TENANT_CONTRIBUTIONS"
+      ],
       "testSelectors": [
         "test/integration/single-tenant-policy.test.ts#Single-tenant policy assembly [P11-SINGLE-TENANT-TENANT] persists exactly the one personal Tenant"
       ],
