@@ -3,14 +3,14 @@ import { AuditRecordId } from "../../src/interaction-references";
 import { FacetRef, MemoryWorkspaceSlotStore, SlotName } from "../../src/facets";
 import { WorkspaceId } from "../../src/identity";
 import { FacetActivation, FacetWithdrawal } from "../../src/composition";
-import { MemoryWorkspaceRecords } from "../../src/workspaces/memory";
-import { WorkspacePersistence } from "../../src/workspaces/persistence";
-import { RouteDeliveryState } from "../../src/workspaces/route";
-import type { ContentRetentionPort } from "../../src/workspaces/retention";
 import {
+    MemoryWorkspaceRecords,
+    RouteDeliveryState,
     WITHDRAWN_TARGET_REASON,
-    WorkspaceRoutingWithdrawal
-} from "../../src/workspaces/withdrawal";
+    WorkspacePersistence,
+    WorkspaceRoutingWithdrawal,
+    type ContentRetentionPort
+} from "../../src/workspaces";
 import {
     authenticatedProjectionFixture,
     projectionRetention,
@@ -20,8 +20,8 @@ import {
     subscriptionFixture,
     targetActor,
     tenant
-} from "./fixtures";
-import { attribution, contribute, declarerSlot, entry } from "../w3/slot-store-contract";
+} from "../workspaces/fixtures";
+import { attribution, contribute, declarerSlot, entry } from "./slot-store-contract";
 import { activationFacet } from "./facet-activation-fixture";
 
 class DurableRetention implements ContentRetentionPort<MemoryWorkspaceRecords> {

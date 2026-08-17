@@ -219,20 +219,20 @@
         "src/facets/attribution.ts#ContributionAttribution",
         "src/facets/slot-entry.ts#SlotEntry",
         "src/facets/slot.ts#InstalledSlot",
-        "src/facets/installation.ts#PackageInstallationRef",
-        "src/workspaces/subscription.ts#Subscription"
+        "src/facets/installation.ts#PackageInstallationRef"
       ],
       "testSelectors": [
         "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-FACET-CONTRIBUTION-ATTRIBUTION] refuses to decode a SlotEntry that carries no source Package pin",
         "test/facets/slot-memory.test.ts#Memory [workspace-slot-store] Workspace Slot store [C13-FACET-CONTRIBUTION-ATTRIBUTION] carries the contributing Facet and source release on every stored record",
         "test/sqlite/slot.test.ts#SQLite [workspace-slot-store] Workspace Slot store [C13-FACET-CONTRIBUTION-ATTRIBUTION] carries the contributing Facet and source release on every stored record",
-        "test/workspaces/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-CONTRIBUTION-ATTRIBUTION] refuses every later revision that rewrites, adds, or drops a Subscription's attribution"
+        "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-CONTRIBUTION-ATTRIBUTION] refuses every later revision that rewrites, adds, or drops a Subscription's attribution"
       ],
       "checkerInvariants": [],
       "remainingEvidence": [
         "Discharged: facet.slot-entry moved to codec major 3 with `package: PackagePin` as a declared field of the identity digest; an entry payload carrying no pin is refused as codec.invalid and the major-2 bytes that used to carry one are refused as codec.unknown-major; the pinned entry restores through MemoryWorkspaceSlotStore and reopens through the SQLite Workspace slot store, both driven by the shared test/w3/slot-store-contract.ts seam contract. The installed Slot record was split from the manifest SlotDeclaration as facet.installed-slot so it carries attribution too, and derived Subscriptions carry it at workspace.subscription major 2, immutably across revisions",
         "Not discharged, and the reason is that the records do not exist rather than that they are unattributed: this runtime materializes no catalog entry, Surface registration, prompt section, ingress endpoint, or merged settings fragment record, so there is nothing to attribute and no test that could fail if the MUST were violated for them. Verification requires each of those five kinds to become a real record first",
         "Blocked on a W4 change this slice did not make: src/definition/materialization-kind.ts#validateSlotEntry still admits exactly contributor/index/slot/value. Adding `package` to the desired-state shape requires ValidatedContribution to carry the source pin through src/definition/validator.ts and src/definition/plan.ts, and a decision for the `contributor: \"blueprint\"` projection plan.ts emits for a Blueprint-declared slot, which has no Package release behind it. Measured: adding the key without that work reds 17 W4 tests",
+        "Cross-wave ownership, stated rather than routed around: derived Subscriptions now carry the same attribution at workspace.subscription major 2 and src/workspaces/persistence.ts#WorkspacePersistence.saveSubscription refuses any later revision that adds, drops or rewrites it, but both files are W7-owned. This W3 row therefore does not name them as its own sourceSymbols, and requireEvidenceOwner would reject them if it did. That half of the rule needs a W7 row to claim it, or an explicit decision that W3 owns Subscription attribution",
         "Totality is enforced at the materializing seam rather than only asserted: FacetSlotInstallCommand and FacetSlotContributeCommand both deny when PackageInstallationProvenancePort answers no authenticated installation, and ContributionAttribution refuses construction without both halves, so a host that cannot attribute a contribution cannot build the record it would materialize",
         "Verification order, because a promoter reading only a dependent's own row would not see it: this atom has no prerequisites and roots the withdrawal family, so C13-FACET-WITHDRAWAL-EXACT depends on it directly and every atom depending on that one is transitively gated on it, spanning fragments owned by W3, W4, W5 and W7. The facet.slot-entry codec major has now moved to 3, so that half of the gate is satisfied. Inbound edges are written by other owners in other fragments, so the dependent set must be re-derived at the promotion rev rather than trusted from this note"
       ]
@@ -393,8 +393,8 @@
       "prerequisites": ["C13-FACET-CONTRIBUTION-ATTRIBUTION", "C13-FACET-WITHDRAWAL-EXACT"],
       "sourceSymbols": ["src/composition/facet-withdrawal.ts#FacetActivation"],
       "testSelectors": [
-        "test/workspaces/facet-withdrawal.test.ts#Facet activation atomicity [C13-FACET-START-ATOMIC] leaves nothing behind when start does not complete",
-        "test/workspaces/facet-withdrawal.test.ts#Facet activation atomicity [C13-FACET-START-ATOMIC] refuses a retry against a Scope whose prior partial effect was not retired"
+        "test/w3/facet-withdrawal.test.ts#Facet activation atomicity [C13-FACET-START-ATOMIC] leaves nothing behind when start does not complete",
+        "test/w3/facet-withdrawal.test.ts#Facet activation atomicity [C13-FACET-START-ATOMIC] refuses a retry against a Scope whose prior partial effect was not retired"
       ],
       "checkerInvariants": [],
       "remainingEvidence": [
@@ -432,15 +432,14 @@
       "sourceSymbols": [
         "src/facets/slot-store.ts#WorkspaceSlotStore",
         "src/composition/facet-withdrawal.ts#FacetWithdrawal",
-        "src/workspaces/withdrawal.ts#WorkspaceRoutingWithdrawal",
         "src/protocol/facet-commands.ts#FacetSlotWithdrawCommand"
       ],
       "testSelectors": [
         "test/facets/slot-memory.test.ts#Memory [workspace-slot-store] Workspace Slot store [C13-FACET-WITHDRAWAL-EXACT] retires exactly the withdrawing Facet's records and refuses a set holding a retained contribution",
         "test/sqlite/slot.test.ts#SQLite [workspace-slot-store] Workspace Slot store [C13-FACET-WITHDRAWAL-EXACT] refuses a withdrawal whose Slot still carries a retained Facet's entry, with no partial effect",
         "test/protocol/facet-commands.test.ts#Facet Slot protocol commands [C13-FACET-WITHDRAWAL-EXACT] retires a Facet's contributions through one administer control transaction",
-        "test/workspaces/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-WITHDRAWAL-EXACT] retires a contributed Subscription and drives its unprepared reservation to a terminal rejected delivery",
-        "test/workspaces/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-WITHDRAWAL-EXACT] refuses the whole withdrawal when a plane cannot answer the attribution query"
+        "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-WITHDRAWAL-EXACT] retires a contributed Subscription and drives its unprepared reservation to a terminal rejected delivery",
+        "test/w3/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-WITHDRAWAL-EXACT] refuses the whole withdrawal when a plane cannot answer the attribution query"
       ],
       "checkerInvariants": [],
       "remainingEvidence": [
@@ -448,7 +447,7 @@
         "Discharged: the two-contributor exactness case and the retained-Slot refusal both have adversarial tests that byte-compare the retained Facet's entry after the withdrawal. The \u00a76.2 Subscription liveness closure is implemented and tested end to end: WorkspaceRoutingWithdrawal retires the Subscriptions a Facet's commands/automations contributions materialized, listSubscriptions excludes a retired Subscription so no further reservation is appended, and every reservation already appended and not yet prepared takes a terminal rejected RouteDelivery written by the owning Actor. A reservation that reached preparation is deliberately left to drain, and appendWithdrawalRejection refuses it",
         "The authority half is still entirely unbuilt: nothing retires a Binding naming a withdrawn FacetRef or a Grant whose capability names only the withdrawn Facet's Operations, and the Scope epoch advance those retirements must share with the Binding mutation transaction (\u00a73.4 rule 5, C13-OWNERSHIP-AUTHORITY-RECORDS) still has no withdrawal trigger to attach to. FacetWithdrawal composes exactly two planes today and needs a third",
         "Content retention needs a counterfactual rather than an assertion: retiring an attributed record that names a ContentRef must leave that content resolvable while any retained record still names it, and must never release a ContentRef a RunCommit or an admitted inbox Event names, so that C13-TURN-MODEL-INPUT-RECONSTRUCTABLE survives a withdrawal. No slot-plane record names a ContentRef today, so this is owed by whichever attributed kind acquires one first",
-        "Ownership-correct integration evidence is still owed for the routing half. The rejected-delivery closure is proved against WorkspacePersistence with a memory record store, not against the W7 routing surface running its own Actor, so the reservation-split exhaustiveness claim rests on a W3-authored test of a W7-owned record"
+        "Ownership-correct integration evidence is still owed for the routing half, and the gap is now precise. The implementation exists at src/workspaces/withdrawal.ts#WorkspaceRoutingWithdrawal and src/workspaces/persistence.ts#appendWithdrawalRejection, but those are W7-owned files that this W3 row cannot name as sourceSymbols without failing requireEvidenceOwner on promotion. The rejected-delivery closure is also proved against WorkspacePersistence over a memory record store rather than against the W7 routing surface running its own Actor, so the reservation-split exhaustiveness claim rests on a W3-authored test of a W7-owned record"
       ]
     },
     {
