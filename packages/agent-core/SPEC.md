@@ -2749,14 +2749,14 @@ a rejected reconciliation, refused at validation before any package code loads (
 never an accepted reconciliation left indefinitely pending. Convergence fixes the
 endpoint and does not promise arrival, and this document claims no quiescence: the
 obligations one withdrawal opens are finite and never grow, because the transaction that
-opens them stops admitting work against the withdrawing Facet, so no obligation waits on
-one created after it; a reliance obligation discharges with no further act, since §4.1
-rejects a reliance cycle and each held withdrawal therefore waits only on withdrawals
-ahead of it; a draining item and an unadmitted reservation each settle under the eventual
-delivery and reconciliation §14 states as external premises; and a Package retention
-waits on pins nothing here promises release, so what the obligation guarantees is that
-the outstanding Operation is named and inspectable, never that someone performs it. This
-maps to **C13-BLUEPRINT-CONVERGENCE**.
+begins the withdrawal stops admitting work against the Facet (§4.1), so no obligation
+waits on one created after it; a reliance obligation discharges with no further act,
+since §4.1 rejects a reliance cycle and each held withdrawal therefore waits only on
+withdrawals ahead of it; a draining item and an unadmitted reservation each settle under
+the eventual delivery and reconciliation §14 states as external premises; and a Package
+retention waits on pins nothing here promises release, so what the obligation guarantees
+is that the outstanding Operation is named and inspectable, never that someone performs
+it. This maps to **C13-BLUEPRINT-CONVERGENCE**.
 
 ![From Blueprint to running platform](diagrams/blueprint.svg)
 
