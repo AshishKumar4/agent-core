@@ -113,6 +113,91 @@
       ]
     },
     {
+      "id": "C13-CLOUDFLARE-DYNAMIC-COMPUTE-BOUND",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-DYNAMIC-COMPUTE-BOUND",
+      "specTextSha256": "sha256:250cd69e5b5cbe3e5446cf11773f7fe561ff0f095ae47b39176995421bbe03ae",
+      "status": "implemented",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "cloudflare/src/loader.ts#DynamicWorkerLimits",
+        "cloudflare/src/loader.ts#DynamicWorkerLoaderAdapter"
+      ],
+      "testSelectors": [
+        "cloudflare/test/hosting.test.ts#Cloudflare hosting adapters [C13-CLOUDFLARE-DYNAMIC-COMPUTE-BOUND] carries the host's exact bound into every load",
+        "cloudflare/test/hosting.test.ts#Cloudflare hosting adapters [C13-CLOUDFLARE-DYNAMIC-COMPUTE-BOUND] refuses every bound that does not bound anything"
+      ],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "DynamicWorkerLimits is a construction argument of DynamicWorkerLoaderAdapter and DynamicWorkerLoadOptions.limits is required where the platform's own workerdResourceLimits is optional, so no load without a bound is expressible and no runtime refusal path is reachable from inside this package. The rule's refuse-rather-than-inherit clause is therefore discharged by the type here and is untested as a runtime branch; a substrate whose loader offers no per-load bound would need its own refusal and its own test.",
+        "Nothing yet proves Cloudflare enforces the bound it is handed. cpuMs and subRequests are documented as thrown-at-the-boundary (/dynamic-workers/usage/limits/, updated 2026-05-05) and the workerd lane does not exercise them, so the live lane owes a submission that spins past a small cpuMs and a submission that exceeds subRequests, each asserting the platform's immediate throw rather than a completed run. That evidence is a live run and this atom stays below verified until it has been taken.",
+        "The bound is one per adapter, not one per §4.7 consumer. A profile that wants a different budget for programmatic tool calling than for a Slate backend constructs a second adapter today; whether the consumer-to-bound mapping belongs in policies.placement beside the consumer-to-backing mapping (§9.2) is undecided and owned by W4."
+      ]
+    },
+    {
+      "id": "C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY",
+      "specTextSha256": "sha256:cdca04b48e2fe4e1b631452a7ca03e4120a04bc3f4aa4c28f7c755fe16fdda27",
+      "status": "implemented",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "cloudflare/src/loader.ts#DynamicWorkerLoaderAdapter",
+        "cloudflare/src/passed-capability.ts#passedCapabilities"
+      ],
+      "testSelectors": [
+        "cloudflare/test/hosting.test.ts#Cloudflare hosting adapters [C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY] loads a second isolate for identical code rather than serving it the first submission's delegation"
+      ],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The guarantee is currently structural: WorkerLoaderBindingLike declares only the unkeyed load, so the name-keyed WorkerLoader.get warm path this rule constrains is unreachable from the adapter and no reuse identity is ever computed. The test proves two submissions of byte-identical code get two isolates with distinct env, which fails under any code-keyed cache, but nothing proves a correct reuse identity because none is built. If a profile ever wants warm reuse, the identity type is owed here before the call site is.",
+        "No test observes the hazard itself, only its absence. Cloudflare documents that get() skips the callback for a warm name (/dynamic-workers/usage/durable-object-facets/, updated 2026-04-21) and does not document what the retained isolate's env holds; the live lane owes one scenario that loads under a name, then re-gets that name with a different capability set, and records whether the second submission observes the first's env. That measurement is what turns a documented inference into evidence, and it is a live run."
+      ]
+    },
+    {
+      "id": "C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY",
+      "specTextSha256": "sha256:2fd676bc3730fb991cf3da038c813a16bb49b2478cf42252730b7bb3d1169680",
+      "status": "implemented",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "cloudflare/src/facet-host.ts#DurableObjectFacetHost",
+        "cloudflare/src/facet-host.ts#DynamicDomainName"
+      ],
+      "testSelectors": [
+        "cloudflare/test/facet-host.test.ts#Cloudflare dynamic-domain facet hosting [C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY] starts a domain with its class and nothing the supervisor could be read back through",
+        "cloudflare/test/facet-host.test.ts#Cloudflare dynamic-domain facet hosting [C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY] offers the hosting Actor no reader of a domain's own store",
+        "cloudflare/test/facet-host.test.ts#Cloudflare dynamic-domain facet hosting [C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY] refuses a startup that names no loaded class"
+      ],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The half this package can enforce is enforced: the startup record handed to ctx.facets.get is rebuilt to exactly {class} or {class, id}, and the host exposes open, suspend and retire and no reader. The half it cannot is the prohibition itself, that no record type §8.4 assigns an owning Actor is written into such a store, which is a property of whatever code a supervisor loads rather than of the supervisor. The mechanical form of that half is a column on the §8.4 rule 6 ownership map naming, for each record type, whether a dynamic domain may hold it; that artifact is W0's and the registered invariant id in artifacts/quality/rules.json is W0's to grant.",
+        "No facet has been created against a real Durable Object. Storage isolation in both directions is Cloudflare's documented claim (/dynamic-workers/usage/durable-object-facets/, updated 2026-04-21: the dynamic code cannot read the supervisor's database) and the local lane models it with a fake rather than observing it. The live lane owes one scenario that writes a row from the supervisor, writes a row from the facet, and shows neither side can read the other's. That is a live run, so this atom stays below verified.",
+        "Facet memory is undocumented and prior-art PA-15 remains open. Cloudflare documents storage co-location and storage isolation and says nothing about whether a facet shares the parent's 128 MB isolate, so this atom deliberately states nothing about memory and no test asserts anything about it. If a profile ever depends on a facet's memory being its own, that dependency needs its own measurement first."
+      ]
+    },
+    {
+      "id": "C13-CLOUDFLARE-DYNAMIC-STORE-LIFECYCLE",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-DYNAMIC-STORE-LIFECYCLE",
+      "specTextSha256": "sha256:6b69b7de1d904daee78054c62b9e586155413af163530ae1c36fc72f8b00cc8e",
+      "status": "implemented",
+      "prerequisites": ["C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY"],
+      "sourceSymbols": ["cloudflare/src/facet-host.ts#DurableObjectFacetHost"],
+      "testSelectors": [
+        "cloudflare/test/facet-host.test.ts#Cloudflare dynamic-domain facet hosting [C13-CLOUDFLARE-DYNAMIC-STORE-LIFECYCLE] suspending keeps a domain's store, so re-opening it under a new class is a code update",
+        "cloudflare/test/facet-host.test.ts#Cloudflare dynamic-domain facet hosting [C13-CLOUDFLARE-DYNAMIC-STORE-LIFECYCLE] retiring a domain releases its store rather than leaving it durable and unreachable",
+        "cloudflare/test/facet-host.test.ts#Cloudflare dynamic-domain facet hosting [C13-CLOUDFLARE-DYNAMIC-STORE-LIFECYCLE] reuses a live domain without loading again"
+      ],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The two verbs are named and tested against a fake that models the platform's own consequence, abort keeping the database and delete destroying it, so swapping either implementation fails a test. What is not wired is the caller: no withdrawal path in this package calls retire, because no §4.1 withdrawal reaches a hosted dynamic domain yet. Until one does, the rule that a withdrawal destroys rather than stops is stated and unexercised end to end.",
+        "The restart-under-a-different-class clause is discharged by reference rather than by a test here: RunPins fixes the Package closure by code digest and re-materialization preserves those pins (§5.2, §9.3), so the hazard is already refused by C13-BLUEPRINT-RUN-PINS and this profile adds no rule of its own. The evidence for that refusal belongs to W4's atom rather than to this one; if that atom weakens, this clause loses its ground and this row is where that has to be said.",
+        "Cloudflare's abort and delete differ by one word and by everything, and the prior-art corpus records the exact mistake being made (AUDIT_cloudflare.md PA-14: an abort-named cleanup evicted the instance and kept the database, leaving one orphan per branch). Nothing here proves delete on a real facet reclaims the database rather than merely detaching it, and the live lane owes that confirmation."
+      ]
+    },
+    {
       "id": "C13-CLOUDFLARE-QUEUE-DISPOSITION",
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-QUEUE-DISPOSITION",

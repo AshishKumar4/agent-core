@@ -89,7 +89,7 @@ export type {
     PassedCapabilityLike,
     PassedCapabilityProps
 } from "./passed-capability.js";
-export { DynamicWorkerLoaderAdapter } from "./loader.js";
+export { DynamicWorkerLimits, DynamicWorkerLoaderAdapter } from "./loader.js";
 export type {
     DynamicWorkerHandleLike,
     DynamicWorkerLoadOptions,
@@ -97,6 +97,8 @@ export type {
     DynamicWorkerSource,
     WorkerLoaderBindingLike
 } from "./loader.js";
+export { DurableObjectFacetHost, DynamicDomainName } from "./facet-host.js";
+export type { DurableObjectFacetsLike, DynamicDomainStartup } from "./facet-host.js";
 export { DispatchNamespaceAdapter } from "./dispatch.js";
 export type { DispatchNamespaceLike } from "./dispatch.js";
 export { ExplicitCloudflareDeploymentAdapter } from "./deployment.js";

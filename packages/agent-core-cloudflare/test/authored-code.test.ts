@@ -20,7 +20,7 @@ import {
     type WorkerLoaderBindingLike
 } from "../src/index.js";
 import { malformedInput } from "./assertions.js";
-import { fakeErrors } from "./fakes.js";
+import { fakeErrors, fakeWorkerLimits } from "./fakes.js";
 
 const mailBinding = new BindingName("mail");
 const notesBinding = new BindingName("notes");
@@ -47,7 +47,7 @@ describe("Cloudflare backings for §4.7 agent-authored code", () => {
             input
         }));
         const backing = new WorkerLoaderAuthoredCodeBacking(
-            new DynamicWorkerLoaderAdapter(loader, fakeErrors),
+            new DynamicWorkerLoaderAdapter(loader, fakeWorkerLimits, fakeErrors),
             "2026-07-10",
             registry,
             capabilityFactory(registry),
@@ -75,7 +75,7 @@ describe("Cloudflare backings for §4.7 agent-authored code", () => {
             env["mail"]!.invoke("read", { path: "/a" })
         );
         const backing = new WorkerLoaderAuthoredCodeBacking(
-            new DynamicWorkerLoaderAdapter(loader, fakeErrors),
+            new DynamicWorkerLoaderAdapter(loader, fakeWorkerLimits, fakeErrors),
             "2026-07-10",
             registry,
             capabilityFactory(registry),
@@ -101,7 +101,7 @@ describe("Cloudflare backings for §4.7 agent-authored code", () => {
             return null;
         });
         const backing = new WorkerLoaderAuthoredCodeBacking(
-            new DynamicWorkerLoaderAdapter(loader, fakeErrors),
+            new DynamicWorkerLoaderAdapter(loader, fakeWorkerLimits, fakeErrors),
             "2026-07-10",
             registry,
             capabilityFactory(registry),
@@ -132,6 +132,7 @@ describe("Cloudflare backings for §4.7 agent-authored code", () => {
         const noEntrypoint = new WorkerLoaderAuthoredCodeBacking(
             new DynamicWorkerLoaderAdapter(
                 new StubWorkerLoader(() => malformedInput("not-an-entrypoint")),
+                fakeWorkerLimits,
                 fakeErrors
             ),
             "2026-07-10",
@@ -152,6 +153,7 @@ describe("Cloudflare backings for §4.7 agent-authored code", () => {
                             leaked: () => undefined
                         })
                 })),
+                fakeWorkerLimits,
                 fakeErrors
             ),
             "2026-07-10",

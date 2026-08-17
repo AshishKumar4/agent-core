@@ -28,7 +28,8 @@ import {
     FakeSqlStorage,
     FakeWebSocket,
     FakeWebSocketContext,
-    fakeErrors
+    fakeErrors,
+    fakeWorkerLimits
 } from "./fakes.js";
 import { queueCodecs } from "./queue-codecs.js";
 
@@ -326,6 +327,7 @@ describe("Cloudflare operational failure mapping", () => {
                     throw new TypeError("load");
                 }
             },
+            fakeWorkerLimits,
             fakeErrors
         );
         expectOperationalFailure(
@@ -351,6 +353,7 @@ describe("Cloudflare operational failure mapping", () => {
                         }
                     })
             },
+            fakeWorkerLimits,
             fakeErrors
         );
         expectOperationalFailure(
@@ -379,6 +382,7 @@ describe("Cloudflare operational failure mapping", () => {
                     }
                 })
             },
+            fakeWorkerLimits,
             fakeErrors
         );
         expectOperationalFailure(
@@ -405,6 +409,7 @@ describe("Cloudflare operational failure mapping", () => {
                     }
                 })
             },
+            fakeWorkerLimits,
             fakeErrors
         );
         expectOperationalFailure(
@@ -463,6 +468,7 @@ describe("Cloudflare operational failure mapping", () => {
                 {
                     load: () => ({ getEntrypoint: () => malformedInput({}) })
                 },
+                fakeWorkerLimits,
                 fakeErrors
             ),
             new DispatchNamespaceAdapter({ get: () => malformedInput({}) }, fakeErrors),

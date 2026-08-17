@@ -30,7 +30,7 @@ import type {
     SynchronousSqlitePort,
     WorkerLoaderBindingLike
 } from "../src/index.js";
-import { ReconciliationOutboxId } from "../src/index.js";
+import { DynamicWorkerLimits, ReconciliationOutboxId } from "../src/index.js";
 import {
     isFiniteNumber,
     isPlatformMethod,
@@ -49,6 +49,12 @@ export const fakeErrors: CloudflareErrorPort = Object.freeze({
         throw error;
     }
 } satisfies CloudflareErrorPort);
+
+/**
+ * The per-load bound every fixture loads under. §10.2 admits no unbounded load, so a
+ * fixture that wanted one would have to state it here and could not.
+ */
+export const fakeWorkerLimits = new DynamicWorkerLimits(50, 8);
 
 export interface FakeSqlExecution<Row extends Record<string, CloudflareSqlValue>> {
     readonly rows?: readonly Row[];

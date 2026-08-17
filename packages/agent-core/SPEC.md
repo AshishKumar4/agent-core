@@ -3206,6 +3206,72 @@ tax with no security benefit:
    agent-authored facets — with identical authority semantics, including that one.
    Which backing serves which §4.7 consumer is the platform's declaration to make.
 
+A load into a `dynamic` domain carries an exact resource bound, and the host is what
+states it. On this platform the bound is Worker Loader's `limits` — a maximum CPU time
+and a maximum subrequest count per invocation, which the runtime enforces by throwing at
+the boundary the moment either is reached — and a load that omits it does not get a
+permissive default, it gets the account's entire compute budget. A submission
+never states its own bound, and a host that cannot bound a submission MUST refuse to load
+it rather than run it against that budget: §4.7 places agent-authored code in a `dynamic`
+domain on the ground that the domain holds nothing, and an unbounded compute budget is
+something held — a denial-of-service capability nobody delegated, that no Grant names, and
+that revoking nothing withdraws. A bound admits nothing of its own: bounded code still
+reaches only the Bindings it was passed, and an exhausted bound is a failed Invocation like
+any other. This maps to **C13-CLOUDFLARE-DYNAMIC-COMPUTE-BOUND**.
+
+Warm reuse of a loaded isolate is keyed on the whole load or it does not happen. Worker
+Loader will hold an isolate under a caller-chosen name and skip the code callback entirely
+on a later request for that name, and what the skipped callback would have supplied
+includes the isolate's capability set. Because that set is one submission's delegation and
+no other's (§4.7), an identity covering the submitted code alone would hand a later
+submission an isolate still holding an earlier submission's Bindings — a delegation nobody
+made, to a submission whose own Grants may be narrower or already revoked. A reuse identity
+MUST therefore cover every input the load fixes, the delegated capability set included.
+Since §4.7 gives each submission its own delegation, no two submissions share such an
+identity, so this profile loads a fresh isolate per submission rather than keying a cache it
+cannot key correctly. This maps to **C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY**.
+
+Cloudflare's Durable Object *facet* is not the Facet of §4, and the collision is only in
+the word: a platform facet is a dynamically loaded Durable Object class running as a child
+of the object that loaded it, holding a SQLite database of its own that its supervisor
+cannot read. The class it runs is obtained from a Worker Loader stub, so its isolate is the
+`workerLoader` isolate above — the same absent outbound, the same compatibility flags, the
+same resource bound, the same serialized capability set — and nothing about its authority is
+established apart from that load. This profile therefore records a platform facet as the
+storage substrate of the `workerLoader` backing rather than as a third backing or a fourth
+hosting mode, because a backing id under §4.7 names a mechanism that demonstrates the
+`dynamic` guarantees independently, and a facet could demonstrate them only by pointing at
+the load it is made of. What a facet adds is durable state and a lifetime, and the two rules
+on store custody and store release below state where that state lives and when it is
+destroyed.
+
+The durable state a `dynamic` domain holds is its own. Such a store is reachable from the
+loaded code and from nothing else, so a record written there is a record its owning Actor
+cannot read, reconcile, export, or repair — §8.4's mirrored-state failure in the one form
+where the owner cannot observe the divergence either. A record type this document assigns an
+owning Actor MUST NOT be stored in a `dynamic` domain, and a rule of this document MUST NOT
+be satisfied by a value read back out of one: what such a store holds is the loaded
+application's own state, and what the hosting Actor keeps is the domain's name, which is an
+identifier and not a copy (§8.4 rule 2). A per-app resource §10.3 provisions for a Slate
+backend is the same thing in a different shape — the backend's own store, reached as an
+explicitly passed Binding rather than as an entry a deployment placed in the hosting
+script's environment, and named by the Slate record whose Actor owns it. This maps to
+**C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY**.
+
+Stopping a `dynamic` domain and destroying it are different acts, and this platform's names
+for them are adjacent: `abort` stops a facet and keeps its database, `delete` stops it and
+destroys it. Stopping is the code-update path — stop the domain running the old class, then
+start it again under the new one, which is why the platform offers a stop that preserves —
+and a withdrawal is the destroying act. A host MUST destroy rather than stop a domain whose
+composition record is withdrawn (§4.1), because a stopped domain's store outlives every name
+that could reach it: nothing distinguishes it from a domain waiting to resume, no record
+retains it, and no later act finds it. Restarting a domain under a different class is not a
+way around a Turn's pins. RunPins fixes the exact Package closure by code digest and a Turn
+keeps the pins captured at its start (§5.2), and re-materialization preserves those pins
+rather than replacing a pinned release under a live Run (§9.3), so such a restart is a
+materialization act ordered there and never a substitution inside a Turn — this profile adds
+no second rule for it. This maps to **C13-CLOUDFLARE-DYNAMIC-STORE-LIFECYCLE**.
+
 ### 10.3 Implementation constraints
 
 Cross-DO mediated authority uses this profile record:
@@ -3896,6 +3962,10 @@ A conforming implementation provides:
 - **C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING** A Cloudflare cross-DO authority permit binds every specified tenant, source, target, authority, intent, item, claim, pin, epoch, nonce, and time field.
 - **C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION** The target validates local claim, fence, reservation identity/epoch, single use, and expiry, then irreversibly consumes a valid issued permit regardless of newer post-issuance watermark.
 - **C13-CLOUDFLARE-RUN-HOSTING** A Run is Workspace-owned by default and may be pinned `dedicated` at start; its owner retains RunPins, active/terminal outcome, graph, and derived Settled obligations, and migration follows §5.2.
+- **C13-CLOUDFLARE-DYNAMIC-COMPUTE-BOUND** Every load into a `dynamic` domain carries an exact per-invocation CPU-time and subrequest bound the host states, and a host that cannot bound a submission refuses the load rather than running it against the account's budget.
+- **C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY** A warm isolate is reused only under an identity covering every input the load fixes, the delegated capability set included, so no two agent-authored submissions share one.
+- **C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY** A `dynamic` domain's private store holds the loaded code's own state alone: no record type with an owning Actor is stored there, and no rule is satisfied by a value read back out of it.
+- **C13-CLOUDFLARE-DYNAMIC-STORE-LIFECYCLE** Stopping a `dynamic` domain preserves its store and destroying it releases the store, and a withdrawal destroys rather than stops.
 - **C13-CLOUDFLARE-ALARM-CLAIMS** The object's single alarm is arbitrated by durable per-owner claims and tracks the earliest live one, so no owner clobbers another's wakeup.
 - **C13-CLOUDFLARE-RECONCILIATION-DRIVER** The reconciliation driver's claim tracks the earliest durable outbox entry, armed on enqueue, rebuilt at startup, and released when the outbox drains.
 - **C13-CLOUDFLARE-ALARM-DURABILITY** An armed alarm survives instance loss and a throwing handler, and the platform, not an external re-arming path, recovers it.

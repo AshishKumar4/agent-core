@@ -10,6 +10,24 @@ export interface DynamicWorkerSource {
     readonly modules: Readonly<Record<string, string>>;
 }
 
+/**
+ * The per-invocation resource bound one load runs under (SPEC §10.2). Worker Loader
+ * enforces `cpuMs` and `subRequests` itself by throwing at the boundary the moment
+ * either is hit, and an omitted limit is not "no policy" — it is the account's whole
+ * Workers-plan budget handed to a submission. So the bound is a construction argument
+ * of the loader rather than an option on a load: there is no expressible way to load
+ * agent-authored code without one.
+ */
+export class DynamicWorkerLimits {
+    public constructor(
+        public readonly cpuMs: number,
+        public readonly subRequests: number
+    ) {
+        requireBounds(cpuMs, subRequests);
+        Object.freeze(this);
+    }
+}
+
 export interface DynamicWorkerLoadOptions extends Omit<DynamicWorkerSource, "compatibilityFlags"> {
     // Mutable to match the platform's own binding type, which the host satisfies
     // structurally; the adapter is the only writer and copies before handing it over.
@@ -20,6 +38,9 @@ export interface DynamicWorkerLoadOptions extends Omit<DynamicWorkerSource, "com
     // from data rather than a live host object (see passed-capability.ts).
     readonly env: PassedCapabilities;
     readonly globalOutbound: null;
+    // Required where the platform's own `workerdResourceLimits` is optional: this seam
+    // exists to remove the unbounded case, so it cannot offer it.
+    readonly limits: { readonly cpuMs: number; readonly subRequests: number };
 }
 
 export interface DisposableCandidate {
@@ -38,6 +59,14 @@ export interface DynamicWorkerHandleCandidate<
     getEntrypoint?(): Entrypoint;
 }
 
+/**
+ * The one loading verb this adapter admits. Worker Loader also offers `get(name, …)`,
+ * which reuses a warm isolate keyed on the caller's name and skips the callback
+ * entirely — including the `env` in it. Since an isolate's `env` is one submission's
+ * delegated capability set (§4.7), a name-keyed reuse would serve a later submission an
+ * isolate holding an earlier submission's delegation, so this seam declares only the
+ * unkeyed load and there is no expressible reuse to key wrongly.
+ */
 export interface WorkerLoaderBindingLike<Entrypoint extends DisposableCandidate> {
     load(options: DynamicWorkerLoadOptions): DynamicWorkerHandleCandidate<Entrypoint>;
 }
@@ -49,6 +78,7 @@ export interface DynamicWorkerScope<Entrypoint extends DisposableCandidate> exte
 export class DynamicWorkerLoaderAdapter<RawEntrypoint extends DisposableCandidate> {
     public constructor(
         private readonly loader: WorkerLoaderBindingLike<RawEntrypoint>,
+        private readonly limits: DynamicWorkerLimits,
         private readonly errors: CloudflareErrorPort
     ) {}
 
@@ -63,7 +93,11 @@ export class DynamicWorkerLoaderAdapter<RawEntrypoint extends DisposableCandidat
             mainModule: source.mainModule,
             modules: Object.freeze({ ...source.modules }),
             env: Object.freeze({ ...capabilities }),
-            globalOutbound: null
+            globalOutbound: null,
+            limits: Object.freeze({
+                cpuMs: this.limits.cpuMs,
+                subRequests: this.limits.subRequests
+            })
         };
         // An absent flag list is absent, not present-and-undefined: the binding reads the
         // property, and `exactOptionalPropertyTypes` keeps that distinction in the type.
@@ -177,6 +211,17 @@ function validateSource(source: DynamicWorkerSource): void {
         )
     ) {
         throw new TypeError("Dynamic Worker source has an invalid shape");
+    }
+}
+
+function requireBounds(cpuMs: number, subRequests: number): void {
+    if (
+        !Number.isSafeInteger(cpuMs) ||
+        cpuMs <= 0 ||
+        !Number.isSafeInteger(subRequests) ||
+        subRequests <= 0
+    ) {
+        throw new TypeError("Dynamic Worker limits must be positive safe integers");
     }
 }
 

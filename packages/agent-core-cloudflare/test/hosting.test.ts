@@ -1,6 +1,7 @@
 import {
     AtLeastOnceQueueAdapter,
     DispatchNamespaceAdapter,
+    DynamicWorkerLimits,
     DynamicWorkerLoaderAdapter,
     ExplicitCloudflareDeploymentAdapter,
     cloudflareRuntimeMigrations,
@@ -8,7 +9,8 @@ import {
     createCloudflareDurableObjectClass,
     createCloudflareWorker,
     type FetchServiceLike,
-    type HibernatingWebSocketLike
+    type HibernatingWebSocketLike,
+    type PassedCapabilityLike
 } from "../src/index.js";
 import { RouteReservationId, TenantId } from "@agent-core/core";
 import {
@@ -22,7 +24,8 @@ import {
     FakeWebSocket,
     FakeWorkerLoader,
     FakeWorkerRouter,
-    fakeErrors
+    fakeErrors,
+    fakeWorkerLimits
 } from "./fakes.js";
 import { isPlatformMethod, isPlatformObject } from "../src/platform-value.js";
 import { expectOperationalFailure, malformedInput } from "./assertions.js";
@@ -37,7 +40,7 @@ const source = Object.freeze({
 describe("Cloudflare hosting adapters", () => {
     test("forces one-time Dynamic Worker load with null outbound and only passed Bindings", () => {
         const loader = new FakeWorkerLoader();
-        const adapter = new DynamicWorkerLoaderAdapter(loader, fakeErrors);
+        const adapter = new DynamicWorkerLoaderAdapter(loader, fakeWorkerLimits, fakeErrors);
 
         const scope = adapter.load(source, {}, requireFetchService);
         expect(scope.entrypoint).toBe(loader.service);
@@ -46,18 +49,87 @@ describe("Cloudflare hosting adapters", () => {
                 ...source,
                 modules: { ...source.modules },
                 env: {},
-                globalOutbound: null
+                globalOutbound: null,
+                limits: { cpuMs: 50, subRequests: 8 }
             }
         ]);
         scope[Symbol.dispose]();
         expect(loader.disposals).toBe(1);
     });
 
+    test(
+        "[C13-CLOUDFLARE-DYNAMIC-COMPUTE-BOUND] carries the host's exact bound into every load",
+        { tags: "p0" },
+        () => {
+            const loader = new FakeWorkerLoader();
+            const adapter = new DynamicWorkerLoaderAdapter(
+                loader,
+                new DynamicWorkerLimits(25, 4),
+                fakeErrors
+            );
+
+            adapter.load(source, {}, requireFetchService)[Symbol.dispose]();
+            adapter.load(
+                { ...source, modules: { "index.js": "export default { fetch() { return 1 } }" } },
+                {},
+                requireFetchService
+            )[Symbol.dispose]();
+
+            // The submission never states its own budget, so both loads carry the same
+            // one: an omitted `limits` is the account's whole Workers-plan budget.
+            expect(loader.calls.map((call) => call.limits)).toEqual([
+                { cpuMs: 25, subRequests: 4 },
+                { cpuMs: 25, subRequests: 4 }
+            ]);
+        }
+    );
+
+    test(
+        "[C13-CLOUDFLARE-DYNAMIC-COMPUTE-BOUND] refuses every bound that does not bound anything",
+        { tags: "p0" },
+        () => {
+            for (const [cpuMs, subRequests] of [
+                [0, 4],
+                [-1, 4],
+                [25, 0],
+                [25, -1],
+                [1.5, 4],
+                [25, Number.POSITIVE_INFINITY],
+                [Number.NaN, 4],
+                [Number.MAX_SAFE_INTEGER + 2, 4]
+            ] satisfies ReadonlyArray<readonly [number, number]>) {
+                expect(() => new DynamicWorkerLimits(cpuMs, subRequests)).toThrow(TypeError);
+            }
+            expect(new DynamicWorkerLimits(25, 4).cpuMs).toBe(25);
+        }
+    );
+
+    test(
+        "[C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY] loads a second isolate for identical code " +
+            "rather than serving it the first submission's delegation",
+        { tags: "p0" },
+        () => {
+            const loader = new FakeWorkerLoader();
+            const adapter = new DynamicWorkerLoaderAdapter(loader, fakeWorkerLimits, fakeErrors);
+            const first: PassedCapabilityLike = { invoke: async () => "first" };
+            const second: PassedCapabilityLike = { invoke: async () => "second" };
+
+            adapter.load(source, { mail: first }, requireFetchService)[Symbol.dispose]();
+            adapter.load(source, { mail: second }, requireFetchService)[Symbol.dispose]();
+
+            // A name-keyed warm reuse would skip the second callback and run the second
+            // submission in an isolate whose `env` still holds the first's delegation.
+            expect(loader.calls).toHaveLength(2);
+            expect(loader.calls[0]!.env["mail"]).toBe(first);
+            expect(loader.calls[1]!.env["mail"]).toBe(second);
+        }
+    );
+
     test("resolves only the explicitly selected deployment mode without fallback", async () => {
         const loader = new FakeWorkerLoader();
         const namespace = new FakeDispatchNamespace();
         const deployments = new ExplicitCloudflareDeploymentAdapter(
-            new DynamicWorkerLoaderAdapter(loader, fakeErrors),
+            new DynamicWorkerLoaderAdapter(loader, fakeWorkerLimits, fakeErrors),
             new DispatchNamespaceAdapter(namespace, fakeErrors),
             fakeErrors
         );
@@ -106,6 +178,7 @@ describe("Cloudflare hosting adapters", () => {
                     };
                 }
             },
+            fakeWorkerLimits,
             fakeErrors
         );
 
@@ -137,6 +210,7 @@ describe("Cloudflare hosting adapters", () => {
                     }
                 })
             },
+            fakeWorkerLimits,
             fakeErrors
         );
         const scope = adapter.load(source, {}, (): FetchServiceLike => ({

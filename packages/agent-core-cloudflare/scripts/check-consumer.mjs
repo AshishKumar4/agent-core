@@ -68,11 +68,15 @@ try {
         `
 import {
     DurableObjectEnvironmentProvider,
+    DurableObjectFacetHost,
+    DynamicDomainName,
+    DynamicWorkerLimits,
     DynamicWorkerLoaderAdapter,
     PassedCapabilityRegistry,
     WorkerLoaderAuthoredCodeBacking,
     type CloudflareErrorPort,
-    type DynamicWorkerLoadOptions
+    type DynamicWorkerLoadOptions,
+    type DurableObjectFacetsLike
 } from "@agent-core/cloudflare";
 import { AgentCoreError } from "@agent-core/core";
 import { AuthoredCodeBacking } from "@agent-core/core/operations";
@@ -93,11 +97,15 @@ const options: DynamicWorkerLoadOptions = {
     mainModule: "index.js",
     modules: { "index.js": "export default {}" },
     env: {},
-    globalOutbound: null
+    globalOutbound: null,
+    limits: { cpuMs: 50, subRequests: 8 }
 };
 const adapter = new DynamicWorkerLoaderAdapter({
     load: (_value: DynamicWorkerLoadOptions) => ({ getEntrypoint: () => ({}) })
-}, errors);
+}, new DynamicWorkerLimits(50, 8), errors);
+declare const facets: DurableObjectFacetsLike<{ readonly stub: true }, { readonly code: true }>;
+const domains = new DurableObjectFacetHost(facets, errors);
+void domains.open(new DynamicDomainName("slate-backend"), () => ({ class: { code: true } }));
 const registry = new PassedCapabilityRegistry(errors);
 const backing = new WorkerLoaderAuthoredCodeBacking(
     adapter,

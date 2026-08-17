@@ -1515,6 +1515,62 @@
       ]
     },
     {
+      "id": "C13-CLOUDFLARE-DYNAMIC-COMPUTE-BOUND",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-DYNAMIC-COMPUTE-BOUND",
+      "specTextSha256": "sha256:250cd69e5b5cbe3e5446cf11773f7fe561ff0f095ae47b39176995421bbe03ae",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY",
+      "specTextSha256": "sha256:cdca04b48e2fe4e1b631452a7ca03e4120a04bc3f4aa4c28f7c755fe16fdda27",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY",
+      "specTextSha256": "sha256:2fd676bc3730fb991cf3da038c813a16bb49b2478cf42252730b7bb3d1169680",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-CLOUDFLARE-DYNAMIC-STORE-LIFECYCLE",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-DYNAMIC-STORE-LIFECYCLE",
+      "specTextSha256": "sha256:6b69b7de1d904daee78054c62b9e586155413af163530ae1c36fc72f8b00cc8e",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-CLOUDFLARE-RECONCILIATION-FENCE",
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-RECONCILIATION-FENCE",
