@@ -6,6 +6,8 @@
   "compatibility_date": "2026-07-10",
   "compatibility_flags": ["nodejs_compat"],
   "workers_dev": true,
+  // The deployed release's schema selector; the evidence lane overrides it per deployment.
+  "define": { "LIVE_SCHEMA_RELEASE": "\"base\"" },
   "durable_objects": {
     "bindings": [
       { "name": "ENVIRONMENTS", "class_name": "LiveEnvironmentHarness" },

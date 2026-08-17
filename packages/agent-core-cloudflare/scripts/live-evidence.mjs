@@ -1,9 +1,11 @@
 /**
  * Live Cloudflare evidence lane: deploys the live harness worker to the real
  * account, drives the external-gated P11 substrate scenarios against deployed
- * Durable Objects and R2, redeploys, and replays durability scenarios against
- * the new worker version. Evidence lands in the core conformance artifacts as
- * a run manifest hash-bound to the exact provider sources it exercised.
+ * Durable Objects and R2, then walks the deployed release across the rollback
+ * window the Cloudflare profile publishes — base, next, back to base, and next
+ * again — replaying durability, refusal, and recovery scenarios against each
+ * worker version. Evidence lands in the core conformance artifacts as a run
+ * manifest hash-bound to the exact provider sources it exercised.
  */
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -38,7 +40,9 @@ const fingerprintSources = [
     "packages/agent-core-cloudflare/live/wrangler.live.jsonc",
     "packages/agent-core-cloudflare/test/live/harness.ts",
     "packages/agent-core-cloudflare/test/live/phase-1.test.ts",
-    "packages/agent-core-cloudflare/test/live/phase-2.test.ts"
+    "packages/agent-core-cloudflare/test/live/phase-2.test.ts",
+    "packages/agent-core-cloudflare/test/live/phase-3.test.ts",
+    "packages/agent-core-cloudflare/test/live/phase-4.test.ts"
 ];
 
 function run(command, args, options = {}) {
@@ -87,13 +91,19 @@ provision("R2 bucket", ["r2", "bucket", "create", bucket]);
 provision("Delivery queue", ["queues", "create", deliveryQueue]);
 provision("Dead-letter queue", ["queues", "create", poisonQueue]);
 
-function deploy() {
+/**
+ * Deploys one release of the harness. `release` selects the schema the deployed Durable
+ * Object declares, which is the only difference between the two releases this lane walks.
+ */
+function deploy(release) {
     const result = wrangler([
         "deploy",
         "--config",
         wranglerConfig,
         "--var",
-        `GIT_COMMIT:${commit}`
+        `GIT_COMMIT:${commit}`,
+        "--define",
+        `LIVE_SCHEMA_RELEASE:"${release}"`
     ]);
     const output = result.stdout + result.stderr;
     const urlMatch = output.match(/https:\/\/[a-z0-9.-]+\.workers\.dev/u);
@@ -101,6 +111,7 @@ function deploy() {
     if (urlMatch === null) throw new TypeError(`Deploy output has no workers.dev URL:\n${output}`);
     return {
         url: urlMatch[0],
+        release,
         versionId: versionMatch?.[1] ?? null,
         at: new Date().toISOString()
     };
@@ -165,33 +176,35 @@ mkdirSync(evidenceRoot, { recursive: true });
 const stateFile = join(mkdtempSync(join(tmpdir(), "live-evidence-")), "state.json");
 const runId = `${commit.slice(0, 12)}-${Date.now().toString(36)}`;
 
+// The releases this lane walks, in order: the base release arms durable work, the next
+// release applies its own migration over that work, the rollback to base meets a schema
+// it does not declare, and the roll-forward proves the refusal cost nothing.
+const releases = ["base", "next", "base", "next"];
+
 console.log(`deploying live harness at ${commit}${dirty ? " (dirty sources)" : ""}`);
-const firstDeployment = deploy();
-await awaitReady(firstDeployment.url);
-console.log(`phase 1 against ${firstDeployment.url} (version ${firstDeployment.versionId})`);
-const phase1 = runPhase(
-    firstDeployment.url,
-    1,
-    stateFile,
-    resolve(evidenceRoot, "phase-1.vitest.json")
-);
-console.log(`phase 1: ${phase1.numPassedTests} passed; redeploying for phase 2`);
-const secondDeployment = deploy();
-if (
-    secondDeployment.versionId !== null &&
-    secondDeployment.versionId === firstDeployment.versionId
-) {
-    throw new TypeError("Redeployment did not produce a new worker version");
+const deployments = [];
+const reports = {};
+for (const [index, release] of releases.entries()) {
+    const phase = index + 1;
+    const deployment = deploy(release);
+    const previous = deployments.at(-1);
+    if (
+        previous !== undefined &&
+        deployment.versionId !== null &&
+        deployment.versionId === previous.versionId
+    ) {
+        throw new TypeError(`Deployment for phase ${phase} did not produce a new worker version`);
+    }
+    deployments.push(deployment);
+    await awaitReady(deployment.url);
+    console.log(
+        `phase ${phase} against ${deployment.url} (release ${release}, version ${deployment.versionId})`
+    );
+    const reportName = `phase-${phase}.vitest.json`;
+    const report = runPhase(deployment.url, phase, stateFile, resolve(evidenceRoot, reportName));
+    reports[reportName] = sha256(readFileSync(resolve(evidenceRoot, reportName)));
+    console.log(`phase ${phase}: ${report.numPassedTests} passed`);
 }
-await awaitReady(secondDeployment.url);
-console.log(`phase 2 against ${secondDeployment.url} (version ${secondDeployment.versionId})`);
-const phase2 = runPhase(
-    secondDeployment.url,
-    2,
-    stateFile,
-    resolve(evidenceRoot, "phase-2.vitest.json")
-);
-console.log(`phase 2: ${phase2.numPassedTests} passed`);
 
 const manifest = {
     edition: "1.0.0",
@@ -200,18 +213,15 @@ const manifest = {
     accountId: "f44999d1ddda7012e9a87729eba250f1",
     worker: "agent-core-live-harness",
     bucket,
-    url: secondDeployment.url,
-    deployments: [firstDeployment, secondDeployment],
+    url: deployments.at(-1).url,
+    deployments,
     sourceFingerprints: Object.fromEntries(
         fingerprintSources.map((path) => [
             path,
             sha256(readFileSync(resolve(repositoryRoot, path)))
         ])
     ),
-    reports: {
-        "phase-1.vitest.json": sha256(readFileSync(resolve(evidenceRoot, "phase-1.vitest.json"))),
-        "phase-2.vitest.json": sha256(readFileSync(resolve(evidenceRoot, "phase-2.vitest.json")))
-    }
+    reports
 };
 writeFileSync(resolve(evidenceRoot, "run.json"), `${JSON.stringify(manifest, null, 4)}\n`);
 console.log(`live evidence recorded in ${evidenceRoot}`);

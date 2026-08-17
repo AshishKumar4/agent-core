@@ -51,18 +51,30 @@ export function validateLiveEvidence(root = resolve(artifactRoot, "conformance/l
             throw new TypeError(`Live evidence manifest needs ${field}`);
         }
     }
-    if (!Array.isArray(manifest.deployments) || manifest.deployments.length !== 2) {
-        throw new TypeError("Live evidence requires exactly two deployments");
+    // The lane walks the published rollback window: base, next, back to base, and next
+    // again, one deployment and one phase report each.
+    if (!Array.isArray(manifest.deployments) || manifest.deployments.length !== 4) {
+        throw new TypeError("Live evidence requires exactly four deployments");
     }
     const versions = manifest.deployments.map((deployment) => {
-        assertExactKeys(deployment, ["url", "versionId", "at"], "Live evidence deployment");
+        assertExactKeys(
+            deployment,
+            ["url", "release", "versionId", "at"],
+            "Live evidence deployment"
+        );
         if (!isNonEmptyString(deployment.versionId)) {
             throw new TypeError("Live evidence deployment needs a version ID");
         }
         return deployment.versionId;
     });
-    if (versions[0] === versions[1]) {
-        throw new TypeError("Live evidence phases must span two distinct worker versions");
+    if (new Set(versions).size !== versions.length) {
+        throw new TypeError("Live evidence phases must each span a distinct worker version");
+    }
+    if (
+        JSON.stringify(manifest.deployments.map((deployment) => deployment.release)) !==
+        JSON.stringify(["base", "next", "base", "next"])
+    ) {
+        throw new TypeError("Live evidence deployments must walk base, next, base, next");
     }
 
     const fingerprints = Object.entries(manifest.sourceFingerprints);
@@ -82,8 +94,16 @@ export function validateLiveEvidence(root = resolve(artifactRoot, "conformance/l
     }
 
     const reportNames = Object.keys(manifest.reports).sort();
-    if (JSON.stringify(reportNames) !== JSON.stringify(["phase-1.vitest.json", "phase-2.vitest.json"])) {
-        throw new TypeError("Live evidence requires exactly the two phase reports");
+    if (
+        JSON.stringify(reportNames) !==
+        JSON.stringify([
+            "phase-1.vitest.json",
+            "phase-2.vitest.json",
+            "phase-3.vitest.json",
+            "phase-4.vitest.json"
+        ])
+    ) {
+        throw new TypeError("Live evidence requires exactly the four phase reports");
     }
     const passed = new Set();
     const skipped = new Set();
@@ -92,7 +112,10 @@ export function validateLiveEvidence(root = resolve(artifactRoot, "conformance/l
         if (sha256(bytes) !== manifest.reports[name]) {
             throw new TypeError(`Live evidence report digest differs: ${name}`);
         }
-        const report = parseCanonicalJson(new TextDecoder().decode(bytes), portablePath(resolve(root, name)));
+        const report = parseCanonicalJson(
+            new TextDecoder().decode(bytes),
+            portablePath(resolve(root, name))
+        );
         if (report.numTotalTests === 0 || report.numFailedTests !== 0) {
             throw new TypeError(`Live evidence phase did not pass cleanly: ${name}`);
         }
@@ -142,5 +165,3 @@ function readJson(path, name) {
 function sha256(bytes) {
     return createHash("sha256").update(bytes).digest("hex");
 }
-
-

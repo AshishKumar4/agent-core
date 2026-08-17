@@ -93,6 +93,30 @@ const liveHarnessMigration: SqliteApplicationMigration = Object.freeze({
 });
 
 /**
+ * The live lane's two releases of one worker. Every deployment defines
+ * `LIVE_SCHEMA_RELEASE`; the `next` release declares one migration that `base` does not,
+ * which is what makes rolling back to `base` meet a schema it cannot read.
+ */
+declare const LIVE_SCHEMA_RELEASE: string;
+
+const liveRolloutMigration: SqliteApplicationMigration = Object.freeze({
+    version: 4,
+    name: "live-harness-rollout",
+    statements: Object.freeze([
+        `CREATE TABLE live_rollout (
+            subject TEXT PRIMARY KEY,
+            at INTEGER NOT NULL CHECK (at >= 0)
+        ) STRICT`
+    ])
+});
+
+const liveReleaseMigrations: readonly SqliteApplicationMigration[] = Object.freeze(
+    LIVE_SCHEMA_RELEASE === "next"
+        ? [liveHarnessMigration, liveRolloutMigration]
+        : [liveHarnessMigration]
+);
+
+/**
  * Identifies the isolate serving a request. A hibernating WebSocket that wakes into a
  * different isolate proves the object was genuinely evicted; Workers forbid randomness
  * at module scope, so the value is minted on first observation.
@@ -501,7 +525,7 @@ class LiveRuntimeHost implements AuthoritativeDurableObjectHost {
 
 const LiveRuntimeDelegate = createCloudflareDurableObjectClass<LiveRuntimeEnvironment>({
     errors,
-    migrations: [liveHarnessMigration],
+    migrations: liveReleaseMigrations,
     host: { create: (runtime) => new LiveRuntimeHost(runtime) }
 });
 
@@ -525,7 +549,10 @@ export class LiveRuntimeHarness extends DurableObject<LiveRuntimeEnvironment> {
         if (url.pathname === "/sockets") {
             return handle(async () => this.#hibernatingSockets());
         }
-        return this.#delegate.fetch(request);
+        // The delegate refuses every operation when the object's applied schema is one
+        // this release does not declare. Mapping that inside the object keeps its exact
+        // code observable to the lane instead of crossing the object boundary untyped.
+        return handleResponse(async () => this.#delegate.fetch(request));
     }
 
     public alarm(): void | Promise<void> {

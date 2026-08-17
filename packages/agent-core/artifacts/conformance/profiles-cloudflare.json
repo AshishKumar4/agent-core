@@ -3,6 +3,22 @@
   "owner": "W8",
   "requirements": [
     {
+      "id": "C13-CLOUDFLARE-ADDITIVE-MIGRATION",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-ADDITIVE-MIGRATION",
+      "specTextSha256": "sha256:980bd9e8fed4fe1ab4f1f968cf9a9ae963d77d3d0b3c410621591367f3443548",
+      "status": "planned",
+      "prerequisites": ["C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY"],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The mechanical gate exists at cloudflare/scripts/check-additive-migrations.mjs, wired as the package's check:migrations script: it applies every declared migration to the schema its predecessors produced in real SQLite, compares the schema object by object and column by column, and reads each statement's compiled SQLite program to reject one that writes rows an earlier release owns. Promotion to implemented owes the checker a registered invariant id in artifacts/quality/rules.json, which W0 owns.",
+        "cloudflare/test/additive-migrations.test.ts drives the gate through thirteen non-additive families (dropped table, dropped index, dropped column, renamed table, renamed column, deleted rows, rewritten rows, inserted rows, added uniqueness, non-omissible column, declared trigger, a second statement hidden in one entry, and a rebuilt table) and confirms the declared set of six migrations passes. Those selectors can be cited once this atom leaves planned.",
+        "The two-release protocol for a destructive change is stated but unexercised: no test walks an expand, backfill, dual-read, contract sequence across two releases, and the live lane owes that scenario under ACQ-LIVE."
+      ]
+    },
+    {
       "id": "C13-CLOUDFLARE-ALARM-CLAIMS",
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-ALARM-CLAIMS",
@@ -73,19 +89,22 @@
       "id": "C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY",
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY",
-      "specTextSha256": "sha256:3ce48a5302c61c3c96dc6a29874c7c621049fe1e39548ba56a20bc2d4b23d398",
+      "specTextSha256": "sha256:667eba9093ab3ac811f0c3f01938db604b49da102488b551ce838725c800012f",
       "status": "implemented",
       "prerequisites": ["C13-CLOUDFLARE-ALARM-DURABILITY"],
       "sourceSymbols": ["cloudflare/src/durable-object.ts#createCloudflareDurableObjectClass"],
       "testSelectors": [
+        "cloudflare/test/deployment-rollback.test.ts#Cloudflare release rollback [C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY] keeps durable work across N to N+1 and back to N",
         "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY] arms durable reconciliation work for the redeployed worker to finish",
         "cloudflare/test/live/phase-2.test.ts#live Cloudflare substrate evidence after redeployment [C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY] finishes reconciliation work armed before the redeployment",
-        "cloudflare/test/live/phase-2.test.ts#live Cloudflare substrate evidence after redeployment [C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY] keeps the view revision log across a full worker redeployment"
+        "cloudflare/test/live/phase-2.test.ts#live Cloudflare substrate evidence after redeployment [C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY] keeps the view revision log across a full worker redeployment",
+        "cloudflare/test/live/phase-4.test.ts#live Cloudflare substrate evidence after rolling forward again [C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY] keeps the view revision log across a rollback and roll-forward"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
       "remainingEvidence": [
         "Its prerequisite C13-CLOUDFLARE-ALARM-DURABILITY carries an open obligation, so continuity cannot rest on it yet.",
-        "Every named scenario redeploys forward. SqliteApplicationMigrator treats an applied marker this runtime does not declare as codec.invalid, so rolling back past a migration fails the constructor of every object that ran the newer code, with no recovery path. Failing closed on a schema this runtime cannot read is defensible, but continuity across a rollback is unevidenced and §10.4 does not state which of the two it promises."
+        "The rollback direction is now stated in §10.4 and implemented: createCloudflareDurableObjectClass constructs an object whose applied schema this release cannot read and refuses each operation with schema.unreadable, leaving the durable state untouched. cloudflare/test/deployment-rollback.test.ts covers N to N+1 to N and back to N+1 on real SQLite, which closes the structural half of the obligation this atom carried.",
+        "The live half is unrun. The lane now walks base, next, base, next across four deployments; phase-3 and phase-4 are written but have never executed against a real account, and the archived live evidence is stale for src/durable-object.ts, which this change edits. Running pnpm --filter @agent-core/cloudflare live:evidence is required before this atom can be verified."
       ]
     },
     {
@@ -149,6 +168,22 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
       "remainingEvidence": []
+    },
+    {
+      "id": "C13-CLOUDFLARE-ROLLBACK-WINDOW",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-ROLLBACK-WINDOW",
+      "specTextSha256": "sha256:d873b5b85633d2b367bdb333ff3004deb55e9271f4cadc38f0ff54380136511d",
+      "status": "planned",
+      "prerequisites": ["C13-CLOUDFLARE-ADDITIVE-MIGRATION"],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "createCloudflareDurableObjectClass captures an unreadable-schema refusal at construction and raises it from fetch, alarm, webSocketMessage, webSocketClose, and webSocketError, and SqliteApplicationMigrator raises the stable schema.unreadable code for an undeclared, corrupt, or duplicated marker. Promotion to implemented needs those symbols cited here once the atom leaves planned.",
+        "cloudflare/test/deployment-rollback.test.ts proves construction succeeds, every entry point refuses with schema.unreadable, the durable state is untouched, a two-release rollback fails closed the same way, and a release that declares every applied marker still serves. cloudflare/test/migration.test.ts covers the migrator's own refusals.",
+        "The live half is unrun: cloudflare/test/live/phase-3.test.ts and cloudflare/test/live/phase-4.test.ts are written against the four-deployment base, next, base, next lane but have never executed against a real account. ACQ-LIVE owes that run, which also has to confirm that the refusal crosses the deployed Durable Object boundary carrying its exact code."
+      ]
     },
     {
       "id": "C13-CLOUDFLARE-RUN-HOSTING",
