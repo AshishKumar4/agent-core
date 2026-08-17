@@ -14,10 +14,24 @@ import { packageRoot } from "./project.mjs";
  *
  * Two entry points, because the tools ask two different questions. `sourceFiles` and
  * `parseSource` answer "what does this text parse to", and own the open-file set and the
- * content overlay that lets a tool parse text with no file behind it. `project` answers
- * "what does the checker say", and hands back the compiler's own `Project` so semantic
- * callers use `project.program` and `project.checker` directly rather than through a
- * wrapper that would only rename them.
+ * content overlay that lets a tool parse text with no file behind it. `openProject` and
+ * `configuredProject` answer "what does the checker say", and hand back the compiler's
+ * own `Project` so semantic callers use `project.program` and `project.checker` directly
+ * rather than through a wrapper that would only rename them.
+ *
+ * The overlay deserves a note, because the obvious reading of this API says it cannot
+ * exist: `FileChangeSummary` carries only paths, so there is no way to hand the server
+ * new content for a file, and parsing a string looks impossible without writing a
+ * temporary file first. The content channel is elsewhere — the client's `fs` option is a
+ * virtual filesystem whose `readFile` returns overlay text, or `undefined` to fall
+ * through to the real disk. That is what makes `parseSource` and the synthetic
+ * configuration files in `openProject` possible without touching the working tree.
+ *
+ * One sharp edge, learned by measuring all six combinations: an open file's text is
+ * pinned when it is opened. A change notice does not unpin it, and neither does
+ * `clearSourceFileCache` or `invalidateAll`. Re-reading a path takes a close carrying
+ * the change notice followed by a separate reopen — both in one snapshot update yields no
+ * project at all. `release` is where that lives.
  */
 
 /** Content for paths whose text does not come from disk. Absent means "read the disk". */

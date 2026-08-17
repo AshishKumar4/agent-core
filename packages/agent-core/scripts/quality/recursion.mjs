@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import { dirname, normalize } from "node:path/posix";
-import ts from "typescript-api";
+import * as ts from "typescript/unstable/ast";
+import { parseSource, syntaxErrors } from "./compiler.mjs";
 import { collectFiles, packageRoot, portable } from "./project.mjs";
 
 const forbiddenInvocation =
@@ -37,8 +38,8 @@ const checkerEntrypoints = new Set([
 
 export function validateLeafSources(sources) {
     for (const [path, source] of Object.entries(sources)) {
-        const parsed = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
-        if (parsed.parseDiagnostics.length > 0) {
+        const parsed = parseSource(path, source);
+        if (syntaxErrors(path).length > 0) {
             throw new TypeError(`Quality leaf is not valid JavaScript: ${path}`);
         }
         const visit = (node) => {
@@ -66,7 +67,7 @@ export function validateLeafSources(sources) {
 function literalText(nodes) {
     const values = [];
     const visit = (node) => {
-        if (ts.isStringLiteralLike(node)) values.push(node.text);
+        if (ts.isStringLiteralLikeNode(node)) values.push(node.text);
         node.forEachChild(visit);
     };
     for (const node of nodes) visit(node);

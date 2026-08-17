@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
-import { readFile } from "node:fs/promises";
 import { posix, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import ts from "typescript-api";
+import * as ts from "typescript/unstable/ast";
+import { sourceFiles } from "./compiler.mjs";
 import {
     collectFiles,
     isJsonObject,
@@ -23,14 +23,8 @@ export async function discoverPriorityTestFiles() {
     const filePriorities = new Map();
     const imports = new Map();
     const knownFiles = new Set(files.map((path) => portable(relative(packageRoot, path))));
-    for (const path of files) {
+    for (const [path, source] of sourceFiles(files)) {
         const selectedPath = portable(relative(packageRoot, path));
-        const source = ts.createSourceFile(
-            path,
-            await readFile(path, "utf8"),
-            ts.ScriptTarget.Latest,
-            true
-        );
         const inFile = new Set();
         const dependencies = new Set();
         const visit = (node) => {
@@ -49,7 +43,7 @@ export async function discoverPriorityTestFiles() {
                     if (knownFiles.has(candidate)) dependencies.add(candidate);
                 }
             }
-            ts.forEachChild(node, visit);
+            node.forEachChild(visit);
         };
         visit(source);
         filePriorities.set(selectedPath, inFile);

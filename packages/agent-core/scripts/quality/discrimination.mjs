@@ -21,7 +21,7 @@
 // test" defect and counts for nothing.
 import { readFile } from "node:fs/promises";
 import { relative, resolve } from "node:path";
-import ts from "typescript-api";
+import { sourceFile } from "./compiler.mjs";
 import {
     artifactRoot,
     assertExactKeys,
@@ -225,15 +225,9 @@ function symbolLines(symbol) {
 
 function parseSource(path) {
     let source = parsedSources.get(path);
-    if (source === undefined && ts.sys.fileExists(path)) {
-        source = ts.createSourceFile(
-            path,
-            ts.sys.readFile(path),
-            ts.ScriptTarget.Latest,
-            true,
-            ts.ScriptKind.TS
-        );
-        parsedSources.set(path, source);
+    if (source === undefined) {
+        source = sourceFile(path);
+        if (source !== undefined) parsedSources.set(path, source);
     }
     return source;
 }

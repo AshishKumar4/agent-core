@@ -28,7 +28,8 @@
 // ones the register says nothing about, and the difference is exactly the entries the
 // register carries for that area.
 import { spawnSync } from "node:child_process";
-import ts from "typescript-api";
+import * as ts from "typescript/unstable/ast";
+import { sourceFiles } from "./compiler.mjs";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { mutationFingerprint, sourceAreas } from "./mutation-inputs.mjs";
@@ -139,13 +140,7 @@ if (mutatePattern === undefined) throw new TypeError(`Unknown source area: ${opt
  */
 function barrelOnly(files) {
     return files.every((file) => {
-        const source = ts.createSourceFile(
-            file,
-            readFileSync(file, "utf8"),
-            ts.ScriptTarget.Latest,
-            true,
-            ts.ScriptKind.TS
-        );
+        const source = sourceFiles([file]).get(file);
         return source.statements.every(
             (statement) =>
                 ts.isImportDeclaration(statement) ||
