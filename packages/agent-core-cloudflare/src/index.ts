@@ -39,6 +39,13 @@ export type {
     ReconciliationFailure,
     ReconciliationOutbox
 } from "./reconciliation.js";
+export { DurableOperationJournal } from "./resumption.js";
+export type {
+    ResumableAttempt,
+    ResumableOperationRecord,
+    ResumableWork,
+    ResumptionSchedule
+} from "./resumption.js";
 export { operationalFailure } from "./error.js";
 export type { CloudflareErrorPort, CloudflareOperationalErrorCode } from "./error.js";
 export { QueueMessageId, ReconciliationOutboxId } from "./id.js";
@@ -65,6 +72,7 @@ export type {
     AuthoritativeQueueTarget,
     PoisonQueueMessage,
     QueueBatchResult,
+    QueueDeliveryFailure,
     QueueMessageBatchLike,
     QueueMessageLike,
     QueueRetryOptionsLike,

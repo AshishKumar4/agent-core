@@ -61,6 +61,23 @@ export const cloudflareRuntimeMigrations: readonly SqliteApplicationMigration[] 
                 due_at INTEGER NOT NULL CHECK (due_at >= 0)
             ) STRICT`
         ])
+    }),
+    Object.freeze({
+        version: 3,
+        name: "cloudflare-runtime-resumable-operations",
+        statements: Object.freeze([
+            `CREATE TABLE agent_core_resumable_operations (
+                id TEXT PRIMARY KEY,
+                work TEXT NOT NULL,
+                attempts INTEGER NOT NULL CHECK (attempts >= 0),
+                claimed INTEGER NOT NULL CHECK (claimed IN (0, 1))
+            ) STRICT`,
+            `CREATE TABLE agent_core_resumable_steps (
+                operation_id TEXT NOT NULL,
+                step TEXT NOT NULL,
+                PRIMARY KEY (operation_id, step)
+            ) STRICT`
+        ])
     })
 ]);
 

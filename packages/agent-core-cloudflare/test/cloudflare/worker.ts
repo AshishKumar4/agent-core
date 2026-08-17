@@ -365,7 +365,7 @@ export class RunWorkspaceDurableObject extends DurableObject<TestEnvironment> {
         this.sqlite = new CloudflareSqlite(state.storage, errors);
         new SqliteApplicationMigrator(this.sqlite, errors, [
             ...cloudflareRuntimeMigrations,
-            runHostingMigration(3)
+            runHostingMigration(cloudflareRuntimeMigrations.length + 1)
         ]).migrate();
     }
 

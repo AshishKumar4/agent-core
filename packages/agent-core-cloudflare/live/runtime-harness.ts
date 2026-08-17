@@ -8,14 +8,17 @@ import {
 import { DurableObject } from "cloudflare:workers";
 import {
     AlarmOutboxReconciler,
+    DurableOperationJournal,
     ReconciliationOutboxId,
     SqliteReconciliationOutbox,
+    cloudflareRuntimeMigrations,
     createCloudflareDurableObjectClass,
     type AlarmStorageLike,
     type AuthoritativeDurableObjectHost,
     type CloudflareDurableObjectInstance,
     type CloudflareDurableObjectRuntime,
     type HibernatingWebSocketLike,
+    type ResumableAttempt,
     type SqliteApplicationMigration,
     type SqliteRow,
     type SynchronousSqlitePort
@@ -67,9 +70,11 @@ const RETRY_DELAY_MS = 2_000;
 const HOLD_STEP_MS = 100;
 const HOLD_STEPS = 120;
 const MAX_OUTBOX_ENTRIES = 100;
+/** The one named resumable work the lane declares, and the control row that holds it. */
+const RESUME_WORK = "live-resume";
 
 const liveHarnessMigration: SqliteApplicationMigration = Object.freeze({
-    version: 3,
+    version: cloudflareRuntimeMigrations.length + 1,
     name: "live-harness-journal",
     statements: Object.freeze([
         `CREATE TABLE live_events (
@@ -100,7 +105,7 @@ const liveHarnessMigration: SqliteApplicationMigration = Object.freeze({
 declare const LIVE_SCHEMA_RELEASE: string;
 
 const liveRolloutMigration: SqliteApplicationMigration = Object.freeze({
-    version: 4,
+    version: cloudflareRuntimeMigrations.length + 2,
     name: "live-harness-rollout",
     statements: Object.freeze([
         `CREATE TABLE live_rollout (
@@ -180,6 +185,7 @@ class LiveRuntimeHost implements AuthoritativeDurableObjectHost {
     readonly #journal: LiveJournal;
     readonly #outbox: SqliteReconciliationOutbox;
     readonly #reconciler: AlarmOutboxReconciler;
+    readonly #operations: DurableOperationJournal;
 
     public constructor(
         private readonly runtime: CloudflareDurableObjectRuntime<LiveRuntimeEnvironment>
@@ -187,10 +193,16 @@ class LiveRuntimeHost implements AuthoritativeDurableObjectHost {
         this.#database = runtime.sqlite;
         this.#journal = new LiveJournal(runtime.sqlite);
         this.#outbox = new SqliteReconciliationOutbox(runtime.sqlite, errors);
+        this.#operations = new DurableOperationJournal(
+            runtime.sqlite,
+            this.#outbox,
+            { [RESUME_WORK]: (attempt) => this.#runResumable(attempt) },
+            errors
+        );
         this.#reconciler = new AlarmOutboxReconciler(
             runtime.alarms,
             this.#outbox,
-            (id) => this.#reconcile(id),
+            (id) => this.#dispatchReconciliation(id),
             errors,
             { retryDelayMs: RETRY_DELAY_MS }
         );
@@ -221,6 +233,10 @@ class LiveRuntimeHost implements AuthoritativeDurableObjectHost {
                 return handle(() => this.#armThrowing(body));
             case "/alarms":
                 return handle(() => this.#alarmState());
+            case "/resume-begin":
+                return handle(() => this.#beginResumable(body));
+            case "/resume-state":
+                return handle(() => this.#resumableState(body));
             case "/events":
                 return handle(async () => ({ events: this.#journal.events() }));
             case "/blob":
@@ -311,6 +327,66 @@ class LiveRuntimeHost implements AuthoritativeDurableObjectHost {
         this.runtime.webSockets.accept(pair[1], channel, acked);
         this.#journal.record("socket.accepted", channel, acked);
         return new Response(null, { status: 101, webSocket: pair[0] });
+    }
+
+    /**
+     * One sweep serves both lanes. An ID the resumption journal holds is a resumable
+     * operation; anything else is a bare outbox probe, which is what keeps the fence and
+     * retry evidence about the outbox itself.
+     */
+    async #dispatchReconciliation(id: ReconciliationOutboxId): Promise<void> {
+        if (this.#operations.record(id) !== undefined) {
+            await this.#operations.resume(id);
+            return;
+        }
+        await this.#reconcile(id);
+    }
+
+    /**
+     * The lane's resumable work. Both steps write through the durable event journal from
+     * inside their checkpoint, so a step that committed is visible exactly once however
+     * many attempts the operation takes, and the hold between them is where a real
+     * instance kill lands mid-attempt.
+     */
+    async #runResumable(attempt: ResumableAttempt): Promise<void> {
+        this.#journal.record(
+            "resume.observed",
+            `${attempt.id.value}#${currentIsolate()}`,
+            attempt.interrupted ? attempt.attempt : -attempt.attempt
+        );
+        attempt.checkpoint("first", () =>
+            this.#journal.record("resume.step", `${attempt.id.value}#first`, attempt.attempt)
+        );
+        for (let step = 0; step < HOLD_STEPS && this.#controlHeld(attempt.id.value); step += 1) {
+            await delay(HOLD_STEP_MS);
+        }
+        attempt.checkpoint("second", () =>
+            this.#journal.record("resume.step", `${attempt.id.value}#second`, attempt.attempt)
+        );
+    }
+
+    async #beginResumable(body: LiveBody): Promise<JsonValue> {
+        const id = new ReconciliationOutboxId(field(body, "id"));
+        this.#operations.begin(id, RESUME_WORK, Date.now() + numberField(body, "delayMs"));
+        // Controls land before the alarm is armed, so a sweep can never observe the
+        // operation before the hold that the scenario begins it with.
+        this.#applyControls(id.value, body);
+        await this.#reconciler.armAlarm();
+        return this.#resumableState(body);
+    }
+
+    async #resumableState(body: LiveBody): Promise<JsonValue> {
+        const id = new ReconciliationOutboxId(field(body, "id"));
+        this.#applyControls(id.value, body);
+        const record = this.#operations.record(id);
+        return {
+            isolate: currentIsolate(),
+            operation:
+                record === undefined
+                    ? null
+                    : { work: record.work, attempts: record.attempts, claimed: record.claimed },
+            ...(await this.#outboxState())
+        };
     }
 
     async #reconcile(id: ReconciliationOutboxId): Promise<void> {

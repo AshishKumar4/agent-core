@@ -15,6 +15,7 @@ import {
     CloudflareSqlite,
     DurableViewRevisionLog,
     PlacementResolver,
+    cloudflareRuntimeMigrations,
     decodeViewStreamFrame,
     type ActorNamespaceLocation,
     type AuthoritativeQueueDelivery,
@@ -40,16 +41,12 @@ describe("Cloudflare runtime integration", () => {
                     "SELECT version, name FROM agent_core_migrations ORDER BY version"
                 )
             ];
-            expect(markers).toEqual([
-                {
-                    version: 1,
-                    name: "cloudflare-runtime-views-and-outbox"
-                },
-                {
-                    version: 2,
-                    name: "cloudflare-runtime-alarm-claims"
-                }
-            ]);
+            expect(markers).toEqual(
+                cloudflareRuntimeMigrations.map((migration) => ({
+                    version: migration.version,
+                    name: migration.name
+                }))
+            );
         });
         expect(await runDurableObjectAlarm(stub)).toBe(false);
     });
@@ -163,7 +160,9 @@ describe("Cloudflare runtime integration", () => {
                     "SELECT version FROM agent_core_migrations ORDER BY version"
                 )
             ];
-            expect(migrations).toEqual([{ version: 1 }, { version: 2 }]);
+            expect(migrations).toEqual(
+                cloudflareRuntimeMigrations.map((migration) => ({ version: migration.version }))
+            );
         });
     });
 

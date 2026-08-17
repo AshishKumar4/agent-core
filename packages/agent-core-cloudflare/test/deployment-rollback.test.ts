@@ -1,5 +1,6 @@
 import { AgentCoreError } from "@agent-core/core";
 import {
+    cloudflareRuntimeMigrations,
     createCloudflareDurableObjectClass,
     type AuthoritativeDurableObjectHost,
     type CloudflareDurableObjectAlarmStorage,
@@ -18,17 +19,20 @@ const request = new Request("https://object/work");
 
 /** The schema release N+1 applies, which release N does not declare. */
 const releaseNextMigration: SqliteApplicationMigration = Object.freeze({
-    version: 3,
+    version: cloudflareRuntimeMigrations.length + 1,
     name: "release-next-projection",
     statements: Object.freeze(["CREATE TABLE release_next_projection (id INTEGER) STRICT"])
 });
 
 /** The schema a second release beyond N applies, for a two-release rollback. */
 const releaseAfterNextMigration: SqliteApplicationMigration = Object.freeze({
-    version: 4,
+    version: cloudflareRuntimeMigrations.length + 2,
     name: "release-after-next-projection",
     statements: Object.freeze(["CREATE TABLE release_after_next_projection (id INTEGER) STRICT"])
 });
+
+/** The exact refusal release N raises for the marker release N+1 left behind. */
+const UNDECLARED_MARKER = `SQLite migration ${releaseNextMigration.version} marker ${releaseNextMigration.name} is not declared by this runtime`;
 
 /**
  * The platform's storage and its single alarm outlive every deployment of the code above
@@ -125,8 +129,7 @@ describe("Cloudflare release rollback", () => {
             expect(refusal).toBeInstanceOf(AgentCoreError);
             expect(refusal).toMatchObject({
                 code: "schema.unreadable",
-                message:
-                    "SQLite migration 3 marker release-next-projection is not declared by this runtime"
+                message: UNDECLARED_MARKER
             });
             await expect(rolledBack.alarm()).rejects.toMatchObject({ code: "schema.unreadable" });
             await expect(
@@ -159,8 +162,7 @@ describe("Cloudflare release rollback", () => {
             const rolledBack = new ReleaseN(state, {});
             await expect(rolledBack.fetch(request)).rejects.toMatchObject({
                 code: "schema.unreadable",
-                message:
-                    "SQLite migration 3 marker release-next-projection is not declared by this runtime"
+                message: UNDECLARED_MARKER
             });
 
             expect(await storage.getAlarm()).toBe(ARMED_AT);

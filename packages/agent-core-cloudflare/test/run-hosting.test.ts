@@ -35,7 +35,10 @@ import {
     TestSettlementPort
 } from "./run-fixture.js";
 
-const HOSTING_MIGRATIONS = [...cloudflareRuntimeMigrations, runHostingMigration(3)];
+const HOSTING_MIGRATIONS = [
+    ...cloudflareRuntimeMigrations,
+    runHostingMigration(cloudflareRuntimeMigrations.length + 1)
+];
 const READ_RUN_OBJECTS = "SELECT name FROM sqlite_schema WHERE name LIKE 'agent_run_%' ORDER BY name";
 
 /**

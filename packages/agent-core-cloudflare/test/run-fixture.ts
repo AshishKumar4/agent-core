@@ -176,6 +176,10 @@ export class TestEvidencePort<Transaction> extends RunEvidencePort<Transaction> 
         return this.controls.get(`${receipt.value}:${audit.value}`);
     }
 
+    public abandonedRewrite(): undefined {
+        return undefined;
+    }
+
     public synthesis(): undefined {
         return undefined;
     }

@@ -55,10 +55,17 @@ export interface PoisonQueueMessage {
     readonly cause: AgentCoreError;
 }
 
+/** One delivery the target could not take, kept with the cause that retried it. */
+export interface QueueDeliveryFailure<DeliveryId> {
+    readonly deliveryId: DeliveryId;
+    readonly cause: AgentCoreError;
+}
+
 export interface QueueBatchResult<DeliveryId> {
     readonly acknowledgedDeliveryIds: readonly DeliveryId[];
     readonly retriedDeliveryIds: readonly DeliveryId[];
     readonly poisonMessages: readonly PoisonQueueMessage[];
+    readonly failedDeliveries: readonly QueueDeliveryFailure<DeliveryId>[];
 }
 
 export class AtLeastOnceQueueAdapter<DeliveryId, Payload = JsonValue> {
@@ -72,6 +79,7 @@ export class AtLeastOnceQueueAdapter<DeliveryId, Payload = JsonValue> {
         const acknowledgedDeliveryIds: DeliveryId[] = [];
         const retriedDeliveryIds: DeliveryId[] = [];
         const poisonMessages: PoisonQueueMessage[] = [];
+        const failedDeliveries: QueueDeliveryFailure<DeliveryId>[] = [];
         for (const message of batch.messages) {
             const delivery = isJsonValue(message.body)
                 ? decodeDelivery(message.body, this.codecs, this.errors)
@@ -85,19 +93,30 @@ export class AtLeastOnceQueueAdapter<DeliveryId, Payload = JsonValue> {
                 poisonMessages.push(Object.freeze({ messageId, cause: delivery }));
                 continue;
             }
+            const label = `delivery ${String(delivery.deliveryId)}`;
             let result: QueueTargetResult;
             try {
                 result = await this.target.deliver(delivery.deliveryId, delivery.payload);
-            } catch (cause) {
-                operationalFailure(
-                    this.errors,
-                    "protocol.invalid-state",
-                    `Authoritative queue target failed for delivery ${String(delivery.deliveryId)}`,
-                    { value: cause }
+            } catch (failure) {
+                // A target that threw has not declined: it errored, and the delivery is
+                // still owed. Retrying just this message and carrying its cause is what
+                // leaves the rest of the batch its own dispositions, which failing the
+                // whole handler here did not — every later message went undispositioned.
+                this.dispose(label, () => message.retry());
+                failedDeliveries.push(
+                    Object.freeze({
+                        deliveryId: delivery.deliveryId,
+                        cause: operationalError(
+                            this.errors,
+                            "protocol.invalid-state",
+                            `Authoritative queue target failed for ${label}`,
+                            { value: failure }
+                        )
+                    })
                 );
+                continue;
             }
             const disposition = decodeResult(result, this.errors);
-            const label = `delivery ${String(delivery.deliveryId)}`;
             if (disposition.disposition === "ack") {
                 this.dispose(label, () => message.ack());
                 acknowledgedDeliveryIds.push(delivery.deliveryId);
@@ -113,7 +132,8 @@ export class AtLeastOnceQueueAdapter<DeliveryId, Payload = JsonValue> {
         return Object.freeze({
             acknowledgedDeliveryIds: Object.freeze(acknowledgedDeliveryIds),
             retriedDeliveryIds: Object.freeze(retriedDeliveryIds),
-            poisonMessages: Object.freeze(poisonMessages)
+            poisonMessages: Object.freeze(poisonMessages),
+            failedDeliveries: Object.freeze(failedDeliveries)
         });
     }
 

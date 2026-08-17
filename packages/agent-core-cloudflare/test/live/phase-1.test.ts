@@ -306,6 +306,18 @@ interface ClaimResult extends LiveAlarmState {
     readonly dueAt: number;
 }
 
+interface ResumableOperation {
+    readonly work: string;
+    readonly attempts: number;
+    readonly claimed: boolean;
+}
+
+interface ResumableState extends LiveOutboxState {
+    readonly isolate: string;
+    /** Null once the operation has completed and the journal has cleared it. */
+    readonly operation: ResumableOperation | null;
+}
+
 interface ThrowingResult extends ClaimResult {
     readonly until: number;
 }
@@ -361,6 +373,25 @@ function decodeEnqueueResult(value: JsonValue): EnqueueResult {
     return {
         ...decodeLiveOutboxState(value),
         scheduledAt: probeData.safeInteger(result["scheduledAt"], "Live enqueue schedule")
+    };
+}
+
+function decodeResumableState(value: JsonValue): ResumableState {
+    const result = resultObject(value, "Live resumable operation state");
+    const operation = result["operation"];
+    return {
+        ...decodeLiveOutboxState(value),
+        isolate: probeData.nonemptyString(result["isolate"], "Live resumable isolate"),
+        operation: operation === null ? null : decodeResumableOperation(operation)
+    };
+}
+
+function decodeResumableOperation(value: JsonValue | undefined): ResumableOperation {
+    const record = probeData.object(value, "Live resumable operation record");
+    return {
+        work: probeData.nonemptyString(record["work"], "Live resumable work name"),
+        attempts: probeData.safeInteger(record["attempts"], "Live resumable attempt count"),
+        claimed: probeData.boolean(record["claimed"], "Live resumable claim flag")
     };
 }
 
@@ -542,6 +573,65 @@ describe("live Cloudflare platform-semantics evidence", () => {
         );
         expect(settled.entries).toEqual([]);
         expect(settled.physicalAlarm).toBeNull();
+    });
+
+    it("[C13-CLOUDFLARE-ALARM-DURABILITY] resumes an operation whose isolate was killed mid-step, repeating nothing", async () => {
+        const begun = resultOf(
+            await call(
+                "runtime",
+                "resume-kill",
+                "resume-begin",
+                { id: "resumable", delayMs: ARM_DELAY_MS, hold: true },
+                decodeResumableState
+            )
+        );
+        expect(begun.entries).toEqual([{ id: "resumable", scheduledAt: begun.nextDueAt }]);
+
+        // The first attempt commits its first step and then holds, so the kill lands
+        // between two checkpoints of one operation.
+        const committed = await awaitEvent("resume-kill", "resume.step", "resumable#first");
+        expect(committed.detail).toBe(1);
+        await abortInstance("runtime", "resume-kill");
+
+        // Nothing below touches the instance until the work has settled: the alarm the
+        // killed handler never acknowledged is re-fired by the platform, the constructor
+        // rebuilds the alarm from the outbox, and the second attempt is the object's own.
+        const settled = await poll("resumed operation on resume-kill", async () => {
+            const observed = (await events("resume-kill")).filter(
+                (event) => event.kind === "resume.observed"
+            );
+            const finished = (await events("resume-kill")).filter(
+                (event) => event.kind === "resume.step" && event.subject === "resumable#second"
+            );
+            return observed.length === 2 && finished.length === 1 ? observed : undefined;
+        });
+
+        // `detail` carries the attempt, negated when the attempt did not follow a lost
+        // one: attempt 1 started clean, attempt 2 found the operation still claimed.
+        expect(settled.map((event) => event.detail)).toEqual([-1, 2]);
+        // A different isolate ran the second attempt, so the reset was real.
+        expect(settled[0]?.subject).not.toBe(settled[1]?.subject);
+
+        const journal = await events("resume-kill");
+        expect(
+            journal.filter(
+                (event) => event.kind === "resume.step" && event.subject === "resumable#first"
+            )
+        ).toHaveLength(1);
+        const cleared = await poll("cleared operation on resume-kill", async () => {
+            const state = resultOf(
+                await call(
+                    "runtime",
+                    "resume-kill",
+                    "resume-state",
+                    { id: "resumable" },
+                    decodeResumableState
+                )
+            );
+            return state.operation === null && state.entries.length === 0 ? state : undefined;
+        });
+        expect(cleared.nextDueAt).toBeNull();
+        expect(cleared.physicalAlarm).toBeNull();
     });
 
     it("[C13-CLOUDFLARE-RECONCILIATION-RETRY] reschedules a failed reconciliation onto a real alarm and settles it", async () => {

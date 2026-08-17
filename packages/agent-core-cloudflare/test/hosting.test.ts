@@ -3,6 +3,7 @@ import {
     DispatchNamespaceAdapter,
     DynamicWorkerLoaderAdapter,
     ExplicitCloudflareDeploymentAdapter,
+    cloudflareRuntimeMigrations,
     contentRepositoryFromR2Binding,
     createCloudflareDurableObjectClass,
     createCloudflareWorker,
@@ -210,7 +211,7 @@ describe("Cloudflare hosting adapters", () => {
             contentBucket: (_environment: { CONTENT: FakeR2Bucket }) => bucket,
             migrations: [
                 {
-                    version: 3,
+                    version: cloudflareRuntimeMigrations.length + 1,
                     name: "application-table",
                     statements: ["CREATE TABLE application_table (id INTEGER)"]
                 }

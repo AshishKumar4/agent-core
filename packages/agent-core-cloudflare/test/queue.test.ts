@@ -30,7 +30,8 @@ describe("AtLeastOnceQueueAdapter", () => {
         expect(await adapter.handle({ messages: [first, second] })).toEqual({
             acknowledgedDeliveryIds: [new RouteReservationId("delivery-1")],
             retriedDeliveryIds: [new RouteReservationId("delivery-2")],
-            poisonMessages: []
+            poisonMessages: [],
+            failedDeliveries: []
         });
         expect(calls).toEqual([
             new RouteReservationId("delivery-1"),
@@ -40,25 +41,44 @@ describe("AtLeastOnceQueueAdapter", () => {
         expect(second.retries).toEqual([{ delaySeconds: 7 }]);
     });
 
-    test("does not ack or retry before an injected target result", async () => {
-        const message = new FakeQueueMessage("platform", {
-            deliveryId: "delivery",
+    test("retries a delivery its target threw on and keeps the rest of the batch", async () => {
+        const failing = new FakeQueueMessage("platform-failing", {
+            deliveryId: "delivery-failing",
+            payload: null
+        });
+        const healthy = new FakeQueueMessage("platform-healthy", {
+            deliveryId: "delivery-healthy",
             payload: null
         });
         const adapter = new AtLeastOnceQueueAdapter(
             {
-                deliver: async () => {
-                    throw new TypeError("target unavailable");
+                deliver: async (deliveryId: RouteReservationId) => {
+                    if (deliveryId.value === "delivery-failing") {
+                        throw new TypeError("target unavailable");
+                    }
+                    return { disposition: "ack" as const };
                 }
             },
             queueCodecs,
             fakeErrors
         );
-        await expect(adapter.handle({ messages: [message] })).rejects.toMatchObject({
-            code: "protocol.invalid-state"
-        });
-        expect(message.acknowledgements).toBe(0);
-        expect(message.retries).toEqual([]);
+
+        const result = await adapter.handle({ messages: [failing, healthy] });
+
+        // A throw is not a decline and never an ack: the delivery is still owed, so it is
+        // retried, and the message that followed it keeps its own disposition.
+        expect(result.acknowledgedDeliveryIds).toEqual([
+            new RouteReservationId("delivery-healthy")
+        ]);
+        expect(result.failedDeliveries).toMatchObject([
+            {
+                deliveryId: new RouteReservationId("delivery-failing"),
+                cause: { code: "protocol.invalid-state" }
+            }
+        ]);
+        expect(failing.acknowledgements).toBe(0);
+        expect(failing.retries).toEqual([undefined]);
+        expect(healthy.acknowledgements).toBe(1);
     });
 
     test(
