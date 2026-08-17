@@ -36,7 +36,8 @@ import {
     SlotEntry,
     SlotName,
     SlotWithdrawalSet,
-    WorkspaceSlotStore
+    WorkspaceSlotStore,
+    type SlotContributionOrigin
 } from "../../src/facets";
 import {
     FACET_SLOT_COMMANDS,
@@ -774,6 +775,13 @@ class TestSlotStore<State extends SlotState> extends WorkspaceSlotStore<State> {
         return state.entries.get(id.value);
     }
 
+    public override loadEntryAt(
+        state: State,
+        origin: SlotContributionOrigin
+    ): SlotEntry | undefined {
+        return [...state.entries.values()].find((candidate) => candidate.origin.equals(origin));
+    }
+
     public override listEntries(state: State, name: SlotName): readonly SlotEntry[] {
         return [...state.entries.values()].filter((candidate) => candidate.slot.equals(name));
     }
@@ -959,6 +967,15 @@ class ClosedTestSlotStore extends WorkspaceSlotStore<ClosedSlotState> {
     ): SlotEntry | undefined {
         const bytes = state.entries.get(id.value);
         return bytes === undefined ? undefined : SlotEntry.decode(bytes);
+    }
+
+    public override loadEntryAt(
+        state: ClosedSlotState,
+        origin: SlotContributionOrigin
+    ): SlotEntry | undefined {
+        return [...state.entries.values()]
+            .map((bytes) => SlotEntry.decode(bytes))
+            .find((candidate) => candidate.origin.equals(origin));
     }
 
     public override listEntries(state: ClosedSlotState, name: SlotName): readonly SlotEntry[] {

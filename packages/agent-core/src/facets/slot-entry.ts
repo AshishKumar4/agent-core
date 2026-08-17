@@ -8,7 +8,42 @@ import {
     requireSafeInteger,
     requireString
 } from "./data";
-import { SlotEntryId, SlotName } from "./id";
+import { FacetRef, SlotEntryId, SlotName } from "./id";
+
+/**
+ * SPEC §4.2: the position a contribution occupies — the exact triple a slot holds at most
+ * one entry for. It is deliberately a different shape from `SlotEntryId`, because the two
+ * answer different questions. The id digests every declared field, so it answers whether
+ * two materializations are the same record; the origin names the position a changed
+ * contribution supersedes. Collapsing them makes a contribution re-read from a later
+ * release indistinguishable from an illegal rewrite of the record it replaces.
+ */
+export class SlotContributionOrigin {
+    /** Lookup key for the at-most-one-entry-per-contributor-per-ordinal index. */
+    public readonly key: string;
+
+    public constructor(
+        public readonly slot: SlotName,
+        public readonly contributor: FacetRef,
+        public readonly ordinal: number
+    ) {
+        if (!(slot instanceof SlotName) || !(contributor instanceof FacetRef)) {
+            throw new TypeError("A slot contribution origin names its slot and contributor");
+        }
+        if (!Number.isSafeInteger(ordinal) || ordinal < 0) {
+            throw new TypeError(
+                "Slot contribution origin ordinal must be a non-negative safe integer"
+            );
+        }
+        // Both halves are canonical ids, so NUL separation is injective without a digest.
+        this.key = `${slot.value}\0${contributor.value}\0${ordinal}`;
+        Object.freeze(this);
+    }
+
+    public equals(other: SlotContributionOrigin): boolean {
+        return this.key === other.key;
+    }
+}
 
 /**
  * Major 3 carries the §4.2 source `PackagePin` alongside the contributing FacetRef. The
@@ -36,6 +71,11 @@ export class SlotEntry {
 
     public readonly value: FacetData;
     public readonly id: SlotEntryId;
+    /**
+     * The §4.2 position this entry occupies. It is derived from declared fields rather than
+     * stored, so it adds nothing to the record's shape and cannot drift from it.
+     */
+    public readonly origin: SlotContributionOrigin;
 
     public constructor(
         public readonly slot: SlotName,
@@ -51,6 +91,7 @@ export class SlotEntry {
             throw new TypeError("Slot entry ordinal must be a non-negative safe integer");
         }
         this.value = canonicalFacetData(value);
+        this.origin = new SlotContributionOrigin(slot, attribution.contributor, ordinal);
         const expectedId = slotEntryId(slot, attribution, ordinal, this.value);
         if (id !== undefined && !id.equals(expectedId)) {
             throw new TypeError("Slot entry ID does not match its canonical contents");

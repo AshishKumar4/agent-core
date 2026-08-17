@@ -49,7 +49,7 @@ export {
 export type { EnforcementTier, Impact } from "./contribution";
 export { InstalledSlot, SlotAuthorityPolicy, SlotDeclaration } from "./slot";
 export { ContributionAttribution } from "./attribution";
-export { SlotEntry } from "./slot-entry";
+export { SlotContributionOrigin, SlotEntry } from "./slot-entry";
 export { SlotWithdrawalSet, WorkspaceSlotStore } from "./slot-store";
 export { MemoryWorkspaceSlotStore } from "./slot-memory";
 export {

@@ -4,7 +4,7 @@ import { AgentCoreError } from "../errors";
 import type { WorkspaceId } from "../identity";
 import type { ContributionAttribution } from "./attribution";
 import { InstalledSlot } from "./slot";
-import { SlotEntry } from "./slot-entry";
+import { SlotEntry, type SlotContributionOrigin } from "./slot-entry";
 import type { FacetRef, SlotEntryId, SlotName } from "./id";
 
 /**
@@ -43,6 +43,15 @@ export abstract class WorkspaceSlotStore<Transaction> {
     public abstract retireSlot(transaction: Transaction, name: SlotName): void;
     public abstract listSlots(transaction: Transaction): readonly InstalledSlot[];
     public abstract loadEntry(transaction: Transaction, id: SlotEntryId): SlotEntry | undefined;
+    /**
+     * The entry occupying a contribution's §4.2 position, or none. It is a separate lookup
+     * from `loadEntry` because the two answer different questions: an id answers whether a
+     * particular record is stored, an origin answers what a new contribution supersedes.
+     */
+    public abstract loadEntryAt(
+        transaction: Transaction,
+        origin: SlotContributionOrigin
+    ): SlotEntry | undefined;
     public abstract listEntries(transaction: Transaction, slot: SlotName): readonly SlotEntry[];
     public abstract listAllEntries(transaction: Transaction): readonly SlotEntry[];
     public abstract insertEntry(transaction: Transaction, entry: SlotEntry): void;
@@ -75,6 +84,13 @@ export abstract class WorkspaceSlotStore<Transaction> {
         });
     }
 
+    /**
+     * SPEC §4.2: a slot holds at most one entry per contributor per ordinal. Because the
+     * entry id digests exactly the declared fields, re-materializing the same contribution
+     * from the same release is the same record and changes nothing, while a contribution
+     * whose value or source release changed supersedes its predecessor inside this one
+     * transaction rather than accreting beside it.
+     */
     public contribute(entry: SlotEntry): Revision {
         return this.transaction((transaction) => {
             const installed = this.loadSlot(transaction, entry.slot);
@@ -82,17 +98,28 @@ export abstract class WorkspaceSlotStore<Transaction> {
             if (!installed.declaration.entrySchema.accepts(entry.value)) {
                 throw invalidEntry(entry.id.value);
             }
-            const existing = this.loadEntry(transaction, entry.id);
-            if (
-                existing !== undefined &&
-                equalBytes(SlotEntry.encode(existing), SlotEntry.encode(entry))
-            )
-                return this.loadRevision(transaction);
+            const superseded = this.loadEntryAt(transaction, entry.origin);
+            if (superseded !== undefined) {
+                if (superseded.id.equals(entry.id)) return this.loadRevision(transaction);
+                this.retireEntry(transaction, superseded.id);
+            }
             this.insertEntry(transaction, entry);
             const revision = this.loadRevision(transaction).next();
             this.saveRevision(transaction, revision);
             return revision;
         });
+    }
+
+    /**
+     * The origin exclusivity §4.2 requires, enforced where both implementations share it. A
+     * storage primitive that admitted a second entry at one origin would make supersession
+     * unobservable, so the refusal belongs to the seam rather than to each store.
+     */
+    protected requireFreeOrigin(transaction: Transaction, entry: SlotEntry): void {
+        const occupant = this.loadEntryAt(transaction, entry.origin);
+        if (occupant !== undefined && !occupant.id.equals(entry.id)) {
+            throw occupiedOrigin(entry.origin, occupant);
+        }
     }
 
     /**
@@ -228,5 +255,12 @@ function retainedContribution(slot: string, retained: ContributionAttribution): 
     return new AgentCoreError(
         "protocol.invalid-state",
         `Withdrawal would retire Slot ${slot} while ${retained.contributor.value} still contributes to it`
+    );
+}
+
+function occupiedOrigin(origin: SlotContributionOrigin, occupant: SlotEntry): AgentCoreError {
+    return new AgentCoreError(
+        "protocol.invalid-state",
+        `Slot entry ${occupant.id.value} already occupies ${origin.contributor.value} at ordinal ${origin.ordinal} of slot ${origin.slot.value}`
     );
 }

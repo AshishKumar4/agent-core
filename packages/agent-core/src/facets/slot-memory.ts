@@ -9,7 +9,7 @@ import type { WorkspaceId } from "../identity";
 import { isString } from "./data";
 import { SlotName, type SlotEntryId } from "./id";
 import { InstalledSlot } from "./slot";
-import { SlotEntry } from "./slot-entry";
+import { SlotEntry, type SlotContributionOrigin } from "./slot-entry";
 import { WorkspaceSlotStore } from "./slot-store";
 
 interface MemorySlotState {
@@ -67,7 +67,6 @@ export class MemoryWorkspaceSlotStore extends WorkspaceSlotStore<MemorySlotState
                 throw corrupt("Memory Workspace Slot snapshot contains duplicate Slot entries");
             }
             insertImmutable(state.entries, entry.id.value, bytes, "Slot entry");
-            requireUniqueOrigin(state, entry);
         }
         validateState(state);
         store.#state = cloneState(state);
@@ -143,6 +142,20 @@ export class MemoryWorkspaceSlotStore extends WorkspaceSlotStore<MemorySlotState
         return bytes === undefined ? undefined : decodeEntry(bytes, id.value);
     }
 
+    /**
+     * A position lookup, not an assertion about the store's key discipline: `validateState`
+     * owns that at every commit, so decoding here does not restate it.
+     */
+    public loadEntryAt(
+        transaction: MemorySlotState,
+        origin: SlotContributionOrigin
+    ): SlotEntry | undefined {
+        this.requireActive(transaction);
+        return [...transaction.entries.values()]
+            .map((bytes) => SlotEntry.decode(bytes))
+            .find((entry) => entry.origin.equals(origin));
+    }
+
     public listEntries(transaction: MemorySlotState, slot: SlotName): readonly SlotEntry[] {
         this.requireActive(transaction);
         return Object.freeze(
@@ -165,7 +178,7 @@ export class MemoryWorkspaceSlotStore extends WorkspaceSlotStore<MemorySlotState
     public insertEntry(transaction: MemorySlotState, entry: SlotEntry): void {
         this.requireActive(transaction);
         requireEntryClosure(transaction, entry);
-        requireUniqueOrigin(transaction, entry);
+        this.requireFreeOrigin(transaction, entry);
         insertImmutable(transaction.entries, entry.id.value, SlotEntry.encode(entry), "Slot entry");
     }
 
@@ -235,19 +248,6 @@ function requireEntryClosure(state: MemorySlotState, entry: SlotEntry): void {
     }
 }
 
-function requireUniqueOrigin(state: MemorySlotState, entry: SlotEntry): void {
-    const conflict = [...state.entries.values()]
-        .map((bytes) => SlotEntry.decode(bytes))
-        .find(
-            (candidate) =>
-                candidate.slot.equals(entry.slot) &&
-                candidate.attribution.contributor.equals(entry.attribution.contributor) &&
-                candidate.ordinal === entry.ordinal &&
-                !candidate.id.equals(entry.id)
-        );
-    if (conflict !== undefined) throw invalidState("Slot contribution origin is immutable");
-}
-
 function insertImmutable(
     records: Map<string, Uint8Array>,
     key: string,
@@ -309,10 +309,9 @@ function validateState(state: MemorySlotState): void {
     for (const [key, bytes] of state.entries) {
         const entry = decodeEntry(bytes, key);
         requireEntryClosure(state, entry);
-        const origin = `${entry.slot.value}\0${entry.attribution.contributor.value}\0${entry.ordinal}`;
-        if (origins.has(origin))
+        if (origins.has(entry.origin.key))
             throw corrupt("Memory Workspace Slot state contains duplicate origins");
-        origins.add(origin);
+        origins.add(entry.origin.key);
     }
     // Retirement (§4.1 withdrawal) removes records while advancing the revision, so a
     // restored snapshot can only be bounded from below. The exact relation is checked per

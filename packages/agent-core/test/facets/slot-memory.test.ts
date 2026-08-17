@@ -9,7 +9,8 @@ import {
     SlotAuthorityPolicy,
     SlotDeclaration,
     SlotEntry,
-    SlotName
+    SlotName,
+    type SlotContributionOrigin
 } from "../../src/facets";
 import { MemoryWorkspaceSlotStore } from "../../src/facets/slot-memory";
 import {
@@ -218,9 +219,19 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
                     ),
                 "protocol.invalid-state"
             );
+            // §4.2 makes a changed contribution supersede through `contribute`, so the
+            // refusal that remains is the storage primitive's: it must not write a second
+            // entry at an occupied origin.
             expectAgentCoreError(
-                () => store.contribute(entry("workspace:one", 1, { title: "Changed" })),
-                "protocol.invalid-state"
+                () =>
+                    store.transaction((transaction) =>
+                        store.insertEntry(
+                            transaction,
+                            entry("workspace:one", 1, { title: "Changed" })
+                        )
+                    ),
+                "protocol.invalid-state",
+                /already occupies workspace:one at ordinal 1 of slot dashboard\.card/
             );
             expectAgentCoreError(() => {
                 // @ts-expect-error A transaction from outside this store is invalid.
@@ -800,6 +811,13 @@ class BareWorkspaceSlotStore extends WorkspaceSlotStore<BareSlotState> {
 
     public loadEntry(transaction: BareSlotState, id: SlotEntry["id"]): SlotEntry | undefined {
         return transaction.entries.get(id.value);
+    }
+
+    public loadEntryAt(
+        transaction: BareSlotState,
+        origin: SlotContributionOrigin
+    ): SlotEntry | undefined {
+        return [...transaction.entries.values()].find((entry) => entry.origin.equals(origin));
     }
 
     public listEntries(transaction: BareSlotState, slot: SlotName): readonly SlotEntry[] {

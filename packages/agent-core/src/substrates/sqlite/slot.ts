@@ -6,6 +6,7 @@ import {
     SlotEntry,
     SlotName,
     WorkspaceSlotStore,
+    type SlotContributionOrigin,
     type SlotEntryId
 } from "../../facets";
 import { WorkspaceId } from "../../identity";
@@ -172,6 +173,23 @@ export class SqliteWorkspaceSlotStore extends WorkspaceSlotStore<TransactionalSq
         return entry;
     }
 
+    public loadEntryAt(
+        transaction: TransactionalSqlite,
+        origin: SlotContributionOrigin
+    ): SlotEntry | undefined {
+        this.requireDatabase(transaction);
+        // The UNIQUE (slot, contributor, ordinal) constraint is this lookup's index.
+        const row = transaction.all(
+            `SELECT id, slot, contributor, ordinal, record
+             FROM facet_slot_entries WHERE slot = ? AND contributor = ? AND ordinal = ?`,
+            [origin.slot.value, origin.contributor.value, origin.ordinal]
+        )[0];
+        if (row === undefined) return undefined;
+        const entry = decodeEntry(row);
+        this.requireEntryClosure(transaction, entry);
+        return entry;
+    }
+
     public listEntries(transaction: TransactionalSqlite, slot: SlotName): readonly SlotEntry[] {
         this.requireDatabase(transaction);
         const entries = transaction
@@ -211,6 +229,7 @@ export class SqliteWorkspaceSlotStore extends WorkspaceSlotStore<TransactionalSq
                 `Slot entry ${entry.id.value} does not match the entry schema`
             );
         }
+        this.requireFreeOrigin(transaction, entry);
         const bytes = SlotEntry.encode(entry);
         transaction.run(
             `INSERT OR IGNORE INTO facet_slot_entries
@@ -250,48 +269,6 @@ export class SqliteWorkspaceSlotStore extends WorkspaceSlotStore<TransactionalSq
         if (installed === undefined || !installed.declaration.entrySchema.accepts(entry.value)) {
             throw corrupt(`SQLite Slot entry ${entry.id.value} violates its Slot declaration`);
         }
-    }
-
-    public override revision(): Revision {
-        return this.transaction((transaction) => this.loadRevision(transaction));
-    }
-
-    public override slot(name: SlotName): InstalledSlot | undefined {
-        return this.transaction((transaction) => this.loadSlot(transaction, name));
-    }
-
-    public override entries(name: SlotName): readonly SlotEntry[] {
-        return this.transaction((transaction) => this.listEntries(transaction, name));
-    }
-
-    public override install(slot: InstalledSlot): Revision {
-        return this.transaction((transaction) => {
-            const existing = this.loadSlot(transaction, slot.declaration.name);
-            if (
-                existing !== undefined &&
-                equalBytes(InstalledSlot.encode(existing), InstalledSlot.encode(slot))
-            )
-                return this.loadRevision(transaction);
-            this.insertSlot(transaction, slot);
-            const revision = this.loadRevision(transaction).next();
-            this.saveRevision(transaction, revision);
-            return revision;
-        });
-    }
-
-    public override contribute(entry: SlotEntry): Revision {
-        return this.transaction((transaction) => {
-            const existing = this.loadEntry(transaction, entry.id);
-            if (
-                existing !== undefined &&
-                equalBytes(SlotEntry.encode(existing), SlotEntry.encode(entry))
-            )
-                return this.loadRevision(transaction);
-            this.insertEntry(transaction, entry);
-            const revision = this.loadRevision(transaction).next();
-            this.saveRevision(transaction, revision);
-            return revision;
-        });
     }
 }
 
