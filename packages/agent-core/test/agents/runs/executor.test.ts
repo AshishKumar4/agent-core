@@ -32,7 +32,7 @@ import {
     type TurnContext,
     type TurnExecutorHostInit,
     type TurnModelCall,
-    type TurnModelDraft,
+    type TurnModelInputAssembly,
     type TurnModelRequest,
     type TurnModelUsage,
     type TurnOutcome,
@@ -2303,7 +2303,7 @@ function errorCode(error: Error): string {
 function promptDraft(
     prompt: ContentRef,
     catalog: readonly TurnBoundOperation[] = []
-): TurnModelDraft {
+): TurnModelInputAssembly {
     return {
         sections: [
             new TurnPromptSection(

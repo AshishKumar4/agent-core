@@ -132,7 +132,7 @@ export type {
     TurnInvocationRequest,
     TurnInvocationResult,
     TurnModelCall,
-    TurnModelDraft,
+    TurnModelInputAssembly,
     TurnModelExchange,
     TurnModelInputInit,
     TurnModelInputRecords,

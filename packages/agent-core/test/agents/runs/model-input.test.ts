@@ -35,7 +35,7 @@ import {
     type StoredRunRecord,
     type TurnContext,
     type TurnModelCall,
-    type TurnModelDraft,
+    type TurnModelInputAssembly,
     type TurnModelExchange,
     type TurnOutcome
 } from "../../../src/agents/runs";
@@ -441,7 +441,7 @@ describe("Turn model input", () => {
                         catalog: [],
                         admitted: [stray]
                     }
-                ] satisfies readonly TurnModelDraft[]) {
+                ] satisfies readonly TurnModelInputAssembly[]) {
                     try {
                         await context.model.call(draft);
                         failures.push("accepted");
@@ -688,7 +688,7 @@ describe("Turn model input", () => {
         async () => {
             const retried = await fixture();
             retried.faults.arm("unavailable");
-            const draft: TurnModelDraft = {
+            const draft: TurnModelInputAssembly = {
                 sections: [section("s", TurnShownContent.inline(encoder.encode("s")))],
                 catalog: [],
                 admitted: []

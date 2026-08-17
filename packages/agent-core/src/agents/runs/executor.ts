@@ -199,11 +199,6 @@ export class TurnOmission {
     public static readonly unknown = new TurnOmission("unknown", undefined);
 
     public static exact(withheldBytes: number): TurnOmission {
-        if (!Number.isSafeInteger(withheldBytes) || withheldBytes <= 0) {
-            throw new TypeError(
-                "An exact omission withholds at least one byte; withholding nothing is TurnOmission.none"
-            );
-        }
         return new TurnOmission("exact", withheldBytes);
     }
 
@@ -211,6 +206,19 @@ export class TurnOmission {
         public readonly kind: "none" | "exact" | "unknown",
         public readonly withheldBytes: number | undefined
     ) {
+        if (kind === "exact") {
+            if (
+                withheldBytes === undefined ||
+                !Number.isSafeInteger(withheldBytes) ||
+                withheldBytes <= 0
+            ) {
+                throw new TypeError(
+                    "An exact omission withholds at least one byte; withholding nothing is TurnOmission.none"
+                );
+            }
+        } else if (withheldBytes !== undefined) {
+            throw new TypeError("Only an exact omission states a withheld amount");
+        }
         Object.freeze(this);
     }
 
@@ -252,16 +260,10 @@ export class TurnShownContent {
     readonly #bytes: Uint8Array | undefined;
 
     public static inline(bytes: Uint8Array): TurnShownContent {
-        if (!(bytes instanceof Uint8Array)) {
-            throw new TypeError("Inline shown content must be a Uint8Array");
-        }
-        return new TurnShownContent(bytes.slice(), undefined);
+        return new TurnShownContent(bytes, undefined);
     }
 
     public static reference(ref: ContentRef): TurnShownContent {
-        if (!(ref instanceof ContentRef)) {
-            throw new TypeError("Shown content reference must be a ContentRef");
-        }
         return new TurnShownContent(undefined, ref);
     }
 
@@ -269,7 +271,16 @@ export class TurnShownContent {
         bytes: Uint8Array | undefined,
         public readonly ref: ContentRef | undefined
     ) {
-        this.#bytes = bytes;
+        if ((bytes === undefined) === (ref === undefined)) {
+            throw new TypeError("Shown content is held either inline or by one reference");
+        }
+        if (bytes !== undefined && !(bytes instanceof Uint8Array)) {
+            throw new TypeError("Inline shown content must be a Uint8Array");
+        }
+        if (ref !== undefined && !(ref instanceof ContentRef)) {
+            throw new TypeError("Shown content reference must be a ContentRef");
+        }
+        this.#bytes = bytes?.slice();
         Object.freeze(this);
     }
 
@@ -323,8 +334,8 @@ export class TurnPromptSection {
         requireExactFields(object, ["name", "omission", "shown"], [], "Prompt section");
         return new TurnPromptSection(
             new TurnPromptSectionName(requireString(object["name"], "Prompt section name")),
-            TurnShownContent.fromData(object["shown"]!),
-            TurnOmission.fromData(object["omission"]!)
+            TurnShownContent.fromData(requireShown(object["shown"])),
+            TurnOmission.fromData(requireShown(object["omission"]))
         );
     }
 }
@@ -652,10 +663,10 @@ export abstract class TurnContentHandle {
 }
 
 /**
- * What an executor proposes to put in front of the model. It is a draft rather than the
- * request: the host records it, then issues the reconstruction of what it recorded.
+ * What an executor assembles to put in front of the model. It is not yet the request: the
+ * host records it, then issues the reconstruction of what it recorded.
  */
-export interface TurnModelDraft {
+export interface TurnModelInputAssembly {
     readonly sections: readonly TurnPromptSection[];
     readonly catalog: readonly TurnBoundOperation[];
     readonly admitted: readonly TurnInboxEntry[];
@@ -669,7 +680,7 @@ export interface TurnModelExchange {
 }
 
 export abstract class TurnModelHandle {
-    public abstract call(draft: TurnModelDraft): Promise<TurnModelExchange>;
+    public abstract call(assembly: TurnModelInputAssembly): Promise<TurnModelExchange>;
 }
 
 export abstract class TurnModelInputHandle {
@@ -1024,9 +1035,9 @@ class ScopedModelHandle<Transaction> extends TurnModelHandle {
      * the model observes is assembled a second time here, so a request and its record
      * cannot drift (SPEC §5.6), and the record is durable before the request is dispatched.
      */
-    public async call(draft: TurnModelDraft): Promise<TurnModelExchange> {
+    public async call(assembly: TurnModelInputAssembly): Promise<TurnModelExchange> {
         const snapshot = this.scope.active();
-        const record = this.record(draft);
+        const record = this.record(assembly);
         for (const section of record.sections) {
             const ref = section.shown.ref;
             if (ref !== undefined) await this.scope.requireContent(ref);
@@ -1073,14 +1084,14 @@ class ScopedModelHandle<Transaction> extends TurnModelHandle {
     }
 
     /**
-     * The record a draft names, with every claim checked against the Turn's own state: an
+     * The record an assembly names, with every claim checked against the Turn's own state: an
      * offered Operation is one the placement snapshot already resolved, and an admitted
      * Event is one this Turn's inbox carries at that exact sequence and payload. The
-     * admission cut is the inbox length the host observed, not a number the draft supplies.
+     * admission cut is the inbox length the host observed, not one the assembly supplies.
      */
-    private record(draft: TurnModelDraft): TurnModelInput {
+    private record(assembly: TurnModelInputAssembly): TurnModelInput {
         const inbox = this.scope.readInbox(0);
-        for (const offered of draft.catalog) {
+        for (const offered of assembly.catalog) {
             if (!this.operations.includes(offered)) {
                 throw new AgentCoreError(
                     "operation.missing",
@@ -1088,7 +1099,7 @@ class ScopedModelHandle<Transaction> extends TurnModelHandle {
                 );
             }
         }
-        const admitted = draft.admitted.map((entry) => {
+        const admitted = assembly.admitted.map((entry) => {
             const stored = inbox.find((candidate) => candidate.id.equals(entry.id));
             if (
                 stored === undefined ||
@@ -1101,8 +1112,8 @@ class ScopedModelHandle<Transaction> extends TurnModelHandle {
             return new TurnAdmittedEvent(stored.id, stored.sequence, stored.event, stored.payload);
         });
         return new TurnModelInput({
-            sections: draft.sections,
-            catalog: draft.catalog,
+            sections: assembly.sections,
+            catalog: assembly.catalog,
             admitted,
             admissionCut: inbox.length
         });
@@ -1349,7 +1360,7 @@ function boundOperationFromData(value: JsonValue): TurnBoundOperation {
         new BindingName(requireString(object["binding"], "Offered Operation binding")),
         new FacetRef(requireString(object["facet"], "Offered Operation Facet")),
         new OperationRef(requireString(object["operation"], "Offered Operation reference")),
-        OperationDescriptor.fromData(object["descriptor"]!)
+        OperationDescriptor.fromData(requireShown(object["descriptor"]))
     );
 }
 
@@ -1363,6 +1374,12 @@ function modelInputCommitId(parent: RunCommitId, document: ContentRef): RunCommi
         encodeCanonicalJson({ document: document.value, parent: parent.value })
     );
     return new RunCommitId(`model-input:${digest.value}`);
+}
+
+/** A field the exact-shape assertion has already proven present. */
+function requireShown(value: JsonValue | undefined): JsonValue {
+    if (value === undefined) throw new TypeError("A shape-checked record field is missing");
+    return value;
 }
 
 function unrebuildable(missing: string): AgentCoreError {
