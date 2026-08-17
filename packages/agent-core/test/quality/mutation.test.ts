@@ -630,19 +630,28 @@ describe("mutation equivalence anchors", () => {
         proof: proofFor("encodeScopeRef")
     };
 
-    test("resolves every committed entry to exactly one generated mutant", async () => {
-        const register = readEquivalenceRegister(
-            JSON.parse(
-                readFileSync(
-                    resolve(packageRoot, "artifacts/quality/mutation-equivalence.json"),
-                    "utf8"
+    // The only case here whose cost scales with the source tree: it runs Stryker's real
+    // mutant generator over every file the register names — 78 today, 2.4s when this landed
+    // and 6.7s once peers had grown those files, which silently crossed vitest's 5s default
+    // and reported as a timeout rather than as a register finding. An explicit budget, so
+    // the failure that matters is the audit's verdict and never the clock.
+    test(
+        "resolves every committed entry to exactly one generated mutant",
+        { timeout: 90_000 },
+        async () => {
+            const register = readEquivalenceRegister(
+                JSON.parse(
+                    readFileSync(
+                        resolve(packageRoot, "artifacts/quality/mutation-equivalence.json"),
+                        "utf8"
+                    )
                 )
-            )
-        );
+            );
 
-        expect(register.length).toBeGreaterThan(0);
-        await expect(audit(register)).resolves.toEqual([]);
-    });
+            expect(register.length).toBeGreaterThan(0);
+            await expect(audit(register)).resolves.toEqual([]);
+        }
+    );
 
     test("names the entry when its file, area, symbol, or anchor has moved on", async () => {
         await expect(audit([{ ...scopeGuard, file: "src/nowhere/gone.ts" }])).resolves.toEqual([
