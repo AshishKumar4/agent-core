@@ -453,6 +453,57 @@ describe("verified admission identities", () => {
     );
 });
 
+describe("distinguishing the admission Receipt shapes", () => {
+    it(
+        "[C13-TURN-ADMISSION-FACTS-DISTINCT] refuses a pre-effect denial and an unsuccessful attempt with different reasons",
+        { tags: "p0" },
+        async () => {
+            const seeded = seedRunningTurn();
+            const reason = async (spec: RecordSpec): Promise<string> =>
+                verifier(spec)
+                    .verify(admissionRequest(seeded))
+                    .then(
+                        () => "admitted",
+                        (error: Error) => error.message
+                    );
+
+            const denial = await reason({ preEffect: "deniedPreEffect" });
+            const unsucceeded = await reason({ unsucceeded: "indeterminate" });
+
+            // Neither admits, and a caller told only "not succeeded" could not tell which
+            // of the two it presented. The seam answers the question it was asked.
+            expect(denial).toMatch(/reached no EffectAttempt: deniedPreEffect/);
+            expect(unsucceeded).toMatch(/did not succeed: indeterminate/);
+            expect(denial).not.toEqual(unsucceeded);
+        }
+    );
+
+    it(
+        "[C13-TURN-ADMISSION-FACTS-DISTINCT] admits the succeeded shape alone, carrying both the attempt and its result",
+        { tags: "p1" },
+        () => {
+            const attempt: TurnAdmissionAttemptFacts = Object.freeze({
+                id: ATTEMPT,
+                invocation: refs.invocation,
+                itemIndex: 0,
+                idempotencyKey: ITEM_KEY
+            });
+            const result = content("1");
+
+            expect(TurnAdmissionReceiptFacts.succeeded(attempt, result).admit()).toEqual({
+                attempt,
+                result
+            });
+            expect(() => TurnAdmissionReceiptFacts.preEffect("cancelledPreEffect").admit()).toThrow(
+                /reached no EffectAttempt/
+            );
+            expect(() => TurnAdmissionReceiptFacts.unsucceeded(attempt, "failed").admit()).toThrow(
+                /did not succeed/
+            );
+        }
+    );
+});
+
 describe("addressing an admitted item", () => {
     it(
         "[C13-TURN-ADMISSION-HANDLE] addresses the same Turn after its bytes outlive the process",
