@@ -1,3 +1,5 @@
+import Ajv2020 from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
 import { relative, resolve } from "node:path";
 import {
     artifactRoot,
@@ -26,6 +28,13 @@ import { liveEvidenceSelectors } from "./live-substrate-evidence.mjs";
 const options = parseArguments(process.argv.slice(2));
 const ledgerArtifactRoot = options.artifactRoot;
 const index = await readCanonicalJson(resolve(ledgerArtifactRoot, "conformance/index.json"));
+// conformance/schema.json declared the fragment shape — the digest pattern, the status
+// enum, the exact key set — while nothing read it, so none of it could ever fail. Every
+// other schema artifact in this repository is compiled; this one is too now.
+const fragmentAjv = addFormats(new Ajv2020({ allErrors: true, strict: false }));
+const validateFragmentShape = fragmentAjv.compile(
+    await readCanonicalJson(resolve(ledgerArtifactRoot, "conformance/schema.json"))
+);
 const stageArtifact = await readCanonicalJson(
     resolve(ledgerArtifactRoot, "conformance/stage.json")
 );
@@ -266,6 +275,13 @@ console.log(
 );
 
 function validateFragment(fragment, name, seed, fragmentOwners) {
+    // Shape before semantics: a malformed digest or an unknown status is a shape error, and
+    // reaching the stale-evidence comparison with one reports the wrong defect.
+    if (!validateFragmentShape(fragment)) {
+        throw new TypeError(
+            `Invalid conformance fragment ${name}: ${fragmentAjv.errorsText(validateFragmentShape.errors)}`
+        );
+    }
     assertExactKeys(fragment, ["edition", "owner", "requirements"], "Conformance fragment");
     if (fragment.edition !== "1.0.0")
         throw new TypeError("Unsupported conformance fragment edition");

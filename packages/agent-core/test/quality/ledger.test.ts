@@ -480,6 +480,56 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         expect(result.stderr).toContain("stale SPEC evidence");
     });
 
+    // conformance/schema.json declared the fragment shape while nothing compiled it, so
+    // every pattern in it was documentation. These are the shapes it always claimed to
+    // forbid, each of which reached the semantic checks instead of failing as a shape.
+    test("rejects a fragment whose shape the conformance schema forbids", async () => {
+        const fixture = await ledgerFixture();
+        const seedPath = resolve(fixture, "conformance/seed.json");
+        const originalSeed = await readFile(seedPath, "utf8");
+        const malformed: ReadonlyArray<readonly [string, (seed: ConformanceFragment) => void]> = [
+            [
+                'must match pattern "^sha256:',
+                (seed) => {
+                    seed.requirements[0]!.specTextSha256 = "PENDING";
+                }
+            ],
+            [
+                'must match pattern "^sha256:',
+                (seed) => {
+                    seed.requirements[0]!.specTextSha256 = `sha256:${"A".repeat(64)}`;
+                }
+            ],
+            [
+                "must be equal to one of the allowed values",
+                (seed) => {
+                    seed.requirements[0]!.status = "almost-verified";
+                }
+            ],
+            [
+                "must NOT have duplicate items",
+                (seed) => {
+                    seed.requirements[0]!.remainingEvidence = ["same", "same"];
+                }
+            ],
+            [
+                'must match pattern "^W',
+                (seed) => {
+                    seed.requirements[0]!.owner = "w5";
+                }
+            ]
+        ];
+        for (const [expected, mutate] of malformed) {
+            const seed: ConformanceFragment = JSON.parse(originalSeed);
+            mutate(seed);
+            await writeFile(seedPath, `${JSON.stringify(seed, null, 2)}\n`, "utf8");
+            const result = runFixture(fixture);
+            expect(result.status, expected).toBe(1);
+            expect(result.stderr).toContain("Invalid conformance fragment seed.json");
+            expect(result.stderr).toContain(expected);
+        }
+    });
+
     test("admits W9 composition and W0 cross-context requirement evidence", async () => {
         const fixture = await ledgerFixture();
         const seed = await readFixtureJson<ConformanceFragment>(
