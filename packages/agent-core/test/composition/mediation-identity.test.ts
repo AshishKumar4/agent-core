@@ -262,15 +262,24 @@ describe("mediation identifiers derive from the evidence that determines them", 
         // record a running deployment has already written. Distinctness tests cannot see
         // that — a uniformly relabelled derivation stays distinct — so the vectors are
         // pinned. A diff here is a migration question, never a refactor.
+        //
+        // The two `invocation` vectors below were forked by presence-typing
+        // `interceptable` (C13-FACET-CAPABILITY-ABSENCE): this derivation digests
+        // `descriptor.toData()`, and a withheld capability no longer emits a key there.
+        // That migration question is answered, not skipped — see
+        // MIGRATE-OPERATION-DESCRIPTOR-PRESENCE in artifacts/migrations/facets-operations.json,
+        // which records the fork, enumerates the thirteen descriptor-digest sites, and
+        // states what is still owed. No other vector here moved: the rest derive from an
+        // InvocationId literal rather than from a descriptor.
         expect(identities.invocation(preflight()).value).toBe(
             "agent-core.identity.invocation.v1:" +
-                "5732ed80ae8ad7c008a4c4ea0b07f12dc3a41826de1e4870d0e7639fbb154a0d"
+                "fae48bcf28109620c094a0c81be53ae29dde7efab756ffd13cd26f691e1b85bf"
         );
         expect(
             identities.invocation(preflight({ cardinality: { kind: "batch", itemCount: 1 } })).value
         ).toBe(
             "agent-core.identity.invocation.v1:" +
-                "2971b6a834c5812522e47d9b900dfb126dfa9d9cb9a422bf9e0240fd17b12769"
+                "17918c649fa856c4f623617774c2819e43fe79be6d9bc1e77b77c208b9d61136"
         );
         expect(identities.directInvocation("identity-request").value).toBe(
             "agent-core.identity.direct-invocation.v1:" +

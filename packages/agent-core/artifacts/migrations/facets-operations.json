@@ -1,0 +1,20 @@
+{
+  "edition": "1.0.0",
+  "owner": "W3",
+  "migrations": [
+    {
+      "id": "MIGRATE-OPERATION-DESCRIPTOR-PRESENCE",
+      "owner": "W3",
+      "status": "planned",
+      "specRequirement": "C13-FACET-CAPABILITY-ABSENCE",
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "remainingEvidence": [
+        "Presence-typing `interceptable` changed OperationDescriptor.toData()'s canonical bytes: a withheld capability emitted `interceptable: false` before and emits no key now. That is the point of C13-FACET-CAPABILITY-ABSENCE — the withheld meaning must have exactly one encoding — but it is a wire-format change, and thirteen sites digest descriptor bytes.",
+        "One of those thirteen feeds a DURABLE identity: src/composition/mediation-identity.ts#DerivedMediationIdentities.invocation commits `descriptor: Digest.sha256(encodeCanonicalJson(request.descriptor.toData()))` into the InvocationId. So every Invocation minted against an Operation that withholds interception — which is every Operation that never declared the capability — now derives a different id from the same intent. test/composition/mediation-identity.test.ts says so in its own words: these identifiers name records already in storage, the derivation is a wire format, and a diff is a migration question rather than a refactor.",
+        "The remaining work is the migration itself, and it is not a re-pin. A deployment holding Invocation records written under the old derivation cannot re-derive their ids from their inputs, so the fork needs either an explicit rewrite with durable migration-commit evidence under C13-RUN-EXPLICIT-MIGRATION's shape, or a recorded finding that no such deployment exists. I have established the latter only for facet.operation-descriptor itself (durability `value`, store `null`, no declared migration naming it); I have NOT established it for the InvocationId records the derivation names, and that is the open question.",
+        "The other twelve descriptor-digest sites are comparison-only or per-run and were enumerated rather than estimated: correspondence.ts:139-147 compares pinned declaration bytes within one install, authority.ts:236/257 compares an operationDigest captured and rechecked inside one resolution, executor.ts:161-162 likewise, and mediation-preparation.ts:344 / operation-mediation.ts:270 / canonical-batch.ts:798 / command-runtime.ts:391 / executor.ts:1463 record a descriptorDigest alongside the intent rather than deriving an identity from it. None forks an identity across restart; each still needs confirming against stored evidence before this row closes."
+      ]
+    }
+  ]
+}
