@@ -1766,8 +1766,9 @@ reconstructability, because the model observed the abridged bytes and a reconstr
 such a record rebuilds a longer request than the one that was sent. Recording the
 abridgement as a derivation over the whole result's `ContentRef` fails for a second reason:
 ending retention of that content leaves the shown form unrebuildable and invites a
-re-derivation from what survives, which is the silent-different-request case the retention
-rule above forbids. The omission fact accompanies the shown bytes and never stands in for
+re-derivation from what survives, which is the silent-different-request case
+C13-TURN-MODEL-INPUT-RETENTION-LOSS forbids. The omission fact accompanies the shown bytes
+and never stands in for
 them. That fact is also distinct from the result's own completeness: a `list` page, a
 byte-ranged `read`, and a `partiallySucceeded` batch (§7.4) each report that the source
 covered less than was asked, and a host MUST NOT record either fact as the other or fold one

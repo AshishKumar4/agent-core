@@ -1002,7 +1002,7 @@
       "id": "C13-TURN-MODEL-INPUT-ABRIDGED",
       "owner": "W5",
       "specAnchor": "C13-TURN-MODEL-INPUT-ABRIDGED",
-      "specTextSha256": "sha256:8c2cf9f4234cdf9c8506defd7760ad27eab30c63a381d15d2ea859ed3d622103",
+      "specTextSha256": "sha256:83c2c34d2be4cfd461b90399f1ea7cd0e28d0ed119919d36e12b222688e6f258",
       "status": "planned",
       "prerequisites": ["C13-TURN-MODEL-INPUT-RECONSTRUCTABLE"],
       "sourceSymbols": [],
