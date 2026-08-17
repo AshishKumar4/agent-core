@@ -38,7 +38,7 @@ class CallingExecutor extends TurnExecutor {
 }
 
 /** The typed failure a Turn refused with, so the code and the discrepancy are both asserted. */
-async function refusedBy(execute: () => Promise<unknown>): Promise<AgentCoreError> {
+async function refusedBy<Result>(execute: () => Promise<Result>): Promise<AgentCoreError> {
     try {
         await execute();
     } catch (error) {
