@@ -186,10 +186,6 @@ function loadProject(path, description) {
     return loaded;
 }
 
-/** The resolved options and root file names of a configuration file. */
-export function configuration(path) {
-    return server().parseConfigFile(resolve(packageRoot, path));
-}
 
 /**
  * Whether a declaration carries a modifier. TypeScript 7 holds modifiers and decorators

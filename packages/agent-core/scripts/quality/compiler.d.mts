@@ -9,11 +9,7 @@ export function forget(paths: readonly string[]): void;
 export function openProject(options: {
     files: readonly string[];
     extend?: string;
-    compilerOptions?: CompilerOptions | Record<string, unknown>;
+    compilerOptions?: CompilerOptions;
 }): Project;
 export function configuredProject(path: string): Project;
-export function configuration(path: string): {
-    options: Record<string, unknown>;
-    fileNames: string[];
-};
 export function hasModifier(node: Node, kind: SyntaxKind): boolean;
