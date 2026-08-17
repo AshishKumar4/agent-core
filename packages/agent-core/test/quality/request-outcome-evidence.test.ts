@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 import { objectAt, objectsAt, readArtifactSync, stringAt, stringsAt } from "./artifacts";
 import { isJsonObject } from "../../scripts/quality/project.mjs";
-import type { JsonObject } from "../../scripts/quality/project.mjs";
+import type { JsonObject, JsonValue } from "../../scripts/quality/project.mjs";
 
 const packageRoot = resolve(import.meta.dirname, "../..");
 const repositoryRoot = resolve(packageRoot, "../..");
@@ -73,14 +73,35 @@ describe("request outcome reconciliation", () => {
         );
         const exactDependencies = objectAt(dependencyRequest!, "exactDependencies");
         const packageJson = readArtifactSync("../../packages/agent-core-cloudflare/package.json");
-        // The archived request is byte-frozen evidence of what W8 asked for; the live
-        // package may gain dependencies afterwards, but every requested pin must hold.
+        // The archived request is byte-frozen evidence of what W8 asked for. The live
+        // package may gain dependencies afterwards, and every requested pin must still
+        // hold — unless the resolution ledger records that pin as superseded, and its
+        // rationale states the dependency, the version W8 reviewed and the version that
+        // replaced it. A drifted pin with no recorded supersession fails here, and so
+        // does a supersession whose prose no longer describes the live manifest, which is
+        // what keeps the rationale evidence rather than decoration.
         expect(objectAt(packageJson, "dependencies")).toEqual(
             expect.objectContaining(objectAt(exactDependencies, "dependencies"))
         );
-        expect(objectAt(packageJson, "devDependencies")).toEqual(
-            expect.objectContaining(objectAt(exactDependencies, "devDependencies"))
-        );
+        const reviewed = objectAt(exactDependencies, "devDependencies");
+        const live = objectAt(packageJson, "devDependencies");
+        const held: Record<string, JsonValue> = {};
+        const superseded: { name: string; reviewed: string; live: string }[] = [];
+        for (const [name, pin] of Object.entries(reviewed)) {
+            if (live[name] === pin) held[name] = pin;
+            else superseded.push({ name, reviewed: String(pin), live: String(live[name]) });
+        }
+        expect(live).toEqual(expect.objectContaining(held));
+        if (superseded.length > 0) {
+            const rationale = supersededRationale(
+                "artifacts/requests/W8/shared-integration.json::integration::W8-W0-DEPENDENCIES"
+            );
+            for (const pin of superseded) {
+                expect(rationale).toContain(pin.name);
+                expect(rationale).toContain(pin.reviewed);
+                expect(rationale).toContain(pin.live);
+            }
+        }
         expect(objectAt(packageJson, "scripts")).toEqual(
             expect.objectContaining({
                 build: expect.any(String),
@@ -97,6 +118,25 @@ describe("request outcome reconciliation", () => {
         );
     });
 });
+
+/**
+ * The rationale the resolution ledger records for one superseded obligation. An
+ * obligation the ledger does not classify as superseded has no rationale to offer, and
+ * saying so is the point: that is the case where a drifted pin is an ungoverned change.
+ */
+function supersededRationale(obligationId: string): string {
+    const resolutions = readArtifactSync("artifacts/integration/resolutions.json");
+    for (const entry of objectsAt(resolutions, "entries")) {
+        const outcome = entry["outcome"];
+        if (!isJsonObject(outcome)) continue;
+        for (const item of objectsAt(outcome, "items")) {
+            if (stringAt(item, "obligationId") !== obligationId) continue;
+            expect(stringAt(item, "treatment")).toBe("superseded");
+            return stringAt(item, "rationale");
+        }
+    }
+    throw new TypeError(`Resolution ledger records no outcome for ${obligationId}`);
+}
 
 function archivedArtifact(path: string): JsonObject {
     return readArtifactSync(`artifacts/integration/request-archive/${path}`);

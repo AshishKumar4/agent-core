@@ -11,9 +11,9 @@
     {
       "source": "artifacts/requests/W8/shared-integration.json",
       "commit": "21f0abcbca2e4b5d14ff105c2057a6f885dadca7",
-      "sha256": "67b0ac14a8372924f1cca9a87e54ee76acc7b420247e5dc586e623030ab311f4",
+      "sha256": "913330ad30a65be5e8ca9f590489d813c08c203dcd162a3b4f54f7a35e5ff752",
       "ratification": "lost",
-      "reason": "History before the published integration snapshot was squashed, so this ratification commit no longer resolves; the recorded digests are the only surviving fingerprint of the ratified review."
+      "reason": "W8's typescript ^6.0.3 pin bound the typechecker to the version whose compiler API the AST quality gates could consume; those gates now read the TypeScript 7 API through scripts/quality/compiler.mjs, so one compiler at ^7.0.2 serves both roles and the reviewed pin is superseded. Every other pin W8 reviewed still holds exactly, and the item's rationale now names the dependency, the reviewed version and the live one so the supersession is checkable rather than asserted."
     },
     {
       "source": "packages/agent-core/artifacts/requests/W1/coverage.md",

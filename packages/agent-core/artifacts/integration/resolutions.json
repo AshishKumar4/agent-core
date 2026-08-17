@@ -500,7 +500,7 @@
             "anchor": "#/requests/0",
             "atomSha256": "88c8fe620b9c520eb0fb2b8a0fe0a3628bf4b42c91fa378b1a97ee5b92fe57a2",
             "treatment": "superseded",
-            "rationale": "The W8 integration requests are resolved through normalized aggregate package lanes, typed profile composition, canonical identity/authority/Run/invocation/Event seams, and private core profile exports. Atomic obligation artifacts/requests/W8/shared-integration.json::integration::W8-W0-DEPENDENCIES is explicitly classified.",
+            "rationale": "The W8 integration requests are resolved through normalized aggregate package lanes, typed profile composition, canonical identity/authority/Run/invocation/Event seams, and private core profile exports. Atomic obligation artifacts/requests/W8/shared-integration.json::integration::W8-W0-DEPENDENCIES is explicitly classified. One reviewed pin is itself superseded: W8 pinned typescript at ^6.0.3 because 6.x was the only release whose compiler API the AST quality gates could consume, so the pin bound the typechecker to the API's version rather than to anything W8 required of the typechecker. Those gates now read the TypeScript 7 compiler API through scripts/quality/compiler.mjs, so one compiler serves both roles and the manifest declares typescript at ^7.0.2. Every other pin W8 reviewed still holds exactly.",
             "artifactPaths": [
               "packages/agent-core-cloudflare/package.json",
               "packages/agent-core-cloudflare/src/authority-permit-transport.ts",
