@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import ts from "typescript-api";
+import * as ts from "typescript/unstable/ast";
+import { openProject } from "./quality/compiler.mjs";
 import { isJsonObject, isNonEmptyString, parseCanonicalJson } from "./quality/project.mjs";
 
 const CROSS_CONTEXT_RULE = "cross-context-import";
@@ -138,25 +139,38 @@ async function analyze(packageRoot) {
         ...(await collectTypeScriptFiles(srcRoot)),
         ...(await collectTypeScriptFiles(testRoot))
     ].sort();
-    const sourceTexts = new Map();
+    // One project over exactly these files, with the resolution options the boundary
+    // model is written against. Module resolution comes from the checker rather than a
+    // standalone resolver: TypeScript 7 publishes no resolution entry point, and asking
+    // the compiler that already resolved the import is more faithful than reimplementing
+    // the algorithm beside it.
+    const project = openProject({
+        files: filePaths,
+        compilerOptions: {
+            module: "Preserve",
+            moduleResolution: "Bundler",
+            allowImportingTsExtensions: true,
+            skipLibCheck: true,
+            noEmit: true
+        }
+    });
     const hashes = new Map();
     for (const filePath of filePaths) {
-        const sourceText = await readFile(filePath, "utf8");
-        sourceTexts.set(filePath, sourceText);
-        hashes.set(filePath, createHash("sha256").update(sourceText).digest("hex"));
+        hashes.set(
+            filePath,
+            createHash("sha256")
+                .update(await readFile(filePath, "utf8"))
+                .digest("hex")
+        );
     }
 
     const references = [];
     const unverifiable = [];
     for (const filePath of filePaths) {
-        const sourceText = sourceTexts.get(filePath);
-        const sourceFile = ts.createSourceFile(
-            filePath,
-            sourceText,
-            ts.ScriptTarget.Latest,
-            true,
-            scriptKind(filePath)
-        );
+        const sourceFile = project.program.getSourceFile(filePath);
+        if (sourceFile === undefined) {
+            throw new TypeError(`Import boundary source is absent from TypeScript: ${filePath}`);
+        }
         const sourceContext = contextForSource(
             filePath,
             srcRoot,
@@ -167,7 +181,7 @@ async function analyze(packageRoot) {
         visitSourceFile(
             sourceFile,
             (moduleSpecifier, runtime, syntax) => {
-                const targetPath = resolveModule(moduleSpecifier.text, filePath);
+                const targetPath = resolveModule(project, moduleSpecifier);
                 if (
                     targetPath === undefined ||
                     (!isWithin(targetPath, srcRoot) && !isWithin(targetPath, testRoot))
@@ -263,7 +277,7 @@ function visitSourceFile(sourceFile, onReference, onUnverifiable) {
     const discoverRequires = (node) => {
         if (
             ts.isImportDeclaration(node) &&
-            ts.isStringLiteralLike(node.moduleSpecifier) &&
+            ts.isStringLiteralLikeNode(node.moduleSpecifier) &&
             (node.moduleSpecifier.text === "node:module" ||
                 node.moduleSpecifier.text === "module") &&
             node.importClause?.namedBindings !== undefined &&
@@ -285,24 +299,24 @@ function visitSourceFile(sourceFile, onReference, onUnverifiable) {
         ) {
             createdRequires.add(node.name.text);
         }
-        ts.forEachChild(node, discoverRequires);
+        node.forEachChild(discoverRequires);
     };
     discoverRequires(sourceFile);
 
     const visit = (node) => {
-        if (ts.isImportDeclaration(node) && ts.isStringLiteralLike(node.moduleSpecifier)) {
+        if (ts.isImportDeclaration(node) && ts.isStringLiteralLikeNode(node.moduleSpecifier)) {
             onReference(node.moduleSpecifier, importDeclarationIsRuntime(node), "import");
         } else if (
             ts.isExportDeclaration(node) &&
             node.moduleSpecifier !== undefined &&
-            ts.isStringLiteralLike(node.moduleSpecifier)
+            ts.isStringLiteralLikeNode(node.moduleSpecifier)
         ) {
             onReference(node.moduleSpecifier, exportDeclarationIsRuntime(node), "re-export");
         } else if (
             ts.isImportEqualsDeclaration(node) &&
             ts.isExternalModuleReference(node.moduleReference) &&
             node.moduleReference.expression !== undefined &&
-            ts.isStringLiteralLike(node.moduleReference.expression)
+            ts.isStringLiteralLikeNode(node.moduleReference.expression)
         ) {
             onReference(node.moduleReference.expression, !node.isTypeOnly, "import-equals");
         } else if (
@@ -310,7 +324,7 @@ function visitSourceFile(sourceFile, onReference, onUnverifiable) {
             node.expression.kind === ts.SyntaxKind.ImportKeyword
         ) {
             const argument = node.arguments[0];
-            if (argument !== undefined && ts.isStringLiteralLike(argument)) {
+            if (argument !== undefined && ts.isStringLiteralLikeNode(argument)) {
                 onReference(argument, true, "dynamic-import");
             } else {
                 onUnverifiable(node, "dynamic-import");
@@ -320,7 +334,7 @@ function visitSourceFile(sourceFile, onReference, onUnverifiable) {
             isRequireCall(node.expression, createdRequires, createRequireNames)
         ) {
             const argument = node.arguments[0];
-            if (argument !== undefined && ts.isStringLiteralLike(argument)) {
+            if (argument !== undefined && ts.isStringLiteralLikeNode(argument)) {
                 onReference(argument, true, "require");
             } else {
                 onUnverifiable(node, "require");
@@ -328,11 +342,11 @@ function visitSourceFile(sourceFile, onReference, onUnverifiable) {
         } else if (
             ts.isImportTypeNode(node) &&
             ts.isLiteralTypeNode(node.argument) &&
-            ts.isStringLiteralLike(node.argument.literal)
+            ts.isStringLiteralLikeNode(node.argument.literal)
         ) {
             onReference(node.argument.literal, false, "import-type");
         }
-        ts.forEachChild(node, visit);
+        node.forEachChild(visit);
     };
     visit(sourceFile);
 }
@@ -369,18 +383,11 @@ function exportDeclarationIsRuntime(declaration) {
     return clause.elements.length === 0 || clause.elements.some((element) => !element.isTypeOnly);
 }
 
-function resolveModule(specifier, sourceFile) {
-    const resolvedModule = ts.resolveModuleName(
-        specifier,
-        sourceFile,
-        {
-            module: ts.ModuleKind.Preserve,
-            moduleResolution: ts.ModuleResolutionKind.Bundler,
-            allowImportingTsExtensions: true
-        },
-        ts.sys
-    ).resolvedModule;
-    return resolvedModule === undefined ? undefined : resolve(resolvedModule.resolvedFileName);
+// A module specifier resolves to the file the checker resolved it to; the handle for
+// that module's declaration carries the path, so no second resolver is needed.
+function resolveModule(project, specifier) {
+    const target = project.checker.getSymbolAtLocation(specifier)?.declarations[0];
+    return target === undefined ? undefined : resolve(target.path);
 }
 
 async function discoverContextRoots(srcRoot) {
@@ -646,11 +653,4 @@ function isWithin(filePath, directory) {
 
 function portablePath(filePath) {
     return filePath.split(sep).join("/");
-}
-
-function scriptKind(filePath) {
-    if (filePath.endsWith(".tsx")) return ts.ScriptKind.TSX;
-    if (filePath.endsWith(".mts")) return ts.ScriptKind.TS;
-    if (filePath.endsWith(".cts")) return ts.ScriptKind.TS;
-    return ts.ScriptKind.TS;
 }
