@@ -611,7 +611,8 @@
       ],
       "remainingEvidence": [
         "Refusal is evidenced at the declaration boundary only. The rule says a declaration is refused at contribution, and the slot contribution path admits interceptor entries through FacetSlotContributeCommand, so closure needs a contribution-time case proving an entry carrying no mode or an unknown mode is rejected before any Facet activates, with no partially admitted manifest left behind",
-        "Mutation attribution has not been measured against the new selector: the declaration's mode branch must be shown to kill a mutant inside InterceptorDeclaration rather than merely execute it"
+        "Mutation attribution has not been measured against the new selector: the declaration's mode branch must be shown to kill a mutant inside InterceptorDeclaration rather than merely execute it",
+        "The formal model now proves the banded key, its totality, schedule uniqueness, and rewrite-before-gate dominance over an abstract schedule the host supplies, so what remains is the refinement rather than the relation: nothing proves OperationInterceptorRunner's candidate sort produces a schedule satisfying ScheduleOrdered, and traceability.yaml records no link between that symbol and the model, so the implementation could order differently from the relation the model constrains"
       ]
     },
     {
