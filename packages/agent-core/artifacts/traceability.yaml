@@ -1559,9 +1559,9 @@
     },
     {
       "id": "AC-EVENT-ROUTING-001",
-      "summary": "Lease-backed self Event acceptance, hostile asserted-tier publication rejection, exact authenticated route projection, source Event-audit-bound reservation, route reservation uniqueness per Invocation, and append-only delivery dedupe",
+      "summary": "Lease-backed self Event acceptance, hostile asserted-tier publication rejection, exact authenticated route projection, source Event-audit-bound reservation, route reservation uniqueness per Invocation, and append-only delivery dedupe, and the target-local projection precondition on delivery",
       "status": "proved-safety",
-      "boundary": "Published Events cannot carry caller-asserted trust tiers, self acceptance checks the supplied exact lease, projection copies the reserved projection ID, digest, and target under authenticated evidence, and mediated reservation binds its source Event and source-owner audit. The reservationFor index and the reservations table stay in bijective agreement across every EventStep and every EventStoreReachable trace, so two stored reservations naming the same Invocation are provably the same reservation -- the reservation-uniqueness claim -- and deliveries are append-only, so a reservation that already has a recorded delivery outcome can never admit a second deliver step -- the delivery-dedupe claim, at the substrate EventStore layer beneath AC-ROUTING-001's Subscription-level at-most-once. Delivery liveness, Subscription semantics, and concrete transport authenticity are not proved here.",
+      "boundary": "Published Events cannot carry caller-asserted trust tiers, self acceptance checks the supplied exact lease, projection copies the reserved projection ID, digest, and target under authenticated evidence, and mediated reservation binds its source Event and source-owner audit. The reservationFor index and the reservations table stay in bijective agreement across every EventStep and every EventStoreReachable trace, so two stored reservations naming the same Invocation are provably the same reservation -- the reservation-uniqueness claim -- and deliveries are append-only, so a reservation that already has a recorded delivery outcome can never admit a second deliver step -- the delivery-dedupe claim, at the substrate EventStore layer beneath AC-ROUTING-001's Subscription-level at-most-once. Delivery liveness, Subscription semantics, and concrete transport authenticity are not proved here. Delivery now requires the target-local authenticated projection entry the reservation named; the entry is read from the target plane only, so the cause-free §6.2 bridge root is unaffected.",
       "definitions": [
         "AgentCore.Event",
         "AgentCore.HostDerivedTrust",
@@ -1571,7 +1571,8 @@
         "AgentCore.EventStep",
         "AgentCore.ReservationSourceAuditValid",
         "AgentCore.EventStore.ReservationForConsistent",
-        "AgentCore.EventStoreReachable"
+        "AgentCore.EventStoreReachable",
+        "AgentCore.EventStore.TargetLocalProjection"
       ],
       "theorems": [
         "AgentCore.accepted_self_has_live_exact_lease",
@@ -1585,7 +1586,9 @@
         "AgentCore.reachable_reservation_for_consistent",
         "AgentCore.route_reservation_is_unique_per_invocation",
         "AgentCore.event_step_preserves_deliveries",
-        "AgentCore.delivered_reservation_cannot_redeliver"
+        "AgentCore.delivered_reservation_cannot_redeliver",
+        "AgentCore.delivery_requires_target_local_projection",
+        "AgentCore.unprojected_reservation_cannot_deliver"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_route_delivery",
@@ -1595,7 +1598,8 @@
         "AgentCore.Examples.nonvacuous_hostile_tier_publication_rejected",
         "AgentCore.Examples.nonvacuous_reachable_route_reservation_consistent",
         "AgentCore.Examples.nonvacuous_double_route_reservation_is_inconsistent",
-        "AgentCore.Examples.nonvacuous_redelivery_of_route_reservation_rejected"
+        "AgentCore.Examples.nonvacuous_redelivery_of_route_reservation_rejected",
+        "AgentCore.Examples.nonvacuous_unprojected_route_delivery_rejected"
       ],
       "witnessCoverage": {
         "AgentCore.accepted_self_has_live_exact_lease": [
@@ -1633,6 +1637,12 @@
         ],
         "AgentCore.delivered_reservation_cannot_redeliver": [
           "AgentCore.Examples.nonvacuous_redelivery_of_route_reservation_rejected"
+        ],
+        "AgentCore.delivery_requires_target_local_projection": [
+          "AgentCore.Examples.nonvacuous_route_delivery"
+        ],
+        "AgentCore.unprojected_reservation_cannot_deliver": [
+          "AgentCore.Examples.nonvacuous_unprojected_route_delivery_rejected"
         ]
       },
       "remainingEvidence": [
@@ -1642,9 +1652,9 @@
     },
     {
       "id": "AC-AUDIT-001",
-      "summary": "Typed Actor-local audit with invocation-only roots, preserved complete causal chains, reservation projection bridges, exact effect evidence and causal bindings, and local delivery-to-commit causality",
+      "summary": "Typed Actor-local audit with invocation-only roots, preserved complete causal chains, reservation projection bridges, exact effect evidence and causal bindings, and local delivery-to-commit causality, and cross-plane agreement on a delivery projection",
       "status": "proved-safety",
-      "boundary": "The claims cover invocation-only root admission, typed same-Actor lower-sequence causes, complete chain construction and preservation, exact attempt evidence, pre-effect Receipt parents derived from invocation or approval evidence, attempted Receipt parents derived from the persisted exact attempt AuditRecord, and local delivery-to-commit causality. Receipt records carry no synthetic causal field. Durable storage, complete instrumentation, and cross-Actor transport remain external.",
+      "boundary": "The claims cover invocation-only root admission, typed same-Actor lower-sequence causes, complete chain construction and preservation, exact attempt evidence, pre-effect Receipt parents derived from invocation or approval evidence, attempted Receipt parents derived from the persisted exact attempt AuditRecord, and local delivery-to-commit causality. Receipt records carry no synthetic causal field. Durable storage, complete instrumentation, and cross-Actor transport remain external. The projection-before-delivery ordering is derived from EventStore.projectionFor in both planes rather than asserted twice, so the audit edge and the delivery step cannot name different projections.",
       "definitions": [
         "AgentCore.CommitAuditEvidence",
         "AgentCore.AuditKind",
@@ -1669,7 +1679,9 @@
         "AgentCore.causal_chain_preserved_by_step",
         "AgentCore.nonroot_cannot_append_without_cause",
         "AgentCore.every_audited_effect_evidence_matches",
-        "AgentCore.delivery_audit_can_cause_commit_locally"
+        "AgentCore.delivery_audit_can_cause_commit_locally",
+        "AgentCore.delivery_audit_cites_target_local_projection",
+        "AgentCore.delivery_planes_name_one_projection"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_actor_local_typed_audit",
@@ -1677,7 +1689,8 @@
         "AgentCore.Examples.nonvacuous_delivery_local_audit",
         "AgentCore.Examples.nonvacuous_receipt_audit_append",
         "AgentCore.Examples.nonvacuous_causal_chain_preserved",
-        "AgentCore.Examples.nonvacuous_nonroot_cause_free_append_impossible"
+        "AgentCore.Examples.nonvacuous_nonroot_cause_free_append_impossible",
+        "AgentCore.Examples.nonvacuous_delivery_planes_agree"
       ],
       "witnessCoverage": {
         "AgentCore.audit_sequence_is_unique": [
@@ -1709,6 +1722,12 @@
         ],
         "AgentCore.delivery_audit_can_cause_commit_locally": [
           "AgentCore.Examples.nonvacuous_delivery_local_audit"
+        ],
+        "AgentCore.delivery_audit_cites_target_local_projection": [
+          "AgentCore.Examples.nonvacuous_delivery_planes_agree"
+        ],
+        "AgentCore.delivery_planes_name_one_projection": [
+          "AgentCore.Examples.nonvacuous_delivery_planes_agree"
         ]
       },
       "remainingEvidence": [

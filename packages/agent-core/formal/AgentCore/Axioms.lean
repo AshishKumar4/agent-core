@@ -184,6 +184,8 @@ import AgentCore
 #print axioms AgentCore.route_reservation_is_unique_per_invocation
 #print axioms AgentCore.event_step_preserves_deliveries
 #print axioms AgentCore.delivered_reservation_cannot_redeliver
+#print axioms AgentCore.delivery_requires_target_local_projection
+#print axioms AgentCore.unprojected_reservation_cannot_deliver
 
 -- Actor-local, ordered, typed audit.
 #print axioms AgentCore.audit_sequence_is_unique
@@ -196,6 +198,8 @@ import AgentCore
 #print axioms AgentCore.nonroot_cannot_append_without_cause
 #print axioms AgentCore.every_audited_effect_evidence_matches
 #print axioms AgentCore.delivery_audit_can_cause_commit_locally
+#print axioms AgentCore.delivery_audit_cites_target_local_projection
+#print axioms AgentCore.delivery_planes_name_one_projection
 
 -- Pinned graph writers, equal current heads, delivery, synthesis, and terminal snapshot.
 #print axioms AgentCore.unary_commit_inherits_pins
@@ -331,6 +335,8 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_projection_reservation_bridge
 #print axioms AgentCore.Examples.nonvacuous_route_delivery
 #print axioms AgentCore.Examples.nonvacuous_delivery_local_audit
+#print axioms AgentCore.Examples.nonvacuous_unprojected_route_delivery_rejected
+#print axioms AgentCore.Examples.nonvacuous_delivery_planes_agree
 #print axioms AgentCore.Examples.nonvacuous_pinned_root_writer
 #print axioms AgentCore.Examples.nonvacuous_equal_pin_current_merge_heads
 #print axioms AgentCore.Examples.nonvacuous_delivery_writer

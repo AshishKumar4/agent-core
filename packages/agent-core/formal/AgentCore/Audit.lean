@@ -271,6 +271,80 @@ theorem delivery_audit_can_cause_commit_locally {log : AuditLog} {deliveryId : A
   rw [deliveryKind, commitKind]
   trivial
 
+/-- Only a `routeProjected` entry may cause a `delivery` entry, and only one naming the same
+    reservation, projection, and Invocation. -/
+private theorem mayCause_into_delivery {parent : AuditKind} {reservation : ReservationId}
+    {projection : ProjectionId} {invocation : InvocationId} {outcome : RouteDeliveryOutcome}
+    (typed : MayCause parent (.delivery reservation projection invocation outcome)) :
+    parent = .routeProjected projection reservation invocation := by
+  cases parent <;> simp_all [MayCause]
+
+/-- No typed edge ever produces a `routeProjected` entry: the bridge root is reachable only as
+    `CausalChain.bridge`, never as an ordinary child. -/
+private theorem mayCause_never_into_routeProjected {parent : AuditKind}
+    {projection : ProjectionId} {reservation : ReservationId} {invocation : InvocationId} :
+    ¬ MayCause parent (.routeProjected projection reservation invocation) := by
+  cases parent <;> simp [MayCause]
+
+/-- **A delivery audit entry cites the event store's own target-local projection index.** The
+    audit plane does not assert the §7.4 ordering independently; it derives it from
+    `EventStore.projectionFor`. A `delivery` entry is never a root, its only admissible cause is
+    a `routeProjected` entry for the same reservation and projection, and such an entry exists
+    only as the bridge root, which reads that index. -/
+theorem delivery_audit_cites_target_local_projection {events : EventStore} {log : AuditLog}
+    {auditId : AuditId} {entry : AuditEntry} {reservationId : ReservationId}
+    {projectionId : ProjectionId} {invocation : InvocationId} {outcome : RouteDeliveryOutcome}
+    (lookup : log.entries auditId = some entry)
+    (kind : entry.kind = .delivery reservationId projectionId invocation outcome)
+    (chain : CausalChain events log auditId) :
+    events.projectionFor reservationId = some projectionId := by
+  cases chain with
+  | root rootLookup _ rootAllowed =>
+      rw [Option.some.inj (rootLookup.symm.trans lookup), kind] at rootAllowed
+      simp [RootKindAllowed] at rootAllowed
+  | bridge bridgeLookup _ _ _ _ _ _ _ _ _ _ bridgeKind =>
+      rw [Option.some.inj (bridgeLookup.symm.trans lookup)] at bridgeKind
+      exact absurd (kind.symm.trans bridgeKind) (by simp)
+  | child childLookup _ parentLookup _ _ _ typed parentChain =>
+      rw [Option.some.inj (childLookup.symm.trans lookup), kind] at typed
+      have parentKind := mayCause_into_delivery typed
+      cases parentChain with
+      | root parentRootLookup _ parentRootAllowed =>
+          rw [Option.some.inj (parentRootLookup.symm.trans parentLookup), parentKind]
+            at parentRootAllowed
+          simp [RootKindAllowed] at parentRootAllowed
+      | bridge parentBridgeLookup _ _ _ _ _ _ _ indexed _ _ bridgeKind =>
+          rw [Option.some.inj (parentBridgeLookup.symm.trans parentLookup)] at bridgeKind
+          injection parentKind.symm.trans bridgeKind with sameProjection sameReservation _
+          rw [sameReservation, sameProjection]
+          exact indexed
+      | child parentChildLookup _ _ _ _ _ parentTyped _ =>
+          rw [Option.some.inj (parentChildLookup.symm.trans parentLookup), parentKind]
+            at parentTyped
+          exact absurd parentTyped mayCause_never_into_routeProjected
+
+/-- **The event plane and the audit plane cannot disagree about a delivery's projection.**
+    Before the §7.4 premise landed, only the audit plane carried the projection-before-delivery
+    ordering and the event store carried none. Both carry it now, and they cannot diverge,
+    because neither asserts it independently: both resolve to the same
+    `EventStore.projectionFor` entry, so the projection the audit edge names is exactly the one
+    the delivery step required. -/
+theorem delivery_planes_name_one_projection {leases now before after}
+    {log : AuditLog} {auditId : AuditId} {entry : AuditEntry} {reservationId : ReservationId}
+    {projectionId : ProjectionId} {invocation : InvocationId} {outcome : RouteDeliveryOutcome}
+    {reservation : RouteReservation}
+    (step : EventStep leases now before (.deliver reservationId) after)
+    (reservationLookup : before.reservations reservationId = some reservation)
+    (lookup : log.entries auditId = some entry)
+    (kind : entry.kind = .delivery reservationId projectionId invocation outcome)
+    (chain : CausalChain before log auditId) :
+    projectionId = reservation.projection := by
+  obtain ⟨reservation', _, stepReservation, indexed, _, _, _, _⟩ :=
+    delivery_requires_target_local_projection step
+  rw [Option.some.inj (stepReservation.symm.trans reservationLookup)] at indexed
+  rw [delivery_audit_cites_target_local_projection lookup kind chain] at indexed
+  exact Option.some.inj indexed
+
 theorem local_cause_edge_is_typed {effects events before label after}
     (step : AuditStep effects events before label after) :
     ∃ id entry, after.entries id = some entry ∧

@@ -423,6 +423,11 @@ private def projection : RouteProjection :=
   ⟨reservationId, .run tenant runId, true, projectionDigest, none, ⟨1⟩⟩
 private def delivery : RouteDelivery :=
   ⟨reservationId, some turnId, .succeeded, ⟨22⟩⟩
+private def unprojectedRouteEvents : EventStore := {
+  (default : EventStore) with
+  reservations := tableSet (default : EventStore).reservations reservationId reservation
+  reservationFor := tableSet (default : EventStore).reservationFor invocationId reservationId
+}
 private def routedEvents : EventStore := {
   (default : EventStore) with
   reservations := tableSet (default : EventStore).reservations reservationId reservation
@@ -460,13 +465,38 @@ theorem nonvacuous_projection_reservation_bridge :
   · rfl
   · trivial
 
+/-- The §7.4 ordering, reached rather than stipulated: the projection entry the delivery
+    premise reads is produced by an actual `EventStep.project` transition out of a store that
+    holds only the reservation, and the delivery step then runs on that store's output. -/
 theorem nonvacuous_route_delivery :
-    EventStep (fun _ => none) ⟨2⟩ routedEvents (.deliver reservationId) deliveredEvents := by
-  apply EventStep.deliver (delivery := delivery) (reservation := reservation)
-  · rfl
-  · simp [routedEvents, reservationId]
-  · rfl
-  · rfl
+    EventStep (fun _ => none) ⟨2⟩ unprojectedRouteEvents (.project projectionId) routedEvents ∧
+      EventStep (fun _ => none) ⟨2⟩ routedEvents (.deliver reservationId) deliveredEvents := by
+  refine ⟨?_, ?_⟩
+  · apply EventStep.project (projection := projection) (reservation := reservation)
+    · rfl
+    · simp [unprojectedRouteEvents, projection, reservationId]
+    · rfl
+    · rfl
+    · rfl
+    · rfl
+    · rfl
+  · apply EventStep.deliver (delivery := delivery) (reservation := reservation)
+      (projection := projection)
+    · rfl
+    · simp [routedEvents, reservationId]
+    · exact ⟨rfl, rfl, rfl, rfl, rfl⟩
+    · rfl
+    · rfl
+
+/-- Sharp on the projection alone: this store holds the reservation, so only the absent
+    target-local projection entry refuses the delivery. This is the state that used to admit a
+    delivery with `projectionFor` still `none`. -/
+theorem nonvacuous_unprojected_route_delivery_rejected {after : EventStore} :
+    unprojectedRouteEvents.reservations reservationId = some reservation ∧
+      unprojectedRouteEvents.projectionFor reservationId = none ∧
+      ¬ EventStep (fun _ => none) ⟨2⟩ unprojectedRouteEvents (.deliver reservationId) after :=
+  ⟨by simp [unprojectedRouteEvents, reservationId], rfl,
+    unprojected_reservation_cannot_deliver rfl⟩
 
 /-- A second `RouteReservation` naming the same Invocation as `reservation` but stored
     under a different `ReservationId` makes the ledger inconsistent — the reservation
@@ -532,6 +562,54 @@ theorem nonvacuous_delivery_local_audit :
     · rfl
     · rfl
   · trivial
+
+private def deliveryAuditLog : AuditLog := projectionAuditLog.append ⟨22⟩ deliveryAudit
+
+/-- The §7.4 ordering holds in both planes at once on the concrete route, and the two planes
+    name one projection: the delivery audit entry's chain bottoms out in the target-local
+    bridge root that reads `routedEvents.projectionFor`, and the delivery event step reads the
+    same entry. -/
+theorem nonvacuous_delivery_planes_agree :
+    EventStep (fun _ => none) ⟨2⟩ routedEvents (.deliver reservationId) deliveredEvents ∧
+      CausalChain routedEvents deliveryAuditLog ⟨22⟩ ∧
+      projectionId = reservation.projection := by
+  have bridgeEntry : deliveryAuditLog.entries ⟨21⟩ = some projectionAudit := by
+    show tableSet projectionAuditLog.entries ⟨22⟩ deliveryAudit ⟨21⟩ = some projectionAudit
+    rw [tableSet_other _ _ _ (by decide)]
+    change tableSet (default : AuditLog).entries ⟨21⟩ projectionAudit ⟨21⟩ = some projectionAudit
+    exact tableSet_self ..
+  have deliveryEntry : deliveryAuditLog.entries ⟨22⟩ = some deliveryAudit := by
+    show tableSet projectionAuditLog.entries ⟨22⟩ deliveryAudit ⟨22⟩ = some deliveryAudit
+    exact tableSet_self ..
+  have bridge : CausalChain routedEvents deliveryAuditLog ⟨21⟩ := by
+    apply CausalChain.bridge (entry := projectionAudit) (projectionId := projectionId)
+      (reservationId := reservationId) (projection := projection) (reservation := reservation)
+    · exact bridgeEntry
+    · rfl
+    · simp [routedEvents, projectionId]
+    · rfl
+    · simp [routedEvents, projection, reservationId]
+    · rfl
+    · rfl
+    · simp [projection, reservation]
+    · simp [routedEvents, projection, reservationId]
+    · rfl
+    · rfl
+    · rfl
+  have chain : CausalChain routedEvents deliveryAuditLog ⟨22⟩ := by
+    apply CausalChain.child (entry := deliveryAudit) (parent := ⟨21⟩)
+      (parentEntry := projectionAudit)
+    · exact deliveryEntry
+    · rfl
+    · exact bridgeEntry
+    · rfl
+    · decide
+    · rfl
+    · exact ⟨rfl, rfl, rfl⟩
+    · exact bridge
+  refine ⟨nonvacuous_route_delivery.2, chain, ?_⟩
+  exact delivery_planes_name_one_projection nonvacuous_route_delivery.2
+    (by simp [routedEvents, reservationId]) deliveryEntry rfl chain
 
 private def noTurnHeader : InvocationHeader := {
   header with
@@ -709,7 +787,6 @@ theorem nonvacuous_equal_pin_current_merge_heads :
       sourceHead sourceCommit sourceHead = some sourceCommit
     exact tableSet_self ..
 
-private def deliveryAuditLog : AuditLog := projectionAuditLog.append ⟨22⟩ deliveryAudit
 private def deliveryCommit : RunCommit :=
   ⟨runId, branchId, pins, .system (.delivery ⟨22⟩ reservationId), [rootCommitId],
     some turnId, .deliveryEvidence header.operation reservationId .succeeded, none⟩

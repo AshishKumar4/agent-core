@@ -755,6 +755,18 @@ inductive EventLabel where
   | project (projection : ProjectionId) | deliver (reservation : ReservationId)
   deriving DecidableEq, Repr
 
+/-- The target-local projection entry for a reservation: the authenticated `routeProjected`
+bridge root the target owns. §7.4 makes this entry the cause of delivery, so a delivery reads
+it and nothing in the source's plane — the reservation is consulted only for the projection id
+it already authenticated, never for a source Event, source Audit, or source Actor fact. -/
+def EventStore.TargetLocalProjection (store : EventStore) (reservationId : ReservationId)
+    (reservation : RouteReservation) (projection : RouteProjection) : Prop :=
+  store.projectionFor reservationId = some reservation.projection ∧
+    store.projections reservation.projection = some projection ∧
+    projection.reservation = reservationId ∧
+    projection.targetOwner = reservation.targetOwner ∧
+    projection.authenticated = true
+
 inductive EventStep (leases : TurnId → Option TurnLease) (now : Time) :
     EventStore → EventLabel → EventStore → Prop
   | publish {store id event} :
@@ -790,8 +802,9 @@ inductive EventStep (leases : TurnId → Option TurnLease) (now : Time) :
         { store with
           projections := tableSet store.projections id projection
           projectionFor := tableSet store.projectionFor projection.reservation id }
-  | deliver {store reservationId delivery reservation} :
+  | deliver {store reservationId delivery reservation projection} :
       store.deliveries reservationId = none → store.reservations reservationId = some reservation →
+      store.TargetLocalProjection reservationId reservation projection →
       delivery.reservation = reservationId → delivery.targetTurn = reservation.targetTurn →
       EventStep leases now store (.deliver reservationId)
         { store with deliveries := tableSet store.deliveries reservationId delivery }
@@ -852,6 +865,35 @@ theorem target_projection_is_exact_authenticated_reservation_projection {leases 
   | project fresh reservationLookup exactProjection unique exactDigest target authenticated =>
       exact ⟨_, _, tableSet_self .., reservationLookup, exactProjection, exactDigest,
         tableSet_self .., target, authenticated⟩
+
+/-- **Delivery is caused by the target-local projection entry (SPEC §7.4).** A delivery step
+    exists only where the target already holds the authenticated projection entry the
+    reservation named, and that entry is owned by the target Actor. The witness is drawn
+    entirely from the target's plane: no source Event, source Audit, or source Actor fact is
+    consulted, so the §6.2 bridge stays cause-free in the target's log. -/
+theorem delivery_requires_target_local_projection {leases now before after reservationId}
+    (step : EventStep leases now before (.deliver reservationId) after) :
+    ∃ reservation projection,
+      before.reservations reservationId = some reservation ∧
+      before.projectionFor reservationId = some reservation.projection ∧
+      before.projections reservation.projection = some projection ∧
+      projection.reservation = reservationId ∧
+      projection.targetOwner = reservation.targetOwner ∧ projection.authenticated = true := by
+  cases step with
+  | deliver _ reservationLookup targetLocal _ _ =>
+      exact ⟨_, _, reservationLookup, targetLocal.1, targetLocal.2.1, targetLocal.2.2.1,
+        targetLocal.2.2.2.1, targetLocal.2.2.2.2⟩
+
+/-- **An unprojected reservation never delivers.** The contrapositive of the §7.4 ordering:
+    with no target-local projection entry indexed for the reservation, no delivery step for it
+    exists in any store. -/
+theorem unprojected_reservation_cannot_deliver {leases now before after reservationId}
+    (unprojected : before.projectionFor reservationId = none) :
+    ¬ EventStep leases now before (.deliver reservationId) after := by
+  intro step
+  obtain ⟨_, _, _, indexed, _⟩ := delivery_requires_target_local_projection step
+  rw [unprojected] at indexed
+  contradiction
 
 def RoutesTerminal (store : EventStore) (invocation : InvocationId) : Prop :=
   ∀ reservationId, store.reservationFor invocation = some reservationId →
@@ -995,7 +1037,7 @@ theorem event_step_preserves_deliveries {leases now before after label reservati
   | reserveSameTenant _ _ _ _ _ _ => exact stored
   | reserveCrossTenant _ _ _ _ _ _ => exact stored
   | project _ _ _ _ _ _ _ => exact stored
-  | @deliver deliveredId delivery' reservation' fresh reservationLookup deliveryEq targetEq =>
+  | @deliver deliveredId _ _ _ fresh _ _ _ _ =>
       by_cases same : reservationId = deliveredId
       · subst same; rw [stored] at fresh; contradiction
       · exact Eq.trans (tableSet_other _ _ _ same _) stored
@@ -1009,6 +1051,6 @@ theorem delivered_reservation_cannot_redeliver {leases now before after reservat
     ¬ EventStep leases now before (.deliver reservationId) after := by
   intro step
   cases step with
-  | deliver fresh _ _ _ => rw [already] at fresh; contradiction
+  | deliver fresh _ _ _ _ => rw [already] at fresh; contradiction
 
 end AgentCore
