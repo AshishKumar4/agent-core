@@ -100,6 +100,32 @@ describe("Invocation protocol command families", () => {
         }
     );
 
+    test(
+        "[C13-ADV-REORDERED-INTENT] refuses a reordered payload at the edge rather than normalising it into the same intent",
+        { tags: "p0" },
+        () => {
+            const command = protocolCommand(new Backend(), INVOCATION_COMMANDS.claimExecutor);
+            const decoded = command.payload.decode(
+                new TextEncoder().encode(
+                    '{"body":{"alpha":1,"beta":2},"invocation":"reordered-intent"}'
+                )
+            );
+            expect(decoded.invocation.value).toBe("reordered-intent");
+
+            // One intent has one wire form. Reordering the payload's own fields, or the
+            // body's keys, is refused rather than quietly normalised, so no second byte
+            // sequence exists for an intent an audit record already names.
+            for (const reordered of [
+                '{"invocation":"reordered-intent","body":{"alpha":1,"beta":2}}',
+                '{"body":{"beta":2,"alpha":1},"invocation":"reordered-intent"}'
+            ]) {
+                expect(() => command.payload.decode(new TextEncoder().encode(reordered))).toThrow(
+                    /canonical form/
+                );
+            }
+        }
+    );
+
     test("binds backend codecs and rejects payloads that bypassed decoding", { tags: "p1" }, () => {
         const backend = new Backend();
         const command = protocolCommand(backend, INVOCATION_COMMANDS.attemptExecutor);

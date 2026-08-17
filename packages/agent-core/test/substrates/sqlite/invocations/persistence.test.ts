@@ -107,7 +107,7 @@ invocationLedgerContract("sqlite", () => new SqliteHarness(), "excluded");
 
 describe("SqliteInvocationPersistence transaction scope", () => {
     test(
-        "[C13-ADV-SUPPLIED-ITEM-KEY] uses the supplied transaction for every operation",
+        "uses the supplied transaction for every operation",
         { tags: "p0" },
         () => {
             const harness = new SqliteHarness();

@@ -309,19 +309,19 @@
       "owner": "W6",
       "specAnchor": "C13-ADV-REORDERED-INTENT",
       "specTextSha256": "sha256:fa82de08a72e3d123cc86b582361256724f1eea7338be6fa1c815607773b3b27",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
         "src/invocations/command.ts#InvocationPayloadCodec",
         "src/invocations/prepared.ts#PreparedInvocation"
       ],
       "testSelectors": [
-        "test/invocations/command.test.ts#Invocation protocol command families [C13-ADV-REORDERED-INTENT] uses strict canonical payloads and delegates synchronously"
+        "test/invocations/command.test.ts#Invocation protocol command families [C13-ADV-REORDERED-INTENT] uses strict canonical payloads and delegates synchronously",
+        "test/invocations/command.test.ts#Invocation protocol command families [C13-ADV-REORDERED-INTENT] refuses a reordered payload at the edge rather than normalising it into the same intent",
+        "test/invocations/prepared.test.ts#PreparedInvocation canonical identity [C13-ADV-REORDERED-INTENT] separates argument key order, which cannot change an intent, from item order, which cannot be replayed under one"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": [
-        "Names a reordered intent. Its only test asserts strict canonical payloads and synchronous delegation, neither of which reorders an intent."
-      ]
+      "remainingEvidence": []
     },
     {
       "id": "C13-ADV-STALE-RECOVERY-OWNER",
@@ -358,16 +358,14 @@
       "owner": "W6",
       "specAnchor": "C13-ADV-SUPPLIED-ITEM-KEY",
       "specTextSha256": "sha256:508894d3e2123b738beaf917b20bd62b537b16d99dad7a06a645d7b30defe489",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
-        "test/substrates/sqlite/invocations/persistence.test.ts#SqliteInvocationPersistence transaction scope [C13-ADV-SUPPLIED-ITEM-KEY] uses the supplied transaction for every operation"
+        "test/invocations/prepared.test.ts#PreparedInvocation canonical identity [C13-ADV-SUPPLIED-ITEM-KEY] refuses a supplied key that is a legitimate derivation of the same intent"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": [
-        "Names a supplied item key. Its only test asserts that SqliteInvocationPersistence uses the supplied transaction for every operation, which is transaction scope and says nothing about item-key derivation."
-      ]
+      "remainingEvidence": []
     },
     {
       "id": "C13-ADV-UNBRIDGED-CROSS-ACTOR-AUDIT",

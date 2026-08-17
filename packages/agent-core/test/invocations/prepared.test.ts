@@ -296,6 +296,85 @@ describe("PreparedInvocation canonical identity", () => {
     });
 
     test(
+        "[C13-ADV-SUPPLIED-ITEM-KEY] refuses a supplied key that is a legitimate derivation of the same intent",
+        { tags: "p0" },
+        () => {
+            // Two items whose arguments are byte-identical must still hold distinct keys:
+            // the position is part of the derivation, and if it were not, a key could be
+            // moved between them and no comparison against the record would notice.
+            const record = prepared("supplied-item-key", [{ same: 1 }, { same: 1 }]);
+            const first = record.item(0).idempotencyKey;
+            const second = record.item(1).idempotencyKey;
+            expect(first).not.toBe(second);
+
+            const envelope = asObject(decodeCanonicalJson(codec.encode(record)));
+            const payload = asObject(envelope["payload"]!);
+            const preparedPayload = asObject(payload["payload"]!);
+            const items = preparedPayload["items"];
+            if (!Array.isArray(items)) throw new TypeError("Expected an encoded batch");
+            expect(() =>
+                codec.decode(
+                    encodeCanonicalJson({
+                        ...envelope,
+                        payload: {
+                            ...payload,
+                            payload: {
+                                ...preparedPayload,
+                                items: items.map((value, index) => ({
+                                    ...asObject(value),
+                                    idempotencyKey: index === 0 ? second : first
+                                }))
+                            }
+                        }
+                    })
+                )
+            ).toThrow(/identity/);
+
+            // The caller's only channel is arguments, so an argument that names itself the
+            // key moves the derivation instead of becoming it.
+            const claimed = `agent-core.item.v1:${"a".repeat(64)}`;
+            const forged = prepared("supplied-item-key-argument", { idempotencyKey: claimed });
+            expect(forged.item(0).idempotencyKey).not.toBe(claimed);
+        }
+    );
+
+    test(
+        "[C13-ADV-REORDERED-INTENT] separates argument key order, which cannot change an intent, from item order, which cannot be replayed under one",
+        { tags: "p0" },
+        () => {
+            // Serialization order is not intent: a host re-encoding the same arguments in
+            // another key order must not be able to manufacture a second prepared identity.
+            const ordered = prepared("reordered-intent", { alpha: 1, beta: 2 });
+            const reversed = prepared("reordered-intent", { beta: 2, alpha: 1 });
+            expect(reversed.intentDigest.value).toBe(ordered.intentDigest.value);
+            expect(reversed.item(0).idempotencyKey).toBe(ordered.item(0).idempotencyKey);
+
+            // Item order is intent, so the reordered batch is a different request and cannot
+            // be presented under the original one's identity.
+            const batch = prepared("reordered-batch", [{ step: "read" }, { step: "write" }]);
+            const swapped = prepared("reordered-batch", [{ step: "write" }, { step: "read" }]);
+            expect(swapped.intentDigest.value).not.toBe(batch.intentDigest.value);
+
+            const envelope = asObject(decodeCanonicalJson(codec.encode(batch)));
+            const payload = asObject(envelope["payload"]!);
+            const preparedPayload = asObject(payload["payload"]!);
+            const items = preparedPayload["items"];
+            if (!Array.isArray(items)) throw new TypeError("Expected an encoded batch");
+            expect(() =>
+                codec.decode(
+                    encodeCanonicalJson({
+                        ...envelope,
+                        payload: {
+                            ...payload,
+                            payload: { ...preparedPayload, items: [...items].reverse() }
+                        }
+                    })
+                )
+            ).toThrow(/identity/);
+        }
+    );
+
+    test(
         "[C13-ADV-STRUCTURAL-INTENT-CHANGE] rejects changed prepared arguments under the original identity",
         { tags: "p0" },
         () => {
