@@ -31,6 +31,18 @@ export default {
     reporters: ["clear-text", "json"],
     jsonReporter: { fileName: "reports/quality/mutation/report.json" },
     thresholds: { high: 90, low: 80, break: null },
+    // Stryker rewrites the sandbox copy of the tsconfig so that `extends` and
+    // `references` reaching outside the sandbox still resolve. Under typescript@7 it
+    // cannot: its TSConfigPreprocessor calls `ts.parseConfigFileTextToJson`, which the
+    // package's root entry no longer exports, so the rewrite throws
+    // `ts.parseConfigFileTextToJson is not a function` before a single mutant is
+    // instrumented and every area fails identically. There is nothing for it to do here
+    // either — this tsconfig has no `extends` and no `references`, and both `include`
+    // globs resolve inside the sandbox, so every path it inspects it would hand back
+    // unchanged. Naming no tsconfig skips that one step: `tsconfigFile` is read nowhere
+    // else in Stryker, and the file itself is still copied into the sandbox verbatim for
+    // the runner to read.
+    tsconfigFile: "",
     tempDirName: ".stryker-tmp",
     concurrency: 8,
     timeoutMS: 20000,
