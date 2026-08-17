@@ -27,55 +27,65 @@ const conformanceDirectory = `${relative(repositoryRoot, resolve(packageRoot, "a
 const notFragments = ["index.json", "schema.json", "stage.json"];
 const options = parseArguments(process.argv.slice(2));
 
-if (options.since === undefined) {
-    reportIntent();
-} else {
-    reportReverts();
+// A thrown error is invisible to a caller who pipes stdout, which is how the first users
+// read "exit=0" beside a failure. Report on stderr and set the code explicitly instead.
+const failure = options.since === undefined ? reportIntent() : reportReverts();
+if (failure !== undefined) {
+    process.stderr.write(`${failure}\n`);
+    process.exitCode = 1;
 }
 
 /**
  * The declared-intent check: exactly the digests the caller named may differ between the
  * base revision and the candidate. A new atom is an addition rather than a move and needs
- * no declaration, because no previous value existed to overwrite.
+ * no declaration, because no previous value existed to overwrite. A vanished row is neither
+ * — a fragment losing a requirement it held is a regression whatever moved the digests, so
+ * it fails unless `--allow-removals` says the atom left the SPEC.
  */
 function reportIntent() {
-    const base = digestsAt(options.base);
+    const base = rowsAt(options.base);
     const candidate =
-        options.candidate === "worktree" ? digestsInWorktree(base.keys()) : digestsAt(options.candidate);
-    const moved = [];
+        options.candidate === "worktree" ? rowsInWorktree(base.keys()) : rowsAt(options.candidate);
+    const changed = [];
     const added = [];
     const removed = [];
-    for (const [key, value] of base) {
+    for (const [key, row] of base) {
         const now = candidate.get(key);
         if (now === undefined) removed.push(key);
-        else if (now !== value) moved.push({ key, from: value, to: now });
+        else if (now.source !== row.source) changed.push({ key, from: row, to: now });
     }
     for (const key of candidate.keys()) {
         if (!base.has(key)) added.push(key);
     }
-    for (const entry of moved) {
+    for (const entry of changed) {
         const declared = options.moves.has(idOf(entry.key));
-        console.log(
-            `${declared ? "declared" : "UNDECLARED"} move ${entry.key}\n  from ${entry.from}\n  to   ${entry.to}`
-        );
+        const fields = changedFields(entry.from.requirement, entry.to.requirement);
+        console.log(`${declared ? "declared" : "UNDECLARED"} change ${entry.key} [${fields.join(", ")}]`);
+        if (entry.from.requirement.specTextSha256 !== entry.to.requirement.specTextSha256) {
+            console.log(
+                `  digest ${entry.from.requirement.specTextSha256}\n      -> ${entry.to.requirement.specTextSha256}`
+            );
+        }
     }
     for (const key of added) console.log(`added   ${key}`);
-    for (const key of removed) console.log(`removed ${key}`);
-    const undeclared = moved.filter((entry) => !options.moves.has(idOf(entry.key)));
-    // A declaration that moved nothing is as wrong as an undeclared move: it means the
+    for (const key of removed) console.log(`REMOVED ${key}`);
+    const undeclared = changed.filter((entry) => !options.moves.has(idOf(entry.key)));
+    // A declaration that changed nothing is as wrong as an undeclared change: it means the
     // reword the caller believed they made did not land, or landed under another id. Both
     // are reported together, because seeing only one of them invites the wrong repair.
-    const unmoved = [...options.moves].filter(
-        (id) => !moved.some((entry) => idOf(entry.key) === id)
+    const unchanged = [...options.moves].filter(
+        (id) => !changed.some((entry) => idOf(entry.key) === id)
     );
     const problems = [
-        ...undeclared.map((entry) => `undeclared move ${entry.key}`),
-        ...unmoved.map((id) => `declared move that did not happen ${id}`)
+        ...undeclared.map((entry) => `undeclared change ${entry.key}`),
+        ...unchanged.map((id) => `declared change that did not happen ${id}`),
+        ...(options.allowRemovals ? [] : removed.map((key) => `removed requirement ${key}`))
     ];
-    if (problems.length > 0) throw new TypeError(`Digest intent violated: ${problems.join("; ")}`);
     console.log(
-        `digest intent satisfied: ${moved.length} declared move(s), ${added.length} addition(s), ${removed.length} removal(s)`
+        `${options.base} -> ${options.candidate}: ${changed.length} change(s), ${added.length} addition(s), ${removed.length} removal(s)`
     );
+    if (problems.length > 0) return `Digest intent violated: ${problems.join("; ")}`;
+    return undefined;
 }
 
 /**
@@ -99,7 +109,8 @@ function reportReverts() {
         .filter((line) => line.length > 0);
     const history = new Map();
     for (const commit of commits) {
-        for (const [key, value] of digestsAt(commit)) {
+        for (const [key, row] of rowsAt(commit)) {
+            const value = row.requirement.specTextSha256;
             const seen = history.get(key) ?? [];
             if (seen.at(-1)?.value !== value) seen.push({ commit, value });
             history.set(key, seen);
@@ -123,39 +134,46 @@ function reportReverts() {
         `${reverts.length} resurrected digest value(s) across ${commits.length} commit(s), ${history.size} tracked digest(s)`
     );
     if (options.strict && reverts.length > 0) {
-        throw new TypeError(`${reverts.length} resurrected digest value(s) in a range declared clean`);
+        return `${reverts.length} resurrected digest value(s) in a range declared clean`;
     }
+    return undefined;
 }
 
-/** `<fragment>#<atom>` keyed digests for one revision, read from git rather than the tree. */
-function digestsAt(revision) {
-    const digests = new Map();
+/**
+ * `<fragment>#<atom>` keyed rows for one revision, read from git rather than the tree, with
+ * the canonical text of each row alongside it. The whole row is compared, not only the
+ * digest: a stale whole-file write reverts `status`, `sourceSymbols`, `testSelectors`,
+ * `checkerInvariants` and `prerequisites` without moving a digest at all, which is exactly
+ * what a re-point or a demotion changes and what no digest-based check can see.
+ */
+function rowsAt(revision) {
+    const rows = new Map();
     for (const name of fragmentNamesAt(revision)) {
         const source = execFileSync(
             "git",
             ["-C", repositoryRoot, "show", `${revision}:${conformanceDirectory}/${name}`],
             { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }
         );
-        collect(digests, name, parseCanonicalJson(source, `${revision}:${name}`));
+        collect(rows, name, parseCanonicalJson(source, `${revision}:${name}`));
     }
-    return digests;
+    return rows;
 }
 
 /**
  * The same map for the files on disk. Fragment names come from the base revision so a
  * fragment a peer has staged but not committed cannot silently enter the comparison.
  */
-function digestsInWorktree(baseKeys) {
+function rowsInWorktree(baseKeys) {
     const names = new Set([...baseKeys].map((key) => key.slice(0, key.indexOf("#"))));
-    const digests = new Map();
+    const rows = new Map();
     for (const name of names) {
         const path = resolve(packageRoot, "artifacts/conformance", name);
-        collect(digests, name, parseCanonicalJson(readFileSync(path, "utf8"), name));
+        collect(rows, name, parseCanonicalJson(readFileSync(path, "utf8"), name));
     }
-    return digests;
+    return rows;
 }
 
-function collect(digests, name, fragment) {
+function collect(rows, name, fragment) {
     if (!Array.isArray(fragment?.requirements)) {
         throw new TypeError(`Conformance fragment ${name} has no requirements array`);
     }
@@ -165,8 +183,19 @@ function collect(digests, name, fragment) {
             requirement.specTextSha256,
             `Conformance fragment ${name} requirement ${requirement.id} digest`
         );
-        digests.set(`${name}#${requirement.id}`, requirement.specTextSha256);
+        rows.set(`${name}#${requirement.id}`, {
+            requirement,
+            source: JSON.stringify(requirement)
+        });
     }
+}
+
+/** Which fields a changed row changed, so a reverted demotion reads as `status`. */
+function changedFields(before, after) {
+    const fields = [...new Set([...Object.keys(before), ...Object.keys(after)])].sort();
+    return fields.filter(
+        (field) => JSON.stringify(before[field]) !== JSON.stringify(after[field])
+    );
 }
 
 function fragmentNamesAt(revision) {
@@ -185,10 +214,11 @@ function idOf(key) {
 }
 
 function parseArguments(args) {
-    let base = "HEAD";
+    let base;
     let candidate = "worktree";
     let since;
     let strict = false;
+    let allowRemovals = false;
     const moves = new Set();
     for (let index = 0; index < args.length; index += 1) {
         const argument = args[index];
@@ -196,6 +226,7 @@ function parseArguments(args) {
         else if (argument === "--candidate") candidate = required(args, ++index, argument);
         else if (argument === "--since") since = required(args, ++index, argument);
         else if (argument === "--strict") strict = true;
+        else if (argument === "--allow-removals") allowRemovals = true;
         else if (argument === "--moves") {
             for (const id of required(args, ++index, argument).split(",")) {
                 if (id.length > 0) moves.add(id);
@@ -208,7 +239,18 @@ function parseArguments(args) {
     if (strict && since === undefined) {
         throw new TypeError("--strict applies to --since; the intent check always fails on a violation");
     }
-    return { base, candidate, since, moves, strict };
+    // Auditing a commit means comparing it with its parent. Defaulting the base to HEAD here
+    // silently ran the comparison backwards and reported every later commit as damage, which
+    // named other people's atoms and invited an accusation — the exact false positive this
+    // exists to prevent.
+    return {
+        base: base ?? (candidate === "worktree" ? "HEAD" : `${candidate}^`),
+        candidate,
+        since,
+        moves,
+        strict,
+        allowRemovals
+    };
 }
 
 function required(args, index, option) {
