@@ -8,6 +8,21 @@ import { ReceiptId } from "../../../src/invocations";
 import { RunCommit, type RunCommitInit } from "../../../src/agents/runs/commit";
 import { RunBranch } from "../../../src/agents/runs/run";
 import { RunBranchId } from "../../../src/agents/runs/id";
+import { Turn } from "../../../src/agents/runs/turn";
+import { TurnPlacementSnapshot } from "../../../src/agents/runs/placement";
+import {
+    TurnExecutor,
+    TurnExecutorHost,
+    TurnModelInputReplay,
+    TurnOmission,
+    TurnPromptSection,
+    TurnPromptSectionName,
+    TurnShownContent,
+    turnModelRequestBytes,
+    type TurnContext,
+    type TurnModelCall,
+    type TurnOutcome
+} from "../../../src/agents/runs/executor";
 import {
     content,
     genesis,
@@ -25,6 +40,17 @@ type Harness = ReturnType<typeof seedRunningTurn>;
 const secondInvocation = new InvocationId("invocation-2");
 const secondReceipt = new ReceiptId("receipt-2");
 const rewriteReceipt = new ReceiptId("receipt-rewrite");
+
+/** Runs one caller-supplied body inside the real seam, so the model call is a real one. */
+class CallingExecutor extends TurnExecutor {
+    public constructor(private readonly body: (context: TurnContext) => Promise<TurnOutcome>) {
+        super();
+    }
+
+    public async execute(context: TurnContext): Promise<TurnOutcome> {
+        return this.body(context);
+    }
+}
 
 function branchRevision(value: Harness, branch = ids.branch): Revision {
     return value.repository.transaction(
@@ -887,6 +913,155 @@ describe("Run effective transcript, rewrite bracket, and cut balance", () => {
                     new RunCommitId("absent-base")
                 )
             ).toThrow(/not an ancestor of the branch head/);
+        }
+    );
+
+    it(
+        "[C13-TURN-TRANSCRIPT-RECONSTRUCTION] rebuilds an earlier call's request byte for byte across a rewrite that shadows what it read",
+        { tags: "p0" },
+        async () => {
+            const store = new MemoryContentStore();
+            const assembled = (await store.put(new TextEncoder().encode("assembled"))).ref;
+            const output = (await store.put(new TextEncoder().encode("response"))).ref;
+            const value = seedRunningTurn();
+            const first = message(value, "read-1", ids.root);
+            const second = message(value, "read-2", first.id);
+
+            const inputs: RunCommitId[] = [];
+            const sent: Uint8Array[] = [];
+            const hostFor = (body: (context: TurnContext) => Promise<TurnOutcome>) =>
+                new TurnExecutorHost({
+                    runtime: value.runtime,
+                    executor: new CallingExecutor(body),
+                    content: store,
+                    operations: { resolve: async () => [] },
+                    prompt: { assemble: async () => assembled },
+                    invocations: { invoke: async () => ({ tier: "direct" as const, output: {} }) },
+                    model: {
+                        call: async (request: TurnModelCall) => {
+                            sent.push(turnModelRequestBytes(request));
+                            return { output, usage: { inputTokens: 1, outputTokens: 1 } };
+                        }
+                    },
+                    stream: { publish: async () => undefined },
+                    now: () => new Date(2000)
+                });
+
+            /**
+             * Prompt assembly derives from the branch's effective transcript rather than from
+             * the effective state commit alone, so the sections a call sends are exactly what
+             * the transcript shows at the commit it reads.
+             */
+            const callReadingTranscript = (resultId: string) => async (context: TurnContext) => {
+                const shown = value.runtime
+                    .effectiveTranscript(context.turn.run, context.turn.branch)
+                    .map((commit) => `${commit.kind}:${commit.content?.value ?? ""}`)
+                    .join("\n");
+                const exchange = await context.model.call({
+                    sections: [
+                        new TurnPromptSection(
+                            new TurnPromptSectionName("transcript"),
+                            TurnShownContent.inline(new TextEncoder().encode(shown)),
+                            TurnOmission.none
+                        )
+                    ],
+                    catalog: [],
+                    admitted: []
+                });
+                inputs.push(exchange.input);
+                return context.outcome.succeed(
+                    new RunCommit({
+                        id: new RunCommitId(resultId),
+                        run: context.turn.run,
+                        branch: context.turn.branch,
+                        kind: "result",
+                        parents: [exchange.input],
+                        pins: context.turn.pins,
+                        writer: { kind: "turn", token: context.token },
+                        subjectTurn: context.turn.id,
+                        content: output
+                    })
+                );
+            };
+            await expect(
+                hostFor(callReadingTranscript("call-result")).execute(value.token)
+            ).resolves.toMatchObject({ kind: "succeeded" });
+
+            const input = inputs[0]!;
+            const replay = new TurnModelInputReplay({
+                repository: value.repository,
+                content: store
+            });
+            const request = await replay.reconstruct(input);
+            // The commit the call read is fixed by ancestry: the modelInput commit's parent.
+            expect(request.baseCommit.equals(second.id)).toBe(true);
+            expect(turnModelRequestBytes(request)).toEqual(sent[0]);
+            const asRead = transcriptIds(value, request.baseCommit);
+            expect(asRead).toEqual([ids.root.value, first.id.value, second.id.value]);
+
+            const reduction = rewrite(
+                value,
+                "rewrite-after-the-call",
+                new RunCommitId("call-result"),
+                [first.id, second.id]
+            );
+            installed(value, reduction);
+
+            // Backward: the earlier call rebuilds whole, byte for byte, and its transcript is
+            // the one it read. Shadowing supersedes without releasing. A host deriving at the
+            // branch head instead would fail here, because that transcript is a different one.
+            const again = await replay.reconstruct(input);
+            expect(turnModelRequestBytes(again)).toEqual(sent[0]);
+            expect(transcriptIds(value, again.baseCommit)).toEqual(asRead);
+            expect(transcriptIds(value)).not.toEqual(asRead);
+
+            // Forward: the next call sends the reduced transcript, and reconstructability holds
+            // over the reduced request rather than over the one the rewrite superseded.
+            const secondTurn = new TurnId("turn-after-rewrite");
+            const head = value.repository.transaction(
+                (tx) => value.repository.loadBranch(tx, ids.branch)!.head
+            );
+            const placement = new TurnPlacementSnapshot(secondTurn, pins(), []);
+            value.runtime.createTurn(
+                {
+                    turn: new Turn({
+                        id: secondTurn,
+                        run: ids.run,
+                        branch: ids.branch,
+                        startHead: head,
+                        effectiveInput: head,
+                        pins: pins(),
+                        placement: placement.digest,
+                        input: content("a"),
+                        revision: new Revision(0)
+                    }),
+                    placement
+                },
+                branchRevision(value)
+            );
+            value.runtime.claimTurn(
+                secondTurn,
+                new Revision(0),
+                ids.holder,
+                new Date(1000),
+                new Date(5000)
+            );
+            await expect(
+                hostFor(callReadingTranscript("second-call-result")).execute({
+                    turn: secondTurn,
+                    holder: ids.holder,
+                    epoch: 1
+                })
+            ).resolves.toMatchObject({ kind: "succeeded" });
+
+            const reduced = await replay.reconstruct(inputs[1]!);
+            expect(turnModelRequestBytes(reduced)).toEqual(sent[1]);
+            expect(sent[1]).not.toEqual(sent[0]);
+            const shownFirst = new TextDecoder().decode(request.sections[0]!.bytes);
+            const shownSecond = new TextDecoder().decode(reduced.sections[0]!.bytes);
+            expect(shownFirst).toContain(content("1").value);
+            expect(shownSecond).not.toContain(content("1").value);
+            expect(shownSecond).toContain(content("9").value);
         }
     );
 });

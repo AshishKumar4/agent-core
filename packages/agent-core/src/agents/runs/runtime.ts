@@ -580,7 +580,10 @@ export class RunRuntime<Transaction> {
         }
         const shadows = commit.shadows ?? [];
         if (shadows.length > 0) {
-            const reduced = this.transcriptAt(tx, commit.parents[0]!);
+            const reduced = this.transcriptAt(
+                tx,
+                requireValue(commit.parents[0], "Rewrite commit has no parent")
+            );
             const visible = new Set(reduced.map((entry) => entry.id.value));
             for (const shadowed of shadows) {
                 if (!visible.has(shadowed.value)) {
@@ -1240,7 +1243,10 @@ export class RunRuntime<Transaction> {
         if (commit.kind === "undo") {
             requireBalancedCut(
                 this.transcriptAt(tx, branch.head),
-                this.transcriptAt(tx, commit.selects!),
+                this.transcriptAt(
+                    tx,
+                    requireValue(commit.selects, "Undo commit names no selection")
+                ),
                 "Undo selection"
             );
         }
@@ -1676,9 +1682,9 @@ export class RunRuntime<Transaction> {
      */
     private effectiveCommitOf(load: RunCommitLoader, head: RunCommitId): RunCommit {
         const commit = requireValue(load(head), "Run head commit does not exist");
-        return commit.kind === "undo"
-            ? requireValue(load(commit.selects!), "Run undo selection does not exist")
-            : commit;
+        if (commit.kind !== "undo") return commit;
+        const selects = requireValue(commit.selects, "Undo commit names no selection");
+        return requireValue(load(selects), "Run undo selection does not exist");
     }
 
     /**

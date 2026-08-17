@@ -18,24 +18,20 @@ export type RunCommitLoader = (id: RunCommitId) => RunCommit | undefined;
 export function orderedAncestry(base: RunCommit, load: RunCommitLoader): readonly RunCommit[] {
     const ordered: RunCommit[] = [];
     const walked = new Set<string>();
-    const pending: { readonly commit: RunCommit; expanded: boolean }[] = [
+    // A frame is popped unexpanded, re-pushed expanded beneath its parents, and emitted
+    // when it comes back up, so every parent is emitted before the child that names it.
+    const pending: { readonly commit: RunCommit; readonly expanded: boolean }[] = [
         { commit: base, expanded: false }
     ];
-    while (pending.length > 0) {
-        const frame = pending[pending.length - 1]!;
+    for (let frame = pending.pop(); frame !== undefined; frame = pending.pop()) {
         if (frame.expanded) {
-            pending.pop();
             ordered.push(frame.commit);
             continue;
         }
-        frame.expanded = true;
-        if (walked.has(frame.commit.id.value)) {
-            pending.pop();
-            continue;
-        }
+        if (walked.has(frame.commit.id.value)) continue;
         walked.add(frame.commit.id.value);
-        for (let index = frame.commit.parents.length - 1; index >= 0; index -= 1) {
-            const parent = frame.commit.parents[index]!;
+        pending.push({ commit: frame.commit, expanded: true });
+        for (const parent of [...frame.commit.parents].reverse()) {
             const record = load(parent);
             if (record === undefined || !record.run.equals(frame.commit.run)) {
                 throw new AgentCoreError(

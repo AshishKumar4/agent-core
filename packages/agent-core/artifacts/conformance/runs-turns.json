@@ -1170,24 +1170,29 @@
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
-    {
+{
       "id": "C13-TURN-TRANSCRIPT-RECONSTRUCTION",
       "owner": "W5",
       "specAnchor": "C13-TURN-TRANSCRIPT-RECONSTRUCTION",
       "specTextSha256": "sha256:1b07b735eda91d9ad7ed3df548079d30a1947b7bd3ad361ff6ae8757d1175440",
-      "status": "implemented",
-      "prerequisites": ["C13-TURN-MODEL-INPUT-RECONSTRUCTABLE", "C13-RUN-EFFECTIVE-TRANSCRIPT"],
+      "status": "verified",
+      "prerequisites": [
+        "C13-TURN-MODEL-INPUT-RECONSTRUCTABLE",
+        "C13-RUN-EFFECTIVE-TRANSCRIPT"
+      ],
       "sourceSymbols": [
         "src/agents/runs/runtime.ts#RunRuntime",
         "src/agents/runs/transcript.ts#effectiveTranscript"
       ],
       "testSelectors": [
-        "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-TURN-TRANSCRIPT-RECONSTRUCTION] derives at the exact base commit, so a later rewrite cannot enter it"
+        "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-TURN-TRANSCRIPT-RECONSTRUCTION] derives at the exact base commit, so a later rewrite cannot enter it",
+        "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-TURN-TRANSCRIPT-RECONSTRUCTION] rebuilds an earlier call's request byte for byte across a rewrite that shadows what it read"
       ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": [
-        "The transcript half of the composition exists and is tested: RunRuntime.effectiveTranscript takes the exact base commit a call read, a rewrite appended afterwards is a descendant of that base and cannot enter the derivation, the same base reconstructs to the identical sequence and content across a rewrite, and the next call at the branch head carries the rewrite's content and not the shadowed commits'. What is still owed is the byte-compare over the model REQUEST rather than over the transcript, which requires the durable model-call record and its records-only replay owed by C13-TURN-MODEL-INPUT-RECONSTRUCTABLE, planned in this fragment. The agreed composition is that TurnModelInput carries an immutable baseCommit and TurnModelInputReplay calls effectiveTranscript(run, branch, record.baseCommit), so this row is promotable to verified with one byte-compare assertion once that record exists, and its prerequisite edge on C13-TURN-MODEL-INPUT-RECONSTRUCTABLE already blocks a premature promotion"
-      ]
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
+      "remainingEvidence": []
     },
     {
       "id": "C13-WRITER-MATRIX",
