@@ -1633,6 +1633,20 @@ interface RunAdmissionReservation {
   readonly obligation: RunObligation;
 }
 
+interface SpawnReservation {
+  readonly id: SpawnReservationId;
+  readonly parentRun: RunId;
+  readonly parentTurn: TurnId;
+  readonly childRun: RunId;
+  readonly token: LeaseToken;                 // the spawning Turn's exact lease
+  readonly configuration: Digest;             // identity of the child's exact pinned configuration
+  readonly rootContent: ContentRef;           // content of the child's root RunCommit
+  readonly invocation: InvocationId;
+  readonly receipt: ReceiptId;                // the spawn's `delegate` Receipt
+  readonly attenuation: Digest;               // content-addressed attenuation, ceiling included
+  readonly recordedAt: Date;
+}
+
 interface SettlementObligation {
   readonly registryEpoch: number;
   readonly obligations: readonly RunObligation[];
