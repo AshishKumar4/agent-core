@@ -132,12 +132,14 @@ The codebase is deliberately object-oriented with deep modules. Keep it that way
 - **Domain concepts are smart value objects, not bare enums or primitives.** The
   dominant idiom in this codebase, and the one to reach for first: an abstract base
   class, `static` factory getters/methods for each case, and small private subclasses
-  that carry the behavior — `WriteMode.create/replace/upsert` each with its own
-  `validate`, `ReadRange.all/from/slice` each with its own `read`, `RunLifecycle`/
-  `TurnStatus` each with their own transition methods. This keeps the illegal cases
+  that carry the behavior — `RunLifecycle` (`src/agents/runs/run.ts`) and `TurnStatus`
+  (`src/agents/runs/turn.ts`) each with their own transition methods, and the same shape
+  across `src/agents/runs/` in `commit`, `admission`, `acceptance`, `ceiling`,
+  `settlement`, `pins`, `spawn`, and `source`. This keeps the illegal cases
   unrepresentable and the behavior next to the data, instead of scattering `switch`
   statements across the codebase. A concept modeled as a string union that callers
-  branch on is usually asking to be one of these.
+  branch on is usually asking to be one of these — `FilesystemWriteMode`
+  (`src/facets/filesystem/facet.ts`) is the clearest outstanding candidate.
 - **Durable records are immutable classes**: `readonly` fields, constructors that
   validate shape (`TypeError` on violation), and private `transition`/`revise` helpers
   that return new instances. Records never own live resources (§8.3).
