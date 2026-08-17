@@ -1415,11 +1415,11 @@ instead of advisory: exhaustion is then a fact about spend, on exactly the granu
 `tokens` already has — the call that crossed the ceiling has committed by the time the
 crossing is known — whereas a remainder computed from a rate table would make exhaustion a
 claim about that table. A host with no realized cost to record declares the dimension
-nowhere, and by the rule above that bounds nothing; it MUST NOT substitute an estimate.
-Amounts are integer millionths of one currency's major unit, and a host MUST record every
-realized cost in a Run lineage in one currency, because a comparison between amounts in
-two currencies is not a comparison and a ceiling is nothing but that comparison. This maps
-to **C13-RUN-CEILING-COST**.
+nowhere, and by C13-RUN-RESOURCE-CEILING that bounds nothing; it MUST NOT substitute an
+estimate. Amounts are integer millionths of one currency's major unit, and a host MUST
+record every realized cost in a Run lineage in one currency, because a comparison between
+amounts in two currencies is not a comparison and a ceiling is nothing but that
+comparison. This maps to **C13-RUN-CEILING-COST**.
 
 Exhaustion is neither silence nor a new mechanism: the host cancels the Run through the
 closed §5.3 rows with outcome `cancelled` and the exhausted dimension recorded in
