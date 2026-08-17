@@ -1008,7 +1008,8 @@ describe("Run effective transcript, rewrite bracket, and cut balance", () => {
                         )
                     ],
                     catalog: [],
-                    admitted: []
+                    admitted: [],
+                    covers: await context.modelInput.accountable()
                 });
                 inputs.push(exchange.input);
                 return context.outcome.succeed(

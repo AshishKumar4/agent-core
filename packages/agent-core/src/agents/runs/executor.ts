@@ -41,6 +41,7 @@ import {
 import type { RunBranch } from "./run";
 import { RunRuntime } from "./runtime";
 import { RunRepository } from "./store";
+import { effectiveCommitOf, effectiveTranscript } from "./transcript";
 import { RunCheckpoint, Turn, TurnInboxEntry } from "./turn";
 
 export class TurnBoundOperation {
@@ -416,6 +417,7 @@ export interface TurnModelInputInit {
     readonly catalog: readonly TurnBoundOperation[];
     readonly admitted: readonly TurnAdmittedEvent[];
     readonly admissionCut: number;
+    readonly covers: readonly RunCommitId[];
 }
 
 /**
@@ -424,6 +426,11 @@ export interface TurnModelInputInit {
  * admission cut. It is the content of a `modelInput` RunCommit, whose parent is the exact
  * commit the call read, so the base of any derivation over history is fixed by ancestry
  * rather than by when a reconstruction happens to run.
+ *
+ * `covers` names the transcript commits the assembled sections carry, in the order they
+ * carry them. It lifts that fact out of the section bytes for the same reason SPEC §5.2
+ * puts a message's `requests` in the graph rather than in its content: prose cannot be
+ * asked which commits it renders, so a claim inside it is unreadable by any check.
  */
 export class TurnModelInput extends CodecRecord {
     public static get codec(): RecordCodec<TurnModelInput> {
@@ -433,6 +440,7 @@ export class TurnModelInput extends CodecRecord {
     public readonly catalog: readonly TurnBoundOperation[];
     public readonly admitted: readonly TurnAdmittedEvent[];
     public readonly admissionCut: number;
+    public readonly covers: readonly RunCommitId[];
 
     public constructor(init: TurnModelInputInit) {
         super();
@@ -451,10 +459,14 @@ export class TurnModelInput extends CodecRecord {
             }
             previous = admitted.sequence;
         }
+        if (new Set(init.covers.map((commit) => commit.value)).size !== init.covers.length) {
+            throw new TypeError("One surface carries a transcript commit at most once");
+        }
         this.sections = Object.freeze([...init.sections]);
         this.catalog = Object.freeze(validateOfferedCatalog(init.catalog));
         this.admitted = Object.freeze([...init.admitted]);
         this.admissionCut = init.admissionCut;
+        this.covers = Object.freeze([...init.covers]);
         Object.freeze(this);
     }
 
@@ -463,6 +475,7 @@ export class TurnModelInput extends CodecRecord {
             admissionCut: this.admissionCut,
             admitted: this.admitted.map((admitted) => admitted.toData()),
             catalog: this.catalog.map(boundOperationData),
+            covers: this.covers.map((commit) => commit.value),
             sections: this.sections.map((section) => section.toData())
         };
     }
@@ -471,7 +484,7 @@ export class TurnModelInput extends CodecRecord {
         const object = requireObject(value, "Model input");
         requireExactFields(
             object,
-            ["admissionCut", "admitted", "catalog", "sections"],
+            ["admissionCut", "admitted", "catalog", "covers", "sections"],
             [],
             "Model input"
         );
@@ -485,7 +498,10 @@ export class TurnModelInput extends CodecRecord {
             admitted: requireArray(object["admitted"], "Model input admitted Events").map(
                 TurnAdmittedEvent.fromData
             ),
-            admissionCut: requireInteger(object["admissionCut"], "Model input admission cut")
+            admissionCut: requireInteger(object["admissionCut"], "Model input admission cut"),
+            covers: requireArray(object["covers"], "Model input coverage").map(
+                (commit) => new RunCommitId(requireString(commit, "Covered commit"))
+            )
         });
     }
 }
@@ -533,6 +549,7 @@ export interface TurnModelRequest {
     readonly catalog: readonly TurnBoundOperation[];
     readonly admitted: readonly TurnAdmittedContent[];
     readonly admissionCut: number;
+    readonly covers: readonly RunCommitId[];
 }
 
 export interface TurnModelCall extends TurnModelRequest {
@@ -563,6 +580,7 @@ export function turnModelRequestBytes(request: TurnModelRequest): Uint8Array {
         })),
         baseCommit: request.baseCommit.value,
         catalog: request.catalog.map(boundOperationData),
+        covers: request.covers.map((commit) => commit.value),
         input: request.input.value,
         sections: request.sections.map((section) => ({
             bytes: encodeBase64(section.bytes),
@@ -600,6 +618,7 @@ export class TurnModelInputReplay<Transaction> {
         const record = TurnModelInput.decode(
             await this.resolve(document, `model input ${input.value}`)
         );
+        this.requireAccounted(input, baseCommit, record);
         const sections: TurnShownSection[] = [];
         for (const section of record.sections) {
             sections.push(
@@ -628,7 +647,8 @@ export class TurnModelInputReplay<Transaction> {
             sections: Object.freeze(sections),
             catalog: record.catalog,
             admitted: Object.freeze(admitted),
-            admissionCut: record.admissionCut
+            admissionCut: record.admissionCut,
+            covers: record.covers
         });
     }
 
@@ -640,6 +660,57 @@ export class TurnModelInputReplay<Transaction> {
                   `prompt section ${section.name.value}`
               )
             : inline;
+    }
+
+    /**
+     * The transcript commits a surface assembled at `base` must account for, in the order it
+     * must carry them. A host reads this to know what it owes the record; the check below
+     * reads the same derivation, so what a host is told and what it is held to cannot differ.
+     */
+    public accountable(base: RunCommitId): readonly RunCommitId[] {
+        return this.records.repository.transaction((transaction) => {
+            const load = (id: RunCommitId): RunCommit | undefined =>
+                this.records.repository.loadCommit(transaction, id);
+            return Object.freeze(
+                accountableTranscript(
+                    effectiveTranscript(effectiveCommitOf(load, base), load)
+                ).map((commit) => commit.id)
+            );
+        });
+    }
+
+    /**
+     * Refuses a surface whose coverage is not exactly the transcript it was assembled over.
+     * The comparison is a sequence equality against the effective transcript at `base`
+     * restricted to the commits a surface can carry, so the only conforming way to put less
+     * history in front of the model is a `rewrite` that shadows it — a reduction the host
+     * kept in its own memory leaves commits this derivation still reaches and no section
+     * claims. It guards both boundaries: the seam calls it before the record is appended, and
+     * every reconstruction calls it again, so a surface written by any other writer is
+     * refused on the way out even though nothing refused it on the way in.
+     */
+    public requireAccounted(
+        input: RunCommitId,
+        base: RunCommitId,
+        record: TurnModelInput
+    ): void {
+        const accountable = this.accountable(base);
+        const covered = record.covers;
+        if (covered.length !== accountable.length) {
+            throw unaccounted(
+                input,
+                `it carries ${covered.length} of the ${accountable.length} commits the transcript at ${base.value} holds`
+            );
+        }
+        for (const [position, commit] of accountable.entries()) {
+            const claimed = covered[position];
+            if (claimed === undefined || !claimed.equals(commit)) {
+                throw unaccounted(
+                    input,
+                    `position ${position} carries ${claimed?.value ?? "nothing"} where the transcript at ${base.value} holds ${commit.value}`
+                );
+            }
+        }
     }
 
     private async resolve(ref: ContentRef, subject: string): Promise<Uint8Array> {
@@ -700,6 +771,8 @@ export interface TurnModelInputAssembly {
     readonly sections: readonly TurnPromptSection[];
     readonly catalog: readonly TurnBoundOperation[];
     readonly admitted: readonly TurnInboxEntry[];
+    /** The transcript commits these sections carry, which `TurnModelInputHandle` supplies. */
+    readonly covers: readonly RunCommitId[];
 }
 
 /** One model exchange: the durable record its request was issued from, and the response. */
@@ -715,6 +788,12 @@ export abstract class TurnModelHandle {
 
 export abstract class TurnModelInputHandle {
     public abstract reconstruct(input: RunCommitId): Promise<TurnModelRequest>;
+    /**
+     * The transcript commits the next call's surface must account for, at the branch head
+     * this Turn stands on now. A host that means to put less history in front of the model
+     * appends a `rewrite` first and reads this again; there is no other conforming reduction.
+     */
+    public abstract accountable(): Promise<readonly RunCommitId[]>;
 }
 
 export abstract class TurnStreamHandle {
@@ -1087,6 +1166,10 @@ class ScopedModelHandle<Transaction> extends TurnModelHandle {
             subjectTurn: snapshot.scope.turn.id,
             content: document.ref
         });
+        // Before the claim becomes an undeletable record: a coverage claim the branch
+        // contradicts is not a failure worth keeping, it is a false statement in an
+        // append-only log, so it is refused where it is still only a proposal.
+        this.replay.requireAccounted(commit.id, snapshot.head.id, record);
         this.scope.commitModelInput(commit);
         const request = await this.scope.withActive(() => this.replay.reconstruct(commit.id));
         const result = await this.scope.withActive(() =>
@@ -1145,7 +1228,8 @@ class ScopedModelHandle<Transaction> extends TurnModelHandle {
             sections: assembly.sections,
             catalog: assembly.catalog,
             admitted,
-            admissionCut: inbox.length
+            admissionCut: inbox.length,
+            covers: assembly.covers
         });
     }
 }
@@ -1160,6 +1244,10 @@ class ScopedModelInputHandle<Transaction> extends TurnModelInputHandle {
 
     public async reconstruct(input: RunCommitId): Promise<TurnModelRequest> {
         return this.scope.withActive(() => this.replay.reconstruct(input));
+    }
+
+    public async accountable(): Promise<readonly RunCommitId[]> {
+        return this.scope.withActive(async () => this.replay.accountable(this.scope.active().head.id));
     }
 }
 
@@ -1416,6 +1504,27 @@ function unrebuildable(missing: string): AgentCoreError {
     return new AgentCoreError(
         "run.model-input-unrebuildable",
         `A committed model call request cannot be rebuilt: ${missing}`
+    );
+}
+
+function unaccounted(input: RunCommitId, discrepancy: string): AgentCoreError {
+    return new AgentCoreError(
+        "turn.model-input-unaccounted",
+        `Model input ${input.value} does not account for its base transcript: ${discrepancy}`
+    );
+}
+
+/**
+ * The commits of a transcript a surface can carry. A commit naming no content shows the
+ * model nothing of its own — an `invocation`, an `eventDelivery`, an `undo`, a `migration`
+ * and an abandoned `rewrite` are graph facts whose model-visible material lives in the
+ * `message` and `result` commits they pair with, which SPEC §5.2 keeps in the graph through
+ * `requests` and `invocation` so no cut can strand one. A `modelInput` commit's content is a
+ * surface record — this rule's own subject — and never history a later call reads.
+ */
+function accountableTranscript(transcript: readonly RunCommit[]): readonly RunCommit[] {
+    return transcript.filter(
+        (commit) => commit.content !== undefined && commit.kind !== "modelInput"
     );
 }
 

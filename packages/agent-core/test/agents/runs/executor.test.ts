@@ -84,7 +84,7 @@ class HostedExecutor extends TurnExecutor {
             kind: "content",
             bytes: new TextEncoder().encode("ephemeral")
         });
-        const response = await turn.model.call(promptDraft(turn.prompt, turn.operations));
+        const response = await turn.model.call(await promptDraft(turn, turn.prompt, turn.operations));
         return turn.outcome.succeed(
             new RunCommit({
                 id: new RunCommitId("executor-result"),
@@ -817,7 +817,7 @@ describe("TurnExecutor seam", () => {
                 const calls = [
                     () => context.content.get(boundaries.prompt),
                     async () => {
-                        const call = context.model.call(promptDraft(boundaries.prompt));
+                        const call = context.model.call(await promptDraft(context, boundaries.prompt));
                         modelSignal = boundaries.lastModelSignal;
                         return call;
                     },
@@ -1621,7 +1621,7 @@ describe("TurnExecutor seam", () => {
                     usage: { inputTokens: -1, outputTokens: 0 }
                 })
             ).rejects.toBeInstanceOf(TypeError);
-            const exchange = await context.model.call(promptDraft(boundaries.prompt));
+            const exchange = await context.model.call(await promptDraft(context, boundaries.prompt));
             expect(exchange.output).toEqual(boundaries.output);
             expect(exchange.usage).toEqual({ inputTokens: 1, outputTokens: 1 });
             return context.outcome.succeed(
@@ -1660,7 +1660,7 @@ describe("TurnExecutor seam", () => {
         const boundaries = await TestBoundaries.create();
         const executor = new FunctionExecutor(async (context) => {
             await expect(
-                context.model.call(promptDraft(boundaries.prompt))
+                context.model.call(await promptDraft(context, boundaries.prompt))
             ).rejects.toBeInstanceOf(TypeError);
             return context.outcome.succeed(
                 resultCommit(
@@ -1957,9 +1957,9 @@ describe("TurnExecutor seam", () => {
             expect(tokens()).toBe(0);
 
             const executor = new FunctionExecutor(async (context) => {
-                await context.model.call(promptDraft(boundaries.prompt));
+                await context.model.call(await promptDraft(context, boundaries.prompt));
                 expect(tokens()).toBe(4);
-                const second = await context.model.call(promptDraft(boundaries.prompt));
+                const second = await context.model.call(await promptDraft(context, boundaries.prompt));
                 expect(tokens()).toBe(8);
                 return context.outcome.succeed(
                     resultCommit(context, "token-total", boundaries.output, second.input)
@@ -2333,12 +2333,14 @@ function errorCode(error: Error): string {
 
 /**
  * The one-section draft the pre-§5.6 tests expressed as a bare prompt reference: the
- * assembled prompt recorded by reference, with nothing withheld.
+ * assembled prompt recorded by reference, with nothing withheld, accounting for the whole
+ * transcript the seam says the next call must carry.
  */
-function promptDraft(
+async function promptDraft(
+    turn: TurnContext,
     prompt: ContentRef,
     catalog: readonly TurnBoundOperation[] = []
-): TurnModelInputAssembly {
+): Promise<TurnModelInputAssembly> {
     return {
         sections: [
             new TurnPromptSection(
@@ -2347,7 +2349,8 @@ function promptDraft(
             )
         ],
         catalog,
-        admitted: []
+        admitted: [],
+        covers: await turn.modelInput.accountable()
     };
 }
 

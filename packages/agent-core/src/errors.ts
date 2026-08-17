@@ -27,6 +27,7 @@ export type AgentCoreErrorCode =
     | "slate.unpublished"
     | "subscription.invalid"
     | "turn.invalid-state"
+    | "turn.model-input-unaccounted"
     | "turn.model-input-undurable";
 
 export class AgentCoreError extends Error {

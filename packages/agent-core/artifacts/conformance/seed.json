@@ -4021,6 +4021,20 @@
       ]
     },
     {
+      "id": "C13-TURN-SURFACE-ACCOUNTED",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-SURFACE-ACCOUNTED",
+      "specTextSha256": "sha256:286f925a1504c880e326471915271023e4f54573f886a5a189fc10a68d5cc33d",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-VIEW-NO-LIVE-STATE",
       "owner": "W7",
       "specAnchor": "C13-VIEW-NO-LIVE-STATE",

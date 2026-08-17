@@ -39,6 +39,7 @@ import {
 } from "./settlement";
 import { RunRepository } from "./store";
 import {
+    effectiveCommitOf,
     effectiveTranscript,
     unbalancedCut,
     type RunCommitLoader
@@ -719,7 +720,7 @@ export class RunRuntime<Transaction> {
             !genesis.placement.turn.equals(genesis.turn.id) ||
             !genesis.placement.pins.equals(genesis.turn.pins) ||
             !genesis.placement.digest.equals(genesis.turn.placement) ||
-            !this.effectiveCommitOf(this.commitLoader(tx), branch.head).id.equals(
+            !effectiveCommitOf(this.commitLoader(tx), branch.head).id.equals(
                 genesis.turn.effectiveInput
             ) ||
             this.repository.loadTurn(tx, genesis.turn.id) !== undefined
@@ -1129,7 +1130,7 @@ export class RunRuntime<Transaction> {
             "Run branch does not exist"
         );
         if (!branch.run.equals(runId)) throw invalidRun("Run branch belongs to another Run");
-        return this.effectiveCommitOf(this.commitLoader(tx), branch.head).id;
+        return effectiveCommitOf(this.commitLoader(tx), branch.head).id;
     }
 
     /**
@@ -1676,18 +1677,6 @@ export class RunRuntime<Transaction> {
     }
 
     /**
-     * Which commit is current: an undo marker answers with its selection, every other head
-     * with itself. One derivation, so a transcript and an effective-commit query can never
-     * disagree about where a branch stands.
-     */
-    private effectiveCommitOf(load: RunCommitLoader, head: RunCommitId): RunCommit {
-        const commit = requireValue(load(head), "Run head commit does not exist");
-        if (commit.kind !== "undo") return commit;
-        const selects = requireValue(commit.selects, "Undo commit names no selection");
-        return requireValue(load(selects), "Run undo selection does not exist");
-    }
-
-    /**
      * Resolves a commit identity against the store, answering for `pending` itself so the
      * same derivation decides a cut a commit proposes and one it already made.
      */
@@ -1704,7 +1693,7 @@ export class RunRuntime<Transaction> {
         pending?: RunCommit
     ): readonly RunCommit[] {
         const load = this.commitLoader(tx, pending);
-        return effectiveTranscript(this.effectiveCommitOf(load, head), load);
+        return effectiveTranscript(effectiveCommitOf(load, head), load);
     }
 
 

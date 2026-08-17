@@ -1973,6 +1973,43 @@ decision that shaped it, and it is why an abridged result recorded as a whole on
 even when the reconstruction is byte-exact: a byte-compare establishes that a request was
 rebuilt, never that it was true. This maps to **C13-TURN-MODEL-INPUT-ABRIDGED**.
 
+Compaction is not a mechanism this document adds. A host under context pressure chooses a
+span of history, produces a replacement, and installs it as the `rewrite` commit §5.2
+already defines, whose `shadows` field names that span's commit identities and whose content
+C13-RUN-EFFECTIVE-TRANSCRIPT reads where the earliest commit it shadows stood; when to do it
+and how much to shadow are the host discretion that rule already grants. Identities rather
+than a surface-position span is what makes this hold for a host that compacts twice: the
+commits a second compaction covers are separated by the first, so a range would stop naming
+them at exactly the moment it is relied on. What does not follow from those records is that
+a compacted surface is accountable. C13-TURN-MODEL-INPUT-RECONSTRUCTABLE binds a request to
+the record its call committed, and a reconstruction reads that record rather than the branch,
+so a host that reduced the surface in executor memory — dropping spans as it assembled and
+appending no rewrite — records the reduced bytes, rebuilds them byte for byte, and satisfies
+that obligation while the branch still holds the whole ancestry. The surface is durable and
+the shadowing is not, which leaves the divergence between them the one thing fork, resume and
+audit each need and none can derive. A model input MUST therefore state which transcript
+commits its sections carry, and that statement MUST be exactly the effective transcript at
+the commit the call read, in that order: every commit of that transcript that names content,
+excluding a `modelInput` commit, whose content is a surface record rather than history. A
+commit naming no content is not omitted from the surface but absent from what a surface can
+carry — an `invocation`, an `eventDelivery`, an `undo`, a `migration` and an abandoned
+`rewrite` are graph facts whose model-visible material is the `message` and `result` commits
+they pair with. A surface carrying less of the branch than the branch holds is refused, so
+the conforming way to carry less is to shadow more, and the statement lives beside the record
+rather than inside the section bytes for the reason §5.2 keeps a message's `requests` in the
+graph: prose cannot be asked which commits it renders. Compaction and abridgement then
+compose because each owns one axis and neither may be recorded as the other. Compaction
+changes which commits the transcript holds and is a rewrite; abridgement changes how much of
+a retained commit the model saw and is the omission fact C13-TURN-MODEL-INPUT-ABRIDGED
+requires, so a host doing both rebuilds exactly — the coverage names the compacted
+transcript and the sections carry the abridged bytes. Recording a compaction as an
+abridgement leaves the shadowed commits in the transcript, so the next call owes them again
+and the reduction never happened; recording an abridgement as a compaction claims the branch
+no longer holds content it does hold. None of this establishes that the bytes are true: a
+host naming commits it did not render is beyond any records-only rule, exactly as a
+byte-compare establishes that a request was rebuilt and never that it was true. This maps to
+**C13-TURN-SURFACE-ACCOUNTED**.
+
 Mid-turn input uses `turn.deliverEvent`: a lease-fenced operation appending an Event
 to the running Turn's inbox; hosts MAY implement delivery as "the durable log is the
 queue" — re-read the inbox each step. **Cancellation** is the reserved inbox Event
@@ -3927,6 +3964,7 @@ A conforming implementation provides:
 - **C13-TURN-MODEL-INPUT-RETENTION-LOSS** A reconstruction whose named Event or `ContentRef` is no longer retained fails with a typed error naming what is missing rather than assembling a shorter prefix, a partial request, or a best-effort approximation.
 - **C13-TURN-MODEL-INPUT-ABRIDGED** A request carrying less of a result than the record holds records the abridged form itself and states the withheld amount exactly or as unknown, and a host records neither an omission made under a bound as the source's own incompleteness nor an incomplete source as an omission made under a bound.
 - **C13-TURN-TRANSCRIPT-RECONSTRUCTION** A model call's reconstruction derives its transcript from the exact commit that call read, so a rewrite appended later is a descendant that cannot enter it, and shadowing supersedes without releasing content an earlier request named.
+- **C13-TURN-SURFACE-ACCOUNTED** A model input states which transcript commits its sections carry, exactly the content-naming commits of the effective transcript at the commit the call read and in that order excluding a `modelInput` commit, so a reduction kept in executor memory is refused and compaction — a `rewrite` changing which commits the transcript holds — never stands in for abridgement, which changes how much of a retained commit the model saw.
 - **C13-TURN-LIFECYCLE** Turns implement the complete lifecycle table.
 - **C13-TURN-NO-RETRY** The closed Turn lifecycle contains no retry transition.
 - **C13-TURN-NO-RETRY-RUNTIME** Runtime integration contains no Turn retry operation.

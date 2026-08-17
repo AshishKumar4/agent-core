@@ -1197,6 +1197,32 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-TURN-SURFACE-ACCOUNTED",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-SURFACE-ACCOUNTED",
+      "specTextSha256": "sha256:286f925a1504c880e326471915271023e4f54573f886a5a189fc10a68d5cc33d",
+      "status": "verified",
+      "prerequisites": ["C13-RUN-EFFECTIVE-TRANSCRIPT", "C13-TURN-MODEL-INPUT-RECONSTRUCTABLE"],
+      "sourceSymbols": [
+        "src/agents/runs/executor.ts#ScopedModelHandle",
+        "src/agents/runs/executor.ts#TurnModelInput",
+        "src/agents/runs/executor.ts#TurnModelInputReplay",
+        "src/agents/runs/transcript.ts#effectiveCommitOf"
+      ],
+      "testSelectors": [
+        "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-TURN-SURFACE-ACCOUNTED] a compaction is a rewrite, and the call reconstructs the compacted surface rather than the ancestry",
+        "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-TURN-SURFACE-ACCOUNTED] refuses the same reduction while it lives only in executor memory and admits it once the rewrite is a commit",
+        "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-TURN-SURFACE-ACCOUNTED] refuses a surface that claims a commit its base transcript no longer holds",
+        "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-TURN-SURFACE-ACCOUNTED] composes a compaction with an abridgement and rebuilds exactly what was sent",
+        "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-TURN-SURFACE-ACCOUNTED] an abridgement leaves the branch carrying what a compaction removes, so the next call re-expands",
+        "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-TURN-SURFACE-ACCOUNTED] a surface accounts for history and never for a graph fact or an earlier surface",
+        "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-TURN-SURFACE-ACCOUNTED] refuses on the way out a surface no seam refused on the way in",
+        "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-TURN-SURFACE-ACCOUNTED] accounts against the effective state of the base rather than its raw commit"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
       "id": "C13-WRITER-MATRIX",
       "owner": "W5",
       "specAnchor": "C13-WRITER-MATRIX",

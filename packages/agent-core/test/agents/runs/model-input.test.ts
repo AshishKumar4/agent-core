@@ -377,7 +377,9 @@ describe("Turn model input", () => {
             const referenced = (await base.content.put(encoder.encode("referenced section"))).ref;
             let exchange: TurnModelExchange | undefined;
             const executor = new FunctionExecutor(async (context) => {
+                const covers = await context.modelInput.accountable();
                 exchange = await context.model.call({
+                    covers,
                     sections: [
                         section("inline", TurnShownContent.inline(inline)),
                         section("referenced", TurnShownContent.reference(referenced))
@@ -429,14 +431,17 @@ describe("Turn model input", () => {
             const stray = inboxEntry("stray", 0, "turn.message", content("b"));
             const failures: string[] = [];
             const executor = new FunctionExecutor(async (context) => {
+                const covers = await context.modelInput.accountable();
                 for (const draft of [
-                    { sections: [], catalog: [], admitted: [] },
+                    { covers, sections: [], catalog: [], admitted: [] },
                     {
+                        covers,
                         sections: [section("s", TurnShownContent.inline(encoder.encode("s")))],
                         catalog: [write],
                         admitted: []
                     },
                     {
+                        covers,
                         sections: [section("s", TurnShownContent.inline(encoder.encode("s")))],
                         catalog: [],
                         admitted: [stray]
@@ -450,6 +455,7 @@ describe("Turn model input", () => {
                     }
                 }
                 const exchange = await context.model.call({
+                    covers,
                     sections: [section("s", TurnShownContent.inline(encoder.encode("s")))],
                     catalog: [context.operations[0]!],
                     admitted: []
@@ -511,7 +517,9 @@ describe("Turn model input", () => {
             }
             let exchange: TurnModelExchange | undefined;
             const executor = new FunctionExecutor(async (context) => {
+                const covers = await context.modelInput.accountable();
                 exchange = await context.model.call({
+                    covers,
                     sections: [section("s", TurnShownContent.inline(encoder.encode("s")))],
                     catalog: [],
                     admitted: [admitted]
@@ -560,8 +568,10 @@ describe("Turn model input", () => {
             base.faults.arm(fault);
             let refusal: AgentCoreError | undefined;
             const executor = new FunctionExecutor(async (context) => {
+                const covers = await context.modelInput.accountable();
                 try {
                     await context.model.call({
+                        covers,
                         sections: [section("s", TurnShownContent.inline(encoder.encode("s")))],
                         catalog: [],
                         admitted: []
@@ -594,6 +604,7 @@ describe("Turn model input", () => {
         async () => {
             const base = await fixture();
             const executor = new FunctionExecutor(async (context) => {
+                const covers = await context.modelInput.accountable();
                 base.seeded.runtime.reclaimTurn(
                     ids.turn,
                     base.seeded.running.revision,
@@ -604,6 +615,7 @@ describe("Turn model input", () => {
                 );
                 await expect(
                     context.model.call({
+                        covers,
                         sections: [section("s", TurnShownContent.inline(encoder.encode("s")))],
                         catalog: [],
                         admitted: []
@@ -635,7 +647,9 @@ describe("Turn model input", () => {
                 )
             );
             const executor = new FunctionExecutor(async (context) => {
+                const covers = await context.modelInput.accountable();
                 const exchange = await context.model.call({
+                    covers,
                     sections: [section("s", TurnShownContent.inline(encoder.encode("s")))],
                     catalog: [],
                     admitted: []
@@ -664,7 +678,9 @@ describe("Turn model input", () => {
                 )
             );
             const executor = new FunctionExecutor(async (context) => {
+                const covers = await context.modelInput.accountable();
                 const exchange = await context.model.call({
+                    covers,
                     sections: [section("s", TurnShownContent.inline(encoder.encode("s")))],
                     catalog: [],
                     admitted: []
@@ -688,16 +704,17 @@ describe("Turn model input", () => {
         async () => {
             const retried = await fixture();
             retried.faults.arm("unavailable");
-            const draft: TurnModelInputAssembly = {
+            const draft: Omit<TurnModelInputAssembly, "covers"> = {
                 sections: [section("s", TurnShownContent.inline(encoder.encode("s")))],
                 catalog: [],
                 admitted: []
             };
             const attempts: RunCommitId[] = [];
             const executor = new FunctionExecutor(async (context) => {
+                const covers = await context.modelInput.accountable();
                 for (let attempt = 0; attempt < 2; attempt += 1) {
                     try {
-                        const exchange = await context.model.call(draft);
+                        const exchange = await context.model.call({ ...draft, covers });
                         attempts.push(exchange.input);
                         return context.outcome.succeed(
                             resultCommit(context, "retried-result", exchange.input, retried.output)
@@ -724,9 +741,10 @@ describe("Turn model input", () => {
             const exhausted = await fixture();
             exhausted.faults.arm("unavailable", "unavailable");
             const giveUp = new FunctionExecutor(async (context) => {
+                const covers = await context.modelInput.accountable();
                 for (let attempt = 0; attempt < 2; attempt += 1) {
                     try {
-                        await context.model.call(draft);
+                        await context.model.call({ ...draft, covers });
                     } catch {
                         continue;
                     }
@@ -758,7 +776,9 @@ describe("Turn model input", () => {
             );
             let exchange: TurnModelExchange | undefined;
             const executor = new FunctionExecutor(async (context) => {
+                const covers = await context.modelInput.accountable();
                 exchange = await context.model.call({
+                    covers,
                     sections: [section("retained", TurnShownContent.reference(sectionRef))],
                     catalog: [],
                     admitted: [admitted]
@@ -802,8 +822,12 @@ describe("Turn model input", () => {
             const kept = (await base.content.put(encoder.encode("kept"))).ref;
             const lost = (await base.content.put(encoder.encode("lost"))).ref;
             let exchange: TurnModelExchange | undefined;
+            let observed: readonly RunCommitId[] = [];
             const executor = new FunctionExecutor(async (context) => {
+                const covers = await context.modelInput.accountable();
+                observed = covers;
                 exchange = await context.model.call({
+                    covers,
                     sections: [
                         section("kept", TurnShownContent.reference(kept)),
                         section("lost", TurnShownContent.reference(lost))
@@ -834,6 +858,7 @@ describe("Turn model input", () => {
                 turnModelRequestBytes({
                     input: exchange!.input,
                     baseCommit: ids.root,
+                    covers: observed,
                     sections: [
                         {
                             name: new TurnPromptSectionName("kept"),
@@ -859,7 +884,9 @@ describe("Turn model input", () => {
             const wholeRef = (await base.content.put(whole)).ref;
             let exchange: TurnModelExchange | undefined;
             const executor = new FunctionExecutor(async (context) => {
+                const covers = await context.modelInput.accountable();
                 exchange = await context.model.call({
+                    covers,
                     sections: [
                         section(
                             "result",
@@ -931,6 +958,7 @@ describe("Turn model input", () => {
         () => {
             const whole = encoder.encode("0123456789");
             const abridgedComplete = new TurnModelInput({
+                covers: [],
                 sections: [
                     section(
                         "result",
@@ -943,6 +971,7 @@ describe("Turn model input", () => {
                 admissionCut: 0
             });
             const incompleteShownWhole = new TurnModelInput({
+                covers: [],
                 sections: [section("result", TurnShownContent.inline(whole.slice(0, 4)))],
                 catalog: [],
                 admitted: [],
@@ -967,6 +996,7 @@ describe("Turn model input", () => {
         { tags: "p1" },
         () => {
             const record = new TurnModelInput({
+                covers: [],
                 sections: [
                     section("system", TurnShownContent.inline(encoder.encode("rules"))),
                     section(

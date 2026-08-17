@@ -11,6 +11,29 @@ import type { RunCommit } from "./commit";
 export type RunCommitLoader = (id: RunCommitId) => RunCommit | undefined;
 
 /**
+ * Which commit a branch head is current at: an undo marker answers with its selection,
+ * every other head with itself. It sits beside the transcript derivation because every
+ * caller that asks what a model reads MUST resolve the head first — §5.6 assembles from
+ * the effective state and not from the raw head, which may be an undo marker.
+ */
+export function effectiveCommitOf(load: RunCommitLoader, head: RunCommitId): RunCommit {
+    const commit = load(head);
+    if (commit === undefined) {
+        throw new AgentCoreError("codec.invalid", `Run commit ${head.value} does not exist`);
+    }
+    if (commit.kind !== "undo") return commit;
+    const selects = commit.selects;
+    if (selects === undefined) {
+        throw new AgentCoreError("run.invalid-state", "Undo commit names no selection");
+    }
+    const selected = load(selects);
+    if (selected === undefined) {
+        throw new AgentCoreError("codec.invalid", `Run commit ${selects.value} does not exist`);
+    }
+    return selected;
+}
+
+/**
  * The ancestors of `base` including itself, every parent before its child, and a merge's
  * first-parent ancestry before the commits only its second parent reaches. Parent order is
  * recorded, so this order is a property of the graph rather than of the walk.
