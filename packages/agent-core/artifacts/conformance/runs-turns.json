@@ -823,7 +823,7 @@
       "id": "C13-TURN-FACET-SET-STABLE",
       "owner": "W5",
       "specAnchor": "C13-TURN-FACET-SET-STABLE",
-      "specTextSha256": "PENDING",
+      "specTextSha256": "sha256:f4fd92563d6daac61c9453dedac7af14f32161d99c51726a6206f2544dfa983f",
       "status": "planned",
       "prerequisites": ["C13-FACET-WITHDRAWAL-EXACT"],
       "sourceSymbols": [],
