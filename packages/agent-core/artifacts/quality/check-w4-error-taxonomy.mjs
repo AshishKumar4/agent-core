@@ -1,7 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import ts from "typescript";
+import * as ts from "typescript/unstable/ast";
+import { SymbolFlags } from "typescript/unstable/sync";
+import { configuredProject } from "../../scripts/quality/compiler.mjs";
 
 const qualityRoot = fileURLToPath(new URL(".", import.meta.url));
 const packageRoot = resolve(qualityRoot, "../..");
@@ -12,12 +14,9 @@ if (process.env.W4_TAXONOMY_FIXTURE !== undefined) {
     files.push(resolve(packageRoot, process.env.W4_TAXONOMY_FIXTURE));
 }
 
-const config = ts.readConfigFile(resolve(packageRoot, "tsconfig.json"), ts.sys.readFile);
-if (config.error)
-    throw new TypeError(ts.flattenDiagnosticMessageText(config.error.messageText, "\n"));
-const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, packageRoot);
-const program = ts.createProgram(parsed.fileNames, parsed.options);
-const checker = program.getTypeChecker();
+const project = configuredProject(resolve(packageRoot, "tsconfig.json"));
+const program = project.program;
+const checker = project.checker;
 const allowedTypeErrors = new Set(evidence.allowedTypeErrorSites);
 const allowedRethrows = new Set(evidence.allowedPreservedRethrows);
 const seenTypeErrors = new Set();
@@ -74,7 +73,7 @@ console.log(`Integrated W4 error taxonomy verified: ${JSON.stringify({ ...counts
 
 function visit(node, file, path) {
     if (ts.isThrowStatement(node)) classify(node, file, path);
-    ts.forEachChild(node, (child) => visit(child, file, path));
+    node.forEachChild((child) => visit(child, file, path));
 }
 
 function classify(statement, file, path) {
@@ -148,14 +147,16 @@ function classify(statement, file, path) {
     unclassified.push(`${location} ${expression?.getText(file) ?? "empty throw"}`);
 }
 
+// TypeScript 7 ships the standard library inside its platform package
+// (@typescript/typescript-<platform>/lib), not under `typescript/lib`, so the two files
+// that declare TypeError are named by their own directory rather than by the package
+// that happens to carry them.
 function requireGlobalTypeError(identifier, location) {
     const symbol = checker.getSymbolAtLocation(identifier);
     const declarations = symbol?.declarations ?? [];
     if (
         !declarations.some((declaration) =>
-            /typescript\/lib\/lib\.(?:es5|es2015\.core)\.d\.ts$/u.test(
-                declaration.getSourceFile().fileName.replaceAll("\\", "/")
-            )
+            /\/lib\/lib\.(?:es5|es2015\.core)\.d\.ts$/u.test(declaration.path.replaceAll("\\", "/"))
         )
     ) {
         unclassified.push(`${location} TypeError does not resolve to the TypeScript global`);
@@ -164,13 +165,9 @@ function requireGlobalTypeError(identifier, location) {
 
 function requireSymbolSource(identifier, expected, location) {
     let symbol = checker.getSymbolAtLocation(identifier);
-    if (symbol?.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
+    if (symbol?.flags & SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
     const declarations = symbol?.declarations ?? [];
-    if (
-        !declarations.some(
-            (declaration) => portable(declaration.getSourceFile().fileName) === expected
-        )
-    ) {
+    if (!declarations.some((declaration) => portable(declaration.path) === expected)) {
         unclassified.push(`${location} ${identifier.text} does not resolve to ${expected}`);
     }
 }
@@ -193,13 +190,9 @@ function requireHelperSource(identifier, name, location) {
                   : ["src/substrates/sqlite/materialization.ts"]
               : ["src/definition/error.ts"];
     let symbol = checker.getSymbolAtLocation(identifier);
-    if (symbol?.flags & ts.SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
+    if (symbol?.flags & SymbolFlags.Alias) symbol = checker.getAliasedSymbol(symbol);
     const declarations = symbol?.declarations ?? [];
-    if (
-        !declarations.some((declaration) =>
-            expected.includes(portable(declaration.getSourceFile().fileName))
-        )
-    ) {
+    if (!declarations.some((declaration) => expected.includes(portable(declaration.path)))) {
         unclassified.push(`${location} ${name} does not resolve to ${expected.join(" or ")}`);
     }
 }
