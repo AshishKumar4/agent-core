@@ -67,18 +67,18 @@ test.each(decisionHostLabels)(
         // Actor holds a second copy of the other's.
         expect(committed.authority.ownedRecords()).toEqual([
             {
+                kind: "permitDecision",
                 id: granted.bridged.decision,
                 permit: "atomic-permit",
-                origin: undefined,
                 granted: true
             }
         ]);
         expect(committed.target.ownedRecords()).toEqual([
             {
+                kind: "appliedEffect",
                 id: decodeAppliedEffectReply(write.reply).effect,
                 permit: "atomic-permit",
-                origin: granted.bridged.decision,
-                granted: true
+                origin: granted.bridged.decision
             }
         ]);
 

@@ -87,17 +87,37 @@ export const targetActor = new ActorRef("run", new ActorId("decision-target"));
 export const permitDecisionCommand = "tenant.decidePermit";
 export const applyEffectCommand = "target.applyEffect";
 
-/**
- * One record as its owning Actor holds it. The authority Actor's rows are permit decisions
- * (`origin` absent); the target Actor's rows are applied effects, whose `origin` names the
- * decision that authorized them and is the only trace of the other Actor's record here.
- */
-export interface OwnedRecordView {
+/** The record the Tenant Actor owns. Nothing else can hold a permit decision. */
+export interface PermitDecisionRecord {
+    readonly kind: "permitDecision";
     readonly id: string;
     readonly permit: string;
-    readonly origin: string | undefined;
     readonly granted: boolean;
 }
+
+/**
+ * The record the Run Actor owns. It names the decision that authorized it and CANNOT
+ * represent that decision's answer: there is no `granted` on this shape, so §8.4's "no second
+ * durable copy" is unrepresentable here rather than asserted by a test. That also removes a
+ * constant from the evidence — a `granted: true` written by the fixture could not have failed
+ * under any mutation of the dispatcher, so asserting it witnessed nothing.
+ */
+export interface AppliedEffectRecord {
+    readonly kind: "appliedEffect";
+    readonly id: string;
+    readonly permit: string;
+    readonly origin: string;
+}
+
+/** One record as its owning Actor holds it, discriminated by which Actor owns it. */
+export type OwnedRecord = PermitDecisionRecord | AppliedEffectRecord;
+
+/**
+ * A record before its owning Actor mints the id. Written as an explicit union of omissions
+ * rather than `Omit<OwnedRecord, "id">`, because Omit over a union keeps only the keys both
+ * members share — which would erase the very distinction these two shapes exist to make.
+ */
+export type NewOwnedRecord = Omit<PermitDecisionRecord, "id"> | Omit<AppliedEffectRecord, "id">;
 
 export interface EvidenceView {
     readonly writes: readonly WriteRecord[];
@@ -115,7 +135,7 @@ interface DomainOperations<Transaction> {
     append(
         transaction: Transaction,
         prefix: string,
-        row: Omit<OwnedRecordView, "id">
+        row: NewOwnedRecord
     ): { readonly id: string; readonly revision: Revision };
 }
 
@@ -137,7 +157,7 @@ export interface DecisionPathActor {
 
     accept(raw: Uint8Array, caller: CommandCaller | undefined): Promise<CommandIngressResult>;
     revision(): Revision;
-    ownedRecords(): readonly OwnedRecordView[];
+    ownedRecords(): readonly OwnedRecord[];
     evidence(): EvidenceView;
     /** Replays the whole stored record graph, the way Actor recovery does. */
     verifyRecordGraph(): void;
@@ -224,8 +244,8 @@ class PermitDecisionCommand<Transaction> implements ProtocolCommand<
         payload: PermitDecisionPayload
     ): ProtocolCommandExecution<PermitDecisionReply, BridgedDecision> {
         const appended = this.operations.append(transaction, "decision", {
+            kind: "permitDecision",
             permit: payload.permit,
-            origin: undefined,
             granted: payload.grant
         });
         return {
@@ -289,9 +309,9 @@ class AppliedEffectCommand<Transaction> implements ProtocolCommand<
         payload: AppliedEffectPayload
     ): ProtocolCommandExecution<AppliedEffectReply, never> {
         const appended = this.operations.append(transaction, "effect", {
+            kind: "appliedEffect",
             permit: payload.permit,
-            origin: payload.decision,
-            granted: true
+            origin: payload.decision
         });
         return { outcome: "committed", reply: { effect: appended.id, permit: payload.permit } };
     }
@@ -425,7 +445,7 @@ interface MemoryDomainState {
     open: boolean;
     lifecycle: boolean;
     lease: StoredLease | undefined;
-    rows: OwnedRecordView[];
+    rows: OwnedRecord[];
     records: MemoryProtocolRecords;
     nextId: number;
     fault: FaultBoundary | undefined;
@@ -501,7 +521,7 @@ function memoryDomainRead(transaction: MemoryDomainState): DomainRead {
 const memoryOperations: DomainOperations<MemoryDomainState> = {
     append(transaction, prefix, row) {
         const id = memoryNextId(transaction, prefix);
-        transaction.rows.push({ id, ...row });
+        transaction.rows.push(row.kind === "permitDecision" ? { ...row, id } : { ...row, id });
         transaction.revision = transaction.revision.next();
         failAt(transaction.fault, "mutation");
         return { id, revision: transaction.revision };
@@ -572,7 +592,7 @@ class MemoryDecisionActor implements DecisionPathActor {
         return this.state().revision;
     }
 
-    public ownedRecords(): readonly OwnedRecordView[] {
+    public ownedRecords(): readonly OwnedRecord[] {
         return this.state().rows.map((row) => ({ ...row }));
     }
 
@@ -677,7 +697,13 @@ const sqliteOperations: DomainOperations<TransactionalSqlite> = {
         transaction.run(
             `INSERT INTO decision_owned_records (id, ordinal, permit, origin, granted)
              VALUES (?, ?, ?, ?, ?)`,
-            [id, ordinal, row.permit, row.origin ?? null, row.granted ? 1 : 0]
+            [
+                id,
+                ordinal,
+                row.permit,
+                row.kind === "appliedEffect" ? row.origin : null,
+                row.kind === "permitDecision" && row.granted ? 1 : 0
+            ]
         );
         const revision = sqliteRevision(transaction).next();
         transaction.run(`UPDATE decision_domain SET revision = ? WHERE singleton = 1`, [
@@ -813,18 +839,28 @@ class SqliteDecisionActor implements DecisionPathActor {
         return sqliteRevision(this.#database);
     }
 
-    public ownedRecords(): readonly OwnedRecordView[] {
+    public ownedRecords(): readonly OwnedRecord[] {
         return this.#database
             .all(
                 `SELECT id, permit, origin, granted FROM decision_owned_records ORDER BY ordinal`,
                 []
             )
-            .map((row) => ({
-                id: textColumn(row, "id"),
-                permit: textColumn(row, "permit"),
-                origin: textColumnOrUndefined(row, "origin"),
-                granted: integerColumn(row, "granted") === 1
-            }));
+            .map((row) => {
+                const id = textColumn(row, "id");
+                const permit = textColumn(row, "permit");
+                const origin = textColumnOrUndefined(row, "origin");
+                // An applied effect is the row that names its authorizing decision; a permit
+                // decision names none. Presence decides the shape, so neither Actor's rows can
+                // decode into the other's.
+                return origin === undefined
+                    ? {
+                          kind: "permitDecision" as const,
+                          id,
+                          permit,
+                          granted: integerColumn(row, "granted") === 1
+                      }
+                    : { kind: "appliedEffect" as const, id, permit, origin };
+            });
     }
 
     public evidence(): EvidenceView {
