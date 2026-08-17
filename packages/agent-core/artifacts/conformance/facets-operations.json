@@ -312,10 +312,7 @@
       "specAnchor": "C13-FACET-START-ATOMIC",
       "specTextSha256": "sha256:2abf749e076815e9f28e7e30e36c13c276c9f3cda45889fad5d168c244e0fa7b",
       "status": "planned",
-      "prerequisites": [
-        "C13-FACET-CONTRIBUTION-ATTRIBUTION",
-        "C13-FACET-WITHDRAWAL-EXACT"
-      ],
+      "prerequisites": ["C13-FACET-CONTRIBUTION-ATTRIBUTION", "C13-FACET-WITHDRAWAL-EXACT"],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
@@ -332,9 +329,7 @@
       "specAnchor": "C13-FACET-WITHDRAWAL-DRAIN",
       "specTextSha256": "sha256:af3140ee57811ba0d8bfed689e392a2d298d2f56a06070bf9c19694f1c2437dc",
       "status": "planned",
-      "prerequisites": [
-        "C13-FACET-WITHDRAWAL-EXACT"
-      ],
+      "prerequisites": ["C13-FACET-WITHDRAWAL-EXACT"],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
@@ -351,9 +346,7 @@
       "specAnchor": "C13-FACET-WITHDRAWAL-EXACT",
       "specTextSha256": "sha256:e4ad430bb9d9e8d03e69b14dbaaab97c41c051c0cc78518174a2cb097e48775d",
       "status": "planned",
-      "prerequisites": [
-        "C13-FACET-CONTRIBUTION-ATTRIBUTION"
-      ],
+      "prerequisites": ["C13-FACET-CONTRIBUTION-ATTRIBUTION"],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
