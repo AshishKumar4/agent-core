@@ -281,6 +281,24 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-RUN-CEILING-COST",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-CEILING-COST",
+      "specTextSha256": "PENDING",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "RESOURCE_DIMENSIONS in src/agents/runs/ceiling.ts is frozen at depth, tokens, and wallClockMs, and its comment still asserts the SPEC names exactly three dimensions. Closure requires costMicros in that tuple, in ResourceCeiling.fromData's exact-field set, and in the ceiling codec, with the comment corrected",
+        "A Run keeps no cost total: src/agents/runs/run.ts#Run.recordTokens and Run.tokensConsumed are the only running total, and src/agents/runs/runtime.ts#RunRuntime.recordModelTokensInTransaction is its only commit point. Closure requires a durable realized-cost total advanced in that same transaction and a Run codec major that carries it",
+        "Nothing supplies a realized cost. The §5.6 executor seam reports token usage only, so closure requires the seam to carry a cost the host records verbatim, plus rejection of any path that derives cost from a rate table instead of recording what the call incurred",
+        "The one-currency rule has no enforcement point. Closure requires the recording path to reject a realized cost whose currency differs from the one already recorded for the Run lineage, and an adversarial case proving a mixed-currency lineage cannot narrow a ceiling",
+        "src/agents/runs/ceiling.ts#exhaustedResource must name costMicros only when that dimension has no allowance left, extending the existing C13-RUN-CEILING-EXHAUSTION check rather than adding a second exhaustion path"
+      ]
+    },
+    {
       "id": "C13-RUN-CEILING-EXHAUSTION",
       "owner": "W5",
       "specAnchor": "C13-RUN-CEILING-EXHAUSTION",

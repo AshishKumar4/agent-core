@@ -2635,6 +2635,34 @@
       ]
     },
     {
+      "id": "C13-RECEIPT-FAILURE-KIND",
+      "owner": "W6",
+      "specAnchor": "C13-RECEIPT-FAILURE-KIND",
+      "specTextSha256": "PENDING",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RECEIPT-FAILURE-ORTHOGONAL",
+      "owner": "W6",
+      "specAnchor": "C13-RECEIPT-FAILURE-ORTHOGONAL",
+      "specTextSha256": "PENDING",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-RECEIPT-ID-NAMESPACE",
       "owner": "W6",
       "specAnchor": "C13-RECEIPT-ID-NAMESPACE",
@@ -2863,6 +2891,20 @@
       "owner": "W5",
       "specAnchor": "C13-RUN-BINARY-TREE-MERGE",
       "specTextSha256": "sha256:583f2fb0b43d4010576a17004d455ad65ea68ff7e685b432b579305933a5a113",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-CEILING-COST",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-CEILING-COST",
+      "specTextSha256": "PENDING",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],

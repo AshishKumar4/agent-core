@@ -1086,6 +1086,41 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-RECEIPT-FAILURE-KIND",
+      "owner": "W6",
+      "specAnchor": "C13-RECEIPT-FAILURE-KIND",
+      "specTextSha256": "PENDING",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "AttemptReceipt carries no failure field: src/invocations/receipt.ts#requireAttemptReceipt admits only id, attempt, outcome, previous, and result. Closure requires a closed AttemptFailureKind, its versioned Receipt codec, and rejection of a failed Receipt naming no kind or a non-failed Receipt naming one",
+        "Every kind is an AgentCoreError throw rather than a recorded outcome today: src/errors.ts#AgentCoreErrorCode spreads the distinction across operation.invalid-output, actor.closed, facet.inactive, lease.invalid, and turn.invalid-state, and names nothing for an elapsed bound. Closure requires the mediated pipeline to classify at the seam that observes each kind instead of propagating the throw",
+        "outputInvalid has a producer only inside one profile wire path: src/facets/profile-runtime/runtime.ts validates a resolved value against contract.descriptor.output and throws operation.invalid-output. Closure requires that verdict to reach the attempted Receipt for every Operation, not only profile-hosted ones",
+        "deadline has no producer at all. Closure requires a host-set bound on a claimed attempt whose elapse is distinguishable from ItemClaim expiry recovery, because an expired claim with an existing EffectAttempt already follows Receipt reconciliation",
+        "The adversarial case must prove an invoked Operation cannot author any kind but raised, matching the §7.1 rule that a classification the callee supplies never lowers what the host derives"
+      ]
+    },
+    {
+      "id": "C13-RECEIPT-FAILURE-ORTHOGONAL",
+      "owner": "W6",
+      "specAnchor": "C13-RECEIPT-FAILURE-ORTHOGONAL",
+      "specTextSha256": "PENDING",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "No behaviour may change when a kind is recorded. Closure requires src/invocations/outcome.ts#deriveBatchOutcome, the supersession lineage in src/invocations/receipt.ts, and the next-ordinal rule to be shown reading outcome alone and never the failure field",
+        "The indeterminate boundary is unenforced because no kind exists yet. Closure requires a negative case proving a host holding an unknown result records indeterminate with no kind, and that the superseding final Receipt from reconciliation is the first record permitted to name one",
+        "PreEffectReceipt must remain the sole evidence that no effect was attempted. Closure requires the Receipt codec and both persistence layers to reject a pre-effect Receipt carrying a failure kind",
+        "Admission independence has no enforcement point: no §3.4 rule 7 comparison input is derived from Receipt state today, so closure requires a check proving the failure field is absent from every admission input rather than merely unread"
+      ]
+    },
+    {
       "id": "C13-RECEIPT-ID-NAMESPACE",
       "owner": "W6",
       "specAnchor": "C13-RECEIPT-ID-NAMESPACE",
