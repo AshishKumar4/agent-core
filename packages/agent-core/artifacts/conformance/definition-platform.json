@@ -152,7 +152,9 @@
         "src/definition/package.ts#PackageDependency",
         "src/definition/package.ts#PackageRelease",
         "src/definition/resolver.ts#resolvePackageLock",
-        "src/definition/validator.ts#ValidatedBlueprint.requirePinnedClosure"
+        "src/definition/resolver.ts#search",
+        "src/definition/validator.ts#ValidatedBlueprint.requirePinnedClosure",
+        "src/definition/validator.ts#exactLockedReleases"
       ],
       "testSelectors": [
         "test/definition/package-dependency.test.ts#§9.1 declared Package dependencies [C13-PACKAGE-DEPENDENCY-DECLARED] admits exactly the declared closure as a pinned closure and names each divergence",
