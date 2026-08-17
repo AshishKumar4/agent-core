@@ -1,7 +1,7 @@
 {
     "edition": "1.0.0",
-    "commit": "748bbc26961cb3be025b5547746689738bd99309",
-    "dirtySources": false,
+    "commit": "f94ec1d896ac4841896237c06c31fb63c4261584",
+    "dirtySources": true,
     "accountId": "f44999d1ddda7012e9a87729eba250f1",
     "worker": "agent-core-live-harness",
     "bucket": "agent-core-live-evidence",
@@ -9,34 +9,34 @@
     "deployments": [
         {
             "url": "https://agent-core-live-harness.ashishkmr472.workers.dev",
-            "versionId": "ff52e00d-7f8f-4ca4-9997-2d35232a7e0b",
-            "at": "2026-08-09T07:11:52.864Z"
+            "versionId": "eae4038b-4588-4253-ad4b-6846dde23e8b",
+            "at": "2026-08-17T14:56:49.222Z"
         },
         {
             "url": "https://agent-core-live-harness.ashishkmr472.workers.dev",
-            "versionId": "55a2e65b-29be-48e1-832a-8f4a80c68c10",
-            "at": "2026-08-09T07:14:30.471Z"
+            "versionId": "c98a213d-b9ac-4f56-abb4-138b58636318",
+            "at": "2026-08-17T14:58:36.088Z"
         }
     ],
     "sourceFingerprints": {
-        "packages/agent-core-cloudflare/src/alarm-claims.ts": "7f6efa5baf64c401af73dd4536cd6e620e33c53b8b2f3651306b099199acbbcc",
-        "packages/agent-core-cloudflare/src/durable-object.ts": "106136ac3b25e0ae780fe66b2732b2edd97fd8c9b6486b6b7dc36eb9d7983778",
-        "packages/agent-core-cloudflare/src/environment-provider.ts": "76916fc11b06f1a0e2227cfb0fd2bd075d4a2b5d04f10d72eab7c673cc2f89f4",
-        "packages/agent-core-cloudflare/src/queue.ts": "afa718786995ddd9b2e8b17dab8e2810550455d982940a6b06f05ebf77b63087",
-        "packages/agent-core-cloudflare/src/reconciliation.ts": "f47f858f3adaa603d8fe21dfe792359f5cec8c0f5de292ed4e5a8a2418328c48",
-        "packages/agent-core-cloudflare/src/revision-log.ts": "17f8b639dbb260f8ec9e0c296022c38af1751235d2f397fd00278b0c93d279c5",
-        "packages/agent-core-cloudflare/src/slate-provider.ts": "dc3f08092ec27784d2272fd803799585cdfb54bcfb476b4c111ffb7ccf19b415",
-        "packages/agent-core-cloudflare/src/websocket.ts": "e0d220da84c25b0546e3e44946c506a6cc8302b050445f321aa723f9778c6986",
-        "packages/agent-core-cloudflare/live/protocol.ts": "6d5932001fc7c23806a34dc6e2438a0ce81faf01765447864689c691b25961a5",
-        "packages/agent-core-cloudflare/live/runtime-harness.ts": "4e1e2de38486d8ea234654d589d9456352483302f1f15104f1a334850bd0e2b7",
-        "packages/agent-core-cloudflare/live/worker.ts": "fbc164d3e371177393c5e3035ce9cd85f18cf38135900798f0d7f15f754a184c",
+        "packages/agent-core-cloudflare/src/alarm-claims.ts": "785e50f78860d7d3d6f2ac9cc7a3661e0d05845b867d4dc5d1e839767765c304",
+        "packages/agent-core-cloudflare/src/durable-object.ts": "fe7e83c011ce359611e41307e5fd6e7fba0fa25d5117ae57054a26e38382fff3",
+        "packages/agent-core-cloudflare/src/environment-provider.ts": "990e5880059d6d48b44ef03d0422d0abce0511d7e47b1494407cf4b8390debbc",
+        "packages/agent-core-cloudflare/src/queue.ts": "9029700de8d07b1f9c98af82f28344b444410ff250988a07e8d2ab473b3a963e",
+        "packages/agent-core-cloudflare/src/reconciliation.ts": "a4f4d2ba8db74079c06a0c31444c484face37bd6092e02c971de6fc59f96523e",
+        "packages/agent-core-cloudflare/src/revision-log.ts": "448b747f2a1f6919fe12db272dc0b29ab3e851033e6736e599ff54ed29fbd64d",
+        "packages/agent-core-cloudflare/src/slate-provider.ts": "1383abc1d92fecbb9ee66a689fae236d366ea07c981d9d1ddcb29444db9e053a",
+        "packages/agent-core-cloudflare/src/websocket.ts": "a04409ed3605069491b36ef4b2ee633017639cc70c8f50d1318e07c77e886b05",
+        "packages/agent-core-cloudflare/live/protocol.ts": "a39f6f61c7dabc4fa7fdcd29c85cdef2256e2cfc2773955c89f4dacf37e1f22e",
+        "packages/agent-core-cloudflare/live/runtime-harness.ts": "c766fcc188a9dcc35e32fb0add4af20f7626b5ca0fbf21cd5a9a53e5fd346e58",
+        "packages/agent-core-cloudflare/live/worker.ts": "375ef0d2e62fee9170c4802b93e05addb08cfe18def5ca143dadeb849513258f",
         "packages/agent-core-cloudflare/live/wrangler.live.jsonc": "df87c58f6504b406791016bf938144fca9225e415bbc1ce3863e778d3ec72af8",
-        "packages/agent-core-cloudflare/test/live/harness.ts": "5350c6d1464efc8d4445d0bb24360b1f901f049f8faa341b771bde85da1d09ba",
-        "packages/agent-core-cloudflare/test/live/phase-1.test.ts": "610134135c22afa3200a88b5fdd764263a2d5f273f45d75fdcf31c2ce0430a86",
-        "packages/agent-core-cloudflare/test/live/phase-2.test.ts": "a6f4630572684a703aab8853a38cdaacb9373dc87cd6d21de1148464079e5f1d"
+        "packages/agent-core-cloudflare/test/live/harness.ts": "c12f183db0e5bec747108cb80e44a88168cc79abd7800c93e89a4ed1eae648b4",
+        "packages/agent-core-cloudflare/test/live/phase-1.test.ts": "7b5a38c4963f23b47dad9f8f3fdf7b4838488e8eb7e25a438d7d2e5081324f29",
+        "packages/agent-core-cloudflare/test/live/phase-2.test.ts": "9c1f75f5b28c80e9b14398cce4e603bb256c758c747a8fa0b620f3524983734d"
     },
     "reports": {
-        "phase-1.vitest.json": "29d1c821b6014c036721ef06ff484a2000d0e874a2d84188e860f95496c876c8",
-        "phase-2.vitest.json": "1e614d82c224af9aeb40a781398ec27deaff9bb97c1e4c28dfa84a75984d0774"
+        "phase-1.vitest.json": "4de1897227569dd4417d54b443c1debcd343be51e7b6d83d2ef0c1ec17d930be",
+        "phase-2.vitest.json": "e41403f10f3bf4eb71c4551b210ef1133db959c1734b9f9360661eb5192b1044"
     }
 }

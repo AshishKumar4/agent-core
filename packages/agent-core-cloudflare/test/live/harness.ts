@@ -242,7 +242,10 @@ function decodeEventList(value: JsonValue): LiveEventList {
             return {
                 ordinal: liveData.safeInteger(event["ordinal"], "Live event ordinal"),
                 kind: liveData.nonemptyString(event["kind"], "Live event kind"),
-                subject: liveData.nonemptyString(event["subject"], "Live event subject"),
+                // An object-wide event has no subject: the worker records alarm.fired with
+                // an empty one on purpose. Demanding nonempty here rejected every alarm
+                // scenario the moment the decoder was tightened.
+                subject: liveData.string(event["subject"], "Live event subject"),
                 at: liveData.safeInteger(event["at"], "Live event time"),
                 detail: liveData.safeInteger(event["detail"], "Live event detail")
             };

@@ -103,11 +103,13 @@ export class AlarmOutboxReconciler {
         );
         requireOutputTime(actual, "Physical alarm time", this.errors);
         if (expected === null) {
-            if (actual !== null) {
-                await this.operation("Physical alarm deletion failed", () =>
-                    this.alarms.deleteAlarm()
-                );
-            }
+            // A drained outbox means this driver holds no claim, whatever the alarm reads
+            // as. Gating the release on a non-null read left the claim behind once the
+            // platform had consumed the alarm, and the object then reported a claim for
+            // work that no longer existed. Release is idempotent.
+            await this.operation("Physical alarm deletion failed", () =>
+                this.alarms.deleteAlarm()
+            );
             return;
         }
         const scheduledAt = Math.max(expected, notBefore);

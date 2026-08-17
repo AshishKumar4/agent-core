@@ -497,9 +497,16 @@ describe("live Cloudflare platform-semantics evidence", () => {
         const finished = await awaitEvent("alarm-sweep", "reconcile.finished", "due-now");
         expect(finished.at).toBeGreaterThanOrEqual(enqueued.scheduledAt);
 
-        const settled = resultOf(
-            await call("runtime", "alarm-sweep", "outbox", {}, decodeLiveOutboxState)
-        );
+        // reconcile.finished is recorded inside the reconciliation callback, before the
+        // sweep acknowledges the entry and repairs the alarm, and §10.4 has reconciliation
+        // run with the object's input gate open. So this read can land mid-sweep, and the
+        // property is that the sweep converges on a drained outbox with no claim held.
+        const settled = await poll("drained outbox on alarm-sweep", async () => {
+            const state = resultOf(
+                await call("runtime", "alarm-sweep", "outbox", {}, decodeLiveOutboxState)
+            );
+            return state.entries.length === 0 && state.claims.length === 0 ? state : undefined;
+        });
         expect(settled).toEqual({
             entries: [],
             nextDueAt: null,
