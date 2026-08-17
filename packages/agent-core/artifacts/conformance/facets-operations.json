@@ -143,6 +143,23 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-FACET-CONTRIBUTION-ATTRIBUTION",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-CONTRIBUTION-ATTRIBUTION",
+      "specTextSha256": "sha256:58191a49e4860cb670fc1745d972e921dc0382112445bac4fd752a94fb689e78",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The contributor half exists for slot entries only: src/facets/slot-entry.ts#SlotEntry already carries `contributor: FacetRef` and derives its SlotEntryId from (slot, contributor, ordinal, value). Adding `package: PackagePin` changes that identity digest, so it requires a facet.slot-entry codec major past 2, decode rejection of an entry carrying no pin, and restore round-trips through MemoryWorkspaceSlotStore and the SQLite Workspace slot store",
+        "The other record kinds this rule names are unattributed today: catalog entries, derived Subscriptions, Surface registrations, prompt sections, ingress endpoints, and merged settings fragments carry neither a contributor nor a PackagePin. src/definition/materialization-kind.ts#validateSlotEntry admits exactly the keys contributor/index/slot/value, so the materializer's desired-state shape has to gain the pin before any of those kinds can be attributed",
+        "Same-transaction writing and lifetime immutability need discriminating evidence per kind. Slot entries are already immutable by encode-compare in both stores, but a record of another kind written without attribution must be rejected rather than accepted and backfilled, and rewriting a materialized record's contributor or pin must fail",
+        "Totality is the load-bearing claim and needs a negative test: a host that cannot attribute a contribution must refuse to materialize it, so that the withdrawal set of C13-FACET-WITHDRAWAL-EXACT is computable for every installed Facet by construction rather than by convention"
+      ]
+    },
+    {
       "id": "C13-FACET-CONTRIBUTION-MATERIALIZATION",
       "owner": "W3",
       "specAnchor": "C13-FACET-CONTRIBUTION-MATERIALIZATION",
@@ -268,6 +285,66 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
+    },
+    {
+      "id": "C13-FACET-START-ATOMIC",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-START-ATOMIC",
+      "specTextSha256": "sha256:2abf749e076815e9f28e7e30e36c13c276c9f3cda45889fad5d168c244e0fa7b",
+      "status": "planned",
+      "prerequisites": [
+        "C13-FACET-CONTRIBUTION-ATTRIBUTION",
+        "C13-FACET-WITHDRAWAL-EXACT"
+      ],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "§4.1 previously stated only that `start` is idempotent, and §13's NC-FACET-MANIFEST-RUNTIME records that facet loading is not modeled, so partial activation has neither an implementation nor a formal witness. Verification requires an activation path that materializes into records the host can retire whole",
+        "The discriminating case is a Facet whose `start` materializes some contributions and then throws: every record attributed to it must be absent afterwards, byte-compared against the Scope's records captured before the attempt, and the outcome must be a typed failed install rather than a live or half-live Facet",
+        "Retirement of a partial activation reuses the attributed withdrawal set, so this atom cannot be verified before its two prerequisites are; it has no independent retirement path and must not grow one",
+        "The no-retry clause needs adversarial coverage: retrying activation against a Scope whose prior partial effect was not retired must be refused, and a failed Facet must be shown to obstruct neither another Facet's activation nor another Facet's withdrawal"
+      ]
+    },
+    {
+      "id": "C13-FACET-WITHDRAWAL-DRAIN",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-WITHDRAWAL-DRAIN",
+      "specTextSha256": "sha256:af3140ee57811ba0d8bfed689e392a2d298d2f56a06070bf9c19694f1c2437dc",
+      "status": "planned",
+      "prerequisites": [
+        "C13-FACET-WITHDRAWAL-EXACT"
+      ],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "No drain exists because no withdrawal exists. Verification requires the withdrawal transaction to durably capture the finite set of admitted Invocation items whose PreparedInvocationHeader.target names the Facet, and to refuse completion while any captured item lacks a terminal current Receipt",
+        "Admission closure needs adversarial evidence on both sides: an Invocation prepared against the withdrawing Facet after the withdrawal transaction must be refused, and an item admitted before it must still settle against its frozen intent, placement, and Package pin across restart rather than against whatever later occupies that FacetRef",
+        "The reservation split must be shown exhaustive: a RouteReservation that reached preparation drains as one of these Invocation items, one the target has not admitted takes the terminal rejected RouteDelivery the withdrawal set requires, and no reservation falls in neither case. That half needs ownership-correct integration evidence with the W7 routing surface, which owns RouteDelivery",
+        "The prohibition is the part a passing test can hide: a host that reports a withdrawal complete by discarding, synthesizing, or shortcutting a draining item's Receipt must fail, and a mutation removing the drain gate must break a cited test rather than merely change timing"
+      ]
+    },
+    {
+      "id": "C13-FACET-WITHDRAWAL-EXACT",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-WITHDRAWAL-EXACT",
+      "specTextSha256": "sha256:e4ad430bb9d9e8d03e69b14dbaaab97c41c051c0cc78518174a2cb097e48775d",
+      "status": "planned",
+      "prerequisites": [
+        "C13-FACET-CONTRIBUTION-ATTRIBUTION"
+      ],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "There is no withdrawal Operation in the runtime and no retirement path in the stores: src/facets/slot-memory.ts and src/substrates/sqlite/slot.ts expose insertSlot and insertEntry with immutable-entry enforcement and nothing that removes either. Verification requires an `administer` Operation whose control transaction retires the computed set, plus store-level retirement in the Memory and SQLite Workspace slot stores with snapshot and reopen round-trips",
+        "Exactness needs a two-contributor discriminating case: a Facet whose install materialized records under two PackagePins alongside a second Facet contributing into the same slots, where the withdrawal retires exactly the first Facet's records and leaves every record attributed to the second byte-identical. A withdrawal computed from anything other than attribution must fail that comparison",
+        "The authority half is entirely unbuilt: nothing retires a Binding naming a withdrawn FacetRef or a Grant whose capability names only the withdrawn Facet's Operations, and the Scope epoch advance those retirements must share with the Binding mutation transaction (§3.4 rule 5, C13-OWNERSHIP-AUTHORITY-RECORDS) has no withdrawal trigger to attach to",
+        "The Subscription liveness closure cannot be evidenced at the slot layer: it requires that no reservation be appended against a retired Subscription after the withdrawal transaction, and that every reservation already appended and not yet prepared reach a terminal rejected RouteDelivery written by the owning Actor. RouteDelivery belongs to the W7 routing surface, so this needs ownership-correct integration evidence rather than a W3 unit test",
+        "Both refusal cases need adversarial coverage with no partial effect: a withdrawal whose set the host cannot compute, and a withdrawal whose set holds a Slot declaration carrying an entry attributed to a Facet the same reconciliation retains, must each be refused atomically with every record left unchanged",
+        "Content retention needs a counterfactual rather than an assertion: retiring an attributed record that names a ContentRef must leave that content resolvable while any retained record still names it, and must never release a ContentRef a RunCommit or an admitted inbox Event names, so that C13-TURN-MODEL-INPUT-RECONSTRUCTABLE survives a withdrawal"
+      ]
     },
     {
       "id": "C13-INTERCEPTOR-ATTRIBUTION",
