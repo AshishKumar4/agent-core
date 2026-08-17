@@ -133,6 +133,29 @@ theorem deny_overrides {ledger : AuthorityLedger} {principal header target}
   obtain ⟨_, _, _, _, _, _, _, _, _, _, noDeny⟩ := authorized
   exact noDeny denied
 
+/-- The four parameters of one authority decision, bundled so the rule can be stated as a
+    property of a single subject. `deny_overrides` proves the same fact over the loose
+    parameters; this record adds no content and exists so the decision is nameable. -/
+structure Question where
+  ledger : AuthorityLedger
+  principal : PrincipalRef
+  header : InvocationHeader
+  target : Scope
+
+/-- A live matching deny-Grant reaches the target on the ordered path. -/
+def Question.Denied (question : Question) : Prop :=
+  question.ledger.Denied question.principal question.target question.header.permission
+
+/-- Effective authority exists for the question's operation at its target. -/
+def Question.Authorized (question : Question) : Prop :=
+  question.ledger.Authorized question.principal question.header question.target
+
+/-- **Deny overrides, as a property of one authority question.** A restatement of
+    `deny_overrides` over `Question`; no new content. -/
+theorem denied_question_is_unauthorized {question : Question} (denied : question.Denied) :
+    ¬ question.Authorized :=
+  deny_overrides denied
+
 theorem authorized_binding_matches_operation_facet {ledger : AuthorityLedger}
     {principal header target} (authorized : ledger.Authorized principal header target) :
     ∃ binding, ledger.bindings header.binding = some binding ∧

@@ -760,6 +760,29 @@ theorem cross_domain_interception_rejected {granted : FacetId → OperationId �
     ¬ MayIntercept granted domainOf site contribution :=
   fun may => foreignDomain may.1
 
+/-- The four parameters of one interception decision, bundled so the rule can be stated as
+    a property of a single subject. `cross_domain_interception_rejected` proves the same
+    fact over the loose parameters; this record adds no content. -/
+structure InterceptionQuestion where
+  granted : FacetId → OperationId → Prop
+  domainOf : FacetId → ProtectionDomain
+  site : InterceptionSite
+  contribution : InterceptorContribution
+
+/-- The contribution's Facet lives in a different protection domain from the site. -/
+def InterceptionQuestion.Foreign (question : InterceptionQuestion) : Prop :=
+  question.domainOf question.contribution.interceptor.facet ≠ question.site.domain
+
+/-- The contribution may intercept at the site. -/
+def InterceptionQuestion.Admits (question : InterceptionQuestion) : Prop :=
+  MayIntercept question.granted question.domainOf question.site question.contribution
+
+/-- **Interceptors are domain-confined, as a property of one interception question.** A
+    restatement of `cross_domain_interception_rejected` over `InterceptionQuestion`. -/
+theorem foreign_question_never_intercepts {question : InterceptionQuestion}
+    (foreign : question.Foreign) : ¬ question.Admits :=
+  cross_domain_interception_rejected foreign
+
 theorem undeclared_cross_facet_interception_rejected
     {granted : FacetId → OperationId → Prop} {domainOf : FacetId → ProtectionDomain}
     {site : InterceptionSite} {contribution : InterceptorContribution}
