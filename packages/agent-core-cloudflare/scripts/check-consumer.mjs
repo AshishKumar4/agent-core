@@ -3,7 +3,8 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import ts from "typescript-api";
+import { SymbolFlags } from "typescript/unstable/sync";
+import { openProject } from "../../agent-core/scripts/quality/compiler.mjs";
 import { parseCanonicalJson, portablePath } from "../../agent-core/scripts/quality/project.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -171,28 +172,29 @@ for (const specifier of forbidden) {
 }
 
 function verifyDeclarationExports(declarationPath) {
-    const program = ts.createProgram({
-        rootNames: [declarationPath],
-        options: {
-            module: ts.ModuleKind.NodeNext,
-            moduleResolution: ts.ModuleResolutionKind.NodeNext,
+    const declarationProject = openProject({
+        files: [declarationPath],
+        compilerOptions: {
+            module: "NodeNext",
+            moduleResolution: "NodeNext",
             skipLibCheck: true,
-            target: ts.ScriptTarget.ES2022
+            target: "ES2022"
         }
     });
+    const program = declarationProject.program;
     const source = program.getSourceFile(declarationPath);
     if (source === undefined) throw new TypeError("Packed declaration entrypoint is missing");
-    const checker = program.getTypeChecker();
+    const checker = declarationProject.checker;
     const moduleSymbol = checker.getSymbolAtLocation(source);
     if (moduleSymbol === undefined)
         throw new TypeError("Packed declaration entrypoint is not a module");
     const actual = { values: [], types: [] };
     for (const exported of checker.getExportsOfModule(moduleSymbol)) {
         const symbol =
-            (exported.flags & ts.SymbolFlags.Alias) === 0
+            (exported.flags & SymbolFlags.Alias) === 0
                 ? exported
                 : checker.getAliasedSymbol(exported);
-        const bucket = (symbol.flags & ts.SymbolFlags.Value) === 0 ? actual.types : actual.values;
+        const bucket = (symbol.flags & SymbolFlags.Value) === 0 ? actual.types : actual.values;
         bucket.push(exported.name);
     }
     actual.values.sort();

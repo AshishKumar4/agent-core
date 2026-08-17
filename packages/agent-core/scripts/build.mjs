@@ -14,7 +14,8 @@ import { tmpdir } from "node:os";
 import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "vite";
-import ts from "typescript-api";
+import * as ts from "typescript/unstable/ast";
+import { forget, sourceFiles } from "./quality/compiler.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageJson = JSON.parse(await readFile(resolve(packageRoot, "package.json"), "utf8"));
@@ -88,7 +89,7 @@ function emitDeclarations(outDir) {
 async function rewriteDeclarationSpecifiers(root) {
     for (const declarationFile of await filesWithSuffix(root, ".d.ts")) {
         const source = await readFile(declarationFile, "utf8");
-        const parsed = ts.createSourceFile(declarationFile, source, ts.ScriptTarget.Latest, true);
+        const parsed = sourceFiles([declarationFile]).get(declarationFile);
         const replacements = [];
         visit(parsed, (node) => {
             if (
@@ -110,6 +111,9 @@ async function rewriteDeclarationSpecifiers(root) {
             rewritten = `${rewritten.slice(0, replacement.start)}${replacement.value}${rewritten.slice(replacement.end)}`;
         }
         await writeFile(declarationFile, rewritten, "utf8");
+        // The closure walk re-reads these files expecting the rewritten specifiers, so the
+        // session must forget what it read before the rewrite.
+        forget([declarationFile]);
 
         function addReplacement(literal) {
             const specifier = literal.text;
@@ -145,8 +149,7 @@ async function declarationClosure(root) {
         if (closure.has(declarationFile)) continue;
         await access(declarationFile);
         closure.add(declarationFile);
-        const source = await readFile(declarationFile, "utf8");
-        const parsed = ts.createSourceFile(declarationFile, source, ts.ScriptTarget.Latest, true);
+        const parsed = sourceFiles([declarationFile]).get(declarationFile);
         visit(parsed, (node) => {
             const literal =
                 ts.isImportDeclaration(node) || ts.isExportDeclaration(node)

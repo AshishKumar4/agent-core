@@ -3,7 +3,8 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import ts from "typescript-api";
+import * as ts from "typescript/unstable/ast";
+import { sourceFiles } from "../../agent-core/scripts/quality/compiler.mjs";
 
 const BASELINE = "f558d0f";
 const THRESHOLD = 95;
@@ -144,7 +145,7 @@ async function verifyCoverageFiles(summary, target, files) {
         if (coverage === undefined) {
             if (
                 file.split("/").at(-1) === "index.ts" &&
-                (await isExportOnlyBarrel(resolve(target.root, file)))
+                isExportOnlyBarrel(resolve(target.root, file))
             ) {
                 process.stdout.write(
                     `W8 changed-source export-only barrel has zero executable items: ${target.prefix}${file}\n`
@@ -165,9 +166,8 @@ async function verifyCoverageFiles(summary, target, files) {
     }
 }
 
-async function isExportOnlyBarrel(path) {
-    const source = await readFile(path, "utf8");
-    const file = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
+function isExportOnlyBarrel(path) {
+    const file = sourceFiles([path]).get(path);
     return file.statements.every(
         (statement) => ts.isExportDeclaration(statement) || ts.isImportDeclaration(statement)
     );
