@@ -1,5 +1,5 @@
 import { SlateRuntimeBackend, type SlateRuntimePort } from "../../src/composition";
-import { EffectDispatch } from "../../src/facets";
+import { EffectDispatch, type BindingRequirement } from "../../src/facets";
 import { ContentRef, Digest, Revision } from "../../src/core";
 import { WorkspaceId } from "../../src/identity";
 import { InvocationId } from "../../src/interaction-references";
@@ -26,6 +26,7 @@ type MappedSlateArgument =
     | SlateVersionId
     | WorkspaceId
     | string
+    | readonly BindingRequirement[]
     | undefined;
 
 interface SlateRuntimeCall {
@@ -100,7 +101,9 @@ describe("Slate profile composition", () => {
             },
             {
                 operation: "publish",
-                values: [new SlateVersionId("version"), new ContentRef(source)]
+                // The §11 publish operation declares no capability requirements, so the
+                // declared set this mapping carries is empty rather than absent.
+                values: [new SlateVersionId("version"), new ContentRef(source), []]
             },
             {
                 operation: "deploy",
@@ -140,7 +143,8 @@ describe("Slate profile composition", () => {
             workspace,
             slateId,
             versionId,
-            source
+            source,
+            []
         );
         const deployment = new SlateDeployment(
             deploymentId,

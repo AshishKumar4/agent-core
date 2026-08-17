@@ -631,7 +631,8 @@ describe("MemorySlateStore mutation kills", () => {
             workspace,
             graph.slate.id,
             graph.version.id,
-            ref("deployment-fields-publication-2")
+            ref("deployment-fields-publication-2"),
+            []
         );
         store.addPublication(secondPublication);
         const invocation = new InvocationId("invocation-deployment-fields");
@@ -894,7 +895,8 @@ function buildGraph(
         workspace,
         slate.id,
         version.id,
-        ref(`${label}-publication`)
+        ref(`${label}-publication`),
+        []
     );
     store.addPublication(publication);
     const invocation = new InvocationId(`invocation-${label}`);
@@ -982,7 +984,8 @@ function buildDetachedRecords(
         workspace,
         slate.id,
         version.id,
-        ref(`${label}-publication`)
+        ref(`${label}-publication`),
+        []
     );
     store.addPublication(publication);
     const invocation = new InvocationId(`invocation-${label}`);

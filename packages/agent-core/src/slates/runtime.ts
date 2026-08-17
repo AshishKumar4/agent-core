@@ -1,9 +1,11 @@
-import { ContentRef, Revision, isObjectRecord, type ObjectRecord } from "../core";
+import { ContentRef, Digest, Revision, isObjectRecord, type ObjectRecord } from "../core";
+import type { BindingRequirement } from "../facets";
 import { EnvironmentSessionCapability, PortExposureId } from "../environments";
 import { AgentCoreError } from "../errors";
 import { WorkspaceId } from "../identity";
 import { ReceiptId } from "../invocation-references";
 import { SlateDeployment } from "./deployment";
+import { canonicalBindingRequirements } from "./codec";
 import {
     SlateDeploymentId,
     SlateId,
@@ -40,6 +42,7 @@ import {
     type SlateInvocationResult
 } from "./seams";
 import { Slate } from "./slate";
+import { SlateSkeleton } from "./skeleton";
 import {
     SlateDeploymentReservation,
     SlateResourceReservation,
@@ -115,6 +118,17 @@ export type SlateResourceOutcome =
           readonly resourceId: SlateResourceId;
           readonly receiptId: ReceiptId;
       };
+
+/**
+ * What admitting a skeleton produces: the new Slate, and every capability the skeleton
+ * declared, still unsatisfied. The set is total rather than filtered because instantiate
+ * resolves nothing — a caller that receives an empty `unsatisfied` learns the skeleton
+ * declared no requirements, never that instantiate bound any.
+ */
+export interface SlateInstantiation {
+    readonly slate: Slate;
+    readonly unsatisfied: readonly BindingRequirement[];
+}
 
 export class SlateRuntime {
     public constructor(
@@ -269,9 +283,76 @@ export class SlateRuntime {
         });
     }
 
+    /**
+     * The credential-free export of a published Slate (SPEC §4.6). This reads records and
+     * mints nothing, so its impact is `observe` and it needs no mutation intent. What it
+     * projects is exactly the publication's declared requirements plus the content
+     * identity of the version that was published — never the Workspace, never the Slate
+     * id, and never a resolvable reference, because a skeleton names no Scope it came from
+     * and confers no reach into one.
+     */
+    public exportSkeleton(publicationId: SlatePublicationId): SlateSkeleton {
+        const publication = this.requirePublication(this.store, publicationId);
+        const version = this.requireVersion(this.store, publication.versionId);
+        return new SlateSkeleton(version.source.digest, publication.bindings);
+    }
+
+    /**
+     * Admits a skeleton into `workspaceId` as a new Slate. Separate from `fork` because a
+     * fork's `forkedFrom` is lineage inside one Workspace and an instantiate crosses a
+     * Scope boundary: conflating them would let a lineage edge name a version the
+     * admitting Scope does not hold, which is what `verifySlateClosure` rejects.
+     *
+     * `source` is the importer's own ContentRef for the bytes they were handed, so the
+     * only retainer edge this creates is inside their own Scope. The digest comparison is
+     * what makes the skeleton's content identity load-bearing rather than decorative.
+     *
+     * Every requirement the skeleton declares comes back unsatisfied, because admitting a
+     * declaration grants nothing. The importer supplies Bindings through §3.4 and §4.1 as
+     * for any other Facet; this Operation opens no path of its own.
+     */
+    public async instantiate(
+        skeleton: SlateSkeleton,
+        workspaceId: WorkspaceId,
+        source: ContentRef
+    ): Promise<SlateInstantiation> {
+        if (!(skeleton instanceof SlateSkeleton)) {
+            throw new AgentCoreError(
+                "operation.invalid-input",
+                "Slate instantiate requires a Slate skeleton"
+            );
+        }
+        if (!(source instanceof ContentRef) || !source.digest.equals(skeleton.sourceDigest)) {
+            throw new AgentCoreError(
+                "operation.invalid-input",
+                "Slate instantiate source must be the content the skeleton declares"
+            );
+        }
+        const request = freezeSlateMutationRequest({
+            operation: "instantiate",
+            impact: "mutate",
+            workspaceId,
+            slateId: this.ids.allocateSlateId(),
+            source,
+            skeletonDigest: Digest.sha256(SlateSkeleton.encode(skeleton))
+        });
+        const slate = await this.mutate(request, (store) => {
+            const instantiated = Slate.initial(request.slateId, request.workspaceId, request.source);
+            if (!store.compareAndSetSlate(undefined, instantiated)) {
+                throw new AgentCoreError(
+                    "protocol.duplicate",
+                    `Slate ${request.slateId.value} already exists`
+                );
+            }
+            return instantiated;
+        });
+        return Object.freeze({ slate, unsatisfied: skeleton.bindings });
+    }
+
     public async publish(
         versionId: SlateVersionId,
-        materialization: ContentRef
+        materialization: ContentRef,
+        bindings: readonly BindingRequirement[]
     ): Promise<SlatePublication> {
         const version = this.requireVersion(this.store, versionId);
         const slate = this.requireSlate(this.store, version.slateId);
@@ -284,6 +365,7 @@ export class SlateRuntime {
             versionId: version.id,
             source: version.source,
             materialization,
+            bindings: canonicalBindingRequirements(bindings, "Slate publication bindings"),
             expectedRevision: slate.revision
         });
         return this.mutate(request, (store) => {
@@ -304,7 +386,8 @@ export class SlateRuntime {
                 request.workspaceId,
                 request.slateId,
                 request.versionId,
-                request.materialization
+                request.materialization,
+                request.bindings
             );
             store.addPublication(publication);
             if (

@@ -96,12 +96,36 @@ describe("Slate record mutation kills", () => {
         }
 
         const publicationCases = [
-            () => new SlatePublication(invalid, workspace, slateId, versionId, materialization),
-            () => new SlatePublication(publicationId, invalid, slateId, versionId, materialization),
             () =>
-                new SlatePublication(publicationId, workspace, invalid, versionId, materialization),
-            () => new SlatePublication(publicationId, workspace, slateId, invalid, materialization),
-            () => new SlatePublication(publicationId, workspace, slateId, versionId, invalid)
+                new SlatePublication(invalid, workspace, slateId, versionId, materialization, []),
+            () =>
+                new SlatePublication(
+                    publicationId,
+                    invalid,
+                    slateId,
+                    versionId,
+                    materialization,
+                    []
+                ),
+            () =>
+                new SlatePublication(
+                    publicationId,
+                    workspace,
+                    invalid,
+                    versionId,
+                    materialization,
+                    []
+                ),
+            () =>
+                new SlatePublication(
+                    publicationId,
+                    workspace,
+                    slateId,
+                    invalid,
+                    materialization,
+                    []
+                ),
+            () => new SlatePublication(publicationId, workspace, slateId, versionId, invalid, [])
         ];
         for (const construct of publicationCases) {
             expect(construct).toThrow(new TypeError("Slate publication is malformed"));
@@ -394,7 +418,8 @@ describe("Slate record mutation kills", () => {
             workspace,
             slateId,
             versionId,
-            materialization
+            materialization,
+            []
         );
         const publicationPayload = payloadOf(publication.toData());
         const deployment = new SlateDeployment(
@@ -649,7 +674,8 @@ describe("Slate record mutation kills", () => {
             workspace,
             slateId,
             versionId,
-            materialization
+            materialization,
+            []
         );
         expect(SlatePublication.decode(SlatePublication.encode(publication))).toEqual(publication);
 
@@ -740,12 +766,14 @@ describe("Slate record mutation kills", () => {
                     versionId,
                     source,
                     materialization,
+                    bindings: [],
                     expectedRevision: new Revision(5)
                 },
                 {
                     ...base,
                     operation: "publish",
                     expectedRevision: 5,
+                    bindings: [],
                     materialization: materialization.value,
                     publicationId: publicationId.value,
                     source: source.value,

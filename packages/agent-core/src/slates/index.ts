@@ -11,6 +11,7 @@ export type { SlateForkRef, SlateInit } from "./slate";
 export { SlateVersion } from "./version";
 export type { SlateVersionInit } from "./version";
 export { SlatePublication } from "./publication";
+export { SlateSkeleton } from "./skeleton";
 export { SlateDeployment } from "./deployment";
 export { SlateResource } from "./resource";
 export { SlatePreview } from "./preview";
@@ -35,6 +36,7 @@ export type {
     SlateDeployInvocationIntent,
     SlateDeployReserveIntent,
     SlateForkIntent,
+    SlateInstantiateIntent,
     SlateInvocationOperation,
     SlateInvocationRequest,
     SlateMutationOperation,
@@ -69,4 +71,8 @@ export type {
     StoredSlateReservation
 } from "./store";
 export { MemorySlateIdSource, SlateIdSource, SlateRuntime } from "./runtime";
-export type { SlateDeploymentOutcome, SlateResourceOutcome } from "./runtime";
+export type {
+    SlateDeploymentOutcome,
+    SlateInstantiation,
+    SlateResourceOutcome
+} from "./runtime";

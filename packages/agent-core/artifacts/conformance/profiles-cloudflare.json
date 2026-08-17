@@ -333,6 +333,69 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-SLATE-INSTANTIATE-SCOPE",
+      "owner": "W8",
+      "specAnchor": "C13-SLATE-INSTANTIATE-SCOPE",
+      "specTextSha256": "sha256:6bfe0c5a34099f8368bad654da39e01c16f39d00d4aa9871a4cd3625e3c54ebc",
+      "status": "implemented",
+      "prerequisites": ["C13-SLATE-SKELETON-CREDENTIAL-FREE"],
+      "sourceSymbols": [
+        "src/slates/runtime.ts#SlateRuntime",
+        "src/slates/intent.ts#canonicalSlateMutationRequest"
+      ],
+      "testSelectors": [
+        "test/slates/runtime.test.ts#SlateRuntime [C13-SLATE-INSTANTIATE-SCOPE] instantiates a skeleton into another Scope with no lineage and no granted capability"
+      ],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The cited test kills seven discriminating mutants measured by hand at this rev -- lineage recorded on the instantiated Slate, unsatisfied reported empty, the source-digest comparison removed, and the intent key set unenforced each fail it -- but src/slates/skeleton.ts is new and src/slates/{runtime,intent,codec}.ts changed, so artifacts/quality/discrimination/slates.json holds no attribution for any of it. A mutation re-measurement of the slates area is required before this atom may be raised to verified",
+        "checkerInvariants is empty because no invariant in artifacts/quality/rules.json asserts anything about this rule; naming ACQ-IMPORT/ACQ-TEST would be evidence for the module graph and the test style, not for the no-lineage rule",
+        "The §11 profile surface does not reach this Operation: SLATE_OPERATION_CONTRACTS in src/facets/slate/facet.ts still declares six operations and SlateRuntimePort in src/composition/slate-profile.ts still picks six, so instantiate is reachable through SlateRuntime only. A P11-SLATE-INSTANTIATE contract and its wire codec are a separate slice"
+      ]
+    },
+    {
+      "id": "C13-SLATE-SKELETON-ARTIFACT",
+      "owner": "W8",
+      "specAnchor": "C13-SLATE-SKELETON-ARTIFACT",
+      "specTextSha256": "sha256:957786e0f908a0516a87560c808001e63124ac33ae5e218111cea49c1b0c4cc9",
+      "status": "implemented",
+      "prerequisites": ["C13-BLUEPRINT-CONVERGENCE"],
+      "sourceSymbols": ["src/slates/skeleton.ts#SlateSkeleton"],
+      "testSelectors": [
+        "test/slates/records.test.ts#Slate records [C13-SLATE-SKELETON-ARTIFACT] a Blueprint declares no Slates, so skeleton export is its own artifact"
+      ],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The negative half is tested through Blueprint's public decoder: adding a slates field to an otherwise admissible Blueprint declaration is refused while the same declaration without it decodes, and adding \"slates\" to the optional-field list in src/definition/blueprint.ts#Blueprint.fromData kills the test. The positive half -- that materialization places no Slate -- is asserted only by the absence of the field it would have to read, and a direct materializer test belongs to W4's src/definition surface rather than this atom's evidence",
+        "src/slates/skeleton.ts is new, so artifacts/quality/discrimination/slates.json holds no attribution for the cited symbol; a slates-area mutation re-measurement is required before verified"
+      ]
+    },
+    {
+      "id": "C13-SLATE-SKELETON-CREDENTIAL-FREE",
+      "owner": "W8",
+      "specAnchor": "C13-SLATE-SKELETON-CREDENTIAL-FREE",
+      "specTextSha256": "sha256:a537cfa37ed4494d38f1559fb1c9f71eadc3317e3081eb40d5c5c3230517cff7",
+      "status": "implemented",
+      "prerequisites": ["C13-CONFIG-SECRET-CUSTODY"],
+      "sourceSymbols": [
+        "src/slates/skeleton.ts#SlateSkeleton",
+        "src/slates/publication.ts#SlatePublication",
+        "src/slates/codec.ts#canonicalBindingRequirements"
+      ],
+      "testSelectors": [
+        "test/slates/records.test.ts#Slate records '[slate.skeleton]' round-trips a strict codec 1.0 record",
+        "test/slates/records.test.ts#Slate records [C13-SLATE-SKELETON-CREDENTIAL-FREE] [slate.skeleton] admits no credential, no resolved Binding, and no resolvable reference",
+        "test/slates/runtime.test.ts#SlateRuntime [C13-SLATE-SKELETON-CREDENTIAL-FREE] exports a skeleton a foreign Scope can read with no live credential and no resolvable reference"
+      ],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "Absence is asserted over the encoded bytes by component substring -- a SecretRef's source, provider and id separately, plus the exporting Workspace, Slate, version and publication ids and the \"sha256:\" ContentRef prefix -- rather than by matching an encoded object shape, so a future encoder that flattened or renamed the components could not pass vacuously. Four discriminating mutants were killed by hand at this rev: a non-exact skeleton payload key set, a digest decoder tolerating a ContentRef, a dropped duplicate-name check, and an exported publication id",
+        "src/slates/skeleton.ts is new and src/slates/{publication,codec}.ts changed, so artifacts/quality/discrimination/slates.json holds no attribution for the cited symbols; a slates-area mutation re-measurement is required before verified",
+        "The prerequisite C13-CONFIG-SECRET-CUSTODY is planned. This atom does not depend on custody being implemented -- it forbids the ref rather than relying on the ref failing to resolve -- but the topology-leak justification this rule states is only as strong as that rule, so raising this atom to verified should wait on it",
+        "Declaring requirements at publish is reachable through SlateRuntime.publish only; the §11 profile publish operation declares the empty set, so an agent publishing through the facet cannot yet state a requirement. Extending SLATE_OPERATION_CONTRACTS.publish is a separate P11 slice"
+      ]
+    },
+    {
       "id": "P11-APPROVAL-GATEWAY-APPLY",
       "owner": "W8",
       "specAnchor": "P11-APPROVAL-GATEWAY-APPLY",

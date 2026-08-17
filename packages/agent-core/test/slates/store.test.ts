@@ -395,7 +395,8 @@ describe("MemorySlateStore", () => {
                         workspace,
                         slate.id,
                         new SlateVersionId("version-missing"),
-                        ref("publication")
+                        ref("publication"),
+                        []
                     )
                 ),
             "slate.invalid-version",
@@ -884,7 +885,8 @@ function completeGraph(label: string) {
         workspace,
         slate.id,
         version.id,
-        ref(`${label}-publication`)
+        ref(`${label}-publication`),
+        []
     );
     store.addPublication(publication);
     const published = committed.publish(publication.id);

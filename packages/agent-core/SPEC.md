@@ -1082,7 +1082,44 @@ duplicating them:
 - publishing or embedding a Slate contributes Surfaces; app-private data is owned by
   the Slate's Actor.
 
-Operations: `update`, `commit`, `fork`, `publish`, `deploy`, `rollback`.
+Operations: `update`, `commit`, `fork`, `instantiate`, `publish`, `deploy`, `rollback`.
+
+A published Slate is exportable as a **Slate skeleton**: the content digest of the source
+document that was published, the capabilities that source declares it needs, and nothing
+else. `publish` is where the declaration is made — a `BindingRequirement` set carried on
+the publication, named and compatibility-ranged exactly as a `FacetManifest`'s are
+(§4.1) — so what a consumer must supply is data they read before anything of theirs runs,
+which is the inspectable-without-execution admissibility §9.1 already requires of a
+Package applied to a Slate. A declaration is never a grant: a Slate skeleton MUST carry no
+SecretRef, no resolved Binding, no Grant, and no credential material of any kind, and
+admitting one MUST mint none. Absence rather than inertness is the requirement, and the
+reason is topology rather than authority: `C13-CONFIG-SECRET-CUSTODY` already makes a
+SecretRef unresolvable outside the Tenant its `source` names and outside the exact
+consumer that Tenant recorded, so an exported ref would confer nothing while still naming
+a credential's identity and location to everyone the skeleton reaches. A Slate skeleton
+MUST likewise name no `ContentRef` and no Scope it came from — no Workspace, no Slate, no
+version, no publication. A record naming a `ContentRef` is a retainer of that content
+under `C13-CONTENT-CUSTODY`, so a skeleton admitted where those bytes are not held would
+name content nothing there retains; a digest is the same content identity without the
+retainer edge, and it is what lets a recipient prove the bytes they were handed are the
+ones the publisher declared. This maps to **C13-SLATE-SKELETON-CREDENTIAL-FREE**.
+
+`instantiate` admits a Slate skeleton into a Scope as a new Slate, and it is a seventh
+Operation rather than a mode of `fork`. A fork's `forkedFrom` is lineage inside one
+Workspace, checked by resolving the exact source version it names; an instantiate crosses
+a Scope boundary, where that version is not resolvable and the admitting Scope's authority
+is its own. So `instantiate` MUST NOT record `forkedFrom`, MUST NOT name a source Slate,
+version, or Workspace, and MUST NOT carry any capability into the Slate it creates: every
+requirement the skeleton declared is unsatisfied when the Operation returns, and the
+importer binds each one through §3.4 and §4.1 as for any other Facet's requirement. The
+importer supplies the source bytes, so the only retainer edge the admission creates is
+inside their own Scope, and content whose digest is not the one the skeleton declares is
+refused rather than admitted under a mismatched identity. Its impact is `mutate`, which
+§7.2's floor tiers as mediated because the record it writes is a platform record and not a
+Turn-owned Session's own filesystem. Keeping the two Operations apart is what stops a
+lineage edge from naming a version across a Scope boundary — which is exactly the closure
+a fork's own Workspace restriction exists to preserve. This maps to
+**C13-SLATE-INSTANTIATE-SCOPE**.
 
 ### 4.7 Agent-authored code
 
@@ -3017,7 +3054,7 @@ The composed platform config schema is the spec's base schema plus every install
 package's `settings` fragments, and a Blueprint MUST validate against it **before any
 package code loads**. This maps to **C13-BLUEPRINT-VALIDATE-BEFORE-LOAD**.
 
-A skeleton:
+An outline:
 
 ```jsonc
 {
@@ -3036,6 +3073,19 @@ A skeleton:
   }
 }
 ```
+
+A Blueprint declares no Slates, and materialization (§9.3) places none. A Slate is
+produced inside a running platform and its head advances by `commit` from there, so a
+Blueprint-declared Slate would be a Blueprint-managed record the platform itself moves —
+which `C13-BLUEPRINT-CONVERGENCE` forbids, because the managed record set of a converged
+Scope is a function of the Blueprint alone, and reconciliation's remove-managed step would
+retire a version history no Blueprint change expresses. A Slate skeleton (§4.6) is
+therefore its own artifact rather than a field of this record, and it is not the JSON
+outline above: that outline is an illustration of a Blueprint, while a Slate skeleton is a
+durable declaration with a codec of its own. Skeleton export and Blueprint materialization
+are separate planes, and a host MUST NOT derive either from the other — the same
+non-derivation discipline `C13-PACKAGE-DEPENDENCY-DECLARED` states for dependencies and
+binding requirements. This maps to **C13-SLATE-SKELETON-ARTIFACT**.
 
 ### 9.3 Materialization
 
@@ -3673,6 +3723,8 @@ A conforming implementation provides:
 - **C13-FACET-CAPABILITY-ABSENCE** A capability a manifest withholds is the declaration's absence rather than a present negative value, and a present negative form is refused at install.
 - **C13-FACET-CODE-AVAILABILITY** An Operation's availability to agent-authored code is declared per contribution, is native-only when absent, bounds the Bindings an isolate receives, and rejects the Blueprint at validation when the platform maps no backing to serve it.
 - **C13-FACET-CANCELLATION-REACH** An Operation handler's `OperationContext` conveys the cancellation of the Turn or Run owning the invocation throughout the handler's execution, the handler propagates it to work it awaits under that invocation's lifetime, cancellation never travels in a declared input schema, and the requirement stops at the durable-record seams of §8.2 and §8.5.
+- **C13-SLATE-SKELETON-CREDENTIAL-FREE** A published Slate exports as a Slate skeleton carrying only its source content digest and the `BindingRequirement`s it declares, with no SecretRef, resolved Binding, Grant, credential material, `ContentRef`, or originating Scope, and admitting one mints nothing.
+- **C13-SLATE-INSTANTIATE-SCOPE** `instantiate` admits a Slate skeleton into a Scope as a new Slate without `forkedFrom`, without naming a source Slate, version, or Workspace, and without carrying any capability, so every declared requirement is unsatisfied on return and content whose digest is not the declared one is refused.
 - **C13-COMMAND-ARGUMENT-BINDING** The Command lifecycle performs argument binding (§4.3).
 - **C13-COMMAND-INSTALL-MAPPING** Command mapping validates at install.
 - **C13-COMMAND-SUBSCRIPTION-DEFAULTS** Derived Subscription defaults are deterministic.
@@ -3840,6 +3892,7 @@ A conforming implementation provides:
 - **C13-BLUEPRINT-RUN-PINS** Re-materialization preserves RunPins (§9.3).
 - **C13-BLUEPRINT-CONVERGENCE** The Blueprint-managed record set of a converged Scope is a function of the Blueprint alone, strengthening idempotence to independence from issue order and prior state; a host defers only where this document states the deferral and its discharging condition, each deferral is a pending obligation naming its record, reason, and condition, a Scope is converged exactly when the reconciliation outcome's pending set is empty, and a divergence no such obligation expresses is a rejected reconciliation.
 - **C13-PACKAGE-DEPENDENCY-DECLARED** A Package declares its inter-Package dependencies as data, the closure RunPins pins is exactly the transitive closure of that declared relation resolved to exact versions, and an unsatisfiable range or a dependency the Blueprint does not install rejects the Blueprint before any package code loads.
+- **C13-SLATE-SKELETON-ARTIFACT** A Blueprint declares no Slates and materialization places none, so a Slate skeleton is its own artifact and neither skeleton export nor Blueprint materialization is derived from the other.
 - **C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING** A Cloudflare cross-DO authority permit binds every specified tenant, source, target, authority, intent, item, claim, pin, epoch, nonce, and time field.
 - **C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION** The target validates local claim, fence, reservation identity/epoch, single use, and expiry, then irreversibly consumes a valid issued permit regardless of newer post-issuance watermark.
 - **C13-CLOUDFLARE-RUN-HOSTING** A Run is Workspace-owned by default and may be pinned `dedicated` at start; its owner retains RunPins, active/terminal outcome, graph, and derived Settled obligations, and migration follows §5.2.

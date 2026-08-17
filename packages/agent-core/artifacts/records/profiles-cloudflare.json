@@ -193,6 +193,19 @@
       ]
     },
     {
+      "symbol": "SlateSkeleton",
+      "kind": "slate.skeleton",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/slates/skeleton.ts#SlateSkeleton",
+      "codec": "src/slates/skeleton.ts#SlateSkeleton.codec",
+      "store": null,
+      "tests": [
+        "test/slates/records.test.ts#Slate records '[slate.skeleton]' round-trips a strict codec 1.0 record",
+        "test/slates/records.test.ts#Slate records [C13-SLATE-SKELETON-CREDENTIAL-FREE] [slate.skeleton] admits no credential, no resolved Binding, and no resolvable reference"
+      ]
+    },
+    {
       "symbol": "SlateVersion",
       "kind": "slate.version",
       "durability": "durable",

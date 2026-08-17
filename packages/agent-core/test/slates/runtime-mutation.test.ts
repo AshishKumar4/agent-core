@@ -277,7 +277,7 @@ describe("SlateRuntime mutation kills", () => {
                     : current;
 
             await expect(
-                fixture.runtime.publish(version.id, ref("publish-materialization"))
+                fixture.runtime.publish(version.id, ref("publish-materialization"), [])
             ).rejects.toMatchObject({ code: "protocol.revision-conflict" });
             expect(fixture.store.listPublications(slate.id)).toEqual([]);
         }
@@ -681,7 +681,8 @@ function inactiveDeploymentStore(label: string): InactiveDeploymentStore {
         workspace,
         slate.id,
         version.id,
-        ref(`${label}-publication`)
+        ref(`${label}-publication`),
+        []
     );
     store.addPublication(publication);
     const invocationId = new InvocationId(`invocation-${label}`);
@@ -716,7 +717,7 @@ async function publishedSlate(fixture: RuntimeFixture): Promise<{
 }> {
     const slate = await fixture.runtime.create(fixture.workspace, ref("source"));
     const version = await fixture.runtime.commit(slate.id);
-    const publication = await fixture.runtime.publish(version.id, ref("publication"));
+    const publication = await fixture.runtime.publish(version.id, ref("publication"), []);
     return { publication };
 }
 

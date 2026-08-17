@@ -1,4 +1,12 @@
-import { type JsonFields, ContentRef, Revision, jsonDataParser, type JsonValue } from "../core";
+import {
+    type JsonFields,
+    ContentRef,
+    Digest,
+    Revision,
+    jsonDataParser,
+    type JsonValue
+} from "../core";
+import { BindingRequirement } from "../facets";
 import { EnvironmentId, EnvironmentSessionId, PortExposureId } from "../environments";
 import { WorkspaceId } from "../identity";
 import { InvocationId } from "../interaction-references";
@@ -101,4 +109,46 @@ export function requireText(value: string, subject: string, maximum = 512): stri
         throw new TypeError(`${subject} must not be blank or exceed ${maximum} characters`);
     }
     return value;
+}
+
+export function digest(value: JsonValue | undefined, subject: string): Digest {
+    return new Digest(requireStringValue(value, subject));
+}
+
+/**
+ * The canonical form of a declared capability set: sorted by `BindingName` and unique by
+ * it, because the namespace loaded code addresses holds one entry per name (SPEC §4.7).
+ * A name declared twice would leave which entry a consumer must bind undecided, so it is
+ * a shape violation rather than a duplicate to be collapsed.
+ */
+export function canonicalBindingRequirements(
+    value: readonly BindingRequirement[],
+    subject: string
+): readonly BindingRequirement[] {
+    if (!Array.isArray(value)) {
+        throw new TypeError(`${subject} must be an array of binding requirements`);
+    }
+    const names = new Set<string>();
+    for (const requirement of value) {
+        if (!(requirement instanceof BindingRequirement)) {
+            throw new TypeError(`${subject} must contain only binding requirements`);
+        }
+        if (names.has(requirement.name.value)) {
+            throw new TypeError(`${subject} declares ${requirement.name.value} more than once`);
+        }
+        names.add(requirement.name.value);
+    }
+    return Object.freeze(
+        [...value].sort((left, right) => (left.name.value < right.name.value ? -1 : 1))
+    );
+}
+
+export function bindingRequirements(
+    value: JsonValue | undefined,
+    subject: string
+): readonly BindingRequirement[] {
+    return canonicalBindingRequirements(
+        parse.array(value, subject).map((entry) => BindingRequirement.fromData(entry)),
+        subject
+    );
 }

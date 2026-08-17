@@ -935,6 +935,7 @@ function ownerFor(id) {
         ["C13-CONFIG-", "W4"],
         ["C13-FACET-", "W3"],
         ["C13-PROFILE-", "W8"],
+        ["C13-SLATE-", "W8"],
         ["C13-CLOUDFLARE-", "W8"],
         ["C13-COMMAND-", "W3"],
         ["C13-INTERCEPTOR-", "W3"],

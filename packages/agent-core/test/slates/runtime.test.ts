@@ -1,5 +1,16 @@
 import { describe, expect, test } from "vitest";
-import { ContentRef, Digest, Revision } from "../../src/core";
+import {
+    CompatRange,
+    ContentRef,
+    Digest,
+    Revision,
+    SecretRef,
+    decodeCanonicalJson,
+    isJsonObject,
+    type JsonObject,
+    type JsonValue
+} from "../../src/core";
+import { BindingName, BindingRequirement, FacetPackageId } from "../../src/facets";
 import {
     EnvironmentId,
     EnvironmentSessionCapability,
@@ -11,6 +22,7 @@ import { InvocationId, ReceiptId } from "../../src/invocations";
 import {
     MemorySlateIdSource,
     MemorySlateStore,
+    Slate,
     SlateDeploymentId,
     SlateEffectContext,
     SlateId,
@@ -21,9 +33,11 @@ import {
     SlatePublicationId,
     SlateRuntime,
     SlateResourceId,
+    SlateSkeleton,
     SlateStore,
     SlateVersionId,
     canonicalSlateInvocationRequest,
+    canonicalSlateMutationRequest,
     sameSlateInvocationRequest,
     type SlateInvocationRequest,
     type SlateInvocationResult,
@@ -35,6 +49,18 @@ import {
     type SlateProviderResourceRequest
 } from "../../src/slates";
 import { WorkspaceId } from "../../src/workspaces";
+import { malformed, violating } from "../helpers/malformed";
+
+const memoryBinding = new BindingRequirement(
+    new BindingName("memory"),
+    new FacetPackageId("core.memory"),
+    new CompatRange("^1.0.0", "^1.0.0")
+);
+const deployBinding = new BindingRequirement(
+    new BindingName("acme.deploy"),
+    new FacetPackageId("acme.deploy"),
+    new CompatRange("^2.0.0", "^1.0.0")
+);
 
 describe("SlateRuntime", () => {
     test("[P11-SLATE-SPECIFICATION] executes the complete section 4.6 source, version, fork, and publication contract", { tags: "p1" }, async () => {
@@ -43,7 +69,7 @@ describe("SlateRuntime", () => {
         const updated = await fixture.runtime.update(slate.id, ref("draft-two"));
         const version = await fixture.runtime.commit(updated.id);
         const fork = await fixture.runtime.fork(version.id, fixture.workspace);
-        const publication = await fixture.runtime.publish(version.id, ref("published"));
+        const publication = await fixture.runtime.publish(version.id, ref("published"), []);
 
         expect(fork.forkedFrom?.versionId.equals(version.id)).toBe(true);
         expect(publication.versionId.equals(version.id)).toBe(true);
@@ -382,7 +408,7 @@ describe("SlateRuntime", () => {
             new AgentCoreError("operation.invalid-input", "Slate slate-missing is unknown")
         );
         await expect(
-            fixture.runtime.publish(new SlateVersionId("version-missing"), ref("publication"))
+            fixture.runtime.publish(new SlateVersionId("version-missing"), ref("publication"), [])
         ).rejects.toEqual(
             new AgentCoreError("slate.invalid-version", "Slate version version-missing is unknown")
         );
@@ -438,7 +464,7 @@ describe("SlateRuntime", () => {
         const secondVersion = await fixture.runtime.commit(slate.id);
         expect(secondVersion.parentVersionId?.equals(firstVersion.id)).toBe(true);
 
-        const publication = await fixture.runtime.publish(secondVersion.id, ref("publication"));
+        const publication = await fixture.runtime.publish(secondVersion.id, ref("publication"), []);
         const deployed = await fixture.runtime.deploy(publication.id, "production", "external-12");
         if (deployed.outcome !== "succeeded") throw new TypeError("Expected successful deployment");
         const replayedDeployment = await fixture.runtime.reconcileDeployment(
@@ -590,7 +616,7 @@ describe("SlateRuntime", () => {
         const publishSlate = await publish.runtime.create(publish.workspace, ref("source"));
         const version = await publish.runtime.commit(publishSlate.id);
         publishStore.rejectNextCas = true;
-        await expect(publish.runtime.publish(version.id, ref("publication"))).rejects.toMatchObject(
+        await expect(publish.runtime.publish(version.id, ref("publication"), [])).rejects.toMatchObject(
             {
                 code: "protocol.revision-conflict"
             }
@@ -715,6 +741,172 @@ describe("SlateRuntime", () => {
             });
         }
     });
+
+    test(
+        "[C13-SLATE-SKELETON-CREDENTIAL-FREE] exports a skeleton a foreign Scope can read with no live credential and no resolvable reference",
+        { tags: "p0" },
+        async () => {
+            const fixture = runtimeFixture("skeleton-export");
+            const slate = await fixture.runtime.create(fixture.workspace, ref("skeleton-source"));
+            const version = await fixture.runtime.commit(slate.id);
+            const publication = await fixture.runtime.publish(version.id, ref("published"), [
+                deployBinding,
+                memoryBinding
+            ]);
+
+            expect(publication.bindings).toEqual([deployBinding, memoryBinding]);
+            const skeleton = fixture.runtime.exportSkeleton(publication.id);
+            expect(skeleton.sourceDigest.equals(version.source.digest)).toBe(true);
+            expect(skeleton.bindings).toEqual([deployBinding, memoryBinding]);
+
+            // Reading a skeleton is a read: it records no mutation intent and mints nothing.
+            const mutationsBefore = fixture.mutations.requests.length;
+            fixture.runtime.exportSkeleton(publication.id);
+            expect(fixture.mutations.requests.length).toBe(mutationsBefore);
+
+            // Nothing that identifies the exporting Scope, its records, or a credential it
+            // holds may survive into the bytes a forker receives.
+            const secret = new SecretRef("tenant-skeleton", "acme-vault", "deploy-key");
+            const encoded = new TextDecoder().decode(SlateSkeleton.encode(skeleton));
+            for (const leaked of [
+                secret.source,
+                secret.provider,
+                secret.id,
+                fixture.workspace.value,
+                slate.id.value,
+                version.id.value,
+                publication.id.value,
+                publication.materialization.value,
+                "sha256:"
+            ]) {
+                expect(encoded).not.toContain(leaked);
+            }
+
+            await expect(async () =>
+                fixture.runtime.exportSkeleton(new SlatePublicationId("publication-missing"))
+            ).rejects.toMatchObject({ code: "slate.unpublished" });
+        }
+    );
+
+    test(
+        "[C13-SLATE-INSTANTIATE-SCOPE] instantiates a skeleton into another Scope with no lineage and no granted capability",
+        { tags: "p0" },
+        async () => {
+            const fixture = runtimeFixture("skeleton-instantiate");
+            const slate = await fixture.runtime.create(fixture.workspace, ref("instantiate-source"));
+            const version = await fixture.runtime.commit(slate.id);
+            const publication = await fixture.runtime.publish(version.id, ref("published"), [
+                deployBinding,
+                memoryBinding
+            ]);
+            const skeleton = fixture.runtime.exportSkeleton(publication.id);
+
+            // A different Scope, holding its own copy of the bytes the skeleton names.
+            const importer = runtimeFixture("skeleton-importer");
+            const importedSource = ref("instantiate-source");
+            const instantiation = await importer.runtime.instantiate(
+                skeleton,
+                importer.workspace,
+                importedSource
+            );
+
+            expect(instantiation.slate.workspaceId.equals(importer.workspace)).toBe(true);
+            expect(instantiation.slate.source.equals(importedSource)).toBe(true);
+            // The decisive difference from fork: no lineage crosses the Scope boundary.
+            expect(instantiation.slate.forkedFrom).toBeUndefined();
+            expect(instantiation.slate.headVersionId).toBeUndefined();
+            expect(instantiation.slate.latestPublicationId).toBeUndefined();
+            expect(instantiation.slate.activeDeploymentId).toBeUndefined();
+            // Admitting a declaration grants nothing, so every declared requirement is
+            // still the importer's to satisfy through their own Bindings.
+            expect(instantiation.unsatisfied).toEqual([deployBinding, memoryBinding]);
+            expect(Object.isFrozen(instantiation)).toBe(true);
+
+            // The record the importer now owns is shaped exactly like a Slate they created
+            // themselves: nothing from the skeleton became state, least of all a capability.
+            const created = await importer.runtime.create(importer.workspace, ref("plain"));
+            expect(Object.keys(object(instantiation.slate.toData())).sort()).toEqual(
+                Object.keys(object(created.toData())).sort()
+            );
+            const slateBytes = new TextDecoder().decode(Slate.encode(instantiation.slate));
+            for (const leaked of [
+                fixture.workspace.value,
+                slate.id.value,
+                version.id.value,
+                publication.id.value,
+                deployBinding.name.value,
+                memoryBinding.name.value
+            ]) {
+                expect(slateBytes).not.toContain(leaked);
+            }
+
+            // The recorded intent pins the exact artifact admitted and carries no source
+            // Slate or version, so no lineage edge can be reconstructed from it either.
+            const intent = importer.mutations.requests.find(
+                (request) => request.operation === "instantiate"
+            );
+            expect(intent).toBeDefined();
+            const canonical = object(
+                decodeCanonicalJson(canonicalSlateMutationRequest(intent!))
+            );
+            expect(Object.keys(canonical)).toEqual([
+                "impact",
+                "operation",
+                "skeletonDigest",
+                "slateId",
+                "source",
+                "workspaceId"
+            ]);
+            expect(canonical["skeletonDigest"]).toBe(
+                Digest.sha256(SlateSkeleton.encode(skeleton)).value
+            );
+
+            // An instantiate intent that names a source version is malformed rather than
+            // admitted as a cross-Scope fork: the key set is the enforcement.
+            expect(() =>
+                canonicalSlateMutationRequest(
+                    violating<SlateMutationRequest>(intent!, {
+                        sourceVersionId: version.id.value
+                    })
+                )
+            ).toThrow(AgentCoreError);
+
+            // Content identity is load-bearing: bytes the skeleton does not name are refused.
+            await expect(
+                importer.runtime.instantiate(skeleton, importer.workspace, ref("different-bytes"))
+            ).rejects.toEqual(
+                new AgentCoreError(
+                    "operation.invalid-input",
+                    "Slate instantiate source must be the content the skeleton declares"
+                )
+            );
+            await expect(
+                importer.runtime.instantiate(
+                    malformed<SlateSkeleton>({
+                        sourceDigest: importedSource.digest.value,
+                        bindings: []
+                    }),
+                    importer.workspace,
+                    importedSource
+                )
+            ).rejects.toEqual(
+                new AgentCoreError(
+                    "operation.invalid-input",
+                    "Slate instantiate requires a Slate skeleton"
+                )
+            );
+
+            // instantiate did not weaken fork: lineage still may not cross a Workspace.
+            await expect(
+                fixture.runtime.fork(version.id, importer.workspace)
+            ).rejects.toEqual(
+                new AgentCoreError(
+                    "operation.invalid-input",
+                    "Slate forks must remain in the source Workspace"
+                )
+            );
+        }
+    );
 });
 
 class RejectingSlateStore extends MemorySlateStore {
@@ -1033,7 +1225,7 @@ function runtimeFixture(
 async function publishedSlate(fixture: RuntimeFixture) {
     const slate = await fixture.runtime.create(fixture.workspace, ref("source"));
     const version = await fixture.runtime.commit(slate.id);
-    const publication = await fixture.runtime.publish(version.id, ref("publication"));
+    const publication = await fixture.runtime.publish(version.id, ref("publication"), []);
     return { slate, version, publication };
 }
 
@@ -1061,4 +1253,9 @@ function deferred<Value>(): Deferred<Value> {
 
 function ref(label: string): ContentRef {
     return ContentRef.fromDigest(Digest.sha256(new TextEncoder().encode(label)));
+}
+
+function object(value: JsonValue | undefined): JsonObject {
+    if (!isJsonObject(value)) throw new TypeError("Expected JSON object");
+    return value;
 }

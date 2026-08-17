@@ -60,9 +60,14 @@ export class SlateRuntimeBackend extends SlateBackend {
     }
 
     public async publish(input: SlatePublishInput): Promise<JsonValue> {
+        // The §11 profile `publish` operation declares no capability requirements, so the
+        // declared set this mapping carries is empty — §4.1's rule that a withheld
+        // capability is the declaration's absence, not a present negative value. A Slate
+        // that needs to declare requirements does so through SlateRuntime.publish.
         const publication = await this.runtime.publish(
             new SlateVersionId(input.version),
-            new ContentRef(input.materialization)
+            new ContentRef(input.materialization),
+            []
         );
         return {
             publicationId: publication.id.value,

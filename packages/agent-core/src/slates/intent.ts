@@ -1,9 +1,11 @@
-import { ContentRef, Revision, encodeCanonicalJson, type JsonValue } from "../core";
+import { ContentRef, Digest, Revision, encodeCanonicalJson, type JsonValue } from "../core";
 import { AgentCoreError } from "../errors";
 import { EnvironmentId, EnvironmentSessionId, PortExposureId } from "../environments";
 import { WorkspaceId } from "../identity";
 import { InvocationId } from "../interaction-references";
 import { ReceiptId } from "../invocation-references";
+import type { BindingRequirement } from "../facets";
+import { canonicalBindingRequirements } from "./codec";
 import {
     SlateDeploymentId,
     SlateId,
@@ -49,6 +51,21 @@ export interface SlateForkIntent extends SlateIntentBase {
     readonly expectedSourceRevision: Revision;
 }
 
+/**
+ * `instantiate` is the seventh Slate Operation and is deliberately not `fork`. A fork is
+ * lineage inside one Workspace, so it carries `sourceSlateId`/`sourceVersionId`; an
+ * instantiate is a new Slate in a different Scope built from a credential-free skeleton,
+ * and it carries neither. The key set is the enforcement: an instantiate intent naming a
+ * source Slate or version is refused as malformed rather than admitted as a cross-Scope
+ * fork. `skeletonDigest` pins the exact artifact admitted without copying it.
+ */
+export interface SlateInstantiateIntent extends SlateIntentBase {
+    readonly operation: "instantiate";
+    readonly impact: "mutate";
+    readonly source: ContentRef;
+    readonly skeletonDigest: Digest;
+}
+
 export interface SlatePublishIntent extends SlateIntentBase {
     readonly operation: "publish";
     readonly impact: "mutate";
@@ -56,6 +73,12 @@ export interface SlatePublishIntent extends SlateIntentBase {
     readonly versionId: SlateVersionId;
     readonly source: ContentRef;
     readonly materialization: ContentRef;
+    /**
+     * The capabilities the published Slate declares it needs, canonical and unique by
+     * name. Publish is where the declaration is made, so it is part of the recorded intent
+     * rather than something the writer derives.
+     */
+    readonly bindings: readonly BindingRequirement[];
     readonly expectedRevision: Revision;
 }
 
@@ -156,6 +179,7 @@ export type SlateMutationRequest =
     | SlateUpdateIntent
     | SlateCommitIntent
     | SlateForkIntent
+    | SlateInstantiateIntent
     | SlatePublishIntent
     | SlateDeployReserveIntent
     | SlateDeployFinalizeIntent
@@ -264,9 +288,19 @@ function mutationData(request: SlateMutationRequest): JsonValue {
                 sourceSlateId: request.sourceSlateId.value,
                 sourceVersionId: request.sourceVersionId.value
             };
+        case "instantiate":
+            requireKeys(request, [...baseKeys, "skeletonDigest", "source"]);
+            requireInstance(request.source, ContentRef, "Slate source");
+            requireInstance(request.skeletonDigest, Digest, "Slate skeleton digest");
+            return {
+                ...base,
+                skeletonDigest: request.skeletonDigest.value,
+                source: request.source.value
+            };
         case "publish":
             requireKeys(request, [
                 ...baseKeys,
+                "bindings",
                 "expectedRevision",
                 "materialization",
                 "publicationId",
@@ -284,6 +318,10 @@ function mutationData(request: SlateMutationRequest): JsonValue {
             requireInstance(request.expectedRevision, Revision, "Expected Slate revision");
             return {
                 ...base,
+                bindings: canonicalBindingRequirements(
+                    request.bindings,
+                    "Slate publication bindings"
+                ).map((requirement) => requirement.toData()),
                 expectedRevision: request.expectedRevision.value,
                 materialization: request.materialization.value,
                 publicationId: request.publicationId.value,

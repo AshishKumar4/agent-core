@@ -1,6 +1,9 @@
 import { ContentRef, RecordCodec, type JsonValue } from "../core";
+import type { BindingRequirement } from "../facets";
 import { WorkspaceId } from "../identity";
 import {
+    bindingRequirements,
+    canonicalBindingRequirements,
     contentRef,
     requireExactObject,
     publicationId,
@@ -32,7 +35,8 @@ export class SlatePublication {
         public readonly workspaceId: WorkspaceId,
         public readonly slateId: SlateId,
         public readonly versionId: SlateVersionId,
-        public readonly materialization: ContentRef
+        public readonly materialization: ContentRef,
+        bindings: readonly BindingRequirement[]
     ) {
         if (
             !(id instanceof SlatePublicationId) ||
@@ -43,8 +47,16 @@ export class SlatePublication {
         ) {
             throw new TypeError("Slate publication is malformed");
         }
+        this.bindings = canonicalBindingRequirements(bindings, "Slate publication bindings");
         Object.freeze(this);
     }
+
+    /**
+     * The capabilities this published Slate needs bound before it can run, declared by
+     * name at publish. A declaration, never a grant: it is what a skeleton export carries
+     * so a forker can read what the Slate requires before anything of theirs runs.
+     */
+    public readonly bindings: readonly BindingRequirement[];
 
     public static encode(publication: SlatePublication): Uint8Array {
         return SlatePublication.codec.encode(publication);
@@ -56,6 +68,7 @@ export class SlatePublication {
 
     public toData(): JsonValue {
         return {
+            bindings: this.bindings.map((requirement) => requirement.toData()),
             id: this.id.value,
             materialization: this.materialization.value,
             slateId: this.slateId.value,
@@ -67,7 +80,7 @@ export class SlatePublication {
     public static fromData(payload: JsonValue): SlatePublication {
         const object = requireExactObject(
             payload,
-            ["id", "materialization", "slateId", "versionId", "workspaceId"],
+            ["bindings", "id", "materialization", "slateId", "versionId", "workspaceId"],
             "Slate publication payload"
         );
         return new SlatePublication(
@@ -75,7 +88,8 @@ export class SlatePublication {
             workspaceId(object["workspaceId"]),
             slateId(object["slateId"]),
             versionId(object["versionId"]),
-            contentRef(object["materialization"], "Slate publication materialization")
+            contentRef(object["materialization"], "Slate publication materialization"),
+            bindingRequirements(object["bindings"], "Slate publication bindings")
         );
     }
 }

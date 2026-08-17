@@ -1,14 +1,19 @@
 import { describe, expect, test } from "vitest";
 import {
+    CompatRange,
     ContentRef,
     Digest,
     Revision,
+    SecretRef,
+    SemVer,
     decodeCanonicalJson,
     encodeCanonicalJson,
     isJsonObject,
     type JsonObject,
     type JsonValue
 } from "../../src/core";
+import { Blueprint, BlueprintMeta, PolicySet } from "../../src/definition";
+import { BindingName, BindingRequirement, FacetPackageId } from "../../src/facets";
 import {
     EnvironmentId,
     EnvironmentSessionCapability,
@@ -29,6 +34,7 @@ import {
     SlatePublicationId,
     SlateResource,
     SlateResourceId,
+    SlateSkeleton,
     SlateVersion,
     SlateVersionId,
     freezeSlateInvocationRequest,
@@ -50,6 +56,18 @@ describe("Slate records", () => {
     const invocation = new InvocationId("invocation-records");
     const receipt = new ReceiptId("receipt-records");
 
+    const memory = new BindingRequirement(
+        new BindingName("memory"),
+        new FacetPackageId("core.memory"),
+        new CompatRange("^1.0.0", "^1.0.0")
+    );
+    const deployer = new BindingRequirement(
+        new BindingName("acme.deploy"),
+        new FacetPackageId("acme.deploy"),
+        new CompatRange("^2.0.0", "^1.0.0")
+    );
+    const skeleton = new SlateSkeleton(source.digest, [memory, deployer]);
+
     const slate = Slate.initial(slateId, workspace, source);
     const version = new SlateVersion(versionId, workspace, slateId, source);
     const publication = new SlatePublication(
@@ -57,7 +75,8 @@ describe("Slate records", () => {
         workspace,
         slateId,
         versionId,
-        materialization
+        materialization,
+        []
     );
     const deployment = new SlateDeployment(
         deploymentId,
@@ -101,7 +120,8 @@ describe("Slate records", () => {
         { name: "[slate.publication]", ...codecCase(SlatePublication.codec, publication) },
         { name: "[slate.deployment]", ...codecCase(SlateDeployment.codec, deployment) },
         { name: "[slate.resource]", ...codecCase(SlateResource.codec, resource) },
-        { name: "[slate.preview]", ...codecCase(SlatePreview.codec, preview) }
+        { name: "[slate.preview]", ...codecCase(SlatePreview.codec, preview) },
+        { name: "[slate.skeleton]", ...codecCase(SlateSkeleton.codec, skeleton) }
     ] as const;
 
     test.each(records)("$name round-trips a strict codec 1.0 record", { tags: "p1" }, (subject) => {
@@ -235,7 +255,8 @@ describe("Slate records", () => {
                     workspace,
                     slateId,
                     versionId,
-                    malformed<ContentRef>("invalid")
+                    malformed<ContentRef>("invalid"),
+                    []
                 )
         ).toThrow(TypeError);
         expect(
@@ -477,6 +498,99 @@ describe("Slate records", () => {
         expect(() => new SlateEffectContext(invocationId, 0, -1, "item-key")).toThrow(TypeError);
         expect(() => new SlateEffectContext(invocationId, 0, 0, " item-key ")).toThrow(TypeError);
     });
+
+    test(
+        "[C13-SLATE-SKELETON-CREDENTIAL-FREE] [slate.skeleton] admits no credential, no resolved Binding, and no resolvable reference",
+        { tags: "p0" },
+        () => {
+            // A credential the publishing Workspace legitimately holds. Nothing about it
+            // may reach an export: the ref conveys no authority outside its own Tenant and
+            // recorded consumer (C13-CONFIG-SECRET-CUSTODY), but it still names a
+            // credential's identity and topology, so absence rather than inertness is the
+            // only sound outcome.
+            const secret = new SecretRef("tenant-records", "acme-vault", "deploy-key");
+            const encoded = new TextDecoder().decode(SlateSkeleton.encode(skeleton));
+            for (const component of [secret.source, secret.provider, secret.id]) {
+                expect(encoded).not.toContain(component);
+            }
+            // Nor may the export name where it came from, which is what would make a
+            // cross-Scope admission a lineage or retainer edge.
+            for (const leaked of [workspace.value, slateId.value, publicationId.value]) {
+                expect(encoded).not.toContain(leaked);
+            }
+            expect(encoded).not.toContain("sha256:");
+
+            const payload = object(object(decodeCanonicalJson(SlateSkeleton.encode(skeleton)))["payload"]);
+            expect(Object.keys(payload)).toEqual(["bindings", "sourceDigest"]);
+
+            // Every shape that could smuggle one is refused at the exact key set rather
+            // than tolerated and ignored, so a producer cannot attach a credential field a
+            // future consumer starts reading.
+            for (const smuggled of [
+                { ...payload, secrets: [{ $secret: "acme/deploy-key" }] },
+                { ...payload, credentials: { apiKey: "live-key" } },
+                { ...payload, workspaceId: workspace.value },
+                { ...payload, source: source.value },
+                {
+                    ...payload,
+                    bindings: [{ ...object(memory.toData()), secret: { $secret: "acme/key" } }]
+                }
+            ]) {
+                expect(() => SlateSkeleton.fromData(smuggled)).toThrow(TypeError);
+            }
+
+            // A ContentRef where the digest belongs is refused, so a skeleton can never
+            // carry a reference that resolves through some Tenant's ContentStore.
+            expect(() =>
+                SlateSkeleton.fromData({ ...payload, sourceDigest: source.value })
+            ).toThrow(TypeError);
+            expect(() => new SlateSkeleton(malformed<Digest>(source.value), [])).toThrow(TypeError);
+
+            // The declared set is canonical and unique by name: a name declared twice
+            // leaves which entry a consumer must bind undecided.
+            expect(new SlateSkeleton(source.digest, [deployer, memory]).toData()).toEqual(
+                skeleton.toData()
+            );
+            expect(skeleton.bindings.map((requirement) => requirement.name.value)).toEqual([
+                "acme.deploy",
+                "memory"
+            ]);
+            expect(() => new SlateSkeleton(source.digest, [memory, memory])).toThrow(
+                new TypeError("Slate skeleton bindings declares memory more than once")
+            );
+            expect(Object.isFrozen(skeleton.bindings)).toBe(true);
+            expect(() => new SlateSkeleton(source.digest, malformed([memory.toData()]))).toThrow(
+                TypeError
+            );
+        }
+    );
+
+    test(
+        "[C13-SLATE-SKELETON-ARTIFACT] a Blueprint declares no Slates, so skeleton export is its own artifact",
+        { tags: "p1" },
+        () => {
+            const declaration = new Blueprint({
+                meta: new BlueprintMeta("records-platform", new SemVer("1.2.0")),
+                packages: [],
+                policies: PolicySet.empty(),
+                agents: []
+            }).toData();
+
+            // The control: this exact declaration is admissible.
+            expect(Blueprint.fromData(declaration)).toBeInstanceOf(Blueprint);
+            // Adding Slates to it is not, so a Blueprint can never be the vehicle for a
+            // Slate and §9.3 materialization is never asked to place one.
+            expect(() =>
+                Blueprint.fromData({ ...object(declaration), slates: [] })
+            ).toThrow(TypeError);
+            expect(() =>
+                Blueprint.fromData({
+                    ...object(declaration),
+                    slates: [{ sourceDigest: source.digest.value, bindings: [] }]
+                })
+            ).toThrow(TypeError);
+        }
+    );
 });
 
 function ref(label: string): ContentRef {
