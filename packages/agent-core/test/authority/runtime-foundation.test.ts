@@ -533,7 +533,8 @@ describe("verified guest lifecycle", () => {
                             impacts: ["observe"]
                         })
                     )
-                ])
+                ]),
+                new Date(4_500)
             );
             expect(
                 store

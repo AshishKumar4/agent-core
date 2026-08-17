@@ -213,10 +213,15 @@ describe("AuthorityMutationService hard gates", () => {
         const existingRole = role("role");
         service.createRole(existingRole);
         expectAgentError(() => service.createRole(existingRole), "protocol.invalid-state");
-        expectAgentError(() => service.changeRole(role("missing")), "protocol.invalid-state");
-        expect(Role.encode(service.changeRole(Role.decode(Role.encode(existingRole))))).toEqual(
-            Role.encode(existingRole)
+        expectAgentError(
+            () => service.changeRole(role("missing"), new Date(150)),
+            "protocol.invalid-state"
         );
+        expect(
+            Role.encode(
+                service.changeRole(Role.decode(Role.encode(existingRole)), new Date(150))
+            )
+        ).toEqual(Role.encode(existingRole));
     });
 
     test("covers Membership admission and transition errors", { tags: "p0" }, () => {
@@ -398,25 +403,28 @@ describe("AuthorityMutationService hard gates", () => {
         expectAgentError(() => service.assignMembership(member), "protocol.invalid-state");
         expectAgentError(
             () =>
-                service.changeMembership(new MembershipId("missing"), {
-                    role: reader.name,
-                    state: "active"
-                }),
+                service.changeMembership(
+                    new MembershipId("missing"),
+                    { role: reader.name, state: "active" },
+                    new Date(150)
+                ),
             "protocol.invalid-state"
         );
         expectAgentError(
             () =>
-                service.changeMembership(member.id, {
-                    role: new RoleName("missing"),
-                    state: "active"
-                }),
+                service.changeMembership(
+                    member.id,
+                    { role: new RoleName("missing"), state: "active" },
+                    new Date(150)
+                ),
             "protocol.invalid-state"
         );
         expect(
-            service.changeMembership(member.id, {
-                role: reader.name,
-                state: "suspended"
-            }).state
+            service.changeMembership(
+                member.id,
+                { role: reader.name, state: "suspended" },
+                new Date(150)
+            ).state
         ).toBe("suspended");
         expect(service.revokeMembership(member.id).state).toBe("revoked");
         expect(service.revokeMembership(member.id).state).toBe("revoked");
@@ -879,10 +887,11 @@ describe("MemoryTenantControlStore operational taxonomy", () => {
             Revision.initial()
         );
         service.assignMembership(directMember);
-        const suspended = service.changeMembership(directMember.id, {
-            role: directRole.name,
-            state: "suspended"
-        });
+        const suspended = service.changeMembership(
+            directMember.id,
+            { role: directRole.name, state: "suspended" },
+            new Date(150)
+        );
         expectAgentError(
             () =>
                 store.transaction((candidate) =>

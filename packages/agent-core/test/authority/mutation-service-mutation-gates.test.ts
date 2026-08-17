@@ -234,7 +234,7 @@ describe("AuthorityMutationService record-existence taxonomy", () => {
             "Guest trust does not exist"
         );
         expectAgentError(
-            () => service.changeRole(role("missing")),
+            () => service.changeRole(role("missing"), new Date(150)),
             "protocol.invalid-state",
             "Role does not exist"
         );
@@ -287,10 +287,11 @@ describe("AuthorityMutationService record-existence taxonomy", () => {
         );
         expectAgentError(
             () =>
-                service.changeMembership(new MembershipId("missing"), {
-                    role: reader.name,
-                    state: "active"
-                }),
+                service.changeMembership(
+                    new MembershipId("missing"),
+                    { role: reader.name, state: "active" },
+                    new Date(150)
+                ),
             "protocol.invalid-state",
             "Membership does not exist"
         );
@@ -305,10 +306,11 @@ describe("AuthorityMutationService record-existence taxonomy", () => {
         service.assignMembership(member);
         expectAgentError(
             () =>
-                service.changeMembership(member.id, {
-                    role: new RoleName("missing"),
-                    state: "active"
-                }),
+                service.changeMembership(
+                    member.id,
+                    { role: new RoleName("missing"), state: "active" },
+                    new Date(150)
+                ),
             "protocol.invalid-state",
             "Role does not exist"
         );
@@ -799,6 +801,63 @@ describe("AuthorityMutationService guest admission membrane", () => {
             expect(store.grant(record.id)).toBeUndefined();
         }
     );
+
+    test(
+        "[C13-AUTH-GUEST-VERIFICATION] an expired verification never re-mints role Grants through changeRole",
+        { tags: "p0" },
+        () => {
+            const { store, service, trust, reader } = guestFixture();
+            const membership = guestMembership("expired-role-change-member", reader.name);
+            service.assignGuestMembership(membership, mintProof(trust), new Date(150));
+            expect(store.grant(GrantId.forRole(membership.id, 0))?.isLive).toBe(true);
+            const widened = new Role(reader.name, [
+                ...reader.rules,
+                new RoleRule(
+                    "allow",
+                    new CapabilitySpec({ facetPattern: "*", impacts: ["execute"] })
+                )
+            ]);
+            expectAgentError(
+                () => service.changeRole(widened, new Date(250)),
+                "authority.denied",
+                "Guest verification is not currently valid"
+            );
+            expect(store.grant(GrantId.forRole(membership.id, 1))).toBeUndefined();
+            const stored = store.role(reader.name);
+            expect(stored === undefined ? undefined : Role.encode(stored)).toEqual(
+                Role.encode(reader)
+            );
+        }
+    );
+
+    test(
+        "[C13-AUTH-GUEST-VERIFICATION] an expired verification never re-mints role Grants through changeMembership, and suspension still harvests them",
+        { tags: "p0" },
+        () => {
+            const { store, service, trust, reader } = guestFixture();
+            const membership = guestMembership("expired-member-change-member", reader.name);
+            service.assignGuestMembership(membership, mintProof(trust), new Date(150));
+            expect(store.grant(GrantId.forRole(membership.id, 0))?.isLive).toBe(true);
+            expectAgentError(
+                () =>
+                    service.changeMembership(
+                        membership.id,
+                        { role: reader.name, state: "active" },
+                        new Date(250)
+                    ),
+                "authority.denied",
+                "Guest verification is not currently valid"
+            );
+            expect(store.grant(GrantId.forRole(membership.id, 0))?.isLive).toBe(true);
+            const suspended = service.changeMembership(
+                membership.id,
+                { role: reader.name, state: "suspended" },
+                new Date(250)
+            );
+            expect(suspended.state).toBe("suspended");
+            expect(store.grant(GrantId.forRole(membership.id, 0))?.isLive).toBe(false);
+        }
+    );
 });
 
 describe("AuthorityMutationService closure and epoch effects", () => {
@@ -830,10 +889,11 @@ describe("AuthorityMutationService closure and epoch effects", () => {
             );
             service.createGrant(child);
             const before = store.epoch(workspaceScope).epoch;
-            const suspended = service.changeMembership(member.id, {
-                role: reader.name,
-                state: "suspended"
-            });
+            const suspended = service.changeMembership(
+                member.id,
+                { role: reader.name, state: "suspended" },
+                new Date(150)
+            );
             expect(suspended.state).toBe("suspended");
             expect(store.grant(roleGrantId)?.isLive).toBe(false);
             expect(store.grant(child.id)?.isLive).toBe(false);
@@ -856,10 +916,11 @@ describe("AuthorityMutationService closure and epoch effects", () => {
             Revision.initial()
         );
         service.assignMembership(member);
-        const changed = service.changeMembership(member.id, {
-            role: writer.name,
-            state: "active"
-        });
+        const changed = service.changeMembership(
+            member.id,
+            { role: writer.name, state: "active" },
+            new Date(150)
+        );
         expect(changed.role.equals(writer.name)).toBe(true);
         const materialized = store.grant(GrantId.forRole(member.id, 0));
         expect(materialized?.isLive).toBe(true);
@@ -881,8 +942,10 @@ describe("AuthorityMutationService closure and epoch effects", () => {
         service.assignMembership(member);
         const changed = role("reconcile-role", "execute");
         const before = store.epoch(workspaceScope).epoch;
-        service.changeRole(changed);
-        expect(Role.encode(service.changeRole(changed))).toEqual(Role.encode(changed));
+        service.changeRole(changed, new Date(150));
+        expect(Role.encode(service.changeRole(changed, new Date(150)))).toEqual(
+            Role.encode(changed)
+        );
         const stored = store.role(changed.name);
         expect(stored === undefined ? undefined : Role.encode(stored)).toEqual(
             Role.encode(changed)
@@ -892,7 +955,7 @@ describe("AuthorityMutationService closure and epoch effects", () => {
 
         const clone = Role.decode(Role.encode(changed));
         const afterChange = store.epoch(workspaceScope).epoch;
-        const noop = service.changeRole(clone);
+        const noop = service.changeRole(clone, new Date(150));
         expect(noop).not.toBe(clone);
         expect(Role.encode(noop)).toEqual(Role.encode(changed));
         expect(store.epoch(workspaceScope).epoch).toBe(afterChange);

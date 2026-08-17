@@ -733,7 +733,8 @@ describe("MemoryTenantControlStore", () => {
                             operations: []
                         })
                     )
-                ])
+                ]),
+                new Date(150)
             );
 
             expect(store.grant(roleGrant.id)?.isLive).toBe(false);
@@ -806,10 +807,11 @@ describe("MemoryTenantControlStore", () => {
                 verification,
                 new Date(10)
             );
-            service.changeMembership(guestMembership.id, {
-                role: guestRole.name,
-                state: "suspended"
-            });
+            service.changeMembership(
+                guestMembership.id,
+                { role: guestRole.name, state: "suspended" },
+                new Date(50)
+            );
             const directMemberPrincipal = new PrincipalId("memory-direct-member-principal");
             service.createPrincipal(new Principal(directMemberPrincipal, "user", "active"));
             service.assignMembership(

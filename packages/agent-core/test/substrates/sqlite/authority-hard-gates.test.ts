@@ -499,10 +499,11 @@ describe("SQLite Tenant and identity hard gates", () => {
                 )
             )
         ).toThrow(AgentCoreError);
-        const suspended = service.changeMembership(member.id, {
-            role: member.role,
-            state: "suspended"
-        });
+        const suspended = service.changeMembership(
+            member.id,
+            { role: member.role, state: "suspended" },
+            new Date(150)
+        );
         expect(() =>
             store.transaction((candidate) =>
                 candidate.putMembership(

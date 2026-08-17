@@ -24,6 +24,8 @@ import AgentCore
 #print axioms AgentCore.guest_allow_is_attenuated
 #print axioms AgentCore.guest_deny_is_preserved
 #print axioms AgentCore.rematerialization_advances_epoch
+#print axioms AgentCore.materialization_requires_verified_guest
+#print axioms AgentCore.handshake_guest_never_materializes
 
 -- SPEC placement order, the §7.2 tier floor, and source assertion rejection.
 -- Interceptor pipeline: total deterministic order, attribution, blocks, replay,
@@ -367,6 +369,7 @@ import AgentCore
 #print axioms AgentCore.Examples.nonvacuous_live_deny_override
 #print axioms AgentCore.Examples.nonvacuous_guest_elevated_allow_filtered
 #print axioms AgentCore.Examples.nonvacuous_role_rematerialization_epoch
+#print axioms AgentCore.Examples.nonvacuous_handshake_guest_materialization_refused
 #print axioms AgentCore.Examples.nonvacuous_empty_placement_rejected
 #print axioms AgentCore.Examples.nonvacuous_source_tier_rejected
 #print axioms AgentCore.Examples.nonvacuous_receipt_audit_append

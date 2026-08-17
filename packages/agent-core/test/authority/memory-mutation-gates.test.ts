@@ -589,7 +589,11 @@ describe("MemoryTenantControlStore mutation gates", () => {
             );
 
             // Same team subject at the next revision is accepted.
-            service.changeMembership(id, { role: role.name, state: "suspended" });
+            service.changeMembership(
+                id,
+                { role: role.name, state: "suspended" },
+                new Date(10)
+            );
 
             // Reading back proves the guard ran and accepted, rather than the write
             // being skipped: the state advanced and the subject is still the team.
@@ -1227,10 +1231,11 @@ describe("MemoryTenantControlStore mutation gates", () => {
         // own writes and a replaced one's out of the table, so a write recorded as a
         // creation when the record was already there would leave this Membership owning
         // nothing and fault its own materialization.
-        const revised = service.changeMembership(member.id, {
-            role: reader.name,
-            state: "active"
-        });
+        const revised = service.changeMembership(
+            member.id,
+            { role: reader.name, state: "active" },
+            new Date(10)
+        );
 
         expect(revised.revision.value).toBe(1);
         expect(owned()).toHaveLength(1);
@@ -1464,10 +1469,11 @@ describe("MemoryTenantControlStore mutation gates", () => {
                 immutable
             );
         }
-        const suspendedGuest = service.changeMembership(guestMember.id, {
-            role: subjectRole.name,
-            state: "suspended"
-        });
+        const suspendedGuest = service.changeMembership(
+            guestMember.id,
+            { role: subjectRole.name, state: "suspended" },
+            new Date(50)
+        );
         expect(suspendedGuest.state).toBe("suspended");
     });
 

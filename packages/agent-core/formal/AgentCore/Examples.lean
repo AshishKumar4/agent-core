@@ -2182,8 +2182,17 @@ theorem nonvacuous_live_deny_override :
 private def elevatedAllowRule : RoleRule :=
   ⟨.allow, ⟨.external tenant "admin", .administer⟩⟩
 private def elevatedAllowRole : Role := ⟨⟨3⟩, [elevatedAllowRule]⟩
+private def elevatedGuestHome : TenantId := ⟨2⟩
 private def elevatedMembership : Membership :=
-  ⟨⟨3⟩, .foreign ⟨2⟩ principal .callback, scope, elevatedAllowRole.id⟩
+  ⟨⟨3⟩, .foreign elevatedGuestHome principal .callback, scope, elevatedAllowRole.id⟩
+
+/-- The verification fact the strengthened materialization premise reads, reached by the
+authority step that records it rather than stipulated on the ledger. -/
+private def verifiedGuestLedger : AuthorityLedger :=
+  { (default : AuthorityLedger).bumpScope scope with
+      foreignVerified := fun candidate member =>
+        (candidate = elevatedGuestHome ∧ member = principal) ∨
+          (default : AuthorityLedger).foreignVerified candidate member }
 
 theorem nonvacuous_guest_elevated_allow_filtered :
     (materializeRole (default : AuthorityLedger) elevatedMembership elevatedAllowRole).grants
@@ -2195,10 +2204,25 @@ theorem nonvacuous_guest_elevated_allow_filtered :
   · rfl
 
 theorem nonvacuous_role_rematerialization_epoch :
-    MaterializationStep (default : AuthorityLedger) elevatedMembership elevatedAllowRole
-      (materializeRole ((default : AuthorityLedger).bumpScope elevatedMembership.scope)
-        elevatedMembership elevatedAllowRole) := by
-  exact MaterializationStep.rematerialize rfl
+    AuthorityLedger.AuthorityStep (default : AuthorityLedger)
+        (.setForeignVerification elevatedGuestHome principal scope) verifiedGuestLedger ∧
+      MaterializationStep verifiedGuestLedger elevatedMembership elevatedAllowRole
+        (materializeRole (verifiedGuestLedger.bumpScope elevatedMembership.scope)
+          elevatedMembership elevatedAllowRole) :=
+  ⟨AuthorityLedger.AuthorityStep.setForeignVerification,
+    MaterializationStep.rematerialize rfl ⟨rfl, Or.inl ⟨rfl, rfl⟩⟩⟩
+
+private def handshakeGuestMembership : Membership :=
+  ⟨⟨4⟩, .foreign elevatedGuestHome principal .handshake, scope, elevatedAllowRole.id⟩
+
+/-- Sharp on the scheme alone: the ledger already carries the verification fact for this home
+Tenant and Principal, so only the `handshake` stamp refuses the materialization. -/
+theorem nonvacuous_handshake_guest_materialization_refused :
+    verifiedGuestLedger.foreignVerified elevatedGuestHome principal ∧
+      ¬ MaterializationStep verifiedGuestLedger handshakeGuestMembership elevatedAllowRole
+        (materializeRole (verifiedGuestLedger.bumpScope handshakeGuestMembership.scope)
+          handshakeGuestMembership elevatedAllowRole) :=
+  ⟨Or.inl ⟨rfl, rfl⟩, handshake_guest_never_materializes rfl⟩
 
 private def emptyPlacement : PlacementSet := ⟨false, false, false⟩
 

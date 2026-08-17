@@ -101,7 +101,7 @@ describe("SQLite Tenant authority mutation storage", () => {
 
         expect(store.grants()).toHaveLength(2);
         expect(store.epoch(tenantScope).epoch).toBe(2);
-        service.changeRole(Role.decode(Role.encode(role)));
+        service.changeRole(Role.decode(Role.encode(role)), new Date(150));
         expect(store.epoch(tenantScope).epoch).toBe(2);
 
         service.revokeMembership(membership.id);

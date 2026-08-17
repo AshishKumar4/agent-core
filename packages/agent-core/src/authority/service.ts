@@ -300,15 +300,15 @@ export class AuthorityMutationService {
         });
     }
 
-    public changeRole(role: Role): Role {
+    public changeRole(role: Role, now: Date): Role {
         return this.store.transaction((store) => {
             const current = requireRecord(store.role(role.name), "Role");
             if (bytesEqual(Role.encode(current), Role.encode(role))) return current;
+            const members = store.memberships().filter((entry) => entry.role.equals(role.name));
+            for (const membership of members) requireCurrentGuestVerification(membership, now);
             store.putRole(role);
             const affected = new Map<string, ScopeEpoch["scope"]>();
-            for (const membership of store
-                .memberships()
-                .filter((entry) => entry.role.equals(role.name))) {
+            for (const membership of members) {
                 for (const scope of this.reconcile(store, membership, role)) {
                     affected.set(scopeKey(scope), scope);
                 }
@@ -391,11 +391,16 @@ export class AuthorityMutationService {
         });
     }
 
-    public changeMembership(id: MembershipId, intent: MembershipChangeIntent): Membership {
+    public changeMembership(
+        id: MembershipId,
+        intent: MembershipChangeIntent,
+        now: Date
+    ): Membership {
         return this.store.transaction((store) => {
             const current = requireRecord(store.membership(id), "Membership");
             const role = requireRecord(store.role(intent.role), "Role");
             const changed = current.revise(intent.role, intent.state);
+            requireCurrentGuestVerification(changed, now);
             const affected = this.reconcile(store, changed, role);
             store.putMembership(changed);
             this.bump(store, [
@@ -564,6 +569,21 @@ function validateDelegation(store: AuthorityMutationStore, grant: Grant): void {
     const parent = requireRecord(store.grant(grant.attenuationOf), "Parent Grant");
     if (!parent.canAttenuate(grant)) {
         throw new AgentCoreError("authority.denied", "Delegated Grant is not a live attenuation");
+    }
+}
+
+/**
+ * Materialization is the security event: it mints a durable, enumerable, delegable Grant that
+ * survives whatever the authorization path later decides. A guest verification is a fact with an
+ * expiry, so re-minting role Grants requires the fact to still hold at the write, not merely to
+ * have held once. Nothing here extends a deadline: a stale guest is denied, and the Membership
+ * must be suspended, revoked, or re-verified before its Role plane moves again.
+ */
+function requireCurrentGuestVerification(membership: Membership, now: Date): void {
+    if (membership.subject.kind !== "foreign" || !membership.isActive) return;
+    const verification = membership.guestVerification;
+    if (verification === undefined || !verification.admits(membership.subject, now)) {
+        throw new AgentCoreError("authority.denied", "Guest verification is not currently valid");
     }
 }
 

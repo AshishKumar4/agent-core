@@ -784,9 +784,9 @@
     },
     {
       "id": "AC-MATERIALIZE-001",
-      "summary": "Foreign-subject guest allow attenuation, deny preservation, and epoch-advancing Role rematerialization",
+      "summary": "Foreign-subject guest allow attenuation, deny preservation, the completed-and-verified guest precondition on Role materialization, handshake refusal, and epoch-advancing Role rematerialization",
       "status": "proved-component",
-      "boundary": "Coverage is the pure Role-rule-to-Grant transformation and one abstract rematerialization transition, not Blueprint materialization or durable reconciliation.",
+      "boundary": "Coverage is the pure Role-rule-to-Grant transformation and one abstract rematerialization transition, not Blueprint materialization or durable reconciliation. The guest precondition is a completed scheme plus the ledger verification fact the step reads; the ledger carries no time index, so verification expiry is a refinement obligation on the TypeScript materialization boundary rather than a model property.",
       "definitions": [
         "AgentCore.Membership",
         "AgentCore.Role",
@@ -795,17 +795,22 @@
         "AgentCore.roleRuleEligible",
         "AgentCore.grantOfRoleRule",
         "AgentCore.materializeRole",
-        "AgentCore.MaterializationStep"
+        "AgentCore.MaterializationStep",
+        "AgentCore.GuestScheme.completed",
+        "AgentCore.AuthorityLedger.SubjectVerified"
       ],
       "theorems": [
         "AgentCore.guest_allow_is_attenuated",
         "AgentCore.guest_deny_is_preserved",
-        "AgentCore.rematerialization_advances_epoch"
+        "AgentCore.rematerialization_advances_epoch",
+        "AgentCore.materialization_requires_verified_guest",
+        "AgentCore.handshake_guest_never_materializes"
       ],
       "nonVacuity": [
         "AgentCore.Examples.nonvacuous_foreign_guest_deny",
         "AgentCore.Examples.nonvacuous_guest_elevated_allow_filtered",
-        "AgentCore.Examples.nonvacuous_role_rematerialization_epoch"
+        "AgentCore.Examples.nonvacuous_role_rematerialization_epoch",
+        "AgentCore.Examples.nonvacuous_handshake_guest_materialization_refused"
       ],
       "witnessCoverage": {
         "AgentCore.guest_allow_is_attenuated": [
@@ -816,11 +821,18 @@
         ],
         "AgentCore.rematerialization_advances_epoch": [
           "AgentCore.Examples.nonvacuous_role_rematerialization_epoch"
+        ],
+        "AgentCore.materialization_requires_verified_guest": [
+          "AgentCore.Examples.nonvacuous_role_rematerialization_epoch"
+        ],
+        "AgentCore.handshake_guest_never_materializes": [
+          "AgentCore.Examples.nonvacuous_handshake_guest_materialization_refused"
         ]
       },
       "remainingEvidence": [
         "concrete Role catalog and source-owned Grant reconciliation",
-        "Blueprint validation and idempotent materializer conformance"
+        "Blueprint validation and idempotent materializer conformance",
+        "the model's verification fact carries no time index, so guest verification expiry is enforced only by the TypeScript materialization boundary"
       ]
     },
     {
