@@ -39,8 +39,8 @@
         },
         {
           "id": "ACQ-NORM/malformed-cross-reference-keeps-its-valid-prefix",
-          "find": "(§8.2)",
-          "replace": "(§8..99)",
+          "find": "ContentStore (§8.2)",
+          "replace": "ContentStore (§8..99)",
           "expects": "Malformed cross-reference §8..99",
           "diagnostic": "Malformed cross-reference ",
           "defect": "A malformed cross-reference was matched by prefix, so §8..99 resolved to §8 and pointed at a section it never named."

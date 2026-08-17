@@ -11,6 +11,7 @@ import {
     type MutationReport,
     type ReportMutant
 } from "../../scripts/quality/mutation-equivalence.mjs";
+import { generatedMutants } from "../../scripts/quality/mutation-instrumenter.mjs";
 import {
     mutationFingerprint,
     mutationTestFiles,
@@ -143,6 +144,67 @@ describe("mutation adequacy gate", () => {
         expect(result.status).toBe(1);
         expect(result.stderr).toContain("equivalence entry names a missing file");
         expect(result.stderr).toContain("src/identity/removed.ts");
+    });
+
+    // Whether a registered mutant still survives is the one thing only a run can report,
+    // and a run costs half an hour. It used to cost that: the register verdict threw
+    // before a byte of the measurement was written, and Stryker's own report.json is
+    // scratch the next area overwrites, so one stale entry of 383 discarded the whole
+    // area. The failure has to be by name, after the measurement lands.
+    test("records the measurement and then fails naming the refuted entry", () => {
+        const directory = mkdtempSync(join(tmpdir(), "mutation-measure-"));
+        const reportPath = join(directory, "report.json");
+        const registerPath = join(directory, "equivalence.json");
+        const survivorsPath = join(directory, "survivors.json");
+        const entry = guardEntry("encode", "a mutant a test turns out to kill");
+        writeFileSync(
+            reportPath,
+            JSON.stringify(reportFor(guardModule, [{ ...guardMutant, status: "Killed" }]))
+        );
+        writeFileSync(registerPath, JSON.stringify({ edition: "1.0.0", entries: [entry] }));
+
+        const result = runQualitySubprocess(
+            process.execPath,
+            [
+                checker,
+                "--area",
+                "identity",
+                "--report",
+                reportPath,
+                "--register",
+                registerPath,
+                "--survivors",
+                survivorsPath,
+                "--discrimination",
+                join(directory, "discrimination.json")
+            ],
+            packageRoot
+        );
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("refuted —");
+        expect(result.stderr).toContain("src/identity/ref.ts#encode ConditionalExpression");
+        expect(result.stderr).toContain("is reported Killed");
+        expect(result.stderr).toContain(survivorsPath);
+
+        expect(JSON.parse(readFileSync(survivorsPath, "utf8"))).toMatchObject({
+            area: "identity",
+            mutants: 1,
+            killed: 1,
+            score: 100,
+            registerFailures: [expect.stringContaining("refuted —")]
+        });
+    });
+
+    test("refuses to re-pin a baseline from a report it did not measure", () => {
+        const result = runQualitySubprocess(
+            process.execPath,
+            [checker, "--area", "identity", "--update", "--report", "reports/anything.json"],
+            packageRoot
+        );
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("--update pins a baseline and so must measure");
     });
 });
 
@@ -447,7 +509,7 @@ describe("mutation equivalence register", () => {
         expect(collision.ambiguous.map((item) => item.matches.length)).toEqual([2]);
     });
 
-    test("anchors a mutant nested inside a local declaration to the symbol naming it", () => {
+    test("anchors a mutant nested inside a local declaration to the symbol naming it", async () => {
         // The auditor searches inside the named declaration while reconciliation used to
         // demand the mutant's innermost declaration path equal it. A mutant inside a
         // `const` therefore passed the audit and reconciled as stale forever, because the
@@ -463,11 +525,14 @@ describe("mutation equivalence register", () => {
         };
         const entries = readEquivalenceRegister({ edition: "1.0.0", entries: [entry] });
 
-        expect(
-            auditEquivalenceAnchors(entries, ["identity"], (file) =>
-                file === registeredFile ? nested : undefined
+        await expect(
+            auditEquivalenceAnchors(
+                entries,
+                ["identity"],
+                (file) => (file === registeredFile ? nested : undefined),
+                generatedMutants
             )
-        ).toEqual([]);
+        ).resolves.toEqual([]);
         const resolved = reconcileEquivalence(
             reportFor(nested, [
                 {
@@ -544,16 +609,28 @@ describe("mutation equivalence register", () => {
     });
 });
 
-// The reconciler only speaks when an area is measured. This is what runs on every quality
-// gate, so a proof cannot quietly outlive the code it was written about.
+// What runs on every quality gate, so a proof cannot quietly outlive either the code or
+// the mutation it was written about. The reconciler only speaks when an area is measured,
+// and an area costs half an hour; everything short of a mutant's status is settled here.
 describe("mutation equivalence anchors", () => {
     const areas = sourceAreas();
     const readSource = (file: string): string | undefined => {
         const path = resolve(packageRoot, file);
         return existsSync(path) ? readFileSync(path, "utf8") : undefined;
     };
+    const audit = (entries: readonly EquivalenceEntry[]): Promise<string[]> =>
+        auditEquivalenceAnchors(entries, areas, readSource, generatedMutants);
 
-    test("resolves every committed entry to exactly one site in the current tree", () => {
+    const scopeGuard: EquivalenceEntry = {
+        file: "src/identity/scope.ts",
+        symbol: "encodeScopeRef",
+        mutator: "ConditionalExpression",
+        replacement: "false",
+        mutated: "scope.projectId === undefined",
+        proof: proofFor("encodeScopeRef")
+    };
+
+    test("resolves every committed entry to exactly one generated mutant", async () => {
         const register = readEquivalenceRegister(
             JSON.parse(
                 readFileSync(
@@ -564,38 +641,59 @@ describe("mutation equivalence anchors", () => {
         );
 
         expect(register.length).toBeGreaterThan(0);
-        expect(auditEquivalenceAnchors(register, areas, readSource)).toEqual([]);
+        await expect(audit(register)).resolves.toEqual([]);
     });
 
-    test("names the entry when its file, area, symbol, or anchor has moved on", () => {
-        const entry = {
-            file: "src/identity/scope.ts",
-            symbol: "encodeScopeRef",
-            mutator: "ConditionalExpression",
-            replacement: "false",
-            mutated: "scope.projectId === undefined",
-            proof: proofFor("encodeScopeRef")
-        };
+    test("names the entry when its file, area, symbol, or anchor has moved on", async () => {
+        await expect(audit([{ ...scopeGuard, file: "src/nowhere/gone.ts" }])).resolves.toEqual([
+            expect.stringContaining("names a file outside the measured areas")
+        ]);
+        await expect(audit([{ ...scopeGuard, file: "src/identity/gone.ts" }])).resolves.toEqual([
+            expect.stringContaining("names a missing file")
+        ]);
+        await expect(audit([{ ...scopeGuard, symbol: "encodeScope" }])).resolves.toEqual([
+            expect.stringContaining("names a symbol that no longer exists")
+        ]);
+        await expect(
+            audit([{ ...scopeGuard, mutated: "scope.projectId === null" }])
+        ).resolves.toEqual([expect.stringContaining("anchors 0 sites in its symbol, not one")]);
+        await expect(audit([{ ...scopeGuard, mutated: "kind: scope.kind" }])).resolves.toEqual([
+            expect.stringContaining("anchors 3 sites in its symbol, not one")
+        ]);
+    });
 
-        expect(
-            auditEquivalenceAnchors([{ ...entry, file: "src/nowhere/gone.ts" }], areas, readSource)
-        ).toEqual([expect.stringContaining("names a file outside the measured areas")]);
-        expect(
-            auditEquivalenceAnchors([{ ...entry, file: "src/identity/gone.ts" }], areas, readSource)
-        ).toEqual([expect.stringContaining("names a missing file")]);
-        expect(
-            auditEquivalenceAnchors([{ ...entry, symbol: "encodeScope" }], areas, readSource)
-        ).toEqual([expect.stringContaining("names a symbol that no longer exists")]);
-        expect(
-            auditEquivalenceAnchors(
-                [{ ...entry, mutated: "scope.projectId === null" }],
-                areas,
-                readSource
-            )
-        ).toEqual([expect.stringContaining("anchors 0 sites in its symbol, not one")]);
-        expect(
-            auditEquivalenceAnchors([{ ...entry, mutated: "kind: scope.kind" }], areas, readSource)
-        ).toEqual([expect.stringContaining("anchors 3 sites in its symbol, not one")]);
+    // The axis the text comparison above cannot see. Whether a mutator applies to a node is
+    // a property of Stryker's mutators, not of our source, so an entry naming a mutation
+    // that does not exist at its anchor kept its anchored text intact and passed — while
+    // every run reported it stale, unfixably, because there was nothing there to be about.
+    // The first case is the entry that proved it: `isObjectRecord(value)` is a call
+    // expression, and `ConditionalExpression` mutates boolean expressions and the tests of
+    // conditions. It was written the same night a refactor replaced the boolean operand the
+    // proof was about, and it survived four days of gates.
+    test("names the entry when no mutator generates the mutation it claims", async () => {
+        await expect(
+            audit([
+                {
+                    file: "src/actors/id.ts",
+                    symbol: "isExactActorId",
+                    mutator: "ConditionalExpression",
+                    replacement: "true",
+                    mutated: "isObjectRecord(value)",
+                    proof: proofFor("isExactActorId")
+                }
+            ])
+        ).resolves.toEqual([
+            expect.stringContaining("names 0 mutants Stryker generates at its anchor, not one")
+        ]);
+        await expect(audit([{ ...scopeGuard, mutator: "BooleanLiteral" }])).resolves.toEqual([
+            expect.stringContaining("names 0 mutants Stryker generates at its anchor, not one")
+        ]);
+        await expect(audit([{ ...scopeGuard, replacement: "null" }])).resolves.toEqual([
+            expect.stringContaining("names 0 mutants Stryker generates at its anchor, not one")
+        ]);
+        // The control: one field back, and the same anchor resolves. A check that rejected
+        // this too would discriminate nothing.
+        await expect(audit([scopeGuard])).resolves.toEqual([]);
     });
 });
 

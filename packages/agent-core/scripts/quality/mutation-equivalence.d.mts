@@ -13,15 +13,18 @@ export type EquivalenceEntry = {
     sites?: number;
 };
 
-export interface ReportMutant {
-    id: string;
+export interface MutationSite {
     mutatorName: string;
     replacement: string;
-    status: string;
     location: {
         start: { line: number; column: number };
         end: { line: number; column: number };
     };
+}
+
+export interface ReportMutant extends MutationSite {
+    id: string;
+    status: string;
 }
 
 export interface MutationReport {
@@ -51,5 +54,6 @@ export function reconcileEquivalence(
 export function auditEquivalenceAnchors(
     entries: readonly EquivalenceEntry[],
     areas: readonly string[],
-    readSource: (file: string) => string | undefined
-): string[];
+    readSource: (file: string) => string | undefined,
+    readMutants: (file: string, text: string) => Promise<readonly MutationSite[]>
+): Promise<string[]>;

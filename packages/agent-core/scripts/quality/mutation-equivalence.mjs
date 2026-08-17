@@ -175,10 +175,21 @@ export function reconcileEquivalence(report, entries) {
  * Verifies every entry's anchor against the working tree, without a mutation run. This is
  * what keeps a register entry honest between measurements: an entry whose file, symbol,
  * or anchored source has moved on is reported here rather than surviving until whichever
- * area happens to be measured next. `readSource` returns a file's text, or undefined.
+ * area happens to be measured next. `readSource` returns a file's text, or undefined;
+ * `readMutants` returns every mutant Stryker would generate for that text.
+ *
+ * Reading the mutants is what makes the audit ask the register's whole question. Text
+ * alone answers three of the anchor's five fields, and an entry whose `mutator` cannot
+ * apply at its anchored node names a mutation that will never exist — unfalsifiable in
+ * both directions, so a run reports it stale forever while the audit sees source that is
+ * still there. That is not a hypothetical: `src/actors/id.ts#isExactActorId
+ * ConditionalExpression -> true @ isObjectRecord(value)` passed here for four days, having
+ * been written against a boolean operand that a refactor had already replaced with a call
+ * expression. Only the status of a mutant is genuinely a run's to report.
  */
-export function auditEquivalenceAnchors(entries, areas, readSource) {
+export async function auditEquivalenceAnchors(entries, areas, readSource, readMutants) {
     const failures = [];
+    const generated = new Map();
     for (const entry of entries) {
         const key = equivalenceKey(entry);
         if (!areas.includes(equivalenceArea(entry.file))) {
@@ -202,11 +213,25 @@ export function auditEquivalenceAnchors(entries, areas, readSource) {
                 failures.push(
                     `equivalence entry anchors ${sites} sites in its symbol, not one: ${key}`
                 );
+                continue;
             }
         } else if (sites !== entry.sites) {
             failures.push(
                 `equivalence entry was written against ${entry.sites} identical sites and its ` +
                     `symbol now has ${sites}: ${key}`
+            );
+            continue;
+        }
+        if (!generated.has(entry.file)) {
+            generated.set(entry.file, await readMutants(entry.file, text));
+        }
+        const matches = generated
+            .get(entry.file)
+            .filter((mutant) => anchors(entry, mutant, source, text));
+        if (matches.length !== 1) {
+            failures.push(
+                `equivalence entry names ${matches.length} mutants Stryker generates at its ` +
+                    `anchor, not one: ${key}`
             );
         }
     }
@@ -214,13 +239,15 @@ export function auditEquivalenceAnchors(entries, areas, readSource) {
 }
 
 /**
- * Both halves of the register have to mean the same thing by "in this symbol", so both
- * ask `anchoredNodes` — the auditor to count the sites, this to find the one a mutant
- * occupies. They did not always: this asked whether the mutant's innermost enclosing
- * declaration path *equalled* the entry's symbol, while the auditor searched *inside* the
- * named declaration. An entry naming a method whose mutant sat inside a `const` within it
- * therefore passed the audit and reconciled as stale forever — the symbol path carries
- * the variable, so `RunRepository.loadExecutionScope` never matched
+ * Whether one mutant is the mutant an entry names. Both halves of the register resolve an
+ * anchor through this one predicate — the reconciler against a report's mutants, the
+ * auditor against the mutants the instrumenter would generate — so "the anchor resolves"
+ * cannot mean two things. The halves once disagreed by construction: this asked whether
+ * the mutant's innermost enclosing declaration path *equalled* the entry's symbol, while
+ * the auditor searched *inside* the named declaration. An entry naming a method whose
+ * mutant sat inside a `const` within it therefore passed the audit and reconciled as
+ * stale forever — the symbol path carries the variable, so
+ * `RunRepository.loadExecutionScope` never matched
  * `RunRepository.loadExecutionScope.unpairedTransition`. Naming the enclosing declaration
  * is what an author reasonably writes, and scoping is all the symbol was ever for.
  */

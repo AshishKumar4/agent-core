@@ -3,6 +3,8 @@
 //   node scripts/quality/mutation.mjs --area authority            measure + gate one area
 //   node scripts/quality/mutation.mjs --area authority --update   re-pin the area baseline
 //   node scripts/quality/mutation.mjs --gate                      gate every measured area
+//   node scripts/quality/mutation.mjs --area authority --report r.json
+//                                                                  reclassify a recorded run
 //
 // Mutation testing is the objective adequacy signal: a test suite that cannot kill a
 // behavior-changing mutant does not test that behavior. Full-tree mutation is far too
@@ -33,6 +35,7 @@ import { sourceFiles } from "./compiler.mjs";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { mutationFingerprint, sourceAreas } from "./mutation-inputs.mjs";
+import { generatedMutants } from "./mutation-instrumenter.mjs";
 import {
     auditEquivalenceAnchors,
     equivalenceArea,
@@ -69,15 +72,21 @@ if (options.gate) {
     const failures = [];
     const notes = [];
     const expectedAreas = sourceAreas();
-    // Whether a registered mutant still survives is only knowable at measure time, and is
-    // enforced there. What the gate can settle on every run is that each entry still
-    // anchors exactly one site in the tree it claims to describe, so a proof cannot quietly
-    // outlive the code it was written about.
+    // Whether a registered mutant still *survives* is only knowable at measure time, and
+    // is enforced there. Everything else the gate settles on every run: each entry still
+    // anchors exactly one site in the tree it claims to describe, and the mutator and
+    // replacement it names are still a mutation Stryker generates over that site. A proof
+    // cannot quietly outlive either the code or the mutation it was written about.
     failures.push(
-        ...auditEquivalenceAnchors(register, expectedAreas, (file) => {
-            const path = resolve(packageRoot, file);
-            return existsSync(path) ? readFileSync(path, "utf8") : undefined;
-        })
+        ...(await auditEquivalenceAnchors(
+            register,
+            expectedAreas,
+            (file) => {
+                const path = resolve(packageRoot, file);
+                return existsSync(path) ? readFileSync(path, "utf8") : undefined;
+            },
+            generatedMutants
+        ))
     );
     const recordedAreas = Object.keys(baseline.areas).sort();
     const unmeasured = expectedAreas.filter((area) => baseline.areas[area] === undefined);
@@ -149,10 +158,23 @@ function barrelOnly(files) {
     });
 }
 
-const areaSources = existsSync(areaRoot) ? typescriptSources(areaRoot) : [areaFile];
-const nothingToMutate = barrelOnly(areaSources);
+const report = measurement();
 
-if (!nothingToMutate) {
+/**
+ * Where this run's mutant statuses come from. `--report` names a report a run already
+ * produced, so a register repair can be checked against the run that found it instead of
+ * paying half an hour to reproduce it — and Stryker's own report.json is scratch that the
+ * next area overwrites, so a recorded copy is the only thing left to check against. It
+ * cannot re-pin a baseline; `parseArguments` refuses that.
+ */
+function measurement() {
+    if (options.report !== undefined) {
+        return JSON.parse(readFileSync(resolve(packageRoot, options.report), "utf8"));
+    }
+    // An empty report carries a barrel-only area through the same classification, survivor
+    // and baseline path as any other, recording the zeros it truly has instead of branching.
+    const areaSources = existsSync(areaRoot) ? typescriptSources(areaRoot) : [areaFile];
+    if (barrelOnly(areaSources)) return { files: {} };
     const stryker = spawnSync(
         "node",
         [
@@ -164,15 +186,11 @@ if (!nothingToMutate) {
         { cwd: packageRoot, encoding: "utf8", stdio: ["ignore", "inherit", "inherit"] }
     );
     if (stryker.status !== 0) throw new TypeError(`Stryker failed for area ${options.area}`);
+    return JSON.parse(
+        readFileSync(resolve(packageRoot, "reports/quality/mutation/report.json"), "utf8")
+    );
 }
 
-// An empty report carries a barrel-only area through the same classification, survivor
-// and baseline path as any other, recording the zeros it truly has instead of branching.
-const report = nothingToMutate
-    ? { files: {} }
-    : JSON.parse(
-          readFileSync(resolve(packageRoot, "reports/quality/mutation/report.json"), "utf8")
-      );
 // Kill attribution is the trustworthy direction of a perTest measurement: a test is
 // recorded only because it actually failed while the mutant was applied. The JSON
 // report indexes killedBy into its testFiles section; a test's selector rebuilt from
@@ -199,9 +217,13 @@ const registerFailures = [
             "one proof excuses one mutant"
     )
 ];
-if (registerFailures.length > 0) {
-    throw new TypeError(`Mutation equivalence register failed:\n${registerFailures.join("\n")}`);
-}
+// The throw is deferred to just past the survivor and discrimination writes. It used to
+// stand here, and it cost an area's whole measurement — 35 minutes for `actors` — every
+// time one entry of 383 went stale, because nothing had been written yet and the next
+// area overwrites Stryker's own report.json. Nothing about that made the gate stronger:
+// the classification below already refuses to excuse a mutant whose entry did not
+// reconcile, so the recorded measurement is the conservative one either way, and the
+// entries are named in the report the reader reaches for.
 
 const summary = {
     mutants: 0,
@@ -262,14 +284,23 @@ const entry = {
     tolerated: summary.tolerated
 };
 
-await writeCanonicalJson(resolve(packageRoot, `reports/mutation/${options.area}-survivors.json`), {
+// A measurement writes two files, and one of them is committed evidence. Naming both, as
+// the baseline and the register are already named, is what lets the measure path be
+// exercised without a test overwriting an area's real discrimination artifact.
+const survivorsPath =
+    options.survivors ?? resolve(packageRoot, `reports/mutation/${options.area}-survivors.json`);
+const discriminationPath =
+    options.discrimination ?? resolve(artifactRoot, `quality/discrimination/${options.area}.json`);
+
+await writeCanonicalJson(survivorsPath, {
     edition: "1.0.0",
     area: options.area,
     ...entry,
     equivalent: summary.equivalent,
+    registerFailures,
     survivors: summary.survivors
 });
-await writeCanonicalJson(resolve(artifactRoot, `quality/discrimination/${options.area}.json`), {
+await writeCanonicalJson(discriminationPath, {
     edition: "1.0.0",
     area: options.area,
     measuredAt: entry.measuredAt,
@@ -296,6 +327,18 @@ console.log(
         `${summary.tolerated} tolerated + ${summary.equivalent} proven equivalent ` +
         `survivors of ${summary.mutants} mutants`
 );
+
+// A stale, refuted or ambiguous entry is a failure of the register, not of the
+// measurement, so it is reported once the measurement is on disk and named rather than
+// counted. The baseline is still never written under one: `--update` is below this.
+if (registerFailures.length > 0) {
+    throw new TypeError(
+        `Mutation equivalence register failed:\n${registerFailures.join("\n")}\n` +
+            `The ${options.area} measurement is recorded in ${survivorsPath} ` +
+            "and is not lost; " +
+            "rewrite or drop each entry named above."
+    );
+}
 
 if (options.update) {
     requireCleanWorktree();
@@ -481,6 +524,9 @@ function parseArguments(args) {
     let baseline;
     let stageArtifact;
     let registerArtifact;
+    let report;
+    let survivors;
+    let discrimination;
     for (let index = 0; index < args.length; index += 1) {
         if (args[index] === "--area") area = args[++index];
         else if (args[index] === "--update") update = true;
@@ -488,8 +534,26 @@ function parseArguments(args) {
         else if (args[index] === "--baseline") baseline = args[++index];
         else if (args[index] === "--stage-artifact") stageArtifact = args[++index];
         else if (args[index] === "--register") registerArtifact = args[++index];
+        else if (args[index] === "--report") report = args[++index];
+        else if (args[index] === "--survivors") survivors = args[++index];
+        else if (args[index] === "--discrimination") discrimination = args[++index];
         else throw new TypeError(`Unknown mutation argument ${args[index]}`);
     }
     if (!gate && area === undefined) throw new TypeError("--area or --gate is required");
-    return { area, update, gate, baseline, stageArtifact, registerArtifact };
+    // A recorded report says nothing about the tree the baseline would be pinned against,
+    // and the fingerprint written beside it is read from that tree.
+    if (update && report !== undefined) {
+        throw new TypeError("--update pins a baseline and so must measure, not read --report");
+    }
+    return {
+        area,
+        update,
+        gate,
+        baseline,
+        stageArtifact,
+        registerArtifact,
+        report,
+        survivors,
+        discrimination
+    };
 }

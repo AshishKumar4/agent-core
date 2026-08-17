@@ -26,14 +26,6 @@
       "symbol": "isActorRecoveryStatePayload"
     },
     {
-      "file": "src/actors/id.ts",
-      "mutated": "isObjectRecord(value)",
-      "mutator": "ConditionalExpression",
-      "proof": "The narrowing exists so WeakSet.prototype.has, whose parameter is typed object, will accept an unknown argument, and forcing it true changes no answer: has is specified to report false for any value that cannot be held weakly rather than to throw, so every primitive, null and undefined is still reported as not an exact Actor ID. Arrays, which isObjectRecord also excludes, reach the same false because the brand set holds nothing but ActorId instances. Verified by applying the mutant against the whole suite; the complementary substitution, and every other mutant at this site, is killed.",
-      "replacement": "true",
-      "symbol": "isExactActorId"
-    },
-    {
       "file": "src/actors/store.ts",
       "mutated": "{ throw corruptSnapshot(\"Unbound Actor storage cannot contain recovery state\"); }",
       "mutator": "BlockStatement",
@@ -2504,7 +2496,7 @@
       "symbol": "SqliteTransientContentAccess.acquireInTransaction",
       "mutator": "ConditionalExpression",
       "replacement": "false",
-      "mutated": "(bytes !== undefined && !equalBytes(persisted.bytes, bytes))",
+      "mutated": "bytes !== undefined && !equalBytes(persisted.bytes, bytes)",
       "proof": "This operand refuses a lease whose content did not persist as supplied, and it can never fire. Reaching it means bytes was defined, so validateBindingBytes ran and pinned Digest.sha256(bytes) to binding.digest and binding.digest to binding.ref.digest; loadSqliteContent then read content_blobs at binding.ref, and validateContentRow refuses that row unless the SHA-256 of the bytes it returns equals the digest filed under that ref. The two arrays therefore share a digest, equalBytes is true, and the negation is false on every input. The `persisted === undefined` operand beside it keeps deciding."
     },
     {
