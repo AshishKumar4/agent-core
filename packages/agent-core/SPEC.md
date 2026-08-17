@@ -1124,7 +1124,7 @@ denies it, here it would confer something because resolution never ran. Closure 
 makes a passed name free to choose, since a Binding may take a name the hosting language
 also uses and the language's own is then unreachable rather than merely shadowed — so this
 document fixes no reserved-name list, and a host MUST NOT satisfy this rule by renaming a
-passed Binding. An inadmissible name is refused under **C13-AUTH-BINDING-NAME-CANONICAL**
+passed Binding. An inadmissible name is refused under `C13-AUTH-BINDING-NAME-CANONICAL`
 before the isolate exists, and one discovered while a Facet activates leaves the Scope's
 records as `C13-FACET-START-ATOMIC` requires rather than a half-built namespace. Closure
 opens no admission path of its own: a name the set contains resolves through the §3.4
