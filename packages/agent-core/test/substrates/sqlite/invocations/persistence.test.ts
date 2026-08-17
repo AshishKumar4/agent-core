@@ -5,18 +5,18 @@ import {
     AttemptReceipt,
     AuditRecordId,
     ClaimWorkerId,
+    createInvocationMemoryState,
     EffectAttempt,
     EffectAttemptId,
+    InvocationContinuation,
     InvocationError,
     InvocationId,
-    InvocationContinuation,
     ItemClaim,
     ItemClaimId,
     MemoryInvocationPersistence,
     PreEffectReceipt,
-    ReceiptId,
-    createInvocationMemoryState,
-    type PreparedInvocation
+    type PreparedInvocation,
+    ReceiptId
 } from "../../../../src/invocations";
 import { PrincipalId } from "../../../../src/identity";
 import { AgentCoreError } from "../../../../src/errors";
@@ -29,9 +29,10 @@ import { TestSqlite } from "../../../helpers/sqlite";
 import {
     admissionFor,
     createLedger,
+    failedByAbort,
     invocationCodecs,
-    prepared,
-    type InvocationHarness
+    type InvocationHarness,
+    prepared
 } from "../../../invocations/fixture";
 import { invocationLedgerContract } from "../../../invocations/ledger-contract";
 import { createSqliteInvocationPersistence } from "./fixture";
@@ -177,7 +178,7 @@ describe("SqliteInvocationPersistence transaction scope", () => {
                         new AttemptReceipt(
                             new ReceiptId("sqlite-orphan-receipt"),
                             new EffectAttemptId("missing-attempt"),
-                            "failed",
+                            failedByAbort,
                             undefined,
                             new Date(2000),
                             undefined
@@ -213,7 +214,7 @@ describe("SqliteInvocationPersistence transaction scope", () => {
                     new AttemptReceipt(
                         new ReceiptId("receipt-source-corruption"),
                         attempt.id,
-                        "failed",
+                        failedByAbort,
                         undefined,
                         new Date(3000),
                         undefined
@@ -401,7 +402,7 @@ describe("SqliteInvocationPersistence transaction scope", () => {
             const receipt = new AttemptReceipt(
                 new ReceiptId("sqlite-orphaned-receipt-source-receipt"),
                 attempt.id,
-                "failed",
+                failedByAbort,
                 undefined,
                 new Date(3000),
                 undefined
@@ -824,7 +825,7 @@ describe("SqliteInvocationPersistence projection integrity", () => {
             new AttemptReceipt(
                 new ReceiptId(`sqlite-receipt-pointer-${key}-receipt`),
                 attempt.id,
-                "failed",
+                failedByAbort,
                 undefined,
                 new Date(3000),
                 undefined
@@ -919,7 +920,7 @@ describe("SqliteInvocationPersistence projection integrity", () => {
                         new AttemptReceipt(
                             new ReceiptId("sqlite-missing-evidence"),
                             new EffectAttemptId("sqlite-missing-evidence-attempt"),
-                            "failed",
+                            failedByAbort,
                             undefined,
                             new Date(2000),
                             undefined

@@ -4,24 +4,25 @@ import { AgentCoreError } from "../../../../src/errors";
 import { OperationDescriptor, OperationName } from "../../../../src/facets";
 import { PrincipalId, PrincipalRef, TenantId } from "../../../../src/identity";
 import {
+    AttemptCompletion,
     AttemptReceipt,
     AuditRecord,
     AuditRecordId,
     ClaimWorkerId,
     CorrelationId,
+    createInvocationMediationMemoryState,
     EffectAttempt,
     EffectAttemptId,
+    type InvocationEvidencePersistence,
     InvocationId,
+    InvocationPublicationDrainer,
+    InvocationPublicationOutbox,
+    type InvocationReplayPersistence,
     ItemClaim,
     ItemClaimId,
-    MemoryInvocationMediationPersistence,
-    InvocationPublicationOutbox,
-    InvocationPublicationDrainer,
     MediatedReplayRecord,
-    ReceiptId,
-    createInvocationMediationMemoryState,
-    type InvocationEvidencePersistence,
-    type InvocationReplayPersistence
+    MemoryInvocationMediationPersistence,
+    ReceiptId
 } from "../../../../src/invocations";
 import { SqliteInvocationMediationPersistence } from "../../../../src/substrates/sqlite/invocations";
 import {
@@ -211,7 +212,7 @@ describe("SqliteInvocationMediationPersistence", () => {
             const receipt = new AttemptReceipt(
                 new ReceiptId("sqlite-atomic-receipt"),
                 attempt.id,
-                "indeterminate",
+                AttemptCompletion.indeterminate,
                 undefined,
                 new Date(3_000),
                 undefined
@@ -291,7 +292,7 @@ describe("SqliteInvocationMediationPersistence", () => {
             const finalReceipt = new AttemptReceipt(
                 new ReceiptId("sqlite-atomic-final-receipt"),
                 attempt.id,
-                "succeeded",
+                AttemptCompletion.succeeded,
                 receipt.id,
                 new Date(4_000),
                 undefined

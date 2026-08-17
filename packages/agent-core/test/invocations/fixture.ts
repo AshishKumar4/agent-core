@@ -13,7 +13,10 @@ import { OperationRef } from "../../src/facets";
 import { PackageId } from "../../src/definition";
 import {
     ApprovalCodec,
+    AttemptCompletion,
+    AttemptFailureKind,
     AttemptReceipt,
+    type AttemptReceiptOutcome,
     AuthorityAdmissionReference,
     AuditRecordId,
     EffectAttemptCodec,
@@ -218,6 +221,32 @@ export function admissionFor(
 ): AuthorityAdmissionReference<string> {
     const reference = `admit:${invocation}:${itemIndex}:${ordinal}`;
     return new AuthorityAdmissionReference(reference, digest(reference));
+}
+
+/**
+ * The §7.4 completion a fixture wants when the failure kind is incidental to the rule under
+ * test. A `failed` Receipt must name exactly one kind, so a fixture that only needs "failed"
+ * states which kind it means instead of leaving the record unnameable — and states it once,
+ * so no suite grows its own private answer.
+ */
+export const failedByAbort: AttemptCompletion = AttemptCompletion.failed(
+    AttemptFailureKind.aborted(AbortSignal.abort())
+);
+
+export function attemptCompletion(outcome: AttemptReceiptOutcome): AttemptCompletion {
+    if (outcome === "succeeded") return AttemptCompletion.succeeded;
+    if (outcome === "indeterminate") return AttemptCompletion.indeterminate;
+    return failedByAbort;
+}
+
+/**
+ * Widens a plain label into an attempted outcome so a suite can offer a record the one thing
+ * its closed vocabulary makes unreachable from typed code.
+ */
+export function outsideVocabulary(label: string): AttemptReceiptOutcome {
+    // SAFETY: the vocabulary is closed, so the value the record must refuse cannot be written
+    // as a literal and has to arrive by widening a label the caller supplies.
+    return label as AttemptReceiptOutcome;
 }
 
 export function digest(value: string): Digest {

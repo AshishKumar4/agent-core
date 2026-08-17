@@ -81,7 +81,7 @@
               "retentionOwner": "actor"
             },
             "source": "src/invocations/receipt.ts#Receipt",
-            "codec": "src/invocations/receipt.ts#ReceiptCodecV1",
+            "codec": "src/invocations/receipt.ts#ReceiptCodecV2",
             "store": "src/substrates/sqlite/invocations/persistence.ts#SqliteInvocationPersistence",
             "tests": [
                 "test/invocations/record-codecs.test.ts#durable invocation record codecs [invocation.receipt] round-trips an actual immutable fixture",

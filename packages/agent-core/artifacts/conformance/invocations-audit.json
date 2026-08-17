@@ -1090,34 +1090,50 @@
       "owner": "W6",
       "specAnchor": "C13-RECEIPT-FAILURE-KIND",
       "specTextSha256": "sha256:96b54299216b31f8fc23757e9ae95e9fe29831d58d9de0855fee485f26e2327e",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "AttemptReceipt carries no failure field: src/invocations/receipt.ts#requireAttemptReceipt admits only id, attempt, outcome, previous, and result. Closure requires a closed AttemptFailureKind, its versioned Receipt codec, and rejection of a failed Receipt naming no kind or a non-failed Receipt naming one",
-        "Every kind is an AgentCoreError throw rather than a recorded outcome today: src/errors.ts#AgentCoreErrorCode spreads the distinction across operation.invalid-output, actor.closed, facet.inactive, lease.invalid, and turn.invalid-state, and names nothing for an elapsed bound. Closure requires the mediated pipeline to classify at the seam that observes each kind instead of propagating the throw",
-        "outputInvalid has a producer only inside one profile wire path: src/facets/profile-runtime/runtime.ts validates a resolved value against contract.descriptor.output and throws operation.invalid-output. Closure requires that verdict to reach the attempted Receipt for every Operation, not only profile-hosted ones",
-        "deadline has no producer at all. Closure requires a host-set bound on a claimed attempt whose elapse is distinguishable from ItemClaim expiry recovery, because an expired claim with an existing EffectAttempt already follows Receipt reconciliation",
-        "The adversarial case must prove an invoked Operation cannot author any kind but raised, matching the §7.1 rule that a classification the callee supplies never lowers what the host derives"
-      ]
+      "sourceSymbols": [
+        "src/invocations/receipt.ts#AttemptFailureKind",
+        "src/invocations/receipt.ts#AttemptCompletion",
+        "src/invocations/receipt.ts#AttemptReceipt",
+        "src/invocations/receipt.ts#ReceiptCodecV2",
+        "src/invocations/canonical-batch.ts#classifyAttemptFailure",
+        "src/invocations/canonical-batch.ts#CanonicalBatchInvocationPort"
+      ],
+      "testSelectors": [
+        "test/invocations/receipt-failure.test.ts#§7.4 attempt failure kinds [C13-RECEIPT-FAILURE-KIND] admits each kind only from the fact that defines it",
+        "test/invocations/receipt-failure.test.ts#§7.4 attempt failure kinds [C13-RECEIPT-FAILURE-KIND] classifies each host boundary as the kind that names it",
+        "test/invocations/receipt-failure.test.ts#§7.4 attempt failure kinds [C13-RECEIPT-FAILURE-KIND] records a kind on exactly a failed attempted outcome",
+        "test/invocations/receipt-failure.test.ts#§7.4 attempt failure kinds [C13-RECEIPT-FAILURE-KIND] round-trips every kind through the versioned codec",
+        "test/invocations/receipt-failure.test.ts#§7.4 failure kinds at the mediated seam [C13-RECEIPT-FAILURE-KIND] names the boundary the host observed and no other",
+        "test/invocations/receipt-failure.test.ts#§7.4 failure kinds at the mediated seam [C13-RECEIPT-FAILURE-KIND] refuses every kind the invoked Operation tries to author",
+        "test/invocations/receipt-failure.test.ts#§7.4 failure kinds at the mediated seam [C13-RECEIPT-FAILURE-KIND] leaves an elapsed bound distinguishable from claim recovery"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-RECEIPT-FAILURE-ORTHOGONAL",
       "owner": "W6",
       "specAnchor": "C13-RECEIPT-FAILURE-ORTHOGONAL",
       "specTextSha256": "sha256:d7f44d0e7af893393ee3471f7f547c21bbf96ddc2626fc6c0211e934c5c1fd80",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
+      "sourceSymbols": [
+        "src/invocations/receipt.ts#AttemptCompletion",
+        "src/invocations/receipt.ts#PreEffectReceipt",
+        "src/invocations/receipt.ts#ReceiptCodecV2",
+        "src/invocations/outcome.ts#deriveBatchOutcome"
+      ],
+      "testSelectors": [
+        "test/invocations/receipt-failure.test.ts#§7.4 attempt failure kinds [C13-RECEIPT-FAILURE-ORTHOGONAL] keeps a kind off every pre-effect and indeterminate Receipt",
+        "test/invocations/receipt-failure.test.ts#§7.4 attempt failure kinds [C13-RECEIPT-FAILURE-ORTHOGONAL] derives the same batch outcome whatever the kind"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
-        "No behaviour may change when a kind is recorded. Closure requires src/invocations/outcome.ts#deriveBatchOutcome, the supersession lineage in src/invocations/receipt.ts, and the next-ordinal rule to be shown reading outcome alone and never the failure field",
-        "The indeterminate boundary is unenforced because no kind exists yet. Closure requires a negative case proving a host holding an unknown result records indeterminate with no kind, and that the superseding final Receipt from reconciliation is the first record permitted to name one",
-        "PreEffectReceipt must remain the sole evidence that no effect was attempted. Closure requires the Receipt codec and both persistence layers to reject a pre-effect Receipt carrying a failure kind",
-        "Admission independence has no enforcement point: no §3.4 rule 7 comparison input is derived from Receipt state today, so closure requires a check proving the failure field is absent from every admission input rather than merely unread"
+        "Admission independence still has no enforcement point. No §3.4 rule 7 comparison input derives from Receipt state, so the failure field is absent from every admission input by construction rather than by a check; closure needs an assertion over the admission inputs themselves, not over what the pipeline happens to read",
+        "The supersession half is only partly shown. deriveBatchOutcome and the recorded outcome are proven to ignore the kind, and reconciliation is proven to be the first record permitted to name one through src/invocations/reconciliation.ts#matches, but no case yet drives a retry after each of the five kinds to show next-ordinal eligibility is identical across them",
+        "Both persistence layers reject a pre-effect Receipt carrying a kind only through the shared codec. The memory and sqlite stores are not separately shown to refuse one, so a store that bypassed the codec would not be caught"
       ]
     },
     {

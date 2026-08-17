@@ -19,9 +19,11 @@ import type { PreparedInvocation } from "./prepared";
 import type { InvocationReconciliationRecordPort } from "./reconciliation";
 import { InvocationPublicationOutbox } from "./publication";
 import {
+    AttemptCompletion,
+    AttemptFailureKind,
     AttemptReceipt,
     PreEffectReceipt,
-    type AttemptReceiptOutcome,
+    type AttemptTargetDomain,
     type Receipt
 } from "./receipt";
 
@@ -147,7 +149,7 @@ export interface CanonicalBatchRecordPort<
     ): PreEffectReceipt;
     attemptReceipt(
         attempt: EffectAttempt<Lease, Admission>,
-        outcome: AttemptReceiptOutcome,
+        completion: AttemptCompletion,
         recordedAt: Date,
         result: ContentRef | undefined
     ): AttemptReceipt;
@@ -197,14 +199,86 @@ export interface CanonicalBatchFinalAdmissionPort<
     ): CanonicalBatchFinalAdmissionResult;
 }
 
+/**
+ * The live resources one attempt runs against. The bound and the hosting domain are here
+ * rather than on the PreparedInvocation because §7.4 asks the host to derive a failure kind
+ * from a seam it controls, and §8.3 forbids a durable record from owning live substrate
+ * resources. A host that sets no bound on an attempt says so with `undefined`.
+ */
+export interface CanonicalBatchAttemptResources {
+    readonly signal: AbortSignal;
+    readonly content: ContentStore;
+    readonly deadline: Date | undefined;
+    readonly target: AttemptTargetDomain;
+}
+
 export interface CanonicalBatchResourcesPort<Authorization> {
     resources(
         request: CanonicalBatchInvocationRequest<Authorization>,
         itemIndex: number
-    ): {
-        readonly signal: AbortSignal;
-        readonly content: ContentStore;
-    };
+    ): CanonicalBatchAttemptResources;
+}
+
+/**
+ * The facts a host holds when an attempt ended without a usable result. §7.4 lets the host
+ * derive four kinds from boundaries it owns and lets the invoked handler originate only
+ * `raised`, so the callee's contribution arrives as a verdict the seam already narrowed to
+ * rather than as anything the callee said about itself: labelling a rejection `domainLost`
+ * cannot reach `domainLost`, because that kind is read off the domain and not off the error.
+ *
+ * `target` is required and has no default. It carries the entire content of `domainLost`, so
+ * an observation without one is not classifiable rather than classifiable as answering — a
+ * default would let that kind be ruled out by nothing having been asked.
+ */
+export interface AttemptFailureObservation {
+    /** True exactly when the handler signalled failure itself (§4.1 `execute`). */
+    readonly confirmed: boolean;
+    /** The host's own bound on this attempt, present only when it is what ended the wait. */
+    readonly elapsedBound: Date | undefined;
+    /** Cancellation of the Turn or Run that owns the item. */
+    readonly cancellation: AbortSignal;
+    /** The protection domain hosting the target. */
+    readonly target: AttemptTargetDomain;
+    readonly observedAt: Date;
+}
+
+/**
+ * §7.4's derivation, or `undefined` when the host holds no determination and the outcome is
+ * therefore `indeterminate`.
+ *
+ * The order is causal, not arbitrary. A confirmed verdict is the handler's own answer, so the
+ * host is not guessing and asks nothing further. Otherwise a lost domain explains any
+ * boundary of the host's that also closed; a cancelled Turn or Run explains an elapsed bound
+ * but not a lost domain; and the host's own bound is named only when nothing else accounts
+ * for the end of the wait. Falling through to `undefined` is the point rather than a gap: an
+ * unexplained end is not a kind, because naming one would convert "I cannot tell" into "I
+ * know why".
+ */
+export function classifyAttemptFailure(
+    observation: AttemptFailureObservation
+): AttemptFailureKind | undefined {
+    if (observation.confirmed) return AttemptFailureKind.raised;
+    if (!observation.target.answering()) {
+        return AttemptFailureKind.domainLost(observation.target);
+    }
+    if (observation.cancellation.aborted) {
+        return AttemptFailureKind.aborted(observation.cancellation);
+    }
+    if (observation.elapsedBound !== undefined) {
+        return AttemptFailureKind.deadline(observation.elapsedBound, observation.observedAt);
+    }
+    return undefined;
+}
+
+/**
+ * The host's own bound closing on an attempt. It is module-private so the invoked handler
+ * cannot construct one: §7.4 lets the callee originate `raised` and nothing else, and a
+ * marker a callee could throw would hand it `deadline`.
+ */
+class AttemptBoundElapsed {
+    public constructor(public readonly bound: Date) {
+        Object.freeze(this);
+    }
 }
 
 type ItemState<Lease, Admission> =
@@ -358,7 +432,12 @@ export class CanonicalBatchInvocationPort<
         if (state.kind === "receipt")
             return this.resultForReceipt(request, itemIndex, state.receipt);
         if (state.kind === "attempt") {
-            const receipt = this.finish(prepared, state.attempt, "indeterminate", undefined);
+            const receipt = this.finish(
+                prepared,
+                state.attempt,
+                AttemptCompletion.indeterminate,
+                undefined
+            );
             return terminal(itemIndex, receipt);
         }
 
@@ -505,16 +584,43 @@ export class CanonicalBatchInvocationPort<
         });
         let output: FacetData;
         try {
-            output = canonicalData(await request.request.execute(itemIndex, context));
+            output = canonicalData(
+                await withinBound(
+                    request.request.execute(itemIndex, context),
+                    execution.deadline,
+                    this.now
+                )
+            );
         } catch (error) {
             const confirmed = error instanceof ConfirmedOperationFailure ? error : undefined;
+            const failure = classifyAttemptFailure({
+                confirmed: confirmed !== undefined,
+                elapsedBound: error instanceof AttemptBoundElapsed ? error.bound : undefined,
+                cancellation: execution.signal,
+                target: execution.target,
+                observedAt: this.now()
+            });
             return terminal(
                 itemIndex,
                 this.finish(
                     prepared,
                     attempt,
-                    confirmed === undefined ? "indeterminate" : "failed",
+                    failure === undefined
+                        ? AttemptCompletion.indeterminate
+                        : AttemptCompletion.failed(failure),
                     confirmed?.evidence
+                )
+            );
+        }
+        const declared = request.request.descriptor.output;
+        if (!declared.accepts(output)) {
+            return terminal(
+                itemIndex,
+                this.finish(
+                    prepared,
+                    attempt,
+                    AttemptCompletion.failed(AttemptFailureKind.outputInvalid(declared, output)),
+                    undefined
                 )
             );
         }
@@ -523,9 +629,12 @@ export class CanonicalBatchInvocationPort<
         try {
             result = (await execution.content.put(encodeCanonicalJson(output))).ref;
         } catch {
-            return terminal(itemIndex, this.finish(prepared, attempt, "indeterminate", undefined));
+            return terminal(
+                itemIndex,
+                this.finish(prepared, attempt, AttemptCompletion.indeterminate, undefined)
+            );
         }
-        const receipt = this.finish(prepared, attempt, "succeeded", result);
+        const receipt = this.finish(prepared, attempt, AttemptCompletion.succeeded, result);
         return Object.freeze({ kind: "succeeded", itemIndex, receipt, output });
     }
 
@@ -620,10 +729,10 @@ export class CanonicalBatchInvocationPort<
     private finish(
         prepared: PreparedInvocation<Lease, Authority, Domain, PathEpochs>,
         attempt: EffectAttempt<Lease, Admission>,
-        outcome: AttemptReceiptOutcome,
+        completion: AttemptCompletion,
         result: ContentRef | undefined
     ): AttemptReceipt {
-        const receipt = this.records.attemptReceipt(attempt, outcome, this.now(), result);
+        const receipt = this.records.attemptReceipt(attempt, completion, this.now(), result);
         const attemptAudit = this.records.attemptAudit(prepared, attempt);
         const audit = this.records.receiptAudit(prepared, attemptAudit, receipt);
         this.transactions.transact((transaction) => {
@@ -708,6 +817,29 @@ function publication(
 
 function terminal(itemIndex: number, receipt: Receipt): CanonicalBatchItemResult {
     return Object.freeze({ kind: "terminal", itemIndex, receipt });
+}
+
+/**
+ * Awaits the handler under the host's own bound on this attempt, if the host set one.
+ *
+ * The bound is raced separately from the owning Turn or Run's cancellation on purpose. A
+ * single combined signal would tell the host that *something* closed and never which,
+ * collapsing §7.4's `deadline` and `aborted` into one indistinguishable fact. Racing the two
+ * separately is what lets the host name the boundary it actually observed.
+ */
+function withinBound<Value>(
+    work: Promise<Value>,
+    bound: Date | undefined,
+    now: () => Date
+): Promise<Value> {
+    if (bound === undefined) return work;
+    const elapsed = new Promise<never>((_resolve, reject) => {
+        const remaining = Math.max(0, bound.getTime() - now().getTime());
+        const timer = setTimeout(() => reject(new AttemptBoundElapsed(bound)), remaining);
+        const settle = (): void => clearTimeout(timer);
+        work.then(settle, settle);
+    });
+    return Promise.race([work, elapsed]);
 }
 
 function canonicalData(value: FacetData): FacetData {

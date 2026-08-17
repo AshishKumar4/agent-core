@@ -238,7 +238,7 @@ describe("durable invocation record codecs", () => {
         const envelope = (payload: JsonValue) =>
             encodeCanonicalJson({
                 kind: "invocation.receipt",
-                version: { major: 1, minor: 0 },
+                version: { major: 2, minor: 0 },
                 payload
             });
         for (const payload of [null, [], "receipt"]) {
@@ -272,6 +272,7 @@ describe("durable invocation record codecs", () => {
         const attempt = (overrides: JsonObject) =>
             envelope({
                 attempt: "wire-attempt",
+                failure: "raised",
                 id: "wire-attempt-receipt",
                 outcome: "failed",
                 previous: null,

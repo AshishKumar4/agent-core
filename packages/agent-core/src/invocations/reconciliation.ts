@@ -13,7 +13,7 @@ import type {
 } from "./ports";
 import type { PreparedInvocation } from "./prepared";
 import { InvocationPublicationOutbox } from "./publication";
-import { AttemptReceipt } from "./receipt";
+import { AttemptCompletion, AttemptReceipt } from "./receipt";
 
 type FinalReconciliationResult = Exclude<ReconciliationResult, { readonly kind: "unknown" }>;
 
@@ -32,7 +32,8 @@ export interface InvocationReconciliationRecordPort<
     reconciledReceipt(
         attempt: EffectAttempt<Lease, Admission>,
         previous: AttemptReceipt,
-        result: FinalReconciliationResult,
+        completion: AttemptCompletion,
+        result: ContentRef | undefined,
         recordedAt: Date
     ): AttemptReceipt;
     receiptSupersessionAudit(
@@ -97,7 +98,10 @@ export class InvocationReconciler<Transaction, Lease, Authority, Domain, PathEpo
             const receipt = this.records.reconciledReceipt(
                 refreshed.attempt,
                 refreshed.receipt,
-                result,
+                result.kind === "succeeded"
+                    ? AttemptCompletion.succeeded
+                    : AttemptCompletion.failed(result.failure),
+                result.result,
                 this.now()
             );
             if (!matches(receipt, result)) {
@@ -253,7 +257,25 @@ export class InvocationReconciler<Transaction, Lease, Authority, Domain, PathEpo
 }
 
 function matches(receipt: AttemptReceipt, result: FinalReconciliationResult): boolean {
-    return receipt.outcome === result.kind && sameContent(receipt.result, result.result);
+    return (
+        receipt.outcome === result.kind &&
+        sameFailure(receipt.failure, result) &&
+        sameContent(receipt.result, result.result)
+    );
+}
+
+/**
+ * The minted Receipt must name the kind reconciliation observed, not merely a kind. A record
+ * port that substituted one would rewrite the host's determination while every outcome-level
+ * check stayed green.
+ */
+function sameFailure(
+    failure: AttemptReceipt["failure"],
+    result: FinalReconciliationResult
+): boolean {
+    return result.kind === "failed"
+        ? failure !== undefined && failure.equals(result.failure)
+        : failure === undefined;
 }
 
 function sameContent(left: ContentRef | undefined, right: ContentRef | undefined): boolean {

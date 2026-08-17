@@ -8,6 +8,8 @@ describe("invocation context barrel", () => {
             "Approval",
             "ApprovalCodec",
             "ApprovalId",
+            "AttemptCompletion",
+            "AttemptFailureKind",
             "AttemptReceipt",
             "AuditRecord",
             "AuditRecordCodec",

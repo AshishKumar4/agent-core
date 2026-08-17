@@ -12,18 +12,32 @@ import {
 } from "../../src/facets";
 import { TenantId } from "../../src/identity";
 import {
+    AttemptCompletion,
     AttemptReceipt,
     AuditRecord,
     AuditRecordId,
     AuthorityAdmissionReference,
+    type CanonicalBatchAttemptResources,
+    type CanonicalBatchAuthorityAuthenticationPort,
+    type CanonicalBatchAuthorityPermitPort,
+    type CanonicalBatchFinalAdmissionPort,
     CanonicalBatchInvocationPort,
+    type CanonicalBatchInvocationRequest,
+    type CanonicalBatchRecordPort,
     ClaimWorkerId,
+    cloneInvocationMediationMemoryState,
+    cloneInvocationMemoryState,
     CorrelationId,
+    createInvocationMediationMemoryState,
+    createInvocationMemoryState,
     EffectAttempt,
     EffectAttemptId,
     InvocationId,
     InvocationLedger,
+    type InvocationMediationMemoryState,
+    type InvocationMemoryState,
     InvocationPlacementPin,
+    type InvocationTransactionPort,
     ItemClaim,
     ItemClaimId,
     MemoryInvocationMediationPersistence,
@@ -31,20 +45,8 @@ import {
     OperationPin,
     PreEffectReceipt,
     PreparedInvocation,
-    ReceiptId,
-    cloneInvocationMediationMemoryState,
-    cloneInvocationMemoryState,
-    createInvocationMediationMemoryState,
-    createInvocationMemoryState,
-    type CanonicalBatchAuthorityPermitPort,
-    type CanonicalBatchAuthorityAuthenticationPort,
-    type CanonicalBatchFinalAdmissionPort,
-    type CanonicalBatchInvocationRequest,
-    type CanonicalBatchRecordPort,
-    type InvocationMediationMemoryState,
-    type InvocationMemoryState,
-    type InvocationTransactionPort,
-    type Receipt
+    type Receipt,
+    ReceiptId
 } from "../../src/invocations";
 import {
     admissionFor,
@@ -413,14 +415,14 @@ class Records implements CanonicalBatchRecordPort<string, string, string, string
 
     public attemptReceipt(
         attempt: EffectAttempt<string, string>,
-        outcome: "succeeded" | "failed" | "indeterminate",
+        completion: AttemptCompletion,
         recordedAt: Date,
         result: ContentRef | undefined
     ): AttemptReceipt {
         return new AttemptReceipt(
-            new ReceiptId(`receipt:${attempt.id.value}:${outcome}`),
+            new ReceiptId(`receipt:${attempt.id.value}:${completion.outcome}`),
             attempt.id,
-            outcome,
+            completion,
             undefined,
             recordedAt,
             result
@@ -430,19 +432,17 @@ class Records implements CanonicalBatchRecordPort<string, string, string, string
     public reconciledReceipt(
         attempt: EffectAttempt<string, string>,
         previous: AttemptReceipt,
-        result: {
-            readonly kind: "succeeded" | "failed";
-            readonly result?: ContentRef;
-        },
+        completion: AttemptCompletion,
+        result: ContentRef | undefined,
         recordedAt: Date
     ): AttemptReceipt {
         return new AttemptReceipt(
-            new ReceiptId(`receipt:${attempt.id.value}:${result.kind}`),
+            new ReceiptId(`receipt:${attempt.id.value}:${completion.outcome}`),
             attempt.id,
-            result.kind,
+            completion,
             previous.id,
             recordedAt,
-            result.result
+            result
         );
     }
 
@@ -533,6 +533,15 @@ export class CanonicalBatchHarness<Authorization = string> {
     public readonly content = new MemoryContentStore();
     public readonly executions: number[] = [];
     public failResourcesOnce = false;
+    /**
+     * The three §7.4 boundaries a host owns, each independently settable so a suite can make
+     * exactly one true. They are separate fields rather than one switch because the rule under
+     * test is that a kind names the boundary that actually closed, and a single knob could not
+     * express two closing at once.
+     */
+    public attemptDeadline: Date | undefined = undefined;
+    public domainAnswering = true;
+    public readonly cancellation = new AbortController();
     public readonly now = (): Date => new Date(this.#time++);
     public port: CanonicalBatchInvocationPort<
         Authorization,
@@ -614,12 +623,17 @@ export class CanonicalBatchHarness<Authorization = string> {
             this.#finalAdmission,
             this.evidence,
             {
-                resources: () => {
+                resources: (): CanonicalBatchAttemptResources => {
                     if (this.failResourcesOnce) {
                         this.failResourcesOnce = false;
                         throw new TypeError("resource crash");
                     }
-                    return { signal: new AbortController().signal, content: this.content };
+                    return {
+                        signal: this.cancellation.signal,
+                        content: this.content,
+                        deadline: this.attemptDeadline,
+                        target: { answering: (): boolean => this.domainAnswering }
+                    };
                 }
             },
             this.now

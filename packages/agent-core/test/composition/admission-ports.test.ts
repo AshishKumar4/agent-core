@@ -51,10 +51,11 @@ import { PrincipalId, PrincipalRef, ScopeRef, TenantId, WorkspaceId } from "../.
 import { AuditRecordId, InvocationId } from "../../src/interaction-references";
 import { ClaimWorkerId, EffectAttemptId, ItemClaimId } from "../../src/invocation-references";
 import {
-    AuthorityAdmissionReference,
-    EffectAttempt,
+    AttemptFailureKind,
     type AuthorityAdmissionContext,
-    type CanonicalBatchInvocationRequest
+    AuthorityAdmissionReference,
+    type CanonicalBatchInvocationRequest,
+    EffectAttempt
 } from "../../src/invocations";
 import { OperationRequestKey } from "../../src/operations";
 import { forwarded, reaching } from "./fixture";
@@ -781,8 +782,11 @@ describe("approval gateway reconciliation", () => {
             new ScriptedGateway({ kind: "failed" }),
             withoutResult
         );
+        // A reconciled failure names its §7.4 kind, and the gateway's verdict is the target's
+        // own report of its effect — the one kind the invoked side originates.
         expect(await bare.query(reconciliationAttempt, digestOf("ports"))).toEqual({
-            kind: "failed"
+            kind: "failed",
+            failure: AttemptFailureKind.raised
         });
         expect(withoutResult.stored).toEqual([]);
     });

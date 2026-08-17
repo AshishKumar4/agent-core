@@ -8,30 +8,30 @@ import { AgentCoreError } from "../../../../src/errors";
 import { TenantId } from "../../../../src/identity";
 import {
     AttemptReceipt,
+    type AttemptReceiptOutcome,
     AuditRecord,
     AuditRecordId,
     ClaimWorkerId,
+    cloneInvocationMediationMemoryState,
+    cloneInvocationMemoryState,
     CorrelationId,
+    createInvocationMediationMemoryState,
+    createInvocationMemoryState,
     EffectAttempt,
     EffectAttemptId,
+    type InvocationEvidencePersistence,
     InvocationId,
+    type InvocationLedger,
+    type InvocationMediationMemoryState,
+    type InvocationMemoryState,
     InvocationPublicationOutbox,
     ItemClaim,
     ItemClaimId,
     MemoryInvocationMediationPersistence,
     MemoryInvocationPersistence,
-    ReceiptId,
-    cloneInvocationMediationMemoryState,
-    cloneInvocationMemoryState,
-    createInvocationMediationMemoryState,
-    createInvocationMemoryState,
-    type AttemptReceiptOutcome,
-    type InvocationEvidencePersistence,
-    type InvocationLedger,
-    type InvocationMediationMemoryState,
-    type InvocationMemoryState,
+    type PreparedInvocation,
     type Receipt,
-    type PreparedInvocation
+    ReceiptId
 } from "../../../../src/invocations";
 import {
     SqliteProtocolPersistence,
@@ -41,6 +41,7 @@ import { SqliteInvocationMediationPersistence } from "../../../../src/substrates
 import { FileSqlite } from "../../../helpers/sqlite";
 import {
     admissionFor,
+    attemptCompletion,
     createLedger,
     invocationCodecs,
     prepared,
@@ -1027,7 +1028,7 @@ function receiptRecord(
                 ? requireSubstitution(wrongAttempt, "EffectAttempt substitution")
                 : receipt.attempt
         ),
-        receipt.outcome,
+        attemptCompletion(receipt.outcome),
         undefined,
         at(receipt.recordedAt),
         receipt.outcome === "succeeded" ? content(receipt.id) : undefined

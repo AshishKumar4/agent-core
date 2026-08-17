@@ -9,9 +9,10 @@ import {
     type ProfileRuntimeHostBinding
 } from "../facets";
 import {
-    InvocationProtectedOperationPort,
+    AttemptFailureKind,
     type EffectAttempt,
     type EffectReconciliationPort,
+    InvocationProtectedOperationPort,
     type Receipt,
     type ReconciliationResult
 } from "../invocations";
@@ -43,8 +44,19 @@ export class ApprovalGatewayReconciliationPort<
         );
         const result = await this.backend.reconcile(dispatch);
         if (result.kind === "unknown") return result;
-        if (result.result === undefined) return { kind: result.kind };
-        const stored = await this.content.put(encodeCanonicalJson(result.result));
-        return { kind: result.kind, result: stored.ref };
+        const stored =
+            result.result === undefined
+                ? undefined
+                : (await this.content.put(encodeCanonicalJson(result.result))).ref;
+        if (result.kind === "succeeded") {
+            return stored === undefined ? { kind: "succeeded" } : { kind: "succeeded", result: stored };
+        }
+        // The gateway's verdict is the target's own report of its effect, which is the one
+        // §7.4 kind the invoked side originates. The host derives nothing here: it observed
+        // no bound, no cancellation and no lost domain, only an answer.
+        const failure = AttemptFailureKind.raised;
+        return stored === undefined
+            ? { kind: "failed", failure }
+            : { kind: "failed", failure, result: stored };
     }
 }

@@ -22,6 +22,7 @@ import {
     type ProtectedOperationResult
 } from "../../../src/facets";
 import {
+    AttemptCompletion,
     AttemptReceipt,
     EffectAttemptId,
     InvocationId,
@@ -122,7 +123,7 @@ export class RecordingProfileAdmission extends ProtectedOperationPort<TestReceip
                     : `profile-output-receipt-${this.#callSequence}`
             ),
             attempt,
-            "succeeded",
+            AttemptCompletion.succeeded,
             undefined,
             new Date(this.#callSequence),
             undefined

@@ -97,22 +97,23 @@ import {
     ReceiptId
 } from "../../../src/invocation-references";
 import {
+    AttemptCompletion,
     AttemptReceipt,
+    type AuthorityAdmissionContext,
     AuthorityAdmissionReference,
+    type CanonicalBatchInvocationRequest,
     type CanonicalBatchInvoker,
-    InvocationId as InvocationContextId,
-    InvocationProtectedOperationPort,
-    InvocationPlacementPin,
-    InvocationPublicationOutbox,
-    ItemClaim,
-    MemoryInvocationMediationPersistence,
     cloneInvocationMediationMemoryState,
     createInvocationMediationMemoryState,
-    type AuthorityAdmissionContext,
-    type CanonicalBatchInvocationRequest,
+    InvocationId as InvocationContextId,
     type InvocationMediationMemoryState,
-    type PreparedInvocation,
-    type InvocationTransactionPort
+    InvocationPlacementPin,
+    InvocationProtectedOperationPort,
+    InvocationPublicationOutbox,
+    type InvocationTransactionPort,
+    ItemClaim,
+    MemoryInvocationMediationPersistence,
+    type PreparedInvocation
 } from "../../../src/invocations";
 import {
     AuditRecordId,
@@ -1827,7 +1828,7 @@ class SuccessfulBatch<Authorization = string> implements CanonicalBatchInvoker<A
                 receipt: new AttemptReceipt(
                     new ReceiptId(`w9-receipt-${itemIndex}`),
                     new EffectAttemptId(`w9-attempt-${itemIndex}`),
-                    "succeeded",
+                    AttemptCompletion.succeeded,
                     undefined,
                     new Date(20),
                     undefined

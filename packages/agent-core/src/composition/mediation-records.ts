@@ -9,7 +9,7 @@ import {
     EffectAttempt,
     ItemClaim,
     PreEffectReceipt,
-    type AttemptReceiptOutcome,
+    AttemptCompletion,
     type AuthorityAdmissionReference,
     type CanonicalBatchRecordPort,
     type InvocationClaimOwnerPort,
@@ -206,14 +206,14 @@ export class CanonicalMediationRecords<Admission> implements CanonicalBatchRecor
 
     public attemptReceipt(
         attempt: EffectAttempt<MediationLeaseReference, Admission>,
-        outcome: AttemptReceiptOutcome,
+        completion: AttemptCompletion,
         recordedAt: Date,
         result: ContentRef | undefined
     ): AttemptReceipt {
         return new AttemptReceipt(
-            this.identities.attemptReceipt(attempt.id, outcome),
+            this.identities.attemptReceipt(attempt.id, completion.outcome),
             attempt.id,
-            outcome,
+            completion,
             undefined,
             recordedAt,
             result
@@ -223,16 +223,17 @@ export class CanonicalMediationRecords<Admission> implements CanonicalBatchRecor
     public reconciledReceipt(
         attempt: EffectAttempt<MediationLeaseReference, Admission>,
         previous: AttemptReceipt,
-        result: { readonly kind: "succeeded" | "failed"; readonly result?: ContentRef },
+        completion: AttemptCompletion,
+        result: ContentRef | undefined,
         recordedAt: Date
     ): AttemptReceipt {
         return new AttemptReceipt(
-            this.identities.attemptReceipt(attempt.id, result.kind),
+            this.identities.attemptReceipt(attempt.id, completion.outcome),
             attempt.id,
-            result.kind,
+            completion,
             previous.id,
             recordedAt,
-            result.result
+            result
         );
     }
 

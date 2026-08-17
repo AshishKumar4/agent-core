@@ -1,20 +1,21 @@
 import { describe, expect, test, vi } from "vitest";
-import { CompatRange, Digest, JsonSchema, SemVer } from "../../src/core";
+import { CompatRange, Digest, JsonSchema, SemVer, encodeCanonicalJson } from "../../src/core";
 import { MemoryContentStore } from "../../src/content";
 import { AgentCoreError } from "../../src/errors";
 import {
+    AttemptCompletion,
     AttemptReceipt,
-    EffectAttemptId,
-    InvocationId,
-    MemoryInvocationMediationPersistence,
-    ReceiptId,
-    ReplayOperationInvocationPort,
-    cloneInvocationMediationMemoryState,
-    createInvocationMediationMemoryState,
     type CanonicalBatchInvocationRequest,
     type CanonicalBatchInvoker,
+    cloneInvocationMediationMemoryState,
+    createInvocationMediationMemoryState,
+    EffectAttemptId,
+    InvocationId,
     type InvocationMediationMemoryState,
-    type InvocationTransactionPort
+    type InvocationTransactionPort,
+    MemoryInvocationMediationPersistence,
+    ReceiptId,
+    ReplayOperationInvocationPort
 } from "../../src/invocations";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 import {
@@ -321,6 +322,165 @@ describe("Facet runtime", () => {
                     })
                 );
             }
+        }
+    );
+
+    test(
+        "[C13-INTERCEPTOR-MODE-DECLARED] refuses an undeclared mode before any Facet starts, admitting no partial manifest",
+        { tags: "p0" },
+        async () => {
+            // Raw contribution entries, not InterceptorDeclaration instances: the constructor
+            // and `fromData` both refuse a bad mode, so the only way a manifest can carry one
+            // is to have gone through neither — which is exactly what a Facet package presents.
+            const entries: readonly FacetDataMap[] = [
+                { cutPoint: "operation.before", id: "unmoded", priority: 0 },
+                { cutPoint: "operation.before", id: "unmoded", mode: "enrich", priority: 0 },
+                { cutPoint: "operation.before", id: "unmoded", mode: "Rewrite", priority: 0 },
+                { cutPoint: "operation.before", id: "unmoded", mode: "", priority: 0 }
+            ];
+            const lawful = operationDescriptor("run");
+            const outcomes: string[] = [];
+            for (const entry of entries) {
+                let started = false;
+                const lawfulManifest = manifest("acme.lawful", [lawful]);
+                const unmodedManifest = new FacetManifest({
+                    id: new FacetPackageId("acme.unmoded"),
+                    version: new SemVer("1.0.0"),
+                    compat: CompatRange.any(),
+                    isolation: ["bundled"],
+                    bindings: [],
+                    contributions: new Contributions([
+                        new Contribution(new SlotName("interceptors"), [entry])
+                    ])
+                });
+                const host = new FacetRuntimeHost(
+                    [lawfulManifest, unmodedManifest],
+                    [
+                        new TestFacet(
+                            "workspace:lawful",
+                            lawfulManifest,
+                            [],
+                            new Map([["run", new TestOperation(lawful, async (input) => input)]]),
+                            new Map(),
+                            async () => {
+                                started = true;
+                            }
+                        ),
+                        new TestFacet("workspace:unmoded", unmodedManifest)
+                    ]
+                );
+                let refusal = "ACTIVATED";
+                try {
+                    await host.activate();
+                } catch (error) {
+                    refusal = error instanceof Error ? error.message : "non-Error refusal";
+                }
+                // `started` is the discriminating field. "The bad Facet did not run" is a
+                // weaker fact than "no Facet ran"; only the second is "no partial manifest",
+                // and only a co-located lawful Facet can witness it.
+                outcomes.push(
+                    `${JSON.stringify(entry["mode"])}: ${refusal} ` +
+                        `[active=${host.active} facets=${host.facets().length} lawfulStarted=${started}]`
+                );
+                await host.dispose();
+            }
+            expect(outcomes).toEqual([
+                "undefined: Declaration contains missing or unknown fields " +
+                    "[active=false facets=0 lawfulStarted=false]",
+                '"enrich": Interceptor mode is invalid [active=false facets=0 lawfulStarted=false]',
+                '"Rewrite": Interceptor mode is invalid [active=false facets=0 lawfulStarted=false]',
+                '"": Interceptor mode is invalid [active=false facets=0 lawfulStarted=false]'
+            ]);
+        }
+    );
+
+    test(
+        "[C13-INTERCEPTOR-MODE-FIDELITY] refuses a gate at every cut point it cannot police rather than admitting it unenforced",
+        { tags: "p0" },
+        async () => {
+            /**
+             * A gate's read-only claim is enforced where the runner runs, and only the two
+             * operation cut points have a runner. That leaves the question of what happens to
+             * a gate declared at one of the other three — and the answer is not "it is
+             * unevidenced" but "it cannot be admitted", which is what makes the enforcement
+             * total rather than partial. The whole cut point x mode domain is enumerated
+             * because a mode the refusal skipped is exactly the defect.
+             */
+            const cutPoints = [
+                "operation.before",
+                "operation.after",
+                "prompt.assemble",
+                "input.submitted",
+                "turn.step"
+            ] as const;
+            const run = operationDescriptor("run");
+            const admitted: string[] = [];
+            const refused: string[] = [];
+            for (const cutPoint of cutPoints) {
+                for (const mode of ["rewrite", "gate"] as const) {
+                    const declaration = new InterceptorDeclaration(
+                        new InterceptorId("policed"),
+                        cutPoint,
+                        mode,
+                        OperationSelector.own("run"),
+                        0
+                    );
+                    const facetManifest = manifest("acme.runtime", [run], [declaration]);
+                    const host = new FacetRuntimeHost(
+                        [facetManifest],
+                        [
+                            new TestFacet(
+                                "workspace:runtime",
+                                facetManifest,
+                                [],
+                                new Map([["run", new TestOperation(run, async (input) => input)]]),
+                                new Map([
+                                    [
+                                        "policed",
+                                        new TestInterceptor(declaration, (value) => ({
+                                            proceed: true,
+                                            value
+                                        }))
+                                    ]
+                                ])
+                            )
+                        ]
+                    );
+                    try {
+                        await host.activate();
+                        admitted.push(`${cutPoint}/${mode} [facets=${host.facets().length}]`);
+                    } catch (error) {
+                        refused.push(
+                            `${cutPoint}/${mode}: ` +
+                                `${error instanceof Error ? error.message : "non-Error refusal"} ` +
+                                `[active=${host.active} facets=${host.facets().length}]`
+                        );
+                    }
+                    await host.dispose();
+                }
+            }
+            // Collected across the whole domain and asserted once, so one run reports the
+            // shape of any gap rather than its first edge.
+            expect(admitted).toEqual([
+                "operation.before/rewrite [facets=1]",
+                "operation.before/gate [facets=1]",
+                "operation.after/rewrite [facets=1]",
+                "operation.after/gate [facets=1]"
+            ]);
+            expect(refused).toEqual([
+                "prompt.assemble/rewrite: Interceptor policed declares cut point " +
+                    "prompt.assemble, which this host does not execute [active=false facets=0]",
+                "prompt.assemble/gate: Interceptor policed declares cut point " +
+                    "prompt.assemble, which this host does not execute [active=false facets=0]",
+                "input.submitted/rewrite: Interceptor policed declares cut point " +
+                    "input.submitted, which this host does not execute [active=false facets=0]",
+                "input.submitted/gate: Interceptor policed declares cut point " +
+                    "input.submitted, which this host does not execute [active=false facets=0]",
+                "turn.step/rewrite: Interceptor policed declares cut point " +
+                    "turn.step, which this host does not execute [active=false facets=0]",
+                "turn.step/gate: Interceptor policed declares cut point " +
+                    "turn.step, which this host does not execute [active=false facets=0]"
+            ]);
         }
     );
 
@@ -3930,6 +4090,402 @@ describe("Protected Operation gateway", () => {
             await host.dispose();
         }
     );
+
+    test(
+        "[C13-INTERCEPTOR-MODE-DECLARED] realizes the banded ordering relation rather than one permutation of it",
+        { tags: "p1" },
+        async () => {
+            interface Scheduled {
+                readonly modeRank: number;
+                readonly priority: number;
+                readonly facet: string;
+                readonly interceptor: string;
+            }
+
+            /**
+             * `AgentCore.InterceptorOrder` transcribed from the model's four clauses, not from
+             * this host's comparator: strict lexicographic ascent over
+             * `(mode, priority, facetId, interceptorId)`. The model constrains a schedule the
+             * host *supplies*; the refinement — that this host's candidate sort supplies a
+             * schedule the relation admits — had no witness.
+             */
+            const admits = (left: Scheduled, right: Scheduled): boolean => {
+                if (left.modeRank !== right.modeRank) return left.modeRank < right.modeRank;
+                if (left.priority !== right.priority) return left.priority < right.priority;
+                if (left.facet !== right.facet) return left.facet < right.facet;
+                return left.interceptor < right.interceptor;
+            };
+            /** `AgentCore.ScheduleOrdered`: strictly ascending, pairwise. */
+            const scheduleOrdered = (schedule: readonly Scheduled[]): boolean =>
+                schedule.every((item, index) => index === 0 || admits(schedule[index - 1]!, item));
+            const permutations = <Item>(items: readonly Item[]): readonly Item[][] =>
+                items.length <= 1
+                    ? [[...items]]
+                    : items.flatMap((item, index) =>
+                          permutations([...items.slice(0, index), ...items.slice(index + 1)]).map(
+                              (rest) => [item, ...rest]
+                          )
+                      );
+
+            const run = operationDescriptor("run", "observe", true);
+            const target = new OperationPattern("run", new FacetPackageId("acme.target"));
+            // Two contributing Facets, because a single-Facet schedule ties the facetId
+            // component on every pair and leaves it unwitnessed. `acme.policy` and
+            // `acme.target` both contribute a `rewrite` at priority 5 with interceptor id
+            // "b": nothing but the facetId component can separate that pair.
+            const targetDeclarations = [
+                new InterceptorDeclaration(
+                    new InterceptorId("b"),
+                    "operation.before",
+                    "rewrite",
+                    OperationSelector.own("run"),
+                    5
+                ),
+                new InterceptorDeclaration(
+                    new InterceptorId("a"),
+                    "operation.before",
+                    "gate",
+                    OperationSelector.own("run"),
+                    -100
+                )
+            ];
+            const policyDeclarations = [
+                new InterceptorDeclaration(
+                    new InterceptorId("b"),
+                    "operation.before",
+                    "rewrite",
+                    new OperationSelector([target]),
+                    5
+                ),
+                new InterceptorDeclaration(
+                    new InterceptorId("z"),
+                    "operation.before",
+                    "rewrite",
+                    new OperationSelector([target]),
+                    1
+                ),
+                new InterceptorDeclaration(
+                    new InterceptorId("c"),
+                    "operation.before",
+                    "gate",
+                    new OperationSelector([target]),
+                    9
+                )
+            ];
+            const scheduledOf = (facet: string, declaration: InterceptorDeclaration): Scheduled =>
+                Object.freeze({
+                    modeRank: declaration.modeRank,
+                    priority: declaration.priority,
+                    facet,
+                    interceptor: declaration.id.value
+                });
+            const contributed = [
+                ...targetDeclarations.map((declaration) => scheduledOf("acme.target", declaration)),
+                ...policyDeclarations.map((declaration) => scheduledOf("acme.policy", declaration))
+            ];
+
+            const observed: Scheduled[] = [];
+            const interceptorsFor = (
+                facet: string,
+                declarations: readonly InterceptorDeclaration[]
+            ) =>
+                new Map(
+                    declarations.map((declaration) => [
+                        declaration.id.value,
+                        new TestInterceptor(declaration, (value) => {
+                            observed.push(scheduledOf(facet, declaration));
+                            return { proceed: true, value };
+                        })
+                    ])
+                );
+            const targetManifest = manifest("acme.target", [run], targetDeclarations);
+            const policyManifest = manifest("acme.policy", [], policyDeclarations);
+            const host = new FacetRuntimeHost(
+                [targetManifest, policyManifest],
+                [
+                    new TestFacet(
+                        "workspace:runtime",
+                        targetManifest,
+                        [],
+                        new Map([["run", new TestOperation(run, async (input) => input)]]),
+                        interceptorsFor("acme.target", targetDeclarations)
+                    ),
+                    new TestFacet(
+                        "workspace:policy",
+                        policyManifest,
+                        [],
+                        new Map(),
+                        interceptorsFor("acme.policy", policyDeclarations)
+                    )
+                ]
+            );
+            await host.activate();
+            const gateway = new OperationGatewayHost(
+                { caller: "authenticated" },
+                host,
+                new TestAuthority([], "direct"),
+                new TestInvocations([])
+            );
+            using resolved = await gateway.resolve(new BindingName("runtime"));
+            await resolved.dispatch({
+                requestKey: new OperationRequestKey("schedule-refinement"),
+                operation: new OperationName("run"),
+                payload: { kind: "single", input: {} }
+            });
+
+            const label = (item: Scheduled): string =>
+                `${item.facet}/${item.interceptor}@${item.modeRank}:${item.priority}`;
+            const admissible = permutations(contributed).filter(scheduleOrdered);
+            // Executable `AgentCore.ordered_schedule_unique`: over one member set the relation
+            // admits exactly one schedule, so satisfying it pins the order completely. This is
+            // what makes the assertion a statement about the relation rather than about a
+            // permutation someone happened to expect.
+            expect(admissible).toHaveLength(1);
+            expect(observed.map(label)).toEqual(admissible[0]!.map(label));
+            expect(scheduleOrdered(observed)).toBe(true);
+            // Non-vacuity, as the model asserts it: the contributed order is NOT admitted, so
+            // the host cannot have passed by leaving the candidates alone.
+            expect(scheduleOrdered(contributed)).toBe(false);
+            // Refinement is about the same member set: a sort that dropped or duplicated a
+            // candidate could still be ascending.
+            expect([...observed].map(label).sort()).toEqual([...contributed].map(label).sort());
+            // The declared band is what places `acme.target/a`, at priority -100, behind every
+            // rewrite: a phase read off observed behaviour could not, because every interceptor
+            // here returns the value it was handed.
+            expect(observed.map(label)).toEqual([
+                "acme.policy/z@0:1",
+                "acme.policy/b@0:5",
+                "acme.target/b@0:5",
+                "acme.target/a@1:-100",
+                "acme.policy/c@1:9"
+            ]);
+            await host.dispose();
+        }
+    );
+
+    test(
+        "[C13-INTERCEPTOR-MODE-FIDELITY] attributes the rewrite to its exact rewriter, not to the interceptor that ran last",
+        { tags: "p1" },
+        async () => {
+            // `beta` and `omega` behave identically — both return the value they were handed —
+            // and differ only in declared mode. A host that derived the phase from observed
+            // behaviour could not tell them apart, and §7.4 replay would lose which of them
+            // produced the frozen input.
+            const descriptor = operationDescriptor("run", "mutate");
+            const declarations = [
+                new InterceptorDeclaration(
+                    new InterceptorId("alpha"),
+                    "operation.before",
+                    "rewrite",
+                    OperationSelector.own("run"),
+                    1
+                ),
+                new InterceptorDeclaration(
+                    new InterceptorId("beta"),
+                    "operation.before",
+                    "rewrite",
+                    OperationSelector.own("run"),
+                    2
+                ),
+                new InterceptorDeclaration(
+                    new InterceptorId("omega"),
+                    "operation.before",
+                    "gate",
+                    OperationSelector.own("run"),
+                    -100
+                )
+            ];
+            const facetManifest = manifest("acme.runtime", [descriptor], declarations);
+            const facet = new TestFacet(
+                "workspace:runtime",
+                facetManifest,
+                [],
+                new Map([
+                    [
+                        "run",
+                        new TestOperation(descriptor, async (input) => ({
+                            ...requireObject(input),
+                            effected: true
+                        }))
+                    ]
+                ]),
+                new Map(
+                    declarations.map((declaration) => [
+                        declaration.id.value,
+                        new TestInterceptor(declaration, (value) =>
+                            declaration.id.value === "alpha"
+                                ? {
+                                      proceed: true,
+                                      value: { ...requireObject(value), stage: "alpha" }
+                                  }
+                                : { proceed: true, value }
+                        )
+                    ])
+                )
+            );
+            const host = new FacetRuntimeHost([facetManifest], [facet]);
+            await host.activate();
+            const transactions = new DurableTransactions();
+            const persistence = new MemoryInvocationMediationPersistence();
+            const gateway = new OperationGatewayHost(
+                { caller: "authenticated" },
+                host,
+                new TestAuthority([], "mediated"),
+                durableInvocations(
+                    transactions,
+                    persistence,
+                    new DurableBatch(new InvocationId("fidelity-attribution"))
+                )
+            );
+            using resolved = await gateway.resolve(new BindingName("runtime"));
+            await resolved.dispatch({
+                requestKey: new OperationRequestKey("last-rewriter"),
+                operation: new OperationName("run"),
+                payload: { kind: "single", input: { value: 1 } }
+            });
+
+            const item = transactions.inspect((state) =>
+                persistence.replay(state, "operation-conformance", "last-rewriter")
+            )!.items[0]!;
+            const traces = item.before!;
+            // The declared band, not the behaviour: `omega` runs last despite priority -100,
+            // and `beta` stays in the rewrite band despite rewriting nothing.
+            expect(traces.map((trace) => `${trace.interceptor}:${trace.outcome}`)).toEqual([
+                "alpha:rewritten",
+                "beta:unchanged",
+                "omega:unchanged"
+            ]);
+            // Each entry reads the previous entry's output, which is what makes the chain
+            // replayable rather than a bag of independent digests.
+            expect(
+                traces.slice(1).map((trace, index) => trace.before.equals(traces[index]!.after))
+            ).toEqual([true, true]);
+
+            // The join that matters. `preparedDigest` commits to the value the
+            // PreparedInvocation froze; asserting the last *rewritten* entry's `after` equals
+            // it says "alpha produced this value", which is the fact §7.4 replay needs. A host
+            // recording only that an interceptor ran satisfies none of this, and one reporting
+            // the final trace entry as the rewriter would name `omega`.
+            const preparedDigest = Digest.sha256(encodeCanonicalJson(item.preparedArguments!));
+            const rewrites = traces.filter((trace) => trace.outcome === "rewritten");
+            expect(rewrites.map((trace) => trace.interceptor)).toEqual(["alpha"]);
+            expect(rewrites.at(-1)!.after.equals(preparedDigest)).toBe(true);
+            expect(item.preparedArguments).toEqual({ stage: "alpha", value: 1 });
+            // Same digest, different interceptor: "ran last" and "rewrote last" are distinct
+            // facts over identical bytes, so only the outcome field separates them.
+            expect(traces.at(-1)!.interceptor).toBe("omega");
+            expect(traces.at(-1)!.after.equals(preparedDigest)).toBe(true);
+            expect(traces.at(-1)!.outcome).toBe("unchanged");
+            await host.dispose();
+        }
+    );
+
+    test(
+        "[C13-INTERCEPTOR-MODE-FIDELITY] persists no trace and no partial chain when it refuses a rewriting gate",
+        { tags: "p1" },
+        async () => {
+            const descriptor = operationDescriptor("run", "mutate");
+            const rewriter = new InterceptorDeclaration(
+                new InterceptorId("alpha"),
+                "operation.before",
+                "rewrite",
+                OperationSelector.own("run"),
+                1
+            );
+            const gate = new InterceptorDeclaration(
+                new InterceptorId("omega"),
+                "operation.before",
+                "gate",
+                OperationSelector.own("run"),
+                2
+            );
+            // One gate, honest on the first dispatch and rewriting on the second, so the two
+            // runs differ in nothing but the gate's fidelity.
+            let gateRewrites = false;
+            const facetManifest = manifest("acme.runtime", [descriptor], [rewriter, gate]);
+            const facet = new TestFacet(
+                "workspace:runtime",
+                facetManifest,
+                [],
+                new Map([["run", new TestOperation(descriptor, async (input) => input)]]),
+                new Map([
+                    [
+                        "alpha",
+                        new TestInterceptor(rewriter, (value) => ({
+                            proceed: true,
+                            value: { ...requireObject(value), stage: "alpha" }
+                        }))
+                    ],
+                    [
+                        "omega",
+                        new TestInterceptor(gate, (value) => ({
+                            proceed: true,
+                            value: gateRewrites
+                                ? { ...requireObject(value), smuggled: true }
+                                : value
+                        }))
+                    ]
+                ])
+            );
+            const host = new FacetRuntimeHost([facetManifest], [facet]);
+            await host.activate();
+            const transactions = new DurableTransactions();
+            const persistence = new MemoryInvocationMediationPersistence();
+            const gateway = new OperationGatewayHost(
+                { caller: "authenticated" },
+                host,
+                new TestAuthority([], "mediated"),
+                durableInvocations(
+                    transactions,
+                    persistence,
+                    new DurableBatch(new InvocationId("fidelity-refusal"))
+                )
+            );
+            using resolved = await gateway.resolve(new BindingName("runtime"));
+
+            await resolved.dispatch({
+                requestKey: new OperationRequestKey("lawful-gate"),
+                operation: new OperationName("run"),
+                payload: { kind: "single", input: { value: 1 } }
+            });
+            const lawfulChain = (key: string): string =>
+                JSON.stringify(
+                    transactions
+                        .inspect((state) => persistence.replay(state, "operation-conformance", key))
+                        ?.items[0]?.before?.map((trace) => ({
+                            after: trace.after.value,
+                            before: trace.before.value,
+                            interceptor: trace.interceptor,
+                            outcome: trace.outcome
+                        })) ?? null
+                );
+            const chainBefore = lawfulChain("lawful-gate");
+
+            gateRewrites = true;
+            await expect(
+                resolved.dispatch({
+                    requestKey: new OperationRequestKey("refused-gate"),
+                    operation: new OperationName("run"),
+                    payload: { kind: "single", input: { value: 1 } }
+                })
+            ).rejects.toMatchObject({
+                code: "authority.denied",
+                message:
+                    "Interceptor omega blocked the operation: " +
+                    "A gate interceptor rewrote the value in flight"
+            });
+
+            // Nothing was persisted for the refused attempt — not the gate's own entry, and
+            // not `alpha`'s lawful rewrite that preceded it. A refusal that kept the partial
+            // chain would leave a transformation trace no replay could complete.
+            expect(lawfulChain("refused-gate")).toBe("null");
+            // The lawful chain is untouched by the refusal beside it.
+            expect(lawfulChain("lawful-gate")).toBe(chainBefore);
+            expect(chainBefore).toContain('"interceptor":"alpha","outcome":"rewritten"');
+            expect(chainBefore).toContain('"interceptor":"omega","outcome":"unchanged"');
+            await host.dispose();
+        }
+    );
 });
 
 interface CommandEventRecord {
@@ -4232,7 +4788,7 @@ class DurableBatch implements CanonicalBatchInvoker<string> {
                 receipt: new AttemptReceipt(
                     new ReceiptId(`${this.invocation.value}-receipt-${itemIndex}`),
                     new EffectAttemptId(`${this.invocation.value}-attempt-${itemIndex}`),
-                    "succeeded",
+                    AttemptCompletion.succeeded,
                     undefined,
                     new Date(20),
                     undefined

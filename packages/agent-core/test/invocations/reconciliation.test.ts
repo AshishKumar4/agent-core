@@ -3,17 +3,18 @@ import fc from "fast-check";
 import { ContentRef, Digest } from "../../src/core";
 import type { OperationContext } from "../../src/facets";
 import {
+    AttemptFailureKind,
     AttemptReceipt,
+    auditEvidenceIdentity,
     AuditRecord,
     AuditRecordId,
     EffectAttempt,
     EffectAttemptId,
-    InvocationReconciler,
-    Receipt,
-    ReceiptCodec,
-    auditEvidenceIdentity,
     type EffectReconciliationPort,
-    type InvocationReconciliationRecordPort
+    InvocationReconciler,
+    type InvocationReconciliationRecordPort,
+    Receipt,
+    ReceiptCodec
 } from "../../src/invocations";
 import { InvocationId } from "../../src/interaction-references";
 import { ConfirmedOperationFailure, OperationRequestKey } from "../../src/operations";
@@ -23,7 +24,10 @@ import {
     canonicalBatchDescriptor,
     canonicalBatchFacet
 } from "../integration/canonical-batch-harness";
-import { invocationCodecs } from "./fixture";
+import {
+    failedByAbort,
+    invocationCodecs
+} from "./fixture";
 
 describe("InvocationReconciler", () => {
     test(
@@ -400,7 +404,7 @@ describe("InvocationReconciler", () => {
                                 }
                                 return finalOutcome === "succeeded"
                                     ? { kind: "succeeded", result: content.ref }
-                                    : { kind: "failed" };
+                                    : { kind: "failed", failure: AttemptFailureKind.raised };
                             }
                         };
                         const reconciler = () =>
@@ -497,7 +501,7 @@ describe("InvocationReconciler", () => {
                             query += 1;
                             await released;
                             return contradictory && index === 1
-                                ? ({ kind: "failed" } as const)
+                                ? ({ kind: "failed", failure: AttemptFailureKind.raised } as const)
                                 : ({ kind: "succeeded", result: result.ref } as const);
                         }
                     },
@@ -770,7 +774,7 @@ describe("InvocationReconciler", () => {
                         new AttemptReceipt(
                             previous.id,
                             previous.attempt,
-                            "failed",
+                            failedByAbort,
                             undefined,
                             previous.recordedAt,
                             undefined
@@ -849,7 +853,7 @@ describe("InvocationReconciler", () => {
                     query += 1;
                     await released;
                     return index === 0
-                        ? { kind: "failed", result: shared.ref }
+                        ? { kind: "failed", failure: AttemptFailureKind.raised, result: shared.ref }
                         : { kind: "succeeded", result: shared.ref };
                 }
             });
@@ -893,7 +897,7 @@ describe("InvocationReconciler", () => {
                     const index = query;
                     query += 1;
                     await released;
-                    return index === 0 ? { kind: "failed" } : { kind: "failed", result: added.ref };
+                    return index === 0 ? { kind: "failed", failure: AttemptFailureKind.raised } : { kind: "failed", failure: AttemptFailureKind.raised, result: added.ref };
                 }
             });
             const left = reconciler.reconcile(attempt.id);
@@ -933,8 +937,8 @@ describe("InvocationReconciler", () => {
                     query += 1;
                     await released;
                     return index === 0
-                        ? { kind: "failed", result: dropped.ref }
-                        : { kind: "failed" };
+                        ? { kind: "failed", failure: AttemptFailureKind.raised, result: dropped.ref }
+                        : { kind: "failed", failure: AttemptFailureKind.raised };
                 }
             });
             const left = reconciler.reconcile(attempt.id);
@@ -1171,11 +1175,12 @@ function contradictingRecords(
         receiptAudit: harness.records.receiptAudit.bind(harness.records),
         receiptSupersessionAudit: harness.records.receiptSupersessionAudit.bind(harness.records),
         reconciledReceipt(...parameters: Parameters<typeof harness.records.reconciledReceipt>) {
-            const [candidate, previous, , recordedAt] = parameters;
+            const [candidate, previous, , result, recordedAt] = parameters;
             return harness.records.reconciledReceipt(
                 candidate,
                 previous,
-                { kind: "failed" },
+                failedByAbort,
+                result,
                 recordedAt
             );
         }

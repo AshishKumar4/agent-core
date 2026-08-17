@@ -7,40 +7,43 @@ import { PrincipalId, TenantId } from "../../src/identity";
 import {
     Approval,
     ApprovalId,
+    AttemptCompletion,
     AttemptReceipt,
+    type AttemptReceiptOutcome,
+    type AuditAppendContext,
+    auditEvidenceIdentity,
+    type AuditKind,
     AuditRecord,
     AuditRecordId,
+    type BatchOutcome,
     ClaimWorkerId,
     CorrelationId,
     EffectAttempt,
     EffectAttemptId,
     InvocationContinuation,
     InvocationError,
+    type InvocationEvidencePersistence,
     InvocationId,
     InvocationPublicationOutbox,
-    PreparedInvocation,
     ItemClaim,
     ItemClaimId,
     PreEffectReceipt,
+    type PreEffectReceiptOutcome,
+    PreparedInvocation,
     ReceiptId,
     RouteProjectionId,
     RouteReservationId,
-    auditEvidenceIdentity,
-    validateAuditAppend,
-    type AttemptReceiptOutcome,
-    type AuditAppendContext,
-    type AuditKind,
-    type BatchOutcome,
-    type InvocationEvidencePersistence,
-    type PreEffectReceiptOutcome
+    validateAuditAppend
 } from "../../src/invocations";
 import {
     admissionFor,
+    attemptCompletion,
     digest,
+    failedByAbort,
+    type InvocationHarness,
     operationPin,
     prepared,
-    preparedReferenceCodecs,
-    type InvocationHarness
+    preparedReferenceCodecs
 } from "./fixture";
 
 export function invocationLedgerContract<Transaction>(
@@ -433,7 +436,7 @@ export function invocationLedgerContract<Transaction>(
                 const failed = new AttemptReceipt(
                     new ReceiptId("receipt:failed"),
                     attempt0.id,
-                    "failed",
+                    failedByAbort,
                     undefined,
                     time(3),
                     undefined
@@ -494,7 +497,7 @@ export function invocationLedgerContract<Transaction>(
                 const failed = new AttemptReceipt(
                     new ReceiptId("receipt:retry-attempt:failed"),
                     attempt0.id,
-                    "failed",
+                    failedByAbort,
                     undefined,
                     time(3),
                     undefined
@@ -731,7 +734,7 @@ export function invocationLedgerContract<Transaction>(
                 const attempted = new AttemptReceipt(
                     sharedId,
                     attempt.id,
-                    "failed",
+                    failedByAbort,
                     undefined,
                     time(4),
                     undefined
@@ -792,7 +795,7 @@ export function invocationLedgerContract<Transaction>(
                 const missingAttempt = new AttemptReceipt(
                     new ReceiptId("receipt:succeeded-missing-attempt"),
                     new EffectAttemptId("attempt:succeeded-missing"),
-                    "succeeded",
+                    AttemptCompletion.succeeded,
                     undefined,
                     time(3),
                     content("succeeded-missing-attempt")
@@ -800,7 +803,7 @@ export function invocationLedgerContract<Transaction>(
                 const substitutedPredecessor = new AttemptReceipt(
                     new ReceiptId("receipt:succeeded-substituted-predecessor"),
                     attempt.id,
-                    "succeeded",
+                    AttemptCompletion.succeeded,
                     new ReceiptId("receipt:succeeded-unrelated-predecessor"),
                     time(3),
                     content("succeeded-substituted-predecessor")
@@ -860,7 +863,7 @@ export function invocationLedgerContract<Transaction>(
                 const unknown = new AttemptReceipt(
                     new ReceiptId("receipt:unknown"),
                     attempt0.id,
-                    "indeterminate",
+                    AttemptCompletion.indeterminate,
                     undefined,
                     time(3),
                     undefined
@@ -868,7 +871,7 @@ export function invocationLedgerContract<Transaction>(
                 const success1 = new AttemptReceipt(
                     new ReceiptId("receipt:success1"),
                     attempt1.id,
-                    "succeeded",
+                    AttemptCompletion.succeeded,
                     undefined,
                     time(3),
                     content("success1")
@@ -891,7 +894,7 @@ export function invocationLedgerContract<Transaction>(
                 const final = new AttemptReceipt(
                     new ReceiptId("receipt:final"),
                     attempt0.id,
-                    "failed",
+                    failedByAbort,
                     unknown.id,
                     time(4),
                     undefined
@@ -989,7 +992,7 @@ export function invocationLedgerContract<Transaction>(
                 const unknown = new AttemptReceipt(
                     new ReceiptId("receipt:system:unknown"),
                     attempt.id,
-                    "indeterminate",
+                    AttemptCompletion.indeterminate,
                     undefined,
                     time(3),
                     undefined
@@ -1007,7 +1010,7 @@ export function invocationLedgerContract<Transaction>(
                             new AttemptReceipt(
                                 new ReceiptId("receipt:illegal-previous"),
                                 attempt.id,
-                                "failed",
+                                failedByAbort,
                                 new ReceiptId("previous"),
                                 time(3),
                                 undefined
@@ -1026,7 +1029,7 @@ export function invocationLedgerContract<Transaction>(
                             new AttemptReceipt(
                                 new ReceiptId("receipt:duplicate"),
                                 attempt.id,
-                                "failed",
+                                failedByAbort,
                                 undefined,
                                 time(4),
                                 undefined
@@ -1563,7 +1566,7 @@ export function invocationLedgerContract<Transaction>(
                             new AttemptReceipt(
                                 new ReceiptId("unused"),
                                 attempt.id,
-                                "failed",
+                                failedByAbort,
                                 new ReceiptId("missing-reconciliation"),
                                 time(4),
                                 undefined
@@ -2198,7 +2201,7 @@ export function invocationLedgerContract<Transaction>(
                 const receipt = new AttemptReceipt(
                     new ReceiptId("receipt:immutable"),
                     attempt.id,
-                    "succeeded",
+                    AttemptCompletion.succeeded,
                     undefined,
                     time(3),
                     undefined
@@ -2212,7 +2215,7 @@ export function invocationLedgerContract<Transaction>(
                 const replacement = new AttemptReceipt(
                     receipt.id,
                     attempt.id,
-                    "failed",
+                    failedByAbort,
                     undefined,
                     time(4),
                     undefined
@@ -2532,7 +2535,7 @@ export function invocationLedgerContract<Transaction>(
                 const indeterminate = new AttemptReceipt(
                     new ReceiptId("receipt:indeterminate-supersession"),
                     attempt.id,
-                    "indeterminate",
+                    AttemptCompletion.indeterminate,
                     undefined,
                     time(3),
                     undefined
@@ -2547,7 +2550,7 @@ export function invocationLedgerContract<Transaction>(
                         new AttemptReceipt(
                             new ReceiptId("receipt:indeterminate-final"),
                             attempt.id,
-                            "failed",
+                            failedByAbort,
                             indeterminate.id,
                             time(4),
                             undefined
@@ -2566,7 +2569,7 @@ export function invocationLedgerContract<Transaction>(
                             new AttemptReceipt(
                                 new ReceiptId("receipt:indeterminate-second-final"),
                                 attempt.id,
-                                "succeeded",
+                                AttemptCompletion.succeeded,
                                 indeterminate.id,
                                 time(5),
                                 content("second-final")
@@ -2969,7 +2972,7 @@ export function invocationLedgerContract<Transaction>(
                 const failed = new AttemptReceipt(
                     new ReceiptId("receipt:ordinal-repeat:failed"),
                     attempt0.id,
-                    "failed",
+                    failedByAbort,
                     undefined,
                     time(3),
                     undefined
@@ -3617,7 +3620,7 @@ export function invocationLedgerContract<Transaction>(
                 const receipt = new AttemptReceipt(
                     new ReceiptId("receipt:receipt-audit"),
                     setup.attempt.id,
-                    "succeeded",
+                    AttemptCompletion.succeeded,
                     undefined,
                     time(3),
                     content("receipt-audit")
@@ -3690,7 +3693,7 @@ export function invocationLedgerContract<Transaction>(
                     new AttemptReceipt(
                         new ReceiptId(`receipt:receipt-guards:${suffix}`),
                         attempt,
-                        "failed",
+                        failedByAbort,
                         undefined,
                         time(3),
                         undefined
@@ -3760,7 +3763,7 @@ export function invocationLedgerContract<Transaction>(
                 const indeterminate = new AttemptReceipt(
                     new ReceiptId("receipt:supersession-audit:indeterminate"),
                     setup.attempt.id,
-                    "indeterminate",
+                    AttemptCompletion.indeterminate,
                     undefined,
                     time(3),
                     undefined
@@ -3789,7 +3792,7 @@ export function invocationLedgerContract<Transaction>(
                 const final = new AttemptReceipt(
                     new ReceiptId("receipt:supersession-audit:final"),
                     setup.attempt.id,
-                    "failed",
+                    failedByAbort,
                     indeterminate.id,
                     time(4),
                     undefined
@@ -3819,7 +3822,7 @@ export function invocationLedgerContract<Transaction>(
                 const ghost = new AttemptReceipt(
                     new ReceiptId("receipt:supersession-audit:ghost"),
                     new EffectAttemptId("attempt:supersession-ghost"),
-                    "failed",
+                    failedByAbort,
                     indeterminate.id,
                     time(4),
                     undefined
@@ -4515,7 +4518,7 @@ export function invocationLedgerContract<Transaction>(
             const failed = new AttemptReceipt(
                 new ReceiptId("receipt:ordinal-exhausted"),
                 attempt.id,
-                "failed",
+                failedByAbort,
                 undefined,
                 time(3),
                 undefined
@@ -4582,7 +4585,7 @@ export function invocationLedgerContract<Transaction>(
             const indeterminate = new AttemptReceipt(
                 new ReceiptId("receipt:supersession-guards:indeterminate"),
                 attempt0.id,
-                "indeterminate",
+                AttemptCompletion.indeterminate,
                 undefined,
                 time(3),
                 undefined
@@ -4590,7 +4593,7 @@ export function invocationLedgerContract<Transaction>(
             const failed = new AttemptReceipt(
                 new ReceiptId("receipt:supersession-guards:failed"),
                 attempt1.id,
-                "failed",
+                failedByAbort,
                 undefined,
                 time(3),
                 undefined
@@ -4608,7 +4611,7 @@ export function invocationLedgerContract<Transaction>(
                 new AttemptReceipt(
                     new ReceiptId("receipt:supersession-guards:no-previous"),
                     attempt0.id,
-                    "failed",
+                    failedByAbort,
                     undefined,
                     time(4),
                     undefined
@@ -4616,7 +4619,7 @@ export function invocationLedgerContract<Transaction>(
                 new AttemptReceipt(
                     new ReceiptId("receipt:supersession-guards:nonindeterminate"),
                     attempt1.id,
-                    "succeeded",
+                    AttemptCompletion.succeeded,
                     failed.id,
                     time(4),
                     content("supersession-guards")
@@ -4624,7 +4627,7 @@ export function invocationLedgerContract<Transaction>(
                 new AttemptReceipt(
                     new ReceiptId("receipt:supersession-guards:still-indeterminate"),
                     attempt0.id,
-                    "indeterminate",
+                    AttemptCompletion.indeterminate,
                     indeterminate.id,
                     time(4),
                     undefined
@@ -4861,7 +4864,7 @@ export function invocationLedgerContract<Transaction>(
                 const receipt = new AttemptReceipt(
                     new ReceiptId("receipt:receipt-audit-kind"),
                     setup.attempt.id,
-                    "failed",
+                    failedByAbort,
                     undefined,
                     time(3),
                     undefined
@@ -4913,7 +4916,7 @@ export function invocationLedgerContract<Transaction>(
                 const receipt = new AttemptReceipt(
                     new ReceiptId("receipt:receipt-audit-cause"),
                     setup.attempt.id,
-                    "failed",
+                    failedByAbort,
                     undefined,
                     time(3),
                     undefined
@@ -5169,7 +5172,7 @@ export function invocationLedgerContract<Transaction>(
                                 new AttemptReceipt(
                                     new ReceiptId("receipt:initial-receipt-message"),
                                     attempt.id,
-                                    "failed",
+                                    failedByAbort,
                                     new ReceiptId("receipt:initial-receipt-message:previous"),
                                     time(3),
                                     undefined
@@ -5204,7 +5207,7 @@ export function invocationLedgerContract<Transaction>(
                 const recorded = new AttemptReceipt(
                     new ReceiptId("receipt:unreceipted-message"),
                     attempt.id,
-                    "failed",
+                    failedByAbort,
                     undefined,
                     time(3),
                     undefined
@@ -5218,7 +5221,7 @@ export function invocationLedgerContract<Transaction>(
                     new AttemptReceipt(
                         new ReceiptId("receipt:unreceipted-message:ghost"),
                         new EffectAttemptId("attempt:unreceipted-message:ghost"),
-                        "failed",
+                        failedByAbort,
                         undefined,
                         time(3),
                         undefined
@@ -5226,7 +5229,7 @@ export function invocationLedgerContract<Transaction>(
                     new AttemptReceipt(
                         new ReceiptId("receipt:unreceipted-message:repeat"),
                         attempt.id,
-                        "failed",
+                        failedByAbort,
                         undefined,
                         time(4),
                         undefined
@@ -5336,7 +5339,7 @@ export function invocationLedgerContract<Transaction>(
                             new AttemptReceipt(
                                 left,
                                 lineage.attempt.id,
-                                "failed",
+                                failedByAbort,
                                 right,
                                 time(4),
                                 undefined
@@ -5347,7 +5350,7 @@ export function invocationLedgerContract<Transaction>(
                             new AttemptReceipt(
                                 right,
                                 lineage.attempt.id,
-                                "failed",
+                                failedByAbort,
                                 left,
                                 time(5),
                                 undefined
@@ -5445,7 +5448,7 @@ export function invocationLedgerContract<Transaction>(
                 const receipt = new AttemptReceipt(
                     new ReceiptId("Stryker was here"),
                     attempt.id,
-                    "succeeded",
+                    AttemptCompletion.succeeded,
                     undefined,
                     time(3),
                     content("opaque-receipt-id")
@@ -6062,7 +6065,7 @@ class RejectReplayedReceipt<Transaction> implements Command<
         const replay = new AttemptReceipt(
             new ReceiptId(`receipt:replayed:${this.index}`),
             attempt.id,
-            "succeeded",
+            AttemptCompletion.succeeded,
             undefined,
             time(model.now),
             content(`receipt:replayed:${this.index}`)
@@ -6126,7 +6129,7 @@ class RejectFinalSupersession<Transaction> implements Command<
         const successor = new AttemptReceipt(
             new ReceiptId(`receipt:successor:${this.index}`),
             current.attempt,
-            "succeeded",
+            AttemptCompletion.succeeded,
             current.id,
             time(model.now),
             content(`receipt:successor:${this.index}`)
@@ -6339,7 +6342,7 @@ function nextReceipt(
     return new AttemptReceipt(
         new ReceiptId(id),
         attempt,
-        outcome,
+        attemptCompletion(outcome),
         previous,
         time(model.now),
         outcome === "succeeded" ? content(id) : undefined
@@ -6441,7 +6444,7 @@ function lineageReceipt(
     return new AttemptReceipt(
         new ReceiptId(`receipt:${id}`),
         attempt,
-        "failed",
+        failedByAbort,
         previous,
         time(3),
         undefined

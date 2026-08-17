@@ -10,6 +10,7 @@ import { immutableReference } from "./codec";
 import type { PreparedInvocation } from "./prepared";
 import type { InvocationPublicationOutbox } from "./publication";
 import type { MediatedReplayRecord } from "./replay";
+import type { AttemptFailureKind } from "./receipt";
 
 export interface InvocationReferencePorts<Lease, Authority, Domain, PathEpochs, Admission> {
     readonly lease: StructuralCodec<Lease>;
@@ -80,10 +81,20 @@ export interface InvocationClaimOwnerPort<Transaction, Lease, Admission> {
     ): boolean;
 }
 
+/**
+ * What reconciliation learned about one attempt. A `failed` verdict names its §7.4 kind
+ * because the superseding final Receipt must carry one, and the reconciler is the host seam
+ * that observed the external system — the previous `indeterminate` Receipt could not name a
+ * kind and nothing else in the chain is entitled to invent one.
+ */
 export type ReconciliationResult =
     | { readonly kind: "unknown" }
     | { readonly kind: "succeeded"; readonly result?: ContentRef }
-    | { readonly kind: "failed"; readonly result?: ContentRef };
+    | {
+          readonly kind: "failed";
+          readonly failure: AttemptFailureKind;
+          readonly result?: ContentRef;
+      };
 
 export interface EffectReconciliationPort<Lease, Admission> {
     query(

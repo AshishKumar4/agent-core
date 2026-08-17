@@ -5,20 +5,20 @@ import {
     AuditRecord,
     AuditRecordId,
     ClaimWorkerId,
+    cloneInvocationMemoryState,
     CorrelationId,
+    createInvocationMemoryState,
     EffectAttempt,
     EffectAttemptId,
+    type InvocationAuditPersistence,
+    InvocationContinuation,
     InvocationError,
+    type InvocationMemoryState,
     ItemClaim,
     ItemClaimId,
     MemoryInvocationPersistence,
     PreEffectReceipt,
-    ReceiptId,
-    cloneInvocationMemoryState,
-    createInvocationMemoryState,
-    InvocationContinuation,
-    type InvocationAuditPersistence,
-    type InvocationMemoryState
+    ReceiptId
 } from "../../src/invocations";
 import { AgentCoreError } from "../../src/errors";
 import { PrincipalId, TenantId } from "../../src/identity";
@@ -28,10 +28,11 @@ import {
     attemptCodec,
     claimCodec,
     createLedger,
+    failedByAbort,
     invocationCodecs,
+    type InvocationHarness,
     prepared,
-    preparedCodec,
-    type InvocationHarness
+    preparedCodec
 } from "./fixture";
 import { invocationLedgerContract } from "./ledger-contract";
 
@@ -276,7 +277,7 @@ test(
             new AttemptReceipt(
                 new ReceiptId("memory-lineage-missing"),
                 missing.attempt.id,
-                "failed",
+                failedByAbort,
                 new ReceiptId("absent-predecessor"),
                 new Date(2000),
                 undefined
@@ -292,7 +293,7 @@ test(
             new AttemptReceipt(
                 new ReceiptId("valid-head"),
                 cyclic.attempt.id,
-                "failed",
+                failedByAbort,
                 undefined,
                 new Date(1500),
                 undefined
@@ -303,7 +304,7 @@ test(
             new AttemptReceipt(
                 new ReceiptId("cycle-a"),
                 cyclic.attempt.id,
-                "failed",
+                failedByAbort,
                 new ReceiptId("cycle-b"),
                 new Date(2000),
                 undefined
@@ -314,7 +315,7 @@ test(
             new AttemptReceipt(
                 new ReceiptId("cycle-b"),
                 cyclic.attempt.id,
-                "failed",
+                failedByAbort,
                 new ReceiptId("cycle-a"),
                 new Date(3000),
                 undefined
@@ -671,7 +672,7 @@ test(
             new AttemptReceipt(
                 new ReceiptId("memory-receipt-scope-foreign"),
                 new EffectAttemptId("memory-receipt-scope-attempt-1"),
-                "failed",
+                failedByAbort,
                 undefined,
                 new Date(3000),
                 undefined
@@ -935,7 +936,7 @@ test(
         const receipt = new AttemptReceipt(
             new ReceiptId("memory-ghost-attempt-receipt"),
             new EffectAttemptId("memory-ghost-attempt-attempt"),
-            "failed",
+            failedByAbort,
             undefined,
             new Date(2000),
             undefined

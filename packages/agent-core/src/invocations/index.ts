@@ -92,6 +92,7 @@ export {
 export type { InvocationMediationMemoryState } from "./mediation-memory";
 export { CanonicalBatchInvocationPort } from "./canonical-batch";
 export type {
+    CanonicalBatchAttemptResources,
     CanonicalBatchAuthorityAuthenticationPort,
     CanonicalBatchAuthorityPermitPort,
     CanonicalBatchAuthorityPermitResult,
@@ -165,7 +166,19 @@ export type {
     ReconciliationSchedulePort,
     ReconciliationSweepReport
 } from "./reconciliation-driver";
-export { AttemptReceipt, PreEffectReceipt, Receipt, ReceiptCodec } from "./receipt";
-export type { AttemptReceiptOutcome, PreEffectReceiptOutcome } from "./receipt";
+export {
+    AttemptCompletion,
+    AttemptFailureKind,
+    AttemptReceipt,
+    PreEffectReceipt,
+    Receipt,
+    ReceiptCodec
+} from "./receipt";
+export type {
+    AttemptFailureKindName,
+    AttemptReceiptOutcome,
+    AttemptTargetDomain,
+    PreEffectReceiptOutcome
+} from "./receipt";
 export { InvocationReconciler } from "./reconciliation";
 export type { InvocationReconciliationRecordPort } from "./reconciliation";

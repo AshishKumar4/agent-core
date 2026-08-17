@@ -17,7 +17,12 @@ import {
     type ProtectedOperationRequest,
     type ProtectedOperationResult
 } from "../../../src/facets";
-import { AttemptReceipt, EffectAttemptId, ReceiptId } from "../../../src/invocations";
+import {
+    AttemptCompletion,
+    AttemptReceipt,
+    EffectAttemptId,
+    ReceiptId
+} from "../../../src/invocations";
 import { recordingRuntime, type TestReceipt } from "./harness";
 
 interface ExampleInput extends PublicProfileInput {
@@ -247,7 +252,7 @@ class ReceiptKindPort extends ProtectedOperationPort<TestReceipt> {
             receipt: new AttemptReceipt(
                 new ReceiptId("substituted-receipt"),
                 new EffectAttemptId("substituted-attempt"),
-                "succeeded",
+                AttemptCompletion.succeeded,
                 undefined,
                 new Date(0),
                 undefined

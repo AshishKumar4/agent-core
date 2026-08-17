@@ -14,9 +14,12 @@ import {
     Approval,
     ApprovalCodec,
     ApprovalId,
+    AttemptCompletion,
+    AttemptFailureKind,
     AttemptReceipt,
     AuditRecordId,
     ClaimWorkerId,
+    deriveBatchOutcome,
     EffectAttempt,
     EffectAttemptId,
     InvocationContinuation,
@@ -24,16 +27,29 @@ import {
     InvocationId,
     ItemClaim,
     ItemClaimId,
-    deriveBatchOutcome,
     PreEffectReceipt,
+    type PreEffectReceiptOutcome,
     Receipt,
     ReceiptCodec,
     ReceiptId,
-    terminalBatchOutcome,
-    type AttemptReceiptOutcome,
-    type PreEffectReceiptOutcome
+    terminalBatchOutcome
 } from "../../src/invocations";
-import { admissionFor, attemptCodec, claimCodec, continuationCodec } from "./fixture";
+import {
+    admissionFor,
+    attemptCodec,
+    attemptCompletion,
+    claimCodec,
+    continuationCodec,
+    failedByAbort,
+    outsideVocabulary
+} from "./fixture";
+
+/** An attempted outcome outside §7.4's closed vocabulary, which only a subclass can express. */
+class InvalidOutcomeCompletion extends AttemptCompletion {
+    public readonly outcome = outsideVocabulary("invalid");
+    public readonly failure = AttemptFailureKind.raised;
+}
+const invalidOutcomeCompletion = new InvalidOutcomeCompletion();
 
 describe("Invocation evidence records", () => {
     test(
@@ -330,7 +346,7 @@ describe("Invocation evidence records", () => {
             const succeeded = new AttemptReceipt(
                 new ReceiptId("succeeded"),
                 new EffectAttemptId("receipt-attempt"),
-                "succeeded",
+                AttemptCompletion.succeeded,
                 undefined,
                 time(2),
                 content("result")
@@ -338,7 +354,7 @@ describe("Invocation evidence records", () => {
             const failed = new AttemptReceipt(
                 new ReceiptId("failed"),
                 succeeded.attempt,
-                "failed",
+                failedByAbort,
                 new ReceiptId("unknown"),
                 time(3),
                 undefined
@@ -358,7 +374,7 @@ describe("Invocation evidence records", () => {
                     new AttemptReceipt(
                         new ReceiptId("illegal"),
                         succeeded.attempt,
-                        "indeterminate",
+                        AttemptCompletion.indeterminate,
                         undefined,
                         time(4),
                         content("forbidden")
@@ -404,9 +420,7 @@ describe("Invocation evidence records", () => {
                     new AttemptReceipt(
                         new ReceiptId("invalid-attempt-outcome"),
                         new EffectAttemptId("invalid-attempt"),
-                        // SAFETY: AttemptReceipt declares a closed outcome vocabulary, so the
-                        // invalid one its constructor must reject is unreachable from typed code.
-                        "invalid" as AttemptReceiptOutcome,
+                        invalidOutcomeCompletion,
                         undefined,
                         time(1),
                         undefined
@@ -416,7 +430,7 @@ describe("Invocation evidence records", () => {
             const envelope = (payload: JsonValue) =>
                 encodeCanonicalJson({
                     kind: "invocation.receipt",
-                    version: { major: 1, minor: 0 },
+                    version: { major: 2, minor: 0 },
                     payload
                 });
             expect(() => Receipt.decode(envelope(null))).toThrow();
@@ -873,7 +887,7 @@ describe("Invocation evidence records", () => {
                     new AttemptReceipt(
                         new DerivedReceiptId("derived-attempt-receipt"),
                         new EffectAttemptId("derived-receipt-attempt"),
-                        "failed",
+                        failedByAbort,
                         undefined,
                         time(1),
                         undefined
@@ -884,7 +898,7 @@ describe("Invocation evidence records", () => {
                     new AttemptReceipt(
                         new ReceiptId("derived-attempt-id-receipt"),
                         new DerivedEffectAttemptId("derived-attempt"),
-                        "failed",
+                        failedByAbort,
                         undefined,
                         time(1),
                         undefined
@@ -895,7 +909,7 @@ describe("Invocation evidence records", () => {
                     new AttemptReceipt(
                         new ReceiptId("derived-previous-receipt"),
                         new EffectAttemptId("derived-previous-attempt"),
-                        "failed",
+                        failedByAbort,
                         new DerivedReceiptId("derived-previous"),
                         time(1),
                         undefined
@@ -1014,7 +1028,7 @@ describe("Invocation evidence records", () => {
             const envelope = (overrides: JsonObject) =>
                 encodeCanonicalJson({
                     kind: "invocation.receipt",
-                    version: { major: 1, minor: 0 },
+                    version: { major: 2, minor: 0 },
                     payload: {
                         id: "diagnostic-receipt",
                         invocation: "diagnostic-invocation",
@@ -1057,6 +1071,7 @@ class UnknownReceipt extends Receipt {
             id: new ReceiptId("unknown-receipt"),
             attempt: new EffectAttemptId("unknown-attempt"),
             outcome: "failed",
+            failure: AttemptFailureKind.raised,
             previous: undefined,
             result: undefined
         });
@@ -1077,7 +1092,7 @@ function attempted(id: string, outcome: "succeeded" | "failed" | "indeterminate"
     return new AttemptReceipt(
         new ReceiptId(id),
         new EffectAttemptId(`attempt-${id}`),
-        outcome,
+        attemptCompletion(outcome),
         undefined,
         time(1),
         outcome === "succeeded" ? content(id) : undefined

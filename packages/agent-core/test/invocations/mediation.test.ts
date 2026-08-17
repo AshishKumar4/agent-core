@@ -20,39 +20,45 @@ import {
     type ProtectedOperationRequest
 } from "../../src/facets";
 import {
-    AttemptReceipt,
     ApprovalId,
+    AttemptCompletion,
+    AttemptReceipt,
+    auditEvidenceIdentity,
     AuditRecord,
     AuditRecordId,
+    type CanonicalBatchInvocationRequest,
     type CanonicalBatchInvoker,
+    type CanonicalBatchItemResult,
     ClaimWorkerId,
+    cloneInvocationMediationMemoryState,
     CorrelationId,
+    createInvocationMediationMemoryState,
     EffectAttemptId,
-    InvocationId,
     InvocationContinuation,
+    InvocationId,
+    type InvocationMediationMemoryState,
     InvocationProtectedOperationPort,
     InvocationPublicationDrainer,
     InvocationPublicationOutbox,
+    type InvocationReplayPersistence,
+    type InvocationTransactionPort,
     ItemClaimId,
     MediatedReplayRecord,
     MemoryInvocationMediationPersistence,
     PreEffectReceipt,
-    ReceiptId,
-    ReplayOperationInvocationPort,
-    auditEvidenceIdentity,
-    cloneInvocationMediationMemoryState,
-    createInvocationMediationMemoryState,
-    type CanonicalBatchInvocationRequest,
-    type CanonicalBatchItemResult,
-    type InvocationMediationMemoryState,
-    type InvocationReplayPersistence,
-    type InvocationTransactionPort,
     type Receipt,
-    type ReceiptObservation
+    ReceiptId,
+    type ReceiptObservation,
+    ReplayOperationInvocationPort
 } from "../../src/invocations";
 import { OperationRequestKey } from "../../src/operations";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
-import { mutableObject, mutateRecord, referenceCodec } from "./fixture";
+import {
+    failedByAbort,
+    mutableObject,
+    mutateRecord,
+    referenceCodec
+} from "./fixture";
 
 const descriptor = new OperationDescriptor(
     new OperationName("send"),
@@ -776,7 +782,7 @@ describe("W6 operation mediation integration", () => {
                 new AttemptReceipt(
                     new ReceiptId("profile-indeterminate"),
                     new EffectAttemptId("profile-indeterminate-attempt"),
-                    "indeterminate",
+                    AttemptCompletion.indeterminate,
                     undefined,
                     new Date(1),
                     undefined
@@ -784,7 +790,7 @@ describe("W6 operation mediation integration", () => {
                 new AttemptReceipt(
                     new ReceiptId("profile-failed"),
                     new EffectAttemptId("profile-failed-attempt"),
-                    "failed",
+                    failedByAbort,
                     undefined,
                     new Date(1),
                     undefined
@@ -2291,7 +2297,7 @@ describe("W6 profile mediation port", () => {
                 new AttemptReceipt(
                     new ReceiptId("profile-indeterminate"),
                     new EffectAttemptId("profile-indeterminate-attempt"),
-                    "indeterminate",
+                    AttemptCompletion.indeterminate,
                     undefined,
                     new Date(1),
                     undefined
@@ -2306,7 +2312,7 @@ describe("W6 profile mediation port", () => {
                 new AttemptReceipt(
                     new ReceiptId("profile-failed"),
                     new EffectAttemptId("profile-failed-attempt"),
-                    "failed",
+                    failedByAbort,
                     undefined,
                     new Date(1),
                     undefined
@@ -2374,7 +2380,7 @@ class SuccessfulBatch implements CanonicalBatchInvoker<string> {
                 receipt: new AttemptReceipt(
                     new ReceiptId(`receipt-${itemIndex}`),
                     new EffectAttemptId(`attempt-${itemIndex}`),
-                    "succeeded",
+                    AttemptCompletion.succeeded,
                     undefined,
                     new Date(5),
                     undefined
@@ -2461,7 +2467,7 @@ function receiptWithId(id: string): AttemptReceipt {
     return new AttemptReceipt(
         new ReceiptId(id),
         new EffectAttemptId(`attempt:${id}`),
-        "succeeded",
+        AttemptCompletion.succeeded,
         undefined,
         new Date(5),
         undefined
@@ -2521,7 +2527,7 @@ function attemptReceipt(id: string, itemIndex: number): AttemptReceipt {
     return new AttemptReceipt(
         new ReceiptId(`receipt:${id}:${itemIndex}`),
         new EffectAttemptId(`attempt:${id}:${itemIndex}`),
-        "succeeded",
+        AttemptCompletion.succeeded,
         undefined,
         new Date(5),
         undefined

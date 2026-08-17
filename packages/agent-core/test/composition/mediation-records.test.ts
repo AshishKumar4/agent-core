@@ -4,21 +4,23 @@ import { PathEpochEvidence, ScopeEpoch } from "../../src/authority";
 import { ContentRef, Digest, encodeCanonicalJson, type JsonValue } from "../../src/core";
 import { PrincipalId, PrincipalRef, ScopeRef, TenantId } from "../../src/identity";
 import {
+    AttemptCompletion,
     AttemptReceipt,
     AuthorityAdmissionReference,
     ClaimWorkerId,
     EffectAttempt,
     InvocationPlacementPin,
     ItemClaim,
+    type ItemClaimOwner,
     OperationPin,
     PreparedInvocation,
-    RouteReservationId,
-    type ItemClaimOwner
+    RouteReservationId
 } from "../../src/invocations";
 import { OperationRef } from "../../src/facets";
 import { PackageId } from "../../src/definition";
 import { SemVer } from "../../src/core";
 import { TurnId } from "../../src/execution-references";
+import { failedByAbort } from "../invocations/fixture";
 import {
     CanonicalMediationRecords,
     DerivedMediationIdentities,
@@ -315,12 +317,13 @@ describe("mediation records carry the evidence their chain needs", () => {
         const leased = invocation("leased");
         const claim = records().claim(leased, 0, undefined, now);
         const attempt = attemptFor(claim, leased);
-        const indeterminate = records().attemptReceipt(attempt, "indeterminate", now, undefined);
+        const indeterminate = records().attemptReceipt(attempt, AttemptCompletion.indeterminate, now, undefined);
         const result = new ContentRef(`sha256:${"a".repeat(64)}`);
         const reconciled = records().reconciledReceipt(
             attempt,
             indeterminate,
-            { kind: "succeeded", result },
+            AttemptCompletion.succeeded,
+            result,
             now
         );
 
@@ -356,7 +359,7 @@ describe("mediation records carry the evidence their chain needs", () => {
         const attemptAudit = records().attemptAudit(leased, attempt);
         expect(attemptAudit.cause?.equals(invocationAudit.id)).toBe(true);
 
-        const receipt = records().attemptReceipt(attempt, "indeterminate", now, undefined);
+        const receipt = records().attemptReceipt(attempt, AttemptCompletion.indeterminate, now, undefined);
         const receiptAudit = records().receiptAudit(leased, attemptAudit, receipt);
         expect(receiptAudit.cause?.equals(attemptAudit.id)).toBe(true);
 
@@ -372,8 +375,9 @@ describe("mediation records carry the evidence their chain needs", () => {
 
         const next = records().reconciledReceipt(
             attempt,
-            records().attemptReceipt(attempt, "indeterminate", now, undefined),
-            { kind: "failed" },
+            records().attemptReceipt(attempt, AttemptCompletion.indeterminate, now, undefined),
+            failedByAbort,
+            undefined,
             now
         );
         const supersession = records().receiptSupersessionAudit(

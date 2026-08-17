@@ -16,6 +16,8 @@ import type { TenantId } from "../identity";
 import {
     AttemptReceipt,
     CanonicalBatchInvocationPort,
+    type CanonicalBatchAttemptResources,
+    type CanonicalBatchInvocationRequest,
     InvocationLedger,
     InvocationPublicationDrainer,
     ReplayOperationInvocationPort,
@@ -215,7 +217,7 @@ export class MediatedOperationPipeline<
             new ComposedTurnGatewaySource(
                 facets,
                 new TenantOperationAuthority(init.authority, init.now),
-                (signal) => operations(init, identities, ledger, signal)
+                (signal) => operations(init, identities, ledger, facets, signal)
             ),
             new TurnAdmissionVerifier(
                 new StoredAdmissionRecords(init.transactions, init.persistence, init.content)
@@ -250,15 +252,33 @@ function operations<Transaction, Admission, Authentication, Denial>(
         Admission,
         Authentication
     >,
+    facets: FacetRuntimeHost,
     signal: AbortSignal
 ): MediatedOperations<Transaction> {
-    const resources = { signal, content: init.content };
+    const direct = { signal, content: init.content };
+    /**
+     * §7.4's `domainLost` is read off the domain hosting the target, so the witness is the
+     * Facet runtime host's own hosting of that exact Facet — a disposed or replaced runtime
+     * stops answering for it. The pipeline's scope signal is deliberately not used here: it
+     * is the same signal `aborted` reads, and one signal cannot say which boundary closed.
+     */
+    const attemptResources = (
+        request: CanonicalBatchInvocationRequest<MediatedAuthorityIntent>
+    ): CanonicalBatchAttemptResources =>
+        Object.freeze({
+            signal,
+            content: init.content,
+            deadline: undefined,
+            target: Object.freeze({
+                answering: (): boolean => facets.facet(request.request.facet) !== undefined
+            })
+        });
     return new ReplayOperationInvocationPort(
         init.scope,
         init.transactions,
         init.evidence,
         identities,
-        new DerivedDirectOperationContext<ResolutionStamp>(identities, () => resources),
+        new DerivedDirectOperationContext<ResolutionStamp>(identities, () => direct),
         new CanonicalBatchInvocationPort<
             MediatedAuthorityIntent,
             Transaction,
@@ -288,7 +308,7 @@ function operations<Transaction, Admission, Authentication, Denial>(
             ),
             init.finalAdmission,
             init.evidence,
-            { resources: () => resources },
+            { resources: attemptResources },
             init.now
         )
     );

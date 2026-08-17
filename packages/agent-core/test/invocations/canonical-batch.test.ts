@@ -9,19 +9,20 @@ import { PrincipalId } from "../../src/identity";
 import {
     Approval,
     ApprovalId,
+    AttemptCompletion,
     AttemptReceipt,
     AuditRecord,
     AuditRecordId,
     CanonicalBatchInvocationPort,
+    type CanonicalBatchInvocationRequest,
+    type CanonicalBatchInvocationResult,
     EffectAttemptId,
     InvocationPlacementPin,
     OperationPin,
     PreEffectReceipt,
     PreparedInvocation,
-    ReceiptCodec,
-    type CanonicalBatchInvocationRequest,
-    type CanonicalBatchInvocationResult,
-    type Receipt
+    type Receipt,
+    ReceiptCodec
 } from "../../src/invocations";
 import { InvocationId } from "../../src/interaction-references";
 import { ConfirmedOperationFailure, OperationRequestKey } from "../../src/operations";
@@ -1144,7 +1145,7 @@ describe("CanonicalBatchInvocationPort", () => {
                         new AttemptReceipt(
                             receipt.id,
                             receipt.attempt,
-                            "succeeded",
+                            AttemptCompletion.succeeded,
                             undefined,
                             receipt.recordedAt,
                             reconciled.ref
@@ -1291,7 +1292,9 @@ describe("CanonicalBatchInvocationPort", () => {
                 {
                     resources: () => ({
                         signal: new AbortController().signal,
-                        content: new FailingPutContentStore(harness.content)
+                        content: new FailingPutContentStore(harness.content),
+                        deadline: undefined,
+                        target: { answering: () => true }
                     })
                 },
                 harness.now
@@ -1364,7 +1367,7 @@ describe("CanonicalBatchInvocationPort", () => {
                         new AttemptReceipt(
                             receipt.id,
                             receipt.attempt,
-                            "succeeded",
+                            AttemptCompletion.succeeded,
                             undefined,
                             receipt.recordedAt,
                             undefined
