@@ -69,6 +69,53 @@ describe("DurableAlarmClaims", () => {
         expect(() => ledger.owner(" ", alarms)).toThrow();
         expect(() => ledger.owner("", alarms)).toThrow();
     });
+
+    // The platform deletes the physical alarm before `alarm()` runs, while the claim row
+    // survives in SQLite. So a sweep that leaves work due at the same schedule finds the
+    // claim already equal to its target. Production wires the reconciler to a claimed
+    // view (durable-object.ts), and every other case in this suite hands it raw storage,
+    // which is why the object could be left with due work and no wakeup.
+    test("re-arms a physical alarm the platform consumed while the claim is unchanged", async () => {
+        const { claims: ledger, alarms } = claims();
+        const owned = ledger.owner("runtime", alarms);
+        const outbox = new FakeReconciliationOutboxLike();
+        outbox.enqueue("due", 10);
+        const reconciler = new AlarmOutboxReconciler(
+            owned,
+            outbox,
+            async () => undefined,
+            fakeErrors
+        );
+
+        await reconciler.armAlarm();
+        expect(alarms.scheduledAt).toBe(10);
+
+        alarms.scheduledAt = null;
+        await reconciler.repairAlarm();
+
+        expect(alarms.scheduledAt).toBe(10);
+    });
+
+    // Two owners synchronising concurrently: the second claims an earlier wakeup while the
+    // first is awaiting its physical read. If the first decided on a claim set captured
+    // before that await, it would arm 500 and the 200 wakeup would be lost.
+    test("an earlier claim registered during a physical read is not clobbered", async () => {
+        const { claims: ledger } = claims();
+        const alarms = new FakeAlarmStorage();
+        const first = ledger.owner("first", {
+            getAlarm: async () => {
+                await second.setAlarm(200);
+                return alarms.getAlarm();
+            },
+            setAlarm: (scheduledTime) => alarms.setAlarm(scheduledTime),
+            deleteAlarm: () => alarms.deleteAlarm()
+        });
+        const second = ledger.owner("second", alarms);
+
+        await first.setAlarm(500);
+
+        expect(alarms.scheduledAt).toBe(200);
+    });
 });
 
 class FakeReconciliationOutboxLike {

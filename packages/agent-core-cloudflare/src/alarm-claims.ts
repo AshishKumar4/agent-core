@@ -77,7 +77,14 @@ class ClaimedAlarmStorage implements AlarmStorageLike {
     ) {}
 
     public async getAlarm(): Promise<number | null> {
-        return this.claims.claimed(this.name);
+        const claimed = this.claims.claimed(this.name);
+        if (claimed === null) return null;
+        // A claim is armed only while the platform alarm still reflects the claim set. The
+        // platform clears that alarm before `alarm()` runs while this row survives, so
+        // returning the bare row would tell a scheduler its wakeup exists when nothing
+        // will fire — and a scheduler that skips an unchanged write on that answer leaves
+        // the object with due work and no wakeup.
+        return (await this.alarms.getAlarm()) === null ? null : claimed;
     }
 
     public async setAlarm(scheduledTime: number): Promise<void> {
@@ -91,8 +98,12 @@ class ClaimedAlarmStorage implements AlarmStorageLike {
     }
 
     private async synchronize(): Promise<void> {
-        const earliest = this.claims.earliest();
+        // Read the claim set last. A stale `actual` costs at most a redundant write, but a
+        // stale `earliest` arms the physical alarm behind a claim another owner registered
+        // during the await, losing that owner's wakeup — the clobbering this ledger exists
+        // to prevent. Nothing awaits between this read and the write it decides.
         const actual = await this.alarms.getAlarm();
+        const earliest = this.claims.earliest();
         if (earliest === null) {
             if (actual !== null) await this.alarms.deleteAlarm();
             return;
