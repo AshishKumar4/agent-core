@@ -480,6 +480,29 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-AUTH-SCOPE-DIRECTION",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-SCOPE-DIRECTION",
+      "specTextSha256": "sha256:17e1d2eb740d936c817a99a6731f2dee4ff266ba9f601114d5ea13893f056398",
+      "status": "planned",
+      "prerequisites": [
+        "C13-AUTH-DENY-PRECEDENCE",
+        "C13-AUTH-PATH-ORDER",
+        "C13-FACET-SLOT-VISIBILITY",
+        "C13-SUBSCRIPTION-AUTHORITY"
+      ],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The downward half needs discrimination rather than construction for authority and has no evidence at all for policy: src/authority/runtime.ts#TenantAuthorityRuntime and src/composition/authority.ts already resolve along the ordered Tenant-to-target path under C13-AUTH-DENY-PRECEDENCE and C13-AUTH-PATH-ORDER, while nothing asserts that declared PolicySet material — enforcement tiers, quotas, retention — resolves along that same path, so a host resolving policy per-Workspace only would satisfy every current test",
+        "The composition conjunct is true by construction and unasserted, which is the direction a regression arrives from: src/facets/slot-store.ts#WorkspaceSlotCatalog reads a WorkspaceSlotStore and can only return the queried Workspace's own entries, so an ancestor's install cannot compose into a descendant today because no ancestor-scoped slot store exists. Closure needs the adversarial case — a Facet installed at the Tenant, a slot query at a Workspace beneath it, no entry returned — so the confinement survives the day a Tenant-scoped store is added",
+        "The Event conjunct cannot be proved by the matcher and has to be proved at the store that supplies candidate Subscriptions: src/workspaces/policy.ts#eventMatches compares kind, source and accepted trust only, so a Subscription (src/workspaces/subscription.ts#Subscription) whose pattern matches an Event accepted by a sibling or ancestor Actor exactly must still be shown never to receive it, and a mutation widening the candidate set past the accepting Actor must break a cited test",
+        "The positive cross-Scope path is untested as a Scope statement: a Tenant reacting to a Workspace Event must be shown to require a declared Subscription whose delivery authority is checked under C13-SUBSCRIPTION-AUTHORITY, and the same reaction must be impossible without that Subscription and its Grant, which is what separates a declared route from inherited visibility",
+        "Nothing keeps the two directions from being conflated, so the rule needs two mutations of its own: a Grant that stops at the Scope holding it instead of reaching descendants, and a slot entry or an Event that traverses the chain the way a Grant does, each killing a distinct test — a host doing either would violate this rule while satisfying every atom it cites"
+      ]
+    },
+    {
       "id": "C13-AUTH-TEAM-SUBJECT",
       "owner": "W2",
       "specAnchor": "C13-AUTH-TEAM-SUBJECT",

@@ -165,6 +165,48 @@
       ]
     },
     {
+      "id": "C13-FACET-CAPABILITY-ABSENCE",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-CAPABILITY-ABSENCE",
+      "specTextSha256": "sha256:f24587b45b32f68bb19c6814fd0acc37b5cb8babb30c7928b4676017979b4d02",
+      "status": "planned",
+      "prerequisites": ["C13-FACET-INSTALL-VERIFICATION"],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The implementation currently contradicts the rule and is the first thing that must change: src/facets/contribution.ts#OperationDescriptor declares `public readonly interceptable = false` and its codec lists interceptable among the REQUIRED fields, decoded through requireBoolean and re-emitted by toData(), so a withheld capability is today a mandatory present false both on the wire and in the manifest digest input. The presence-typed form has to replace it in the class, in the codec's required/optional split, and in toData() together, or one of the three keeps the negative encoding alive",
+        "Both readers test the flag for truth rather than for presence — src/composition/authority.ts#admitsInterception uses descriptor.interceptable and src/operations/interception.ts refuses on its negation — so both keep working after the change and neither discriminates. The clause with no implementation at all is the refusal: a manifest carrying interceptable false must be REFUSED at install rather than accepted as equivalent to absence, and that refusal needs its own case",
+        "The digest consequence is the reason the rule is stated and is unmeasured: two manifests differing only in a present false versus an absent key must be shown to produce one manifestDigest under the §5.2 PackagePin rather than two, so an inert declaration cannot change the release a RunPin names",
+        "The generality clause needs a conformance assertion rather than a case, because it forbids a negative encoding for every capability this document declares by presence: a check over the declared record shapes — terminal, failure, projectionDigest, duplicateOf, authenticationDigest — proving none has acquired a boolean or nullable form is what keeps the defect from reappearing elsewhere, and no current gate performs it",
+        "Mutation attribution needs two mutants, not one: flipping the install refusal to accept a present false must kill a cited test, and so must flipping the decoder to read absence as false and re-emit it, because the second is exactly how the negative form returns after the first is fixed"
+      ]
+    },
+    {
+      "id": "C13-FACET-CODE-AVAILABILITY",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-CODE-AVAILABILITY",
+      "specTextSha256": "sha256:f36a1bc625100b139f82834d25c4fa55bbd54ed2b553ca9de869120e2f8b98eb",
+      "status": "planned",
+      "prerequisites": [
+        "C13-AUTH-ISOLATE-DELEGATION",
+        "C13-BLUEPRINT-VALIDATE-BEFORE-LOAD",
+        "C13-FACET-CONTRIBUTION-ATTRIBUTION",
+        "C13-PLACEMENT-AUTHORED-BACKING",
+        "C13-TURN-FACET-SET-STABLE"
+      ],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The declaration does not exist yet and its absence is enforced: src/facets/contribution.ts#OperationDescriptor carries no availability member and its codec's exact-field check would reject one, so the type, the codec's optional-field set, toData(), and the descriptor reconstruction in src/facets/profile-runtime/contract.ts all need the new member before any other clause can be asserted",
+        "The absent-means-native default needs discrimination and not merely a default value: a descriptor declaring no availability must be shown unreachable from agent-authored code, and a mutation defaulting it to both must break a cited test rather than silently widening every existing Operation into code mode",
+        "The one-set clause is the substance of the rule and has nothing to test against: nothing today computes the Bindings handed to a dynamic isolate, so verification needs that computation plus proof that its members are exactly the code- or both-available Operations the caller holds authority for, that a native-only Operation is not passable, and that the same declared set is what the offered catalog records under C13-TURN-MODEL-INPUT-RECONSTRUCTABLE — a host keeping two sets in agreement must fail",
+        "The composition clauses ride on atoms that are themselves planned: availability changed at the Scope mid-Turn must not change what that Turn's isolate reaches, which needs the captured FacetSet of C13-TURN-FACET-SET-STABLE, and the materialized availability record must appear in the declaring Facet's withdrawal set under C13-FACET-WITHDRAWAL-EXACT rather than surviving its contributor",
+        "The validation-time rejection is a definition-plane obligation with no current reader: the Blueprint validator does not relate policies.placement's consumer-to-backing mapping to any Operation's declared availability, so a code-available Operation on a platform that maps no backing and declares no default cannot be refused today. Closure requires that relation, the no-code-loaded assertion C13-BLUEPRINT-VALIDATE-BEFORE-LOAD already tests against, and a discriminating case proving the failure lands at validation rather than at the first submission that needs the runtime"
+      ]
+    },
+    {
       "id": "C13-FACET-CONTRIBUTION-ATTRIBUTION",
       "owner": "W3",
       "specAnchor": "C13-FACET-CONTRIBUTION-ATTRIBUTION",
