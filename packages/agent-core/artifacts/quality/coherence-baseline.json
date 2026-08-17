@@ -130,13 +130,6 @@
     {
       "rule": "COH-CITATION-LABEL",
       "file": "test/authority/permit.test.ts",
-      "symbol": "C13-AUTH-MEDIATED-ADMISSION",
-      "message": "Row C13-AUTH-MEDIATED-ADMISSION cites a test carrying no atom label: [authority-permit-owner-store] memory issues and consumes exactly once across owner-store restart",
-      "fingerprint": "COH-CITATION-LABEL:test/authority/permit.test.ts:C13-AUTH-MEDIATED-ADMISSION:f2c78fada4f7"
-    },
-    {
-      "rule": "COH-CITATION-LABEL",
-      "file": "test/authority/permit.test.ts",
       "symbol": "C13-AUTH-PRINCIPAL-REF",
       "message": "Row C13-AUTH-PRINCIPAL-REF cites a test carrying no atom label: AuthorityPermit rejects a lease holder with the same PrincipalId from another Tenant",
       "fingerprint": "COH-CITATION-LABEL:test/authority/permit.test.ts:C13-AUTH-PRINCIPAL-REF:9c7eaec21b9d"

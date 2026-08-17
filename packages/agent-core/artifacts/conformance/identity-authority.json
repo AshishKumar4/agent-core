@@ -97,17 +97,21 @@
       "owner": "W2",
       "specAnchor": "C13-AUTH-BINDING-NAME-CANONICAL",
       "specTextSha256": "sha256:d323a559dae174a3c575a61a09449e85468c71d53ce86da3bcd8c9023f822053",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": ["C13-AUTH-BINDING-RESOLUTION"],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "W3 holds the identifier vocabulary: src/facets/id.ts#BindingName now applies the §1.4 canonical segment form and test/facets/id.test.ts covers the admissible and inadmissible sets, but the evidence-ownership rule forbids a W2 row from citing a W3 path, so promotion needs a W3 evidence row or an ownership decision",
-        "Refusal at `bind` is unproven: no test asserts AuthorityService.bind rejects a noncanonical name rather than the BindingName constructor alone",
-        "Refusal at a manifest BindingRequirement (§4.1) and at Blueprint validation (§9.2) is unproven for a noncanonical name",
-        "No checker asserts the SPEC pattern and src/facets/id.ts share one source, so the two forms can drift"
-      ]
+      "sourceSymbols": [
+        "src/authority/binding.ts#Binding",
+        "src/authority/binding.ts#Binding.keyFor"
+      ],
+      "testSelectors": [
+        "test/authority/binding-name-canonical.test.ts#canonical Binding names in the one authority plane [C13-AUTH-BINDING-NAME-CANONICAL] admits exactly the §1.4 canonical segment form at every authority-plane site that writes a name",
+        "test/authority/binding-name-canonical.test.ts#canonical Binding names in the one authority plane [C13-AUTH-BINDING-NAME-CANONICAL] refuses a noncanonical name where it is written rather than folding it onto an admissible neighbour",
+        "test/authority/binding-name-canonical.test.ts#canonical Binding names in the one authority plane [C13-AUTH-BINDING-NAME-CANONICAL] two distinct canonical names cannot fold to one Binding key, so a name cannot reach the Grant another name was bound to",
+        "test/authority/binding-name-canonical.test.ts#canonical Binding names in the one authority plane [C13-AUTH-BINDING-NAME-CANONICAL] the §1.4 form SPEC.md fixes and the set the authority plane admits share one source",
+        "test/authority/binding-name-canonical.test.ts#canonical Binding names in the one authority plane [C13-AUTH-BINDING-NAME-CANONICAL] the form constrains a requirement's key and never a provider's identity"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-AUTH-BINDING-RESOLUTION",
@@ -361,17 +365,24 @@
       "owner": "W2",
       "specAnchor": "C13-AUTH-MEDIATED-ADMISSION",
       "specTextSha256": "sha256:45d27a87da730bf39827f71b350733a2be1f717f0f541ea914252388e0af48eb",
-      "status": "implemented",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["src/authority/permit.ts#AuthorityPermit"],
+      "sourceSymbols": [
+        "src/authority/permit.ts#AuthorityPermit",
+        "src/authority/permit.ts#AuthorityPermitExpectation",
+        "src/authority/permit-request.ts#TargetAuthorityPermitRequest",
+        "src/authority/permit-store.ts#AuthorityPermitIssuer",
+        "src/authority/permit-store.ts#MemoryAuthorityPermitStore"
+      ],
       "testSelectors": [
-        "test/authority/memory-service-hard-gates.test.ts#AuthorityMutationService hard gates [C13-AUTH-MEDIATED-ADMISSION] covers Grant admission, delegation, and revocation errors",
-        "test/authority/permit.test.ts#[authority-permit-owner-store] memory issues and consumes exactly once across owner-store restart"
+        "test/authority/permit.test.ts#cross-Actor authority admission linearizes on permit issuance [C13-AUTH-MEDIATED-ADMISSION] a revocation committed before issuance blocks the permit for each linearized mutation class independently",
+        "test/authority/permit.test.ts#cross-Actor authority admission linearizes on permit issuance [C13-AUTH-MEDIATED-ADMISSION] a revocation committed after issuance blocks every not-yet-issued permit and cannot cancel the admitted one",
+        "test/authority/permit.test.ts#cross-Actor authority admission linearizes on permit issuance [C13-AUTH-MEDIATED-ADMISSION] the Tenant decision the permit is issued from binds the exact target fence, ordinal, arguments digest, and whole intent",
+        "test/authority/permit.test.ts#cross-Actor authority admission linearizes on permit issuance [C13-AUTH-MEDIATED-ADMISSION] the target's durable request binds the exact claim, reservation epoch, and item key the Tenant decision record cannot witness",
+        "test/authority/permit.test.ts#cross-Actor authority admission linearizes on permit issuance [C13-AUTH-MEDIATED-ADMISSION] the admission expectation is closed over exactly the rule 7 comparison inputs"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": [
-        "The corrected target-request and Tenant-decision path is implemented, but complete cross-Actor admission refinement is not proved"
-      ]
+      "remainingEvidence": []
     },
     {
       "id": "C13-AUTH-MEDIATED-STALE",
