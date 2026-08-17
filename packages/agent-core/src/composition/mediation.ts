@@ -5,7 +5,7 @@ import {
     TurnAdmissionVerifier,
     TurnGatewaySource,
     type LeaseToken,
-    type TurnAdmissionReceiptFacts,
+    TurnAdmissionReceiptFacts,
     type TurnGatewayScope,
     type TurnInvocationPort
 } from "../agents";
@@ -337,8 +337,14 @@ class ComposedTurnGatewaySource<Transaction> extends TurnGatewaySource {
  * Projects the §7.4 records a §5.6 admission handle is built from. It decides nothing: it
  * reports what the stored Receipt and its EffectAttempt say and resolves the result content,
  * and `TurnAdmissionVerifier` owns every rule about whether that evidence admits a handle.
- * A pre-effect Receipt, or one whose EffectAttempt is missing, therefore reaches the Turn
- * layer as evidence that does not succeed rather than as an exception raised here.
+ *
+ * The three shapes it returns are the three questions the records answer, all read from data
+ * this one transaction already holds: a pre-effect Receipt carries its own outcome and reason
+ * and reached no attempt at all; an attempt Receipt that did not succeed carries its outcome
+ * and, since `invocation.receipt` major 2, its failure kind; only a succeeded one carries
+ * result content. Failure detail rides the non-admitting shapes as a refusal message and is
+ * unreachable from what the verifier admits, so no admission decision can come to read
+ * Receipt failure state (C13-RECEIPT-FAILURE-ORTHOGONAL).
  */
 class StoredAdmissionRecords<Transaction, Admission> extends TurnAdmissionRecordPort {
     public constructor(
@@ -354,22 +360,24 @@ class StoredAdmissionRecords<Transaction, Admission> extends TurnAdmissionRecord
             const stored = this.persistence.receipt(transaction, receipt);
             if (stored === undefined) return undefined;
             if (!(stored instanceof AttemptReceipt)) {
-                return Object.freeze({ succeeded: false, attempt: undefined, result: undefined });
+                return TurnAdmissionReceiptFacts.preEffect(stored.outcome);
             }
-            const attempt = this.persistence.attempt(transaction, stored.attempt);
-            return Object.freeze({
-                succeeded: stored.outcome === "succeeded",
-                attempt:
-                    attempt === undefined
-                        ? undefined
-                        : Object.freeze({
-                              id: attempt.id,
-                              invocation: attempt.invocation,
-                              itemIndex: attempt.itemIndex,
-                              idempotencyKey: attempt.idempotencyKey
-                          }),
-                result: stored.result
+            const stage = this.persistence.attempt(transaction, stored.attempt);
+            if (stage === undefined) {
+                return TurnAdmissionReceiptFacts.preEffect(
+                    `Receipt names EffectAttempt ${stored.attempt.value}, which is not stored`
+                );
+            }
+            const attempt = Object.freeze({
+                id: stage.id,
+                invocation: stage.invocation,
+                itemIndex: stage.itemIndex,
+                idempotencyKey: stage.idempotencyKey
             });
+            if (stored.outcome !== "succeeded" || stored.result === undefined) {
+                return TurnAdmissionReceiptFacts.unsucceeded(attempt, stored.outcome);
+            }
+            return TurnAdmissionReceiptFacts.succeeded(attempt, stored.result);
         });
     }
 

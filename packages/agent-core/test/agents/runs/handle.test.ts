@@ -18,10 +18,10 @@ import {
     TurnAdmissionMessage,
     TurnAdmissionPublisher,
     TurnAdmissionRecordPort,
+    TurnAdmissionReceiptFacts,
     TurnAdmissionVerifier,
     type TurnAdmissionAttemptFacts,
-    type TurnAdmissionHandleInit,
-    type TurnAdmissionReceiptFacts
+    type TurnAdmissionHandleInit
 } from "../../../src/agents/runs/handle";
 import {
     RunBranchId,
@@ -59,9 +59,11 @@ type Seeded = ReturnType<typeof seedRunningTurn>;
 
 /** What the §7.4 records say about the item under test, with every field a case can bend. */
 interface RecordSpec {
-    readonly succeeded?: boolean;
-    readonly attempt?: TurnAdmissionAttemptFacts | undefined;
-    readonly withResult?: boolean;
+    /** A pre-effect Receipt: the item never reached an EffectAttempt. */
+    readonly preEffect?: string;
+    /** An attempt Receipt that attempted and did not succeed, with its outcome. */
+    readonly unsucceeded?: string;
+    readonly attempt?: TurnAdmissionAttemptFacts;
     /** The bytes the result ContentRef is taken over. */
     readonly stored?: Uint8Array;
     /** Bytes served in place of the stored ones, for a Receipt whose content disagrees. */
@@ -72,7 +74,9 @@ interface RecordSpec {
 /**
  * A Receipt-and-EffectAttempt stub over a real content store, so the digest the verifier
  * re-derives is the store's own. Nothing here decides admissibility: every rule under test
- * belongs to `TurnAdmissionVerifier`, which is the point of the seam being this narrow.
+ * belongs to `TurnAdmissionVerifier`, which is the point of the seam being this narrow. The
+ * three factories are the three shapes the records can take, so a case bends which shape it
+ * returns rather than bending fields inside one shape.
  */
 class StubRecords extends TurnAdmissionRecordPort {
     readonly #store = new MemoryContentStore();
@@ -84,22 +88,24 @@ class StubRecords extends TurnAdmissionRecordPort {
 
     public async receipt(receipt: ReceiptId): Promise<TurnAdmissionReceiptFacts | undefined> {
         if (this.spec.missing === true) return undefined;
+        if (this.spec.preEffect !== undefined) {
+            return TurnAdmissionReceiptFacts.preEffect(this.spec.preEffect);
+        }
+        const attempt =
+            this.spec.attempt ??
+            Object.freeze({
+                id: ATTEMPT,
+                invocation: refs.invocation,
+                itemIndex: 0,
+                idempotencyKey: `${ITEM_KEY}:${receipt.value}`
+            });
+        if (this.spec.unsucceeded !== undefined) {
+            return TurnAdmissionReceiptFacts.unsucceeded(attempt, this.spec.unsucceeded);
+        }
         this.#ref ??= (
             await this.#store.put(this.spec.stored ?? encodeCanonicalJson({ value: 1 }))
         ).ref;
-        return {
-            succeeded: this.spec.succeeded ?? true,
-            attempt:
-                "attempt" in this.spec
-                    ? this.spec.attempt
-                    : {
-                          id: ATTEMPT,
-                          invocation: refs.invocation,
-                          itemIndex: 0,
-                          idempotencyKey: `${ITEM_KEY}:${receipt.value}`
-                      },
-            result: this.spec.withResult === false ? undefined : this.#ref
-        };
+        return TurnAdmissionReceiptFacts.succeeded(attempt, this.#ref);
     }
 
     public async result(ref: ContentRef): Promise<Uint8Array> {
@@ -361,22 +367,16 @@ describe("verified admission identities", () => {
             /no stored Receipt/
         ],
         [
-            "the Receipt did not succeed",
-            { succeeded: false },
+            "the item never reached an EffectAttempt",
+            { preEffect: "deniedPreEffect" },
             "invocation.invalid",
-            /succeeded attempt Receipt with canonical result content/
+            /reached no EffectAttempt: deniedPreEffect/
         ],
         [
-            "the Receipt names no EffectAttempt",
-            { attempt: undefined },
+            "the EffectAttempt attempted and did not succeed",
+            { unsucceeded: "indeterminate" },
             "invocation.invalid",
-            /succeeded attempt Receipt with canonical result content/
-        ],
-        [
-            "the succeeded Receipt names no result content",
-            { withResult: false },
-            "invocation.invalid",
-            /succeeded attempt Receipt with canonical result content/
+            /did not succeed: indeterminate/
         ],
         [
             "the EffectAttempt belongs to another Invocation",

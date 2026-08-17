@@ -64,6 +64,7 @@ export {
     TurnAdmissionIdentity,
     TurnAdmissionMessage,
     TurnAdmissionPublisher,
+    TurnAdmissionReceiptFacts,
     TurnAdmissionRecordPort,
     TurnAdmissionVerifier,
     TurnBoundOperation,
@@ -75,7 +76,6 @@ export type {
     TurnAdmissionAttemptFacts,
     TurnAdmissionDelivery,
     TurnAdmissionHandleInit,
-    TurnAdmissionReceiptFacts,
     TurnAdmissionRequest,
     TurnGatewayScope,
     TurnInvocationPort

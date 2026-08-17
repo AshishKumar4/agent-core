@@ -308,14 +308,95 @@ export interface TurnAdmissionAttemptFacts {
     readonly idempotencyKey: string;
 }
 
-/** What one item's Receipt says (SPEC §7.4), reduced to what a handle is built from. */
-export interface TurnAdmissionReceiptFacts {
-    /** True only for an attempt Receipt whose outcome is `succeeded`. */
-    readonly succeeded: boolean;
-    /** The exact EffectAttempt an attempt Receipt names; a pre-effect Receipt names none. */
-    readonly attempt: TurnAdmissionAttemptFacts | undefined;
-    /** The canonical result content a succeeded Receipt names. */
-    readonly result: ContentRef | undefined;
+/** The attempt and result a succeeded Receipt admits a handle over. */
+export interface TurnAdmittedItem {
+    readonly attempt: TurnAdmissionAttemptFacts;
+    readonly result: ContentRef;
+}
+
+/**
+ * What one item's Receipt says (SPEC §7.4), reduced to what a handle is built from. Three
+ * shapes for three questions, because a single `succeeded` flag answered two of them at
+ * once: a pre-effect Receipt never attempted anything, while an attempt Receipt that failed
+ * or came back indeterminate attempted and did not succeed, and reporting both as "not
+ * succeeded" left one refusal covering two different operator actions. Only the succeeded
+ * case can be constructed at all, and it cannot be constructed without its result, so the
+ * pairings the verifier used to check are now unrepresentable.
+ *
+ * `detail` carries why a non-admitting Receipt does not admit — a pre-effect outcome and
+ * reason, or an unsuccessful attempt's outcome and failure kind. It exists for the refusal
+ * message and is deliberately unreachable from `admitted()`, so no admission decision can
+ * come to depend on Receipt failure state (§7.4, C13-RECEIPT-FAILURE-ORTHOGONAL).
+ */
+export abstract class TurnAdmissionReceiptFacts {
+    /** A Receipt over an item that never reached an EffectAttempt, so nothing succeeded. */
+    public static preEffect(detail: string): TurnAdmissionReceiptFacts {
+        return new PreEffectFacts(detail);
+    }
+
+    /** An attempt Receipt that attempted and did not succeed; it names no result. */
+    public static unsucceeded(
+        attempt: TurnAdmissionAttemptFacts,
+        detail: string
+    ): TurnAdmissionReceiptFacts {
+        return new UnsucceededFacts(attempt, detail);
+    }
+
+    /** The only shape that admits a handle, and it cannot exist without its result. */
+    public static succeeded(
+        attempt: TurnAdmissionAttemptFacts,
+        result: ContentRef
+    ): TurnAdmissionReceiptFacts {
+        return new SucceededFacts(attempt, result);
+    }
+
+    /**
+     * The attempt and result this Receipt admits a handle over, or a typed refusal naming
+     * which non-admitting case it is. Returning rather than reporting keeps the two answers
+     * distinct without a nullable pair for a caller to re-check.
+     */
+    public abstract admit(): TurnAdmittedItem;
+}
+
+class PreEffectFacts extends TurnAdmissionReceiptFacts {
+    public constructor(private readonly detail: string) {
+        super();
+        Object.freeze(this);
+    }
+
+    public admit(): never {
+        throw invalidAdmission(`Admission Receipt reached no EffectAttempt: ${this.detail}`);
+    }
+}
+
+class UnsucceededFacts extends TurnAdmissionReceiptFacts {
+    public constructor(
+        private readonly attempt: TurnAdmissionAttemptFacts,
+        private readonly detail: string
+    ) {
+        super();
+        Object.freeze(this);
+    }
+
+    public admit(): never {
+        throw invalidAdmission(
+            `Admission EffectAttempt ${this.attempt.id.value} did not succeed: ${this.detail}`
+        );
+    }
+}
+
+class SucceededFacts extends TurnAdmissionReceiptFacts {
+    readonly #item: TurnAdmittedItem;
+
+    public constructor(attempt: TurnAdmissionAttemptFacts, result: ContentRef) {
+        super();
+        this.#item = Object.freeze({ attempt, result });
+        Object.freeze(this);
+    }
+
+    public admit(): TurnAdmittedItem {
+        return this.#item;
+    }
 }
 
 /**
@@ -364,16 +445,14 @@ export class TurnAdmissionVerifier {
         if (facts === undefined) {
             throw invalidAdmission("Admission evidence names no stored Receipt");
         }
-        if (!facts.succeeded || facts.attempt === undefined || facts.result === undefined) {
-            throw invalidAdmission(
-                "A Turn admission handle requires a succeeded attempt Receipt with canonical result content"
-            );
-        }
-        if (!facts.attempt.invocation.equals(request.invocation)) {
+        // Refuses on its own behalf, naming which non-admitting case it is, so a caller that
+        // presented a denial is told that rather than that its attempt failed.
+        const admitted = facts.admit();
+        if (!admitted.attempt.invocation.equals(request.invocation)) {
             throw invalidAdmission("Admission Receipt names another Invocation's EffectAttempt");
         }
-        const bytes = await this.records.result(facts.result);
-        if (!Digest.sha256(bytes).equals(facts.result.digest)) {
+        const bytes = await this.records.result(admitted.result);
+        if (!Digest.sha256(bytes).equals(admitted.result.digest)) {
             throw invalidAdmission("Admission result bytes do not hash to the Receipt's content");
         }
         return new TurnAdmissionHandle({
@@ -381,11 +460,11 @@ export class TurnAdmissionVerifier {
             turn: request.turn,
             issuedEpoch: request.token.epoch,
             invocation: request.invocation,
-            itemIndex: facts.attempt.itemIndex,
-            itemKey: facts.attempt.idempotencyKey,
-            attempt: facts.attempt.id,
+            itemIndex: admitted.attempt.itemIndex,
+            itemKey: admitted.attempt.idempotencyKey,
+            attempt: admitted.attempt.id,
             receipt,
-            result: facts.result.digest,
+            result: admitted.result.digest,
             identity: identityFor(request, bytes)
         });
     }

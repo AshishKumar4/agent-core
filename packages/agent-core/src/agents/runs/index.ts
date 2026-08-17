@@ -100,6 +100,7 @@ export {
     TurnAdmissionIdentity,
     TurnAdmissionMessage,
     TurnAdmissionPublisher,
+    TurnAdmissionReceiptFacts,
     TurnAdmissionRecordPort,
     TurnAdmissionVerifier
 } from "./handle";
@@ -107,7 +108,6 @@ export type {
     TurnAdmissionAttemptFacts,
     TurnAdmissionDelivery,
     TurnAdmissionHandleInit,
-    TurnAdmissionReceiptFacts,
     TurnAdmissionRequest
 } from "./handle";
 export {
