@@ -33,10 +33,10 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         );
 
         expect(result.status, result.stderr).toBe(0);
-        // 62 baselined join findings: 49 citations carrying the wrong label or none, and
-        // 13 atoms whose labels no citation of theirs carries. Debt, not an allowance —
+        // 61 baselined join findings: 49 citations carrying the wrong label or none, and
+        // 12 atoms whose labels no citation of theirs carries. Debt, not an allowance —
         // a finding that stops reproducing must leave the baseline or this goes red.
-        expect(result.stdout).toContain("coherence incomplete: 62 issue(s), 0 resolved");
+        expect(result.stdout).toContain("coherence incomplete: 61 issue(s), 0 resolved");
     });
 
     test("binds bracketed atom labels in test titles and nowhere else", async () => {

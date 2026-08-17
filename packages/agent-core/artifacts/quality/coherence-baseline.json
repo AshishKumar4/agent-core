@@ -396,13 +396,6 @@
     {
       "rule": "COH-LABEL-CITATION",
       "file": "packages/agent-core/SPEC.md",
-      "symbol": "C13-FACET-CAPABILITY-ABSENCE",
-      "message": "Test titles carry the label of C13-FACET-CAPABILITY-ABSENCE, whose row cites no test carrying it",
-      "fingerprint": "COH-LABEL-CITATION:packages/agent-core/SPEC.md:C13-FACET-CAPABILITY-ABSENCE:914007b9d0ed"
-    },
-    {
-      "rule": "COH-LABEL-CITATION",
-      "file": "packages/agent-core/SPEC.md",
       "symbol": "C13-FACET-WITHDRAWAL-DRAIN",
       "message": "Test titles carry the label of C13-FACET-WITHDRAWAL-DRAIN, whose row cites no test carrying it",
       "fingerprint": "COH-LABEL-CITATION:packages/agent-core/SPEC.md:C13-FACET-WITHDRAWAL-DRAIN:f436a37f0426"
