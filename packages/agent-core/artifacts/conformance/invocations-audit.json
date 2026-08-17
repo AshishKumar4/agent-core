@@ -23,7 +23,7 @@
       "id": "C13-ADV-CHANGED-ITEM-KEY",
       "owner": "W6",
       "specAnchor": "C13-ADV-CHANGED-ITEM-KEY",
-      "specTextSha256": "sha256:4a7e1a5137ed5ce2bbb4bd8a1ee8ed2cc26c640249693e2bf007809fc40305aa",
+      "specTextSha256": "sha256:9a0c17521ed59662b11728bd6bd76414853bf424bb1b6cecddc0c7e5562d3902",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
@@ -37,7 +37,7 @@
       "id": "C13-ADV-COMPETING-CLAIMS",
       "owner": "W6",
       "specAnchor": "C13-ADV-COMPETING-CLAIMS",
-      "specTextSha256": "sha256:f2bf224f42d3ddd3b369c10cd82bcf22b5a81db00bc06f318c6d8f0a6965c732",
+      "specTextSha256": "sha256:6a1c29fe9c22ef6a283d30da5f541f96b9affb3529c4fe5a99890545f90e0f8e",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
@@ -69,7 +69,7 @@
       "id": "C13-ADV-EMPTY-BATCH",
       "owner": "W6",
       "specAnchor": "C13-ADV-EMPTY-BATCH",
-      "specTextSha256": "sha256:68aa08a4ec7e32d1b84571d2177ee1c05e51ea4a6d42d098d79b69aef9b9dea4",
+      "specTextSha256": "sha256:7492ffe4c99b000939d2b9ab9e180617001a9b20b80bac79f5b632a6f60ca094",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
@@ -86,7 +86,7 @@
       "id": "C13-ADV-NONFUTURE-CLAIM",
       "owner": "W6",
       "specAnchor": "C13-ADV-NONFUTURE-CLAIM",
-      "specTextSha256": "sha256:deeed303ae8a6e8e9f091fbe7b6b36a2cabdc698e6492b6556e8ca82d64f272b",
+      "specTextSha256": "sha256:2f3259f47f12c364e0ef85ae442ba77f7634f752055d95e679a12be79a701bf9",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
@@ -118,7 +118,7 @@
       "id": "C13-ADV-NONPREEXISTING-AUDIT",
       "owner": "W6",
       "specAnchor": "C13-ADV-NONPREEXISTING-AUDIT",
-      "specTextSha256": "sha256:7c01745f3f320cb00bfc225e79c1af2da55441bd5e18f19f04c88e47bbb39d77",
+      "specTextSha256": "sha256:98f3b93d80400869cdc480cea56efc3abf2a29c1d2e2c007cea266e6b51740ed",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/invocations/audit.ts#AuditRecord"],
@@ -132,7 +132,7 @@
       "id": "C13-ADV-POST-ATTEMPT-RECOVERY",
       "owner": "W6",
       "specAnchor": "C13-ADV-POST-ATTEMPT-RECOVERY",
-      "specTextSha256": "sha256:60993ae2dd81e5b6d2e9cd72c7f88951fba9a7fd5a422db7358aa6d3c9427da6",
+      "specTextSha256": "sha256:dd493d47ee088f47d532210921d636f4a0e56bcdf8f72c6b84b62604d342a0f1",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
@@ -147,7 +147,7 @@
       "id": "C13-ADV-PREMATURE-RECOVERY",
       "owner": "W6",
       "specAnchor": "C13-ADV-PREMATURE-RECOVERY",
-      "specTextSha256": "sha256:c99f40b90e446dc2ac326910b3236859754bf58dcd855980cd86e67c86a8466d",
+      "specTextSha256": "sha256:dcd0273f46ccddf5ae7b541a0dd4f9115e25a23cd022386b9dcf13c33f504df9",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
@@ -162,7 +162,7 @@
       "id": "C13-ADV-RECEIPT-AGGREGATE",
       "owner": "W6",
       "specAnchor": "C13-ADV-RECEIPT-AGGREGATE",
-      "specTextSha256": "sha256:029c9361d1ea5786346e88021c3ed217e197dfb64f21cddc63c6877f1c4a886a",
+      "specTextSha256": "sha256:320800e49965e7cebdd53dfbdd277932f1f1e0cb8c9ccb994fba2fd46b89dcd4",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
@@ -180,7 +180,7 @@
       "owner": "W6",
       "specAnchor": "C13-ADV-RECEIPT-CANCELLED",
       "specTextSha256": "sha256:3314c35cc95c3904d2f8018294093a18355772cc5f7590c5ca7ac671daf1ddbe",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": [
         "src/invocations/publication.ts#InvocationPublicationOutbox",
@@ -190,13 +190,15 @@
         "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-ADV-RECEIPT-CANCELLED] [invocation.publication-outbox] [invocation-evidence-persistence] durably drains Receipt publication without fire-and-forget"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "Names cancelled pre-effect Receipt lineage. Its only test asserts Receipt publication drains durably without fire-and-forget, which is publication delivery, not cancelled lineage."
+      ]
     },
     {
       "id": "C13-ADV-RECEIPT-DENIED",
       "owner": "W6",
       "specAnchor": "C13-ADV-RECEIPT-DENIED",
-      "specTextSha256": "sha256:2a20460f480ae79a2fe2fb3ddde78c3b96ca4a025005055e10529ccefee537f6",
+      "specTextSha256": "sha256:28932847b2b4c73d66b7f18ee7175c3e018d2242cc25a20bc34b66a3089848d9",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
@@ -215,7 +217,7 @@
       "id": "C13-ADV-RECEIPT-FAILED",
       "owner": "W6",
       "specAnchor": "C13-ADV-RECEIPT-FAILED",
-      "specTextSha256": "sha256:5ca83704eeee381fd77036ed49c516b7bf2b133e52249e3d25ebc837b72258a3",
+      "specTextSha256": "sha256:5db86d784e621265cb5906444f45ed9deb79057e7304997b266581bddef06938",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
@@ -251,7 +253,7 @@
       "id": "C13-ADV-RECEIPT-SUCCEEDED",
       "owner": "W6",
       "specAnchor": "C13-ADV-RECEIPT-SUCCEEDED",
-      "specTextSha256": "sha256:e75ac5363240f9407557a8563b2977d29ee8bd6764c4c96c1b077b7460e621fb",
+      "specTextSha256": "sha256:ffae297f1af7f77e0bfbace566e0d7ef82b7ce0b507132c31df0bc85f8e25260",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
@@ -270,7 +272,7 @@
       "id": "C13-ADV-RECEIPT-SUPERSESSION",
       "owner": "W6",
       "specAnchor": "C13-ADV-RECEIPT-SUPERSESSION",
-      "specTextSha256": "sha256:450462879eebd80c1ffcb207c90f10262b76956f93b8807eaebb8bca5177bd67",
+      "specTextSha256": "sha256:13e462023a173841bd364d78355d378c9fbc82dce59f031265193ea3c6d787e1",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
@@ -291,7 +293,7 @@
       "id": "C13-ADV-RECOVERY-ORDINAL",
       "owner": "W6",
       "specAnchor": "C13-ADV-RECOVERY-ORDINAL",
-      "specTextSha256": "sha256:9253ee9f91bba3ae001088562ec90e3508d6ac2969306b35e439aa9ec2a0d731",
+      "specTextSha256": "sha256:60c12675d2f3cfe794e0ee53f301d1b028d17668e791b9813d0a338658ac90c3",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/invocations/ledger.ts#InvocationLedger.recoverClaim"],
@@ -307,7 +309,7 @@
       "owner": "W6",
       "specAnchor": "C13-ADV-REORDERED-INTENT",
       "specTextSha256": "sha256:fa82de08a72e3d123cc86b582361256724f1eea7338be6fa1c815607773b3b27",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": [
         "src/invocations/command.ts#InvocationPayloadCodec",
@@ -317,27 +319,31 @@
         "test/invocations/command.test.ts#Invocation protocol command families [C13-ADV-REORDERED-INTENT] uses strict canonical payloads and delegates synchronously"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "Names a reordered intent. Its only test asserts strict canonical payloads and synchronous delegation, neither of which reorders an intent."
+      ]
     },
     {
       "id": "C13-ADV-STALE-RECOVERY-OWNER",
       "owner": "W6",
       "specAnchor": "C13-ADV-STALE-RECOVERY-OWNER",
       "specTextSha256": "sha256:aabb47ba0a85fa4056f1baf2704341f488cebc007da760c31e206e0daf91255f",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": ["src/invocations/claim.ts#ItemClaim"],
       "testSelectors": [
         "test/invocations/error.test.ts#invocation operational error taxonomy [C13-ADV-STALE-RECOVERY-OWNER] uses AgentCoreError for append conflicts and missing persisted evidence"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "Names a stale recovery owner. Its only test asserts the invocation error taxonomy uses AgentCoreError for append conflicts and missing persisted evidence, which is error typing, not claim-owner staleness."
+      ]
     },
     {
       "id": "C13-ADV-STRUCTURAL-INTENT-CHANGE",
       "owner": "W6",
       "specAnchor": "C13-ADV-STRUCTURAL-INTENT-CHANGE",
-      "specTextSha256": "sha256:7dbbdf31c2615ea7511b6fe9b9d4e6f30adacc0490eac2373726499a3fc99837",
+      "specTextSha256": "sha256:1b1a7cb39e5a3d0e3fa7d42256859359f55bd1002f6a08b527fa98c339f0c913",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
@@ -352,20 +358,22 @@
       "owner": "W6",
       "specAnchor": "C13-ADV-SUPPLIED-ITEM-KEY",
       "specTextSha256": "sha256:508894d3e2123b738beaf917b20bd62b537b16d99dad7a06a645d7b30defe489",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": ["src/invocations/prepared.ts#PreparedInvocation"],
       "testSelectors": [
         "test/substrates/sqlite/invocations/persistence.test.ts#SqliteInvocationPersistence transaction scope [C13-ADV-SUPPLIED-ITEM-KEY] uses the supplied transaction for every operation"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "Names a supplied item key. Its only test asserts that SqliteInvocationPersistence uses the supplied transaction for every operation, which is transaction scope and says nothing about item-key derivation."
+      ]
     },
     {
       "id": "C13-ADV-UNBRIDGED-CROSS-ACTOR-AUDIT",
       "owner": "W6",
       "specAnchor": "C13-ADV-UNBRIDGED-CROSS-ACTOR-AUDIT",
-      "specTextSha256": "sha256:b12ca4d5f4bbee2081c45363178c325c10235df6c1e2704df076a4afeb8d29d0",
+      "specTextSha256": "sha256:e6bed2cc7a2f388c83036fa95b6df5988d13493abcd8e1f80a2faff568d80abc",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
@@ -382,7 +390,7 @@
       "id": "C13-ADV-UNCHANGED-RECOVERY-OWNER",
       "owner": "W6",
       "specAnchor": "C13-ADV-UNCHANGED-RECOVERY-OWNER",
-      "specTextSha256": "sha256:7ea7d179a075011017aad9b4ebcfdd50fc079527b058662c4520a9ba097ade07",
+      "specTextSha256": "sha256:2778e38b66528ca7bf12d2deb016200689cfce21852d7621e6a524bac4990378",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [

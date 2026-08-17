@@ -20,7 +20,7 @@
       "id": "C13-ADV-INCOMPLETE-PACKAGE-CLOSURE",
       "owner": "W5",
       "specAnchor": "C13-ADV-INCOMPLETE-PACKAGE-CLOSURE",
-      "specTextSha256": "sha256:efe03833e40129009db1adec245a548042e443c182c4a327e2c228dd6be066e4",
+      "specTextSha256": "sha256:e71a07bfb06a7fe4a8bc8c0bedc0063e0f9f8e94478024996a90f5ec1b85cfb9",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
@@ -35,7 +35,7 @@
       "owner": "W5",
       "specAnchor": "C13-ADV-NONBINARY-MERGE",
       "specTextSha256": "sha256:3e3b6f2b958433fd31c9e31ada78092355954c73622132d5b2dcc302af14e369",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": [
         "src/agents/runs/commit.ts#RunCommit",
@@ -45,7 +45,9 @@
         "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-ADV-NONBINARY-MERGE] rejects missing merge sources and invalid picked content"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "Names a non-binary merge. Its only test asserts missing merge sources and invalid picked content are rejected; arity is not exercised."
+      ]
     },
     {
       "id": "C13-ADV-POST-FENCE-SYSTEM-EVIDENCE",
@@ -100,7 +102,7 @@
       "owner": "W5",
       "specAnchor": "C13-ADV-POST-TERMINAL-ROUTE",
       "specTextSha256": "sha256:93e54c54ae2a9b7fc2bb079a27e82a5b4508bcf371b11a4cb38e58f9b7a14560",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": [
         "src/agents/runs/admission.ts#RunAdmissionRegistry",
@@ -110,7 +112,9 @@
         "test/agents/runs/admission.test.ts#durable Run admission registry [C13-ADV-POST-TERMINAL-ROUTE] reuses duplicate reservations, completes idempotently, and rejects substitutions"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "Names a post-terminal route. Its only test asserts duplicate reservations are reused, completion is idempotent, and substitutions are rejected, none of which routes after terminalization."
+      ]
     },
     {
       "id": "C13-ADV-STALE-LEASE",
@@ -134,7 +138,7 @@
       "id": "C13-ADV-TURN-MERGE",
       "owner": "W5",
       "specAnchor": "C13-ADV-TURN-MERGE",
-      "specTextSha256": "sha256:c96823bb27c75631503527aa4428bdbdd519ce71727d06c03b500c7ba8d87f40",
+      "specTextSha256": "sha256:9e8a595ae7bc8a88aaa55b7034a563cae4013eb8f06f34837ee3f668d289d528",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/agents/runs/commit.ts#RunCommit", "src/agents/runs/turn.ts#Turn"],
@@ -162,7 +166,7 @@
       "id": "C13-ADV-UNEQUAL-PIN-MERGE",
       "owner": "W5",
       "specAnchor": "C13-ADV-UNEQUAL-PIN-MERGE",
-      "specTextSha256": "sha256:eb23027c0e8bc53c7b96eb9fa6f03848b34955e0d06ef15514b7e98b3c44c274",
+      "specTextSha256": "sha256:0b37953f6ed19ed976219ec37101a42a328c81ffef14512e256ddd562c4c6e16",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [

@@ -6,7 +6,7 @@
       "id": "C13-ADV-DELAYED-WATERMARK",
       "owner": "W2",
       "specAnchor": "C13-ADV-DELAYED-WATERMARK",
-      "specTextSha256": "sha256:bff616f1a46d0290893b91a6f3ccfd685e0368e1f34fd48cfcf52102f098b9c4",
+      "specTextSha256": "sha256:16e307427774ea9b8dec5d64339313bee48981aeae619f5473b31e649248d617",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
@@ -26,7 +26,7 @@
       "id": "C13-ADV-IMMUTABLE-DEADLINE",
       "owner": "W2",
       "specAnchor": "C13-ADV-IMMUTABLE-DEADLINE",
-      "specTextSha256": "sha256:322a8a45587b927defe0fe6cf530b096ca40611e8fbe65cc61fe1bccee7e0202",
+      "specTextSha256": "sha256:5f7bd5cc98d11117cd174d289eeff429fe85e02aeb1d7348682a5896a6a8e53e",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": [
@@ -47,7 +47,7 @@
       "owner": "W2",
       "specAnchor": "C13-ADV-MEDIATED-STALE",
       "specTextSha256": "sha256:96bdcfef71d88dbf656a603915c7887f5ce724d075a27d1a3aef59f0ccdd6ebb",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": [
         "src/composition/authority-state.ts#ActorAuthorityState",
@@ -60,7 +60,9 @@
         "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-ADV-MEDIATED-STALE] a failed denial append propagates and leaves no partial denial evidence"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "Names mediated stale observation. Its only tests assert that a failed denial append propagates and leaves no partial denial evidence, which is append atomicity, not a stale mediated read."
+      ]
     },
     {
       "id": "C13-ADV-NEW-DENY",

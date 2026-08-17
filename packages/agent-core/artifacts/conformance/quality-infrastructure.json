@@ -6,7 +6,7 @@
       "id": "C13-ADV-CACHE-LOSS",
       "owner": "W0",
       "specAnchor": "C13-ADV-CACHE-LOSS",
-      "specTextSha256": "sha256:deb106456ec87ab4a45f4696e4bab7d065ce3545e635a39937723642a2e4eb4d",
+      "specTextSha256": "sha256:74ebb32fcebc46680efe31f3f4a39980cf9088486314f5118474ec0791ce26cb",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["scripts/quality/records.mjs#discoverCodecRecords"],

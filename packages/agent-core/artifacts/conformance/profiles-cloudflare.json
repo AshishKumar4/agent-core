@@ -1055,7 +1055,7 @@
       "id": "P11-FILESYSTEM-BACKINGS",
       "owner": "W8",
       "specAnchor": "P11-FILESYSTEM-BACKINGS",
-      "specTextSha256": "sha256:7ca002c22bef54e9082d59025b83a6e41103ef27e2a42e4e79da297cf7490f6b",
+      "specTextSha256": "sha256:d2bff36593d635a6d5d34fd947d3289c5d29a4db239c91b1e23c55bbab280481",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
       "sourceSymbols": [
@@ -1315,7 +1315,7 @@
       "id": "P11-FILESYSTEM-SUITE",
       "owner": "W8",
       "specAnchor": "P11-FILESYSTEM-SUITE",
-      "specTextSha256": "sha256:395ad43c54e251e867f55a67576806d4a7df24b65fa5810c29e0742fb1d31f02",
+      "specTextSha256": "sha256:7a43eb162e485d8cff84262e0f304282b7fece7c2d4a13c5498ce730477f9dce",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
       "sourceSymbols": ["src/facets/filesystem/memory.ts#MemoryFilesystemBackend"],

@@ -2688,8 +2688,8 @@ maps to **C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY**.
 - **P11-FILESYSTEM-ERROR-CLOSED** Filesystem errors use one fixed, stable code set.
 - **P11-FILESYSTEM-ERROR-CODES** The set is `not-found`, `exists`, `not-a-directory`, `is-a-directory`, `path.invalid`, and `too-large`.
 - **P11-FILESYSTEM-ERROR-BRANCHING** Callers branch on stable codes, not messages.
-- **P11-FILESYSTEM-SUITE** Conformance uses the parameterized filesystem suite.
-- **P11-FILESYSTEM-BACKINGS** The suite runs against every backing store and every observed and mount-composition wrapper.
+- **P11-FILESYSTEM-SUITE** One complete reader and mutator contract governs filesystem conformance.
+- **P11-FILESYSTEM-BACKINGS** That contract holds for every backing store and every observed and mount-composition wrapper.
 - **P11-FILESYSTEM-READONLY** A readonly wrapper exposes only the reader contract and no mutating Operations; it does not accept a mutation and synthesize a profile-specific error.
 - **P11-FILESYSTEM-CODE-ASSERTIONS** The suite asserts the complete stable code set.
 - **P11-FILESYSTEM-ATOMICITY-ASSERTIONS** The suite asserts write atomicity.
@@ -3141,54 +3141,54 @@ A conforming implementation provides:
 - **C13-ADV-WRONG-TURN-LEASE** Adversarial tests cover a wrong-Turn lease.
 - **C13-ADV-REVOKED-ALLOW** A revoked backing allow Grant no longer authorizes an intent.
 - **C13-ADV-NEW-DENY** A new matching deny denies an intent an allow previously admitted.
-- **C13-ADV-DELAYED-WATERMARK** Adversarial tests cover a delayed watermark.
+- **C13-ADV-DELAYED-WATERMARK** A relevant epoch advance with delayed delivery keeps direct calls inside the bounded window and denies mediated calls.
 - **C13-ADV-MEDIATED-STALE** Adversarial tests cover mediated stale observation.
-- **C13-ADV-IMMUTABLE-DEADLINE** Adversarial tests cover an immutable direct deadline.
+- **C13-ADV-IMMUTABLE-DEADLINE** Lease renewal cannot extend an existing resolution deadline.
 - **C13-ADV-EMPTY-PLACEMENT** Adversarial tests cover every empty placement intersection.
-- **C13-ADV-OMITTED-TRUST-SET** Adversarial tests cover an omitted accepted-tier set.
-- **C13-ADV-FORGED-INITIATOR** Adversarial tests cover a forged initiator.
-- **C13-ADV-UNAUTHENTICATED-PROJECTION** Adversarial tests cover an unauthenticated projection.
-- **C13-ADV-SUBSTITUTED-INITIATOR** Adversarial tests cover a substituted initiator.
-- **C13-ADV-MISSING-CROSS-TENANT-BINDING** Adversarial tests cover a missing cross-tenant Binding.
-- **C13-ADV-DUPLICATE-ROUTE** Adversarial tests cover duplicate route delivery.
-- **C13-ADV-EMPTY-BATCH** Adversarial tests cover an empty batch.
+- **C13-ADV-OMITTED-TRUST-SET** An accepted trust set cannot be empty.
+- **C13-ADV-FORGED-INITIATOR** A provenance Principal cannot be forged.
+- **C13-ADV-UNAUTHENTICATED-PROJECTION** An unauthenticated structural projection cannot bridge Actors.
+- **C13-ADV-SUBSTITUTED-INITIATOR** A routed initiator remains exact.
+- **C13-ADV-MISSING-CROSS-TENANT-BINDING** A cross-tenant relation without its authority Binding does not decode.
+- **C13-ADV-DUPLICATE-ROUTE** Duplicate Events reuse one route dedupe identity.
+- **C13-ADV-EMPTY-BATCH** An empty batch is rejected.
 - **C13-ADV-NONHOMOGENEOUS-BATCH** Adversarial tests cover a non-homogeneous batch.
-- **C13-ADV-COMPETING-CLAIMS** Adversarial tests cover competing item claims.
-- **C13-ADV-NONFUTURE-CLAIM** Adversarial tests cover a nonfuture claim expiry.
-- **C13-ADV-PREMATURE-RECOVERY** Adversarial tests cover premature recovery.
-- **C13-ADV-POST-ATTEMPT-RECOVERY** Adversarial tests cover post-attempt recovery.
+- **C13-ADV-COMPETING-CLAIMS** Exactly one item claim is current.
+- **C13-ADV-NONFUTURE-CLAIM** Equal and past claim expiries are rejected.
+- **C13-ADV-PREMATURE-RECOVERY** Recovery before the current claim expires is rejected.
+- **C13-ADV-POST-ATTEMPT-RECOVERY** Recovery after an attempt was admitted is rejected.
 - **C13-ADV-STALE-RECOVERY-OWNER** Adversarial tests cover a stale recovery owner.
-- **C13-ADV-UNCHANGED-RECOVERY-OWNER** Adversarial tests cover an unchanged recovery owner.
-- **C13-ADV-RECOVERY-ORDINAL** Adversarial tests cover recovery that advances an unattempted ordinal.
+- **C13-ADV-UNCHANGED-RECOVERY-OWNER** A claim recovers only under a different worker.
+- **C13-ADV-RECOVERY-ORDINAL** Recovery that advances an unattempted ordinal is rejected.
 - **C13-ADV-EARLY-AGGREGATE** Adversarial tests cover an early aggregate.
 - **C13-ADV-SUPPLIED-ITEM-KEY** Adversarial tests cover a supplied item key.
-- **C13-ADV-CHANGED-ITEM-KEY** Adversarial tests cover a changed item key.
+- **C13-ADV-CHANGED-ITEM-KEY** A changed derived item key is rejected.
 - **C13-ADV-REORDERED-INTENT** Adversarial tests cover a reordered intent.
-- **C13-ADV-STRUCTURAL-INTENT-CHANGE** Adversarial tests cover a structurally changed intent.
+- **C13-ADV-STRUCTURAL-INTENT-CHANGE** Changed prepared arguments under the original identity are rejected.
 - **C13-ADV-APPROVAL-REPLAY** Adversarial tests cover approval replay.
-- **C13-ADV-RECEIPT-DENIED** Adversarial tests cover denied pre-effect Receipt lineage.
+- **C13-ADV-RECEIPT-DENIED** Denied pre-effect Receipts stay outside attempted lineage.
 - **C13-ADV-RECEIPT-CANCELLED** Adversarial tests cover cancelled pre-effect Receipt lineage.
-- **C13-ADV-RECEIPT-SUCCEEDED** Adversarial tests cover successful attempted Receipt lineage.
-- **C13-ADV-RECEIPT-FAILED** Adversarial tests cover failed attempted Receipt lineage.
+- **C13-ADV-RECEIPT-SUCCEEDED** A succeeded attempted Receipt without its exact initial attempt lineage is rejected.
+- **C13-ADV-RECEIPT-FAILED** A final failed Receipt binds to its exact attempted effect.
 - **C13-ADV-RECEIPT-INDETERMINATE** Adversarial tests cover indeterminate attempted Receipt lineage.
-- **C13-ADV-RECEIPT-SUPERSESSION** Adversarial tests cover Receipt supersession lineage.
-- **C13-ADV-RECEIPT-AGGREGATE** Adversarial tests cover every aggregate outcome case.
+- **C13-ADV-RECEIPT-SUPERSESSION** One indeterminate Receipt is superseded exactly once, and batch outcomes derive from the result.
+- **C13-ADV-RECEIPT-AGGREGATE** Every BatchOutcome precedence and terminal projection is covered.
 - **C13-ADV-POST-FENCE-SYSTEM-EVIDENCE** Adversarial tests cover post-fence system evidence.
-- **C13-ADV-TURN-MERGE** Adversarial tests cover a Turn-authored merge.
+- **C13-ADV-TURN-MERGE** Completing one Turn with another Turn's valid commit is rejected.
 - **C13-ADV-NONBINARY-MERGE** Adversarial tests cover a non-binary merge.
-- **C13-ADV-UNEQUAL-PIN-MERGE** Adversarial tests cover an unequal-pin merge.
-- **C13-ADV-INCOMPLETE-PACKAGE-CLOSURE** Adversarial tests cover an incomplete Package closure.
+- **C13-ADV-UNEQUAL-PIN-MERGE** An unequal-pin merge is rejected, and exact new pins are adopted across restart.
+- **C13-ADV-INCOMPLETE-PACKAGE-CLOSURE** A root commit with an incomplete authoritative Package closure is rejected.
 - **C13-ADV-ADMITTED-SIBLING** Adversarial tests cover terminalization with an admitted sibling.
 - **C13-ADV-POST-TERMINAL-ROUTE** Adversarial tests cover a post-terminal route.
 - **C13-ADV-POST-TERMINAL-PREPARATION** Adversarial tests cover post-terminal preparation.
 - **C13-ADV-POST-TERMINAL-CONTROL** Adversarial tests cover a post-terminal control write.
 - **C13-ADV-COMMAND-REJECTIONS** Adversarial tests cover every command-envelope rejection.
 - **C13-ADV-UNAUTHORIZED-WRITER** Adversarial tests cover an unauthorized commit writer.
-- **C13-ADV-NONPREEXISTING-AUDIT** Adversarial tests cover a non-preexisting audit cause.
-- **C13-ADV-UNBRIDGED-CROSS-ACTOR-AUDIT** Adversarial tests cover an unbridged cross-Actor audit cause.
-- **C13-ADV-CACHE-LOSS** Adversarial tests cover cache loss.
+- **C13-ADV-NONPREEXISTING-AUDIT** An audit edge whose cause has not been appended is rejected.
+- **C13-ADV-UNBRIDGED-CROSS-ACTOR-AUDIT** A direct cross-Actor audit cause is rejected.
+- **C13-ADV-CACHE-LOSS** A lost derived index rebuilds from canonical content.
 - **C13-ADV-HOSTILE-TIER** Adversarial tests cover a hostile tier assertion.
-- **C13-ADV-UNAUTHORIZED-SLOT** Adversarial tests cover an unauthorized slot contribution.
+- **C13-ADV-UNAUTHORIZED-SLOT** An unauthorized slot contribution is denied.
 - **C13-ADV-POST-PREPARATION-INTERCEPTOR** Adversarial tests cover an interceptor post-preparation rewrite.
 
 ## 14. The formal model

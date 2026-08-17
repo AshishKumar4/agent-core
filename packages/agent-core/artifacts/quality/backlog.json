@@ -307,6 +307,118 @@
       }
     },
     {
+      "id": "T-EVIDENCE:C13-ADV-MEDIATED-STALE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-ADV-MEDIATED-STALE" },
+      "owner": "W2",
+      "priority": 5,
+      "summary": "Advance C13-ADV-MEDIATED-STALE from implemented with exact evidence",
+      "notes": [
+        "Names mediated stale observation. Its only tests assert that a failed denial append propagates and leaves no partial denial evidence, which is append atomicity, not a stale mediated read."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-ADV-MEDIATED-STALE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-ADV-NONBINARY-MERGE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-ADV-NONBINARY-MERGE" },
+      "owner": "W5",
+      "priority": 5,
+      "summary": "Advance C13-ADV-NONBINARY-MERGE from implemented with exact evidence",
+      "notes": [
+        "Names a non-binary merge. Its only test asserts missing merge sources and invalid picked content are rejected; arity is not exercised."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-ADV-NONBINARY-MERGE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-ADV-POST-TERMINAL-ROUTE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-ADV-POST-TERMINAL-ROUTE" },
+      "owner": "W5",
+      "priority": 5,
+      "summary": "Advance C13-ADV-POST-TERMINAL-ROUTE from implemented with exact evidence",
+      "notes": [
+        "Names a post-terminal route. Its only test asserts duplicate reservations are reused, completion is idempotent, and substitutions are rejected, none of which routes after terminalization."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-ADV-POST-TERMINAL-ROUTE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-ADV-RECEIPT-CANCELLED",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-ADV-RECEIPT-CANCELLED" },
+      "owner": "W6",
+      "priority": 5,
+      "summary": "Advance C13-ADV-RECEIPT-CANCELLED from implemented with exact evidence",
+      "notes": [
+        "Names cancelled pre-effect Receipt lineage. Its only test asserts Receipt publication drains durably without fire-and-forget, which is publication delivery, not cancelled lineage."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-ADV-RECEIPT-CANCELLED",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-ADV-REORDERED-INTENT",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-ADV-REORDERED-INTENT" },
+      "owner": "W6",
+      "priority": 5,
+      "summary": "Advance C13-ADV-REORDERED-INTENT from implemented with exact evidence",
+      "notes": [
+        "Names a reordered intent. Its only test asserts strict canonical payloads and synchronous delegation, neither of which reorders an intent."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-ADV-REORDERED-INTENT",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-ADV-STALE-RECOVERY-OWNER",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-ADV-STALE-RECOVERY-OWNER" },
+      "owner": "W6",
+      "priority": 5,
+      "summary": "Advance C13-ADV-STALE-RECOVERY-OWNER from implemented with exact evidence",
+      "notes": [
+        "Names a stale recovery owner. Its only test asserts the invocation error taxonomy uses AgentCoreError for append conflicts and missing persisted evidence, which is error typing, not claim-owner staleness."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-ADV-STALE-RECOVERY-OWNER",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-ADV-SUPPLIED-ITEM-KEY",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-ADV-SUPPLIED-ITEM-KEY" },
+      "owner": "W6",
+      "priority": 5,
+      "summary": "Advance C13-ADV-SUPPLIED-ITEM-KEY from implemented with exact evidence",
+      "notes": [
+        "Names a supplied item key. Its only test asserts that SqliteInvocationPersistence uses the supplied transaction for every operation, which is transaction scope and says nothing about item-key derivation."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-ADV-SUPPLIED-ITEM-KEY",
+        "expected": "verified"
+      }
+    },
+    {
       "id": "T-EVIDENCE:C13-AUTH-MEDIATED-ADMISSION",
       "type": "T-EVIDENCE",
       "source": { "kind": "conformance", "id": "C13-AUTH-MEDIATED-ADMISSION" },
