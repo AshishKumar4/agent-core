@@ -33,10 +33,11 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         );
 
         expect(result.status, result.stderr).toBe(0);
-        // 61 baselined join findings: 49 citations carrying the wrong label or none, and
-        // 12 atoms whose labels no citation of theirs carries. Debt, not an allowance —
-        // a finding that stops reproducing must leave the baseline or this goes red.
-        expect(result.stdout).toContain("coherence incomplete: 61 issue(s), 0 resolved");
+        // 50 baselined join findings: 49 citations carrying the wrong label or none, and
+        // C13-EFFECT-WRITE-AHEAD, whose label sits on a test its row does not cite. Debt,
+        // not an allowance — a finding that stops reproducing must leave the baseline or
+        // this goes red.
+        expect(result.stdout).toContain("coherence incomplete: 50 issue(s), 0 resolved");
     });
 
     test("binds bracketed atom labels in test titles and nowhere else", async () => {
@@ -755,11 +756,22 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
             '    it("hold across a restart", () => {});',
             '    it("reject a foreign plane", () => {});',
             '    it("survive a rename", () => {});',
-            "});"
+            "});",
+            'test("[C13-AUTH-DENY-PATH] a neighbouring case", () => {});'
         ].join("\n");
+        // The row names a test, so it asserts evidence — and the test carrying its label is
+        // not the one it named. Both ends of the join report it, and they report it
+        // differently: the citation is labelled for another atom, and the label is uncited.
         const unbacked = run(
             await fixture({
-                rows: [{ id: "C13-AUTH-PLANE", testSelectors: [] }],
+                rows: [
+                    {
+                        id: "C13-AUTH-PLANE",
+                        testSelectors: [
+                            "test/planes.test.ts#[C13-AUTH-DENY-PATH] a neighbouring case"
+                        ]
+                    }
+                ],
                 tests: { "planes.test.ts": suite }
             })
         );
@@ -785,6 +797,22 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         );
         expect(backed.status, backed.stderr).toBe(0);
         expect(backed.stderr).not.toContain("COH-LABEL-CITATION");
+    });
+
+    test("exempts a row that cites nothing, since the ledger forbids it citing anything", async () => {
+        // ledger.mjs#validateStatus requires a planned row to carry empty testSelectors, so
+        // demanding a citation here would leave only a false promotion or the deletion of a
+        // label that correctly names what the test does.
+        const planned = run(
+            await fixture({
+                rows: [{ id: "C13-AUTH-PLANE", testSelectors: [] }],
+                tests: {
+                    "planes.test.ts": 'test("[C13-AUTH-PLANE] holds across a restart", () => {});\n'
+                }
+            })
+        );
+        expect(planned.status, planned.stderr).toBe(0);
+        expect(planned.stderr).not.toContain("COH-LABEL-CITATION");
     });
 
     test("ratchets a join violation through the baseline in both directions", async () => {

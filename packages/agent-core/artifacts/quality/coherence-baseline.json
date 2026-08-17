@@ -347,86 +347,9 @@
     {
       "rule": "COH-LABEL-CITATION",
       "file": "packages/agent-core/SPEC.md",
-      "symbol": "C13-AUTH-BINDING-NAME-CANONICAL",
-      "message": "Test titles carry the label of C13-AUTH-BINDING-NAME-CANONICAL, whose row cites no test carrying it",
-      "fingerprint": "COH-LABEL-CITATION:packages/agent-core/SPEC.md:C13-AUTH-BINDING-NAME-CANONICAL:ad64eb5deaa8"
-    },
-    {
-      "rule": "COH-LABEL-CITATION",
-      "file": "packages/agent-core/SPEC.md",
-      "symbol": "C13-AUTH-ISOLATE-NAMESPACE-CLOSED",
-      "message": "Test titles carry the label of C13-AUTH-ISOLATE-NAMESPACE-CLOSED, whose row cites no test carrying it",
-      "fingerprint": "COH-LABEL-CITATION:packages/agent-core/SPEC.md:C13-AUTH-ISOLATE-NAMESPACE-CLOSED:c214d01be287"
-    },
-    {
-      "rule": "COH-LABEL-CITATION",
-      "file": "packages/agent-core/SPEC.md",
-      "symbol": "C13-CLOUDFLARE-ADDITIVE-MIGRATION",
-      "message": "Test titles carry the label of C13-CLOUDFLARE-ADDITIVE-MIGRATION, whose row cites no test carrying it",
-      "fingerprint": "COH-LABEL-CITATION:packages/agent-core/SPEC.md:C13-CLOUDFLARE-ADDITIVE-MIGRATION:f02d7ef3fc95"
-    },
-    {
-      "rule": "COH-LABEL-CITATION",
-      "file": "packages/agent-core/SPEC.md",
-      "symbol": "C13-CLOUDFLARE-ROLLBACK-WINDOW",
-      "message": "Test titles carry the label of C13-CLOUDFLARE-ROLLBACK-WINDOW, whose row cites no test carrying it",
-      "fingerprint": "COH-LABEL-CITATION:packages/agent-core/SPEC.md:C13-CLOUDFLARE-ROLLBACK-WINDOW:69cf7aa88678"
-    },
-    {
-      "rule": "COH-LABEL-CITATION",
-      "file": "packages/agent-core/SPEC.md",
-      "symbol": "C13-CONFIG-SECRET-CUSTODY",
-      "message": "Test titles carry the label of C13-CONFIG-SECRET-CUSTODY, whose row cites no test carrying it",
-      "fingerprint": "COH-LABEL-CITATION:packages/agent-core/SPEC.md:C13-CONFIG-SECRET-CUSTODY:5788db38cdf0"
-    },
-    {
-      "rule": "COH-LABEL-CITATION",
-      "file": "packages/agent-core/SPEC.md",
-      "symbol": "C13-CONTENT-CUSTODY",
-      "message": "Test titles carry the label of C13-CONTENT-CUSTODY, whose row cites no test carrying it",
-      "fingerprint": "COH-LABEL-CITATION:packages/agent-core/SPEC.md:C13-CONTENT-CUSTODY:bd080b17f614"
-    },
-    {
-      "rule": "COH-LABEL-CITATION",
-      "file": "packages/agent-core/SPEC.md",
       "symbol": "C13-EFFECT-WRITE-AHEAD",
       "message": "Test titles carry the label of C13-EFFECT-WRITE-AHEAD, whose row cites no test carrying it",
       "fingerprint": "COH-LABEL-CITATION:packages/agent-core/SPEC.md:C13-EFFECT-WRITE-AHEAD:4ac4c121d7ad"
-    },
-    {
-      "rule": "COH-LABEL-CITATION",
-      "file": "packages/agent-core/SPEC.md",
-      "symbol": "C13-FACET-WITHDRAWAL-DRAIN",
-      "message": "Test titles carry the label of C13-FACET-WITHDRAWAL-DRAIN, whose row cites no test carrying it",
-      "fingerprint": "COH-LABEL-CITATION:packages/agent-core/SPEC.md:C13-FACET-WITHDRAWAL-DRAIN:f436a37f0426"
-    },
-    {
-      "rule": "COH-LABEL-CITATION",
-      "file": "packages/agent-core/SPEC.md",
-      "symbol": "C13-OWNERSHIP-AUTHORITY-RECORDS",
-      "message": "Test titles carry the label of C13-OWNERSHIP-AUTHORITY-RECORDS, whose row cites no test carrying it",
-      "fingerprint": "COH-LABEL-CITATION:packages/agent-core/SPEC.md:C13-OWNERSHIP-AUTHORITY-RECORDS:dd1b6e3c4dde"
-    },
-    {
-      "rule": "COH-LABEL-CITATION",
-      "file": "packages/agent-core/SPEC.md",
-      "symbol": "C13-OWNERSHIP-SINGLE-OWNER",
-      "message": "Test titles carry the label of C13-OWNERSHIP-SINGLE-OWNER, whose row cites no test carrying it",
-      "fingerprint": "COH-LABEL-CITATION:packages/agent-core/SPEC.md:C13-OWNERSHIP-SINGLE-OWNER:75ebd1bebab1"
-    },
-    {
-      "rule": "COH-LABEL-CITATION",
-      "file": "packages/agent-core/SPEC.md",
-      "symbol": "C13-PLACEMENT-AUTHORED-BACKING",
-      "message": "Test titles carry the label of C13-PLACEMENT-AUTHORED-BACKING, whose row cites no test carrying it",
-      "fingerprint": "COH-LABEL-CITATION:packages/agent-core/SPEC.md:C13-PLACEMENT-AUTHORED-BACKING:748415b15a40"
-    },
-    {
-      "rule": "COH-LABEL-CITATION",
-      "file": "packages/agent-core/SPEC.md",
-      "symbol": "C13-TURN-MODEL-INPUT-ABRIDGED",
-      "message": "Test titles carry the label of C13-TURN-MODEL-INPUT-ABRIDGED, whose row cites no test carrying it",
-      "fingerprint": "COH-LABEL-CITATION:packages/agent-core/SPEC.md:C13-TURN-MODEL-INPUT-ABRIDGED:d9ec6875feb9"
     }
   ]
 }

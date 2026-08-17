@@ -465,9 +465,25 @@ function checkAtomAnchors() {
  * test/invocations/ledger-contract.ts run from several spec files, and `describe.each`
  * titles substituted at run time — which no static parse can rebuild. Scoping the label
  * side per file measures 99 findings, a quarter of them against helper modules no selector
- * can ever name; scoping it per atom measures 12, and each is a label whose row backs it
- * with nothing at all. Per atom is therefore the finest join this side can state without
+ * can ever name. Per atom is therefore the finest join this side can state without
  * executing the suite, and it is exactly the "meet somewhere" granularity above.
+ *
+ * A row citing no test at all is exempt from the label direction, because otherwise the
+ * rule is unsatisfiable rather than strict: ledger.mjs#validateStatus requires a `planned`
+ * row to carry empty testSelectors, so demanding a citation would leave only two moves,
+ * promoting the row past its evidence or deleting a label that correctly names what the
+ * test does. Both are worse than the finding. A row that cites nothing asserts nothing —
+ * it cannot reach `verified`, which requires citations — so a label written ahead of
+ * promotion is work in progress rather than misdirection. The exemption lifts the instant
+ * the row cites anything, which is where the real defect lives: a row naming some tests
+ * while another test claims the same atom and is silently not among them.
+ *
+ * COH-LABEL-CITATION therefore never fires without COH-CITATION-LABEL firing for the same
+ * atom, and it is still not redundant. C13-EFFECT-WRITE-AHEAD is the worked case: it cites
+ * one unlabelled test in test/invocations/reconciliation.test.ts while its label sits on an
+ * uncited test in test/invocations/audit-relation.test.ts. The citation rule alone says
+ * "label the test you cite", and a reader who does that leaves the labelled test still
+ * uncited. Only the label rule says the evidence already exists and the row does not name it.
  *
  * One test may honestly answer two atoms while wearing one atom's label, so that stays
  * expressible: artifacts/quality/citation-label-exemptions.json names the exact
@@ -515,7 +531,8 @@ function checkCitationLabels() {
         }
     }
     for (const label of [...labelledAtoms].sort()) {
-        if (!ledgerRows.has(label) || backed.has(label)) continue;
+        const row = ledgerRows.get(label);
+        if (row === undefined || row.testSelectors.length === 0 || backed.has(label)) continue;
         issue(
             "COH-LABEL-CITATION",
             specFile,
