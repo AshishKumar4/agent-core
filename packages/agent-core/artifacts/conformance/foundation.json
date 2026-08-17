@@ -38,6 +38,24 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-CODEC-INCOMPATIBILITY-TOTAL",
+      "owner": "W1",
+      "specAnchor": "C13-CODEC-INCOMPATIBILITY-TOTAL",
+      "specTextSha256": "sha256:f3dc4040087cec82dfbf438380df470d7759fe741c683e416038f11e24f54585",
+      "status": "planned",
+      "prerequisites": ["C13-CODEC-VERSIONING"],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "Neither half exists. src/core/codec.ts#RecordCodec stamps `{ kind, version: { major, minor }, payload }` on every encode and decides compatibility inside decode, one record at a time, so incompatibility is discovered by reading rather than from a declaration a reader reaches before any read. There is no record-set-level declaration to check and nowhere to check one: the codec is a per-record object held by each record class — RunCommit.codec, Environment.codec, PortExposure.codec and the rest — and no Actor declares the codec version of the records it owns",
+        "The totality half changes behaviour rather than only timing, and its conformance cases are the derivations this document already builds over whole record sets. A store whose incompatible rows are the ones a caller has not reached serves normally today, so reserved-minus-completed under C13-RUN-FRONTIER-COMPLETE, an ancestry walk under C13-RUN-ANCESTRY, and the settlement test under C13-RUN-SETTLED-DERIVED can each answer from the subset that decodes and return a wrong answer where a rejection would have returned none. Each of the three is owed as a case that rejects rather than answering short",
+        "The recovery half needs both directions asserted, because a reader that refused by failing to construct would satisfy a rejection-only test. An incompatible declaration leaves every operation failing with the codec's typed error while the set stays addressable for inspection and export, the durable bytes are unchanged afterwards, and a reader that understands the declared version then serves the same set with no repair step",
+        "The Cloudflare profile already implements this rule for its own schema markers and is the working reference rather than a second mechanism: packages/agent-core-cloudflare/src/migration.ts raises the stable `schema.unreadable` code for an undeclared, corrupt, or duplicated marker, and the Durable Object class captures that one refusal at construction and raises it from fetch, alarm, and every socket entry point under C13-CLOUDFLARE-ROLLBACK-WINDOW. What is owed here is the substrate-level obligation that profile specialises, so a non-Cloudflare substrate owes the same property",
+        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the obligations above are named as prose until the declaration and the total refusal exist and the status moves to implemented"
+      ]
+    },
+    {
       "id": "C13-CONTENT-CUSTODY",
       "owner": "W1",
       "specAnchor": "C13-CONTENT-CUSTODY",

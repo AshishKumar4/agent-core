@@ -2776,6 +2776,27 @@ error, never a silent truncation. Live behavior wraps records; it never *is* the
 record, and durable records never own live substrate resources. This maps to
 **C13-CODEC-VERSIONING**.
 
+`C13-CODEC-VERSIONING` says what a reader does with a record it cannot understand; it does
+not say when the reader finds out. Finding out by decoding makes discovery depend on which
+records a caller happens to touch: a store whose incompatible records are the ones nobody
+has read yet serves normally, and the first request that reaches one fails partway through
+work that already looked correct. The records one Actor owns under one codec therefore MUST
+declare that codec's version where a reader reaches them, and a reader MUST decide
+compatibility from that declaration before it decodes any record of the set. An
+incompatible declaration makes the whole set unreadable rather than the unlucky record:
+every operation over it MUST fail with that codec's typed error, and none MAY answer from
+the records that do decode, because a derivation over part of a record set — reserved minus
+completed, an ancestry, a settlement test — returns a wrong answer where a rejection would
+have returned none, and the part that still decodes is exactly the part written before the
+version the reader lacks. Refusing MUST leave the set untouched — no repair, no downgrade,
+no partial rewrite — so a reader that understands the declared version restores service
+with no repair step. Refusing MUST NOT make the set unaddressable either: inspection,
+export, and diagnosis are how an operator recovers, and they are unavailable when the
+incompatibility is raised where a reader is constructed rather than where each operation is
+served. `C13-CLOUDFLARE-ROLLBACK-WINDOW` is this rule under the Cloudflare profile, where
+the declaration is a schema marker, the supported distance is one release, and a greater
+distance fails closed the same way. This maps to **C13-CODEC-INCOMPATIBILITY-TOTAL**.
+
 ### 8.4 State-ownership rules
 
 1. Every record type names exactly **one owning Actor**.
@@ -3750,6 +3771,7 @@ A conforming implementation provides:
 - **C13-CONTENT-RESOLUTION** Every ContentRef resolves through a ContentStore that belongs to exactly one Tenant, and only for a caller whose authority reaches that Tenant.
 - **C13-CONTENT-CUSTODY** Every record naming a `ContentRef` retains that content until the record releases it.
 - **C13-CODEC-VERSIONING** Every durable record codec satisfies §8.3.
+- **C13-CODEC-INCOMPATIBILITY-TOTAL** The records one Actor owns under one codec declare that codec's version, a reader decides compatibility from that declaration before decoding any of them, and an incompatible declaration makes every operation over the set fail with the codec's typed error while leaving the set addressable and untouched.
 - **C13-PROTOCOL-EXACT-ENVELOPE** The command dispatcher enforces exact caller and optional LeaseToken envelopes.
 - **C13-PROTOCOL-FAMILY-ENVELOPE-POLICY** Each command family declares whether `expectedRevision` is required and whether a LeaseToken is required, optional, or forbidden, and a violated declaration is `rejectedMalformed` except for token policy, which is `rejectedLease`.
 - **C13-PROTOCOL-OUTCOMES** The command dispatcher produces deterministic complete outcomes.
