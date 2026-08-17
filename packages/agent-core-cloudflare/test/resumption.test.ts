@@ -49,7 +49,7 @@ function operationId(value = "operation-1"): ReconciliationOutboxId {
 }
 
 describe("DurableOperationJournal", () => {
-    test("arms a begun operation from durable state alone after a reset", async () => {
+    test("[C13-CLOUDFLARE-ALARM-DURABILITY] arms a begun operation from durable state alone after a reset", async () => {
         const database = storage();
         const alarms = new FakeAlarmStorage();
         const id = operationId();
@@ -152,7 +152,7 @@ describe("DurableOperationJournal", () => {
         expect(running.journal.record(id)).toBeUndefined();
     });
 
-    test("reports an attempt whose isolate went away mid-flight as interrupted", async () => {
+    test("[C13-CLOUDFLARE-ALARM-DURABILITY] reports an attempt whose isolate went away mid-flight as interrupted", async () => {
         const database = storage();
         const alarms = new FakeAlarmStorage();
         const id = operationId();

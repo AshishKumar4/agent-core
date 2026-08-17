@@ -3,20 +3,6 @@
   "issues": [
     {
       "rule": "COH-CITATION-LABEL",
-      "file": "cloudflare/test/resumption.test.ts",
-      "symbol": "C13-CLOUDFLARE-ALARM-DURABILITY",
-      "message": "Row C13-CLOUDFLARE-ALARM-DURABILITY cites a test carrying no atom label: DurableOperationJournal reports an attempt whose isolate went away mid-flight as interrupted",
-      "fingerprint": "COH-CITATION-LABEL:cloudflare/test/resumption.test.ts:C13-CLOUDFLARE-ALARM-DURABILITY:1c60ceee3290"
-    },
-    {
-      "rule": "COH-CITATION-LABEL",
-      "file": "cloudflare/test/resumption.test.ts",
-      "symbol": "C13-CLOUDFLARE-ALARM-DURABILITY",
-      "message": "Row C13-CLOUDFLARE-ALARM-DURABILITY cites a test carrying no atom label: DurableOperationJournal arms a begun operation from durable state alone after a reset",
-      "fingerprint": "COH-CITATION-LABEL:cloudflare/test/resumption.test.ts:C13-CLOUDFLARE-ALARM-DURABILITY:58e5f75f3a8b"
-    },
-    {
-      "rule": "COH-CITATION-LABEL",
       "file": "test/agents/runs/adversarial.test.ts",
       "symbol": "C13-RUN-CHECKPOINT-KINDS",
       "message": "Row C13-RUN-CHECKPOINT-KINDS cites a test carrying no atom label: W5 adversarial invariants permits unary commits to carry an independent tree checkpoint",
