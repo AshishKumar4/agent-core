@@ -344,10 +344,14 @@ export class ShareOffer {
         return this.transition(this.#lifecycle.revoke(), this.redemptions);
     }
 
-    public recordedFor(subject: SubjectRef): ShareOfferRedemption | undefined {
-        const holder = shareOfferHolder(subject);
-        if (holder === undefined) return undefined;
-        const key = shareOfferHolderKey(holder);
+    /**
+     * `undefined` answers exactly one question — this holder has not redeemed — so the
+     * parameter is a `ShareOfferHolder` rather than a `SubjectRef`: a Team cannot be asked at
+     * all, instead of being answered with the same value as an unredeemed holder. A caller
+     * that defeats the type is refused rather than silently told "not redeemed".
+     */
+    public recordedFor(holder: ShareOfferHolder): ShareOfferRedemption | undefined {
+        const key = shareOfferHolderKey(requireShareOfferHolder(holder));
         return this.redemptions.find((redemption) => redemption.holderKey === key);
     }
 
