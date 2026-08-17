@@ -2355,7 +2355,7 @@ describe("Protected Operation gateway", () => {
         "[C13-INTERCEPTOR-THROW-BLOCK] fails closed on invalid interceptor results, throws, non-interceptable cross targets, and unknown mediated items",
         { tags: "p1" },
         async () => {
-            const descriptor = operationDescriptor("run", "mutate", false);
+            const descriptor = operationDescriptor("run", "mutate");
             const invalid = new InterceptorDeclaration(
                 new InterceptorId("invalid"),
                 "operation.before",
@@ -4285,7 +4285,7 @@ function replayBinding() {
 function operationDescriptor(
     name: string,
     impact: "observe" | "mutate" = "observe",
-    interceptable = false
+    interceptable?: true
 ): OperationDescriptor {
     return new OperationDescriptor(
         new OperationName(name),

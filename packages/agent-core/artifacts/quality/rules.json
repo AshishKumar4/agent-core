@@ -67,6 +67,11 @@
       "description": "Every durable record has one Actor and authoritative store"
     },
     {
+      "id": "ACQ-PRESENCE",
+      "node": "architecture",
+      "description": "A record field declared by presence carries no negative or null form"
+    },
+    {
       "id": "ACQ-SCOPE",
       "node": "scope",
       "description": "Every changed path has one exclusive worktree owner"

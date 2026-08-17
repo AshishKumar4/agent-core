@@ -31,6 +31,11 @@ const WEAK_KINDS = ["any", "assertion", "non-null", "unknown", "suppression"];
 const TEST_KINDS = ["any", "suppression"];
 const SUPPRESSION = /@ts-(?:ignore|nocheck)\b/gu;
 const SOURCE_SUPPRESSION = /@ts-(?:ignore|nocheck|expect-error)\b/gu;
+// A record field's declared form, read as text so an inferred boolean initializer and an
+// explicit annotation are judged alike: `interceptable = false` and `interceptable:
+// boolean` are the same defect written two ways.
+const NEGATIVE_FORM = /\b(?:boolean|false)\b/u;
+const NULL_FORM = /\bnull\b/u;
 
 const options = parseArguments(process.argv.slice(2));
 const roots =
@@ -50,6 +55,7 @@ const identifiers = new Map();
 const vocabularies = new Map();
 const permits = await loadPermits(options.permits);
 const observed = new Map();
+const recordFields = [];
 
 for (const [path, parsed] of sourceFiles(files)) {
     const source = parsed.text;
@@ -65,7 +71,8 @@ for (const [path, parsed] of sourceFiles(files)) {
 }
 
 reconcilePermits();
-await checkSpecVocabulary(options.spec, options.exports, options.vocabulary);
+const spec = await canonicalSpec(options.spec);
+await checkSpecVocabulary(spec, options.exports, options.vocabulary);
 
 for (const [name, locations] of identifiers) {
     if (locations.length > 1) {
@@ -82,6 +89,48 @@ for (const [values, locations] of vocabularies) {
                 location.symbol,
                 "Closed string vocabulary is duplicated"
             );
+    }
+}
+
+// ACQ-PRESENCE (SPEC §4.1, C13-FACET-CAPABILITY-ABSENCE): a field a record shape declares
+// by presence carries no negative and no null form.
+//
+// The seeded name set has two halves and needs both. The SPEC half is what the rule's own
+// paragraph names, and it is what makes the check survive a full revert: a set derived only
+// from declarations that are presence-typed today goes quiet exactly when the last one
+// stops being — which is the defect, not its absence. The source half generalises the rule
+// to every other field the codebase presence-types, so a capability added after this
+// paragraph was written is covered without editing the paragraph. A genuine two-valued
+// datum neither half names is untouched.
+//
+// `null` is refused on every record field regardless of name, because canonical JSON
+// distinguishes an omitted key from an explicit null, so a nullable field reintroduces the
+// second encoding for one meaning that this rule exists to remove.
+const presenceTyped = new Set([
+    ...specPresenceFields(spec.source),
+    ...recordFields
+        .filter(
+            (field) =>
+                field.optional && !NEGATIVE_FORM.test(field.form) && !NULL_FORM.test(field.form)
+        )
+        .map((field) => field.name)
+]);
+for (const field of recordFields) {
+    const symbol = `${field.shape}.${field.name}`;
+    if (NULL_FORM.test(field.form)) {
+        issue(
+            "ACQ-PRESENCE",
+            field.file,
+            symbol,
+            `${symbol} declares the nullable form ${field.form}`
+        );
+    } else if (NEGATIVE_FORM.test(field.form) && presenceTyped.has(field.name)) {
+        issue(
+            "ACQ-PRESENCE",
+            field.file,
+            symbol,
+            `${symbol} declares the negative form ${field.form} for a presence-declared field`
+        );
     }
 }
 
@@ -153,12 +202,20 @@ function inspectNode(node, source, file, aliases) {
                 }
             }
         }
-        if (staticCodec || (staticMethods.has("encode") && staticMethods.has("decode"))) {
+        const codecBacked =
+            staticCodec || (staticMethods.has("encode") && staticMethods.has("decode"));
+        if (codecBacked) {
             const constructor = node.members.find(ts.isConstructorDeclaration);
             if (constructor === undefined || !freezesThis(constructor)) {
                 issue("ACQ-IMMUTABLE", file, name, `${name} must freeze constructed instances`);
             }
+            collectRecordFields(node, name, source, file);
         }
+    }
+    // A record's init shape declares the same fields the record does, so a negative form
+    // reintroduced there reaches every construction site even while the class stays clean.
+    if (ts.isInterfaceDeclaration(node) && /(?:Init|Fields)$/u.test(node.name.text)) {
+        collectRecordFields(node, node.name.text, source, file);
     }
     if (
         ts.isThrowStatement(node) &&
@@ -199,6 +256,74 @@ function inspectNode(node, source, file, aliases) {
             vocabularies.set(key, locations);
         }
     }
+}
+
+/**
+ * Every field one record shape declares: its own properties and the constructor parameter
+ * properties that are equally part of the record. `declaredForm` reads the annotation when
+ * there is one and the boolean literal initializer when there is not, because the negative
+ * encoding this rule removes was written without an annotation.
+ */
+function collectRecordFields(node, shape, source, file) {
+    const fields = [];
+    for (const member of node.members) {
+        if (
+            (ts.isPropertyDeclaration(member) || ts.isPropertySignatureDeclaration(member)) &&
+            !hasModifier(member, ts.SyntaxKind.StaticKeyword)
+        ) {
+            fields.push(member);
+        } else if (ts.isConstructorDeclaration(member)) {
+            for (const parameter of member.parameters) {
+                if (
+                    hasModifier(parameter, ts.SyntaxKind.PublicKeyword) ||
+                    hasModifier(parameter, ts.SyntaxKind.ReadonlyKeyword)
+                ) {
+                    fields.push(parameter);
+                }
+            }
+        }
+    }
+    for (const field of fields) {
+        const form = declaredForm(field, source);
+        if (form === undefined || field.name === undefined) continue;
+        recordFields.push({
+            file,
+            shape,
+            name: field.name.getText(source),
+            form,
+            optional:
+                field.questionToken !== undefined ||
+                field.initializer !== undefined ||
+                /\bundefined\b/u.test(form)
+        });
+    }
+}
+
+function declaredForm(field, source) {
+    if (field.type !== undefined) return field.type.getText(source);
+    if (field.initializer === undefined) return undefined;
+    if (field.initializer.kind === ts.SyntaxKind.TrueKeyword) return "true";
+    if (field.initializer.kind === ts.SyntaxKind.FalseKeyword) return "false";
+    return undefined;
+}
+
+/**
+ * The field names SPEC §4.1's presence rule names, read from the paragraph that maps to
+ * C13-FACET-CAPABILITY-ABSENCE. An empty extraction is a failure rather than a quiet pass:
+ * a rule whose anchor stopped resolving would report a clean run over a set it no longer
+ * seeds, which is the shape of a checker a refactor turned into a no-op.
+ */
+function specPresenceFields(source) {
+    const label = "**C13-FACET-CAPABILITY-ABSENCE**";
+    const anchor = source.indexOf(label);
+    if (anchor < 0) throw new TypeError(`SPEC states no ${label} anchor for ACQ-PRESENCE`);
+    const start = source.lastIndexOf("\n\n", anchor);
+    const paragraph = source.slice(start < 0 ? 0 : start, anchor);
+    const names = new Set([...paragraph.matchAll(/`([a-z][A-Za-z0-9]*)`/gu)].map(([, id]) => id));
+    if (names.size === 0) {
+        throw new TypeError(`SPEC ${label} paragraph names no presence-declared field`);
+    }
+    return names;
 }
 
 function checkWeakTypes(parsed, source, file, testFile) {
@@ -382,10 +507,9 @@ function reconcilePermits() {
 // written reason for it, and a reviewed word that falls out of use or gets adopted by
 // the SPEC is flagged as stale rather than silently retained. The declaration registry
 // identifies type nouns directly; identifier capitalization never stands in for kind.
-async function checkSpecVocabulary(specFile, exportsFile, vocabularyFile) {
+async function checkSpecVocabulary({ visibleBlocks }, exportsFile, vocabularyFile) {
     const registryPath = portable(relative(options.root, exportsFile));
     const vocabularyPath = portable(relative(options.root, vocabularyFile));
-    const { visibleBlocks } = await canonicalSpec(specFile);
     const registry = await readCanonicalJson(exportsFile);
     const vocabulary = await readCanonicalJson(vocabularyFile);
     const { foreign, reviewed } = validateSpecVocabulary(vocabulary);

@@ -130,6 +130,29 @@ export function requireBoolean(value: FacetData | undefined, subject: string): b
     return value;
 }
 
+/**
+ * SPEC §4.1 (C13-FACET-CAPABILITY-ABSENCE): a declared field that carries a capability
+ * rather than a datum is present exactly when the capability is offered, absent otherwise,
+ * and a present negative form is refused rather than read as absence. The returned
+ * `true | undefined` is what keeps the two encodings from collapsing: a reader asking this
+ * field whether the capability is offered cannot get the same answer for a host that never
+ * declared it and for one that declared a refusal, and there is no second value a later
+ * edit could flip. Every reader and every writer of such a field goes through this one
+ * function, so no path exists on which the negative form survives.
+ */
+export function requireOfferedCapability(
+    value: FacetData | undefined,
+    subject: string
+): true | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (value !== true) {
+        throw new TypeError(`${subject} must be absent rather than a negative or null value`);
+    }
+    return value;
+}
+
 export function requireSafeInteger(value: FacetData | undefined, subject: string): number {
     if (!isSafeInteger(value)) {
         throw new TypeError(`${subject} must be a safe integer`);

@@ -137,7 +137,7 @@ export class OperationInterceptorRunner<Resolution> {
                 this.requireSameDomain(domain, facet.ref, declaration);
                 const own = facet.ref.equals(target.ref);
                 if (!own) {
-                    if (!operation.descriptor.interceptable) {
+                    if (operation.descriptor.interceptable === undefined) {
                         throw new AgentCoreError(
                             "authority.denied",
                             `Operation ${operation.descriptor.name.value} is not interceptable`

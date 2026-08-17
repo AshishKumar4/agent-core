@@ -822,7 +822,6 @@ describe("Declarative facet vocabulary", () => {
                         payload: {
                             impact: "observe",
                             input: {},
-                            interceptable: false,
                             name: "read",
                             output: {},
                             extra: true
@@ -969,7 +968,6 @@ describe("Declarative facet vocabulary", () => {
                 OperationDescriptor.fromData({
                     impact: "invalid",
                     input: {},
-                    interceptable: false,
                     name: "run",
                     output: {}
                 })
@@ -978,7 +976,6 @@ describe("Declarative facet vocabulary", () => {
                 OperationDescriptor.fromData({
                     impact: "observe",
                     input: 1,
-                    interceptable: false,
                     name: "run",
                     output: {}
                 })
@@ -991,7 +988,7 @@ describe("Declarative facet vocabulary", () => {
                     name: "run",
                     output: {}
                 })
-            ).toThrow(/boolean/);
+            ).toThrow(/absent rather than a negative/);
             expect(
                 () =>
                     new OperationDescriptor(
@@ -1189,7 +1186,7 @@ describe("Declarative facet vocabulary", () => {
     );
 
     test(
-        "[facet.operation-descriptor] [facet.surface-descriptor] defaults interceptable to false and keeps help in canonical data",
+        "[facet.operation-descriptor] [facet.surface-descriptor] withholds interceptable by absence and keeps help in canonical data",
         { tags: "p1" },
         () => {
             const descriptor = new OperationDescriptor(
@@ -1199,12 +1196,11 @@ describe("Declarative facet vocabulary", () => {
                 objectSchema,
                 "Read data."
             );
-            expect(descriptor.interceptable).toBe(false);
+            expect(descriptor.interceptable).toBeUndefined();
             expect(descriptor.toData()).toEqual({
                 help: "Read data.",
                 impact: "observe",
                 input: { type: "object" },
-                interceptable: false,
                 name: "read",
                 output: { type: "object" }
             });
@@ -1218,7 +1214,6 @@ describe("Declarative facet vocabulary", () => {
             const booleanSchemas = OperationDescriptor.fromData({
                 impact: "observe",
                 input: false,
-                interceptable: false,
                 name: "read",
                 output: true
             });
@@ -1228,7 +1223,6 @@ describe("Declarative facet vocabulary", () => {
                 OperationDescriptor.fromData({
                     impact: "observe",
                     input: {},
-                    interceptable: false,
                     name: 7,
                     output: {}
                 })
@@ -1237,7 +1231,6 @@ describe("Declarative facet vocabulary", () => {
                 OperationDescriptor.fromData({
                     impact: "observe",
                     input: null,
-                    interceptable: false,
                     name: "read",
                     output: {}
                 })
@@ -1246,7 +1239,6 @@ describe("Declarative facet vocabulary", () => {
                 OperationDescriptor.fromData({
                     impact: "observe",
                     input: [],
-                    interceptable: false,
                     name: "read",
                     output: {}
                 })

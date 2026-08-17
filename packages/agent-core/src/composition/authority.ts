@@ -476,11 +476,13 @@ export class TenantOperationAuthority<Caller> implements OperationAuthorityPort<
     }
 
     /**
-     * The rights half of §4.4 rule 2 only: the contributor holds a Grant over an
-     * Operation its target declared interceptable. Protection-domain confinement is
-     * rule 1, and the interceptor runner refuses a cross-domain contributor before any
-     * authority question is asked — sharing a domain confers no rights, and holding a
-     * Grant confers no domain.
+     * The rights half of §4.4 rule 2 only: the contributor holds a Grant over an Operation
+     * whose target declared the interception capability — tested as that declaration's
+     * presence (§4.1, C13-FACET-CAPABILITY-ABSENCE), never as a stored flag's truth,
+     * because the manifest has no negative form for the flag to hold. Protection-domain
+     * confinement is rule 1, and the interceptor runner refuses a cross-domain contributor
+     * before any authority question is asked — sharing a domain confers no rights, and
+     * holding a Grant confers no domain.
      */
     public allowsInterception(
         resolution: OperationResolutionState,
@@ -491,7 +493,7 @@ export class TenantOperationAuthority<Caller> implements OperationAuthorityPort<
     ): boolean {
         return (
             target.equals(resolution.binding.facet) &&
-            descriptor.interceptable &&
+            descriptor.interceptable !== undefined &&
             this.state.admitsInterception(resolution, contributor, declaration, descriptor)
         );
     }

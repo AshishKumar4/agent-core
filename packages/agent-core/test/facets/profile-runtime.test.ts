@@ -1038,7 +1038,6 @@ describe("W3 standard profile manifest composition", () => {
                 {
                     impact: "observe",
                     input: badSchema,
-                    interceptable: false,
                     name: "bad",
                     output: {}
                 }
