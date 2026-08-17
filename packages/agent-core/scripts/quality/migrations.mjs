@@ -7,10 +7,10 @@ import {
     writeCanonicalJson
 } from "./project.mjs";
 import {
-    createProgram,
     executedTestSelectors,
     requirePassingTests,
-    resolveSourceSymbol
+    resolveSourceSymbol,
+    sourceProject
 } from "./evidence.mjs";
 
 const stageIndex = process.argv.indexOf("--stage");
@@ -132,10 +132,10 @@ for (const migration of migrations) {
     }
 }
 if (verified.length > 0) {
-    const program = createProgram();
+    const project = sourceProject();
     const executedTests = await executedTestSelectors();
     for (const migration of verified) {
-        for (const selector of migration.sourceSymbols) resolveSourceSymbol(program, selector);
+        for (const selector of migration.sourceSymbols) resolveSourceSymbol(project, selector);
         requirePassingTests(migration.testSelectors, executedTests, migration.id);
     }
 }

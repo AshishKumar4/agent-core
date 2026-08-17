@@ -11,17 +11,17 @@ import {
     writeCanonicalJson
 } from "./project.mjs";
 import {
-    createProgram,
     executedTestSelectors,
     requirePassingTests,
-    resolveSourceSymbol
+    resolveSourceSymbol,
+    sourceProject
 } from "./evidence.mjs";
 import { discoverNormativeSeams } from "./seam-discovery.mjs";
 
 const stage = stageArgument(process.argv.slice(2));
 const selectedArtifactRoot = pathArgument(process.argv.slice(2), "--artifact-root") ?? artifactRoot;
-const program = createProgram();
-const discovered = discoverNormativeSeams(program);
+const project = sourceProject();
+const discovered = discoverNormativeSeams(project);
 const index = await readCanonicalJson(resolve(selectedArtifactRoot, "seams/index.json"));
 assertUniqueStrings(index.required, "Required seams");
 const ownership = await readCanonicalJson(resolve(selectedArtifactRoot, "quality/ownership.json"));
@@ -122,7 +122,7 @@ if (seams.length > 0) {
     const executedTests = await executedTestSelectors();
     for (const seam of seams) {
         for (const selector of [seam.contract, seam.memoryReference, ...seam.implementations]) {
-            resolveSourceSymbol(program, selector);
+            resolveSourceSymbol(project, selector);
         }
         requirePassingTests([seam.contractTest], executedTests, seam.id);
     }

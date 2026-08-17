@@ -1,14 +1,17 @@
 import { relative, resolve } from "node:path";
-import ts from "typescript-api";
+import * as ts from "typescript/unstable/ast";
+import { hasModifier } from "./compiler.mjs";
 import { packageRoot } from "./project.mjs";
 
 const CONTRACT_NAME = /(?:Port|Store|Persistence)$/u;
 
-export function discoverNormativeSeams(program) {
+export function discoverNormativeSeams(project) {
     const contracts = new Map();
     const classes = new Map();
-    for (const source of program.getSourceFiles()) {
-        if (!isOwnedSource(source.fileName)) continue;
+    for (const name of project.program.getSourceFileNames()) {
+        if (!isOwnedSource(name)) continue;
+        const source = project.program.getSourceFile(name);
+        if (source === undefined) continue;
         for (const statement of source.statements) {
             if (
                 (ts.isInterfaceDeclaration(statement) ||
@@ -101,13 +104,6 @@ function isExported(node) {
 
 function isAbstract(node) {
     return hasModifier(node, ts.SyntaxKind.AbstractKeyword);
-}
-
-function hasModifier(node, kind) {
-    return (
-        ts.canHaveModifiers(node) &&
-        (ts.getModifiers(node) ?? []).some((modifier) => modifier.kind === kind)
-    );
 }
 
 function kebab(value) {

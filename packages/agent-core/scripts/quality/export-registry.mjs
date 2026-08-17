@@ -1,4 +1,4 @@
-import ts from "typescript-api";
+import { SymbolFlags } from "typescript/unstable/sync";
 import { assertObject, assertOneOf } from "./project.mjs";
 
 const declarationKinds = [
@@ -60,14 +60,14 @@ export function vocabularyDeclarationNames(document) {
 }
 
 function declarationKind(checker, symbol) {
-    const target = symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
+    const target = symbol.flags & SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
     const flags = target.flags;
-    if (flags & ts.SymbolFlags.Class) return "class";
-    if (flags & ts.SymbolFlags.Enum) return "enum";
-    if (flags & ts.SymbolFlags.Interface) return "interface";
-    if (flags & ts.SymbolFlags.TypeAlias) return "type";
-    if (flags & ts.SymbolFlags.Function) return "function";
-    if (flags & ts.SymbolFlags.Variable) return "variable";
-    if (flags & ts.SymbolFlags.NamespaceModule) return "namespace";
+    if (flags & SymbolFlags.Class) return "class";
+    if (flags & SymbolFlags.Enum) return "enum";
+    if (flags & SymbolFlags.Interface) return "interface";
+    if (flags & SymbolFlags.TypeAlias) return "type";
+    if (flags & SymbolFlags.Function) return "function";
+    if (flags & SymbolFlags.Variable) return "variable";
+    if (flags & SymbolFlags.NamespaceModule) return "namespace";
     throw new TypeError(`Public declaration ${symbol.name} has an unsupported declaration kind`);
 }
