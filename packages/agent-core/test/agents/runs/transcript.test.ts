@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { Revision, type ContentRef } from "../../../src/core";
-import { MemoryContentStore } from "../../../src/content";
+import {
+    ContentStore,
+    MemoryContentStore,
+    type ByteRange,
+    type ContentPutResult,
+    type MediaHint
+} from "../../../src/content";
 import { AgentCoreError } from "../../../src/errors";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
 import { InvocationId } from "../../../src/interaction-references";
@@ -49,6 +55,37 @@ class CallingExecutor extends TurnExecutor {
 
     public async execute(context: TurnContext): Promise<TurnOutcome> {
         return this.body(context);
+    }
+}
+
+/**
+ * A store whose Tenant retention policy can end custody of one ref, so a real retention
+ * loss stays distinguishable from a rewrite superseding the commits that named it.
+ */
+class ReleasableContentStore extends ContentStore {
+    readonly #released = new Set<string>();
+
+    public constructor(private readonly inner: MemoryContentStore) {
+        super();
+    }
+
+    public release(ref: ContentRef): void {
+        this.#released.add(ref.value);
+    }
+
+    public async put(bytes: Uint8Array, hint?: MediaHint): Promise<ContentPutResult> {
+        return hint === undefined ? this.inner.put(bytes) : this.inner.put(bytes, hint);
+    }
+
+    public async get(ref: ContentRef, range?: ByteRange): Promise<Uint8Array> {
+        if (this.#released.has(ref.value)) {
+            throw new AgentCoreError("content.not-found", "Tenant retention policy released this");
+        }
+        return range === undefined ? this.inner.get(ref) : this.inner.get(ref, range);
+    }
+
+    public async stat(ref: ContentRef) {
+        return this.#released.has(ref.value) ? undefined : this.inner.stat(ref);
     }
 }
 
@@ -920,13 +957,14 @@ describe("Run effective transcript, rewrite bracket, and cut balance", () => {
         "[C13-TURN-TRANSCRIPT-RECONSTRUCTION] rebuilds an earlier call's request byte for byte across a rewrite that shadows what it read",
         { tags: "p0" },
         async () => {
-            const store = new MemoryContentStore();
+            const store = new ReleasableContentStore(new MemoryContentStore());
             const assembled = (await store.put(new TextEncoder().encode("assembled"))).ref;
             const output = (await store.put(new TextEncoder().encode("response"))).ref;
             const value = seedRunningTurn();
             const first = message(value, "read-1", ids.root);
             const second = message(value, "read-2", first.id);
 
+            const shownRefs: ContentRef[] = [];
             const inputs: RunCommitId[] = [];
             const sent: Uint8Array[] = [];
             const hostFor = (body: (context: TurnContext) => Promise<TurnOutcome>) =>
@@ -957,11 +995,15 @@ describe("Run effective transcript, rewrite bracket, and cut balance", () => {
                     .effectiveTranscript(context.turn.run, context.turn.branch)
                     .map((commit) => `${commit.kind}:${commit.content?.value ?? ""}`)
                     .join("\n");
+                // Recorded by reference, so releasing that content is a retention event
+                // separable from a rewrite superseding the commits it described.
+                const ref = (await store.put(new TextEncoder().encode(shown))).ref;
+                shownRefs.push(ref);
                 const exchange = await context.model.call({
                     sections: [
                         new TurnPromptSection(
                             new TurnPromptSectionName("transcript"),
-                            TurnShownContent.inline(new TextEncoder().encode(shown)),
+                            TurnShownContent.reference(ref),
                             TurnOmission.none
                         )
                     ],
@@ -1062,6 +1104,19 @@ describe("Run effective transcript, rewrite bracket, and cut balance", () => {
             expect(shownFirst).toContain(content("1").value);
             expect(shownSecond).not.toContain(content("1").value);
             expect(shownSecond).toContain(content("9").value);
+
+            // The disjointness is a pair, not one arm. Shadowing left the earlier call
+            // rebuildable above; ending custody of the content that call named is what makes
+            // it fail typed, so Tenant retention policy stays the only thing that ends
+            // custody and a reduction can never be mistaken for a loss.
+            store.release(shownRefs[0]!);
+            await expect(replay.reconstruct(inputs[0]!)).rejects.toBeInstanceOf(AgentCoreError);
+            await expect(replay.reconstruct(inputs[0]!)).rejects.toMatchObject({
+                code: "run.model-input-unrebuildable",
+                message: expect.stringContaining(shownRefs[0]!.value)
+            });
+            // The reduced call, whose content was never released, still rebuilds.
+            expect(turnModelRequestBytes(await replay.reconstruct(inputs[1]!))).toEqual(sent[1]);
         }
     );
 });
