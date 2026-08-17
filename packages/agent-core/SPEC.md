@@ -534,6 +534,12 @@ abstract class Facet {
   abstract stop(ctx: OperationContext): Promise<void>;    // stops children first
 }
 
+// A FacetSet is one composition view: the finite set of Facets one executing context
+// composes, each named once by its canonical FacetRef (§1.4) and ordered by that
+// serialization, so one view has exactly one form. It names its members and carries no
+// ResolvedFacet: resolution stays with the §3.4 resolver, at each use.
+type FacetSet = readonly FacetRef[];
+
 interface OperationDescriptor<I = unknown, O = unknown> {
   readonly name: OperationName;
   readonly impact: Impact;                     // host-derived (§7.1)
@@ -549,6 +555,16 @@ abstract class Operation<I, O> {
 }
 ```
 
+A **FacetSet** is one composition view: the finite set of Facets one executing context —
+a Turn (§5.3) or a Session — composes, with each member named exactly once by its
+canonical FacetRef (§1.4) and the set ordered by that serialization, so one view has
+exactly one form and two readers of the same view cannot disagree about its membership. A
+FacetSet names its members and holds none of their capabilities: a ResolvedFacet is
+produced only by the §3.4 resolver, for the exact use and lifetime that rule allows, so a
+context carries membership as data without carrying authority as state. `children()`
+returns a Facet's child Facets on those same terms — the refs, never live stubs — which is
+what makes a Facet's own composition inspectable without conferring anything.
+
 The host verifies at install time that the runtime provides every implementation the
 manifest declares and refuses contributions the manifest does not declare. This maps to
 **C13-FACET-INSTALL-VERIFICATION**. Placement
@@ -560,6 +576,71 @@ Facet lifecycle hooks are idempotent from the caller's perspective. Protected
 invocation requires an active, undisposed Facet whose Grant, Binding, lease, and
 revocation state are valid per §3.4. Turns dispose resolved Facets on completion,
 failure, cancellation, suspension, or authority loss. This maps to **C13-FACET-DISPOSAL**.
+
+**Withdrawal.** A Facet leaves a Scope by **withdrawal**, an `administer`-impact
+Operation, never by deletion of its install record. Withdrawal is not disposal:
+`C13-FACET-DISPOSAL` releases one Turn's resolution to a Facet and leaves the Facet
+installed and resolvable by the next Turn, while withdrawal retires the install and
+leaves the Facet resolvable by no later Turn. The Actor owning a record computes the
+**withdrawal set** by querying attribution (§4.2), never by running an inverse the Facet
+supplied: exactly the records naming the Facet as contributor — its slot entries, its
+Slot declarations, its catalog entries, its derived Subscriptions, its Surface
+registrations, its prompt sections, its ingress endpoints, and its settings fragments —
+together with the Bindings naming its `FacetRef` and the Grants whose capability names
+only its Operations. Withdrawal retires that set in one control transaction per owning
+Actor. Because every materialized record carries attribution or is invalid (§4.2), that
+query is total; a host that still cannot compute the set MUST refuse the withdrawal
+rather than perform a partial one, and a record the set does not name is unchanged by the
+withdrawal. Records this document declares append-only and undeletable — a Receipt, an
+AuditRecord, a RunCommit (§8.2) — are never in a withdrawal set, and neither is an
+emitted Event: retiring an `events` contribution retires the capacity to accept that
+kind, never an occurrence already recorded under it, because an emitted effect is
+evidence and withdrawal retires the capacity to emit rather than the evidence emitted.
+Withdrawal releases no content either. Retiring a record drops that record's own
+retainer edge and no other, so content any retained record still names stays retained
+under `C13-CONTENT-CUSTODY`, and a withdrawal MUST NOT release a `ContentRef` a
+RunCommit or an admitted inbox Event names — which is what keeps a model call's request
+reconstructable from committed records (§5.6) across a withdrawal. Retiring the
+Subscriptions a Facet's `commands` and `automations` contributions materialized closes a
+routing liveness gap §6.2 otherwise leaves open, since a RouteReservation reaches a
+terminal RouteDelivery only through its target's admission: withdrawal MUST retire those
+Subscriptions in the transaction that begins it, so no further reservation is appended
+against an unresolvable target, and the owning Actor — which outlives the Facet the intent
+named — MUST admit every reservation already appended and not yet prepared to a terminal
+rejected RouteDelivery. Retiring a Slot declaration never retires an entry another Facet
+contributed, because exactness confines the set to the withdrawing Facet's own records; a
+withdrawal whose set holds a Slot declaration carrying an entry attributed to a Facet the
+same reconciliation retains is refused instead, because the retained contribution would
+name a Slot the resulting composition does not declare. This maps to
+**C13-FACET-WITHDRAWAL-EXACT**.
+
+Withdrawal does not complete while any admitted Invocation item whose
+`PreparedInvocationHeader.target` names the withdrawing Facet lacks a terminal current
+Receipt (§7.4). Such an item is a pending obligation of the withdrawal exactly as an
+admitted unfinished item is of Run settlement (§5.2): its intent, its placement, and its
+Package pin are already frozen, so it settles against the Facet the intent named and
+never against whatever later occupies that `FacetRef`. The transaction that begins a
+withdrawal stops admitting Invocations against the withdrawing Facet, so the drain set is
+finite at that transaction and never grows; a RouteReservation that reached preparation
+drains as one of these items, and one the target has not admitted takes instead the
+terminal rejected RouteDelivery the withdrawal set requires, which is what makes every
+reservation against a withdrawn target terminable. A draining item's Receipt, its
+reconciliation, and its audit chain are appended after withdrawal begins exactly as a
+system writer appends evidence after a Turn is fenced (§5.2), and a host MUST NOT
+discard, synthesize, or shortcut a draining item's Receipt in order to report a
+withdrawal complete. This maps to **C13-FACET-WITHDRAWAL-DRAIN**.
+
+Activation is all-or-nothing at the Scope's records. A Facet whose `start` does not
+complete contributes no slot entry, no Slot declaration, no catalog entry, no
+Subscription, no Surface, no ingress endpoint, and no settings fragment: the host retires
+whatever the partial activation materialized through the same attributed withdrawal set a
+withdrawal computes, and records the outcome as a typed failed install rather than as a
+live Facet. Retiring a partial activation drains on the same terms as a withdrawal,
+because an Invocation already admitted against the Facet is frozen intent and still
+settles. A failed Facet is inactive, obstructs no other Facet's activation or withdrawal,
+and is not retried against the same unchanged Scope, because a host that retried an
+activation whose effect on the Scope it had not first retired would compose against state
+no Blueprint declares. This maps to **C13-FACET-START-ATOMIC**.
 
 *Why the split:* everything a host, a registry, or the Blueprint validator needs to
 know about a facet is data it can read without running anything. This is the property
@@ -601,6 +682,14 @@ interface SlotDeclaration {
 and dashboards:
 
 ```ts
+interface SlotEntry {
+  readonly slot: SlotName;
+  readonly contributor: FacetRef;           // §4.1 attribution: which Facet contributed it
+  readonly package: PackagePin;             // §5.2 release the contribution was read from
+  readonly ordinal: number;                 // declared order within the slot
+  readonly value: FacetData;                // validated against the slot's entrySchema
+}
+
 abstract class SlotCatalog {
   abstract query(slot: SlotName, viewer: SubjectRef): Promise<readonly SlotEntry[]>;
 }
@@ -618,6 +707,21 @@ a `SurfaceId`; an aggregating platform Surface embeds the referenced child Views
 refs, never live stubs, per §6.3). A `dashboard.card` slot is the canonical
 surface-backed case: the platform's dashboard Surface queries the slot and composes
 the contributed cards' Views.
+
+Every record a contribution materializes into — SlotEntry, catalog entry, derived
+Subscription, Surface registration, prompt section, ingress endpoint, and merged settings
+fragment — carries the exact `FacetRef` of the Facet that contributed it and the
+`PackagePin` of the release the contribution was read from. A SlotEntry's identity is the
+digest of exactly the fields above, so an entry is unique by its slot, its contributor,
+and its declared ordinal, and re-materializing the same contribution from the same
+release yields that same entry rather than a second one. Attribution is written in the
+same transaction as the record it attributes and is immutable for that record's lifetime;
+a materialized record carrying no attribution is invalid rather than unattributed, and a
+host MUST refuse to materialize a contribution it cannot attribute. Attribution is what
+makes withdrawal exact (§4.1) — the withdrawal set is a query over these fields, so it is
+computable for every Facet without executing Facet code — and what lets a host answer,
+from records alone, which Facet is responsible for any entry a Surface renders. This maps
+to **C13-FACET-CONTRIBUTION-ATTRIBUTION**.
 
 ### 4.3 Commands
 
@@ -962,7 +1066,7 @@ type RunLifecycle =
   | { readonly kind: "active" }
   | { readonly kind: "terminal"; readonly outcome: "succeeded" | "failed" | "cancelled";
       readonly terminalCommit: RunCommitId; readonly obligation: SettlementObligation;
-      readonly exhausted?: "tokens" | "wallClockMs" | "depth" }; // cancelled by ceiling only
+      readonly exhausted?: "tokens" | "wallClockMs" | "depth" | "costMicros" }; // ceiling only
 
 type RunObligation =
   | { readonly kind: "approval"; readonly approval: ApprovalId }
@@ -1029,6 +1133,7 @@ interface ResourceCeiling {
   readonly tokens?: number;
   readonly wallClockMs?: number;
   readonly depth?: number;
+  readonly costMicros?: number;              // millionths of one currency's major unit
 }
 ```
 
@@ -1195,7 +1300,7 @@ child does not declare inherits the parent's remainder. A Run that declares no c
 unbounded — the platform imposes none — so fan-out narrows downward without anything
 capping work nobody chose to bound. This maps to **C13-RUN-RESOURCE-CEILING**.
 
-The three dimensions differ in how their remainder is known. `depth` and `wallClockMs`
+The declared dimensions differ in how their remainder is known. `depth` and `wallClockMs`
 MUST be derived, never separately accounted: depth is the length of the spawn lineage
 from the Run back to the ancestor that declared the ceiling, and wall-clock consumption
 is the current time minus the Run's root RunCommit timestamp — both computable from
@@ -1205,6 +1310,24 @@ MUST accumulate at the same point a model call commits (§5.1, C13-TURN-MODEL-CA
 counter this document requires without further shaping its storage, left to the executor
 seam (§5.6) like every other model-call detail. This maps to
 **C13-RUN-CEILING-REMAINDER**.
+
+`costMicros` bounds money, and it belongs to the second class: there is nothing to derive
+it from, so a host MUST accumulate realized cost as a durable per-Run running total at the
+same commit point the token total advances. What makes it unlike `tokens` is that the
+platform does not observe it — a token count arrives in the model response, while a price
+comes from a provider rate that varies by model, by contract, and over time — so this
+document requires the recorded amount to be cost the call actually incurred and leaves the
+rate source out of scope, at the executor seam (§5.6) with every other model-call detail.
+Recording realized cost rather than an estimate is what keeps the ceiling enforceable
+instead of advisory: exhaustion is then a fact about spend, on exactly the granularity
+`tokens` already has — the call that crossed the ceiling has committed by the time the
+crossing is known — whereas a remainder computed from a rate table would make exhaustion a
+claim about that table. A host with no realized cost to record declares the dimension
+nowhere, and by the rule above that bounds nothing; it MUST NOT substitute an estimate.
+Amounts are integer millionths of one currency's major unit, and a host MUST record every
+realized cost in a Run lineage in one currency, because a comparison between amounts in
+two currencies is not a comparison and a ceiling is nothing but that comparison. This maps
+to **C13-RUN-CEILING-COST**.
 
 Exhaustion is neither silence nor a new mechanism: the host cancels the Run through the
 closed §5.3 rows with outcome `cancelled` and the exhausted dimension recorded in
@@ -2061,10 +2184,14 @@ interface PreEffectReceipt {
   readonly reason: string;
 }
 
+type AttemptFailureKind =
+  | "raised" | "deadline" | "aborted" | "domainLost" | "outputInvalid";
+
 interface AttemptReceipt {
   readonly id: ReceiptId;
   readonly attempt: EffectAttemptId;
   readonly outcome: "succeeded" | "failed" | "indeterminate";
+  readonly failure?: AttemptFailureKind;     // present exactly when outcome is "failed"
   readonly previous?: ReceiptId;
   readonly recordedAt: Date;
   readonly result?: ContentRef;
@@ -2086,6 +2213,40 @@ PreEffectReceipt, or the chain head for its greatest attempt ordinal. A new ordi
 allowed only after the prior ordinal is finally `failed`; neither `succeeded` nor
 `indeterminate` admits a concurrent retry. These lineage rules map to
 **C13-RECEIPT-IMMUTABLE**.
+
+A `failed` AttemptReceipt MUST name exactly one **failure kind**, and the kinds are
+closed: `raised` when the invoked handler signalled failure itself; `deadline` when a
+host-set bound on that attempt elapsed; `aborted` when cancellation of the Turn or Run
+that owns the item reached the attempt; `domainLost` when the protection domain hosting
+the target stopped answering before the handler produced a result; and `outputInvalid`
+when the handler resolved with a value the Operation's declared output schema (§4.1)
+rejects. Exactly one applies because each names a different bound or boundary: `deadline`
+bounds the attempt, `aborted` bounds its enclosing Turn or Run, and `domainLost` is the
+target's own disappearance. Only `raised` originates with the invoked code, and it is
+exactly the rejection §4.1's `execute` may produce; the host derives every other kind
+from the seam it controls rather than from anything the target reports about itself, for
+the reason §7.1 already gives — a classification the callee could author is one the
+callee could choose. `outputInvalid` is a failure of the report rather than of the
+effect, so it records that the effect may well have happened and its result is unusable,
+which is exactly the distinction a rejection cannot carry. No kind names a result too
+large to record: this document sets no size bound on a result, and a profile that
+refuses a request for its size refuses it before the request leaves (§11.5), which is a
+pre-effect outcome. This maps to **C13-RECEIPT-FAILURE-KIND**.
+
+The failure kind is orthogonal to the pre-effect distinction, never a replacement for
+it. Whether an effect was attempted is still answered by which Receipt variant an item
+has, and by nothing else: a PreEffectReceipt says no EffectAttempt exists and the item
+never crossed the boundary, an AttemptReceipt says one does. The kind answers the
+different question of how an attempted effect failed, so it MUST NOT be recorded where
+this document requires another outcome — a denial before the effect stays
+`deniedPreEffect`, an expiry, cancellation, or loss of a required Turn before the effect
+stays `cancelledPreEffect`, and an attempt whose result is not known stays
+`indeterminate` until reconciliation supersedes it, because naming a kind is a
+determination and a host that has one has stopped not knowing. A kind therefore adds a
+dimension to an outcome the existing rules already fix: it changes no outcome, no
+supersession lineage, and no retry eligibility — a final `failed` Receipt permits the
+next ordinal whatever its kind — and, like claim expiry, it never enters authority
+admission. This maps to **C13-RECEIPT-FAILURE-ORTHOGONAL**.
 
 ReceiptId MUST be allocated from one owning-Actor namespace across both Receipt variants
 and all items; `AttemptReceipt.previous` and `AuditKind.receiptSuperseded`'s `previous`
@@ -3001,6 +3162,10 @@ A conforming implementation provides:
 - **C13-FACET-DISPOSAL** A Turn disposes its resolved Facets on completion, failure, cancellation, suspension, or authority loss.
 - **C13-FACET-INSTALL-VERIFICATION** Install-time verification requires every implementation the manifest declares and refuses a contribution it does not declare.
 - **C13-FACET-IMPACT-BOUNDARY** The host derives an operation's impact from the seam its request crosses, never from a declaration by the callee.
+- **C13-FACET-WITHDRAWAL-EXACT** Withdrawal is an `administer` Operation that retires exactly the withdrawing Facet's attributed records, its Bindings and solely-naming Grants, and its Slot declarations, never append-only evidence and never another Facet's entries.
+- **C13-FACET-CONTRIBUTION-ATTRIBUTION** Every materialized contribution record carries the contributing `FacetRef` and the source `PackagePin`, written in the same transaction and immutable thereafter.
+- **C13-FACET-WITHDRAWAL-DRAIN** A withdrawal does not complete while an admitted Invocation item naming the withdrawing Facet lacks a terminal current Receipt.
+- **C13-FACET-START-ATOMIC** A Facet whose `start` does not complete contributes nothing, and the host retires the partial activation through the same attributed withdrawal set.
 - **C13-COMMAND-ARGUMENT-BINDING** The Command lifecycle performs argument binding (§4.3).
 - **C13-COMMAND-INSTALL-MAPPING** Command mapping validates at install.
 - **C13-COMMAND-SUBSCRIPTION-DEFAULTS** Derived Subscription defaults are deterministic.
@@ -3065,6 +3230,8 @@ A conforming implementation provides:
 - **C13-ATTEMPT-ORDINAL-AFTER-FAILURE** A new attempt ordinal appears only after final failure.
 - **C13-RECEIPT-INDETERMINATE-SUPERSESSION** Indeterminate supersession follows the exact lineage rules.
 - **C13-RECEIPT-IMMUTABLE** Attempts and Receipts are never updated or deleted, and only an indeterminate chain head is superseded, exactly once, and never a final Receipt.
+- **C13-RECEIPT-FAILURE-KIND** A `failed` AttemptReceipt names exactly one kind from the closed set `raised`, `deadline`, `aborted`, `domainLost`, and `outputInvalid`, no other Receipt outcome names one, and only `raised` originates with the invoked handler.
+- **C13-RECEIPT-FAILURE-ORTHOGONAL** A failure kind is recorded only on an attempted `failed` outcome, never substitutes for the pre-effect Receipt variant or for `indeterminate`, and changes no outcome, supersession lineage, retry eligibility, or admission decision.
 - **C13-BATCH-OUTCOME-COMPLETE** BatchOutcome exists only after every item has a current Receipt.
 - **C13-BATCH-OUTCOME-TERMINAL** A terminal aggregate exists only when no current outcome is indeterminate.
 - **C13-EFFECT-WRITE-AHEAD** Effect evidence is written before the external effect.
@@ -3110,6 +3277,7 @@ A conforming implementation provides:
 - **C13-RUN-RESOURCE-CEILING** A spawned Run's declared resource ceiling never exceeds its parent's remainder in any declared dimension, an undeclared dimension inherits that remainder, and declaring none bounds nothing.
 - **C13-RUN-CEILING-EXHAUSTION** An exhausted ceiling cancels the Run through the ordinary §5.3 terminal rows, naming the exhausted dimension only when that dimension has no allowance left.
 - **C13-RUN-CEILING-REMAINDER** `depth` and `wallClockMs` remainders are derived from the spawn lineage and the root RunCommit timestamp rather than separately accounted, and `tokens` is a durable per-Run running total accumulated where a model call commits.
+- **C13-RUN-CEILING-COST** `costMicros` is a durable per-Run running total of realized model cost accumulated where a model call commits, never an estimate, recorded in one currency per Run lineage, with the rate source outside this document's scope.
 - **C13-RUN-TERMINAL-SIBLINGS** Run terminalization closes only after every sibling Turn is terminal and unheld.
 - **C13-RUN-FORCED-CANCELLATION** Forced cancellation is terminalization-only, distinct-sibling, administer-authorized fencing and cancellation evidence without Turn impersonation.
 - **C13-RUN-TERMINAL-OBLIGATIONS** Run terminalization captures a finite obligation set.
