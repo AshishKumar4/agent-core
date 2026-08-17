@@ -820,6 +820,23 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-TURN-FACET-SET-STABLE",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-FACET-SET-STABLE",
+      "specTextSha256": "PENDING",
+      "status": "planned",
+      "prerequisites": ["C13-FACET-WITHDRAWAL-EXACT"],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "FacetSet has no representation in src. §4.1 now defines it as the canonical-ordered, unique FacetRef membership of one composition view, and §5.3 fixes a Turn's FacetSet to the facet refs of its immutable TurnPlacementSnapshot placements. Closure requires that derivation to exist once, over the existing TurnPlacementSnapshot record (src/agents/runs/placement.ts#TurnPlacementSnapshot), rather than as a second membership list a host could populate independently.",
+        "The no-second-composition-view conjunct has no enforcement point. src/agents/runs/executor.ts#validateOperations already rejects a TurnBoundOperation whose facet is absent from the immutable placement snapshot, which is membership stability for bound Operations only; nothing yet answers a general membership question from the captured set, and nothing prevents a host from answering one from the Scope's current install records instead. Closure requires the executor seam to expose the captured set as the Turn's only composition view.",
+        "The typed unavailability a withdrawn captured member yields at its next use has no error class and no reachable path, because withdrawal itself is planned: there is no retired-Binding state for a resolution attempt to observe, and C13-FACET-WITHDRAWAL-EXACT is a prerequisite for that reason.",
+        "The behavior test must prove both halves in one exercise over the public interface and must fail if either is traded for the other: an install and a withdrawal committed mid-Turn leave the Turn's membership identical, while a Grant revoked mid-Turn denies the next use of a member the Turn still composes. A test that asserts only stable membership would pass against a host that had frozen authority with it."
+      ]
+    },
+    {
       "id": "C13-TURN-LEASE-EXPIRY",
       "owner": "W5",
       "specAnchor": "C13-TURN-LEASE-EXPIRY",
@@ -885,6 +902,7 @@
         "The reconstruction surface does not exist. src/agents/runs/executor.ts hosts the model call (TurnExecutorHost, TurnModelPort, TurnModelHandle, ScopedModelHandle) and commits the model's complete output, but nothing commits the model's complete input: there is no RunCommit shape carrying the assembled prompt sections in their final order, the operation catalog as offered, or the inbox admission cut the call observed, and no seam member that takes a Turn's committed records alone and yields the exact request. Both halves are owed — the records, and the reconstruction the model call issues its request from",
         "The conformance test is a byte-compare, and it is owed in three configurations: reconstruction over committed records reproduces the exact request bytes for a prompt recorded inline; reproduces them for a prompt recorded by ContentRef, so a digest-only record still rebuilds exact bytes rather than an equivalent-looking prompt; and reproduces them after a restart that discards the executor process, which is the only configuration that distinguishes durable records from surviving executor memory",
         "The adversarial cases are owed and each must fail: a host that records a `prompt.assemble` interceptor rewrite as the fact that an interceptor ran rather than as the result it produced; a host that injects model-visible content from ambient executor state with no durable trace; and a host whose reconstruction approximates a separately assembled request instead of being the value the call issues, which the byte-compare catches only if the assembled request and the reconstruction are not permitted to diverge by construction",
+        "The owed model-call record carries a custody obligation, because C13-CONTENT-CUSTODY grants permanent retention only to the kinds §8.2 declares append-only and undeletable — a Receipt, an AuditRecord, a RunCommit — and Event is not among them: §6.1 declares an Event immutable, never undeletable, so a host-defined Event lifecycle releases its payload while every digest that named it survives. The record that carries a call's reconstructable request MUST therefore itself name the content of every Event it admitted, so retention is transitive through an undeletable RunCommit and covers exactly the Events a model observed, leaving unadmitted inbox Events releasable. §5.2's `eventDelivery` RunCommit already establishes this for routed ingress via its `content` field, but the commit matrix admits that kind only for `system(delivery)` with exact terminal RouteDelivery evidence, so the §5.6 `turn.deliverEvent` inbox path and the reserved `turn.cancel` Event are not covered by it and this obligation is what closes them. §4.2 forbids a withdrawal from releasing a ContentRef a RunCommit or an admitted inbox Event names, which closes the withdrawal path specifically and leaves every other Event-removal lifecycle to this obligation",
         "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
       ]
     },

@@ -1468,7 +1468,7 @@ selected, which is one field.
 ### 5.3 Turn: lease-fenced execution attempts
 
 A **Turn** is one lease-fenced execution attempt inside a Run: input, status, lease,
-branch, immutable TurnPlacementSnapshot, resolved FacetSet, checkpoints, Invocations,
+branch, immutable TurnPlacementSnapshot, captured FacetSet, checkpoints, Invocations,
 result.
 
 ```ts
@@ -1521,6 +1521,26 @@ allowed by the §5.2 CommitWriter matrix. These map to **C13-TURN-EXACT-LEASE** 
 Every claim, renew, or reclaim requires `expiresAt > now` and MUST be rejected without
 it; reclaim additionally requires the recorded expiry to be at or before `now`. This
 maps to **C13-TURN-LEASE-EXPIRY**.
+
+A Turn's FacetSet (§4.1) is exactly the `facet` refs of its immutable
+TurnPlacementSnapshot's `placements`, in canonical order, so a Turn captures its
+composition view in the same transition that captures its placements (§5.2) and the view
+inherits that record's immutability rather than needing a record of its own. Membership
+does not change for the Turn's lifetime: an install or a withdrawal (§4.1) committed after
+capture is composed by later Turns and never by this one. The executor seam (§5.6) offers
+a Turn no second composition view — every membership question a Turn asks is answered from
+its captured set and never from the Scope's current install records — so a Turn cannot
+observe a membership it did not capture. Capture fixes membership and nothing else: a
+captured member is a FacetRef, so capture neither produces a ResolvedFacet nor extends
+one, every use of a member independently re-resolves and re-authorizes under §3.4's
+resolution-lifetime rule, and a Grant revoked, a Binding retired, or a path epoch advanced
+mid-Turn severs that member's capability at its next use while the set the Turn composes
+is unchanged. Membership stability is therefore not authority stability, and neither is
+tradable for the other: a Turn holds a stable answer to which Facets it composes and no
+standing answer at all to whether it may still call one. A Turn whose captured member is
+withdrawn observes a typed unavailability at its next use of that member, never a silently
+smaller set, and a ref the captured set omits stays unavailable to the Turn however the
+Scope's composition changes afterward. This maps to **C13-TURN-FACET-SET-STABLE**.
 
 For running success, failure, or cancellation, the terminal result commit is validated
 with the current LeaseToken and the fence is applied in the same transition, with the
@@ -1590,6 +1610,17 @@ committed records and comparing byte for byte against what was sent separates co
 from records that merely look sufficient — and what makes fork, resume, replay, and audit
 consequences of one implementation instead of four features each carrying its own partial
 copy of the model input. This maps to **C13-TURN-MODEL-INPUT-RECONSTRUCTABLE**.
+
+The rule above binds records that exist, and retention is not eternal. Content a request
+names is retained by the records naming it (§8.2), an Event is immutable rather than
+undeletable (§6.1), and Tenant-level retention policy — export, legal deletion, Tenant
+closure — legitimately ends retention for content a committed request depends on. A
+reconstruction that finds a named Event or `ContentRef` no longer retained MUST fail with a
+typed error naming what is missing, and MUST NOT assemble a shorter prefix, a partial
+request, or a best-effort approximation. Losing content is legitimate; losing it silently is
+not. A reconstruction that quietly yields a different request is worse than one that
+refuses, because the byte-compare that makes the rule above testable would then compare two
+wrong values and pass. This maps to **C13-TURN-MODEL-INPUT-RETENTION-LOSS**.
 
 Mid-turn input uses `turn.deliverEvent`: a lease-fenced operation appending an Event
 to the running Turn's inbox; hosts MAY implement delivery as "the durable log is the
@@ -3287,9 +3318,11 @@ A conforming implementation provides:
 - **C13-TURN-ADMISSION-HANDLE** An executor may return a mediated Invocation's admission identity in the model's tool position without changing admission, and a spawn's `delegate` Receipt carries the child RunRef, never the child's result.
 - **C13-TURN-CANCEL-INBOX** Mid-turn delivery appends to the running Turn's lease-fenced inbox, cancellation is the reserved `turn.cancel` Event, and a conforming executor observes it between steps and stops committing.
 - **C13-TURN-EXACT-LEASE** Turn leases are exact-Turn.
+- **C13-TURN-FACET-SET-STABLE** A Turn's FacetSet is exactly the refs its immutable TurnPlacementSnapshot names and its membership does not change for the Turn's lifetime, while capture fixes membership only: every use of a member re-authorizes under §3.4, so a Grant revoked mid-Turn severs the capability without changing the set the Turn composes.
 - **C13-TURN-LEASE-EXPIRY** Every lease claim, renew, or reclaim requires a future `expiresAt`, and reclaim additionally requires the recorded expiry to be at or before now.
 - **C13-TURN-MODEL-CALL** A model call happens only inside a Turn.
 - **C13-TURN-MODEL-INPUT-RECONSTRUCTABLE** The executor seam exposes a reconstruction that yields a model call's exact request — assembled prompt sections in final order, the operation catalog as offered, and every inbox Event admitted before the call — from records the Turn has already committed, inline or by `ContentRef`, and the call issues that reconstruction's output rather than a separately assembled value.
+- **C13-TURN-MODEL-INPUT-RETENTION-LOSS** A reconstruction whose named Event or `ContentRef` is no longer retained fails with a typed error naming what is missing rather than assembling a shorter prefix, a partial request, or a best-effort approximation.
 - **C13-TURN-LIFECYCLE** Turns implement the complete lifecycle table.
 - **C13-TURN-NO-RETRY** The closed Turn lifecycle contains no retry transition.
 - **C13-TURN-NO-RETRY-RUNTIME** Runtime integration contains no Turn retry operation.
