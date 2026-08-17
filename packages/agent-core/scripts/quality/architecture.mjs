@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
 import { basename, relative, resolve } from "node:path";
-import ts from "typescript-api";
+import * as ts from "typescript/unstable/ast";
+import { hasModifier, sourceFiles } from "./compiler.mjs";
 import {
     artifactRoot,
     assertArray,
@@ -51,16 +51,9 @@ const vocabularies = new Map();
 const permits = await loadPermits(options.permits);
 const observed = new Map();
 
-for (const path of files) {
-    const source = await readFile(path, "utf8");
+for (const [path, parsed] of sourceFiles(files)) {
+    const source = parsed.text;
     const file = portable(relative(options.root, path));
-    const parsed = ts.createSourceFile(
-        path,
-        source,
-        ts.ScriptTarget.Latest,
-        true,
-        scriptKind(path)
-    );
     const testFile = file.includes("/test/") || file.startsWith("test/");
     checkWeakTypes(parsed, source, file, testFile);
     if (testFile) checkTests(parsed, file);
@@ -222,7 +215,7 @@ function checkWeakTypes(parsed, source, file, testFile) {
         if (node.kind === ts.SyntaxKind.UnknownKeyword && !narrowsExplicitly(node))
             record("unknown", node);
         if (ts.isNonNullExpression(node)) record("non-null", node);
-        if (ts.isTypeAssertionExpression(node)) record("assertion", node);
+        if (ts.isTypeAssertion(node)) record("assertion", node);
         if (ts.isAsExpression(node) && !isConstAssertion(node)) record("assertion", node);
     });
     const suppression = testFile ? SUPPRESSION : SOURCE_SUPPRESSION;
@@ -272,8 +265,8 @@ function weakDeclarationName(node, source) {
             ts.isInterfaceDeclaration(node) ||
             ts.isTypeAliasDeclaration(node) ||
             ts.isPropertyDeclaration(node) ||
-            ts.isPropertySignature(node) ||
-            ts.isParameter(node) ||
+            ts.isPropertySignatureDeclaration(node) ||
+            ts.isParameterDeclaration(node) ||
             ts.isVariableDeclaration(node)) &&
         node.name !== undefined
     ) {
@@ -293,9 +286,9 @@ function weakAnchorSource(node, source) {
     const owner = current.parent;
     if (
         owner !== undefined &&
-        (ts.isParameter(owner) ||
+        (ts.isParameterDeclaration(owner) ||
             ts.isPropertyDeclaration(owner) ||
-            ts.isPropertySignature(owner) ||
+            ts.isPropertySignatureDeclaration(owner) ||
             ts.isVariableDeclaration(owner) ||
             ts.isTypeAliasDeclaration(owner))
     ) {
@@ -327,7 +320,7 @@ function isConstAssertion(node) {
 // predicate or assertion signature is narrowed by the validator that declares it.
 function narrowsExplicitly(node) {
     const parameter = node.parent;
-    if (parameter === undefined || !ts.isParameter(parameter)) return false;
+    if (parameter === undefined || !ts.isParameterDeclaration(parameter)) return false;
     if (!ts.isIdentifier(parameter.name)) return false;
     const owner = parameter.parent;
     const predicate = owner?.type;
@@ -606,13 +599,6 @@ function extendsError(node) {
     );
 }
 
-function hasModifier(node, kind) {
-    return (
-        ts.canHaveModifiers(node) &&
-        (ts.getModifiers(node) ?? []).some((modifier) => modifier.kind === kind)
-    );
-}
-
 function freezesThis(constructor) {
     let found = false;
     visit(constructor, (node) => {
@@ -629,7 +615,11 @@ function freezesThis(constructor) {
 }
 
 function isRawIdDeclaration(node, source) {
-    if (!ts.isPropertyDeclaration(node) && !ts.isPropertySignature(node) && !ts.isParameter(node))
+    if (
+        !ts.isPropertyDeclaration(node) &&
+        !ts.isPropertySignatureDeclaration(node) &&
+        !ts.isParameterDeclaration(node)
+    )
         return false;
     if (node.name === undefined || node.type === undefined) return false;
     return (
@@ -685,10 +675,6 @@ function visit(node, inspect) {
 
 function isTypeScript(path) {
     return /\.(?:[cm]?ts|tsx)$/.test(path) && !/\.d\.[cm]?ts$/.test(path);
-}
-
-function scriptKind(path) {
-    return path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
 }
 
 async function loadBaseline(path) {
