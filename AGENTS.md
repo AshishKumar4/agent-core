@@ -226,6 +226,24 @@ The codebase is deliberately object-oriented with deep modules. Keep it that way
 - Every surviving `any`, cast, `!`, `unknown`, or suppression is counted per file in
   `artifacts/quality/weak-type-permits.json` with the reason it stands. The count is
   exact: a new escape fails `ACQ-TYPE`, and a permit left behind by a fix fails it too.
+- **Two TypeScript artifacts, one seam.** `typescript` is 7.x and typechecks the code:
+  `tsc --noEmit` is the `types` gate and the product source passes it. `typescript-api` is
+  `npm:typescript@6.0.3` and is the compiler API every AST tool imports — the architecture
+  census, import boundaries, mutation inputs, discrimination, the export registry, record
+  ownership, seam discovery. Import the API from `typescript-api`, never from `typescript`,
+  and never mix the two in one file.
+  The reason is measured, not assumed. TypeScript 7's `.` export is the version string and
+  its compiler API lives behind `unstable/*` as a client to a separate native server, with
+  no in-process `createSourceFile` and no `forEachChild`. Both versions produce identical
+  trees over this project — 1,679,785 nodes and 1,658 classes across 1,100 files — and cost
+  the same in total: TypeScript 7 builds the program in 173 ms against 1,096 ms and then
+  spends 922 ms materialising nodes across the boundary against 72 ms walking them in
+  process, so 1,096 ms versus 1,171 ms end to end. The boundary is per file, not per node,
+  so it is not the bottleneck people assume.
+  So there is no performance case for moving the AST tools, and the only cost of moving
+  them is rewriting 25 files onto a surface upstream marks unstable. That trade turns
+  favourable when TypeScript 7 publishes a stable compiler API with in-process parsing;
+  re-run the two benchmarks then rather than arguing from the labels.
 
 ## Errors and observability
 

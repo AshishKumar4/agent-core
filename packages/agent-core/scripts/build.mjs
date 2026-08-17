@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "vite";
-import ts from "typescript";
+import ts from "typescript-api";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageJson = JSON.parse(await readFile(resolve(packageRoot, "package.json"), "utf8"));

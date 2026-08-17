@@ -6,7 +6,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import ts from "typescript";
+import ts from "typescript-api";
 import { parseCanonicalJson, portablePath } from "./project.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -23,7 +23,7 @@ const transpiled = ts
         compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 }
     })
     .outputText.replace(
-        'from "typescript"',
+        'from "typescript-api"',
         `from ${JSON.stringify(resolve(packageRoot, "node_modules/typescript/lib/typescript.js"))}`
     );
 const scannerDir = mkdtempSync(join(tmpdir(), "w1-scanner-"));

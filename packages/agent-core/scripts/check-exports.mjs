@@ -3,7 +3,7 @@ import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import ts from "typescript";
+import ts from "typescript-api";
 import { declarationRegistry, exportedDeclarations } from "./quality/export-registry.mjs";
 import {
     artifactRoot,

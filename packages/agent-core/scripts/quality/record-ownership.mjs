@@ -1,4 +1,4 @@
-import ts from "typescript";
+import ts from "typescript-api";
 import { resolveSourceSymbol } from "./evidence.mjs";
 import { isJsonObject, isNonEmptyString } from "./project.mjs";
 

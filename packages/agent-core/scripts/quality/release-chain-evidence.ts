@@ -1,4 +1,4 @@
-import ts from "typescript";
+import ts from "typescript-api";
 import { isNonEmptyString } from "./project.mjs";
 
 function sourceFile(source: string, path: string): ts.SourceFile {

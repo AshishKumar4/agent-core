@@ -30,7 +30,7 @@
 // ID" literals in src/identity/scope.ts, one unreachable and one killed. A mutant at
 // module scope has no enclosing symbol and so cannot be registered. Two identical sites
 // inside one symbol need `occurrence`/`sites` as well; see POSITION_FIELDS below.
-import ts from "typescript";
+import ts from "typescript-api";
 import { assertExactKeys, assertString, assertUniqueIds } from "./project.mjs";
 
 const ENTRY_FIELDS = ["file", "mutated", "mutator", "proof", "replacement", "symbol"];

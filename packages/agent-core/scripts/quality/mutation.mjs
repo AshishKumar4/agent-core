@@ -28,7 +28,7 @@
 // ones the register says nothing about, and the difference is exactly the entries the
 // register carries for that area.
 import { spawnSync } from "node:child_process";
-import ts from "typescript";
+import ts from "typescript-api";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { mutationFingerprint, sourceAreas } from "./mutation-inputs.mjs";

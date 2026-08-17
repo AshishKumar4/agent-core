@@ -1,4 +1,4 @@
-import ts from "typescript";
+import ts from "typescript-api";
 import { assertObject, assertOneOf } from "./project.mjs";
 
 const declarationKinds = [

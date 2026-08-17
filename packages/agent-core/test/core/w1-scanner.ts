@@ -1,7 +1,7 @@
 // The W1 TypeError-taxonomy scanner: a TypeScript-AST census of every Error/TypeError
 // construction in the audited sources. Shared by the conformance test and the
 // taxonomy regenerator so the census semantics cannot drift between them.
-import ts from "typescript";
+import ts from "typescript-api";
 
 export type TypeErrorClassification =
     "constructor-shape" | "codec-input-shape" | "programmer-contract";

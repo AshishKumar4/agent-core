@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { posix, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import ts from "typescript";
+import ts from "typescript-api";
 import {
     collectFiles,
     isJsonObject,

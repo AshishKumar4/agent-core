@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import ts from "typescript";
+import ts from "typescript-api";
 import { parseCanonicalJson, portablePath } from "../../agent-core/scripts/quality/project.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");

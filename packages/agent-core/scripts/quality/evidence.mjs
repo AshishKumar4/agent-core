@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { relative, resolve, sep } from "node:path";
-import ts from "typescript";
+import ts from "typescript-api";
 import { packageRoot, parseCanonicalJson, portablePath, reportRoot, repositoryRoot } from "./project.mjs";
 
 export function createProgram() {

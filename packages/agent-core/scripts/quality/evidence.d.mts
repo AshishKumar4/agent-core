@@ -1,4 +1,4 @@
-import type ts from "typescript";
+import type ts from "typescript-api";
 
 import type { JsonValue } from "./project.mjs";
 

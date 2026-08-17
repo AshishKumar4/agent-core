@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import ts from "typescript";
+import ts from "typescript-api";
 import { isJsonObject, isNonEmptyString, parseCanonicalJson } from "./quality/project.mjs";
 
 const CROSS_CONTEXT_RULE = "cross-context-import";

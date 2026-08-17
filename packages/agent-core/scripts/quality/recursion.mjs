@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { relative, resolve } from "node:path";
 import { dirname, normalize } from "node:path/posix";
-import ts from "typescript";
+import ts from "typescript-api";
 import { collectFiles, packageRoot, portable } from "./project.mjs";
 
 const forbiddenInvocation =
@@ -22,6 +22,7 @@ const checkerEntrypoints = new Set([
         "discrimination",
         "doctrine",
         "format",
+        "gate-integrity",
         "governance",
         "integration",
         "invariants",

@@ -1,6 +1,6 @@
 import { basename, relative, resolve } from "node:path";
 import { readFile } from "node:fs/promises";
-import ts from "typescript";
+import ts from "typescript-api";
 import {
     artifactRoot,
     assertFlatFragmentNames,

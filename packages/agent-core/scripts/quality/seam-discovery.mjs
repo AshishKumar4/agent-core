@@ -1,5 +1,5 @@
 import { relative, resolve } from "node:path";
-import ts from "typescript";
+import ts from "typescript-api";
 import { packageRoot } from "./project.mjs";
 
 const CONTRACT_NAME = /(?:Port|Store|Persistence)$/u;
