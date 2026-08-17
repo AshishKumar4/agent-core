@@ -30,7 +30,8 @@
 // ID" literals in src/identity/scope.ts, one unreachable and one killed. A mutant at
 // module scope has no enclosing symbol and so cannot be registered. Two identical sites
 // inside one symbol need `occurrence`/`sites` as well; see POSITION_FIELDS below.
-import ts from "typescript-api";
+import * as ts from "typescript/unstable/ast";
+import { parseSource as parseText } from "./compiler.mjs";
 import { assertExactKeys, assertString, assertUniqueIds } from "./project.mjs";
 
 const ENTRY_FIELDS = ["file", "mutated", "mutator", "proof", "replacement", "symbol"];
@@ -257,18 +258,18 @@ function anchoredNodes(source, declarations, mutated) {
     const found = [];
     const walk = (node) => {
         if (normalizeSource(node.getText(source)) === mutated) found.push(node);
-        ts.forEachChild(node, walk);
+        node.forEachChild(walk);
     };
-    for (const declaration of declarations) ts.forEachChild(declaration, walk);
+    for (const declaration of declarations) declaration.forEachChild(walk);
     return found.sort((left, right) => left.getStart(source) - right.getStart(source));
 }
 
 function parseSource(file, text) {
-    return ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    return parseText(file, text);
 }
 
 function offsetOf(source, position) {
-    return ts.getPositionOfLineAndCharacter(source, position.line - 1, position.column - 1);
+    return source.getPositionOfLineAndCharacter(position.line - 1, position.column - 1);
 }
 
 // Every declaration reachable at exactly `symbol`. Overload signatures share one path, so
@@ -276,7 +277,7 @@ function offsetOf(source, position) {
 function declarationsNamed(source, symbol) {
     const found = [];
     const walk = (node, path) => {
-        ts.forEachChild(node, (child) => {
+        node.forEachChild((child) => {
             const name = declarationName(source, child);
             const next = name === undefined ? path : [...path, name];
             if (name !== undefined && next.join(".") === symbol) found.push(child);

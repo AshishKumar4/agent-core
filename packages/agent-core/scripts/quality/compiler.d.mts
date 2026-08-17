@@ -1,0 +1,19 @@
+import type { Node, SourceFile, SyntaxKind } from "typescript/unstable/ast";
+import type { CompilerOptions, Diagnostic, Project } from "typescript/unstable/sync";
+
+export function sourceFiles(paths: readonly string[]): Map<string, SourceFile>;
+export function sourceFile(path: string): SourceFile | undefined;
+export function parseSource(name: string, text: string): SourceFile;
+export function syntaxErrors(path: string): readonly Diagnostic[];
+export function forget(paths: readonly string[]): void;
+export function openProject(options: {
+    files: readonly string[];
+    extend?: string;
+    compilerOptions?: CompilerOptions | Record<string, unknown>;
+}): Project;
+export function configuredProject(path: string): Project;
+export function configuration(path: string): {
+    options: Record<string, unknown>;
+    fileNames: string[];
+};
+export function hasModifier(node: Node, kind: SyntaxKind): boolean;

@@ -69,9 +69,6 @@ importers:
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
-      typescript-api:
-        specifier: npm:typescript@6.0.3
-        version: typescript@6.0.3
       vite:
         specifier: ^8.1.0
         version: 8.1.0(@types/node@26.0.1)(esbuild@0.28.1)(yaml@2.9.0)
@@ -103,9 +100,6 @@ importers:
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
-      typescript-api:
-        specifier: npm:typescript@6.0.3
-        version: typescript@6.0.3
       vite:
         specifier: ^8.1.0
         version: 8.1.0(@types/node@26.0.1)(esbuild@0.28.1)(yaml@2.9.0)
@@ -131,9 +125,6 @@ importers:
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
-      typescript-api:
-        specifier: npm:typescript@6.0.3
-        version: typescript@6.0.3
       vite:
         specifier: ^8.1.0
         version: 8.1.0(@types/node@26.0.1)(esbuild@0.28.1)(yaml@2.9.0)
@@ -2010,11 +2001,6 @@ packages:
   typed-rest-client@2.3.1:
     resolution: {integrity: sha512-k4kX5Up6qA68D0Cby2AK+6+vM5k3qTxe+/3FqhnHRExjY5cfbOnzjQZbP/LXleF8hVoDvDqxlgk9KK83HoBZlQ==}
     engines: {node: '>= 16.0.0'}
-
-  typescript@6.0.3:
-    resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
-    engines: {node: '>=14.17'}
-    hasBin: true
 
   typescript@7.0.2:
     resolution: {integrity: sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA==}
@@ -4001,8 +3987,6 @@ snapshots:
       qs: 6.15.1
       tunnel: 0.0.6
       underscore: 1.13.8
-
-  typescript@6.0.3: {}
 
   typescript@7.0.2:
     optionalDependencies:

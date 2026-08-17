@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
-import ts from "typescript-api";
+import * as ts from "typescript/unstable/ast";
+import { parseSource } from "../../scripts/quality/compiler.mjs";
 import { describe, expect, test } from "vitest";
 import {
     anchorKey,
@@ -108,13 +109,17 @@ describe("W1 error taxonomy", { timeout: 30_000 }, () => {
         ).toBe(true);
     });
 
-    test("contains no bare or unresolved Error construction in W1 runtime sources", { tags: "p2" }, () => {
-        const scans = taxonomy.sources.map((source) =>
-            scanSource(source, readFileSync(new URL(source, packageUrl), "utf8"))
-        );
-        expect(scans.flatMap((scan) => scan.bareErrors)).toEqual([]);
-        expect(scans.flatMap((scan) => scan.unresolved)).toEqual([]);
-    });
+    test(
+        "contains no bare or unresolved Error construction in W1 runtime sources",
+        { tags: "p2" },
+        () => {
+            const scans = taxonomy.sources.map((source) =>
+                scanSource(source, readFileSync(new URL(source, packageUrl), "utf8"))
+            );
+            expect(scans.flatMap((scan) => scan.bareErrors)).toEqual([]);
+            expect(scans.flatMap((scan) => scan.unresolved)).toEqual([]);
+        }
+    );
 
     test.each<readonly [string, string, number, number]>([
         ["direct new", "return new TypeError('direct')", 1, 0],
@@ -277,13 +282,7 @@ function splitTestCase(reference: string): { readonly path: string; readonly nam
 }
 
 function declaredTestNames(path: string): ReadonlySet<string> {
-    const sourceFile = ts.createSourceFile(
-        path,
-        readFileSync(new URL(path, packageUrl), "utf8"),
-        ts.ScriptTarget.Latest,
-        true,
-        ts.ScriptKind.TS
-    );
+    const sourceFile = parseSource(path, readFileSync(path, "utf8"));
     const names = new Set<string>();
     const visit = (node: ts.Node): void => {
         if (ts.isCallExpression(node) && isTestCall(node)) {
@@ -294,7 +293,7 @@ function declaredTestNames(path: string): ReadonlySet<string> {
             )
                 names.add(name.text);
         }
-        ts.forEachChild(node, visit);
+        node.forEachChild(visit);
     };
     visit(sourceFile);
     return names;

@@ -1,7 +1,8 @@
 // The W1 TypeError-taxonomy scanner: a TypeScript-AST census of every Error/TypeError
 // construction in the audited sources. Shared by the conformance test and the
 // taxonomy regenerator so the census semantics cannot drift between them.
-import ts from "typescript-api";
+import * as ts from "typescript/unstable/ast";
+import { parseSource } from "../../scripts/quality/compiler.mjs";
 
 export type TypeErrorClassification =
     "constructor-shape" | "codec-input-shape" | "programmer-contract";
@@ -53,13 +54,7 @@ const BARE_ERROR = 2;
 const DYNAMIC_ERROR = 4;
 
 export function scanSource(source: string, text: string): SourceScan {
-    const sourceFile = ts.createSourceFile(
-        source,
-        text,
-        ts.ScriptTarget.Latest,
-        true,
-        ts.ScriptKind.TS
-    );
+    const sourceFile = parseSource(source, text);
     const bindings = collectBindings(sourceFile);
     const typeErrors: ErrorConstruction[] = [];
     const bareErrors: string[] = [];
@@ -109,7 +104,7 @@ export function scanSource(source: string, text: string): SourceScan {
                 record(node, resolveErrorConstructor(node.expression, node, bindings, new Set()));
             }
         }
-        ts.forEachChild(node, visit);
+        node.forEachChild(visit);
     };
     visit(sourceFile);
     return { typeErrors, bareErrors, unresolved };
@@ -133,9 +128,10 @@ function collectBindings(
             return;
         }
         for (const element of name.elements) {
-            if (ts.isOmittedExpression(element)) continue;
+            if (ts.isOmittedExpression(element) || element.name === undefined) continue;
+            const declaredName = element.propertyName ?? element.name;
             const property = ts.isObjectBindingPattern(name)
-                ? bindingPropertyName(element.propertyName ?? element.name)
+                ? bindingPropertyName(declaredName)
                 : undefined;
             const elementBinding: Binding =
                 property === undefined ? binding : { ...binding, destructuredProperty: property };
@@ -155,7 +151,7 @@ function collectBindings(
                 nearestScope(node.parent, blockScoped ? "lexical" : "function"),
                 node.initializer === undefined ? {} : { initializer: node.initializer }
             );
-        } else if (ts.isParameter(node)) {
+        } else if (ts.isParameterDeclaration(node)) {
             registerName(node.name, nearestScope(node.parent, "function"), {});
         } else if (ts.isFunctionDeclaration(node) && node.name !== undefined) {
             scope(nearestScope(node.parent, "lexical")).set(node.name.text, {});
@@ -179,7 +175,7 @@ function collectBindings(
         } else if (ts.isCatchClause(node) && node.variableDeclaration !== undefined) {
             registerName(node.variableDeclaration.name, node, {});
         }
-        ts.forEachChild(node, visit);
+        node.forEachChild(visit);
     };
     visit(sourceFile);
     return scopes;
@@ -285,21 +281,21 @@ function lookupBinding(
 
 function nearestScope(node: ts.Node, kind: "lexical" | "function"): ts.Node {
     for (let current: ts.Node | undefined = node; current !== undefined; current = current.parent) {
-        if (ts.isSourceFile(current) || ts.isFunctionLike(current)) return current;
+        if (ts.isSourceFile(current) || ts.isFunctionLikeDeclaration(current)) return current;
         if (kind === "lexical" && isLexicalScope(current)) return current;
     }
     throw new TypeError("Taxonomy scanner declaration has no lexical scope");
 }
 
 function isScope(node: ts.Node): boolean {
-    return ts.isSourceFile(node) || ts.isFunctionLike(node) || isLexicalScope(node);
+    return ts.isSourceFile(node) || ts.isFunctionLikeDeclaration(node) || isLexicalScope(node);
 }
 
 function isLexicalScope(node: ts.Node): boolean {
     return (
         ts.isBlock(node) ||
         ts.isCatchClause(node) ||
-        ts.isClassLike(node) ||
+        ts.isClassLikeDeclaration(node) ||
         ts.isForStatement(node) ||
         ts.isForInStatement(node) ||
         ts.isForOfStatement(node) ||
@@ -312,7 +308,7 @@ function unwrap(expression: ts.Expression): ts.Expression {
     while (
         ts.isParenthesizedExpression(current) ||
         ts.isAsExpression(current) ||
-        ts.isTypeAssertionExpression(current) ||
+        ts.isTypeAssertion(current) ||
         ts.isNonNullExpression(current) ||
         ts.isSatisfiesExpression(current)
     ) {
@@ -353,8 +349,11 @@ function isUnshadowedReflectConstruct(
     );
 }
 
+// TypeScript 7 types a call's callee as Expression rather than LeftHandSideExpression,
+// and the predicate narrows by guard rather than by the parameter's type, so widening the
+// parameter costs nothing and asserting the narrower one would be a cast.
 function isCallOrApply(
-    expression: ts.LeftHandSideExpression
+    expression: ts.Expression
 ): expression is ts.PropertyAccessExpression | ts.ElementAccessExpression {
     const property = ts.isPropertyAccessExpression(expression)
         ? expression.name.text
@@ -390,14 +389,14 @@ function staticPropertyName(expression: ts.Expression): string | undefined {
 
 function declarationContainer(node: ts.Node, sourceFile: ts.SourceFile): string {
     for (let current = node.parent; current !== undefined; current = current.parent) {
-        if (ts.isConstructorDeclaration(current) && ts.isClassLike(current.parent)) {
+        if (ts.isConstructorDeclaration(current) && ts.isClassLikeDeclaration(current.parent)) {
             return `${className(current.parent, sourceFile)}.constructor`;
         }
         if (
             (ts.isMethodDeclaration(current) ||
                 ts.isGetAccessorDeclaration(current) ||
                 ts.isSetAccessorDeclaration(current)) &&
-            ts.isClassLike(current.parent)
+            ts.isClassLikeDeclaration(current.parent)
         ) {
             return `${className(current.parent, sourceFile)}.${current.name.getText(sourceFile)}`;
         }

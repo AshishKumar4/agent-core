@@ -1,8 +1,9 @@
-import ts from "typescript-api";
+import * as ts from "typescript/unstable/ast";
+import { parseSource } from "./compiler.mjs";
 import { isNonEmptyString } from "./project.mjs";
 
 function sourceFile(source: string, path: string): ts.SourceFile {
-    return ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+    return parseSource(path, source);
 }
 
 function stringLiteral(node: ts.Node | undefined): string | undefined {
@@ -42,7 +43,7 @@ export function declaredOracleOperations(source: string, path: string): Readonly
                 operations.add(operation);
             }
         }
-        ts.forEachChild(node, visit);
+        node.forEachChild(visit);
     };
     visit(file);
     if (declarations === 0 || operations.size === 0) {
@@ -69,7 +70,7 @@ export function declaredContractBackings(source: string, path: string): Readonly
             }
             backings.add(backing);
         }
-        ts.forEachChild(node, visit);
+        node.forEachChild(visit);
     };
     visit(file);
     return backings;

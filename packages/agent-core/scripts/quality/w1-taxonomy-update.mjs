@@ -2,11 +2,9 @@
 // live scan of the audited sources. Existing entries are matched by anchor identity and
 // keep their id, classification, rationale, and testedBy; a scan site with no matching
 // entry fails the run and must be classified by a reviewer before the artifact updates.
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-import ts from "typescript-api";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { parseCanonicalJson, portablePath } from "./project.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -17,20 +15,12 @@ const coverage = readFileSync(
 );
 const sources = [...coverage.matchAll(/^src\/[^\n]+\.ts$/gm)].map((match) => match[0]);
 
-const scannerSource = readFileSync(resolve(packageRoot, "test/core/w1-scanner.ts"), "utf8");
-const transpiled = ts
-    .transpileModule(scannerSource, {
-        compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 }
-    })
-    .outputText.replace(
-        'from "typescript-api"',
-        `from ${JSON.stringify(resolve(packageRoot, "node_modules/typescript/lib/typescript.js"))}`
-    );
-const scannerDir = mkdtempSync(join(tmpdir(), "w1-scanner-"));
-const scannerPath = join(scannerDir, "scanner.mjs");
-writeFileSync(scannerPath, transpiled);
-const { anchorKey, scanSource } = await import(scannerPath);
-rmSync(scannerDir, { recursive: true, force: true });
+// Node runs TypeScript directly, so the scanner is imported as written. It used to be
+// transpiled into a temporary module with its compiler import rewritten to an absolute
+// path, which TypeScript 7 could not do anyway: there is no in-process transpiler.
+const { anchorKey, scanSource } = await import(
+    pathToFileURL(resolve(packageRoot, "test/core/w1-scanner.ts")).href
+);
 
 const taxonomy = parseCanonicalJson(readFileSync(artifactPath, "utf8"), portablePath(artifactPath));
 const previous = new Map(taxonomy.entries.map((entry) => [anchorKey(entry), entry]));

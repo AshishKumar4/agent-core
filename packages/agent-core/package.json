@@ -114,7 +114,6 @@
     "micromark-extension-gfm-strikethrough": "2.1.0",
     "micromark-extension-gfm-table": "2.1.1",
     "typescript": "^7.0.2",
-    "typescript-api": "npm:typescript@6.0.3",
     "vite": "^8.1.0",
     "vitest": "4.1.9",
     "yaml": "2.9.0"

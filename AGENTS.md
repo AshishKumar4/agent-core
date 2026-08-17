@@ -228,24 +228,28 @@ The codebase is deliberately object-oriented with deep modules. Keep it that way
 - Every surviving `any`, cast, `!`, `unknown`, or suppression is counted per file in
   `artifacts/quality/weak-type-permits.json` with the reason it stands. The count is
   exact: a new escape fails `ACQ-TYPE`, and a permit left behind by a fix fails it too.
-- **Two TypeScript artifacts, one seam.** `typescript` is 7.x and typechecks the code:
-  `tsc --noEmit` is the `types` gate and the product source passes it. `typescript-api` is
-  `npm:typescript@6.0.3` and is the compiler API every AST tool imports — the architecture
-  census, import boundaries, mutation inputs, discrimination, the export registry, record
-  ownership, seam discovery. Import the API from `typescript-api`, never from `typescript`,
-  and never mix the two in one file.
-  The reason is measured, not assumed. TypeScript 7's `.` export is the version string and
-  its compiler API lives behind `unstable/*` as a client to a separate native server, with
-  no in-process `createSourceFile` and no `forEachChild`. Both versions produce identical
-  trees over this project — 1,679,785 nodes and 1,658 classes across 1,100 files — and cost
-  the same in total: TypeScript 7 builds the program in 173 ms against 1,096 ms and then
-  spends 922 ms materialising nodes across the boundary against 72 ms walking them in
-  process, so 1,096 ms versus 1,171 ms end to end. The boundary is per file, not per node,
-  so it is not the bottleneck people assume.
-  So there is no performance case for moving the AST tools, and the only cost of moving
-  them is rewriting 25 files onto a surface upstream marks unstable. That trade turns
-  favourable when TypeScript 7 publishes a stable compiler API with in-process parsing;
-  re-run the two benchmarks then rather than arguing from the labels.
+- **One TypeScript, at 7.x, for both roles.** `tsc --noEmit` is the `types` gate, and the
+  same package is the compiler API every AST tool reads through. There is no second
+  compiler and no alias.
+  The API lives behind `unstable/*` and is a client to a separate native server, so there
+  is no in-process parser: `createSourceFile` and `forEachChild` do not exist, a file
+  becomes an AST only inside a snapshot of the server's view of the world, and a symbol's
+  declarations come back as node handles rather than nodes. All of that is owned by
+  `scripts/quality/compiler.mjs`, the one module that names the compiler package. Ask it
+  for what you need — `sourceFiles` for a tree of files, `parseSource` for text with no
+  file behind it, `configuredProject` or `openProject` when you need a checker,
+  `hasModifier` because modifiers and decorators now share one array. A tool that reaches
+  past it to the compiler is a bug.
+  Two things about that API are worth knowing before you conclude they are impossible.
+  Content does not travel through `FileChangeSummary`, which carries only paths; it
+  travels through the client's virtual filesystem, which is why parsing a string needs no
+  temporary file. And an open file's text is pinned when it is opened, so re-reading a
+  path takes a close carrying the change notice and then a separate reopen.
+  Two sharp edges, both found by measuring. `getTypeArguments` panics the compiler server
+  on a type that is not a generic reference, where 6.x returned empty — guard with
+  `isTypeReference`. And the standard library ships inside
+  `@typescript/typescript-<platform>`, not `typescript/lib`, so a path pattern anchored on
+  the latter silently matches nothing.
 
 ## Errors and observability
 
