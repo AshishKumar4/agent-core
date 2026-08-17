@@ -17,10 +17,34 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-BLUEPRINT-CONVERGENCE",
+      "owner": "W4",
+      "specAnchor": "C13-BLUEPRINT-CONVERGENCE",
+      "specTextSha256": "sha256:89160ab2a72caf21f3e8250b7568413229a9a22f208319bf19d01695d79ea933",
+      "status": "planned",
+      "prerequisites": [
+        "C13-BLUEPRINT-REMATERIALIZE",
+        "C13-BLUEPRINT-VALIDATE-BEFORE-LOAD",
+        "C13-FACET-DEPENDENCY-ORDER",
+        "C13-PACKAGE-DEPENDENCY-DECLARED"
+      ],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "Nothing built today discriminates convergence from the idempotence C13-BLUEPRINT-REMATERIALIZE already verifies. Its selector proves re-applying one unchanged Blueprint reconciles to a semantic no-op, which is f(f(x)) = f(x) for one input; path-independence needs a differential harness that applies one Blueprint to a Scope by at least two admissible issue orders and from at least two different prior managed states, then asserts one identical Blueprint-managed record set once the pending set is empty. An implementation that reached the declared state only from an empty Scope must fail it",
+        "The pending set has to be carried by the reconciliation outcome rather than computed alongside it, so that converged is that set being empty rather than a separate report a host can get wrong. Verification requires the outcome type to hold the obligations and a mutation that states convergence while an obligation stands to break a cited test; a boolean flag set next to a nonempty obligation list satisfies the prose and must not satisfy the atom",
+        "Each of the four stated deferrals needs its own obligation-shape evidence — record, reason, and discharging condition all named: a reliance hold under C13-FACET-DEPENDENCY-ORDER, each draining Invocation item under C13-FACET-WITHDRAWAL-DRAIN, each unadmitted RouteReservation terminalized by a rejected RouteDelivery, and a Package retained under SPEC 5.2. No current test exercises any of them, and the Package case additionally has no coverage of the Session, tree-checkpoint, and Snapshot pin holders",
+        "The rejected-reconciliation clause is what stops converging from becoming an excuse, so it needs the strongest negative evidence: a divergence expressible as no pending obligation — a withdrawal set the host cannot compute, or a retired Slot declaration still holding an entry attributed to a retained Facet — must be refused at validation before package code loads, on the no-code-loaded terms C13-BLUEPRINT-VALIDATE-BEFORE-LOAD already tests, and must never be admitted and left pending",
+        "The managed-set scoping needs its own test because it is what makes the endpoint a function at all: an adopted manual edit must appear as a change to the Blueprint, and a host that marks an adopted record Blueprint-managed without a declaring Blueprint must be rejected. src/definition/materializer.ts#LocalMaterializer marks managed state but has no adoption path to discriminate",
+        "Recorded honestly rather than deferred: this rule's paragraph tightened the SPEC 9.3 retention condition from 'no Run references it' to the full SPEC 5.2 pin-holder set, so C13-BLUEPRINT-RUN-PINS now carries anchored text whose Session, Turn, tree-checkpoint, and Snapshot cases its two verified selectors do not exercise. W4 owes that atom a pin-holder test, and this atom cannot be verified while the condition it names is under-covered by its neighbour"
+      ]
+    },
+    {
       "id": "C13-BLUEPRINT-REMATERIALIZE",
       "owner": "W4",
       "specAnchor": "C13-BLUEPRINT-REMATERIALIZE",
-      "specTextSha256": "sha256:9370f62fa1b6ad847608a58c870f8d99cd36b86177c28f4515523684f8abbc79",
+      "specTextSha256": "sha256:247f8669d892f150409bf8cce3f11d73ac88a65656a036788bb17700d2794a2d",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/definition/materializer.ts#LocalMaterializer"],
@@ -35,7 +59,7 @@
       "id": "C13-BLUEPRINT-RUN-PINS",
       "owner": "W4",
       "specAnchor": "C13-BLUEPRINT-RUN-PINS",
-      "specTextSha256": "sha256:445456269d831e73beeb9b217aa5a1af6db1c14b3fc7c22179c8e50118b80b00",
+      "specTextSha256": "sha256:e12d705289dc0aa90cee549b11683ba83819189d872e58780ceb57e6eafe5017",
       "status": "verified",
       "prerequisites": [],
       "sourceSymbols": ["src/definition/materializer.ts#LocalMaterializer"],
@@ -94,6 +118,24 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
+    },
+    {
+      "id": "C13-PACKAGE-DEPENDENCY-DECLARED",
+      "owner": "W4",
+      "specAnchor": "C13-PACKAGE-DEPENDENCY-DECLARED",
+      "specTextSha256": "sha256:9e2876d6871de1f5a33e0fa3c518e61164df5f794c1f4be75e0a53e28a700c34",
+      "status": "planned",
+      "prerequisites": ["C13-BLUEPRINT-VALIDATE-BEFORE-LOAD", "C13-RUN-PINS-PACKAGES"],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The relation does not exist as data anywhere: no Package record, manifest, or codec carries a dependency set, so the first obligation is the declared `{ id: PackageId, range: CompatRange }` set on the Package shape, its codec with decode rejection of a duplicate id, and a restore round-trip through the stores the Package shape already uses",
+        "The closure claim is the load-bearing one and is currently unfalsifiable. C13-RUN-PINS-PACKAGES rejects an incomplete or duplicated closure but compares it against nothing, so verification needs a check that RunPins.packages equals the transitive closure of the declared relation from the Blueprint's packages list resolved to exact versions, and a mutation supplying a complete-looking closure that is not that closure must be rejected rather than accepted",
+        "Pre-load rejection needs two negative tests on the no-code-loaded terms C13-BLUEPRINT-VALIDATE-BEFORE-LOAD already establishes: an unsatisfiable range, and a dependency on a Package the Blueprint does not install, each rejecting the Blueprint with no package code resolved or evaluated",
+        "The non-derivation clause is checkable today and must be tested rather than assumed: a dependency names a PackageId and a BindingRequirement names a FacetPackageId (src/facets/manifest.ts#BindingRequirement), which C13-RUN-PIN-IDENTITY-TYPES already forbids converting or comparing by string value. Evidence must show a binding requirement never becomes a dependency and a dependency never satisfies a binding requirement",
+        "Termination under a cyclic declared relation needs a mutual-dependency pair proving the closure computation is finite and unique by PackagePin.id, because this rule deliberately does not reject a package-level cycle — only the reliance cycle of C13-FACET-DEPENDENCY-ORDER is rejected, and an implementation that conflated the two relations would wrongly refuse a legitimate Blueprint"
+      ]
     },
     {
       "id": "C13-PLACEMENT-AUTHORED-BACKING",

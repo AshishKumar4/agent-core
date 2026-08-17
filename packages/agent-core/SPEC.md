@@ -1632,16 +1632,36 @@ from records that merely look sufficient — and what makes fork, resume, replay
 consequences of one implementation instead of four features each carrying its own partial
 copy of the model input. This maps to **C13-TURN-MODEL-INPUT-RECONSTRUCTABLE**.
 
-The rule above binds records that exist, and retention is not eternal. Content a request
-names is retained by the records naming it (§8.2), an Event is immutable rather than
-undeletable (§6.1), and Tenant-level retention policy — export, legal deletion, Tenant
+Committing those records precedes the call rather than following it. The reconstruction's
+inputs — the RunCommits carrying the assembled sections and the catalog as offered, and the
+record naming every inbox Event admitted before the call — MUST be durable before the
+request is dispatched, and the seam's lease commit handle is what makes them so: the
+dispatch waits on that commit. A host that assembles, dispatches, and then commits
+satisfies the rule at rest while violating it throughout the interval between the two,
+because a crash there leaves a request the model has already read and no committed record
+describes, and nothing repairs it afterward — the only copy of that request was the
+executor memory the crash discarded. §7.4 already orders immutable write-ahead evidence
+before an item crosses the effect boundary, and this is that discipline for the model call.
+The ordering is fail-closed: a commit the Turn's lease rejects (§5.3), a store that is
+unavailable, or a commit whose outcome is unknown prevents dispatch, and the Turn either
+reaches durability on a further attempt at that same commit or fails without having called
+the model. A durability failure is never grounds to proceed, because the commit exists to
+make the call accountable and a call that outruns its own record is what this rule forbids
+rather than a tolerable degradation of it. The unknown outcome is the decisive case: a host
+that dispatches on an indeterminate commit chooses the one behavior that produces an
+unrecorded model call at exactly the moment it cannot tell whether it has. This maps to
+**C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH**.
+
+The reconstructability rule binds records that exist, and retention is not eternal. Content
+a request names is retained by the records naming it (§8.2), an Event is immutable rather
+than undeletable (§6.1), and Tenant-level retention policy — export, legal deletion, Tenant
 closure — legitimately ends retention for content a committed request depends on. A
 reconstruction that finds a named Event or `ContentRef` no longer retained MUST fail with a
 typed error naming what is missing, and MUST NOT assemble a shorter prefix, a partial
-request, or a best-effort approximation. Losing content is legitimate; losing it silently is
-not. A reconstruction that quietly yields a different request is worse than one that
-refuses, because the byte-compare that makes the rule above testable would then compare two
-wrong values and pass. This maps to **C13-TURN-MODEL-INPUT-RETENTION-LOSS**.
+request, or a best-effort approximation. Losing content is legitimate; losing it silently
+is not. A reconstruction that quietly yields a different request is worse than one that
+refuses, because the byte-compare that makes reconstructability testable would then compare
+two wrong values and pass. This maps to **C13-TURN-MODEL-INPUT-RETENTION-LOSS**.
 
 Mid-turn input uses `turn.deliverEvent`: a lease-fenced operation appending an Event
 to the running Turn's inbox; hosts MAY implement delivery as "the durable log is the
@@ -3440,6 +3460,7 @@ A conforming implementation provides:
 - **C13-TURN-LEASE-EXPIRY** Every lease claim, renew, or reclaim requires a future `expiresAt`, and reclaim additionally requires the recorded expiry to be at or before now.
 - **C13-TURN-MODEL-CALL** A model call happens only inside a Turn.
 - **C13-TURN-MODEL-INPUT-RECONSTRUCTABLE** The executor seam exposes a reconstruction that yields a model call's exact request — assembled prompt sections in final order, the operation catalog as offered, and every inbox Event admitted before the call — from records the Turn has already committed, inline or by `ContentRef`, and the call issues that reconstruction's output rather than a separately assembled value.
+- **C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH** The records a model call's reconstruction depends on are durable before the call is dispatched, and a rejected, unavailable, or indeterminate commit prevents dispatch rather than proceeding with an unrecorded request.
 - **C13-TURN-MODEL-INPUT-RETENTION-LOSS** A reconstruction whose named Event or `ContentRef` is no longer retained fails with a typed error naming what is missing rather than assembling a shorter prefix, a partial request, or a best-effort approximation.
 - **C13-TURN-LIFECYCLE** Turns implement the complete lifecycle table.
 - **C13-TURN-NO-RETRY** The closed Turn lifecycle contains no retry transition.

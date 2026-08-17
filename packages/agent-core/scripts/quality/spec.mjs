@@ -957,7 +957,8 @@ function ownerFor(id) {
         ["C13-CODEC-", "W1"],
         ["C13-PROTOCOL-", "W1"],
         ["C13-OWNERSHIP-", "W0"],
-        ["C13-BLUEPRINT-", "W4"]
+        ["C13-BLUEPRINT-", "W4"],
+        ["C13-PACKAGE-", "W4"]
     ];
     if (id.startsWith("C13-ADV-")) return adversarialOwner(id);
     const owner = prefixOwners.find(([prefix]) => id.startsWith(prefix))?.[1];

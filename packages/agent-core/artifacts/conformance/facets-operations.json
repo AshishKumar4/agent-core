@@ -174,6 +174,26 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-FACET-DEPENDENCY-ORDER",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-DEPENDENCY-ORDER",
+      "specTextSha256": "sha256:a40a5f1aed92083f9a8898bc271e2c164e77dc834d0bd45b7336b40046a9dfe4",
+      "status": "planned",
+      "prerequisites": ["C13-AUTH-BINDING-RESOLUTION", "C13-FACET-WITHDRAWAL-EXACT"],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The declaration half exists and is already better keyed than a nominal string: src/facets/manifest.ts#BindingRequirement carries (name: BindingName, facet: FacetPackageId, compat: CompatRange) and round-trips through the facet manifest codec. Nothing consumes it as an activation precondition — no facet runtime in src/facets gates start on requirement resolution, so the whole ordering half of this atom is unbuilt",
+        "The activation gate needs a host that resolves every BindingRequirement to a live ResolvedFacet before calling start, and four discriminating mutations must each break a cited test: calling start with one requirement unresolved, starting a Facet degraded rather than leaving it inactive, reporting an unresolvable requirement as a runtime failure instead of a rejected install, and admitting a resolution whose ResolutionStamp is not current under C13-AUTH-RESOLUTION-LIFETIME",
+        "The reliance guard needs the withdrawal path of C13-FACET-WITHDRAWAL-EXACT first, then evidence that withdrawing a relied-upon Facet records a pending obligation under the C13-BLUEPRINT-CONVERGENCE shape instead of retiring its records, that the obligation discharges exactly when the last relying Facet goes inactive, and that the withdrawal is never rejected and never silently completed while reliance stands",
+        "The teardown-window clause is the clause most easily lost and needs its own two-Facet test: a dependent whose teardown its provider's withdrawal triggered must successfully resolve that provider from inside its own stop, which means the provider stays resolvable for the whole of its own teardown rather than being unresolvable from the first retirement",
+        "Exact-FacetRef keying needs an adversarial substitution: a second installed Facet answering the same BindingName and compatible FacetPackageId must neither satisfy an unresolved requirement nor discharge an existing reliance, so reliance tracks the exact provider a dependent reached rather than the capability name it asked for",
+        "Pre-load rejection is a definition-plane obligation with no current implementation: the Blueprint validator holds no reliance graph, so a reliance cycle and a retained Facet whose requirement names a withdrawn Facet cannot be refused today. Verification requires that graph built from the Blueprint's declared Bindings and the installed manifests' requirements, plus the no-code-loaded assertion C13-BLUEPRINT-VALIDATE-BEFORE-LOAD already tests against",
+        "The independence-from-the-child-tree clause needs discrimination against the existing tree ordering: a Facet that is a child of the withdrawing Facet but relies on nothing it provides must not be held, and a Facet that relies on it but is not its child must be, so an implementation cannot satisfy this atom by reusing the stop-children-first order alone"
+      ]
+    },
+    {
       "id": "C13-FACET-DISPOSAL",
       "owner": "W3",
       "specAnchor": "C13-FACET-DISPOSAL",
