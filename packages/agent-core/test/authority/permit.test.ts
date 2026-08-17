@@ -2387,3 +2387,333 @@ function caughtAgentCoreError(run: () => void): AgentCoreError {
     }
     return caught;
 }
+
+// §3.4 rule 7 makes permit issuance the final authority-admission linearization point.
+// `AuthorityPermitIssuer.issue` holds one clause per mutation class the rule names, so each
+// class is measured with the other two exact: a single combined revocation cannot tell them
+// apart and passes a mechanism that enforces only one of the three.
+type LinearizedMutation = "none" | "revokedGrant" | "bindingGeneration" | "pathEpoch";
+
+const LINEARIZED_MUTATIONS: readonly Exclude<LinearizedMutation, "none">[] = [
+    "revokedGrant",
+    "bindingGeneration",
+    "pathEpoch"
+];
+
+const advancedPath = new PathEpochEvidence([
+    new ScopeEpoch(ScopeRef.tenant(tenant), 5),
+    new ScopeEpoch(workspaceScope, 9)
+]);
+
+function tenantDecision(
+    request: TargetAuthorityPermitRequest,
+    checkedAt: Date,
+    mutated: LinearizedMutation
+): AuthorityCheckEvidence {
+    const revoked = mutated === "revokedGrant";
+    return new AuthorityCheckEvidence(
+        tenant,
+        issuerActor,
+        request.authority.digest(),
+        request.authority.binding.key,
+        mutated === "bindingGeneration"
+            ? request.authority.binding.generation + 1
+            : request.authority.binding.generation,
+        revoked ? "deny" : "allow",
+        revoked ? "revokedGrant" : "allowed",
+        revoked ? [] : [new GrantId("permit-linearized-grant")],
+        [],
+        mutated === "pathEpoch" ? advancedPath : request.expectation.pathEpochs,
+        checkedAt
+    );
+}
+
+/** Refinement inputs rule 7 names and the Tenant's own decision record binds. */
+const DECISION_BOUND_REFINEMENTS: readonly (readonly [
+    string,
+    Partial<AuthorityPermitExpectationInit>
+])[] = [
+    [
+        "target fence",
+        {
+            target: {
+                actor: targetActor,
+                fence: 12,
+                domain: new ProtectionDomain("backend", "permit-domain", "may-hold-secrets")
+            }
+        }
+    ],
+    ["attempt ordinal", { attemptOrdinal: 2 }],
+    ["arguments digest", { argumentsDigest: Digest.sha256(encodeCanonicalJson(externalArguments)) }],
+    ["whole intent", { intentDigest: digest("permit-other-whole-intent") }]
+];
+
+/**
+ * Refinement inputs rule 7 names that `AuthorityCheckRequest` does not carry, so the
+ * Tenant's decision record cannot witness them. The target's own durable request is what
+ * binds them to the admission, and that half is measured separately below.
+ */
+const REQUEST_BOUND_REFINEMENTS: readonly (readonly [
+    string,
+    Partial<AuthorityPermitExpectationInit>
+])[] = [
+    ["target claim", { claim: new ItemClaimId("permit-refinement-claim") }],
+    [
+        "reservation epoch",
+        {
+            reservation: {
+                run: new RunId("permit-run"),
+                registryEpoch: 6,
+                obligation: {
+                    kind: "invocationItem",
+                    invocation,
+                    itemIndex: 2,
+                    itemKey
+                }
+            }
+        }
+    ],
+    ["item key", { itemKey: "permit-refinement-item-key" }]
+];
+
+describe("cross-Actor authority admission linearizes on permit issuance", () => {
+    test(
+        "[C13-AUTH-MEDIATED-ADMISSION] a revocation committed before issuance blocks the permit for each linearized mutation class independently",
+        { tags: "p0" },
+        () => {
+            for (const mutated of LINEARIZED_MUTATIONS) {
+                const store = new MemoryAuthorityPermitStore(issuerActor);
+                const issuer = new TenantAuthorityPermitIssuer(store);
+                const request = targetRequestFor(expectation(), `blocked-${mutated}`);
+                const error = caughtAgentCoreError(() =>
+                    store.transaction((transaction) =>
+                        issuer.issue(
+                            transaction,
+                            request,
+                            tenantDecision(request, issuedAt, mutated),
+                            issuedAt
+                        )
+                    )
+                );
+                expect(error.code, mutated).toBe("protocol.invalid-state");
+                expect(
+                    store.transaction((transaction) => store.issued(transaction, request.nonce)),
+                    mutated
+                ).toBeUndefined();
+            }
+
+            // Control: the same rig issues when no class has moved, so the three refusals
+            // cannot be read off a rig that refuses everything.
+            const store = new MemoryAuthorityPermitStore(issuerActor);
+            const request = targetRequestFor(expectation(), "blocked-none");
+            const permit = store.transaction((transaction) =>
+                new TenantAuthorityPermitIssuer(store).issue(
+                    transaction,
+                    request,
+                    tenantDecision(request, issuedAt, "none"),
+                    issuedAt
+                )
+            );
+            expect(permit.requestDigest.equals(request.digest())).toBe(true);
+        }
+    );
+
+    test(
+        "[C13-AUTH-MEDIATED-ADMISSION] a revocation committed after issuance blocks every not-yet-issued permit and cannot cancel the admitted one",
+        { tags: "p0" },
+        async () => {
+            for (const mutated of LINEARIZED_MUTATIONS) {
+                const tenantStore = new MemoryAuthorityPermitStore(issuerActor);
+                const targetStore = new MemoryAuthorityPermitStore(targetActor);
+                const issuer = new TenantAuthorityPermitIssuer(tenantStore);
+                const expected = expectation();
+                const admitted = targetRequestFor(expected, `admitted-${mutated}`);
+                const permit = tenantStore.transaction((transaction) =>
+                    issuer.issue(
+                        transaction,
+                        admitted,
+                        tenantDecision(admitted, issuedAt, "none"),
+                        issuedAt
+                    )
+                );
+
+                const later = targetRequestFor(expected, `later-${mutated}`);
+                const blocked = caughtAgentCoreError(() =>
+                    tenantStore.transaction((transaction) =>
+                        issuer.issue(
+                            transaction,
+                            later,
+                            tenantDecision(later, issuedAt, mutated),
+                            issuedAt
+                        )
+                    )
+                );
+                expect(blocked.code, mutated).toBe("protocol.invalid-state");
+                expect(
+                    tenantStore.transaction((transaction) =>
+                        tenantStore.issued(transaction, later.nonce)
+                    ),
+                    mutated
+                ).toBeUndefined();
+
+                const authentication = await authenticate(tenantStore, permit, expected);
+                recordTargetRequest(targetStore, expected, permit.nonce);
+                targetStore.transaction((transaction) =>
+                    new StoredAuthorityPermitAdmissionPort(targetStore).consume(
+                        transaction,
+                        authentication,
+                        permit,
+                        expected,
+                        new Date(issuedAt.getTime() + 1)
+                    )
+                );
+                expect(
+                    targetStore.transaction(
+                        (transaction) => targetStore.consumed(transaction, permit.nonce)?.value
+                    ),
+                    mutated
+                ).toBe(permit.digest().value);
+            }
+        }
+    );
+
+    test(
+        "[C13-AUTH-MEDIATED-ADMISSION] the Tenant decision the permit is issued from binds the exact target fence, ordinal, arguments digest, and whole intent",
+        { tags: "p0" },
+        () => {
+            for (const [name, override] of DECISION_BOUND_REFINEMENTS) {
+                const store = new MemoryAuthorityPermitStore(issuerActor);
+                const issuer = new TenantAuthorityPermitIssuer(store);
+                const nonce = "refinement-decision";
+                const requested = targetRequestFor(expectation(), nonce);
+                const decided = targetRequestFor(expectation(override), nonce);
+                expect(decided.digest().equals(requested.digest()), name).toBe(false);
+
+                const error = caughtAgentCoreError(() =>
+                    store.transaction((transaction) =>
+                        issuer.issue(
+                            transaction,
+                            requested,
+                            tenantDecision(decided, issuedAt, "none"),
+                            issuedAt
+                        )
+                    )
+                );
+                expect(error.code, name).toBe("protocol.invalid-state");
+                expect(
+                    store.transaction((transaction) => store.issued(transaction, nonce)),
+                    name
+                ).toBeUndefined();
+            }
+        }
+    );
+
+    test(
+        "[C13-AUTH-MEDIATED-ADMISSION] the target's durable request binds the exact claim, reservation epoch, and item key the Tenant decision record cannot witness",
+        { tags: "p0" },
+        async () => {
+            for (const [name, override] of REQUEST_BOUND_REFINEMENTS) {
+                const nonce = `refinement-request-${name.replace(/ /gu, "-")}`;
+                const requested = expectation();
+                const substituted = expectation(override);
+                expect(substituted.equals(requested), name).toBe(false);
+
+                // Measured asymmetry: these three are absent from AuthorityCheckRequest, so a
+                // decision taken against one of them admits issuance under the other. The
+                // linearization is still exact because the permit carries the whole
+                // expectation and the target holds its own request.
+                const tenantStore = new MemoryAuthorityPermitStore(issuerActor);
+                const substitutedRequest = targetRequestFor(substituted, nonce);
+                const permit = tenantStore.transaction((transaction) =>
+                    new TenantAuthorityPermitIssuer(tenantStore).issue(
+                        transaction,
+                        substitutedRequest,
+                        tenantDecision(targetRequestFor(requested, nonce), issuedAt, "none"),
+                        issuedAt
+                    )
+                );
+                expect(permit.expectation.equals(substituted), name).toBe(true);
+
+                const targetStore = new MemoryAuthorityPermitStore(targetActor);
+                recordTargetRequest(targetStore, requested, nonce);
+                const authentication = await authenticate(tenantStore, permit, substituted);
+                const error = caughtAgentCoreError(() =>
+                    targetStore.transaction((transaction) =>
+                        new StoredAuthorityPermitAdmissionPort(targetStore).consume(
+                            transaction,
+                            authentication,
+                            permit,
+                            substituted,
+                            new Date(issuedAt.getTime() + 1)
+                        )
+                    )
+                );
+                expect(error.code, name).toBe("authority.denied");
+                expect(
+                    targetStore.transaction((transaction) =>
+                        targetStore.consumed(transaction, nonce)
+                    ),
+                    name
+                ).toBeUndefined();
+            }
+        }
+    );
+
+    test(
+        "[C13-AUTH-MEDIATED-ADMISSION] the admission expectation is closed over exactly the rule 7 comparison inputs",
+        { tags: "p0" },
+        () => {
+            // The expectation is the record of the final comparison, so its field set is that
+            // comparison's input set. Enumerating it makes the absence of any other input
+            // checkable rather than structural: a host that widened admission to read §7.4
+            // Receipt state, or dropped one of rule 7's inputs, moves this list.
+            const data = expectation().toData();
+            expect(Object.keys(data).sort()).toEqual([
+                "argumentsDigest",
+                "attemptOrdinal",
+                "authority",
+                "binding",
+                "claim",
+                "claimOwner",
+                "facet",
+                "impact",
+                "intentDigest",
+                "invocation",
+                "issuer",
+                "itemIndex",
+                "itemKey",
+                "lease",
+                "operation",
+                "package",
+                "pathEpochs",
+                "principal",
+                "reservation",
+                "source",
+                "target",
+                "tenant"
+            ]);
+
+            for (const receiptField of ["outcome", "receipt", "failure"]) {
+                expect(
+                    () =>
+                        AuthorityPermitExpectation.fromData({
+                            ...data,
+                            [receiptField]: "succeeded"
+                        }),
+                    receiptField
+                ).toThrow(/Authority permit expectation/u);
+            }
+            for (const field of Object.keys(data)) {
+                expect(
+                    () =>
+                        AuthorityPermitExpectation.fromData(
+                            Object.fromEntries(
+                                Object.entries(data).filter(([key]) => key !== field)
+                            )
+                        ),
+                    field
+                ).toThrow(/Authority permit expectation/u);
+            }
+        }
+    );
+});
