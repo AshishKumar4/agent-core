@@ -37,7 +37,7 @@
         "Each of the four stated deferrals needs its own obligation-shape evidence — record, reason, and discharging condition all named: a reliance hold under C13-FACET-DEPENDENCY-ORDER, each draining Invocation item under C13-FACET-WITHDRAWAL-DRAIN, each unadmitted RouteReservation terminalized by a rejected RouteDelivery, and a Package retained under SPEC 5.2. No current test exercises any of them, and the Package case additionally has no coverage of the Session, tree-checkpoint, and Snapshot pin holders",
         "The rejected-reconciliation clause is what stops converging from becoming an excuse, so it needs the strongest negative evidence: a divergence expressible as no pending obligation — a withdrawal set the host cannot compute, or a retired Slot declaration still holding an entry attributed to a retained Facet — must be refused at validation before package code loads, on the no-code-loaded terms C13-BLUEPRINT-VALIDATE-BEFORE-LOAD already tests, and must never be admitted and left pending",
         "The managed-set scoping needs its own test because it is what makes the endpoint a function at all: an adopted manual edit must appear as a change to the Blueprint, and a host that marks an adopted record Blueprint-managed without a declaring Blueprint must be rejected. src/definition/materializer.ts#LocalMaterializer marks managed state but has no adoption path to discriminate",
-        "Recorded honestly rather than deferred: this rule's paragraph tightened the SPEC 9.3 retention condition from 'no Run references it' to the full SPEC 5.2 pin-holder set, so C13-BLUEPRINT-RUN-PINS now carries anchored text whose Session, Turn, tree-checkpoint, and Snapshot cases its two verified selectors do not exercise. W4 owes that atom a pin-holder test, and this atom cannot be verified while the condition it names is under-covered by its neighbour"
+        "This rule's paragraph tightened the SPEC 9.3 retention condition from 'no Run references it' to the full SPEC 5.2 pin-holder set, so C13-BLUEPRINT-RUN-PINS carries anchored text whose Turn, Session, tree-checkpoint, and Snapshot cases its two selectors do not exercise. That atom was demoted from verified to implemented rather than left over-credited, and it now names the per-pin-holder retention tests it owes. This atom cannot be verified while the fourth deferral's discharging condition is under-covered by the neighbour that owns it"
       ]
     },
     {
@@ -60,7 +60,7 @@
       "owner": "W4",
       "specAnchor": "C13-BLUEPRINT-RUN-PINS",
       "specTextSha256": "sha256:e12d705289dc0aa90cee549b11683ba83819189d872e58780ceb57e6eafe5017",
-      "status": "verified",
+      "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": ["src/definition/materializer.ts#LocalMaterializer"],
       "testSelectors": [
@@ -68,7 +68,11 @@
         "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-RUN-PINS] requires the exact PackageLock closure and pin metadata"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [
+        "Demoted from verified because this atom's anchored text now names the full SPEC 5.2 pin-holder set. SPEC 9.3 previously deferred removing a pinned Package until 'no Run references it', while SPEC 5.2 keeps a Package release resolvable while any Run, Turn, Session, tree checkpoint, or Snapshot pins it; Session and Snapshot outlive a Run, so as written the clause licensed a removal 5.2 forbids. The clause was corrected, and the two selectors cited here exercise the Run case only",
+        "Verification requires one retention test per additional pin holder: a Package release named by a Turn's retained pins, by an Environment Session, by a tree checkpoint, and by a Snapshot must each defer removal on its own, with the Run terminal or absent so that no Run-shaped check can pass in its place. A single combined fixture does not discriminate, because an implementation that only consults Runs would still pass whenever a Run happens to pin the same release",
+        "The discharge side needs the mirror evidence: removal must proceed once the last pin holder of any kind releases, so a host that never removes is not silently credited with satisfying a deferral rule"
+      ]
     },
     {
       "id": "C13-BLUEPRINT-VALIDATE-BEFORE-LOAD",
