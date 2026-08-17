@@ -1354,6 +1354,26 @@ exactly the two parents above; and no other parent arity is valid. Appending ato
 advances only the target branch head. Commit records and parent order never change.
 This maps to **C13-RUN-GRAPH-ARITY**.
 
+A Run's commit graph is closed over that Run. Every RunCommit names the Run it belongs to,
+that Run owns the RunBranch the commit's `branch` field names, and every parent a commit
+names MUST be a commit of the same Run — its unary parent, and both merge parents, whose
+source MUST be a distinct branch of that same Run rather than whichever branch happens to
+stand at the named head. Closure is what makes a Run's ancestry a record of what the Run
+itself authored, and the derivations this section takes over ancestry depend on it:
+effective state, the effective transcript, a cut's balance, and the ancestors a rewrite may
+shadow are each computed by walking parents, and each would answer about another Run's
+material once any is spliced in. A `wallClockMs` remainder depends on it differently — it
+measures from the Run's root RunCommit, and a spliced ancestry gives the graph a second
+zero-parent commit and that measurement a second candidate origin. A child Run therefore
+holds no inherited history to tell apart from its own: `spawn` creates a Run with its own
+zero-parent root, and whatever the parent hands it — a task statement, an excerpt of the
+parent's transcript, a digest — arrives as the content of a commit the child appended under
+the child's own writer evidence, attributed to the child and shadowable by a later rewrite
+on the child's own branch. A platform that instead seeded a child by replaying the parent's
+commits into the child's graph would owe every child a durable watermark saying where
+inheritance ends, and each derivation named here would have to consult it or be computed
+over material the child did not author. This maps to **C13-RUN-GRAPH-CLOSED**.
+
 A branch's effective state answers which commit is current; it does not answer what a model
 reads. The **effective transcript** is the second derivation over the same append-only
 graph: the model-visible content of the effective state's ancestry in commit order, with
@@ -1536,6 +1556,7 @@ never picking silently:
 ```ts
 interface RunCommit {
   readonly id: RunCommitId;
+  readonly run: RunId;
   readonly branch: RunBranchId;
   readonly kind: "root" | "message" | "checkpoint" | "invocation" | "eventDelivery"
                | "result" | "merge" | "verdict" | "undo" | "migration" | "rewrite";
@@ -3599,6 +3620,7 @@ A conforming implementation provides:
 - **C13-AUDIT-SETTLED-OBLIGATION** Settled audit obligations resolve to their exact captured evidence.
 - **C13-AUDIT-TELEMETRY-EXCLUDED** Telemetry never substitutes for a Receipt, RouteReservation, WriteRecord, or AuditRecord.
 - **C13-RUN-GRAPH-ARITY** The canonical Run graph enforces every parent arity, including that a merge has exactly two ordered parents.
+- **C13-RUN-GRAPH-CLOSED** Every RunCommit names the one Run it belongs to and every parent it names, including both merge parents, is a commit of that same Run, so a Run's ancestry holds nothing the Run did not author and another Run's material enters only as the content of a commit the Run appended.
 - **C13-RUN-BINARY-TREE-MERGE** Tree merge is binary.
 - **C13-RUN-UNDO-REDO** Undo and redo are append-only selection.
 - **C13-RUN-UNDO-FENCE** Undo fences a held Turn before appending, regardless of lease expiry.
