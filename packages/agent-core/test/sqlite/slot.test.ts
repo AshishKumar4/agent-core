@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 import { JsonSchema } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import { WorkspaceId } from "../../src/identity";
-import { SlotDeclaration, SlotEntry, SlotEntryId, SlotName } from "../../src/facets";
+import { InstalledSlot, SlotDeclaration, SlotEntry, SlotEntryId, SlotName } from "../../src/facets";
 import { SqliteWorkspaceSlotStore } from "../../src/substrates/sqlite/slot";
 import { FileSqlite, TestSqlite } from "../helpers/sqlite";
 import {
@@ -33,8 +33,8 @@ describe("SqliteWorkspaceSlotStore persistence", () => {
             contribute(store, entry("workspace:facet", 1, { title: "Card" }));
 
             const restarted = new SqliteWorkspaceSlotStore(owner, database);
-            expect(restarted.entries(slot().name)).toHaveLength(1);
-            expect(restarted.slot(slot().name)).toBeDefined();
+            expect(restarted.entries(slot().declaration.name)).toHaveLength(1);
+            expect(restarted.slot(slot().declaration.name)).toBeDefined();
             expect(restarted.revision().value).toBe(2);
             expect(
                 () => new SqliteWorkspaceSlotStore(new WorkspaceId("foreign"), database)
@@ -57,7 +57,7 @@ describe("SqliteWorkspaceSlotStore persistence", () => {
             const reopened = new SqliteWorkspaceSlotStore(owner, reopenedDatabase);
             expect(
                 reopened.transaction((transaction) =>
-                    reopened.listEntries(transaction, slot().name)
+                    reopened.listEntries(transaction, slot().declaration.name)
                 )
             ).toHaveLength(1);
             reopenedDatabase.close();
@@ -78,7 +78,9 @@ describe("SqliteWorkspaceSlotStore persistence", () => {
         ]);
 
         expect(() =>
-            store.transaction((transaction) => store.listEntries(transaction, slot().name))
+            store.transaction((transaction) =>
+                store.listEntries(transaction, slot().declaration.name)
+            )
         ).toThrow(/projection/);
     });
 
@@ -100,8 +102,8 @@ describe("SqliteWorkspaceSlotStore persistence", () => {
         const store = new SqliteWorkspaceSlotStore(new WorkspaceId("workspace"), database);
         install(store, slot());
         contribute(store, entry("workspace:facet", 1, { title: "Card" }));
-        database.run("DELETE FROM facet_slots WHERE name = ?", [slot().name.value]);
-        expect(() => store.entries(slot().name)).toThrow(/violates/);
+        database.run("DELETE FROM facet_slots WHERE name = ?", [slot().declaration.name.value]);
+        expect(() => store.entries(slot().declaration.name)).toThrow(/violates/);
     });
 
     test(
@@ -130,10 +132,13 @@ describe("SqliteWorkspaceSlotStore persistence", () => {
             expectAgentCoreError(
                 () =>
                     store.install(
-                        new SlotDeclaration(
-                            declaration.name,
-                            new JsonSchema({ type: "string" }),
-                            declaration.authority
+                        new InstalledSlot(
+                            new SlotDeclaration(
+                                declaration.declaration.name,
+                                new JsonSchema({ type: "string" }),
+                                declaration.declaration.authority
+                            ),
+                            declaration.attribution
                         )
                     ),
                 "protocol.invalid-state"
@@ -186,9 +191,14 @@ describe("SqliteWorkspaceSlotStore persistence", () => {
                 /Unexpected SQLite trigger/
             );
 
+            // Retirement advances the revision while removing records, so a reopened
+            // store can only bound the revision from below: a revision under its own
+            // record count is the fabrication that stays detectable.
             const wrongRevision = new TestSqlite();
-            new SqliteWorkspaceSlotStore(owner, wrongRevision);
-            wrongRevision.run("UPDATE facet_slot_revision SET revision = 99", []);
+            const wrongRevisionStore = new SqliteWorkspaceSlotStore(owner, wrongRevision);
+            install(wrongRevisionStore, slot());
+            contribute(wrongRevisionStore, entry("workspace:facet", 1, { title: "Card" }));
+            wrongRevision.run("UPDATE facet_slot_revision SET revision = 1", []);
             expect(() => new SqliteWorkspaceSlotStore(owner, wrongRevision)).toThrow(/revision/);
 
             const corruptRecord = new TestSqlite();
@@ -214,7 +224,7 @@ describe("SqliteWorkspaceSlotStore persistence", () => {
                 [
                     invalid.id.value,
                     invalid.slot.value,
-                    invalid.contributor.value,
+                    invalid.attribution.contributor.value,
                     invalid.ordinal,
                     SlotEntry.encode(invalid)
                 ]
@@ -255,7 +265,7 @@ describe("SqliteWorkspaceSlotStore persistence", () => {
                     ? [{ ...rows[0], record: "invalid" }]
                     : rows;
             };
-            expect(() => recordStore.slot(slot().name)).toThrow(/bytes/);
+            expect(() => recordStore.slot(slot().declaration.name)).toThrow(/bytes/);
         }
     );
 });

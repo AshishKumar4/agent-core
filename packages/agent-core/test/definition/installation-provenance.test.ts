@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { Digest, SemVer } from "../../src/core";
-import { FacetPackageId, FacetRef, PackageInstallationRef } from "../../src/facets";
+import {
+    ContributionAttribution,
+    FacetPackageId,
+    FacetRef,
+    PackageInstallationRef
+} from "../../src/facets";
 import {
     DeploymentId,
     ManagedOrigin,
@@ -22,10 +27,10 @@ describe("Package installation contribution provenance", () => {
         const apply = port.resolveContributionForApply({}, supplied, prepared.stamp);
 
         expect(reference).toBeInstanceOf(PackageInstallationRef);
-        expect(prepared.reference.facet.equals(authenticated.facet)).toBe(true);
-        expect(apply?.facet.equals(authenticated.facet)).toBe(true);
-        expect(reference?.facet).toBe(authenticated.facet);
-        expect(reference?.facet.equals(supplied.contributor)).toBe(false);
+        expect(prepared.reference.attribution.contributor.equals(authenticated.facet)).toBe(true);
+        expect(apply?.attribution.contributor.equals(authenticated.facet)).toBe(true);
+        expect(reference?.attribution.contributor.equals(authenticated.facet)).toBe(true);
+        expect(reference?.attribution.contributor.equals(supplied.contributor)).toBe(false);
         expect(reference?.packageFacet).toBe(authenticated.packageFacet);
     });
 
@@ -41,7 +46,10 @@ describe("Package installation contribution provenance", () => {
             /canonical pin/
         );
         expect(() =>
-            new PackageInstallationRef(authenticated.facet, forgedPackageId({}))
+            new PackageInstallationRef(
+                new ContributionAttribution(authenticated.facet, authenticated.package),
+                forgedPackageId({})
+            )
         ).toThrow(
             TypeError
         );

@@ -2,6 +2,7 @@ export type { FacetData, FacetDataMap } from "./data";
 export {
     canonicalFacetData,
     canonicalFacetDataMap,
+    dataRecord,
     isFacetData,
     isFacetDataMap,
     isNumber,
@@ -46,9 +47,10 @@ export {
     enforcementFloor
 } from "./contribution";
 export type { EnforcementTier, Impact } from "./contribution";
-export { SlotAuthorityPolicy, SlotDeclaration } from "./slot";
+export { InstalledSlot, SlotAuthorityPolicy, SlotDeclaration } from "./slot";
+export { ContributionAttribution } from "./attribution";
 export { SlotEntry } from "./slot-entry";
-export { WorkspaceSlotStore } from "./slot-store";
+export { SlotWithdrawalSet, WorkspaceSlotStore } from "./slot-store";
 export { MemoryWorkspaceSlotStore } from "./slot-memory";
 export {
     EventDeclaration,

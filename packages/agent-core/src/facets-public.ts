@@ -31,7 +31,8 @@ export {
     SurfaceDescriptor
 } from "./facets/contribution";
 export type { Impact } from "./facets/contribution";
-export { SlotAuthorityPolicy, SlotDeclaration } from "./facets/slot";
+export { InstalledSlot, SlotAuthorityPolicy, SlotDeclaration } from "./facets/slot";
+export { ContributionAttribution } from "./facets/attribution";
 export { SlotEntry } from "./facets/slot-entry";
 export {
     EventDeclaration,

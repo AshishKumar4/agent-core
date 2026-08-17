@@ -1,4 +1,9 @@
-import { FacetPackageId, FacetRef, PackageInstallationRef } from "../facets";
+import {
+    ContributionAttribution,
+    FacetPackageId,
+    FacetRef,
+    PackageInstallationRef
+} from "../facets";
 import { ManagedOrigin } from "./origin";
 import { PackagePin } from "./package-lock";
 
@@ -26,7 +31,10 @@ export abstract class PackageInstallationProvenancePort<State, Context> {
         const installation = this.authenticatedInstallation(state, context);
         if (installation === undefined) return undefined;
         requireInstallation(installation);
-        return new PackageInstallationRef(installation.facet, installation.packageFacet);
+        return new PackageInstallationRef(
+            new ContributionAttribution(installation.facet, installation.package),
+            installation.packageFacet
+        );
     }
 
     public prepareContribution(
@@ -38,7 +46,10 @@ export abstract class PackageInstallationProvenancePort<State, Context> {
         requireInstallation(installation);
         const prepared = copyInstallation(installation);
         const stamp = Object.freeze({});
-        const reference = new PackageInstallationRef(prepared.facet, prepared.packageFacet);
+        const reference = new PackageInstallationRef(
+            new ContributionAttribution(prepared.facet, prepared.package),
+            prepared.packageFacet
+        );
         this.#prepared.set(stamp, prepared);
         return Object.freeze({
             reference,
@@ -58,7 +69,10 @@ export abstract class PackageInstallationProvenancePort<State, Context> {
         if (installation === undefined) return undefined;
         requireInstallation(installation);
         if (!sameInstallation(expected, installation)) return undefined;
-        return new PackageInstallationRef(installation.facet, installation.packageFacet);
+        return new PackageInstallationRef(
+            new ContributionAttribution(installation.facet, installation.package),
+            installation.packageFacet
+        );
     }
 }
 
@@ -89,10 +103,7 @@ function sameInstallation(
     right: AuthenticatedPackageInstallation
 ): boolean {
     return (
-        left.package.id.equals(right.package.id) &&
-        left.package.version.equals(right.package.version) &&
-        left.package.manifestDigest.equals(right.package.manifestDigest) &&
-        left.package.codeDigest.equals(right.package.codeDigest) &&
+        left.package.equals(right.package) &&
         left.packageFacet.equals(right.packageFacet) &&
         left.facet.equals(right.facet) &&
         left.materialization.equals(right.materialization)

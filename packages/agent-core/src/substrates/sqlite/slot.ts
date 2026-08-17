@@ -2,7 +2,7 @@ import type { SynchronousResultGuard, TransactionOperation } from "../../actors"
 import { Revision } from "../../core";
 import { AgentCoreError } from "../../errors";
 import {
-    SlotDeclaration,
+    InstalledSlot,
     SlotEntry,
     SlotName,
     WorkspaceSlotStore,
@@ -11,9 +11,10 @@ import {
 import { WorkspaceId } from "../../identity";
 import { TransactionalSqlite, isSqliteNumber, isSqliteText, type SqliteRow } from "./sqlite";
 
+const SCHEMA_VERSION = 2;
 const CREATE_MARKER = `CREATE TABLE IF NOT EXISTS facet_slot_schema (
     singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
-    version INTEGER NOT NULL CHECK (version = 1),
+    version INTEGER NOT NULL CHECK (version = 2),
     workspace TEXT NOT NULL CHECK (length(workspace) > 0)
 ) STRICT`;
 const CREATE_REVISION = `CREATE TABLE IF NOT EXISTS facet_slot_revision (
@@ -22,6 +23,7 @@ const CREATE_REVISION = `CREATE TABLE IF NOT EXISTS facet_slot_revision (
 ) STRICT`;
 const CREATE_SLOTS = `CREATE TABLE IF NOT EXISTS facet_slots (
     name TEXT PRIMARY KEY CHECK (length(name) > 0),
+    contributor TEXT NOT NULL CHECK (length(contributor) > 0),
     record BLOB NOT NULL
 ) STRICT`;
 const CREATE_ENTRIES = `CREATE TABLE IF NOT EXISTS facet_slot_entries (
@@ -34,6 +36,12 @@ const CREATE_ENTRIES = `CREATE TABLE IF NOT EXISTS facet_slot_entries (
 ) STRICT`;
 const CREATE_ENTRY_INDEX = `CREATE INDEX IF NOT EXISTS facet_slot_entries_query
     ON facet_slot_entries (slot, ordinal, contributor, id)`;
+// §4.1's withdrawal set is a query by contributing Facet, so attribution is the index
+// the retirement path reads rather than a scan over every slot.
+const CREATE_ATTRIBUTION_INDEX = `CREATE INDEX IF NOT EXISTS facet_slot_entries_attribution
+    ON facet_slot_entries (contributor, id)`;
+const CREATE_SLOT_ATTRIBUTION_INDEX = `CREATE INDEX IF NOT EXISTS facet_slots_attribution
+    ON facet_slots (contributor, name)`;
 
 export class SqliteWorkspaceSlotStore extends WorkspaceSlotStore<TransactionalSqlite> {
     #active = false;
@@ -55,7 +63,7 @@ export class SqliteWorkspaceSlotStore extends WorkspaceSlotStore<TransactionalSq
             );
             if (
                 markers.length !== 1 ||
-                number(markers[0]!, "version") !== 1 ||
+                number(markers[0]!, "version") !== SCHEMA_VERSION ||
                 text(markers[0]!, "workspace") !== owner.value
             ) {
                 throw corrupt("SQLite Slot schema belongs to a different Workspace or version");
@@ -112,25 +120,43 @@ export class SqliteWorkspaceSlotStore extends WorkspaceSlotStore<TransactionalSq
         }
     }
 
-    public loadSlot(transaction: TransactionalSqlite, name: SlotName): SlotDeclaration | undefined {
+    public loadSlot(transaction: TransactionalSqlite, name: SlotName): InstalledSlot | undefined {
         this.requireDatabase(transaction);
-        const row = transaction.all("SELECT name, record FROM facet_slots WHERE name = ?", [
-            name.value
-        ])[0];
+        const row = transaction.all(
+            "SELECT name, contributor, record FROM facet_slots WHERE name = ?",
+            [name.value]
+        )[0];
         return row === undefined ? undefined : decodeSlot(row, name.value);
     }
 
-    public insertSlot(transaction: TransactionalSqlite, declaration: SlotDeclaration): void {
+    public insertSlot(transaction: TransactionalSqlite, slot: InstalledSlot): void {
         this.requireDatabase(transaction);
-        const bytes = SlotDeclaration.encode(declaration);
-        transaction.run("INSERT OR IGNORE INTO facet_slots (name, record) VALUES (?, ?)", [
-            declaration.name.value,
-            bytes
-        ]);
-        const stored = this.loadSlot(transaction, declaration.name);
-        if (stored === undefined || !equalBytes(SlotDeclaration.encode(stored), bytes)) {
-            throw invalidState(`Slot declaration ${declaration.name.value} is immutable`);
+        const bytes = InstalledSlot.encode(slot);
+        transaction.run(
+            `INSERT OR IGNORE INTO facet_slots (name, contributor, record) VALUES (?, ?, ?)`,
+            [slot.declaration.name.value, slot.attribution.contributor.value, bytes]
+        );
+        const stored = this.loadSlot(transaction, slot.declaration.name);
+        if (stored === undefined || !equalBytes(InstalledSlot.encode(stored), bytes)) {
+            throw invalidState(`Slot declaration ${slot.declaration.name.value} is immutable`);
         }
+    }
+
+    public retireSlot(transaction: TransactionalSqlite, name: SlotName): void {
+        this.requireDatabase(transaction);
+        transaction.run("DELETE FROM facet_slots WHERE name = ?", [name.value]);
+        if (this.loadSlot(transaction, name) !== undefined) {
+            throw invalidState(`Slot ${name.value} was not retired`);
+        }
+    }
+
+    public listSlots(transaction: TransactionalSqlite): readonly InstalledSlot[] {
+        this.requireDatabase(transaction);
+        return Object.freeze(
+            transaction
+                .all("SELECT name, contributor, record FROM facet_slots ORDER BY name", [])
+                .map((row) => decodeSlot(row))
+        );
     }
 
     public loadEntry(transaction: TransactionalSqlite, id: SlotEntry["id"]): SlotEntry | undefined {
@@ -160,13 +186,26 @@ export class SqliteWorkspaceSlotStore extends WorkspaceSlotStore<TransactionalSq
         return Object.freeze(entries);
     }
 
+    public listAllEntries(transaction: TransactionalSqlite): readonly SlotEntry[] {
+        this.requireDatabase(transaction);
+        return Object.freeze(
+            transaction
+                .all(
+                    `SELECT id, slot, contributor, ordinal, record
+                     FROM facet_slot_entries ORDER BY contributor, id`,
+                    []
+                )
+                .map((row) => decodeEntry(row))
+        );
+    }
+
     public insertEntry(transaction: TransactionalSqlite, entry: SlotEntry): void {
         this.requireDatabase(transaction);
-        const declaration = this.loadSlot(transaction, entry.slot);
-        if (declaration === undefined) {
+        const installed = this.loadSlot(transaction, entry.slot);
+        if (installed === undefined) {
             throw new AgentCoreError("facet.inactive", `Slot ${entry.slot.value} is not installed`);
         }
-        if (!declaration.entrySchema.accepts(entry.value)) {
+        if (!installed.declaration.entrySchema.accepts(entry.value)) {
             throw new AgentCoreError(
                 "operation.invalid-input",
                 `Slot entry ${entry.id.value} does not match the entry schema`
@@ -177,12 +216,27 @@ export class SqliteWorkspaceSlotStore extends WorkspaceSlotStore<TransactionalSq
             `INSERT OR IGNORE INTO facet_slot_entries
                 (id, slot, contributor, ordinal, record)
              VALUES (?, ?, ?, ?, ?)`,
-            [entry.id.value, entry.slot.value, entry.contributor.value, entry.ordinal, bytes]
+            [
+                entry.id.value,
+                entry.slot.value,
+                entry.attribution.contributor.value,
+                entry.ordinal,
+                bytes
+            ]
         );
         const stored = this.loadEntry(transaction, entry.id);
         if (stored === undefined || !equalBytes(SlotEntry.encode(stored), bytes)) {
             throw invalidState(`Slot entry ${entry.id.value} is immutable`);
         }
+    }
+
+    public retireEntry(transaction: TransactionalSqlite, id: SlotEntryId): void {
+        this.requireDatabase(transaction);
+        transaction.run("DELETE FROM facet_slot_entries WHERE id = ?", [id.value]);
+        const row = transaction.all("SELECT id FROM facet_slot_entries WHERE id = ?", [
+            id.value
+        ])[0];
+        if (row !== undefined) throw invalidState(`Slot entry ${id.value} was not retired`);
     }
 
     private requireDatabase(transaction: TransactionalSqlite): void {
@@ -192,8 +246,8 @@ export class SqliteWorkspaceSlotStore extends WorkspaceSlotStore<TransactionalSq
     }
 
     private requireEntryClosure(transaction: TransactionalSqlite, entry: SlotEntry): void {
-        const declaration = this.loadSlot(transaction, entry.slot);
-        if (declaration === undefined || !declaration.entrySchema.accepts(entry.value)) {
+        const installed = this.loadSlot(transaction, entry.slot);
+        if (installed === undefined || !installed.declaration.entrySchema.accepts(entry.value)) {
             throw corrupt(`SQLite Slot entry ${entry.id.value} violates its Slot declaration`);
         }
     }
@@ -202,7 +256,7 @@ export class SqliteWorkspaceSlotStore extends WorkspaceSlotStore<TransactionalSq
         return this.transaction((transaction) => this.loadRevision(transaction));
     }
 
-    public override slot(name: SlotName): SlotDeclaration | undefined {
+    public override slot(name: SlotName): InstalledSlot | undefined {
         return this.transaction((transaction) => this.loadSlot(transaction, name));
     }
 
@@ -210,15 +264,15 @@ export class SqliteWorkspaceSlotStore extends WorkspaceSlotStore<TransactionalSq
         return this.transaction((transaction) => this.listEntries(transaction, name));
     }
 
-    public override install(declaration: SlotDeclaration): Revision {
+    public override install(slot: InstalledSlot): Revision {
         return this.transaction((transaction) => {
-            const existing = this.loadSlot(transaction, declaration.name);
+            const existing = this.loadSlot(transaction, slot.declaration.name);
             if (
                 existing !== undefined &&
-                equalBytes(SlotDeclaration.encode(existing), SlotDeclaration.encode(declaration))
+                equalBytes(InstalledSlot.encode(existing), InstalledSlot.encode(slot))
             )
                 return this.loadRevision(transaction);
-            this.insertSlot(transaction, declaration);
+            this.insertSlot(transaction, slot);
             const revision = this.loadRevision(transaction).next();
             this.saveRevision(transaction, revision);
             return revision;
@@ -248,7 +302,9 @@ const EXPECTED_TABLES = new Map<string, string>([
     ["facet_slot_entries", CREATE_ENTRIES]
 ]);
 const EXPECTED_INDEXES = new Map<string, string>([
-    ["facet_slot_entries_query", CREATE_ENTRY_INDEX]
+    ["facet_slot_entries_query", CREATE_ENTRY_INDEX],
+    ["facet_slot_entries_attribution", CREATE_ATTRIBUTION_INDEX],
+    ["facet_slots_attribution", CREATE_SLOT_ATTRIBUTION_INDEX]
 ]);
 
 function hasSlotSchema(database: TransactionalSqlite): boolean {
@@ -267,10 +323,12 @@ function createSchema(database: TransactionalSqlite, owner: WorkspaceId): void {
     database.run(CREATE_SLOTS, []);
     database.run(CREATE_ENTRIES, []);
     database.run(CREATE_ENTRY_INDEX, []);
+    database.run(CREATE_ATTRIBUTION_INDEX, []);
+    database.run(CREATE_SLOT_ATTRIBUTION_INDEX, []);
     database.run(
         `INSERT INTO facet_slot_schema (singleton, version, workspace)
-         VALUES (1, 1, ?)`,
-        [owner.value]
+         VALUES (1, ?, ?)`,
+        [SCHEMA_VERSION, owner.value]
     );
     database.run(
         `INSERT INTO facet_slot_revision (singleton, revision)
@@ -316,10 +374,13 @@ function requireExactSchema(database: TransactionalSqlite): void {
 }
 
 function validateStoredState(database: TransactionalSqlite): void {
-    const declarations = new Map<string, SlotDeclaration>();
-    for (const row of database.all("SELECT name, record FROM facet_slots ORDER BY name", [])) {
-        const declaration = decodeSlot(row);
-        declarations.set(declaration.name.value, declaration);
+    const installed = new Map<string, InstalledSlot>();
+    for (const row of database.all(
+        "SELECT name, contributor, record FROM facet_slots ORDER BY name",
+        []
+    )) {
+        const slot = decodeSlot(row);
+        installed.set(slot.declaration.name.value, slot);
     }
     let entryCount = 0;
     for (const row of database.all(
@@ -328,8 +389,8 @@ function validateStoredState(database: TransactionalSqlite): void {
         []
     )) {
         const entry = decodeEntry(row);
-        const declaration = declarations.get(entry.slot.value);
-        if (declaration === undefined || !declaration.entrySchema.accepts(entry.value)) {
+        const slot = installed.get(entry.slot.value);
+        if (slot === undefined || !slot.declaration.entrySchema.accepts(entry.value)) {
             throw corrupt(`SQLite Slot entry ${entry.id.value} violates its Slot declaration`);
         }
         entryCount += 1;
@@ -338,9 +399,11 @@ function validateStoredState(database: TransactionalSqlite): void {
         "SELECT revision FROM facet_slot_revision WHERE singleton = 1",
         []
     );
+    // Retirement (§4.1 withdrawal) advances the revision while removing records, so the
+    // revision bounds the record count from above rather than equalling it.
     if (
         revisionRows.length !== 1 ||
-        number(revisionRows[0]!, "revision") !== declarations.size + entryCount
+        number(revisionRows[0]!, "revision") < installed.size + entryCount
     ) {
         throw corrupt("SQLite Slot revision does not match its records");
     }
@@ -356,11 +419,12 @@ function normalizeSql(value: string): string {
         .replace("create index if not exists", "create index");
 }
 
-function decodeSlot(row: SqliteRow, expectedName?: string): SlotDeclaration {
-    const record = SlotDeclaration.decode(bytes(row, "record"));
+function decodeSlot(row: SqliteRow, expectedName?: string): InstalledSlot {
+    const record = InstalledSlot.decode(bytes(row, "record"));
     if (
-        text(row, "name") !== record.name.value ||
-        (expectedName !== undefined && record.name.value !== expectedName)
+        text(row, "name") !== record.declaration.name.value ||
+        text(row, "contributor") !== record.attribution.contributor.value ||
+        (expectedName !== undefined && record.declaration.name.value !== expectedName)
     ) {
         throw corrupt("SQLite Slot declaration projection does not match codec bytes");
     }
@@ -372,7 +436,7 @@ function decodeEntry(row: SqliteRow, expectedId?: SlotEntryId): SlotEntry {
     if (
         text(row, "id") !== record.id.value ||
         text(row, "slot") !== record.slot.value ||
-        text(row, "contributor") !== record.contributor.value ||
+        text(row, "contributor") !== record.attribution.contributor.value ||
         number(row, "ordinal") !== record.ordinal ||
         (expectedId !== undefined && !record.id.equals(expectedId))
     ) {

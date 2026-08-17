@@ -4,7 +4,13 @@ import type { SynchronousResultGuard, TransactionOperation } from "../../src/act
 import { JsonSchema, Revision } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import { WorkspaceId } from "../../src/identity";
-import { SlotAuthorityPolicy, SlotDeclaration, SlotEntry, SlotName } from "../../src/facets";
+import {
+    InstalledSlot,
+    SlotAuthorityPolicy,
+    SlotDeclaration,
+    SlotEntry,
+    SlotName
+} from "../../src/facets";
 import { MemoryWorkspaceSlotStore } from "../../src/facets/slot-memory";
 import {
     WorkspaceSlotCatalog,
@@ -12,6 +18,7 @@ import {
     type SlotQueryAuthorityPort
 } from "../../src/facets/slot-store";
 import {
+    attribution,
     contribute,
     entry,
     install,
@@ -34,8 +41,12 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
             expect(store.install(declaration).value).toBe(1);
             expect(store.contribute(candidate).value).toBe(2);
             expect(store.contribute(candidate).value).toBe(2);
-            expect(store.slot(declaration.name)?.name.equals(declaration.name)).toBe(true);
-            expect(store.entries(declaration.name)).toHaveLength(1);
+            expect(
+                store
+                    .slot(declaration.declaration.name)
+                    ?.declaration.name.equals(declaration.declaration.name)
+            ).toBe(true);
+            expect(store.entries(declaration.declaration.name)).toHaveLength(1);
             expect(store.revision().value).toBe(2);
             expect(() => store.contribute(entry("workspace:bad", 2, { invalid: true }))).toThrow(
                 /schema/
@@ -69,7 +80,7 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
 
         const detached = store.snapshot();
         const restored = MemoryWorkspaceSlotStore.restore(owner, detached);
-        expect(restored.entries(slot().name)).toHaveLength(1);
+        expect(restored.entries(slot().declaration.name)).toHaveLength(1);
         expect(restored.revision().value).toBe(2);
         expectAgentCoreError(() => {
             MemoryWorkspaceSlotStore.restore(owner, {
@@ -116,17 +127,17 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
                     return true;
                 },
                 async canViewEntry(_candidate, _slot, candidate) {
-                    return candidate.contributor.value.endsWith("visible");
+                    return candidate.attribution.contributor.value.endsWith("visible");
                 }
             };
             const catalog = new WorkspaceSlotCatalog(store, viewer, authority);
 
             await expect(catalog.query(new SlotName("missing.slot"))).resolves.toEqual([]);
-            await expect(catalog.query(declaration.name)).resolves.toEqual([
+            await expect(catalog.query(declaration.declaration.name)).resolves.toEqual([
                 expect.objectContaining({ value: { title: "Visible" } })
             ]);
             authenticated = false;
-            await expect(catalog.query(declaration.name)).resolves.toEqual([]);
+            await expect(catalog.query(declaration.declaration.name)).resolves.toEqual([]);
             authenticated = true;
             expect(
                 () =>
@@ -182,10 +193,13 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
             expectAgentCoreError(
                 () =>
                     store.install(
-                        new SlotDeclaration(
-                            declaration.name,
-                            new JsonSchema({ type: "string" }),
-                            declaration.authority
+                        new InstalledSlot(
+                            new SlotDeclaration(
+                                declaration.declaration.name,
+                                new JsonSchema({ type: "string" }),
+                                declaration.declaration.authority
+                            ),
+                            declaration.attribution
                         )
                     ),
                 "protocol.invalid-state"
@@ -193,10 +207,13 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
             expectAgentCoreError(
                 () =>
                     store.install(
-                        new SlotDeclaration(
-                            declaration.name,
-                            new JsonSchema({ type: "number" }),
-                            declaration.authority
+                        new InstalledSlot(
+                            new SlotDeclaration(
+                                declaration.declaration.name,
+                                new JsonSchema({ type: "number" }),
+                                declaration.declaration.authority
+                            ),
+                            declaration.attribution
                         )
                     ),
                 "protocol.invalid-state"
@@ -224,7 +241,7 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
                 canViewEntry: async () => true
             };
             const denied = new WorkspaceSlotCatalog(store, {}, deniedAuthority);
-            await expect(denied.query(declaration.name)).resolves.toEqual([]);
+            await expect(denied.query(declaration.declaration.name)).resolves.toEqual([]);
 
             const wrongWorkspace: SlotQueryAuthorityPort<object> = {
                 workspace: () => new WorkspaceId("other"),
@@ -244,26 +261,42 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
         async () => {
             const owner = new WorkspaceId("workspace");
             const store = new MemoryWorkspaceSlotStore(owner);
-            const alpha = new SlotDeclaration(
-                new SlotName("alpha"),
-                new JsonSchema({}),
-                slot().authority
+            const alpha = new InstalledSlot(
+                new SlotDeclaration(
+                    new SlotName("alpha"),
+                    new JsonSchema({}),
+                    slot().declaration.authority
+                ),
+                attribution("workspace:declarer")
             );
-            const zeta = new SlotDeclaration(
-                new SlotName("zeta"),
-                new JsonSchema({}),
-                slot().authority
+            const zeta = new InstalledSlot(
+                new SlotDeclaration(
+                    new SlotName("zeta"),
+                    new JsonSchema({}),
+                    slot().declaration.authority
+                ),
+                attribution("workspace:declarer")
             );
             store.install(zeta);
             store.install(alpha);
-            store.contribute(SlotEntry.create(alpha.name, "workspace:zeta", 1, { value: 1 }));
-            store.contribute(SlotEntry.create(alpha.name, "workspace:alpha", 1, { value: 2 }));
-            const snapshot = store.snapshot();
-            expect(snapshot.slots.map((bytes) => SlotDeclaration.decode(bytes).name.value)).toEqual(
-                ["alpha", "zeta"]
+            store.contribute(
+                new SlotEntry(alpha.declaration.name, attribution("workspace:zeta"), 1, {
+                    value: 1
+                })
             );
+            store.contribute(
+                new SlotEntry(alpha.declaration.name, attribution("workspace:alpha"), 1, {
+                    value: 2
+                })
+            );
+            const snapshot = store.snapshot();
             expect(
-                store.entries(alpha.name).map((candidate) => candidate.contributor.value)
+                snapshot.slots.map((bytes) => InstalledSlot.decode(bytes).declaration.name.value)
+            ).toEqual(["alpha", "zeta"]);
+            expect(
+                store
+                    .entries(alpha.declaration.name)
+                    .map((candidate) => candidate.attribution.contributor.value)
             ).toEqual(["workspace:alpha", "workspace:zeta"]);
 
             expectAgentCoreError(
@@ -277,7 +310,12 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
             expectAgentCoreError(
                 () =>
                     store.transaction((transaction) => {
-                        const candidate = SlotEntry.create(alpha.name, "workspace:wrong", 2, null);
+                        const candidate = new SlotEntry(
+                            alpha.declaration.name,
+                            attribution("workspace:wrong"),
+                            2,
+                            null
+                        );
                         transaction.entries.set("wrong", SlotEntry.encode(candidate));
                         transaction.revision += 1;
                     }),
@@ -299,7 +337,7 @@ describe("MemoryWorkspaceSlotStore snapshots", () => {
         const declaration = slot();
         const valid = entry("workspace:facet", 1, { title: "Valid" });
         const conflict = entry("workspace:facet", 1, { title: "Conflict" });
-        const declarationBytes = SlotDeclaration.encode(declaration);
+        const declarationBytes = InstalledSlot.encode(declaration);
 
         expect(() =>
             MemoryWorkspaceSlotStore.restore(owner, {
@@ -388,8 +426,12 @@ describe("MemoryWorkspaceSlotStore isolation and identity", () => {
             ).toEqual(candidates.map((candidate) => candidate.id.value).sort());
 
             for (const bytes of [...snapshot.slots, ...snapshot.entries]) bytes[0] = 0;
-            expect(store.slot(declaration.name)?.name.equals(declaration.name)).toBe(true);
-            expect(store.entries(declaration.name)).toHaveLength(3);
+            expect(
+                store
+                    .slot(declaration.declaration.name)
+                    ?.declaration.name.equals(declaration.declaration.name)
+            ).toBe(true);
+            expect(store.entries(declaration.declaration.name)).toHaveLength(3);
             const clean = store.snapshot();
             expect(clean.slots[0]?.[0]).not.toBe(0);
             expect(clean.entries[0]?.[0]).not.toBe(0);
@@ -409,8 +451,12 @@ describe("MemoryWorkspaceSlotStore isolation and identity", () => {
                 throw new TypeError("injected rollback");
             })
         ).toThrow(/injected rollback/);
-        expect(store.slot(declaration.name)?.name.equals(declaration.name)).toBe(true);
-        expect(store.entries(declaration.name)).toHaveLength(1);
+        expect(
+            store
+                .slot(declaration.declaration.name)
+                ?.declaration.name.equals(declaration.declaration.name)
+        ).toBe(true);
+        expect(store.entries(declaration.declaration.name)).toHaveLength(1);
     });
 
     test(
@@ -419,18 +465,24 @@ describe("MemoryWorkspaceSlotStore isolation and identity", () => {
         () => {
             const store = new MemoryWorkspaceSlotStore(new WorkspaceId("workspace"));
             const authority = new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"]);
-            const stringDeclaration = new SlotDeclaration(
-                new SlotName("typed.slot"),
-                new JsonSchema({ type: "string" }),
-                authority
+            const stringDeclaration = new InstalledSlot(
+                new SlotDeclaration(
+                    new SlotName("typed.slot"),
+                    new JsonSchema({ type: "string" }),
+                    authority
+                ),
+                attribution("workspace:declarer")
             );
-            const numberDeclaration = new SlotDeclaration(
-                new SlotName("typed.slot"),
-                new JsonSchema({ type: "number" }),
-                authority
+            const numberDeclaration = new InstalledSlot(
+                new SlotDeclaration(
+                    new SlotName("typed.slot"),
+                    new JsonSchema({ type: "number" }),
+                    authority
+                ),
+                attribution("workspace:declarer")
             );
-            expect(SlotDeclaration.encode(stringDeclaration).byteLength).toBe(
-                SlotDeclaration.encode(numberDeclaration).byteLength
+            expect(InstalledSlot.encode(stringDeclaration).byteLength).toBe(
+                InstalledSlot.encode(numberDeclaration).byteLength
             );
 
             store.install(stringDeclaration);
@@ -451,19 +503,27 @@ describe("MemoryWorkspaceSlotStore isolation and identity", () => {
     test("lists only the requested slot's entries", { tags: "p1" }, () => {
         const store = new MemoryWorkspaceSlotStore(new WorkspaceId("workspace"));
         const authority = new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"]);
-        const alpha = new SlotDeclaration(new SlotName("alpha"), new JsonSchema({}), authority);
-        const beta = new SlotDeclaration(new SlotName("beta"), new JsonSchema({}), authority);
+        const alpha = new InstalledSlot(
+            new SlotDeclaration(new SlotName("alpha"), new JsonSchema({}), authority),
+            attribution("workspace:declarer")
+        );
+        const beta = new InstalledSlot(
+            new SlotDeclaration(new SlotName("beta"), new JsonSchema({}), authority),
+            attribution("workspace:declarer")
+        );
+        const alphaName = alpha.declaration.name;
+        const betaName = beta.declaration.name;
         store.install(alpha);
         store.install(beta);
-        store.contribute(SlotEntry.create(alpha.name, "workspace:facet", 1, { value: 1 }));
-        store.contribute(SlotEntry.create(beta.name, "workspace:facet", 1, { value: 2 }));
-        store.contribute(SlotEntry.create(beta.name, "workspace:facet", 2, { value: 3 }));
+        store.contribute(new SlotEntry(alphaName, attribution("workspace:facet"), 1, { value: 1 }));
+        store.contribute(new SlotEntry(betaName, attribution("workspace:facet"), 1, { value: 2 }));
+        store.contribute(new SlotEntry(betaName, attribution("workspace:facet"), 2, { value: 3 }));
 
-        expect(store.entries(alpha.name)).toHaveLength(1);
-        expect(
-            store.entries(beta.name).every((candidate) => candidate.slot.equals(beta.name))
-        ).toBe(true);
-        expect(store.entries(beta.name)).toHaveLength(2);
+        expect(store.entries(alphaName)).toHaveLength(1);
+        expect(store.entries(betaName).every((candidate) => candidate.slot.equals(betaName))).toBe(
+            true
+        );
+        expect(store.entries(betaName)).toHaveLength(2);
     });
 
     test(
@@ -505,7 +565,7 @@ describe("MemoryWorkspaceSlotStore isolation and identity", () => {
             expectAgentCoreError(
                 () =>
                     store.transaction((transaction) => {
-                        transaction.slots.set("wrong", SlotDeclaration.encode(declaration));
+                        transaction.slots.set("wrong", InstalledSlot.encode(declaration));
                         transaction.revision += 1;
                     }),
                 "codec.invalid",
@@ -574,7 +634,7 @@ describe("MemoryWorkspaceSlotStore isolation and identity", () => {
                         version: 1,
                         owner: "workspace",
                         revision: 2,
-                        slots: [SlotDeclaration.encode(declaration)],
+                        slots: [InstalledSlot.encode(declaration)],
                         entries: [SlotEntry.encode(entry("workspace:bad", 2, { invalid: true }))]
                     }),
                 "operation.invalid-input",
@@ -601,7 +661,7 @@ describe("MemoryWorkspaceSlotStore isolation and identity", () => {
                 MemoryWorkspaceSlotStore.restore(owner, {
                     ...base,
                     revision: 2,
-                    slots: [SlotDeclaration.encode(declaration)],
+                    slots: [InstalledSlot.encode(declaration)],
                     // @ts-expect-error The restore boundary must reject a non-byte entry.
                     entries: [SlotEntry.encode(valid), "bad"]
                 });
@@ -652,9 +712,9 @@ describe("MemoryWorkspaceSlotStore isolation and identity", () => {
             "operation.invalid-input",
             /does not match the entry schema/
         );
-        expect(store.entries(slot().name)).toHaveLength(0);
+        expect(store.entries(slot().declaration.name)).toHaveLength(0);
         expect(store.contribute(entry("workspace:facet", 1, { title: "Card" })).value).toBe(2);
-        expect(store.entries(slot().name)).toHaveLength(1);
+        expect(store.entries(slot().declaration.name)).toHaveLength(1);
     });
 
     test("never enumerates entries for uninstalled slots", { tags: "p0" }, async () => {
@@ -671,7 +731,7 @@ describe("MemoryWorkspaceSlotStore isolation and identity", () => {
 
         await expect(catalog.query(new SlotName("missing.slot"))).resolves.toEqual([]);
         expect(store.listedSlots).toEqual([]);
-        await expect(catalog.query(slot().name)).resolves.toHaveLength(1);
+        await expect(catalog.query(slot().declaration.name)).resolves.toHaveLength(1);
         expect(store.listedSlots).toEqual(["dashboard.card"]);
     });
 
@@ -682,8 +742,8 @@ describe("MemoryWorkspaceSlotStore isolation and identity", () => {
         const consulted: string[] = [];
         const authority: SlotQueryAuthorityPort<object> = {
             workspace: () => owner,
-            canViewSlot: async (_viewer, declaration) => {
-                consulted.push(declaration.name.value);
+            canViewSlot: async (_viewer, installed) => {
+                consulted.push(installed.declaration.name.value);
                 return true;
             },
             canViewEntry: async () => true
@@ -692,14 +752,14 @@ describe("MemoryWorkspaceSlotStore isolation and identity", () => {
 
         await expect(catalog.query(new SlotName("missing.slot"))).resolves.toEqual([]);
         expect(consulted).toEqual([]);
-        await expect(catalog.query(slot().name)).resolves.toEqual([]);
+        await expect(catalog.query(slot().declaration.name)).resolves.toEqual([]);
         expect(consulted).toEqual(["dashboard.card"]);
     });
 });
 
 interface BareSlotState {
     revision: number;
-    readonly slots: Map<string, SlotDeclaration>;
+    readonly slots: Map<string, InstalledSlot>;
     readonly entries: Map<string, SlotEntry>;
 }
 
@@ -722,12 +782,20 @@ class BareWorkspaceSlotStore extends WorkspaceSlotStore<BareSlotState> {
         transaction.revision = revision.value;
     }
 
-    public loadSlot(transaction: BareSlotState, name: SlotName): SlotDeclaration | undefined {
+    public loadSlot(transaction: BareSlotState, name: SlotName): InstalledSlot | undefined {
         return transaction.slots.get(name.value);
     }
 
-    public insertSlot(transaction: BareSlotState, declaration: SlotDeclaration): void {
-        transaction.slots.set(declaration.name.value, declaration);
+    public insertSlot(transaction: BareSlotState, installed: InstalledSlot): void {
+        transaction.slots.set(installed.declaration.name.value, installed);
+    }
+
+    public retireSlot(transaction: BareSlotState, name: SlotName): void {
+        transaction.slots.delete(name.value);
+    }
+
+    public listSlots(transaction: BareSlotState): readonly InstalledSlot[] {
+        return Object.freeze([...transaction.slots.values()]);
     }
 
     public loadEntry(transaction: BareSlotState, id: SlotEntry["id"]): SlotEntry | undefined {
@@ -741,8 +809,16 @@ class BareWorkspaceSlotStore extends WorkspaceSlotStore<BareSlotState> {
         );
     }
 
+    public listAllEntries(transaction: BareSlotState): readonly SlotEntry[] {
+        return Object.freeze([...transaction.entries.values()]);
+    }
+
     public insertEntry(transaction: BareSlotState, entry: SlotEntry): void {
         transaction.entries.set(entry.id.value, entry);
+    }
+
+    public retireEntry(transaction: BareSlotState, id: SlotEntry["id"]): void {
+        transaction.entries.delete(id.value);
     }
 }
 

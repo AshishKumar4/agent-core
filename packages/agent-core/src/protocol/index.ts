@@ -4,7 +4,8 @@ export {
     FACET_SLOT_COMMANDS,
     FacetSlotCommandPayload,
     FacetSlotContributeCommand,
-    FacetSlotInstallCommand
+    FacetSlotInstallCommand,
+    FacetSlotWithdrawCommand
 } from "./facet-commands";
 export type {
     FacetSlotCommandBackend,

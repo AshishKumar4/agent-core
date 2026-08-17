@@ -23,6 +23,13 @@ export type {
     ClosedTenantAuthorityCompositionInit,
     TenantAuthorityCommandBackend
 } from "./authority-commands";
+export { FacetActivation, FacetWithdrawal } from "./facet-withdrawal";
+export type {
+    ControlTransaction,
+    FacetActivationOutcome,
+    FacetWithdrawalPlan,
+    FacetWithdrawalResult
+} from "./facet-withdrawal";
 export { createClosedCommandDispatcher } from "./dispatcher";
 export type { ClosedCommandFamilies, ClosedDispatcherInit } from "./dispatcher";
 export { DeviceConsentFinalAdmissionPort } from "./device-consent";

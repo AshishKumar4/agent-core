@@ -1,5 +1,13 @@
 import { describe, expect, test } from "vitest";
-import { CompatRange, JsonSchema, SemVer, SecretRef, encodeCanonicalJson } from "../../src/core";
+import {
+    CompatRange,
+    Digest,
+    JsonSchema,
+    SemVer,
+    SecretRef,
+    encodeCanonicalJson
+} from "../../src/core";
+import { PackageId, PackagePin } from "../../src/definition-references";
 import { AgentCoreError } from "../../src/errors";
 import * as declarations from "../../src/facets-public";
 import {
@@ -29,6 +37,8 @@ import {
     Prompt,
     PromptContribution,
     ProvenanceMapping,
+    ContributionAttribution,
+    InstalledSlot,
     SlotAuthorityPolicy,
     SlotDeclaration,
     SlotEntry,
@@ -49,6 +59,16 @@ import { FacetRef } from "../../src/facets/id";
 import { BoundOperationRef, FacetOperationRef } from "../../src/facets/operation";
 
 const objectSchema = new JsonSchema({ type: "object" });
+const goldenPin = new PackagePin(
+    new PackageId("acme.codec"),
+    new SemVer("1.2.3"),
+    new Digest("a".repeat(64)),
+    new Digest("b".repeat(64))
+);
+const goldenAttribution = new ContributionAttribution(
+    new FacetRef("workspace:codec.facet"),
+    goldenPin
+);
 
 describe("Declarative facet vocabulary", () => {
     test(
@@ -143,22 +163,54 @@ describe("Declarative facet vocabulary", () => {
     });
 
     test(
+        "[facet.installed-slot] round-trips a Slot declaration together with its contribution attribution",
+        { tags: "p1" },
+        () => {
+            const installed = new InstalledSlot(
+                new SlotDeclaration(
+                    new SlotName("dashboard.card"),
+                    objectSchema,
+                    new SlotAuthorityPolicy(["installed"], ["scope.read"])
+                ),
+                goldenAttribution
+            );
+
+            const encoded = InstalledSlot.encode(installed);
+            expect(new TextDecoder().decode(encoded)).toBe(
+                '{"kind":"facet.installed-slot","payload":{"contributor":"workspace:codec.facet","declaration":{"authority":{"contribute":["installed"],"visibility":["scope.read"]},"entrySchema":{"type":"object"},"name":"dashboard.card"},"package":{"codeDigest":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","id":"acme.codec","manifestDigest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","version":"1.2.3"}},"version":{"major":1,"minor":0}}'
+            );
+            const decoded = InstalledSlot.decode(encoded);
+            expect(decoded.declaration.name.equals(installed.declaration.name)).toBe(true);
+            expect(decoded.attribution.equals(goldenAttribution)).toBe(true);
+            expect(Object.isFrozen(decoded)).toBe(true);
+
+            // An installed Slot the host cannot attribute has no encoded form to decode.
+            expectCodecError(
+                () =>
+                    InstalledSlot.decode(
+                        encodeCanonicalJson({
+                            kind: "facet.installed-slot",
+                            payload: { declaration: installed.declaration.toData() },
+                            version: { major: 1, minor: 0 }
+                        })
+                    ),
+                "codec.invalid"
+            );
+        }
+    );
+
+    test(
         "[facet.slot-entry] preserves SlotEntry golden bytes and round-trips immutable canonical data",
         { tags: "p0" },
         () => {
             const source = { title: "Original", nested: { order: 1 } };
-            const entry = new SlotEntry(
-                new SlotName("core.card"),
-                new FacetRef("workspace:codec.facet"),
-                3,
-                source
-            );
+            const entry = new SlotEntry(new SlotName("core.card"), goldenAttribution, 3, source);
             source.title = "Changed";
             source.nested.order = 2;
 
             const encoded = SlotEntry.encode(entry);
             expect(new TextDecoder().decode(encoded)).toBe(
-                '{"kind":"facet.slot-entry","payload":{"contributor":"workspace:codec.facet","id":"slot:a8a45a0fab7448ba9c148525596550e706f224e94926e9041320cd8c10c6dab1","ordinal":3,"slot":"core.card","value":{"nested":{"order":1},"title":"Original"}},"version":{"major":2,"minor":0}}'
+                '{"kind":"facet.slot-entry","payload":{"contributor":"workspace:codec.facet","id":"slot:c5d4816bf310473d7bfdc653b1bf8bdb46045a07b53b7d53a8a9916fc7110736","ordinal":3,"package":{"codeDigest":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","id":"acme.codec","manifestDigest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","version":"1.2.3"},"slot":"core.card","value":{"nested":{"order":1},"title":"Original"}},"version":{"major":3,"minor":0}}'
             );
             const decoded = SlotEntry.decode(encoded);
             expect(decoded.toData()).toEqual(entry.toData());
@@ -182,9 +234,10 @@ describe("Declarative facet vocabulary", () => {
                         payload: {
                             contributor: "workspace:codec.facet",
                             ordinal: 3,
+                            package: goldenPin.toData(),
                             slot: "core.card"
                         },
-                        version: { major: 2, minor: 0 }
+                        version: { major: 3, minor: 0 }
                     })
                 ),
             "codec.invalid"
@@ -199,15 +252,70 @@ describe("Declarative facet vocabulary", () => {
                             extra: true,
                             id: "slot:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                             ordinal: 3,
+                            package: goldenPin.toData(),
                             slot: "core.card",
                             value: {}
                         },
-                        version: { major: 2, minor: 0 }
+                        version: { major: 3, minor: 0 }
                     })
                 ),
             "codec.invalid"
         );
     });
+
+    test(
+        "[C13-FACET-CONTRIBUTION-ATTRIBUTION] refuses to decode a SlotEntry that carries no source Package pin",
+        { tags: "p0" },
+        () => {
+            const attributed = new SlotEntry(new SlotName("core.card"), goldenAttribution, 3, null);
+
+            // A payload shaped exactly as major 2 wrote it: contributor, no pin.
+            expectCodecError(
+                () =>
+                    SlotEntry.decode(
+                        encodeCanonicalJson({
+                            kind: "facet.slot-entry",
+                            payload: {
+                                contributor: "workspace:codec.facet",
+                                id: attributed.id.value,
+                                ordinal: 3,
+                                slot: "core.card",
+                                value: null
+                            },
+                            version: { major: 3, minor: 0 }
+                        })
+                    ),
+                "codec.invalid"
+            );
+            // The same bytes under their own major are refused as an unsupported major,
+            // so no unpinned entry survives a store reopen as an attributed one.
+            expectCodecError(
+                () =>
+                    SlotEntry.decode(
+                        encodeCanonicalJson({
+                            kind: "facet.slot-entry",
+                            payload: {
+                                contributor: "workspace:codec.facet",
+                                id: attributed.id.value,
+                                ordinal: 3,
+                                slot: "core.card",
+                                value: null
+                            },
+                            version: { major: 2, minor: 0 }
+                        })
+                    ),
+                "codec.unknown-major"
+            );
+            expect(
+                () =>
+                    new ContributionAttribution(
+                        new FacetRef("workspace:a"),
+                        // @ts-expect-error An attribution without a source Package pin has no valid form.
+                        undefined
+                    )
+            ).toThrow(/contributing FacetRef and source PackagePin/);
+        }
+    );
 
     test(
         "models commands, automations, ingress, and interceptors as codec data",
@@ -984,16 +1092,17 @@ describe("Declarative facet vocabulary", () => {
                     contributor: "workspace:facet",
                     id: "slot:bad",
                     ordinal: "zero",
+                    package: goldenPin.toData(),
                     slot: "slot",
                     value: null
                 })
             ).toThrow(/integer/);
+            expect(() => new SlotEntry(new SlotName("slot"), goldenAttribution, -1, null)).toThrow(
+                /ordinal/
+            );
+            const entry = new SlotEntry(new SlotName("slot"), goldenAttribution, 0, null);
             expect(
-                () => new SlotEntry(new SlotName("slot"), new FacetRef("workspace:facet"), -1, null)
-            ).toThrow(/ordinal/);
-            const entry = SlotEntry.create(new SlotName("slot"), "workspace:facet", 0, null);
-            expect(
-                () => new SlotEntry(entry.slot, entry.contributor, entry.ordinal, true, entry.id)
+                () => new SlotEntry(entry.slot, entry.attribution, entry.ordinal, true, entry.id)
             ).toThrow(/ID/);
             for (const invalid of ["unscoped", ":missing", "missing:", "a:b:c", "a b:c"]) {
                 expect(() => new FacetRef(invalid)).toThrow(/Facet reference/);
@@ -1476,6 +1585,7 @@ describe("Declarative facet vocabulary", () => {
                     contributor: "workspace:facet",
                     id: "slot:bad",
                     ordinal: 1.5,
+                    package: goldenPin.toData(),
                     slot: "slot",
                     value: null
                 })

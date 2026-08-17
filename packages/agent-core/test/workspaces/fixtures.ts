@@ -10,6 +10,7 @@ import {
 } from "../../src/core";
 import {
     BindingName,
+    ContributionAttribution,
     EventKind,
     EventPattern,
     FacetPackageId,
@@ -55,7 +56,7 @@ import {
     RouteReservation,
     routeProjectionEnvelopeBytes
 } from "../../src/workspaces/route";
-import { Subscription } from "../../src/workspaces/subscription";
+import { Subscription, type SubscriptionInit } from "../../src/workspaces/subscription";
 import { EventProvenance, EventVerification } from "../../src/workspaces/value";
 import { ActionDescriptor, View, ViewDelta } from "../../src/workspaces/view";
 
@@ -123,9 +124,10 @@ export function subscriptionFixture(
         readonly dedupe?: DedupePolicy;
         readonly mapping?: PayloadMapping;
         readonly revision?: Revision;
+        readonly contribution?: ContributionAttribution;
     } = {}
 ): Subscription {
-    return new Subscription({
+    const base: SubscriptionInit = {
         id: new SubscriptionId(`subscription-${suffix}`),
         revision: init.revision ?? Revision.initial(),
         source: new EventPattern("task.*", ["authenticated", "owner", "self"], "facet.*"),
@@ -133,7 +135,10 @@ export function subscriptionFixture(
         mapping: init.mapping ?? new PayloadMapping([new FieldMove("", { from: "" })]),
         dedupe: init.dedupe ?? "event",
         authority: { kind: "initiator", binding: new BindingName("binding.route") }
-    });
+    };
+    return new Subscription(
+        init.contribution === undefined ? base : { ...base, contribution: init.contribution }
+    );
 }
 
 export function reservationFixture(
@@ -249,9 +254,11 @@ export function eventRetention(
 
 export function reservationRetention(
     reservation: RouteReservation,
-    id = `retention-${reservation.id.value}`
+    id = `retention-${reservation.id.value}`,
+    actor = sourceActor
 ): ContentRetentionReference {
     return retentionFixture({
+        actor,
         id,
         recordKind: "routeReservation",
         recordId: reservation.id.value,

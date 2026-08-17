@@ -12,6 +12,7 @@ const expectedFiles = [...inventory.sources].sort();
 requireInventory(expectedFiles);
 const currentFiles = [
     ...(await sourceFiles(resolve(packageRoot, "src/definition"))),
+    ...(await sourceFiles(resolve(packageRoot, "src/definition-references"))),
     "src/facets/installation.ts",
     "src/protocol/materialization-commands.ts",
     "src/substrates/sqlite/materialization.ts",

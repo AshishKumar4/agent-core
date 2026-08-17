@@ -94,6 +94,11 @@ function recordBytes(
     return encodeCanonicalJson({ kind, payload, version });
 }
 
+/** workspace.subscription is at major 2 since §4.2 attribution became a declared field. */
+function subscriptionVersion(payload: JsonValue): Uint8Array {
+    return recordBytes(Subscription.codec.kind, payload, { major: 2, minor: 0 });
+}
+
 function expectCodecInvalid(action: () => void): void {
     expect(action).toThrow(expect.objectContaining({ code: "codec.invalid" }));
 }
@@ -821,7 +826,7 @@ describe("subscriptions", () => {
             "payload"
         ] satisfies readonly JsonValue[]) {
             const decoded = Subscription.decode(
-                recordBytes(Subscription.codec.kind, { ...payload, dedupe })
+                subscriptionVersion({ ...payload, dedupe })
             );
             expect(decoded.dedupe).toBe(dedupe);
         }
@@ -862,24 +867,24 @@ describe("subscriptions", () => {
             throw new TypeError("Subscription authority fixture changed shape");
         const { target, ...missingTarget } = payload;
         expect(target).toBe("facet.coverage:operation");
-        expectCodecInvalid(() => Subscription.decode(recordBytes(Subscription.codec.kind, null)));
+        expectCodecInvalid(() => Subscription.decode(subscriptionVersion(null)));
         expectCodecInvalid(() =>
-            Subscription.decode(recordBytes(Subscription.codec.kind, missingTarget))
+            Subscription.decode(subscriptionVersion(missingTarget))
         );
         expectCodecInvalid(() =>
-            Subscription.decode(recordBytes(Subscription.codec.kind, { ...payload, extra: true }))
+            Subscription.decode(subscriptionVersion({ ...payload, extra: true }))
         );
         expectCodecInvalid(() =>
-            Subscription.decode(recordBytes(Subscription.codec.kind, { ...payload, mapping: {} }))
+            Subscription.decode(subscriptionVersion({ ...payload, mapping: {} }))
         );
         expectCodecInvalid(() =>
             Subscription.decode(
-                recordBytes(Subscription.codec.kind, { ...payload, dedupe: "unknown" })
+                subscriptionVersion({ ...payload, dedupe: "unknown" })
             )
         );
         expectCodecInvalid(() =>
             Subscription.decode(
-                recordBytes(Subscription.codec.kind, {
+                subscriptionVersion({
                     ...payload,
                     authority: { ...authority, kind: "unknown" }
                 })
@@ -887,7 +892,7 @@ describe("subscriptions", () => {
         );
         expectCodecInvalid(() =>
             Subscription.decode(
-                recordBytes(Subscription.codec.kind, {
+                subscriptionVersion({
                     ...payload,
                     authority: { ...authority, binding: false }
                 })
@@ -895,7 +900,7 @@ describe("subscriptions", () => {
         );
         expectCodecInvalid(() =>
             Subscription.decode(
-                recordBytes(Subscription.codec.kind, {
+                subscriptionVersion({
                     ...payload,
                     authority: { ...authority, extra: true }
                 })
@@ -904,7 +909,7 @@ describe("subscriptions", () => {
         expectCodecInvalid(() => Subscription.decode(recordBytes("workspace.other", payload)));
         expect(() =>
             Subscription.decode(
-                recordBytes(Subscription.codec.kind, payload, { major: 2, minor: 0 })
+                recordBytes(Subscription.codec.kind, payload, { major: 3, minor: 0 })
             )
         ).toThrow(expect.objectContaining({ code: "codec.unknown-major" }));
     });

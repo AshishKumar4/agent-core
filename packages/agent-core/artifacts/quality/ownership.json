@@ -156,6 +156,7 @@
     ],
     "W4": [
       "packages/agent-core/artifacts/integration/request-archive/W4/**",
+      "packages/agent-core/src/definition-references/**",
       "packages/agent-core/src/definition/**",
       "packages/agent-core/src/protocol/materialization-commands.ts",
       "packages/agent-core/src/substrates/sqlite/materialization.ts",

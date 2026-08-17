@@ -9,16 +9,11 @@
       "specTextSha256": "sha256:0ce875a21bef453c91cdcff24a1c6f4242f35de7620bce54990299dafb608a76",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/interception.ts#OperationInterceptorRunner"
-      ],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-ADV-POST-PREPARATION-INTERCEPTOR] routes mediated effects through the invocation port with frozen interceptor traces"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -36,10 +31,7 @@
       "testSelectors": [
         "test/protocol/facet-commands.test.ts#Facet Slot protocol commands [C13-ADV-UNAUTHORIZED-SLOT] strictly decodes payloads and denies unauthorized contributions"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -49,16 +41,11 @@
       "specTextSha256": "sha256:d46d3ed2204dab22abdd968b0c216e5a792c11e70e8d7d42fd5c938ebf746d7e",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/command-runtime.ts#CommandRuntime"
-      ],
+      "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-ARGUMENT-BINDING] binds validated surface arguments before emitting command.invoked"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -68,17 +55,12 @@
       "specTextSha256": "sha256:5689e6d7f5f22e8b35afc4d9182ae7cb683363a3bc9fc1cc0e1e11101df3c6f7",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/command-runtime.ts#CommandRuntime"
-      ],
+      "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
       "testSelectors": [
         "test/operations/command-runtime.test.ts#CommandRuntime installation [C13-COMMAND-COLLISION] keeps NUL-bearing surface and Command name tuples distinct within one scope",
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-COLLISION] rejects later same-scope surface collisions atomically"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -95,10 +77,7 @@
       "testSelectors": [
         "test/operations/command-runtime.test.ts#CommandRuntime installation [C13-COMMAND-COMPLETION-IMPACT] admits a completion only at the impact that floors to direct"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -115,10 +94,7 @@
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-INSTALL-MAPPING] rejects incompatible mappings before registering a command"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -135,10 +111,7 @@
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-INVOCATION-CORRELATION] emits only an installed Surface's correlation and infers no Subscription relation"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -148,16 +121,11 @@
       "specTextSha256": "sha256:d114ebb2de07d827183a774b990f9392825aca9bf99bac8c3304ffd820b37f89",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/command-runtime.ts#CommandRuntime"
-      ],
+      "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-RESULT] emits command.invoked carrying the surface and run correlation for completion"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -167,16 +135,11 @@
       "specTextSha256": "sha256:8da2f56d262b6176e039ea113b9b5211f11dc25adfb73d9112021a7ac2783d5c",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/command-runtime.ts#CommandRuntime"
-      ],
+      "sourceSymbols": ["src/operations/command-runtime.ts#CommandRuntime"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-COMMAND-SUBSCRIPTION-DEFAULTS] derives only the fixed command Subscription defaults"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -185,10 +148,7 @@
       "specAnchor": "C13-FACET-CANCELLATION-REACH",
       "specTextSha256": "sha256:c0faa57e106a2408ffc25ed723c495872ab97d147bb7de3dc647fc5cf0c89253",
       "status": "implemented",
-      "prerequisites": [
-        "C13-TURN-CANCEL-INBOX",
-        "C13-RECEIPT-FAILURE-KIND"
-      ],
+      "prerequisites": ["C13-TURN-CANCEL-INBOX", "C13-RECEIPT-FAILURE-KIND"],
       "sourceSymbols": [
         "src/facets/runtime.ts#OperationContext",
         "src/composition/mediation.ts#ComposedTurnGatewaySource",
@@ -197,13 +157,13 @@
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The reachability conjunct is built and partly tested, so what remains here is narrower than construction: src/facets/runtime.ts#OperationContext declares a required `signal: AbortSignal`, and a Turn's cancellation reaches it through the scope signal TurnExecutor hands its executor, GatewayTurnInvocationPort's TurnGatewayScope, ComposedTurnGatewaySource.open calling operations(scope.signal), and the shared { signal, content } resources both DerivedDirectOperationContext and CanonicalBatchInvocationPort put on the handler's context. test/composition/mediation-pipeline.test.ts already discriminates the never-abort substitute over the concrete pipeline — 'the published mediation composition root runs each Operation under its own Turn's cancellation signal' asserts the handler's observed context signal is identically the Turn's signal and that an already-aborted Turn signal prevents dispatch with zero handler calls — but it carries no atom tag, so it is not yet conformance evidence for this row under scripts/quality/ledger.mjs's priority-evidence rule",
+        "The reachability conjunct is built and partly tested, so what remains here is narrower than construction: src/facets/runtime.ts#OperationContext declares a required `signal: AbortSignal`, and a Turn's cancellation reaches it through the scope signal TurnExecutor hands its executor, GatewayTurnInvocationPort's TurnGatewayScope, ComposedTurnGatewaySource.open calling operations(scope.signal), and the shared { signal, content } resources both DerivedDirectOperationContext and CanonicalBatchInvocationPort put on the handler's context. test/composition/mediation-pipeline.test.ts already discriminates the never-abort substitute over the concrete pipeline \u2014 'the published mediation composition root runs each Operation under its own Turn's cancellation signal' asserts the handler's observed context signal is identically the Turn's signal and that an already-aborted Turn signal prevents dispatch with zero handler calls \u2014 but it carries no atom tag, so it is not yet conformance evidence for this row under scripts/quality/ledger.mjs's priority-evidence rule",
         "What no test does is abort a Turn while an Operation handler is suspended and observe that handler's own context signal fire: the pipeline case aborts before invoke and then uses a controller it never aborts, and the only mid-execution abort observation in the suite is on a facet `start` hook's FacetLifecycleContext in test/operations/runtime.test.ts, not on an OperationContext. Availability at handler entry and observability during handler execution are different claims, and this rule makes the second one",
         "The distinction this rule exists for is untested: an attempt whose wait the host abandoned must record `indeterminate` while an attempt whose handler observed its context cancellation must record `aborted` under C13-RECEIPT-FAILURE-KIND, and a mutation substituting a never-abort sentinel for the context signal must collapse the second case into the first rather than leaving both green",
-        "Propagation past the seam has no enforcement point at all. Nothing requires a handler that awaits further asynchronous work under its own invocation's lifetime to pass its context cancellation on, and nothing keeps a bound it derives linked to the cancellation it derived from. Closure needs a profile handler that delegates — §11.2 Shell is the sharpest, since P11-SHELL-CANCELLATION already asserts prompt cancellation — proving the abort reaches the side-effect owner, that awaited work reaches quiescence, and that a handler deriving a narrower deadline still aborts when the upstream cancellation fires",
+        "Propagation past the seam has no enforcement point at all. Nothing requires a handler that awaits further asynchronous work under its own invocation's lifetime to pass its context cancellation on, and nothing keeps a bound it derives linked to the cancellation it derived from. Closure needs a profile handler that delegates \u2014 \u00a711.2 Shell is the sharpest, since P11-SHELL-CANCELLATION already asserts prompt cancellation \u2014 proving the abort reaches the side-effect owner, that awaited work reaches quiescence, and that a handler deriving a narrower deadline still aborts when the upstream cancellation fires",
         "The schema exclusion is unchecked: OperationDescriptor.input accepts any JsonSchema, so nothing today refuses a declared input property that purports to carry cancellation, and nothing proves a handler cannot be reachable only through such a field. Verification requires the install-time manifest validation to refuse it, not the first invocation to fail on it",
-        "The durable-record boundary is satisfied by construction rather than by assertion, which is the direction a regression would come from: the ContentStore seam and the §8.5 command dispatcher take no signal, so an added one would silently widen this atom into the requirement it explicitly is not. A conformance assertion that those two seams stay cancellation-free is what keeps this rule from being read as requiring cancellation everywhere",
-        "Promotion to verified is blocked across a fragment boundary and the blocker is a true dependency rather than a bookkeeping accident: this row names C13-RECEIPT-FAILURE-KIND, which is W6's in invocations-audit.json and planned, so ledger.mjs's verified-status monotonicity rejects a verified row here until §7.4's failure-kind taxonomy is itself verified. An implemented status depending on a planned prerequisite is legal, and the dependency is real — the aborted-versus-indeterminate discrimination this atom exists to make is a claim about that taxonomy — so the edge stays and the promotion waits on W6 rather than being eased by dropping it"
+        "The durable-record boundary is satisfied by construction rather than by assertion, which is the direction a regression would come from: the ContentStore seam and the \u00a78.5 command dispatcher take no signal, so an added one would silently widen this atom into the requirement it explicitly is not. A conformance assertion that those two seams stay cancellation-free is what keeps this rule from being read as requiring cancellation everywhere",
+        "Promotion to verified is blocked across a fragment boundary and the blocker is a true dependency rather than a bookkeeping accident: this row names C13-RECEIPT-FAILURE-KIND, which is W6's in invocations-audit.json and planned, so ledger.mjs's verified-status monotonicity rejects a verified row here until \u00a77.4's failure-kind taxonomy is itself verified. An implemented status depending on a planned prerequisite is legal, and the dependency is real \u2014 the aborted-versus-indeterminate discrimination this atom exists to make is a claim about that taxonomy \u2014 so the edge stays and the promotion waits on W6 rather than being eased by dropping it"
       ]
     },
     {
@@ -212,17 +172,15 @@
       "specAnchor": "C13-FACET-CAPABILITY-ABSENCE",
       "specTextSha256": "sha256:f24587b45b32f68bb19c6814fd0acc37b5cb8babb30c7928b4676017979b4d02",
       "status": "planned",
-      "prerequisites": [
-        "C13-FACET-INSTALL-VERIFICATION"
-      ],
+      "prerequisites": ["C13-FACET-INSTALL-VERIFICATION"],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
         "The implementation currently contradicts the rule and is the first thing that must change: src/facets/contribution.ts#OperationDescriptor declares `public readonly interceptable = false` and its codec lists interceptable among the REQUIRED fields, decoded through requireBoolean and re-emitted by toData(), so a withheld capability is today a mandatory present false both on the wire and in the manifest digest input. The presence-typed form has to replace it in the class, in the codec's required/optional split, and in toData() together, or one of the three keeps the negative encoding alive",
-        "Both readers test the flag for truth rather than for presence — src/composition/authority.ts#admitsInterception uses descriptor.interceptable and src/operations/interception.ts refuses on its negation — so both keep working after the change and neither discriminates. The clause with no implementation at all is the refusal: a manifest carrying interceptable false must be REFUSED at install rather than accepted as equivalent to absence, and that refusal needs its own case",
-        "The digest consequence is the reason the rule is stated and is unmeasured: two manifests differing only in a present false versus an absent key must be shown to produce one manifestDigest under the §5.2 PackagePin rather than two, so an inert declaration cannot change the release a RunPin names",
-        "The generality clause needs a conformance assertion rather than a case, because it forbids a negative encoding for every capability this document declares by presence: a check over the declared record shapes — terminal, failure, projectionDigest, duplicateOf, authenticationDigest — proving none has acquired a boolean or nullable form is what keeps the defect from reappearing elsewhere, and no current gate performs it",
+        "Both readers test the flag for truth rather than for presence \u2014 src/composition/authority.ts#admitsInterception uses descriptor.interceptable and src/operations/interception.ts refuses on its negation \u2014 so both keep working after the change and neither discriminates. The clause with no implementation at all is the refusal: a manifest carrying interceptable false must be REFUSED at install rather than accepted as equivalent to absence, and that refusal needs its own case",
+        "The digest consequence is the reason the rule is stated and is unmeasured: two manifests differing only in a present false versus an absent key must be shown to produce one manifestDigest under the \u00a75.2 PackagePin rather than two, so an inert declaration cannot change the release a RunPin names",
+        "The generality clause needs a conformance assertion rather than a case, because it forbids a negative encoding for every capability this document declares by presence: a check over the declared record shapes \u2014 terminal, failure, projectionDigest, duplicateOf, authenticationDigest \u2014 proving none has acquired a boolean or nullable form is what keeps the defect from reappearing elsewhere, and no current gate performs it",
         "Mutation attribution needs two mutants, not one: flipping the install refusal to accept a present false must kill a cited test, and so must flipping the decoder to read absence as false and re-emit it, because the second is exactly how the negative form returns after the first is fixed"
       ]
     },
@@ -245,7 +203,7 @@
       "remainingEvidence": [
         "The declaration does not exist yet and its absence is enforced: src/facets/contribution.ts#OperationDescriptor carries no availability member and its codec's exact-field check would reject one, so the type, the codec's optional-field set, toData(), and the descriptor reconstruction in src/facets/profile-runtime/contract.ts all need the new member before any other clause can be asserted",
         "The absent-means-native default needs discrimination and not merely a default value: a descriptor declaring no availability must be shown unreachable from agent-authored code, and a mutation defaulting it to both must break a cited test rather than silently widening every existing Operation into code mode",
-        "The one-set clause is the substance of the rule and has nothing to test against: nothing today computes the Bindings handed to a dynamic isolate, so verification needs that computation plus proof that its members are exactly the code- or both-available Operations the caller holds authority for, that a native-only Operation is not passable, and that the same declared set is what the offered catalog records under C13-TURN-MODEL-INPUT-RECONSTRUCTABLE — a host keeping two sets in agreement must fail",
+        "The one-set clause is the substance of the rule and has nothing to test against: nothing today computes the Bindings handed to a dynamic isolate, so verification needs that computation plus proof that its members are exactly the code- or both-available Operations the caller holds authority for, that a native-only Operation is not passable, and that the same declared set is what the offered catalog records under C13-TURN-MODEL-INPUT-RECONSTRUCTABLE \u2014 a host keeping two sets in agreement must fail",
         "The composition clauses ride on atoms that are themselves planned: availability changed at the Scope mid-Turn must not change what that Turn's isolate reaches, which needs the captured FacetSet of C13-TURN-FACET-SET-STABLE, and the materialized availability record must appear in the declaring Facet's withdrawal set under C13-FACET-WITHDRAWAL-EXACT rather than surviving its contributor",
         "The validation-time rejection is a definition-plane obligation with no current reader: the Blueprint validator does not relate policies.placement's consumer-to-backing mapping to any Operation's declared availability, so a code-available Operation on a platform that maps no backing and declares no default cannot be refused today. Closure requires that relation, the no-code-loaded assertion C13-BLUEPRINT-VALIDATE-BEFORE-LOAD already tests against, and a discriminating case proving the failure lands at validation rather than at the first submission that needs the runtime"
       ]
@@ -255,17 +213,28 @@
       "owner": "W3",
       "specAnchor": "C13-FACET-CONTRIBUTION-ATTRIBUTION",
       "specTextSha256": "sha256:4b1e8339cdb8691048281f3d4b1ec031a450e29d339485d1da87ab23e6ef25a8",
-      "status": "planned",
+      "status": "implemented",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
+      "sourceSymbols": [
+        "src/facets/attribution.ts#ContributionAttribution",
+        "src/facets/slot-entry.ts#SlotEntry",
+        "src/facets/slot.ts#InstalledSlot",
+        "src/facets/installation.ts#PackageInstallationRef",
+        "src/workspaces/subscription.ts#Subscription"
+      ],
+      "testSelectors": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-FACET-CONTRIBUTION-ATTRIBUTION] refuses to decode a SlotEntry that carries no source Package pin",
+        "test/facets/slot-memory.test.ts#Memory [workspace-slot-store] Workspace Slot store [C13-FACET-CONTRIBUTION-ATTRIBUTION] carries the contributing Facet and source release on every stored record",
+        "test/sqlite/slot.test.ts#SQLite [workspace-slot-store] Workspace Slot store [C13-FACET-CONTRIBUTION-ATTRIBUTION] carries the contributing Facet and source release on every stored record",
+        "test/workspaces/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-CONTRIBUTION-ATTRIBUTION] refuses every later revision that rewrites, adds, or drops a Subscription's attribution"
+      ],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The contributor half exists for slot entries only: src/facets/slot-entry.ts#SlotEntry already carries `contributor: FacetRef` and derives its SlotEntryId from (slot, contributor, ordinal, value). Adding `package: PackagePin` changes that identity digest, so it requires a facet.slot-entry codec major past 2, decode rejection of an entry carrying no pin, and restore round-trips through MemoryWorkspaceSlotStore and the SQLite Workspace slot store",
-        "The other record kinds this rule names are unattributed today: catalog entries, derived Subscriptions, Surface registrations, prompt sections, ingress endpoints, and merged settings fragments carry neither a contributor nor a PackagePin. src/definition/materialization-kind.ts#validateSlotEntry admits exactly the keys contributor/index/slot/value, so the materializer's desired-state shape has to gain the pin before any of those kinds can be attributed",
-        "Same-transaction writing and lifetime immutability need discriminating evidence per kind. Slot entries are already immutable by encode-compare in both stores, but a record of another kind written without attribution must be rejected rather than accepted and backfilled, and rewriting a materialized record's contributor or pin must fail",
-        "Totality is the load-bearing claim and needs a negative test: a host that cannot attribute a contribution must refuse to materialize it, so that the withdrawal set of C13-FACET-WITHDRAWAL-EXACT is computable for every installed Facet by construction rather than by convention",
-        "Verification order, because a promoter reading only a dependent's own row would not see it: this atom has no prerequisites and roots the withdrawal family, so C13-FACET-WITHDRAWAL-EXACT depends on it directly and every atom depending on that one is transitively gated on it, spanning fragments owned by W3, W4, W5 and W7. Since the first obligation above is a facet.slot-entry codec major, no dependent reaches `verified` before a record codec version moves. Inbound edges are written by other owners in other fragments, so the dependent set must be re-derived at the promotion rev rather than trusted from this note"
+        "Discharged: facet.slot-entry moved to codec major 3 with `package: PackagePin` as a declared field of the identity digest; an entry payload carrying no pin is refused as codec.invalid and the major-2 bytes that used to carry one are refused as codec.unknown-major; the pinned entry restores through MemoryWorkspaceSlotStore and reopens through the SQLite Workspace slot store, both driven by the shared test/w3/slot-store-contract.ts seam contract. The installed Slot record was split from the manifest SlotDeclaration as facet.installed-slot so it carries attribution too, and derived Subscriptions carry it at workspace.subscription major 2, immutably across revisions",
+        "Not discharged, and the reason is that the records do not exist rather than that they are unattributed: this runtime materializes no catalog entry, Surface registration, prompt section, ingress endpoint, or merged settings fragment record, so there is nothing to attribute and no test that could fail if the MUST were violated for them. Verification requires each of those five kinds to become a real record first",
+        "Blocked on a W4 change this slice did not make: src/definition/materialization-kind.ts#validateSlotEntry still admits exactly contributor/index/slot/value. Adding `package` to the desired-state shape requires ValidatedContribution to carry the source pin through src/definition/validator.ts and src/definition/plan.ts, and a decision for the `contributor: \"blueprint\"` projection plan.ts emits for a Blueprint-declared slot, which has no Package release behind it. Measured: adding the key without that work reds 17 W4 tests",
+        "Totality is enforced at the materializing seam rather than only asserted: FacetSlotInstallCommand and FacetSlotContributeCommand both deny when PackageInstallationProvenancePort answers no authenticated installation, and ContributionAttribution refuses construction without both halves, so a host that cannot attribute a contribution cannot build the record it would materialize",
+        "Verification order, because a promoter reading only a dependent's own row would not see it: this atom has no prerequisites and roots the withdrawal family, so C13-FACET-WITHDRAWAL-EXACT depends on it directly and every atom depending on that one is transitively gated on it, spanning fragments owned by W3, W4, W5 and W7. The facet.slot-entry codec major has now moved to 3, so that half of the gate is satisfied. Inbound edges are written by other owners in other fragments, so the dependent set must be re-derived at the promotion rev rather than trusted from this note"
       ]
     },
     {
@@ -275,16 +244,11 @@
       "specTextSha256": "sha256:819ad845377f7ebda804248a085f1d63b7ee0ce68222ad5554d28e7a41723599",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/facets/slot-store.ts#WorkspaceSlotStore"
-      ],
+      "sourceSymbols": ["src/facets/slot-store.ts#WorkspaceSlotStore"],
       "testSelectors": [
         "test/facets/slot-memory.test.ts#MemoryWorkspaceSlotStore snapshots [C13-FACET-CONTRIBUTION-MATERIALIZATION] supports idempotent high-level install and contribution operations"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -293,15 +257,12 @@
       "specAnchor": "C13-FACET-DEPENDENCY-ORDER",
       "specTextSha256": "sha256:a40a5f1aed92083f9a8898bc271e2c164e77dc834d0bd45b7336b40046a9dfe4",
       "status": "planned",
-      "prerequisites": [
-        "C13-AUTH-BINDING-RESOLUTION",
-        "C13-FACET-WITHDRAWAL-EXACT"
-      ],
+      "prerequisites": ["C13-AUTH-BINDING-RESOLUTION", "C13-FACET-WITHDRAWAL-EXACT"],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "The declaration half exists and is already better keyed than a nominal string: src/facets/manifest.ts#BindingRequirement carries (name: BindingName, facet: FacetPackageId, compat: CompatRange) and round-trips through the facet manifest codec. Nothing consumes it as an activation precondition — no facet runtime in src/facets gates start on requirement resolution, so the whole ordering half of this atom is unbuilt",
+        "The declaration half exists and is already better keyed than a nominal string: src/facets/manifest.ts#BindingRequirement carries (name: BindingName, facet: FacetPackageId, compat: CompatRange) and round-trips through the facet manifest codec. Nothing consumes it as an activation precondition \u2014 no facet runtime in src/facets gates start on requirement resolution, so the whole ordering half of this atom is unbuilt",
         "The activation gate needs a host that resolves every BindingRequirement to a live ResolvedFacet before calling start, and four discriminating mutations must each break a cited test: calling start with one requirement unresolved, starting a Facet degraded rather than leaving it inactive, reporting an unresolvable requirement as a runtime failure instead of a rejected install, and admitting a resolution whose ResolutionStamp is not current under C13-AUTH-RESOLUTION-LIFETIME",
         "The reliance guard needs the withdrawal path of C13-FACET-WITHDRAWAL-EXACT first, then evidence that withdrawing a relied-upon Facet records a pending obligation under the C13-BLUEPRINT-CONVERGENCE shape instead of retiring its records, that the obligation discharges exactly when the last relying Facet goes inactive, and that the withdrawal is never rejected and never silently completed while reliance stands",
         "The teardown-window clause is the clause most easily lost and needs its own two-Facet test: a dependent whose teardown its provider's withdrawal triggered must successfully resolve that provider from inside its own stop, which means the provider stays resolvable for the whole of its own teardown rather than being unresolvable from the first retirement",
@@ -317,17 +278,12 @@
       "specTextSha256": "sha256:012f7c13ca9bf3819f0018dd4d0c94ddb8069b9fa694407c29af89c732e265b0",
       "status": "implemented",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/composition/mediation.ts#MediatedOperationPipeline"
-      ],
+      "sourceSymbols": ["src/composition/mediation.ts#MediatedOperationPipeline"],
       "testSelectors": [
         "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-AUTH-RESOLUTION-LIFETIME] [C13-FACET-DISPOSAL] releases a provider resolution before resolving the next invocation",
         "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-AUTH-RESOLUTION-LIFETIME] [C13-FACET-DISPOSAL] releases a dynamic resolution before resolving the next invocation"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
         "The W9 mediation pipeline releases provider and dynamic resolutions after each invocation, and the W5 executor behavior covers Turn completion, failure, cancellation, suspension, thrown execution, and authority loss; W9-owned cancellation and authority-loss selectors plus fresh mutation attribution must discriminate those disposal paths before verification"
       ]
@@ -346,10 +302,7 @@
       "testSelectors": [
         "test/facets/declarations.test.ts#Impact is derived from the seam, not declared by the callee [C13-FACET-IMPACT-BOUNDARY] admits a claim only where it never buys a tier the derived impact was denied"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -369,10 +322,7 @@
         "test/operations/runtime.test.ts#Facet runtime [C13-FACET-INSTALL-VERIFICATION] rejects a runtime declaration that differs from its pinned bytes at a single position",
         "test/operations/runtime.test.ts#Protected Operation gateway executes direct only after synchronous authorization and rejects hidden handlers"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -382,16 +332,11 @@
       "specTextSha256": "sha256:fc67d792035e31bff8dd0d78e62a445cb24d8642e4003fa5c6bea392a7bd2bf9",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/facets/manifest.ts#FacetManifest"
-      ],
+      "sourceSymbols": ["src/facets/manifest.ts#FacetManifest"],
       "testSelectors": [
         "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-FACET-MANIFEST] canonicalizes manifests without changing ordered mapping semantics"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -401,17 +346,11 @@
       "specTextSha256": "sha256:fa4f2e2944828923b1e5fb71d9be5c2fc176525a3eaa62f1f3756da0eaa7112e",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/facets/id.ts#FacetRef",
-        "src/facets/id.ts#requireFacetRef"
-      ],
+      "sourceSymbols": ["src/facets/id.ts#FacetRef", "src/facets/id.ts#requireFacetRef"],
       "testSelectors": [
         "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-FACET-REF-CANONICAL] uses canonical instance, bound, and Facet operation references"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -421,16 +360,11 @@
       "specTextSha256": "sha256:4cd2f1e0f79fc0e16164d53e4a24f5f7da2c5280fad9fd7bf138dbe26058da87",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/protocol/facet-commands.ts#FacetSlotContributeCommand"
-      ],
+      "sourceSymbols": ["src/protocol/facet-commands.ts#FacetSlotContributeCommand"],
       "testSelectors": [
         "test/protocol/facet-commands.test.ts#Facet Slot protocol commands [C13-FACET-SLOT-AUTHORITY] derives contributor provenance and enforces Slot authority through the closed authenticated dispatcher"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -447,10 +381,7 @@
       "testSelectors": [
         "test/facets/slot-memory.test.ts#MemoryWorkspaceSlotStore snapshots [C13-FACET-SLOT-VISIBILITY] binds SlotCatalog to an authenticated Workspace viewer and filters every entry"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -458,19 +389,20 @@
       "owner": "W3",
       "specAnchor": "C13-FACET-START-ATOMIC",
       "specTextSha256": "sha256:2abf749e076815e9f28e7e30e36c13c276c9f3cda45889fad5d168c244e0fa7b",
-      "status": "planned",
-      "prerequisites": [
-        "C13-FACET-CONTRIBUTION-ATTRIBUTION",
-        "C13-FACET-WITHDRAWAL-EXACT"
+      "status": "implemented",
+      "prerequisites": ["C13-FACET-CONTRIBUTION-ATTRIBUTION", "C13-FACET-WITHDRAWAL-EXACT"],
+      "sourceSymbols": ["src/composition/facet-withdrawal.ts#FacetActivation"],
+      "testSelectors": [
+        "test/workspaces/facet-withdrawal.test.ts#Facet activation atomicity [C13-FACET-START-ATOMIC] leaves nothing behind when start does not complete",
+        "test/workspaces/facet-withdrawal.test.ts#Facet activation atomicity [C13-FACET-START-ATOMIC] refuses a retry against a Scope whose prior partial effect was not retired"
       ],
-      "sourceSymbols": [],
-      "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "§4.1 previously stated only that `start` is idempotent, and §13's NC-FACET-MANIFEST-RUNTIME records that facet loading is not modeled, so partial activation has neither an implementation nor a formal witness. Verification requires an activation path that materializes into records the host can retire whole",
-        "The discriminating case is a Facet whose `start` materializes some contributions and then throws: every record attributed to it must be absent afterwards, byte-compared against the Scope's records captured before the attempt, and the outcome must be a typed failed install rather than a live or half-live Facet",
-        "Retirement of a partial activation reuses the attributed withdrawal set, so this atom cannot be verified before its two prerequisites are; it has no independent retirement path and must not grow one",
-        "The no-retry clause needs adversarial coverage: retrying activation against a Scope whose prior partial effect was not retired must be refused, and a failed Facet must be shown to obstruct neither another Facet's activation nor another Facet's withdrawal"
+        "Discharged: FacetActivation is an activation path that materializes into records the host can retire whole. The discriminating case has a test \u2014 a Facet whose start commits a slot entry and a derived Subscription and then throws leaves both planes equal to their pre-attempt state, and the outcome is a typed failed install rather than a live or half-live Facet. Retirement reuses the same attributed withdrawal set FacetWithdrawal computes and has no independent path",
+        "Discharged: the no-retry clause has adversarial coverage. Activating against a Scope that still holds a record attributed to the Facet is refused, and the same test shows a failed Facet obstructing no other Facet's activation",
+        "Cannot be verified before its two prerequisites are, and neither is verified yet. C13-FACET-CONTRIBUTION-ATTRIBUTION is implemented pending the five unmaterialized record kinds, and C13-FACET-WITHDRAWAL-EXACT is implemented pending the authority plane",
+        "Not discharged: retiring a partial activation must drain on the same terms as a withdrawal, because an Invocation already admitted against the Facet is frozen intent and still settles. That is C13-FACET-WITHDRAWAL-DRAIN's machinery and it does not exist, so a partial activation with an in-flight Invocation is untested",
+        "Not discharged: a failed Facet must be shown to obstruct no other Facet's withdrawal. The activation path records no durable failed-install state, so there is nothing yet for another Facet's withdrawal to trip over and nothing to assert against"
       ]
     },
     {
@@ -479,16 +411,14 @@
       "specAnchor": "C13-FACET-WITHDRAWAL-DRAIN",
       "specTextSha256": "sha256:af3140ee57811ba0d8bfed689e392a2d298d2f56a06070bf9c19694f1c2437dc",
       "status": "planned",
-      "prerequisites": [
-        "C13-FACET-WITHDRAWAL-EXACT"
-      ],
+      "prerequisites": ["C13-FACET-WITHDRAWAL-EXACT"],
       "sourceSymbols": [],
       "testSelectors": [],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "No drain exists because no withdrawal exists. Verification requires the withdrawal transaction to durably capture the finite set of admitted Invocation items whose PreparedInvocationHeader.target names the Facet, and to refuse completion while any captured item lacks a terminal current Receipt",
-        "Admission closure needs adversarial evidence on both sides: an Invocation prepared against the withdrawing Facet after the withdrawal transaction must be refused, and an item admitted before it must still settle against its frozen intent, placement, and Package pin across restart rather than against whatever later occupies that FacetRef",
-        "The reservation split must be shown exhaustive: a RouteReservation that reached preparation drains as one of these Invocation items, one the target has not admitted takes the terminal rejected RouteDelivery the withdrawal set requires, and no reservation falls in neither case. That half needs ownership-correct integration evidence with the W7 routing surface, which owns RouteDelivery",
+        "The drain gate itself does not exist. Verification requires the withdrawal transaction to durably capture the finite set of admitted Invocation items whose PreparedInvocationHeader.target names the Facet, and to refuse completion while any captured item lacks a terminal current Receipt. Nothing in the runtime captures that set, so this row stays planned even though its sibling reservation-split obligation is now closed",
+        "Admission closure needs adversarial evidence on both sides: an Invocation prepared against the withdrawing Facet after the withdrawal transaction must be refused, and an item admitted before it must still settle against its frozen intent, placement, and Package pin across restart rather than against whatever later occupies that FacetRef. The withdrawal writes no durable record a later admission could consult, so neither side is checkable today",
+        "The reservation split is now half-proved. src/workspaces/withdrawal.ts#WorkspaceRoutingWithdrawal leaves a reservation that reached preparation alone and drives one the target has not admitted to a terminal rejected RouteDelivery, and appendWithdrawalRejection refuses a prepared reservation so the two cases cannot overlap; the case that no reservation falls in neither is covered by the same query. What is still owed is the other half: showing that the reservation left alone actually drains as an Invocation item, which needs the capture above, plus ownership-correct integration evidence against the W7 routing surface that owns RouteDelivery rather than a W3-authored persistence test",
         "The prohibition is the part a passing test can hide: a host that reports a withdrawal complete by discarding, synthesizing, or shortcutting a draining item's Receipt must fail, and a mutation removing the drain gate must break a cited test rather than merely change timing"
       ]
     },
@@ -497,20 +427,28 @@
       "owner": "W3",
       "specAnchor": "C13-FACET-WITHDRAWAL-EXACT",
       "specTextSha256": "sha256:e4ad430bb9d9e8d03e69b14dbaaab97c41c051c0cc78518174a2cb097e48775d",
-      "status": "planned",
-      "prerequisites": [
-        "C13-FACET-CONTRIBUTION-ATTRIBUTION"
+      "status": "implemented",
+      "prerequisites": ["C13-FACET-CONTRIBUTION-ATTRIBUTION"],
+      "sourceSymbols": [
+        "src/facets/slot-store.ts#WorkspaceSlotStore",
+        "src/composition/facet-withdrawal.ts#FacetWithdrawal",
+        "src/workspaces/withdrawal.ts#WorkspaceRoutingWithdrawal",
+        "src/protocol/facet-commands.ts#FacetSlotWithdrawCommand"
       ],
-      "sourceSymbols": [],
-      "testSelectors": [],
+      "testSelectors": [
+        "test/facets/slot-memory.test.ts#Memory [workspace-slot-store] Workspace Slot store [C13-FACET-WITHDRAWAL-EXACT] retires exactly the withdrawing Facet's records and refuses a set holding a retained contribution",
+        "test/sqlite/slot.test.ts#SQLite [workspace-slot-store] Workspace Slot store [C13-FACET-WITHDRAWAL-EXACT] refuses a withdrawal whose Slot still carries a retained Facet's entry, with no partial effect",
+        "test/protocol/facet-commands.test.ts#Facet Slot protocol commands [C13-FACET-WITHDRAWAL-EXACT] retires a Facet's contributions through one administer control transaction",
+        "test/workspaces/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-WITHDRAWAL-EXACT] retires a contributed Subscription and drives its unprepared reservation to a terminal rejected delivery",
+        "test/workspaces/facet-withdrawal.test.ts#Facet withdrawal across owning Actors [C13-FACET-WITHDRAWAL-EXACT] refuses the whole withdrawal when a plane cannot answer the attribution query"
+      ],
       "checkerInvariants": [],
       "remainingEvidence": [
-        "There is no withdrawal Operation in the runtime and no retirement path in the stores: src/facets/slot-memory.ts and src/substrates/sqlite/slot.ts expose insertSlot and insertEntry with immutable-entry enforcement and nothing that removes either. Verification requires an `administer` Operation whose control transaction retires the computed set, plus store-level retirement in the Memory and SQLite Workspace slot stores with snapshot and reopen round-trips",
-        "Exactness needs a two-contributor discriminating case: a Facet whose install materialized records under two PackagePins alongside a second Facet contributing into the same slots, where the withdrawal retires exactly the first Facet's records and leaves every record attributed to the second byte-identical. A withdrawal computed from anything other than attribution must fail that comparison",
-        "The authority half is entirely unbuilt: nothing retires a Binding naming a withdrawn FacetRef or a Grant whose capability names only the withdrawn Facet's Operations, and the Scope epoch advance those retirements must share with the Binding mutation transaction (§3.4 rule 5, C13-OWNERSHIP-AUTHORITY-RECORDS) has no withdrawal trigger to attach to",
-        "The Subscription liveness closure cannot be evidenced at the slot layer: it requires that no reservation be appended against a retired Subscription after the withdrawal transaction, and that every reservation already appended and not yet prepared reach a terminal rejected RouteDelivery written by the owning Actor. RouteDelivery belongs to the W7 routing surface, so this needs ownership-correct integration evidence rather than a W3 unit test",
-        "Both refusal cases need adversarial coverage with no partial effect: a withdrawal whose set the host cannot compute, and a withdrawal whose set holds a Slot declaration carrying an entry attributed to a Facet the same reconciliation retains, must each be refused atomically with every record left unchanged",
-        "Content retention needs a counterfactual rather than an assertion: retiring an attributed record that names a ContentRef must leave that content resolvable while any retained record still names it, and must never release a ContentRef a RunCommit or an admitted inbox Event names, so that C13-TURN-MODEL-INPUT-RECONSTRUCTABLE survives a withdrawal"
+        "Discharged: the slot plane now retires. WorkspaceSlotStore gained retireSlot/retireEntry/listSlots/listAllEntries, withdrawalSet computes the set purely by querying attribution, requireWithdrawable refuses rather than defers, and both Memory and SQLite implement retirement with snapshot and reopen round-trips through the shared seam contract. FacetSlotWithdrawCommand is the administer-impact control transaction, and FacetWithdrawal computes every plane's set before writing any of them so an incomputable set refuses the whole withdrawal with no partial effect",
+        "Discharged: the two-contributor exactness case and the retained-Slot refusal both have adversarial tests that byte-compare the retained Facet's entry after the withdrawal. The \u00a76.2 Subscription liveness closure is implemented and tested end to end: WorkspaceRoutingWithdrawal retires the Subscriptions a Facet's commands/automations contributions materialized, listSubscriptions excludes a retired Subscription so no further reservation is appended, and every reservation already appended and not yet prepared takes a terminal rejected RouteDelivery written by the owning Actor. A reservation that reached preparation is deliberately left to drain, and appendWithdrawalRejection refuses it",
+        "The authority half is still entirely unbuilt: nothing retires a Binding naming a withdrawn FacetRef or a Grant whose capability names only the withdrawn Facet's Operations, and the Scope epoch advance those retirements must share with the Binding mutation transaction (\u00a73.4 rule 5, C13-OWNERSHIP-AUTHORITY-RECORDS) still has no withdrawal trigger to attach to. FacetWithdrawal composes exactly two planes today and needs a third",
+        "Content retention needs a counterfactual rather than an assertion: retiring an attributed record that names a ContentRef must leave that content resolvable while any retained record still names it, and must never release a ContentRef a RunCommit or an admitted inbox Event names, so that C13-TURN-MODEL-INPUT-RECONSTRUCTABLE survives a withdrawal. No slot-plane record names a ContentRef today, so this is owed by whichever attributed kind acquires one first",
+        "Ownership-correct integration evidence is still owed for the routing half. The rejected-delivery closure is proved against WorkspacePersistence with a memory record store, not against the W7 routing surface running its own Actor, so the reservation-split exhaustiveness claim rests on a W3-authored test of a W7-owned record"
       ]
     },
     {
@@ -520,16 +458,11 @@
       "specTextSha256": "sha256:90d34373dfad90f82504cd2069eb9b398a57cea21c736270bd8bb01512d32f17",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/interception.ts#OperationInterceptorRunner"
-      ],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-ATTRIBUTION] persists attributable pre-preparation rewrite evidence"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -539,16 +472,11 @@
       "specTextSha256": "sha256:edc6171cebcf332992847529b36c54504676d02137b492811e942c0ebc368771",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/interception.ts#OperationInterceptorRunner"
-      ],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-CROSS-FACET] denies cross-Facet interception without explicit authority"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -565,10 +493,7 @@
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-DOMAIN-CONFINEMENT] refuses an out-of-domain interceptor and admits the same contributor's asynchronous Event"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -586,10 +511,7 @@
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-FROZEN-RETRY] retries a frozen intent without rerunning its mutating interceptor",
         "test/operations/runtime.test.ts#Protected Operation gateway binds payload shape into direct and mediated identities and returns replay without rerunning interceptors"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -599,16 +521,11 @@
       "specTextSha256": "sha256:fe4860822b7ebbc34308bd47e16827fa29dddbcc43f377a7f6cee0e2bc2055ac",
       "status": "implemented",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/facets/interceptor.ts#InterceptorDeclaration"
-      ],
+      "sourceSymbols": ["src/facets/interceptor.ts#InterceptorDeclaration"],
       "testSelectors": [
         "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-INTERCEPTOR-MODE-DECLARED] refuses an absent or unknown interceptor mode instead of defaulting one"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
         "Refusal is evidenced at the declaration boundary only. The rule says a declaration is refused at contribution, and the slot contribution path admits interceptor entries through FacetSlotContributeCommand, so closure needs a contribution-time case proving an entry carrying no mode or an unknown mode is rejected before any Facet activates, with no partially admitted manifest left behind",
         "Mutation attribution has not been measured against the new selector: the declaration's mode branch must be shown to kill a mutant inside InterceptorDeclaration rather than merely execute it",
@@ -622,16 +539,11 @@
       "specTextSha256": "sha256:d277264d33ab9b54311ccbe1598ea90911a7dd2986b3b5b5a7fb3b43da9af08a",
       "status": "implemented",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/interception.ts#OperationInterceptorRunner"
-      ],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-MODE-FIDELITY] refuses a gate interceptor that returns a value it was not given"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
         "Only the two operation cut points have a runtime, so a gate's read-only claim is enforced where the runner runs and is unevidenced at prompt.assemble, input.submitted, and turn.step; each needs its own refusal case once those cut points exist",
         "The refusal must be shown to leave no trace entry attributing a rewrite to the refused gate, and to leave the persisted transformation chain identical to the one a lawful gate would have produced",
@@ -645,17 +557,12 @@
       "specTextSha256": "sha256:7a8430d3dced3bb4ecac1193092fde0d9a820b1394af515c2c9f433b9cc601fa",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/interception.ts#OperationInterceptorRunner"
-      ],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-ORDER] orders interceptors by priority before contributor and id",
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-ORDER] runs every rewrite ahead of every gate whatever the local priorities say"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -672,10 +579,7 @@
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-POST-PREPARATION] refuses a post-preparation rewrite instead of dropping it"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -692,10 +596,7 @@
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-REPLAY] reuses durable pre-effect and post-effect transformations without rerunning either"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -705,16 +606,11 @@
       "specTextSha256": "sha256:7fda97d23891d3144f0079f229cc298b40f2753d55a0a662dde1be3e759ddd57",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/interception.ts#OperationInterceptorRunner"
-      ],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-SELF-SCOPE] defaults an omitted selector to only the contributing Facet"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
@@ -724,16 +620,11 @@
       "specTextSha256": "sha256:da39558f51ff7b9bb8ee03ed057980c47b3a76797ab6732081cfbdbf71a50ad9",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [
-        "src/operations/interception.ts#OperationInterceptorRunner"
-      ],
+      "sourceSymbols": ["src/operations/interception.ts#OperationInterceptorRunner"],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-THROW-BLOCK] fails closed on invalid interceptor results, throws, non-interceptable cross targets, and unknown mediated items"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     }
   ]

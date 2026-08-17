@@ -26,13 +26,16 @@ import {
 } from "../../src/definition";
 import { PrincipalId, PrincipalRef, TenantId, WorkspaceId } from "../../src/identity";
 import {
+    ContributionAttribution,
     FacetPackageId,
     FacetRef,
+    InstalledSlot,
     PackageInstallationRef,
     SlotAuthorityPolicy,
     SlotDeclaration,
     SlotEntry,
     SlotName,
+    SlotWithdrawalSet,
     WorkspaceSlotStore
 } from "../../src/facets";
 import {
@@ -43,6 +46,7 @@ import {
     FacetSlotCommandPayload,
     FacetSlotContributeCommand,
     FacetSlotInstallCommand,
+    FacetSlotWithdrawCommand,
     MemoryProtocolPersistence,
     MemoryProtocolRecords,
     type CommandCaller,
@@ -53,6 +57,20 @@ import {
 import { CounterAuthenticator, CounterContentStore, CounterIds } from "./counter-fixture";
 
 const decisionAt = new Date("2026-07-12T12:00:00.000Z");
+const packagePin = new PackagePin(
+    new PackageId("profile-package"),
+    new SemVer("1.0.0"),
+    new Digest("a".repeat(64)),
+    new Digest("a".repeat(64))
+);
+const backendAttribution = new ContributionAttribution(
+    new FacetRef("workspace:facet"),
+    packagePin
+);
+
+function attributionFor(facet: string): ContributionAttribution {
+    return new ContributionAttribution(new FacetRef(facet), packagePin);
+}
 
 describe("Facet Slot protocol commands", () => {
     test("requires the exact Workspace Actor and authority backend", { tags: "p0" }, () => {
@@ -61,7 +79,7 @@ describe("Facet Slot protocol commands", () => {
         const backend = new Backend();
         const install = new FacetSlotInstallCommand(backend, target);
         const declaration = slot();
-        const payload = install.payload.decode(FacetSlotCommandPayload.install(declaration));
+        const payload = install.payload.decode(FacetSlotCommandPayload.install(declaration.declaration));
         const commandEnvelope = envelope(FACET_SLOT_COMMANDS.install, target);
 
         expect(install.caller.admits(caller(target))).toBe(true);
@@ -120,12 +138,12 @@ describe("Facet Slot protocol commands", () => {
         const declaration = slot();
         const candidate = entry();
 
-        const installReply = install.execute(
-            backend,
-            envelope(FACET_SLOT_COMMANDS.install, target, new Revision(0)),
-            install.payload.decode(FacetSlotCommandPayload.install(declaration)),
-            decisionAt
+        const installEnvelope = envelope(FACET_SLOT_COMMANDS.install, target, new Revision(0));
+        const decodedInstall = install.payload.decode(
+            FacetSlotCommandPayload.install(declaration.declaration)
         );
+        expect(install.authorize(backend, installEnvelope, decodedInstall)).toBe(true);
+        const installReply = install.execute(backend, installEnvelope, decodedInstall, decisionAt);
         expect(installReply.reply.revision.value).toBe(1);
         expect(installReply.observation).toEqual(declaration);
         const decoded = contribute.payload.decode(
@@ -161,6 +179,69 @@ describe("Facet Slot protocol commands", () => {
         expect(backend.revision.value).toBe(2);
     });
 
+    test(
+        "[C13-FACET-WITHDRAWAL-EXACT] retires a Facet's contributions through one administer control transaction",
+        { tags: "p0" },
+        () => {
+            const target = actor("workspace");
+            const backend = new Backend();
+            const withdraw = new FacetSlotWithdrawCommand(backend, target);
+            backend.declaration = slot();
+            backend.entries = [entry()];
+            const payload = withdraw.payload.decode(
+                FacetSlotCommandPayload.withdraw(new FacetRef("workspace:facet"))
+            );
+            const withdrawalEnvelope = envelope(withdraw.command, target, Revision.initial());
+
+            expect(withdraw.caller.admits(caller(actor("foreign")))).toBe(false);
+            expect(withdraw.authorize(backend, withdrawalEnvelope, payload)).toBe(true);
+            expect(withdraw.permitsLifecycle(backend, withdrawalEnvelope, payload)).toBe(true);
+            expect(
+                withdraw.currentLease(backend, withdrawalEnvelope, payload, decisionAt)
+            ).toBeUndefined();
+            expect(withdraw.currentRevision(backend, withdrawalEnvelope, payload).value).toBe(0);
+            expect(
+                backend
+                    .withdrawalSet(backend, new FacetRef("workspace:facet"))
+                    .entries.map((id) => id.value)
+            ).toEqual([entry().id.value]);
+
+            const reply = withdraw.execute(backend, withdrawalEnvelope, payload, decisionAt);
+            expect(reply.reply.revision.value).toBe(1);
+            expect(backend.entries).toEqual([]);
+
+            backend.withdrawalAllowed = false;
+            expect(withdraw.authorize(backend, envelope(withdraw.command, target), payload)).toBe(
+                false
+            );
+            expect(
+                () =>
+                    new FacetSlotWithdrawCommand(
+                        backend,
+                        new ActorRef("tenant", new ActorId("tenant"))
+                    )
+            ).toThrow(/Workspace/);
+            expect(() =>
+                withdraw.payload.decode(
+                    encodeCanonicalJson({ contributor: "workspace:facet", extra: true })
+                )
+            ).toThrow(/unknown fields/);
+            expect(() => withdraw.payload.decode(encodeCanonicalJson({ contributor: 1 }))).toThrow(
+                /Slot withdrawal contributor/
+            );
+            expectAgentCoreError(
+                () =>
+                    withdraw.execute(
+                        backend,
+                        envelope(withdraw.command, target),
+                        forgedContributor({}),
+                        decisionAt
+                    ),
+                "protocol.invalid-state"
+            );
+        }
+    );
+
     test("[C13-ADV-UNAUTHORIZED-SLOT] strictly decodes payloads and denies unauthorized contributions", { tags: "p0" }, () => {
         const target = actor("workspace");
         const backend = new Backend();
@@ -188,10 +269,10 @@ describe("Facet Slot protocol commands", () => {
         const committed = await admitted.dispatch(payload, "trusted-contribution");
         expect(committed.outcome).toBe("committed");
         const observation = SlotEntry.decode(committed.observation!);
-        expect(observation.contributor.value).toBe("workspace:trusted");
-        expect(admitted.entries().map((candidate) => candidate.contributor.value)).toEqual([
-            "workspace:trusted"
-        ]);
+        expect(observation.attribution.contributor.value).toBe("workspace:trusted");
+        expect(
+            admitted.entries().map((candidate) => candidate.attribution.contributor.value)
+        ).toEqual(["workspace:trusted"]);
 
         const denied = closedSlotFixture("workspace:untrusted", "workspace:trusted");
         const rejected = await denied.dispatch(payload, "untrusted-contribution");
@@ -205,7 +286,7 @@ describe("Facet Slot protocol commands", () => {
         const declaration = slot();
         const state: SlotState = {
             revision: new Revision(1),
-            slots: new Map([[declaration.name.value, declaration]]),
+            slots: new Map([[declaration.declaration.name.value, declaration]]),
             entries: new Map()
         };
         const store = slotStore();
@@ -216,7 +297,8 @@ describe("Facet Slot protocol commands", () => {
             provenance,
             {
                 permitsInstall: () => true,
-                permitsContribution: () => contributionAllowed
+                permitsContribution: () => contributionAllowed,
+                permitsWithdrawal: () => true
             },
             {
                 revision: (transaction) => store.loadRevision(transaction),
@@ -256,11 +338,14 @@ describe("Facet Slot protocol commands", () => {
         const schemaEnvelope = envelope(command.command, target, new Revision(1));
         expect(command.authorize(state, schemaEnvelope, request)).toBe(true);
         state.slots.set(
-            declaration.name.value,
-            new SlotDeclaration(
-                declaration.name,
-                new JsonSchema({ type: "null" }),
-                declaration.authority
+            declaration.declaration.name.value,
+            new InstalledSlot(
+                new SlotDeclaration(
+                    declaration.declaration.name,
+                    new JsonSchema({ type: "null" }),
+                    declaration.declaration.authority
+                ),
+                declaration.attribution
             )
         );
         expect(() => command.execute(state, schemaEnvelope, request, decisionAt)).toThrow(
@@ -299,7 +384,7 @@ describe("Facet Slot protocol commands", () => {
         const contribute = new FacetSlotContributeCommand(backend, target);
         const declaration = slot();
         const decodedDeclaration = install.payload.decode(
-            FacetSlotCommandPayload.install(declaration)
+            FacetSlotCommandPayload.install(declaration.declaration)
         );
         const encodedContribution = FacetSlotCommandPayload.contribute(contribution(entry()));
         expect(new TextDecoder().decode(encodedContribution)).not.toContain("contributor");
@@ -319,10 +404,13 @@ describe("Facet Slot protocol commands", () => {
             contribute.permitsLifecycle(backend, envelope(contribute.command, target), decodedEntry)
         ).toBe(false);
         backend.provenanceAvailable = true;
-        backend.declaration = new SlotDeclaration(
-            new SlotName("dashboard.card"),
-            new JsonSchema({ type: "null" }),
-            new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"])
+        backend.declaration = new InstalledSlot(
+            new SlotDeclaration(
+                new SlotName("dashboard.card"),
+                new JsonSchema({ type: "null" }),
+                new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"])
+            ),
+            backendAttribution
         );
         const invalidSchemaEnvelope = envelope(contribute.command, target);
         expect(contribute.authorize(backend, invalidSchemaEnvelope, decodedEntry)).toBe(true);
@@ -349,24 +437,17 @@ describe("Facet Slot protocol commands", () => {
                 ),
             "protocol.invalid-state"
         );
+        const unrevisioned = envelopeWithoutRevision(install.command, target);
+        expect(install.authorize(backend, unrevisioned, decodedDeclaration)).toBe(true);
         expectAgentCoreError(
-            () =>
-                install.execute(
-                    backend,
-                    envelopeWithoutRevision(install.command, target),
-                    decodedDeclaration,
-                    decisionAt
-                ),
+            () => install.execute(backend, unrevisioned, decodedDeclaration, decisionAt),
             "protocol.revision-conflict"
         );
 
         backend.changed = false;
-        const reply = install.execute(
-            backend,
-            envelope(install.command, target),
-            decodedDeclaration,
-            decisionAt
-        );
+        const noOpInstall = envelope(install.command, target);
+        expect(install.authorize(backend, noOpInstall, decodedDeclaration)).toBe(true);
+        const reply = install.execute(backend, noOpInstall, decodedDeclaration, decisionAt);
         expect(reply.reply.revision.value).toBe(0);
         expect(() => install.payload.decode(encodeCanonicalJson({ record: 1 }))).toThrow(/string/);
         expect(() => contribute.payload.decode(encodeCanonicalJson({ record: "%%%" }))).toThrow();
@@ -446,9 +527,11 @@ test("facet slot reply codec accepts boundary revisions exactly", { tags: "p1" }
     const declaration = slot();
     const observationCodec = command.observationCodec;
     if (observationCodec === undefined) throw new TypeError("Expected an observation codec");
-    expect(observationCodec.encode(declaration)).toEqual(SlotDeclaration.encode(declaration));
+    expect(observationCodec.encode(declaration)).toEqual(InstalledSlot.encode(declaration));
     expect(
-        observationCodec.decode(observationCodec.encode(declaration)).name.equals(declaration.name)
+        observationCodec
+            .decode(observationCodec.encode(declaration))
+            .declaration.name.equals(declaration.declaration.name)
     ).toBe(true);
 });
 
@@ -527,13 +610,14 @@ interface BackendContributionStamp {
 
 class Backend implements FacetSlotCommandBackend<Backend, Backend> {
     public revision = Revision.initial();
-    public declaration: SlotDeclaration | undefined;
+    public declaration: InstalledSlot | undefined;
     public entries: SlotEntry[] = [];
     public installAllowed = true;
     public contributionAllowed = true;
+    public withdrawalAllowed = true;
     public changed = true;
     public provenanceAvailable = true;
-    public provenanceFacet = new FacetRef("workspace:facet");
+    public provenanceAttribution = backendAttribution;
 
     public currentRevision(): Revision {
         return this.revision;
@@ -547,6 +631,31 @@ class Backend implements FacetSlotCommandBackend<Backend, Backend> {
         return this.contributionAllowed;
     }
 
+    public permitsWithdrawal(): boolean {
+        return this.withdrawalAllowed;
+    }
+
+    public withdrawalSet(_read: Backend, contributor: FacetRef): SlotWithdrawalSet {
+        return new SlotWithdrawalSet(
+            contributor,
+            this.declaration !== undefined &&
+            this.declaration.attribution.contributor.equals(contributor)
+                ? [this.declaration.declaration.name]
+                : [],
+            this.entries
+                .filter((candidate) => candidate.attribution.contributor.equals(contributor))
+                .map((candidate) => candidate.id)
+        );
+    }
+
+    public applyWithdrawal(_transaction: Backend, contributor: FacetRef): boolean {
+        const before = this.entries.length;
+        this.entries = this.entries.filter(
+            (candidate) => !candidate.attribution.contributor.equals(contributor)
+        );
+        return this.changed && this.entries.length !== before;
+    }
+
     public prepareContribution(
         _read: Backend,
         _envelope: CommandEnvelope
@@ -556,10 +665,10 @@ class Backend implements FacetSlotCommandBackend<Backend, Backend> {
         return this.provenanceAvailable
             ? {
                   reference: new PackageInstallationRef(
-                      this.provenanceFacet,
+                      this.provenanceAttribution,
                       new FacetPackageId("package.facet")
                   ),
-                  stamp: Object.freeze({ facet: this.provenanceFacet })
+                  stamp: Object.freeze({ facet: this.provenanceAttribution.contributor })
               }
             : undefined;
     }
@@ -570,19 +679,29 @@ class Backend implements FacetSlotCommandBackend<Backend, Backend> {
         _stamp: BackendContributionStamp,
         candidate: SlotEntry
     ): boolean {
-        if (!candidate.contributor.equals(this.provenanceFacet)) {
+        if (!candidate.attribution.equals(this.provenanceAttribution)) {
             throw new TypeError("provenance changed");
         }
         this.entries.push(candidate);
         return this.changed;
     }
 
-    public slot(_read: Backend, name: SlotName): SlotDeclaration | undefined {
-        return this.declaration?.name.equals(name) === true ? this.declaration : undefined;
+    public slot(_read: Backend, name: SlotName): InstalledSlot | undefined {
+        return this.declaration?.declaration.name.equals(name) === true
+            ? this.declaration
+            : undefined;
     }
 
-    public install(_transaction: Backend, declaration: SlotDeclaration): boolean {
-        this.declaration = declaration;
+    public applyInstall(
+        _transaction: Backend,
+        _envelope: CommandEnvelope,
+        _stamp: BackendContributionStamp,
+        candidate: InstalledSlot
+    ): boolean {
+        if (!candidate.attribution.equals(this.provenanceAttribution)) {
+            throw new TypeError("provenance changed");
+        }
+        this.declaration = candidate;
         return this.changed;
     }
 
@@ -597,7 +716,7 @@ const slotStoreOwner = new WorkspaceId("facet-commands-workspace");
 
 interface SlotState {
     revision: Revision;
-    slots: Map<string, SlotDeclaration>;
+    slots: Map<string, InstalledSlot>;
     entries: Map<string, SlotEntry>;
 }
 
@@ -635,12 +754,20 @@ class TestSlotStore<State extends SlotState> extends WorkspaceSlotStore<State> {
         state.revision = revision;
     }
 
-    public override loadSlot(state: State, name: SlotName): SlotDeclaration | undefined {
+    public override loadSlot(state: State, name: SlotName): InstalledSlot | undefined {
         return state.slots.get(name.value);
     }
 
-    public override insertSlot(state: State, declaration: SlotDeclaration): void {
-        state.slots.set(declaration.name.value, declaration);
+    public override insertSlot(state: State, installed: InstalledSlot): void {
+        state.slots.set(installed.declaration.name.value, installed);
+    }
+
+    public override retireSlot(state: State, name: SlotName): void {
+        state.slots.delete(name.value);
+    }
+
+    public override listSlots(state: State): readonly InstalledSlot[] {
+        return [...state.slots.values()];
     }
 
     public override loadEntry(state: State, id: SlotEntry["id"]): SlotEntry | undefined {
@@ -653,6 +780,14 @@ class TestSlotStore<State extends SlotState> extends WorkspaceSlotStore<State> {
 
     public override insertEntry(state: State, candidate: SlotEntry): void {
         state.entries.set(candidate.id.value, candidate);
+    }
+
+    public override listAllEntries(state: State): readonly SlotEntry[] {
+        return [...state.entries.values()];
+    }
+
+    public override retireEntry(state: State, id: SlotEntry["id"]): void {
+        state.entries.delete(id.value);
     }
 }
 
@@ -679,20 +814,25 @@ interface ClosedSlotHarness {
 function closedSlotFixture(installedFacet: string, allowedFacet: string): ClosedSlotHarness {
     const tenant = new TenantId("tenant");
     const target = actor("closed-slot-workspace");
-    const declaration = new SlotDeclaration(
-        new SlotName("dashboard.card"),
-        new JsonSchema({
-            type: "object",
-            additionalProperties: false,
-            required: ["title"],
-            properties: { title: { type: "string" } }
-        }),
-        new SlotAuthorityPolicy([allowedFacet], ["binding:dashboard.read"])
+    const declaration = new InstalledSlot(
+        new SlotDeclaration(
+            new SlotName("dashboard.card"),
+            new JsonSchema({
+                type: "object",
+                additionalProperties: false,
+                required: ["title"],
+                properties: { title: { type: "string" } }
+            }),
+            new SlotAuthorityPolicy([allowedFacet], ["binding:dashboard.read"])
+        ),
+        attributionFor(installedFacet)
     );
     const store = new MemoryActorStore<ClosedSlotState>(
         {
             revision: 0,
-            slots: new Map([[declaration.name.value, SlotDeclaration.encode(declaration)]]),
+            slots: new Map([
+                [declaration.declaration.name.value, InstalledSlot.encode(declaration)]
+            ]),
             entries: new Map(),
             records: new MemoryProtocolRecords(),
             nextId: 0
@@ -712,17 +852,18 @@ function closedSlotFixture(installedFacet: string, allowedFacet: string): Closed
                 const bytes = state.slots.get(entry.slot.value);
                 return (
                     bytes !== undefined &&
-                    SlotDeclaration.decode(bytes).authority.contribute.includes(
-                        entry.contributor.value
+                    InstalledSlot.decode(bytes).declaration.authority.contribute.includes(
+                        entry.attribution.contributor.value
                     )
                 );
-            }
+            },
+            permitsWithdrawal: () => true
         },
         {
             revision: (state) => new Revision(state.revision),
             slot: (state, name) => {
                 const bytes = state.slots.get(name.value);
-                return bytes === undefined ? undefined : SlotDeclaration.decode(bytes);
+                return bytes === undefined ? undefined : InstalledSlot.decode(bytes);
             }
         }
     );
@@ -795,16 +936,21 @@ class ClosedTestSlotStore extends WorkspaceSlotStore<ClosedSlotState> {
         state.revision = revision.value;
     }
 
-    public override loadSlot(
-        state: ClosedSlotState,
-        name: SlotName
-    ): SlotDeclaration | undefined {
+    public override loadSlot(state: ClosedSlotState, name: SlotName): InstalledSlot | undefined {
         const bytes = state.slots.get(name.value);
-        return bytes === undefined ? undefined : SlotDeclaration.decode(bytes);
+        return bytes === undefined ? undefined : InstalledSlot.decode(bytes);
     }
 
-    public override insertSlot(state: ClosedSlotState, candidate: SlotDeclaration): void {
-        state.slots.set(candidate.name.value, SlotDeclaration.encode(candidate));
+    public override insertSlot(state: ClosedSlotState, candidate: InstalledSlot): void {
+        state.slots.set(candidate.declaration.name.value, InstalledSlot.encode(candidate));
+    }
+
+    public override retireSlot(state: ClosedSlotState, name: SlotName): void {
+        state.slots.delete(name.value);
+    }
+
+    public override listSlots(state: ClosedSlotState): readonly InstalledSlot[] {
+        return [...state.slots.values()].map((bytes) => InstalledSlot.decode(bytes));
     }
 
     public override loadEntry(
@@ -823,6 +969,14 @@ class ClosedTestSlotStore extends WorkspaceSlotStore<ClosedSlotState> {
 
     public override insertEntry(state: ClosedSlotState, candidate: SlotEntry): void {
         state.entries.set(candidate.id.value, SlotEntry.encode(candidate));
+    }
+
+    public override listAllEntries(state: ClosedSlotState): readonly SlotEntry[] {
+        return [...state.entries.values()].map((bytes) => SlotEntry.decode(bytes));
+    }
+
+    public override retireEntry(state: ClosedSlotState, id: SlotEntry["id"]): void {
+        state.entries.delete(id.value);
     }
 }
 
@@ -875,7 +1029,11 @@ function envelopeWithoutRevision(command: string, target: ActorRef): CommandEnve
     });
 }
 
-function slot(): SlotDeclaration {
+function slot(): InstalledSlot {
+    return new InstalledSlot(declaration(), backendAttribution);
+}
+
+function declaration(): SlotDeclaration {
     return new SlotDeclaration(
         new SlotName("dashboard.card"),
         new JsonSchema({ type: "object" }),
@@ -884,7 +1042,7 @@ function slot(): SlotDeclaration {
 }
 
 function entry(): SlotEntry {
-    return SlotEntry.create(new SlotName("dashboard.card"), "workspace:facet", 0, {
+    return new SlotEntry(new SlotName("dashboard.card"), backendAttribution, 0, {
         title: "Card"
     });
 }
@@ -895,12 +1053,7 @@ function installation(
 ): AuthenticatedPackageInstallation {
     const digest = new Digest("a".repeat(64));
     return Object.freeze({
-        package: new PackagePin(
-            new PackageId("profile-package"),
-            new SemVer("1.0.0"),
-            digest,
-            digest
-        ),
+        package: packagePin,
         packageFacet: new FacetPackageId("package.facet"),
         facet: new FacetRef(facet),
         materialization: new ManagedOrigin({
@@ -932,6 +1085,12 @@ function forgedDeclaration<TActual>(value: TActual): SlotDeclaration {
     // SAFETY: not a decoded SlotDeclaration. The install command must refuse it as an invalid
     // state rather than install a slot whose schema and authority it never validated.
     return value as TActual & SlotDeclaration;
+}
+
+function forgedContributor<TActual>(value: TActual): FacetRef {
+    // SAFETY: not a decoded FacetRef. The withdrawal command must refuse it as an invalid
+    // state rather than compute a withdrawal set from an unvalidated contributor.
+    return value as TActual & FacetRef;
 }
 
 function forgedContribution<TActual>(value: TActual): SlotContributionRequest {

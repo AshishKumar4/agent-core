@@ -1,12 +1,12 @@
 import { describe, expect, test } from "vitest";
 import { JsonSchema } from "../../../src/core";
-import { SlotAuthorityPolicy, SlotDeclaration, SlotName } from "../../../src/facets";
+import { InstalledSlot, SlotAuthorityPolicy, SlotDeclaration, SlotName } from "../../../src/facets";
 import { WorkspaceId } from "../../../src/identity";
 import { sqliteText } from "../../../src/substrates/sqlite/content";
 import { SqliteWorkspaceSlotStore } from "../../../src/substrates/sqlite/slot";
 import type { SqliteRow, SqliteValue } from "../../../src/substrates/sqlite";
 import { TestSqlite } from "../../helpers/sqlite";
-import { entry, slot } from "../../w3/slot-store-contract";
+import { attribution, entry, slot } from "../../w3/slot-store-contract";
 
 const owner = new WorkspaceId("slot-owner-mutants");
 const slotName = new SlotName("dashboard.card");
@@ -21,18 +21,19 @@ describe("SQLite Workspace Slot store exact failure and schema behavior", () => 
         const reopened = new SqliteWorkspaceSlotStore(owner, database);
         expect(reopened.revision().value).toBe(2);
         expect(reopened.entries(slotName)).toHaveLength(1);
-        expect(reopened.slot(slotName)?.name.value).toBe("dashboard.card");
+        expect(reopened.slot(slotName)?.declaration.name.value).toBe("dashboard.card");
     });
 
     test("accepts an equivalently formatted out-of-band schema", { tags: "p1" }, () => {
         const database = new TestSqlite();
         const statements = [
             `create table facet_slot_schema (singleton integer primary key check(singleton = 1),
-                version integer not null check(version = 1),
+                version integer not null check(version = 2),
                 workspace text not null check(length(workspace) > 0)) strict`,
             `create table facet_slot_revision (singleton integer primary key check(singleton = 1),
                 revision integer not null check(revision >= 0)) strict`,
             `create table facet_slots (name text primary key check(length(name) > 0),
+                contributor text not null check(length(contributor) > 0),
                 record blob not null) strict`,
             `create table facet_slot_entries (id text primary key check(length(id) > 0),
                 slot text not null check(length(slot) > 0),
@@ -40,13 +41,16 @@ describe("SQLite Workspace Slot store exact failure and schema behavior", () => 
                 ordinal integer not null check(ordinal >= 0),
                 record blob not null, unique(slot, contributor, ordinal)) strict`,
             `create index facet_slot_entries_query
-                on facet_slot_entries (slot, ordinal, contributor, id)`
+                on facet_slot_entries (slot, ordinal, contributor, id)`,
+            `create index facet_slot_entries_attribution
+                on facet_slot_entries (contributor, id)`,
+            `create index facet_slots_attribution on facet_slots (contributor, name)`
         ];
         for (const statement of statements) {
             database.run(statement.replaceAll(/\s+/gu, " "), []);
         }
         database.run(
-            "insert into facet_slot_schema (singleton, version, workspace) values (1, 1, ?)",
+            "insert into facet_slot_schema (singleton, version, workspace) values (1, 2, ?)",
             [owner.value]
         );
         database.run("insert into facet_slot_revision (singleton, revision) values (1, 0)", []);
@@ -95,7 +99,7 @@ describe("SQLite Workspace Slot store exact failure and schema behavior", () => 
             })
         );
 
-        database.marker = { version: 2 };
+        database.marker = { version: 3 };
         expect(() => new SqliteWorkspaceSlotStore(owner, database)).toThrow(
             expect.objectContaining({
                 code: "codec.invalid",
@@ -147,15 +151,18 @@ describe("SQLite Workspace Slot store exact failure and schema behavior", () => 
     test("keeps installed declarations immutable with the exact error", { tags: "p0" }, () => {
         const store = new SqliteWorkspaceSlotStore(owner, new TestSqlite());
         store.install(slot());
-        const conflicting = new SlotDeclaration(
-            slotName,
-            new JsonSchema({
-                type: "object",
-                required: ["heading"],
-                properties: { heading: { type: "string" } },
-                additionalProperties: false
-            }),
-            new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"])
+        const conflicting = new InstalledSlot(
+            new SlotDeclaration(
+                slotName,
+                new JsonSchema({
+                    type: "object",
+                    required: ["heading"],
+                    properties: { heading: { type: "string" } },
+                    additionalProperties: false
+                }),
+                new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"])
+            ),
+            attribution("workspace:declarer")
         );
 
         expect(() => store.install(conflicting)).toThrow(
@@ -166,8 +173,8 @@ describe("SQLite Workspace Slot store exact failure and schema behavior", () => 
         );
         expect(store.revision().value).toBe(1);
         const stored = store.slot(slotName);
-        expect(stored?.entrySchema.accepts({ title: "kept" })).toBe(true);
-        expect(stored?.entrySchema.accepts({ heading: "replaced" })).toBe(false);
+        expect(stored?.declaration.entrySchema.accepts({ title: "kept" })).toBe(true);
+        expect(stored?.declaration.entrySchema.accepts({ heading: "replaced" })).toBe(false);
     });
 
     test(
@@ -176,22 +183,27 @@ describe("SQLite Workspace Slot store exact failure and schema behavior", () => 
         () => {
             const store = new SqliteWorkspaceSlotStore(owner, new TestSqlite());
             store.install(slot());
-            const sameLengthConflict = new SlotDeclaration(
-                slotName,
-                new JsonSchema({
-                    type: "object",
-                    required: ["eltit"],
-                    properties: { eltit: { type: "string" } },
-                    additionalProperties: false
-                }),
-                new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"])
+            const sameLengthConflict = new InstalledSlot(
+                new SlotDeclaration(
+                    slotName,
+                    new JsonSchema({
+                        type: "object",
+                        required: ["eltit"],
+                        properties: { eltit: { type: "string" } },
+                        additionalProperties: false
+                    }),
+                    new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"])
+                ),
+                attribution("workspace:declarer")
             );
 
             expect(() => store.install(sameLengthConflict)).toThrow(
                 expect.objectContaining({ code: "protocol.invalid-state" })
             );
             expect(store.revision().value).toBe(1);
-            expect(store.slot(slotName)?.entrySchema.accepts({ title: "kept" })).toBe(true);
+            expect(store.slot(slotName)?.declaration.entrySchema.accepts({ title: "kept" })).toBe(
+                true
+            );
         }
     );
 
@@ -366,18 +378,21 @@ describe("SQLite Workspace Slot store exact failure and schema behavior", () => 
     test("compares every declaration byte at equal encoded length", { tags: "p0" }, () => {
         const store = new SqliteWorkspaceSlotStore(owner, new TestSqlite());
         store.install(slot());
-        const renamed = new SlotDeclaration(
-            slotName,
-            new JsonSchema({
-                type: "object",
-                required: ["titel"],
-                properties: { titel: { type: "string" } },
-                additionalProperties: false
-            }),
-            new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"])
+        const renamed = new InstalledSlot(
+            new SlotDeclaration(
+                slotName,
+                new JsonSchema({
+                    type: "object",
+                    required: ["titel"],
+                    properties: { titel: { type: "string" } },
+                    additionalProperties: false
+                }),
+                new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"])
+            ),
+            attribution("workspace:declarer")
         );
-        expect(SlotDeclaration.encode(renamed).byteLength).toBe(
-            SlotDeclaration.encode(slot()).byteLength
+        expect(InstalledSlot.encode(renamed).byteLength).toBe(
+            InstalledSlot.encode(slot()).byteLength
         );
 
         expect(() => store.install(renamed)).toThrow(
@@ -387,20 +402,23 @@ describe("SQLite Workspace Slot store exact failure and schema behavior", () => 
             })
         );
         expect(store.revision().value).toBe(1);
-        expect(store.slot(slotName)?.entrySchema.accepts({ title: "kept" })).toBe(true);
+        expect(store.slot(slotName)?.declaration.entrySchema.accepts({ title: "kept" })).toBe(true);
     });
 });
 
-function neighbouringSlot(): SlotDeclaration {
-    return new SlotDeclaration(
-        new SlotName("dashboard.panel"),
-        new JsonSchema({
-            type: "object",
-            required: ["title"],
-            properties: { title: { type: "string" } },
-            additionalProperties: false
-        }),
-        new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"])
+function neighbouringSlot(): InstalledSlot {
+    return new InstalledSlot(
+        new SlotDeclaration(
+            new SlotName("dashboard.panel"),
+            new JsonSchema({
+                type: "object",
+                required: ["title"],
+                properties: { title: { type: "string" } },
+                additionalProperties: false
+            }),
+            new SlotAuthorityPolicy(["installed"], ["binding:dashboard.read"])
+        ),
+        attribution("workspace:declarer")
     );
 }
 

@@ -4,6 +4,9 @@
   "wave": "W4",
   "description": "Current integrated W4 production source, including authenticated package installation provenance.",
   "sources": [
+    "src/definition-references/id.ts",
+    "src/definition-references/index.ts",
+    "src/definition-references/pin.ts",
     "src/definition/attestation.ts",
     "src/definition/blueprint.ts",
     "src/definition/code-manifest.ts",
@@ -38,5 +41,5 @@
     "src/substrates/sqlite/materialization.ts",
     "src/substrates/sqlite/package.ts"
   ],
-  "sourceSha256": "4b79494f0997d422e1700ad2805d8a4890db61d7e5103c7ff5278caffc84b8d5"
+  "sourceSha256": "0dc3e0432e8787d36fce91f1be94bccaabeb2d1e7fa4781cbc3b14e94f717938"
 }

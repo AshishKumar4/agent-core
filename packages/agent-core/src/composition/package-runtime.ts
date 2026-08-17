@@ -8,10 +8,12 @@ import {
 } from "../definition";
 import { AgentCoreError } from "../errors";
 import {
-    SlotDeclaration,
+    InstalledSlot,
     SlotEntry,
     type Facet,
+    type FacetRef,
     type SlotName,
+    type SlotWithdrawalSet,
     type WorkspaceSlotStore
 } from "../facets";
 import { FacetRuntimeHost } from "../operations/internal";
@@ -77,13 +79,14 @@ export class PackageFacetRuntime<Loaded> implements AsyncDisposable {
 }
 
 export interface FacetSlotAuthorityPort<Read, Transaction = Read> {
-    permitsInstall(read: Read, declaration: SlotDeclaration): boolean;
+    permitsInstall(state: Read | Transaction, slot: InstalledSlot): boolean;
     permitsContribution(state: Read | Transaction, entry: SlotEntry): boolean;
+    permitsWithdrawal(state: Read | Transaction, contributor: FacetRef): boolean;
 }
 
 export interface FacetSlotReadPort<Read> {
     revision(read: Read): Revision;
-    slot(read: Read, name: SlotName): SlotDeclaration | undefined;
+    slot(read: Read, name: SlotName): InstalledSlot | undefined;
 }
 
 export class ProvenanceFacetSlotBackend<Transaction, Read> implements FacetSlotCommandBackend<
@@ -104,8 +107,8 @@ export class ProvenanceFacetSlotBackend<Transaction, Read> implements FacetSlotC
         return this.reads.revision(read);
     }
 
-    public permitsInstall(read: Read, declaration: SlotDeclaration): boolean {
-        return this.authority.permitsInstall(read, declaration);
+    public permitsInstall(read: Read, slot: InstalledSlot): boolean {
+        return this.authority.permitsInstall(read, slot);
     }
 
     public prepareContribution(read: Read, envelope: CommandEnvelope) {
@@ -128,7 +131,7 @@ export class ProvenanceFacetSlotBackend<Transaction, Read> implements FacetSlotC
             envelope,
             stamp
         );
-        if (installation === undefined || !installation.facet.equals(entry.contributor)) {
+        if (installation === undefined || !installation.attribution.equals(entry.attribution)) {
             throw new AgentCoreError(
                 "authority.denied",
                 "Slot contributor installation provenance changed before apply"
@@ -140,11 +143,11 @@ export class ProvenanceFacetSlotBackend<Transaction, Read> implements FacetSlotC
                 "Current authority does not admit the Slot contributor"
             );
         }
-        const declaration = this.slots.loadSlot(transaction, entry.slot);
-        if (declaration === undefined) {
+        const installed = this.slots.loadSlot(transaction, entry.slot);
+        if (installed === undefined) {
             throw new AgentCoreError("facet.inactive", `Slot ${entry.slot.value} is not installed`);
         }
-        if (!declaration.entrySchema.accepts(entry.value)) {
+        if (!installed.declaration.entrySchema.accepts(entry.value)) {
             throw new AgentCoreError(
                 "operation.invalid-input",
                 `Slot entry ${entry.id.value} does not match the entry schema`
@@ -157,14 +160,41 @@ export class ProvenanceFacetSlotBackend<Transaction, Read> implements FacetSlotC
         return this.authority.permitsContribution(read, entry);
     }
 
-    public slot(read: Read, name: SlotName): SlotDeclaration | undefined {
+    public slot(read: Read, name: SlotName): InstalledSlot | undefined {
         return this.reads.slot(read, name);
     }
 
-    public install(transaction: Transaction, declaration: SlotDeclaration): boolean {
-        const existing = this.slots.loadSlot(transaction, declaration.name);
+    public applyInstall(
+        transaction: Transaction,
+        envelope: CommandEnvelope,
+        stamp: Parameters<
+            PackageInstallationProvenancePort<
+                Read | Transaction,
+                CommandEnvelope
+            >["resolveContributionForApply"]
+        >[2],
+        slot: InstalledSlot
+    ): boolean {
+        const installation = this.provenance.resolveContributionForApply(
+            transaction,
+            envelope,
+            stamp
+        );
+        if (installation === undefined || !installation.attribution.equals(slot.attribution)) {
+            throw new AgentCoreError(
+                "authority.denied",
+                "Slot declarer installation provenance changed before apply"
+            );
+        }
+        if (!this.authority.permitsInstall(transaction, slot)) {
+            throw new AgentCoreError(
+                "authority.denied",
+                "Current authority does not admit the Slot declarer"
+            );
+        }
+        const existing = this.slots.loadSlot(transaction, slot.declaration.name);
         if (existing !== undefined) {
-            if (!sameBytes(SlotDeclaration.encode(existing), SlotDeclaration.encode(declaration))) {
+            if (!sameBytes(InstalledSlot.encode(existing), InstalledSlot.encode(slot))) {
                 throw new AgentCoreError(
                     "protocol.invalid-state",
                     "Slot declaration conflicts with installed provenance"
@@ -172,8 +202,28 @@ export class ProvenanceFacetSlotBackend<Transaction, Read> implements FacetSlotC
             }
             return false;
         }
-        this.slots.insertSlot(transaction, declaration);
+        this.slots.insertSlot(transaction, slot);
         return true;
+    }
+
+    public permitsWithdrawal(read: Read, contributor: FacetRef): boolean {
+        return this.authority.permitsWithdrawal(read, contributor);
+    }
+
+    public withdrawalSet(_read: Read, contributor: FacetRef): SlotWithdrawalSet {
+        return this.slots.transaction((transaction) =>
+            this.slots.withdrawalSet(transaction, contributor)
+        );
+    }
+
+    public applyWithdrawal(transaction: Transaction, contributor: FacetRef): boolean {
+        if (!this.authority.permitsWithdrawal(transaction, contributor)) {
+            throw new AgentCoreError(
+                "authority.denied",
+                "Current authority does not admit the Facet withdrawal"
+            );
+        }
+        return this.slots.retireWithdrawalSet(transaction, contributor);
     }
 
     public contribute(transaction: Transaction, entry: SlotEntry): boolean {

@@ -2,9 +2,31 @@ import type { SynchronousResultGuard, TransactionOperation } from "../actors";
 import { Revision } from "../core";
 import { AgentCoreError } from "../errors";
 import type { WorkspaceId } from "../identity";
-import { SlotDeclaration } from "./slot";
+import type { ContributionAttribution } from "./attribution";
+import { InstalledSlot } from "./slot";
 import { SlotEntry } from "./slot-entry";
-import type { SlotName } from "./id";
+import type { FacetRef, SlotEntryId, SlotName } from "./id";
+
+/**
+ * The records one Workspace Slot Actor retires for a withdrawing Facet (SPEC §4.1,
+ * C13-FACET-WITHDRAWAL-EXACT). It is produced by querying attribution and never by
+ * running an inverse the Facet supplied, so it names exactly the withdrawing Facet's own
+ * records and a record it does not name is unchanged by the withdrawal.
+ */
+export class SlotWithdrawalSet {
+    public readonly slots: readonly SlotName[];
+    public readonly entries: readonly SlotEntryId[];
+
+    public constructor(
+        public readonly contributor: FacetRef,
+        slots: readonly SlotName[],
+        entries: readonly SlotEntryId[]
+    ) {
+        this.slots = Object.freeze([...slots]);
+        this.entries = Object.freeze([...entries]);
+        Object.freeze(this);
+    }
+}
 
 export abstract class WorkspaceSlotStore<Transaction> {
     public constructor(public readonly owner: WorkspaceId) {}
@@ -16,17 +38,21 @@ export abstract class WorkspaceSlotStore<Transaction> {
 
     public abstract loadRevision(transaction: Transaction): Revision;
     public abstract saveRevision(transaction: Transaction, revision: Revision): void;
-    public abstract loadSlot(transaction: Transaction, name: SlotName): SlotDeclaration | undefined;
-    public abstract insertSlot(transaction: Transaction, declaration: SlotDeclaration): void;
-    public abstract loadEntry(transaction: Transaction, id: SlotEntry["id"]): SlotEntry | undefined;
+    public abstract loadSlot(transaction: Transaction, name: SlotName): InstalledSlot | undefined;
+    public abstract insertSlot(transaction: Transaction, slot: InstalledSlot): void;
+    public abstract retireSlot(transaction: Transaction, name: SlotName): void;
+    public abstract listSlots(transaction: Transaction): readonly InstalledSlot[];
+    public abstract loadEntry(transaction: Transaction, id: SlotEntryId): SlotEntry | undefined;
     public abstract listEntries(transaction: Transaction, slot: SlotName): readonly SlotEntry[];
+    public abstract listAllEntries(transaction: Transaction): readonly SlotEntry[];
     public abstract insertEntry(transaction: Transaction, entry: SlotEntry): void;
+    public abstract retireEntry(transaction: Transaction, id: SlotEntryId): void;
 
     public revision(): Revision {
         return this.transaction((transaction) => this.loadRevision(transaction));
     }
 
-    public slot(name: SlotName): SlotDeclaration | undefined {
+    public slot(name: SlotName): InstalledSlot | undefined {
         return this.transaction((transaction) => this.loadSlot(transaction, name));
     }
 
@@ -34,15 +60,15 @@ export abstract class WorkspaceSlotStore<Transaction> {
         return this.transaction((transaction) => this.listEntries(transaction, name));
     }
 
-    public install(declaration: SlotDeclaration): Revision {
+    public install(slot: InstalledSlot): Revision {
         return this.transaction((transaction) => {
-            const existing = this.loadSlot(transaction, declaration.name);
+            const existing = this.loadSlot(transaction, slot.declaration.name);
             if (
                 existing !== undefined &&
-                equalBytes(SlotDeclaration.encode(existing), SlotDeclaration.encode(declaration))
+                equalBytes(InstalledSlot.encode(existing), InstalledSlot.encode(slot))
             )
                 return this.loadRevision(transaction);
-            this.insertSlot(transaction, declaration);
+            this.insertSlot(transaction, slot);
             const revision = this.loadRevision(transaction).next();
             this.saveRevision(transaction, revision);
             return revision;
@@ -51,9 +77,9 @@ export abstract class WorkspaceSlotStore<Transaction> {
 
     public contribute(entry: SlotEntry): Revision {
         return this.transaction((transaction) => {
-            const declaration = this.loadSlot(transaction, entry.slot);
-            if (declaration === undefined) throw inactiveSlot(entry.slot.value);
-            if (!declaration.entrySchema.accepts(entry.value)) {
+            const installed = this.loadSlot(transaction, entry.slot);
+            if (installed === undefined) throw inactiveSlot(entry.slot.value);
+            if (!installed.declaration.entrySchema.accepts(entry.value)) {
                 throw invalidEntry(entry.id.value);
             }
             const existing = this.loadEntry(transaction, entry.id);
@@ -63,6 +89,64 @@ export abstract class WorkspaceSlotStore<Transaction> {
             )
                 return this.loadRevision(transaction);
             this.insertEntry(transaction, entry);
+            const revision = this.loadRevision(transaction).next();
+            this.saveRevision(transaction, revision);
+            return revision;
+        });
+    }
+
+    /**
+     * Computes the withdrawal set by querying attribution. Decoding every stored record is
+     * the query: a record whose attribution the store cannot read makes the set
+     * incomputable, and the caller refuses the withdrawal rather than performing a partial
+     * one.
+     */
+    public withdrawalSet(transaction: Transaction, contributor: FacetRef): SlotWithdrawalSet {
+        const slots = this.listSlots(transaction)
+            .filter((installed) => installed.attribution.contributor.equals(contributor))
+            .map((installed) => installed.declaration.name);
+        const entries = this.listAllEntries(transaction)
+            .filter((entry) => entry.attribution.contributor.equals(contributor))
+            .map((entry) => entry.id);
+        return new SlotWithdrawalSet(contributor, slots, entries);
+    }
+
+    /**
+     * Refuses a set that holds a Slot declaration still carrying an entry attributed to a
+     * Facet the same reconciliation retains. That is a refusal and never a deferral: the
+     * retained contribution would name a Slot the resulting composition does not declare,
+     * and that obligation has no discharging condition.
+     */
+    public requireWithdrawable(transaction: Transaction, set: SlotWithdrawalSet): void {
+        const withdrawn = new Set(set.entries.map((id) => id.value));
+        for (const name of set.slots) {
+            const blocking = this.listEntries(transaction, name).find(
+                (entry) => !withdrawn.has(entry.id.value)
+            );
+            if (blocking !== undefined) {
+                throw retainedContribution(name.value, blocking.attribution);
+            }
+        }
+    }
+
+    /**
+     * Retires the withdrawing Facet's records inside the caller's control transaction and
+     * reports whether any record changed.
+     */
+    public retireWithdrawalSet(transaction: Transaction, contributor: FacetRef): boolean {
+        const set = this.withdrawalSet(transaction, contributor);
+        this.requireWithdrawable(transaction, set);
+        if (set.slots.length === 0 && set.entries.length === 0) return false;
+        for (const id of set.entries) this.retireEntry(transaction, id);
+        for (const name of set.slots) this.retireSlot(transaction, name);
+        return true;
+    }
+
+    public withdraw(contributor: FacetRef): Revision {
+        return this.transaction((transaction) => {
+            if (!this.retireWithdrawalSet(transaction, contributor)) {
+                return this.loadRevision(transaction);
+            }
             const revision = this.loadRevision(transaction).next();
             this.saveRevision(transaction, revision);
             return revision;
@@ -78,8 +162,8 @@ function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
 
 export interface SlotQueryAuthorityPort<Viewer> {
     workspace(viewer: Viewer): WorkspaceId | undefined;
-    canViewSlot(viewer: Viewer, declaration: SlotDeclaration): Promise<boolean>;
-    canViewEntry(viewer: Viewer, declaration: SlotDeclaration, entry: SlotEntry): Promise<boolean>;
+    canViewSlot(viewer: Viewer, slot: InstalledSlot): Promise<boolean>;
+    canViewEntry(viewer: Viewer, slot: InstalledSlot, entry: SlotEntry): Promise<boolean>;
 }
 
 export abstract class SlotCatalog {
@@ -108,20 +192,20 @@ export class WorkspaceSlotCatalog<Viewer, Transaction> extends SlotCatalog {
             return Object.freeze([]);
         }
         const snapshot = this.store.transaction((transaction) => {
-            const declaration = this.store.loadSlot(transaction, slot);
+            const installed = this.store.loadSlot(transaction, slot);
             const entries =
-                declaration === undefined ? [] : this.store.listEntries(transaction, slot);
-            return { declaration, entries };
+                installed === undefined ? [] : this.store.listEntries(transaction, slot);
+            return { installed, entries };
         });
         if (
-            snapshot.declaration === undefined ||
-            !(await this.authority.canViewSlot(this.viewer, snapshot.declaration))
+            snapshot.installed === undefined ||
+            !(await this.authority.canViewSlot(this.viewer, snapshot.installed))
         ) {
             return Object.freeze([]);
         }
         const visible: SlotEntry[] = [];
         for (const entry of snapshot.entries) {
-            if (await this.authority.canViewEntry(this.viewer, snapshot.declaration, entry)) {
+            if (await this.authority.canViewEntry(this.viewer, snapshot.installed, entry)) {
                 visible.push(entry);
             }
         }
@@ -137,5 +221,12 @@ function invalidEntry(id: string): AgentCoreError {
     return new AgentCoreError(
         "operation.invalid-input",
         `Slot entry ${id} does not match the entry schema`
+    );
+}
+
+function retainedContribution(slot: string, retained: ContributionAttribution): AgentCoreError {
+    return new AgentCoreError(
+        "protocol.invalid-state",
+        `Withdrawal would retire Slot ${slot} while ${retained.contributor.value} still contributes to it`
     );
 }

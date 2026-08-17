@@ -7,6 +7,7 @@ import {
     SlotName,
     type FacetData
 } from "../../src/facets";
+import { attribution } from "../w3/slot-store-contract";
 
 describe("Slot declaration vocabulary", () => {
     test("canonicalizes authority selectors into sorted lists", { tags: "p1" }, () => {
@@ -61,9 +62,14 @@ describe("Slot declaration vocabulary", () => {
 });
 
 function entryData(overrides: Readonly<Record<string, FacetData>>): FacetData {
-    const canonical = SlotEntry.create(new SlotName("dashboard.card"), "workspace:facet", 0, null);
+    const canonical = new SlotEntry(
+        new SlotName("dashboard.card"),
+        attribution("workspace:facet"),
+        0,
+        null
+    );
     return {
-        contributor: "workspace:facet",
+        ...canonical.attribution.encodeFields(),
         id: canonical.id.value,
         ordinal: 0,
         slot: "dashboard.card",

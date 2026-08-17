@@ -54,6 +54,7 @@ import {
     FacetManifest,
     FacetPackageId,
     FacetRef,
+    InstalledSlot,
     OperationRef,
     PackageInstallationRef,
     SlotAuthorityPolicy,
@@ -71,6 +72,7 @@ import {
 } from "../../src/facets";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
 import { forwarded, reaching, type Assembled } from "./fixture";
+import { attribution } from "../w3/slot-store-contract";
 import type { CommandEnvelope } from "../../src/protocol";
 import {
     AuditRecord,
@@ -510,7 +512,7 @@ describe("W9 composition behavior branches", () => {
         () => {
             const state = {
                 revision: Revision.initial(),
-                slots: new Map<string, SlotDeclaration>(),
+                slots: new Map<string, InstalledSlot>(),
                 entries: new Map<string, SlotEntry>()
             };
             const store = reaching<WorkspaceSlotStore<typeof state>>({
@@ -519,21 +521,24 @@ describe("W9 composition behavior branches", () => {
                     (state.revision = revision),
                 loadSlot: (_transaction: typeof state, name: SlotName) =>
                     state.slots.get(name.value),
-                insertSlot: (_transaction: typeof state, value: SlotDeclaration) =>
-                    state.slots.set(value.name.value, value),
+                insertSlot: (_transaction: typeof state, value: InstalledSlot) => {
+                    state.slots.set(value.declaration.name.value, value);
+                },
                 loadEntry: (_transaction: typeof state, id: SlotEntry["id"]) =>
                     state.entries.get(id.value),
                 insertEntry: (_transaction: typeof state, value: SlotEntry) =>
                     state.entries.set(value.id.value, value)
             });
             const declaration = slotDeclaration({ type: "object" });
-            const conflictingDeclaration = slotDeclaration({ type: "string" });
-            const entry = SlotEntry.create(declaration.name, "workspace:facet", 0, { value: 1 });
-            const packageFacet = new FacetPackageId("composition.slot-package");
-            const expectedInstallation = new PackageInstallationRef(
-                entry.contributor,
-                packageFacet
+            const contribution = attribution("workspace:facet");
+            const installed = new InstalledSlot(declaration, contribution);
+            const conflictingInstalled = new InstalledSlot(
+                slotDeclaration({ type: "string" }),
+                contribution
             );
+            const entry = new SlotEntry(declaration.name, contribution, 0, { value: 1 });
+            const packageFacet = new FacetPackageId("composition.slot-package");
+            const expectedInstallation = new PackageInstallationRef(contribution, packageFacet);
             // applyContribution passes the envelope straight to the provenance port, which the
             // stand-in above answers without reading it.
             const commandEnvelope = reaching<CommandEnvelope>({});
@@ -547,7 +552,8 @@ describe("W9 composition behavior branches", () => {
                 }),
                 {
                     permitsInstall: () => true,
-                    permitsContribution: () => contributionAllowed
+                    permitsContribution: () => contributionAllowed,
+                    permitsWithdrawal: () => true
                 },
                 {
                     revision: () => state.revision,
@@ -563,7 +569,7 @@ describe("W9 composition behavior branches", () => {
                 )
             );
             installation = new PackageInstallationRef(
-                new FacetRef("workspace:substituted"),
+                attribution("workspace:substituted"),
                 packageFacet
             );
             expect(() => backend.applyContribution(state, commandEnvelope, {}, entry)).toThrow(
@@ -587,20 +593,17 @@ describe("W9 composition behavior branches", () => {
                     `Slot ${declaration.name.value} is not installed`
                 )
             );
-            expect(backend.install(state, declaration)).toBe(true);
-            expect(backend.install(state, declaration)).toBe(false);
-            expect(() => backend.install(state, conflictingDeclaration)).toThrow(
+            expect(backend.applyInstall(state, commandEnvelope, {}, installed)).toBe(true);
+            expect(backend.applyInstall(state, commandEnvelope, {}, installed)).toBe(false);
+            expect(() =>
+                backend.applyInstall(state, commandEnvelope, {}, conflictingInstalled)
+            ).toThrow(
                 new AgentCoreError(
                     "protocol.invalid-state",
                     "Slot declaration conflicts with installed provenance"
                 )
             );
-            const invalidEntry = SlotEntry.create(
-                declaration.name,
-                entry.contributor.value,
-                1,
-                "invalid"
-            );
+            const invalidEntry = new SlotEntry(declaration.name, contribution, 1, "invalid");
             expect(() =>
                 backend.applyContribution(state, commandEnvelope, {}, invalidEntry)
             ).toThrow(
@@ -609,7 +612,7 @@ describe("W9 composition behavior branches", () => {
                     `Slot entry ${invalidEntry.id.value} does not match the entry schema`
                 )
             );
-            const appliedEntry = SlotEntry.create(declaration.name, entry.contributor.value, 2, {
+            const appliedEntry = new SlotEntry(declaration.name, contribution, 2, {
                 applied: true
             });
             expect(backend.applyContribution(state, commandEnvelope, {}, appliedEntry)).toBe(true);
@@ -617,7 +620,9 @@ describe("W9 composition behavior branches", () => {
             expect(backend.contribute(state, entry)).toBe(false);
             state.entries.set(
                 entry.id.value,
-                SlotEntry.create(declaration.name, "workspace:substituted", 0, { value: 2 })
+                new SlotEntry(declaration.name, attribution("workspace:substituted"), 0, {
+                    value: 2
+                })
             );
             expect(() => backend.contribute(state, entry)).toThrow(
                 new AgentCoreError(
@@ -630,9 +635,9 @@ describe("W9 composition behavior branches", () => {
             );
             expect(backend.advanceRevision(state, Revision.initial()).value).toBe(1);
             expect(backend.currentRevision(state).value).toBe(1);
-            expect(backend.permitsInstall(state, declaration)).toBe(true);
+            expect(backend.permitsInstall(state, installed)).toBe(true);
             expect(backend.permitsContribution(state, entry)).toBe(true);
-            expect(backend.slot(state, declaration.name)).toBe(declaration);
+            expect(backend.slot(state, declaration.name)).toBe(installed);
         }
     );
 

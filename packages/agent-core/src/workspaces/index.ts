@@ -103,6 +103,8 @@ export type {
 } from "./source-protocol";
 export { Subscription } from "./subscription";
 export type { SubscriptionInit } from "./subscription";
+export { WITHDRAWN_TARGET_REASON, WorkspaceRoutingWithdrawal } from "./withdrawal";
+export type { RoutingWithdrawal, RoutingWithdrawalAuditPort } from "./withdrawal";
 export {
     TARGET_PROJECTION_COMMAND,
     TargetProjectionCommandPort,

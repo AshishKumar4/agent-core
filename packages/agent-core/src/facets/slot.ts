@@ -1,4 +1,5 @@
 import { JsonSchema } from "../core";
+import { ContributionAttribution } from "./attribution";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
@@ -94,6 +95,58 @@ const slotDeclarationCodec = new DataRecordCodec(
     "facet.slot-declaration",
     (slot: SlotDeclaration) => slot.toData(),
     (payload) => SlotDeclaration.fromData(payload)
+);
+
+/**
+ * A Slot declaration as a Scope holds it: the manifest's declaration plus the §4.2
+ * attribution of the Facet whose `slots` contribution materialized it. The manifest half
+ * is authored before a release exists, so the pin lives here rather than on
+ * `SlotDeclaration`, and an installed Slot the host cannot attribute cannot be built.
+ */
+export class InstalledSlot {
+    public constructor(
+        public readonly declaration: SlotDeclaration,
+        public readonly attribution: ContributionAttribution
+    ) {
+        if (
+            !(declaration instanceof SlotDeclaration) ||
+            !(attribution instanceof ContributionAttribution)
+        ) {
+            throw new TypeError("An installed Slot carries its declaration and its attribution");
+        }
+        Object.freeze(this);
+    }
+
+    public static fromData(payload: FacetData): InstalledSlot {
+        const object = requireDataObject(payload, "Installed Slot");
+        requireExactFields(object, ["contributor", "declaration", "package"]);
+        const declaration = object["declaration"];
+        if (declaration === undefined) {
+            throw new TypeError("Installed Slot carries no Slot declaration");
+        }
+        return new InstalledSlot(
+            SlotDeclaration.fromData(declaration),
+            ContributionAttribution.decodeFields(object, "Installed Slot")
+        );
+    }
+
+    public static encode(slot: InstalledSlot): Uint8Array {
+        return installedSlotCodec.encode(slot);
+    }
+
+    public static decode(bytes: Uint8Array): InstalledSlot {
+        return installedSlotCodec.decode(bytes);
+    }
+
+    public toData(): FacetData {
+        return { ...this.attribution.encodeFields(), declaration: this.declaration.toData() };
+    }
+}
+
+const installedSlotCodec = new DataRecordCodec(
+    "facet.installed-slot",
+    (slot: InstalledSlot) => slot.toData(),
+    (payload) => InstalledSlot.fromData(payload)
 );
 
 function canonicalSelectors(values: readonly string[], subject: string): readonly string[] {

@@ -34,6 +34,26 @@ export function requireFields<Field extends string>(
     }
 }
 
+/**
+ * The same exactness as `requireFields` for records whose optional fields are encoded by
+ * presence: every required key must appear, and no key outside the two lists may.
+ */
+export function requireOptionalFields<Field extends string>(
+    value: JsonObject,
+    required: readonly Field[],
+    optional: readonly string[],
+    subject: string
+): asserts value is JsonFields<Field> {
+    const admissible = new Set<string>([...required, ...optional]);
+    const present = Object.keys(value);
+    if (
+        required.some((field) => !Object.hasOwn(value, field)) ||
+        present.some((key) => !admissible.has(key))
+    ) {
+        throw new TypeError(`${subject} contains missing or unknown fields`);
+    }
+}
+
 export function requireString(value: JsonValue | undefined, subject: string): string {
     if (!isStringValue(value)) {
         throw new TypeError(`${subject} must be a string`);

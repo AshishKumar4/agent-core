@@ -4,46 +4,16 @@ import {
     Digest,
     RecordCodec,
     Revision,
-    SemVer,
     hasExactJsonKeys,
     isJsonObject,
     type JsonValue
 } from "../core";
-import { PackageId } from "./id";
+import { PackagePin } from "../definition-references";
 import { PlatformCompatibility } from "./compatibility";
 import { PackageDependency } from "./package";
 import { compareText } from "./order";
 
-export class PackagePin {
-    public constructor(
-        public readonly id: PackageId,
-        public readonly version: SemVer,
-        public readonly manifestDigest: Digest,
-        public readonly codeDigest: Digest
-    ) {
-        Object.freeze(this);
-    }
-
-    public static fromData(value: JsonValue): PackagePin {
-        const object = requireObject(value, "Package pin");
-        requireFields(object, ["codeDigest", "id", "manifestDigest", "version"], "Package pin");
-        return new PackagePin(
-            new PackageId(requireString(object["id"], "Package pin ID")),
-            new SemVer(requireString(object["version"], "Package pin version")),
-            new Digest(requireString(object["manifestDigest"], "Package manifest digest")),
-            new Digest(requireString(object["codeDigest"], "Package code digest"))
-        );
-    }
-
-    public toData(): JsonValue {
-        return {
-            codeDigest: this.codeDigest.value,
-            id: this.id.value,
-            manifestDigest: this.manifestDigest.value,
-            version: this.version.toString()
-        };
-    }
-}
+export { PackagePin };
 
 export interface PackageLockInit {
     readonly target: PlatformCompatibility;

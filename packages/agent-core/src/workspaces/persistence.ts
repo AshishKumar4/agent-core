@@ -1,5 +1,7 @@
 import { AgentCoreError } from "../errors";
 import type { ActorRef } from "../actors";
+import type { AuditRecordId } from "../interaction-references";
+import type { FacetRef } from "../facets";
 import { ContentRef, isJsonObject, type JsonValue, type Revision } from "../core";
 import type { TenantId } from "../identity";
 import type {
@@ -17,6 +19,7 @@ import {
 import {
     AuthenticatedRouteProjection,
     RouteDelivery,
+    RouteDeliveryState,
     RouteProjection,
     RouteReservation,
     requireAuthenticatedRouteProjection
@@ -167,7 +170,9 @@ export class WorkspacePersistence<Transaction> {
             );
             if (seen.has(subscription.id.value)) continue;
             const current = this.currentSubscription(transaction, subscription.id);
-            if (current !== undefined) {
+            // A retired Subscription (§4.1) resolves no further reservation, which is what
+            // closes the §6.2 liveness gap at its source rather than at delivery.
+            if (current !== undefined && current.retired !== true) {
                 subscriptions.push(current);
                 seen.add(current.id.value);
             }
@@ -175,6 +180,75 @@ export class WorkspacePersistence<Transaction> {
         return Object.freeze(
             subscriptions.sort((left, right) => left.id.value.localeCompare(right.id.value))
         );
+    }
+
+    /**
+     * SPEC §4.1 (C13-FACET-WITHDRAWAL-EXACT): the live Subscriptions a Facet's `commands`
+     * and `automations` contributions materialized, found by querying attribution.
+     */
+    public listContributedSubscriptions(
+        transaction: Transaction,
+        contributor: FacetRef
+    ): readonly Subscription[] {
+        return Object.freeze(
+            this.listSubscriptions(transaction).filter(
+                (subscription) =>
+                    subscription.contribution?.contributor.equals(contributor) === true
+            )
+        );
+    }
+
+    public retireSubscription(transaction: Transaction, subscription: Subscription): void {
+        this.saveSubscription(transaction, subscription.retire(), subscription.revision);
+    }
+
+    /**
+     * SPEC §4.1: the terminal rejected RouteDelivery the owning Actor writes for a
+     * reservation appended against a Subscription the withdrawal retired and never admitted
+     * by its target. Without it that reservation could never reach a terminal delivery,
+     * because §6.2 gives it no other route to one.
+     */
+    public appendWithdrawalRejection(
+        transaction: Transaction,
+        reservation: RouteReservation,
+        audit: AuditRecordId,
+        reason: string
+    ): RouteDelivery {
+        const subscription = this.currentSubscription(transaction, reservation.subscription);
+        if (subscription === undefined || subscription.retired !== true) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Withdrawal rejection requires a retired Subscription"
+            );
+        }
+        if (this.findProjectionByReservation(transaction, reservation.id) !== undefined) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Reservation reached preparation and drains as an Invocation item"
+            );
+        }
+        const storage = this.storage(transaction);
+        if (storage.findUnique("route.delivery", reservation.id.value) !== undefined) {
+            throw duplicate("Route delivery is already terminal");
+        }
+        const delivery = new RouteDelivery({
+            reservation: reservation.id,
+            state: RouteDeliveryState.rejected(reason),
+            targetAudit: audit
+        });
+        this.append(
+            storage,
+            "routeDelivery",
+            delivery.reservation.value,
+            delivery,
+            RouteDelivery.codec
+        );
+        storage.insertUnique({
+            namespace: "route.delivery",
+            key: delivery.reservation.value,
+            recordKey: delivery.reservation.value
+        });
+        return delivery;
     }
 
     public saveSubscription(
@@ -196,6 +270,25 @@ export class WorkspacePersistence<Transaction> {
             !expectedRevision.next().equals(subscription.revision)
         ) {
             throw revisionConflict("Subscription revision compare-and-set failed");
+        }
+        // SPEC §4.2 (C13-FACET-CONTRIBUTION-ATTRIBUTION): attribution is written in the
+        // same transaction as the record it attributes and is immutable for that record's
+        // lifetime, so no later revision may add, drop, or rewrite it.
+        if (
+            current !== undefined &&
+            !sameContribution(current.contribution, subscription.contribution)
+        ) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Subscription contribution attribution is immutable"
+            );
+        }
+        // A retired Subscription is terminal: §4.1 leaves it resolvable by no later route.
+        if (current?.retired === true) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Retired Subscription accepts no further revision"
+            );
         }
         const recordKey = subscriptionRecordId(subscription);
         this.append(storage, "subscription", recordKey, subscription, Subscription.codec);
@@ -884,6 +977,14 @@ function viewRecordId(view: View): string {
 
 function deltaRecordId(delta: ViewDelta): string {
     return `${delta.surface.value}@${delta.revision.value}`;
+}
+
+function sameContribution(
+    left: Subscription["contribution"],
+    right: Subscription["contribution"]
+): boolean {
+    if (left === undefined || right === undefined) return left === right;
+    return left.equals(right);
 }
 
 function requireRetention(

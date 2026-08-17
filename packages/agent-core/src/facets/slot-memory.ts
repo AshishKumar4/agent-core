@@ -8,7 +8,7 @@ import { AgentCoreError } from "../errors";
 import type { WorkspaceId } from "../identity";
 import { isString } from "./data";
 import { SlotName, type SlotEntryId } from "./id";
-import { SlotDeclaration } from "./slot";
+import { InstalledSlot } from "./slot";
 import { SlotEntry } from "./slot-entry";
 import { WorkspaceSlotStore } from "./slot-store";
 
@@ -47,13 +47,18 @@ export class MemoryWorkspaceSlotStore extends WorkspaceSlotStore<MemorySlotState
         const state = emptyState();
         state.revision = snapshot.revision;
         for (const bytes of snapshot.slots) {
-            const declaration = SlotDeclaration.decode(bytes);
-            if (state.slots.has(declaration.name.value)) {
+            const installed = InstalledSlot.decode(bytes);
+            if (state.slots.has(installed.declaration.name.value)) {
                 throw corrupt(
                     "Memory Workspace Slot snapshot contains duplicate Slot declarations"
                 );
             }
-            insertImmutable(state.slots, declaration.name.value, bytes, "Slot declaration");
+            insertImmutable(
+                state.slots,
+                installed.declaration.name.value,
+                bytes,
+                "Slot declaration"
+            );
         }
         for (const bytes of snapshot.entries) {
             const entry = SlotEntry.decode(bytes);
@@ -63,9 +68,6 @@ export class MemoryWorkspaceSlotStore extends WorkspaceSlotStore<MemorySlotState
             }
             insertImmutable(state.entries, entry.id.value, bytes, "Slot entry");
             requireUniqueOrigin(state, entry);
-        }
-        if (state.revision !== state.slots.size + state.entries.size) {
-            throw corrupt("Memory Workspace Slot snapshot revision does not match its records");
         }
         validateState(state);
         store.#state = cloneState(state);
@@ -83,6 +85,7 @@ export class MemoryWorkspaceSlotStore extends WorkspaceSlotStore<MemorySlotState
         try {
             const result = requireSynchronousSlotResult(operation(draft));
             validateState(draft);
+            validateCommit(this.#state, draft);
             this.#state = cloneState(draft);
             return result;
         } finally {
@@ -106,16 +109,32 @@ export class MemoryWorkspaceSlotStore extends WorkspaceSlotStore<MemorySlotState
         transaction.revision = revision.value;
     }
 
-    public loadSlot(transaction: MemorySlotState, name: SlotName): SlotDeclaration | undefined {
+    public loadSlot(transaction: MemorySlotState, name: SlotName): InstalledSlot | undefined {
         this.requireActive(transaction);
         const bytes = transaction.slots.get(name.value);
         return bytes === undefined ? undefined : decodeSlot(bytes, name.value);
     }
 
-    public insertSlot(transaction: MemorySlotState, declaration: SlotDeclaration): void {
+    public insertSlot(transaction: MemorySlotState, slot: InstalledSlot): void {
         this.requireActive(transaction);
-        const bytes = SlotDeclaration.encode(declaration);
-        insertImmutable(transaction.slots, declaration.name.value, bytes, "Slot declaration");
+        const bytes = InstalledSlot.encode(slot);
+        insertImmutable(transaction.slots, slot.declaration.name.value, bytes, "Slot declaration");
+    }
+
+    public retireSlot(transaction: MemorySlotState, name: SlotName): void {
+        this.requireActive(transaction);
+        if (!transaction.slots.delete(name.value)) {
+            throw invalidState(`Slot ${name.value} is not installed`);
+        }
+    }
+
+    public listSlots(transaction: MemorySlotState): readonly InstalledSlot[] {
+        this.requireActive(transaction);
+        return Object.freeze(
+            [...transaction.slots]
+                .sort(compareRecordKeys)
+                .map(([key, bytes]) => decodeSlot(bytes, key))
+        );
     }
 
     public loadEntry(transaction: MemorySlotState, id: SlotEntryId): SlotEntry | undefined {
@@ -134,11 +153,27 @@ export class MemoryWorkspaceSlotStore extends WorkspaceSlotStore<MemorySlotState
         );
     }
 
+    public listAllEntries(transaction: MemorySlotState): readonly SlotEntry[] {
+        this.requireActive(transaction);
+        return Object.freeze(
+            [...transaction.entries]
+                .sort(compareRecordKeys)
+                .map(([key, bytes]) => decodeEntry(bytes, key))
+        );
+    }
+
     public insertEntry(transaction: MemorySlotState, entry: SlotEntry): void {
         this.requireActive(transaction);
         requireEntryClosure(transaction, entry);
         requireUniqueOrigin(transaction, entry);
         insertImmutable(transaction.entries, entry.id.value, SlotEntry.encode(entry), "Slot entry");
+    }
+
+    public retireEntry(transaction: MemorySlotState, id: SlotEntryId): void {
+        this.requireActive(transaction);
+        if (!transaction.entries.delete(id.value)) {
+            throw invalidState(`Slot entry ${id.value} is not contributed`);
+        }
     }
 
     public snapshot(): MemoryWorkspaceSlotSnapshot {
@@ -173,9 +208,9 @@ function cloneState(state: MemorySlotState): MemorySlotState {
     };
 }
 
-function decodeSlot(bytes: Uint8Array, key: string): SlotDeclaration {
-    const value = SlotDeclaration.decode(bytes);
-    if (value.name.value !== key)
+function decodeSlot(bytes: Uint8Array, key: string): InstalledSlot {
+    const value = InstalledSlot.decode(bytes);
+    if (value.declaration.name.value !== key)
         throw corrupt("Stored Slot declaration key does not match codec bytes");
     return value;
 }
@@ -191,8 +226,8 @@ function requireEntryClosure(state: MemorySlotState, entry: SlotEntry): void {
     if (bytes === undefined) {
         throw new AgentCoreError("facet.inactive", `Slot ${entry.slot.value} is not installed`);
     }
-    const declaration = decodeSlot(bytes, entry.slot.value);
-    if (!declaration.entrySchema.accepts(entry.value)) {
+    const installed = decodeSlot(bytes, entry.slot.value);
+    if (!installed.declaration.entrySchema.accepts(entry.value)) {
         throw new AgentCoreError(
             "operation.invalid-input",
             `Slot entry ${entry.id.value} does not match the entry schema`
@@ -206,7 +241,7 @@ function requireUniqueOrigin(state: MemorySlotState, entry: SlotEntry): void {
         .find(
             (candidate) =>
                 candidate.slot.equals(entry.slot) &&
-                candidate.contributor.equals(entry.contributor) &&
+                candidate.attribution.contributor.equals(entry.attribution.contributor) &&
                 candidate.ordinal === entry.ordinal &&
                 !candidate.id.equals(entry.id)
         );
@@ -228,7 +263,8 @@ function insertImmutable(
 
 function compareEntries(left: SlotEntry, right: SlotEntry): number {
     return (
-        left.ordinal - right.ordinal || compareText(left.contributor.value, right.contributor.value)
+        left.ordinal - right.ordinal ||
+        compareText(left.attribution.contributor.value, right.attribution.contributor.value)
     );
 }
 
@@ -273,14 +309,41 @@ function validateState(state: MemorySlotState): void {
     for (const [key, bytes] of state.entries) {
         const entry = decodeEntry(bytes, key);
         requireEntryClosure(state, entry);
-        const origin = `${entry.slot.value}\0${entry.contributor.value}\0${entry.ordinal}`;
+        const origin = `${entry.slot.value}\0${entry.attribution.contributor.value}\0${entry.ordinal}`;
         if (origins.has(origin))
             throw corrupt("Memory Workspace Slot state contains duplicate origins");
         origins.add(origin);
     }
-    if (state.revision !== state.slots.size + state.entries.size) {
+    // Retirement (§4.1 withdrawal) removes records while advancing the revision, so a
+    // restored snapshot can only be bounded from below. The exact relation is checked per
+    // transaction by validateCommit, where the previous record set is still available.
+    if (state.revision < state.slots.size + state.entries.size) {
         throw corrupt("Memory Workspace Slot revision does not match its records");
     }
+}
+
+/**
+ * The revision counts committed write transactions exactly: a transaction that changed the
+ * record set advances it once, and one that changed nothing leaves it alone. Comparing the
+ * draft against the state it forked from catches a fabricated insertion, a fabricated
+ * retirement, and a revision bump over an unchanged store — which the append-only
+ * record-count equality used to catch before retirement existed.
+ */
+function validateCommit(before: MemorySlotState, after: MemorySlotState): void {
+    const changed =
+        !sameRecords(before.slots, after.slots) || !sameRecords(before.entries, after.entries);
+    if (after.revision - before.revision !== (changed ? 1 : 0)) {
+        throw corrupt("Memory Workspace Slot revision does not match its records");
+    }
+}
+
+function sameRecords(left: Map<string, Uint8Array>, right: Map<string, Uint8Array>): boolean {
+    if (left.size !== right.size) return false;
+    for (const [key, bytes] of left) {
+        const other = right.get(key);
+        if (other === undefined || !equalBytes(bytes, other)) return false;
+    }
+    return true;
 }
 
 function compareRecordKeys(

@@ -303,6 +303,18 @@
       ]
     },
     {
+      "symbol": "InstalledSlot",
+      "kind": "facet.installed-slot",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/slot.ts#InstalledSlot",
+      "codec": "src/facets/slot.ts#InstalledSlot.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.installed-slot] round-trips a Slot declaration together with its contribution attribution"
+      ]
+    },
+    {
       "symbol": "SlotEntry",
       "kind": "facet.slot-entry",
       "durability": "value",

@@ -970,7 +970,8 @@ describe("W9 internal typed composition", () => {
                     provenance,
                     {
                         permitsInstall: () => true,
-                        permitsContribution: () => true
+                        permitsContribution: () => true,
+                        permitsWithdrawal: () => true
                     },
                     {
                         revision: (read) => slotStore.loadRevision(read),

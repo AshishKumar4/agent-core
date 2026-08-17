@@ -31,8 +31,8 @@ function recordPayload(bytes: Uint8Array): JsonObject {
     return envelope["payload"];
 }
 
-function recordBytes(kind: string, payload: JsonValue): Uint8Array {
-    return encodeCanonicalJson({ kind, payload, version: { major: 1, minor: 0 } });
+function recordBytes(kind: string, payload: JsonValue, major = 1): Uint8Array {
+    return encodeCanonicalJson({ kind, payload, version: { major, minor: 0 } });
 }
 
 describe("workspace codec mutation coverage", () => {
@@ -193,10 +193,11 @@ describe("Subscription mutation coverage", () => {
         for (const entry of cases) {
             expect(() =>
                 Subscription.decode(
-                    recordBytes("workspace.subscription", {
-                        ...payload,
-                        [entry.field]: entry.value
-                    })
+                    recordBytes(
+                        "workspace.subscription",
+                        { ...payload, [entry.field]: entry.value },
+                        2
+                    )
                 )
             ).toThrow(
                 expect.objectContaining({

@@ -26,6 +26,7 @@ import {
     EventPattern,
     FacetManifest,
     FacetPackageId,
+    FacetRef,
     FieldMapping,
     FieldMove,
     InterceptorDeclaration,
@@ -38,13 +39,11 @@ import {
     PayloadMapping,
     ProtectionDomain,
     SlotName,
-    SlotEntry,
     SurfaceDescriptor,
     SurfaceId,
     isFacetDataMap,
     type FacetData,
-    type FacetDataMap,
-    type FacetRef
+    type FacetDataMap
 } from "../../src/facets";
 import {
     CommandRuntime,
@@ -3960,7 +3959,7 @@ class TestCommandEvents implements CommandEventPort {
 }
 
 class TestFacet extends Facet {
-    public readonly ref: SlotEntry["contributor"];
+    public readonly ref: FacetRef;
 
     public constructor(
         ref: string,
@@ -4390,6 +4389,6 @@ function requireObject(value: FacetData): { readonly [key: string]: FacetData } 
     return value;
 }
 
-function facetRef(value: string): SlotEntry["contributor"] {
-    return SlotEntry.create(new SlotName("runtime.ref"), value, 0, null).contributor;
+function facetRef(value: string): FacetRef {
+    return new FacetRef(value);
 }
