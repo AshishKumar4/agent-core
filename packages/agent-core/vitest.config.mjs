@@ -16,8 +16,19 @@ const enforcementSubstitution = {
     }
 };
 
+// The two answers are different shapes rather than one value: an absent variable means
+// "handwritten", `generated` means the twin, and anything else is refused. Falling an
+// unrecognised value through to handwritten would make a typo report a green that reads as
+// "the generated module passes the suite" while never having loaded it.
+const enforcementSelection = process.env.AGENT_CORE_ENFORCEMENT;
+if (enforcementSelection !== undefined && enforcementSelection !== "generated") {
+    throw new TypeError(
+        `AGENT_CORE_ENFORCEMENT must be unset or "generated", not ${JSON.stringify(enforcementSelection)}`
+    );
+}
+
 export default defineConfig({
-    plugins: process.env.AGENT_CORE_ENFORCEMENT === "generated" ? [enforcementSubstitution] : [],
+    plugins: enforcementSelection === "generated" ? [enforcementSubstitution] : [],
     resolve: {
         alias: {
             "bun:test": packageFile("./scripts/vitest-bun-test.mjs"),
