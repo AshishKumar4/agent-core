@@ -910,7 +910,7 @@
       "id": "C13-TURN-MODEL-INPUT-RETENTION-LOSS",
       "owner": "W5",
       "specAnchor": "C13-TURN-MODEL-INPUT-RETENTION-LOSS",
-      "specTextSha256": "sha256:1934799615d0db74b66d71fa9879a81d131f89920c668cb4dbbfe538a553ba22",
+      "specTextSha256": "sha256:db7199906d47e1b5e80a5739a653b52e41683be02c8b6a53cf94d170b9fa5e85",
       "status": "planned",
       "prerequisites": ["C13-TURN-MODEL-INPUT-RECONSTRUCTABLE"],
       "sourceSymbols": [],

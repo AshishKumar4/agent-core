@@ -2720,8 +2720,8 @@ adopted explicitly, per policy. The materializer enforces slot contribute-author
 same records the runtime uses. Reconciliation on a live platform MUST order changes so
 existing RunPins remain resolvable (§5.2); removing a pinned Package is deferred until no
 Run, Turn, Session, tree checkpoint, or Snapshot pins that release, or performed through
-explicit Run migration — never silent. These
-map to **C13-BLUEPRINT-REMATERIALIZE** and **C13-BLUEPRINT-RUN-PINS**.
+explicit Run migration — never silent. These map to **C13-BLUEPRINT-REMATERIALIZE** and
+**C13-BLUEPRINT-RUN-PINS**.
 
 Re-materialization is **convergent as well as idempotent**: the Blueprint-managed record
 set a Scope holds once it is converged is a function of the Blueprint alone, independent
@@ -2730,33 +2730,32 @@ withdrawals and of the managed record set the Scope held before. Records no Blue
 declares — Runs, Turns, Events, Receipts, and everything else §8.4 assigns an owning
 Actor — lie outside the managed set and outside this property, so a manual edit is
 adopted only as a change to the Blueprint, and an edit no Blueprint change expresses is
-rejected rather than adopted as an unattributed managed record. A deferral does not weaken
-convergence, because a deferral is itself a durable **pending obligation** naming the
-exact record it holds, the exact reason it is held, and the exact condition that
-discharges it; a host MAY defer only where this document states both the deferral and that
-condition, and the four it states are a withdrawal held by §4.1's reliance guard, which
-discharges when no active Facet relies on the withdrawing Facet; each admitted Invocation
-item draining against a withdrawing Facet (§4.1), which discharges when that item holds a
+rejected rather than adopted as an unattributed managed record. A deferral does not
+weaken convergence, because a deferral is itself a durable **pending obligation** naming
+the exact record it holds, the exact reason it is held, and the exact condition that
+discharges it. A host MAY defer only where this document states both the deferral and
+that condition, and the four it states are a withdrawal held by §4.1's reliance guard,
+discharged when no active Facet relies on the withdrawing Facet; each admitted Invocation
+item draining against a withdrawing Facet (§4.1), discharged when that item holds a
 terminal current Receipt; each RouteReservation the withdrawal's retired Subscriptions
-leave unadmitted (§4.1, §6.2), which discharges when its owning Actor has written its
-terminal rejected RouteDelivery; and a Package retained because §5.2 still pins it, which
-discharges when no Run, Turn, Session, tree checkpoint, or Snapshot pins that release, or
-through explicit Run migration. A materializer's reconciliation outcome MUST
-carry its pending set, and a Scope is **converged** exactly when that set is empty and
-**converging** otherwise, so no host states convergence apart from the records that would
-contradict it. A divergence a host cannot express as a pending obligation with a
-discharging condition is a rejected reconciliation, refused at validation before any
-package code loads (§9.2), never an accepted reconciliation left indefinitely pending.
-Convergence fixes the endpoint and does not promise arrival, and this document claims no
-quiescence. The obligations one withdrawal opens are finite and never grow, because the
-transaction that opens them stops admitting work against the withdrawing Facet, so no
-obligation waits on one created after it. A reliance
-obligation discharges with no further act, since §4.1 rejects a reliance cycle and each
-held withdrawal therefore waits only on withdrawals ahead of it. A draining item and an
-unadmitted reservation each settle under the eventual delivery and reconciliation §14
-states as external premises. A Package retention waits on pins nothing here promises
-release, so what the obligation guarantees is that the outstanding Operation is named and
-inspectable, never that someone performs it. This
+leave unadmitted (§4.1, §6.2), discharged when its owning Actor has written its terminal
+rejected RouteDelivery; and a Package retained because §5.2 still pins it, discharged
+when no Run, Turn, Session, tree checkpoint, or Snapshot pins that release or a Run
+explicitly migrates. A materializer's reconciliation outcome MUST carry its pending set,
+and a Scope is **converged** exactly when that set is empty and **converging** otherwise,
+so no host states convergence apart from the records that would contradict it. A
+divergence a host cannot express as a pending obligation with a discharging condition is
+a rejected reconciliation, refused at validation before any package code loads (§9.2),
+never an accepted reconciliation left indefinitely pending. Convergence fixes the
+endpoint and does not promise arrival, and this document claims no quiescence: the
+obligations one withdrawal opens are finite and never grow, because the transaction that
+opens them stops admitting work against the withdrawing Facet, so no obligation waits on
+one created after it; a reliance obligation discharges with no further act, since §4.1
+rejects a reliance cycle and each held withdrawal therefore waits only on withdrawals
+ahead of it; a draining item and an unadmitted reservation each settle under the eventual
+delivery and reconciliation §14 states as external premises; and a Package retention
+waits on pins nothing here promises release, so what the obligation guarantees is that
+the outstanding Operation is named and inspectable, never that someone performs it. This
 maps to **C13-BLUEPRINT-CONVERGENCE**.
 
 ![From Blueprint to running platform](diagrams/blueprint.svg)
