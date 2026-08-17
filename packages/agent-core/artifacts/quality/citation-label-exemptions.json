@@ -1,0 +1,10 @@
+{
+  "edition": "1.0.0",
+  "entries": [
+    {
+      "atom": "C13-ADV-UNEQUAL-PIN-MERGE",
+      "reason": "One test honestly answers two atoms and can wear only one label. C13-RUN-EXPLICIT-MIGRATION owns the title because the case is built around an explicit pin migration: it asserts the migration commit records from and to, that the old Turn keeps the current pins while the descendant adopts the exact new pins, and that both survive a restart from the storage snapshot. C13-ADV-UNEQUAL-PIN-MERGE is answered inside the same fixture at adversarial.test.ts:805-822, where a merge commit is constructed over parents that carry unequal pins and mergeRun rejects it with the equal-pinned error. That rejection needs the migrated pin divergence the surrounding case sets up, so splitting it into a separate test would rebuild the same seven-step fixture to assert one throw. The shared witness is a fixture cost, not a missing test: neither atom is verified by the other's assertions.",
+      "selector": "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-RUN-EXPLICIT-MIGRATION] [MIGRATE-RUN-PINS] preserves old Turn pins, adopts exact new pins, rejects unequal merges, and survives restart"
+    }
+  ]
+}

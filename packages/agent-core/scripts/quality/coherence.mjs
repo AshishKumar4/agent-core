@@ -1,10 +1,11 @@
-import { relative, resolve } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 import * as ts from "typescript/unstable/ast";
 import { sourceFiles } from "./compiler.mjs";
 import {
     artifactRoot,
     assertExactKeys,
     assertString,
+    assertUniqueStrings,
     collectFiles,
     packageRoot,
     portable,
@@ -34,6 +35,10 @@ const specFile = portable(relative(options.root, options.spec));
 const coverageFile = portable(relative(options.root, options.coverage));
 const traceability = await readCanonicalJson(resolve(packageRoot, "artifacts/traceability.yaml"));
 const coverage = await readCanonicalJson(options.coverage);
+const ledgerRows = await conformanceRows(options.conformance);
+const exemptedCitations = citationLabelExemptions(
+    await readCanonicalJson(options.citationExemptions)
+);
 const {
     requirements,
     atoms,
@@ -57,6 +62,8 @@ const waveCodenameExamples = [
 const normativeSectionIds = new Set(normativeSections);
 const normativeKeyword = new RegExp(`\\b(?:${normativeKeywords.join("|")})\\b`, "u");
 const issues = [];
+/** Every atom §13 defines that some test title wears, whether or not its row cites one. */
+const labelledAtoms = new Set();
 const known = new Set([
     ...requirements.map((requirement) => requirement.id),
     ...traceability.requirements.map((item) => item.id),
@@ -67,9 +74,8 @@ for (const [path, parsed] of sourceFiles(files)) {
     const file = portable(relative(options.root, path));
     for (const title of testTitles(parsed)) {
         for (const [, label] of title.matchAll(atomLabel)) {
-            if (!known.has(label)) {
-                issue("COH-TEST-LABEL", file, label, `Test title labels undefined atom ${label}`);
-            }
+            if (known.has(label)) labelledAtoms.add(label);
+            else issue("COH-TEST-LABEL", file, label, `Test title labels undefined atom ${label}`);
         }
     }
 }
@@ -79,6 +85,7 @@ const normative = checkNormativeUnits();
 checkSharedBlocks();
 checkCrossReferences();
 checkAtomAnchors();
+checkCitationLabels();
 
 issues.sort((left, right) => left.fingerprint.localeCompare(right.fingerprint));
 const baseline = await loadBaseline(options.baseline);
@@ -432,6 +439,154 @@ function checkAtomAnchors() {
     }
 }
 
+/**
+ * A test's atom label and a row's test citation are the two ends of one claim, and nothing
+ * joined them. COH-TEST-LABEL above asks only that a label name an atom the document
+ * defines; the ledger asks only that a cited test exist and pass; discrimination asks about
+ * mutants, and only where mutation data is fresh. So a test labelled [C13-FOO] could
+ * exercise something else entirely, and a row could cite a test wearing another atom's
+ * label or none, and every gate stayed green. The join is what makes either end falsifiable.
+ *
+ * COH-CITATION-LABEL — a row's cited selector must carry that row's own label.
+ * COH-LABEL-CITATION — an atom label a test title wears must be carried by at least one
+ *                      selector the named row cites.
+ *
+ * The granularity, which is the hard part in both directions. A labelled `describe` must
+ * contain ONE cited leaf, not all of them: a suite labelled [C13-FOO] holding twenty cases
+ * does not oblige its row to cite twenty selectors, it obliges the label and the citation to
+ * meet somewhere. Too strict and every multi-case suite fails; too loose and a label
+ * floating above unrelated cases passes.
+ *
+ * The two directions land at different granularities, and the weaker one does not set the
+ * bar for the stronger. COH-CITATION-LABEL is per selector: it is a predicate over the
+ * citation string alone, so it reaches every citation. COH-LABEL-CITATION is per atom,
+ * because a full test name is the ancestor titles plus the leaf title and this repository
+ * composes 164 of its 661 citations across files — shared contract suites such as
+ * test/invocations/ledger-contract.ts run from several spec files, and `describe.each`
+ * titles substituted at run time — which no static parse can rebuild. Scoping the label
+ * side per file measures 99 findings, a quarter of them against helper modules no selector
+ * can ever name; scoping it per atom measures 12, and each is a label whose row backs it
+ * with nothing at all. Per atom is therefore the finest join this side can state without
+ * executing the suite, and it is exactly the "meet somewhere" granularity above.
+ *
+ * One test may honestly answer two atoms while wearing one atom's label, so that stays
+ * expressible: artifacts/quality/citation-label-exemptions.json names the exact
+ * (atom, selector) pair and states why, one written justification per pair and no
+ * count-level override. An entry whose pair stops resolving fails the run outright rather
+ * than lingering as a permanent allowance.
+ */
+function checkCitationLabels() {
+    const stale = [];
+    for (const entry of exemptedCitations.values()) {
+        const row = ledgerRows.get(entry.atom);
+        if (row === undefined) stale.push(`${entry.atom} is no §13 row`);
+        else if (!row.testSelectors.includes(entry.selector)) {
+            stale.push(`${entry.atom} no longer cites ${entry.selector}`);
+        } else if (entry.selector.includes(`[${entry.atom}]`)) {
+            stale.push(`${entry.atom} now carries its own label in ${entry.selector}`);
+        }
+    }
+    if (stale.length > 0) {
+        throw new TypeError(
+            `Citation label exemptions no longer resolve:\n${stale.map((item) => `  ${item}`).join("\n")}`
+        );
+    }
+    const backed = new Set();
+    for (const row of ledgerRows.values()) {
+        for (const selector of row.testSelectors) {
+            if (
+                selector.includes(`[${row.id}]`) ||
+                exemptedCitations.has(exemptionKey(row.id, selector))
+            ) {
+                backed.add(row.id);
+                continue;
+            }
+            const separator = selector.indexOf("#");
+            const worn = [...new Set([...selector.matchAll(atomLabel)].map(([, label]) => label))];
+            // The two defects call for opposite repairs: an unlabelled test needs its
+            // atom's label, while a test wearing another atom's is either a shared witness
+            // that should wear both labels or evidence for a claim it does not answer.
+            issue(
+                "COH-CITATION-LABEL",
+                selector.slice(0, separator),
+                row.id,
+                `Row ${row.id} cites a test carrying ${worn.length === 0 ? "no atom label" : `${worn.join(", ")} instead`}: ${selector.slice(separator + 1)}`
+            );
+        }
+    }
+    for (const label of [...labelledAtoms].sort()) {
+        if (!ledgerRows.has(label) || backed.has(label)) continue;
+        issue(
+            "COH-LABEL-CITATION",
+            specFile,
+            label,
+            `Test titles carry the label of ${label}, whose row cites no test carrying it`
+        );
+    }
+}
+
+/**
+ * Every §13 row by id, under the ledger's own fragment precedence: a wave's fragment holds
+ * the live row and the seed holds only the rows no wave has claimed yet. Reading the
+ * fragments in any other order replaces live rows with their planned seed shells, and every
+ * measurement taken over the result is silently void.
+ */
+async function conformanceRows(indexPath) {
+    const index = await readCanonicalJson(indexPath);
+    const root = dirname(indexPath);
+    const rows = new Map();
+    for (const name of index.fragments ?? []) {
+        for (const row of await conformanceFragment(resolve(root, name))) {
+            if (rows.has(row.id))
+                throw new TypeError(`Duplicate conformance requirement ${row.id}`);
+            rows.set(row.id, row);
+        }
+    }
+    for (const row of await conformanceFragment(resolve(root, index.seed))) {
+        if (!rows.has(row.id)) rows.set(row.id, row);
+    }
+    return rows;
+}
+
+async function conformanceFragment(path) {
+    const fragment = await readCanonicalJson(path);
+    if (!Array.isArray(fragment.requirements))
+        throw new TypeError(`Conformance fragment ${path} states no requirements`);
+    for (const row of fragment.requirements) {
+        assertString(row.id, "Conformance requirement id");
+        assertUniqueStrings(row.testSelectors, `Requirement ${row.id} testSelectors`);
+    }
+    return fragment.requirements;
+}
+
+/**
+ * The reviewed judgement that one test honestly answers an atom whose label it does not
+ * wear, keyed on the exact pair it excuses.
+ */
+function citationLabelExemptions(artifact) {
+    assertExactKeys(artifact, ["edition", "entries"], "Citation label exemptions");
+    if (artifact.edition !== "1.0.0")
+        throw new TypeError("Unsupported citation label exemption edition");
+    if (!Array.isArray(artifact.entries))
+        throw new TypeError("Citation label exemptions must be an array");
+    const entries = new Map();
+    for (const entry of artifact.entries) {
+        assertExactKeys(entry, ["atom", "reason", "selector"], "Citation label exemption");
+        for (const field of ["atom", "reason", "selector"]) {
+            assertString(entry[field], `Citation label exemption ${field}`);
+        }
+        const key = exemptionKey(entry.atom, entry.selector);
+        if (entries.has(key))
+            throw new TypeError(`Citation label exemption ${entry.atom} is recorded twice`);
+        entries.set(key, entry);
+    }
+    return entries;
+}
+
+function exemptionKey(atom, selector) {
+    return `${atom}\u0000${selector}`;
+}
+
 function waveCodenameExemptions() {
     const exemptions = new Map();
     for (const example of waveCodenameExamples) {
@@ -553,6 +708,8 @@ function parseArguments(args) {
     let spec;
     let baseline = resolve(artifactRoot, "quality/coherence-baseline.json");
     let coverage = resolve(artifactRoot, "quality/normative-coverage.json");
+    let conformance = resolve(artifactRoot, "conformance/index.json");
+    let citationExemptions = resolve(artifactRoot, "quality/citation-label-exemptions.json");
     let maxSharedAtoms = 4;
     let writeBaseline = false;
     for (let index = 0; index < args.length; index += 1) {
@@ -565,6 +722,10 @@ function parseArguments(args) {
             coverage = resolve(required(args, ++index, argument));
         else if (argument === "--max-shared-atoms")
             maxSharedAtoms = Number.parseInt(required(args, ++index, argument), 10);
+        else if (argument === "--conformance")
+            conformance = resolve(required(args, ++index, argument));
+        else if (argument === "--citation-exemptions")
+            citationExemptions = resolve(required(args, ++index, argument));
         else if (argument === "--write-baseline") writeBaseline = true;
         else throw new TypeError(`Unknown coherence argument ${argument}`);
     }
@@ -577,6 +738,8 @@ function parseArguments(args) {
         spec: spec ?? resolve(packageRoot, "SPEC.md"),
         baseline,
         coverage,
+        conformance,
+        citationExemptions,
         maxSharedAtoms,
         writeBaseline
     };

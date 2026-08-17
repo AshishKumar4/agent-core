@@ -33,7 +33,10 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         );
 
         expect(result.status, result.stderr).toBe(0);
-        expect(result.stdout).toContain("coherence complete: 0 issue(s), 0 resolved");
+        // 62 baselined join findings: 49 citations carrying the wrong label or none, and
+        // 13 atoms whose labels no citation of theirs carries. Debt, not an allowance —
+        // a finding that stops reproducing must leave the baseline or this goes red.
+        expect(result.stdout).toContain("coherence incomplete: 62 issue(s), 0 resolved");
     });
 
     test("binds bracketed atom labels in test titles and nowhere else", async () => {
@@ -644,6 +647,178 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         expect(renamedResult.status, renamedResult.stderr).toBe(0);
         expect(renamedResult.stderr).not.toContain("A fixture profile MAY omit nothing.");
     });
+
+    test("joins a row's citation to the atom label the cited test carries", async () => {
+        const unlabelled = run(
+            await fixture({
+                rows: [
+                    {
+                        id: "C13-AUTH-PLANE",
+                        testSelectors: ["test/join.test.ts#authority planes hold"]
+                    }
+                ],
+                tests: { "join.test.ts": 'test("authority planes hold", () => {});\n' }
+            })
+        );
+        expect(unlabelled.status).toBe(1);
+        expect(unlabelled.stderr).toContain("New SPEC coherence violations");
+        expect(unlabelled.stderr).toContain("COH-CITATION-LABEL:test/join.test.ts:C13-AUTH-PLANE");
+        expect(unlabelled.stderr).toContain(
+            "Row C13-AUTH-PLANE cites a test carrying no atom label: authority planes hold"
+        );
+
+        const labelled = run(
+            await fixture({
+                rows: [
+                    {
+                        id: "C13-AUTH-PLANE",
+                        testSelectors: ["test/join.test.ts#[C13-AUTH-PLANE] authority planes hold"]
+                    }
+                ],
+                tests: {
+                    "join.test.ts": 'test("[C13-AUTH-PLANE] authority planes hold", () => {});\n'
+                }
+            })
+        );
+        expect(labelled.status, labelled.stderr).toBe(0);
+        expect(labelled.stderr).not.toContain("COH-CITATION-LABEL");
+    });
+
+    test("names the other atom a citation carries and exempts a shared witness by pair", async () => {
+        const selector = "test/witness.test.ts#[C13-AUTH-DENY-PATH] one test answers two atoms";
+        const tests = {
+            "witness.test.ts":
+                'test("[C13-AUTH-DENY-PATH] one test answers two atoms", () => {});\n'
+        };
+        const rows = [
+            { id: "C13-AUTH-PLANE", testSelectors: [selector] },
+            { id: "C13-AUTH-DENY-PATH", testSelectors: [selector] }
+        ];
+        const shared = run(await fixture({ rows, tests }));
+        expect(shared.status).toBe(1);
+        // The repair differs from the unlabelled case, so the diagnostic must differ too:
+        // a shared witness earns the citing atom's label, it does not lose the citation.
+        expect(shared.stderr).toContain(
+            "Row C13-AUTH-PLANE cites a test carrying C13-AUTH-DENY-PATH instead"
+        );
+        expect(shared.stderr).not.toContain("Row C13-AUTH-DENY-PATH cites");
+
+        const exempted = run(
+            await fixture({
+                rows,
+                tests,
+                exemptions: [
+                    {
+                        atom: "C13-AUTH-PLANE",
+                        reason: "The one case answers both atoms and can wear one label.",
+                        selector
+                    }
+                ]
+            })
+        );
+        expect(exempted.status, exempted.stderr).toBe(0);
+    });
+
+    test("fails loudly on a citation exemption that no longer resolves", async () => {
+        const selector = "test/witness.test.ts#[C13-AUTH-DENY-PATH] one test answers two atoms";
+        const reason = "The one case answers both atoms and can wear one label.";
+        const dropped = run(
+            await fixture({
+                rows: [{ id: "C13-AUTH-PLANE", testSelectors: [] }],
+                exemptions: [{ atom: "C13-AUTH-PLANE", reason, selector }]
+            })
+        );
+        expect(dropped.status).toBe(1);
+        expect(dropped.stderr).toContain("Citation label exemptions no longer resolve");
+        expect(dropped.stderr).toContain(`C13-AUTH-PLANE no longer cites ${selector}`);
+
+        const unknown = run(
+            await fixture({ exemptions: [{ atom: "C13-AUTH-PLANE", reason, selector }] })
+        );
+        expect(unknown.status).toBe(1);
+        expect(unknown.stderr).toContain("C13-AUTH-PLANE is no §13 row");
+
+        const own = "test/witness.test.ts#[C13-AUTH-PLANE] one test answers one atom";
+        const pointless = run(
+            await fixture({
+                rows: [{ id: "C13-AUTH-PLANE", testSelectors: [own] }],
+                exemptions: [{ atom: "C13-AUTH-PLANE", reason, selector: own }]
+            })
+        );
+        expect(pointless.status).toBe(1);
+        expect(pointless.stderr).toContain(`C13-AUTH-PLANE now carries its own label in ${own}`);
+    });
+
+    test("backs a worn label with one cited case rather than with every case", async () => {
+        const suite = [
+            'describe("[C13-AUTH-PLANE] authority planes", () => {',
+            '    it("hold across a restart", () => {});',
+            '    it("reject a foreign plane", () => {});',
+            '    it("survive a rename", () => {});',
+            "});"
+        ].join("\n");
+        const unbacked = run(
+            await fixture({
+                rows: [{ id: "C13-AUTH-PLANE", testSelectors: [] }],
+                tests: { "planes.test.ts": suite }
+            })
+        );
+        expect(unbacked.status).toBe(1);
+        expect(unbacked.stderr).toContain("COH-LABEL-CITATION:SPEC.md:C13-AUTH-PLANE");
+        expect(unbacked.stderr).toContain(
+            "Test titles carry the label of C13-AUTH-PLANE, whose row cites no test carrying it"
+        );
+
+        // One of the three cases discharges the label; a suite does not owe a citation each.
+        const backed = run(
+            await fixture({
+                rows: [
+                    {
+                        id: "C13-AUTH-PLANE",
+                        testSelectors: [
+                            "test/planes.test.ts#[C13-AUTH-PLANE] authority planes hold across a restart"
+                        ]
+                    }
+                ],
+                tests: { "planes.test.ts": suite }
+            })
+        );
+        expect(backed.status, backed.stderr).toBe(0);
+        expect(backed.stderr).not.toContain("COH-LABEL-CITATION");
+    });
+
+    test("ratchets a join violation through the baseline in both directions", async () => {
+        const rows = [
+            { id: "C13-AUTH-PLANE", testSelectors: ["test/join.test.ts#authority planes hold"] }
+        ];
+        const tests = { "join.test.ts": 'test("authority planes hold", () => {});\n' };
+        const added = run(await fixture({ rows, tests }));
+        expect(added.status).toBe(1);
+        expect(added.stderr).toContain("New SPEC coherence violations");
+
+        const { fingerprint, baseline } = admitted(added.stderr, "COH-CITATION-LABEL");
+        const accepted = run(await fixture({ rows, tests, baseline }));
+        expect(accepted.status, accepted.stderr).toBe(0);
+        expect(accepted.stdout).toContain("coherence incomplete: 1 issue(s), 0 resolved");
+
+        const fixedRows = [
+            {
+                id: "C13-AUTH-PLANE",
+                testSelectors: ["test/join.test.ts#[C13-AUTH-PLANE] authority planes hold"]
+            }
+        ];
+        const fixedTests = {
+            "join.test.ts": 'test("[C13-AUTH-PLANE] authority planes hold", () => {});\n'
+        };
+        const retained = run(await fixture({ rows: fixedRows, tests: fixedTests, baseline }));
+        expect(retained.status).toBe(1);
+        expect(retained.stderr).toContain("Coherence baseline retains resolved findings");
+        expect(retained.stderr).toContain(fingerprint);
+
+        const cleared = run(await fixture({ rows: fixedRows, tests: fixedTests }));
+        expect(cleared.status, cleared.stderr).toBe(0);
+        expect(cleared.stdout).toContain("coherence complete: 0 issue(s), 0 resolved");
+    });
 });
 
 const cacheLineageDisposition = JSON.stringify({
@@ -691,12 +866,16 @@ async function fixture({
     spec,
     tests = {},
     baseline = '{\n  "edition": "1.0.0",\n  "issues": []\n}\n',
-    coverage
+    coverage,
+    rows = [],
+    exemptions = []
 }: {
     spec?: string;
     tests?: Record<string, string>;
     baseline?: string;
     coverage?: string;
+    rows?: LedgerRow[];
+    exemptions?: CitationExemption[];
 }): Promise<string> {
     const root = await mkdtemp(resolve(tmpdir(), "agent-core-coherence-"));
     temporary.push(root);
@@ -707,8 +886,58 @@ async function fixture({
     }
     await writeFile(resolve(root, "baseline.json"), baseline, "utf8");
     if (coverage !== undefined) await writeFile(resolve(root, "coverage.json"), coverage, "utf8");
+    // The join rule reads §13 rows, so a fixture carries its own ledger; pointed at the
+    // repository's it would report every real citation against the fixture's baseline.
+    await mkdir(resolve(root, "conformance"), { recursive: true });
+    await writeJson(resolve(root, "conformance/index.json"), {
+        edition: "1.0.0",
+        seed: "seed.json",
+        fragments: ["fixture.json"]
+    });
+    await writeJson(resolve(root, "conformance/seed.json"), {
+        edition: "1.0.0",
+        owner: "W0-seed",
+        requirements: []
+    });
+    await writeJson(resolve(root, "conformance/fixture.json"), {
+        edition: "1.0.0",
+        owner: "W9",
+        requirements: rows
+    });
+    await writeJson(resolve(root, "exemptions.json"), { edition: "1.0.0", entries: exemptions });
     return root;
 }
+
+/** One §13 row as the join rule reads it: an id and the tests it cites. */
+type LedgerRow = { id: string; testSelectors: string[] };
+type CitationExemption = { atom: string; reason: string; selector: string };
+type FixtureArtifact =
+    | { edition: string; seed: string; fragments: string[] }
+    | { edition: string; owner: string; requirements: LedgerRow[] }
+    | { edition: string; entries: CitationExemption[] };
+
+async function writeJson(path: string, value: FixtureArtifact): Promise<void> {
+    await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+}
+
+/** The gate's own report of a finding, folded into the one-entry baseline that admits it. */
+function admitted(stderr: string, rule: string): AdmittedFinding {
+    const [line = ""] = stderr
+        .split("\n")
+        .map((item) => item.trim())
+        .filter((item) => item.startsWith(`${rule}:`));
+    expect(line, stderr).not.toBe("");
+    const separator = line.indexOf(" ");
+    const fingerprint = line.slice(0, separator);
+    const baseline = {
+        edition: "1.0.0",
+        issues: [{ fingerprint, message: line.slice(separator + 1) }]
+    };
+    return { fingerprint, baseline: `${JSON.stringify(baseline, null, 2)}\n` };
+}
+
+/** A reported finding and the one-entry baseline that admits it as debt. */
+type AdmittedFinding = { fingerprint: string; baseline: string };
 
 function run(root: string, extra: string[] = []): QualitySubprocessResult {
     return runQualitySubprocess(
@@ -723,6 +952,10 @@ function run(root: string, extra: string[] = []): QualitySubprocessResult {
             resolve(root, "SPEC.md"),
             "--baseline",
             resolve(root, "baseline.json"),
+            "--conformance",
+            resolve(root, "conformance/index.json"),
+            "--citation-exemptions",
+            resolve(root, "exemptions.json"),
             ...(extraCoverage(root) ?? []),
             ...extra
         ],
