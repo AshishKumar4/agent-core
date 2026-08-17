@@ -1313,6 +1313,16 @@ function directGrant(
     );
 }
 
+// FakeAuthorityStore recovers a grant's Binding by recomputing its name and matching the
+// resulting key, so the name has to stay distinct per grant. Spelling the GrantId straight
+// into it stopped working once §3.4's canonical segment form was enforced: `GrantId.forRole`
+// mints `role:<digest>`, and a colon is the FacetRef separator, which one segment never
+// admits. The name is therefore derived from the id rather than being the id.
+function bindingNameFor(grantId: GrantId): BindingName {
+    const segment = grantId.value.replaceAll(/[^a-z0-9]+/gu, "-").replace(/^-+|-+$/gu, "");
+    return new BindingName(`binding-${segment}`);
+}
+
 function activeBinding(
     grant: Grant,
     overrides: { grantId?: GrantId; subject?: Grant["subject"]; facet?: FacetRef } = {}
@@ -1321,7 +1331,7 @@ function activeBinding(
         workspaceScope,
         overrides.subject ?? grant.subject,
         domain,
-        new BindingName(`binding-${grant.id.value}`),
+        bindingNameFor(grant.id),
         overrides.grantId ?? grant.id,
         overrides.facet ?? facet
     );

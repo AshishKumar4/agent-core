@@ -681,7 +681,12 @@ describe("guest deny precedence across verification schemes", () => {
         () => {
             for (const denied of guestSchemePairs) {
                 const label = `deny ${denied.deny.value} against request ${denied.request.value}`;
-                const guest = guestSchemeFixture(label);
+                // The prose label reads in an assertion message; the identifiers the fixture
+                // mints need §3.4's canonical segment form, so the slug is derived separately
+                // rather than spelling a sentence into a BindingName.
+                const guest = guestSchemeFixture(
+                    `deny-${denied.deny.value}-request-${denied.request.value}`
+                );
                 const allowed = guest.admit("allow", denied.request, guestReaderRole.name);
                 const binding = guest.bind(allowed);
 
@@ -768,13 +773,13 @@ type GuestSchemeFixture = {
     check(binding: Binding): AuthorityCheckEvidence;
 };
 
-function guestSchemeFixture(label: string): GuestSchemeFixture {
+function guestSchemeFixture(slug: string): GuestSchemeFixture {
     const { store, service, runtime } = fixture();
     const trusts = new Map(
         guestSchemePairs.map(({ deny }) => [
             deny.value,
             new GuestTrust(
-                new GuestTrustId(`${label}-${deny.value}-trust`),
+                new GuestTrustId(`${slug}-${deny.value}-trust`),
                 tenantId,
                 guestHome,
                 deny.equals(GuestVerificationScheme.token)
@@ -794,7 +799,7 @@ function guestSchemeFixture(label: string): GuestSchemeFixture {
             const trust = trusts.get(scheme.value)!;
             return service.assignGuestMembership(
                 new Membership(
-                    new MembershipId(`${label}-${id}-member`),
+                    new MembershipId(`${slug}-${id}-member`),
                     workspaceScope,
                     SubjectRef.foreign(guestHome, guestPrincipal, scheme),
                     role,
@@ -818,7 +823,7 @@ function guestSchemeFixture(label: string): GuestSchemeFixture {
                 workspaceScope,
                 membership.subject,
                 domain,
-                new BindingName(`${label}-mail`),
+                new BindingName(`${slug}-mail`),
                 GrantId.forRole(membership.id, 0),
                 facet
             );
