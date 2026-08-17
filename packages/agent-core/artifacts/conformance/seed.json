@@ -1515,6 +1515,20 @@
       ]
     },
     {
+      "id": "C13-CLOUDFLARE-DYNAMIC-NO-EGRESS",
+      "owner": "W8",
+      "specAnchor": "C13-CLOUDFLARE-DYNAMIC-NO-EGRESS",
+      "specTextSha256": "sha256:44e0d8c66f04e7a1b60709a5b79b421f18f94aa923e2916edc316dcf922d4487",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-CLOUDFLARE-QUEUE-DISPOSITION",
       "owner": "W8",
       "specAnchor": "C13-CLOUDFLARE-QUEUE-DISPOSITION",

@@ -3366,6 +3366,23 @@ rather than replacing a pinned release under a live Run (§9.3), so such a resta
 materialization act ordered there and never a substitution inside a Turn — this profile adds
 no second rule for it. This maps to **C13-CLOUDFLARE-DYNAMIC-STORE-LIFECYCLE**.
 
+§1.5 states what a `dynamic` domain holds; this profile owes the demonstration that its own
+backings hold it. The obligation is separate from the rule because the rule is about every
+substrate and no single substrate's evidence can discharge it — a Worker Loader isolate
+refusing to reach the network says nothing about a dispatch namespace, still less about a
+substrate this document has not met. What this profile owes is narrower and checkable: that
+the absence of ambient egress is a property of how it constructs the domain rather than of
+what it asks the domain not to do. So `globalOutbound` is fixed where the isolate is built
+and is not a value a caller supplies, since a destination the host can be persuaded to permit
+is ambient to whoever does the persuading; and the demonstration is code running in a real
+isolate of each offered backing, failing both an unbound global fetch and an unbound
+connection attempt while a Binding it was explicitly passed answers normally. That last
+clause is what makes the evidence discriminating rather than decorative: a refusal that also
+severs the passed capability has bounded nothing, it has only broken the isolate. An
+assertion that the host supplied the right argument is not this evidence, because it observes
+the host's intent and not the domain's reach. This maps to
+**C13-CLOUDFLARE-DYNAMIC-NO-EGRESS**.
+
 ### 10.3 Implementation constraints
 
 Cross-DO mediated authority uses this profile record:
@@ -4063,6 +4080,7 @@ A conforming implementation provides:
 - **C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY** A warm isolate is reused only under an identity covering every input the load fixes, the delegated capability set included, so no two agent-authored submissions share one.
 - **C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY** A `dynamic` domain's private store holds the loaded code's own state alone: no record type with an owning Actor is stored there, and no rule is satisfied by a value read back out of it.
 - **C13-CLOUDFLARE-DYNAMIC-STORE-LIFECYCLE** Stopping a `dynamic` domain preserves its store and destroying it releases the store, and a withdrawal destroys rather than stops.
+- **C13-CLOUDFLARE-DYNAMIC-NO-EGRESS** This profile fixes `globalOutbound` where the isolate is built rather than accepting it from a caller, and demonstrates on each offered backing that code in a real isolate fails an unbound fetch and an unbound connection while an explicitly passed Binding still answers.
 - **C13-CLOUDFLARE-ALARM-CLAIMS** The object's single alarm is arbitrated by durable per-owner claims and tracks the earliest live one, so no owner clobbers another's wakeup.
 - **C13-CLOUDFLARE-RECONCILIATION-DRIVER** The reconciliation driver's claim tracks the earliest durable outbox entry, armed on enqueue, rebuilt at startup, and released when the outbox drains.
 - **C13-CLOUDFLARE-ALARM-DURABILITY** An armed alarm survives instance loss and a throwing handler, and the platform, not an external re-arming path, recovers it.
