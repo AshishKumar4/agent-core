@@ -2960,8 +2960,8 @@ version, compatibility range, provenance, config-schema fragments. Packages are
 inspectable without execution — hosts, registries, and the Blueprint validator read
 manifests as data. Registry governance is out of scope; the package shape is not.
 
-A Package declares its **dependencies** as data: a set of
-`{ id: PackageId, range: CompatRange }` entries, unique by `id`, read alongside its
+A Package declares its **dependencies** as data: a set of entries unique by `id`, each
+naming a `PackageId` and the Package range (§5.2) that satisfies it, read alongside its
 manifests without executing anything. The closure `RunPins.packages` pins (§5.2) is
 exactly the transitive closure of that declared relation from the Blueprint's `packages`
 list, resolved to exact versions; a pinned closure that is not the closure of a declared
