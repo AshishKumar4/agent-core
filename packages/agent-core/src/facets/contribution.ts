@@ -6,71 +6,33 @@ import {
     canonicalFacetData,
     compareText,
     requireArray,
-    requireBoolean,
     requireDataObject,
     requireExactFields,
     requireNonblank,
+    requireOfferedCapability,
     requireOptionalString,
     requireSchemaDocument,
     requireString
 } from "./data";
 import { OperationName, SlotName, SurfaceId } from "./id";
+import type { Impact } from "./enforcement";
 
-export type Impact = "observe" | "mutate" | "externalSend" | "execute" | "delegate" | "administer";
-
-export type EnforcementTier = "direct" | "mediated";
-
-/**
- * SPEC §7.2's enforcement floor: `observe` is always direct; `execute` is direct only
- * inside a Turn-owned Session; `mutate` is direct only against that Session's own
- * filesystem; every other case — `externalSend`, `delegate`, `administer`, and any
- * `mutate`/`execute` outside those conditions — is mediated. Lives at the facets layer
- * (not `definition`, which imports `Impact` from here) so both the definition plane's
- * PolicySet evaluation and a facet profile deriving its own seam-bound impact (§7.1,
- * `claimHonorsEnforcementFloor` below) share one computation instead of each
- * reimplementing it.
- */
-export function enforcementFloor(
-    impact: Impact,
-    turnOwnedSession: boolean,
-    sessionFilesystemTarget: boolean
-): EnforcementTier {
-    if (
-        impact === "observe" ||
-        (impact === "execute" && turnOwnedSession) ||
-        (impact === "mutate" && turnOwnedSession && sessionFilesystemTarget)
-    ) {
-        return "direct";
-    }
-    return "mediated";
-}
-
-/**
- * SPEC §7.1 (C13-POLICY-IMPACT-BOUNDARY): the host derives an Operation's impact from
- * the seam its request crosses, never from what the callee declares about itself; a
- * callee's own claim may replace the derived impact only when it never admits a floor
- * (§7.2) the derived impact would have mediated. Checked across both Turn-owned-Session
- * conditions because a claim recorded once (typically at discovery or install time) has
- * to hold safe for every call site it is later used at, regardless of which condition
- * holds there. `sessionFilesystemTarget` is fixed per caller: pass `false` for a seam
- * whose target is never a Turn-owned Session's own filesystem — a discovered,
- * externally configured endpoint, for instance — and thread the real value through for
- * a seam that can legitimately have one.
- */
-export function claimHonorsEnforcementFloor(
-    claimed: Impact,
-    derived: Impact,
-    sessionFilesystemTarget: boolean
-): boolean {
-    return [true, false].every(
-        (turnOwnedSession) =>
-            enforcementFloor(claimed, turnOwnedSession, sessionFilesystemTarget) !== "direct" ||
-            enforcementFloor(derived, turnOwnedSession, sessionFilesystemTarget) === "direct"
-    );
-}
+// The §7.1/§7.2 impact vocabulary and floor live in their own module because the generated
+// lowering of `AgentCore.Facets.Enforcement` substitutes for exactly that surface; the
+// re-export keeps every existing importer of this module unaffected.
+export { claimHonorsEnforcementFloor, enforcementFloor } from "./enforcement";
+export type { EnforcementTier, Impact } from "./enforcement";
 
 export class OperationDescriptor {
     public readonly help: string | undefined;
+    /**
+     * SPEC §4.1 (C13-FACET-CAPABILITY-ABSENCE): §4.4's target consent is a capability the
+     * manifest offers by declaring it, so `true` and absence are the only two forms. A
+     * mandatory boolean would answer "did the author consider interception" with the same
+     * value it answers "did the author refuse it", give one meaning two `manifestDigest`
+     * values under §5.2, and leave a field a later edit could flip.
+     */
+    public readonly interceptable: true | undefined;
 
     public constructor(
         public readonly name: OperationName,
@@ -78,12 +40,16 @@ export class OperationDescriptor {
         public readonly input: JsonSchema,
         public readonly output: JsonSchema,
         help?: string,
-        public readonly interceptable = false
+        interceptable?: true
     ) {
         if (help !== undefined) {
             requireNonblank(help, "Operation help");
         }
         this.help = help;
+        this.interceptable = requireOfferedCapability(
+            interceptable,
+            "Operation interceptable declaration"
+        );
         Object.freeze(this);
     }
 
@@ -91,8 +57,8 @@ export class OperationDescriptor {
         const object = requireDataObject(payload, "Operation descriptor");
         requireExactFields(
             object,
-            ["impact", "input", "interceptable", "name", "output"],
-            ["help"]
+            ["impact", "input", "name", "output"],
+            ["help", "interceptable"]
         );
         return new OperationDescriptor(
             new OperationName(requireString(object["name"], "Operation name")),
@@ -100,7 +66,7 @@ export class OperationDescriptor {
             new JsonSchema(requireSchemaDocument(object["input"], "Operation input schema")),
             new JsonSchema(requireSchemaDocument(object["output"], "Operation output schema")),
             requireOptionalString(object["help"], "Operation help"),
-            requireBoolean(object["interceptable"], "Operation interceptable flag")
+            requireOfferedCapability(object["interceptable"], "Operation interceptable declaration")
         );
     }
 

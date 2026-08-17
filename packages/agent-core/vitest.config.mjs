@@ -3,7 +3,21 @@ import { defineConfig } from "vitest/config";
 
 const packageFile = (path) => fileURLToPath(new URL(path, import.meta.url));
 
+// `AGENT_CORE_ENFORCEMENT=generated` resolves every import of `src/facets/enforcement` to the
+// module TSLean lowers from `AgentCore.Facets.Enforcement`. The two export the same surface, so
+// the suite runs unmodified against either and the comparison is apples to apples: a test that
+// passes for one and fails for the other is either a behavioural difference or a test that was
+// asserting the handwritten implementation rather than SPEC §7.1-§7.2.
+const enforcementSubstitution = {
+    name: "agent-core-enforcement-substitution",
+    enforce: "pre",
+    resolveId(source) {
+        return source === "./enforcement" ? packageFile("./src/facets/enforcement.generated.ts") : null;
+    }
+};
+
 export default defineConfig({
+    plugins: process.env.AGENT_CORE_ENFORCEMENT === "generated" ? [enforcementSubstitution] : [],
     resolve: {
         alias: {
             "bun:test": packageFile("./scripts/vitest-bun-test.mjs"),
