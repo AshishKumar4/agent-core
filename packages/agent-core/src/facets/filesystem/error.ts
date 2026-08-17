@@ -1,7 +1,13 @@
 import { DetailedProfileError } from "../profile-runtime";
 
 export type FilesystemErrorCode =
-    "not-found" | "exists" | "not-a-directory" | "is-a-directory" | "path.invalid" | "too-large";
+    | "not-found"
+    | "exists"
+    | "not-a-directory"
+    | "is-a-directory"
+    | "path.invalid"
+    | "too-large"
+    | "content-mismatch";
 
 export const FILESYSTEM_ERROR_CODES: readonly FilesystemErrorCode[] = Object.freeze([
     "not-found",
@@ -9,7 +15,8 @@ export const FILESYSTEM_ERROR_CODES: readonly FilesystemErrorCode[] = Object.fre
     "not-a-directory",
     "is-a-directory",
     "path.invalid",
-    "too-large"
+    "too-large",
+    "content-mismatch"
 ]);
 
 export class FilesystemError extends DetailedProfileError<FilesystemErrorCode> {

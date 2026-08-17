@@ -177,7 +177,7 @@ requirement("P11-FILESYSTEM-ATOMICITY-ASSERTIONS", () => {
     expect(filesystem.read("/file")).toEqual(new Uint8Array([1]));
 });
 requirement("P11-FILESYSTEM-CODE-ASSERTIONS", () => {
-    expect(FILESYSTEM_ERROR_CODES).toHaveLength(6);
+    expect(FILESYSTEM_ERROR_CODES).toHaveLength(7);
 });
 requirement("P11-FILESYSTEM-ERROR-BRANCHING", () => {
     const filesystem = new MemoryFilesystemBackend();
@@ -205,7 +205,8 @@ requirement("P11-FILESYSTEM-ERROR-CODES", () => {
         "not-a-directory",
         "is-a-directory",
         "path.invalid",
-        "too-large"
+        "too-large",
+        "content-mismatch"
     ]);
 });
 requirement("P11-FILESYSTEM-PAGING-ASSERTIONS", () => {

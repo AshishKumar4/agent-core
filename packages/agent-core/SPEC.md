@@ -3126,6 +3126,10 @@ closed the same way, and rolling forward is its only recovery. This maps to
 - **P11-FILESYSTEM-STAT** Operation `stat` has `observe` impact.
 - **P11-FILESYSTEM-LIST** Operation `list` has `observe` impact and is paged and stat-inclusive.
 - **P11-FILESYSTEM-WRITE** Operation `write` has `mutate` impact and supports create, replace, and upsert modes.
+- **P11-FILESYSTEM-WRITE-OBSERVED** Mode `replace` names the `Digest` (§1.4) of the content it replaces and the store admits the write only when the target's current content digests to that value, so the request carries its own proof of observation and the profile keeps no per-session observed-state ledger.
+- **P11-FILESYSTEM-WRITE-UNOBSERVED** Mode `upsert` names no digest and is the profile's only write over unobserved content, so overwriting content the caller never read is a declared `mutate` intent a Workspace policy can refuse rather than the default shape of a write.
+- **P11-FILESYSTEM-WRITE-GUARD-ATOMIC** The store compares the named digest and applies the content in the single atomic step `P11-FILESYSTEM-ATOMIC-WRITE` already requires, so no write lands between the comparison and the replacement.
+- **P11-FILESYSTEM-WRITE-GUARD-PORTABLE** The guard value is a content digest rather than a store-native version token, so one guarded write contract holds across every backing store and wrapper `P11-FILESYSTEM-BACKINGS` covers without a per-store token translation.
 - **P11-FILESYSTEM-REMOVE** Operation `remove` has `mutate` impact.
 - **P11-FILESYSTEM-MOVE** Operation `move` has `mutate` impact and is same-filesystem only.
 - **P11-FILESYSTEM-MKDIR** Operation `mkdir` has `mutate` impact.
@@ -3135,7 +3139,8 @@ closed the same way, and rolling forward is its only recovery. This maps to
 - **P11-FILESYSTEM-RANGES** Reads are byte-ranged.
 - **P11-FILESYSTEM-ATOMIC-WRITE** Writes are atomic at path granularity.
 - **P11-FILESYSTEM-ERROR-CLOSED** Filesystem errors use one fixed, stable code set.
-- **P11-FILESYSTEM-ERROR-CODES** The set is `not-found`, `exists`, `not-a-directory`, `is-a-directory`, `path.invalid`, and `too-large`.
+- **P11-FILESYSTEM-ERROR-CODES** The set is `not-found`, `exists`, `not-a-directory`, `is-a-directory`, `path.invalid`, `too-large`, and `content-mismatch`.
+- **P11-FILESYSTEM-ERROR-CONTENT-MISMATCH** A `replace` whose named digest differs from the target's current content rejects with `content-mismatch`, distinct from `not-found` for an absent target and from `exists` for a `create` over a present one.
 - **P11-FILESYSTEM-ERROR-BRANCHING** Callers branch on stable codes, not messages.
 - **P11-FILESYSTEM-SUITE** One complete reader and mutator contract governs filesystem conformance.
 - **P11-FILESYSTEM-BACKINGS** That contract holds for every backing store and every observed and mount-composition wrapper.

@@ -271,7 +271,8 @@ describe("Filesystem backend invariants", () => {
                 "not-a-directory",
                 "is-a-directory",
                 "path.invalid",
-                "too-large"
+                "too-large",
+                "content-mismatch"
             ]);
             expect(
                 // @ts-expect-error Runtime rejection is required for a detail code excluded by the public type.
