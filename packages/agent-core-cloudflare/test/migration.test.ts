@@ -79,11 +79,11 @@ describe("SQLite application durability", () => {
                 new SqliteApplicationMigrator(database, fakeErrors, [
                     { version: 1, name: "changed", statements: ["SELECT 1"] }
                 ]).migrate(),
-            "codec.invalid"
+            "schema.unreadable"
         );
         expectOperationalFailure(
             () => new SqliteApplicationMigrator(database, fakeErrors, []).migrate(),
-            "codec.invalid"
+            "schema.unreadable"
         );
 
         const corruptMarkers = (rows: readonly SqliteRow[]) => ({
@@ -101,7 +101,7 @@ describe("SQLite application durability", () => {
                     fakeErrors,
                     []
                 ).migrate(),
-            "codec.invalid"
+            "schema.unreadable"
         );
         expectOperationalFailure(
             () =>
@@ -113,7 +113,7 @@ describe("SQLite application durability", () => {
                     fakeErrors,
                     []
                 ).migrate(),
-            "codec.invalid"
+            "schema.unreadable"
         );
     });
 

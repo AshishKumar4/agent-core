@@ -1,8 +1,10 @@
+import { AgentCoreError } from "@agent-core/core";
 import { CloudflareSqlite, type CloudflareDurableObjectStorage } from "./sqlite.js";
 import type { CloudflareErrorPort } from "./error.js";
 import { operationalFailure } from "./error.js";
 import {
     SqliteApplicationMigrator,
+    UNREADABLE_SCHEMA,
     cloudflareRuntimeMigrations,
     type SqliteApplicationMigration
 } from "./migration.js";
@@ -92,6 +94,19 @@ export interface CloudflareDurableObjectClass<Environment> {
     ): CloudflareDurableObjectInstance;
 }
 
+/**
+ * Whether an instantiated object may serve. Construction always succeeds, so an object
+ * whose applied schema this release cannot read carries the refusal its operations raise
+ * instead of a host it must never reach.
+ */
+type DurableObjectAdmission =
+    | {
+          readonly serving: true;
+          readonly host: AuthoritativeDurableObjectHost;
+          readonly startup: Promise<void>;
+      }
+    | { readonly serving: false; readonly refusal: AgentCoreError };
+
 export function createCloudflareDurableObjectClass<Environment>(
     options: CloudflareDurableObjectClassOptions<Environment>
 ): CloudflareDurableObjectClass<Environment> {
@@ -100,12 +115,24 @@ export function createCloudflareDurableObjectClass<Environment>(
         ...(options.migrations ?? [])
     ]);
     return class CloudflareActorDurableObject implements CloudflareDurableObjectInstance {
-        readonly #host: AuthoritativeDurableObjectHost;
-        readonly #startup: Promise<void>;
+        readonly #admission: DurableObjectAdmission;
 
         public constructor(state: CloudflareDurableObjectStateLike, environment: Environment) {
             const sqlite = new CloudflareSqlite(state.storage, options.errors);
-            new SqliteApplicationMigrator(sqlite, options.errors, migrations).migrate();
+            try {
+                new SqliteApplicationMigrator(sqlite, options.errors, migrations).migrate();
+            } catch (failure) {
+                // A schema this release cannot read is permanent: the object stays
+                // unreadable until a release that declares its markers is deployed, and an
+                // object that throws here can never be reached to diagnose or drain. Every
+                // other failure is transient, and letting it reset the object is what makes
+                // the platform's retry worth having.
+                if (!(failure instanceof AgentCoreError) || failure.code !== UNREADABLE_SCHEMA) {
+                    throw failure;
+                }
+                this.#admission = Object.freeze({ serving: false, refusal: failure });
+                return;
+            }
             const revisions = new DurableViewRevisionLog(sqlite, options.errors);
             const alarmClaims = new DurableAlarmClaims(sqlite, options.errors);
             const runtime = Object.freeze({
@@ -125,17 +152,20 @@ export function createCloudflareDurableObjectClass<Environment>(
                               options.errors
                           )
             });
-            this.#host = options.host.create(runtime);
+            const host = options.host.create(runtime);
             // A throwing callback resets the object in the real runtime; retaining the
             // rejection keeps every entry point fail-closed everywhere else. The extra
-            // handler only marks it observed — `#started` is what reports it.
-            this.#startup = state.blockConcurrencyWhile(() => this.#host.repairAlarm());
-            this.#startup.catch(() => undefined);
+            // handler only marks it observed — `#serving` is what reports it.
+            const startup = state.blockConcurrencyWhile(() => host.repairAlarm());
+            startup.catch(() => undefined);
+            this.#admission = Object.freeze({ serving: true, host, startup });
         }
 
-        async #started(): Promise<void> {
+        async #serving(): Promise<AuthoritativeDurableObjectHost> {
+            const admission = this.#admission;
+            if (!admission.serving) throw admission.refusal;
             try {
-                await this.#startup;
+                await admission.startup;
             } catch (cause) {
                 operationalFailure(
                     options.errors,
@@ -144,24 +174,22 @@ export function createCloudflareDurableObjectClass<Environment>(
                     { value: cause }
                 );
             }
+            return admission.host;
         }
 
         public async fetch(request: Request): Promise<Response> {
-            await this.#started();
-            return this.#host.fetch(request);
+            return (await this.#serving()).fetch(request);
         }
 
         public async alarm(): Promise<void> {
-            await this.#started();
-            return this.#host.alarm();
+            return (await this.#serving()).alarm();
         }
 
         public async webSocketMessage(
             socket: HibernatingWebSocketLike,
             message: string | ArrayBuffer
         ): Promise<void> {
-            await this.#started();
-            return this.#host.webSocketMessage(socket, message);
+            return (await this.#serving()).webSocketMessage(socket, message);
         }
 
         public async webSocketClose(
@@ -170,13 +198,11 @@ export function createCloudflareDurableObjectClass<Environment>(
             reason: string,
             wasClean: boolean
         ): Promise<void> {
-            await this.#started();
-            return this.#host.webSocketClose(socket, code, reason, wasClean);
+            return (await this.#serving()).webSocketClose(socket, code, reason, wasClean);
         }
 
         public async webSocketError(socket: HibernatingWebSocketLike, error: Error): Promise<void> {
-            await this.#started();
-            return this.#host.webSocketError(socket, error);
+            return (await this.#serving()).webSocketError(socket, error);
         }
     };
 }

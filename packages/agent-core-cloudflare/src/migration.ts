@@ -11,6 +11,14 @@ const CREATE_MIGRATION_TABLE = `CREATE TABLE IF NOT EXISTS agent_core_migrations
 const READ_MIGRATIONS = "SELECT version, name FROM agent_core_migrations ORDER BY version";
 const INSERT_MIGRATION = "INSERT INTO agent_core_migrations (version, name) VALUES (?, ?)";
 
+/**
+ * The refusal an object raises when its storage carries a schema marker this code does
+ * not declare. It is permanent for as long as the deployed release stays behind the
+ * schema, so the boundary that raises it is the object's operations, never its
+ * construction.
+ */
+export const UNREADABLE_SCHEMA = "schema.unreadable";
+
 export type SynchronousSqlitePort = Pick<TransactionalSqlite, "all" | "run" | "transaction">;
 
 export interface SqliteApplicationMigration {
@@ -77,23 +85,13 @@ export class SqliteApplicationMigrator {
             if (declared.get(version) !== name) {
                 operationalFailure(
                     this.errors,
-                    "codec.invalid",
-                    `SQLite migration ${version} marker is not declared by this runtime`
+                    UNREADABLE_SCHEMA,
+                    `SQLite migration ${version} marker ${name} is not declared by this runtime`
                 );
             }
         }
         for (const migration of this.#migrations) {
-            const existing = applied.get(migration.version);
-            if (existing !== undefined) {
-                if (existing !== migration.name) {
-                    operationalFailure(
-                        this.errors,
-                        "codec.invalid",
-                        `SQLite migration ${migration.version} marker does not match ${migration.name}`
-                    );
-                }
-                continue;
-            }
+            if (applied.has(migration.version)) continue;
             this.database.transaction(() => {
                 for (const statement of migration.statements) this.database.run(statement, []);
                 this.database.run(INSERT_MIGRATION, [migration.version, migration.name]);
@@ -135,14 +133,14 @@ function validateMigrations(
 
 function readApplied(rows: readonly SqliteRow[], errors: CloudflareErrorPort): Map<number, string> {
     const marker = storedRowReader(() =>
-        operationalFailure(errors, "codec.invalid", "SQLite migration marker is corrupt")
+        operationalFailure(errors, UNREADABLE_SCHEMA, "SQLite migration marker is corrupt")
     );
     const applied = new Map<number, string>();
     for (const row of rows) {
         const version = marker.integer(row, "version");
         const name = marker.text(row, "name");
         if (applied.has(version)) {
-            operationalFailure(errors, "codec.invalid", "SQLite migration marker is duplicated");
+            operationalFailure(errors, UNREADABLE_SCHEMA, "SQLite migration marker is duplicated");
         }
         applied.set(version, name);
     }

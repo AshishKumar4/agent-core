@@ -10,6 +10,7 @@ export type CloudflareOperationalErrorCode = Extract<
     | "protocol.invalid-state"
     | "protocol.revision-conflict"
     | "run.invalid-state"
+    | "schema.unreadable"
 >;
 
 /** A thrown JavaScript value captured at the exact call boundary that produced it. */

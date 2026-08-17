@@ -21,6 +21,7 @@ export type AgentCoreErrorCode =
     | "protocol.invalid-state"
     | "protocol.revision-conflict"
     | "run.invalid-state"
+    | "schema.unreadable"
     | "slate.invalid-version"
     | "slate.unpublished"
     | "subscription.invalid"
