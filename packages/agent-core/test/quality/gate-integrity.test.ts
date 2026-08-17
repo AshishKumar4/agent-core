@@ -20,6 +20,10 @@ let mutationGate: JsonObject;
 let committedMutation: JsonObject;
 let committedDebt: readonly string[];
 let committedMutations: number;
+// Derived, never written down. A hardcoded rule total is a second source of truth for the
+// registry's size, and it broke the moment a peer registered COH-LABEL-CITATION — a
+// correct landing turning this suite red for a number that is not what any case is about.
+let registeredRules: number;
 
 beforeAll(async () => {
     const corpusArtifact = await readArtifact("artifacts/quality/gate-corpus.json");
@@ -39,6 +43,7 @@ beforeAll(async () => {
         0
     );
     committedDebt = stringsAt(corpusArtifact, "unregistered");
+    registeredRules = objectsAt(await readArtifact("artifacts/quality/rules.json"), "rules").length;
 });
 
 afterEach(async () => {
@@ -89,7 +94,8 @@ describe("gate integrity", subprocessTestOptions, () => {
 
         expect(result.status, result.stderr).toBe(0);
         expect(result.stdout).toContain(
-            `gate integrity incomplete: ${committedMutations} mutation(s) turned 2 of 18 rule(s) red`
+            `gate integrity incomplete: ${committedMutations} mutation(s) turned 2 of ` +
+                `${registeredRules} rule(s) red`
         );
     });
 
