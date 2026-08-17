@@ -3,7 +3,8 @@ import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import ts from "typescript-api";
+import * as ts from "typescript/unstable/ast";
+import { openProject, sourceFiles } from "./quality/compiler.mjs";
 import { declarationRegistry, exportedDeclarations } from "./quality/export-registry.mjs";
 import {
     artifactRoot,
@@ -37,13 +38,17 @@ for (const [subpath, targets] of Object.entries(packageJson.exports)) {
     declarationPaths.set(specifier, resolve(packageRoot, targets.types));
 }
 
-const program = ts.createProgram([...declarationPaths.values()], {
-    module: ts.ModuleKind.NodeNext,
-    moduleResolution: ts.ModuleResolutionKind.NodeNext,
-    skipLibCheck: true,
-    target: ts.ScriptTarget.ES2022
+const declarations = openProject({
+    files: [...declarationPaths.values()],
+    compilerOptions: {
+        module: "NodeNext",
+        moduleResolution: "NodeNext",
+        skipLibCheck: true,
+        target: "ES2022"
+    }
 });
-const checker = program.getTypeChecker();
+const program = declarations.program;
+const checker = declarations.checker;
 for (const [specifier, path] of declarationPaths) {
     const source = program.getSourceFile(path);
     const module = source === undefined ? undefined : checker.getSymbolAtLocation(source);
@@ -241,8 +246,7 @@ async function declarationClosure() {
         const path = pending.pop();
         if (closure.has(path)) continue;
         closure.add(path);
-        const source = await readFile(path, "utf8");
-        const parsed = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);
+        const parsed = sourceFiles([path]).get(path);
         parsed.forEachChild((node) => {
             const literal =
                 ts.isImportDeclaration(node) || ts.isExportDeclaration(node)

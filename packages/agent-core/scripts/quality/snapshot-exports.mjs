@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import ts from "typescript-api";
+import { openProject } from "./compiler.mjs";
 import { exportedDeclarations } from "./export-registry.mjs";
 import {
     artifactRoot,
@@ -27,13 +27,17 @@ for (const [subpath, targets] of Object.entries(packageJson.exports)) {
     runtime[specifier] = Object.keys(module).sort();
     declarationPaths.set(specifier, resolve(packageRoot, targets.types));
 }
-const program = ts.createProgram([...declarationPaths.values()], {
-    module: ts.ModuleKind.NodeNext,
-    moduleResolution: ts.ModuleResolutionKind.NodeNext,
-    skipLibCheck: true,
-    target: ts.ScriptTarget.ES2022
+const declarationProject = openProject({
+    files: [...declarationPaths.values()],
+    compilerOptions: {
+        module: "NodeNext",
+        moduleResolution: "NodeNext",
+        skipLibCheck: true,
+        target: "ES2022"
+    }
 });
-const checker = program.getTypeChecker();
+const program = declarationProject.program;
+const checker = declarationProject.checker;
 for (const [specifier, path] of declarationPaths) {
     const source = program.getSourceFile(path);
     const symbol = source === undefined ? undefined : checker.getSymbolAtLocation(source);
