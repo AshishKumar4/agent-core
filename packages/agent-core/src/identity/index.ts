@@ -3,6 +3,7 @@ export {
     PrincipalId,
     ProjectId,
     RoleName,
+    ShareOfferId,
     TeamId,
     TenantId,
     WorkspaceId
@@ -41,6 +42,19 @@ export {
 export type { RoleImpact, RoleRuleEffect } from "./role";
 export { Membership } from "./member";
 export type { MembershipState } from "./member";
+export {
+    ShareOffer,
+    ShareOfferRedemption,
+    ShareOfferRedemptionDenied,
+    ShareOfferRedemptionOutcome,
+    shareOfferHolderKey
+} from "./share-offer";
+export type {
+    ShareOfferHolder,
+    ShareOfferRedemptionRequest,
+    ShareOfferRefusal,
+    ShareOfferState
+} from "./share-offer";
 export { GuestTrust } from "./guest-trust";
 export type { GuestTrustVerifier } from "./guest-trust";
 export type { GuestVerification } from "./guest-verification";

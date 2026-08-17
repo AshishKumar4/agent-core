@@ -36,6 +36,12 @@ export class MembershipId extends TextId {
     }
 }
 
+export class ShareOfferId extends TextId {
+    public constructor(value: string) {
+        super(value, "Share offer ID");
+    }
+}
+
 export class GuestTrustId extends TextId {
     public constructor(value: string) {
         super(value, "Guest trust ID");

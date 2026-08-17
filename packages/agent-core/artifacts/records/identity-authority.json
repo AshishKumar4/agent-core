@@ -240,6 +240,19 @@
             ]
         },
         {
+            "symbol": "ShareOffer",
+            "kind": "identity.share-offer",
+            "durability": "durable",
+            "ownerActor": "tenant",
+            "source": "src/identity/share-offer.ts#ShareOffer",
+            "codec": "src/identity/share-offer.ts#ShareOffer.codec",
+            "store": "src/identity/repository.ts#MemoryIdentityRepository",
+            "tests": [
+                "test/identity/share-offer.test.ts#share offers [C13-AUTH-SHARE-OFFER] [identity.share-offer] round-trips every redemption through its codec",
+                "test/identity/share-offer.test.ts#share offers [C13-AUTH-SHARE-OFFER] [identity.share-offer] is durable in the identity store it is revoked through"
+            ]
+        },
+        {
             "symbol": "Team",
             "kind": "identity.team",
             "durability": "durable",

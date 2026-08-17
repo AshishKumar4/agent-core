@@ -332,6 +332,41 @@ the host Tenant's credentials. Credential custody never leaves the owning Tenant
 same Grant precedence and Binding resolver apply to guests. This prohibition maps to
 **C13-AUTH-GUEST-ELEVATION**.
 
+**Handing someone a link is deferred issuance, not a second authority path.** A
+**ShareOffer** is a bearer artifact created before its subject is known, and redeeming one
+issues exactly the Membership this section already fixes. It is admitted because it adds no
+authority path: an offer carries a Scope, a Role name, a creation time, a required expiry, a
+positive bound on how many times it may be redeemed, and the digest of a bearer secret,
+while it carries no capability, no Grant, and no attenuation lineage. Until a redemption is
+recorded an offer is not authority and MUST grant nothing — no Grant materializes, no
+Binding resolves, and a holder's effective access is exactly what it was before the offer
+existed. Issuing one is an `administer`-impact act at the offer's Scope and the Membership a
+redemption mints is bounded by what the issuer could have assigned directly, so an offer
+defers *who* is bound and never widens *what* is bound. An offer with no expiry or no bound
+is not admissible, because an artifact that never stops being redeemable is the ambient
+bearer credential §3.4's epoch machinery exists to prevent. Redemption is a mutation of the
+offer's own record in the Tenant Actor that owns it, checked against that record, and never
+the verification of a self-authenticating token: that is precisely what makes an offer
+revocable before it is redeemed, and it is why the durable record carries the secret's
+digest rather than the secret. Redemption MUST fail closed, and its check order is
+normative. The presented secret is compared first, so a wrong secret learns nothing about
+the offer's state. A holder already recorded as having redeemed the offer then replays: it
+receives the recorded Membership's identity, mints no second Membership, consumes no second
+unit of the bound, and is answered this way even once the offer is revoked, expired or
+exhausted, because delivery is at-least-once and a duplicate of an already-committed
+redemption must not be answered by issuing again. Only issuance is gated, and it requires
+that the offer be open rather than revoked, that the time lie in `[createdAt, expiresAt)`,
+that the bound be unreached, and that the redeeming subject be a Principal or a
+`ForeignPrincipalRef` rather than a Team, since a bearer artifact is held by whoever holds
+it and a Team holds nothing. Idempotency is keyed on the holder, and for a foreign holder on
+`{ homeTenant, principalId }` alone, so a guest cannot consume a second unit of the bound by
+re-verifying under another scheme — the same reason a deny-Grant ignores `verifiedVia`.
+Revoking an offer stops every not-yet-recorded redemption and MUST NOT retract a Membership
+a recorded redemption already minted; that Membership is revoked as a Membership, advancing
+the affected path epoch. Nothing bearer-shaped therefore survives redemption: what survives
+is a Membership on the one enforcement plane, which is the whole reason an offer is not
+ambient authority. This maps to **C13-AUTH-SHARE-OFFER**.
+
 **Verifying a guest.** `verifiedVia` names how the host Tenant establishes that a
 request actually comes from the foreign principal. It is one of three schemes, in
 increasing order of coupling:
@@ -532,6 +567,28 @@ vocabulary of its own. A delegation, a guest Membership, and a cross-tenant rese
 each carry the ref and never the value. §3.4 rule 3 and §3.3's guest prohibition are
 consequences of this clause, which is the only place it is stated. This maps to
 **C13-CONFIG-SECRET-CUSTODY**.
+
+That custody record names a Tenant and a consumer, and it deliberately names no Principal,
+which fixes the resolution scope the clause above would otherwise leave open: **resolution is
+Tenant-scoped and Principal-independent.** A resolution seam decides from the presented
+`(SecretRef, consumer, endpoint)` triple and the custody record alone; it MUST NOT accept or
+consult a presenting Principal, so two Principals of one Tenant presenting an identical
+triple through the same consumer observe the identical secret and the identical refusal. The
+reason is that a credential is one external fact — the endpoint that honors it holds one
+credential, not one per member — so a per-Principal reading would make a SecretRef a name
+whose meaning depends on who asks, and the configuration, manifests, and Blueprints that
+carry refs would stop being readable as what they will do. It follows that a SecretRef is not
+an access-control primitive and MUST NOT be used as one: partitioning a credential between
+Principals is done by recording distinct SecretRefs under distinct consumers, never by
+expecting one ref to resolve differently per asker. The blast radius this fixes is therefore
+a Tenant's recorded consumers and not a Tenant's Principals, because reaching a consumer at
+all is a Grant decision on §3.4's one plane, taken before the seam is ever asked, so a
+Principal that cannot reach a consumer never presents a triple; the guest prohibition of §3.3
+is a rule on that plane and is untouched by Principal-independence, which ranges over a
+Tenant's own Principals. A recorded custody fact carrying any discriminant beyond its
+SecretRef and endpoint would silently narrow that radius while leaving the ref's name
+unchanged, so such a fact MUST be refused where it is written rather than honored as a
+narrower scope. This maps to **C13-AUTH-SECRET-SCOPE**.
 
 ---
 
@@ -3784,6 +3841,8 @@ A conforming implementation provides:
 - **C13-AUTH-GUEST-ELEVATION** The guest elevation prohibition.
 - **C13-AUTH-GUEST-VERIFICATION** The host verifies a guest's provenance by one of the three declared schemes before materializing any Grant, and a failure denies.
 - **C13-AUTH-GUEST-HANDSHAKE-BOOTSTRAP** `handshake` is a bootstrap scheme that materializes no Grant itself, and a subject still stamped `handshake` at materialization is denied.
+- **C13-AUTH-SHARE-OFFER** A ShareOffer is deferred Membership issuance: it grants nothing before redemption, is inadmissible without an expiry and a positive bound, checks the presented secret before any state, replays per holder rather than issuing twice, fails closed on revocation, the window, the bound, and a Team subject, and never retracts an already-minted Membership.
+- **C13-AUTH-SECRET-SCOPE** SecretRef resolution is Tenant-scoped and Principal-independent: a seam decides from the `(SecretRef, consumer, endpoint)` triple and the custody record alone, and a custody fact qualified by a presenting Principal is refused where it is written.
 - **C13-AUTH-PRINCIPAL-REF** Security-sensitive Principal references are tenant-qualified and exact-matched.
 - **C13-AUTH-PATH-EVIDENCE** Complete Tenant-to-target PathEpochEvidence.
 - **C13-AUTH-EPOCH-ADVANCEMENT** Path epoch advancement for allow and deny changes.

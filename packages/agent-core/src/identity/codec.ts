@@ -22,6 +22,13 @@ export function requireIdentityString(value: IdentityData | undefined, subject: 
     return parse.string(value, subject);
 }
 
+export function requireIdentityArray(
+    value: IdentityData | undefined,
+    subject: string
+): readonly IdentityData[] {
+    return parse.array(value, subject);
+}
+
 export function requireIdentityRevision(
     value: IdentityData | undefined,
     subject: string

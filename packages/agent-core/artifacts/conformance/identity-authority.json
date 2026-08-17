@@ -537,6 +537,59 @@
       ]
     },
     {
+      "id": "C13-AUTH-SECRET-SCOPE",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-SECRET-SCOPE",
+      "specTextSha256": "sha256:1528293252e2b6eda603c1c113b142643b5b90c7dbfaf98827d8188fec19f4f3",
+      "status": "implemented",
+      "prerequisites": ["C13-CONFIG-SECRET-CUSTODY"],
+      "sourceSymbols": [
+        "src/authority/binding.ts#BindingCredentialCustody",
+        "src/authority/binding.ts#Binding"
+      ],
+      "testSelectors": [
+        "test/authority/secret-scope.test.ts#SecretRef resolution scope [C13-AUTH-SECRET-SCOPE] [authority.binding] resolves identically for two Principals of one Tenant",
+        "test/authority/secret-scope.test.ts#SecretRef resolution scope [C13-AUTH-SECRET-SCOPE] [authority.binding] discriminates on the ref, the endpoint, and the owning Tenant",
+        "test/authority/secret-scope.test.ts#SecretRef resolution scope [C13-AUTH-SECRET-SCOPE] [authority.binding] refuses a custody fact qualified by a presenting Principal"
+      ],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "Principal-independence is enforced today at the durable custody boundary and in the custody lookup: BindingCredentialCustody.fromData admits exactly an (endpoint, secret) fact and refuses any further discriminant, and Binding.hasCredentialCustody decides from the (SecretRef, endpoint) pair with no subject input, so two Principals of one Tenant observe the identical answer. That is the half of the rule a record can carry",
+        "The other half needs the seam that does not exist yet. C13-CONFIG-SECRET-CUSTODY's remaining provider work is a concrete credential-isolation adapter; until it exists nothing demonstrates that a live resolution presents the (SecretRef, consumer, endpoint) triple with no Principal component, that a resolution refused for one Principal is refused for every Principal of that Tenant, or that a seam offered a Principal-qualified key fails the attempt rather than degrading to a narrower scope"
+      ]
+    },
+    {
+      "id": "C13-AUTH-SHARE-OFFER",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-SHARE-OFFER",
+      "specTextSha256": "sha256:b5228f658644d620bdfd0c1c6e0e6420e285eb622961c2535085d58921d38ee6",
+      "status": "implemented",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/identity/share-offer.ts#ShareOffer",
+        "src/identity/share-offer.ts#ShareOfferRedemption",
+        "src/identity/share-offer.ts#ShareOfferRedemptionOutcome",
+        "src/identity/repository.ts#MemoryIdentityRepository"
+      ],
+      "testSelectors": [
+        "test/identity/share-offer.test.ts#share offers [C13-AUTH-SHARE-OFFER] [identity.share-offer] grants nothing before redemption and mints one Membership on it",
+        "test/identity/share-offer.test.ts#share offers [C13-AUTH-SHARE-OFFER] [identity.share-offer] round-trips every redemption through its codec",
+        "test/identity/share-offer.test.ts#share offers [C13-AUTH-SHARE-OFFER] [identity.share-offer] is durable in the identity store it is revoked through",
+        "test/identity/share-offer.test.ts#share offer adversarial redemption [C13-AUTH-SHARE-OFFER] [identity.share-offer] refuses a wrong bearer secret before revealing any offer state",
+        "test/identity/share-offer.test.ts#share offer adversarial redemption [C13-AUTH-SHARE-OFFER] [identity.share-offer] refuses an expired offer at its exact expiry",
+        "test/identity/share-offer.test.ts#share offer adversarial redemption [C13-AUTH-SHARE-OFFER] [identity.share-offer] revocation stops redemption and never retracts a minted Membership",
+        "test/identity/share-offer.test.ts#share offer adversarial redemption [C13-AUTH-SHARE-OFFER] [identity.share-offer] redeems idempotently per holder under at-least-once delivery",
+        "test/identity/share-offer.test.ts#share offer adversarial redemption [C13-AUTH-SHARE-OFFER] [identity.share-offer] keys redemption on the holder, not on a guest's verification scheme",
+        "test/identity/share-offer.test.ts#share offer adversarial redemption [C13-AUTH-SHARE-OFFER] [identity.share-offer] refuses an exhausted bound, a Team holder, and an unbounded offer"
+      ],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The record and its redemption semantics are complete and adversarially evidenced: grants-nothing-before-redemption, secret-before-state check order, per-holder idempotency keyed without a guest's verifiedVia, revocation before redemption, the exact expiry boundary, the exhausted bound, the Team-holder refusal, the mandatory expiry and positive bound, and revocation never retracting a minted Membership",
+        "No AuthorityService operation issues, revokes, or redeems a ShareOffer yet, so the guarded Tenant-Actor transaction that must linearize a redemption against Grant and path-epoch mutation is unevidenced, as is the administer-impact authorization of issuance and the requirement that a minted Membership be bounded by what the issuer could have assigned directly",
+        "Durability is evidenced through the Memory identity store only. The SQLite substrate has no share-offer table, writer, or authority-closure change bucket, so store parity and restart-replay behaviour for an offer revoked between deliveries are unevidenced"
+      ]
+    },
+    {
       "id": "C13-AUTH-TEAM-SUBJECT",
       "owner": "W2",
       "specAnchor": "C13-AUTH-TEAM-SUBJECT",

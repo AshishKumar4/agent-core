@@ -4,6 +4,7 @@ import type {
     PrincipalId,
     ProjectId,
     RoleName,
+    ShareOfferId,
     TeamId,
     TenantId,
     WorkspaceId
@@ -14,6 +15,7 @@ import { Membership } from "./member";
 import { Principal } from "./principal";
 import { Project } from "./project";
 import { Role } from "./role";
+import { ShareOffer } from "./share-offer";
 import { Team } from "./team";
 import { Tenant } from "./tenant";
 import { Workspace } from "./workspace";
@@ -24,6 +26,7 @@ export type IdentityRecordKind =
     | "principal"
     | "project"
     | "role"
+    | "shareOffer"
     | "team"
     | "tenant"
     | "workspace";
@@ -101,6 +104,10 @@ export class MemoryIdentityRepository extends IdentityRepository {
         return this.load("membership", id.value, Membership.decode);
     }
 
+    public loadShareOffer(id: ShareOfferId): ShareOffer | undefined {
+        return this.load("shareOffer", id.value, ShareOffer.decode);
+    }
+
     public snapshot(): MemoryIdentitySnapshot {
         return Object.freeze({
             version: 1 as const,
@@ -155,7 +162,9 @@ function verifyRecord(record: StoredIdentityRecord): void {
                       ? GuestTrust.decode(record.bytes).id.value
                       : record.kind === "role"
                         ? Role.decode(record.bytes).name.value
-                        : Membership.decode(record.bytes).id.value;
+                        : record.kind === "shareOffer"
+                          ? ShareOffer.decode(record.bytes).id.value
+                          : Membership.decode(record.bytes).id.value;
     if (id !== record.id) {
         throw corruptIdentitySnapshot("Stored identity key does not match its codec record");
     }
@@ -180,6 +189,7 @@ function isRecordKind(value: string): value is IdentityRecordKind {
         value === "principal" ||
         value === "project" ||
         value === "role" ||
+        value === "shareOffer" ||
         value === "team" ||
         value === "tenant" ||
         value === "workspace"

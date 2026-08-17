@@ -1207,6 +1207,34 @@
       ]
     },
     {
+      "id": "C13-AUTH-SECRET-SCOPE",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-SECRET-SCOPE",
+      "specTextSha256": "sha256:1528293252e2b6eda603c1c113b142643b5b90c7dbfaf98827d8188fec19f4f3",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-AUTH-SHARE-OFFER",
+      "owner": "W2",
+      "specAnchor": "C13-AUTH-SHARE-OFFER",
+      "specTextSha256": "sha256:b5228f658644d620bdfd0c1c6e0e6420e285eb622961c2535085d58921d38ee6",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-AUTH-TEAM-SUBJECT",
       "owner": "W2",
       "specAnchor": "C13-AUTH-TEAM-SUBJECT",
