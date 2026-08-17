@@ -40,7 +40,7 @@ test(
 );
 
 test(
-    "[C13-PROTOCOL-ATOMIC-EVIDENCE] oversized submitted payload is deterministic malformed evidence",
+    "oversized submitted payload is deterministic malformed evidence",
     { tags: "p1" },
     async () => {
         const harness = new CounterHarness();
