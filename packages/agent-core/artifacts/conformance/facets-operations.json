@@ -638,19 +638,22 @@
       "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": [
-        "src/facets/interceptor.ts#InterceptorDeclaration"
+        "src/facets/interceptor.ts#InterceptorDeclaration",
+        "src/operations/interception.ts#OperationInterceptorRunner"
       ],
       "testSelectors": [
-        "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-INTERCEPTOR-MODE-DECLARED] refuses an absent or unknown interceptor mode instead of defaulting one"
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [C13-INTERCEPTOR-MODE-DECLARED] refuses an absent or unknown interceptor mode instead of defaulting one",
+        "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-MODE-DECLARED] refuses an undeclared mode before any Facet starts, admitting no partial manifest",
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-MODE-DECLARED] realizes the banded ordering relation rather than one permutation of it"
       ],
       "checkerInvariants": [
         "ACQ-IMPORT",
         "ACQ-TEST"
       ],
       "remainingEvidence": [
-        "Refusal is evidenced at the declaration boundary only. The rule says a declaration is refused at contribution, and the slot contribution path admits interceptor entries through FacetSlotContributeCommand, so closure needs a contribution-time case proving an entry carrying no mode or an unknown mode is rejected before any Facet activates, with no partially admitted manifest left behind",
-        "Mutation attribution has not been measured against the new selector: the declaration's mode branch must be shown to kill a mutant inside InterceptorDeclaration rather than merely execute it",
-        "The formal model now proves the banded key, its totality, schedule uniqueness, and rewrite-before-gate dominance over an abstract schedule the host supplies, so what remains is the refinement rather than the relation: nothing proves OperationInterceptorRunner's candidate sort produces a schedule satisfying ScheduleOrdered, and traceability.yaml records no link between that symbol and the model, so the implementation could order differently from the relation the model constrains"
+        "Recorded discrimination is the only thing left between this row and verified, and it is not this row's to write. Eleven mutants were run in an isolated worktree and every cited selector is killed by a mutant inside a cited symbol: making mode optional in the exact-field gate and replacing requireMode with a constant both kill the two mode-refusal selectors from inside InterceptorDeclaration, collapsing modeRank to a constant kills the schedule selector from inside it, and making priority dominate mode or dropping the facetId comparison kills the schedule selector from inside OperationInterceptorRunner. That measurement is by hand. artifacts/quality/discrimination/facets.json is W0-owned, is stale against src/facets/interceptor.ts, and records none of the three cited selectors, so scripts/quality/discrimination.mjs classifies a verified row here as DISC-STALE. The facets and operations areas must be re-measured by the mutation campaign; nothing in this row's own source or tests is outstanding",
+        "The refinement the previous revision owed is now witnessed executably rather than by the model: the schedule selector transcribes AgentCore.InterceptorOrder's four clauses as a predicate, asserts the observed order satisfies it, and asserts that exactly one of the 120 permutations of the contributed set does, which is AgentCore.ordered_schedule_unique in executable form and pins the order completely. It also asserts the contributed order is not admitted, so the host cannot pass by leaving candidates alone. What remains is documentary and W0-owned: artifacts/traceability.yaml and formal/AgentCore/Interceptors.lean record no link between OperationInterceptorRunner and the relation, and AC-INTERCEPTOR-001's own boundary declares runtime candidate discovery unmodelled, so the recorded model-to-implementation edge is the formal owner's to add",
+        "Superseded premise, recorded so a later reader does not reopen it. The earlier obligation assumed FacetSlotContributeCommand admits interceptor entries into the schedule; it does not. A durable SlotEntry is validated only against the installed Slot's entrySchema and is read back through WorkspaceSlotStore, while both OperationInterceptorRunner and FacetCorrespondenceValidator read facet.manifest.contributions, which comes from validated release manifests through PackageFacetRuntime.activate. A mode-less entry contributed over the protocol therefore never becomes an ordering claim, and the boundary where a declaration does become one is manifest validation. The refusal there is now evidenced as atomic over four malformed mode shapes: activation refuses before any Facet's start hook runs, and a co-located lawful Facet in the same host is never started, which is what distinguishes no partial manifest from merely the bad Facet did not run"
       ]
     },
     {
@@ -661,19 +664,23 @@
       "status": "implemented",
       "prerequisites": [],
       "sourceSymbols": [
-        "src/operations/interception.ts#OperationInterceptorRunner"
+        "src/operations/interception.ts#OperationInterceptorRunner",
+        "src/operations/correspondence.ts#validateImplementations"
       ],
       "testSelectors": [
-        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-MODE-FIDELITY] refuses a gate interceptor that returns a value it was not given"
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-MODE-FIDELITY] refuses a gate interceptor that returns a value it was not given",
+        "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-MODE-FIDELITY] refuses a gate at every cut point it cannot police rather than admitting it unenforced",
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-MODE-FIDELITY] attributes the rewrite to its exact rewriter, not to the interceptor that ran last",
+        "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-MODE-FIDELITY] persists no trace and no partial chain when it refuses a rewriting gate"
       ],
       "checkerInvariants": [
         "ACQ-IMPORT",
         "ACQ-TEST"
       ],
       "remainingEvidence": [
-        "Only the two operation cut points have a runtime, so a gate's read-only claim is enforced where the runner runs and is unevidenced at prompt.assemble, input.submitted, and turn.step; each needs its own refusal case once those cut points exist",
-        "The refusal must be shown to leave no trace entry attributing a rewrite to the refused gate, and to leave the persisted transformation chain identical to the one a lawful gate would have produced",
-        "Mutation attribution has not been measured against the new selector, so the fidelity comparison is not yet known to discriminate from a nearby test that merely runs the runner"
+        "Recorded discrimination is the only thing left between this row and verified, and it is not this row's to write. Measured by hand over eleven mutants in an isolated worktree, every cited selector is killed from inside a cited symbol: disabling the gate comparison and inverting the policed mode each kill the two refusal selectors from inside OperationInterceptorRunner, forcing every trace entry to read rewritten and forcing none to kills the attribution and no-trace selectors from inside it, and admitting unhosted cut points kills the cut-point selector from inside validateImplementations. artifacts/quality/discrimination/operations.json is W0-owned and records none of the four cited selectors, so scripts/quality/discrimination.mjs classifies a verified row here as DISC-STALE. The operations and facets areas must be re-measured by the mutation campaign",
+        "What the cut-point selector does and does not establish, labelled so a green tick is not read as the stronger claim. It does not show a gate being policed at prompt.assemble, input.submitted or turn.step, which is impossible until those cut points have a runtime. It shows the weaker property that closes the hole instead: over the whole cut point by mode domain, all ten cells, the two operation cut points admit both modes and the other three refuse both, naming the interceptor and the cut point, with the host left inactive and no Facet started. So a gate cannot be admitted where its read-only claim would go unenforced, which makes the enforcement total by refusal rather than partial by omission. When those cut points gain runtimes each owes its own in-band refusal case and this clause is what says so",
+        "The attribution half is evidenced as a join rather than as two facts side by side, which is the part a nearby test would miss: the last trace entry whose outcome is rewritten names alpha, and its after digest equals a digest recomputed over the persisted preparedArguments, so the record says this interceptor produced the value the PreparedInvocation froze. A host recording only that an interceptor ran satisfies none of it, and one reporting the final trace entry as the rewriter names omega, whose entry carries the identical digest with outcome unchanged. beta and omega behave identically and differ only in declared mode, so a phase inferred from observed behaviour could not separate them, while the declared band still orders beta ahead of omega at priority 2 against -100. Outstanding here is only the same recorded measurement as the clause above"
       ]
     },
     {

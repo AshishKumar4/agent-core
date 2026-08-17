@@ -421,6 +421,172 @@ describe("Canonical codecs", () => {
         }
     });
 
+    /**
+     * `C13-CODEC-INCOMPATIBILITY-TOTAL` needs the compatibility decision to be *total*, and
+     * the sampling tests above cannot show that: between them they name five version pairs,
+     * and a pair the decision fails to classify is exactly the defect. This enumerates the
+     * decision's domain instead of sampling it.
+     *
+     * The version domain is infinite, so the bound is stated and then measured rather than
+     * assumed. `isEnvelope` admits a component only when it is a non-negative safe integer,
+     * so the domain is `[0, 2**53 - 1]` per component and every other JSON number is itself
+     * a decided rejection — the `outsideDomain` list closes that edge. Over the admitted
+     * domain the outcome is claimed to factor through
+     * `(sign(major - reader.major), sign(minor - reader.minor))`, nine classes, which is what
+     * makes a finite grid complete rather than merely wide. The grid measures that claim by
+     * requiring exactly one outcome per class across components that reach both ends of the
+     * domain; it does not infer it from reading the comparisons.
+     *
+     * The row cannot cite this test. `C13-CODEC-INCOMPATIBILITY-TOTAL` is `planned` because
+     * the record-set-level version declaration the rule also requires does not exist, and
+     * `scripts/quality/ledger.mjs#validateStatus` forbids a planned row from carrying test
+     * selectors. Labelling it with the atom id would be a citation the ledger never made.
+     */
+    test("decides every version pair in its domain with no third answer", { tags: "p1" }, () => {
+        type CodecDecision =
+            | { readonly kind: "accepted" }
+            | { readonly kind: "rejected"; readonly code: "codec.invalid" | "codec.unknown-major" }
+            | { readonly kind: "undecided"; readonly detail: string };
+
+        // Both components sit strictly inside the domain, so every sign class is reachable.
+        const reader = new FixtureCodec({ major: 3, minor: 4 });
+        const payload = { enabled: true, label: "total" };
+        const decide = (bytes: Uint8Array): CodecDecision => {
+            try {
+                reader.decode(bytes);
+                return { kind: "accepted" };
+            } catch (error) {
+                if (!(error instanceof AgentCoreError)) {
+                    return { kind: "undecided", detail: `untyped failure: ${String(error)}` };
+                }
+                return error.code === "codec.invalid" || error.code === "codec.unknown-major"
+                    ? { kind: "rejected", code: error.code }
+                    : { kind: "undecided", detail: `code outside the codec pair: ${error.code}` };
+            }
+        };
+        const rejects = (code: string): string => JSON.stringify({ kind: "rejected", code });
+        const accepts = JSON.stringify({ kind: "accepted" });
+
+        const end = Number.MAX_SAFE_INTEGER;
+        const outcomesByClass = new Map<string, Set<string>>();
+        const acceptedPairs: string[] = [];
+        const undecided: string[] = [];
+        for (const major of [0, 1, 2, 3, 4, 5, end]) {
+            for (const minor of [0, 1, 3, 4, 5, end]) {
+                const decision = decide(
+                    encodeCanonicalJson({
+                        kind: "test.fixture",
+                        payload,
+                        version: { major, minor }
+                    })
+                );
+                const signs = `${Math.sign(major - 3)},${Math.sign(minor - 4)}`;
+                const outcomes = outcomesByClass.get(signs) ?? new Set<string>();
+                outcomes.add(JSON.stringify(decision));
+                outcomesByClass.set(signs, outcomes);
+                if (decision.kind === "accepted") acceptedPairs.push(`${major}.${minor}`);
+                if (decision.kind === "undecided") {
+                    undecided.push(`${major}.${minor}: ${decision.detail}`);
+                }
+            }
+        }
+
+        // Collected first and asserted second, so one run describes the whole shape of a gap
+        // rather than stopping at its first edge.
+        expect(undecided).toEqual([]);
+        // The measured half of the completeness argument: one outcome per sign class means
+        // the decision reads nothing about a version beyond the two signs, so nine classes
+        // exhaust an infinite domain.
+        expect([...outcomesByClass].filter(([, outcomes]) => outcomes.size !== 1)).toEqual([]);
+        expect(
+            Object.fromEntries(
+                [...outcomesByClass].map(([signs, outcomes]) => [signs, [...outcomes][0]])
+            )
+        ).toEqual({
+            "-1,-1": rejects("codec.unknown-major"),
+            "-1,0": rejects("codec.unknown-major"),
+            "-1,1": rejects("codec.unknown-major"),
+            "0,-1": accepts,
+            "0,0": accepts,
+            "0,1": rejects("codec.invalid"),
+            "1,-1": rejects("codec.unknown-major"),
+            "1,0": rejects("codec.unknown-major"),
+            "1,1": rejects("codec.unknown-major")
+        });
+        expect(acceptedPairs).toEqual(["3.0", "3.1", "3.3", "3.4"]);
+        // "accepted" has to mean the record decoded, not merely that nothing was thrown.
+        expect(
+            reader.decode(
+                encodeCanonicalJson({
+                    kind: "test.fixture",
+                    payload,
+                    version: { major: 3, minor: 0 }
+                })
+            )
+        ).toEqual({ enabled: true, label: "total" });
+
+        // The domain's complement: every input the sign grid cannot describe is still
+        // decided, so no input anywhere leaves the decision undefined.
+        const outsideDomain: readonly JsonValue[] = [
+            { major: -1, minor: 4 },
+            { major: 3, minor: -1 },
+            { major: 1.5, minor: 4 },
+            { major: 3, minor: 0.5 },
+            { major: end + 1, minor: 4 },
+            { major: 3, minor: end + 1 },
+            { major: "3", minor: 4 },
+            { major: true, minor: 4 },
+            { major: 3 },
+            { minor: 4 },
+            { major: 3, minor: 4, patch: 0 },
+            [3, 4],
+            null,
+            "3.4"
+        ];
+        const malformedEnvelopes: readonly Uint8Array[] = [
+            new TextEncoder().encode("{"),
+            // Canonical key order is part of the envelope, so unordered bytes are malformed.
+            new TextEncoder().encode(
+                '{"version":{"major":3,"minor":4},"kind":"test.fixture",' +
+                    '"payload":{"enabled":true,"label":"total"}}'
+            ),
+            encodeCanonicalJson({ kind: "test.fixture", payload }),
+            encodeCanonicalJson({ payload, version: { major: 3, minor: 4 } }),
+            encodeCanonicalJson({ kind: "test.fixture", version: { major: 3, minor: 4 } }),
+            encodeCanonicalJson({
+                extra: true,
+                kind: "test.fixture",
+                payload,
+                version: { major: 3, minor: 4 }
+            }),
+            encodeCanonicalJson({
+                kind: "other.fixture",
+                payload,
+                version: { major: 3, minor: 4 }
+            }),
+            encodeCanonicalJson(null),
+            encodeCanonicalJson([]),
+            encodeCanonicalJson("record")
+        ];
+        const boundary = [
+            ...outsideDomain.map((version) => ({
+                subject: `version ${JSON.stringify(version)}`,
+                decision: decide(encodeCanonicalJson({ kind: "test.fixture", payload, version }))
+            })),
+            ...malformedEnvelopes.map((bytes, index) => ({
+                subject: `envelope ${index}`,
+                decision: decide(bytes)
+            }))
+        ];
+        // Not merely "decided": every one of these is a malformed *envelope*, so the code
+        // must be `codec.invalid`. `codec.unknown-major` is reserved for a well-formed
+        // envelope whose major differs, and answering it here would report a version the
+        // reader does not know in place of a version it cannot read at all.
+        expect(
+            boundary.filter((item) => JSON.stringify(item.decision) !== rejects("codec.invalid"))
+        ).toEqual([]);
+    });
+
     test("rejects invalid codec metadata at construction", { tags: "p2" }, () => {
         const accessorVersion = Object.defineProperty({ minor: 0 }, "major", {
             enumerable: true,
