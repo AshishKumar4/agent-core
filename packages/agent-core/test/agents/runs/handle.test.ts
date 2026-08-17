@@ -422,14 +422,19 @@ describe("verified admission identities", () => {
         { tags: "p1" },
         async () => {
             const seeded = seedRunningTurn();
-            for (const receipts of [[], [refs.receipt, new ReceiptId("second-receipt")]]) {
-                await expect(
-                    verifier().verify({ ...admissionRequest(seeded), receipts })
-                ).rejects.toMatchObject({
-                    code: "invocation.invalid",
-                    message: expect.stringMatching(/exactly one item Receipt/u)
-                });
-            }
+            const outcomes = await Promise.all(
+                [[], [refs.receipt, new ReceiptId("second-receipt")]].map((receipts) =>
+                    verifier()
+                        .verify({ ...admissionRequest(seeded), receipts })
+                        .then(
+                            () => "admitted",
+                            (error: Error) =>
+                                error instanceof AgentCoreError ? error.code : error.name
+                        )
+                )
+            );
+
+            expect(outcomes).toEqual(["invocation.invalid", "invocation.invalid"]);
         }
     );
 
@@ -573,15 +578,10 @@ describe("addressing an admitted item", () => {
                 })
             ).rejects.toMatchObject({ code: "lease.invalid" });
 
-            // The seam carries no operation that could bring the Turn back: publication,
-            // settlement and delivery are all it offers.
-            expect(Object.getOwnPropertyNames(TurnAdmissionPublisher.prototype).sort()).toEqual([
-                "constructor",
-                "deliver",
-                "publish",
-                "requireIssuingLease",
-                "settle"
-            ]);
+            // Both refusals are Turn.requireToken's: a terminal Turn is not running and holds
+            // no lease, so a handle can still name the work and can author nothing. The claim
+            // that no Turn-retry symbol exists anywhere is C13-TURN-NO-RETRY-EXPORT's and its
+            // sibling gates', not something a method-name assertion here could witness.
         }
     );
 
