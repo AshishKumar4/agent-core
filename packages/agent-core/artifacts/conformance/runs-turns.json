@@ -1170,16 +1170,13 @@
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
-{
+    {
       "id": "C13-TURN-TRANSCRIPT-RECONSTRUCTION",
       "owner": "W5",
       "specAnchor": "C13-TURN-TRANSCRIPT-RECONSTRUCTION",
       "specTextSha256": "sha256:1b07b735eda91d9ad7ed3df548079d30a1947b7bd3ad361ff6ae8757d1175440",
       "status": "verified",
-      "prerequisites": [
-        "C13-TURN-MODEL-INPUT-RECONSTRUCTABLE",
-        "C13-RUN-EFFECTIVE-TRANSCRIPT"
-      ],
+      "prerequisites": ["C13-TURN-MODEL-INPUT-RECONSTRUCTABLE", "C13-RUN-EFFECTIVE-TRANSCRIPT"],
       "sourceSymbols": [
         "src/agents/runs/runtime.ts#RunRuntime",
         "src/agents/runs/transcript.ts#effectiveTranscript"
@@ -1188,10 +1185,7 @@
         "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-TURN-TRANSCRIPT-RECONSTRUCTION] derives at the exact base commit, so a later rewrite cannot enter it",
         "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-TURN-TRANSCRIPT-RECONSTRUCTION] rebuilds an earlier call's request byte for byte across a rewrite that shadows what it read"
       ],
-      "checkerInvariants": [
-        "ACQ-IMPORT",
-        "ACQ-TEST"
-      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
     },
     {
