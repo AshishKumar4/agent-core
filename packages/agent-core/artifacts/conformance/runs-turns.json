@@ -999,6 +999,26 @@
       ]
     },
     {
+      "id": "C13-TURN-MODEL-INPUT-ABRIDGED",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-MODEL-INPUT-ABRIDGED",
+      "specTextSha256": "sha256:8c2cf9f4234cdf9c8506defd7760ad27eab30c63a381d15d2ea859ed3d622103",
+      "status": "planned",
+      "prerequisites": ["C13-TURN-MODEL-INPUT-RECONSTRUCTABLE"],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The vocabulary does not exist. Nothing in src/ names an omission: there is no type distinguishing an amount withheld exactly from an amount withheld unknown, and no field on a recorded request carrying either. Owed: an omission value with exactly three cases — nothing withheld, a withheld amount known exactly, and a withheld amount not known because the host bounded a stream it never read to the end — because a two-case shape forces a host to report a guess as exact, which is the false precision this rule exists to prevent",
+        "The abridged bytes have no home, and that is the load-bearing half. This atom names C13-TURN-MODEL-INPUT-RECONSTRUCTABLE as a prerequisite because the shown form must be what the request record holds: the model observed the abridged bytes, so the reconstruction must yield those bytes and the byte-compare must compare against them. Owed: the model-call record carries the shown form inline or by a resolvable `ContentRef`, never by a digest of it and never as a derivation over the whole result's `ContentRef`, since ending retention of that content would leave the shown form unrebuildable and invite the re-derivation C13-TURN-MODEL-INPUT-RETENTION-LOSS forbids",
+        "The separation from the result's own completeness is owed in the records, not only in prose. §7.4's `AttemptReceipt.result` records the whole result and `partiallySucceeded` already names a batch that covered less than was asked, so the owed change places the omission on the request record and leaves source incompleteness with the result, and no field carries both. A test is owed asserting that a host cannot express one as the other: a complete result abridged under a bound and an incomplete source shown whole must produce different records, and neither record may be reachable from the other's inputs",
+        "The conformance test is owed in four shapes: a result abridged under a bound reconstructs to exactly the abridged bytes the model received; the same request records the withheld amount exactly; a stream bounded before its end records the withheld amount as unknown rather than as a computed number; and a complete result records no omission at all rather than an omission of zero, so the absence of an omission is distinguishable from an omission that happened to withhold nothing",
+        "The adversarial cases are owed and each must fail: a host recording the whole result plus a flag that it was shortened, which reconstructs a longer request than the one sent while satisfying every wording that does not name the shown bytes; a host recording only a digest of the shown bytes, which proves what was shown and cannot retrieve it; a host reporting a byte-ranged `read` or a `list` page as an omission under a bound, which tells a model to retry a source that has nothing more; and a host reporting an omission under a bound as source incompleteness, which tells a model that retrievable content does not exist",
+        "The boundary this atom deliberately does not cross is owed as a negative obligation: retention strategies (head, tail, head-and-tail), UTF-8 boundary preservation at a cut, elision wording, spill locators, and retrieval hints are executor concerns below the §5.6 seam. This rule constrains what a request records and what a model is told about it, never how a host chooses what to keep, so a conformance test MUST NOT assert a strategy or a notice format",
+        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
+      ]
+    },
+    {
       "id": "C13-TURN-NO-RETRY",
       "owner": "W5",
       "specAnchor": "C13-TURN-NO-RETRY",

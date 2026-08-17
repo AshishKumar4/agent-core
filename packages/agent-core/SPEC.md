@@ -1734,6 +1734,33 @@ effective state commit alone, and a reconstruction reads every rewrite that is a
 of its base commit whichever Turn appended it. This maps to
 **C13-TURN-TRANSCRIPT-RECONSTRUCTION**.
 
+A model is regularly shown less of a result than the record holds. An Operation's result is
+recorded whole — §7.4 sets no size bound on a result and names no failure kind for one too
+large — while the context a model reads is finite, so a host abridges what it puts in front
+of the model. Abridging is legitimate; presenting an abridged value as a whole one is not. A
+request that carries less of a result than the record holds MUST carry that fact alongside
+it, with the withheld amount stated exactly, or stated as unknown when the host bounded a
+stream it never read to the end, and the abridged form itself is what the request records —
+inline or by a `ContentRef` that resolves to it, never by a digest of it, because a digest
+proves what a value was while only a reference retrieves it (§1.4).
+Recording the whole result together with a flag that it was shortened does not satisfy
+reconstructability, because the model observed the abridged bytes and a reconstruction from
+such a record rebuilds a longer request than the one that was sent. Recording the
+abridgement as a derivation over the whole result's `ContentRef` fails for a second reason:
+ending retention of that content leaves the shown form unrebuildable and invites a
+re-derivation from what survives, which is the silent-different-request case the retention
+rule above forbids. The omission fact accompanies the shown bytes and never stands in for
+them. That fact is also distinct from the result's own completeness: a `list` page, a
+byte-ranged `read`, and a `partiallySucceeded` batch (§7.4) each report that the source
+covered less than was asked, and a host MUST NOT record either fact as the other or fold one
+into the other's field. The two support opposite inferences — content withheld under a bound
+exists and is retrievable, an incomplete source has nothing further to give — so conflating
+them makes a model retry a source that holds nothing more, or abandon one that does. Keeping
+them apart is what lets a reconstruction rebuild a request without re-deriving the budget
+decision that shaped it, and it is why an abridged result recorded as a whole one misleads
+even when the reconstruction is byte-exact: a byte-compare establishes that a request was
+rebuilt, never that it was true. This maps to **C13-TURN-MODEL-INPUT-ABRIDGED**.
+
 Mid-turn input uses `turn.deliverEvent`: a lease-fenced operation appending an Event
 to the running Turn's inbox; hosts MAY implement delivery as "the durable log is the
 queue" — re-read the inbox each step. **Cancellation** is the reserved inbox Event
@@ -3535,6 +3562,7 @@ A conforming implementation provides:
 - **C13-TURN-MODEL-INPUT-RECONSTRUCTABLE** The executor seam exposes a reconstruction that yields a model call's exact request — assembled prompt sections in final order, the operation catalog as offered, and every inbox Event admitted before the call — from records the Turn has already committed, inline or by `ContentRef`, and the call issues that reconstruction's output rather than a separately assembled value.
 - **C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH** The records a model call's reconstruction depends on are durable before the call is dispatched, and a rejected, unavailable, or indeterminate commit prevents dispatch rather than proceeding with an unrecorded request.
 - **C13-TURN-MODEL-INPUT-RETENTION-LOSS** A reconstruction whose named Event or `ContentRef` is no longer retained fails with a typed error naming what is missing rather than assembling a shorter prefix, a partial request, or a best-effort approximation.
+- **C13-TURN-MODEL-INPUT-ABRIDGED** A request carrying less of a result than the record holds records the abridged form itself and states the withheld amount exactly or as unknown, and a host records neither an omission made under a bound as the source's own incompleteness nor an incomplete source as an omission made under a bound.
 - **C13-TURN-TRANSCRIPT-RECONSTRUCTION** A model call's reconstruction derives its transcript from the exact commit that call read, so a rewrite appended later is a descendant that cannot enter it, and shadowing supersedes without releasing content an earlier request named.
 - **C13-TURN-LIFECYCLE** Turns implement the complete lifecycle table.
 - **C13-TURN-NO-RETRY** The closed Turn lifecycle contains no retry transition.
