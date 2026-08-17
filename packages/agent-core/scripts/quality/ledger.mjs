@@ -14,10 +14,10 @@ import {
 } from "./project.mjs";
 import { specRequirements } from "./spec.mjs";
 import {
-    createProgram,
     executedTestSelectors,
     requirePassingTests,
-    resolveSourceSymbol
+    resolveSourceSymbol,
+    sourceProject
 } from "./evidence.mjs";
 import { ownersForPath, patternsForOwnership } from "./ownership.mjs";
 import { requireNonP2ConformanceEvidence } from "./test-priority-evidence.mjs";
@@ -189,7 +189,7 @@ if (evidenced.length > 0) {
         options.priorityReport === undefined
             ? undefined
             : await readCanonicalJson(options.priorityReport);
-    const program = createProgram();
+    const project = sourceProject();
     for (const requirement of evidenced) {
         for (const source of requirement.sourceSymbols) {
             requireEvidenceOwner(
@@ -198,7 +198,7 @@ if (evidenced.length > 0) {
                 ownershipPatterns,
                 requirement.id
             );
-            resolveSourceSymbol(program, source);
+            resolveSourceSymbol(project, source);
         }
         for (const selector of requirement.testSelectors) {
             const testPath = selector.slice(0, selector.indexOf("#"));
