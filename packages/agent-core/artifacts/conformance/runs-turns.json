@@ -284,7 +284,7 @@
       "id": "C13-RUN-CEILING-COST",
       "owner": "W5",
       "specAnchor": "C13-RUN-CEILING-COST",
-      "specTextSha256": "PENDING",
+      "specTextSha256": "sha256:e73ac9a10182e9da4306282e0b894a3968d68783e913ac8d1a2a4697ae4ed8d2",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],
