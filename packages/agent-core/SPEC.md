@@ -615,6 +615,35 @@ invocation requires an active, undisposed Facet whose Grant, Binding, lease, and
 revocation state are valid per §3.4. Turns dispose resolved Facets on completion,
 failure, cancellation, suspension, or authority loss. This maps to **C13-FACET-DISPOSAL**.
 
+Cancellation reaches the seam that owns the effect, or it is advice. §5.6 gives a Turn a
+cancellation signal and §7.4 names `aborted` for an attempt that cancellation of the owning
+Turn or Run reached, so a host whose cancellation cannot reach an in-flight handler cannot
+record that kind at all: abandoning its own wait leaves an attempt whose result is not
+known, which §7.4 already fixes as `indeterminate`. Reachability is what separates the two.
+The `OperationContext` an `Operation.execute` receives MUST therefore convey the
+cancellation of the Turn or Run that owns the invocation, observable throughout the
+handler's execution rather than only at its entry, and a host MUST NOT offer a handler a
+context whose cancellation is absent, inert, or detached from the lifetime it names. A
+handler that awaits further asynchronous work under its own invocation's lifetime
+propagates that cancellation to the work it awaits, and a bound it derives — a narrower
+deadline, a scope of its own — stays linked to the cancellation it derived from instead of
+replacing it, because a derived bound that severs the link is how a handler satisfies its
+own seam while dropping cancellation at the next one. Cancellation MUST NOT travel in an
+Operation's declared `input` schema: that schema is the surface a model authors against, so
+a cancellation carried there would be nameable, omittable, and shadowable by an ordinary
+field, and an Operation could be offered in a form nothing can stop. This is what makes
+`C13-TURN-CANCEL-INBOX` more than advisory — that rule stops an executor between steps and
+this one stops the step — and it requires availability rather than obedience: a handler that
+observes nothing still runs to completion, and the host derives `aborted` from the seam it
+controls exactly as `C13-RECEIPT-FAILURE-KIND` requires, so this rule bounds no handler's
+duration and adds no bound of its own. The requirement stops at the durable-record seams. A
+§8.5 command has a linearization point and an idempotency key, and a §8.2 ContentStore
+`put` is content-addressed while `get` and `stat` are reads, so none of them owns ongoing
+effect on a caller's behalf: abandoning a wait there changes no outcome the closed
+`CommandOutcome` set admits, and requiring cancellation of a durable write would invite
+exactly the third state between committed and rejected that §8.5 does not have. This maps
+to **C13-FACET-CANCELLATION-REACH**.
+
 **Withdrawal.** A Facet leaves a Scope by **withdrawal**, an `administer`-impact
 Operation, never by deletion of its install record. Withdrawal is not disposal:
 `C13-FACET-DISPOSAL` releases one Turn's resolution to a Facet and leaves the Facet
@@ -1874,6 +1903,40 @@ spawn's `delegate` Receipt carries the child RunRef, never the child's result. T
 is the non-blocking shape — a parent spawns, ends its Turn, and reads the answer as
 history instead of holding its context open to wait. This maps to
 **C13-TURN-ADMISSION-HANDLE**.
+
+A handle detaches work from the Turn that issued it, so `C13-TURN-ADMISSION-HANDLE` needs a
+commit point, an owner after it, and a failure path before it. The commit point is
+admission, because admission is what the handle names: before it, an expiry, cancellation,
+or loss of the required Turn is a `cancelledPreEffect` Receipt over an item with no
+EffectAttempt (§7.4), so no handle was issued and nothing is detached; after it, the item's
+intent, placement, and Package pin are frozen and its terminal Receipt is owed whatever
+becomes of the Turn. Publishing the handle is what then resolves the disjunction §7.4
+leaves open when it assigns `aborted` to cancellation of the Turn or Run that owns an item.
+An item the Turn is still awaiting is owned by that Turn and aborts with it — which is what
+`C13-FACET-CANCELLATION-REACH` makes reachable — while an item whose admission identity the
+Turn put in the model's tool position is owned by the Run from that point, so the issuing
+Turn's later cancellation is not cancellation of its owner and MUST NOT reach it. Ending
+that Turn is the ordinary case this shape exists for, and a cancellation that propagated
+would revoke the handles a parent had just issued; the fence a cancelled Turn takes (§5.3)
+leaves it terminal and unheld and able to author no write, so it has no standing to govern
+detached work in any case. Which owner governs afterward differs by which handle was
+issued. An `InvocationId` handle detaches from the Turn and not from the Run:
+terminalization captures the item as an admitted unfinished obligation (§5.2),
+`C13-RUN-SETTLED-DERIVED` withholds Settled until it has a terminal current Receipt, and
+cancellation of that Run reaches it as `aborted` — so the Run governs, and the host-set
+bound on the attempt is the only other thing that ends it. A child `RunRef` handle detaches
+from the Run as well, because the spawn's `delegate` Receipt is terminal as soon as it
+carries the child RunRef and so discharges the parent's obligation while the child is still
+running: the child is its own settlement unit, governed by its own §5.3 cancel rows and
+reachable only through authority over that Run, and neither the parent Turn's lease — which
+authorizes writes for no other Turn (§5.3) — nor the parent Run's cancellation reaches it.
+Only the derived ceilings cross that boundary, and they cross by derivation rather than by
+control: `depth` and `wallClockMs` are read from the spawn lineage and a root RunCommit
+timestamp (`C13-RUN-CEILING-REMAINDER`), so a child exhausts an inherited bound on evidence
+it can read for itself and cancels itself through its own rows. A host that wants a
+parent's cancellation to stop its children cancels those Runs, each under its own authority
+and each leaving its own evidence, rather than treating one cancellation as reaching many.
+This maps to **C13-TURN-HANDLE-DETACHMENT**.
 
 The Turn lifecycle above is closed. There is no normative `retryTurn` transition, a failed
 or cancelled Turn is never resurrected, and ordinary admission of another Turn creates no
@@ -3536,6 +3599,7 @@ A conforming implementation provides:
 - **C13-FACET-DEPENDENCY-ORDER** A Facet starts only once every `BindingRequirement` resolves, a Facet an active Facet's resolved requirement names is relied upon so its withdrawal is held as a pending obligation, and a withdrawing Facet keeps resolving its own requirements throughout its teardown.
 - **C13-FACET-CAPABILITY-ABSENCE** A capability a manifest withholds is the declaration's absence rather than a present negative value, and a present negative form is refused at install.
 - **C13-FACET-CODE-AVAILABILITY** An Operation's availability to agent-authored code is declared per contribution, is native-only when absent, bounds the Bindings an isolate receives, and rejects the Blueprint at validation when the platform maps no backing to serve it.
+- **C13-FACET-CANCELLATION-REACH** An Operation handler's `OperationContext` conveys the cancellation of the Turn or Run owning the invocation throughout the handler's execution, the handler propagates it to work it awaits under that invocation's lifetime, cancellation never travels in a declared input schema, and the requirement stops at the durable-record seams of §8.2 and §8.5.
 - **C13-COMMAND-ARGUMENT-BINDING** The Command lifecycle performs argument binding (§4.3).
 - **C13-COMMAND-INSTALL-MAPPING** Command mapping validates at install.
 - **C13-COMMAND-SUBSCRIPTION-DEFAULTS** Derived Subscription defaults are deterministic.
@@ -3661,6 +3725,7 @@ A conforming implementation provides:
 - **C13-RUN-FRONTIER-EMPTY** An honestly empty admitted unfinished frontier is valid.
 - **C13-RUN-SETTLED-DERIVED** Settled is derived from captured obligations, including exact Approval and reconciliation lineage discharge.
 - **C13-TURN-ADMISSION-HANDLE** An executor may return a mediated Invocation's admission identity in the model's tool position without changing admission, and a spawn's `delegate` Receipt carries the child RunRef, never the child's result.
+- **C13-TURN-HANDLE-DETACHMENT** Admission is where a handled item passes from the issuing Turn to the Run, so §7.4's owning-Turn-or-Run cancellation resolves to the Run for an item whose admission identity the Turn published and the issuing Turn's later cancellation never reaches it, while a child `RunRef` handle passes to the child Run, which only its own §5.3 rows and its own authority cancel.
 - **C13-TURN-CANCEL-INBOX** Mid-turn delivery appends to the running Turn's lease-fenced inbox, cancellation is the reserved `turn.cancel` Event, and a conforming executor observes it between steps and stops committing.
 - **C13-TURN-EXACT-LEASE** Turn leases are exact-Turn.
 - **C13-TURN-FACET-SET-STABLE** A Turn's FacetSet is exactly the refs its immutable TurnPlacementSnapshot names and its membership does not change for the Turn's lifetime, while capture fixes membership only: every use of a member re-authorizes under §3.4, so a Grant revoked mid-Turn severs the capability without changing the set the Turn composes.

@@ -935,6 +935,29 @@
       ]
     },
     {
+      "id": "C13-TURN-HANDLE-DETACHMENT",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-HANDLE-DETACHMENT",
+      "specTextSha256": "sha256:17c31cb7b5fcae387cbeea77b44ea8fe2f3fb185328e4cadd6773d7a4e728e8e",
+      "status": "planned",
+      "prerequisites": [
+        "C13-TURN-ADMISSION-HANDLE",
+        "C13-RUN-SETTLED-DERIVED",
+        "C13-RECEIPT-FAILURE-KIND"
+      ],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "Every clause is downstream of C13-TURN-ADMISSION-HANDLE, which is itself planned: GatewayTurnInvocationPort returns Operation output only, so no handle is ever put in the model's tool position and there is nothing whose ownership could transfer. Until a handle exists the commit point cannot be exercised from either side, which is why this atom names that one as a prerequisite rather than restating it",
+        "The commit point needs both sides proved against the same admission: a Turn expired, cancelled, or lost before admission must yield a `cancelledPreEffect` Receipt with no EffectAttempt and no handle, while a Turn cancelled after admission must leave the item's Receipt to be appended against its frozen intent, placement, and Package pin. A test that only cancels before admission would pass against a host that revoked every handle on Turn cancellation",
+        "The prohibition is the clause a passing test hides. Cancelling the issuing Turn must not abort an item whose admission identity it published, so a mutation propagating the Turn's cancellation to a published handle must break a cited test rather than merely change timing; the discriminating observation is the failure kind, since such a host records `aborted` on an item this rule requires to settle on its own terms",
+        "The two owners must be shown distinct in one exercise, because a host that cascaded would pass every test that spawns and waits: cancelling the Run aborts an outstanding `InvocationId` handle and withholds Settled until that item has a terminal current Receipt, while cancelling a parent Run leaves a spawned child Run running and does not withhold the parent's Settled, the spawn's `delegate` Receipt already being terminal once it carries the child RunRef",
+        "Child-Run isolation needs an adversarial authority case rather than a timing one: a caller holding only the parent Turn's LeaseToken must fail to cancel the child Run under C13-TURN-EXACT-LEASE, and cancellation must succeed only through authority that reaches that child Run",
+        "The derived-ceiling exception needs its own case because it is the one thing that legitimately crosses the boundary: a child must exhaust an inherited `depth` or `wallClockMs` bound computed from the spawn lineage and a root RunCommit timestamp (C13-RUN-CEILING-REMAINDER) and cancel itself through its own §5.3 rows with the exhausted dimension recorded, rather than being cancelled by the ancestor that declared the ceiling"
+      ]
+    },
+    {
       "id": "C13-TURN-LEASE-EXPIRY",
       "owner": "W5",
       "specAnchor": "C13-TURN-LEASE-EXPIRY",

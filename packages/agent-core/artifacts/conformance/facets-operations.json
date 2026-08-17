@@ -143,6 +143,28 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-FACET-CANCELLATION-REACH",
+      "owner": "W3",
+      "specAnchor": "C13-FACET-CANCELLATION-REACH",
+      "specTextSha256": "sha256:c0faa57e106a2408ffc25ed723c495872ab97d147bb7de3dc647fc5cf0c89253",
+      "status": "implemented",
+      "prerequisites": ["C13-TURN-CANCEL-INBOX", "C13-RECEIPT-FAILURE-KIND"],
+      "sourceSymbols": [
+        "src/facets/runtime.ts#OperationContext",
+        "src/composition/mediation.ts#ComposedTurnGatewaySource",
+        "src/composition/mediation-execution.ts#DerivedDirectOperationContext"
+      ],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The reachability conjunct is built rather than owed, so what remains is discrimination and not construction: src/facets/runtime.ts#OperationContext declares a required `signal: AbortSignal`, and a Turn's cancellation reaches it through the scope signal TurnExecutor hands its executor, GatewayTurnInvocationPort's TurnGatewayScope, ComposedTurnGatewaySource.open calling operations(scope.signal), and the shared { signal, content } resources both DerivedDirectOperationContext and CanonicalBatchInvocationPort put on the handler's context. Missing is a test that aborts a Turn while a handler is suspended and observes that handler's own context signal fire — the executor's existing requireNotCancelled checks sit between dispatch steps and would still pass against a host that handed the context a never-abort signal",
+        "The distinction this rule exists for is untested: an attempt whose wait the host abandoned must record `indeterminate` while an attempt whose handler observed its context cancellation must record `aborted` under C13-RECEIPT-FAILURE-KIND, and a mutation substituting a never-abort sentinel for the context signal must collapse the second case into the first rather than leaving both green",
+        "Propagation past the seam has no enforcement point at all. Nothing requires a handler that awaits further asynchronous work under its own invocation's lifetime to pass its context cancellation on, and nothing keeps a bound it derives linked to the cancellation it derived from. Closure needs a profile handler that delegates — §11.2 Shell is the sharpest, since P11-SHELL-CANCELLATION already asserts prompt cancellation — proving the abort reaches the side-effect owner, that awaited work reaches quiescence, and that a handler deriving a narrower deadline still aborts when the upstream cancellation fires",
+        "The schema exclusion is unchecked: OperationDescriptor.input accepts any JsonSchema, so nothing today refuses a declared input property that purports to carry cancellation, and nothing proves a handler cannot be reachable only through such a field. Verification requires the install-time manifest validation to refuse it, not the first invocation to fail on it",
+        "The durable-record boundary is satisfied by construction rather than by assertion, which is the direction a regression would come from: the ContentStore seam and the §8.5 command dispatcher take no signal, so an added one would silently widen this atom into the requirement it explicitly is not. A conformance assertion that those two seams stay cancellation-free is what keeps this rule from being read as requiring cancellation everywhere"
+      ]
+    },
+    {
       "id": "C13-FACET-CONTRIBUTION-ATTRIBUTION",
       "owner": "W3",
       "specAnchor": "C13-FACET-CONTRIBUTION-ATTRIBUTION",
