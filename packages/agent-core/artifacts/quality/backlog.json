@@ -339,6 +339,22 @@
       }
     },
     {
+      "id": "T-EVIDENCE:C13-CLOUDFLARE-ALARM-DURABILITY",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-ALARM-DURABILITY" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-CLOUDFLARE-ALARM-DURABILITY from implemented with exact evidence",
+      "notes": [
+        "The corrected §10.4 rule bounds platform re-firing and requires the Actor to rebuild the alarm from the outbox on start. createCloudflareDurableObjectClass arms that rebuild under blockConcurrencyWhile, but no test named here exercises a start that recovers an alarm the platform stopped re-firing, and the live lane owes that scenario under ACQ-LIVE."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CLOUDFLARE-ALARM-DURABILITY",
+        "expected": "verified"
+      }
+    },
+    {
       "id": "T-EVIDENCE:C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING",
       "type": "T-EVIDENCE",
       "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING" },
@@ -371,6 +387,23 @@
       "oracle": {
         "kind": "conformance-status",
         "requirementId": "C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY from implemented with exact evidence",
+      "notes": [
+        "Its prerequisite C13-CLOUDFLARE-ALARM-DURABILITY carries an open obligation, so continuity cannot rest on it yet.",
+        "Every named scenario redeploys forward. SqliteApplicationMigrator treats an applied marker this runtime does not declare as codec.invalid, so rolling back past a migration fails the constructor of every object that ran the newer code, with no recovery path. Failing closed on a schema this runtime cannot read is defensible, but continuity across a rollback is unevidenced and §10.4 does not state which of the two it promises."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY",
         "expected": "verified"
       }
     },

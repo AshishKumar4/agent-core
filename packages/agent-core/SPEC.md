@@ -2608,9 +2608,12 @@ drained outbox is left holding one. This maps to
 An armed alarm is durable state rather than a live timer, and its recovery belongs to
 the platform. Losing the instance MUST NOT drop the schedule: the platform
 re-instantiates the object and fires the alarm on schedule without anything outside the
-object having touched it. A handler that throws MUST NOT drop it either — the entry
-stays unacknowledged and the alarm re-fires until a sweep completes. Because recovery is
-the platform's, a conforming deployment MUST NOT need an external timer, cron, or
+object having touched it. A handler that throws leaves its entry unacknowledged, and the
+platform re-fires the alarm a bounded number of times before it stops. Durability
+therefore MUST NOT rest on re-firing: the outbox is the source of truth, and the Actor
+MUST rebuild the alarm from it on start, so an object whose retries were exhausted
+re-arms the moment it is next instantiated. Because recovery is the platform's and the
+object's own, a conforming deployment MUST NOT need an external timer, cron, or
 keepalive request to re-arm work it has already armed. This maps to
 **C13-CLOUDFLARE-ALARM-DURABILITY**.
 
