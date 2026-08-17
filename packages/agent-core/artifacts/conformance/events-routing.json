@@ -357,6 +357,28 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
+    },
+    {
+      "id": "C13-VIEW-WITHDRAWAL-TERMINAL",
+      "owner": "W7",
+      "specAnchor": "C13-VIEW-WITHDRAWAL-TERMINAL",
+      "specTextSha256": "PENDING",
+      "status": "planned",
+      "prerequisites": [
+        "C13-FACET-WITHDRAWAL-EXACT",
+        "C13-VIEW-DELTA-REPLAY",
+        "C13-VIEW-NO-LIVE-STATE"
+      ],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The presence discriminator has no encoding. src/workspaces/view.ts#View declares only intentDigest and marks as optional, and ViewCodecV2 decodes an exact field list, so the terminal field §6.3 now defines cannot round-trip. Closure requires the View codec to carry it under §8.3 compatible evolution and requires viewFromDocument to accept the ViewDelta patch that adds it.",
+        "Nothing retires a Surface. Withdrawal is planned, which is why C13-FACET-WITHDRAWAL-EXACT is a prerequisite, and no production path emits a final ViewDelta or refuses a later revision. Closure requires one place that both emits the terminal delta and rejects every subsequent revision for that Surface, so the no-revision-after-terminal conjunct is enforced rather than conventional.",
+        "EventCursor resume has no liveness branch. ViewDelta replay resolves a cursor without consulting Surface liveness, so a cursor for a retired Surface is today indistinguishable from one for a live Surface. Closure requires resume to return the terminal revision for a retired Surface through the same reader live resume uses, never a second path a client would have to choose between.",
+        "The aggregating conjunct has no site. No production Surface composes the surface-backed slot entries §4.2 describes, so dropping a retired child's entry at the next revision cannot be exercised yet; closure requires that composition to read contributor attribution rather than a cached child snapshot.",
+        "The behavior test must prove terminality through the public interface — the terminal delta arrives, a further revision for that Surface is refused, and a cursor presented after retirement yields the terminal revision rather than an error — and must detect retirement without holding a live handle, since the rule's cost argument rests on C13-VIEW-NO-LIVE-STATE."
+      ]
     }
   ]
 }

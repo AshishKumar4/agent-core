@@ -642,6 +642,26 @@ and is not retried against the same unchanged Scope, because a host that retried
 activation whose effect on the Scope it had not first retired would compose against state
 no Blueprint declares. This maps to **C13-FACET-START-ATOMIC**.
 
+A Facet's `BindingRequirement`s are its declared dependencies. `start` MUST NOT be called
+until every requirement resolves to a live ResolvedFacet under §3.4: a Facet whose
+requirements do not all resolve stays inactive rather than starting degraded, and a
+requirement no Binding satisfies is a rejected install rather than a runtime failure.
+Withdrawal runs the mirror order. A Facet whose `FacetRef` any active Facet's resolved
+requirement names is **relied upon**, and its withdrawal is deferred — recorded as a
+pending obligation under §9.3, never rejected and never silent — until no active Facet
+relies on it. A withdrawing Facet keeps resolving its own requirements for the whole of
+its own teardown, so a dependent torn down by its provider's departure still reaches that
+provider while it stops. Because a requirement resolves through the Grant plane to an
+exact `FacetRef` in an exact protection domain and never to a name, reliance names the
+exact provider a dependent reached: a second Facet answering to the same capability
+neither satisfies the requirement nor discharges the reliance. Reliance is independent of
+the parent/child order `stop` follows, since a Facet is held by the requirements resolved
+to it and never by its position in the child tree, and it is computable before any package
+code loads from the Blueprint's declared Bindings and the installed manifests'
+requirements — so a reliance cycle, and a retained Facet whose requirement names a
+withdrawn one, each reject the Blueprint at validation (§9.2) rather than deadlocking a
+live reconciliation. This maps to **C13-FACET-DEPENDENCY-ORDER**.
+
 *Why the split:* everything a host, a registry, or the Blueprint validator needs to
 know about a facet is data it can read without running anything. This is the property
 that makes a config-defined platform possible at all — and it is the shape that both
@@ -712,9 +732,10 @@ Every record a contribution materializes into — SlotEntry, catalog entry, deri
 Subscription, Surface registration, prompt section, ingress endpoint, and merged settings
 fragment — carries the exact `FacetRef` of the Facet that contributed it and the
 `PackagePin` of the release the contribution was read from. A SlotEntry's identity is the
-digest of exactly the fields above, so an entry is unique by its slot, its contributor,
-and its declared ordinal, and re-materializing the same contribution from the same
-release yields that same entry rather than a second one. Attribution is written in the
+digest of exactly its declared fields, so re-materializing the same contribution from the
+same release yields that same entry rather than a second one, and a slot holds at most one
+entry per contributor per ordinal, so a changed contribution supersedes its predecessor
+rather than accreting beside it. Attribution is written in the
 same transaction as the record it attributes and is immutable for that record's lifetime;
 a materialized record carrying no attribution is invalid rather than unattributed, and a
 host MUST refuse to materialize a contribution it cannot attribute. Attribution is what
@@ -1856,6 +1877,7 @@ interface View {
   readonly cursor: EventCursor;              // opaque resume position in the Event log
   readonly intentDigest?: Digest;            // present exactly on a decision View (§7.3)
   readonly marks?: readonly ViewMark[];      // provenance of values the host did not originate
+  readonly terminal?: true;                  // present exactly on a retired Surface's last View
 }
 
 // A ViewMark attributes one sub-value of `body` to the TrustTier of the Event or
@@ -1892,6 +1914,21 @@ without re-snapshotting. Surface actions emit Events; Subscriptions route them t
 Operations. Aggregating surfaces — dashboards — compose slot-contributed child Views
 per §4.2. Token-level model-output streaming is an executor and transport concern
 (§5.6), not Events. This maps to **C13-VIEW-NO-LIVE-STATE**.
+
+A retired Surface terminates its stream. Withdrawing a Facet retires its Surfaces (§4.1);
+a retired Surface emits one final ViewDelta — the patch that adds `terminal` to its View —
+and then no further revision, so the last revision of a retired Surface is discriminated
+by that field's presence exactly as a decision View is by `intentDigest`, and a host MUST
+NOT emit a revision after a View's terminal one. A client presenting an `EventCursor` for a
+retired Surface receives that terminal revision rather than a resumable stream or an error,
+and an aggregating Surface (§4.2) drops the retired child's entry at its next revision
+rather than composing a stale snapshot. Retirement costs a client nothing beyond the
+revision it already tracks, because a View is data and holds no live handle: there is no
+connection to break, no stub to invalidate, and no acquired state to release, so the
+terminal revision is an ordinary revision that happens to be the last, and a retired
+Surface's last View stays exactly as readable as any earlier one. Terminating a stream is
+expressible as one more revision only because the no-live-state rule already holds. This
+maps to **C13-VIEW-WITHDRAWAL-TERMINAL**.
 
 A View that presents an intent for a human decision carries the provenance of what it
 shows. A **decision View** is exactly a View whose `intentDigest` field is present — the
@@ -2575,6 +2612,22 @@ version, compatibility range, provenance, config-schema fragments. Packages are
 inspectable without execution — hosts, registries, and the Blueprint validator read
 manifests as data. Registry governance is out of scope; the package shape is not.
 
+A Package declares its **dependencies** as data: a set of
+`{ id: PackageId, range: CompatRange }` entries, unique by `id`, read alongside its
+manifests without executing anything. The closure `RunPins.packages` pins (§5.2) is
+exactly the transitive closure of that declared relation from the Blueprint's `packages`
+list, resolved to exact versions; a pinned closure that is not the closure of a declared
+relation is invalid rather than merely unexplained. The closure is finite and unique by
+`PackagePin.id`, so it is computable whether or not the declared relation is acyclic. An
+unsatisfiable range, or a dependency on a Package the Blueprint does not install, rejects
+the Blueprint before any package code loads (§9.2). A dependency relates Package releases
+and is never a `FacetManifest.bindings` entry: a dependency names code a release needs
+present, a `BindingRequirement` names a live capability a Facet needs bound (§4.1), the
+two are resolved by different planes, and a host MUST NOT derive either from the other.
+This is the same discipline the manifest/runtime split already applies to contributions —
+what decides whether a composition is admissible is data a host reads, never behavior it
+runs. This maps to **C13-PACKAGE-DEPENDENCY-DECLARED**.
+
 ### 9.2 Blueprint
 
 A **Blueprint** declares a platform:
@@ -2645,9 +2698,46 @@ records are marked Blueprint-managed; manual edits to managed records are reject
 adopted explicitly, per policy. The materializer enforces slot contribute-authority
 (§4.2), command uniqueness (§4.3), and role→Grant materialization (§3.3) through the
 same records the runtime uses. Reconciliation on a live platform MUST order changes so
-existing RunPins remain resolvable (§5.2); removing a pinned Package is deferred until
-no Run references it or performed through explicit Run migration — never silent. These
+existing RunPins remain resolvable (§5.2); removing a pinned Package is deferred until no
+Run, Turn, Session, tree checkpoint, or Snapshot pins that release, or performed through
+explicit Run migration — never silent. These
 map to **C13-BLUEPRINT-REMATERIALIZE** and **C13-BLUEPRINT-RUN-PINS**.
+
+Re-materialization is **convergent as well as idempotent**: the Blueprint-managed record
+set a Scope holds once it is converged is a function of the Blueprint alone, independent
+of the order in which the materializer issued the admissible installs, updates, and
+withdrawals and of the managed record set the Scope held before. Records no Blueprint
+declares — Runs, Turns, Events, Receipts, and everything else §8.4 assigns an owning
+Actor — lie outside the managed set and outside this property, so a manual edit is
+adopted only as a change to the Blueprint, and an edit no Blueprint change expresses is
+rejected rather than adopted as an unattributed managed record. A deferral does not weaken
+convergence, because a deferral is itself a durable **pending obligation** naming the
+exact record it holds, the exact reason it is held, and the exact condition that
+discharges it; a host MAY defer only where this document states both the deferral and that
+condition, and the four it states are a withdrawal held by §4.1's reliance guard, which
+discharges when no active Facet relies on the withdrawing Facet; each admitted Invocation
+item draining against a withdrawing Facet (§4.1), which discharges when that item holds a
+terminal current Receipt; each RouteReservation the withdrawal's retired Subscriptions
+leave unadmitted (§4.1, §6.2), which discharges when its owning Actor has written its
+terminal rejected RouteDelivery; and a Package retained because §5.2 still pins it, which
+discharges when no Run, Turn, Session, tree checkpoint, or Snapshot pins that release, or
+through explicit Run migration. A materializer's reconciliation outcome MUST
+carry its pending set, and a Scope is **converged** exactly when that set is empty and
+**converging** otherwise, so no host states convergence apart from the records that would
+contradict it. A divergence a host cannot express as a pending obligation with a
+discharging condition is a rejected reconciliation, refused at validation before any
+package code loads (§9.2), never an accepted reconciliation left indefinitely pending.
+Convergence fixes the endpoint and does not promise arrival, and this document claims no
+quiescence. The obligations one withdrawal opens are finite and never grow, because the
+transaction that opens them stops admitting work against the withdrawing Facet, so no
+obligation waits on one created after it. A reliance
+obligation discharges with no further act, since §4.1 rejects a reliance cycle and each
+held withdrawal therefore waits only on withdrawals ahead of it. A draining item and an
+unadmitted reservation each settle under the eventual delivery and reconciliation §14
+states as external premises. A Package retention waits on pins nothing here promises
+release, so what the obligation guarantees is that the outstanding Operation is named and
+inspectable, never that someone performs it. This
+maps to **C13-BLUEPRINT-CONVERGENCE**.
 
 ![From Blueprint to running platform](diagrams/blueprint.svg)
 
@@ -2873,8 +2963,35 @@ to **C13-CLOUDFLARE-STORAGE-LIMIT**.
 Durable state is independent of the deployed code version. Deploying a new Worker MUST
 NOT clear alarm claims, the physical alarm, reconciliation outbox entries, or the view
 revision log, and the new version resumes that work rather than restarting it: a
-schedule armed by the previous version fires under the new one and settles there. This
-maps to **C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY**.
+schedule armed by the previous version fires under the new one and settles there.
+Continuity is not directional: replacing a release with the one before it MUST NOT clear
+that state either, and the work resumes as soon as a release that can read the object's
+schema serves it again. This maps to **C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY**.
+
+Durable state outlives the release that wrote it, so a migration is additive. Applying a
+release's migrations MUST leave every table, column, index, and constraint the previous
+release reads exactly as that release reads it, and MUST NOT drop, rename, retype, or
+narrow one, or rewrite rows an earlier release wrote. A column added to a table an
+earlier release created MUST be one that release can omit, because its writes name only
+the columns it knows. Destructive schema change is not forbidden; it costs two releases.
+Release N adds the new shape and reads both shapes, backfills, and release N+1 removes
+the old shape once release N-1 has left support. A convention does not establish this, so
+this profile's conformance evidence includes a mechanical check that applies every
+declared migration to the schema its predecessors produced and refuses a non-additive
+one. This maps to **C13-CLOUDFLARE-ADDITIVE-MIGRATION**.
+
+Because every release is additive, the supported rollback window is exactly one release.
+An object that ran release N and is served by release N-1 again carries one schema marker
+that release does not declare, and a schema a release does not declare MUST NOT be read:
+the object fails closed. That refusal belongs to the object's operations and not to its
+construction. Construction MUST succeed, since an object that cannot be constructed
+cannot be inspected, exported, diagnosed, or drained, and every operation on an object
+whose applied schema the running release does not declare MUST fail with this profile's
+stable unreadable-schema code rather than a generic decoding failure. Refusing MUST leave
+the durable state untouched, so deploying a release that declares those markers restores
+service with no repair step. Rolling back two or more releases is undefined: it fails
+closed the same way, and rolling forward is its only recovery. This maps to
+**C13-CLOUDFLARE-ROLLBACK-WINDOW**.
 
 ---
 
@@ -3197,6 +3314,7 @@ A conforming implementation provides:
 - **C13-FACET-CONTRIBUTION-ATTRIBUTION** Every materialized contribution record carries the contributing `FacetRef` and the source `PackagePin`, written in the same transaction and immutable thereafter.
 - **C13-FACET-WITHDRAWAL-DRAIN** A withdrawal does not complete while an admitted Invocation item naming the withdrawing Facet lacks a terminal current Receipt.
 - **C13-FACET-START-ATOMIC** A Facet whose `start` does not complete contributes nothing, and the host retires the partial activation through the same attributed withdrawal set.
+- **C13-FACET-DEPENDENCY-ORDER** A Facet starts only once every `BindingRequirement` resolves, a Facet an active Facet's resolved requirement names is relied upon so its withdrawal is held as a pending obligation, and a withdrawing Facet keeps resolving its own requirements throughout its teardown.
 - **C13-COMMAND-ARGUMENT-BINDING** The Command lifecycle performs argument binding (§4.3).
 - **C13-COMMAND-INSTALL-MAPPING** Command mapping validates at install.
 - **C13-COMMAND-SUBSCRIPTION-DEFAULTS** Derived Subscription defaults are deterministic.
@@ -3333,6 +3451,7 @@ A conforming implementation provides:
 - **C13-VIEW-NO-LIVE-STATE** Views satisfy the no-live-state invariant.
 - **C13-VIEW-DELTA-REPLAY** ViewDelta supports revision replay.
 - **C13-VIEW-APPROVAL-PROVENANCE** A decision View marks every value the host did not originate with its TrustTier, names the exact `intentDigest` it authorizes, and its Surface renders a marked value as data rather than as platform voice.
+- **C13-VIEW-WITHDRAWAL-TERMINAL** A retired Surface emits one final ViewDelta marking its View terminal and no revision after it, an `EventCursor` presented for a retired Surface returns that terminal revision rather than a resumable stream or an error, and an aggregating Surface drops the retired child's entry at its next revision.
 - **C13-CONTENT-RESOLUTION** Every ContentRef resolves through a ContentStore that belongs to exactly one Tenant, and only for a caller whose authority reaches that Tenant.
 - **C13-CONTENT-CUSTODY** Every record naming a `ContentRef` retains that content until the record releases it.
 - **C13-CODEC-VERSIONING** Every durable record codec satisfies §8.3.
@@ -3350,6 +3469,8 @@ A conforming implementation provides:
 - **C13-BLUEPRINT-VALIDATE-BEFORE-LOAD** Blueprint validation completes before package code loads.
 - **C13-BLUEPRINT-REMATERIALIZE** Blueprint re-materialization is idempotent.
 - **C13-BLUEPRINT-RUN-PINS** Re-materialization preserves RunPins (§9.3).
+- **C13-BLUEPRINT-CONVERGENCE** The Blueprint-managed record set of a converged Scope is a function of the Blueprint alone, strengthening idempotence to independence from issue order and prior state; a host defers only where this document states the deferral and its discharging condition, each deferral is a pending obligation naming its record, reason, and condition, a Scope is converged exactly when the reconciliation outcome's pending set is empty, and a divergence no such obligation expresses is a rejected reconciliation.
+- **C13-PACKAGE-DEPENDENCY-DECLARED** A Package declares its inter-Package dependencies as data, the closure RunPins pins is exactly the transitive closure of that declared relation resolved to exact versions, and an unsatisfiable range or a dependency the Blueprint does not install rejects the Blueprint before any package code loads.
 - **C13-CLOUDFLARE-AUTHORITY-PERMIT-BINDING** A Cloudflare cross-DO authority permit binds every specified tenant, source, target, authority, intent, item, claim, pin, epoch, nonce, and time field.
 - **C13-CLOUDFLARE-AUTHORITY-PERMIT-CONSUMPTION** The target validates local claim, fence, reservation identity/epoch, single use, and expiry, then irreversibly consumes a valid issued permit regardless of newer post-issuance watermark.
 - **C13-CLOUDFLARE-RUN-HOSTING** A Run is Workspace-owned by default and may be pinned `dedicated` at start; its owner retains RunPins, active/terminal outcome, graph, and derived Settled obligations, and migration follows §5.2.
@@ -3361,7 +3482,9 @@ A conforming implementation provides:
 - **C13-CLOUDFLARE-VIEW-ATTACHMENT** The per-socket acknowledged-revision cursor survives hibernation and eviction in the attachment, and replay is exactly the unacknowledged suffix.
 - **C13-CLOUDFLARE-QUEUE-DISPOSITION** Accepted deliveries are acknowledged, declined ones redelivered, and an undecodable body is neither delivered nor acknowledged but left to dead-lettering.
 - **C13-CLOUDFLARE-STORAGE-LIMIT** The declared DO SQLite size bound is one the deployed platform accepts, and write seams refuse an over-limit payload before opening a transaction.
-- **C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY** Alarm claims, armed alarms, outbox entries, and the view revision log survive a Worker deployment, and the new version resumes that work.
+- **C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY** Alarm claims, armed alarms, outbox entries, and the view revision log survive a Worker deployment in either direction, and the release serving the object resumes that work.
+- **C13-CLOUDFLARE-ADDITIVE-MIGRATION** A release's migrations only add to the schema the previous release reads, a destructive change is staged across two releases, and a mechanical check refuses a non-additive migration.
+- **C13-CLOUDFLARE-ROLLBACK-WINDOW** An object rolled back one release constructs and refuses every operation with the profile's unreadable-schema code, leaving its durable state recoverable by rolling forward.
 - **C13-ADV-STALE-LEASE** A displaced durable lease is rejected after its epoch advances.
 - **C13-ADV-WRONG-TURN-LEASE** Adversarial tests cover a wrong-Turn lease.
 - **C13-ADV-REVOKED-ALLOW** A revoked backing allow Grant no longer authorizes an intent.
