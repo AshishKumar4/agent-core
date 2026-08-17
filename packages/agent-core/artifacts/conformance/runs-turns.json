@@ -854,6 +854,23 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-TURN-MODEL-INPUT-RECONSTRUCTABLE",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-MODEL-INPUT-RECONSTRUCTABLE",
+      "specTextSha256": "PENDING",
+      "status": "planned",
+      "prerequisites": ["C13-TURN-MODEL-CALL"],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The reconstruction surface does not exist. src/agents/runs/executor.ts hosts the model call (TurnExecutorHost, TurnModelPort, TurnModelHandle, ScopedModelHandle) and commits the model's complete output, but nothing commits the model's complete input: there is no RunCommit shape carrying the assembled prompt sections in their final order, the operation catalog as offered, or the inbox admission cut the call observed, and no seam member that takes a Turn's committed records alone and yields the exact request. Both halves are owed — the records, and the reconstruction the model call issues its request from",
+        "The conformance test is a byte-compare, and it is owed in three configurations: reconstruction over committed records reproduces the exact request bytes for a prompt recorded inline; reproduces them for a prompt recorded by ContentRef, so a digest-only record still rebuilds exact bytes rather than an equivalent-looking prompt; and reproduces them after a restart that discards the executor process, which is the only configuration that distinguishes durable records from surviving executor memory",
+        "The adversarial cases are owed and each must fail: a host that records a `prompt.assemble` interceptor rewrite as the fact that an interceptor ran rather than as the result it produced; a host that injects model-visible content from ambient executor state with no durable trace; and a host whose reconstruction approximates a separately assembled request instead of being the value the call issues, which the byte-compare catches only if the assembled request and the reconstruction are not permitted to diverge by construction",
+        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
+      ]
+    },
+    {
       "id": "C13-TURN-NO-RETRY",
       "owner": "W5",
       "specAnchor": "C13-TURN-NO-RETRY",

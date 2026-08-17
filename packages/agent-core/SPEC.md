@@ -1424,18 +1424,22 @@ maps to **C13-RUN-CHECKPOINT-KINDS**.
 
 A Turn may carry an advisory `cacheLineage` hint identifying the Turn and prompt
 prefix it descends from, so executors can preserve provider-side prefix caches across
-forked or parallel attempts. Purely advisory; no correctness semantics. Systems that
-exploit prefix-cache sharing across forks have measured roughly a quarter of inference
-cost saved, which is what earns this a dedicated field.
+forked or parallel attempts. The lineage it names is already derivable: the prompt prefix
+is reconstructable from committed records (§5.6), so the hint is a precomputed shortcut
+past that reconstruction and carries nothing the log lacks. That is what makes it purely
+advisory with no correctness semantics — a lost, stale, or forged hint costs a cache miss
+and changes no outcome. Systems that exploit prefix-cache sharing across forks have
+measured roughly a quarter of inference cost saved, which is what earns this a dedicated
+field.
 
 ### 5.6 The executor seam
 
 ```ts
 abstract class TurnExecutor {
   abstract execute(turn: TurnContext): Promise<TurnOutcome>;
-  // TurnContext: resolved facets, operation catalog, prompt assembly, inbox,
-  // lease commit handle, checkpoint handle, tiered invocation gateway (§7.2),
-  // cancellation signal
+  // TurnContext: resolved facets, operation catalog, prompt assembly and its
+  // records-only reconstruction, inbox, lease commit handle, checkpoint handle,
+  // tiered invocation gateway (§7.2), cancellation signal
 }
 ```
 
@@ -1444,6 +1448,25 @@ loops — are hosted behind this seam. Prompt assembly derives from platform rul
 Agent instructions, Workspace/Run context, the branch's **effective state** (§5.2 —
 not the raw head, which may be an undo marker), `prompt` contributions, and operation
 help, and is interceptable at `prompt.assemble`.
+
+Nothing the model observes exists only in executor memory. For every model call, the
+complete request as the model observed it — the assembled prompt sections in their final
+order, the operation catalog as offered, and every inbox Event admitted before the call —
+MUST be reconstructable from durable records the Turn has already committed: RunCommits,
+Events, and the content those records name. Reconstructability is an obligation on this
+seam rather than a property asserted of the records: a conforming host exposes a
+reconstruction that takes a Turn's committed records alone and yields the exact request the
+model received, and the model call issues that reconstruction's output rather than a
+separately assembled value the reconstruction is expected to approximate. Content MAY be
+recorded by reference (`ContentRef`, §1.4) rather than inline, so reconstructability costs a
+digest rather than a second copy of the prompt. An interceptor rewrite at `prompt.assemble`
+records the result it produced, not merely that it ran. Model-visible content that
+originates in ambient executor state and leaves no durable trace is a conformance
+violation. Naming the reconstruction is what makes the rule testable — replaying it over
+committed records and comparing byte for byte against what was sent separates compliance
+from records that merely look sufficient — and what makes fork, resume, replay, and audit
+consequences of one implementation instead of four features each carrying its own partial
+copy of the model input. This maps to **C13-TURN-MODEL-INPUT-RECONSTRUCTABLE**.
 
 Mid-turn input uses `turn.deliverEvent`: a lease-fenced operation appending an Event
 to the running Turn's inbox; hosts MAY implement delivery as "the durable log is the
@@ -3098,6 +3121,7 @@ A conforming implementation provides:
 - **C13-TURN-EXACT-LEASE** Turn leases are exact-Turn.
 - **C13-TURN-LEASE-EXPIRY** Every lease claim, renew, or reclaim requires a future `expiresAt`, and reclaim additionally requires the recorded expiry to be at or before now.
 - **C13-TURN-MODEL-CALL** A model call happens only inside a Turn.
+- **C13-TURN-MODEL-INPUT-RECONSTRUCTABLE** The executor seam exposes a reconstruction that yields a model call's exact request — assembled prompt sections in final order, the operation catalog as offered, and every inbox Event admitted before the call — from records the Turn has already committed, inline or by `ContentRef`, and the call issues that reconstruction's output rather than a separately assembled value.
 - **C13-TURN-LIFECYCLE** Turns implement the complete lifecycle table.
 - **C13-TURN-NO-RETRY** The closed Turn lifecycle contains no retry transition.
 - **C13-TURN-NO-RETRY-RUNTIME** Runtime integration contains no Turn retry operation.
