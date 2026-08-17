@@ -50,7 +50,7 @@
         "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-ALARM-DURABILITY] re-fires an alarm whose handler threw, with no external re-arming",
         "cloudflare/test/live/phase-1.test.ts#live Cloudflare platform-semantics evidence [C13-CLOUDFLARE-ALARM-DURABILITY] resumes an operation whose isolate was killed mid-step, repeating nothing",
         "cloudflare/test/resumption.test.ts#DurableOperationJournal reports an attempt whose isolate went away mid-flight as interrupted",
-        "cloudflare/test/resumption.test.ts#DurableOperationJournal commits a checkpoint's writes and its marker together or not at all"
+        "cloudflare/test/resumption.test.ts#DurableOperationJournal arms a begun operation from durable state alone after a reset"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-LIVE", "ACQ-TEST"],
       "remainingEvidence": [
