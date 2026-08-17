@@ -493,6 +493,26 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-RUN-GRAPH-CLOSED",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-GRAPH-CLOSED",
+      "specTextSha256": "sha256:210812e8e2fd312a934c2b1c6f6110d3e5157a7162fad152d4c2b79d9098f40c",
+      "status": "implemented",
+      "prerequisites": ["C13-RUN-GRAPH-ARITY"],
+      "sourceSymbols": [
+        "src/agents/runs/commit.ts#RunCommit",
+        "src/agents/runs/runtime.ts#RunRuntime"
+      ],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The closure is enforced today and the enforcement predates the rule, so what is owed is conformance naming rather than behaviour. src/agents/runs/commit.ts declares a `run: RunId` field on RunCommit beside `branch`, and src/agents/runs/runtime.ts#RunRuntime rejects each of the three ways a foreign commit could enter one Run's graph: appendInTransaction rejects a branch whose `run` differs from the loaded Run with `Run commit target is invalid`, rejects a unary or first-merge parent whose `run` differs with `Run commit parent belongs to another Run`, and validateMerge cannot find a second-parent branch that this Run does not own because its source lookup filters on `branch.run.equals(target.run)`, so a foreign source head rejects with `Merge requires equal-pinned current heads from distinct branches`",
+        "Three p0 tests exercise exactly those three paths and none carries this atom's label, so no selector can be claimed until they are tagged. test/agents/runs/runtime-mutation.test.ts `append guards` > `rejects a parent commit that belongs to another Run` inserts a commit under RunId `run-elsewhere` and appends against it; `merge validation` > `merge requires an exact source branch and stored head commits` registers branch `branch-elsewhere` under RunId `run-elsewhere` and merges its head; `runtime lookup errors` > `effective commits reject a branch of another Run` covers the branch side. Moving this row to verified is the tagging plus ACQ-IMPORT and ACQ-TEST, not new behaviour",
+        "A positive assertion is owed alongside the rejections, because a runtime that rejected every merge would satisfy a rejection-only test: a merge whose source is a distinct branch of the same Run at equal pins is accepted, and the resulting graph still holds exactly one zero-parent commit. The second half is the interaction with C13-RUN-GRAPH-ARITY this rule depends on — closure and the single-root rule are one fact read from two directions — and no test asserts the zero-parent count after a merge",
+        "The whole-graph consequence a reader relies on has no check, only the three per-append checks that imply it. src/agents/runs/runtime.ts#RunRuntime spawnRunInTransaction creates the child Run with its own root commit, and nothing asserts that no commit of the parent Run is reachable from any commit of the child, nor that the child's graph holds exactly one zero-parent commit after arbitrary appends, merges, and branch creation. That assertion is what makes the absence of an inheritance watermark testable rather than incidental"
+      ]
+    },
+    {
       "id": "C13-RUN-MIGRATED-TURN-REJECTION",
       "owner": "W5",
       "specAnchor": "C13-RUN-MIGRATED-TURN-REJECTION",
@@ -1002,7 +1022,7 @@
       "id": "C13-TURN-MODEL-INPUT-ABRIDGED",
       "owner": "W5",
       "specAnchor": "C13-TURN-MODEL-INPUT-ABRIDGED",
-      "specTextSha256": "sha256:8c2cf9f4234cdf9c8506defd7760ad27eab30c63a381d15d2ea859ed3d622103",
+      "specTextSha256": "sha256:83c2c34d2be4cfd461b90399f1ea7cd0e28d0ed119919d36e12b222688e6f258",
       "status": "planned",
       "prerequisites": ["C13-TURN-MODEL-INPUT-RECONSTRUCTABLE"],
       "sourceSymbols": [],
