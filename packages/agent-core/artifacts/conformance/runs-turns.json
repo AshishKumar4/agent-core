@@ -834,16 +834,26 @@
       "owner": "W5",
       "specAnchor": "C13-TURN-ADMISSION-HANDLE",
       "specTextSha256": "sha256:258d1cd60933f4d2fc44377aacd5e27c676c22a3c335cc53517cfec2cf015ca7",
-      "status": "planned",
+      "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "GatewayTurnInvocationPort currently returns only Operation output, so no concrete mediated pipeline path can return a verified InvocationId or child RunRef in the model tool position; a fake TurnInvocationPort returning a preconstructed handle would not prove this rule",
-        "SpawnReservation alone does not prove successful admission. Closure requires the exact EffectAttempt named by the AttemptReceipt, the succeeded Receipt and its hashed result bytes, and an exact canonical child-RunRef-only payload to be validated before constructing the handle; extra child-output fields must be rejected",
-        "The public-interface test must traverse the concrete mediated gateway and prove unchanged admission plus linked Receipt and audit evidence, then observe only the verified admission identity at the executor boundary"
-      ]
+      "sourceSymbols": [
+        "src/agents/runs/executor.ts#GatewayTurnInvocationPort",
+        "src/agents/runs/handle.ts#TurnAdmissionHandle",
+        "src/agents/runs/handle.ts#TurnAdmissionIdentity",
+        "src/agents/runs/handle.ts#TurnAdmissionPublisher",
+        "src/agents/runs/handle.ts#TurnAdmissionRecordPort",
+        "src/agents/runs/handle.ts#TurnAdmissionVerifier",
+        "src/composition/mediation.ts#StoredAdmissionRecords"
+      ],
+      "testSelectors": [
+        "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-ADMISSION-HANDLE] names the mediated Invocation and the exact evidence it was built from",
+        "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-ADMISSION-HANDLE] names the child RunRef for a delegate Receipt that carries only that",
+        "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-ADMISSION-HANDLE] refuses a delegate Receipt carrying the child's output beside its RunRef",
+        "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-TURN-ADMISSION-HANDLE] offers the verified admission identity at the executor boundary without changing admission",
+        "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-TURN-ADMISSION-HANDLE] carries the child RunRef for a delegate spawn and never the child's result"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-TURN-CANCEL-INBOX",

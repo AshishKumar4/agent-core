@@ -59,12 +59,27 @@ export { leaseTokensEqual } from "./runs/lease";
 export {
     BlueprintPin,
     GatewayTurnInvocationPort,
+    TurnAdmissionHandle,
+    TurnAdmissionHandleCodec,
+    TurnAdmissionIdentity,
+    TurnAdmissionMessage,
+    TurnAdmissionPublisher,
+    TurnAdmissionRecordPort,
+    TurnAdmissionVerifier,
     TurnBoundOperation,
     TurnGatewaySource,
     TurnModelInput,
     TurnModelInputCodec
 } from "./runs";
-export type { TurnGatewayScope, TurnInvocationPort } from "./runs";
+export type {
+    TurnAdmissionAttemptFacts,
+    TurnAdmissionDelivery,
+    TurnAdmissionHandleInit,
+    TurnAdmissionReceiptFacts,
+    TurnAdmissionRequest,
+    TurnGatewayScope,
+    TurnInvocationPort
+} from "./runs";
 export { RunPins } from "./runs/pins";
 export type { LeaseToken, RunStoragePort, TurnLeaseVerifier } from "./runs";
 export type {

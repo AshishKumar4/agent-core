@@ -1,15 +1,20 @@
 import type { ActorRef } from "../actors";
 import {
     GatewayTurnInvocationPort,
+    TurnAdmissionRecordPort,
+    TurnAdmissionVerifier,
     TurnGatewaySource,
     type LeaseToken,
+    type TurnAdmissionReceiptFacts,
     type TurnGatewayScope,
     type TurnInvocationPort
 } from "../agents";
+import type { ContentRef } from "../core";
 import type { ContentStore } from "../content";
 import type { Facet, FacetManifest } from "../facets";
 import type { TenantId } from "../identity";
 import {
+    AttemptReceipt,
     CanonicalBatchInvocationPort,
     InvocationLedger,
     InvocationPublicationDrainer,
@@ -26,6 +31,7 @@ import {
     type InvocationTimePort,
     type InvocationTransactionPort
 } from "../invocations";
+import type { ReceiptId } from "../invocation-references";
 import { FacetRuntimeHost, OperationGatewayHost } from "../operations/internal";
 import type { OperationGateway } from "../operations";
 import {
@@ -210,6 +216,9 @@ export class MediatedOperationPipeline<
                 facets,
                 new TenantOperationAuthority(init.authority, init.now),
                 (signal) => operations(init, identities, ledger, signal)
+            ),
+            new TurnAdmissionVerifier(
+                new StoredAdmissionRecords(init.transactions, init.persistence, init.content)
             )
         );
     }
@@ -301,6 +310,51 @@ class ComposedTurnGatewaySource<Transaction> extends TurnGatewaySource {
             this.authority,
             this.operations(scope.signal)
         );
+    }
+}
+
+/**
+ * Projects the §7.4 records a §5.6 admission handle is built from. It decides nothing: it
+ * reports what the stored Receipt and its EffectAttempt say and resolves the result content,
+ * and `TurnAdmissionVerifier` owns every rule about whether that evidence admits a handle.
+ * A pre-effect Receipt, or one whose EffectAttempt is missing, therefore reaches the Turn
+ * layer as evidence that does not succeed rather than as an exception raised here.
+ */
+class StoredAdmissionRecords<Transaction, Admission> extends TurnAdmissionRecordPort {
+    public constructor(
+        private readonly transactions: InvocationTransactionPort<Transaction>,
+        private readonly persistence: MediationPersistence<Transaction, Admission>,
+        private readonly content: ContentStore
+    ) {
+        super();
+    }
+
+    public async receipt(receipt: ReceiptId): Promise<TurnAdmissionReceiptFacts | undefined> {
+        return this.transactions.transact((transaction) => {
+            const stored = this.persistence.receipt(transaction, receipt);
+            if (stored === undefined) return undefined;
+            if (!(stored instanceof AttemptReceipt)) {
+                return Object.freeze({ succeeded: false, attempt: undefined, result: undefined });
+            }
+            const attempt = this.persistence.attempt(transaction, stored.attempt);
+            return Object.freeze({
+                succeeded: stored.outcome === "succeeded",
+                attempt:
+                    attempt === undefined
+                        ? undefined
+                        : Object.freeze({
+                              id: attempt.id,
+                              invocation: attempt.invocation,
+                              itemIndex: attempt.itemIndex,
+                              idempotencyKey: attempt.idempotencyKey
+                          }),
+                result: stored.result
+            });
+        });
+    }
+
+    public result(ref: ContentRef): Promise<Uint8Array> {
+        return this.content.get(ref);
     }
 }
 

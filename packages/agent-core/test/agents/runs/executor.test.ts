@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { JsonSchema, Revision, type ContentRef } from "../../../src/core";
+import {
+    JsonSchema,
+    Revision,
+    encodeCanonicalJson,
+    type ContentRef,
+    type JsonValue
+} from "../../../src/core";
 import { ContentStore, MemoryContentStore } from "../../../src/content";
 import {
     BindingName,
@@ -28,17 +34,23 @@ import {
     TurnInvocationPort,
     TurnPromptSection,
     TurnPromptSectionName,
+    TurnAdmissionHandle,
+    TurnAdmissionIdentity,
+    TurnAdmissionRecordPort,
+    TurnAdmissionVerifier,
     TurnShownContent,
     type TurnContext,
     type TurnExecutorHostInit,
     type TurnModelCall,
     type TurnModelInputAssembly,
     type TurnModelRequest,
+    type TurnAdmissionReceiptFacts,
     type TurnModelUsage,
     type TurnOutcome,
     type TurnStreamPublication
 } from "../../../src/agents/runs";
 import { RunCommitId } from "../../../src/execution-references";
+import { EffectAttemptId, type ReceiptId } from "../../../src/invocation-references";
 import type { RunCommitInit } from "../../../src/agents/runs/commit";
 import { AgentCoreError } from "../../../src/errors";
 import { PrincipalId, PrincipalRef } from "../../../src/identity";
@@ -49,7 +61,15 @@ import {
     type OperationDispatchResult,
     type OperationRequest
 } from "../../../src/operations";
-import { content, harness, ids, refs, seedRunningTurn, type Assembled } from "./fixture";
+import {
+    content,
+    digest,
+    harness,
+    ids,
+    refs,
+    seedRunningTurn,
+    type Assembled
+} from "./fixture";
 
 class HostedExecutor extends TurnExecutor {
     public async execute(turn: TurnContext): Promise<TurnOutcome> {
@@ -246,7 +266,8 @@ describe("TurnExecutor seam", () => {
                     return {
                         tier: "mediated",
                         output: { stored: true },
-                        evidence: { receipt: "receipt-1" }
+                        evidence: admittedEvidence,
+                        admission: testAdmission()
                     };
                 }),
                 model: {
@@ -293,15 +314,18 @@ describe("TurnExecutor seam", () => {
         const resolved = new TestResolvedFacet(tool, {
             kind: "mediated",
             output: { value: 1 },
-            evidence: { receipt: "receipt-1" }
+            evidence: admittedEvidence
         });
         const gateway = new TestOperationGateway(resolved);
-        const adapter = new GatewayTurnInvocationPort({
-            open: async (scope) => {
-                expect(scope.token).toEqual(seeded.token);
-                return gateway;
-            }
-        });
+        const adapter = new GatewayTurnInvocationPort(
+            {
+                open: async (scope) => {
+                    expect(scope.token).toEqual(seeded.token);
+                    return gateway;
+                }
+            },
+            new TurnAdmissionVerifier(new TestAdmissionRecords())
+        );
 
         await expect(
             adapter.invoke({
@@ -315,7 +339,8 @@ describe("TurnExecutor seam", () => {
         ).resolves.toEqual({
             tier: "mediated",
             output: { value: 1 },
-            evidence: { receipt: "receipt-1" }
+            evidence: admittedEvidence,
+            admission: testAdmission()
         });
         expect(resolved.requests).toEqual([
             {
@@ -1554,7 +1579,12 @@ describe("TurnExecutor seam", () => {
                 context.invocation.invoke(tool, new OperationRequestKey("exact-tool"), {
                     nested: { value: 1 }
                 })
-            ).resolves.toEqual({ tier: "mediated", output: {}, evidence: { receipt: "test" } });
+            ).resolves.toEqual({
+                tier: "mediated",
+                output: {},
+                evidence: admittedEvidence,
+                admission: testAdmission()
+            });
             return context.outcome.succeed(
                 resultCommit(context, "invocation-result", boundaries.output, ids.root)
             );
@@ -2023,7 +2053,12 @@ class TestBoundaries {
             prompt: { assemble: async () => this.prompt },
             invocations: new FunctionInvocationPort(async (request) => {
                 this.invocationCalls.push(request.operation);
-                return { tier: "mediated", output: {}, evidence: { receipt: "test" } };
+                return {
+                    tier: "mediated",
+                    output: {},
+                    evidence: admittedEvidence,
+                    admission: testAdmission()
+                };
             }),
             model: {
                 call: async (request) => {
@@ -2329,13 +2364,68 @@ function publishedUsage(publication: TurnStreamPublication | undefined): TurnMod
     return publication.event.usage;
 }
 
+/**
+ * One succeeded mediated item, as the §7.4 Receipt and EffectAttempt records report it. The
+ * result content goes through a real store, so the digest the verifier re-derives is the
+ * store's own rather than a value this fixture asserts about itself.
+ */
+class TestAdmissionRecords extends TurnAdmissionRecordPort {
+    readonly #content = new MemoryContentStore();
+    #result: ContentRef | undefined;
+
+    public constructor(private readonly output: JsonValue = { value: 1 }) {
+        super();
+    }
+
+    public async receipt(receipt: ReceiptId): Promise<TurnAdmissionReceiptFacts> {
+        this.#result ??= (await this.#content.put(encodeCanonicalJson(this.output))).ref;
+        return {
+            succeeded: true,
+            attempt: {
+                id: new EffectAttemptId("attempt-1"),
+                invocation: refs.invocation,
+                itemIndex: 0,
+                idempotencyKey: `item:${receipt.value}`
+            },
+            result: this.#result
+        };
+    }
+
+    public result(ref: ContentRef): Promise<Uint8Array> {
+        return this.#content.get(ref);
+    }
+}
+
+/** The mediated evidence shape §7.4 actually produces: the Invocation and its item Receipts. */
+const admittedEvidence = Object.freeze({
+    invocation: refs.invocation.value,
+    receipts: [refs.receipt.value]
+});
+
+/** A verified handle over that evidence, for ports that stand in for the whole gateway. */
+function testAdmission(): TurnAdmissionHandle {
+    return new TurnAdmissionHandle({
+        run: ids.run,
+        turn: ids.turn,
+        issuedEpoch: 1,
+        invocation: refs.invocation,
+        itemIndex: 0,
+        itemKey: `item:${refs.receipt.value}`,
+        attempt: new EffectAttemptId("attempt-1"),
+        receipt: refs.receipt,
+        result: digest("1"),
+        identity: TurnAdmissionIdentity.invocation(refs.invocation)
+    });
+}
+
 function invocationAdapter(
     resolved: ResolvedFacet | readonly ResolvedFacet[]
 ): GatewayTurnInvocationPort {
     const gateway = new TestOperationGateway(resolved);
-    return new GatewayTurnInvocationPort({
-        open: async () => gateway
-    });
+    return new GatewayTurnInvocationPort(
+        { open: async () => gateway },
+        new TurnAdmissionVerifier(new TestAdmissionRecords())
+    );
 }
 
 function invocationRequest(

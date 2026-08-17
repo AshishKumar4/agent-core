@@ -307,6 +307,18 @@
       "tests": [
         "test/agents/runs/record-contract.test.ts#uniform durable record contract [run.pins] [run.configuration-snapshot] [run.commit] [run.record] [run.branch] [turn.record] [turn.placement-snapshot] [run.checkpoint] [turn.inbox-entry] [run.admission-registry] [run.settlement-obligation] [run.terminal-snapshot] [run.spawn-reservation] provides the same contract for every Run-owned record"
       ]
+    },
+    {
+      "symbol": "TurnAdmissionHandle",
+      "kind": "turn.admission-handle",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/agents/runs/handle.ts#TurnAdmissionHandle",
+      "codec": "src/agents/runs/handle.ts#TurnAdmissionHandle.codec",
+      "store": null,
+      "tests": [
+        "test/agents/runs/handle.test.ts#Turn admission handle records [turn.admission-handle] round-trips one canonical addressable admission identity"
+      ]
     }
   ]
 }

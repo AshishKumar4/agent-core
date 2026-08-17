@@ -22,8 +22,11 @@ import {
     type FacetData
 } from "../../facets";
 import { OperationGateway, type OperationRequestKey, type ResolvedFacet } from "../../operations";
+import { InvocationId } from "../../interaction-references";
+import { ReceiptId } from "../../invocation-references";
 import { RunCommit } from "./commit";
 import { TurnInboxEntryId } from "./id";
+import type { TurnAdmissionHandle, TurnAdmissionVerifier } from "./handle";
 import { leaseTokensEqual, type LeaseToken } from "./lease";
 import type { TurnPlacementSnapshot } from "./placement";
 import {
@@ -97,7 +100,18 @@ export interface TurnInvocationRequest {
  */
 export type TurnInvocationResult =
     | { readonly tier: "direct"; readonly output: FacetData }
-    | { readonly tier: "mediated"; readonly output: FacetData; readonly evidence: FacetData };
+    | {
+          readonly tier: "mediated";
+          readonly output: FacetData;
+          readonly evidence: FacetData;
+          /**
+           * The verified admission identity of this call, which an executor MAY hand the
+           * model in place of the output (SPEC §5.6). It is built from the Invocation,
+           * EffectAttempt and Receipt this dispatch already produced, so offering it changes
+           * nothing about admission.
+           */
+          readonly admission: TurnAdmissionHandle;
+      };
 
 export abstract class TurnInvocationPort {
     public abstract invoke(request: TurnInvocationRequest): Promise<TurnInvocationResult>;
@@ -114,7 +128,10 @@ export abstract class TurnGatewaySource {
 }
 
 export class GatewayTurnInvocationPort extends TurnInvocationPort {
-    public constructor(private readonly gateways: TurnGatewaySource) {
+    public constructor(
+        private readonly gateways: TurnGatewaySource,
+        private readonly admissions: TurnAdmissionVerifier
+    ) {
         super();
     }
 
@@ -156,11 +173,24 @@ export class GatewayTurnInvocationPort extends TurnInvocationPort {
                 payload: { kind: "single", input: canonicalFacetData(request.input) }
             });
             requireNotCancelled(request.signal);
-            return canonicalInvocationResult(
-                result.kind === "mediated"
-                    ? { tier: "mediated", output: result.output, evidence: result.evidence }
-                    : { tier: "direct", output: result.output }
-            );
+            if (result.kind !== "mediated") {
+                return canonicalInvocationResult({ tier: "direct", output: result.output });
+            }
+            const evidence = canonicalFacetData(result.evidence);
+            const named = admittedIdentity(evidence);
+            return canonicalInvocationResult({
+                tier: "mediated",
+                output: result.output,
+                evidence,
+                admission: await this.admissions.verify({
+                    run: request.turn.run,
+                    turn: request.turn.id,
+                    token: request.token,
+                    impact: descriptor.impact,
+                    invocation: named.invocation,
+                    receipts: named.receipts
+                })
+            });
         } finally {
             request.signal.removeEventListener("abort", releaseOnAbort);
             resolved?.[Symbol.dispose]();
@@ -1394,9 +1424,32 @@ function canonicalInvocationResult(result: TurnInvocationResult): TurnInvocation
         ? Object.freeze({
               tier: "mediated",
               output: canonicalFacetData(result.output),
-              evidence: canonicalFacetData(result.evidence)
+              evidence: canonicalFacetData(result.evidence),
+              admission: result.admission
           })
         : Object.freeze({ tier: "direct", output: canonicalFacetData(result.output) });
+}
+
+/**
+ * The Invocation and item Receipts a mediated dispatch's evidence names (§7.4). A handle is
+ * built from the records these identify, so the seam reads the identity out of the evidence
+ * rather than being told it.
+ */
+function admittedIdentity(evidence: FacetData): {
+    readonly invocation: InvocationId;
+    readonly receipts: readonly ReceiptId[];
+} {
+    const object = requireObject(evidence, "Mediated admission evidence");
+    return Object.freeze({
+        invocation: new InvocationId(
+            requireString(object["invocation"], "Mediated admission Invocation")
+        ),
+        receipts: Object.freeze(
+            requireArray(object["receipts"], "Mediated admission Receipts").map(
+                (value) => new ReceiptId(requireString(value, "Mediated admission Receipt"))
+            )
+        )
+    });
 }
 
 function canonicalStreamEvent(event: TurnStreamEvent): TurnStreamEvent {

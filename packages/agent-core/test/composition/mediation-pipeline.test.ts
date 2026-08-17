@@ -110,6 +110,7 @@ import {
     RunCommitId,
     RunPins,
     Turn,
+    TurnAdmissionHandleCodec,
     TurnBoundOperation,
     TurnLease,
     type LeaseToken
@@ -135,6 +136,7 @@ const domain = new ProtectionDomain("backend", "memory", "may-hold-secrets");
 const schema = new JsonSchema({ type: "object" });
 const workspace = new WorkspaceId("pipeline-workspace");
 const runId = new RunId("pipeline-run");
+const childRunId = new RunId("pipeline-child-run");
 const branchId = new RunBranchId("pipeline-branch");
 const turnId = new TurnId("pipeline-turn");
 const token: LeaseToken = Object.freeze({ turn: turnId, holder: principal, epoch: 1 });
@@ -166,6 +168,22 @@ function descriptor(): OperationDescriptor {
     );
 }
 
+/**
+ * A `delegate`-impact Operation whose canonical result is exactly a child RunRef, which is
+ * the shape §5.6 requires of a spawn's Receipt. It shares the recall Binding: a Binding is
+ * the authority handle and the operation name selects within the resolved Facet, so this
+ * needs no second Grant to reach the mediated tier that §7.2 floors delegation at.
+ */
+function spawnDescriptor(): OperationDescriptor {
+    return new OperationDescriptor(
+        new OperationName("spawn"),
+        "delegate",
+        schema,
+        schema,
+        "Spawn a child Run."
+    );
+}
+
 function manifest(): FacetManifest {
     return new FacetManifest({
         id: new FacetPackageId("memory"),
@@ -174,7 +192,10 @@ function manifest(): FacetManifest {
         isolation: ["provider"],
         bindings: [],
         contributions: new Contributions([
-            new Contribution(new SlotName("operations"), [descriptor().toData()])
+            new Contribution(new SlotName("operations"), [
+                descriptor().toData(),
+                spawnDescriptor().toData()
+            ])
         ])
     });
 }
@@ -194,6 +215,19 @@ class RecallOperation extends Operation {
     }
 }
 
+class SpawnOperation extends Operation {
+    public readonly descriptor = spawnDescriptor();
+
+    public constructor(private readonly observed: Observed) {
+        super();
+    }
+
+    public async execute(_context: OperationContext, _input: FacetData): Promise<FacetData> {
+        this.observed.calls += 1;
+        return { run: childRunId.value };
+    }
+}
+
 interface Observed {
     signal: AbortSignal | undefined;
     content: ContentStore | undefined;
@@ -210,7 +244,8 @@ class MemoryFacet extends Facet {
     }
 
     public operation(name: OperationName): Operation | undefined {
-        return name.value === "recall" ? new RecallOperation(this.observed) : undefined;
+        if (name.value === "recall") return new RecallOperation(this.observed);
+        return name.value === "spawn" ? new SpawnOperation(this.observed) : undefined;
     }
 
     public surface(): undefined {
@@ -542,6 +577,15 @@ function boundOperation(): TurnBoundOperation {
     );
 }
 
+function spawnOperation(): TurnBoundOperation {
+    return new TurnBoundOperation(
+        bindingName,
+        facet,
+        new OperationRef("memory:spawn"),
+        spawnDescriptor()
+    );
+}
+
 interface Harness {
     readonly pipeline: MediatedOperationPipeline<PipelineState, DemoAdmission, undefined>;
     readonly transactions: MemoryTransactions;
@@ -808,6 +852,13 @@ function invocationRequest(signal = new AbortController().signal, key = "pipelin
     };
 }
 
+function spawnRequest(key = "pipeline-spawn") {
+    return {
+        ...invocationRequest(undefined, key),
+        operation: spawnOperation()
+    };
+}
+
 describe("the published mediation composition root", () => {
     it(
         "assembles authenticated permit denial over one SQLite target aggregate",
@@ -924,6 +975,97 @@ describe("the published mediation composition root", () => {
         expect(value.observations).toHaveLength(2);
         await value.pipeline.dispose();
     });
+
+    it(
+        "[C13-TURN-ADMISSION-HANDLE] offers the verified admission identity at the executor boundary without changing admission",
+        { tags: "p0" },
+        async () => {
+            const value = await harness();
+            const result = await value.pipeline.invocations.invoke(invocationRequest());
+            if (result.tier !== "mediated") throw new TypeError("expected the mediated tier");
+
+            const state = value.transactions.read();
+            const codecs = mediationInvocationCodecs(admissionCodec);
+            const prepared = [...state.prepared.values()].map((bytes) =>
+                PreparedInvocation.decode(bytes, mediationPreparedCodecs)
+            );
+            const attempts = [...state.attempts.values()].map((bytes) =>
+                codecs.attempt.decode(bytes)
+            );
+            const receipts = [...state.receipts.values()].map((bytes) => Receipt.decode(bytes));
+            const audits = [...state.audits.values()].map((bytes) => AuditRecord.decode(bytes));
+
+            // §5.6: nothing about admission changes when a handle is offered. The record
+            // counts and the linked Receipt and audit chain are exactly the unhandled call's.
+            expect([prepared.length, attempts.length, receipts.length, audits.length]).toEqual([
+                1, 1, 1, 3
+            ]);
+            const invocation = prepared[0]!;
+            const attempt = attempts[0]!;
+            const receipt = receipts[0]!;
+            if (!(receipt instanceof AttemptReceipt)) {
+                throw new TypeError("expected an attempt Receipt");
+            }
+            expect(receipt.attempt.equals(attempt.id)).toBe(true);
+            expect(receipt.outcome).toBe("succeeded");
+            const receiptAudit = audits.find((record) => record.kind.kind === "receipt")!;
+            expect(
+                receiptAudit.cause?.equals(
+                    audits.find((record) => record.kind.kind === "attempt")!.id
+                )
+            ).toBe(true);
+
+            // Every field of the handle is a record this pipeline wrote, and the identity the
+            // model would read in the tool position is the Invocation's — not the output.
+            const handle = result.admission;
+            expect(handle.invocation.equals(invocation.header.id)).toBe(true);
+            expect(handle.attempt.equals(attempt.id)).toBe(true);
+            expect(handle.receipt.equals(receipt.id)).toBe(true);
+            expect(handle.itemIndex).toBe(attempt.itemIndex);
+            expect(handle.itemKey).toBe(attempt.idempotencyKey);
+            expect(handle.turn.equals(turnId)).toBe(true);
+            expect(handle.run.equals(runId)).toBe(true);
+            expect(handle.issuedEpoch).toBe(token.epoch);
+            expect(handle.result.equals(receipt.result!.digest)).toBe(true);
+            expect(handle.toolPosition()).toEqual({ invocation: invocation.header.id.value });
+            expect(handle.identity.childRun).toBeUndefined();
+
+            // The handle survives its process as bytes and decodes to the same identity.
+            expect(
+                TurnAdmissionHandleCodec.decode(TurnAdmissionHandleCodec.encode(handle))
+            ).toEqual(handle);
+            await value.pipeline.dispose();
+        }
+    );
+
+    it(
+        "[C13-TURN-ADMISSION-HANDLE] carries the child RunRef for a delegate spawn and never the child's result",
+        { tags: "p0" },
+        async () => {
+            const value = await harness();
+            const result = await value.pipeline.invocations.invoke(spawnRequest());
+            if (result.tier !== "mediated") throw new TypeError("expected the mediated tier");
+
+            const receipts = [...value.transactions.read().receipts.values()].map((bytes) =>
+                Receipt.decode(bytes)
+            );
+            const receipt = receipts[0]!;
+            if (!(receipt instanceof AttemptReceipt)) {
+                throw new TypeError("expected an attempt Receipt");
+            }
+
+            // The Receipt's canonical result content is the child RunRef alone, and that is
+            // what the handle names. Nothing of the child's own outcome is in it.
+            const stored = await value.content.get(receipt.result!);
+            expect(JSON.parse(new TextDecoder().decode(stored))).toEqual({
+                run: childRunId.value
+            });
+            expect(result.admission.identity.childRun?.equals(childRunId)).toBe(true);
+            expect(result.admission.toolPosition()).toEqual({ run: childRunId.value });
+            expect(result.admission.address).toBe(`run:${childRunId.value}`);
+            await value.pipeline.dispose();
+        }
+    );
 
     it("runs each Operation under its own Turn's cancellation signal", { tags: "p0" }, async () => {
         const value = await harness();

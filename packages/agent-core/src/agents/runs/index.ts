@@ -95,6 +95,22 @@ export {
 export type { RunOutcome, SettlementAuditObligation, SettlementObligationInit } from "./settlement";
 export { RunCheckpoint, Turn, TurnInboxEntry } from "./turn";
 export {
+    TurnAdmissionHandle,
+    TurnAdmissionHandleCodec,
+    TurnAdmissionIdentity,
+    TurnAdmissionMessage,
+    TurnAdmissionPublisher,
+    TurnAdmissionRecordPort,
+    TurnAdmissionVerifier
+} from "./handle";
+export type {
+    TurnAdmissionAttemptFacts,
+    TurnAdmissionDelivery,
+    TurnAdmissionHandleInit,
+    TurnAdmissionReceiptFacts,
+    TurnAdmissionRequest
+} from "./handle";
+export {
     GatewayTurnInvocationPort,
     TurnAdmittedEvent,
     TurnBoundOperation,
