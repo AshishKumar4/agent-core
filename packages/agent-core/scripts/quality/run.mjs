@@ -148,7 +148,15 @@ for (const result of results)
     console.log(
         `${result.status.padEnd(7)} ${result.node}${result.detail ? `: ${result.detail}` : ""}`
     );
-if (failures.length > 0) process.exitCode = 1;
+// A stage succeeds when it reaches its own targets. Today every skip traces to some
+// failure, so the exit code happens to be right; that is emergent, not stated. An
+// unreached target is its own failure, so the stage cannot report success because the
+// node that would have judged it never ran.
+const unreached = targets.filter((node) => status.get(node) !== "passed");
+if (unreached.length > 0) {
+    console.log(`unreached ${options.stage} target(s): ${unreached.join(", ")}`);
+}
+if (failures.length > 0 || unreached.length > 0) process.exitCode = 1;
 
 async function execute(node, context) {
     const nodeScript = (name) => [

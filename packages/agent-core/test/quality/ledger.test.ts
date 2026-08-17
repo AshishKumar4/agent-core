@@ -185,23 +185,40 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         const original = await readFile(originalPath, "utf8");
         const baseline = await specRequirements(originalPath);
         // This case only says anything about an atom whose hash input IS its §13 summary,
-        // which means an atom with no prose anchor. The C13-ADV-* family qualifies by
-        // construction — those atoms state attack cases the suite must refuse rather than
-        // obligations the prose declares, so no anchoring pass makes one authoritative.
-        // C13-AUTH-PLANE stood here until its prose was bound, at which point appending to
-        // its summary stopped moving its digest and this assertion silently inverted.
+        // which means an atom with no prose anchor. Naming one and pasting its sentence in
+        // couples the case to prose: C13-AUTH-PLANE stood here until its prose was bound,
+        // at which point appending to its summary stopped moving its digest and the
+        // assertion silently inverted, and a later rewording of the atom that replaced it
+        // turned the replace into a no-op with the same result. So the subject is derived:
+        // take an atom the parser reports as unanchored, and append to whatever line it
+        // actually has.
+        const anchored = new Set(
+            stringsAt(
+                await readArtifact("artifacts/quality/normative-map.json"),
+                "authoritativeOutsideSection13"
+            )
+        );
+        const unanchoredId = baseline
+            .map((item) => item.id)
+            .find((id) => id.startsWith("C13-") && !anchored.has(id));
+        if (unanchoredId === undefined) {
+            throw new TypeError("SPEC has no unanchored §13 atom to exercise summary hashing");
+        }
+        const summaryLine = original
+            .split("\n")
+            .find((line) => line.startsWith(`- **${unanchoredId}**`));
+        if (summaryLine === undefined) {
+            throw new TypeError(`No §13 summary line for ${unanchoredId}`);
+        }
         const continuedPath = resolve(root, "continued.md");
         await writeFile(
             continuedPath,
-            original.replace(
-                "- **C13-ADV-STALE-LEASE** Adversarial tests cover a stale lease.",
-                "- **C13-ADV-STALE-LEASE** Adversarial tests cover a stale lease.\n\n  Additional exact evidence."
-            ),
+            original.replace(summaryLine, `${summaryLine}\n\n  Additional exact evidence.`),
             "utf8"
         );
         const continued = await specRequirements(continuedPath);
-        expect(continued.find((item) => item.id === "C13-ADV-STALE-LEASE")?.digest).not.toBe(
-            baseline.find((item) => item.id === "C13-ADV-STALE-LEASE")?.digest
+        expect(continued.find((item) => item.id === unanchoredId)?.digest).not.toBe(
+            baseline.find((item) => item.id === unanchoredId)?.digest
         );
 
         const insertedPath = resolve(root, "inserted.md");
