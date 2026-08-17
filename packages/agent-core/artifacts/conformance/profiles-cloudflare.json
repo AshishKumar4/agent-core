@@ -1030,7 +1030,10 @@
       "specTextSha256": "sha256:155cd16c9468c461a798d35a820d29f4b7268cbc9394617382246d89950edd0f",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/filesystem/memory.ts#MemoryFilesystemBackend"],
+      "sourceSymbols": [
+        "src/facets/filesystem/facet.ts#FilesystemWriteMode",
+        "src/facets/filesystem/memory.ts#MemoryFilesystemBackend"
+      ],
       "testSelectors": [
         "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-ATOMIC-WRITE] rejects oversized replacements and destructive moves without partial changes"
       ],
@@ -1059,6 +1062,7 @@
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
       "sourceSymbols": [
+        "src/facets/filesystem/facet.ts#FilesystemWriteMode",
         "src/facets/filesystem/memory.ts#MemoryFilesystemBackend",
         "src/facets/filesystem/mount.ts#MountFilesystemBackend",
         "src/facets/filesystem/observed.ts#ObservedFilesystemBackend",
@@ -1220,7 +1224,10 @@
       "specTextSha256": "sha256:09dcc44109955eb7147120c09a0f275bdd302a6042509e87c41a50d22de720fa",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/filesystem/memory.ts#MemoryFilesystemBackend"],
+      "sourceSymbols": [
+        "src/facets/filesystem/facet.ts#FilesystemWriteMode",
+        "src/facets/filesystem/memory.ts#MemoryFilesystemBackend"
+      ],
       "testSelectors": [
         "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-RANGES] rejects malformed ranges, paging, write modes, and node-kind conflicts"
       ],
@@ -1318,7 +1325,10 @@
       "specTextSha256": "sha256:7a43eb162e485d8cff84262e0f304282b7fece7c2d4a13c5498ce730477f9dce",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/filesystem/memory.ts#MemoryFilesystemBackend"],
+      "sourceSymbols": [
+        "src/facets/filesystem/facet.ts#FilesystemWriteMode",
+        "src/facets/filesystem/memory.ts#MemoryFilesystemBackend"
+      ],
       "testSelectors": [
         "test/profiles/facets/filesystem.test.ts#Filesystem backend invariants [P11-FILESYSTEM-SUITE] uses one complete reader/mutator contract"
       ],
@@ -1332,7 +1342,10 @@
       "specTextSha256": "sha256:3213688d29dcbf10e2ecf0f7b93ff397c9b50f9d918c18afb5a88cb82bcab09e",
       "status": "verified",
       "prerequisites": ["P11-BASE-CONTRACT", "P11-BASE-TESTS"],
-      "sourceSymbols": ["src/facets/filesystem/facet.ts#FilesystemFacet"],
+      "sourceSymbols": [
+        "src/facets/filesystem/facet.ts#FilesystemFacet",
+        "src/facets/filesystem/facet.ts#FilesystemWriteMode"
+      ],
       "testSelectors": [
         "test/profiles/facets/conformance-ledger.test.ts#[P11-FILESYSTEM-WRITE] exact profile manifest or runtime contract"
       ],

@@ -2,10 +2,10 @@ import { FilesystemError } from "./error";
 import { DetailedProfileError } from "../profile-runtime";
 import {
     FilesystemBackend,
+    FilesystemWriteMode,
     type FilesystemPage,
     type FilesystemReadRange,
-    type FilesystemStat,
-    type FilesystemWriteMode
+    type FilesystemStat
 } from "./facet";
 import { filesystemParent, normalizeFilesystemPath } from "./path";
 
@@ -85,7 +85,11 @@ export class MemoryFilesystemBackend extends FilesystemBackend {
         return Object.freeze(next === undefined ? page : { ...page, cursor: next });
     }
 
-    public write(path: string, content: Uint8Array, mode: FilesystemWriteMode = "upsert"): void {
+    public write(
+        path: string,
+        content: Uint8Array,
+        mode: FilesystemWriteMode = FilesystemWriteMode.upsert
+    ): void {
         const normalized = this.mutablePath(path);
         if (content.byteLength > this.#maxFileBytes) {
             throw fileError("too-large", normalized, "File exceeds the configured size limit");
@@ -95,13 +99,7 @@ export class MemoryFilesystemBackend extends FilesystemBackend {
         const existing = this.#nodes.get(normalized);
         if (existing?.kind === "directory")
             throw fileError("is-a-directory", normalized, "Path is a directory");
-        if (mode === "create" && existing !== undefined)
-            throw fileError("exists", normalized, "Path already exists");
-        if (mode === "replace" && existing === undefined)
-            throw fileError("not-found", normalized, "Path does not exist");
-        if (mode !== "create" && mode !== "replace" && mode !== "upsert") {
-            throw invalidInput("Write mode must be create, replace, or upsert");
-        }
+        mode.requireWritable(normalized, existing !== undefined);
         this.#nodes.set(normalized, {
             kind: "file",
             content: content.slice(),

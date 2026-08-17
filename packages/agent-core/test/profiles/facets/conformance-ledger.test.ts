@@ -9,6 +9,7 @@ import {
     ENVIRONMENT_OPERATIONS,
     FILESYSTEM_ERROR_CODES,
     FilesystemError,
+    FilesystemWriteMode,
     FILESYSTEM_OPERATIONS,
     InMemoryMemoryIndexBackend,
     MCP_MAXIMUM_PROMPT_BYTES,
@@ -170,7 +171,9 @@ for (const [id, name, expected] of [
 requirement("P11-FILESYSTEM-ATOMICITY-ASSERTIONS", () => {
     const filesystem = new MemoryFilesystemBackend(1);
     filesystem.write("/file", new Uint8Array([1]));
-    expect(() => filesystem.write("/file", new Uint8Array([2, 3]), "replace")).toThrow();
+    expect(() =>
+        filesystem.write("/file", new Uint8Array([2, 3]), FilesystemWriteMode.replace)
+    ).toThrow();
     expect(filesystem.read("/file")).toEqual(new Uint8Array([1]));
 });
 requirement("P11-FILESYSTEM-CODE-ASSERTIONS", () => {

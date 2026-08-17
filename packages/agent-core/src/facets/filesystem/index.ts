@@ -6,7 +6,8 @@ export {
     FILESYSTEM_OPERATIONS,
     FilesystemBackend,
     FilesystemFacet,
-    FilesystemReaderBackend
+    FilesystemReaderBackend,
+    FilesystemWriteMode
 } from "./facet";
 export type {
     FilesystemEntryKind,
@@ -19,8 +20,7 @@ export type {
     FilesystemRemoveInput,
     FilesystemStat,
     FilesystemStatInput,
-    FilesystemWriteInput,
-    FilesystemWriteMode
+    FilesystemWriteInput
 } from "./facet";
 export { MemoryFilesystemBackend } from "./memory";
 export { MountFilesystemBackend } from "./mount";

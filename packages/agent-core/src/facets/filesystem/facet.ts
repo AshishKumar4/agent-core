@@ -1,4 +1,3 @@
-import { isMember } from "../../core";
 import { Contributions, Contribution, OperationDescriptor } from "../contribution";
 import type { FacetData } from "../data";
 import {
@@ -11,6 +10,7 @@ import {
 import { OperationName, SlotName } from "../id";
 import type { FacetManifest } from "../manifest";
 import {
+    DetailedProfileError,
     InternalProfileFacetRuntime,
     ProfileOperationContract,
     profileWireCodec,
@@ -21,11 +21,63 @@ import {
     strictObjectSchema,
     voidProfileWireCodec
 } from "../profile-runtime";
+import { FilesystemError } from "./error";
 
 export type FilesystemEntryKind = "file" | "directory";
-const FILESYSTEM_WRITE_MODES = ["create", "replace", "upsert"] as const;
 
-export type FilesystemWriteMode = (typeof FILESYSTEM_WRITE_MODES)[number];
+/**
+ * A write mode owns the existence precondition that makes it distinct: `create` requires the
+ * target absent, `replace` requires it present, `upsert` requires nothing. The precondition is
+ * a per-case method rather than a caller-side branch, so no write path can reach the store
+ * without discharging it.
+ */
+export abstract class FilesystemWriteMode {
+    public static get create(): FilesystemWriteMode {
+        return createWriteMode;
+    }
+    public static get replace(): FilesystemWriteMode {
+        return replaceWriteMode;
+    }
+    public static get upsert(): FilesystemWriteMode {
+        return upsertWriteMode;
+    }
+
+    /** The wire label this mode serializes to. */
+    public abstract readonly name: string;
+
+    /** Rejects the write when the target's presence contradicts this mode's precondition. */
+    public abstract requireWritable(path: string, present: boolean): void;
+}
+
+class CreateWriteMode extends FilesystemWriteMode {
+    public readonly name = "create";
+    public requireWritable(path: string, present: boolean): void {
+        if (present) throw new FilesystemError("exists", path, "Path already exists");
+    }
+}
+
+class ReplaceWriteMode extends FilesystemWriteMode {
+    public readonly name = "replace";
+    public requireWritable(path: string, present: boolean): void {
+        if (!present) throw new FilesystemError("not-found", path, "Path does not exist");
+    }
+}
+
+class UpsertWriteMode extends FilesystemWriteMode {
+    public readonly name = "upsert";
+    public requireWritable(): void {}
+}
+
+const createWriteMode = Object.freeze(new CreateWriteMode());
+const replaceWriteMode = Object.freeze(new ReplaceWriteMode());
+const upsertWriteMode = Object.freeze(new UpsertWriteMode());
+
+/** Every mode the wire admits; the codec resolves a decoded label against exactly this set. */
+const FILESYSTEM_WRITE_MODES: readonly FilesystemWriteMode[] = Object.freeze([
+    createWriteMode,
+    replaceWriteMode,
+    upsertWriteMode
+]);
 
 export interface FilesystemStat {
     readonly path: string;
@@ -213,7 +265,7 @@ export const FILESYSTEM_OPERATION_CONTRACTS = Object.freeze({
             {
                 path: pathProperty,
                 content: { type: "array", items: { type: "integer", minimum: 0, maximum: 255 } },
-                mode: { enum: ["create", "replace", "upsert"] }
+                mode: { enum: FILESYSTEM_WRITE_MODES.map((mode) => mode.name) }
             },
             ["path", "content"]
         ),
@@ -223,7 +275,7 @@ export const FILESYSTEM_OPERATION_CONTRACTS = Object.freeze({
                 dataRecord({
                     path: input.path,
                     content: [...input.content],
-                    mode: input.mode
+                    mode: input.mode?.name
                 }),
             decodeWriteInput
         ),
@@ -452,10 +504,19 @@ function decodeBytes(data: FacetData): Uint8Array {
     return requireBytes(data, "Filesystem bytes are invalid");
 }
 
+/**
+ * The single parse-at-the-edge: the wire carries a mode label, the domain carries a mode
+ * object, and an unrecognised label never reaches a write path.
+ */
 function requireWriteMode(value: FacetData): FilesystemWriteMode {
-    const mode = requireString(value, "Filesystem write mode");
-    if (isMember(FILESYSTEM_WRITE_MODES, mode)) return mode;
-    throw new TypeError("Filesystem write mode is invalid");
+    const name = requireString(value, "Filesystem write mode");
+    const mode = FILESYSTEM_WRITE_MODES.find((candidate) => candidate.name === name);
+    if (mode !== undefined) return mode;
+    throw new DetailedProfileError(
+        "operation.invalid-input",
+        "operation.invalid-input",
+        "Write mode must be create, replace, or upsert"
+    );
 }
 
 function decodePage(data: FacetData): FilesystemPage {

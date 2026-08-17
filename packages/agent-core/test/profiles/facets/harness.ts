@@ -5,6 +5,7 @@ import {
     DetailedProfileError,
     FacetRef,
     FilesystemError,
+    FilesystemWriteMode,
     ProfileEffectContext,
     ProfileRuntimeEffectsPort,
     ProfileRuntimeHostBinding,
@@ -300,13 +301,13 @@ export function mutableFilesystemBackendEvidence(
         test("honors write modes, atomic validation, and move semantics", { tags: "p1" }, () => {
             const filesystem = create();
             filesystem.mkdir("/a");
-            filesystem.write("/a/file", new Uint8Array([1]), "create");
+            filesystem.write("/a/file", new Uint8Array([1]), FilesystemWriteMode.create);
             expectFilesystemCode(
-                () => filesystem.write("/a/file", new Uint8Array(), "create"),
+                () => filesystem.write("/a/file", new Uint8Array(), FilesystemWriteMode.create),
                 "exists"
             );
             expectFilesystemCode(
-                () => filesystem.write("/missing", new Uint8Array(), "replace"),
+                () => filesystem.write("/missing", new Uint8Array(), FilesystemWriteMode.replace),
                 "not-found"
             );
             filesystem.move("/a", "/b");

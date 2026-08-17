@@ -139,7 +139,9 @@ The codebase is deliberately object-oriented with deep modules. Keep it that way
   unrepresentable and the behavior next to the data, instead of scattering `switch`
   statements across the codebase. A concept modeled as a string union that callers
   branch on is usually asking to be one of these — `FilesystemWriteMode`
-  (`src/facets/filesystem/facet.ts`) is the clearest outstanding candidate.
+  (`src/facets/filesystem/facet.ts`) was promoted this way, each case owning the
+  existence precondition that distinguishes it, with the wire label surviving only
+  inside the operation codec.
 - **Durable records are immutable classes**: `readonly` fields, constructors that
   validate shape (`TypeError` on violation), and private `transition`/`revise` helpers
   that return new instances. Records never own live resources (§8.3).

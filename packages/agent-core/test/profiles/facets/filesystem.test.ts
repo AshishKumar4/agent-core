@@ -11,6 +11,7 @@ import {
     FilesystemError,
     FilesystemFacet,
     FilesystemObservationBackend,
+    FilesystemWriteMode,
     type FacetData,
     type FilesystemBackend,
     type FilesystemReaderBackend,
@@ -286,9 +287,9 @@ describe("Filesystem backend invariants", () => {
             const filesystem = new MemoryFilesystemBackend(1);
             filesystem.mkdir("/tree/child", true);
             filesystem.write("/tree/file", new Uint8Array([1]));
-            expect(() => filesystem.write("/tree/file", new Uint8Array([2, 3]), "replace")).toThrow(
-                expect.objectContaining({ detailCode: "too-large" })
-            );
+            expect(() =>
+                filesystem.write("/tree/file", new Uint8Array([2, 3]), FilesystemWriteMode.replace)
+            ).toThrow(expect.objectContaining({ detailCode: "too-large" }));
             expect(() => filesystem.move("/tree", "/tree/child/moved")).toThrow(
                 expect.objectContaining({ detailCode: "path.invalid" })
             );
@@ -326,9 +327,12 @@ describe("Filesystem backend invariants", () => {
             expect(() => filesystem.write("/docs", new Uint8Array())).toThrow(
                 expect.objectContaining({ detailCode: "is-a-directory" })
             );
-            expect(
-                // @ts-expect-error Runtime rejection is required for a mode excluded by the public type.
-                () => filesystem.write("/docs/file", new Uint8Array(), "invalid")
+            expect(() =>
+                FILESYSTEM_OPERATION_CONTRACTS.write.decodeInput({
+                    path: "/docs/file",
+                    content: [],
+                    mode: "invalid"
+                })
             ).toThrow(expect.objectContaining({ detailCode: "operation.invalid-input" }));
             expect(() => filesystem.write("/", new Uint8Array())).toThrow(
                 expect.objectContaining({ detailCode: "path.invalid" })
@@ -419,15 +423,19 @@ describe("Filesystem backend invariants", () => {
                     })
                 )
             ).toEqual({ path: "/docs", cursor: "/docs/a", limit: 1 });
-            expect(
-                FILESYSTEM_OPERATION_CONTRACTS.write.decodeInput(
-                    FILESYSTEM_OPERATION_CONTRACTS.write.encodeInput({
-                        path: "/file",
-                        content: new Uint8Array([1]),
-                        mode: "replace"
-                    })
-                )
-            ).toEqual({ path: "/file", content: new Uint8Array([1]), mode: "replace" });
+            const writeWire = FILESYSTEM_OPERATION_CONTRACTS.write.encodeInput({
+                path: "/file",
+                content: new Uint8Array([1]),
+                mode: FilesystemWriteMode.replace
+            });
+            expect(writeWire).toEqual({ path: "/file", content: [1], mode: "replace" });
+            const decodedWrite = FILESYSTEM_OPERATION_CONTRACTS.write.decodeInput(writeWire);
+            expect(decodedWrite).toEqual({
+                path: "/file",
+                content: new Uint8Array([1]),
+                mode: FilesystemWriteMode.replace
+            });
+            expect(decodedWrite.mode).toBe(FilesystemWriteMode.replace);
             expect(
                 FILESYSTEM_OPERATION_CONTRACTS.mkdir.decodeInput(
                     FILESYSTEM_OPERATION_CONTRACTS.mkdir.encodeInput({
@@ -564,14 +572,61 @@ describe("Filesystem memory backend boundaries", () => {
 
     test("replaces and upserts existing files with the new content", { tags: "p1" }, () => {
         const filesystem = new MemoryFilesystemBackend();
-        filesystem.write("/file", new Uint8Array([1]), "create");
-        filesystem.write("/file", new Uint8Array([9]), "replace");
+        filesystem.write("/file", new Uint8Array([1]), FilesystemWriteMode.create);
+        filesystem.write("/file", new Uint8Array([9]), FilesystemWriteMode.replace);
         expect([...filesystem.read("/file")]).toEqual([9]);
-        filesystem.write("/file", new Uint8Array([7]), "upsert");
+        filesystem.write("/file", new Uint8Array([7]), FilesystemWriteMode.upsert);
         expect([...filesystem.read("/file")]).toEqual([7]);
         filesystem.write("/fresh", new Uint8Array([5]));
         expect([...filesystem.read("/fresh")]).toEqual([5]);
     });
+
+    test(
+        "discharges each write mode's existence precondition by construction",
+        { tags: "p1" },
+        () => {
+            const filesystem = new MemoryFilesystemBackend();
+            filesystem.write("/present", new Uint8Array([1]));
+            expect(() =>
+                filesystem.write("/present", new Uint8Array([2]), FilesystemWriteMode.create)
+            ).toThrow(expect.objectContaining({ detailCode: "exists" }));
+            expect(() =>
+                filesystem.write("/absent", new Uint8Array([2]), FilesystemWriteMode.replace)
+            ).toThrow(expect.objectContaining({ detailCode: "not-found" }));
+            filesystem.write("/absent", new Uint8Array([3]), FilesystemWriteMode.create);
+            filesystem.write("/present", new Uint8Array([4]), FilesystemWriteMode.replace);
+            filesystem.write("/present", new Uint8Array([5]), FilesystemWriteMode.upsert);
+            filesystem.write("/fresh", new Uint8Array([6]), FilesystemWriteMode.upsert);
+            expect([...filesystem.read("/present")]).toEqual([5]);
+
+            // The base publishes no default precondition, so every case must supply its own.
+            expect(FilesystemWriteMode.prototype).not.toHaveProperty("requireWritable");
+            // @ts-expect-error A write mode without its own existence precondition is illegal.
+            class UnregisteredWriteMode extends FilesystemWriteMode {
+                public readonly name = "unregistered";
+            }
+
+            for (const mode of [
+                FilesystemWriteMode.create,
+                FilesystemWriteMode.replace,
+                FilesystemWriteMode.upsert
+            ]) {
+                const wire = FILESYSTEM_OPERATION_CONTRACTS.write.encodeInput({
+                    path: "/present",
+                    content: new Uint8Array(),
+                    mode
+                });
+                expect(FILESYSTEM_OPERATION_CONTRACTS.write.decodeInput(wire).mode).toBe(mode);
+            }
+            expect(() =>
+                FILESYSTEM_OPERATION_CONTRACTS.write.decodeInput({
+                    path: "/present",
+                    content: [],
+                    mode: new UnregisteredWriteMode().name
+                })
+            ).toThrow(expect.objectContaining({ detailCode: "operation.invalid-input" }));
+        }
+    );
 
     test("removes and moves exactly the named subtree", { tags: "p1" }, () => {
         const filesystem = new MemoryFilesystemBackend();
@@ -643,15 +698,18 @@ describe("Filesystem memory backend boundaries", () => {
             "File exceeds the configured size limit"
         );
         expect(() => filesystem.write("/dir", new Uint8Array())).toThrow("Path is a directory");
-        expect(() => filesystem.write("/file", new Uint8Array(), "create")).toThrow(
-            "Path already exists"
-        );
-        expect(() => filesystem.write("/missing", new Uint8Array(), "replace")).toThrow(
-            "Path does not exist"
-        );
-        expect(
-            // @ts-expect-error Runtime rejection is required for a mode excluded by the public type.
-            () => filesystem.write("/file", new Uint8Array(), "invalid")
+        expect(() =>
+            filesystem.write("/file", new Uint8Array(), FilesystemWriteMode.create)
+        ).toThrow("Path already exists");
+        expect(() =>
+            filesystem.write("/missing", new Uint8Array(), FilesystemWriteMode.replace)
+        ).toThrow("Path does not exist");
+        expect(() =>
+            FILESYSTEM_OPERATION_CONTRACTS.write.decodeInput({
+                path: "/file",
+                content: [],
+                mode: "invalid"
+            })
         ).toThrow("Write mode must be create, replace, or upsert");
         expect(() => filesystem.move("/file", "/dir")).toThrow("Destination already exists");
         expect(() => filesystem.mkdir("/dir")).toThrow("Directory already exists");
@@ -861,10 +919,11 @@ function operationContext(): OperationContext {
 
 function runFilesystemMutationContract(filesystem: FilesystemBackend, label = "filesystem"): void {
     filesystem.mkdir("/mutable");
-    filesystem.write("/mutable/file", new Uint8Array([1]), "create");
-    expect(() => filesystem.write("/mutable/file", new Uint8Array(), "create"), label).toThrow(
-        expect.objectContaining({ detailCode: "exists" })
-    );
+    filesystem.write("/mutable/file", new Uint8Array([1]), FilesystemWriteMode.create);
+    expect(
+        () => filesystem.write("/mutable/file", new Uint8Array(), FilesystemWriteMode.create),
+        label
+    ).toThrow(expect.objectContaining({ detailCode: "exists" }));
     filesystem.move("/mutable/file", "/mutable/moved");
     expect([...filesystem.read("/mutable/moved")], label).toEqual([1]);
     filesystem.remove("/mutable/moved");
