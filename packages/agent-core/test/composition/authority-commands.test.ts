@@ -505,7 +505,7 @@ function productionPermitContract(name: string, create: ProductionPermitHarnessF
         );
 
         test(
-            "rechecks current Tenant authority after revocation and restart before issuing",
+            "[tenant-authority-transaction-port] rechecks current Tenant authority after revocation and restart before issuing",
             { tags: "p0" },
             async () => {
                 const harness = create();

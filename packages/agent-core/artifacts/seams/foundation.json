@@ -8,7 +8,9 @@
       "contract": "src/actors/store.ts#ActorLocalStore",
       "implementations": [
         "src/actors/store.ts#MemoryActorStore",
-        "src/substrates/sqlite/actor.ts#SqliteActorStore"
+        "src/authority/permit-runtime.ts#MemoryTenantAuthorityPermitStore",
+        "src/substrates/sqlite/actor.ts#SqliteActorStore",
+        "src/substrates/sqlite/permit.ts#SqliteTenantAuthorityPermitStore"
       ],
       "memoryReference": "src/actors/store.ts#MemoryActorStore",
       "contractTest": "test/protocol/dispatcher.test.ts#[C13-PROTOCOL-OUTCOMES] [actor-local-store] [protocol-persistence] memory and SQLite Actor/protocol persistence compositions expose identical outcomes"

@@ -20,7 +20,8 @@
     "turn-lease-verifier",
     "workspace-record-storage",
     "workspace-slot-store",
-    "invalidation-watermark-store"
+    "invalidation-watermark-store",
+    "tenant-authority-transaction-port"
   ],
   "fragments": [
     "definition-platform.json",

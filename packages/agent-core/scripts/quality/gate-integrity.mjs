@@ -238,10 +238,7 @@ const harnesses = {
             await substitute(root, input);
             await neutralizeTestEvidence(root);
         },
-        // The building stage, because the final one refuses the tree's own standing seam
-        // debt — implementations discovered ahead of the rows that classify them — before
-        // any mutation applies. Fragment structure is checked unconditionally.
-        argv: (root) => [script(root, "quality/seams.mjs"), "--stage", "building"]
+        argv: (root) => [script(root, "quality/seams.mjs"), "--stage", "final"]
     }
 };
 

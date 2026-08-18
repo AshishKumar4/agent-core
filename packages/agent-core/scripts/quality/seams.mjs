@@ -105,16 +105,20 @@ for (const path of files) {
 }
 const missing = index.required.filter((id) => !seamIds.has(id));
 const extra = [...seamIds].filter((id) => !index.required.includes(id));
-const discoveredMissing = discovered.filter((candidate) => classifiedSeam(candidate) === undefined);
-const incompleteDiscoveries = discovered.filter((candidate) => {
-    const seam = classifiedSeam(candidate);
-    return (
-        seam !== undefined &&
-        candidate.implementations.some(
-            (implementation) => !seam.implementations.includes(implementation)
-        )
-    );
-});
+const discoveredMissing = discovered
+    .filter((candidate) => classifiedSeam(candidate) === undefined)
+    .map((candidate) => candidate.contract);
+const incompleteDiscoveries = discovered
+    .filter((candidate) => {
+        const seam = classifiedSeam(candidate);
+        return (
+            seam !== undefined &&
+            candidate.implementations.some(
+                (implementation) => !seam.implementations.includes(implementation)
+            )
+        );
+    })
+    .map((candidate) => candidate.contract);
 const staleDispositions = Object.keys(discoveredDispositions).filter(
     (contract) => !discovered.some((candidate) => candidate.contract === contract)
 );
@@ -127,6 +131,13 @@ if (seams.length > 0) {
         requirePassingTests([seam.contractTest], executedTests, seam.id);
     }
 }
+const unaccounted = [...discoveredMissing, ...incompleteDiscoveries];
+const complete =
+    missing.length === 0 &&
+    extra.length === 0 &&
+    unaccounted.length === 0 &&
+    staleDispositions.length === 0 &&
+    pendingFragments.length === 0;
 await writeCanonicalJson(resolve(reportRoot, "seams.json"), {
     edition: "1.0.0",
     stage,
@@ -134,33 +145,19 @@ await writeCanonicalJson(resolve(reportRoot, "seams.json"), {
     missing,
     extra,
     discovered,
-    discoveredMissing: discoveredMissing.map((candidate) => candidate.contract),
-    incompleteDiscoveries: incompleteDiscoveries.map((candidate) => candidate.contract),
+    discoveredMissing,
+    incompleteDiscoveries,
     staleDispositions,
     pendingFragments,
-    complete:
-        missing.length === 0 &&
-        extra.length === 0 &&
-        discoveredMissing.length === 0 &&
-        incompleteDiscoveries.length === 0 &&
-        staleDispositions.length === 0 &&
-        pendingFragments.length === 0
+    complete
 });
-if (
-    stage === "final" &&
-    (missing.length > 0 ||
-        extra.length > 0 ||
-        discoveredMissing.length > 0 ||
-        incompleteDiscoveries.length > 0 ||
-        staleDispositions.length > 0 ||
-        pendingFragments.length > 0)
-) {
+if (stage === "final" && !complete) {
     throw new TypeError(
-        `Final seam denominator mismatch; missing=${missing.join(",")} extra=${extra.join(",")} discovered=${discoveredMissing.map((candidate) => candidate.contract).join(",")} incomplete=${incompleteDiscoveries.map((candidate) => candidate.contract).join(",")} stale=${staleDispositions.join(",")} pending=${pendingFragments.join(",")}`
+        `Final seam denominator mismatch; missing=${missing.join(",")} extra=${extra.join(",")} discovered=${discoveredMissing.join(",")} incomplete=${incompleteDiscoveries.join(",")} stale=${staleDispositions.join(",")} pending=${pendingFragments.join(",")}`
     );
 }
 console.log(
-    `seam registry ${missing.length === 0 && discoveredMissing.length === 0 && incompleteDiscoveries.length === 0 ? "complete" : "incomplete"}: ${seams.length}/${index.required.length} verified, ${discovered.length} independently discovered`
+    `seam registry ${complete ? "complete" : "incomplete"}: ${seams.length}/${index.required.length} verified, ${discovered.length} discovered, ${unaccounted.length} unaccounted`
 );
 
 function stageArgument(args) {

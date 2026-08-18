@@ -18,11 +18,24 @@
       "disposition": "verified",
       "contract": "src/authority/permit-store.ts#AuthorityPermitIssueStore",
       "implementations": [
+        "src/authority/permit-runtime.ts#MemoryTenantAuthorityPermitStore",
         "src/authority/permit-store.ts#MemoryAuthorityPermitStore",
-        "src/substrates/sqlite/permit.ts#SqliteAuthorityPermitStore"
+        "src/substrates/sqlite/permit.ts#SqliteAuthorityPermitStore",
+        "src/substrates/sqlite/permit.ts#SqliteTenantAuthorityPermitStore"
       ],
       "memoryReference": "src/authority/permit-store.ts#MemoryAuthorityPermitStore",
       "contractTest": "test/authority/permit.test.ts#[authority-permit-owner-store] memory issues and consumes exactly once across owner-store restart"
+    },
+    {
+      "id": "tenant-authority-transaction-port",
+      "disposition": "verified",
+      "contract": "src/authority/permit-runtime.ts#TenantAuthorityTransactionPort",
+      "implementations": [
+        "src/authority/permit-runtime.ts#MemoryTenantAuthorityPermitStore",
+        "src/substrates/sqlite/permit.ts#SqliteTenantAuthorityPermitStore"
+      ],
+      "memoryReference": "src/authority/permit-runtime.ts#MemoryTenantAuthorityPermitStore",
+      "contractTest": "test/composition/authority-commands.test.ts#production Tenant authority permit runtime (memory) [tenant-authority-transaction-port] rechecks current Tenant authority after revocation and restart before issuing"
     },
     {
       "id": "authority-mutation-store",
