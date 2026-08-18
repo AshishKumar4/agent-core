@@ -147,8 +147,9 @@ function handleInit(overrides: Partial<TurnAdmissionHandleInit> = {}): TurnAdmis
     };
 }
 
+/** The publisher writes the Event payloads its inbox rows own, so it holds the Run's store. */
 function publisher(value: Seeded | ReturnType<typeof harness>): TurnAdmissionPublisher<object> {
-    return new TurnAdmissionPublisher(value.runtime, new MemoryContentStore());
+    return new TurnAdmissionPublisher(value.runtime, value.storage.content);
 }
 
 function terminalRequest(value: Seeded, commitId: string) {

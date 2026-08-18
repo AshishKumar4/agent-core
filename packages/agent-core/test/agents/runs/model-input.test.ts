@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
     ByteRange,
     ContentStore,
-    MemoryContentStore,
     type ContentPutResult,
     type MediaHint
 } from "../../../src/content";
@@ -29,6 +28,7 @@ import {
     TurnPromptSectionName,
     TurnShownContent,
     turnModelRequestBytes,
+    type RunRecordKind,
     type StoredRunRecord,
     type TurnContext,
     type TurnModelCall,
@@ -68,7 +68,7 @@ type MemoryTransaction = Parameters<MemoryRunStorage["get"]>[0];
 class ReleasableContentStore extends ContentStore {
     readonly #released = new Set<string>();
 
-    public constructor(public readonly inner: MemoryContentStore) {
+    public constructor(private readonly inner: ContentStore) {
         super();
     }
 
@@ -156,6 +156,27 @@ class FaultyRunStorage extends MemoryRunStorage {
             this.#observed = true;
         }
         super.insert(transaction, record);
+    }
+}
+
+/**
+ * Storage that keeps its records and its content custody whole and answers no inbox row, so
+ * a replay which reached for a delivered Event through the inbox could not pass.
+ */
+class InboxlessRunStorage extends MemoryRunStorage {
+    public override get(
+        transaction: MemoryTransaction,
+        kind: RunRecordKind,
+        key: string
+    ): StoredRunRecord | undefined {
+        return kind === "inbox" ? undefined : super.get(transaction, kind, key);
+    }
+
+    public override list(
+        transaction: MemoryTransaction,
+        kind: RunRecordKind
+    ): readonly StoredRunRecord[] {
+        return kind === "inbox" ? [] : super.list(transaction, kind);
     }
 }
 
@@ -289,14 +310,12 @@ interface Fixture {
 }
 
 async function fixture(catalog: readonly TurnBoundOperation[] = []): Promise<Fixture> {
-    const memory = new MemoryContentStore();
-    const store = new ReleasableContentStore(memory);
+    const built = faultyHarness();
+    // Custody admits only content the Run's own store holds, so the fixture writes through
+    // that store and the release wrapper only withholds reads.
+    const store = new ReleasableContentStore(built.storage.content);
     const prompt = (await store.put(encoder.encode("assembled"))).ref;
     const output = (await store.put(encoder.encode("response"))).ref;
-    const built = faultyHarness();
-    // Custody admits only content the Run-owned store holds; mirror the fixture bytes.
-    await built.storage.content.put(encoder.encode("assembled"));
-    await built.storage.content.put(encoder.encode("response"));
     const seeded = seedRunningTurn(
         built,
         {},
@@ -383,16 +402,16 @@ describe("Turn model input", () => {
             expect(replayed.catalog).toEqual([read]);
             expect(replayed.baseCommit).toEqual(ids.root);
 
-            // The restart discards every executor process and keeps only the records.
+            // The restart discards every executor process and keeps only the records, whose
+            // one aggregate snapshot carries the Run's content custody with them.
+            const reopened = new MemoryRunStorage(
+                ids.holder.tenantId,
+                ids.actor,
+                base.seeded.storage.snapshot()
+            );
             const restarted = new TurnModelInputReplay({
-                repository: new RunRepository(
-                    new MemoryRunStorage(
-                        ids.holder.tenantId,
-                        ids.actor,
-                        base.seeded.storage.snapshot()
-                    )
-                ),
-                content: MemoryContentStore.restore(base.content.inner.snapshot())
+                repository: new RunRepository(reopened),
+                content: reopened.content
             });
             expect(turnModelRequestBytes(await restarted.reconstruct(input))).toEqual(sent);
         }
@@ -516,15 +535,14 @@ describe("Turn model input", () => {
             expect(document.admitted.map((entry) => entry.content.value)).toEqual([first.value]);
             expect(document.admissionCut).toBe(2);
 
-            // Retention reaches the admitted Event's content through the undeletable commit,
-            // so a replay that never reads the inbox still rebuilds it whole.
+            // The committed model input names the admitted Event's content itself, so a
+            // replay rebuilds the request whole from a store that answers no inbox row.
             const inboxFree = new RunRepository(
-                new MemoryRunStorage(ids.holder.tenantId, ids.actor, {
-                    ...base.seeded.storage.snapshot(),
-                    records: base.seeded.storage
-                        .snapshot()
-                        .records.filter((row) => row.kind !== "inbox")
-                })
+                new InboxlessRunStorage(
+                    ids.holder.tenantId,
+                    ids.actor,
+                    base.seeded.storage.snapshot()
+                )
             );
             const replayed = await new TurnModelInputReplay({
                 repository: inboxFree,

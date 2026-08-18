@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { Revision, type ContentRef } from "../../../src/core";
 import {
     ContentStore,
-    MemoryContentStore,
     type ByteRange,
     type ContentPutResult,
     type MediaHint
@@ -65,7 +64,7 @@ class CallingExecutor extends TurnExecutor {
 class ReleasableContentStore extends ContentStore {
     readonly #released = new Set<string>();
 
-    public constructor(private readonly inner: MemoryContentStore) {
+    public constructor(private readonly inner: ContentStore) {
         super();
     }
 
@@ -291,8 +290,7 @@ function twoPairs() {
 }
 
 /** A chain of plain messages, for shadow sets that are not intervals in any order. */
-function chain(length: number, body?: ContentRef) {
-    const value = seedRunningTurn();
+function chain(length: number, body?: ContentRef, value = seedRunningTurn()) {
     const commits: RunCommit[] = [];
     let parent = ids.root;
     for (let index = 1; index <= length; index += 1) {
@@ -528,10 +526,10 @@ describe("Run effective transcript, rewrite bracket, and cut balance", () => {
         "[C13-RUN-EFFECTIVE-TRANSCRIPT] keeps a shadowed commit reachable, immutable, and named by its content",
         { tags: "p0" },
         async () => {
-            const store = new MemoryContentStore();
+            const seeded = seedRunningTurn();
             const body = new TextEncoder().encode("what the shadowed commit said");
-            const stored = await store.put(body);
-            const { value, commits } = chain(3, stored.ref);
+            const stored = await seeded.storage.content.put(body);
+            const { value, commits } = chain(3, stored.ref, seeded);
             const before = value.repository.transaction((tx) =>
                 value.repository.loadCommit(tx, commits[1]!.id)
             );
@@ -560,8 +558,8 @@ describe("Run effective transcript, rewrite bracket, and cut balance", () => {
 
             // Shadowing supersedes without releasing: nothing on the rewrite path touches
             // custody, so the content an earlier request named still resolves.
-            expect(await store.stat(stored.ref)).toBeDefined();
-            expect(await store.get(stored.ref)).toEqual(body);
+            expect(await value.storage.content.stat(stored.ref)).toBeDefined();
+            expect(await value.storage.content.get(stored.ref)).toEqual(body);
             expect(transcriptIds(value)).not.toContain(commits[1]!.id.value);
         }
     );
@@ -957,10 +955,10 @@ describe("Run effective transcript, rewrite bracket, and cut balance", () => {
         "[C13-TURN-TRANSCRIPT-RECONSTRUCTION] rebuilds an earlier call's request byte for byte across a rewrite that shadows what it read",
         { tags: "p0" },
         async () => {
-            const store = new ReleasableContentStore(new MemoryContentStore());
+            const value = seedRunningTurn();
+            const store = new ReleasableContentStore(value.storage.content);
             const assembled = (await store.put(new TextEncoder().encode("assembled"))).ref;
             const output = (await store.put(new TextEncoder().encode("response"))).ref;
-            const value = seedRunningTurn();
             const first = message(value, "read-1", ids.root);
             const second = message(value, "read-2", first.id);
 

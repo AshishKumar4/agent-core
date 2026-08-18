@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Revision, type ContentRef } from "../../../src/core";
-import { MemoryContentStore } from "../../../src/content";
+import type { ContentStore } from "../../../src/content";
 import { AgentCoreError } from "../../../src/errors";
 import { RunCommitId } from "../../../src/execution-references";
 import { InvocationId } from "../../../src/interaction-references";
@@ -168,10 +168,13 @@ function compaction(
     return commit;
 }
 
-/** A Run whose branch carries a root and three messages, with a store holding every body. */
+/**
+ * A Run whose branch carries a root and three messages. Every body goes into the Run's own
+ * content store, because that is the only plane a Run commit may name.
+ */
 async function seeded() {
-    const store = new MemoryContentStore();
     const value = seedRunningTurn();
+    const store = value.storage.content;
     const bodies: ContentRef[] = [];
     for (const text of ["first", "second", "third"]) {
         bodies.push((await store.put(encoder.encode(text))).ref);
@@ -189,7 +192,7 @@ interface Dispatch {
     readonly sent: Uint8Array[];
 }
 
-function dispatcher(value: Harness, store: MemoryContentStore, output: ContentRef): Dispatch {
+function dispatcher(value: Harness, store: ContentStore, output: ContentRef): Dispatch {
     const sent: Uint8Array[] = [];
     return {
         sent,
@@ -219,7 +222,7 @@ function dispatcher(value: Harness, store: MemoryContentStore, output: ContentRe
  */
 function surface(
     context: TurnContext,
-    store: MemoryContentStore,
+    store: ContentStore,
     covers: readonly RunCommitId[],
     omission: TurnOmission = TurnOmission.none
 ) {
@@ -533,8 +536,8 @@ describe("Compaction as a policy over rewrite", () => {
         "[C13-TURN-SURFACE-ACCOUNTED] a surface accounts for history and never for a graph fact or an earlier surface",
         { tags: "p0" },
         async () => {
-            const store = new MemoryContentStore();
             const value = seedRunningTurn();
+            const store = value.storage.content;
             const output = (await store.put(encoder.encode("response"))).ref;
             const asked = message(value, "asks", ids.root, (await store.put(encoder.encode("q"))).ref, [
                 refs.invocation
