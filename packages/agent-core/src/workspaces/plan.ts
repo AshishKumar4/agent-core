@@ -1,6 +1,7 @@
 import {
     RecordCodec,
     Revision,
+    TextId,
     compareCanonicalText,
     type JsonValue,
     type RecordVersion
@@ -154,7 +155,23 @@ class DependencyRetraction extends PlanChange {
 
 class PlanFactCodecV1 extends RecordCodec<PlanFact> {
     public constructor() {
-        super("workspace.plan-fact", { major: 1, minor: 0 });
+        super(
+            [
+                PlanFact,
+                PlanChange,
+                TaskDeclaration,
+                DependencyDeclaration,
+                DependencyRetraction,
+                TextId,
+                TaskId,
+                TurnId
+            ],
+            "workspace.plan-fact",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(fact: PlanFact): JsonValue {
@@ -173,7 +190,9 @@ class PlanFactCodecV1 extends RecordCodec<PlanFact> {
  * discovery from handing its successor more than the discoverer held.
  */
 export class PlanFact {
-    public static readonly codec: RecordCodec<PlanFact> = new PlanFactCodecV1();
+    public static get codec(): RecordCodec<PlanFact> {
+        return planFactCodecInstance;
+    }
 
     public static encode(fact: PlanFact): Uint8Array {
         return PlanFact.codec.encode(fact);
@@ -210,6 +229,8 @@ export class PlanFact {
         return { ...this.change.toData(), origin: this.origin.value };
     }
 }
+
+const planFactCodecInstance = new PlanFactCodecV1();
 
 /**
  * The projection. Derived, rebuildable, and disposable (§8.4 rule 3): it holds identifiers
