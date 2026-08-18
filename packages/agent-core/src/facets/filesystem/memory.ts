@@ -1,3 +1,4 @@
+import { compareText } from "../../core";
 import { FilesystemError } from "./error";
 import { DetailedProfileError } from "../profile-runtime";
 import {
@@ -71,7 +72,7 @@ export class MemoryFilesystemBackend extends FilesystemBackend {
                     !candidate.slice(prefix.length).includes("/")
             )
             .map(([candidate, node]) => this.toStat(candidate, node))
-            .sort((left, right) => left.path.localeCompare(right.path));
+            .sort((left, right) => compareText(left.path, right.path));
         const normalizedCursor = cursor === undefined ? undefined : normalizeFilesystemPath(cursor);
         const start =
             normalizedCursor === undefined

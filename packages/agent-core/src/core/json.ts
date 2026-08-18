@@ -41,12 +41,17 @@ export function isObjectRecord(value: unknown): value is ObjectRecord {
     return value !== null && !Array.isArray(value) && typeof value === "object";
 }
 
+/** Exact own-key-set check for any object, without narrowing its member types. */
+export function hasExactKeys(value: object, expected: readonly string[]): boolean {
+    const keys = Object.keys(value);
+    return keys.length === expected.length && expected.every((key) => Object.hasOwn(value, key));
+}
+
 export function hasExactJsonKeys<Field extends string>(
     value: JsonObject,
     expected: readonly Field[]
 ): value is JsonFields<Field> {
-    const keys = Object.keys(value);
-    return keys.length === expected.length && expected.every((key) => Object.hasOwn(value, key));
+    return hasExactKeys(value, expected);
 }
 
 function isJsonValueAt(value: unknown, ancestors: WeakSet<object>): value is JsonValue {

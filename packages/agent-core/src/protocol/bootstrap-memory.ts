@@ -1,6 +1,6 @@
 import { MemoryActorStore, type MemoryActorStoreSnapshot } from "../actors";
 import { MemoryTenantControlStore, type MemoryTenantControlSnapshot } from "../authority";
-import { Revision } from "../core";
+import { Revision, hasExactKeys } from "../core";
 import type { TransientContentAccess } from "../content";
 import { AgentCoreError } from "../errors";
 import type { TenantId } from "../identity";
@@ -166,7 +166,7 @@ function snapshotValue(
     if (
         snapshot === null ||
         typeof snapshot !== "object" ||
-        Object.keys(snapshot).sort().join(",") !== "opaque,version" ||
+        !hasExactKeys(snapshot, ["opaque", "version"]) ||
         snapshot.version !== 1 ||
         snapshot.opaque === null ||
         typeof snapshot.opaque !== "object"

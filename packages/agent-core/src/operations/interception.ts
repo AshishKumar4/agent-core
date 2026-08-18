@@ -1,5 +1,5 @@
 import { requireSynchronousResult } from "../actors";
-import { Digest, encodeCanonicalJson } from "../core";
+import { Digest, compareText, encodeCanonicalJson } from "../core";
 import { AgentCoreError } from "../errors";
 import {
     InterceptorDeclaration,
@@ -191,10 +191,6 @@ function blocked(declaration: InterceptorDeclaration, cause: unknown): AgentCore
         "authority.denied",
         `Interceptor ${declaration.id.value} blocked the operation: ${detail}`
     );
-}
-
-function compareText(left: string, right: string): number {
-    return left < right ? -1 : left > right ? 1 : 0;
 }
 
 const interceptorSlot = new SlotName("interceptors");

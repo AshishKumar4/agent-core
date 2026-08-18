@@ -12,7 +12,7 @@ export {
     SlotName,
     SurfaceId
 } from "./id";
-export { CapabilitySpec, isCapabilityEffect } from "./capability";
+export { CapabilitySpec, isCapabilityEffect, matchesGlob } from "./capability";
 export type { CapabilityEffect, CapabilityIntent, CapabilitySpecInit } from "./capability";
 export { BindingRequirement, FacetManifest, canonicalIsolationModes } from "./manifest";
 export type { FacetManifestInit, IsolationMode } from "./manifest";

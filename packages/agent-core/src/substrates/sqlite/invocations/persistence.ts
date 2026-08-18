@@ -593,10 +593,24 @@ function appendRecord(
     }
 }
 
+/**
+ * SQLite extended result codes. Both drivers report the same numbers -- bun:sqlite as
+ * `errno`, node:sqlite as `errcode` -- while their string `code` disagrees: node:sqlite
+ * answers ERR_SQLITE_ERROR for every failure, so the string test never matched there and
+ * a substring search of the driver's prose was left deciding. That search read "NOT NULL
+ * constraint failed" and even the column name in "no such column: unique_key" as an
+ * append race, which reports the schema's own corruption backstops as a benign conflict.
+ * Only a uniqueness violation is a duplicate append.
+ */
+const SQLITE_CONSTRAINT_PRIMARYKEY = 1555;
+const SQLITE_CONSTRAINT_UNIQUE = 2067;
+
 function isConstraintFailure(error: unknown): boolean {
     if (error === null || typeof error !== "object") return false;
-    const code = (error as { readonly code?: unknown }).code;
-    if (typeof code === "string" && code.startsWith("SQLITE_CONSTRAINT")) return true;
-    const message = (error as { readonly message?: unknown }).message;
-    return typeof message === "string" && /(?:constraint|unique)/iu.test(message);
+    const { errcode, errno } = error as {
+        readonly errcode?: unknown;
+        readonly errno?: unknown;
+    };
+    const result = typeof errcode === "number" ? errcode : errno;
+    return result === SQLITE_CONSTRAINT_PRIMARYKEY || result === SQLITE_CONSTRAINT_UNIQUE;
 }

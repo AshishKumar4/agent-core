@@ -19,9 +19,9 @@ import { TenantId } from "../identity";
 import { DeploymentId, DeploymentKey } from "./id";
 import { ManagedOrigin } from "./origin";
 import { ActorPlan, MaterializationPlan } from "./plan";
-import { compareText } from "./order";
 import type { ValidationAttestation } from "./attestation";
 import { definitionRevisionConflict, invalidDefinition, invalidDefinitionState } from "./error";
+import { compareText } from "./order";
 
 export interface DeploymentRecordInit {
     readonly id: DeploymentId;

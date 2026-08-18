@@ -1,7 +1,7 @@
+import { compareText } from "../core";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
-    compareText,
     requireArray,
     requireDataObject,
     requireExactFields,

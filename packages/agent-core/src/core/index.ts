@@ -1,5 +1,10 @@
 export { TextId } from "./id";
-export { decodeCanonicalJson, encodeCanonicalJson } from "./canonical";
+export {
+    canonicalJsonEqual,
+    compareText,
+    decodeCanonicalJson,
+    encodeCanonicalJson
+} from "./canonical";
 export { decodeBase64, encodeBase64 } from "./base64";
 export { Digest } from "./digest";
 export type { DigestAlgorithm } from "./digest";
@@ -8,7 +13,7 @@ export { Revision } from "./revision";
 export { SecretRef } from "./secret-ref";
 export { RecordCodec } from "./codec";
 export type { RecordEnvelope, RecordVersion } from "./codec";
-export { hasExactJsonKeys, isJsonObject, isJsonValue, isObjectRecord } from "./json";
+export { hasExactJsonKeys, hasExactKeys, isJsonObject, isJsonValue, isObjectRecord } from "./json";
 export type { JsonFields, JsonObject, JsonPrimitive, JsonValue, ObjectRecord } from "./json";
 export { isMember, isNonempty, requireNonempty } from "./narrow";
 export type { Nonempty } from "./narrow";

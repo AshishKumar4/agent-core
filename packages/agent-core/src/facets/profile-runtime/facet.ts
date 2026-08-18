@@ -10,6 +10,7 @@ import {
 } from "../runtime";
 import type { ProfileRuntimeHostBinding } from "./runtime";
 import { DetailedProfileError } from "./error";
+import { canonicalJsonEqual, compareText, encodeCanonicalJson, type JsonValue } from "../../core";
 
 export abstract class ProfileFacetRuntime extends Facet {}
 
@@ -150,16 +151,23 @@ function uniqueMap<Value>(
 }
 
 function requireExactDeclarations(
-    declared: readonly { toData(): unknown }[],
-    implemented: readonly { toData(): unknown }[],
+    declared: readonly { toData(): JsonValue }[],
+    implemented: readonly { toData(): JsonValue }[],
     subject: string
 ): void {
-    const data = (values: readonly { toData(): unknown }[]) =>
-        values.map((value) => JSON.stringify(value.toData())).sort();
-    if (JSON.stringify(data(declared)) !== JSON.stringify(data(implemented))) {
+    // Canonical bytes, not JSON.stringify: a declaration's own key order follows however
+    // its object literal was written, so two equal declarations built by different code
+    // paths render differently. compareText keeps the sort total and locale-free.
+    const data = (values: readonly { toData(): JsonValue }[]): JsonValue =>
+        values
+            .map((value) => declarationDecoder.decode(encodeCanonicalJson(value.toData())))
+            .sort(compareText);
+    if (!canonicalJsonEqual(data(declared), data(implemented))) {
         throw invalidRuntime(`Internal profile ${subject} declarations do not match its runtime`);
     }
 }
+
+const declarationDecoder = new TextDecoder("utf-8", { fatal: true });
 
 function invalidRuntime(message: string): DetailedProfileError<"runtime.declaration"> {
     return new DetailedProfileError("protocol.invalid-state", "runtime.declaration", message);

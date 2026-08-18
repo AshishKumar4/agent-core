@@ -21,6 +21,45 @@ describe("CapabilitySpec authority semantics", () => {
         expect(cap("a*b*c").covers(cap("abc"))).toBe(false);
     });
 
+    test("covers never admits a facet the parent pattern rejects", { tags: "p0" }, () => {
+        // Attenuation soundness (§ authority delegation): `covers` gates Grant.canAttenuate,
+        // so whenever a parent covers a child, every facet the child admits the parent must
+        // admit as well. A prefix/suffix test that ignores their overlap breaks this: `a*a`
+        // requires two characters, yet reports that it covers the single-character `a`.
+        expect(cap("a*a").covers(cap("a"))).toBe(false);
+        expect(cap("aa*aa").covers(cap("aaa"))).toBe(false);
+        expect(cap("a*a").covers(cap("aa"))).toBe(true);
+
+        const patterns = ["a", "b", "ab", "aa", "a*", "*a", "a*a", "a*b", "aa*aa", "*", "ab*ab"];
+        const values = enumerate("ab", 5);
+        for (const parent of patterns) {
+            for (const child of patterns) {
+                if (!cap(parent).covers(cap(child))) continue;
+                for (const facet of values) {
+                    if (!cap(child).matches(intent({ facet }))) continue;
+                    expect([
+                        parent,
+                        child,
+                        facet,
+                        cap(parent).matches(intent({ facet }))
+                    ]).toStrictEqual([parent, child, facet, true]);
+                }
+            }
+        }
+    });
+
+    test("matches resists wildcard backtracking blowup", { tags: "p0" }, () => {
+        // `facetPattern` arrives through CapabilitySpec.fromData, so a Grant record carries
+        // attacker-chosen wildcards into every authorization check. Compiling `^.*a.*a…$`
+        // costs O(value^wildcards) on a non-matching value; 18 wildcards did not finish.
+        const pattern = "*a".repeat(18) + "b";
+        const facet = "a".repeat(60);
+        const started = process.hrtime.bigint();
+        expect(cap(pattern).matches(intent({ facet }))).toBe(false);
+        const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
+        expect(elapsedMs).toBeLessThan(1000);
+    });
+
     test("covers requires operation and constraint containment", { tags: "p0" }, () => {
         expect(cap("*", { operations: ["read"] }).covers(cap("*"))).toBe(false);
         expect(cap("*").covers(cap("*", { operations: ["write"] }))).toBe(true);
@@ -28,9 +67,7 @@ describe("CapabilitySpec authority semantics", () => {
             cap("*", { operations: ["read", "write"] }).covers(cap("*", { operations: ["read"] }))
         ).toBe(true);
         expect(
-            cap("*", { operations: ["read"] }).covers(
-                cap("*", { operations: ["read", "write"] })
-            )
+            cap("*", { operations: ["read"] }).covers(cap("*", { operations: ["read", "write"] }))
         ).toBe(false);
 
         const constrained = cap("*", { argumentConstraints: { tier: "gold" } });
@@ -75,7 +112,9 @@ describe("CapabilitySpec authority semantics", () => {
         expect(cap("*", { impacts: ["delegate"] }).grantsElevation()).toBe(true);
         expect(cap("*", { impacts: ["administer"] }).grantsElevation()).toBe(true);
         expect(
-            cap("*", { impacts: ["observe", "mutate", "externalSend", "execute"] }).grantsElevation()
+            cap("*", {
+                impacts: ["observe", "mutate", "externalSend", "execute"]
+            }).grantsElevation()
         ).toBe(false);
     });
 
@@ -91,9 +130,9 @@ describe("CapabilitySpec authority semantics", () => {
         expect(() => cap("*", { operations: [" pad "] })).toThrow(
             "Capability operations must contain canonical nonblank strings"
         );
-        expect(() =>
-            cap("*", { impacts: ["observe", "bogus"] as unknown as [Impact] })
-        ).toThrow("Capability impacts must contain known values");
+        expect(() => cap("*", { impacts: ["observe", "bogus"] as unknown as [Impact] })).toThrow(
+            "Capability impacts must contain known values"
+        );
         expect(() => cap("*", { impacts: ["observe", "observe"] })).toThrow(
             "Capability impacts must be unique"
         );
@@ -131,6 +170,16 @@ describe("CapabilitySpec authority semantics", () => {
 
 function cap(facetPattern: string, rest: Partial<CapabilitySpecInit> = {}): CapabilitySpec {
     return new CapabilitySpec({ facetPattern, impacts: ["observe"], ...rest });
+}
+
+function enumerate(alphabet: string, maxLength: number): readonly string[] {
+    let level = [""];
+    const all = [""];
+    for (let length = 0; length < maxLength; length += 1) {
+        level = level.flatMap((prefix) => [...alphabet].map((symbol) => prefix + symbol));
+        all.push(...level);
+    }
+    return all;
 }
 
 function base(): {

@@ -17,7 +17,6 @@ import {
     requirePlanAttestation,
     requireExactOutboxClosure
 } from "./rollout";
-import { compareText } from "./order";
 import type { MaterializationPlan } from "./plan";
 import { ValidationAttestation } from "./attestation";
 import { corruptDefinition, definitionRevisionConflict, invalidDefinitionState } from "./error";
@@ -36,6 +35,7 @@ import {
     type StoredPackageLock,
     type StoredPackageRelease
 } from "./package-store";
+import { compareText } from "./order";
 
 export interface MemoryPackageSnapshot {
     readonly releases: readonly StoredPackageRelease[];

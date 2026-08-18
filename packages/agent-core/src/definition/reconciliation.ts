@@ -3,8 +3,8 @@ import { Digest, Revision } from "../core";
 import type { TenantId } from "../identity";
 import type { DeploymentId } from "./id";
 import type { ManagedStateRecord } from "./generation";
-import { compareText } from "./order";
 import { invalidDefinitionState } from "./error";
+import { compareText } from "./order";
 
 export type PinEvidenceKind = "clear" | "blocked" | "unknown" | "stale" | "partial";
 

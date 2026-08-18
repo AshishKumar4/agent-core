@@ -6,7 +6,7 @@ import {
     BindingValidationEvidence,
     BindingValidationRequest
 } from "../authority";
-import { RecordCodec, type JsonValue } from "../core";
+import { RecordCodec, hasExactKeys, type JsonValue } from "../core";
 import { AgentCoreError } from "../errors";
 import type { CommandPayloadCodec } from "./payload";
 
@@ -212,7 +212,7 @@ function exactObject(
         payload === null ||
         Array.isArray(payload) ||
         typeof payload !== "object" ||
-        Object.keys(payload).sort().join(",") !== [...fields].sort().join(",")
+        !hasExactKeys(payload, fields)
     ) {
         throw new AgentCoreError("codec.invalid", "Authority protocol payload is malformed");
     }

@@ -4,7 +4,7 @@ import {
     type SynchronousResultGuard,
     type TransactionOperation
 } from "../../actors";
-import { Digest, Revision, SemVer } from "../../core";
+import { Digest, Revision, SemVer, compareText } from "../../core";
 import {
     Blueprint,
     DeploymentId,
@@ -21,6 +21,7 @@ import {
     isLegalDeploymentTransition,
     isLegalOutboxTransition,
     requirePlanAttestation,
+    UnsupportedMaterializationKindError,
     requireExactOutboxClosure
 } from "../../definition";
 import { AgentCoreError } from "../../errors";
@@ -1656,7 +1657,7 @@ function decodeStoredMaterialization<Value>(decode: () => Value): Value {
     try {
         return decode();
     } catch (error) {
-        if (isUnsupportedMaterializationKindError(error)) {
+        if (error instanceof UnsupportedMaterializationKindError) {
             throw resetRequired(
                 "stored codec bytes contain an unsupported materialization closure"
             );
@@ -1665,12 +1666,6 @@ function decodeStoredMaterialization<Value>(decode: () => Value): Value {
             error instanceof Error ? error.message : "Stored materialization codec decode failed"
         );
     }
-}
-
-function isUnsupportedMaterializationKindError(error: unknown): boolean {
-    return (
-        error instanceof Error && error.message.includes("Unsupported materialization record kind")
-    );
 }
 
 function projectBlueprint(blueprint: Blueprint, recordBytes: Uint8Array): StoredBlueprint {
@@ -1956,10 +1951,6 @@ function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
     return (
         left.byteLength === right.byteLength && left.every((value, index) => value === right[index])
     );
-}
-
-function compareText(left: string, right: string): number {
-    return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function requireMaterializationKindCheck(column: string): string {

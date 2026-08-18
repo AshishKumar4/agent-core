@@ -103,10 +103,6 @@ export function requireArray(value: FacetData | undefined, subject: string): rea
     return value;
 }
 
-export function compareText(left: string, right: string): number {
-    return left < right ? -1 : left > right ? 1 : 0;
-}
-
 export function requireNonblank(value: string, subject: string): void {
     if (value.trim().length === 0 || value !== value.trim()) {
         throw new TypeError(`${subject} must be a nonblank canonical string`);

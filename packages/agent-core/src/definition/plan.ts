@@ -8,7 +8,13 @@ import {
     isJsonObject,
     type JsonValue
 } from "../core";
-import { Command, SlotDeclaration, type FacetManifest, type IsolationMode } from "../facets";
+import {
+    Command,
+    SlotDeclaration,
+    matchesGlob,
+    type FacetManifest,
+    type IsolationMode
+} from "../facets";
 import { Blueprint } from "./blueprint";
 import {
     canonicalMaterializationDesired,
@@ -21,8 +27,8 @@ import { CORE_SLOT_NAMES, ValidatedBlueprint, type ValidatedContribution } from 
 import type { TenantId } from "../identity";
 import { DeploymentId, DeploymentKey } from "./id";
 import type { PackagePin } from "./package-lock";
-import { compareText } from "./order";
 import { invalidDefinition } from "./error";
+import { compareText } from "./order";
 
 const DERIVED_COMMAND_TRUST: readonly string[] = Object.freeze(["owner", "authenticated", "self"]);
 
@@ -494,13 +500,25 @@ function attestedProjections(validated: ValidatedBlueprint): readonly DesiredPro
     return Object.freeze(projections.sort(compareProjections));
 }
 
+const commandSurfaceKeyDecoder = new TextDecoder("utf-8", { fatal: true });
+
+/**
+ * A SurfaceId and a Command name are both merely nonblank, so either may contain U+0000
+ * and a NUL join is not injective: surface `a\u0000b` with command `c` produced the key
+ * that surface `a` with command `b\u0000c` produced, and one pair was rejected as a
+ * duplicate of the other. Canonical JSON escapes the boundary.
+ */
+function commandSurfaceKey(surface: string, command: string): string {
+    return commandSurfaceKeyDecoder.decode(encodeCanonicalJson([surface, command]));
+}
+
 function commandSubscriptionProjection(
     declaration: ValidatedContribution,
     surfaceNames: Set<string>
 ): DesiredProjection {
     const command = Command.fromData(declaration.value);
     for (const surface of command.surfaces) {
-        const key = `${surface.value} ${command.name}`;
+        const key = commandSurfaceKey(surface.value, command.name);
         if (surfaceNames.has(key)) {
             throw invalidDefinition(
                 `Command ${command.name} is not unique in surface slot ${surface.value}`
@@ -548,19 +566,11 @@ function requireSlotContributeAuthority(
     if (CORE_SLOT_NAMES.has(declaration.slot)) return;
     const contribute = authority.get(declaration.slot);
     if (contribute === undefined) return;
-    if (!contribute.some((selector) => selectorMatches(selector, declaration.contributor))) {
+    if (!contribute.some((selector) => matchesGlob(selector, declaration.contributor))) {
         throw invalidDefinition(
             `Contributor ${declaration.contributor} may not contribute to slot ${declaration.slot}`
         );
     }
-}
-
-function selectorMatches(selector: string, value: string): boolean {
-    const expression = selector
-        .split("*")
-        .map((part) => part.replace(/[.+?^${}()|[\]\\]/gu, "\\$&"))
-        .join(".*");
-    return new RegExp(`^${expression}$`, "u").test(value);
 }
 
 function compareProjections(left: DesiredProjection, right: DesiredProjection): number {

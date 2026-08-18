@@ -10,8 +10,8 @@ import {
     type ValidatedBlueprint
 } from "./validator";
 import type { Blueprint } from "./blueprint";
-import { compareText } from "./order";
 import { invalidDefinition } from "./error";
+import { compareText } from "./order";
 
 export interface VerifiedPackageModule {
     readonly pin: PackagePin;

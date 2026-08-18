@@ -1,8 +1,8 @@
 import {
     Digest,
     JsonSchema,
-    strictJsonSchemaValidator,
     encodeCanonicalJson,
+    strictJsonSchemaValidator,
     type JsonSchemaValidator,
     type JsonValue
 } from "../core";
@@ -32,8 +32,8 @@ import { MetadataSnapshot, type PackageRelease } from "./package";
 import { resolvePackageLock } from "./resolver";
 import { ValidationAttestation } from "./attestation";
 import { PlacementInput, type PlacementSelection, selectPlacement } from "./placement";
-import { compareText } from "./order";
 import { invalidDefinition } from "./error";
+import { compareText } from "./order";
 
 export const CORE_SLOT_NAMES = new Set([
     "automations",

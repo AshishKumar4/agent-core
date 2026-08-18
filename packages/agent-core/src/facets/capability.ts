@@ -1,6 +1,6 @@
 import {
     RecordCodec,
-    encodeCanonicalJson,
+    canonicalJsonEqual,
     hasExactJsonKeys,
     isMember,
     type JsonValue,
@@ -85,12 +85,12 @@ export class CapabilitySpec {
 
     public matches(intent: CapabilityIntent): boolean {
         return (
-            matchesPattern(this.facetPattern, intent.facet) &&
+            matchesGlob(this.facetPattern, intent.facet) &&
             (this.operations.length === 0 || this.operations.includes(intent.operation)) &&
             this.impacts.includes(intent.impact) &&
             Object.entries(this.argumentConstraints).every(([path, expected]) => {
                 const actual = valueAtPath(intent.arguments, path);
-                return actual !== undefined && canonicalEqual(actual, expected);
+                return actual !== undefined && canonicalJsonEqual(actual, expected);
             })
         );
     }
@@ -106,7 +106,7 @@ export class CapabilitySpec {
             candidate.impacts.every((impact) => this.impacts.includes(impact)) &&
             Object.entries(this.argumentConstraints).every(([path, expected]) => {
                 const actual = candidate.argumentConstraints[path];
-                return actual !== undefined && canonicalEqual(actual, expected);
+                return actual !== undefined && canonicalJsonEqual(actual, expected);
             })
         );
     }
@@ -116,7 +116,7 @@ export class CapabilitySpec {
     }
 
     public equals(other: CapabilitySpec): boolean {
-        return other instanceof CapabilitySpec && canonicalEqual(this.toData(), other.toData());
+        return other instanceof CapabilitySpec && canonicalJsonEqual(this.toData(), other.toData());
     }
 
     public toData(): FacetDataMap {
@@ -195,24 +195,24 @@ function validatePattern(pattern: string): void {
     }
 }
 
-function matchesPattern(pattern: string, value: string): boolean {
-    const expression = pattern
-        .split("*")
-        .map((part) => part.replace(/[.+?^${}()|[\]\\]/gu, "\\$&"))
-        .join(".*");
-    return new RegExp(`^${expression}$`, "u").test(value);
-}
-
 function patternCovers(parent: string, child: string): boolean {
     if (parent === "*" || parent === child) return true;
     const wildcard = parent.indexOf("*");
     if (wildcard < 0 || parent.indexOf("*", wildcard + 1) >= 0) return false;
+    const childWildcard = child.indexOf("*");
+    // A wildcard-free child denotes the single value `child`, so coverage is exactly
+    // membership. Testing prefix and suffix independently would ignore that the parent's
+    // own prefix and suffix must not overlap: `a*a` does not admit the value `a`.
+    if (childWildcard < 0) return matchesGlob(parent, child);
     const prefix = parent.slice(0, wildcard);
     const suffix = parent.slice(wildcard + 1);
-    const childWildcard = child.indexOf("*");
-    const childPrefix = childWildcard < 0 ? child : child.slice(0, childWildcard);
-    const childSuffix = childWildcard < 0 ? child : child.slice(child.lastIndexOf("*") + 1);
-    return childPrefix.startsWith(prefix) && childSuffix.endsWith(suffix);
+    // The child's own wildcards leave every interior position free, so only its fixed
+    // head and tail can satisfy the parent, and they are distinct segments -- together
+    // at least `prefix.length + suffix.length` characters, so no overlap is possible.
+    return (
+        child.slice(0, childWildcard).startsWith(prefix) &&
+        child.slice(child.lastIndexOf("*") + 1).endsWith(suffix)
+    );
 }
 
 function valueAtPath(
@@ -236,15 +236,6 @@ function isConstraintPath(path: string): boolean {
     return path.length > 0 && path.split(".").every((segment) => /^[a-zA-Z0-9_-]+$/u.test(segment));
 }
 
-function canonicalEqual(left: JsonValue, right: JsonValue): boolean {
-    const leftBytes = encodeCanonicalJson(left);
-    const rightBytes = encodeCanonicalJson(right);
-    return (
-        leftBytes.byteLength === rightBytes.byteLength &&
-        leftBytes.every((value, index) => value === rightBytes[index])
-    );
-}
-
 function requireArrayString(value: JsonValue, name: string): string {
     if (typeof value !== "string") throw new TypeError(`${name} must be a string`);
     return value;
@@ -253,4 +244,40 @@ function requireArrayString(value: JsonValue, name: string): string {
 function requireImpact(value: JsonValue): Impact {
     if (isMember(impacts, value)) return value;
     throw new TypeError("Capability impact is invalid");
+}
+
+/**
+ * Matches a `*`-only glob by a greedy left-to-right scan rather than a compiled
+ * `^a.*b.*c$`.
+ *
+ * Patterns reach this from stored records -- a Grant's capability pattern, a Blueprint
+ * slot's contribute selector -- so their author is not necessarily the operator. Each
+ * `*` in a compiled regex is a backtracking point, and against a value that does not
+ * match, the cost is O(value^wildcards): twelve wildcards took two seconds, eighteen did
+ * not finish.
+ *
+ * Taking the earliest occurrence of every interior literal is optimal for `*`-only
+ * globs -- a later occurrence only shortens the remaining suffix -- so the scan is exact
+ * as well as linear.
+ */
+export function matchesGlob(pattern: string, value: string): boolean {
+    const segments = pattern.split("*");
+    const first = segments[0]!;
+    const last = segments[segments.length - 1]!;
+    if (segments.length === 1) return value === pattern;
+    if (
+        first.length + last.length > value.length ||
+        !value.startsWith(first) ||
+        !value.endsWith(last)
+    ) {
+        return false;
+    }
+    const end = value.length - last.length;
+    let cursor = first.length;
+    for (const segment of segments.slice(1, -1)) {
+        const found = value.indexOf(segment, cursor);
+        if (found < 0 || found + segment.length > end) return false;
+        cursor = found + segment.length;
+    }
+    return true;
 }

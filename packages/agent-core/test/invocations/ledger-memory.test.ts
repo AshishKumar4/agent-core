@@ -34,6 +34,10 @@ import {
     type InvocationHarness
 } from "./fixture";
 import { invocationLedgerContract } from "./ledger-contract";
+import { encodeCanonicalJson } from "../../src/core";
+
+const approvalRowKey = (id: string, revision: number): string =>
+    new TextDecoder().decode(encodeCanonicalJson([id, revision]));
 
 function rejects<Failure>(
     operation: () => unknown,
@@ -318,7 +322,7 @@ test(
         const cases: Array<(state: ReturnType<typeof createInvocationMemoryState>) => void> = [
             (state) => {
                 state.approvals.set(
-                    `${approval.id.value}\u00000`,
+                    approvalRowKey(approval.id.value, 0),
                     invocationCodecs.approval.encode(otherApproval)
                 );
                 new MemoryInvocationPersistence(invocationCodecs).approval(state, approval.id);
@@ -426,12 +430,12 @@ test(
 
         const revisionDrift = createInvocationMemoryState();
         revisionDrift.approvals.set(
-            `${approval.id.value}\u00005`,
+            approvalRowKey(approval.id.value, 5),
             invocationCodecs.approval.encode(approval)
         );
         const substitutedId = createInvocationMemoryState();
         substitutedId.approvals.set(
-            `${approval.id.value}\u00000`,
+            approvalRowKey(approval.id.value, 0),
             invocationCodecs.approval.encode(other)
         );
 
@@ -453,6 +457,44 @@ test(
 );
 
 test(
+    "[invocation-persistence] memory Approval scans cannot be straddled by another id",
+    { tags: "p0" },
+    () => {
+        // An ApprovalId is a bare TextId, so U+0000 is legal inside one. Under a NUL
+        // delimiter the key for id `victim\u00007` revision 0 is byte-for-byte a prefix
+        // match for a revision of id `victim`, so an unrelated approval is read as this
+        // one's latest revision -- and its revision parses as NaN, poisoning the sort.
+        const persistence = new MemoryInvocationPersistence(invocationCodecs);
+        const invocation = prepared("memory-approval-straddle");
+        const victim = Approval.pending(
+            new ApprovalId("victim"),
+            invocation.header.id,
+            invocation.intentDigest,
+            new Date(1000)
+        );
+        const straddler = Approval.pending(
+            new ApprovalId("victim\u00007"),
+            invocation.header.id,
+            invocation.intentDigest,
+            new Date(1000)
+        );
+
+        const state = createInvocationMemoryState();
+        state.approvals.set(
+            approvalRowKey(victim.id.value, 0),
+            invocationCodecs.approval.encode(victim)
+        );
+        state.approvals.set(
+            approvalRowKey(straddler.id.value, 0),
+            invocationCodecs.approval.encode(straddler)
+        );
+
+        expect(persistence.approval(state, victim.id)?.id.value).toBe("victim");
+        expect(persistence.approval(state, straddler.id)?.id.value).toBe("victim\u00007");
+    }
+);
+
+test(
     "[invocation-persistence] memory reads the latest Approval revision from any map order",
     { tags: "p0" },
     () => {
@@ -469,7 +511,7 @@ test(
             new Date(2000)
         );
         expect(approved.revision.value).toBe(1);
-        const key = (revision: number): string => `${pending.id.value}\u0000${revision}`;
+        const key = (revision: number): string => approvalRowKey(pending.id.value, revision);
 
         const ascending = createInvocationMemoryState();
         ascending.approvals.set(key(0), invocationCodecs.approval.encode(pending));
@@ -860,7 +902,7 @@ test(
         );
         const state = createInvocationMemoryState();
         state.approvals.set(
-            `${approval.id.value}\u00005`,
+            approvalRowKey(approval.id.value, 5),
             invocationCodecs.approval.encode(approval)
         );
         const error = rejects(() => persistence.approval(state, approval.id), AgentCoreError);

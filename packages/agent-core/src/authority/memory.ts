@@ -1,5 +1,5 @@
 import { ActorId } from "../actors";
-import { Revision } from "../core";
+import { Revision, compareText } from "../core";
 import { AgentCoreError } from "../errors";
 import {
     Membership,
@@ -225,7 +225,8 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
             records: Object.freeze(
                 [...this.#identity.values()]
                     .sort((left, right) =>
-                        identityKey(left.kind, left.id).localeCompare(
+                        compareText(
+                            identityKey(left.kind, left.id),
                             identityKey(right.kind, right.id)
                         )
                     )
@@ -632,7 +633,7 @@ export class MemoryTenantControlStore implements AuthorityMutationStore {
         return Object.freeze(
             [...this.#identity.values()]
                 .filter((record) => record.kind === kind)
-                .sort((left, right) => left.id.localeCompare(right.id))
+                .sort((left, right) => compareText(left.id, right.id))
                 .map((record) => decode(record.bytes.slice()))
         );
     }
@@ -998,7 +999,7 @@ function loadRecords<Record>(
 function snapshotRecords(map: RecordMap): readonly StoredTenantControlRecord[] {
     return Object.freeze(
         [...map.entries()]
-            .sort(([left], [right]) => left.localeCompare(right))
+            .sort(([left], [right]) => compareText(left, right))
             .map(([id, bytes]) => Object.freeze({ id, bytes: bytes.slice() }))
     );
 }

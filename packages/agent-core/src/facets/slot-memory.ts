@@ -1,4 +1,4 @@
-import { Revision } from "../core";
+import { Revision, compareText, hasExactKeys } from "../core";
 import type { SynchronousResultGuard, TransactionOperation } from "../actors";
 import { AgentCoreError } from "../errors";
 import type { WorkspaceId } from "../identity";
@@ -231,10 +231,6 @@ function compareEntries(left: SlotEntry, right: SlotEntry): number {
     );
 }
 
-function compareText(left: string, right: string): number {
-    return left < right ? -1 : 1;
-}
-
 function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
     return (
         left.byteLength === right.byteLength && left.every((value, index) => value === right[index])
@@ -249,8 +245,7 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
 
 function requireSnapshot(snapshot: MemoryWorkspaceSlotSnapshot): void {
     if (
-        JSON.stringify(Object.keys(snapshot).sort()) !==
-            JSON.stringify(["entries", "owner", "revision", "slots", "version"]) ||
+        !hasExactKeys(snapshot, ["entries", "owner", "revision", "slots", "version"]) ||
         snapshot.version !== 1 ||
         typeof snapshot.owner !== "string" ||
         !Number.isSafeInteger(snapshot.revision) ||

@@ -1,5 +1,5 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
-import { Digest, RecordCodec, encodeCanonicalJson, isMember, type JsonValue } from "../core";
+import { Digest, RecordCodec, compareText, encodeCanonicalJson, isMember, type JsonValue } from "../core";
 import { FacetRef, type Impact } from "../facets";
 import { PrincipalId, PrincipalRef, TenantId } from "../identity";
 import { Binding } from "./binding";
@@ -364,7 +364,7 @@ function decodeIntent(value: JsonValue | undefined): AuthorityOperationIntent {
 }
 
 function canonicalGrantIds(ids: readonly GrantId[]): readonly GrantId[] {
-    const ordered = [...ids].sort((left, right) => left.value.localeCompare(right.value));
+    const ordered = [...ids].sort((left, right) => compareText(left.value, right.value));
     if (new Set(ordered.map((id) => id.value)).size !== ordered.length) {
         throw new TypeError("Authority Grant evidence must be unique");
     }

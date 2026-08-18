@@ -1,3 +1,4 @@
+import { compareText, hasExactKeys } from "../core";
 import { AgentCoreError } from "../errors";
 import type { ActorRef } from "../actors";
 import type { TenantId } from "../identity";
@@ -99,7 +100,7 @@ export class MemoryInvalidationWatermarkStore implements InvalidationWatermarkSt
             version: 1,
             records: Object.freeze(
                 [...this.#records.entries()]
-                    .sort(([left], [right]) => left.localeCompare(right))
+                    .sort(([left], [right]) => compareText(left, right))
                     .map(([key, bytes]) =>
                         Object.freeze({
                             key,
@@ -125,7 +126,7 @@ function requireSnapshot(snapshot: MemoryInvalidationWatermarkSnapshot): void {
     if (
         snapshot === null ||
         typeof snapshot !== "object" ||
-        JSON.stringify(Object.keys(snapshot).sort()) !== JSON.stringify(["records", "version"]) ||
+        !hasExactKeys(snapshot, ["records", "version"]) ||
         snapshot.version !== 1 ||
         !Array.isArray(snapshot.records)
     ) {
@@ -135,7 +136,7 @@ function requireSnapshot(snapshot: MemoryInvalidationWatermarkSnapshot): void {
         if (
             record === null ||
             typeof record !== "object" ||
-            JSON.stringify(Object.keys(record).sort()) !== JSON.stringify(["bytes", "key"]) ||
+            !hasExactKeys(record, ["bytes", "key"]) ||
             typeof record.key !== "string" ||
             record.key.length === 0 ||
             !(record.bytes instanceof Uint8Array)

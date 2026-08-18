@@ -1,3 +1,4 @@
+import { compareText } from "../../core";
 import { AgentCoreError } from "../../errors";
 import type { SynchronousResultGuard } from "../../actors";
 import {
@@ -57,7 +58,7 @@ export class MemoryRunStorage implements RunStoragePort<MemoryState> {
     public list(transaction: MemoryState, kind: RunRecordKind): readonly StoredRunRecord[] {
         return [...transaction.records.values()]
             .filter((record) => record.kind === kind)
-            .sort((left, right) => left.key.localeCompare(right.key))
+            .sort((left, right) => compareText(left.key, right.key))
             .map(copyRecord);
     }
 
@@ -112,7 +113,8 @@ export class MemoryRunStorage implements RunStoragePort<MemoryState> {
             records: Object.freeze(
                 [...this.#state.records.values()]
                     .sort((left, right) =>
-                        recordKey(left.kind, left.key).localeCompare(
+                        compareText(
+                            recordKey(left.kind, left.key),
                             recordKey(right.kind, right.key)
                         )
                     )
@@ -121,7 +123,8 @@ export class MemoryRunStorage implements RunStoragePort<MemoryState> {
             parents: Object.freeze(
                 [...this.#state.parents.values()]
                     .sort((left, right) =>
-                        parentKey(left.commit, left.ordinal).localeCompare(
+                        compareText(
+                            parentKey(left.commit, left.ordinal),
                             parentKey(right.commit, right.ordinal)
                         )
                     )

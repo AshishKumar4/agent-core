@@ -1,8 +1,7 @@
-import { isNonempty, CompatRange, JsonSchema, SemVer } from "../core";
+import { compareText, isNonempty, CompatRange, JsonSchema, SemVer } from "../core";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
-    compareText,
     requireArray,
     requireDataObject,
     requireExactFields,

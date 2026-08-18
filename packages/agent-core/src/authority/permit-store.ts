@@ -1,5 +1,5 @@
 import { requireSynchronousResult, type ActorRef, type SynchronousResultGuard } from "../actors";
-import { Digest } from "../core";
+import { Digest, compareText } from "../core";
 import { AgentCoreError } from "../errors";
 import { AuthorityPermit, AuthorityPermitExpectation } from "./permit";
 import {
@@ -193,12 +193,12 @@ export class MemoryAuthorityPermitStore implements AuthorityPermitOwnerStore<Mem
             version: 1,
             issued: Object.freeze(
                 [...this.#issued]
-                    .sort(([left], [right]) => left.localeCompare(right))
+                    .sort(([left], [right]) => compareText(left, right))
                     .map(([nonce, bytes]) => Object.freeze({ nonce, bytes: bytes.slice() }))
             ),
             consumed: Object.freeze(
                 [...this.#consumed]
-                    .sort(([left], [right]) => left.localeCompare(right))
+                    .sort(([left], [right]) => compareText(left, right))
                     .map(([nonce, digest]) => Object.freeze({ nonce, digest }))
             )
         };

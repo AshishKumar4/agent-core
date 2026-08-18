@@ -1,5 +1,5 @@
 import { AgentCoreError } from "../errors";
-import { Revision, TextId } from "../core";
+import { Revision, TextId, hasExactKeys } from "../core";
 import { types as utilTypes } from "node:util";
 import { ActorRecoveryState } from "./fence";
 import { ActorId } from "./id";
@@ -339,8 +339,7 @@ function requireSnapshot<TState>(value: MemoryActorStoreSnapshot<TState>): void 
     if (
         value === null ||
         typeof value !== "object" ||
-        JSON.stringify(Object.keys(value).sort()) !==
-            JSON.stringify(["actor", "recoveryState", "state", "version"]) ||
+        !hasExactKeys(value, ["actor", "recoveryState", "state", "version"]) ||
         value.version !== 1 ||
         value.state === null ||
         typeof value.state !== "object" ||
@@ -357,7 +356,7 @@ function isSnapshotActor(
     return (
         value === null ||
         (typeof value === "object" &&
-            JSON.stringify(Object.keys(value).sort()) === JSON.stringify(["id", "kind"]) &&
+            hasExactKeys(value, ["id", "kind"]) &&
             typeof value.id === "string" &&
             isActorKind(value.kind))
     );

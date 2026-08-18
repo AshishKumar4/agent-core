@@ -25,6 +25,7 @@ import {
 } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
 import { Contributions, FacetManifest, FacetPackageId } from "../../src/facets";
+import { compareText } from "../../src/core";
 
 const encoder = new TextEncoder();
 const target = new PlatformCompatibility({ spec: new SemVer("1.0.0"), host: new SemVer("20.0.0") });
@@ -483,7 +484,7 @@ function packageRelease(
         ...(overrides.codeRefs ?? [
             ContentRef.fromDigest(overrides.codeDigest ?? digestOf(`code:${id}:${version}`))
         ])
-    ].sort((left, right) => left.value.localeCompare(right.value));
+    ].sort((left, right) => compareText(left.value, right.value));
     const modules = references.map(
         (reference, index) =>
             new PackageCodeModule({
