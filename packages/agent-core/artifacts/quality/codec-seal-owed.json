@@ -2,47 +2,12 @@
   "edition": "1.0.0",
   "owed": [
     {
-      "fingerprint": "SEAL:src/agents/runs/handle.ts#AdmissionHandleCodec:ChildRunAdmissionIdentity",
-      "file": "src/agents/runs/handle.ts",
-      "codec": "AdmissionHandleCodec",
-      "base": "TurnAdmissionIdentity",
-      "missing": "ChildRunAdmissionIdentity",
-      "members": [
-        "address",
-        "equals",
-        "toData",
-        "toolPosition"
-      ],
-      "risk": "own",
-      "owner": "W5",
-      "counterfactual": "Object.defineProperty(ChildRunAdmissionIdentity.prototype, \"address\", …) succeeds while AdmissionHandleCodec does not name it, replacing the case's own address"
-    },
-    {
-      "fingerprint": "SEAL:src/agents/runs/handle.ts#AdmissionHandleCodec:InvocationAdmissionIdentity",
-      "file": "src/agents/runs/handle.ts",
-      "codec": "AdmissionHandleCodec",
-      "base": "TurnAdmissionIdentity",
-      "missing": "InvocationAdmissionIdentity",
-      "members": [
-        "address",
-        "equals",
-        "toData",
-        "toolPosition"
-      ],
-      "risk": "own",
-      "owner": "W5",
-      "counterfactual": "Object.defineProperty(InvocationAdmissionIdentity.prototype, \"address\", …) succeeds while AdmissionHandleCodec does not name it, replacing the case's own address"
-    },
-    {
       "fingerprint": "SEAL:src/authority/binding.ts#BindingCodec:ActiveBindingLifecycle",
       "file": "src/authority/binding.ts",
       "codec": "BindingCodec",
       "base": "BindingLifecycle",
       "missing": "ActiveBindingLifecycle",
-      "members": [
-        "activate",
-        "deactivate"
-      ],
+      "members": ["activate", "deactivate"],
       "risk": "own",
       "owner": "W2",
       "counterfactual": "Object.defineProperty(ActiveBindingLifecycle.prototype, \"activate\", …) succeeds while BindingCodec does not name it, replacing the case's own activate"
@@ -53,10 +18,7 @@
       "codec": "BindingCodec",
       "base": "BindingLifecycle",
       "missing": "InactiveBindingLifecycle",
-      "members": [
-        "activate",
-        "deactivate"
-      ],
+      "members": ["activate", "deactivate"],
       "risk": "own",
       "owner": "W2",
       "counterfactual": "Object.defineProperty(InactiveBindingLifecycle.prototype, \"activate\", …) succeeds while BindingCodec does not name it, replacing the case's own activate"
@@ -67,10 +29,7 @@
       "codec": "PortExposureCodecV1",
       "base": "PortExposureState",
       "missing": "ExposedPortState",
-      "members": [
-        "beginRevoke",
-        "exposed"
-      ],
+      "members": ["beginRevoke", "exposed"],
       "risk": "own",
       "owner": "W8",
       "counterfactual": "Object.defineProperty(ExposedPortState.prototype, \"beginRevoke\", …) succeeds while PortExposureCodecV1 does not name it, replacing the case's own beginRevoke"
@@ -81,11 +40,7 @@
       "codec": "PortExposureCodecV1",
       "base": "PortExposureState",
       "missing": "ExposingPortState",
-      "members": [
-        "beginRevoke",
-        "exposed",
-        "fail"
-      ],
+      "members": ["beginRevoke", "exposed", "fail"],
       "risk": "own",
       "owner": "W8",
       "counterfactual": "Object.defineProperty(ExposingPortState.prototype, \"beginRevoke\", …) succeeds while PortExposureCodecV1 does not name it, replacing the case's own beginRevoke"
@@ -96,10 +51,7 @@
       "codec": "PortExposureCodecV1",
       "base": "PortExposureState",
       "missing": "FailedPortState",
-      "members": [
-        "beginRevoke",
-        "fail"
-      ],
+      "members": ["beginRevoke", "fail"],
       "risk": "own",
       "owner": "W8",
       "counterfactual": "Object.defineProperty(FailedPortState.prototype, \"beginRevoke\", …) succeeds while PortExposureCodecV1 does not name it, replacing the case's own beginRevoke"
@@ -110,10 +62,7 @@
       "codec": "PortExposureCodecV1",
       "base": "PortExposureState",
       "missing": "RevokedPortState",
-      "members": [
-        "beginRevoke",
-        "revoked"
-      ],
+      "members": ["beginRevoke", "revoked"],
       "risk": "own",
       "owner": "W8",
       "counterfactual": "Object.defineProperty(RevokedPortState.prototype, \"beginRevoke\", …) succeeds while PortExposureCodecV1 does not name it, replacing the case's own beginRevoke"
@@ -124,10 +73,7 @@
       "codec": "PortExposureCodecV1",
       "base": "PortExposureState",
       "missing": "RevokingPortState",
-      "members": [
-        "beginRevoke",
-        "revoked"
-      ],
+      "members": ["beginRevoke", "revoked"],
       "risk": "own",
       "owner": "W8",
       "counterfactual": "Object.defineProperty(RevokingPortState.prototype, \"beginRevoke\", …) succeeds while PortExposureCodecV1 does not name it, replacing the case's own beginRevoke"
@@ -138,11 +84,7 @@
       "codec": "EnvironmentSessionCodecV1",
       "base": "EnvironmentSessionState",
       "missing": "ClosedSessionState",
-      "members": [
-        "assertUsable",
-        "beginClose",
-        "closed"
-      ],
+      "members": ["assertUsable", "beginClose", "closed"],
       "risk": "own",
       "owner": "W8",
       "counterfactual": "Object.defineProperty(ClosedSessionState.prototype, \"assertUsable\", …) succeeds while EnvironmentSessionCodecV1 does not name it, replacing the case's own assertUsable"
@@ -153,10 +95,7 @@
       "codec": "EnvironmentSessionCodecV1",
       "base": "EnvironmentSessionState",
       "missing": "ClosingSessionState",
-      "members": [
-        "beginClose",
-        "closed"
-      ],
+      "members": ["beginClose", "closed"],
       "risk": "own",
       "owner": "W8",
       "counterfactual": "Object.defineProperty(ClosingSessionState.prototype, \"beginClose\", …) succeeds while EnvironmentSessionCodecV1 does not name it, replacing the case's own beginClose"
@@ -167,10 +106,7 @@
       "codec": "EnvironmentSessionCodecV1",
       "base": "EnvironmentSessionState",
       "missing": "FailedSessionState",
-      "members": [
-        "beginClose",
-        "failOpen"
-      ],
+      "members": ["beginClose", "failOpen"],
       "risk": "own",
       "owner": "W8",
       "counterfactual": "Object.defineProperty(FailedSessionState.prototype, \"beginClose\", …) succeeds while EnvironmentSessionCodecV1 does not name it, replacing the case's own beginClose"
@@ -181,11 +117,7 @@
       "codec": "EnvironmentSessionCodecV1",
       "base": "EnvironmentSessionState",
       "missing": "LostSessionState",
-      "members": [
-        "assertUsable",
-        "beginClose",
-        "lost"
-      ],
+      "members": ["assertUsable", "beginClose", "lost"],
       "risk": "own",
       "owner": "W8",
       "counterfactual": "Object.defineProperty(LostSessionState.prototype, \"assertUsable\", …) succeeds while EnvironmentSessionCodecV1 does not name it, replacing the case's own assertUsable"
@@ -196,13 +128,7 @@
       "codec": "EnvironmentSessionCodecV1",
       "base": "EnvironmentSessionState",
       "missing": "OpenSessionState",
-      "members": [
-        "assertUsable",
-        "beginClose",
-        "beginOpen",
-        "lost",
-        "opened"
-      ],
+      "members": ["assertUsable", "beginClose", "beginOpen", "lost", "opened"],
       "risk": "own",
       "owner": "W8",
       "counterfactual": "Object.defineProperty(OpenSessionState.prototype, \"assertUsable\", …) succeeds while EnvironmentSessionCodecV1 does not name it, replacing the case's own assertUsable"
@@ -213,12 +139,7 @@
       "codec": "EnvironmentSessionCodecV1",
       "base": "EnvironmentSessionState",
       "missing": "OpeningSessionState",
-      "members": [
-        "beginClose",
-        "beginOpen",
-        "failOpen",
-        "opened"
-      ],
+      "members": ["beginClose", "beginOpen", "failOpen", "opened"],
       "risk": "own",
       "owner": "W8",
       "counterfactual": "Object.defineProperty(OpeningSessionState.prototype, \"beginClose\", …) succeeds while EnvironmentSessionCodecV1 does not name it, replacing the case's own beginClose"
@@ -229,10 +150,7 @@
       "codec": "EnvironmentSessionCodecV1",
       "base": "EnvironmentSessionState",
       "missing": "ReservedSessionState",
-      "members": [
-        "beginClose",
-        "beginOpen"
-      ],
+      "members": ["beginClose", "beginOpen"],
       "risk": "own",
       "owner": "W8",
       "counterfactual": "Object.defineProperty(ReservedSessionState.prototype, \"beginClose\", …) succeeds while EnvironmentSessionCodecV1 does not name it, replacing the case's own beginClose"
@@ -243,10 +161,7 @@
       "codec": "EnvironmentSnapshotCodecV1",
       "base": "EnvironmentSnapshotState",
       "missing": "CreatingSnapshotState",
-      "members": [
-        "fail",
-        "ready"
-      ],
+      "members": ["fail", "ready"],
       "risk": "own",
       "owner": "W8",
       "counterfactual": "Object.defineProperty(CreatingSnapshotState.prototype, \"fail\", …) succeeds while EnvironmentSnapshotCodecV1 does not name it, replacing the case's own fail"
@@ -257,9 +172,7 @@
       "codec": "EnvironmentSnapshotCodecV1",
       "base": "EnvironmentSnapshotState",
       "missing": "FailedSnapshotState",
-      "members": [
-        "fail"
-      ],
+      "members": ["fail"],
       "risk": "own",
       "owner": "W8",
       "counterfactual": "Object.defineProperty(FailedSnapshotState.prototype, \"fail\", …) succeeds while EnvironmentSnapshotCodecV1 does not name it, replacing the case's own fail"
@@ -270,9 +183,7 @@
       "codec": "EnvironmentSnapshotCodecV1",
       "base": "EnvironmentSnapshotState",
       "missing": "ReadySnapshotState",
-      "members": [
-        "ready"
-      ],
+      "members": ["ready"],
       "risk": "own",
       "owner": "W8",
       "counterfactual": "Object.defineProperty(ReadySnapshotState.prototype, \"ready\", …) succeeds while EnvironmentSnapshotCodecV1 does not name it, replacing the case's own ready"
@@ -283,10 +194,7 @@
       "codec": "GuestTrustRecordCodec",
       "base": "GuestTrustLifecycle",
       "missing": "ActiveGuestTrustLifecycle",
-      "members": [
-        "revoke",
-        "rotate"
-      ],
+      "members": ["revoke", "rotate"],
       "risk": "own",
       "owner": "W2",
       "counterfactual": "Object.defineProperty(ActiveGuestTrustLifecycle.prototype, \"revoke\", …) succeeds while GuestTrustRecordCodec does not name it, replacing the case's own revoke"
@@ -297,10 +205,7 @@
       "codec": "GuestTrustRecordCodec",
       "base": "GuestTrustLifecycle",
       "missing": "RevokedGuestTrustLifecycle",
-      "members": [
-        "revoke",
-        "rotate"
-      ],
+      "members": ["revoke", "rotate"],
       "risk": "own",
       "owner": "W2",
       "counterfactual": "Object.defineProperty(RevokedGuestTrustLifecycle.prototype, \"revoke\", …) succeeds while GuestTrustRecordCodec does not name it, replacing the case's own revoke"
@@ -311,9 +216,7 @@
       "codec": "MembershipRecordCodec",
       "base": "MembershipLifecycle",
       "missing": "ActiveMembershipLifecycle",
-      "members": [
-        "transition"
-      ],
+      "members": ["transition"],
       "risk": "own",
       "owner": "W2",
       "counterfactual": "Object.defineProperty(ActiveMembershipLifecycle.prototype, \"transition\", …) succeeds while MembershipRecordCodec does not name it, replacing the case's own transition"
@@ -324,9 +227,7 @@
       "codec": "MembershipRecordCodec",
       "base": "MembershipLifecycle",
       "missing": "RevokedMembershipLifecycle",
-      "members": [
-        "transition"
-      ],
+      "members": ["transition"],
       "risk": "own",
       "owner": "W2",
       "counterfactual": "Object.defineProperty(RevokedMembershipLifecycle.prototype, \"transition\", …) succeeds while MembershipRecordCodec does not name it, replacing the case's own transition"
@@ -337,9 +238,7 @@
       "codec": "MembershipRecordCodec",
       "base": "MembershipLifecycle",
       "missing": "SuspendedMembershipLifecycle",
-      "members": [
-        "transition"
-      ],
+      "members": ["transition"],
       "risk": "own",
       "owner": "W2",
       "counterfactual": "Object.defineProperty(SuspendedMembershipLifecycle.prototype, \"transition\", …) succeeds while MembershipRecordCodec does not name it, replacing the case's own transition"
@@ -350,9 +249,7 @@
       "codec": "PrincipalRecordCodec",
       "base": "PrincipalLifecycle",
       "missing": "ActivePrincipalLifecycle",
-      "members": [
-        "disable"
-      ],
+      "members": ["disable"],
       "risk": "own",
       "owner": "W2",
       "counterfactual": "Object.defineProperty(ActivePrincipalLifecycle.prototype, \"disable\", …) succeeds while PrincipalRecordCodec does not name it, replacing the case's own disable"
@@ -363,9 +260,7 @@
       "codec": "PrincipalRecordCodec",
       "base": "PrincipalLifecycle",
       "missing": "DisabledPrincipalLifecycle",
-      "members": [
-        "disable"
-      ],
+      "members": ["disable"],
       "risk": "own",
       "owner": "W2",
       "counterfactual": "Object.defineProperty(DisabledPrincipalLifecycle.prototype, \"disable\", …) succeeds while PrincipalRecordCodec does not name it, replacing the case's own disable"
@@ -376,9 +271,7 @@
       "codec": "TenantRecordCodec",
       "base": "TenantLifecycle",
       "missing": "DeletedTenantLifecycle",
-      "members": [
-        "transition"
-      ],
+      "members": ["transition"],
       "risk": "own",
       "owner": "W2",
       "counterfactual": "Object.defineProperty(DeletedTenantLifecycle.prototype, \"transition\", …) succeeds while TenantRecordCodec does not name it, replacing the case's own transition"
@@ -389,9 +282,7 @@
       "codec": "TenantRecordCodec",
       "base": "TenantLifecycle",
       "missing": "MutableTenantLifecycle",
-      "members": [
-        "transition"
-      ],
+      "members": ["transition"],
       "risk": "own",
       "owner": "W2",
       "counterfactual": "Object.defineProperty(MutableTenantLifecycle.prototype, \"transition\", …) succeeds while TenantRecordCodec does not name it, replacing the case's own transition"

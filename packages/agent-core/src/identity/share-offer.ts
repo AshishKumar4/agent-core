@@ -229,6 +229,8 @@ class ShareOfferRecordCodec extends RecordCodec<ShareOffer> {
                 Digest,
                 Revision,
                 ShareOfferLifecycle,
+                OpenShareOfferLifecycle,
+                RevokedShareOfferLifecycle,
                 TextId,
                 ScopeRef,
                 PrincipalRef,
