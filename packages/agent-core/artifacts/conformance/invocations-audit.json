@@ -1097,7 +1097,7 @@
         "src/invocations/receipt.ts#AttemptCompletion",
         "src/invocations/receipt.ts#AttemptReceipt",
         "src/invocations/receipt.ts#ReceiptCodecV2",
-        "src/invocations/canonical-batch.ts#classifyAttemptFailure",
+        "src/invocations/receipt.ts#AttemptFailureKind.classify",
         "src/invocations/canonical-batch.ts#CanonicalBatchInvocationPort"
       ],
       "testSelectors": [

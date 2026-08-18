@@ -22,7 +22,6 @@ import {
     type CanonicalBatchInvocationRequest
 } from "../../src/invocations";
 import { InvocationId } from "../../src/interaction-references";
-import { classifyAttemptFailure } from "../../src/invocations/canonical-batch";
 import { outsideVocabulary } from "./fixture";
 import { ConfirmedOperationFailure, OperationRequestKey } from "../../src/operations";
 import {
@@ -118,7 +117,7 @@ describe("§7.4 attempt failure kinds", () => {
             ] as const;
             const derived = observed.map(([name, facts]) => [
                 name,
-                classifyAttemptFailure({
+                AttemptFailureKind.classify({
                     ...facts,
                     cancellation: open,
                     target: answering,
@@ -138,7 +137,7 @@ describe("§7.4 attempt failure kinds", () => {
                 readonly target?: AttemptTargetDomain;
                 readonly elapsedBound?: Date;
             }): string =>
-                classifyAttemptFailure({
+                AttemptFailureKind.classify({
                     confirmed: facts.confirmed ?? false,
                     elapsedBound: facts.elapsedBound,
                     cancellation: facts.cancellation ?? open,
