@@ -1,6 +1,7 @@
 import fc, { type Command } from "fast-check";
 import { afterEach, describe, expect, test } from "vitest";
 import { ActorId, ActorRef } from "../../src/actors";
+import { RunCommitId } from "../../src/agents";
 import { ContentRef, Digest } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import { PrincipalId, TenantId } from "../../src/identity";
@@ -33,8 +34,10 @@ import {
     ReceiptId,
     RouteProjectionId,
     RouteReservationId,
-    validateAuditAppend
+    validateAuditAppend,
+    WriteRecordId
 } from "../../src/invocations";
+import { EventId } from "../../src/workspaces";
 import {
     admissionFor,
     attemptCompletion,
@@ -4726,6 +4729,100 @@ export function invocationLedgerContract<Transaction>(
                     )
                 ];
                 for (const audit of rejected) {
+                    expectAgentCoreError(
+                        () =>
+                            harness.transaction((transaction) =>
+                                harness.ledger.requirePersistedAuditRelation(
+                                    transaction,
+                                    audit,
+                                    evidence
+                                )
+                            ),
+                        /is not permitted/
+                    );
+                }
+            }
+        );
+
+        /*
+         * The ledger substantiates the three evidence kinds it reads from its own
+         * persistence -- approval, attempt, receipt -- and nothing else. Every other kind
+         * belongs to a subsystem it cannot read, so an edge whose substantiation needs one
+         * is refused rather than admitted on the strength of the stored record alone.
+         * Each pair below is a *permitted* edge shape, so the linkage check passes and the
+         * refusal can only come from the ledger declining to vouch for foreign evidence.
+         */
+        test(
+            "[invocation.audit] refuses a permitted audit edge whose evidence it cannot read",
+            { tags: "p1" },
+            () => {
+                const harness = open();
+                const evidence = new ContractEvidence<Transaction>();
+                const invocation = prepared("audit-foreign", {}, { lease: "lease:1" });
+                const actor = invocation.header.actor;
+                const root = preparationAudit(invocation);
+                harness.transaction((transaction) =>
+                    harness.ledger.prepareWithAudit(transaction, invocation, root, evidence)
+                );
+
+                const receiptCause = auditRecord("audit:foreign:receipt", actor, {
+                    kind: "receipt",
+                    id: new ReceiptId("receipt:foreign"),
+                    outcome: "succeeded"
+                });
+                const eventCause = auditRecord("audit:foreign:event", actor, {
+                    kind: "event",
+                    id: new EventId("event:foreign")
+                });
+                const reservation = new RouteReservationId("route:foreign");
+                const projectedCause = auditRecord("audit:foreign:projected", actor, {
+                    kind: "routeProjected",
+                    projection: new RouteProjectionId("projection:foreign"),
+                    reservation
+                });
+                for (const cause of [receiptCause, eventCause, projectedCause]) {
+                    evidence.seed(cause);
+                }
+
+                const unreadable: readonly AuditRecord[] = [
+                    auditRecord(
+                        "audit:foreign:to-event",
+                        actor,
+                        { kind: "event", id: new EventId("event:foreign-next") },
+                        receiptCause.id
+                    ),
+                    auditRecord(
+                        "audit:foreign:to-commit",
+                        actor,
+                        { kind: "commit", id: new RunCommitId("commit:foreign") },
+                        receiptCause.id
+                    ),
+                    auditRecord(
+                        "audit:foreign:to-route",
+                        actor,
+                        { kind: "routeReserved", id: reservation },
+                        eventCause.id
+                    ),
+                    // The reservation matches its projection, so the reservation identity is
+                    // not what fails: only the unreadable delivery is.
+                    auditRecord(
+                        "audit:foreign:to-delivery",
+                        actor,
+                        { kind: "delivery", reservation },
+                        projectedCause.id
+                    ),
+                    auditRecord(
+                        "audit:foreign:to-write",
+                        actor,
+                        {
+                            kind: "write",
+                            id: new WriteRecordId("write:foreign"),
+                            outcome: "committed"
+                        },
+                        root.id
+                    )
+                ];
+                for (const audit of unreadable) {
                     expectAgentCoreError(
                         () =>
                             harness.transaction((transaction) =>

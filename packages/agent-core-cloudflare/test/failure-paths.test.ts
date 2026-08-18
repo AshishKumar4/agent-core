@@ -69,6 +69,31 @@ describe("Cloudflare operational failure mapping", () => {
         }
     });
 
+    test("reports nothing captured, not a captured nothing, when no cause was given", () => {
+        // `cause: undefined` and no `cause` at all are different reports, and the batch
+        // seams that read this failure render a per-entry cause only when one exists. The
+        // mapping defines the property exactly when it captured something, so an absent
+        // cause must leave no property behind for those seams to find.
+        let failure: unknown;
+        try {
+            operationalFailure(
+                {
+                    raise(): never {
+                        throw new TypeError("invalid mapper");
+                    }
+                },
+                "codec.invalid",
+                "uncaused failure"
+            );
+        } catch (error) {
+            failure = error;
+        }
+
+        expect(failure).toBeInstanceOf(AgentCoreError);
+        expect(failure).toMatchObject({ code: "codec.invalid", message: "uncaused failure" });
+        expect(failure).not.toHaveProperty("cause");
+    });
+
     test("maps SQLite preparation, cursor, and platform transaction failures", () => {
         const prepareFailure = new CloudflareSqlite(
             new FakeDurableObjectStorage({

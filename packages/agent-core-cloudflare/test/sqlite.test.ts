@@ -174,9 +174,9 @@ describe("CloudflareSqlite", () => {
                 new FakeDurableObjectStorage(new FakeSqlStorage(() => ({}))),
                 fakeErrors
             );
-            const leaked: unknown[] = [];
-            const collect = (reason: unknown): void => {
-                leaked.push(reason);
+            let leaked = 0;
+            const collect = (): void => {
+                leaked += 1;
             };
 
             process.on("unhandledRejection", collect);
@@ -198,7 +198,7 @@ describe("CloudflareSqlite", () => {
             // The refused callback keeps running, and its failure is the adapter's to
             // absorb: an unhandled rejection here would take down the whole isolate over
             // work the adapter already refused.
-            expect(leaked).toEqual([]);
+            expect(leaked).toBe(0);
             expect(() => database.run("UPDATE", [])).toThrow("adapter is poisoned");
         }
     );

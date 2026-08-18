@@ -60,7 +60,7 @@ function operationId(value = "operation-1"): ReconciliationOutboxId {
  */
 class MiscountingSqlite implements SynchronousSqlitePort {
     public all(): readonly SqliteRow[] {
-        return new Array<SqliteRow>(1);
+        return malformedInput([undefined]);
     }
 
     public run(): void {}

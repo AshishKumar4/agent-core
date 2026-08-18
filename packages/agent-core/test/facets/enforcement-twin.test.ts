@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { POLICY_IMPACTS } from "../../src/definition/policy";
+import { POLICY_IMPACTS } from "../../src/definition";
 import type { EnforcementTier, Impact } from "../../src/facets/enforcement";
 import {
     claimHonorsEnforcementFloor as handwrittenClaimHonorsFloor,
