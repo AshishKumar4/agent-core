@@ -496,6 +496,15 @@ function survivorRecord(path, mutant, source, classification, proof) {
         endColumn: mutant.location.end.column,
         mutator: mutant.mutatorName,
         classification,
+        // Two different defects wear the same `actionable` label and want opposite work.
+        // A Survived mutant ran under some test and no assertion told it apart, so the
+        // fix is an assertion. A NoCoverage mutant never ran at all, so the fix is a test
+        // that reaches the site — or, where nothing can reach it, an unreachability proof.
+        // Without the status a reader cannot tell which, and the classifier cannot say:
+        // NoCoverage bypasses classify() entirely, so a message literal in an unreached
+        // throw is reported actionable while the identical literal one line into a
+        // covered path is reported tolerated.
+        status: mutant.status,
         // Whole, never truncated. The replacement is what a reader applies to reproduce
         // the mutant and what an equivalence entry anchors on, so a clipped one is worse
         // than absent twice over: applying a cut LogicalOperator chain is a syntax error,

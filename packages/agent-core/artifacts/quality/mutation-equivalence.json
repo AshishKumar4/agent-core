@@ -1430,10 +1430,74 @@
     {
       "file": "src/content/memory.ts",
       "symbol": "decodeStoredEdge",
+      "mutator": "ConditionalExpression",
+      "mutated": "edge.ownerKey !== ownerKey",
+      "replacement": "false",
+      "proof": "Both callers pass a key and the bytes stored under it, iterating backend.edges, and every write to that map keys the entry by the encoded edge's own ownerKey: line 231 `state.edges.set(edge.ownerKey, ContentOwnerEdge.encode(edge))` in the retain path, and line 654 the identical shape in restoreBackend's snapshot loop. There is no third writer, and the only delete (line 247) removes an entry rather than rekeying one. So the decoded edge's ownerKey equals the key it was fetched under for every entry the map can hold, given only that ContentOwnerEdge's codec round-trips that field -- which is the property its own record round-trip test asserts. The comparison is therefore false at every evaluation and forcing it false is the value it already computes. The mutation removes a consistency check on a pairing the writers establish, not a decision any input can reach."
+    },
+    {
+      "file": "src/content/memory.ts",
+      "symbol": "decodeStoredEdge",
       "mutator": "MethodExpression",
       "replacement": "bytes",
       "mutated": "bytes.slice()",
       "proof": "These bytes come from the backend's own edges map and go straight into ContentOwnerEdge.decode, which reads them through decodeCanonicalJson; that copies into a fresh Uint8Array and parses, and the edge is reconstructed from the parsed object. decodeStoredEdge returns the edge and never the buffer, and its callers — validateBackend, hasOwner, retain and release — read only decoded fields. Entries in the edges map are replaced wholesale by ContentOwnerEdge.encode output rather than mutated in place, so handing decode the stored array instead of a copy of it cannot be told apart by any caller."
+    },
+    {
+      "file": "src/content/memory.ts",
+      "symbol": "decodeStoredEdge",
+      "mutator": "StringLiteral",
+      "mutated": "\"Owner edge does not match its key\"",
+      "replacement": "\"\"",
+      "proof": "This literal is the message of a throw that no input reaches, which is why Stryker reports the mutant NoCoverage rather than Survived. The guard above it compares a decoded edge's ownerKey with the map key it was stored under, and the only two writers to backend.edges -- line 231 in the retain path and line 654 in restoreBackend -- both key the entry by that same edge's ownerKey, while the single delete removes rather than rekeys. So the throw is unreachable for every backend constructible through this module, and a message never constructed cannot be observed. Registered separately from the guard it belongs to because the two die for different reasons: the guard would be refuted by any pairing that makes the comparison true, this literal only by a run that actually reaches the throw."
+    },
+    {
+      "file": "src/content/memory.ts",
+      "symbol": "deleteMemoryContent",
+      "mutator": "ArrayDeclaration",
+      "mutated": "[]",
+      "replacement": "[\"Stryker was here\"]",
+      "proof": "leaseKeys is local, is only appended to by the loop above it, and is only consumed by `for (const key of leaseKeys) backend.leases.delete(key)`. Seeding it with an extra element therefore adds exactly one call, `backend.leases.delete(\"Stryker was here\")`. Map.prototype.delete on an absent key mutates nothing and returns a boolean this code discards, so the backend is byte-identical either way. The key cannot collide with a real one: lease entries are keyed by lease.envelopeDigest.value at both writers, and a Digest's value is a canonical digest string that no literal English sentence can equal. Nothing else reads leaseKeys -- not its length, not its contents -- so no observable state, return value or thrown error differs."
+    },
+    {
+      "file": "src/content/memory.ts",
+      "symbol": "isContentSnapshotObject",
+      "mutator": "ConditionalExpression",
+      "mutated": "typeof value === \"object\"",
+      "replacement": "true",
+      "proof": "Dropping the typeof test widens the predicate to every non-null value, so the newly admitted set is exactly the primitives: strings, numbers, booleans, symbols and bigints. Each of them reaches restoreBackend's second conjunct, `snapshot.version !== 1`, where property access on a primitive yields undefined rather than throwing, so undefined !== 1 is true and the same `if` raises `corruptContent(\"Memory content snapshot is malformed\")` -- the identical error the first conjunct would have raised, from the same statement. undefined is not newly admitted, because `value !== null` is true for it but this operand was already the one rejecting it, and after the mutation `undefined.version` raises a TypeError that the enclosing catch rewrites into that same error. Objects and arrays are unchanged. No return value and no thrown code, type or message differs for any input."
+    },
+    {
+      "file": "src/content/memory.ts",
+      "symbol": "isContentSnapshotObject",
+      "mutator": "ConditionalExpression",
+      "mutated": "value !== null",
+      "replacement": "true",
+      "proof": "This operand exists solely to exclude null, because typeof null is the string \"object\" and the second operand would otherwise admit it. Forcing it true therefore changes the predicate for null alone, and for no other value. A null snapshot then passes restoreBackend's first conjunct and is rejected by the second, `snapshot.version !== 1`, which raises a TypeError reading a property of null -- inside a try whose catch converts any non-AgentCoreError into `corruptContent(\"Memory content snapshot is malformed\")`, which is the same code and the same message string the `if` throws directly. A caller passing null therefore observes an error identical in type, code and message, produced two statements later. Since the predicate has one call site and no other value's verdict changes, nothing a test can assert differs."
+    },
+    {
+      "file": "src/content/memory.ts",
+      "symbol": "isContentSnapshotObject",
+      "mutator": "ConditionalExpression",
+      "mutated": "value !== null && typeof value === \"object\"",
+      "replacement": "true",
+      "proof": "The sole call is `!isContentSnapshotObject(snapshot)` as the first conjunct of restoreBackend's malformed-snapshot test, and that whole test sits inside a try whose catch converts any non-AgentCoreError into `corruptContent(\"Memory content snapshot is malformed\")` -- the same code and the same message string the `if` itself throws. Admitting every value therefore only defers rejection. For null, the next conjunct reads `snapshot.version` and raises a TypeError the catch rewrites into that identical error. For a string, number or boolean, `snapshot.version` is undefined, which is not 1, so the same `if` throws directly. For an array, the four Array.isArray conjuncts still reject: an array has no `version`. For a well-formed snapshot the predicate was already true and nothing moves. Every input therefore leaves restoreBackend raising the byte-identical codec.invalid, so no assertion on code, message or return value can separate the mutant."
+    },
+    {
+      "file": "src/content/memory.ts",
+      "symbol": "isContentSnapshotObject",
+      "mutator": "LogicalOperator",
+      "mutated": "value !== null && typeof value === \"object\"",
+      "replacement": "value !== null || typeof value === \"object\"",
+      "proof": "Turning the conjunction into a disjunction changes the predicate only where the two operands disagree, which is null (false, then true, because typeof null is \"object\") and the primitives (true, then false). Both newly admitted classes die on the next conjunct of restoreBackend's malformed-snapshot test and reach the identical error. null makes `snapshot.version` raise a TypeError, which restoreBackend's own catch rewrites into `corruptContent(\"Memory content snapshot is malformed\")` -- the same code and the same message the `if` would have thrown. A string, number or boolean has `version` undefined, so the same `if` rejects it one conjunct later. Arrays are unaffected either way, since both spellings answer true for them and the Array.isArray conjuncts do the rejecting. No caller reads the predicate for anything but that one `if`, so nothing observable moves."
+    },
+    {
+      "file": "src/content/memory.ts",
+      "symbol": "requireTransactionState",
+      "mutator": "ConditionalExpression",
+      "mutated": "transaction === undefined",
+      "replacement": "false",
+      "proof": "`transactionStates.get(state)` cannot answer undefined for any MemoryContentRetentionState that exists. The class's constructor registers `this` in that WeakMap as its first statement, before Object.freeze, so registration happens for every instance however it is built -- `restore` merely overwrites the entry it already created by calling the constructor. Nothing removes entries either: the file contains zero occurrences of `transactionStates.delete`, and closing a transaction sets `active = false` on the stored record rather than dropping it. So this operand is false at every evaluation, and forcing it false is the value it already had. The disjunction's second operand, `!transaction.active`, is what actually decides the guard and is untouched, so the actor.closed refusal still fires on exactly the same states. Note this operand cannot be reached with `transaction` undefined even in the mutant, so the mutation cannot turn the refusal into a TypeError."
     },
     {
       "file": "src/content/memory.ts",
@@ -1470,6 +1534,62 @@
       "replacement": "false",
       "mutated": "backend.leases.size > 0",
       "proof": "The lease half of the same test, and unreachable for its own reason. A lease enters the map either through acquireInTransaction, which obtains its backend via requireState and therefore after requireSameBinding has confirmed one, or through restoreBackend's lease loop, which calls requireSnapshotBinding on each decoded lease and refuses an unbound snapshot before storing it. A backend holding a lease but no binding is thus not constructible through any entry point, requireBinding cannot throw on this operand's account, and treating it as false leaves every reachable call taking the branch it already took."
+    },
+    {
+      "file": "src/content/retention.ts",
+      "symbol": "isObject",
+      "mutator": "ConditionalExpression",
+      "mutated": "typeof value === \"object\"",
+      "replacement": "true",
+      "proof": "Widening this predicate admits exactly the primitives, since `value !== null`, `value !== undefined` and `!Array.isArray(value)` still exclude null, undefined and arrays. Both call sites are inside one `if` in ContentOwnerEdgeRecordCodec.decodePayload and each is immediately followed by a hasExactJsonKeys conjunct over the same value, so a newly admitted primitive is rejected one conjunct later by the same statement and the same `throw invalidEdge(\"Content owner edge payload is malformed\")` -- not merely the same code, the same throw expression, so the message is identical too. hasExactJsonKeys cannot throw on a primitive: it reads Object.keys, which is [] for numbers and booleans and the index keys for a string, and where a length coincidence lets the count test pass, Object.hasOwn(value, \"actor\") or Object.hasOwn(value, \"id\") is false, because a String exotic object owns only indices and a non-enumerable length. The `actor` binding above becomes payload[\"actor\"], which is undefined for every primitive payload -- what the unmutated ternary's else branch already supplied."
+    },
+    {
+      "file": "src/content/retention.ts",
+      "symbol": "isObject",
+      "mutator": "ConditionalExpression",
+      "mutated": "value !== undefined",
+      "replacement": "true",
+      "proof": "Every caller of this predicate is in ContentOwnerEdgeRecordCodec.decodePayload -- the `actor` binding and the two `!isObject(...)` conjuncts -- and each passes a JsonValue or undefined. Removing the explicit undefined test cannot admit undefined, because the final conjunct still asks `typeof value === \"object\"` and typeof undefined is the string \"undefined\", so the predicate still answers false for it. For every other argument the removed conjunct was already true, so the conjunction's value is unchanged there too. The predicate therefore returns the same boolean for every value any caller can pass, which means the same `actor` binding, the same malformed-payload branch and the same decoded edge. The conjunct exists for the type checker, which will not narrow to `{ readonly [key: string]: JsonValue }` while undefined is still in the domain."
+    },
+    {
+      "file": "src/content/stat.ts",
+      "symbol": "isContentSize",
+      "mutator": "ConditionalExpression",
+      "mutated": "typeof value === \"number\"",
+      "replacement": "true",
+      "proof": "isContentSize is called exactly once, as the conjunct `!isContentSize(size)`, and the conjunct immediately after it is `!Number.isSafeInteger(size)` over the same binding. Number.isSafeInteger performs no coercion and answers false for every value whose typeof is not \"number\": verified directly for \"5\", \"\", true, false, null, undefined, [], [5] and {}. So widening the guard to admit non-numbers only moves the rejection one conjunct later inside the same `if`, which raises the same `new AgentCoreError(\"codec.invalid\", \"Content stat payload is malformed\")` on the same statement. For a value that is a number the guard's result is unchanged and nothing moves at all. No returned ContentStat, no thrown error code and no thrown message can differ, so no test can read a difference. The call is load-bearing for the type checker alone -- it narrows size to number for the `new ContentStat(..., size, ...)` argument, which Number.isSafeInteger cannot do."
+    },
+    {
+      "file": "src/content/stat.ts",
+      "symbol": "isObject",
+      "mutator": "ConditionalExpression",
+      "mutated": "typeof value === \"object\"",
+      "replacement": "true",
+      "proof": "isObject is called twice in this file, both in decodePayload and both on the same payload, so widening it changes only which conjunct rejects a primitive. The surviving conjuncts `value !== null` and `!Array.isArray(value)` still exclude null and arrays, so the values newly admitted are exactly strings, numbers and booleans. For each of those the next conjunct, `hasExactJsonKeys(payload, [\"digest\", \"mediaType\", \"ref\", \"size\"])`, rejects without throwing: it reads Object.keys, which is [] for a number or boolean and the index keys for a string, and where a four-character string makes the length test pass, `Object.hasOwn(value, \"digest\")` is false. Checked directly for \"\", \"abc\", \"size\", \"xxxx\", 0, 5, true and false, all false, none throwing. The same `if` therefore raises the same codec.invalid \"Content stat payload is malformed\". The `size` binding above it becomes `payload[\"size\"]`, which is undefined for every primitive, which is exactly what the unmutated ternary's else branch supplies."
+    },
+    {
+      "file": "src/content/transient.ts",
+      "symbol": "TransientContentLeaseState.constructor",
+      "mutator": "ConditionalExpression",
+      "mutated": "this.#closedAt !== undefined",
+      "replacement": "true",
+      "proof": "Three lines above, #closedAt is assigned either undefined or requireOperationTime(closedAt, \"Lease close time\").getTime(), so it holds a number or undefined and never a Date. Dropping the presence test leaves `this.#closedAt < this.#acquiredAt` to decide the guard alone, and a relational comparison with undefined on the left coerces it to NaN, which makes every `<` false. So for an absent close time the mutant computes the same false the conjunction produced, and for a present one the conjunction was already true and the mutant is the identical comparison. The throw fires on exactly the same constructor arguments, the condition feeds nothing else, and no field of the frozen instance changes. The presence test earns its place for the type checker, which needs `number | undefined` narrowed to `number` before the comparison, not for the runtime."
+    },
+    {
+      "file": "src/content/transient.ts",
+      "symbol": "isObject",
+      "mutator": "ConditionalExpression",
+      "mutated": "typeof value === \"object\"",
+      "replacement": "true",
+      "proof": "The three remaining conjuncts still reject null, undefined and arrays, so the mutation admits only strings, numbers and booleans. Every caller is a conjunct of the single malformed-payload `if` in TransientContentLeaseStateRecordCodec.decodePayload, and each is followed immediately by hasExactJsonKeys over the same value: the eight-key payload set and the two-key actor set. Neither can be satisfied by a primitive. Object.keys is empty for a number or boolean, so the eight-key and two-key length tests both fail outright; for a string the keys are indices, so an eight-character or two-character string passes the length test and then fails Object.hasOwn on \"acquiredAt\" or \"id\". Neither call throws. Rejection therefore moves one conjunct later within the same `if` and reaches the identical throw, so the thrown code and message are unchanged, and the `actor` binding is payload[\"actor\"] -- undefined for a primitive payload, which is what the untouched else branch of the ternary yields."
+    },
+    {
+      "file": "src/content/transient.ts",
+      "symbol": "isObject",
+      "mutator": "ConditionalExpression",
+      "mutated": "value !== undefined",
+      "replacement": "true",
+      "proof": "This file's copy of the predicate is reached only from TransientContentLeaseStateRecordCodec.decodePayload, at the `actor` binding and at the `!isObject(payload)` and `!isObject(actor)` conjuncts of its malformed-payload test. The argument type there is JsonValue | undefined, and undefined is the only value the removed conjunct rejects on its own. It cannot escape: the trailing `typeof value === \"object\"` conjunct answers false for undefined, whose typeof is \"undefined\". Every other argument satisfied the removed conjunct already. So the predicate is a pointwise-identical function before and after, the decode takes the same branch on the same bytes, and the lease it returns or the codec.invalid it throws are byte-identical. The conjunct is a type-checker obligation, not a runtime one."
     },
     {
       "file": "src/core/base64.ts",

@@ -8,6 +8,17 @@
 // contention timeouts are calibrated for uninstrumented runs, so instrumentation
 // pushes the dry run past its budget. It proves the same invariants the behavior
 // suite proves, under contention, so no mutant loses its only killer here.
+//
+// test/conformance/profile-base.test.ts is excluded for a third reason, and it is the
+// only exclusion that is not a matter of degree: C13-CONTENT-CUSTODY opens the source
+// project through scripts/quality/evidence.mjs, which spans this package AND
+// packages/agent-core-cloudflare. Stryker's sandbox is rooted at this package, so the
+// sibling package is not copied into it and `resolve(repositoryRoot, ...)` lands on
+// <package>/packages/agent-core-cloudflare, a path that cannot exist there. No
+// resolution fixes it — the files are genuinely absent — so the dry run fails for every
+// area and the whole gate stops running. The file's other assertions were never a sole
+// killer: at be905bac the one mutation kill it recorded was
+// src/facets/contribution.ts lines 113 and 211, both also killed by other tests.
 import defaultConfig from "./vitest.config.mjs";
 
 export default {
@@ -16,6 +27,7 @@ export default {
         ...defaultConfig.test,
         exclude: [
             ...defaultConfig.test.exclude,
+            "test/conformance/profile-base.test.ts",
             "test/core/error-taxonomy.test.ts",
             "test/definition/coverage-gate.test.ts",
             "test/definition/error-taxonomy.test.ts",
