@@ -2,8 +2,159 @@
   "edition": "1.0.0",
   "gates": [
     {
+      "rule": "ACQ-CODEC",
+      "node": "architecture",
+      "input": "src/facets/slot-entry.ts",
+      "mutations": [
+        {
+          "id": "ACQ-CODEC/codec-tuple-names-one-class-twice-and-seals-it-once",
+          "find": "                SlotEntry,\n                SlotContributionOrigin,",
+          "replace": "                SlotEntry,\n                SlotEntry,\n                SlotContributionOrigin,",
+          "expects": "ACQ-CODEC:packages/agent-core/src/facets/slot-entry.ts:SlotEntryCodecV3:8173e233e691 Codec tuple duplicates project class SlotEntry",
+          "diagnostic": "Codec tuple duplicates project class ",
+          "defect": "A tuple that names one class twice was accepted, so the arity a reader counts stopped being the number of classes the codec seals and a class silently dropped out of the freeze."
+        }
+      ]
+    },
+    {
+      "rule": "ACQ-COVERAGE",
+      "node": "coverage",
+      "input": "artifacts/quality/policy.json",
+      "mutations": [
+        {
+          "id": "ACQ-COVERAGE/source-universe-excludes-part-of-a-workspace",
+          "find": "      \"root\": \"packages/agent-core-harness/src\",",
+          "replace": "      \"root\": \"packages/agent-core-harness/src/runtime\",",
+          "expects": "Coverage universes do not equal workspace packages; expected=packages/agent-core-cloudflare/src,packages/agent-core-harness/src,packages/agent-core/src",
+          "diagnostic": "Coverage universes do not equal workspace packages",
+          "defect": "A source universe was narrowed below its workspace root, which excludes every source outside the narrowed path from the denominator while the reported ratio still reads as the package's coverage."
+        }
+      ]
+    },
+    {
+      "rule": "ACQ-DAG",
+      "node": "dag",
+      "input": "artifacts/quality/check-dag.json",
+      "mutations": [
+        {
+          "id": "ACQ-DAG/two-checks-become-each-other-dependency",
+          "find": "  \"coherence\": [],",
+          "replace": "  \"coherence\": [\"gate-integrity\"],",
+          "expects": "Quality DAG contains a cycle at coherence",
+          "diagnostic": "Quality DAG contains a cycle at ",
+          "defect": "Two checks were made to depend on each other, so no order runs both and the stage that names either one can never reach it."
+        }
+      ]
+    },
+    {
+      "rule": "ACQ-DOCTRINE",
+      "node": "doctrine",
+      "input": "artifacts/quality/doctrine.json",
+      "mutations": [
+        {
+          "id": "ACQ-DOCTRINE/active-rule-names-a-control-that-does-not-exist",
+          "find": "      \"id\": \"D-1\",\n      \"state\": \"active\",\n      \"checker\": \"scripts/check-normative.mjs\",",
+          "replace": "      \"id\": \"D-1\",\n      \"state\": \"active\",\n      \"checker\": \"scripts/quality/normative-controls.mjs\",",
+          "expects": "Doctrine rule D-1 names unknown checker scripts/quality/normative-controls.mjs",
+          "diagnostic": " names unknown checker ",
+          "defect": "An active doctrine rule named a control no checker provides, so the rule read as enforced while nothing ran it and its failure mode was fail-open."
+        }
+      ]
+    },
+    {
+      "rule": "ACQ-EQUIV",
+      "node": "mutation",
+      "input": "artifacts/quality/mutation-equivalence.json",
+      "mutations": [
+        {
+          "id": "ACQ-EQUIV/anchor-keeps-its-source-and-loses-its-mutant",
+          "find": "\"mutator\": \"ArrowFunction\"",
+          "replace": "\"mutator\": \"ConditionalExpression\"",
+          "expects": "names 0 mutants Stryker generates at its anchor, not one",
+          "diagnostic": "mutants Stryker generates at its ",
+          "defect": "An entry named a mutator that cannot apply at its anchored source, so the anchored text was still present, the audit passed it, and every run reported it stale forever with nothing there to rewrite the proof against."
+        }
+      ]
+    },
+    {
+      "rule": "ACQ-ERR",
+      "node": "architecture",
+      "input": "src/facets/slot-entry.ts",
+      "mutations": [
+        {
+          "id": "ACQ-ERR/record-construction-throws-outside-the-taxonomy",
+          "find": "throw new TypeError(\"Slot entry requires its contribution attribution\");",
+          "replace": "throw new Error(\"Slot entry requires its contribution attribution\");",
+          "expects": "ACQ-ERR:packages/agent-core/src/facets/slot-entry.ts:SlotEntry:a454d21218c3 Bare Error throws are forbidden",
+          "diagnostic": "Bare Error throws are forbidden",
+          "defect": "A runtime failure raised a bare Error, so a caller matching on the closed AgentCoreError taxonomy could not classify it and the failure escaped every handler written against the taxonomy."
+        }
+      ]
+    },
+    {
+      "rule": "ACQ-ID",
+      "node": "architecture",
+      "input": "src/facets/slot-entry.ts",
+      "mutations": [
+        {
+          "id": "ACQ-ID/opaque-identifier-declared-outside-its-context-registry",
+          "find": "export class SlotEntry {",
+          "replace": "class SlotEntryCursorId {}\n\nexport class SlotEntry {",
+          "expects": "ACQ-ID:packages/agent-core/src/facets/slot-entry.ts:SlotEntryCursorId:6bb409a77062 SlotEntryCursorId must be declared in id.ts",
+          "diagnostic": " must be declared in id.ts",
+          "defect": "An opaque identifier was declared beside its user rather than in its context's id module, so two contexts could each mint a type of the same name and no single declaration owned the identifier."
+        }
+      ]
+    },
+    {
+      "rule": "ACQ-IMMUTABLE",
+      "node": "architecture",
+      "input": "src/facets/slot-entry.ts",
+      "mutations": [
+        {
+          "id": "ACQ-IMMUTABLE/record-constructor-returns-a-writable-instance",
+          "find": "        this.id = expectedId;\n        Object.freeze(this);",
+          "replace": "        this.id = expectedId;",
+          "expects": "ACQ-IMMUTABLE:packages/agent-core/src/facets/slot-entry.ts:SlotEntry:eef5cace2853 SlotEntry must freeze constructed instances",
+          "diagnostic": " must freeze constructed instances",
+          "defect": "A codec-backed record left its constructed instance writable, so a decoded record could be edited after its identity digest was computed and the bytes it round-trips to stopped matching the record in hand."
+        }
+      ]
+    },
+    {
+      "rule": "ACQ-IMPORT",
+      "node": "imports",
+      "input": "src/facets/slot-entry.ts",
+      "mutations": [
+        {
+          "id": "ACQ-IMPORT/cross-context-reference-reaches-past-the-barrel",
+          "find": "} from \"../core\";",
+          "replace": "} from \"../core/codec\";",
+          "expects": "[cross-context-import] import \"../core/codec\" crosses into core; target src/core/index.ts",
+          "diagnostic": " crosses into ",
+          "defect": "A cross-context reference reached past the target context's barrel into one of its modules, which binds the caller to a file the context never published and makes a runtime cycle invisible to the barrel graph."
+        }
+      ]
+    },
+    {
+      "rule": "ACQ-LIVE",
+      "node": "live-evidence",
+      "input": "artifacts/conformance/live-evidence/run.json",
+      "mutations": [
+        {
+          "id": "ACQ-LIVE/recorded-deployment-admits-it-ran-from-dirty-sources",
+          "find": "  \"dirtySources\": false,",
+          "replace": "  \"dirtySources\": true,",
+          "expects": "Live evidence was produced from dirty sources",
+          "diagnostic": "Live evidence was produced from dirty sources",
+          "defect": "A recorded deployment declared uncommitted sources, so the evidence attests to a tree no commit names and nothing binds the passing scenarios to the code under review."
+        }
+      ]
+    },
+    {
       "rule": "ACQ-NORM",
       "node": "coherence",
+      "input": "SPEC.md",
       "mutations": [
         {
           "id": "ACQ-NORM/fenced-code-block-hides-an-anchor",
@@ -64,38 +215,140 @@
       ]
     },
     {
-      "rule": "ACQ-EQUIV",
-      "node": "mutation",
+      "rule": "ACQ-OUTCOME",
+      "node": "integration",
+      "input": "artifacts/integration/resolutions.json",
       "mutations": [
         {
-          "id": "ACQ-EQUIV/anchor-keeps-its-source-and-loses-its-mutant",
-          "find": "\"mutator\": \"ArrowFunction\"",
-          "replace": "\"mutator\": \"ConditionalExpression\"",
-          "expects": "names 0 mutants Stryker generates at its anchor, not one",
-          "diagnostic": "mutants Stryker generates at its ",
-          "defect": "An entry named a mutator that cannot apply at its anchored source, so the anchored text was still present, the audit passed it, and every run reported it stale forever with nothing there to rewrite the proof against."
+          "id": "ACQ-OUTCOME/ratified-outcome-record-is-rewritten-in-place",
+          "find": "\"rationale\": \"The seam registry binds the canonical Tenant authority contract to memory and SQLite implementations without a separate Binding store.\"",
+          "replace": "\"rationale\": \"The seam registry binds the canonical Tenant authority contract to memory and SQLite implementations through a separate Binding store.\"",
+          "expects": "packages/agent-core/artifacts/requests/W2/shared-seams.json outcome differs from its baseline fingerprint; ",
+          "diagnostic": " outcome differs from its baseline fingerprint; ",
+          "defect": "The recorded rationale of a ratified review was rewritten in place, so the immutable history of that review changed without the acknowledgment rewriting it requires and its baseline fingerprint no longer described it."
+        }
+      ]
+    },
+    {
+      "rule": "ACQ-OWNER",
+      "node": "records",
+      "input": "artifacts/records/definition-platform.json",
+      "mutations": [
+        {
+          "id": "ACQ-OWNER/durable-record-loses-its-authoritative-store",
+          "find": "      \"source\": \"src/definition/attestation.ts#ValidationAttestation\",\n      \"codec\": \"src/definition/attestation.ts#ValidationAttestation.codec\",\n      \"store\": \"src/definition/rollout.ts#MaterializationControlStore\",",
+          "replace": "      \"source\": \"src/definition/attestation.ts#ValidationAttestation\",\n      \"codec\": \"src/definition/attestation.ts#ValidationAttestation.codec\",\n      \"store\": \"\",",
+          "expects": "Durable record definition.validation-attestation requires one Actor and store",
+          "diagnostic": " requires one Actor and store",
+          "defect": "A durable record kept its Actor and lost its authoritative store, so nothing named where the record lives and two stores could each believe they held it."
+        }
+      ]
+    },
+    {
+      "rule": "ACQ-PRESENCE",
+      "node": "architecture",
+      "input": "src/facets/slot-entry.ts",
+      "mutations": [
+        {
+          "id": "ACQ-PRESENCE/record-field-reintroduces-an-explicit-null",
+          "find": "    public readonly value: FacetData;",
+          "replace": "    public readonly value: FacetData;\n    public readonly supersedes?: SlotEntryId | null;",
+          "expects": "ACQ-PRESENCE:packages/agent-core/src/facets/slot-entry.ts:SlotEntry.supersedes:329d3e91ddfb SlotEntry.supersedes declares the nullable form SlotEntryId | null",
+          "diagnostic": " declares the nullable form ",
+          "defect": "A record field declared by presence gained an explicit null, so canonical JSON carried two encodings of one absence and two byte strings decoded to the same record."
+        }
+      ]
+    },
+    {
+      "rule": "ACQ-SCOPE",
+      "node": "scope",
+      "input": "artifacts/quality/ownership.json",
+      "mutations": [
+        {
+          "id": "ACQ-SCOPE/tracked-path-falls-out-of-every-owner-pattern",
+          "find": "      \"packages/agent-core/SPEC.md\",",
+          "replace": "      \"packages/agent-core/SPEC-ARCHIVE.md\",",
+          "expects": "packages/agent-core/SPEC.md: expected one owner, found none",
+          "diagnostic": ": expected one owner, found ",
+          "defect": "A tracked path fell out of every owner's pattern set, so a change to it belongs to no worktree, no owner diff covers it, and two agents can edit it without either crossing a boundary."
+        }
+      ]
+    },
+    {
+      "rule": "ACQ-SEAM",
+      "node": "seams",
+      "input": "artifacts/seams/definition-platform.json",
+      "mutations": [
+        {
+          "id": "ACQ-SEAM/memory-reference-names-a-class-the-seam-does-not-bind",
+          "find": "      \"memoryReference\": \"src/definition/memory.ts#MemoryMaterializationControlStore\",",
+          "replace": "      \"memoryReference\": \"src/definition/memory.ts#MemoryMaterializationStore\",",
+          "expects": "Seam materialization-control-store memory reference is not an implementation",
+          "diagnostic": " memory reference is not an implementation",
+          "defect": "A seam row named a memory reference outside its own implementation set, so the implementation the shared contract test exercises in memory was not one of the implementations the row binds to that contract."
+        }
+      ]
+    },
+    {
+      "rule": "ACQ-SPEC-VOCAB",
+      "node": "architecture",
+      "input": "artifacts/quality/spec-vocabulary.json",
+      "mutations": [
+        {
+          "id": "ACQ-SPEC-VOCAB/reviewed-word-outlives-the-export-that-earned-it",
+          "find": "      \"word\": \"anchor\",",
+          "replace": "      \"word\": \"anchorage\",",
+          "expects": "ACQ-SPEC-VOCAB:packages/agent-core/artifacts/quality/spec-vocabulary.json:anchorage:c1101bcb1164 Reviewed vocabulary \"anchorage\" is no longer used by any public export",
+          "diagnostic": " is no longer used by any public export",
+          "defect": "A reviewed word stayed on the register after the export that earned it was renamed, so the written reason described a name the surface no longer has and the review stood for nothing."
+        }
+      ]
+    },
+    {
+      "rule": "ACQ-TEST",
+      "node": "architecture",
+      "input": "test/quality/dag.test.ts",
+      "mutations": [
+        {
+          "id": "ACQ-TEST/graph-validation-case-is-skipped-in-place",
+          "find": "    test(\"rejects cycles, missing dependencies, and self-dependencies\", () => {",
+          "replace": "    test.skip(\"rejects cycles, missing dependencies, and self-dependencies\", () => {",
+          "expects": "Focused, skipped, or conditional test is forbidden",
+          "diagnostic": "Focused, skipped, or conditional test is forbidden",
+          "defect": "A suite kept a skipped case, so the file still read as covering the behaviour while the assertion never ran and the lane reported green without it."
+        }
+      ]
+    },
+    {
+      "rule": "ACQ-TYPE",
+      "node": "architecture",
+      "input": "src/facets/slot-entry.ts",
+      "mutations": [
+        {
+          "id": "ACQ-TYPE/public-record-projection-widens-to-any",
+          "find": "    public toData(): FacetData {",
+          "replace": "    public toData(): any {",
+          "expects": "ACQ-TYPE:packages/agent-core/src/facets/slot-entry.ts:SlotEntry.toData:a5d197d4e0d3 packages/agent-core/src/facets/slot-entry.ts uses an unpermitted any escape in SlotEntry.toData",
+          "diagnostic": " uses an unpermitted ",
+          "defect": "A public projection widened to any outside any recorded trust boundary, so every caller downstream lost the record's shape while the permit list still claimed the escape hatches were enumerated."
+        }
+      ]
+    },
+    {
+      "rule": "ACQ-VOCAB",
+      "node": "architecture",
+      "input": "src/facets/slot-entry.ts",
+      "mutations": [
+        {
+          "id": "ACQ-VOCAB/closed-vocabulary-gains-a-second-declaration",
+          "find": "const slotEntryCodecInstance = new SlotEntryCodecV3();",
+          "replace": "type SlotEntryProbeDisposition = \"gate-probe-retained\" | \"gate-probe-superseded\";\ntype SlotEntryProbeOutcome = \"gate-probe-retained\" | \"gate-probe-superseded\";\n\nconst slotEntryCodecInstance = new SlotEntryCodecV3();",
+          "expects": "ACQ-VOCAB:packages/agent-core/src/facets/slot-entry.ts:SlotEntryProbeDisposition:2808b2f8832d Closed string vocabulary is duplicated",
+          "diagnostic": "Closed string vocabulary is duplicated",
+          "defect": "One closed vocabulary was declared twice, so neither declaration owned it and a value added to one of them left the other silently accepting a narrower set."
         }
       ]
     }
   ],
-  "unregistered": [
-    "ACQ-CODEC",
-    "ACQ-COVERAGE",
-    "ACQ-DAG",
-    "ACQ-DOCTRINE",
-    "ACQ-ERR",
-    "ACQ-ID",
-    "ACQ-IMMUTABLE",
-    "ACQ-IMPORT",
-    "ACQ-LIVE",
-    "ACQ-OUTCOME",
-    "ACQ-OWNER",
-    "ACQ-PRESENCE",
-    "ACQ-SCOPE",
-    "ACQ-SEAM",
-    "ACQ-SPEC-VOCAB",
-    "ACQ-TEST",
-    "ACQ-TYPE",
-    "ACQ-VOCAB"
-  ]
+  "unregistered": []
 }

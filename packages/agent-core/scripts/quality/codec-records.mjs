@@ -90,7 +90,7 @@ function kindFromExpression(source, expression, visited) {
         return kindFromExpression(source, expression.expression, visited);
     }
     if (ts.isNewExpression(expression)) {
-        const directKind = expression.arguments?.[0];
+        const directKind = expression.arguments?.[1];
         if (directKind !== undefined && ts.isStringLiteral(directKind)) {
             return directKind.text;
         }
@@ -136,7 +136,7 @@ function kindFromCodecClass(source, className, visited) {
         }
         const call = statement.expression;
         if (call.expression.kind !== ts.SyntaxKind.SuperKeyword) continue;
-        const kind = call.arguments[0];
+        const kind = call.arguments[1];
         if (kind !== undefined && ts.isStringLiteral(kind)) return kind.text;
     }
     return undefined;

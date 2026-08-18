@@ -10,12 +10,13 @@ export type QualitySubprocessResult = SpawnSyncReturns<string>;
 export function runQualitySubprocess(
     command: string,
     args: string[],
-    cwd?: string
+    cwd?: string,
+    timeout: number = subprocessTimeout
 ): QualitySubprocessResult {
     const result = spawnSync(command, args, {
         cwd,
         encoding: "utf8",
-        timeout: subprocessTimeout,
+        timeout,
         killSignal: "SIGKILL"
     });
     if (result.error) throw result.error;

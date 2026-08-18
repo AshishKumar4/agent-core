@@ -12,18 +12,23 @@ const temporary: string[] = [];
 
 // Real corpus, perturbed one field at a time: what is under test is the verdict the meta
 // gate reaches, so every fixture keeps the committed gates, harnesses and mutations and
-// changes exactly the thing the case is about. Both registered gates are carried in every
-// fixture because `validateCorpus` refuses a harness no gate exercises — a corpus that
-// dropped one would fail for that reason instead of the one the case is about.
+// changes exactly the thing the case is about. Two gates are enough because each fixture
+// also names the rules it leaves unproven — measuring the whole committed corpus for one
+// field's sake would clone the repository once per gate.
 let coherenceGate: JsonObject;
 let mutationGate: JsonObject;
 let committedMutation: JsonObject;
+let committedGates: number;
 let committedDebt: readonly string[];
 let committedMutations: number;
 // Derived, never written down. A hardcoded rule total is a second source of truth for the
 // registry's size, and it broke the moment a peer registered COH-LABEL-CITATION — a
 // correct landing turning this suite red for a number that is not what any case is about.
 let registeredRules: number;
+// Every rule the two-gate fixture below does not register. A case about the debt list has
+// to leave no rule unproven, or the gate fails on the unproven rule first and the case
+// never reaches what it is about.
+let fixtureDebt: readonly string[];
 
 beforeAll(async () => {
     const corpusArtifact = await readArtifact("artifacts/quality/gate-corpus.json");
@@ -43,7 +48,12 @@ beforeAll(async () => {
         0
     );
     committedDebt = stringsAt(corpusArtifact, "unregistered");
-    registeredRules = objectsAt(await readArtifact("artifacts/quality/rules.json"), "rules").length;
+    committedGates = gates.length;
+    const ruleIds = objectsAt(await readArtifact("artifacts/quality/rules.json"), "rules").map(
+        (rule) => stringAt(rule, "id")
+    );
+    registeredRules = ruleIds.length;
+    fixtureDebt = ruleIds.filter((id) => id !== "ACQ-NORM" && id !== "ACQ-EQUIV");
 });
 
 afterEach(async () => {
@@ -68,36 +78,50 @@ function corpus(gate: JsonObject = {}, unregistered?: readonly string[]): JsonOb
     return {
         edition: "1.0.0",
         gates: [{ ...coherenceGate, mutations: [committedMutation], ...gate }, mutationGate],
-        unregistered: unregistered ?? committedDebt
+        unregistered: unregistered ?? fixtureDebt
     };
 }
 
-async function run(value: JsonObject, stage = "building") {
+async function run(value: JsonObject, stage = "building", rules?: JsonObject) {
     const root = await mkdtemp(join(tmpdir(), "gate-corpus-"));
     temporary.push(root);
     const path = join(root, "corpus.json");
     await writeFile(path, `${JSON.stringify(value, null, 2)}\n`, "utf8");
+    const registry: string[] = [];
+    if (rules !== undefined) {
+        const rulesPath = join(root, "rules.json");
+        await writeFile(rulesPath, `${JSON.stringify(rules, null, 2)}\n`, "utf8");
+        registry.push("--rules", rulesPath);
+    }
     return runQualitySubprocess(
         process.execPath,
-        [checker, "--stage", stage, "--corpus", path],
+        [checker, "--stage", stage, "--corpus", path, ...registry],
         packageRoot
     );
 }
 
 describe("gate integrity", subprocessTestOptions, () => {
-    test("turns every registered gate red on every committed mutation", () => {
-        const result = runQualitySubprocess(
-            process.execPath,
-            [checker, "--stage", "building"],
-            packageRoot
-        );
+    // The whole committed corpus, measured for real: every gate clones the repository and
+    // spawns its checker, so this one case is minutes of work and needs its own budget.
+    test(
+        "turns every registered gate red on every committed mutation",
+        { timeout: 900_000 },
+        () => {
+            const result = runQualitySubprocess(
+                process.execPath,
+                [checker, "--stage", "building"],
+                packageRoot,
+                600_000
+            );
 
-        expect(result.status, result.stderr).toBe(0);
-        expect(result.stdout).toContain(
-            `gate integrity incomplete: ${committedMutations} mutation(s) turned 2 of ` +
-                `${registeredRules} rule(s) red`
-        );
-    });
+            expect(result.status, result.stderr).toBe(0);
+            expect(result.stdout).toContain(
+                `gate integrity ${committedDebt.length === 0 ? "complete" : "incomplete"}: ` +
+                    `${committedMutations} mutation(s) turned ${committedGates} of ` +
+                    `${registeredRules} rule(s) red, ${committedDebt.length} unproven`
+            );
+        }
+    );
 
     test("fails when a gate passes under a known-bad mutation of its own input", async () => {
         const result = await run(corpus({ mutations: [harmless] }));
@@ -136,7 +160,7 @@ describe("gate integrity", subprocessTestOptions, () => {
     });
 
     test("fails when the debt list retains a rule the corpus now proves", async () => {
-        const result = await run(corpus({}, [...committedDebt, "ACQ-NORM"]));
+        const result = await run(corpus({}, [...fixtureDebt, "ACQ-NORM"]));
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain("Gate corpus debt retains registered rules");
@@ -144,7 +168,7 @@ describe("gate integrity", subprocessTestOptions, () => {
     });
 
     test("fails when the debt list names a rule the registry does not state", async () => {
-        const result = await run(corpus({}, [...committedDebt, "ACQ-INVENTED"]));
+        const result = await run(corpus({}, [...fixtureDebt, "ACQ-INVENTED"]));
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain("Gate corpus debt names rules no rule registry states");
@@ -230,17 +254,48 @@ describe("gate integrity", subprocessTestOptions, () => {
         expect(result.stderr).toContain("Gate ACQ-NORM registers no mutation of its own input");
     });
 
+    // Every rule the committed registry states is now bound to a node with a harness, so
+    // the guard is reachable only through a registry that states one that is not — which is
+    // the landing it defends: a new rule on a checker nobody taught this gate to run.
     test("rejects a gate whose node has no mutation harness", async () => {
         const result = await run(
-            corpus(
-                { rule: "ACQ-TYPE", node: "architecture" },
-                committedDebt.filter((rule) => rule !== "ACQ-TYPE")
-            )
+            {
+                edition: "1.0.0",
+                gates: [
+                    { ...coherenceGate, mutations: [committedMutation] },
+                    mutationGate,
+                    { ...coherenceGate, rule: "ACQ-TRACE", node: "traceability" }
+                ],
+                unregistered: []
+            },
+            "building",
+            {
+                edition: "1.0.0",
+                rules: [
+                    { id: "ACQ-NORM", node: "coherence", description: "" },
+                    { id: "ACQ-EQUIV", node: "mutation", description: "" },
+                    { id: "ACQ-TRACE", node: "traceability", description: "" }
+                ]
+            }
         );
 
         expect(result.status).toBe(1);
         expect(result.stderr).toContain(
-            "Gate corpus registers architecture with no mutation harness"
+            "Gate corpus registers traceability with no mutation harness"
         );
+    });
+
+    test("rejects a mutation harness no quality rule is bound to", async () => {
+        const result = await run({ ...corpus(), unregistered: [] }, "building", {
+            edition: "1.0.0",
+            rules: [
+                { id: "ACQ-NORM", node: "coherence", description: "" },
+                { id: "ACQ-EQUIV", node: "mutation", description: "" }
+            ]
+        });
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("Mutation harness binds no quality rule");
+        expect(result.stderr).toContain("architecture");
     });
 });
