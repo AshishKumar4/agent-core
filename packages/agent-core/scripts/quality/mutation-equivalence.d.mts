@@ -38,6 +38,12 @@ export interface EquivalenceReconciliation {
     ambiguous: { entry: EquivalenceEntry; matches: ReportMutant[] }[];
 }
 
+export type MutationOutcome = "detected" | "ignored" | "incomplete" | "invalid" | "undetected";
+
+export function mutationOutcome(status: string): MutationOutcome;
+
+export function requireCompleteMutationReport(report: MutationReport): MutationReport;
+
 export function readEquivalenceRegister(document: JsonValue): EquivalenceEntry[];
 
 export function equivalenceKey(entry: EquivalenceEntry): string;

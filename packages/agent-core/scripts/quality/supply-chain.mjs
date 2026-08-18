@@ -22,10 +22,11 @@ import { dirname, relative, resolve } from "node:path";
 import { parse as parseYaml } from "yaml";
 import {
     assertString,
+    compareCanonicalText,
     portable,
     readCanonicalJson,
-    repositoryRoot,
     reportRoot,
+    repositoryRoot,
     sha256,
     writeCanonicalJson
 } from "./project.mjs";
@@ -64,7 +65,7 @@ await checkPackageManagerPin();
 await checkWorkflowPins();
 await checkRuntimePins();
 
-issues.sort((left, right) => left.fingerprint.localeCompare(right.fingerprint));
+issues.sort((left, right) => compareCanonicalText(left.fingerprint, right.fingerprint));
 const report = {
     stage: options.stage,
     manifests: manifests.map((path) => portablePath(path)),

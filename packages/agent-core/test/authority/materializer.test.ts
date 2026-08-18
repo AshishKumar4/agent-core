@@ -1,3 +1,4 @@
+import { compareCanonicalText } from "../../src/core";
 import { describe, expect, test } from "vitest";
 import { Digest, Revision } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
@@ -197,7 +198,7 @@ describe("RoleGrantMaterializer", () => {
             expect(
                 result.desiredRecords
                     .map((grant) => [grant.effect, grant.capability.impacts])
-                    .sort(([left], [right]) => String(left).localeCompare(String(right)))
+                    .sort(([left], [right]) => compareCanonicalText(String(left), String(right)))
             ).toEqual([
                 ["allow", ["observe"]],
                 ["deny", ["administer"]]
@@ -314,7 +315,7 @@ describe("RoleGrantMaterializer", () => {
             });
             const ruleZero = GrantId.forRole(member.id, 0).value;
             const ruleOne = GrantId.forRole(member.id, 1).value;
-            expect(ruleOne.localeCompare(ruleZero)).toBeLessThan(0);
+            expect(compareCanonicalText(ruleOne, ruleZero)).toBeLessThan(0);
             expect(result.desiredRecords.map((grant) => grant.id.value)).toEqual([
                 ruleOne,
                 ruleZero
@@ -378,7 +379,7 @@ describe("RoleGrantMaterializer", () => {
             const activeId = GrantId.forRole(member.id, 0).value;
             const staleId = GrantId.forRole(member.id, 7).value;
             expect(result.desiredRecords.map((grant) => grant.id.value)).toEqual(
-                [activeId, staleId].sort((left, right) => left.localeCompare(right))
+                [activeId, staleId].sort((left, right) => compareCanonicalText(left, right))
             );
             expect(
                 result.desiredRecords.find((grant) => grant.id.value === activeId)?.state.name

@@ -4,7 +4,7 @@ import {
     requireSynchronousResult,
     type SynchronousResultGuard
 } from "../actors";
-import { ContentRef, Digest } from "../core";
+import { ContentRef, Digest, compareCanonicalText } from "../core";
 import { AgentCoreError } from "../errors";
 import { TenantId } from "../identity";
 import { MediaHint } from "./media";
@@ -262,7 +262,7 @@ export class MemoryContentRetention extends ContentRetention<MemoryContentRetent
         const activeLeaseRefs = normalizeMemoryLeases(state, observedAt);
         const approved: { readonly ref: ContentRef; readonly unownedSince: number }[] = [];
         for (const [value, unownedSince] of [...state.relations].sort(([left], [right]) =>
-            left.localeCompare(right)
+            compareCanonicalText(left, right)
         )) {
             if (unownedSince === null || hasOwner(state, value) || activeLeaseRefs.has(value))
                 continue;
@@ -585,7 +585,7 @@ function snapshotBackend(backend: MemoryBackend): MemoryContentSnapshot {
                   }),
         content: Object.freeze(
             [...backend.content.entries()]
-                .sort(([left], [right]) => left.localeCompare(right))
+                .sort(([left], [right]) => compareCanonicalText(left, right))
                 .map(([ref, content]) =>
                     Object.freeze({
                         ref,
@@ -600,7 +600,7 @@ function snapshotBackend(backend: MemoryBackend): MemoryContentSnapshot {
         ),
         relations: Object.freeze(
             [...backend.relations.entries()]
-                .sort(([left], [right]) => left.localeCompare(right))
+                .sort(([left], [right]) => compareCanonicalText(left, right))
                 .map(([ref, unownedSince]) => Object.freeze({ ref, unownedSince }))
         ),
         leases: Object.freeze(

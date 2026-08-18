@@ -10,6 +10,7 @@ import {
     type Nonempty,
     type RecordVersion
 } from "../core";
+export { compareCanonicalText as compareText } from "../core";
 
 export type FacetData = JsonValue;
 export type FacetDataMap = { readonly [name: string]: FacetData };
@@ -199,10 +200,6 @@ export function canonicalOrder<Value extends string>(
         throw new TypeError(`${subject} must be unique`);
     }
     return requireNonempty(Object.freeze(order.filter((value) => values.includes(value))), subject);
-}
-
-export function compareText(left: string, right: string): number {
-    return left < right ? -1 : left > right ? 1 : 0;
 }
 
 export function requireNonblank(value: string, subject: string): void {

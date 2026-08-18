@@ -1,16 +1,19 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import fc from "fast-check";
 import { describe, expect, test } from "vitest";
 import {
     assertObject,
     assertString,
     assertUniqueIds,
+    compareCanonicalText,
     parseCanonicalJson,
     readCanonicalJson,
     readJson
 } from "../../scripts/quality/project.mjs";
 import type { JsonValue } from "../../scripts/quality/project.mjs";
+import { compareCanonicalText as compareRuntimeText } from "../../src/core";
 import { objectsAt } from "./artifacts";
 
 /** The rule ids a document carries, read the way a checker reads them. */
@@ -60,6 +63,23 @@ function resolvedRulesDocument() {
 }
 
 describe("strict canonical JSON parsing", () => {
+    test("uses the runtime's exact locale-independent text order", () => {
+        const pairs: readonly (readonly [string, string])[] = [
+            ["z", "ä"],
+            ["\ud83d\ude00", "\ue000"],
+            ["e\u0301", "é"],
+            ["same", "same"]
+        ];
+        for (const [left, right] of pairs) {
+            expect(compareCanonicalText(left, right)).toBe(compareRuntimeText(left, right));
+        }
+        fc.assert(
+            fc.property(fc.string(), fc.string(), (left, right) => {
+                expect(compareCanonicalText(left, right)).toBe(compareRuntimeText(left, right));
+            })
+        );
+    });
+
     test("parses well-formed JSON identically to JSON.parse", () => {
         const source = JSON.stringify({
             edition: "1.0.0",

@@ -6,6 +6,7 @@ import addFormats from "ajv-formats";
 import {
     artifactRoot,
     collectFiles,
+    compareCanonicalText,
     isJsonObject,
     isNonEmptyString,
     parseCanonicalJson,
@@ -290,11 +291,11 @@ const bomRequestSources = bom.entries
     .flatMap((entry) => entry.artifacts)
     .filter((artifact) => /(?:^|\/)artifacts\/requests\//u.test(artifact.source))
     .map((artifact) => [artifact.source, artifact.sourceSha256])
-    .sort(([left], [right]) => left.localeCompare(right));
+    .sort(([left], [right]) => compareCanonicalText(left, right));
 const normalizedResolutions = normalizeResolutions(resolutions);
 const resolutionSources = normalizedResolutions
     .map(({ source, sourceSha256 }) => [source, sourceSha256])
-    .sort(([left], [right]) => left.localeCompare(right));
+    .sort(([left], [right]) => compareCanonicalText(left, right));
 if (
     new Set(normalizedResolutions.map(({ source }) => source)).size !==
         normalizedResolutions.length ||

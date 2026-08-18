@@ -1,3 +1,4 @@
+import { compareCanonicalText } from "../../src/core";
 import { resolve } from "node:path";
 import { describe, expect, test } from "vitest";
 import { globMatches } from "../../scripts/quality/project.mjs";
@@ -303,7 +304,7 @@ describe("exclusive worktree ownership", () => {
                 candidateBlob: "c".repeat(40),
                 disposition: "added" as const
             }
-        ].sort((left, right) => left.path.localeCompare(right.path));
+        ].sort((left, right) => compareCanonicalText(left.path, right.path));
         expect(() =>
             validateCandidateChangeManifest(
                 candidateTransition(unknown),

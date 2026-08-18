@@ -12,8 +12,8 @@
 // So a register entry names exactly one mutant and carries its own proof, and the claim
 // it makes is falsifiable in both directions:
 //
-//   refuted — the mutant is reported killed (or timed out, or failed to compile). Tests
-//             distinguish the mutation from the original, so the proof is wrong. The
+//   refuted — the mutant is reported killed or timed out. Tests distinguish the
+//             mutation from the original, so the proof is wrong. The
 //             measurement fails naming the entry and the tests that refuted it.
 //   stale   — the anchor no longer resolves to a live mutant. The code moved past the
 //             proof, so the proof is no longer about anything and must be rewritten.
@@ -60,6 +60,41 @@ const PROOF_FLOOR = 240;
 // strongest equivalence cases arrive under that status; every other status means some
 // run told the mutant apart.
 const LIVE_STATUSES = new Set(["Survived", "NoCoverage"]);
+
+const MUTATION_OUTCOMES = new Map([
+    ["Killed", "detected"],
+    ["Timeout", "detected"],
+    ["Survived", "undetected"],
+    ["NoCoverage", "undetected"],
+    ["RuntimeError", "invalid"],
+    ["CompileError", "invalid"],
+    ["Ignored", "ignored"],
+    ["Pending", "incomplete"]
+]);
+
+export function mutationOutcome(status) {
+    const outcome = MUTATION_OUTCOMES.get(status);
+    if (outcome === undefined) throw new TypeError(`Unknown mutant status: ${String(status)}`);
+    return outcome;
+}
+
+export function requireCompleteMutationReport(report) {
+    const invalid = [];
+    for (const [path, file] of Object.entries(report.files)) {
+        for (const mutant of file.mutants) {
+            const outcome = mutationOutcome(mutant.status);
+            if (outcome === "invalid" || outcome === "incomplete") {
+                invalid.push(`${path}#${mutant.id} ${mutant.status}`);
+            }
+        }
+    }
+    if (invalid.length > 0) {
+        throw new TypeError(
+            `Mutation run contains invalid or incomplete results:\n${invalid.join("\n")}`
+        );
+    }
+    return report;
+}
 
 export function readEquivalenceRegister(document) {
     assertExactKeys(document, ["edition", "entries"], "mutation equivalence register");

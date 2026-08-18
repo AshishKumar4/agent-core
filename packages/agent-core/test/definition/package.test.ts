@@ -1,3 +1,4 @@
+import { compareCanonicalText } from "../../src/core";
 import { describe, expect, test } from "vitest";
 import { MediaHint } from "../../src/content";
 import {
@@ -9,7 +10,7 @@ import {
     SemVer,
     decodeCanonicalJson,
     encodeCanonicalJson,
-    requireNonempty,
+    requireNonempty
 } from "../../src/core";
 import {
     MetadataSnapshot,
@@ -239,10 +240,7 @@ describe("package releases", () => {
 
             const rootManifest = manifest("root.facet", "1.0.0");
             const otherManifest = manifest("root.other", "1.0.0");
-            const twoManifests = requireNonempty(
-                [rootManifest, otherManifest],
-                "Facet manifests"
-            );
+            const twoManifests = requireNonempty([rootManifest, otherManifest], "Facet manifests");
             const partiallyMatching = new PackageCodeManifest({
                 compatibilityDate: release.codeManifest.compatibilityDate,
                 modules: [mainModule],
@@ -487,20 +485,22 @@ function packageRelease(
         ...(overrides.codeRefs ?? [
             ContentRef.fromDigest(overrides.codeDigest ?? digestOf(`code:${id}:${version}`))
         ])
-    ].sort((left, right) => left.value.localeCompare(right.value));
+    ].sort((left, right) => compareCanonicalText(left.value, right.value));
     const modules = requireNonempty(
         references.map(
-        (reference, index) =>
-            new PackageCodeModule({
-                specifier: `./module-${index}.js`,
-                content: reference,
-                media: new MediaHint("application/javascript"),
-                imports:
-                    index === 0
-                        ? references.slice(1).map((_, child) => `./module-${child + 1}.js`)
-                        : []
-            })
-    ), "code modules");
+            (reference, index) =>
+                new PackageCodeModule({
+                    specifier: `./module-${index}.js`,
+                    content: reference,
+                    media: new MediaHint("application/javascript"),
+                    imports:
+                        index === 0
+                            ? references.slice(1).map((_, child) => `./module-${child + 1}.js`)
+                            : []
+                })
+        ),
+        "code modules"
+    );
     const codeManifest = new PackageCodeManifest({
         compatibilityDate: "2026-07-10",
         modules,
@@ -565,7 +565,6 @@ function digestOf(value: string): Digest {
 function contentRef(value: string): ContentRef {
     return ContentRef.fromDigest(digestOf(value));
 }
-
 
 function expectCodecError(action: () => void, code: AgentCoreError["code"]): void {
     try {

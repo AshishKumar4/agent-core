@@ -28,6 +28,7 @@ import {
     assertString,
     assertUniqueStrings,
     collectFiles,
+    compareCanonicalText,
     packageRoot,
     portable,
     readCanonicalJson,
@@ -84,7 +85,7 @@ for (const requirement of requirements.filter((item) => item.status === "verifie
     }
 }
 
-issues.sort((left, right) => left.fingerprint.localeCompare(right.fingerprint));
+issues.sort((left, right) => compareCanonicalText(left.fingerprint, right.fingerprint));
 const baseline = await loadBaseline(options.baseline);
 const baselineFingerprints = new Set(baseline.issues.map((item) => item.fingerprint));
 const currentFingerprints = new Set(issues.map((item) => item.fingerprint));

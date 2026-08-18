@@ -1,5 +1,5 @@
 import { requireSynchronousResult, type ActorRef, type SynchronousResultGuard } from "../actors";
-import { Digest } from "../core";
+import { Digest, compareCanonicalText } from "../core";
 import { AgentCoreError } from "../errors";
 import type { AuthorityCheckEvidence } from "./evidence";
 import { AuthorityPermit, AuthorityPermitExpectation } from "./permit";
@@ -350,22 +350,22 @@ export class MemoryAuthorityPermitStore
             version: 3,
             requested: Object.freeze(
                 [...this.#requested]
-                    .sort(([left], [right]) => left.localeCompare(right))
+                    .sort(([left], [right]) => compareCanonicalText(left, right))
                     .map(([nonce, bytes]) => Object.freeze({ nonce, bytes: bytes.slice() }))
             ),
             issued: Object.freeze(
                 [...this.#issued]
-                    .sort(([left], [right]) => left.localeCompare(right))
+                    .sort(([left], [right]) => compareCanonicalText(left, right))
                     .map(([nonce, bytes]) => Object.freeze({ nonce, bytes: bytes.slice() }))
             ),
             denied: Object.freeze(
                 [...this.#denied]
-                    .sort(([left], [right]) => left.localeCompare(right))
+                    .sort(([left], [right]) => compareCanonicalText(left, right))
                     .map(([nonce, bytes]) => Object.freeze({ nonce, bytes: bytes.slice() }))
             ),
             consumed: Object.freeze(
                 [...this.#consumed]
-                    .sort(([left], [right]) => left.localeCompare(right))
+                    .sort(([left], [right]) => compareCanonicalText(left, right))
                     .map(([nonce, bytes]) => Object.freeze({ nonce, bytes: bytes.slice() }))
             )
         };

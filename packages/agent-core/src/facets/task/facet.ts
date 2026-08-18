@@ -1,3 +1,4 @@
+import { compareCanonicalText } from "../../core";
 import type { JsonValue } from "../../core";
 import { RunId } from "../../execution-references";
 import {
@@ -289,7 +290,7 @@ export class TaskBackend {
     public list(): readonly TaskEntry[] {
         return Object.freeze(
             [...this.#tasks.values()].sort((left, right) =>
-                left.id.value.localeCompare(right.id.value)
+                compareCanonicalText(left.id.value, right.id.value)
             )
         );
     }

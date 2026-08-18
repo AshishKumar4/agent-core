@@ -1,3 +1,4 @@
+import { compareCanonicalText } from "../../../src/core";
 import { describe, expect, it } from "vitest";
 import { Revision } from "../../../src/core";
 import { RunCommitId } from "../../../src/execution-references";
@@ -155,7 +156,7 @@ describe("durable Run admission registry", () => {
             expect(closed.frontier().map(runObligationKey)).toEqual(
                 [...pending]
                     .sort((left, right) =>
-                        runObligationKey(left).localeCompare(runObligationKey(right))
+                        compareCanonicalText(runObligationKey(left), runObligationKey(right))
                     )
                     .map(runObligationKey)
             );
@@ -347,7 +348,7 @@ describe("transactional terminal frontier", () => {
             expect(snapshot.obligation.obligations.map(runObligationKey)).toEqual(
                 [...obligations]
                     .sort((left, right) =>
-                        runObligationKey(left).localeCompare(runObligationKey(right))
+                        compareCanonicalText(runObligationKey(left), runObligationKey(right))
                     )
                     .map(runObligationKey)
             );

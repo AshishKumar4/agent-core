@@ -1,3 +1,4 @@
+import { compareCanonicalText } from "../../src/core";
 import { describe, expect, test } from "vitest";
 import { callableRecord, malformed, violating } from "../helpers/malformed";
 import { ActorId, ActorRef } from "../../src/actors";
@@ -481,7 +482,7 @@ describe("memory invalidation watermark store mutation gates", () => {
             owner,
             new PrincipalRef(tenantId, new PrincipalId("epoch-gate-holder-b"))
         );
-        expect(watermarkKey(first).localeCompare(watermarkKey(second))).toBeLessThan(0);
+        expect(compareCanonicalText(watermarkKey(first), watermarkKey(second))).toBeLessThan(0);
         store.save(second);
         store.save(first);
         expect(store.snapshot().records.map((record) => record.key)).toEqual([

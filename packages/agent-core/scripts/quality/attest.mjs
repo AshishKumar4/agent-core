@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 import {
     artifactRoot,
     collectFiles,
+    compareCanonicalText,
     fileSha256,
     packageRoot,
     readCanonicalJson,
@@ -148,7 +149,7 @@ const attestation = {
                     }))
                 )
             ]
-                .sort((left, right) => left.name.localeCompare(right.name))
+                .sort((left, right) => compareCanonicalText(left.name, right.name))
                 .map(async ({ name, path }) => [name, await fileSha256(path)])
         )
     )

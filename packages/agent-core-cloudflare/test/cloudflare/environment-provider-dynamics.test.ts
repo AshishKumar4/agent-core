@@ -7,6 +7,7 @@ import {
     ContentRef,
     Digest,
     Revision,
+    compareCanonicalText,
     encodeBase64,
     encodeCanonicalJson
 } from "@agent-core/core";
@@ -967,7 +968,9 @@ function samePin(
 
 function snapshotReference(files: ReadonlyMap<string, Uint8Array>): ContentRef {
     const encodedFiles: Record<string, string> = {};
-    for (const [path, bytes] of [...files].sort(([left], [right]) => left.localeCompare(right))) {
+    for (const [path, bytes] of [...files].sort(([left], [right]) =>
+        compareCanonicalText(left, right)
+    )) {
         encodedFiles[path] = encodeBase64(bytes);
     }
     return ContentRef.fromDigest(

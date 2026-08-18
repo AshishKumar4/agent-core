@@ -1,7 +1,7 @@
 import { relative, resolve } from "node:path";
 import * as ts from "typescript/unstable/ast";
 import { hasModifier } from "./compiler.mjs";
-import { packageRoot } from "./project.mjs";
+import { compareCanonicalText, packageRoot } from "./project.mjs";
 
 const CONTRACT_NAME = /(?:Port|Store|Persistence)$/u;
 
@@ -60,7 +60,7 @@ export function discoverNormativeSeams(project) {
             implementations: implementations.map((implementation) => implementation.selector).sort()
         });
     }
-    return discovered.sort((left, right) => left.contract.localeCompare(right.contract));
+    return discovered.sort((left, right) => compareCanonicalText(left.contract, right.contract));
 }
 
 function conventionalImplementation(implementation, contract) {

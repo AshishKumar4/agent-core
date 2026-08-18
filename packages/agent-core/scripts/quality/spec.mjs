@@ -5,7 +5,13 @@ import { gfmStrikethroughFromMarkdown } from "mdast-util-gfm-strikethrough";
 import { gfmTableFromMarkdown } from "mdast-util-gfm-table";
 import { gfmStrikethrough } from "micromark-extension-gfm-strikethrough";
 import { gfmTable } from "micromark-extension-gfm-table";
-import { artifactRoot, packageRoot, readCanonicalJson, sha256 } from "./project.mjs";
+import {
+    artifactRoot,
+    compareCanonicalText,
+    packageRoot,
+    readCanonicalJson,
+    sha256
+} from "./project.mjs";
 
 const conformanceAtomPattern = /^C13-[A-Z0-9-]+$/u;
 const profileAtomPattern = /^P11-[A-Z0-9-]+$/u;
@@ -48,7 +54,7 @@ export async function canonicalSpec(path = resolve(packageRoot, "SPEC.md")) {
     validateProfileAtomLocations(requirements, anchors);
     return {
         source,
-        requirements: requirements.sort((left, right) => left.id.localeCompare(right.id)),
+        requirements: requirements.sort((left, right) => compareCanonicalText(left.id, right.id)),
         atoms,
         anchors: anchors.map(({ id, start, end }) => ({ id, start, end })),
         units: structure.units,

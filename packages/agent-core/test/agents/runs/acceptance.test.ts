@@ -1,3 +1,4 @@
+import { compareCanonicalText } from "../../../src/core";
 import { describe, expect, it } from "vitest";
 import { Digest, Revision } from "../../../src/core";
 import { AgentCoreError } from "../../../src/errors";
@@ -144,7 +145,7 @@ describe("Run acceptance criteria", () => {
             expect(frontierKeys(value)).toEqual(
                 [...obligations]
                     .map(runObligationKey)
-                    .sort((left, right) => left.localeCompare(right))
+                    .sort((left, right) => compareCanonicalText(left, right))
             );
             expect(
                 value.repository.transaction((tx) =>
@@ -178,7 +179,7 @@ describe("Run acceptance criteria", () => {
             expect(frontierKeys(value)).toEqual(
                 [...obligations]
                     .map(runObligationKey)
-                    .sort((left, right) => left.localeCompare(right))
+                    .sort((left, right) => compareCanonicalText(left, right))
             );
 
             attempted(value, "verifier-pass", "succeeded");
@@ -423,7 +424,7 @@ describe("Run acceptance criteria", () => {
                     { kind: "approval", approval } as const
                 ]
                     .map(runObligationKey)
-                    .sort((left, right) => left.localeCompare(right))
+                    .sort((left, right) => compareCanonicalText(left, right))
             );
             expect(snapshot.obligation.requiredAudits).toEqual([]);
             value.runtime.completeRunObligation(approved);

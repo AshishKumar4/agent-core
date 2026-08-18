@@ -41,10 +41,12 @@ import {
     equivalenceArea,
     equivalenceKey,
     readEquivalenceRegister,
-    reconcileEquivalence
+    reconcileEquivalence,
+    requireCompleteMutationReport
 } from "./mutation-equivalence.mjs";
 import {
     artifactRoot,
+    compareCanonicalText,
     packageRoot,
     readCanonicalJson,
     sha256,
@@ -169,7 +171,9 @@ const report = measurement();
  */
 function measurement() {
     if (options.report !== undefined) {
-        return JSON.parse(readFileSync(resolve(packageRoot, options.report), "utf8"));
+        return requireCompleteMutationReport(
+            JSON.parse(readFileSync(resolve(packageRoot, options.report), "utf8"))
+        );
     }
     // An empty report carries a barrel-only area through the same classification, survivor
     // and baseline path as any other, recording the zeros it truly has instead of branching.
@@ -186,8 +190,10 @@ function measurement() {
         { cwd: packageRoot, encoding: "utf8", stdio: ["ignore", "inherit", "inherit"] }
     );
     if (stryker.status !== 0) throw new TypeError(`Stryker failed for area ${options.area}`);
-    return JSON.parse(
-        readFileSync(resolve(packageRoot, "reports/quality/mutation/report.json"), "utf8")
+    return requireCompleteMutationReport(
+        JSON.parse(
+            readFileSync(resolve(packageRoot, "reports/quality/mutation/report.json"), "utf8")
+        )
     );
 }
 
@@ -478,7 +484,9 @@ function recordKills(path, mutant) {
 }
 
 function sortedObject(map) {
-    return Object.fromEntries([...map].sort(([left], [right]) => left.localeCompare(right, "en")));
+    return Object.fromEntries(
+        [...map].sort(([left], [right]) => compareCanonicalText(left, right))
+    );
 }
 
 // The exact span, not just the line. One line routinely carries several mutants: a

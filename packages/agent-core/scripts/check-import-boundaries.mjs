@@ -4,7 +4,12 @@ import { dirname, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import * as ts from "typescript/unstable/ast";
 import { openProject } from "./quality/compiler.mjs";
-import { isJsonObject, isNonEmptyString, parseCanonicalJson } from "./quality/project.mjs";
+import {
+    compareCanonicalText,
+    isJsonObject,
+    isNonEmptyString,
+    parseCanonicalJson
+} from "./quality/project.mjs";
 
 const CROSS_CONTEXT_RULE = "cross-context-import";
 const RUNTIME_CYCLE_RULE = "runtime-import-cycle";
@@ -607,11 +612,11 @@ function baselineIdentity(entry) {
 
 function compareViolations(left, right) {
     return (
-        left.file.localeCompare(right.file) ||
+        compareCanonicalText(left.file, right.file) ||
         left.position.line - right.position.line ||
         left.position.column - right.position.column ||
-        left.rule.localeCompare(right.rule) ||
-        left.specifier.localeCompare(right.specifier)
+        compareCanonicalText(left.rule, right.rule) ||
+        compareCanonicalText(left.specifier, right.specifier)
     );
 }
 

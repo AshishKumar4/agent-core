@@ -8,12 +8,13 @@ import {
     assertObject,
     assertString,
     collectFiles,
+    compareCanonicalText,
     isNonEmptyString,
     packageRoot,
     portable,
     readCanonicalJson,
-    repositoryRoot,
     reportRoot,
+    repositoryRoot,
     sha256,
     writeCanonicalJson
 } from "./project.mjs";
@@ -134,7 +135,7 @@ for (const field of recordFields) {
     }
 }
 
-issues.sort((left, right) => left.fingerprint.localeCompare(right.fingerprint));
+issues.sort((left, right) => compareCanonicalText(left.fingerprint, right.fingerprint));
 const baseline = await loadBaseline(options.baseline);
 const baselineFingerprints = new Set(baseline.issues.map((item) => item.fingerprint));
 const currentFingerprints = new Set(issues.map((item) => item.fingerprint));

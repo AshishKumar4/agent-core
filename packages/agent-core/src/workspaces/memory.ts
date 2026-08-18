@@ -1,3 +1,4 @@
+import { compareCanonicalText } from "../core";
 import { ACTOR_STATE_SNAPSHOT, type ActorCloneOwnedState } from "../actors";
 import {
     type StoredWorkspacePointer,
@@ -50,7 +51,7 @@ export class MemoryWorkspaceRecords implements WorkspaceRecordStorage, ActorClon
     public listRecords(kind: WorkspaceRecordKind): readonly StoredWorkspaceRecord[] {
         return [...(this.#records.get(kind)?.values() ?? [])]
             .map(copyRecord)
-            .sort((left, right) => left.id.localeCompare(right.id));
+            .sort((left, right) => compareCanonicalText(left.id, right.id));
     }
 
     public insertRecord(record: StoredWorkspaceRecord): void {

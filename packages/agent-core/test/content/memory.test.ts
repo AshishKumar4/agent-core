@@ -1,3 +1,4 @@
+import { compareCanonicalText } from "../../src/core";
 import { describe, expect, test } from "vitest";
 import { ActorId, ActorRef, type SynchronousResultGuard } from "../../src/actors";
 import * as content from "../../src/content";
@@ -341,14 +342,14 @@ describe("MemoryContentStore canonical state", () => {
             };
         });
         const contentOrder = [...entries].sort((left, right) =>
-            right.binding.ref.value.localeCompare(left.binding.ref.value)
+            compareCanonicalText(right.binding.ref.value, left.binding.ref.value)
         );
         const edgeOrder = [...entries].sort((left, right) =>
             Buffer.compare(right.edgeBytes, left.edgeBytes)
         );
         const expectedRefs = entries
             .map((entry) => entry.binding.ref.value)
-            .sort((left, right) => left.localeCompare(right));
+            .sort((left, right) => compareCanonicalText(left, right));
         const expectedEdges = entries.map((entry) => entry.edgeBytes).sort(Buffer.compare);
         const expectedLeases = entries.map((entry) => entry.leaseBytes).sort(Buffer.compare);
 
@@ -411,7 +412,7 @@ describe("MemoryContentStore collection and lease generations", () => {
         }
         const ascending = [...edges]
             .map((edge) => edge.ref.value)
-            .sort((left, right) => left.localeCompare(right));
+            .sort((left, right) => compareCanonicalText(left, right));
         const descending = [...ascending].reverse();
         const releaseOrder = descending.map((value) =>
             defined(edges.find((edge) => edge.ref.value === value))
