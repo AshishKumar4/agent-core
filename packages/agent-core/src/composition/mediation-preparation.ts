@@ -18,6 +18,7 @@ import {
     requireExactObject,
     requireNonnegativeInteger,
     requireString,
+    structuralCodec,
     type CanonicalBatchInvocationRequest,
     type CanonicalBatchPreparationPort,
     type InvocationMemoryCodecs,
@@ -110,14 +111,14 @@ export function pathEpochReference(evidence: PathEpochEvidence): MediationPathEp
     });
 }
 
-export const leaseReferenceCodec: StructuralCodec<MediationLeaseReference> = Object.freeze({
-    encode: (value: MediationLeaseReference): JsonValue => ({
+export const leaseReferenceCodec: StructuralCodec<MediationLeaseReference> = structuralCodec(
+    (value: MediationLeaseReference): JsonValue => ({
         epoch: value.epoch,
         principal: value.principal,
         tenant: value.tenant,
         turn: value.turn
     }),
-    decode: (value: JsonValue): MediationLeaseReference => {
+    (value: JsonValue): MediationLeaseReference => {
         const object = requireExactObject(
             value,
             ["epoch", "principal", "tenant", "turn"],
@@ -130,41 +131,42 @@ export const leaseReferenceCodec: StructuralCodec<MediationLeaseReference> = Obj
             epoch: requireNonnegativeInteger(object, "epoch")
         });
     }
-});
+);
 
-export const authorityReferenceCodec: StructuralCodec<MediationAuthorityReference> = Object.freeze({
-    encode: (value: MediationAuthorityReference): JsonValue => ({
-        binding: value.binding,
-        kind: value.kind,
-        principal: value.principal,
-        tenant: value.tenant
-    }),
-    decode: (value: JsonValue): MediationAuthorityReference => {
-        const object = requireExactObject(
-            value,
-            ["binding", "kind", "principal", "tenant"],
-            "Invocation authority reference"
-        );
-        const kind = requireString(object, "kind");
-        if (kind !== "initiator" && kind !== "delegated") {
-            throw malformed("Invocation authority kind is invalid");
+export const authorityReferenceCodec: StructuralCodec<MediationAuthorityReference> =
+    structuralCodec(
+        (value: MediationAuthorityReference): JsonValue => ({
+            binding: value.binding,
+            kind: value.kind,
+            principal: value.principal,
+            tenant: value.tenant
+        }),
+        (value: JsonValue): MediationAuthorityReference => {
+            const object = requireExactObject(
+                value,
+                ["binding", "kind", "principal", "tenant"],
+                "Invocation authority reference"
+            );
+            const kind = requireString(object, "kind");
+            if (kind !== "initiator" && kind !== "delegated") {
+                throw malformed("Invocation authority kind is invalid");
+            }
+            return Object.freeze({
+                kind,
+                tenant: requireString(object, "tenant"),
+                principal: requireString(object, "principal"),
+                binding: requireString(object, "binding")
+            });
         }
-        return Object.freeze({
-            kind,
-            tenant: requireString(object, "tenant"),
-            principal: requireString(object, "principal"),
-            binding: requireString(object, "binding")
-        });
-    }
-});
+    );
 
-export const domainReferenceCodec: StructuralCodec<MediationDomainReference> = Object.freeze({
-    encode: (value: MediationDomainReference): JsonValue => ({
+export const domainReferenceCodec: StructuralCodec<MediationDomainReference> = structuralCodec(
+    (value: MediationDomainReference): JsonValue => ({
         kind: value.kind,
         label: value.label,
         secretPolicy: value.secretPolicy
     }),
-    decode: (value: JsonValue): MediationDomainReference => {
+    (value: JsonValue): MediationDomainReference => {
         const object = requireExactObject(
             value,
             ["kind", "label", "secretPolicy"],
@@ -180,14 +182,15 @@ export const domainReferenceCodec: StructuralCodec<MediationDomainReference> = O
         }
         return Object.freeze({ kind, label: requireString(object, "label"), secretPolicy });
     }
-});
+);
 
-export const pathEpochReferenceCodec: StructuralCodec<MediationPathEpochReference> = Object.freeze({
-    encode: (value: MediationPathEpochReference): JsonValue =>
-        PathEpochEvidence.fromData({ path: [...value.path] }).toData(),
-    decode: (value: JsonValue): MediationPathEpochReference =>
-        pathEpochReference(PathEpochEvidence.fromData(value))
-});
+export const pathEpochReferenceCodec: StructuralCodec<MediationPathEpochReference> =
+    structuralCodec(
+        (value: MediationPathEpochReference): JsonValue =>
+            PathEpochEvidence.fromData({ path: [...value.path] }).toData(),
+        (value: JsonValue): MediationPathEpochReference =>
+            pathEpochReference(PathEpochEvidence.fromData(value))
+    );
 
 export const mediationPreparedCodecs: PreparedInvocationCodecs<
     MediationLeaseReference,

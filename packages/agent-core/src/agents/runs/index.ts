@@ -56,11 +56,11 @@ export type { PlacementPinInit } from "./placement";
 export { Run, RunBranch } from "./run";
 export { MemoryRunStorage } from "./memory";
 export type { MemoryRunStorageSnapshot } from "./memory";
-export { RunRepository } from "./store";
+export { RunRepository, RunStoragePort } from "./store";
 export type {
     RunExecutionScope,
     RunRecordKind,
-    RunStoragePort,
+    RunTransaction,
     StoredRunParent,
     StoredRunRecord
 } from "./store";

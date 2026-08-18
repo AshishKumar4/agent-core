@@ -6,8 +6,9 @@ import {
     requireSafeInteger,
     requireString
 } from "./data";
-import { InterceptorId } from "./id";
+import { FacetPackageId, InterceptorId } from "./id";
 import { OperationPattern, OperationSelector } from "./mapping";
+import { TextId } from "../core";
 
 export type CutPoint =
     "operation.before" | "operation.after" | "prompt.assemble" | "input.submitted" | "turn.step";
@@ -94,6 +95,14 @@ export class InterceptorDeclaration {
 }
 
 const interceptorDeclarationCodec = new DataRecordCodec(
+    [
+        InterceptorDeclaration,
+        TextId,
+        OperationPattern,
+        OperationSelector,
+        InterceptorId,
+        FacetPackageId
+    ],
     "facet.interceptor-declaration",
     (interceptor: InterceptorDeclaration) => interceptor.toData(),
     (payload) => InterceptorDeclaration.fromData(payload)

@@ -656,8 +656,8 @@ function tableNames(database: TransactionalSqlite): readonly string[] {
 class MarkerTamperSqlite extends TestSqlite {
     public tampered = false;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const rows = super.all(statement, bindings);
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
         if (!this.tampered || !statement.includes("FROM tenant_bootstrap_marker")) return rows;
         return rows.map((row) => ({ ...row, tenant_id: null }));
     }

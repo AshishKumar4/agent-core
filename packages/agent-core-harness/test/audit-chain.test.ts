@@ -100,7 +100,6 @@ describe("audit chain for one real conversation", () => {
             const outcome = await new TurnExecutorHost({
                 runtime: fixture.runtime,
                 executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
-                content: fixture.content,
                 operations: new PlacementOperationSource([recall]),
                 prompt: new TranscriptPromptAssembler("You are a helpful agent.", fixture.content),
                 invocations: harness.pipeline.invocations,

@@ -1328,17 +1328,17 @@ function completeClosure() {
 class FaultSqlite extends TestSqlite {
     public failure: "raw-write" | "typed-write" | "typed-read" | "lost-write" | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         if (
             this.failure === "typed-read" &&
             statement.includes("SELECT next_id FROM tenant_bootstrap_protocol_ids")
         ) {
             throw new AgentCoreError("protocol.invalid-state", "injected typed ID read failure");
         }
-        return super.all(statement, bindings);
+        return super.query(statement, bindings);
     }
 
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         if (statement.startsWith("UPDATE tenant_bootstrap_protocol_ids")) {
             if (this.failure === "raw-write") throw new Error("injected raw ID write failure");
             if (this.failure === "typed-write") {
@@ -1349,6 +1349,6 @@ class FaultSqlite extends TestSqlite {
             }
             if (this.failure === "lost-write") return;
         }
-        super.run(statement, bindings);
+        super.execute(statement, bindings);
     }
 }

@@ -1,4 +1,4 @@
-import { type JsonValue, RecordCodec, compareCanonicalText } from "../../core";
+import { type JsonValue, RecordCodec, TextId, compareCanonicalText } from "../../core";
 import { AgentCoreError } from "../../errors";
 import { RunCommitId } from "../../execution-references";
 import { ApprovalId, EffectAttemptId } from "../../invocation-references";
@@ -243,7 +243,25 @@ export class RunAdmissionRegistry extends CodecRecord {
 
 class RunAdmissionRegistryRecordCodec extends RecordCodec<RunAdmissionRegistry> {
     public constructor() {
-        super("run.admission-registry", { major: 1, minor: 0 });
+        super(
+            [
+                RunAdmissionRegistry,
+                TextId,
+                RunId,
+                CodecRecord,
+                ApprovalId,
+                InvocationId,
+                AcceptanceId,
+                RouteReservationId,
+                RunCommitId,
+                EffectAttemptId
+            ],
+            "run.admission-registry",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(value: RunAdmissionRegistry): JsonValue {

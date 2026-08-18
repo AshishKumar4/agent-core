@@ -5,25 +5,33 @@ import {
     encodeCanonicalJson,
     isMember,
     type JsonObject,
-    type JsonValue
+    type JsonValue,
+    Revision,
+    SemVer,
+    TextId
 } from "../../core";
+import { PackageId, PackagePin } from "../../definition";
+import { EnvironmentId } from "../../environments";
 import { requireSynchronousResult } from "../../actors";
 import { AgentCoreError } from "../../errors";
-import { PrincipalRef } from "../../identity";
+import { PrincipalId, PrincipalRef, TenantId } from "../../identity";
 import { RunCommitId, TurnId } from "../../execution-references";
 import { ReceiptId } from "../../invocation-references";
 import { AuditRecordId, InvocationId, RouteReservationId } from "../../interaction-references";
 import {
     CodecRecord,
+    contentRetentionFields,
     requireArray,
     requireExactFields,
     requireObject,
     requireOptionalString,
     requireString
 } from "../record-data";
+import type { ContentRetentionField } from "../record-data";
+import { AgentId, AgentPolicyId, ModelPolicyId } from "../id";
 import { RunBranchId, RunId } from "./id";
 import { leaseTokenFromData, leaseTokenToData, leaseTokensEqual, type LeaseToken } from "./lease";
-import { RunPins } from "./pins";
+import { BlueprintPin, RunPins } from "./pins";
 import type { RunEvidencePort } from "./evidence";
 
 export type SystemCause =
@@ -320,9 +328,48 @@ export class RunCommit extends CodecRecord {
     }
 }
 
+export function runCommitContentRetention(value: RunCommit): readonly ContentRetentionField[] {
+    return contentRetentionFields([
+        ["content", value.content],
+        ["treeCheckpoint", value.treeCheckpoint],
+        ["treeResolution.base", value.treeResolution?.base]
+    ]);
+}
+
 class CommitCodec extends RecordCodec<RunCommit> {
     public constructor() {
-        super("run.commit", { major: 3, minor: 0 });
+        super(
+            [
+                RunCommit,
+                Revision,
+                TextId,
+                SemVer,
+                RunPins,
+                PackagePin,
+                BlueprintPin,
+                ContentRef,
+                Digest,
+                RunId,
+                RouteReservationId,
+                ReceiptId,
+                RunCommitId,
+                AuditRecordId,
+                TenantId,
+                TurnId,
+                RunBranchId,
+                PrincipalId,
+                InvocationId,
+                AgentId,
+                CodecRecord,
+                ModelPolicyId,
+                EnvironmentId,
+                AgentPolicyId,
+                PrincipalRef,
+                PackageId
+            ],
+            "run.commit",
+            { major: 3, minor: 0 }
+        );
     }
 
     protected encodePayload(value: RunCommit): JsonValue {

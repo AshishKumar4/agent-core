@@ -420,14 +420,17 @@ function observeRole(name: string): Role {
 }
 
 class TestSqlite extends TransactionalSqlite {
-    readonly #database = new Database(":memory:");
+    readonly #database: Database;
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        return this.#database.query<SqliteRow, SqliteValue[]>(statement).all(...bindings);
-    }
-
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
-        this.#database.query<SqliteRow, SqliteValue[]>(statement).run(...bindings);
+    public constructor() {
+        const database = new Database(":memory:");
+        super({
+            read: (statement, bindings) =>
+                database.query<SqliteRow, SqliteValue[]>(statement).all(...bindings),
+            write: (statement, bindings) =>
+                database.query<SqliteRow, SqliteValue[]>(statement).run(...bindings)
+        });
+        this.#database = database;
     }
 
     public transaction<Result>(

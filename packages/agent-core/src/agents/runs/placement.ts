@@ -1,6 +1,16 @@
-import { Digest, RecordCodec, encodeCanonicalJson, isMember, type JsonValue } from "../../core";
-import { FacetRef, type IsolationMode } from "../../facets";
-import { PLACEMENT_PREFERENCE, preferredPlacement } from "../../definition";
+import {
+    Digest,
+    RecordCodec,
+    encodeCanonicalJson,
+    isMember,
+    type JsonValue,
+    Revision,
+    SemVer,
+    TextId
+} from "../../core";
+import { FacetPackageId, FacetRef, type IsolationMode } from "../../facets";
+import { PackageId, PackagePin, PLACEMENT_PREFERENCE, preferredPlacement } from "../../definition";
+import { EnvironmentId } from "../../environments";
 import { TurnId } from "../../execution-references";
 import {
     CodecRecord,
@@ -10,7 +20,8 @@ import {
     requireObject,
     requireString
 } from "../record-data";
-import { RunPins, RunPinsCodec } from "./pins";
+import { AgentId, AgentPolicyId, ModelPolicyId } from "../id";
+import { BlueprintPin, RunPins, RunPinsCodec } from "./pins";
 
 export interface PlacementPinInit {
     readonly facet: FacetRef;
@@ -127,7 +138,33 @@ export class TurnPlacementSnapshot extends CodecRecord {
 
 class PlacementSnapshotCodec extends RecordCodec<TurnPlacementSnapshot> {
     public constructor() {
-        super("turn.placement-snapshot", { major: 1, minor: 0 });
+        super(
+            [
+                TurnPlacementSnapshot,
+                PlacementPin,
+                Revision,
+                TextId,
+                SemVer,
+                RunPins,
+                PackagePin,
+                BlueprintPin,
+                Digest,
+                TurnId,
+                AgentId,
+                CodecRecord,
+                ModelPolicyId,
+                EnvironmentId,
+                AgentPolicyId,
+                FacetRef,
+                FacetPackageId,
+                PackageId
+            ],
+            "turn.placement-snapshot",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(value: TurnPlacementSnapshot): JsonValue {

@@ -227,8 +227,8 @@ describe("SQLite Actor store", () => {
 });
 
 class DroppedIdentitySqlite extends TestSqlite {
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         if (statement.includes("INSERT OR IGNORE INTO actor_identity")) return;
-        super.run(statement, bindings);
+        super.execute(statement, bindings);
     }
 }

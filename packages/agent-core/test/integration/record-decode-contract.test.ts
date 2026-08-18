@@ -73,8 +73,6 @@ const rows = readRecordRegistry();
 // A record whose codec is a class rather than a value is parameterised by the
 // codecs of the references it embeds, so it has no registry-reachable instance.
 const constructedCodecs = [
-    "src/facets/operation.ts#BoundOperationRef.codec",
-    "src/facets/operation.ts#FacetOperationRef.codec",
     "src/identity/guest-verification.ts#GuestVerification.codec",
     "src/invocations/approval.ts#ApprovalRecordCodec",
     "src/invocations/attempt.ts#EffectAttemptCodec",

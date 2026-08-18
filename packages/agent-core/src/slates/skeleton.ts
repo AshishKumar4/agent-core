@@ -1,5 +1,5 @@
 import { Digest, RecordCodec, type JsonValue } from "../core";
-import type { BindingRequirement } from "../facets";
+import { BindingRequirement } from "../facets";
 import {
     bindingRequirements,
     canonicalBindingRequirements,
@@ -9,7 +9,10 @@ import {
 
 class SlateSkeletonCodecV1 extends RecordCodec<SlateSkeleton> {
     public constructor() {
-        super("slate.skeleton", { major: 1, minor: 0 });
+        super([SlateSkeleton, BindingRequirement, Digest], "slate.skeleton", {
+            major: 1,
+            minor: 0
+        });
     }
 
     protected encodePayload(skeleton: SlateSkeleton): JsonValue {
@@ -35,7 +38,9 @@ class SlateSkeletonCodecV1 extends RecordCodec<SlateSkeleton> {
  * declarations of a needed capability and never grants of one.
  */
 export class SlateSkeleton {
-    public static readonly codec: RecordCodec<SlateSkeleton> = new SlateSkeletonCodecV1();
+    public static get codec(): RecordCodec<SlateSkeleton> {
+        return slateSkeletonCodecInstance;
+    }
     public readonly sourceDigest: Digest;
     public readonly bindings: readonly BindingRequirement[];
 
@@ -75,3 +80,5 @@ export class SlateSkeleton {
         );
     }
 }
+
+const slateSkeletonCodecInstance = new SlateSkeletonCodecV1();

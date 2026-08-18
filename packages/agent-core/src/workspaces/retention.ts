@@ -1,5 +1,12 @@
-import type { ActorRef } from "../actors";
-import { ContentRef, Digest, RecordCodec, type JsonValue, type RecordVersion } from "../core";
+import { ActorId, ActorRef } from "../actors";
+import {
+    ContentRef,
+    Digest,
+    RecordCodec,
+    type JsonValue,
+    type RecordVersion,
+    TextId
+} from "../core";
 import { TenantId } from "../identity";
 import {
     decodeActor,
@@ -75,7 +82,22 @@ export interface ContentRetentionReferenceInit {
 
 class ContentRetentionReferenceCodecV1 extends RecordCodec<ContentRetentionReference> {
     public constructor() {
-        super("workspace.content-retention-reference", { major: 1, minor: 0 });
+        super(
+            [
+                ContentRetentionReference,
+                ActorRef,
+                ContentRef,
+                RetainedRecordKind,
+                TextId,
+                Digest,
+                RetainedRecordRef,
+                ActorId,
+                TenantId,
+                ContentRetentionId
+            ],
+            "workspace.content-retention-reference",
+            { major: 1, minor: 0 }
+        );
     }
 
     protected encodePayload(reference: ContentRetentionReference): JsonValue {
@@ -115,8 +137,9 @@ class ContentRetentionReferenceCodecV1 extends RecordCodec<ContentRetentionRefer
 }
 
 export class ContentRetentionReference {
-    public static readonly codec: RecordCodec<ContentRetentionReference> =
-        new ContentRetentionReferenceCodecV1();
+    public static get codec(): RecordCodec<ContentRetentionReference> {
+        return contentRetentionReferenceCodecInstance;
+    }
 
     public static encode(reference: ContentRetentionReference): Uint8Array {
         return ContentRetentionReference.codec.encode(reference);
@@ -161,6 +184,8 @@ export class ContentRetentionReference {
         return this.init.digest;
     }
 }
+
+const contentRetentionReferenceCodecInstance = new ContentRetentionReferenceCodecV1();
 
 export interface ContentRetentionPort<Transaction> {
     verify(transaction: Transaction, reference: ContentRetentionReference): boolean;

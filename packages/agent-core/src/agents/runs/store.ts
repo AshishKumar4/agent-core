@@ -1,25 +1,38 @@
-import type { SynchronousResultGuard } from "../../actors";
+import type { ActorRef, SynchronousResultGuard } from "../../actors";
+import {
+    ByteRange,
+    ContentOwnerEdge,
+    ContentStat,
+    ContentStore,
+    MediaHint,
+    requireOperationTime,
+    type ContentPutResult
+} from "../../content";
 import { Revision, type ContentRef, type Digest, type RecordCodec } from "../../core";
 import { AgentCoreError } from "../../errors";
+import type { TenantId } from "../../identity";
 import {
     AcceptanceCriterion,
     AcceptanceCriterionCodec,
     AcceptanceVerdict,
     AcceptanceVerdictCodec
 } from "./acceptance";
-import { RunCommit, RunCommitCodec } from "./commit";
+import { RunCommit, RunCommitCodec, runCommitContentRetention } from "./commit";
 import { RunConfigurationSnapshot, RunConfigurationSnapshotCodec } from "./pins";
 import { Run, RunBranch, RunBranchCodec, RunCodec } from "./run";
 import {
     RunCheckpoint,
     RunCheckpointCodec,
+    runCheckpointContentRetention,
     Turn,
     TurnCodec,
+    turnContentRetention,
     TurnInboxEntry,
-    TurnInboxEntryCodec
+    TurnInboxEntryCodec,
+    turnInboxEntryContentRetention
 } from "./turn";
 import { TurnPlacementSnapshot, TurnPlacementSnapshotCodec } from "./placement";
-import { SpawnReservation, SpawnReservationCodec } from "./spawn";
+import { SpawnReservation, SpawnReservationCodec, spawnReservationContentRetention } from "./spawn";
 import type {
     AcceptanceId,
     RunBranchId,
@@ -32,6 +45,7 @@ import type { RunCommitId, TurnId } from "../../execution-references";
 import { RunAdmissionRegistry, RunAdmissionRegistryCodec } from "./admission";
 import { ForcedTurnCancellation, ForcedTurnCancellationCodec } from "./forced-cancellation";
 import type { LeaseToken } from "./lease";
+import type { CodecRecord, ContentRetentionField } from "../record-data";
 
 export interface RunExecutionScope {
     readonly run: Run;
@@ -61,6 +75,19 @@ export const RUN_RECORD_KINDS = Object.freeze([
 
 export type RunRecordKind = (typeof RUN_RECORD_KINDS)[number];
 
+class OpaqueRunTransaction {
+    readonly #opaque = true;
+
+    public constructor() {
+        void this.#opaque;
+        Object.freeze(this);
+    }
+}
+Object.freeze(OpaqueRunTransaction.prototype);
+Object.freeze(OpaqueRunTransaction);
+
+export type RunTransaction = OpaqueRunTransaction;
+
 export interface StoredRunRecord {
     readonly kind: RunRecordKind;
     readonly key: string;
@@ -74,21 +101,216 @@ export interface StoredRunParent {
     readonly parent: string;
 }
 
-export interface RunStoragePort<Transaction> {
+interface RunStorageBackend<Transaction> {
     transaction<Result>(
         operation: (transaction: Transaction) => Result,
         ...guard: SynchronousResultGuard<Result>
     ): Result;
     get(transaction: Transaction, kind: RunRecordKind, key: string): StoredRunRecord | undefined;
     list(transaction: Transaction, kind: RunRecordKind): readonly StoredRunRecord[];
+    validate(record: StoredRunRecord): void;
+    poison(transaction: Transaction, failure: Error): never;
     insert(transaction: Transaction, record: StoredRunRecord): void;
     replace(transaction: Transaction, record: StoredRunRecord, expectedRevision: number): void;
     insertParent(transaction: Transaction, edge: StoredRunParent): void;
     parents(transaction: Transaction, commit: string): readonly StoredRunParent[];
+    retain(transaction: Transaction, edge: ContentOwnerEdge, operationAt: Date): void;
+    release(transaction: Transaction, edge: ContentOwnerEdge, operationAt: Date): void;
+    verify(
+        transaction: Transaction,
+        ownerPrefixes: readonly string[],
+        expected: readonly ContentOwnerEdge[]
+    ): void;
 }
 
+const ownedRunStorageBackends = new WeakSet<object>();
+
+export function ownRunStorageBackend<Transaction>(
+    backend: RunStorageBackend<Transaction>
+): RunStorageBackend<Transaction> {
+    ownedRunStorageBackends.add(backend);
+    return backend;
+}
+
+export abstract class RunStoragePort<Transaction> {
+    readonly #backend: RunStorageBackend<Transaction>;
+    readonly #clock: () => Date;
+    #transactionActive = false;
+    declare public readonly content: ContentStore;
+
+    protected constructor(
+        public readonly tenant: TenantId,
+        public readonly owner: ActorRef,
+        content: ContentStore,
+        backend: RunStorageBackend<Transaction>,
+        clock: () => Date = () => new Date()
+    ) {
+        if (!ownedRunStorageBackends.delete(backend)) {
+            throw new TypeError("Run storage backends must be created by the owning context");
+        }
+        const contentFacade = Object.freeze(
+            new RunContentStore(content, () => {
+                if (this.#transactionActive) throw contentWriteDuringTransaction();
+            })
+        );
+        Object.defineProperty(this, "content", {
+            configurable: false,
+            enumerable: true,
+            value: contentFacade,
+            writable: false
+        });
+        this.#backend = backend;
+        this.#clock = clock;
+        this.verifyContentCustody();
+    }
+
+    protected static createTransaction(): RunTransaction {
+        return new OpaqueRunTransaction();
+    }
+
+    public transaction<Result>(
+        operation: (transaction: Transaction) => Result,
+        ...guard: SynchronousResultGuard<Result>
+    ): Result {
+        const alreadyActive = this.#transactionActive;
+        this.#transactionActive = true;
+        try {
+            return this.#backend.transaction(operation, ...guard);
+        } finally {
+            this.#transactionActive = alreadyActive;
+        }
+    }
+
+    public get(
+        transaction: Transaction,
+        kind: RunRecordKind,
+        key: string
+    ): StoredRunRecord | undefined {
+        return this.#backend.get(transaction, kind, key);
+    }
+
+    public list(transaction: Transaction, kind: RunRecordKind): readonly StoredRunRecord[] {
+        return this.#backend.list(transaction, kind);
+    }
+
+    public insert(transaction: Transaction, record: StoredRunRecord): void {
+        this.mutate(transaction, () => {
+            const previous = this.#backend.get(transaction, record.kind, record.key);
+            this.#backend.validate(record);
+            const before = previous === undefined ? [] : contentOwnerEdges(this, previous);
+            const after = contentOwnerEdges(this, record);
+            this.#backend.insert(transaction, record);
+            this.reconcileContentCustody(transaction, before, after);
+        });
+    }
+
+    public replace(
+        transaction: Transaction,
+        record: StoredRunRecord,
+        expectedRevision: number
+    ): void {
+        this.mutate(transaction, () => {
+            const previous = this.#backend.get(transaction, record.kind, record.key);
+            this.#backend.validate(record);
+            if (
+                previous?.revision !== expectedRevision ||
+                record.revision !== expectedRevision + 1
+            ) {
+                throw new AgentCoreError(
+                    "protocol.revision-conflict",
+                    "Run record revision changed"
+                );
+            }
+            const before = previous === undefined ? [] : contentOwnerEdges(this, previous);
+            const after = contentOwnerEdges(this, record);
+            this.#backend.replace(transaction, record, expectedRevision);
+            this.reconcileContentCustody(transaction, before, after);
+        });
+    }
+
+    public insertParent(transaction: Transaction, edge: StoredRunParent): void {
+        this.mutate(transaction, () => this.#backend.insertParent(transaction, edge));
+    }
+
+    public parents(transaction: Transaction, commit: string): readonly StoredRunParent[] {
+        return this.#backend.parents(transaction, commit);
+    }
+
+    private verifyContentCustody(): void {
+        this.transaction((transaction) => {
+            const expected = RUN_RECORD_KINDS.flatMap((kind) =>
+                this.#backend
+                    .list(transaction, kind)
+                    .flatMap((record) => contentOwnerEdges(this, record))
+            );
+            this.#backend.verify(transaction, RUN_CONTENT_OWNER_PREFIXES, expected);
+        });
+    }
+
+    private mutate(transaction: Transaction, operation: () => void): void {
+        try {
+            operation();
+        } catch (error) {
+            this.#backend.poison(
+                transaction,
+                error instanceof Error ? error : nonErrorCustodyFailure()
+            );
+        }
+    }
+
+    private reconcileContentCustody(
+        transaction: Transaction,
+        before: readonly ContentOwnerEdge[],
+        after: readonly ContentOwnerEdge[]
+    ): void {
+        const removed = before.filter((edge) => !after.some((candidate) => candidate.equals(edge)));
+        if (removed.length === 0 && after.length === 0) return;
+        const operationAt = requireOperationTime(this.#clock(), "Run content retention time");
+        for (const edge of removed) this.#backend.release(transaction, edge, operationAt);
+        for (const edge of after) this.#backend.retain(transaction, edge, operationAt);
+    }
+}
+Object.freeze(RunStoragePort.prototype);
+Object.freeze(RunStoragePort);
+
+class RunContentStore extends ContentStore {
+    readonly #get: (ref: ContentRef, range?: ByteRange) => Promise<Uint8Array>;
+    readonly #put: (bytes: Uint8Array, hint?: MediaHint) => Promise<ContentPutResult>;
+    readonly #requireWrite: () => void;
+    readonly #stat: (ref: ContentRef) => Promise<ContentStat | undefined>;
+
+    public constructor(store: ContentStore, requireWrite: () => void) {
+        super();
+        this.#get = store.get.bind(store);
+        this.#put = store.put.bind(store);
+        this.#requireWrite = requireWrite;
+        this.#stat = store.stat.bind(store);
+    }
+
+    public put(bytes: Uint8Array, hint?: MediaHint): Promise<ContentPutResult> {
+        this.#requireWrite();
+        return this.#put(bytes, hint);
+    }
+
+    public async get(ref: ContentRef, range?: ByteRange): Promise<Uint8Array> {
+        return this.#get(ref, range);
+    }
+
+    public async stat(ref: ContentRef): Promise<ContentStat | undefined> {
+        return this.#stat(ref);
+    }
+}
+Object.freeze(RunContentStore.prototype);
+Object.freeze(RunContentStore);
+
 export class RunRepository<Transaction> {
-    public constructor(public readonly storage: RunStoragePort<Transaction>) {}
+    public constructor(public readonly storage: RunStoragePort<Transaction>) {
+        Object.freeze(this);
+    }
+
+    public get content(): ContentStore {
+        return this.storage.content;
+    }
 
     public transaction<Result>(
         operation: (transaction: Transaction) => Result,
@@ -98,7 +320,10 @@ export class RunRepository<Transaction> {
     }
 
     public loadExecutionScope(tx: Transaction, token: LeaseToken, now: Date): RunExecutionScope {
-        const turn = requireStored(this.loadTurn(tx, token.turn), "Turn executor target does not exist");
+        const turn = requireStored(
+            this.loadTurn(tx, token.turn),
+            "Turn executor target does not exist"
+        );
         turn.requireToken(token, now);
         const run = requireStored(this.loadRun(tx, turn.run), "Turn executor Run does not exist");
         const branch = requireStored(
@@ -515,12 +740,13 @@ export class RunRepository<Transaction> {
     ): void {
         const bytes = codec.encode(value);
         const canonical = codec.decode(bytes);
-        this.storage.insert(tx, {
+        const record = Object.freeze<StoredRunRecord>({
             kind,
             key,
             revision: revision?.value ?? null,
             bytes: codec.encode(canonical)
         });
+        this.storage.insert(tx, record);
     }
 
     private replace<Value>(
@@ -533,7 +759,13 @@ export class RunRepository<Transaction> {
         revision: Revision
     ): void {
         const bytes = codec.encode(codec.decode(codec.encode(value)));
-        this.storage.replace(tx, { kind, key, revision: revision.value, bytes }, expected.value);
+        const record = Object.freeze<StoredRunRecord>({
+            kind,
+            key,
+            revision: revision.value,
+            bytes
+        });
+        this.storage.replace(tx, record, expected.value);
     }
 
     private load<Value>(
@@ -594,6 +826,150 @@ export class RunRepository<Transaction> {
         }
     }
 }
+Object.freeze(RunRepository.prototype);
+Object.freeze(RunRepository);
+
+interface DecodedRunContentRecord {
+    readonly key: string;
+    readonly revision: number | null;
+    readonly ownerKind: string;
+    readonly fields: readonly ContentRetentionField[];
+}
+
+interface RunRecordDescriptorBase {
+    readonly ownerKind: string;
+    decodeContent(bytes: Uint8Array): DecodedRunContentRecord | undefined;
+}
+
+interface RunRecordDescriptor<Value extends CodecRecord> extends RunRecordDescriptorBase {
+    readonly codec: RecordCodec<Value>;
+    key(value: Value): string;
+    revision(value: Value): number | null;
+}
+
+type ContentProjection<Value extends CodecRecord> = (
+    value: Value
+) => readonly ContentRetentionField[];
+
+const RUN_RECORD_DESCRIPTORS = Object.freeze({
+    configuration: recordDescriptor(RunConfigurationSnapshotCodec, (value) => value.id.value),
+    run: recordDescriptor(
+        RunCodec,
+        (value) => value.id.value,
+        (value) => value.revision.value
+    ),
+    branch: recordDescriptor(
+        RunBranchCodec,
+        (value) => value.id.value,
+        (value) => value.revision.value
+    ),
+    commit: contentRecordDescriptor(
+        RunCommitCodec,
+        (value) => value.id.value,
+        runCommitContentRetention
+    ),
+    turn: contentRecordDescriptor(
+        TurnCodec,
+        (value) => value.id.value,
+        turnContentRetention,
+        (value) => value.revision.value
+    ),
+    placement: recordDescriptor(TurnPlacementSnapshotCodec, (value) => value.turn.value),
+    checkpoint: contentRecordDescriptor(
+        RunCheckpointCodec,
+        (value) => value.id.value,
+        runCheckpointContentRetention
+    ),
+    inbox: contentRecordDescriptor(
+        TurnInboxEntryCodec,
+        (value) => value.id.value,
+        turnInboxEntryContentRetention
+    ),
+    spawn: contentRecordDescriptor(
+        SpawnReservationCodec,
+        (value) => value.id.value,
+        spawnReservationContentRetention
+    ),
+    admission: recordDescriptor(
+        RunAdmissionRegistryCodec,
+        (value) => value.run.value,
+        admissionRevision
+    ),
+    forcedCancellation: recordDescriptor(ForcedTurnCancellationCodec, (value) => value.turn.value),
+    acceptance: recordDescriptor(AcceptanceCriterionCodec, (value) => value.id.value),
+    verdict: recordDescriptor(AcceptanceVerdictCodec, acceptanceVerdictKey)
+}) satisfies Readonly<Record<RunRecordKind, RunRecordDescriptorBase>>;
+
+const RUN_CONTENT_OWNER_PREFIXES = Object.freeze([
+    ...new Set(RUN_RECORD_KINDS.map((kind) => `record:${RUN_RECORD_DESCRIPTORS[kind].ownerKind}:`))
+]);
+
+function recordDescriptor<Value extends CodecRecord>(
+    codec: RecordCodec<Value>,
+    key: (value: Value) => string,
+    revision: (value: Value) => number | null = () => null
+): RunRecordDescriptor<Value> {
+    return createRecordDescriptor(codec, key, revision);
+}
+
+function contentRecordDescriptor<Value extends CodecRecord>(
+    codec: RecordCodec<Value>,
+    key: (value: Value) => string,
+    projection: ContentProjection<Value>,
+    revision: (value: Value) => number | null = () => null
+): RunRecordDescriptor<Value> {
+    return createRecordDescriptor(codec, key, revision, projection);
+}
+
+function createRecordDescriptor<Value extends CodecRecord>(
+    codec: RecordCodec<Value>,
+    key: (value: Value) => string,
+    revision: (value: Value) => number | null,
+    projection?: ContentProjection<Value>
+): RunRecordDescriptor<Value> {
+    return Object.freeze({
+        codec,
+        key,
+        revision,
+        ownerKind: codec.kind,
+        decodeContent(bytes: Uint8Array): DecodedRunContentRecord | undefined {
+            if (projection === undefined) return undefined;
+            const value = codec.decode(bytes);
+            return {
+                key: key(value),
+                revision: revision(value),
+                ownerKind: codec.kind,
+                fields: projection(value)
+            };
+        }
+    });
+}
+
+function contentOwnerEdges<Transaction>(
+    storage: RunStoragePort<Transaction>,
+    record: StoredRunRecord
+): readonly ContentOwnerEdge[] {
+    const descriptor: RunRecordDescriptorBase = RUN_RECORD_DESCRIPTORS[record.kind];
+    const decoded = descriptor.decodeContent(record.bytes);
+    if (decoded === undefined) return [];
+    if (decoded.key !== record.key || decoded.revision !== record.revision) {
+        throw new AgentCoreError(
+            "codec.invalid",
+            "Stored Run content projection does not match codec bytes"
+        );
+    }
+    return Object.freeze(
+        decoded.fields.map(
+            ({ field, ref }) =>
+                new ContentOwnerEdge(
+                    storage.tenant,
+                    storage.owner,
+                    `record:${decoded.ownerKind}:${decoded.key.length}:${decoded.key}:${field}`,
+                    ref
+                )
+        )
+    );
+}
 
 function admissionRevision(value: RunAdmissionRegistry): number {
     return value.reserved.length + value.completed.length + (value.accepting ? 0 : 1);
@@ -601,6 +977,20 @@ function admissionRevision(value: RunAdmissionRegistry): number {
 
 function acceptanceVerdictKey(value: AcceptanceVerdict): string {
     return `${value.acceptance.value}:${value.subject.value}`;
+}
+
+function nonErrorCustodyFailure(): AgentCoreError {
+    return new AgentCoreError(
+        "protocol.invalid-state",
+        "Run content custody failed with a non-Error value"
+    );
+}
+
+function contentWriteDuringTransaction(): AgentCoreError {
+    return new AgentCoreError(
+        "run.invalid-state",
+        "Run content writes are not allowed during a Run storage transaction"
+    );
 }
 
 function requireStored<Value>(value: Value | undefined, message: string): Value {

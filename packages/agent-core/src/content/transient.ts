@@ -5,7 +5,8 @@ import {
     RecordCodec,
     hasExactJsonKeys,
     type JsonValue,
-    type RecordVersion
+    type RecordVersion,
+    TextId
 } from "../core";
 import { AgentCoreError } from "../errors";
 import { TenantId } from "../identity";
@@ -23,7 +24,14 @@ export interface TransientContentBinding {
 
 class TransientContentLeaseStateCodec extends RecordCodec<TransientContentLeaseState> {
     public constructor() {
-        super("content.transient-lease", { major: 1, minor: 0 });
+        super(
+            [TransientContentLeaseState, ActorRef, TextId, ContentRef, Digest, ActorId, TenantId],
+            "content.transient-lease",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(lease: TransientContentLeaseState): JsonValue {
@@ -98,8 +106,9 @@ function isLeaseTime(value: JsonValue | undefined): value is number {
 }
 
 export class TransientContentLeaseState {
-    public static readonly codec: RecordCodec<TransientContentLeaseState> =
-        new TransientContentLeaseStateCodec();
+    public static get codec(): RecordCodec<TransientContentLeaseState> {
+        return transientContentLeaseStateCodecInstance;
+    }
     readonly #acquiredAt: number;
     readonly #expiresAt: number;
     readonly #closedAt: number | undefined;
@@ -188,6 +197,8 @@ export class TransientContentLeaseState {
         );
     }
 }
+
+const transientContentLeaseStateCodecInstance = new TransientContentLeaseStateCodec();
 
 export abstract class TransientContentLease {
     public abstract read(): Uint8Array;

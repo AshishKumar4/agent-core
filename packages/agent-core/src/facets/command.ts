@@ -1,4 +1,4 @@
-import { isNonempty, JsonSchema } from "../core";
+import { isNonempty, JsonSchema, TextId } from "../core";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
@@ -13,8 +13,8 @@ import {
     requireString
 } from "./data";
 import { canonicalTrustTiers, type TrustTier } from "./event";
-import { BindingName, OperationRef, SlotName } from "./id";
-import { FieldMapping, FieldMove } from "./mapping";
+import { BindingName, FacetPackageId, OperationName, OperationRef, SlotName } from "./id";
+import { FieldMapping, FieldMove, JsonPointer, MappingRecord } from "./mapping";
 import { BoundOperationRef } from "./operation";
 
 export interface CommandInit {
@@ -135,6 +135,21 @@ export class Command {
 }
 
 const commandCodec = new DataRecordCodec(
+    [
+        Command,
+        TextId,
+        JsonSchema,
+        MappingRecord,
+        FieldMove,
+        OperationRef,
+        BindingName,
+        FacetPackageId,
+        OperationName,
+        BoundOperationRef,
+        FieldMapping,
+        SlotName,
+        JsonPointer
+    ],
     "facet.command",
     (command: Command) => command.toData(),
     (payload) => Command.fromData(payload)

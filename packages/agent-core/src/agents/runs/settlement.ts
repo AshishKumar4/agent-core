@@ -1,5 +1,5 @@
 import { requireSynchronousResult } from "../../actors";
-import { type JsonValue, RecordCodec, compareCanonicalText } from "../../core";
+import { type JsonValue, RecordCodec, TextId, compareCanonicalText } from "../../core";
 import { RunCommitId, TurnId } from "../../execution-references";
 import { ApprovalId, EffectAttemptId } from "../../invocation-references";
 import { InvocationId, RouteReservationId } from "../../interaction-references";
@@ -87,7 +87,24 @@ export class SettlementObligation extends CodecRecord {
 
 class SettlementObligationRecordCodec extends RecordCodec<SettlementObligation> {
     public constructor() {
-        super("run.settlement-obligation", { major: 2, minor: 0 });
+        super(
+            [
+                SettlementObligation,
+                CodecRecord,
+                ApprovalId,
+                InvocationId,
+                AcceptanceId,
+                RouteReservationId,
+                RunCommitId,
+                TextId,
+                EffectAttemptId
+            ],
+            "run.settlement-obligation",
+            {
+                major: 2,
+                minor: 0
+            }
+        );
     }
     protected encodePayload(value: SettlementObligation): JsonValue {
         return value.toData();
@@ -183,7 +200,27 @@ export class TerminalSnapshot extends CodecRecord {
 
 class TerminalSnapshotRecordCodec extends RecordCodec<TerminalSnapshot> {
     public constructor() {
-        super("run.terminal-snapshot", { major: 3, minor: 0 });
+        super(
+            [
+                TerminalSnapshot,
+                TextId,
+                SettlementObligation,
+                RunId,
+                RunCommitId,
+                TurnId,
+                CodecRecord,
+                ApprovalId,
+                InvocationId,
+                AcceptanceId,
+                RouteReservationId,
+                EffectAttemptId
+            ],
+            "run.terminal-snapshot",
+            {
+                major: 3,
+                minor: 0
+            }
+        );
     }
     protected encodePayload(value: TerminalSnapshot): JsonValue {
         return value.toData();

@@ -1,12 +1,89 @@
-import { Digest, RecordCodec, encodeCanonicalJson, type JsonValue } from "../core";
+import {
+    Digest,
+    RecordCodec,
+    encodeCanonicalJson,
+    type JsonValue,
+    Revision,
+    SecretRef,
+    SemVer,
+    TextId
+} from "../core";
+import { RunId, TurnId } from "../agents";
+import { ActorId, ActorRef } from "../actors";
+import { PackageId, PackagePin } from "../definition";
+import {
+    BindingName,
+    FacetPackageId,
+    FacetRef,
+    OperationName,
+    OperationRef,
+    ProtectionDomain
+} from "../facets";
+import { ClaimWorkerId, ItemClaimId } from "../invocation-references";
+import { InvocationId } from "../interaction-references";
 import type { JsonObject } from "./data";
 import { requireExact, requireObject, requireSafeInteger, requireString } from "./data";
+import { Binding, BindingCredentialCustody, BindingLifecycle } from "./binding";
 import { AuthorityCheckRequest } from "./evidence";
+import { PathEpochEvidence, ScopeEpoch } from "./epoch";
 import { AuthorityPermitExpectation } from "./permit";
+import {
+    GuestVerificationScheme,
+    PrincipalId,
+    PrincipalRef,
+    ProjectId,
+    ScopeRef,
+    TeamId,
+    TenantId,
+    WorkspaceId
+} from "../identity";
+import { GrantId } from "./id";
 
 class TargetAuthorityPermitRequestCodec extends RecordCodec<TargetAuthorityPermitRequest> {
     public constructor() {
-        super("authority.target-permit-request", { major: 1, minor: 0 });
+        super(
+            [
+                TargetAuthorityPermitRequest,
+                ActorRef,
+                GuestVerificationScheme,
+                Revision,
+                ScopeRef,
+                TextId,
+                SemVer,
+                AuthorityCheckRequest,
+                AuthorityPermitExpectation,
+                Binding,
+                BindingLifecycle,
+                BindingCredentialCustody,
+                PathEpochEvidence,
+                PackagePin,
+                ScopeEpoch,
+                FacetRef,
+                ProtectionDomain,
+                Digest,
+                OperationRef,
+                SecretRef,
+                PrincipalRef,
+                RunId,
+                BindingName,
+                InvocationId,
+                ActorId,
+                FacetPackageId,
+                PackageId,
+                TeamId,
+                ItemClaimId,
+                OperationName,
+                ClaimWorkerId,
+                TenantId,
+                WorkspaceId,
+                TurnId,
+                GrantId,
+                ProjectId,
+                PrincipalId
+            ],
+            "authority.target-permit-request",
+            { major: 1, minor: 0 }
+        );
     }
 
     protected encodePayload(request: TargetAuthorityPermitRequest): JsonValue {
@@ -20,8 +97,9 @@ class TargetAuthorityPermitRequestCodec extends RecordCodec<TargetAuthorityPermi
 
 /** The target-owned immutable request from which its Tenant may issue one permit. */
 export class TargetAuthorityPermitRequest {
-    public static readonly codec: RecordCodec<TargetAuthorityPermitRequest> =
-        new TargetAuthorityPermitRequestCodec();
+    public static get codec(): RecordCodec<TargetAuthorityPermitRequest> {
+        return targetAuthorityPermitRequestCodecInstance;
+    }
     readonly #expiresAt: number;
 
     public constructor(
@@ -88,6 +166,8 @@ export class TargetAuthorityPermitRequest {
         return TargetAuthorityPermitRequest.codec.decode(bytes);
     }
 }
+
+const targetAuthorityPermitRequestCodecInstance = new TargetAuthorityPermitRequestCodec();
 
 function requireRequestIdentity(
     expectation: AuthorityPermitExpectation,

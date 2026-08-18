@@ -1133,8 +1133,8 @@ class ListRowsSqlite extends TestSqlite {
     public table = "";
     public order: readonly number[] = [];
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const rows = super.all(statement, bindings);
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
         if (
             this.table === "" ||
             this.order.length === 0 ||
@@ -1152,16 +1152,16 @@ class SubstituteRowSqlite extends TestSqlite {
     public pattern: RegExp | undefined;
     public rows: readonly SqliteRow[] = [];
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        return this.pattern?.test(statement) === true ? this.rows : super.all(statement, bindings);
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        return this.pattern?.test(statement) === true ? this.rows : super.query(statement, bindings);
     }
 }
 
 class TruncatedCasSqlite extends TestSqlite {
     public truncate = false;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const rows = super.all(statement, bindings);
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
         if (!this.truncate || !/INTO definition_materialization_pointers/u.test(statement)) {
             return rows;
         }
@@ -1198,23 +1198,23 @@ function blueprintRows(database: TestSqlite, name: string, version: string): rea
 class PointerReadbackFaultSqlite extends TestSqlite {
     #armed = false;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         if (/INSERT INTO definition_materialization_pointers/u.test(statement)) {
-            const rows = super.all(statement, bindings);
+            const rows = super.query(statement, bindings);
             this.#armed = true;
             return rows;
         }
         if (this.#armed && /FROM definition_materialization_pointers/u.test(statement)) {
             return [];
         }
-        return super.all(statement, bindings);
+        return super.query(statement, bindings);
     }
 }
 
 class WriteDropSqlite extends TestSqlite {
     public fault: "none" | "blueprint" | "plan" | "managed-state" = "none";
 
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         if (
             (this.fault === "blueprint" &&
                 /INSERT OR IGNORE INTO definition_blueprints/u.test(statement)) ||
@@ -1225,14 +1225,14 @@ class WriteDropSqlite extends TestSqlite {
         ) {
             return;
         }
-        super.run(statement, bindings);
+        super.execute(statement, bindings);
     }
 }
 
 class BlueprintRowFaultSqlite extends TestSqlite {
     public fault = false;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         if (this.fault && /FROM definition_blueprints/u.test(statement)) {
             return [
                 {
@@ -1243,7 +1243,7 @@ class BlueprintRowFaultSqlite extends TestSqlite {
                 }
             ];
         }
-        return super.all(statement, bindings);
+        return super.query(statement, bindings);
     }
 }
 

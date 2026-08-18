@@ -425,8 +425,8 @@ function neighbouringSlot(): InstalledSlot {
 class SchemaTamperSqlite extends TestSqlite {
     public rewrite: ((value: string) => string) | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const rows = super.all(statement, bindings);
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
         const rewrite = this.rewrite;
         if (rewrite === undefined || !statement.includes("FROM sqlite_master")) return rows;
         return rows.map((row) => {
@@ -440,28 +440,28 @@ class SchemaTamperSqlite extends TestSqlite {
 class RowRedirectSqlite extends TestSqlite {
     public redirect: { readonly fragment: string; readonly binding: SqliteValue } | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         const redirect = this.redirect;
         return redirect === undefined || !statement.includes(redirect.fragment)
-            ? super.all(statement, bindings)
-            : super.all(statement, [redirect.binding]);
+            ? super.query(statement, bindings)
+            : super.query(statement, [redirect.binding]);
     }
 }
 
 class SlotVanishSqlite extends TestSqlite {
     public vanish = false;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         if (this.vanish && statement.includes("FROM facet_slots WHERE name = ?")) return [];
-        return super.all(statement, bindings);
+        return super.query(statement, bindings);
     }
 }
 
 class MarkerTamperSqlite extends TestSqlite {
     public marker: SqliteRow | "missing" | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const rows = super.all(statement, bindings);
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
         if (
             this.marker === undefined ||
             !statement.includes("SELECT version, workspace FROM facet_slot_schema")
@@ -477,8 +477,8 @@ class MarkerTamperSqlite extends TestSqlite {
 class RevisionTamperSqlite extends TestSqlite {
     public revision: number | "missing" | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const rows = super.all(statement, bindings);
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
         if (
             this.revision === undefined ||
             !statement.includes("SELECT revision FROM facet_slot_revision")

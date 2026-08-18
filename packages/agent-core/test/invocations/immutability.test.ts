@@ -13,6 +13,7 @@ import {
     ItemClaim,
     ItemClaimId,
     PreparedInvocation,
+    structuralCodec,
     type StructuralCodec
 } from "../../src/invocations";
 import { PrincipalId } from "../../src/identity";
@@ -23,18 +24,18 @@ type MutableReference = {
     nested: { value: string };
 };
 
-const referenceCodec: StructuralCodec<MutableReference> = {
-    encode(value): JsonValue {
+const referenceCodec: StructuralCodec<MutableReference> = structuralCodec(
+    (value): JsonValue => {
         return { nested: { value: value.nested.value }, value: value.value };
     },
-    decode(value): MutableReference {
+    (value): MutableReference => {
         // SAFETY: the value is this codec's own encoding read back inside one test, and the
         // records under test are what produce it. The suite asks whether they detach and
         // freeze the reference, not whether an untrusted payload decodes.
         const reference = value as MutableReference;
         return { value: reference.value, nested: { value: reference.nested.value } };
     }
-};
+);
 
 describe("invocation record immutability", () => {
     test("[C13-PREPARED-WHOLE-DIGEST] detaches PreparedInvocation structural references before digesting", { tags: "p0" }, () => {

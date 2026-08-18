@@ -1,9 +1,20 @@
-import { ContentRef, Digest, RecordCodec, Revision, type JsonValue } from "../../core";
-import { PrincipalRef } from "../../identity";
+import {
+    ContentRef,
+    Digest,
+    RecordCodec,
+    Revision,
+    SemVer,
+    type JsonValue,
+    TextId
+} from "../../core";
+import { PackageId, PackagePin } from "../../definition";
+import { EnvironmentId } from "../../environments";
+import { PrincipalId, PrincipalRef, TenantId } from "../../identity";
 import { RunCommitId, TurnId } from "../../execution-references";
 import { AgentCoreError } from "../../errors";
 import {
     CodecRecord,
+    contentRetentionFields,
     digestFromData,
     requireExactFields,
     requireInteger,
@@ -14,10 +25,18 @@ import {
     revisionData,
     revisionFromData
 } from "../record-data";
+import type { ContentRetentionField } from "../record-data";
+import { AgentId, AgentPolicyId, ModelPolicyId } from "../id";
 import { RunBranchId, RunCheckpointId, RunId, TurnInboxEntryId } from "./id";
-import { TurnLease, leaseTokenFromData, leaseTokenToData, type LeaseToken } from "./lease";
+import {
+    ExactTurnLease,
+    TurnLease,
+    leaseTokenFromData,
+    leaseTokenToData,
+    type LeaseToken
+} from "./lease";
 import { requireTerminalOutcome, type TerminalOutcome } from "./outcome";
-import { RunPins } from "./pins";
+import { BlueprintPin, RunPins } from "./pins";
 
 export type TurnTerminalStatus = TerminalOutcome;
 
@@ -368,9 +387,47 @@ export class Turn extends CodecRecord {
     }
 }
 
+export function turnContentRetention(value: Turn): readonly ContentRetentionField[] {
+    return contentRetentionFields([
+        ["input", value.input],
+        ["result", value.result]
+    ]);
+}
+
 class TurnRecordCodec extends RecordCodec<Turn> {
     public constructor() {
-        super("turn.record", { major: 2, minor: 0 });
+        super(
+            [
+                Turn,
+                Revision,
+                TextId,
+                TurnStatus,
+                SemVer,
+                TurnLease,
+                RunPins,
+                PackagePin,
+                BlueprintPin,
+                ContentRef,
+                Digest,
+                RunId,
+                RunCommitId,
+                TenantId,
+                TurnId,
+                RunBranchId,
+                PrincipalId,
+                AgentId,
+                CodecRecord,
+                RunCheckpointId,
+                ModelPolicyId,
+                EnvironmentId,
+                ExactTurnLease,
+                AgentPolicyId,
+                PrincipalRef,
+                PackageId
+            ],
+            "turn.record",
+            { major: 2, minor: 0 }
+        );
     }
     protected encodePayload(value: Turn): JsonValue {
         return value.toData();
@@ -432,9 +489,34 @@ export class RunCheckpoint extends CodecRecord {
     }
 }
 
+export function runCheckpointContentRetention(
+    value: RunCheckpoint
+): readonly ContentRetentionField[] {
+    return contentRetentionFields([
+        ["state", value.state],
+        ["tree", value.tree]
+    ]);
+}
+
 class CheckpointCodec extends RecordCodec<RunCheckpoint> {
     public constructor() {
-        super("run.checkpoint", { major: 1, minor: 0 });
+        super(
+            [
+                RunCheckpoint,
+                TextId,
+                ContentRef,
+                Digest,
+                RunCommitId,
+                RunCheckpointId,
+                TurnId,
+                CodecRecord
+            ],
+            "run.checkpoint",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
     protected encodePayload(value: RunCheckpoint): JsonValue {
         return value.toData();
@@ -554,9 +636,33 @@ export class TurnInboxEntry extends CodecRecord {
     }
 }
 
+export function turnInboxEntryContentRetention(
+    value: TurnInboxEntry
+): readonly ContentRetentionField[] {
+    return contentRetentionFields([["payload", value.payload]]);
+}
+
 class InboxCodec extends RecordCodec<TurnInboxEntry> {
     public constructor() {
-        super("turn.inbox-entry", { major: 2, minor: 0 });
+        super(
+            [
+                TurnInboxEntry,
+                TextId,
+                ContentRef,
+                Digest,
+                TurnInboxEntryId,
+                TenantId,
+                TurnId,
+                PrincipalId,
+                CodecRecord,
+                PrincipalRef
+            ],
+            "turn.inbox-entry",
+            {
+                major: 2,
+                minor: 0
+            }
+        );
     }
     protected encodePayload(value: TurnInboxEntry): JsonValue {
         return value.toData();

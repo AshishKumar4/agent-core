@@ -1,4 +1,4 @@
-import { RecordCodec, Revision, type JsonValue } from "../core";
+import { RecordCodec, Revision, type JsonValue, TextId } from "../core";
 import { AgentCoreError } from "../errors";
 import {
     requireIdentityFields,
@@ -46,7 +46,10 @@ const deletedTenant = Object.freeze(new DeletedTenantLifecycle());
 
 class TenantRecordCodec extends RecordCodec<Tenant> {
     public constructor() {
-        super("identity.tenant", { major: 1, minor: 0 });
+        super([Tenant, Revision, TenantLifecycle, TextId, TenantId], "identity.tenant", {
+            major: 1,
+            minor: 0
+        });
     }
 
     protected encodePayload(tenant: Tenant): JsonValue {
@@ -78,7 +81,9 @@ class TenantRecordCodec extends RecordCodec<Tenant> {
 }
 
 export class Tenant {
-    public static readonly codec: RecordCodec<Tenant> = new TenantRecordCodec();
+    public static get codec(): RecordCodec<Tenant> {
+        return tenantCodecInstance;
+    }
     readonly #lifecycle: TenantLifecycle;
 
     public constructor(
@@ -121,6 +126,8 @@ export class Tenant {
             : new Tenant(this.id, this.kind, lifecycle.status, this.authorizationRevision.next());
     }
 }
+
+const tenantCodecInstance = new TenantRecordCodec();
 
 function requireTenantKind(value: JsonValue | undefined): TenantKind {
     if (value === "personal" || value === "organization" || value === "service") {

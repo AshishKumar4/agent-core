@@ -2,7 +2,7 @@ export { GrantId } from "./id";
 export { Grant } from "./grant";
 export { ScopeEpoch } from "./epoch";
 export { InvalidationWatermark, PathEpochEvidence } from "./epoch";
-export { Binding, BindingCredentialCustody, domainKey } from "./binding";
+export { Binding, BindingCredentialCustody, BindingLifecycle, domainKey } from "./binding";
 export { TenantAuthorityRuntime } from "./runtime";
 export type { TenantAuthorityReadStore } from "./runtime";
 export { BindingValidationEvidence, BindingValidationRequest } from "./binding-evidence";

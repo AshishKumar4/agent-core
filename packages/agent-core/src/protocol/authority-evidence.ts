@@ -1,14 +1,53 @@
 import {
     AuthorityCheckEvidence,
     AuthorityCheckRequest,
+    AuthorityPermitExpectation,
     AuthorityPermit,
+    Binding,
+    BindingCredentialCustody,
+    BindingLifecycle,
     TargetAuthorityPermitRequest,
     BindingValidationEvidence,
-    BindingValidationRequest
+    BindingValidationRequest,
+    GrantId,
+    PathEpochEvidence,
+    ScopeEpoch
 } from "../authority";
-import { jsonDataParser, RecordCodec, type JsonValue } from "../core";
+import { RunId, TurnId } from "../agents";
+import { ActorId, ActorRef } from "../actors";
+import {
+    Digest,
+    jsonDataParser,
+    RecordCodec,
+    type JsonValue,
+    Revision,
+    SecretRef,
+    SemVer,
+    TextId
+} from "../core";
+import { PackageId, PackagePin } from "../definition";
 import { AgentCoreError } from "../errors";
+import {
+    BindingName,
+    FacetPackageId,
+    FacetRef,
+    OperationName,
+    OperationRef,
+    ProtectionDomain
+} from "../facets";
+import { ClaimWorkerId, ItemClaimId } from "../invocation-references";
+import { InvocationId } from "../interaction-references";
 import type { CommandPayloadCodec } from "./payload";
+import {
+    GuestVerificationScheme,
+    PrincipalId,
+    PrincipalRef,
+    ProjectId,
+    ScopeRef,
+    TeamId,
+    TenantId,
+    WorkspaceId
+} from "../identity";
 
 const parseReply = jsonDataParser(
     () => new AgentCoreError("codec.invalid", "Authority protocol reply is malformed")
@@ -18,7 +57,28 @@ const parseRequest = jsonDataParser(
 );
 class AuthorityCheckReplyCodec extends RecordCodec<AuthorityCheckReply> {
     public constructor() {
-        super("protocol.authority-check-reply", { major: 1, minor: 0 });
+        super(
+            [
+                AuthorityCheckReply,
+                ActorRef,
+                TextId,
+                AuthorityCheckEvidence,
+                PathEpochEvidence,
+                ScopeEpoch,
+                ScopeRef,
+                Digest,
+                ActorId,
+                TenantId,
+                ProjectId,
+                WorkspaceId,
+                GrantId
+            ],
+            "protocol.authority-check-reply",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
     protected encodePayload(reply: AuthorityCheckReply): JsonValue {
         return { evidence: reply.evidence.toData() };
@@ -32,7 +92,29 @@ class AuthorityCheckReplyCodec extends RecordCodec<AuthorityCheckReply> {
 
 class BindingValidationReplyCodec extends RecordCodec<BindingValidationReply> {
     public constructor() {
-        super("protocol.binding-validation-reply", { major: 1, minor: 0 });
+        super(
+            [
+                BindingValidationReply,
+                ActorRef,
+                GuestVerificationScheme,
+                ScopeRef,
+                TextId,
+                PathEpochEvidence,
+                BindingValidationEvidence,
+                ScopeEpoch,
+                Digest,
+                ActorId,
+                TeamId,
+                TenantId,
+                WorkspaceId,
+                GrantId,
+                ProjectId,
+                PrincipalId,
+                PrincipalRef
+            ],
+            "protocol.binding-validation-reply",
+            { major: 1, minor: 0 }
+        );
     }
     protected encodePayload(reply: BindingValidationReply): JsonValue {
         return { evidence: reply.evidence.toData() };
@@ -46,7 +128,50 @@ class BindingValidationReplyCodec extends RecordCodec<BindingValidationReply> {
 
 class AuthorityPermitIssuanceRequestCodec extends RecordCodec<AuthorityPermitIssuanceRequest> {
     public constructor() {
-        super("protocol.authority-permit-issuance-request", { major: 2, minor: 0 });
+        super(
+            [
+                AuthorityPermitIssuanceRequest,
+                ActorRef,
+                GuestVerificationScheme,
+                Revision,
+                ScopeRef,
+                TextId,
+                SemVer,
+                AuthorityCheckRequest,
+                AuthorityPermitExpectation,
+                Binding,
+                BindingLifecycle,
+                TargetAuthorityPermitRequest,
+                BindingCredentialCustody,
+                PathEpochEvidence,
+                PackagePin,
+                ScopeEpoch,
+                FacetRef,
+                ProtectionDomain,
+                Digest,
+                OperationRef,
+                SecretRef,
+                PrincipalRef,
+                RunId,
+                BindingName,
+                InvocationId,
+                ActorId,
+                FacetPackageId,
+                PackageId,
+                TeamId,
+                ItemClaimId,
+                OperationName,
+                ClaimWorkerId,
+                TenantId,
+                WorkspaceId,
+                TurnId,
+                GrantId,
+                ProjectId,
+                PrincipalId
+            ],
+            "protocol.authority-permit-issuance-request",
+            { major: 2, minor: 0 }
+        );
     }
 
     protected encodePayload(request: AuthorityPermitIssuanceRequest): JsonValue {
@@ -69,7 +194,44 @@ class AuthorityPermitIssuanceRequestCodec extends RecordCodec<AuthorityPermitIss
 
 class AuthorityPermitIssuanceReplyCodec extends RecordCodec<AuthorityPermitIssuanceReply> {
     public constructor() {
-        super("protocol.authority-permit-issuance-reply", { major: 2, minor: 0 });
+        super(
+            [
+                AuthorityPermitIssuanceReply,
+                ActorRef,
+                Revision,
+                TextId,
+                SemVer,
+                AuthorityPermitExpectation,
+                AuthorityCheckEvidence,
+                AuthorityPermit,
+                PathEpochEvidence,
+                PackagePin,
+                ScopeEpoch,
+                FacetRef,
+                ScopeRef,
+                Digest,
+                OperationRef,
+                PrincipalRef,
+                RunId,
+                BindingName,
+                InvocationId,
+                ActorId,
+                PackageId,
+                ItemClaimId,
+                ClaimWorkerId,
+                TenantId,
+                TurnId,
+                ProjectId,
+                PrincipalId,
+                FacetPackageId,
+                ProtectionDomain,
+                OperationName,
+                WorkspaceId,
+                GrantId
+            ],
+            "protocol.authority-permit-issuance-reply",
+            { major: 2, minor: 0 }
+        );
     }
 
     protected encodePayload(reply: AuthorityPermitIssuanceReply): JsonValue {
@@ -101,7 +263,9 @@ class AuthorityPermitIssuanceReplyCodec extends RecordCodec<AuthorityPermitIssua
 }
 
 export class AuthorityCheckReply {
-    public static readonly codec: RecordCodec<AuthorityCheckReply> = new AuthorityCheckReplyCodec();
+    public static get codec(): RecordCodec<AuthorityCheckReply> {
+        return authorityCheckReplyCodecInstance;
+    }
     public constructor(public readonly evidence: AuthorityCheckEvidence) {
         Object.freeze(this);
     }
@@ -113,9 +277,12 @@ export class AuthorityCheckReply {
     }
 }
 
+const authorityCheckReplyCodecInstance = new AuthorityCheckReplyCodec();
+
 export class BindingValidationReply {
-    public static readonly codec: RecordCodec<BindingValidationReply> =
-        new BindingValidationReplyCodec();
+    public static get codec(): RecordCodec<BindingValidationReply> {
+        return bindingValidationReplyCodecInstance;
+    }
     public constructor(public readonly evidence: BindingValidationEvidence) {
         Object.freeze(this);
     }
@@ -127,9 +294,12 @@ export class BindingValidationReply {
     }
 }
 
+const bindingValidationReplyCodecInstance = new BindingValidationReplyCodec();
+
 export class AuthorityPermitIssuanceRequest {
-    public static readonly codec: RecordCodec<AuthorityPermitIssuanceRequest> =
-        new AuthorityPermitIssuanceRequestCodec();
+    public static get codec(): RecordCodec<AuthorityPermitIssuanceRequest> {
+        return authorityPermitIssuanceRequestCodecInstance;
+    }
     public constructor(public readonly targetRequest: TargetAuthorityPermitRequest) {
         Object.freeze(this);
     }
@@ -143,9 +313,12 @@ export class AuthorityPermitIssuanceRequest {
     }
 }
 
+const authorityPermitIssuanceRequestCodecInstance = new AuthorityPermitIssuanceRequestCodec();
+
 export class AuthorityPermitIssuanceReply {
-    public static readonly codec: RecordCodec<AuthorityPermitIssuanceReply> =
-        new AuthorityPermitIssuanceReplyCodec();
+    public static get codec(): RecordCodec<AuthorityPermitIssuanceReply> {
+        return authorityPermitIssuanceReplyCodecInstance;
+    }
 
     private constructor(
         public readonly kind: "issued" | "denied",
@@ -190,6 +363,8 @@ export class AuthorityPermitIssuanceReply {
         return AuthorityPermitIssuanceReply.codec.decode(bytes);
     }
 }
+
+const authorityPermitIssuanceReplyCodecInstance = new AuthorityPermitIssuanceReplyCodec();
 
 export class AuthorityCheckPayloadCodec implements CommandPayloadCodec<AuthorityCheckRequest> {
     public decode(bytes: Uint8Array): AuthorityCheckRequest {

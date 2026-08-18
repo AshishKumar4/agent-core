@@ -5,7 +5,8 @@ import {
     encodeCanonicalJson,
     type JsonObject,
     type JsonValue,
-    type RecordVersion
+    type RecordVersion,
+    TextId
 } from "../core";
 import { canonicalFacetData, type FacetData } from "../facets";
 import { PrincipalId, PrincipalRef, TenantId } from "../identity";
@@ -276,7 +277,24 @@ export class MediatedReplayRecord {
 
 class MediatedReplayRecordCodecV1 extends RecordCodec<MediatedReplayRecord> {
     public constructor() {
-        super("invocation.mediated-replay", { major: 1, minor: 0 });
+        super(
+            [
+                MediatedReplayRecord,
+                Revision,
+                TextId,
+                Digest,
+                TenantId,
+                PrincipalId,
+                InvocationId,
+                PrincipalRef,
+                ReceiptId
+            ],
+            "invocation.mediated-replay",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(record: MediatedReplayRecord): JsonValue {

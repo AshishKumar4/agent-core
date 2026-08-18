@@ -29,6 +29,7 @@ import {
     PreparedInvocation,
     PreparedInvocationCodec,
     ReceiptCodec,
+    structuralCodec,
     type InvocationPersistence,
     type StructuralCodec,
     type UnpreparedPayload
@@ -54,15 +55,13 @@ export interface InvocationHarness<Transaction> {
 
 const testReference = jsonDataParser((message) => new TypeError(message));
 
-export const referenceCodec: StructuralCodec<string> = Object.freeze({
-    encode(value: string): JsonValue {
+export const referenceCodec: StructuralCodec<string> = structuralCodec(
+    (value: string): JsonValue => {
         if (value.length === 0) throw new TypeError("Test reference is required");
         return value;
     },
-    decode(value: JsonValue): string {
-        return testReference.nonemptyString(value, "Test reference");
-    }
-});
+    (value: JsonValue): string => testReference.nonemptyString(value, "Test reference")
+);
 
 export const preparedReferenceCodecs = Object.freeze({
     lease: referenceCodec,

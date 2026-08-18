@@ -3,13 +3,16 @@ import {
     type JsonFields,
     type JsonObject,
     RecordCodec,
+    SecretRef,
     SemVer,
-    type JsonValue
+    type JsonValue,
+    TextId
 } from "../core";
-import { canonicalFacetData, type FacetDataMap } from "../facets";
+import { AuthoredCodeBackingId, canonicalFacetData, type FacetDataMap } from "../facets";
 import { Config, type ConfigInputMap } from "./config";
 import { PackageId } from "./id";
 import { PackageDependency } from "./package";
+import { AuthoredCodeBackingPolicy, PlacementPolicy } from "./placement";
 import { PolicySet } from "./policy";
 import { compareText } from "./order";
 
@@ -26,7 +29,14 @@ export interface PackageInstallInit {
 
 class PackageInstallCodec extends RecordCodec<PackageInstall> {
     public constructor() {
-        super("definition.package-install", { major: 1, minor: 0 });
+        super(
+            [PackageInstall, TextId, Config, PackageDependency, SecretRef, PackageId],
+            "definition.package-install",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(install: PackageInstall): JsonValue {
@@ -39,7 +49,9 @@ class PackageInstallCodec extends RecordCodec<PackageInstall> {
 }
 
 export class PackageInstall {
-    public static readonly codec: RecordCodec<PackageInstall> = new PackageInstallCodec();
+    public static get codec(): RecordCodec<PackageInstall> {
+        return packageInstallCodecInstance;
+    }
     public readonly request: PackageDependency;
     public readonly config: Config;
 
@@ -76,6 +88,8 @@ export class PackageInstall {
         };
     }
 }
+
+const packageInstallCodecInstance = new PackageInstallCodec();
 
 export interface BlueprintMetaInit {
     readonly name: string;
@@ -119,7 +133,25 @@ export interface BlueprintInit {
 
 class BlueprintCodec extends RecordCodec<Blueprint> {
     public constructor() {
-        super("definition.blueprint", { major: 2, minor: 0 });
+        super(
+            [
+                Blueprint,
+                BlueprintMeta,
+                SemVer,
+                PolicySet,
+                PackageInstall,
+                AuthoredCodeBackingPolicy,
+                PlacementPolicy,
+                PackageId,
+                AuthoredCodeBackingId,
+                Config,
+                TextId,
+                SecretRef,
+                PackageDependency
+            ],
+            "definition.blueprint",
+            { major: 2, minor: 0 }
+        );
     }
 
     protected encodePayload(blueprint: Blueprint): JsonValue {
@@ -132,7 +164,9 @@ class BlueprintCodec extends RecordCodec<Blueprint> {
 }
 
 export class Blueprint {
-    public static readonly codec: RecordCodec<Blueprint> = new BlueprintCodec();
+    public static get codec(): RecordCodec<Blueprint> {
+        return blueprintCodecInstance;
+    }
     public readonly meta: BlueprintMeta;
     public readonly packages: readonly PackageInstall[];
     public readonly policies: PolicySet;
@@ -256,6 +290,8 @@ export class Blueprint {
         return data;
     }
 }
+
+const blueprintCodecInstance = new BlueprintCodec();
 
 function canonicalDeclarationMap(value: DeclarationInput, subject: string): FacetDataMap {
     const data = isDeclaration(value) ? value.toData() : value;

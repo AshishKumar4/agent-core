@@ -7,7 +7,8 @@ import {
     isJsonValue,
     isMember,
     type JsonSchemaDocument,
-    type JsonValue
+    type JsonValue,
+    TextId
 } from "../../core";
 import {
     Contributions,
@@ -132,6 +133,7 @@ export class McpDiscoveryRegistration {
 }
 
 const mcpDiscoveryRegistrationCodec = new DataRecordCodec(
+    [McpDiscoveryRegistration, TextId, Digest],
     "facet.mcp-discovery-registration",
     (registration: McpDiscoveryRegistration) => registration.toData(),
     (payload) => {

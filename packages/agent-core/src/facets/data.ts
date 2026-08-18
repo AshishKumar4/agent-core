@@ -32,23 +32,31 @@ export function canonicalFacetDataMap(value: FacetDataMap): FacetDataMap {
 }
 
 export class DataRecordCodec<Record> extends RecordCodec<Record> {
+    readonly #encodeRecord: (record: Record) => FacetData;
+    readonly #decodeRecord: (payload: FacetData, version: RecordVersion) => Record;
+
     public constructor(
+        recordClasses: readonly [
+            { readonly prototype: Record },
+            ...{ readonly prototype: object }[]
+        ],
         kind: string,
-        private readonly encodeRecord: (record: Record) => FacetData,
-        private readonly decodeRecord: (payload: FacetData, version: RecordVersion) => Record,
+        encodeRecord: (record: Record) => FacetData,
+        decodeRecord: (payload: FacetData, version: RecordVersion) => Record,
         version: RecordVersion = { major: 1, minor: 0 }
     ) {
-        super(kind, version);
-        Object.freeze(this.version);
+        super(recordClasses, kind, version);
+        this.#encodeRecord = encodeRecord.bind(undefined);
+        this.#decodeRecord = decodeRecord.bind(undefined);
         Object.freeze(this);
     }
 
     protected encodePayload(record: Record): FacetData {
-        return this.encodeRecord(record);
+        return this.#encodeRecord(record);
     }
 
     protected decodePayload(payload: FacetData, version: RecordVersion): Record {
-        return this.decodeRecord(payload, version);
+        return this.#decodeRecord(payload, version);
     }
 }
 

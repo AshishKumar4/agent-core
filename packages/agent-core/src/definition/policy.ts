@@ -1,6 +1,18 @@
-import { RecordCodec, hasExactJsonKeys, isJsonObject, isMember, type JsonValue } from "../core";
+import {
+    RecordCodec,
+    TextId,
+    hasExactJsonKeys,
+    isJsonObject,
+    isMember,
+    type JsonValue
+} from "../core";
 import { enforcementFloor, type EnforcementTier, type Impact, type IsolationMode } from "../facets";
-import { PLACEMENT_PREFERENCE, PlacementPolicy } from "./placement";
+import {
+    AuthoredCodeBackingId,
+    AuthoredCodeBackingPolicy,
+    PLACEMENT_PREFERENCE,
+    PlacementPolicy
+} from "./placement";
 
 export { enforcementFloor };
 export type { EnforcementTier } from "../facets";
@@ -24,7 +36,14 @@ export interface PolicySetInit {
 
 class PolicySetCodec extends RecordCodec<PolicySet> {
     public constructor() {
-        super("definition.policy-set", { major: 2, minor: 0 });
+        super(
+            [PolicySet, AuthoredCodeBackingPolicy, PlacementPolicy, AuthoredCodeBackingId, TextId],
+            "definition.policy-set",
+            {
+                major: 2,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(policy: PolicySet): JsonValue {
@@ -37,7 +56,9 @@ class PolicySetCodec extends RecordCodec<PolicySet> {
 }
 
 export class PolicySet {
-    public static readonly codec: RecordCodec<PolicySet> = new PolicySetCodec();
+    public static get codec(): RecordCodec<PolicySet> {
+        return policySetCodecInstance;
+    }
     public readonly tiers: EnforcementTierOverrides;
     public readonly approvals: readonly Impact[];
     public readonly placement: PlacementPolicy;
@@ -102,6 +123,8 @@ export class PolicySet {
         };
     }
 }
+
+const policySetCodecInstance = new PolicySetCodec();
 
 export interface PolicyEvaluationInput {
     readonly impact: Impact;

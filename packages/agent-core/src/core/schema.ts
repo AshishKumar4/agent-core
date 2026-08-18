@@ -67,7 +67,7 @@ export const strictJsonSchemaValidator = new StrictJsonSchemaValidator();
 
 class JsonSchemaCodec extends RecordCodec<JsonSchema> {
     public constructor() {
-        super("core.json-schema", { major: 1, minor: 0 });
+        super([JsonSchema], "core.json-schema", { major: 1, minor: 0 });
     }
 
     protected encodePayload(schema: JsonSchema): JsonValue {
@@ -88,8 +88,6 @@ class JsonSchemaCodec extends RecordCodec<JsonSchema> {
         return new JsonSchema(document);
     }
 }
-
-const jsonSchemaCodec = new JsonSchemaCodec();
 
 export class JsonSchema {
     public readonly document: JsonSchemaDocument;
@@ -152,6 +150,8 @@ export class JsonSchema {
         strictJsonSchemaValidator.assertSupportedSchema(this.document);
     }
 }
+
+const jsonSchemaCodec = new JsonSchemaCodec();
 
 function isSchemaDocument(value: unknown): value is JsonSchemaDocument {
     return isJsonBoolean(value) || (isJsonValue(value) && isJsonObject(value));

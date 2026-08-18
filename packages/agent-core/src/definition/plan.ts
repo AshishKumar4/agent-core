@@ -6,10 +6,23 @@ import {
     encodeCanonicalJson,
     hasExactJsonKeys,
     isJsonObject,
-    type JsonValue
+    type JsonValue,
+    TextId
 } from "../core";
 import {
+    Automation,
+    AuthoredCodeBackingId,
+    BindingName,
+    BoundOperationRef,
     Command,
+    EventPattern,
+    FacetPackageId,
+    FieldMove,
+    JsonPointer,
+    MappingRecord,
+    OperationName,
+    OperationRef,
+    PayloadMapping,
     SlotDeclaration,
     matchesGlob,
     type FacetManifest,
@@ -21,10 +34,16 @@ import {
     validateMaterializationKind
 } from "./materialization-kind";
 import { ManagedOrigin } from "./origin";
-import { PLACEMENT_PREFERENCE, type PlacementSelection } from "./placement";
-import type { PolicySet } from "./policy";
+import {
+    AuthoredCodeBackingPolicy,
+    PLACEMENT_PREFERENCE,
+    PlacementInput,
+    PlacementPolicy,
+    PlacementSelection
+} from "./placement";
+import { PolicySet } from "./policy";
 import { CORE_SLOT_NAMES, ValidatedBlueprint, type ValidatedContribution } from "./validator";
-import type { TenantId } from "../identity";
+import { TenantId } from "../identity";
 import { DeploymentId, DeploymentKey } from "./id";
 import type { PackagePin } from "./package-lock";
 import { compareText } from "./order";
@@ -185,7 +204,41 @@ export interface ActorPlanInit {
 
 class ActorPlanCodec extends RecordCodec<ActorPlan> {
     public constructor() {
-        super("definition.actor-plan", { major: 1, minor: 0 });
+        super(
+            [
+                ActorPlan,
+                ActorRef,
+                DesiredProjection,
+                TextId,
+                ManagedOrigin,
+                Digest,
+                ActorId,
+                TenantId,
+                DeploymentId,
+                BindingName,
+                PolicySet,
+                FacetPackageId,
+                PlacementInput,
+                PlacementSelection,
+                OperationName,
+                OperationRef,
+                AuthoredCodeBackingPolicy,
+                BoundOperationRef,
+                MappingRecord,
+                FieldMove,
+                Automation,
+                EventPattern,
+                PayloadMapping,
+                PlacementPolicy,
+                AuthoredCodeBackingId,
+                JsonPointer
+            ],
+            "definition.actor-plan",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(plan: ActorPlan): JsonValue {
@@ -198,7 +251,9 @@ class ActorPlanCodec extends RecordCodec<ActorPlan> {
 }
 
 export class ActorPlan {
-    public static readonly codec: RecordCodec<ActorPlan> = new ActorPlanCodec();
+    public static get codec(): RecordCodec<ActorPlan> {
+        return actorPlanCodecInstance;
+    }
 
     public readonly id: Digest;
     public readonly actor: ActorRef;
@@ -251,6 +306,8 @@ export class ActorPlan {
     }
 }
 
+const actorPlanCodecInstance = new ActorPlanCodec();
+
 export interface MaterializationPlanInit {
     readonly origin: ManagedOrigin;
     readonly actors: readonly ActorPlan[];
@@ -259,7 +316,42 @@ export interface MaterializationPlanInit {
 
 class MaterializationPlanCodec extends RecordCodec<MaterializationPlan> {
     public constructor() {
-        super("definition.materialization-plan", { major: 1, minor: 0 });
+        super(
+            [
+                MaterializationPlan,
+                TextId,
+                ManagedOrigin,
+                ActorPlan,
+                DesiredProjection,
+                Digest,
+                ActorRef,
+                ActorId,
+                TenantId,
+                DeploymentId,
+                BindingName,
+                PolicySet,
+                FacetPackageId,
+                PlacementInput,
+                PlacementSelection,
+                OperationName,
+                OperationRef,
+                AuthoredCodeBackingPolicy,
+                BoundOperationRef,
+                MappingRecord,
+                FieldMove,
+                Automation,
+                EventPattern,
+                PayloadMapping,
+                PlacementPolicy,
+                AuthoredCodeBackingId,
+                JsonPointer
+            ],
+            "definition.materialization-plan",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(plan: MaterializationPlan): JsonValue {
@@ -272,7 +364,9 @@ class MaterializationPlanCodec extends RecordCodec<MaterializationPlan> {
 }
 
 export class MaterializationPlan {
-    public static readonly codec: RecordCodec<MaterializationPlan> = new MaterializationPlanCodec();
+    public static get codec(): RecordCodec<MaterializationPlan> {
+        return materializationPlanCodecInstance;
+    }
 
     public readonly id: Digest;
     public readonly origin: ManagedOrigin;
@@ -341,6 +435,8 @@ export class MaterializationPlan {
         };
     }
 }
+
+const materializationPlanCodecInstance = new MaterializationPlanCodec();
 
 export abstract class MaterializationTopologyPort {
     /**

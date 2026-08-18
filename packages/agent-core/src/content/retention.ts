@@ -1,10 +1,12 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
 import {
     ContentRef,
+    Digest,
     RecordCodec,
     hasExactJsonKeys,
     type JsonValue,
-    type RecordVersion
+    type RecordVersion,
+    TextId
 } from "../core";
 import { AgentCoreError } from "../errors";
 import { TenantId } from "../identity";
@@ -14,7 +16,14 @@ const MAX_OWNER_KEY_LENGTH = 512;
 
 class ContentOwnerEdgeCodec extends RecordCodec<ContentOwnerEdge> {
     public constructor() {
-        super("content.owner-edge", { major: 1, minor: 0 });
+        super(
+            [ContentOwnerEdge, ActorRef, TextId, ContentRef, Digest, ActorId, TenantId],
+            "content.owner-edge",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(edge: ContentOwnerEdge): JsonValue {
@@ -61,7 +70,9 @@ function isContentString(value: JsonValue | undefined): value is string {
 }
 
 export class ContentOwnerEdge {
-    public static readonly codec: RecordCodec<ContentOwnerEdge> = new ContentOwnerEdgeCodec();
+    public static get codec(): RecordCodec<ContentOwnerEdge> {
+        return contentOwnerEdgeCodecInstance;
+    }
 
     public constructor(
         public readonly tenant: TenantId,
@@ -94,6 +105,8 @@ export class ContentOwnerEdge {
         );
     }
 }
+
+const contentOwnerEdgeCodecInstance = new ContentOwnerEdgeCodec();
 
 export interface ContentCollectionCandidate {
     readonly tenant: TenantId;
@@ -133,6 +146,58 @@ export abstract class ContentRetention<TTransaction> {
         policy: TenantContentPolicyReader<TTransaction>,
         observedAt: Date
     ): readonly ContentRef[];
+
+    public verifyExactNamespace(
+        transaction: TTransaction,
+        ownerKeyPrefixes: readonly string[],
+        expected: readonly ContentOwnerEdge[]
+    ): void {
+        if (
+            ownerKeyPrefixes.length === 0 ||
+            ownerKeyPrefixes.some((prefix) => prefix.length === 0)
+        ) {
+            throw new AgentCoreError(
+                "protocol.invalid-state",
+                "Content owner namespace prefixes must be nonempty"
+            );
+        }
+        const expectedByKey = new Map<string, ContentOwnerEdge>();
+        for (const edge of expected) {
+            this.requireOwner(edge);
+            if (!ownerKeyPrefixes.some((prefix) => edge.ownerKey.startsWith(prefix))) {
+                throw new AgentCoreError(
+                    "protocol.invalid-state",
+                    "Expected content owner edge is outside its namespace"
+                );
+            }
+            if (expectedByKey.has(edge.ownerKey)) {
+                throw new AgentCoreError(
+                    "codec.invalid",
+                    "Expected content custody contains a duplicate owner key"
+                );
+            }
+            expectedByKey.set(edge.ownerKey, edge);
+        }
+        const actual = this.listOwnerEdges(transaction).filter((edge) =>
+            ownerKeyPrefixes.some((prefix) => edge.ownerKey.startsWith(prefix))
+        );
+        if (actual.length !== expectedByKey.size) {
+            throw invalidCustody();
+        }
+        const actualKeys = new Set<string>();
+        for (const edge of actual) {
+            if (actualKeys.has(edge.ownerKey)) {
+                throw new AgentCoreError(
+                    "codec.invalid",
+                    "Stored content custody contains a duplicate owner key"
+                );
+            }
+            actualKeys.add(edge.ownerKey);
+            if (!expectedByKey.get(edge.ownerKey)?.equals(edge)) throw invalidCustody();
+        }
+    }
+
+    protected abstract listOwnerEdges(transaction: TTransaction): readonly ContentOwnerEdge[];
 
     protected requireOwner(edge: ContentOwnerEdge): void {
         if (!edge.tenant.equals(this.tenant)) {
@@ -180,4 +245,11 @@ function isActorKind(value: JsonValue | undefined): value is ActorKind {
 
 function invalidEdge(message: string): AgentCoreError {
     return new AgentCoreError("codec.invalid", message);
+}
+
+function invalidCustody(): AgentCoreError {
+    return new AgentCoreError(
+        "codec.invalid",
+        "Stored content custody does not match its owning records"
+    );
 }

@@ -1,7 +1,14 @@
-import { ActorRef } from "../actors";
-import { ContentRef, Digest, RecordCodec, type JsonValue, type RecordVersion } from "../core";
+import { ActorId, ActorRef } from "../actors";
+import {
+    ContentRef,
+    Digest,
+    RecordCodec,
+    type JsonValue,
+    type RecordVersion,
+    TextId
+} from "../core";
 import { EventKind, FacetPackageId, type EventVisibility, type TrustTier } from "../facets";
-import { PrincipalRef, ScopeRef } from "../identity";
+import { PrincipalId, PrincipalRef, ProjectId, ScopeRef, TenantId, WorkspaceId } from "../identity";
 import { CorrelationId, EventId } from "../interaction-references";
 import {
     decodeActor,
@@ -17,7 +24,12 @@ import {
     requireObject,
     requireString
 } from "./codec";
-import { EventProvenance, type EventProvenanceInit, type EventSource } from "./value";
+import {
+    EventProvenance,
+    EventVerification,
+    type EventProvenanceInit,
+    type EventSource
+} from "./value";
 
 export interface EventInit {
     readonly id: EventId;
@@ -37,7 +49,33 @@ export interface EventInit {
 
 class EventCodecV1 extends RecordCodec<Event> {
     public constructor() {
-        super("workspace.event", { major: 1, minor: 0 });
+        super(
+            [
+                Event,
+                ActorRef,
+                ContentRef,
+                ScopeRef,
+                TextId,
+                EventVerification,
+                EventProvenance,
+                Digest,
+                PrincipalRef,
+                ActorId,
+                FacetPackageId,
+                EventKind,
+                EventId,
+                CorrelationId,
+                TenantId,
+                WorkspaceId,
+                ProjectId,
+                PrincipalId
+            ],
+            "workspace.event",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(event: Event): JsonValue {
@@ -102,7 +140,9 @@ class EventCodecV1 extends RecordCodec<Event> {
 }
 
 export class Event {
-    public static readonly codec: RecordCodec<Event> = new EventCodecV1();
+    public static get codec(): RecordCodec<Event> {
+        return eventCodecInstance;
+    }
 
     public static encode(event: Event): Uint8Array {
         return Event.codec.encode(event);
@@ -192,6 +232,8 @@ export class Event {
         Object.freeze(this);
     }
 }
+
+const eventCodecInstance = new EventCodecV1();
 
 function encodeSource(source: EventSource): JsonValue {
     return source.kind === "facet"

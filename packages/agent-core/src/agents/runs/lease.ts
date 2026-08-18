@@ -1,4 +1,4 @@
-import { RecordCodec, hasExactJsonKeys, isJsonObject, type JsonValue } from "../../core";
+import { RecordCodec, hasExactJsonKeys, isJsonObject, type JsonValue, TextId } from "../../core";
 import { isNumber, isString } from "../record-data";
 import { PrincipalId, PrincipalRef, TenantId } from "../../identity";
 import { AgentCoreError } from "../../errors";
@@ -24,7 +24,14 @@ export interface TurnLeaseVerifier {
 
 class TurnLeaseCodec extends RecordCodec<TurnLease> {
     public constructor() {
-        super("turn-lease", { major: 2, minor: 0 });
+        super(
+            [TurnLease, TextId, TenantId, TurnId, PrincipalId, ExactTurnLease, PrincipalRef],
+            "turn-lease",
+            {
+                major: 2,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(lease: TurnLease): JsonValue {
@@ -37,7 +44,9 @@ class TurnLeaseCodec extends RecordCodec<TurnLease> {
 }
 
 export abstract class TurnLease {
-    public static readonly codec: RecordCodec<TurnLease> = new TurnLeaseCodec();
+    public static get codec(): RecordCodec<TurnLease> {
+        return turnLeaseCodecInstance;
+    }
     readonly #expiresAtTime: number | undefined;
 
     protected constructor(
@@ -124,7 +133,7 @@ export abstract class TurnLease {
     }
 }
 
-class ExactTurnLease extends TurnLease {
+export class ExactTurnLease extends TurnLease {
     public constructor(
         turn: TurnId,
         holder: PrincipalRef | undefined,
@@ -202,6 +211,8 @@ class ExactTurnLease extends TurnLease {
         return new ExactTurnLease(this.turn, undefined, nextEpoch(this.epoch), this.expiresAt);
     }
 }
+
+const turnLeaseCodecInstance = new TurnLeaseCodec();
 
 interface TurnLeasePayload {
     readonly turn: string;

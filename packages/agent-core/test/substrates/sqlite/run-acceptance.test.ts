@@ -3,19 +3,19 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { ActorId, ActorRef } from "../../../src/actors";
-import {
-    AcceptanceCriterion,
-    AcceptanceId,
-    AcceptanceVerdict,
-    RunRepository
-} from "../../../src/agents";
+import { AcceptanceCriterion, AcceptanceId, AcceptanceVerdict } from "../../../src/agents";
 import { OperationRef } from "../../../src/facets";
 import { ReceiptId } from "../../../src/invocation-references";
 import { SqliteRunStorage } from "../../../src/substrates/sqlite/run";
+import type { TransactionalSqlite } from "../../../src/substrates/sqlite";
 import { FileSqlite } from "../../helpers/sqlite";
-import { digest } from "../../agents/runs/fixture";
+import { digest, ids, testRunRepository } from "../../agents/runs/fixture";
 
 const owner = new ActorRef("workspace", new ActorId("workspace-run-owner"));
+
+function sqliteRunStorage(database: TransactionalSqlite, actor: ActorRef): SqliteRunStorage {
+    return new SqliteRunStorage(database, ids.holder.tenantId, actor);
+}
 
 describe("SQLite Run acceptance storage", () => {
     it(
@@ -36,7 +36,7 @@ describe("SQLite Run acceptance storage", () => {
             });
             try {
                 const firstDatabase = new FileSqlite(path);
-                const repository = new RunRepository(new SqliteRunStorage(firstDatabase, owner));
+                const repository = testRunRepository(sqliteRunStorage(firstDatabase, owner));
                 repository.transaction((tx) => {
                     repository.insertAcceptanceCriterion(tx, criterion);
                     repository.insertAcceptanceVerdict(tx, recorded);
@@ -44,7 +44,7 @@ describe("SQLite Run acceptance storage", () => {
                 firstDatabase.close();
 
                 const secondDatabase = new FileSqlite(path);
-                const restarted = new RunRepository(new SqliteRunStorage(secondDatabase, owner));
+                const restarted = testRunRepository(sqliteRunStorage(secondDatabase, owner));
                 expect(
                     restarted.transaction((tx) => restarted.loadAcceptanceCriterion(tx, acceptance))
                 ).toEqual(criterion);

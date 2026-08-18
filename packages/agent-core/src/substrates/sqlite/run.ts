@@ -1,47 +1,40 @@
-import type { ActorRef, SynchronousResultGuard } from "../../actors";
-import type { RunStoragePort } from "../../agents";
+import { requireSynchronousResult, type ActorRef, type SynchronousResultGuard } from "../../actors";
+import {
+    ownRunStorageBackend,
+    RUN_RECORD_KINDS,
+    RunStoragePort,
+    type RunRecordKind,
+    type RunTransaction,
+    type StoredRunParent,
+    type StoredRunRecord
+} from "../../agents";
+import { ContentOwnerEdge } from "../../content";
 import { isMember } from "../../core";
 import { AgentCoreError } from "../../errors";
-import { TransactionalSqlite, isSqliteNumber, isSqliteText, type SqliteRow } from "./sqlite";
+import type { TenantId } from "../../identity";
+import { SqliteContentStore } from "./content";
+import { SqliteContentRetention } from "./content-retention";
+import {
+    TransactionalSqlite,
+    isSqliteNumber,
+    isSqliteText,
+    ownSqliteMutations,
+    withExclusiveSqliteMutation,
+    type SqliteRow
+} from "./sqlite";
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 const SCHEMA_TABLE = "agent_run_storage_schema";
 const RECORD_TABLE = "agent_run_records";
 const PARENT_TABLE = "agent_run_commit_parents";
-const RECORD_KINDS = [
-    "configuration",
-    "run",
-    "branch",
-    "commit",
-    "turn",
-    "placement",
-    "checkpoint",
-    "inbox",
-    "spawn",
-    "admission",
-    "forcedCancellation",
-    "acceptance",
-    "verdict"
-] as const;
+export type SqliteRunRecordKind = RunRecordKind;
+export type SqliteStoredRunRecord = StoredRunRecord;
+export type SqliteStoredRunParent = StoredRunParent;
 
-export type SqliteRunRecordKind = (typeof RECORD_KINDS)[number];
-
-export interface SqliteStoredRunRecord {
-    readonly kind: SqliteRunRecordKind;
-    readonly key: string;
-    readonly revision: number | null;
-    readonly bytes: Uint8Array;
-}
-
-export interface SqliteStoredRunParent {
-    readonly commit: string;
-    readonly ordinal: number;
-    readonly parent: string;
-}
-
-const KIND_CHECK = RECORD_KINDS.map((kind) => `'${kind}'`).join(", ");
+const KIND_CHECK = RUN_RECORD_KINDS.map((kind) => `'${kind}'`).join(", ");
 const CREATE_SCHEMA = `CREATE TABLE ${SCHEMA_TABLE} (
     version INTEGER PRIMARY KEY CHECK (version = ${SCHEMA_VERSION}),
+    tenant_id TEXT NOT NULL CHECK (length(tenant_id) > 0),
     owner_kind TEXT NOT NULL CHECK (owner_kind IN ('workspace', 'run')),
     owner_id TEXT NOT NULL CHECK (length(owner_id) > 0)
 ) STRICT`;
@@ -69,61 +62,125 @@ const EXPECTED_SCHEMA = new Map<string, { readonly type: "table" | "index"; read
     ]
 );
 
-export class SqliteRunStorage implements RunStoragePort<TransactionalSqlite> {
+export class SqliteRunStorage extends RunStoragePort<RunTransaction> {
     public constructor(
-        private readonly database: TransactionalSqlite,
-        public readonly owner: ActorRef
+        database: TransactionalSqlite,
+        tenant: TenantId,
+        owner: ActorRef,
+        now?: () => Date,
+        recordConstraint?: (record: SqliteStoredRunRecord) => void
     ) {
         if (owner.kind !== "workspace" && owner.kind !== "run") {
             throw new TypeError("Run storage must belong to a Workspace or dedicated Run Actor");
         }
-        database.transaction(() => this.initialize(database));
+        const ownedDatabase = ownSqliteMutations(database);
+        ownedDatabase.transaction(() => {
+            initializeRunStorage(ownedDatabase, tenant, owner);
+            SqliteContentStore.initializeOwner(ownedDatabase, tenant, owner);
+        });
+        const contentStore = new SqliteContentStore(ownedDatabase);
+        const retention = new SqliteContentRetention(ownedDatabase, tenant, owner);
+        super(
+            tenant,
+            owner,
+            contentStore,
+            ownRunStorageBackend(
+                new SqliteRunStorageBackend(
+                    ownedDatabase,
+                    retention,
+                    () => SqliteRunStorage.createTransaction(),
+                    recordConstraint
+                )
+            ),
+            now
+        );
+        if (new.target === SqliteRunStorage) Object.freeze(this);
     }
+}
+Object.freeze(SqliteRunStorage.prototype);
+Object.freeze(SqliteRunStorage);
+
+class SqliteRunStorageBackend {
+    #active:
+        | {
+              readonly transaction: RunTransaction;
+              readonly database: TransactionalSqlite;
+              failure: Error | undefined;
+          }
+        | undefined;
+
+    public constructor(
+        private readonly database: TransactionalSqlite,
+        private readonly retention: SqliteContentRetention,
+        private readonly createTransaction: () => RunTransaction,
+        private readonly recordConstraint?: (record: SqliteStoredRunRecord) => void
+    ) {}
 
     public transaction<Result>(
-        operation: (transaction: TransactionalSqlite) => Result,
+        operation: (transaction: RunTransaction) => Result,
         ...guard: SynchronousResultGuard<Result>
     ): Result {
-        return this.database.transaction(() => operation(this.database), ...guard);
+        const current = this.#active;
+        if (current !== undefined) {
+            current.failure ??= invalidTransaction(
+                "Nested Run storage transactions are not supported"
+            );
+            throw current.failure;
+        }
+        return withExclusiveSqliteMutation(
+            this.database,
+            (database) => {
+                const transaction = this.createTransaction();
+                const active = { transaction, database, failure: undefined };
+                this.#active = active;
+                try {
+                    const result = requireSynchronousResult(operation(transaction));
+                    if (active.failure !== undefined) throw active.failure;
+                    return result;
+                } finally {
+                    this.#active = undefined;
+                }
+            },
+            ...guard
+        );
     }
 
     public get(
-        transaction: TransactionalSqlite,
+        transaction: RunTransaction,
         kind: SqliteRunRecordKind,
         key: string
     ): SqliteStoredRunRecord | undefined {
-        validateKind(kind);
-        const rows = transaction.all(
-            `SELECT kind, record_key, revision, record FROM ${RECORD_TABLE}
-             WHERE kind = ? AND record_key = ?`,
-            [kind, key]
-        );
-        if (rows.length > 1) throw corrupt("Run record primary key returned multiple rows");
-        return rows[0] === undefined ? undefined : decodeRecord(rows[0], kind, key);
+        return readStoredRecord(this.require(transaction), kind, key);
     }
 
     public list(
-        transaction: TransactionalSqlite,
+        transaction: RunTransaction,
         kind: SqliteRunRecordKind
     ): readonly SqliteStoredRunRecord[] {
-        validateKind(kind);
-        return transaction
-            .all(
-                `SELECT kind, record_key, revision, record FROM ${RECORD_TABLE}
-             WHERE kind = ? ORDER BY record_key`,
-                [kind]
-            )
-            .map((row) => decodeRecord(row, kind));
+        return listStoredRecords(this.require(transaction), kind);
     }
 
-    public insert(transaction: TransactionalSqlite, record: SqliteStoredRunRecord): void {
+    public validate(record: SqliteStoredRunRecord): void {
         validateRecord(record);
-        const existing = this.get(transaction, record.kind, record.key);
+        this.recordConstraint?.(record);
+    }
+
+    public poison(transaction: RunTransaction, failure: Error): never {
+        this.require(transaction);
+        const state = this.#active;
+        if (state === undefined) throw invalidTransaction("Run transaction is inactive");
+        state.failure ??= failure;
+        throw state.failure;
+    }
+
+    public insert(transaction: RunTransaction, record: SqliteStoredRunRecord): void {
+        const database = this.require(transaction);
+        const existing = readStoredRecord(database, record.kind, record.key);
         if (existing !== undefined) {
             if (recordsEqual(existing, record)) return;
             throw invalidStorage("Run records are immutable unless replaced by revision CAS");
         }
-        transaction.run(
+        database.run(
             `INSERT INTO ${RECORD_TABLE} (kind, record_key, revision, record)
              VALUES (?, ?, ?, ?)`,
             [record.kind, record.key, record.revision, record.bytes.slice()]
@@ -131,25 +188,26 @@ export class SqliteRunStorage implements RunStoragePort<TransactionalSqlite> {
     }
 
     public replace(
-        transaction: TransactionalSqlite,
+        transaction: RunTransaction,
         record: SqliteStoredRunRecord,
         expectedRevision: number
     ): void {
-        validateRecord(record);
-        const existing = this.get(transaction, record.kind, record.key);
+        const database = this.require(transaction);
+        const existing = readStoredRecord(database, record.kind, record.key);
         if (existing?.revision !== expectedRevision || record.revision !== expectedRevision + 1) {
             throw new AgentCoreError("protocol.revision-conflict", "Run record revision changed");
         }
-        transaction.run(
+        database.run(
             `UPDATE ${RECORD_TABLE} SET revision = ?, record = ?
              WHERE kind = ? AND record_key = ? AND revision = ?`,
             [record.revision, record.bytes.slice(), record.kind, record.key, expectedRevision]
         );
     }
 
-    public insertParent(transaction: TransactionalSqlite, edge: SqliteStoredRunParent): void {
+    public insertParent(transaction: RunTransaction, edge: SqliteStoredRunParent): void {
+        const database = this.require(transaction);
         validateParent(edge);
-        const rows = transaction.all(
+        const rows = database.all(
             `SELECT commit_id, ordinal, parent_id FROM ${PARENT_TABLE}
              WHERE commit_id = ? AND ordinal = ?`,
             [edge.commit, edge.ordinal]
@@ -159,17 +217,14 @@ export class SqliteRunStorage implements RunStoragePort<TransactionalSqlite> {
             if (existing.parent === edge.parent) return;
             throw invalidStorage("Run commit parent edges are immutable");
         }
-        transaction.run(
+        database.run(
             `INSERT INTO ${PARENT_TABLE} (commit_id, ordinal, parent_id) VALUES (?, ?, ?)`,
             [edge.commit, edge.ordinal, edge.parent]
         );
     }
 
-    public parents(
-        transaction: TransactionalSqlite,
-        commit: string
-    ): readonly SqliteStoredRunParent[] {
-        return transaction
+    public parents(transaction: RunTransaction, commit: string): readonly SqliteStoredRunParent[] {
+        return this.require(transaction)
             .all(
                 `SELECT commit_id, ordinal, parent_id FROM ${PARENT_TABLE}
              WHERE commit_id = ? ORDER BY ordinal`,
@@ -178,79 +233,146 @@ export class SqliteRunStorage implements RunStoragePort<TransactionalSqlite> {
             .map(decodeParent);
     }
 
-    private initialize(database: TransactionalSqlite): void {
-        const objects = new Map(
-            database
-                .all(
-                    "SELECT name, type, sql FROM sqlite_schema WHERE name LIKE 'agent_run_%' ORDER BY name",
-                    []
-                )
-                .map((row) => [requiredText(row, "name"), row])
-        );
-        if (!objects.has(SCHEMA_TABLE)) {
-            if (objects.size !== 0) {
-                throw corrupt("Unmarked Run storage objects require explicit replacement");
-            }
-            database.run(CREATE_SCHEMA, []);
-            database.run(CREATE_RECORDS, []);
-            database.run(CREATE_PARENTS, []);
-            database.run(CREATE_PARENT_INDEX, []);
-            database.run(
-                `INSERT INTO ${SCHEMA_TABLE} (version, owner_kind, owner_id) VALUES (?, ?, ?)`,
-                [SCHEMA_VERSION, this.owner.kind, this.owner.id.value]
-            );
-        }
-        this.validateSchema(database);
+    public retain(transaction: RunTransaction, edge: ContentOwnerEdge, operationAt: Date): void {
+        this.retention.retain(this.require(transaction), edge, operationAt);
     }
 
-    private validateSchema(database: TransactionalSqlite): void {
-        const required = new Set([
-            SCHEMA_TABLE,
-            RECORD_TABLE,
-            PARENT_TABLE,
-            "agent_run_commit_parent_reverse"
-        ]);
-        const rows = database.all(
-            "SELECT name, type, sql FROM sqlite_schema WHERE name LIKE 'agent_run_%' ORDER BY name",
-            []
-        );
-        const names = new Set(rows.map((row) => requiredText(row, "name")));
-        if (names.size !== required.size || [...required].some((name) => !names.has(name))) {
-            throw corrupt("Run storage schema is incomplete or contains unexpected objects");
+    public release(transaction: RunTransaction, edge: ContentOwnerEdge, operationAt: Date): void {
+        this.retention.release(this.require(transaction), edge, operationAt);
+    }
+
+    public verify(
+        transaction: RunTransaction,
+        ownerPrefixes: readonly string[],
+        expected: readonly ContentOwnerEdge[]
+    ): void {
+        this.retention.verifyExactNamespace(this.require(transaction), ownerPrefixes, expected);
+    }
+
+    private require(transaction: RunTransaction): TransactionalSqlite {
+        const active = this.#active;
+        if (active === undefined || active.transaction !== transaction) {
+            throw invalidTransaction(
+                "Run transaction is inactive or belongs to a different database capability"
+            );
         }
-        for (const row of rows) {
-            const name = requiredText(row, "name");
-            const expected = EXPECTED_SCHEMA.get(name);
-            const type = requiredText(row, "type");
-            const sql = requiredText(row, "sql");
-            if (
-                expected === undefined ||
-                type !== expected.type ||
-                normalizeSql(sql) !== normalizeSql(expected.sql)
-            ) {
-                throw corrupt(`Run storage object ${name} does not match its exact schema`);
-            }
-        }
-        const marker = database.all(
-            `SELECT version, owner_kind, owner_id FROM ${SCHEMA_TABLE}`,
-            []
-        );
-        if (
-            marker.length !== 1 ||
-            requiredInteger(marker[0]!, "version") !== SCHEMA_VERSION ||
-            requiredText(marker[0]!, "owner_kind") !== this.owner.kind ||
-            requiredText(marker[0]!, "owner_id") !== this.owner.id.value
-        ) {
-            throw corrupt("Run storage schema version or owner does not match");
-        }
-        for (const kind of RECORD_KINDS) this.list(database, kind);
+        if (active.failure !== undefined) throw active.failure;
+        return active.database;
+    }
+}
+
+function initializeRunStorage(
+    database: TransactionalSqlite,
+    tenant: TenantId,
+    owner: ActorRef
+): void {
+    const objects = new Map(
         database
             .all(
-                `SELECT commit_id, ordinal, parent_id FROM ${PARENT_TABLE} ORDER BY commit_id, ordinal`,
+                "SELECT name, type, sql FROM sqlite_schema WHERE name LIKE 'agent_run_%' ORDER BY name",
                 []
             )
-            .forEach((row) => validateParent(decodeParent(row)));
+            .map((row) => [requiredText(row, "name"), row])
+    );
+    if (!objects.has(SCHEMA_TABLE)) {
+        if (objects.size !== 0) {
+            throw corrupt("Unmarked Run storage objects require explicit replacement");
+        }
+        database.run(CREATE_SCHEMA, []);
+        database.run(CREATE_RECORDS, []);
+        database.run(CREATE_PARENTS, []);
+        database.run(CREATE_PARENT_INDEX, []);
+        database.run(
+            `INSERT INTO ${SCHEMA_TABLE}
+                (version, tenant_id, owner_kind, owner_id) VALUES (?, ?, ?, ?)`,
+            [SCHEMA_VERSION, tenant.value, owner.kind, owner.id.value]
+        );
     }
+    validateRunSchema(database, tenant, owner);
+}
+
+function validateRunSchema(database: TransactionalSqlite, tenant: TenantId, owner: ActorRef): void {
+    const rows = database.all(
+        "SELECT name, type, sql FROM sqlite_schema WHERE name LIKE 'agent_run_%' ORDER BY name",
+        []
+    );
+    const names = new Set(rows.map((row) => requiredText(row, "name")));
+    if (
+        names.size !== EXPECTED_SCHEMA.size ||
+        [...EXPECTED_SCHEMA.keys()].some((name) => !names.has(name))
+    ) {
+        throw corrupt("Run storage schema is incomplete or contains unexpected objects");
+    }
+    for (const row of rows) {
+        const name = requiredText(row, "name");
+        const expected = EXPECTED_SCHEMA.get(name);
+        const type = requiredText(row, "type");
+        const sql = requiredText(row, "sql");
+        if (
+            expected === undefined ||
+            type !== expected.type ||
+            normalizeSql(sql) !== normalizeSql(expected.sql)
+        ) {
+            throw corrupt(`Run storage object ${name} does not match its exact schema`);
+        }
+    }
+    const markerRows = database.all(
+        `SELECT version, tenant_id, owner_kind, owner_id FROM ${SCHEMA_TABLE}`,
+        []
+    );
+    const marker = markerRows[0];
+    if (
+        markerRows.length !== 1 ||
+        marker === undefined ||
+        requiredInteger(marker, "version") !== SCHEMA_VERSION ||
+        requiredText(marker, "tenant_id") !== tenant.value ||
+        !matchesOwner(marker, owner)
+    ) {
+        throw corrupt("Run storage schema version, Tenant, or owner does not match");
+    }
+    for (const kind of RUN_RECORD_KINDS) listStoredRecords(database, kind);
+    database
+        .all(
+            `SELECT commit_id, ordinal, parent_id FROM ${PARENT_TABLE} ORDER BY commit_id, ordinal`,
+            []
+        )
+        .forEach((row) => validateParent(decodeParent(row)));
+}
+
+function readStoredRecord(
+    database: TransactionalSqlite,
+    kind: SqliteRunRecordKind,
+    key: string
+): SqliteStoredRunRecord | undefined {
+    validateKind(kind);
+    const rows = database.all(
+        `SELECT kind, record_key, revision, record FROM ${RECORD_TABLE}
+         WHERE kind = ? AND record_key = ?`,
+        [kind, key]
+    );
+    if (rows.length > 1) throw corrupt("Run record primary key returned multiple rows");
+    return rows[0] === undefined ? undefined : decodeRecord(rows[0], kind, key);
+}
+
+function listStoredRecords(
+    database: TransactionalSqlite,
+    kind: SqliteRunRecordKind
+): readonly SqliteStoredRunRecord[] {
+    validateKind(kind);
+    return database
+        .all(
+            `SELECT kind, record_key, revision, record FROM ${RECORD_TABLE}
+             WHERE kind = ? ORDER BY record_key`,
+            [kind]
+        )
+        .map((row) => decodeRecord(row, kind));
+}
+
+function matchesOwner(row: SqliteRow, owner: ActorRef): boolean {
+    return (
+        requiredText(row, "owner_kind") === owner.kind &&
+        requiredText(row, "owner_id") === owner.id.value
+    );
 }
 
 function decodeRecord(
@@ -297,7 +419,7 @@ function validateRecord(record: SqliteStoredRunRecord): void {
 }
 
 function validateKind(kind: string): asserts kind is SqliteRunRecordKind {
-    if (!isMember(RECORD_KINDS, kind)) {
+    if (!isMember(RUN_RECORD_KINDS, kind)) {
         throw corrupt("Stored Run record kind is invalid");
     }
 }
@@ -341,6 +463,10 @@ function corrupt(message: string): AgentCoreError {
 
 function invalidStorage(message: string): AgentCoreError {
     return new AgentCoreError("run.invalid-state", message);
+}
+
+function invalidTransaction(message: string): AgentCoreError {
+    return new AgentCoreError("protocol.invalid-state", message);
 }
 
 function normalizeSql(value: string): string {

@@ -8,7 +8,6 @@ import { ContentRef, Digest } from "../../src/core";
 import { TenantId } from "../../src/identity";
 import {
     SqliteContentStore,
-    TransactionalSqlite,
     type SqliteRow,
     type SqliteValue
 } from "../../src/substrates";
@@ -18,7 +17,7 @@ import { expectAgentCoreError, expectAgentCoreRejection } from "../protocol/erro
 
 const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
 
-class InterceptingSqlite extends TransactionalSqlite {
+class InterceptingSqlite extends TestSqlite {
     public mutateRows:
         ((statement: string, rows: readonly SqliteRow[]) => readonly SqliteRow[]) | undefined;
     public afterRun: ((statement: string) => void) | undefined;
@@ -27,17 +26,17 @@ class InterceptingSqlite extends TransactionalSqlite {
         super();
     }
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         const rows = this.inner.all(statement, bindings);
         return this.mutateRows?.(statement, rows) ?? rows;
     }
 
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         this.inner.run(statement, bindings);
         this.afterRun?.(statement);
     }
 
-    public transaction<Result>(
+    public override transaction<Result>(
         operation: () => Result,
         ...guard: SynchronousResultGuard<Result>
     ): Result {

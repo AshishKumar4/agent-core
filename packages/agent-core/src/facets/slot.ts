@@ -1,4 +1,4 @@
-import { JsonSchema } from "../core";
+import { JsonSchema, TextId } from "../core";
 import { ContributionAttribution } from "./attribution";
 import type { FacetData } from "./data";
 import {
@@ -50,6 +50,7 @@ export class SlotAuthorityPolicy {
 }
 
 const slotAuthorityPolicyCodec = new DataRecordCodec(
+    [SlotAuthorityPolicy],
     "facet.slot-authority-policy",
     (policy: SlotAuthorityPolicy) => policy.toData(),
     (payload) => SlotAuthorityPolicy.fromData(payload)
@@ -92,6 +93,7 @@ export class SlotDeclaration {
 }
 
 const slotDeclarationCodec = new DataRecordCodec(
+    [SlotDeclaration, SlotAuthorityPolicy, TextId, JsonSchema, SlotName],
     "facet.slot-declaration",
     (slot: SlotDeclaration) => slot.toData(),
     (payload) => SlotDeclaration.fromData(payload)
@@ -144,6 +146,7 @@ export class InstalledSlot {
 }
 
 const installedSlotCodec = new DataRecordCodec(
+    [InstalledSlot, SlotDeclaration, ContributionAttribution],
     "facet.installed-slot",
     (slot: InstalledSlot) => slot.toData(),
     (payload) => InstalledSlot.fromData(payload)

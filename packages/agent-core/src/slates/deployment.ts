@@ -1,4 +1,4 @@
-import { ContentRef, RecordCodec, type JsonValue } from "../core";
+import { ContentRef, Digest, RecordCodec, type JsonValue, TextId } from "../core";
 import { WorkspaceId } from "../identity";
 import { InvocationId } from "../interaction-references";
 import { ReceiptId } from "../invocation-references";
@@ -17,7 +17,25 @@ import { SlateDeploymentId, SlateId, SlatePublicationId } from "./id";
 
 class SlateDeploymentCodecV1 extends RecordCodec<SlateDeployment> {
     public constructor() {
-        super("slate.deployment", { major: 1, minor: 0 });
+        super(
+            [
+                SlateDeployment,
+                TextId,
+                ContentRef,
+                Digest,
+                InvocationId,
+                SlateId,
+                SlatePublicationId,
+                SlateDeploymentId,
+                ReceiptId,
+                WorkspaceId
+            ],
+            "slate.deployment",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(deployment: SlateDeployment): JsonValue {
@@ -30,7 +48,9 @@ class SlateDeploymentCodecV1 extends RecordCodec<SlateDeployment> {
 }
 
 export class SlateDeployment {
-    public static readonly codec: RecordCodec<SlateDeployment> = new SlateDeploymentCodecV1();
+    public static get codec(): RecordCodec<SlateDeployment> {
+        return slateDeploymentCodecInstance;
+    }
     public readonly target: string;
 
     public constructor(
@@ -106,6 +126,8 @@ export class SlateDeployment {
         );
     }
 }
+
+const slateDeploymentCodecInstance = new SlateDeploymentCodecV1();
 
 function requireTextValue(value: JsonValue | undefined): string {
     if (!isTextValue(value)) throw new TypeError("Slate deployment target must be a string");

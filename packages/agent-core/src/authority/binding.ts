@@ -1,7 +1,18 @@
-import { RecordCodec, Revision, SecretRef, type JsonValue } from "../core";
+import { RecordCodec, Revision, SecretRef, type JsonValue, TextId } from "../core";
 import { AgentCoreError } from "../errors";
-import { BindingName, FacetRef, ProtectionDomain } from "../facets";
-import { requireSubjectTenant, type ScopeRef, type SubjectRef } from "../identity";
+import { BindingName, FacetPackageId, FacetRef, ProtectionDomain } from "../facets";
+import {
+    GuestVerificationScheme,
+    PrincipalId,
+    PrincipalRef,
+    ProjectId,
+    ScopeRef,
+    TeamId,
+    TenantId,
+    WorkspaceId,
+    requireSubjectTenant,
+    type SubjectRef
+} from "../identity";
 import {
     requireExact,
     requireArray,
@@ -67,7 +78,7 @@ export class BindingCredentialCustody {
     }
 }
 
-abstract class BindingLifecycle {
+export abstract class BindingLifecycle {
     public abstract readonly name: BindingStateName;
     public abstract activate(): BindingLifecycle;
     public abstract deactivate(): BindingLifecycle;
@@ -102,7 +113,31 @@ const inactiveBinding = Object.freeze(new InactiveBindingLifecycle());
 
 class BindingCodec extends RecordCodec<Binding> {
     public constructor() {
-        super("authority.binding", { major: 3, minor: 0 });
+        super(
+            [
+                Binding,
+                BindingCredentialCustody,
+                BindingLifecycle,
+                GuestVerificationScheme,
+                Revision,
+                ScopeRef,
+                TextId,
+                FacetRef,
+                SecretRef,
+                BindingName,
+                TeamId,
+                TenantId,
+                WorkspaceId,
+                GrantId,
+                ProjectId,
+                PrincipalId,
+                FacetPackageId,
+                ProtectionDomain,
+                PrincipalRef
+            ],
+            "authority.binding",
+            { major: 3, minor: 0 }
+        );
     }
     protected encodePayload(record: Binding): JsonValue {
         return record.toData();
@@ -113,7 +148,9 @@ class BindingCodec extends RecordCodec<Binding> {
 }
 
 export class Binding {
-    public static readonly codec: RecordCodec<Binding> = new BindingCodec();
+    public static get codec(): RecordCodec<Binding> {
+        return bindingCodecInstance;
+    }
     public readonly domain: ProtectionDomain;
     public readonly subject: SubjectRef;
     public readonly credentialCustody: readonly BindingCredentialCustody[];
@@ -314,6 +351,8 @@ export class Binding {
         );
     }
 }
+
+const bindingCodecInstance = new BindingCodec();
 
 function canonicalCredentialCustody(
     values: readonly BindingCredentialCustody[],

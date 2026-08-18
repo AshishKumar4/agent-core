@@ -1025,12 +1025,12 @@ describe("W9 internal typed composition", () => {
                 pending.reservation
             );
             const registry = pending.registry.complete(complete.reservation);
-            const storage = new MemoryRunStorage();
+            const storage = new MemoryRunStorage(tenant, owner);
             const repository = new RunRepository(storage);
             repository.transaction((transaction) =>
                 repository.insertAdmission(transaction, registry)
             );
-            const restartedStorage = new MemoryRunStorage(storage.snapshot());
+            const restartedStorage = new MemoryRunStorage(tenant, owner, storage.snapshot());
             const restartedRepository = new RunRepository(restartedStorage);
             const adapter = new DurableRunAdmissionPort(restartedRepository);
             expect(

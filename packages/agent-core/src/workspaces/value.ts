@@ -6,10 +6,11 @@ import {
     hasExactJsonKeys,
     isJsonObject,
     type RecordVersion,
-    type JsonValue
+    type JsonValue,
+    TextId
 } from "../core";
 import type { BindingName, FacetPackageId, TrustTier } from "../facets";
-import { PrincipalRef, type TenantId } from "../identity";
+import { PrincipalId, PrincipalRef, TenantId } from "../identity";
 import { decodeOptionalPrincipalRef, encodeOptionalPrincipalRef } from "./codec";
 
 export type EventSource =
@@ -53,7 +54,14 @@ export interface EventProvenanceInit {
 
 class EventProvenanceCodecV1 extends RecordCodec<EventProvenance> {
     public constructor() {
-        super("workspace.event-provenance", { major: 1, minor: 0 });
+        super(
+            [EventProvenance, EventVerification, TextId, TenantId, PrincipalId, PrincipalRef],
+            "workspace.event-provenance",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(provenance: EventProvenance): JsonValue {
@@ -66,7 +74,9 @@ class EventProvenanceCodecV1 extends RecordCodec<EventProvenance> {
 }
 
 export class EventProvenance {
-    public static readonly codec: RecordCodec<EventProvenance> = new EventProvenanceCodecV1();
+    public static get codec(): RecordCodec<EventProvenance> {
+        return eventProvenanceCodecInstance;
+    }
     public readonly verification: EventVerification;
     public readonly principal: PrincipalRef | undefined;
     public readonly channel: string | undefined;
@@ -136,6 +146,8 @@ export class EventProvenance {
         };
     }
 }
+
+const eventProvenanceCodecInstance = new EventProvenanceCodecV1();
 
 export type RouteAuthority =
     | { readonly kind: "initiator"; readonly binding: BindingName }

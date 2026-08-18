@@ -1,7 +1,18 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
-import { Digest, RecordCodec, encodeCanonicalJson, type JsonValue } from "../core";
-import { BindingName, FacetRef, ProtectionDomain } from "../facets";
-import { TenantId, requireSubjectTenant, type ScopeRef, type SubjectRef } from "../identity";
+import { Digest, RecordCodec, encodeCanonicalJson, type JsonValue, TextId } from "../core";
+import { BindingName, FacetPackageId, FacetRef, ProtectionDomain } from "../facets";
+import {
+    GuestVerificationScheme,
+    PrincipalId,
+    PrincipalRef,
+    ProjectId,
+    ScopeRef,
+    TeamId,
+    TenantId,
+    WorkspaceId,
+    requireSubjectTenant,
+    type SubjectRef
+} from "../identity";
 import { decodeDomain, encodeDomain } from "./binding";
 import {
     requireExact,
@@ -10,7 +21,7 @@ import {
     requireString,
     type JsonObject
 } from "./data";
-import { PathEpochEvidence } from "./epoch";
+import { PathEpochEvidence, ScopeEpoch } from "./epoch";
 import { GrantId } from "./id";
 import {
     decodeAuthorityScope,
@@ -33,7 +44,25 @@ export interface BindingValidationRequestInit {
 
 class BindingValidationRequestCodec extends RecordCodec<BindingValidationRequest> {
     public constructor() {
-        super("authority.binding-validation-request", { major: 1, minor: 0 });
+        super(
+            [
+                BindingValidationRequest,
+                ActorRef,
+                ScopeRef,
+                TextId,
+                FacetRef,
+                BindingName,
+                ActorId,
+                TenantId,
+                WorkspaceId,
+                GrantId,
+                ProjectId,
+                FacetPackageId,
+                ProtectionDomain
+            ],
+            "authority.binding-validation-request",
+            { major: 1, minor: 0 }
+        );
     }
     protected encodePayload(record: BindingValidationRequest): JsonValue {
         return record.toData();
@@ -44,8 +73,9 @@ class BindingValidationRequestCodec extends RecordCodec<BindingValidationRequest
 }
 
 export class BindingValidationRequest {
-    public static readonly codec: RecordCodec<BindingValidationRequest> =
-        new BindingValidationRequestCodec();
+    public static get codec(): RecordCodec<BindingValidationRequest> {
+        return bindingValidationRequestCodecInstance;
+    }
     public readonly domain: ProtectionDomain;
 
     public constructor(init: BindingValidationRequestInit) {
@@ -143,9 +173,32 @@ export class BindingValidationRequest {
     }
 }
 
+const bindingValidationRequestCodecInstance = new BindingValidationRequestCodec();
+
 class BindingValidationEvidenceCodec extends RecordCodec<BindingValidationEvidence> {
     public constructor() {
-        super("authority.binding-validation-evidence", { major: 2, minor: 0 });
+        super(
+            [
+                BindingValidationEvidence,
+                ActorRef,
+                GuestVerificationScheme,
+                ScopeRef,
+                TextId,
+                PathEpochEvidence,
+                ScopeEpoch,
+                Digest,
+                ActorId,
+                TeamId,
+                TenantId,
+                WorkspaceId,
+                GrantId,
+                ProjectId,
+                PrincipalId,
+                PrincipalRef
+            ],
+            "authority.binding-validation-evidence",
+            { major: 2, minor: 0 }
+        );
     }
     protected encodePayload(record: BindingValidationEvidence): JsonValue {
         return record.toData();
@@ -156,8 +209,9 @@ class BindingValidationEvidenceCodec extends RecordCodec<BindingValidationEviden
 }
 
 export class BindingValidationEvidence {
-    public static readonly codec: RecordCodec<BindingValidationEvidence> =
-        new BindingValidationEvidenceCodec();
+    public static get codec(): RecordCodec<BindingValidationEvidence> {
+        return bindingValidationEvidenceCodecInstance;
+    }
     readonly #checkedAt: number;
     public readonly subject: SubjectRef;
 
@@ -257,6 +311,8 @@ export class BindingValidationEvidence {
         );
     }
 }
+
+const bindingValidationEvidenceCodecInstance = new BindingValidationEvidenceCodec();
 
 function requireActorKind(value: JsonValue | undefined): ActorKind {
     if (

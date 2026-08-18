@@ -184,7 +184,10 @@ export class SpawnAttenuation extends CodecRecord {
 
 class SpawnAttenuationRecordCodec extends RecordCodec<SpawnAttenuation> {
     public constructor() {
-        super("run.spawn-attenuation", { major: 1, minor: 0 });
+        super([SpawnAttenuation, ResourceCeiling, CodecRecord], "run.spawn-attenuation", {
+            major: 1,
+            minor: 0
+        });
     }
     protected encodePayload(value: SpawnAttenuation): JsonValue {
         return value.toData();

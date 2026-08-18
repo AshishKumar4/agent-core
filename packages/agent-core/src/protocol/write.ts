@@ -6,9 +6,11 @@ import {
     encodeBase64,
     hasExactJsonKeys,
     type JsonValue,
-    type RecordVersion
+    type RecordVersion,
+    TextId
 } from "../core";
 import { AuditRecordId, WriteRecordId } from "../invocations";
+import { PrincipalId, PrincipalRef, TenantId } from "../identity";
 import {
     decodeCommandCaller,
     encodeCommandCaller,
@@ -29,7 +31,22 @@ export type CommandOutcome =
 
 class WriteRecordCodecV2 extends RecordCodec<WriteRecord> {
     public constructor() {
-        super("write-record", { major: 2, minor: 0 });
+        super(
+            [
+                WriteRecord,
+                ActorRef,
+                TextId,
+                Digest,
+                ActorId,
+                AuditRecordId,
+                TenantId,
+                WriteRecordId,
+                PrincipalId,
+                PrincipalRef
+            ],
+            "write-record",
+            { major: 2, minor: 0 }
+        );
     }
 
     protected encodePayload(record: WriteRecord): JsonValue {
@@ -123,7 +140,9 @@ export class WriteRecord {
     readonly #atTime: number;
     readonly #reply: Uint8Array;
     readonly #observation: Uint8Array | undefined;
-    public static readonly codec: RecordCodec<WriteRecord> = new WriteRecordCodecV2();
+    public static get codec(): RecordCodec<WriteRecord> {
+        return writeRecordCodecInstance;
+    }
 
     public readonly id: WriteRecordId;
     public readonly actor: ActorRef;
@@ -210,6 +229,8 @@ export class WriteRecord {
         return this.#observation?.slice();
     }
 }
+
+const writeRecordCodecInstance = new WriteRecordCodecV2();
 
 export const WriteRecordCodec: RecordCodec<WriteRecord> = WriteRecord.codec;
 

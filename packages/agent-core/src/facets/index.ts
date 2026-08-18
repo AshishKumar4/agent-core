@@ -70,11 +70,13 @@ export {
     FieldMapping,
     FieldMove,
     JsonPointer,
+    MappingRecord,
     OperationPattern,
     OperationSelector,
     PayloadMapping,
     ProvenanceMapping
 } from "./mapping";
+export { BoundOperationRef, FacetOperationRef } from "./operation";
 export { InterceptorDeclaration } from "./interceptor";
 export type { CutPoint, InterceptorMode } from "./interceptor";
 export { ProtectionDomain } from "./protection";

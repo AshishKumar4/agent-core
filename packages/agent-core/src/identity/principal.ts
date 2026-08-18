@@ -1,4 +1,4 @@
-import { RecordCodec, type JsonValue } from "../core";
+import { RecordCodec, type JsonValue, TextId } from "../core";
 import { requireIdentityFields, requireIdentityObject, requireIdentityString } from "./codec";
 import { PrincipalId } from "./id";
 
@@ -32,7 +32,10 @@ const disabledPrincipal = Object.freeze(new DisabledPrincipalLifecycle());
 
 class PrincipalRecordCodec extends RecordCodec<Principal> {
     public constructor() {
-        super("identity.principal", { major: 1, minor: 0 });
+        super([Principal, PrincipalLifecycle, TextId, PrincipalId], "identity.principal", {
+            major: 1,
+            minor: 0
+        });
     }
 
     protected encodePayload(principal: Principal): JsonValue {
@@ -55,7 +58,9 @@ class PrincipalRecordCodec extends RecordCodec<Principal> {
 }
 
 export class Principal {
-    public static readonly codec: RecordCodec<Principal> = new PrincipalRecordCodec();
+    public static get codec(): RecordCodec<Principal> {
+        return principalCodecInstance;
+    }
 
     readonly #lifecycle: PrincipalLifecycle;
 
@@ -90,6 +95,8 @@ export class Principal {
         return next === this.#lifecycle ? this : new Principal(this.id, this.kind, next.status);
     }
 }
+
+const principalCodecInstance = new PrincipalRecordCodec();
 
 function requirePrincipalKind(value: JsonValue | undefined): PrincipalKind {
     if (value === "user" || value === "service" || value === "agent") {

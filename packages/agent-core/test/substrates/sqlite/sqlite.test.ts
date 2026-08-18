@@ -1,34 +1,37 @@
 import { expect, test } from "vitest";
+import type { SynchronousResultGuard } from "../../../src/actors";
 import {
     hasSameSqliteProvenance,
-    inheritSqliteProvenance,
-    type ReadableSqlite
+    TransactionalSqlite
 } from "../../../src/substrates/sqlite/sqlite";
-import { malformed } from "../../helpers/malformed";
 import { TestSqlite } from "../../helpers/sqlite";
 
-test("rejects SQLite provenance transfer involving uninitialized capabilities", { tags: "p0" }, () => {
+test("derived SQLite scopes inherit provenance without mutable transfer hooks", { tags: "p0" }, () => {
     const database = new TestSqlite();
-    const forged = malformed<ReadableSqlite>({});
-
-    expect(() => inheritSqliteProvenance(forged, database)).toThrowError(
-        new TypeError("SQLite provenance requires initialized capabilities")
-    );
-    expect(() => inheritSqliteProvenance(database, forged)).toThrowError(
-        new TypeError("SQLite provenance requires initialized capabilities")
-    );
-});
-
-test("shares SQLite provenance only across inherited capabilities", { tags: "p0" }, () => {
-    const database = new TestSqlite();
+    const scope = new SqliteScope(database);
     const unrelated = new TestSqlite();
-    const forged = malformed<ReadableSqlite>({});
 
-    expect(hasSameSqliteProvenance(database, database)).toBe(true);
+    expect(hasSameSqliteProvenance(database, scope)).toBe(true);
     expect(hasSameSqliteProvenance(database, unrelated)).toBe(false);
-    expect(hasSameSqliteProvenance(forged, forged)).toBe(false);
-    expect(hasSameSqliteProvenance(forged, database)).toBe(false);
-
-    inheritSqliteProvenance(unrelated, database);
-    expect(hasSameSqliteProvenance(database, unrelated)).toBe(true);
+    expect(Object.getOwnPropertyDescriptor(database, "all")).toMatchObject({
+        configurable: false,
+        writable: false
+    });
+    expect(Object.getOwnPropertyDescriptor(database, "run")).toMatchObject({
+        configurable: false,
+        writable: false
+    });
 });
+
+class SqliteScope extends TransactionalSqlite {
+    public constructor(source: TransactionalSqlite) {
+        super({ source });
+    }
+
+    public transaction<Result>(
+        operation: () => Result,
+        ..._guard: SynchronousResultGuard<Result>
+    ): Result {
+        return operation();
+    }
+}

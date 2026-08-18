@@ -508,7 +508,18 @@ export class TurnModelInput extends CodecRecord {
 
 class ModelInputCodec extends RecordCodec<TurnModelInput> {
     public constructor() {
-        super("turn.model-input", { major: 1, minor: 0 });
+        super(
+            [
+                TurnModelInput,
+                TurnPromptSection,
+                TurnPromptSectionName,
+                TurnBoundOperation,
+                TurnAdmittedEvent,
+                RunCommitId
+            ],
+            "turn.model-input",
+            { major: 1, minor: 0 }
+        );
     }
 
     protected encodePayload(value: TurnModelInput): JsonValue {
@@ -963,7 +974,7 @@ class LeaseScopedTurn<Transaction> {
     }
 
     public async requireContent(ref: ContentRef): Promise<void> {
-        const stat = await this.withActive(() => this.init.content.stat(ref));
+        const stat = await this.withActive(() => this.init.runtime.repository.content.stat(ref));
         if (stat === undefined || !stat.ref.equals(ref) || !stat.digest.equals(ref.digest)) {
             throw new AgentCoreError("content.not-found", "Turn content is not available");
         }
@@ -1112,7 +1123,7 @@ class ScopedContentHandle<Transaction> extends TurnContentHandle {
 
     public async put(bytes: Uint8Array, hint?: MediaHint): Promise<ContentPutResult> {
         const stored = await this.scope.withActive(() =>
-            this.scope.init.content.put(bytes.slice(), hint)
+            this.scope.init.runtime.repository.content.put(bytes.slice(), hint)
         );
         if (!stored.ref.digest.equals(stored.digest)) {
             throw new AgentCoreError("codec.invalid", "Content store returned mismatched identity");
@@ -1121,12 +1132,14 @@ class ScopedContentHandle<Transaction> extends TurnContentHandle {
     }
 
     public async get(ref: ContentRef): Promise<Uint8Array> {
-        const bytes = await this.scope.withActive(() => this.scope.init.content.get(ref));
+        const bytes = await this.scope.withActive(() =>
+            this.scope.init.runtime.repository.content.get(ref)
+        );
         return bytes.slice();
     }
 
     public async stat(ref: ContentRef): Promise<ContentStat | undefined> {
-        return this.scope.withActive(() => this.scope.init.content.stat(ref));
+        return this.scope.withActive(() => this.scope.init.runtime.repository.content.stat(ref));
     }
 }
 

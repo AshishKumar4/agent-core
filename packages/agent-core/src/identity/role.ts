@@ -1,4 +1,4 @@
-import { requireNonempty, RecordCodec, type JsonValue } from "../core";
+import { requireNonempty, RecordCodec, type JsonValue, TextId } from "../core";
 import { CapabilitySpec, isCapabilityEffect, type CapabilityEffect, type Impact } from "../facets";
 import {
     invalid,
@@ -43,7 +43,10 @@ export class RoleRule {
 
 class RoleRecordCodec extends RecordCodec<Role> {
     public constructor() {
-        super("identity.role", { major: 1, minor: 0 });
+        super([Role, TextId, RoleName, RoleRule, CapabilitySpec], "identity.role", {
+            major: 1,
+            minor: 0
+        });
     }
 
     protected encodePayload(role: Role): JsonValue {
@@ -71,7 +74,9 @@ class RoleRecordCodec extends RecordCodec<Role> {
 }
 
 export class Role {
-    public static readonly codec: RecordCodec<Role> = new RoleRecordCodec();
+    public static get codec(): RecordCodec<Role> {
+        return roleCodecInstance;
+    }
     public readonly rules: readonly RoleRule[];
 
     public constructor(
@@ -90,6 +95,8 @@ export class Role {
         return Role.codec.decode(bytes);
     }
 }
+
+const roleCodecInstance = new RoleRecordCodec();
 
 export const OWNER_ROLE = builtInRole(OWNER_NAME, ALL_IMPACTS);
 export const EDITOR_ROLE = builtInRole(

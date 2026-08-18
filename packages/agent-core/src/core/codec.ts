@@ -21,11 +21,23 @@ export interface RecordEnvelope {
     readonly payload: JsonValue;
 }
 
+export interface RecordClass<Record = object> {
+    readonly prototype: Record;
+}
+
+export type RecordClasses<Record> = readonly [RecordClass<Record>, ...RecordClass[]];
+
+const functionSource = Function.prototype.toString;
+
 export abstract class RecordCodec<Record> {
     public readonly kind: string;
     public readonly version: RecordVersion;
 
-    protected constructor(kind: string, version: RecordVersion) {
+    protected constructor(
+        recordClasses: RecordClasses<Record>,
+        kind: string,
+        version: RecordVersion
+    ) {
         if (
             !isJsonString(kind) ||
             kind.trim().length === 0 ||
@@ -36,7 +48,24 @@ export abstract class RecordCodec<Record> {
         }
         this.kind = kind;
         this.version = validateAndDetachVersion(version);
+        sealRecordClasses(recordClasses);
+        this.#encodePayload = this.encodePayload.bind(this);
+        this.#decodePayload = this.decodePayload.bind(this);
+        const encode = this.encode.bind(this);
+        const decode = this.decode.bind(this);
         Object.defineProperties(this, {
+            decode: {
+                configurable: false,
+                enumerable: false,
+                value: (bytes: Uint8Array): Record => decode(bytes),
+                writable: false
+            },
+            encode: {
+                configurable: false,
+                enumerable: false,
+                value: (record: Record): Uint8Array => encode(record),
+                writable: false
+            },
             kind: {
                 configurable: false,
                 enumerable: true,
@@ -52,6 +81,9 @@ export abstract class RecordCodec<Record> {
         });
     }
 
+    readonly #decodePayload: (payload: JsonValue, version: RecordVersion) => Record;
+    readonly #encodePayload: (record: Record) => JsonValue;
+
     public encode(record: Record): Uint8Array {
         return encodeCanonicalJson({
             kind: this.kind,
@@ -59,7 +91,7 @@ export abstract class RecordCodec<Record> {
                 major: this.version.major,
                 minor: this.version.minor
             },
-            payload: this.encodePayload(record)
+            payload: this.#encodePayload(record)
         });
     }
 
@@ -88,7 +120,7 @@ export abstract class RecordCodec<Record> {
             minor: value.version.minor
         });
         try {
-            return this.decodePayload(value.payload, version);
+            return this.#decodePayload(value.payload, version);
         } catch (error) {
             if (error instanceof AgentCoreError) {
                 throw error;
@@ -102,6 +134,55 @@ export abstract class RecordCodec<Record> {
     protected abstract encodePayload(record: Record): JsonValue;
 
     protected abstract decodePayload(payload: JsonValue, version: RecordVersion): Record;
+}
+
+function sealRecordClasses<Record>(recordClasses: RecordClasses<Record>): void {
+    const classes = validateAndDetachRecordClasses(recordClasses);
+    for (const recordClass of classes) {
+        Object.freeze(recordClass.prototype);
+        Object.freeze(recordClass);
+    }
+}
+
+function validateAndDetachRecordClasses<Record>(
+    recordClasses: RecordClasses<Record>
+): ReadonlyArray<RecordClass> {
+    if (
+        !Array.isArray(recordClasses) ||
+        Object.getPrototypeOf(recordClasses) !== Array.prototype ||
+        recordClasses.length === 0 ||
+        Reflect.ownKeys(recordClasses).length !== recordClasses.length + 1
+    ) {
+        throw new TypeError("Record codec must name a nonempty ordinary class tuple");
+    }
+    const detached: RecordClass[] = [];
+    for (let index = 0; index < recordClasses.length; index += 1) {
+        const descriptor = Object.getOwnPropertyDescriptor(recordClasses, index);
+        const candidate = descriptor?.value;
+        if (
+            descriptor === undefined ||
+            !("value" in descriptor) ||
+            !descriptor.enumerable ||
+            !isOrdinaryRecordClass(candidate)
+        ) {
+            throw new TypeError("Record codec classes must be ordinary class constructors");
+        }
+        if (!detached.includes(candidate)) detached.push(candidate);
+    }
+    return Object.freeze(detached);
+}
+
+function isOrdinaryRecordClass(value: unknown): value is RecordClass {
+    if (typeof value !== "function") return false;
+    if (!functionSource.call(value).startsWith("class")) return false;
+    const prototype = Object.getOwnPropertyDescriptor(value, "prototype")?.value;
+    if (!isObjectPrototype(prototype)) return false;
+    const constructor = Object.getOwnPropertyDescriptor(prototype, "constructor");
+    return constructor !== undefined && "value" in constructor && constructor.value === value;
+}
+
+function isObjectPrototype(value: unknown): value is object {
+    return typeof value === "object" && value !== null;
 }
 
 function isEnvelope(value: JsonValue): value is JsonValue & RecordEnvelope {

@@ -1,4 +1,4 @@
-import { ContentRef, type JsonValue, RecordCodec, Revision, compareCanonicalText } from "../core";
+import { ContentRef, Digest, type JsonValue, RecordCodec, Revision, TextId, compareCanonicalText } from "../core";
 import { requireSynchronousResult } from "../actors";
 import { AgentCoreError } from "../errors";
 import { WorkspaceId } from "../identity";
@@ -43,7 +43,24 @@ export interface SlateDeploymentReservationInit {
 
 class SlateDeploymentReservationCodec extends RecordCodec<SlateDeploymentReservation> {
     public constructor() {
-        super("slate.deployment-reservation", { major: 1, minor: 1 });
+        super(
+            [
+                SlateDeploymentReservation,
+                TextId,
+                ContentRef,
+                Digest,
+                InvocationId,
+                SlateId,
+                SlatePublicationId,
+                SlateDeploymentId,
+                WorkspaceId
+            ],
+            "slate.deployment-reservation",
+            {
+                major: 1,
+                minor: 1
+            }
+        );
     }
 
     protected encodePayload(reservation: SlateDeploymentReservation): JsonValue {
@@ -56,8 +73,9 @@ class SlateDeploymentReservationCodec extends RecordCodec<SlateDeploymentReserva
 }
 
 export class SlateDeploymentReservation {
-    public static readonly codec: RecordCodec<SlateDeploymentReservation> =
-        new SlateDeploymentReservationCodec();
+    public static get codec(): RecordCodec<SlateDeploymentReservation> {
+        return slateDeploymentReservationCodecInstance;
+    }
     public readonly target: string;
 
     public static encode(reservation: SlateDeploymentReservation): Uint8Array {
@@ -156,6 +174,8 @@ export class SlateDeploymentReservation {
     }
 }
 
+const slateDeploymentReservationCodecInstance = new SlateDeploymentReservationCodec();
+
 export interface SlateResourceReservationInit {
     readonly id: SlateResourceId;
     readonly workspaceId: WorkspaceId;
@@ -169,7 +189,24 @@ export interface SlateResourceReservationInit {
 
 class SlateResourceReservationCodec extends RecordCodec<SlateResourceReservation> {
     public constructor() {
-        super("slate.resource-reservation", { major: 1, minor: 0 });
+        super(
+            [
+                SlateResourceReservation,
+                TextId,
+                ContentRef,
+                Digest,
+                SlateResourceId,
+                InvocationId,
+                SlateId,
+                SlateDeploymentId,
+                WorkspaceId
+            ],
+            "slate.resource-reservation",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(reservation: SlateResourceReservation): JsonValue {
@@ -182,8 +219,9 @@ class SlateResourceReservationCodec extends RecordCodec<SlateResourceReservation
 }
 
 export class SlateResourceReservation {
-    public static readonly codec: RecordCodec<SlateResourceReservation> =
-        new SlateResourceReservationCodec();
+    public static get codec(): RecordCodec<SlateResourceReservation> {
+        return slateResourceReservationCodecInstance;
+    }
     public readonly name: string;
 
     public static encode(reservation: SlateResourceReservation): Uint8Array {
@@ -268,6 +306,8 @@ export class SlateResourceReservation {
         });
     }
 }
+
+const slateResourceReservationCodecInstance = new SlateResourceReservationCodec();
 
 export interface StoredSlate {
     readonly id: string;

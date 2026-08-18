@@ -382,8 +382,8 @@ function tableSql(database: TestSqlite, table: string): string {
 class BlobRecordingSqlite extends TestSqlite {
     public lastRecordBlob: Uint8Array | undefined;
 
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
-        super.run(statement, bindings);
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
+        super.execute(statement, bindings);
         if (!statement.includes("INSERT INTO workspace_event_records")) return;
         for (const binding of bindings) {
             if (binding instanceof Uint8Array) this.lastRecordBlob = binding;
@@ -394,14 +394,14 @@ class BlobRecordingSqlite extends TestSqlite {
 class RecordCachingSqlite extends TestSqlite {
     readonly #cache = new Map<string, readonly SqliteRow[]>();
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         if (!statement.includes("FROM workspace_event_records")) {
-            return super.all(statement, bindings);
+            return super.query(statement, bindings);
         }
         const key = `${statement} ${JSON.stringify(bindings)}`;
         const cached = this.#cache.get(key);
         if (cached !== undefined) return cached;
-        const rows = super.all(statement, bindings);
+        const rows = super.query(statement, bindings);
         if (rows.length > 0) this.#cache.set(key, rows);
         return rows;
     }

@@ -4,6 +4,7 @@ import {
     isJsonObject,
     isMember,
     requireNonempty,
+    TextId,
     type JsonObject,
     type JsonValue
 } from "../core";
@@ -106,7 +107,14 @@ export class PlacementUnavailableError extends AgentCoreError {
 
 class PlacementPolicyCodec extends RecordCodec<PlacementPolicy> {
     public constructor() {
-        super("definition.placement-policy", { major: 2, minor: 1 });
+        super(
+            [PlacementPolicy, AuthoredCodeBackingPolicy, AuthoredCodeBackingId, TextId],
+            "definition.placement-policy",
+            {
+                major: 2,
+                minor: 1
+            }
+        );
     }
 
     protected encodePayload(policy: PlacementPolicy): JsonValue {
@@ -119,7 +127,9 @@ class PlacementPolicyCodec extends RecordCodec<PlacementPolicy> {
 }
 
 export class PlacementPolicy {
-    public static readonly codec: RecordCodec<PlacementPolicy> = new PlacementPolicyCodec();
+    public static get codec(): RecordCodec<PlacementPolicy> {
+        return placementPolicyCodecInstance;
+    }
     public readonly allowed: NonemptyIsolationModes;
     // Package-name globs admitted to the trust set (SPEC §9.2 policies.placement.trusted).
     // Defaults to "everything" so callers that only care about `allowed` (most tests, and
@@ -205,6 +215,8 @@ export class PlacementPolicy {
         return data;
     }
 }
+
+const placementPolicyCodecInstance = new PlacementPolicyCodec();
 
 export interface PlacementInputInit {
     readonly manifest: readonly IsolationMode[];

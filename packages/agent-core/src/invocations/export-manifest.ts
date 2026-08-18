@@ -71,6 +71,7 @@ export const INVOCATION_CONTEXT_EXPORTS = Object.freeze({
         "requireSafeInteger",
         "requireString",
         "sameJson",
+        "structuralCodec",
         "terminalBatchOutcome",
         "validDate",
         "validateAuditAppend",

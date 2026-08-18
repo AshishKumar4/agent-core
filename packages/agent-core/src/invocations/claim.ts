@@ -1,5 +1,5 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
-import { RecordCodec, type JsonValue, type RecordVersion } from "../core";
+import { RecordCodec, type JsonValue, type RecordVersion, TextId } from "../core";
 import { AgentCoreError } from "../errors";
 import {
     requireDate,
@@ -8,6 +8,7 @@ import {
     requireObject,
     requireString,
     validDate,
+    copyStructuralCodec,
     immutableReference,
     type StructuralCodec
 } from "./codec";
@@ -97,8 +98,16 @@ export class ItemClaim<Lease> {
 }
 
 export class ItemClaimCodec<Lease> extends RecordCodec<ItemClaim<Lease>> {
-    public constructor(private readonly lease: StructuralCodec<Lease>) {
-        super("invocation.item-claim", { major: 1, minor: 0 });
+    readonly #lease: StructuralCodec<Lease>;
+
+    public constructor(lease: StructuralCodec<Lease>) {
+        super(
+            [ItemClaim, ActorRef, TextId, InvocationId, ActorId, ItemClaimId, ClaimWorkerId],
+            "invocation.item-claim",
+            { major: 1, minor: 0 }
+        );
+        this.#lease = copyStructuralCodec(lease);
+        Object.freeze(this);
     }
 
     protected encodePayload(record: ItemClaim<Lease>): JsonValue {
@@ -108,7 +117,7 @@ export class ItemClaimCodec<Lease> extends RecordCodec<ItemClaim<Lease>> {
             id: record.id.value,
             invocation: record.invocation.value,
             itemIndex: record.itemIndex,
-            owner: encodeOwner(record.owner, this.lease)
+            owner: encodeOwner(record.owner, this.#lease)
         };
     }
 
@@ -123,7 +132,7 @@ export class ItemClaimCodec<Lease> extends RecordCodec<ItemClaim<Lease>> {
             new InvocationId(requireString(object, "invocation")),
             requireNonnegativeInteger(object, "itemIndex"),
             requireNonnegativeInteger(object, "attemptOrdinal"),
-            decodeOwner(object["owner"], this.lease),
+            decodeOwner(object["owner"], this.#lease),
             requireDate(object, "expiresAt")
         );
     }

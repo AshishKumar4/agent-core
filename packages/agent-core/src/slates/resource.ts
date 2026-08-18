@@ -1,4 +1,4 @@
-import { ContentRef, RecordCodec, type JsonValue } from "../core";
+import { ContentRef, Digest, RecordCodec, type JsonValue, TextId } from "../core";
 import { WorkspaceId } from "../identity";
 import { InvocationId } from "../interaction-references";
 import { ReceiptId } from "../invocation-references";
@@ -18,7 +18,25 @@ import { SlateDeploymentId, SlateId, SlateResourceId } from "./id";
 
 class SlateResourceCodecV1 extends RecordCodec<SlateResource> {
     public constructor() {
-        super("slate.resource", { major: 1, minor: 0 });
+        super(
+            [
+                SlateResource,
+                TextId,
+                ContentRef,
+                Digest,
+                SlateResourceId,
+                InvocationId,
+                SlateId,
+                SlateDeploymentId,
+                ReceiptId,
+                WorkspaceId
+            ],
+            "slate.resource",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(resource: SlateResource): JsonValue {
@@ -31,7 +49,9 @@ class SlateResourceCodecV1 extends RecordCodec<SlateResource> {
 }
 
 export class SlateResource {
-    public static readonly codec: RecordCodec<SlateResource> = new SlateResourceCodecV1();
+    public static get codec(): RecordCodec<SlateResource> {
+        return slateResourceCodecInstance;
+    }
     public readonly name: string;
 
     public constructor(
@@ -112,3 +132,5 @@ export class SlateResource {
         );
     }
 }
+
+const slateResourceCodecInstance = new SlateResourceCodecV1();

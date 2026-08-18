@@ -4,11 +4,13 @@ import {
     Digest,
     RecordCodec,
     Revision,
+    SemVer,
     hasExactJsonKeys,
     isJsonObject,
-    type JsonValue
+    type JsonValue,
+    TextId
 } from "../core";
-import { PackagePin } from "../definition-references";
+import { PackageId, PackagePin } from "../definition-references";
 import { PlatformCompatibility } from "./compatibility";
 import { PackageDependency } from "./package";
 import { compareText } from "./order";
@@ -25,7 +27,24 @@ export interface PackageLockInit {
 
 class PackageLockCodec extends RecordCodec<PackageLock> {
     public constructor() {
-        super("definition.package-lock", { major: 2, minor: 0 });
+        super(
+            [
+                PackageLock,
+                PackagePin,
+                Revision,
+                TextId,
+                SemVer,
+                PlatformCompatibility,
+                PackageDependency,
+                Digest,
+                PackageId
+            ],
+            "definition.package-lock",
+            {
+                major: 2,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(lock: PackageLock): JsonValue {
@@ -38,7 +57,9 @@ class PackageLockCodec extends RecordCodec<PackageLock> {
 }
 
 export class PackageLock {
-    public static readonly codec: RecordCodec<PackageLock> = new PackageLockCodec();
+    public static get codec(): RecordCodec<PackageLock> {
+        return packageLockCodecInstance;
+    }
 
     public readonly snapshotRevision: Revision;
     public readonly snapshotDigest: Digest;
@@ -114,6 +135,8 @@ export class PackageLock {
         };
     }
 }
+
+const packageLockCodecInstance = new PackageLockCodec();
 
 function requireObject(value: JsonValue, subject: string): { readonly [key: string]: JsonValue } {
     if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);

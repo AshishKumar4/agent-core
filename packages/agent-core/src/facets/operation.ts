@@ -1,6 +1,7 @@
 import type { FacetData } from "./data";
 import { DataRecordCodec, requireDataObject, requireExactFields, requireString } from "./data";
-import { BindingName, FacetRef, OperationName } from "./id";
+import { BindingName, FacetPackageId, FacetRef, OperationName } from "./id";
+import { TextId } from "../core";
 
 export class BoundOperationRef {
     public static get codec(): DataRecordCodec<BoundOperationRef> {
@@ -63,12 +64,14 @@ export class FacetOperationRef {
 }
 
 const boundOperationRefCodec = new DataRecordCodec<BoundOperationRef>(
+    [BoundOperationRef, TextId, BindingName, OperationName],
     "facet.bound-operation-ref",
     (reference) => reference.toData(),
     (payload) => BoundOperationRef.fromData(payload)
 );
 
 const facetOperationRefCodec = new DataRecordCodec<FacetOperationRef>(
+    [FacetOperationRef, TextId, FacetRef, OperationName, FacetPackageId],
     "facet.operation-ref",
     (reference) => reference.toData(),
     (payload) => FacetOperationRef.fromData(payload)

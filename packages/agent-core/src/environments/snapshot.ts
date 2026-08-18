@@ -1,4 +1,12 @@
-import { ContentRef, RecordCodec, Revision, type JsonValue, type RecordVersion } from "../core";
+import {
+    ContentRef,
+    Digest,
+    RecordCodec,
+    Revision,
+    type JsonValue,
+    type RecordVersion,
+    TextId
+} from "../core";
 import { AgentCoreError } from "../errors";
 import {
     advanceRevision,
@@ -68,7 +76,21 @@ const failedSnapshotState = freezeState(new FailedSnapshotState());
 
 class EnvironmentSnapshotCodecV1 extends RecordCodec<EnvironmentSnapshot> {
     public constructor() {
-        super("environment.snapshot", { major: 1, minor: 0 });
+        super(
+            [
+                EnvironmentSnapshot,
+                EnvironmentSnapshotState,
+                Revision,
+                TextId,
+                ContentRef,
+                Digest,
+                EnvironmentSessionId,
+                EnvironmentId,
+                EnvironmentSnapshotId
+            ],
+            "environment.snapshot",
+            { major: 1, minor: 0 }
+        );
     }
 
     protected encodePayload(snapshot: EnvironmentSnapshot): JsonValue {
@@ -120,8 +142,9 @@ class EnvironmentSnapshotCodecV1 extends RecordCodec<EnvironmentSnapshot> {
 }
 
 export class EnvironmentSnapshot {
-    public static readonly codec: RecordCodec<EnvironmentSnapshot> =
-        new EnvironmentSnapshotCodecV1();
+    public static get codec(): RecordCodec<EnvironmentSnapshot> {
+        return environmentSnapshotCodecInstance;
+    }
 
     public constructor(
         public readonly id: EnvironmentSnapshotId,
@@ -193,6 +216,8 @@ export class EnvironmentSnapshot {
         );
     }
 }
+
+const environmentSnapshotCodecInstance = new EnvironmentSnapshotCodecV1();
 
 function decodeSnapshotState(value: string): EnvironmentSnapshotState {
     switch (value) {

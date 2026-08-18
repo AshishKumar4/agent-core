@@ -9,8 +9,24 @@ import {
     encodeCanonicalJson,
     hasExactJsonKeys,
     isJsonObject,
-    type JsonValue
+    type JsonValue,
+    TextId
 } from "../core";
+import {
+    Automation,
+    AuthoredCodeBackingId,
+    BindingName,
+    BoundOperationRef,
+    EventPattern,
+    FacetPackageId,
+    FieldMove,
+    JsonPointer,
+    MappingRecord,
+    OperationName,
+    OperationRef,
+    PayloadMapping
+} from "../facets";
+import { TenantId } from "../identity";
 import {
     canonicalMaterializationDesired,
     supportedMaterializationKinds
@@ -19,6 +35,13 @@ import { ManagedOrigin } from "./origin";
 import type { ActorPlan, DesiredProjection } from "./plan";
 import { DeploymentId, MaterializationGenerationId } from "./id";
 import { compareText } from "./order";
+import {
+    AuthoredCodeBackingPolicy,
+    PlacementInput,
+    PlacementPolicy,
+    PlacementSelection
+} from "./placement";
+import { PolicySet } from "./policy";
 
 export interface ManagedStateRecordInit {
     readonly actor: ActorRef;
@@ -34,7 +57,41 @@ export interface ManagedStateRecordInit {
 
 class ManagedStateRecordCodec extends RecordCodec<ManagedStateRecord> {
     public constructor() {
-        super("definition.managed-state", { major: 2, minor: 0 });
+        super(
+            [
+                ManagedStateRecord,
+                ActorRef,
+                TextId,
+                ManagedOrigin,
+                Digest,
+                ActorId,
+                TenantId,
+                DeploymentId,
+                MaterializationGenerationId,
+                BindingName,
+                PolicySet,
+                FacetPackageId,
+                PlacementInput,
+                PlacementSelection,
+                OperationName,
+                OperationRef,
+                AuthoredCodeBackingPolicy,
+                BoundOperationRef,
+                MappingRecord,
+                FieldMove,
+                Automation,
+                EventPattern,
+                PayloadMapping,
+                PlacementPolicy,
+                AuthoredCodeBackingId,
+                JsonPointer
+            ],
+            "definition.managed-state",
+            {
+                major: 2,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(record: ManagedStateRecord): JsonValue {
@@ -47,7 +104,9 @@ class ManagedStateRecordCodec extends RecordCodec<ManagedStateRecord> {
 }
 
 export class ManagedStateRecord {
-    public static readonly codec: RecordCodec<ManagedStateRecord> = new ManagedStateRecordCodec();
+    public static get codec(): RecordCodec<ManagedStateRecord> {
+        return managedStateRecordCodecInstance;
+    }
 
     public static supportedRecordKinds(): readonly string[] {
         return supportedMaterializationKinds();
@@ -172,6 +231,8 @@ export class ManagedStateRecord {
     }
 }
 
+const managedStateRecordCodecInstance = new ManagedStateRecordCodec();
+
 export interface MaterializationGenerationInit {
     readonly actor: ActorRef;
     readonly origin: ManagedOrigin;
@@ -182,7 +243,21 @@ export interface MaterializationGenerationInit {
 
 class MaterializationGenerationCodec extends RecordCodec<MaterializationGeneration> {
     public constructor() {
-        super("definition.materialization-generation", { major: 2, minor: 0 });
+        super(
+            [
+                MaterializationGeneration,
+                ActorRef,
+                TextId,
+                ManagedOrigin,
+                Digest,
+                ActorId,
+                TenantId,
+                DeploymentId,
+                MaterializationGenerationId
+            ],
+            "definition.materialization-generation",
+            { major: 2, minor: 0 }
+        );
     }
 
     protected encodePayload(generation: MaterializationGeneration): JsonValue {
@@ -195,8 +270,9 @@ class MaterializationGenerationCodec extends RecordCodec<MaterializationGenerati
 }
 
 export class MaterializationGeneration {
-    public static readonly codec: RecordCodec<MaterializationGeneration> =
-        new MaterializationGenerationCodec();
+    public static get codec(): RecordCodec<MaterializationGeneration> {
+        return materializationGenerationCodecInstance;
+    }
 
     public readonly id: MaterializationGenerationId;
     public readonly actor: ActorRef;
@@ -296,6 +372,8 @@ export class MaterializationGeneration {
     }
 }
 
+const materializationGenerationCodecInstance = new MaterializationGenerationCodec();
+
 export interface MaterializationGenerationPointerInit {
     readonly actor: ActorRef;
     readonly deploymentId: DeploymentId;
@@ -305,7 +383,19 @@ export interface MaterializationGenerationPointerInit {
 
 class MaterializationGenerationPointerCodec extends RecordCodec<MaterializationGenerationPointer> {
     public constructor() {
-        super("definition.materialization-generation-pointer", { major: 2, minor: 0 });
+        super(
+            [
+                MaterializationGenerationPointer,
+                ActorRef,
+                Revision,
+                TextId,
+                ActorId,
+                DeploymentId,
+                MaterializationGenerationId
+            ],
+            "definition.materialization-generation-pointer",
+            { major: 2, minor: 0 }
+        );
     }
 
     protected encodePayload(pointer: MaterializationGenerationPointer): JsonValue {
@@ -318,8 +408,9 @@ class MaterializationGenerationPointerCodec extends RecordCodec<MaterializationG
 }
 
 export class MaterializationGenerationPointer {
-    public static readonly codec: RecordCodec<MaterializationGenerationPointer> =
-        new MaterializationGenerationPointerCodec();
+    public static get codec(): RecordCodec<MaterializationGenerationPointer> {
+        return materializationGenerationPointerCodecInstance;
+    }
 
     public readonly actor: ActorRef;
     public readonly deploymentId: DeploymentId;
@@ -395,6 +486,8 @@ export class MaterializationGenerationPointer {
         };
     }
 }
+
+const materializationGenerationPointerCodecInstance = new MaterializationGenerationPointerCodec();
 
 export function materializationGenerationId(
     actor: ActorRef,

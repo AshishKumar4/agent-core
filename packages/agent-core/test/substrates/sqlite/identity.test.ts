@@ -457,8 +457,8 @@ class TamperedProjectionSqlite extends TestSqlite {
     public replacement: readonly [string, SqliteValue] | undefined;
     public dropped: string | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const rows = super.all(statement, bindings);
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
         const replacement = this.replacement;
         const dropped = this.dropped;
         if (replacement === undefined && dropped === undefined) return rows;
@@ -475,8 +475,8 @@ class TamperedProjectionSqlite extends TestSqlite {
 class PhantomEnumerationSqlite extends TestSqlite {
     public phantomId: string | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const rows = super.all(statement, bindings);
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
         const phantom = this.phantomId;
         return phantom === undefined || !statement.includes("ORDER BY")
             ? rows
@@ -485,10 +485,10 @@ class PhantomEnumerationSqlite extends TestSqlite {
 }
 
 class SchemaFaultSqlite extends TestSqlite {
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         if (statement.includes("tenant_memberships_subject")) {
             throw new TypeError("injected identity schema fault");
         }
-        super.run(statement, bindings);
+        super.execute(statement, bindings);
     }
 }

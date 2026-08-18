@@ -4,14 +4,18 @@ import {
     RecordCodec,
     hasExactJsonKeys,
     type JsonValue,
-    type RecordVersion
+    type RecordVersion,
+    TextId
 } from "../core";
 import { AgentCoreError } from "../errors";
 import { MediaHint } from "./media";
 
 class ContentStatRecordCodec extends RecordCodec<ContentStat> {
     public constructor() {
-        super("content.stat", { major: 1, minor: 0 });
+        super([ContentStat, TextId, ContentRef, Digest, MediaHint], "content.stat", {
+            major: 1,
+            minor: 0
+        });
     }
 
     protected encodePayload(stat: ContentStat): JsonValue {
@@ -63,7 +67,9 @@ function isContentSize(value: JsonValue | undefined): value is number {
 }
 
 export class ContentStat {
-    public static readonly codec: RecordCodec<ContentStat> = new ContentStatRecordCodec();
+    public static get codec(): RecordCodec<ContentStat> {
+        return contentStatCodecInstance;
+    }
     public readonly hint: MediaHint | undefined;
 
     public constructor(
@@ -90,6 +96,8 @@ export class ContentStat {
         return ContentStat.codec.decode(bytes);
     }
 }
+
+const contentStatCodecInstance = new ContentStatRecordCodec();
 
 function isObject(value: JsonValue): value is { readonly [key: string]: JsonValue } {
     return value !== null && !Array.isArray(value) && typeof value === "object";

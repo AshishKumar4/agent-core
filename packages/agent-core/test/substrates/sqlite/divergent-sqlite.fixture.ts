@@ -22,9 +22,13 @@ export type Divergence = (
 export class DivergentSqlite extends TestSqlite {
     #divergence: Divergence | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const rows = super.all(statement, bindings);
-        return this.#divergence === undefined ? rows : this.#divergence(statement, bindings, rows);
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
+        if (!(#divergence in this) || this.#divergence === undefined) return rows;
+        return this.#divergence(statement, bindings, rows);
     }
 
     public arm(divergence: Divergence): void {

@@ -1,5 +1,6 @@
 import { Range } from "semver";
 import {
+    ContentRef,
     isNonempty,
     type JsonFields,
     type JsonObject,
@@ -13,12 +14,23 @@ import {
     hasExactJsonKeys,
     isJsonObject,
     isJsonValue,
-    type JsonValue
+    type JsonValue,
+    TextId
 } from "../core";
-import { FacetManifest, canonicalFacetDataMap, type FacetDataMap } from "../facets";
+import {
+    BindingName,
+    BindingRequirement,
+    Contribution,
+    Contributions,
+    FacetManifest,
+    FacetPackageId,
+    SlotName,
+    canonicalFacetDataMap,
+    type FacetDataMap
+} from "../facets";
 import { PackageId } from "./id";
 import { canonicalCompatibilityRange } from "./compatibility";
-import { PackageCodeManifest } from "./code-manifest";
+import { PackageCodeEntrypoint, PackageCodeManifest, PackageCodeModule } from "./code-manifest";
 import { compareText } from "./order";
 
 export type PackageProvenance = FacetDataMap;
@@ -68,7 +80,34 @@ export interface PackageReleaseInit {
 
 class PackageReleaseCodec extends RecordCodec<PackageRelease> {
     public constructor() {
-        super("definition.package-release", { major: 2, minor: 0 });
+        super(
+            [
+                PackageRelease,
+                PackageDependency,
+                TextId,
+                PackageCodeManifest,
+                SemVer,
+                CompatRange,
+                JsonSchema,
+                PackageCodeModule,
+                PackageCodeEntrypoint,
+                FacetManifest,
+                Digest,
+                PackageId,
+                BindingName,
+                SlotName,
+                FacetPackageId,
+                ContentRef,
+                Contributions,
+                Contribution,
+                BindingRequirement
+            ],
+            "definition.package-release",
+            {
+                major: 2,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(release: PackageRelease): JsonValue {
@@ -81,7 +120,9 @@ class PackageReleaseCodec extends RecordCodec<PackageRelease> {
 }
 
 export class PackageRelease {
-    public static readonly codec: RecordCodec<PackageRelease> = new PackageReleaseCodec();
+    public static get codec(): RecordCodec<PackageRelease> {
+        return packageReleaseCodecInstance;
+    }
 
     public readonly id: PackageId;
     public readonly version: SemVer;
@@ -240,6 +281,8 @@ export class PackageRelease {
     }
 }
 
+const packageReleaseCodecInstance = new PackageReleaseCodec();
+
 export interface MetadataSnapshotInit {
     readonly revision: Revision;
     readonly releases: readonly PackageRelease[];
@@ -248,7 +291,36 @@ export interface MetadataSnapshotInit {
 
 class MetadataSnapshotCodec extends RecordCodec<MetadataSnapshot> {
     public constructor() {
-        super("definition.metadata-snapshot", { major: 1, minor: 0 });
+        super(
+            [
+                MetadataSnapshot,
+                Revision,
+                TextId,
+                PackageRelease,
+                SemVer,
+                Digest,
+                PackageId,
+                PackageCodeManifest,
+                BindingName,
+                CompatRange,
+                SlotName,
+                JsonSchema,
+                FacetPackageId,
+                PackageCodeModule,
+                ContentRef,
+                Contributions,
+                PackageCodeEntrypoint,
+                Contribution,
+                BindingRequirement,
+                PackageDependency,
+                FacetManifest
+            ],
+            "definition.metadata-snapshot",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(snapshot: MetadataSnapshot): JsonValue {
@@ -261,7 +333,9 @@ class MetadataSnapshotCodec extends RecordCodec<MetadataSnapshot> {
 }
 
 export class MetadataSnapshot {
-    public static readonly codec: RecordCodec<MetadataSnapshot> = new MetadataSnapshotCodec();
+    public static get codec(): RecordCodec<MetadataSnapshot> {
+        return metadataSnapshotCodecInstance;
+    }
 
     public readonly revision: Revision;
     public readonly digest: Digest;
@@ -313,6 +387,8 @@ export class MetadataSnapshot {
         };
     }
 }
+
+const metadataSnapshotCodecInstance = new MetadataSnapshotCodec();
 
 export function canonicalPackageRange(value: string): string {
     if (value.length === 0 || value !== value.trim()) {

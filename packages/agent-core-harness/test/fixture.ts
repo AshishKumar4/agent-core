@@ -1,4 +1,5 @@
-import { MemoryContentStore } from "@agent-core/core/content";
+import { ActorId, ActorRef } from "@agent-core/core/actors";
+import type { ContentStore } from "@agent-core/core/content";
 import { ContentRef, Digest, JsonSchema, Revision, SemVer } from "@agent-core/core/core";
 import { PackageId, PackagePin } from "@agent-core/core/definition";
 import { EnvironmentId } from "@agent-core/core/environment-provider";
@@ -42,6 +43,7 @@ import {
 } from "@agent-core/core/agents/runs";
 
 export const ids = Object.freeze({
+    owner: new ActorRef("workspace", new ActorId("workspace-1")),
     run: new RunId("run-1"),
     branch: new RunBranchId("branch-main"),
     root: new RunCommitId("commit-root"),
@@ -52,10 +54,6 @@ export const ids = Object.freeze({
 
 export function digest(character: string): Digest {
     return new Digest(character.repeat(64));
-}
-
-export function contentRef(character: string): ContentRef {
-    return new ContentRef(`sha256:${character.repeat(64)}`);
 }
 
 function pins(): RunPins {
@@ -165,7 +163,7 @@ class RejectingMergePort extends RunMergePort<MemoryTransaction> {
 export interface RunFixture {
     readonly runtime: RunRuntime<MemoryTransaction>;
     readonly repository: RunRepository<MemoryTransaction>;
-    readonly content: MemoryContentStore;
+    readonly content: ContentStore;
     readonly token: LeaseToken;
     readonly input: ContentRef;
     readonly inputDigest: Digest;
@@ -173,7 +171,12 @@ export interface RunFixture {
 
 /** A live Run with one claimed Turn, built entirely through supported exports. */
 export async function seedRunningTurn(inputText: string): Promise<RunFixture> {
-    const storage = new MemoryRunStorage();
+    const storage = new MemoryRunStorage(
+        ids.holder.tenantId,
+        ids.owner,
+        undefined,
+        () => new Date(0)
+    );
     const repository = new RunRepository(storage);
     const runtime = new RunRuntime(
         repository,
@@ -183,8 +186,9 @@ export async function seedRunningTurn(inputText: string): Promise<RunFixture> {
         new RejectingSpawnPort(),
         new RejectingMergePort()
     );
-    const content = new MemoryContentStore();
+    const content = storage.content;
     const snapshot = new RunConfigurationSnapshot({ pins: pins() });
+    const rootContent = await content.put(new TextEncoder().encode("root"));
     const root = new RunCommit({
         id: ids.root,
         run: ids.run,
@@ -193,7 +197,7 @@ export async function seedRunningTurn(inputText: string): Promise<RunFixture> {
         parents: [],
         pins: snapshot.pins,
         writer: { kind: "root" },
-        content: contentRef("4")
+        content: rootContent.ref
     });
     runtime.createRun({
         run: new Run({

@@ -29,9 +29,6 @@ import {
     TurnPromptSectionName,
     TurnShownContent,
     turnModelRequestBytes,
-    type RunRecordKind,
-    type RunStoragePort,
-    type StoredRunParent,
     type StoredRunRecord,
     type TurnContext,
     type TurnModelCall,
@@ -117,11 +114,9 @@ const retentionLosses: readonly RetentionLoss[] = [
  * `unknownAfterCommit` case is the decisive one: the write landed and the substrate cannot
  * say so, which is exactly when a host must not assume either branch.
  */
-class FaultyRunStorage implements RunStoragePort<MemoryTransaction> {
+class FaultyRunStorage extends MemoryRunStorage {
     readonly #faults: CommitFault[] = [];
     #observed = false;
-
-    public constructor(private readonly inner: MemoryRunStorage) {}
 
     public arm(...faults: readonly CommitFault[]): void {
         this.#faults.push(...faults);
@@ -132,12 +127,13 @@ class FaultyRunStorage implements RunStoragePort<MemoryTransaction> {
         return this.#faults.length;
     }
 
-    public transaction<Result>(
+    public override transaction<Result>(
         operation: (transaction: MemoryTransaction) => Result,
         ...guard: SynchronousResultGuard<Result>
     ): Result {
+        if (!(#faults in this)) return super.transaction(operation, ...guard);
         this.#observed = false;
-        const result = this.inner.transaction(operation, ...guard);
+        const result = super.transaction(operation, ...guard);
         if (this.#observed && this.#faults[0] === "unknownAfterCommit") {
             this.#faults.shift();
             throw new ActorCommitUnknownError();
@@ -145,20 +141,8 @@ class FaultyRunStorage implements RunStoragePort<MemoryTransaction> {
         return result;
     }
 
-    public get(
-        transaction: MemoryTransaction,
-        kind: RunRecordKind,
-        key: string
-    ): StoredRunRecord | undefined {
-        return this.inner.get(transaction, kind, key);
-    }
-
-    public list(transaction: MemoryTransaction, kind: RunRecordKind): readonly StoredRunRecord[] {
-        return this.inner.list(transaction, kind);
-    }
-
-    public insert(transaction: MemoryTransaction, record: StoredRunRecord): void {
-        if (record.kind === "commit" && record.key.startsWith("model-input:")) {
+    public override insert(transaction: MemoryTransaction, record: StoredRunRecord): void {
+        if (#faults in this && record.kind === "commit" && record.key.startsWith("model-input:")) {
             const fault = this.#faults[0];
             if (fault === "reject" || fault === "unavailable" || fault === "unknown") {
                 this.#faults.shift();
@@ -170,23 +154,7 @@ class FaultyRunStorage implements RunStoragePort<MemoryTransaction> {
             }
             this.#observed = true;
         }
-        this.inner.insert(transaction, record);
-    }
-
-    public replace(
-        transaction: MemoryTransaction,
-        record: StoredRunRecord,
-        expectedRevision: number
-    ): void {
-        this.inner.replace(transaction, record, expectedRevision);
-    }
-
-    public insertParent(transaction: MemoryTransaction, edge: StoredRunParent): void {
-        this.inner.insertParent(transaction, edge);
-    }
-
-    public parents(transaction: MemoryTransaction, commit: string): readonly StoredRunParent[] {
-        return this.inner.parents(transaction, commit);
+        super.insert(transaction, record);
     }
 }
 
@@ -220,8 +188,7 @@ class ObservingModelPort {
 }
 
 function faultyHarness() {
-    const inner = new MemoryRunStorage();
-    const faults = new FaultyRunStorage(inner);
+    const faults = new FaultyRunStorage(ids.holder.tenantId, ids.actor);
     const repository = new RunRepository(faults);
     const sources = new TestSourcePort<MemoryTransaction>();
     const evidence = new TestEvidencePort<MemoryTransaction>();
@@ -229,7 +196,7 @@ function faultyHarness() {
     const spawn = new TestSpawnPort<MemoryTransaction>();
     const merge = new TestMergePort<MemoryTransaction>();
     const runtime = new RunRuntime(repository, sources, evidence, settlement, spawn, merge);
-    return { storage: inner, faults, repository, sources, evidence, settlement, spawn, merge, runtime };
+    return { storage: faults, faults, repository, sources, evidence, settlement, spawn, merge, runtime };
 }
 
 function tool(binding: string, operation: string): TurnBoundOperation {
@@ -414,7 +381,13 @@ describe("Turn model input", () => {
 
             // The restart discards every executor process and keeps only the records.
             const restarted = new TurnModelInputReplay({
-                repository: new RunRepository(new MemoryRunStorage(base.seeded.storage.snapshot())),
+                repository: new RunRepository(
+                    new MemoryRunStorage(
+                        ids.holder.tenantId,
+                        ids.actor,
+                        base.seeded.storage.snapshot()
+                    )
+                ),
                 content: MemoryContentStore.restore(base.content.inner.snapshot())
             });
             expect(turnModelRequestBytes(await restarted.reconstruct(input))).toEqual(sent);
@@ -542,7 +515,7 @@ describe("Turn model input", () => {
             // Retention reaches the admitted Event's content through the undeletable commit,
             // so a replay that never reads the inbox still rebuilds it whole.
             const inboxFree = new RunRepository(
-                new MemoryRunStorage({
+                new MemoryRunStorage(ids.holder.tenantId, ids.actor, {
                     ...base.seeded.storage.snapshot(),
                     records: base.seeded.storage
                         .snapshot()

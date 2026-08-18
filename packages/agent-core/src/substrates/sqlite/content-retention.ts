@@ -92,7 +92,7 @@ export class SqliteContentRetention extends ContentRetention<TransactionalSqlite
         actor: ActorRef
     ) {
         super(tenant, actor);
-        database.transaction(() => initializeRetention(database, tenant, actor));
+        database.transaction(() => initializeSqliteContentOwner(database, tenant, actor));
     }
 
     public retain(
@@ -207,7 +207,19 @@ export class SqliteContentRetention extends ContentRetention<TransactionalSqlite
         return Object.freeze(collected);
     }
 
-    private requireTransaction(transaction: TransactionalSqlite): void {
+    protected listOwnerEdges(transaction: TransactionalSqlite): readonly ContentOwnerEdge[] {
+        this.requireTransaction(transaction);
+        validateSqliteState(transaction, this.tenant, this.actor);
+        return transaction
+            .all(
+                `SELECT owner_key, tenant, actor_kind, actor_id, ref, record
+                 FROM content_owner_edges ORDER BY owner_key`,
+                []
+            )
+            .map((row) => decodeEdge(row, this.tenant, this.actor));
+    }
+
+    protected requireTransaction(transaction: TransactionalSqlite): void {
         requireExactDatabase(transaction, this.database, this.tenant, this.actor);
     }
 }
@@ -220,7 +232,7 @@ export class SqliteTransientContentAccess extends TransientContentAccess {
         private readonly now: () => Date = () => new Date()
     ) {
         super();
-        database.transaction(() => initializeRetention(database, tenant, actor));
+        database.transaction(() => initializeSqliteContentOwner(database, tenant, actor));
     }
 
     public async acquire(
@@ -409,7 +421,7 @@ class SqliteTransientContentLease extends TransientContentLease {
     }
 }
 
-function initializeRetention(
+export function initializeSqliteContentOwner(
     database: TransactionalSqlite,
     tenant: TenantId,
     actor: ActorRef

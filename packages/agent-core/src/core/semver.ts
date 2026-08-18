@@ -7,7 +7,7 @@ const SEMVER_PATTERN =
 
 class SemVerCodec extends RecordCodec<SemVer> {
     public constructor() {
-        super("core.semver", { major: 1, minor: 0 });
+        super([SemVer], "core.semver", { major: 1, minor: 0 });
     }
 
     protected encodePayload(version: SemVer): JsonValue {
@@ -25,8 +25,6 @@ class SemVerCodec extends RecordCodec<SemVer> {
         return new SemVer(payload["value"]);
     }
 }
-
-const semVerCodec = new SemVerCodec();
 
 export class SemVer {
     public readonly major: number;
@@ -91,6 +89,8 @@ export class SemVer {
         return `${this.major}.${this.minor}.${this.patch}${prerelease}${build}`;
     }
 }
+
+const semVerCodec = new SemVerCodec();
 
 interface ParsedSemVer {
     readonly major: number;

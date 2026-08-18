@@ -25,6 +25,14 @@ import type { RunDurableObject, RunWorkspaceDurableObject } from "./worker.js";
 const READ_RUN_OBJECTS =
     "SELECT name FROM sqlite_schema WHERE name LIKE 'agent_run_%' ORDER BY name";
 
+function runStorage(
+    database: CloudflareSqlite,
+    hosting: CloudflareRunHosting,
+    errorPort: typeof errors
+): DurableObjectRunStorage {
+    return new DurableObjectRunStorage(database, ids.holder.tenantId, hosting, errorPort);
+}
+
 interface StartedHosting {
     readonly mode: string;
     readonly ownerKind: string;
@@ -34,9 +42,7 @@ interface StartedHosting {
 
 /** One Workspace per scenario, so no scenario reads another's private storage. */
 function workspaceObject(workspace: ActorId): DurableObjectStub<RunWorkspaceDurableObject> {
-    return env.RUN_WORKSPACES.getByName(
-        new CloudflareRunHosting(ids.run, workspace).objectName
-    );
+    return env.RUN_WORKSPACES.getByName(new CloudflareRunHosting(ids.run, workspace).objectName);
 }
 
 function ownerObject(
@@ -109,13 +115,9 @@ describe("Cloudflare Run hosting in a Durable Object", () => {
                 epoch: 1
             });
 
-            await inObject(ownerObject(hosting, workspace), (sqlite) => {
-                const harness = runHarness(
-                    new DurableObjectRunStorage(
-                        sqlite,
-                        new CloudflareRunHosting(run, workspace, mode),
-                        errors
-                    )
+            await inObject(ownerObject(hosting, workspace), async (sqlite) => {
+                const harness = await runHarness(
+                    runStorage(sqlite, new CloudflareRunHosting(run, workspace, mode), errors)
                 );
                 const { running, token } = seedRunningTurn(harness);
                 harness.runtime.reserveRunObligation(ids.run, {
@@ -148,14 +150,10 @@ describe("Cloudflare Run hosting in a Durable Object", () => {
             });
             expect(reloaded).toEqual(hosting);
 
-            const retained = await inObject(ownerObject(hosting, workspace), (sqlite) => {
+            const retained = await inObject(ownerObject(hosting, workspace), async (sqlite) => {
                 const settlement = new TestSettlementPort();
-                const harness = runHarness(
-                    new DurableObjectRunStorage(
-                        sqlite,
-                        new CloudflareRunHosting(run, workspace, mode),
-                        errors
-                    ),
+                const harness = await runHarness(
+                    runStorage(sqlite, new CloudflareRunHosting(run, workspace, mode), errors),
                     settlement
                 );
                 return harness.repository.transaction((tx) => {

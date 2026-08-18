@@ -4,10 +4,19 @@ import { Revision } from "../../../src/core";
 import { RunCommitId } from "../../../src/execution-references";
 import { RunAdmissionRegistry } from "../../../src/agents/runs/admission";
 import { RunCommit } from "../../../src/agents/runs/commit";
-import { MemoryRunStorage } from "../../../src/agents/runs/memory";
 import { RunId } from "../../../src/agents/runs/id";
-import { RunRepository, type StoredRunRecord } from "../../../src/agents/runs/store";
-import { content, genesis, harness, ids, pins, seedRunningTurn, thrownBy } from "./fixture";
+import type { StoredRunRecord } from "../../../src/agents/runs/store";
+import {
+    content,
+    genesis,
+    harness,
+    ids,
+    memoryRunStorage,
+    pins,
+    seedRunningTurn,
+    testRunRepository,
+    thrownBy
+} from "./fixture";
 
 function expectCode(operation: () => void, code: AgentCoreError["code"]): void {
     expect(thrownBy(AgentCoreError, operation).code).toBe(code);
@@ -25,7 +34,7 @@ function rawRecord(overrides: Partial<StoredRunRecord> = {}): StoredRunRecord {
 
 describe("MemoryRunStorage exhaustive behavior", () => {
     it("rejects async and nested transactions with stable codes", { tags: "p1" }, () => {
-        const storage = new MemoryRunStorage();
+        const storage = memoryRunStorage();
         // SAFETY: SynchronousResultGuard already rejects a Promise-returning callback at
         // compile time. Defeating that guard is the only way to reach the runtime check that
         // backs it, which is what this case pins.
@@ -40,7 +49,7 @@ describe("MemoryRunStorage exhaustive behavior", () => {
     });
 
     it("accepts equal immutable replay and rejects conflicting replay", { tags: "p0" }, () => {
-        const storage = new MemoryRunStorage();
+        const storage = memoryRunStorage();
         storage.transaction((tx) => {
             storage.insert(tx, rawRecord());
             storage.insert(tx, rawRecord());
@@ -75,7 +84,7 @@ describe("MemoryRunStorage exhaustive behavior", () => {
     });
 
     it("rejects every malformed raw record and snapshot projection", { tags: "p2" }, () => {
-        const storage = new MemoryRunStorage();
+        const storage = memoryRunStorage();
         for (const record of [
             rawRecord({ key: "" }),
             rawRecord({ revision: -1 }),
@@ -94,10 +103,11 @@ describe("MemoryRunStorage exhaustive behavior", () => {
             );
         }
         const duplicate = rawRecord();
+        const empty = memoryRunStorage().snapshot();
         expectCode(
             () =>
-                new MemoryRunStorage({
-                    version: 1,
+                memoryRunStorage({
+                    ...empty,
                     records: [duplicate, duplicate],
                     parents: []
                 }),
@@ -105,8 +115,8 @@ describe("MemoryRunStorage exhaustive behavior", () => {
         );
         expectCode(
             () =>
-                new MemoryRunStorage({
-                    version: 1,
+                memoryRunStorage({
+                    ...empty,
                     records: [],
                     parents: [
                         { commit: "commit", ordinal: 0, parent: "root" },
@@ -117,8 +127,8 @@ describe("MemoryRunStorage exhaustive behavior", () => {
         );
         expectCode(
             () =>
-                new MemoryRunStorage({
-                    version: 1,
+                memoryRunStorage({
+                    ...empty,
                     records: [],
                     parents: [{ commit: "", ordinal: 3, parent: "" }]
                 }),
@@ -134,14 +144,13 @@ describe("MemoryRunStorage exhaustive behavior", () => {
             value.runtime.createRun(genesis());
             const snapshot = value.storage.snapshot();
             const runRow = snapshot.records.find((row) => row.kind === "run")!;
-            const wrongKey = new MemoryRunStorage({
-                version: 1,
+            const wrongKey = memoryRunStorage({
+                ...snapshot,
                 records: snapshot.records.map((row) =>
                     row === runRow ? { ...row, key: "wrong-run" } : row
-                ),
-                parents: snapshot.parents
+                )
             });
-            const wrongKeyRepository = new RunRepository(wrongKey);
+            const wrongKeyRepository = testRunRepository(wrongKey);
             expectCode(
                 () =>
                     wrongKeyRepository.transaction((tx) =>
@@ -150,14 +159,13 @@ describe("MemoryRunStorage exhaustive behavior", () => {
                 "codec.invalid"
             );
 
-            const wrongRevision = new MemoryRunStorage({
-                version: 1,
+            const wrongRevision = memoryRunStorage({
+                ...snapshot,
                 records: snapshot.records.map((row) =>
                     row === runRow ? { ...row, revision: 99 } : row
-                ),
-                parents: snapshot.parents
+                )
             });
-            const wrongRevisionRepository = new RunRepository(wrongRevision);
+            const wrongRevisionRepository = testRunRepository(wrongRevision);
             expectCode(
                 () =>
                     wrongRevisionRepository.transaction((tx) =>
@@ -187,25 +195,20 @@ describe("MemoryRunStorage exhaustive behavior", () => {
             const snapshot = value.storage.snapshot();
             const root = snapshot.records.find((row) => row.kind === "commit")!;
             const foreignBytes = root.bytes.slice();
-            const foreign = new MemoryRunStorage({
-                version: 1,
-                records: [
-                    ...snapshot.records,
-                    {
-                        ...root,
-                        key: "foreign-key",
-                        revision: null,
-                        bytes: foreignBytes
-                    }
-                ],
-                parents: snapshot.parents
-            });
-            const repository = new RunRepository(foreign);
             expectCode(
                 () =>
-                    repository.transaction((tx) =>
-                        repository.loadCommit(tx, new RunCommitId("foreign-key"))
-                    ),
+                    memoryRunStorage({
+                        ...snapshot,
+                        records: [
+                            ...snapshot.records,
+                            {
+                                ...root,
+                                key: "foreign-key",
+                                revision: null,
+                                bytes: foreignBytes
+                            }
+                        ]
+                    }),
                 "codec.invalid"
             );
         }
@@ -257,17 +260,17 @@ describe("MemoryRunStorage exhaustive behavior", () => {
             const second = message("ancestry-second", first.id, value.token);
             value.runtime.appendTurnCommit(second, new Revision(1), new Date(1600));
             const snapshot = value.storage.snapshot();
-            const restarted = new RunRepository(
-                new MemoryRunStorage({
-                    ...snapshot,
-                    records: snapshot.records.filter(
-                        (record) => !(record.kind === "commit" && record.key === first.id.value)
-                    )
-                })
-            );
-
             expectCode(
-                () => restarted.transaction((tx) => restarted.isAncestor(tx, ids.root, second.id)),
+                () =>
+                    testRunRepository(
+                        memoryRunStorage({
+                            ...snapshot,
+                            records: snapshot.records.filter(
+                                (record) =>
+                                    !(record.kind === "commit" && record.key === first.id.value)
+                            )
+                        })
+                    ),
                 "codec.invalid"
             );
         }

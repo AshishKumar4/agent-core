@@ -16,8 +16,6 @@ import { RunRuntime, type TerminalizeRunRequest } from "../../../src/agents/runs
 import {
     RunRepository,
     type RunRecordKind,
-    type RunStoragePort,
-    type StoredRunParent,
     type StoredRunRecord
 } from "../../../src/agents/runs/store";
 import {
@@ -28,7 +26,6 @@ import {
     TurnStatus,
     type TurnInit
 } from "../../../src/agents/runs/turn";
-import type { SynchronousResultGuard } from "../../../src/actors";
 import { PrincipalId, PrincipalRef } from "../../../src/identity";
 import { ReceiptId } from "../../../src/invocation-references";
 import { AuditRecordId, EventId } from "../../../src/interaction-references";
@@ -41,15 +38,12 @@ import {
     ids,
     pins,
     seedRunningTurn,
+    testRunRepository,
     thrownBy,
     type Assembled
 } from "./fixture";
 
-function expectCode(
-    operation: () => void,
-    code: AgentCoreError["code"],
-    message?: string
-): void {
+function expectCode(operation: () => void, code: AgentCoreError["code"], message?: string): void {
     const failure = thrownBy(AgentCoreError, operation);
     expect(failure.code).toBe(code);
     if (message !== undefined) expect(failure.message).toBe(message);
@@ -1038,51 +1032,25 @@ type ReadBackDivergence = (
     rows: readonly StoredRunRecord[]
 ) => readonly StoredRunRecord[];
 
-class ReadBackDivergentStorage implements RunStoragePort<MemoryTransaction> {
-    #armed = false;
+class ReadBackDivergentStorage extends MemoryRunStorage {
+    private armed = false;
     public divergence: ReadBackDivergence | undefined;
 
-    public constructor(private readonly inner: MemoryRunStorage) {}
-
-    public transaction<Result>(
-        operation: (transaction: MemoryTransaction) => Result,
-        ...guard: SynchronousResultGuard<Result>
-    ): Result {
-        return this.inner.transaction(operation, ...guard);
+    public constructor(snapshot: ReturnType<MemoryRunStorage["snapshot"]>) {
+        super(ids.holder.tenantId, ids.actor, snapshot, () => new Date(0));
     }
 
-    public get(
+    public override list(
         transaction: MemoryTransaction,
-        kind: RunRecordKind,
-        key: string
-    ): StoredRunRecord | undefined {
-        return this.inner.get(transaction, kind, key);
+        kind: RunRecordKind
+    ): readonly StoredRunRecord[] {
+        const rows = super.list(transaction, kind);
+        return this.armed && this.divergence !== undefined ? this.divergence(kind, rows) : rows;
     }
 
-    public list(transaction: MemoryTransaction, kind: RunRecordKind): readonly StoredRunRecord[] {
-        const rows = this.inner.list(transaction, kind);
-        return this.#armed && this.divergence !== undefined ? this.divergence(kind, rows) : rows;
-    }
-
-    public insert(transaction: MemoryTransaction, record: StoredRunRecord): void {
-        this.inner.insert(transaction, record);
-        if (record.kind === "forcedCancellation") this.#armed = true;
-    }
-
-    public replace(
-        transaction: MemoryTransaction,
-        record: StoredRunRecord,
-        expectedRevision: number
-    ): void {
-        this.inner.replace(transaction, record, expectedRevision);
-    }
-
-    public insertParent(transaction: MemoryTransaction, edge: StoredRunParent): void {
-        this.inner.insertParent(transaction, edge);
-    }
-
-    public parents(transaction: MemoryTransaction, commit: string): readonly StoredRunParent[] {
-        return this.inner.parents(transaction, commit);
+    public override insert(transaction: MemoryTransaction, record: StoredRunRecord): void {
+        super.insert(transaction, record);
+        if (record.kind === "forcedCancellation") this.armed = true;
     }
 }
 
@@ -1170,10 +1138,8 @@ describe("terminal sibling read-back", () => {
             forcedCancellationControl: forced.control,
             siblingCancellations: new Map([[sibling.id.value, forced.evidence]])
         });
-        const storage = new ReadBackDivergentStorage(
-            new MemoryRunStorage(seeded.storage.snapshot())
-        );
-        const repository = new RunRepository(storage);
+        const storage = new ReadBackDivergentStorage(seeded.storage.snapshot());
+        const repository = testRunRepository(storage);
         const runtime = new RunRuntime(
             repository,
             seeded.sources,

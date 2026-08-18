@@ -8,7 +8,10 @@ export interface PlatformCompatibilityInit {
 
 class PlatformCompatibilityCodec extends RecordCodec<PlatformCompatibility> {
     public constructor() {
-        super("definition.platform-compatibility", { major: 1, minor: 0 });
+        super([PlatformCompatibility, SemVer], "definition.platform-compatibility", {
+            major: 1,
+            minor: 0
+        });
     }
 
     protected encodePayload(target: PlatformCompatibility): JsonValue {
@@ -21,8 +24,9 @@ class PlatformCompatibilityCodec extends RecordCodec<PlatformCompatibility> {
 }
 
 export class PlatformCompatibility {
-    public static readonly codec: RecordCodec<PlatformCompatibility> =
-        new PlatformCompatibilityCodec();
+    public static get codec(): RecordCodec<PlatformCompatibility> {
+        return platformCompatibilityCodecInstance;
+    }
 
     public readonly spec: SemVer;
     public readonly host: SemVer;
@@ -64,6 +68,8 @@ export class PlatformCompatibility {
         return { host: this.host.toString(), spec: this.spec.toString() };
     }
 }
+
+const platformCompatibilityCodecInstance = new PlatformCompatibilityCodec();
 
 function isCompatibilityText(value: JsonValue | undefined): value is string {
     return typeof value === "string";

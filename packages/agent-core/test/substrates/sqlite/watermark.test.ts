@@ -292,11 +292,11 @@ describe("SQLite watermark store exact failure and persistence behavior", () => 
 });
 
 class FailingSchemaSqlite extends TestSqlite {
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         if (statement.includes("CREATE TABLE IF NOT EXISTS actor_invalidation_watermarks")) {
             throw new TypeError("injected schema fault");
         }
-        super.run(statement, bindings);
+        super.execute(statement, bindings);
     }
 }
 
@@ -304,9 +304,9 @@ class ProjectionTamperSqlite extends TestSqlite {
     public redirectTo: string | undefined;
     public replacement: readonly [string, SqliteValue] | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         const redirectTo = this.redirectTo;
-        const rows = super.all(
+        const rows = super.query(
             statement,
             redirectTo !== undefined && statement.includes("WHERE watermark_key = ?")
                 ? [redirectTo]
@@ -321,8 +321,8 @@ class ProjectionTamperSqlite extends TestSqlite {
 class TamperedRecordSqlite extends TestSqlite {
     public tampered = false;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const rows = super.all(statement, bindings);
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
         if (!this.tampered || !statement.includes("FROM actor_invalidation_watermarks")) {
             return rows;
         }

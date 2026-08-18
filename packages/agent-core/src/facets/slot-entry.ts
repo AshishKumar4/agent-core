@@ -1,4 +1,4 @@
-import { Digest, RecordCodec, encodeCanonicalJson, type RecordVersion } from "../core";
+import { Digest, RecordCodec, encodeCanonicalJson, type RecordVersion, TextId } from "../core";
 import { ContributionAttribution } from "./attribution";
 import type { FacetData } from "./data";
 import {
@@ -8,7 +8,7 @@ import {
     requireSafeInteger,
     requireString
 } from "./data";
-import { FacetRef, SlotEntryId, SlotName } from "./id";
+import { FacetPackageId, FacetRef, SlotEntryId, SlotName } from "./id";
 
 /**
  * SPEC §4.2: the position a contribution occupies — the exact triple a slot holds at most
@@ -52,7 +52,21 @@ export class SlotContributionOrigin {
  */
 class SlotEntryCodecV3 extends RecordCodec<SlotEntry> {
     public constructor() {
-        super("facet.slot-entry", { major: 3, minor: 0 });
+        super(
+            [
+                SlotEntry,
+                SlotContributionOrigin,
+                ContributionAttribution,
+                TextId,
+                FacetRef,
+                Digest,
+                SlotName,
+                SlotEntryId,
+                FacetPackageId
+            ],
+            "facet.slot-entry",
+            { major: 3, minor: 0 }
+        );
         Object.freeze(this.version);
         Object.freeze(this);
     }
@@ -67,7 +81,9 @@ class SlotEntryCodecV3 extends RecordCodec<SlotEntry> {
 }
 
 export class SlotEntry {
-    public static readonly codec: RecordCodec<SlotEntry> = new SlotEntryCodecV3();
+    public static get codec(): RecordCodec<SlotEntry> {
+        return slotEntryCodecInstance;
+    }
 
     public readonly value: FacetData;
     public readonly id: SlotEntryId;
@@ -130,6 +146,8 @@ export class SlotEntry {
         };
     }
 }
+
+const slotEntryCodecInstance = new SlotEntryCodecV3();
 
 function slotEntryId(
     slot: SlotName,

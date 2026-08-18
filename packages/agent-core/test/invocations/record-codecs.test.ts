@@ -10,14 +10,19 @@ import {
     ClaimWorkerId,
     CorrelationId,
     EffectAttempt,
+    EffectAttemptCodec,
     EffectAttemptId,
     InvocationId,
+    InvocationContinuationCodec,
     ItemClaim,
+    ItemClaimCodec,
     ItemClaimId,
     PreEffectReceipt,
     PreparedInvocation,
+    PreparedInvocationCodec,
     Receipt,
     ReceiptId,
+    structuralCodec,
     type ItemClaimOwner
 } from "../../src/invocations";
 import {
@@ -32,6 +37,79 @@ import {
 } from "./fixture";
 
 describe("durable invocation record codecs", () => {
+    test("binds and seals every public codec dependency at construction", { tags: "p0" }, () => {
+        const preparedDependencies = { ...preparedReferenceCodecs };
+        const redirected = structuralCodec<string>(
+            () => "redirected",
+            () => "redirected"
+        );
+        const claimRecord = new ItemClaim(
+            new ItemClaimId("bound-claim"),
+            new InvocationId("bound-claim-invocation"),
+            0,
+            0,
+            { kind: "executor", token: "lease-value", worker: new ClaimWorkerId("bound-worker") },
+            new Date(2000)
+        );
+        const preparedRecord = prepared("bound-prepared", {}, { lease: "lease-value" });
+        const claimCodec = new ItemClaimCodec(referenceCodec);
+        const preparedCodec = new PreparedInvocationCodec(preparedDependencies);
+        const codecs = [
+            claimCodec,
+            new InvocationContinuationCodec(referenceCodec),
+            new EffectAttemptCodec(referenceCodec, referenceCodec),
+            preparedCodec
+        ];
+        const claimBytes = claimCodec.encode(claimRecord);
+        const preparedBytes = preparedCodec.encode(preparedRecord);
+
+        expect(Reflect.set(referenceCodec, "encode", () => "redirected")).toBe(false);
+        expect(Reflect.set(referenceCodec, "decode", () => "redirected")).toBe(false);
+        preparedDependencies.authority = redirected;
+        preparedDependencies.domain = redirected;
+        preparedDependencies.lease = redirected;
+        preparedDependencies.pathEpochs = redirected;
+
+        for (const codec of codecs) {
+            expect(Object.isFrozen(codec)).toBe(true);
+            expect(Reflect.set(codec, "lease", redirected)).toBe(false);
+            expect(Reflect.set(codec, "admission", redirected)).toBe(false);
+            expect(Reflect.set(codec, "codecs", preparedDependencies)).toBe(false);
+        }
+        expect(claimCodec.encode(claimRecord)).toEqual(claimBytes);
+        const decodedClaim = claimCodec.decode(claimBytes);
+        expect(decodedClaim.owner.kind === "executor" ? decodedClaim.owner.token : undefined).toBe(
+            "lease-value"
+        );
+        expect(preparedCodec.encode(preparedRecord)).toEqual(preparedBytes);
+        const decodedPrepared = preparedCodec.decode(preparedBytes);
+        expect(decodedPrepared.header).toMatchObject({
+            authority: "authority:bound-prepared",
+            domain: "domain:bound-prepared",
+            lease: "lease-value",
+            pathEpochs: "epochs:bound-prepared"
+        });
+    });
+
+    test("rejects a stateful structural codec outside the trusted factory", { tags: "p0" }, () => {
+        const stateful = {
+            mode: "a",
+            encode(): JsonValue {
+                return this.mode;
+            },
+            decode(): string {
+                return this.mode;
+            }
+        };
+        expect(
+            () =>
+                // @ts-expect-error The runtime guard rejects values outside the nominal boundary.
+                new ItemClaimCodec(stateful)
+        ).toThrow("Structural codecs must be created by structuralCodec");
+        stateful.mode = "b";
+        expect(stateful.encode()).toBe("b");
+    });
+
     test("[audit-record] round-trips an actual immutable fixture", { tags: "p1" }, () => {
         const record = new AuditRecord({
             id: new AuditRecordId("static-audit"),

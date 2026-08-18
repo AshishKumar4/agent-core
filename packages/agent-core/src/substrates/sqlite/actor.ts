@@ -9,13 +9,7 @@ import {
     type TransactionOperation
 } from "../../actors";
 import { AgentCoreError } from "../../errors";
-import {
-    inheritSqliteProvenance,
-    ReadableSqlite,
-    TransactionalSqlite,
-    type SqliteRow,
-    type SqliteValue
-} from "./sqlite";
+import { ReadableSqlite, TransactionalSqlite, type SqliteRow } from "./sqlite";
 
 const CREATE_ACTOR_STATE = `CREATE TABLE IF NOT EXISTS actor_recovery_state (
     actor_kind TEXT NOT NULL,
@@ -218,21 +212,18 @@ export class SqliteActorStore implements ActorLocalStore<TransactionalSqlite, Re
 }
 
 class SqliteTransactionScope extends TransactionalSqlite {
-    #open = true;
+    readonly #state: { open: boolean };
 
-    public constructor(private readonly database: TransactionalSqlite) {
-        super();
-        inheritSqliteProvenance(this, database);
-    }
-
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        this.requireOpen();
-        return this.database.all(statement, bindings);
-    }
-
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
-        this.requireOpen();
-        this.database.run(statement, bindings);
+    public constructor(database: TransactionalSqlite) {
+        const state = { open: true };
+        super({
+            source: database,
+            view: {
+                beforeRead: () => requireOpen(state, "Actor transaction is no longer active"),
+                beforeRun: () => requireOpen(state, "Actor transaction is no longer active")
+            }
+        });
+        this.#state = state;
     }
 
     public transaction<Result>(
@@ -244,13 +235,13 @@ class SqliteTransactionScope extends TransactionalSqlite {
     }
 
     public close(): void {
-        this.#open = false;
+        this.#state.open = false;
         activeActorTransactionScopes.delete(this);
     }
 
     public read<Result>(operation: TransactionOperation<ReadableSqlite, Result>): Result {
         this.requireOpen();
-        const scope = new SqliteReadScope(this.database);
+        const scope = new SqliteReadScope(this);
         try {
             return requireSynchronousResult(operation(scope));
         } finally {
@@ -259,34 +250,34 @@ class SqliteTransactionScope extends TransactionalSqlite {
     }
 
     private requireOpen(): void {
-        if (!this.#open) {
-            throw new AgentCoreError("actor.closed", "Actor transaction is no longer active");
-        }
+        requireOpen(this.#state, "Actor transaction is no longer active");
     }
 }
 
 class SqliteReadScope extends ReadableSqlite {
-    #open = true;
+    readonly #state: { open: boolean };
 
-    public constructor(private readonly database: TransactionalSqlite) {
-        super();
-        inheritSqliteProvenance(this, database);
-    }
-
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        if (!this.#open) {
-            throw new AgentCoreError(
-                "actor.closed",
-                "Protocol read transaction is no longer active"
-            );
-        }
-        requireReadOnlyStatement(statement);
-        return this.database.all(statement, bindings);
+    public constructor(database: TransactionalSqlite) {
+        const state = { open: true };
+        super({
+            source: database,
+            view: {
+                beforeRead: (statement) => {
+                    requireOpen(state, "Protocol read transaction is no longer active");
+                    requireReadOnlyStatement(statement);
+                }
+            }
+        });
+        this.#state = state;
     }
 
     public close(): void {
-        this.#open = false;
+        this.#state.open = false;
     }
+}
+
+function requireOpen(state: { readonly open: boolean }, message: string): void {
+    if (!state.open) throw new AgentCoreError("actor.closed", message);
 }
 
 function requireReadOnlyStatement(statement: string): void {

@@ -9,7 +9,11 @@ import {
 import { ContentRef, Digest } from "../../core";
 import { AgentCoreError } from "../../errors";
 import type { TenantId } from "../../identity";
-import { SqliteContentRetention, SqliteTransientContentAccess } from "./content-retention";
+import {
+    SqliteContentRetention,
+    SqliteTransientContentAccess,
+    initializeSqliteContentOwner
+} from "./content-retention";
 import { isSqliteNumber, isSqliteText, type SqliteRow, TransactionalSqlite } from "./sqlite";
 
 const CREATE_CONTENT = `CREATE TABLE IF NOT EXISTS content_blobs (
@@ -36,6 +40,14 @@ export interface StoredSqliteContent {
 }
 
 export class SqliteContentStore extends ContentStore {
+    public static initializeOwner(
+        database: TransactionalSqlite,
+        tenant: TenantId,
+        actor: ActorRef
+    ): void {
+        initializeSqliteContentOwner(database, tenant, actor);
+    }
+
     public constructor(private readonly database: TransactionalSqlite) {
         super();
         this.database.transaction(() => {

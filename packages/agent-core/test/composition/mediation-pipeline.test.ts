@@ -66,6 +66,7 @@ import {
     cloneInvocationMemoryState,
     createInvocationMediationMemoryState,
     createInvocationMemoryState,
+    structuralCodec,
     type AuthorityAdmissionContext,
     type AuthorityAdmissionPort,
     type CanonicalBatchAuthorityAuthenticationPort,
@@ -416,13 +417,13 @@ const bundledModes = {
     selected: "bundled"
 } as const;
 
-const admissionCodec: StructuralCodec<DemoAdmission> = Object.freeze({
-    encode: (value: DemoAdmission): JsonValue => ({
+const admissionCodec: StructuralCodec<DemoAdmission> = structuralCodec(
+    (value: DemoAdmission): JsonValue => ({
         attemptOrdinal: value.attemptOrdinal,
         invocation: value.invocation,
         itemIndex: value.itemIndex
     }),
-    decode: (value: JsonValue): DemoAdmission => {
+    (value: JsonValue): DemoAdmission => {
         const object = recordData.object(value, "Demo admission");
         return Object.freeze({
             invocation: recordData.string(object["invocation"], "Demo admission Invocation"),
@@ -433,7 +434,7 @@ const admissionCodec: StructuralCodec<DemoAdmission> = Object.freeze({
             )
         });
     }
-});
+);
 
 function admissionDigest(reference: DemoAdmission): Digest {
     return Digest.sha256(encodeCanonicalJson(admissionCodec.encode(reference)));

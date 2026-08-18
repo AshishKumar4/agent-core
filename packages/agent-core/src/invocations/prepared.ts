@@ -4,10 +4,19 @@ import {
     RecordCodec,
     encodeCanonicalJson,
     requireNonempty,
+    SemVer,
     type JsonValue,
-    type RecordVersion
+    type RecordVersion,
+    TextId
 } from "../core";
-import { canonicalFacetData, type FacetData } from "../facets";
+import { PackageId } from "../definition";
+import {
+    canonicalFacetData,
+    FacetPackageId,
+    OperationName,
+    OperationRef,
+    type FacetData
+} from "../facets";
 import {
     requireArray,
     requireCanonicalText,
@@ -17,11 +26,12 @@ import {
     requireObject,
     requireString,
     sameJson,
+    copyStructuralCodec,
     immutableReference,
     type StructuralCodec
 } from "./codec";
 import { AuditRecordId, InvocationId, RouteReservationId } from "../interaction-references";
-import { OperationPin } from "./operation-pin";
+import { OperationPin, InvocationPlacementPin } from "./operation-pin";
 import { invocationError } from "./error";
 
 const ITEM_KEY_DOMAIN = "agent-core.item.v1";
@@ -202,17 +212,46 @@ export class PreparedInvocation<Lease, Authority, Domain, PathEpochs> {
 export class PreparedInvocationCodec<Lease, Authority, Domain, PathEpochs> extends RecordCodec<
     PreparedInvocation<Lease, Authority, Domain, PathEpochs>
 > {
-    public constructor(
-        private readonly codecs: PreparedInvocationCodecs<Lease, Authority, Domain, PathEpochs>
-    ) {
-        super("invocation.prepared", { major: 1, minor: 0 });
+    readonly #codecs: PreparedInvocationCodecs<Lease, Authority, Domain, PathEpochs>;
+
+    public constructor(codecs: PreparedInvocationCodecs<Lease, Authority, Domain, PathEpochs>) {
+        super(
+            [
+                PreparedInvocation,
+                ActorRef,
+                Digest,
+                InvocationPlacementPin,
+                OperationPin,
+                PreparedItem,
+                TextId,
+                SemVer,
+                OperationRef,
+                InvocationId,
+                ActorId,
+                PackageId,
+                AuditRecordId,
+                FacetPackageId,
+                PreparedInvocationHeader,
+                RouteReservationId,
+                OperationName
+            ],
+            "invocation.prepared",
+            { major: 1, minor: 0 }
+        );
+        this.#codecs = Object.freeze({
+            authority: copyStructuralCodec(codecs.authority),
+            domain: copyStructuralCodec(codecs.domain),
+            lease: copyStructuralCodec(codecs.lease),
+            pathEpochs: copyStructuralCodec(codecs.pathEpochs)
+        });
+        Object.freeze(this);
     }
 
     protected encodePayload(
         record: PreparedInvocation<Lease, Authority, Domain, PathEpochs>
     ): JsonValue {
         return {
-            header: encodeHeader(record.header, this.codecs),
+            header: encodeHeader(record.header, this.#codecs),
             intentDigest: record.intentDigest.value,
             payload: encodePayload(record.payload)
         };
@@ -227,7 +266,7 @@ export class PreparedInvocationCodec<Lease, Authority, Domain, PathEpochs> exten
             ["header", "intentDigest", "payload"],
             "Prepared invocation"
         );
-        const header = decodeHeader(object["header"]!, this.codecs);
+        const header = decodeHeader(object["header"]!, this.#codecs);
         const encodedPayload = decodePayload(object["payload"]!);
         const argumentsPayload: UnpreparedPayload =
             encodedPayload.kind === "single"
@@ -254,7 +293,7 @@ export class PreparedInvocationCodec<Lease, Authority, Domain, PathEpochs> exten
                 idempotencySeed: header.idempotencySeed
             },
             argumentsPayload,
-            this.codecs
+            this.#codecs
         );
         if (
             !record.intentDigest.equals(requireDigest(object, "intentDigest")) ||

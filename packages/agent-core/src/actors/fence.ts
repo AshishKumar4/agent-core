@@ -1,11 +1,14 @@
-import { RecordCodec, hasExactJsonKeys, isJsonObject, type JsonValue } from "../core";
+import { RecordCodec, hasExactJsonKeys, isJsonObject, type JsonValue, TextId } from "../core";
 import { AgentCoreError } from "../errors";
 import { ActorId } from "./id";
 import { ActorFence, ActorRef, type ActorKind } from "./types";
 
 class ActorRecoveryStateCodec extends RecordCodec<ActorRecoveryState> {
     public constructor() {
-        super("actor.recovery-state", { major: 1, minor: 0 });
+        super([ActorRecoveryState, ActorRef, TextId, ActorId], "actor.recovery-state", {
+            major: 1,
+            minor: 0
+        });
     }
 
     protected encodePayload(state: ActorRecoveryState): JsonValue {
@@ -40,7 +43,9 @@ interface ActorRecoveryStatePayload {
 }
 
 export class ActorRecoveryState {
-    public static readonly codec: RecordCodec<ActorRecoveryState> = new ActorRecoveryStateCodec();
+    public static get codec(): RecordCodec<ActorRecoveryState> {
+        return actorRecoveryStateCodecInstance;
+    }
 
     public constructor(
         public readonly actor: ActorRef,
@@ -88,6 +93,8 @@ export class ActorRecoveryState {
         );
     }
 }
+
+const actorRecoveryStateCodecInstance = new ActorRecoveryStateCodec();
 
 function isActorRecoveryStatePayload(
     payload: JsonValue

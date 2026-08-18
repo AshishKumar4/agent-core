@@ -1,4 +1,4 @@
-import { RecordCodec, Revision, type JsonValue, type RecordVersion } from "../core";
+import { RecordCodec, Revision, type JsonValue, type RecordVersion, TextId } from "../core";
 import { AgentCoreError } from "../errors";
 import {
     advanceRevision,
@@ -165,7 +165,19 @@ const closedSessionState = freezeState(new ClosedSessionState());
 
 class EnvironmentSessionCodecV1 extends RecordCodec<EnvironmentSession> {
     public constructor() {
-        super("environment.session", { major: 1, minor: 0 });
+        super(
+            [
+                EnvironmentSession,
+                EnvironmentSessionState,
+                Revision,
+                TextId,
+                EnvironmentSessionId,
+                EnvironmentId,
+                EnvironmentSnapshotId
+            ],
+            "environment.session",
+            { major: 1, minor: 0 }
+        );
     }
 
     protected encodePayload(session: EnvironmentSession): JsonValue {
@@ -233,7 +245,9 @@ export class EnvironmentSessionCapability {
 }
 
 export class EnvironmentSession {
-    public static readonly codec: RecordCodec<EnvironmentSession> = new EnvironmentSessionCodecV1();
+    public static get codec(): RecordCodec<EnvironmentSession> {
+        return environmentSessionCodecInstance;
+    }
 
     public constructor(
         public readonly id: EnvironmentSessionId,
@@ -342,6 +356,8 @@ export class EnvironmentSession {
         );
     }
 }
+
+const environmentSessionCodecInstance = new EnvironmentSessionCodecV1();
 
 function decodeSessionState(value: string): EnvironmentSessionState {
     switch (value) {

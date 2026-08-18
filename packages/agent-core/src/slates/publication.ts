@@ -1,4 +1,4 @@
-import { ContentRef, RecordCodec, type JsonValue } from "../core";
+import { ContentRef, Digest, RecordCodec, TextId, type JsonValue } from "../core";
 import type { BindingRequirement } from "../facets";
 import { WorkspaceId } from "../identity";
 import {
@@ -15,7 +15,23 @@ import { SlateId, SlatePublicationId, SlateVersionId } from "./id";
 
 class SlatePublicationCodecV1 extends RecordCodec<SlatePublication> {
     public constructor() {
-        super("slate.publication", { major: 1, minor: 0 });
+        super(
+            [
+                SlatePublication,
+                TextId,
+                ContentRef,
+                Digest,
+                SlateVersionId,
+                SlateId,
+                SlatePublicationId,
+                WorkspaceId
+            ],
+            "slate.publication",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(publication: SlatePublication): JsonValue {
@@ -28,7 +44,9 @@ class SlatePublicationCodecV1 extends RecordCodec<SlatePublication> {
 }
 
 export class SlatePublication {
-    public static readonly codec: RecordCodec<SlatePublication> = new SlatePublicationCodecV1();
+    public static get codec(): RecordCodec<SlatePublication> {
+        return slatePublicationCodecInstance;
+    }
 
     public constructor(
         public readonly id: SlatePublicationId,
@@ -93,3 +111,5 @@ export class SlatePublication {
         );
     }
 }
+
+const slatePublicationCodecInstance = new SlatePublicationCodecV1();

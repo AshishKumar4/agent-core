@@ -59,5 +59,8 @@ export function tamperedRecord<TRecord extends object>(
     // SAFETY: the copy carries the source's prototype and fields but never ran its constructor,
     // so its invariants are unchecked. Callers hand it straight to the code asserted to reject it.
     const bare = Object.create(Object.getPrototypeOf(source)) as TRecord;
-    return Object.assign(bare, source, overrides);
+    return Object.defineProperties(
+        bare,
+        Object.getOwnPropertyDescriptors({ ...source, ...overrides })
+    );
 }

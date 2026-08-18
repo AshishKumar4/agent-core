@@ -21,7 +21,7 @@ import { TestSqlite } from "../../helpers/sqlite";
 
 const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
 
-class InterceptingSqlite extends TransactionalSqlite {
+class InterceptingSqlite extends TestSqlite {
     public mutateRows:
         | ((statement: string, rows: readonly SqliteRow[]) => readonly SqliteRow[])
         | undefined;
@@ -31,17 +31,17 @@ class InterceptingSqlite extends TransactionalSqlite {
         super();
     }
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         const rows = this.inner.all(statement, bindings);
         return this.mutateRows?.(statement, rows) ?? rows;
     }
 
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         this.inner.run(statement, bindings);
         this.afterRun?.(statement);
     }
 
-    public transaction<Result>(
+    public override transaction<Result>(
         operation: () => Result,
         ...guard: SynchronousResultGuard<Result>
     ): Result {
@@ -53,21 +53,21 @@ class InterceptingSqlite extends TransactionalSqlite {
 class SharedBlobRowSqlite extends TestSqlite {
     readonly #rows = new Map<string, readonly SqliteRow[]>();
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         if (!statement.includes("FROM content_blobs WHERE ref")) {
-            return super.all(statement, bindings);
+            return super.query(statement, bindings);
         }
         const key = sqliteText({ ref: bindings[0] ?? null }, "ref");
         const cached = this.#rows.get(key);
         if (cached !== undefined) return cached;
-        const rows = super.all(statement, bindings);
+        const rows = super.query(statement, bindings);
         this.#rows.set(key, rows);
         return rows;
     }
 
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         this.#rows.clear();
-        super.run(statement, bindings);
+        super.execute(statement, bindings);
     }
 }
 
@@ -75,8 +75,8 @@ class SharedBlobRowSqlite extends TestSqlite {
 class BlobRecordingSqlite extends TestSqlite {
     public lastBlob: Uint8Array | undefined;
 
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
-        super.run(statement, bindings);
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
+        super.execute(statement, bindings);
         if (!statement.includes("INTO content_blobs")) return;
         for (const binding of bindings) {
             if (binding instanceof Uint8Array) this.lastBlob = binding;

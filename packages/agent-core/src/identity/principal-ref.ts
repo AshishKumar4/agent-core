@@ -1,10 +1,13 @@
-import { RecordCodec, type JsonValue } from "../core";
+import { RecordCodec, type JsonValue, TextId } from "../core";
 import { requireIdentityFields, requireIdentityObject, requireIdentityString } from "./codec";
 import { PrincipalId, TenantId } from "./id";
 
 class PrincipalRefCodec extends RecordCodec<PrincipalRef> {
     public constructor() {
-        super("identity.principal-ref", { major: 1, minor: 0 });
+        super([PrincipalRef, TextId, TenantId, PrincipalId], "identity.principal-ref", {
+            major: 1,
+            minor: 0
+        });
     }
 
     protected encodePayload(reference: PrincipalRef): JsonValue {
@@ -25,7 +28,9 @@ class PrincipalRefCodec extends RecordCodec<PrincipalRef> {
 }
 
 export class PrincipalRef {
-    public static readonly codec: RecordCodec<PrincipalRef> = new PrincipalRefCodec();
+    public static get codec(): RecordCodec<PrincipalRef> {
+        return principalRefCodecInstance;
+    }
 
     public constructor(
         public readonly tenantId: TenantId,
@@ -46,3 +51,5 @@ export class PrincipalRef {
         return this.tenantId.equals(other.tenantId) && this.principalId.equals(other.principalId);
     }
 }
+
+const principalRefCodecInstance = new PrincipalRefCodec();

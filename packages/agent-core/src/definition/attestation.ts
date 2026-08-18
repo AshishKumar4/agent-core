@@ -4,7 +4,9 @@ import {
     encodeCanonicalJson,
     hasExactJsonKeys,
     isJsonObject,
-    type JsonValue
+    SemVer,
+    type JsonValue,
+    TextId
 } from "../core";
 import { PlatformCompatibility } from "./compatibility";
 
@@ -23,7 +25,14 @@ export interface ValidationAttestationInit {
 
 class ValidationAttestationCodec extends RecordCodec<ValidationAttestation> {
     public constructor() {
-        super("definition.validation-attestation", { major: 1, minor: 0 });
+        super(
+            [ValidationAttestation, TextId, SemVer, PlatformCompatibility, Digest],
+            "definition.validation-attestation",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(attestation: ValidationAttestation): JsonValue {
@@ -36,8 +45,9 @@ class ValidationAttestationCodec extends RecordCodec<ValidationAttestation> {
 }
 
 export class ValidationAttestation {
-    public static readonly codec: RecordCodec<ValidationAttestation> =
-        new ValidationAttestationCodec();
+    public static get codec(): RecordCodec<ValidationAttestation> {
+        return validationAttestationCodecInstance;
+    }
     public static readonly currentValidatorVersion = "definition-validator.v1";
 
     public readonly id: Digest;
@@ -128,6 +138,8 @@ export class ValidationAttestation {
         };
     }
 }
+
+const validationAttestationCodecInstance = new ValidationAttestationCodec();
 
 function attestationData(
     init: Omit<ValidationAttestationInit, "id" | "validatorVersion"> & {

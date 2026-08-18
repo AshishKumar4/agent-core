@@ -139,7 +139,7 @@ describe("W6 operation mediation integration", () => {
         "[invocation.continuation] [invocation.mediated-replay] [invocation.publication-outbox] round-trips continuation, replay, and publication durable records",
         { tags: "p1" },
         () => {
-            const continuation = new InvocationContinuation(
+            const continuation = new InvocationContinuation<string>(
                 new InvocationId("codec-invocation"),
                 new Digest("a".repeat(64)),
                 new ApprovalId("codec-approval"),
@@ -824,7 +824,7 @@ describe("W6 operation mediation integration", () => {
                 itemIndex = 0,
                 itemKey = "continuation-key"
             ) =>
-                new InvocationContinuation(
+                new InvocationContinuation<string>(
                     invocation,
                     new Digest("a".repeat(64)),
                     new ApprovalId("continuation-approval"),

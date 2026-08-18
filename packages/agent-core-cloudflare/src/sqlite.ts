@@ -112,69 +112,42 @@ export function storedRowReader(corrupt: (column: string) => never): StoredRowRe
 }
 
 export class CloudflareSqlite extends TransactionalSqlite {
-    #transactionActive = false;
-    #poisoned = false;
+    readonly #state: CloudflareSqliteState;
+    readonly #storage: CloudflareDurableObjectStorage;
+    readonly #errors: CloudflareErrorPort;
 
-    public constructor(
-        private readonly storage: CloudflareDurableObjectStorage,
-        private readonly errors: CloudflareErrorPort
-    ) {
-        super();
-    }
-
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        this.requireAvailable();
-        const cursor = this.execute(statement, bindings);
-        const rows: Array<Record<string, CloudflareSqlValue>> = [];
-        try {
-            for (const row of cursor) rows.push(row);
-        } catch (cause) {
-            operationalFailure(
-                this.errors,
-                "protocol.invalid-state",
-                "Cloudflare SQLite query iteration failed",
-                { value: cause }
-            );
-        }
-        return rows.map((row) => normalizeRow(row, this.errors));
-    }
-
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
-        this.requireAvailable();
-        const cursor = this.execute(statement, bindings);
-        try {
-            for (const _row of cursor) {
-                // SQL cursors can be lazy; exhaustion is part of executing the statement.
-            }
-        } catch (cause) {
-            operationalFailure(
-                this.errors,
-                "protocol.invalid-state",
-                "Cloudflare SQLite statement execution failed",
-                { value: cause }
-            );
-        }
+    public constructor(storage: CloudflareDurableObjectStorage, errors: CloudflareErrorPort) {
+        const state: CloudflareSqliteState = { transactionActive: false, poisoned: false };
+        super({
+            read: (statement, bindings) => readRows(storage, errors, state, statement, bindings),
+            write: (statement, bindings) =>
+                runStatement(storage, errors, state, statement, bindings),
+            identity: storage
+        });
+        this.#state = state;
+        this.#storage = storage;
+        this.#errors = errors;
     }
 
     public transaction<Result>(
         operation: () => Result,
         ..._guard: SynchronousResultGuard<Result>
     ): Result {
-        this.requireAvailable();
-        if (this.#transactionActive) {
+        requireAvailable(this.#state, this.#errors);
+        if (this.#state.transactionActive) {
             operationalFailure(
-                this.errors,
+                this.#errors,
                 "protocol.invalid-state",
                 "Nested Cloudflare SQLite transactions are not supported"
             );
         }
-        this.#transactionActive = true;
+        this.#state.transactionActive = true;
         let callbackFailed = false;
         try {
             try {
-                return this.storage.transactionSync(() => {
+                return this.#storage.transactionSync(() => {
                     try {
-                        return this.requireSynchronous(operation());
+                        return requireSynchronous(operation(), this.#state, this.#errors);
                     } catch (cause) {
                         callbackFailed = true;
                         throw cause;
@@ -183,53 +156,110 @@ export class CloudflareSqlite extends TransactionalSqlite {
             } catch (cause) {
                 if (callbackFailed) throw cause;
                 operationalFailure(
-                    this.errors,
+                    this.#errors,
                     "protocol.invalid-state",
                     "Cloudflare SQLite transaction failed",
                     { value: cause }
                 );
             }
         } finally {
-            this.#transactionActive = false;
+            this.#state.transactionActive = false;
         }
     }
+}
 
-    private requireAvailable(): void {
-        if (this.#poisoned) {
-            operationalFailure(
-                this.errors,
-                "protocol.invalid-state",
-                "Cloudflare SQLite adapter is poisoned by an asynchronous transaction callback"
-            );
-        }
-    }
+interface CloudflareSqliteState {
+    transactionActive: boolean;
+    poisoned: boolean;
+}
 
-    private requireSynchronous<Result>(result: Result): Result {
-        if (!isThenable(result)) return result;
-        this.#poisoned = true;
-        if (result instanceof Promise) void result.catch(noop);
+function readRows(
+    storage: CloudflareDurableObjectStorage,
+    errors: CloudflareErrorPort,
+    state: CloudflareSqliteState,
+    statement: string,
+    bindings: readonly SqliteValue[]
+): readonly SqliteRow[] {
+    requireAvailable(state, errors);
+    const cursor = execute(storage, errors, statement, bindings);
+    const rows: Array<Record<string, CloudflareSqlValue>> = [];
+    try {
+        for (const row of cursor) rows.push(row);
+    } catch (cause) {
         operationalFailure(
-            this.errors,
+            errors,
             "protocol.invalid-state",
-            "Cloudflare SQLite transaction callbacks must be synchronous"
+            "Cloudflare SQLite query iteration failed",
+            { value: cause }
         );
     }
+    return rows.map((row) => normalizeRow(row, errors));
+}
 
-    private execute(
-        statement: string,
-        bindings: readonly SqliteValue[]
-    ): CloudflareSqlCursor<Record<string, CloudflareSqlValue>> {
-        try {
-            return this.storage.sql.exec(statement, ...bindings.map(binding));
-        } catch (cause) {
-            operationalFailure(
-                this.errors,
-                "protocol.invalid-state",
-                "Cloudflare SQLite statement preparation failed",
-                { value: cause }
-            );
+function runStatement(
+    storage: CloudflareDurableObjectStorage,
+    errors: CloudflareErrorPort,
+    state: CloudflareSqliteState,
+    statement: string,
+    bindings: readonly SqliteValue[]
+): void {
+    requireAvailable(state, errors);
+    const cursor = execute(storage, errors, statement, bindings);
+    try {
+        for (const _row of cursor) {
+            // SQL cursors can be lazy; exhaustion is part of executing the statement.
         }
+    } catch (cause) {
+        operationalFailure(
+            errors,
+            "protocol.invalid-state",
+            "Cloudflare SQLite statement execution failed",
+            { value: cause }
+        );
     }
+}
+
+function execute(
+    storage: CloudflareDurableObjectStorage,
+    errors: CloudflareErrorPort,
+    statement: string,
+    bindings: readonly SqliteValue[]
+): CloudflareSqlCursor<Record<string, CloudflareSqlValue>> {
+    try {
+        return storage.sql.exec(statement, ...bindings.map(binding));
+    } catch (cause) {
+        operationalFailure(
+            errors,
+            "protocol.invalid-state",
+            "Cloudflare SQLite statement preparation failed",
+            { value: cause }
+        );
+    }
+}
+
+function requireAvailable(state: CloudflareSqliteState, errors: CloudflareErrorPort): void {
+    if (state.poisoned) {
+        operationalFailure(
+            errors,
+            "protocol.invalid-state",
+            "Cloudflare SQLite adapter is poisoned by an asynchronous transaction callback"
+        );
+    }
+}
+
+function requireSynchronous<Result>(
+    result: Result,
+    state: CloudflareSqliteState,
+    errors: CloudflareErrorPort
+): Result {
+    if (!isThenable(result)) return result;
+    state.poisoned = true;
+    if (result instanceof Promise) void result.catch(noop);
+    operationalFailure(
+        errors,
+        "protocol.invalid-state",
+        "Cloudflare SQLite transaction callbacks must be synchronous"
+    );
 }
 
 function binding(value: SqliteValue): CloudflareSqlBinding {

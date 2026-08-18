@@ -1,10 +1,12 @@
 import {
     ContentRef,
+    Digest,
     JsonSchema,
     RecordCodec,
     isMember,
     type JsonValue,
-    type RecordVersion
+    type RecordVersion,
+    TextId
 } from "../core";
 import {
     requireDate,
@@ -348,7 +350,31 @@ function requireAttemptReceipt(
  */
 class ReceiptCodecV2 extends RecordCodec<Receipt> {
     public constructor() {
-        super("invocation.receipt", { major: 2, minor: 0 });
+        super(
+            [
+                Receipt,
+                AttemptReceipt,
+                PreEffectReceipt,
+                AttemptCompletion,
+                AttemptFailureKind,
+                RaisedFailure,
+                DeadlineFailure,
+                AbortedFailure,
+                DomainLostFailure,
+                OutputInvalidFailure,
+                SucceededCompletion,
+                IndeterminateCompletion,
+                FailedCompletion,
+                TextId,
+                ContentRef,
+                Digest,
+                InvocationId,
+                ReceiptId,
+                EffectAttemptId
+            ],
+            "invocation.receipt",
+            { major: 2, minor: 0 }
+        );
     }
 
     protected encodePayload(record: Receipt): JsonValue {

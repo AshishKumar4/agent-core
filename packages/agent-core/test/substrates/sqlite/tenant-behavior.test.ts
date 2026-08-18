@@ -236,30 +236,30 @@ function hex(bytes: Uint8Array): string {
 }
 
 class SchemaFaultSqlite extends TestSqlite {
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         if (statement.includes("CREATE TABLE IF NOT EXISTS tenant_bootstrap_marker")) {
             throw new Error("injected schema fault");
         }
-        super.run(statement, bindings);
+        super.execute(statement, bindings);
     }
 }
 
 class ReadFaultSqlite extends TestSqlite {
     public fault: Error | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         if (this.fault !== undefined && statement.includes("tenant_bootstrap_marker")) {
             throw this.fault;
         }
-        return super.all(statement, bindings);
+        return super.query(statement, bindings);
     }
 }
 
 class MarkerRowTamperSqlite extends TestSqlite {
     public tamper: ((row: SqliteRow) => SqliteRow) | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const rows = super.all(statement, bindings);
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
         const tamper = this.tamper;
         if (tamper === undefined || !statement.includes("FROM tenant_bootstrap_marker")) {
             return rows;

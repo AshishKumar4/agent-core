@@ -3,13 +3,25 @@ import {
     Digest,
     type JsonValue,
     RecordCodec,
+    Revision,
+    SecretRef,
+    TextId,
     compareCanonicalText,
     encodeCanonicalJson,
     isMember
 } from "../core";
-import { FacetRef, type Impact } from "../facets";
-import { PrincipalId, PrincipalRef, TenantId } from "../identity";
-import { Binding } from "./binding";
+import { BindingName, FacetPackageId, FacetRef, type Impact, ProtectionDomain } from "../facets";
+import {
+    GuestVerificationScheme,
+    PrincipalId,
+    PrincipalRef,
+    ProjectId,
+    ScopeRef,
+    TeamId,
+    TenantId,
+    WorkspaceId
+} from "../identity";
+import { Binding, BindingCredentialCustody, BindingLifecycle } from "./binding";
 import {
     requireArray,
     canonicalJson,
@@ -19,7 +31,7 @@ import {
     requireString,
     type JsonObject
 } from "./data";
-import { PathEpochEvidence } from "./epoch";
+import { PathEpochEvidence, ScopeEpoch } from "./epoch";
 import { GrantId } from "./id";
 
 export type AuthorityDecisionReason =
@@ -60,7 +72,37 @@ export interface AuthorityCheckRequestInit {
 
 class AuthorityCheckRequestCodec extends RecordCodec<AuthorityCheckRequest> {
     public constructor() {
-        super("authority.check-request", { major: 2, minor: 0 });
+        super(
+            [
+                AuthorityCheckRequest,
+                ActorRef,
+                GuestVerificationScheme,
+                Revision,
+                ScopeRef,
+                TextId,
+                Binding,
+                BindingLifecycle,
+                BindingCredentialCustody,
+                PathEpochEvidence,
+                ScopeEpoch,
+                FacetRef,
+                Digest,
+                SecretRef,
+                BindingName,
+                ActorId,
+                TeamId,
+                TenantId,
+                WorkspaceId,
+                GrantId,
+                ProjectId,
+                PrincipalId,
+                FacetPackageId,
+                ProtectionDomain,
+                PrincipalRef
+            ],
+            "authority.check-request",
+            { major: 2, minor: 0 }
+        );
     }
     protected encodePayload(record: AuthorityCheckRequest): JsonValue {
         return record.toData();
@@ -71,8 +113,9 @@ class AuthorityCheckRequestCodec extends RecordCodec<AuthorityCheckRequest> {
 }
 
 export class AuthorityCheckRequest {
-    public static readonly codec: RecordCodec<AuthorityCheckRequest> =
-        new AuthorityCheckRequestCodec();
+    public static get codec(): RecordCodec<AuthorityCheckRequest> {
+        return authorityCheckRequestCodecInstance;
+    }
     public readonly intent: AuthorityOperationIntent;
 
     public constructor(init: AuthorityCheckRequestInit) {
@@ -197,9 +240,31 @@ export class AuthorityCheckRequest {
     }
 }
 
+const authorityCheckRequestCodecInstance = new AuthorityCheckRequestCodec();
+
 class AuthorityCheckEvidenceCodec extends RecordCodec<AuthorityCheckEvidence> {
     public constructor() {
-        super("authority.check-evidence", { major: 1, minor: 0 });
+        super(
+            [
+                AuthorityCheckEvidence,
+                ActorRef,
+                TextId,
+                PathEpochEvidence,
+                ScopeEpoch,
+                ScopeRef,
+                Digest,
+                ActorId,
+                TenantId,
+                ProjectId,
+                WorkspaceId,
+                GrantId
+            ],
+            "authority.check-evidence",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
     protected encodePayload(record: AuthorityCheckEvidence): JsonValue {
         return record.toData();
@@ -210,8 +275,9 @@ class AuthorityCheckEvidenceCodec extends RecordCodec<AuthorityCheckEvidence> {
 }
 
 export class AuthorityCheckEvidence {
-    public static readonly codec: RecordCodec<AuthorityCheckEvidence> =
-        new AuthorityCheckEvidenceCodec();
+    public static get codec(): RecordCodec<AuthorityCheckEvidence> {
+        return authorityCheckEvidenceCodecInstance;
+    }
     readonly #checkedAt: number;
     public readonly matchedAllow: readonly GrantId[];
     public readonly matchedDeny: readonly GrantId[];
@@ -340,6 +406,8 @@ export class AuthorityCheckEvidence {
         );
     }
 }
+
+const authorityCheckEvidenceCodecInstance = new AuthorityCheckEvidenceCodec();
 
 export type AuthorityAdmission = AuthorityCheckEvidence;
 

@@ -1,4 +1,4 @@
-import { isNonempty, JsonSchema, SecretRef } from "../core";
+import { isNonempty, JsonSchema, SecretRef, TextId } from "../core";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
@@ -13,7 +13,7 @@ import {
     requireString
 } from "./data";
 import { EventKind } from "./id";
-import { FieldMove, ProvenanceMapping } from "./mapping";
+import { FieldMove, JsonPointer, MappingRecord, ProvenanceMapping } from "./mapping";
 
 export type TrustTier = "owner" | "authenticated" | "external" | "self";
 export type EventVisibility = "workspace" | "private";
@@ -73,6 +73,7 @@ export class EventPattern {
 }
 
 const eventPatternCodec = new DataRecordCodec(
+    [EventPattern],
     "facet.event-pattern",
     (pattern: EventPattern) => pattern.toData(),
     (payload) => EventPattern.fromData(payload)
@@ -119,6 +120,7 @@ export class EventDeclaration {
 }
 
 const eventDeclarationCodec = new DataRecordCodec(
+    [EventDeclaration, TextId, JsonSchema, EventKind],
     "facet.event-declaration",
     (event: EventDeclaration) => event.toData(),
     (payload) => EventDeclaration.fromData(payload)
@@ -171,6 +173,7 @@ export class IngressVerification {
 }
 
 const ingressVerificationCodec = new DataRecordCodec(
+    [IngressVerification, SecretRef],
     "facet.ingress-verification",
     (verification: IngressVerification) => verification.toData(),
     (payload) => IngressVerification.fromData(payload)
@@ -218,6 +221,15 @@ export class IngressDeclaration {
 }
 
 const ingressDeclarationCodec = new DataRecordCodec(
+    [
+        IngressDeclaration,
+        IngressVerification,
+        SecretRef,
+        MappingRecord,
+        FieldMove,
+        ProvenanceMapping,
+        JsonPointer
+    ],
     "facet.ingress-declaration",
     (ingress: IngressDeclaration) => ingress.toData(),
     (payload) => IngressDeclaration.fromData(payload)

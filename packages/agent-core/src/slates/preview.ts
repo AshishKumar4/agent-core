@@ -1,4 +1,4 @@
-import { ContentRef, RecordCodec, Revision, type JsonValue } from "../core";
+import { ContentRef, Digest, RecordCodec, Revision, type JsonValue, TextId } from "../core";
 import {
     EnvironmentId,
     EnvironmentSessionCapability,
@@ -23,7 +23,28 @@ import { SlateId, SlatePreviewId, SlateVersionId } from "./id";
 
 class SlatePreviewCodecV1 extends RecordCodec<SlatePreview> {
     public constructor() {
-        super("slate.preview", { major: 1, minor: 0 });
+        super(
+            [
+                SlatePreview,
+                Revision,
+                TextId,
+                ContentRef,
+                Digest,
+                SlateId,
+                PortExposureId,
+                EnvironmentSessionId,
+                EnvironmentId,
+                SlatePreviewId,
+                WorkspaceId,
+                SlateVersionId,
+                EnvironmentSessionCapability
+            ],
+            "slate.preview",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(preview: SlatePreview): JsonValue {
@@ -36,7 +57,9 @@ class SlatePreviewCodecV1 extends RecordCodec<SlatePreview> {
 }
 
 export class SlatePreview {
-    public static readonly codec: RecordCodec<SlatePreview> = new SlatePreviewCodecV1();
+    public static get codec(): RecordCodec<SlatePreview> {
+        return slatePreviewCodecInstance;
+    }
 
     public constructor(
         public readonly id: SlatePreviewId,
@@ -144,3 +167,5 @@ export class SlatePreview {
         );
     }
 }
+
+const slatePreviewCodecInstance = new SlatePreviewCodecV1();
