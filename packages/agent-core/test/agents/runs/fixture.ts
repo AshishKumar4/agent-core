@@ -349,7 +349,7 @@ export function testRunRepository<Transaction>(
     return new RunRepository(storage);
 }
 
-function fixtureMemoryRunSnapshot(): MemoryRunStorageSnapshot {
+export function fixtureMemoryRunSnapshot(): MemoryRunStorageSnapshot {
     return {
         version: 2,
         records: [],

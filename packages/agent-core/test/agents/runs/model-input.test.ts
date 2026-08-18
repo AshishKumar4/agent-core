@@ -52,6 +52,7 @@ import {
     content,
     ids,
     mutableData,
+    fixtureMemoryRunSnapshot,
     seedRunningTurn
 } from "./fixture";
 
@@ -188,7 +189,7 @@ class ObservingModelPort {
 }
 
 function faultyHarness() {
-    const faults = new FaultyRunStorage(ids.holder.tenantId, ids.actor);
+    const faults = new FaultyRunStorage(ids.holder.tenantId, ids.actor, fixtureMemoryRunSnapshot(), () => new Date(0));
     const repository = new RunRepository(faults);
     const sources = new TestSourcePort<MemoryTransaction>();
     const evidence = new TestEvidencePort<MemoryTransaction>();
@@ -293,6 +294,9 @@ async function fixture(catalog: readonly TurnBoundOperation[] = []): Promise<Fix
     const prompt = (await store.put(encoder.encode("assembled"))).ref;
     const output = (await store.put(encoder.encode("response"))).ref;
     const built = faultyHarness();
+    // Custody admits only content the Run-owned store holds; mirror the fixture bytes.
+    await built.storage.content.put(encoder.encode("assembled"));
+    await built.storage.content.put(encoder.encode("response"));
     const seeded = seedRunningTurn(
         built,
         {},

@@ -47,7 +47,8 @@ import {
     type TurnAdmissionReceiptFacts,
     type TurnModelUsage,
     type TurnOutcome,
-    type TurnStreamPublication
+    type TurnStreamPublication,
+    type LeaseToken
 } from "../../../src/agents/runs";
 import { RunCommitId } from "../../../src/execution-references";
 import { EffectAttemptId, type ReceiptId } from "../../../src/invocation-references";
@@ -2044,8 +2045,11 @@ class TestBoundaries {
         seeded: { readonly runtime: RunRuntime<Transaction> },
         executor: TurnExecutor,
         overrides: Partial<TurnExecutorHostInit<Transaction>> = {}
-    ): TurnExecutorHost<Transaction> {
-        return new TurnExecutorHost({
+    ): { execute(token: LeaseToken): Promise<TurnOutcome> } {
+        // Custody makes the Run-owned store the only content plane a commit may
+        // reference; the fixture's private store must be projected into it first.
+        const custody = seeded.runtime.repository.content;
+        const host = new TurnExecutorHost({
             runtime: seeded.runtime,
             executor,
             content: this.content,
@@ -2080,6 +2084,18 @@ class TestBoundaries {
             now: () => new Date(2_000),
             ...overrides
         });
+        return {
+            execute: async (token: LeaseToken): Promise<TurnOutcome> => {
+                await this.seedCustody(custody);
+                return host.execute(token);
+            }
+        };
+    }
+
+    public async seedCustody(custody: ContentStore): Promise<void> {
+        for (const entry of this.content.snapshot().content) {
+            await custody.put(Uint8Array.from(entry.bytes));
+        }
     }
 }
 
