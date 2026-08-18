@@ -4,6 +4,7 @@ import {
     Digest,
     RecordCodec,
     Revision,
+    TextId,
     decodeCanonicalJson,
     encodeCanonicalJson,
     isJsonObject,
@@ -296,7 +297,11 @@ class AdmissionHandleCodec extends RecordCodec<TurnAdmissionHandle> {
                 TurnId,
                 InvocationId,
                 EffectAttemptId,
-                ReceiptId
+                ReceiptId,
+                InvocationAdmissionIdentity,
+                ChildRunAdmissionIdentity,
+                TextId,
+                CodecRecord
             ],
             "turn.admission-handle",
             { major: 1, minor: 0 }

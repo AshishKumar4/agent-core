@@ -3,6 +3,7 @@ import { ContentStore, type ContentStat, type MediaHint } from "../../content";
 import {
     ContentRef,
     Digest,
+    JsonSchema,
     RecordCodec,
     TextId,
     decodeBase64,
@@ -18,6 +19,7 @@ import {
     FacetRef,
     InterceptorId,
     OperationDescriptor,
+    OperationName,
     OperationRef,
     canonicalFacetData,
     type FacetData
@@ -610,7 +612,21 @@ class ModelInputCodec extends RecordCodec<TurnModelInput> {
                 TurnPromptSectionName,
                 TurnBoundOperation,
                 TurnAdmittedEvent,
-                RunCommitId
+                RunCommitId,
+                TurnOmission,
+                TurnShownContent,
+                ContentRef,
+                Digest,
+                TextId,
+                JsonSchema,
+                BindingName,
+                FacetPackageId,
+                FacetRef,
+                OperationDescriptor,
+                OperationName,
+                OperationRef,
+                TurnInboxEntryId,
+                CodecRecord
             ],
             "turn.model-input",
             { major: 1, minor: 0 }

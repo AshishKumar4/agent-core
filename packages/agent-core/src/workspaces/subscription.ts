@@ -1,9 +1,20 @@
-import { RecordCodec, Revision, isJsonObject, type JsonValue, type RecordVersion, TextId } from "../core";
+import {
+    Digest,
+    RecordCodec,
+    Revision,
+    SemVer,
+    TextId,
+    isJsonObject,
+    type JsonValue,
+    type RecordVersion
+} from "../core";
+import { PackageId, PackagePin } from "../definition-references";
 import {
     BindingName,
     ContributionAttribution,
     EventPattern,
     FacetPackageId,
+    FacetRef,
     FieldMove,
     JsonPointer,
     MappingRecord,
@@ -73,7 +84,12 @@ class SubscriptionCodecV2 extends RecordCodec<Subscription> {
                 SubscriptionId,
                 FacetPackageId,
                 OperationName,
-                JsonPointer
+                JsonPointer,
+                FacetRef,
+                Digest,
+                SemVer,
+                PackageId,
+                PackagePin
             ],
             "workspace.subscription",
             { major: 2, minor: 0 }

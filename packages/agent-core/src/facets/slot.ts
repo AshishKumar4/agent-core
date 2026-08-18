@@ -1,4 +1,5 @@
-import { JsonSchema, TextId } from "../core";
+import { Digest, JsonSchema, SemVer, TextId } from "../core";
+import { PackageId, PackagePin } from "../definition-references";
 import { ContributionAttribution } from "./attribution";
 import type { FacetData } from "./data";
 import {
@@ -11,7 +12,7 @@ import {
     requireSchemaDocument,
     requireString
 } from "./data";
-import { SlotName } from "./id";
+import { FacetPackageId, FacetRef, SlotName } from "./id";
 
 export class SlotAuthorityPolicy {
     public readonly contribute: readonly string[];
@@ -146,7 +147,21 @@ export class InstalledSlot {
 }
 
 const installedSlotCodec = new DataRecordCodec(
-    [InstalledSlot, SlotDeclaration, ContributionAttribution],
+    [
+        InstalledSlot,
+        SlotDeclaration,
+        ContributionAttribution,
+        SlotAuthorityPolicy,
+        TextId,
+        JsonSchema,
+        SlotName,
+        FacetRef,
+        FacetPackageId,
+        Digest,
+        SemVer,
+        PackageId,
+        PackagePin
+    ],
     "facet.installed-slot",
     (slot: InstalledSlot) => slot.toData(),
     (payload) => InstalledSlot.fromData(payload)

@@ -1,5 +1,5 @@
-import { ContentRef, Digest, RecordCodec, TextId, type JsonValue } from "../core";
-import type { BindingRequirement } from "../facets";
+import { CompatRange, ContentRef, Digest, RecordCodec, TextId, type JsonValue } from "../core";
+import { BindingName, BindingRequirement, FacetPackageId } from "../facets";
 import { WorkspaceId } from "../identity";
 import {
     bindingRequirements,
@@ -24,7 +24,11 @@ class SlatePublicationCodecV1 extends RecordCodec<SlatePublication> {
                 SlateVersionId,
                 SlateId,
                 SlatePublicationId,
-                WorkspaceId
+                WorkspaceId,
+                BindingName,
+                BindingRequirement,
+                FacetPackageId,
+                CompatRange
             ],
             "slate.publication",
             {

@@ -1,4 +1,12 @@
-import { Digest, RecordCodec, encodeCanonicalJson, type RecordVersion, TextId } from "../core";
+import {
+    Digest,
+    RecordCodec,
+    SemVer,
+    TextId,
+    encodeCanonicalJson,
+    type RecordVersion
+} from "../core";
+import { PackageId, PackagePin } from "../definition-references";
 import { ContributionAttribution } from "./attribution";
 import type { FacetData } from "./data";
 import {
@@ -62,7 +70,10 @@ class SlotEntryCodecV3 extends RecordCodec<SlotEntry> {
                 Digest,
                 SlotName,
                 SlotEntryId,
-                FacetPackageId
+                FacetPackageId,
+                SemVer,
+                PackageId,
+                PackagePin
             ],
             "facet.slot-entry",
             { major: 3, minor: 0 }

@@ -1,5 +1,5 @@
-import { Digest, RecordCodec, type JsonValue } from "../core";
-import { BindingRequirement } from "../facets";
+import { CompatRange, Digest, RecordCodec, TextId, type JsonValue } from "../core";
+import { BindingName, BindingRequirement, FacetPackageId } from "../facets";
 import {
     bindingRequirements,
     canonicalBindingRequirements,
@@ -9,10 +9,19 @@ import {
 
 class SlateSkeletonCodecV1 extends RecordCodec<SlateSkeleton> {
     public constructor() {
-        super([SlateSkeleton, BindingRequirement, Digest], "slate.skeleton", {
-            major: 1,
-            minor: 0
-        });
+        super(
+            [
+                SlateSkeleton,
+                BindingRequirement,
+                Digest,
+                TextId,
+                BindingName,
+                FacetPackageId,
+                CompatRange
+            ],
+            "slate.skeleton",
+            { major: 1, minor: 0 }
+        );
     }
 
     protected encodePayload(skeleton: SlateSkeleton): JsonValue {

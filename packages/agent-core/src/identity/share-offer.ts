@@ -1,4 +1,4 @@
-import { Digest, RecordCodec, Revision, type JsonValue } from "../core";
+import { Digest, RecordCodec, Revision, TextId, type JsonValue } from "../core";
 import { AgentCoreError } from "../errors";
 import {
     requireIdentityArray,
@@ -8,10 +8,21 @@ import {
     requireIdentityString
 } from "./codec";
 import type { GuestVerification } from "./guest-verification";
-import { MembershipId, RoleName, ShareOfferId } from "./id";
-import { Membership } from "./member";
-import { decodeScopeRef, encodeScopeRef, type ScopeRef } from "./scope";
 import {
+    MembershipId,
+    PrincipalId,
+    ProjectId,
+    RoleName,
+    ShareOfferId,
+    TeamId,
+    TenantId,
+    WorkspaceId
+} from "./id";
+import { Membership } from "./member";
+import { PrincipalRef } from "./principal-ref";
+import { ScopeRef, decodeScopeRef, encodeScopeRef } from "./scope";
+import {
+    GuestVerificationScheme,
     decodeSubjectRef,
     encodeSubjectRef,
     requireSubjectTenant,
@@ -216,7 +227,17 @@ class ShareOfferRecordCodec extends RecordCodec<ShareOffer> {
                 MembershipId,
                 RoleName,
                 Digest,
-                Revision
+                Revision,
+                ShareOfferLifecycle,
+                TextId,
+                ScopeRef,
+                PrincipalRef,
+                GuestVerificationScheme,
+                TenantId,
+                WorkspaceId,
+                ProjectId,
+                PrincipalId,
+                TeamId
             ],
             "identity.share-offer",
             { major: 1, minor: 0 }
