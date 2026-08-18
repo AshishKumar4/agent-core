@@ -38,7 +38,8 @@ import {
     refs,
     seedRunningTurn,
     thrownBy,
-    type Assembled
+    type Assembled,
+    UncontributedCutPoints
 } from "./fixture";
 
 type Harness = ReturnType<typeof seedRunningTurn>;
@@ -970,6 +971,7 @@ describe("Run effective transcript, rewrite bracket, and cut balance", () => {
             const hostFor = (body: (context: TurnContext) => Promise<TurnOutcome>) =>
                 new TurnExecutorHost({
                     runtime: value.runtime,
+                    cutPoints: new UncontributedCutPoints(),
                     executor: new CallingExecutor(body),
                     content: store,
                     operations: { resolve: async () => [] },

@@ -1,12 +1,13 @@
-import { Digest, Revision } from "../../core";
+import { ContentRef, Digest, Revision } from "../../core";
 import { requireSynchronousResult } from "../../actors";
 import { AgentCoreError } from "../../errors";
 import type { PrincipalRef } from "../../identity";
 import type { RunCommitId, TurnId } from "../../execution-references";
 import type { ReceiptId } from "../../invocation-references";
 import type { AuditRecordId, EventId, InvocationId } from "../../interaction-references";
+import { TurnCutPointPort, type TurnRewriteRule } from "../../operations";
 import type { RunSourceRevisionPort } from "../source";
-import { bytesEqual } from "../record-data";
+import { bytesEqual, requireExactFields, requireObject, requireString } from "../record-data";
 import type { AcceptanceCriterion, AcceptanceVerdict } from "./acceptance";
 import { RunCommit, validateCommitWriter } from "./commit";
 import {
@@ -112,7 +113,8 @@ export class RunRuntime<Transaction> {
         private readonly evidence: RunEvidencePort<Transaction>,
         private readonly settlement: SettlementEvidencePort<Transaction>,
         private readonly spawn: RunSpawnPort<Transaction>,
-        private readonly merge: RunMergePort<Transaction>
+        private readonly merge: RunMergePort<Transaction>,
+        private readonly cutPoints: TurnCutPointPort
     ) {}
 
     public createRun(genesis: RunGenesis): void {
@@ -860,6 +862,10 @@ export class RunRuntime<Transaction> {
             // SPEC §5.6: cancellation is the reserved inbox Event. Delivering it against the
             // exact live lease leaves the holder in charge of the running -> cancelled
             // transition (§5.3) instead of fencing it out of its own settlement.
+            //
+            // It is also the one submission `input.submitted` never sees. A cut point that
+            // could refuse a cancellation would let a contributed Facet suppress the fence
+            // that stops it, which inverts what the cut point is for.
             this.appendCancellation(tx, turn, entry, token);
         } else {
             const inbox = this.repository.listInbox(tx, turnId);
@@ -870,9 +876,53 @@ export class RunRuntime<Transaction> {
             ) {
                 throw invalidTurn("Inbox entry does not have the next Turn sequence");
             }
-            this.repository.insertInbox(tx, entry);
+            this.repository.insertInbox(tx, this.submitted(turn, entry));
         }
         this.repository.replaceTurn(tx, turn.revision, turn.revise());
+    }
+
+    /**
+     * SPEC §4.4's `input.submitted`, fired at the one place a submission reaches a running
+     * Turn (§5.6's `turn.deliverEvent`) and before that submission becomes durable inbox
+     * history — so a block refuses it outright and leaves no entry behind.
+     *
+     * The value in flight is the submission envelope, and a rewrite may transform only the
+     * payload. An Interceptor is synchronous (rule 1) while content resolves through an
+     * asynchronous ContentStore (§8.2), so transforming means naming content the interceptor
+     * has already stored rather than editing bytes in hand; the substitution inherits
+     * exactly the retention obligation the original submission carried, and nothing here
+     * verified the original either. The event name and the idempotency key are delivery
+     * identity: changing the name would forge a different submission, and changing the key
+     * would defeat the at-least-once dedupe this inbox is ordered by (§6.1).
+     */
+    private submitted(turn: Turn, entry: TurnInboxEntry): TurnInboxEntry {
+        const outcome = this.cutPoints.run(
+            "input.submitted",
+            turn.id,
+            {
+                event: entry.event,
+                idempotencyKey: entry.idempotencyKey,
+                payload: entry.payload.value
+            },
+            admitSubmission
+        );
+        const envelope = requireObject(outcome.value, "Submitted input");
+        const payload = new ContentRef(
+            requireString(envelope["payload"], "Submitted input payload")
+        );
+        return payload.equals(entry.payload)
+            ? entry
+            : new TurnInboxEntry(
+                  entry.id,
+                  entry.turn,
+                  entry.sequence,
+                  entry.event,
+                  payload,
+                  payload.digest,
+                  entry.idempotencyKey,
+                  undefined,
+                  entry.recordedAt
+              );
     }
 
     public suspendTurn(request: SuspendTurnRequest): void {
@@ -1800,6 +1850,28 @@ export class RunRuntime<Transaction> {
         return matching[0]!;
     }
 }
+
+/**
+ * What an `input.submitted` rewrite may do: replace the payload, and nothing else. The
+ * `ContentRef` constructor is part of the rule rather than a later check, because a
+ * malformed reference admitted here would become durable inbox history whose content can
+ * never resolve.
+ */
+const admitSubmission: TurnRewriteRule = (before, after) => {
+    const previous = requireObject(before, "Submitted input");
+    const next = requireObject(after, "Submitted input");
+    requireExactFields(next, ["event", "idempotencyKey", "payload"], [], "Submitted input");
+    if (
+        next["event"] !== previous["event"] ||
+        next["idempotencyKey"] !== previous["idempotencyKey"]
+    ) {
+        throw new AgentCoreError(
+            "authority.denied",
+            "An input.submitted rewrite may transform the payload, not the delivery identity"
+        );
+    }
+    new ContentRef(requireString(next["payload"], "Submitted input payload"));
+};
 
 function requireRevision(actual: Revision, expected: Revision): void {
     if (!actual.equals(expected)) {

@@ -9,10 +9,30 @@ import {
 import { InterceptorId } from "./id";
 import { OperationPattern, OperationSelector } from "./mapping";
 
-export type CutPoint =
-    "operation.before" | "operation.after" | "prompt.assemble" | "input.submitted" | "turn.step";
+/** The cut points whose value in flight belongs to one Operation of one target Facet. */
+export type OperationCutPoint = "operation.before" | "operation.after";
+
+/**
+ * The cut points whose value in flight belongs to a Turn rather than to an Operation
+ * (SPEC §4.4). The distinction is drawn once, here, because three separate rules turn on
+ * it: the context carries a Turn instead of an Operation, an `OperationSelector` has
+ * nothing to select, and cross-facet opt-in cannot scope what has no target.
+ */
+export type TurnBoundCutPoint = "prompt.assemble" | "input.submitted" | "turn.step";
+
+export type CutPoint = OperationCutPoint | TurnBoundCutPoint;
 
 export type InterceptorMode = "rewrite" | "gate";
+
+export const TURN_BOUND_CUT_POINTS: readonly TurnBoundCutPoint[] = Object.freeze([
+    "prompt.assemble",
+    "input.submitted",
+    "turn.step"
+]);
+
+export function isTurnBoundCutPoint(cutPoint: CutPoint): cutPoint is TurnBoundCutPoint {
+    return TURN_BOUND_CUT_POINTS.some((candidate) => candidate === cutPoint);
+}
 
 /**
  * SPEC §4.4 rule 3's leading ordering component. A declared mode dominates local
@@ -49,6 +69,21 @@ export class InterceptorDeclaration {
         this.modeRank = modeRank;
         this.appliesTo = selected ? appliesToOrPriority : OperationSelector.own();
         this.priority = resolvedPriority;
+        // SPEC §4.4: a Turn-bound cut point has no target Operation, so a selector there
+        // names nothing. Refusing a supplied one keeps the absence of scoping a declared
+        // fact rather than a silently ignored claim; the default wildcard stands because
+        // every declaration carries one and none of them selects at these cut points.
+        const [only] = this.appliesTo.patterns;
+        if (
+            isTurnBoundCutPoint(cutPoint) &&
+            (this.appliesTo.patterns.length !== 1 ||
+                only?.facet !== undefined ||
+                only?.operation !== "*")
+        ) {
+            throw new TypeError(
+                "A Turn-bound cut point selects no Operation, so its interceptor declares no operation selector"
+            );
+        }
         Object.freeze(this);
     }
 

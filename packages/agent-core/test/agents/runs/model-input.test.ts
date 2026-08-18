@@ -55,7 +55,8 @@ import {
     content,
     ids,
     mutableData,
-    seedRunningTurn
+    seedRunningTurn,
+    UncontributedCutPoints
 } from "./fixture";
 
 const encoder = new TextEncoder();
@@ -228,7 +229,15 @@ function faultyHarness() {
     const settlement = new TestSettlementPort<MemoryTransaction>();
     const spawn = new TestSpawnPort<MemoryTransaction>();
     const merge = new TestMergePort<MemoryTransaction>();
-    const runtime = new RunRuntime(repository, sources, evidence, settlement, spawn, merge);
+    const runtime = new RunRuntime(
+        repository,
+        sources,
+        evidence,
+        settlement,
+        spawn,
+        merge,
+        new UncontributedCutPoints()
+    );
     return { storage: inner, faults, repository, sources, evidence, settlement, spawn, merge, runtime };
 }
 
@@ -352,6 +361,7 @@ async function fixture(catalog: readonly TurnBoundOperation[] = []): Promise<Fix
         host: (executor, chosen = port, offered = catalog) =>
             new TurnExecutorHost({
                 runtime: seeded.runtime,
+                cutPoints: new UncontributedCutPoints(),
                 executor,
                 content: store,
                 operations: { resolve: async () => offered },

@@ -1,8 +1,13 @@
 import type { ContentStore } from "../content";
 import type { Digest } from "../core";
+import type { TurnId } from "../execution-references";
 import type { InvocationId } from "../interaction-references";
 import type { EffectAttemptId } from "../invocation-references";
-import type { InterceptorDeclaration } from "./interceptor";
+import type {
+    InterceptorDeclaration,
+    OperationCutPoint,
+    TurnBoundCutPoint
+} from "./interceptor";
 import type { FacetData } from "./data";
 import type { OperationDescriptor, SurfaceDescriptor } from "./contribution";
 import type { FacetRef, OperationName, SurfaceId } from "./id";
@@ -51,12 +56,30 @@ export abstract class ProtectedOperationPort<Receipt> {
     ): Promise<ProtectedOperationResult<Receipt>>;
 }
 
-export interface InterceptContext {
-    readonly cutPoint: "operation.before" | "operation.after";
+/**
+ * The two operation cut points, where the value in flight belongs to one Operation of one
+ * target Facet and `appliesTo` is the selector that scoped it there (SPEC §4.4).
+ */
+export interface OperationInterceptContext {
+    readonly cutPoint: OperationCutPoint;
     readonly operation: OperationDescriptor;
     readonly target: FacetRef;
     readonly interceptor: InterceptorDeclaration;
 }
+
+/**
+ * The three Turn-bound cut points. There is no target Operation here, so nothing an
+ * `OperationSelector` could name is in flight and the Turn is what the context carries
+ * instead: a step, a submission, and a prompt each belong to exactly one Turn, and the
+ * refusals at these cut points are all scoped to that Turn (SPEC §4.4, §5.3).
+ */
+export interface TurnInterceptContext {
+    readonly cutPoint: TurnBoundCutPoint;
+    readonly turn: TurnId;
+    readonly interceptor: InterceptorDeclaration;
+}
+
+export type InterceptContext = OperationInterceptContext | TurnInterceptContext;
 
 export type InterceptResult =
     | { readonly proceed: true; readonly value: FacetData }

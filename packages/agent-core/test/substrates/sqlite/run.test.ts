@@ -51,7 +51,8 @@ import {
     genesis,
     ids,
     pins,
-    refs
+    refs,
+    UncontributedCutPoints
 } from "../../agents/runs/fixture";
 
 const owner = new ActorRef("workspace", new ActorId("workspace-run-owner"));
@@ -600,7 +601,8 @@ function runtimeHarness<Transaction>(
             evidence,
             new TestSettlementPort<Transaction>(),
             new TestSpawnPort<Transaction>(),
-            new TestMergePort<Transaction>()
+            new TestMergePort<Transaction>(),
+            new UncontributedCutPoints()
         )
     };
 }
@@ -1429,7 +1431,8 @@ function sqliteRuntime(database: TransactionalSqlite): RuntimeHarness<Transactio
             evidence,
             new TestSettlementPort<TransactionalSqlite>(),
             new TestSpawnPort<TransactionalSqlite>(),
-            new TestMergePort<TransactionalSqlite>()
+            new TestMergePort<TransactionalSqlite>(),
+            new UncontributedCutPoints()
         )
     };
 }

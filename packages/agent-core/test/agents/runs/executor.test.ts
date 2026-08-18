@@ -68,7 +68,8 @@ import {
     ids,
     refs,
     seedRunningTurn,
-    type Assembled
+    type Assembled,
+    UncontributedCutPoints
 } from "./fixture";
 
 class HostedExecutor extends TurnExecutor {
@@ -255,6 +256,7 @@ describe("TurnExecutor seam", () => {
             const stream: Uint8Array[] = [];
             const host = new TurnExecutorHost({
                 runtime: seeded.runtime,
+                cutPoints: new UncontributedCutPoints(),
                 executor: new HostedExecutor(),
                 content: contentStore,
                 operations: { resolve: async () => [write, read] },
@@ -2047,6 +2049,7 @@ class TestBoundaries {
     ): TurnExecutorHost<Transaction> {
         return new TurnExecutorHost({
             runtime: seeded.runtime,
+            cutPoints: new UncontributedCutPoints(),
             executor,
             content: this.content,
             operations: { resolve: async () => this.tools },

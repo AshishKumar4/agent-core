@@ -18,6 +18,7 @@ import {
     ReplayOperationInvocationPort
 } from "../../src/invocations";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
+import { TurnId } from "../../src/execution-references";
 import {
     Automation,
     BindingName,
@@ -42,6 +43,7 @@ import {
     SlotName,
     SurfaceDescriptor,
     SurfaceId,
+    TURN_BOUND_CUT_POINTS,
     isFacetDataMap,
     type FacetData,
     type FacetDataMap
@@ -69,6 +71,10 @@ import {
 } from "../../src/operations/gateway";
 import { FacetRuntimeHost } from "../../src/operations/lifecycle";
 import {
+    TurnInterceptorRunner,
+    type TurnInterceptorDomainPort
+} from "../../src/operations/interception";
+import {
     Facet,
     Interceptor,
     Operation,
@@ -76,7 +82,8 @@ import {
     type FacetLifecycleContext,
     type InterceptContext,
     type InterceptResult,
-    type OperationContext
+    type OperationContext,
+    type OperationInterceptContext
 } from "../../src/operations/runtime";
 
 const objectSchema = new JsonSchema({ type: "object" });
@@ -284,26 +291,27 @@ describe("Facet runtime", () => {
     );
 
     test(
-        "refuses interceptor declarations at unhosted cut points instead of leaving them inert",
+        "[C13-INTERCEPTOR-TURN-HOSTED] admits an interceptor at every Turn-bound cut point and still refuses one with no implementation",
         { tags: "p0" },
         () => {
-            for (const cutPoint of ["prompt.assemble", "input.submitted", "turn.step"] as const) {
+            const admitted: string[] = [];
+            const refused: string[] = [];
+            for (const cutPoint of TURN_BOUND_CUT_POINTS) {
                 const declaration = new InterceptorDeclaration(
-                    new InterceptorId("unhosted"),
+                    new InterceptorId("hosted"),
                     cutPoint,
                     "rewrite",
-                    OperationSelector.own(),
                     1
                 );
-                const pinned = manifest("acme.unhosted", [], [declaration]);
-                const facet = new TestFacet(
-                    "workspace:unhosted",
+                const pinned = manifest("acme.hosted", [], [declaration]);
+                const implemented = new TestFacet(
+                    "workspace:hosted",
                     pinned,
                     [],
                     new Map(),
                     new Map([
                         [
-                            "unhosted",
+                            "hosted",
                             new TestInterceptor(declaration, (value) => ({
                                 proceed: true,
                                 value
@@ -311,17 +319,93 @@ describe("Facet runtime", () => {
                         ]
                     ])
                 );
-                expect(() =>
-                    new FacetCorrespondenceValidator().validate([pinned], [facet])
-                ).toThrowError(
-                    expect.objectContaining({
-                        code: "facet.inactive",
-                        message:
-                            `Interceptor unhosted declares cut point ${cutPoint}, ` +
-                            "which this host does not execute"
-                    })
+                const runtime = new FacetCorrespondenceValidator().validate([pinned], [implemented]);
+                admitted.push(
+                    `${cutPoint}: ${runtime.facets.length} facet(s), interceptor ` +
+                        `${runtime.facets[0]?.interceptor(declaration.id) === undefined ? "absent" : "resolved"}`
                 );
+                // The discriminating half: admission is the host executing these cut points,
+                // not the correspondence check having stopped asking. A declaration with no
+                // implementation behind it is refused at every one of them, exactly as at the
+                // operation cut points.
+                const unimplemented = new TestFacet("workspace:hosted", pinned);
+                try {
+                    new FacetCorrespondenceValidator().validate([pinned], [unimplemented]);
+                    refused.push(`${cutPoint}: ADMITTED`);
+                } catch (error) {
+                    refused.push(
+                        `${cutPoint}: ${error instanceof Error ? error.message : "non-Error refusal"}`
+                    );
+                }
             }
+            expect(admitted).toEqual([
+                "prompt.assemble: 1 facet(s), interceptor resolved",
+                "input.submitted: 1 facet(s), interceptor resolved",
+                "turn.step: 1 facet(s), interceptor resolved"
+            ]);
+            expect(refused).toEqual([
+                "prompt.assemble: Interceptor hosted has no runtime implementation",
+                "input.submitted: Interceptor hosted has no runtime implementation",
+                "turn.step: Interceptor hosted has no runtime implementation"
+            ]);
+        }
+    );
+
+    test(
+        "[C13-INTERCEPTOR-TURN-CONTEXT] refuses an operation selector at a Turn-bound cut point and keeps one at an operation cut point",
+        { tags: "p0" },
+        () => {
+            const outcomes: string[] = [];
+            for (const cutPoint of [
+                "operation.before",
+                "operation.after",
+                ...TURN_BOUND_CUT_POINTS
+            ] as const) {
+                for (const selector of [
+                    OperationSelector.own(),
+                    OperationSelector.own("run"),
+                    new OperationSelector([new OperationPattern("*", new FacetPackageId("acme.other"))])
+                ]) {
+                    let outcome: string;
+                    try {
+                        const declaration = new InterceptorDeclaration(
+                            new InterceptorId("scoped"),
+                            cutPoint,
+                            "gate",
+                            selector,
+                            0
+                        );
+                        outcome = JSON.stringify(declaration.appliesTo.toData());
+                    } catch (error) {
+                        outcome = error instanceof Error ? error.message : "non-Error refusal";
+                    }
+                    outcomes.push(`${cutPoint} ${JSON.stringify(selector.toData())}: ${outcome}`);
+                }
+            }
+            // A Turn-bound cut point has no target Operation, so a selector there names
+            // nothing. The default wildcard is admitted because every declaration carries
+            // one; anything narrower is a scoping claim the cut point cannot honor, and it
+            // is refused rather than silently ignored. The operation cut points keep all
+            // three, so the refusal is about the cut point and not about the selector.
+            const refusal =
+                "A Turn-bound cut point selects no Operation, so its interceptor declares no operation selector";
+            expect(outcomes).toEqual([
+                'operation.before [{"operation":"*"}]: [{"operation":"*"}]',
+                'operation.before [{"operation":"run"}]: [{"operation":"run"}]',
+                'operation.before [{"facet":"acme.other","operation":"*"}]: [{"facet":"acme.other","operation":"*"}]',
+                'operation.after [{"operation":"*"}]: [{"operation":"*"}]',
+                'operation.after [{"operation":"run"}]: [{"operation":"run"}]',
+                'operation.after [{"facet":"acme.other","operation":"*"}]: [{"facet":"acme.other","operation":"*"}]',
+                `prompt.assemble [{"operation":"*"}]: [{"operation":"*"}]`,
+                `prompt.assemble [{"operation":"run"}]: ${refusal}`,
+                `prompt.assemble [{"facet":"acme.other","operation":"*"}]: ${refusal}`,
+                `input.submitted [{"operation":"*"}]: [{"operation":"*"}]`,
+                `input.submitted [{"operation":"run"}]: ${refusal}`,
+                `input.submitted [{"facet":"acme.other","operation":"*"}]: ${refusal}`,
+                `turn.step [{"operation":"*"}]: [{"operation":"*"}]`,
+                `turn.step [{"operation":"run"}]: ${refusal}`,
+                `turn.step [{"facet":"acme.other","operation":"*"}]: ${refusal}`
+            ]);
         }
     );
 
@@ -395,37 +479,29 @@ describe("Facet runtime", () => {
     );
 
     test(
-        "[C13-INTERCEPTOR-MODE-FIDELITY] refuses a gate at every cut point it cannot police rather than admitting it unenforced",
+        "[C13-INTERCEPTOR-MODE-FIDELITY] polices a rewriting gate at every Turn-bound cut point instead of refusing the declaration it could not police",
         { tags: "p0" },
         async () => {
             /**
-             * A gate's read-only claim is enforced where the runner runs, and only the two
-             * operation cut points have a runner. That leaves the question of what happens to
-             * a gate declared at one of the other three — and the answer is not "it is
-             * unevidenced" but "it cannot be admitted", which is what makes the enforcement
-             * total rather than partial. The whole cut point x mode domain is enumerated
-             * because a mode the refusal skipped is exactly the defect.
+             * A gate's read-only claim used to be enforced by refusing the declaration at any
+             * cut point without a runner. All five now have one, so the enforcement is the
+             * stronger property directly: over the whole Turn-bound cut point x mode domain, a
+             * `rewrite` returning a changed value is admitted and traced as rewritten while a
+             * `gate` returning the same changed value is refused by name. Both halves are
+             * needed — the interceptors differ only in declared mode, so a run that admitted
+             * both, or refused both, would be indistinguishable from one that policed neither.
              */
-            const cutPoints = [
-                "operation.before",
-                "operation.after",
-                "prompt.assemble",
-                "input.submitted",
-                "turn.step"
-            ] as const;
-            const run = operationDescriptor("run");
-            const admitted: string[] = [];
-            const refused: string[] = [];
-            for (const cutPoint of cutPoints) {
+            const turn = new TurnId("turn-cut-point");
+            const outcomes: string[] = [];
+            for (const cutPoint of TURN_BOUND_CUT_POINTS) {
                 for (const mode of ["rewrite", "gate"] as const) {
                     const declaration = new InterceptorDeclaration(
                         new InterceptorId("policed"),
                         cutPoint,
                         mode,
-                        OperationSelector.own("run"),
                         0
                     );
-                    const facetManifest = manifest("acme.runtime", [run], [declaration]);
+                    const facetManifest = manifest("acme.runtime", [], [declaration]);
                     const host = new FacetRuntimeHost(
                         [facetManifest],
                         [
@@ -433,54 +509,313 @@ describe("Facet runtime", () => {
                                 "workspace:runtime",
                                 facetManifest,
                                 [],
-                                new Map([["run", new TestOperation(run, async (input) => input)]]),
+                                new Map(),
                                 new Map([
                                     [
                                         "policed",
-                                        new TestInterceptor(declaration, (value) => ({
+                                        new TestInterceptor(declaration, () => ({
                                             proceed: true,
-                                            value
+                                            value: { supervised: true }
                                         }))
                                     ]
                                 ])
                             )
                         ]
                     );
+                    await host.activate();
+                    const runner = new TurnInterceptorRunner(host, new TestTurnDomains());
+                    let outcome: string;
                     try {
-                        await host.activate();
-                        admitted.push(`${cutPoint}/${mode} [facets=${host.facets().length}]`);
+                        const result = runner.run(cutPoint, turn, { supervised: false }, () => {});
+                        outcome =
+                            `admitted ${JSON.stringify(result.value)} ` +
+                            `traces=${result.traces.map((trace) => `${trace.interceptor}:${trace.outcome}`).join(",")}`;
                     } catch (error) {
-                        refused.push(
-                            `${cutPoint}/${mode}: ` +
-                                `${error instanceof Error ? error.message : "non-Error refusal"} ` +
-                                `[active=${host.active} facets=${host.facets().length}]`
-                        );
+                        outcome = error instanceof Error ? error.message : "non-Error refusal";
                     }
+                    outcomes.push(`${cutPoint}/${mode} [facets=${host.facets().length}]: ${outcome}`);
                     await host.dispose();
                 }
             }
-            // Collected across the whole domain and asserted once, so one run reports the
-            // shape of any gap rather than its first edge.
-            expect(admitted).toEqual([
-                "operation.before/rewrite [facets=1]",
-                "operation.before/gate [facets=1]",
-                "operation.after/rewrite [facets=1]",
-                "operation.after/gate [facets=1]"
+            expect(outcomes).toEqual([
+                'prompt.assemble/rewrite [facets=1]: admitted {"supervised":true} traces=policed:rewritten',
+                "prompt.assemble/gate [facets=1]: Interceptor policed blocked prompt.assemble: " +
+                    "A gate interceptor rewrote the value in flight",
+                'input.submitted/rewrite [facets=1]: admitted {"supervised":true} traces=policed:rewritten',
+                "input.submitted/gate [facets=1]: Interceptor policed blocked input.submitted: " +
+                    "A gate interceptor rewrote the value in flight",
+                'turn.step/rewrite [facets=1]: admitted {"supervised":true} traces=policed:rewritten',
+                "turn.step/gate [facets=1]: Interceptor policed blocked turn.step: " +
+                    "A gate interceptor rewrote the value in flight"
             ]);
-            expect(refused).toEqual([
-                "prompt.assemble/rewrite: Interceptor policed declares cut point " +
-                    "prompt.assemble, which this host does not execute [active=false facets=0]",
-                "prompt.assemble/gate: Interceptor policed declares cut point " +
-                    "prompt.assemble, which this host does not execute [active=false facets=0]",
-                "input.submitted/rewrite: Interceptor policed declares cut point " +
-                    "input.submitted, which this host does not execute [active=false facets=0]",
-                "input.submitted/gate: Interceptor policed declares cut point " +
-                    "input.submitted, which this host does not execute [active=false facets=0]",
-                "turn.step/rewrite: Interceptor policed declares cut point " +
-                    "turn.step, which this host does not execute [active=false facets=0]",
-                "turn.step/gate: Interceptor policed declares cut point " +
-                    "turn.step, which this host does not execute [active=false facets=0]"
+        }
+    );
+
+    test(
+        "[C13-INTERCEPTOR-TURN-HOSTED] returns a turn.step refusal as an attributed stop request and blocks the other Turn-bound cut points outright",
+        { tags: "p0" },
+        async () => {
+            /**
+             * §4.4 gives `turn.step` "request stop" and the other two an outright block, and
+             * the two are not the same value. A stop is returned so the Turn can still reach
+             * its own terminal transition under its own lease, and it names the interceptor
+             * that asked; a block on a submission or a prompt throws, because nothing is left
+             * for the caller to decide. Enumerating all three is the point: a runner that
+             * threw everywhere would lose the Turn's ability to wind down, and one that
+             * returned everywhere would let a refused submission become durable history.
+             */
+            const turn = new TurnId("turn-stop");
+            const outcomes: string[] = [];
+            for (const cutPoint of TURN_BOUND_CUT_POINTS) {
+                const declaration = new InterceptorDeclaration(
+                    new InterceptorId("supervisor"),
+                    cutPoint,
+                    "gate",
+                    0
+                );
+                const facetManifest = manifest("acme.supervisor", [], [declaration]);
+                const host = new FacetRuntimeHost(
+                    [facetManifest],
+                    [
+                        new TestFacet(
+                            "workspace:supervisor",
+                            facetManifest,
+                            [],
+                            new Map(),
+                            new Map([
+                                [
+                                    "supervisor",
+                                    new TestInterceptor(declaration, () => ({
+                                        proceed: false,
+                                        reason: "trajectory is repeating"
+                                    }))
+                                ]
+                            ])
+                        )
+                    ]
+                );
+                await host.activate();
+                const runner = new TurnInterceptorRunner(host, new TestTurnDomains());
+                try {
+                    const result = runner.run(cutPoint, turn, { step: 3 }, () => {});
+                    outcomes.push(
+                        `${cutPoint}: returned stop=${JSON.stringify(result.stop)} ` +
+                            `value=${JSON.stringify(result.value)}`
+                    );
+                } catch (error) {
+                    outcomes.push(
+                        `${cutPoint}: threw ${error instanceof AgentCoreError ? error.code : "non-AgentCoreError"} ` +
+                            `${error instanceof Error ? error.message : ""}`
+                    );
+                }
+                await host.dispose();
+            }
+            expect(outcomes).toEqual([
+                "prompt.assemble: threw authority.denied trajectory is repeating",
+                "input.submitted: threw authority.denied trajectory is repeating",
+                'turn.step: returned stop={"interceptor":"supervisor","contributor":"workspace:supervisor",' +
+                    '"reason":"trajectory is repeating"} value={"step":3}'
             ]);
+        }
+    );
+
+    test(
+        "[C13-INTERCEPTOR-TURN-HOSTED] orders two contributing Facets at one Turn-bound cut point by the same banded key as an operation cut point",
+        { tags: "p0" },
+        async () => {
+            /**
+             * Two independently authored Facets at one cut point, with local priorities that
+             * disagree with the declared modes. The banded key runs every `rewrite` ahead of
+             * every `gate` whatever the numbers say, then breaks ties by priority, then
+             * contributor, then interceptor id — and it is the same `orderSchedule` the
+             * operation runner uses, so the Turn-bound cut points cannot drift onto a second
+             * relation that happens to agree today.
+             */
+            const turn = new TurnId("turn-order");
+            const observed: string[] = [];
+            const facets = [
+                { facet: "acme.beta", ref: "workspace:beta", id: "late", mode: "rewrite", priority: 90 },
+                { facet: "acme.alpha", ref: "workspace:alpha", id: "early", mode: "gate", priority: 1 },
+                { facet: "acme.alpha", ref: "workspace:alpha", id: "aardvark", mode: "rewrite", priority: 90 }
+            ] as const;
+            const manifests: FacetManifest[] = [];
+            const runtimes: TestFacet[] = [];
+            for (const entry of facets) {
+                const declaration = new InterceptorDeclaration(
+                    new InterceptorId(entry.id),
+                    "turn.step",
+                    entry.mode,
+                    entry.priority
+                );
+                const existing = manifests.find(
+                    (candidate) => candidate.id.value === entry.facet
+                );
+                const declarations = [
+                    ...(existing === undefined
+                        ? []
+                        : (existing.contributions.get(new SlotName("interceptors")) ?? []).map(
+                              InterceptorDeclaration.fromData
+                          )),
+                    declaration
+                ];
+                const built = manifest(entry.facet, [], declarations);
+                const interceptors = new Map(
+                    declarations.map((value) => [
+                        value.id.value,
+                        new TestInterceptor(value, (carried) => {
+                            observed.push(`${entry.ref}/${value.id.value}/${value.mode}`);
+                            return { proceed: true, value: carried };
+                        })
+                    ])
+                );
+                const index = manifests.findIndex((candidate) => candidate.id.value === entry.facet);
+                const facet = new TestFacet(entry.ref, built, [], new Map(), interceptors);
+                if (index < 0) {
+                    manifests.push(built);
+                    runtimes.push(facet);
+                } else {
+                    manifests[index] = built;
+                    runtimes[index] = facet;
+                }
+            }
+            const host = new FacetRuntimeHost(manifests, runtimes);
+            await host.activate();
+            const runner = new TurnInterceptorRunner(host, new TestTurnDomains());
+            const result = runner.run("turn.step", turn, { step: 0 }, () => {});
+            expect(observed).toEqual([
+                "workspace:alpha/aardvark/rewrite",
+                "workspace:beta/late/rewrite",
+                "workspace:alpha/early/gate"
+            ]);
+            expect(result.traces.map((trace) => trace.interceptor)).toEqual([
+                "aardvark",
+                "late",
+                "early"
+            ]);
+            await host.dispose();
+        }
+    );
+
+    test(
+        "[C13-INTERCEPTOR-DOMAIN-CONFINEMENT] refuses a Turn-bound cut point contributed from another protection domain",
+        { tags: "p0" },
+        async () => {
+            const turn = new TurnId("turn-domain");
+            const declaration = new InterceptorDeclaration(
+                new InterceptorId("foreign"),
+                "turn.step",
+                "gate",
+                0
+            );
+            const facetManifest = manifest("acme.foreign", [], [declaration]);
+            const host = new FacetRuntimeHost(
+                [facetManifest],
+                [
+                    new TestFacet(
+                        "workspace:foreign",
+                        facetManifest,
+                        [],
+                        new Map(),
+                        new Map([
+                            [
+                                "foreign",
+                                new TestInterceptor(declaration, (value) => ({
+                                    proceed: true,
+                                    value
+                                }))
+                            ]
+                        ])
+                    )
+                ]
+            );
+            await host.activate();
+            const elsewhere = new ProtectionDomain("backend", "other-isolate", "may-hold-secrets");
+            const runner = new TurnInterceptorRunner(host, new TestTurnDomains(elsewhere));
+            expect(() => runner.run("turn.step", turn, { step: 0 }, () => {})).toThrowError(
+                expect.objectContaining({
+                    code: "authority.denied",
+                    message:
+                        "Interceptor foreign is contributed from another protection domain"
+                })
+            );
+            // The same schedule in the Turn's own domain runs, so the refusal is about the
+            // domain and not about the cut point having no runner.
+            expect(
+                new TurnInterceptorRunner(host, new TestTurnDomains()).run(
+                    "turn.step",
+                    turn,
+                    { step: 0 },
+                    () => {}
+                ).traces
+            ).toHaveLength(1);
+            await host.dispose();
+        }
+    );
+
+    test(
+        "[C13-INTERCEPTOR-TURN-REWRITE] applies the cut point's rewrite rule to each rewriter's own answer rather than to the final value",
+        { tags: "p0" },
+        async () => {
+            /**
+             * The rule is per-rewriter because the clauses it carries are: an annotation must
+             * name the interceptor that appended it, and a malformed answer must not reach the
+             * next interceptor as though it were well formed. A runner that checked only the
+             * value it ended up with would admit a first rewriter's illegal answer whenever a
+             * second one happened to overwrite it, which is exactly the case asserted here.
+             */
+            const turn = new TurnId("turn-rule");
+            const declarations = [
+                new InterceptorDeclaration(new InterceptorId("first"), "turn.step", "rewrite", 1),
+                new InterceptorDeclaration(new InterceptorId("second"), "turn.step", "rewrite", 2)
+            ];
+            const facetManifest = manifest("acme.rules", [], declarations);
+            const host = new FacetRuntimeHost(
+                [facetManifest],
+                [
+                    new TestFacet(
+                        "workspace:rules",
+                        facetManifest,
+                        [],
+                        new Map(),
+                        new Map([
+                            [
+                                "first",
+                                new TestInterceptor(declarations[0]!, () => ({
+                                    proceed: true,
+                                    value: { forbidden: true }
+                                }))
+                            ],
+                            [
+                                "second",
+                                new TestInterceptor(declarations[1]!, () => ({
+                                    proceed: true,
+                                    value: { allowed: true }
+                                }))
+                            ]
+                        ])
+                    )
+                ]
+            );
+            await host.activate();
+            const runner = new TurnInterceptorRunner(host, new TestTurnDomains());
+            const seen: string[] = [];
+            const rule = (_before: FacetData, after: FacetData): void => {
+                seen.push(JSON.stringify(after));
+                if (isFacetDataMap(after) && after["forbidden"] === true) {
+                    throw new TypeError("this rewrite is not what the cut point admits");
+                }
+            };
+            expect(() => runner.run("turn.step", turn, { step: 0 }, rule)).toThrowError(
+                expect.objectContaining({
+                    code: "authority.denied",
+                    message:
+                        "Interceptor first blocked turn.step: this rewrite is not what the cut point admits"
+                })
+            );
+            // Only the first answer was ever offered to the rule: the refusal stopped the
+            // schedule, so the second rewriter never ran and never overwrote the evidence.
+            expect(seen).toEqual(['{"forbidden":true}']);
+            await host.dispose();
         }
     );
 
@@ -3725,14 +4060,17 @@ describe("Protected Operation gateway", () => {
 
     test("presents the full intercept context to each interceptor", { tags: "p1" }, async () => {
         class ContextProbeInterceptor extends Interceptor {
-            public readonly contexts: InterceptContext[] = [];
+            public readonly contexts: OperationInterceptContext[] = [];
 
             public constructor(public readonly declaration: InterceptorDeclaration) {
                 super();
             }
 
+            // §4.4 narrows the context by `cutPoint`, so the probe records the operation
+            // shape rather than reading `operation` off an undiscriminated handle. A
+            // wrong-shaped context therefore shows up as a missing record, not a cast.
             public intercept(context: InterceptContext, value: FacetData): InterceptResult {
-                this.contexts.push(context);
+                if (context.cutPoint === "operation.before") this.contexts.push(context);
                 return { proceed: true, value };
             }
         }
@@ -4591,6 +4929,23 @@ class TestInterceptor extends Interceptor {
 
     public intercept(_context: InterceptContext, value: FacetData): InterceptResult {
         return this.handler(value);
+    }
+}
+
+/**
+ * Domains for a Turn-bound cut point. The Turn's domain is the host's by default, and a
+ * different one stands in for a contributor placed elsewhere — the only two facts §4.4
+ * rule 1 turns on at these cut points.
+ */
+class TestTurnDomains implements TurnInterceptorDomainPort {
+    public constructor(private readonly turnsRunIn: ProtectionDomain = hostDomain) {}
+
+    public turnDomain(): ProtectionDomain {
+        return this.turnsRunIn;
+    }
+
+    public contributorDomain(): ProtectionDomain {
+        return hostDomain;
     }
 }
 
