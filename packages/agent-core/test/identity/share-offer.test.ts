@@ -6,7 +6,7 @@ import {
     decodeCanonicalJson,
     encodeCanonicalJson,
     isJsonObject,
-    type JsonValue
+    type JsonObject
 } from "../../src/core";
 import {
     GuestVerificationScheme,
@@ -474,8 +474,27 @@ function offerWith(overrides: ShareOfferOverrides): ShareOffer {
     );
 }
 
+/**
+ * A holder the record's own type forbids. `recordedFor` and `ShareOfferRedemption` identify
+ * holders by class, so a Team standing in the holder position is the case they must refuse
+ * rather than answer with whatever an unredeemed Principal is answered with.
+ */
+function forgedHolder<TActual>(value: TActual): ShareOfferHolder {
+    // SAFETY: a Team is not a ShareOfferHolder. The call under test must reject it by class.
+    return value as TActual & ShareOfferHolder;
+}
+
+/**
+ * A presented secret that is not bearer bytes. Redemption compares bytes, so each of the
+ * representations a secret is confused with must be refused before any comparison runs.
+ */
+function forgedSecret<TActual>(value: TActual): Uint8Array {
+    // SAFETY: not bearer secret bytes. Redemption must refuse it before it compares anything.
+    return value as TActual & Uint8Array;
+}
+
 /** An offer's own durable payload, owned by the caller, for corrupting one field of it. */
-function offerPayload(source = offer()): { [field: string]: JsonValue } {
+function offerPayload(source = offer()): JsonObject {
     const envelope = decodeCanonicalJson(ShareOffer.encode(source));
     if (!isJsonObject(envelope)) throw new TypeError("Expected share offer envelope");
     const payload = envelope["payload"];
@@ -483,7 +502,7 @@ function offerPayload(source = offer()): { [field: string]: JsonValue } {
     return { ...payload };
 }
 
-function decodeOfferPayload(payload: { [field: string]: JsonValue }): ShareOffer {
+function decodeOfferPayload(payload: JsonObject): ShareOffer {
     return ShareOffer.decode(
         encodeCanonicalJson({
             kind: "identity.share-offer",
@@ -576,9 +595,7 @@ describe("share offer record integrity", () => {
 
             // A caller that defeats `recordedFor`'s holder type is refused rather than answered
             // with the value an unredeemed Principal is answered with.
-            expect(() => offer().recordedFor(team as unknown as ShareOfferHolder)).toThrow(
-                notAHolder
-            );
+            expect(() => offer().recordedFor(forgedHolder(team))).toThrow(notAHolder);
             expect(offer().recordedFor(holder)).toBeUndefined();
             expect(() => new ShareOfferRedemption(team, mintedMembership, withinWindow)).toThrow(
                 notAHolder
@@ -593,7 +610,7 @@ describe("share offer record integrity", () => {
             const presentable = { subject: holder, membership: mintedMembership, now: withinWindow };
             for (const presented of [secretDigest.value, [...secret], undefined, null]) {
                 const act = (): ShareOfferRedemptionOutcome =>
-                    offer().redeem({ ...presentable, secret: presented as unknown as Uint8Array });
+                    offer().redeem({ ...presentable, secret: forgedSecret(presented) });
                 expect(act).toThrow(TypeError);
                 expect(act).toThrow("Share offer redemption requires bearer secret bytes");
                 // A malformed presentation is not a refusal: it carries no ShareOfferRefusal, so
@@ -609,6 +626,8 @@ describe("share offer record integrity", () => {
         { tags: "p1" },
         () => {
             for (const state of ["closed", "Open", "", "open "]) {
+                // SAFETY: none of these is a ShareOfferState. The record admits exactly two, so
+                // every neighbouring string must be refused rather than stored.
                 expect(() => offerWith({ state: state as ShareOfferState })).toThrow(
                     "Share offer state is invalid"
                 );
@@ -634,10 +653,7 @@ describe("share offer record integrity", () => {
             expect(ShareOfferRedemption.fromData(recorded).redeemedAt).toEqual(withinWindow);
             for (const redeemedAt of [1.5, "1500000", null, Number.MAX_SAFE_INTEGER + 2]) {
                 expect(() =>
-                    ShareOfferRedemption.fromData({
-                        ...recorded,
-                        redeemedAt: redeemedAt as JsonValue
-                    })
+                    ShareOfferRedemption.fromData({ ...recorded, redeemedAt })
                 ).toThrow("Share offer redemption time must be a safe integer");
             }
 

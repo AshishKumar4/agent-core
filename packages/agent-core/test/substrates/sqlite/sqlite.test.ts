@@ -138,8 +138,8 @@ describe("SQLite mutation authority", () => {
             const database = new TestSqlite();
             const owned = ownSqliteMutations(database);
             owned.transaction(() => owned.run(CREATE_ROWS, []));
-            let poisoned: unknown;
-            let rethrown: unknown;
+            let poisoned: AgentCoreError | undefined;
+            let rethrown: AgentCoreError | undefined;
 
             expectRefusal(
                 () =>
@@ -163,8 +163,8 @@ describe("SQLite mutation authority", () => {
             const database = new TestSqlite();
             const owned = ownSqliteMutations(database);
             owned.transaction(() => owned.run(CREATE_ROWS, []));
-            let poisoned: unknown;
-            let rethrown: unknown;
+            let poisoned: AgentCoreError | undefined;
+            let rethrown: AgentCoreError | undefined;
 
             expectRefusal(
                 () =>
@@ -191,11 +191,13 @@ describe("SQLite mutation authority", () => {
     });
 
     test("views of one physical database share exactly one mutation authority", { tags: "p0" }, () => {
-        const identity = {};
-        const first = new SharedIdentitySqlite(identity);
-        const second = new SharedIdentitySqlite(identity);
+        const shared: PhysicalDatabase = { name: "shared" };
+        const first = new SharedIdentitySqlite(shared);
+        const second = new SharedIdentitySqlite(shared);
         expect(hasSameSqliteProvenance(first, second)).toBe(true);
-        expect(hasSameSqliteProvenance(first, new SharedIdentitySqlite({}))).toBe(false);
+        expect(
+            hasSameSqliteProvenance(first, new SharedIdentitySqlite({ name: "other" }))
+        ).toBe(false);
         expect(hasSameSqliteProvenance(first, new AnonymousSqlite())).toBe(false);
 
         const owned = ownSqliteMutations(first);
@@ -268,11 +270,19 @@ class AnonymousSqlite extends TransactionalSqlite {
     }
 }
 
+/**
+ * The physical database two views are views of. Provenance is keyed by reference identity, so
+ * the token carries no data: what matters is that both views name the same one.
+ */
+interface PhysicalDatabase {
+    readonly name: string;
+}
+
 /** Two of these over one identity are two views of the same physical database. */
 class SharedIdentitySqlite extends TransactionalSqlite {
     public readonly written: string[] = [];
 
-    public constructor(identity: object) {
+    public constructor(identity: PhysicalDatabase) {
         const written: string[] = [];
         super({
             read: (): readonly SqliteRow[] => [],
@@ -292,19 +302,18 @@ class SharedIdentitySqlite extends TransactionalSqlite {
     }
 }
 
-function captureFailure(operation: () => void): unknown {
+function captureFailure(operation: () => void): AgentCoreError {
     try {
         operation();
     } catch (error) {
-        return error;
+        if (error instanceof AgentCoreError) return error;
+        throw error;
     }
     throw new TypeError("Expected the SQLite authority to refuse this access");
 }
 
 function expectRefusal(operation: () => void, message: string): void {
     const error = captureFailure(operation);
-    expect(error).toBeInstanceOf(AgentCoreError);
-    if (!(error instanceof AgentCoreError)) return;
     expect(error.code).toBe("protocol.invalid-state");
     expect(error.message).toBe(message);
 }

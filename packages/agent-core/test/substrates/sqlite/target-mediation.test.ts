@@ -772,7 +772,7 @@ function deniedTargetRequest(request: TargetAuthorityPermitRequest): TargetAutho
 }
 
 function expectFailure(
-    operation: () => unknown,
+    operation: () => void,
     code: AgentCoreError["code"],
     message: string
 ): void {

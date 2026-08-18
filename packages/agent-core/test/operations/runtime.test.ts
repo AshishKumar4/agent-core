@@ -943,7 +943,7 @@ describe("Facet runtime", () => {
                 },
                 {
                     id: "answers-outside-the-union",
-                    answer: () => ({ proceed: "yes" }) as unknown as InterceptResult,
+                    answer: () => forgedInterceptResult({ proceed: "yes" }),
                     rule: () => {}
                 },
                 {
@@ -5576,6 +5576,17 @@ function requireObject(value: FacetData): { readonly [key: string]: FacetData } 
         throw new TypeError("Expected object data");
     }
     return value;
+}
+
+/**
+ * An answer outside the declared InterceptResult union. Third-party interceptor code is not
+ * bound by the type, so the runner has to refuse a shape it never declared rather than read
+ * `proceed` as a decision.
+ */
+function forgedInterceptResult<TActual>(value: TActual): InterceptResult {
+    // SAFETY: not an InterceptResult. The runner must attribute a refusal to the interceptor
+    // instead of letting an undeclared shape stand as the value in flight.
+    return value as TActual & InterceptResult;
 }
 
 function facetRef(value: string): FacetRef {

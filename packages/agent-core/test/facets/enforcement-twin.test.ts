@@ -35,16 +35,20 @@ const CONDITIONS: readonly Condition[] = [
     { turnOwnedSession: true, sessionFilesystemTarget: true }
 ];
 
+/** `satisfies` keys this by `Impact`, so a new impact fails to compile rather than going untested. */
+type SpecAdmission = Record<Impact, (condition: Condition) => boolean>;
+
 // SPEC §7.2: `observe` is always direct; `execute` only inside a Turn-owned Session; `mutate` only
 // against that Session's own filesystem; `externalSend`, `delegate` and `administer` never are.
-const ADMITS_DIRECT: Record<Impact, (condition: Condition) => boolean> = {
-    observe: () => true,
-    execute: (condition) => condition.turnOwnedSession,
-    mutate: (condition) => condition.turnOwnedSession && condition.sessionFilesystemTarget,
-    externalSend: () => false,
-    delegate: () => false,
-    administer: () => false
-};
+const ADMITS_DIRECT = {
+    observe: (_condition: Condition): boolean => true,
+    execute: (condition: Condition): boolean => condition.turnOwnedSession,
+    mutate: (condition: Condition): boolean =>
+        condition.turnOwnedSession && condition.sessionFilesystemTarget,
+    externalSend: (_condition: Condition): boolean => false,
+    delegate: (_condition: Condition): boolean => false,
+    administer: (_condition: Condition): boolean => false
+} satisfies SpecAdmission;
 
 const specFloor = (impact: Impact, condition: Condition): EnforcementTier =>
     ADMITS_DIRECT[impact](condition) ? "direct" : "mediated";

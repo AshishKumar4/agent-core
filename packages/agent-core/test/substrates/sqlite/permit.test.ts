@@ -1413,7 +1413,7 @@ function expectExactFailure(
     throw new TypeError(`Expected AgentCoreError ${code}`);
 }
 
-function expectExactTypeError(operation: () => unknown, message: string): void {
+function expectExactTypeError(operation: () => void, message: string): void {
     try {
         operation();
     } catch (error) {
