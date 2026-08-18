@@ -15,7 +15,7 @@ import {
 import { forged, requireObject } from "./record-data";
 
 describe("four-set placement", () => {
-    test("[C13-PLACEMENT-INTERSECTION] matches the exact reference intersection and preference for all 8^4 source combinations", { tags: "p1" }, () => {
+    test("[C13-PLACEMENT-INTERSECTION] [C13-PLACEMENT-ORDER] matches the exact reference intersection and preference for all 8^4 source combinations", { tags: "p1" }, () => {
         let combinations = 0;
         for (let manifest = 0; manifest < 8; manifest += 1) {
             for (let policy = 0; policy < 8; policy += 1) {

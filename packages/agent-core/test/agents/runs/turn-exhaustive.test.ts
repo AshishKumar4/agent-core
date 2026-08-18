@@ -179,7 +179,7 @@ describe("Turn aggregate exhaustive behavior", () => {
 });
 
 describe("checkpoint and inbox codecs", () => {
-    it("round-trips tree and no-tree checkpoints and rejects cursor shape", { tags: "p1" }, () => {
+    it("[C13-RUN-CHECKPOINT-KINDS] round-trips tree and no-tree checkpoints and rejects cursor shape", { tags: "p1" }, () => {
         const withTree = new RunCheckpoint(
             new RunCheckpointId("with-tree"),
             ids.turn,

@@ -196,7 +196,7 @@ describe("TenantAuthorityRuntime hard gates", () => {
         }
     );
 
-    test("checks Team closure and rejects foreign identity substitution", { tags: "p0" }, () => {
+    test("[C13-AUTH-TEAM-SUBJECT] checks Team closure and rejects foreign identity substitution", { tags: "p0" }, () => {
         const store = new FakeAuthorityStore();
         store.principalRecord = new Principal(principalId, "user", "active");
         const team = new Team(

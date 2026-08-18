@@ -12,10 +12,10 @@
       "sourceSymbols": ["src/protocol/dispatcher.ts#CommandDispatcher"],
       "testSelectors": [
         "test/actors/actor.test.ts#Memory ActorStore contract [C13-ADV-COMMAND-REJECTIONS] rejects commands after close and invalidates the durable fence",
-        "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects a missing caller cause before content and replays its identity",
-        "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects expired and forbidden lease tokens",
-        "test/protocol/dispatcher.test.ts#byte limit validation names the failing limit exactly",
-        "test/protocol/dispatcher.test.ts#rejects an envelope beyond the configured byte limit"
+        "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-ADV-COMMAND-REJECTIONS] rejects a missing caller cause before content and replays its identity",
+        "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-ADV-COMMAND-REJECTIONS] rejects expired required lease tokens",
+        "test/protocol/dispatcher.test.ts#[C13-ADV-COMMAND-REJECTIONS] byte limit validation names the failing limit exactly",
+        "test/protocol/dispatcher.test.ts#[C13-ADV-COMMAND-REJECTIONS] rejects an envelope beyond the configured byte limit"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -30,9 +30,9 @@
       "sourceSymbols": ["src/core/codec.ts#RecordCodec"],
       "testSelectors": [
         "test/content/memory.test.ts#MemoryContentStore records [C13-CODEC-VERSIONING] round-trips stat and owner-edge records through versioned codecs",
-        "test/core/codec.test.ts#Canonical codecs decodes and upcasts an older minor in the same major",
-        "test/core/codec.test.ts#Canonical codecs rejects an unknown major with its typed error",
-        "test/core/codec.test.ts#Canonical codecs rejects future minor versions and unknown envelope fields"
+        "test/core/codec.test.ts#Canonical codecs [C13-CODEC-VERSIONING] decodes and upcasts an older minor in the same major",
+        "test/core/codec.test.ts#Canonical codecs [C13-CODEC-VERSIONING] rejects an unknown major with its typed error",
+        "test/core/codec.test.ts#Canonical codecs [C13-CODEC-VERSIONING] rejects future minor versions and unknown envelope fields"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -125,8 +125,8 @@
       "sourceSymbols": ["src/protocol/dispatcher.ts#CommandDispatcher"],
       "testSelectors": [
         "test/protocol/codec.test.ts#CommandEnvelope codec [C13-PROTOCOL-EXACT-ENVELOPE] [command-envelope] round-trips absent optional fields and every Actor caller kind",
-        "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant",
-        "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant"
+        "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-PROTOCOL-EXACT-ENVELOPE] preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant",
+        "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) [C13-PROTOCOL-EXACT-ENVELOPE] preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

@@ -451,7 +451,7 @@ describe("W5 adversarial invariants", () => {
     });
 
     it(
-        "[C13-ADV-WRONG-TURN-LEASE] rejects undo while a branch Turn holds an unexpired lease",
+        "[C13-ADV-WRONG-TURN-LEASE] [C13-RUN-UNDO-FENCE] rejects undo while a branch Turn holds a lease, unexpired or expired",
         { tags: "p0" },
         () => {
             const value = runningHarness();
@@ -1037,7 +1037,7 @@ describe("W5 adversarial invariants", () => {
         ).toThrow(/evidence/);
     });
 
-    it("permits unary commits to carry an independent tree checkpoint", { tags: "p1" }, () => {
+    it("[C13-RUN-CHECKPOINT-KINDS] permits unary commits to carry an independent tree checkpoint", { tags: "p1" }, () => {
         const token = { turn: ids.turn, holder: ids.holder, epoch: 1 };
         const commit = new RunCommit({
             id: new RunCommitId("tree-message"),

@@ -305,7 +305,7 @@ describe("W9 internal typed composition", () => {
     );
 
     test(
-        "rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission",
+        "[C13-AUTH-PRINCIPAL-REF] rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission",
         { tags: "p0" },
         async () => {
             const state = new AuthorityState();

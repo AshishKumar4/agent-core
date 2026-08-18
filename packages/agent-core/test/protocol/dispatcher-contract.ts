@@ -114,7 +114,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
                     }).id
             ]
         ])(
-            "rejects a %s caller cause before content and replays its identity",
+            "[C13-ADV-COMMAND-REJECTIONS] rejects a %s caller cause before content and replays its identity",
             { tags: "p0" },
             async (name, createCause) => {
                 const harness = create();
@@ -977,7 +977,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
         });
 
         test(
-            "preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant",
+            "[C13-PROTOCOL-EXACT-ENVELOPE] preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant",
             { tags: "p0" },
             async () => {
                 const harness = create({ lease: "required" });
@@ -1013,7 +1013,7 @@ export function counterDispatcherContract(name: string, create: CounterFixtureFa
             }
         );
 
-        test("rejects expired required lease tokens", { tags: "p0" }, async () => {
+        test("[C13-ADV-COMMAND-REJECTIONS] rejects expired required lease tokens", { tags: "p0" }, async () => {
             const required = create({ lease: "required" });
             const expired = required.setLease({ expiresAt: new Date("2026-07-07T11:59:59.000Z") });
             expect((await required.dispatch(required.envelope({ lease: expired }))).outcome).toBe(

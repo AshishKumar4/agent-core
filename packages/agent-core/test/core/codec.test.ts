@@ -542,7 +542,7 @@ describe("Canonical codecs", () => {
         );
     });
 
-    test("decodes and upcasts an older minor in the same major", { tags: "p2" }, () => {
+    test("[C13-CODEC-VERSIONING] decodes and upcasts an older minor in the same major", { tags: "p2" }, () => {
         const older = encodeCanonicalJson({
             kind: "test.fixture",
             payload: { label: "legacy" },
@@ -610,7 +610,7 @@ describe("Canonical codecs", () => {
         }
     });
 
-    test("rejects an unknown major with its typed error", { tags: "p2" }, () => {
+    test("[C13-CODEC-VERSIONING] rejects an unknown major with its typed error", { tags: "p2" }, () => {
         const future = encodeCanonicalJson({
             kind: "test.fixture",
             payload: { enabled: true, label: "future" },
@@ -631,7 +631,7 @@ describe("Canonical codecs", () => {
         );
     });
 
-    test("rejects future minor versions and unknown envelope fields", { tags: "p2" }, () => {
+    test("[C13-CODEC-VERSIONING] rejects future minor versions and unknown envelope fields", { tags: "p2" }, () => {
         const futureMinor = encodeCanonicalJson({
             kind: "test.fixture",
             payload: { enabled: true, label: "future" },

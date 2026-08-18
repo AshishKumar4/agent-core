@@ -1090,7 +1090,7 @@ describe("suspension guards", () => {
         );
     });
 
-    test("rejects each checkpoint and commit mismatch individually", { tags: "p0" }, () => {
+    test("[C13-RUN-CHECKPOINT-KINDS] rejects each checkpoint and commit mismatch individually", { tags: "p0" }, () => {
         const cases: readonly ((fixture: ReturnType<typeof suspendFixture>) => Partial<{
             commit: RunCommit;
             checkpoint: RunCheckpoint;
@@ -1223,7 +1223,7 @@ describe("suspension guards", () => {
         );
     });
 
-    test("suspends with matching absent tree checkpoints", { tags: "p0" }, () => {
+    test("[C13-RUN-CHECKPOINT-KINDS] suspends with matching absent tree checkpoints", { tags: "p0" }, () => {
         const fixture = suspendFixture();
         suspend(fixture);
         const suspended = fixture.value.repository.transaction((tx) =>
@@ -1239,7 +1239,7 @@ describe("suspension guards", () => {
         ).toBeDefined();
     });
 
-    test("suspends with matching present tree checkpoints", { tags: "p0" }, () => {
+    test("[C13-RUN-CHECKPOINT-KINDS] suspends with matching present tree checkpoints", { tags: "p0" }, () => {
         const fixture = suspendFixture(content("7"));
         suspend(fixture);
         const suspended = fixture.value.repository.transaction((tx) =>
@@ -1449,7 +1449,7 @@ describe("append guards", () => {
         );
     });
 
-    test("non-migration commits must inherit the parent pins", { tags: "p0" }, () => {
+    test("[C13-RUN-MIGRATED-TURN-REJECTION] non-migration commits must inherit the parent pins", { tags: "p0" }, () => {
         const value = seedRunningTurn();
         expectCode(
             () =>

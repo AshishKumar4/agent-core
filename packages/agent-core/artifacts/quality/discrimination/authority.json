@@ -490,7 +490,7 @@
         188
       ]
     },
-    "test/authority/hard-gates.test.ts#Binding and epoch hard gates enforces exact path and watermark invariants": {
+    "test/authority/hard-gates.test.ts#Binding and epoch hard gates [C13-AUTH-DIRECT-WATERMARK] enforces exact path and watermark invariants": {
       "src/authority/epoch.ts": [
         34,
         56,
@@ -554,7 +554,7 @@
         302
       ]
     },
-    "test/authority/hard-gates.test.ts#Grant and authority identifier hard gates strictly validates Grant construction and replacement": {
+    "test/authority/hard-gates.test.ts#Grant and authority identifier hard gates [C13-AUTH-DENY-PATH] strictly validates Grant construction and replacement": {
       "src/authority/grant.ts": [
         48,
         112,
@@ -777,7 +777,7 @@
         79
       ]
     },
-    "test/authority/materializer.test.ts#RoleGrantMaterializer rejects handshake as a steady-state guest verification scheme": {
+    "test/authority/materializer.test.ts#RoleGrantMaterializer [C13-AUTH-GUEST-HANDSHAKE-BOOTSTRAP] rejects handshake as a steady-state guest verification scheme": {
       "src/authority/materializer.ts": [
         48,
         53
@@ -1775,7 +1775,7 @@
         301
       ]
     },
-    "test/authority/model.test.ts#authority value records [authority.invalidation-watermark] joins qualified Actor-local watermarks monotonically": {
+    "test/authority/model.test.ts#authority value records [C13-AUTH-WATERMARK-MONOTONE] [authority.invalidation-watermark] joins qualified Actor-local watermarks monotonically": {
       "src/authority/epoch.ts": [
         43
       ]
@@ -2821,7 +2821,7 @@
         57
       ]
     },
-    "test/authority/permit.test.ts#AuthorityPermit rejects a lease holder with the same PrincipalId from another Tenant": {
+    "test/authority/permit.test.ts#AuthorityPermit [C13-AUTH-PRINCIPAL-REF] rejects a lease holder with the same PrincipalId from another Tenant": {
       "src/authority/permit.ts": [
         173,
         174
@@ -3189,7 +3189,7 @@
         142
       ]
     },
-    "test/authority/runtime-epoch-mutation-gates.test.ts#Scope epoch and path evidence mutation gates accepts every canonical Scope chain and rejects malformed paths with exact reasons": {
+    "test/authority/runtime-epoch-mutation-gates.test.ts#Scope epoch and path evidence mutation gates [C13-AUTH-PATH-ORDER] accepts every canonical Scope chain and rejects malformed paths with exact reasons": {
       "src/authority/epoch.ts": [
         295,
         296,
@@ -3345,7 +3345,7 @@
         185
       ]
     },
-    "test/authority/runtime-foundation.test.ts#Tenant authority runtime returns current path evidence and detects stale evidence": {
+    "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-AUTH-MEDIATED-STALE] returns current path evidence and detects stale evidence": {
       "src/authority/runtime.ts": [
         99
       ]
@@ -3397,7 +3397,7 @@
         245
       ]
     },
-    "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates checks Team closure and rejects foreign identity substitution": {
+    "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates [C13-AUTH-TEAM-SUBJECT] checks Team closure and rejects foreign identity substitution": {
       "src/authority/runtime.ts": [
         132,
         133,

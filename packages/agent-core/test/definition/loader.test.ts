@@ -37,7 +37,7 @@ const target = new PlatformCompatibility({ spec: new SemVer("1.0.0"), host: new 
 
 describe("production Blueprint validation-before-load", () => {
     test(
-        "does not resolve or evaluate code when config validation fails",
+        "[C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] does not resolve or evaluate code when config validation fails",
         { tags: "p0" },
         async () => {
             const fixture = packageFixture();

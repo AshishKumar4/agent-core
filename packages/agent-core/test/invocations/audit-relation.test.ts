@@ -311,7 +311,7 @@ describe("complete local AuditKind relation", () => {
         for (const bytes of rejects) expect(() => AuditRecord.decode(bytes)).toThrow();
     });
 
-    test("[C13-EFFECT-WRITE-AHEAD] rejects structurally permitted edges with substituted domain evidence", { tags: "p0" }, () => {
+    test("[C13-AUDIT-EDGE-RELATION] rejects structurally permitted edges with substituted domain evidence", { tags: "p0" }, () => {
         const graph = fixture();
         const lookup: AuditRecordLookup = {
             get: (id) => (id.equals(graph.projected.id) ? graph.projected : undefined)

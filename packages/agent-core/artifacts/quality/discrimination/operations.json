@@ -1107,7 +1107,7 @@
         527
       ]
     },
-    "test/operations/runtime.test.ts#Protected Operation gateway binds payload shape into direct and mediated identities and returns replay without rerunning interceptors": {
+    "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-FROZEN-RETRY] binds payload shape into direct and mediated identities and returns replay without rerunning interceptors": {
       "src/operations/gateway.ts": [
         350,
         369,
@@ -1154,7 +1154,7 @@
         68
       ]
     },
-    "test/operations/runtime.test.ts#Protected Operation gateway executes direct only after synchronous authorization and rejects hidden handlers": {
+    "test/operations/runtime.test.ts#Protected Operation gateway [C13-FACET-INSTALL-VERIFICATION] executes direct only after synchronous authorization and rejects hidden handlers": {
       "src/operations/gateway.ts": [
         230,
         260,

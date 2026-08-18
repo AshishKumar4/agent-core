@@ -50,7 +50,7 @@
       "sourceSymbols": ["src/definition/materializer.ts#LocalMaterializer"],
       "testSelectors": [
         "test/definition/materialization-memory.test.ts#MemoryMaterializationStore persistence [C13-BLUEPRINT-REMATERIALIZE] [definition.blueprint] [definition.materialization-plan] [definition.managed-state] [definition.materialization-generation] [definition.materialization-generation-pointer] restores a detached deterministic snapshot and clones all generation history",
-        "test/definition/materialize-blueprint.test.ts#complete Blueprint materialization re-applying an unchanged Blueprint reconciles to a semantic no-op"
+        "test/definition/materialize-blueprint.test.ts#complete Blueprint materialization [C13-BLUEPRINT-REMATERIALIZE] re-applying an unchanged Blueprint reconciles to a semantic no-op"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -64,7 +64,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/definition/materializer.ts#LocalMaterializer"],
       "testSelectors": [
-        "test/definition/materializer.test.ts#same-Actor additive materialization fails closed on unknown RunPins evidence without advancing local state",
+        "test/definition/materializer.test.ts#same-Actor additive materialization [C13-BLUEPRINT-RUN-PINS] fails closed on unknown RunPins evidence without advancing local state",
         "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-RUN-PINS] requires the exact PackageLock closure and pin metadata"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
@@ -87,7 +87,7 @@
         "src/definition/validator.ts#validateCoreContribution"
       ],
       "testSelectors": [
-        "test/definition/loader.test.ts#production Blueprint validation-before-load does not resolve or evaluate code when config validation fails",
+        "test/definition/loader.test.ts#production Blueprint validation-before-load [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] does not resolve or evaluate code when config validation fails",
         "test/definition/validation.test.ts#Blueprint validation [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] validates every core contribution kind before loading Package code"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
@@ -232,7 +232,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/definition/placement.ts#selectPlacement"],
       "testSelectors": [
-        "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-INTERSECTION] matches the exact reference intersection and preference for all 8^4 source combinations"
+        "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-INTERSECTION] [C13-PLACEMENT-ORDER] matches the exact reference intersection and preference for all 8^4 source combinations"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -250,7 +250,7 @@
       ],
       "testSelectors": [
         "test/definition/loader.test.ts#production Blueprint validation-before-load [C13-PLACEMENT-ORDER] passes detached verified bytes to one selected evaluator in canonical order",
-        "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-INTERSECTION] matches the exact reference intersection and preference for all 8^4 source combinations"
+        "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-INTERSECTION] [C13-PLACEMENT-ORDER] matches the exact reference intersection and preference for all 8^4 source combinations"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -348,7 +348,7 @@
       "sourceSymbols": ["src/definition/policy.ts#evaluatePolicy"],
       "testSelectors": [
         "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] raises every non-bundled direct call without changing placement",
-        "test/definition/policy.test.ts#pure policy floors never lowers a floor across every impact, placement, and policy tier"
+        "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] never lowers a floor across every impact, placement, and policy tier"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

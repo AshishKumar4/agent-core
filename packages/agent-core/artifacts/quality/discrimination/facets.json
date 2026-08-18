@@ -477,7 +477,7 @@
         121
       ]
     },
-    "test/agents/runs/executor.test.ts#TurnExecutor seam observes exact takeover cancellation and fences every effectful handle": {
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] observes exact takeover cancellation and fences every effectful handle": {
       "src/facets/data.ts": [
         111
       ],
@@ -668,7 +668,7 @@
         121
       ]
     },
-    "test/agents/runs/foundation.test.ts#Agent and Run records rejects duplicate package IDs and nonpreferred placement": {
+    "test/agents/runs/foundation.test.ts#Agent and Run records [C13-RUN-PINS-VALIDITY] rejects duplicate package IDs and nonpreferred placement": {
       "src/facets/id.ts": [
         12,
         111,
@@ -2118,7 +2118,7 @@
         117
       ]
     },
-    "test/authority/hard-gates.test.ts#Grant and authority identifier hard gates strictly validates Grant construction and replacement": {
+    "test/authority/hard-gates.test.ts#Grant and authority identifier hard gates [C13-AUTH-DENY-PATH] strictly validates Grant construction and replacement": {
       "src/facets/capability.ts": [
         29,
         30,
@@ -2329,7 +2329,7 @@
         117
       ]
     },
-    "test/authority/materializer.test.ts#RoleGrantMaterializer rejects handshake as a steady-state guest verification scheme": {
+    "test/authority/materializer.test.ts#RoleGrantMaterializer [C13-AUTH-GUEST-HANDSHAKE-BOOTSTRAP] rejects handshake as a steady-state guest verification scheme": {
       "src/facets/capability.ts": [
         29,
         30,
@@ -7996,7 +7996,7 @@
         23
       ]
     },
-    "test/authority/permit.test.ts#AuthorityPermit rejects a lease holder with the same PrincipalId from another Tenant": {
+    "test/authority/permit.test.ts#AuthorityPermit [C13-AUTH-PRINCIPAL-REF] rejects a lease holder with the same PrincipalId from another Tenant": {
       "src/facets/id.ts": [
         4,
         12,
@@ -9334,7 +9334,7 @@
         23
       ]
     },
-    "test/authority/runtime-foundation.test.ts#Tenant authority runtime returns current path evidence and detects stale evidence": {
+    "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-AUTH-MEDIATED-STALE] returns current path evidence and detects stale evidence": {
       "src/facets/capability.ts": [
         29,
         30,
@@ -9526,7 +9526,7 @@
         23
       ]
     },
-    "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates checks Team closure and rejects foreign identity substitution": {
+    "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates [C13-AUTH-TEAM-SUBJECT] checks Team closure and rejects foreign identity substitution": {
       "src/facets/capability.ts": [
         29,
         30,
@@ -11743,7 +11743,7 @@
         134
       ]
     },
-    "test/composition/authority-membrane.test.ts#Tenant operation authority membrane direct authorization stamps the exact resolution identity and operation digests": {
+    "test/composition/authority-membrane.test.ts#Tenant operation authority membrane [C13-AUTH-RESOLUTION-LIFETIME] direct authorization stamps the exact resolution identity and operation digests and ends direct admission at the resolution deadline": {
       "src/facets/capability.ts": [
         86,
         88,
@@ -12363,7 +12363,7 @@
         23
       ]
     },
-    "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt": {
+    "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] [C13-AUTH-RESOLUTION-LIFETIME] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt": {
       "src/facets/capability.ts": [
         69,
         131,
@@ -12907,7 +12907,7 @@
         23
       ]
     },
-    "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt": {
+    "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] [C13-AUTH-RESOLUTION-LIFETIME] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt": {
       "src/facets/capability.ts": [
         69,
         131,
@@ -15144,7 +15144,7 @@
         71
       ]
     },
-    "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence": {
+    "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) [C13-AUTH-MEDIATED-STALE] advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence": {
       "src/facets/capability.ts": [
         69,
         72,
@@ -16361,7 +16361,7 @@
         194
       ]
     },
-    "test/definition/loader.test.ts#production Blueprint validation-before-load does not resolve or evaluate code when config validation fails": {
+    "test/definition/loader.test.ts#production Blueprint validation-before-load [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] does not resolve or evaluate code when config validation fails": {
       "src/facets/contribution.ts": [
         236,
         257,
@@ -17548,7 +17548,7 @@
         122
       ]
     },
-    "test/definition/materialize-blueprint.test.ts#complete Blueprint materialization re-applying an unchanged Blueprint reconciles to a semantic no-op": {
+    "test/definition/materialize-blueprint.test.ts#complete Blueprint materialization [C13-BLUEPRINT-REMATERIALIZE] re-applying an unchanged Blueprint reconciles to a semantic no-op": {
       "src/facets/automation.ts": [
         36,
         47,
@@ -31668,7 +31668,7 @@
         23
       ]
     },
-    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission": {
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition [C13-AUTH-PRINCIPAL-REF] rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission": {
       "src/facets/capability.ts": [
         69,
         72,
@@ -37499,7 +37499,7 @@
         111
       ]
     },
-    "test/invocations/reconciliation.test.ts#InvocationReconciler concurrent reconciliation records one authoritative final lineage": {
+    "test/invocations/reconciliation.test.ts#InvocationReconciler [C13-EFFECT-SUPERSEDING-RECEIPT] concurrent reconciliation records one authoritative final lineage": {
       "src/facets/contribution.ts": [
         113,
         120
@@ -46608,7 +46608,7 @@
         107
       ]
     },
-    "test/operations/runtime.test.ts#Protected Operation gateway binds payload shape into direct and mediated identities and returns replay without rerunning interceptors": {
+    "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-FROZEN-RETRY] binds payload shape into direct and mediated identities and returns replay without rerunning interceptors": {
       "src/facets/contribution.ts": [
         81,
         88,
@@ -47177,7 +47177,7 @@
         107
       ]
     },
-    "test/operations/runtime.test.ts#Protected Operation gateway executes direct only after synchronous authorization and rejects hidden handlers": {
+    "test/operations/runtime.test.ts#Protected Operation gateway [C13-FACET-INSTALL-VERIFICATION] executes direct only after synchronous authorization and rejects hidden handlers": {
       "src/facets/contribution.ts": [
         81,
         88,

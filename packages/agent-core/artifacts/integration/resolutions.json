@@ -2464,7 +2464,7 @@
         "tree": "fd32865cc559459b7ff45c358d5a7a8e6a8a5b54",
         "rationale": "The protected gateway and closed Slot command runtime enforce the requested W3 boundaries.",
         "tests": [
-          "test/operations/runtime.test.ts#Protected Operation gateway executes direct only after synchronous authorization and rejects hidden handlers"
+          "test/operations/runtime.test.ts#Protected Operation gateway [C13-FACET-INSTALL-VERIFICATION] executes direct only after synchronous authorization and rejects hidden handlers"
         ],
         "checks": [],
         "artifacts": [
@@ -2492,7 +2492,7 @@
               "packages/agent-core/test/operations/runtime.test.ts"
             ],
             "tests": [
-              "test/operations/runtime.test.ts#Protected Operation gateway executes direct only after synchronous authorization and rejects hidden handlers"
+              "test/operations/runtime.test.ts#Protected Operation gateway [C13-FACET-INSTALL-VERIFICATION] executes direct only after synchronous authorization and rejects hidden handlers"
             ],
             "checks": []
           }
@@ -4329,7 +4329,7 @@
           "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition captures exact reserved-minus-completed Run frontier across restart and close races",
           "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] hosts a model call only inside the exact live Turn and commits its complete output",
           "test/agents/runs/executor.test.ts#TurnExecutor seam adapts one exact bound tool to the existing mediated OperationGateway and disposes it",
-          "test/agents/runs/executor.test.ts#TurnExecutor seam observes exact takeover cancellation and fences every effectful handle",
+          "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] observes exact takeover cancellation and fences every effectful handle",
           "test/agents/runs/executor.test.ts#TurnExecutor seam atomically suspends with the canonical checkpoint and recovers it after restart",
           "test/agents/runs/executor.test.ts#TurnExecutor seam recovers a committed result when the executor crashes before returning and never reruns it",
           "test/agents/runs/executor.test.ts#TurnExecutor seam recovers only the terminal result matching the Turn outcome",
@@ -4565,7 +4565,7 @@
             "tests": [
               "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] hosts a model call only inside the exact live Turn and commits its complete output",
               "test/agents/runs/executor.test.ts#TurnExecutor seam adapts one exact bound tool to the existing mediated OperationGateway and disposes it",
-              "test/agents/runs/executor.test.ts#TurnExecutor seam observes exact takeover cancellation and fences every effectful handle",
+              "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] observes exact takeover cancellation and fences every effectful handle",
               "test/agents/runs/executor.test.ts#TurnExecutor seam atomically suspends with the canonical checkpoint and recovers it after restart",
               "test/agents/runs/executor.test.ts#TurnExecutor seam recovers a committed result when the executor crashes before returning and never reruns it",
               "test/agents/runs/executor.test.ts#TurnExecutor seam recovers only the terminal result matching the Turn outcome",

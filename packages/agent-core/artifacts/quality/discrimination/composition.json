@@ -468,7 +468,7 @@
         573
       ]
     },
-    "test/composition/authority-membrane.test.ts#Tenant operation authority membrane direct authorization stamps the exact resolution identity and operation digests": {
+    "test/composition/authority-membrane.test.ts#Tenant operation authority membrane [C13-AUTH-RESOLUTION-LIFETIME] direct authorization stamps the exact resolution identity and operation digests and ends direct admission at the resolution deadline": {
       "src/composition/authority.ts": [
         168,
         175,
@@ -650,7 +650,7 @@
         573
       ]
     },
-    "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt": {
+    "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] [C13-AUTH-RESOLUTION-LIFETIME] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt": {
       "src/composition/authority-state.ts": [
         206
       ],
@@ -1416,7 +1416,7 @@
         119
       ]
     },
-    "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence": {
+    "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) [C13-AUTH-MEDIATED-STALE] advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence": {
       "src/composition/authority.ts": [
         394
       ]
@@ -1460,7 +1460,7 @@
         527
       ]
     },
-    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission": {
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition [C13-AUTH-PRINCIPAL-REF] rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission": {
       "src/composition/authority.ts": [
         391,
         513

@@ -396,7 +396,7 @@ describe("RoleGrantMaterializer", () => {
         }
     );
 
-    test("rejects handshake as a steady-state guest verification scheme", { tags: "p0" }, () => {
+    test("[C13-AUTH-GUEST-HANDSHAKE-BOOTSTRAP] rejects handshake as a steady-state guest verification scheme", { tags: "p0" }, () => {
         const guest = SubjectRef.foreign(
             tenantId,
             otherPrincipalId,

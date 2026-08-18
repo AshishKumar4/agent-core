@@ -220,7 +220,7 @@ describe("InvocationReconciler", () => {
     );
 
     test(
-        "[C13-EFFECT-RECONCILIATION] re-queries the exact indeterminate attempt and appends one final lineage",
+        "[C13-EFFECT-RECONCILIATION] [C13-EFFECT-WRITE-AHEAD] re-queries the exact indeterminate attempt and appends one final lineage",
         { tags: "p0" },
         async () => {
             const harness = new CanonicalBatchHarness(false);
@@ -471,7 +471,7 @@ describe("InvocationReconciler", () => {
     );
 
     test(
-        "concurrent reconciliation records one authoritative final lineage",
+        "[C13-EFFECT-SUPERSEDING-RECEIPT] concurrent reconciliation records one authoritative final lineage",
         { tags: "p0" },
         async () => {
             for (const contradictory of [false, true]) {

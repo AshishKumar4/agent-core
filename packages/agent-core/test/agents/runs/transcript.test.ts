@@ -776,7 +776,7 @@ describe("Run effective transcript, rewrite bracket, and cut balance", () => {
     );
 
     it(
-        "[C13-WRITER-MATRIX] admits a rewrite only on the evidence its form requires",
+        "[C13-WRITER-MATRIX] [C13-RUN-REWRITE-BRACKET] admits a rewrite only on the evidence its form requires",
         { tags: "p0" },
         () => {
             const { value, commits } = chain(2);

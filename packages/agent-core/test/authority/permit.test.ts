@@ -720,7 +720,7 @@ test("memory permit transactions do not expose mutable scope state", { tags: "p0
 
 describe("AuthorityPermit", () => {
     test(
-        "rejects a lease holder with the same PrincipalId from another Tenant",
+        "[C13-AUTH-PRINCIPAL-REF] rejects a lease holder with the same PrincipalId from another Tenant",
         { tags: "p0" },
         () => {
             expect(() =>

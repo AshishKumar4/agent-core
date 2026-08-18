@@ -53,7 +53,7 @@ import {
 
 describe("Agent and Run records", () => {
     it(
-        "[C13-RUN-PINS-VALIDITY] round-trips authoritative source revisions and canonical pins",
+        "[C13-RUN-PINS-SOURCES] round-trips authoritative source revisions and canonical pins",
         { tags: "p1" },
         () => {
             const sources = sourceRecords();
@@ -91,7 +91,7 @@ describe("Agent and Run records", () => {
         }
     );
 
-    it("rejects duplicate package IDs and nonpreferred placement", { tags: "p1" }, () => {
+    it("[C13-RUN-PINS-VALIDITY] rejects duplicate package IDs and nonpreferred placement", { tags: "p1" }, () => {
         const value = pins();
         expect(
             () => new BlueprintPin(" ", value.blueprint.version, value.blueprint.digest)

@@ -202,7 +202,7 @@ describe("complete Blueprint materialization", () => {
         }
     });
 
-    test("re-applying an unchanged Blueprint reconciles to a semantic no-op", { tags: "p1" }, () => {
+    test("[C13-BLUEPRINT-REMATERIALIZE] re-applying an unchanged Blueprint reconciles to a semantic no-op", { tags: "p1" }, () => {
         const validated = fullBlueprint();
         const plan = planMaterialization({
             validatedBlueprint: validated,

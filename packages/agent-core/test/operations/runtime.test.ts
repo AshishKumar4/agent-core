@@ -1483,7 +1483,7 @@ describe("Facet runtime", () => {
 
 describe("Protected Operation gateway", () => {
     test(
-        "executes direct only after synchronous authorization and rejects hidden handlers",
+        "[C13-FACET-INSTALL-VERIFICATION] executes direct only after synchronous authorization and rejects hidden handlers",
         { tags: "p0" },
         async () => {
             const events: string[] = [];
@@ -2964,7 +2964,7 @@ describe("Protected Operation gateway", () => {
     );
 
     test(
-        "binds payload shape into direct and mediated identities and returns replay without rerunning interceptors",
+        "[C13-INTERCEPTOR-FROZEN-RETRY] binds payload shape into direct and mediated identities and returns replay without rerunning interceptors",
         { tags: "p0" },
         async () => {
             let interceptions = 0;

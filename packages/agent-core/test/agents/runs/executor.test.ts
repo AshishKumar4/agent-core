@@ -642,7 +642,7 @@ describe("TurnExecutor seam", () => {
     });
 
     it(
-        "rejects wrong-Turn, wrong-holder, and stale-epoch host admission before executor code",
+        "[C13-TURN-MODEL-CALL] rejects wrong-Turn, wrong-holder, and stale-epoch host admission before executor code",
         { tags: "p0" },
         async () => {
             const seeded = seedRunningTurn();
@@ -786,7 +786,7 @@ describe("TurnExecutor seam", () => {
     });
 
     it(
-        "observes exact takeover cancellation and fences every effectful handle",
+        "[C13-TURN-MODEL-CALL] observes exact takeover cancellation and fences every effectful handle",
         { tags: "p0" },
         async () => {
             const tool = boundTool("read", "memory.read", "observe", "Read memory.");
@@ -1920,7 +1920,7 @@ describe("TurnExecutor seam", () => {
     });
 
     it(
-        "[C13-RUN-RESOURCE-CEILING] advances the Run's durable token total where each model call commits",
+        "[C13-RUN-CEILING-REMAINDER] advances the Run's durable token total where each model call commits",
         { tags: "p1" },
         async () => {
             const seeded = seedRunningTurn();

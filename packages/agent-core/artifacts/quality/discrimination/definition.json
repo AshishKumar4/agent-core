@@ -1076,7 +1076,7 @@
         251
       ]
     },
-    "test/definition/loader.test.ts#production Blueprint validation-before-load does not resolve or evaluate code when config validation fails": {
+    "test/definition/loader.test.ts#production Blueprint validation-before-load [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] does not resolve or evaluate code when config validation fails": {
       "src/definition/blueprint.ts": [
         58,
         65,
@@ -2463,7 +2463,7 @@
         227
       ]
     },
-    "test/definition/materialize-blueprint.test.ts#complete Blueprint materialization re-applying an unchanged Blueprint reconciles to a semantic no-op": {
+    "test/definition/materialize-blueprint.test.ts#complete Blueprint materialization [C13-BLUEPRINT-REMATERIALIZE] re-applying an unchanged Blueprint reconciles to a semantic no-op": {
       "src/definition/materializer.ts": [
         125,
         137,
@@ -2584,7 +2584,7 @@
         312
       ]
     },
-    "test/definition/materializer.test.ts#same-Actor additive materialization fails closed on unknown RunPins evidence without advancing local state": {
+    "test/definition/materializer.test.ts#same-Actor additive materialization [C13-BLUEPRINT-RUN-PINS] fails closed on unknown RunPins evidence without advancing local state": {
       "src/definition/materializer.ts": [
         156,
         165,
@@ -3244,7 +3244,7 @@
         298
       ]
     },
-    "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-INTERSECTION] matches the exact reference intersection and preference for all 8^4 source combinations": {
+    "test/definition/placement.test.ts#four-set placement [C13-PLACEMENT-INTERSECTION] [C13-PLACEMENT-ORDER] matches the exact reference intersection and preference for all 8^4 source combinations": {
       "src/definition/placement.ts": [
         93,
         243,
@@ -3829,7 +3829,7 @@
         270
       ]
     },
-    "test/definition/policy.test.ts#pure policy floors never lowers a floor across every impact, placement, and policy tier": {
+    "test/definition/policy.test.ts#pure policy floors [C13-POLICY-MEDIATION-FLOOR] never lowers a floor across every impact, placement, and policy tier": {
       "src/definition/placement.ts": [
         138
       ],

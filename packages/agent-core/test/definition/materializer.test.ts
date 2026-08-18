@@ -443,7 +443,7 @@ describe("same-Actor additive materialization", () => {
         expect(store.snapshot().resources[0]!.desiredDigest.equals(activeDigest)).toBe(true);
     });
 
-    test("fails closed on unknown RunPins evidence without advancing local state", { tags: "p0" }, () => {
+    test("[C13-BLUEPRINT-RUN-PINS] fails closed on unknown RunPins evidence without advancing local state", { tags: "p0" }, () => {
         const actor = actorRef("workspace-pinned");
         const store = new MemoryMaterializationStore(actor);
         const materializer = localMaterializer(actor, store);

@@ -48,7 +48,7 @@
             "codec": "src/authority/epoch.ts#InvalidationWatermark.codec",
             "store": "src/authority/watermark-store.ts#InvalidationWatermarkStore",
             "tests": [
-                "test/authority/model.test.ts#authority value records [authority.invalidation-watermark] joins qualified Actor-local watermarks monotonically",
+                "test/authority/model.test.ts#authority value records [C13-AUTH-WATERMARK-MONOTONE] [authority.invalidation-watermark] joins qualified Actor-local watermarks monotonically",
                 "test/authority/memory.test.ts#MemoryTenantControlStore [authority.grant] [authority.scope-epoch] [authority.binding] [authority.invalidation-watermark] bootstraps and restores the complete detached Tenant control snapshot"
             ]
         },

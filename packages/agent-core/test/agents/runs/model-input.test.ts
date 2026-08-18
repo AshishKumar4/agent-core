@@ -997,7 +997,7 @@ describe("Turn model input", () => {
     );
 
     it(
-        "[turn.model-input] provides static codec, encode, decode, and frozen records with an exact shape",
+        "[C13-TURN-MODEL-INPUT-RECONSTRUCTABLE] [turn.model-input] provides static codec, encode, decode, and frozen records with an exact shape",
         { tags: "p1" },
         () => {
             const record = new TurnModelInput({

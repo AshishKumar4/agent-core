@@ -49,7 +49,9 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         // Debt, not an allowance. The count is read from the baseline rather than written
         // down, because paying debt down must not turn this red; what must turn it red is
         // a baselined finding that stops reproducing, which the gate reports as resolved.
-        expect(result.stdout).toContain(`coherence incomplete: ${baselined} issue(s), 0 resolved`);
+        expect(result.stdout).toContain(
+            `coherence ${baselined === 0 ? "complete" : "incomplete"}: ${baselined} issue(s), 0 resolved`
+        );
     });
 
     test("binds bracketed atom labels in test titles and nowhere else", async () => {

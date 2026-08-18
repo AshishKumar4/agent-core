@@ -497,7 +497,7 @@ function authorityStateContract(name: string, createStore: () => InvalidationWat
         );
 
         test(
-            "[C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
+            "[C13-AUTH-MEDIATED-STALE] [C13-AUTH-RESOLUTION-LIFETIME] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
             { tags: "p0" },
             async () => {
                 const harness = new StateHarness(createStore());

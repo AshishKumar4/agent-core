@@ -1092,7 +1092,7 @@
         147
       ]
     },
-    "test/protocol/dispatcher.test.ts#byte limit validation names the failing limit exactly": {
+    "test/protocol/dispatcher.test.ts#[C13-ADV-COMMAND-REJECTIONS] byte limit validation names the failing limit exactly": {
       "src/protocol/dispatcher.ts": [
         175,
         176
@@ -1488,7 +1488,7 @@
         257
       ]
     },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects a missing caller cause before content and replays its identity": {
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-ADV-COMMAND-REJECTIONS] rejects a missing caller cause before content and replays its identity": {
       "src/protocol/dispatcher.ts": [
         217,
         254,
@@ -1758,7 +1758,7 @@
         460
       ]
     },
-    "test/protocol/dispatcher.test.ts#rejects an envelope beyond the configured byte limit": {
+    "test/protocol/dispatcher.test.ts#[C13-ADV-COMMAND-REJECTIONS] rejects an envelope beyond the configured byte limit": {
       "src/protocol/dispatcher.ts": [
         185,
         424

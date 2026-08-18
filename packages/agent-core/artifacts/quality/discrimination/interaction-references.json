@@ -99,7 +99,7 @@
         18
       ]
     },
-    "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] cancels an exhausted Run through the ordinary terminal rows and refuses to name a dimension with allowance left": {
+    "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-CEILING-EXHAUSTION] cancels an exhausted Run through the ordinary terminal rows and refuses to name a dimension with allowance left": {
       "src/interaction-references/id.ts": [
         18
       ]
@@ -885,7 +885,7 @@
         46
       ]
     },
-    "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt": {
+    "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] [C13-AUTH-RESOLUTION-LIFETIME] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt": {
       "src/interaction-references/id.ts": [
         18,
         46
@@ -909,7 +909,7 @@
         46
       ]
     },
-    "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt": {
+    "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] [C13-AUTH-RESOLUTION-LIFETIME] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt": {
       "src/interaction-references/id.ts": [
         18,
         46
@@ -1217,7 +1217,7 @@
         18
       ]
     },
-    "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence": {
+    "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) [C13-AUTH-MEDIATED-STALE] advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence": {
       "src/interaction-references/id.ts": [
         18,
         46
@@ -1868,7 +1868,7 @@
         46
       ]
     },
-    "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-EFFECT-WRITE-AHEAD] rejects structurally permitted edges with substituted domain evidence": {
+    "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-EDGE-RELATION] rejects structurally permitted edges with substituted domain evidence": {
       "src/interaction-references/id.ts": [
         4,
         18,
@@ -4534,7 +4534,7 @@
         46
       ]
     },
-    "test/invocations/reconciliation.test.ts#InvocationReconciler [C13-EFFECT-RECONCILIATION] re-queries the exact indeterminate attempt and appends one final lineage": {
+    "test/invocations/reconciliation.test.ts#InvocationReconciler [C13-EFFECT-RECONCILIATION] [C13-EFFECT-WRITE-AHEAD] re-queries the exact indeterminate attempt and appends one final lineage": {
       "src/interaction-references/id.ts": [
         18,
         46
@@ -4546,7 +4546,7 @@
         46
       ]
     },
-    "test/invocations/reconciliation.test.ts#InvocationReconciler concurrent reconciliation records one authoritative final lineage": {
+    "test/invocations/reconciliation.test.ts#InvocationReconciler [C13-EFFECT-SUPERSEDING-RECEIPT] concurrent reconciliation records one authoritative final lineage": {
       "src/interaction-references/id.ts": [
         18,
         46
@@ -4978,7 +4978,7 @@
         18
       ]
     },
-    "test/operations/runtime.test.ts#Protected Operation gateway binds payload shape into direct and mediated identities and returns replay without rerunning interceptors": {
+    "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-FROZEN-RETRY] binds payload shape into direct and mediated identities and returns replay without rerunning interceptors": {
       "src/interaction-references/id.ts": [
         18
       ]
@@ -4998,7 +4998,7 @@
         18
       ]
     },
-    "test/operations/runtime.test.ts#Protected Operation gateway executes direct only after synchronous authorization and rejects hidden handlers": {
+    "test/operations/runtime.test.ts#Protected Operation gateway [C13-FACET-INSTALL-VERIFICATION] executes direct only after synchronous authorization and rejects hidden handlers": {
       "src/interaction-references/id.ts": [
         18
       ]
@@ -5790,7 +5790,7 @@
         46
       ]
     },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant": {
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-PROTOCOL-EXACT-ENVELOPE] preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant": {
       "src/interaction-references/id.ts": [
         18,
         46
@@ -5828,7 +5828,7 @@
         46
       ]
     },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects a missing caller cause before content and replays its identity": {
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-ADV-COMMAND-REJECTIONS] rejects a missing caller cause before content and replays its identity": {
       "src/interaction-references/id.ts": [
         18,
         46
@@ -5852,7 +5852,7 @@
         46
       ]
     },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects expired required lease tokens": {
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-ADV-COMMAND-REJECTIONS] rejects expired required lease tokens": {
       "src/interaction-references/id.ts": [
         46
       ]
@@ -6041,7 +6041,7 @@
         46
       ]
     },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant": {
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) [C13-PROTOCOL-EXACT-ENVELOPE] preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant": {
       "src/interaction-references/id.ts": [
         18,
         46
@@ -6079,7 +6079,7 @@
         46
       ]
     },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) rejects a missing caller cause before content and replays its identity": {
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) [C13-ADV-COMMAND-REJECTIONS] rejects a missing caller cause before content and replays its identity": {
       "src/interaction-references/id.ts": [
         18,
         46
@@ -6103,7 +6103,7 @@
         46
       ]
     },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) rejects expired required lease tokens": {
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) [C13-ADV-COMMAND-REJECTIONS] rejects expired required lease tokens": {
       "src/interaction-references/id.ts": [
         46
       ]
@@ -6271,7 +6271,7 @@
         46
       ]
     },
-    "test/protocol/dispatcher.test.ts#rejects an envelope beyond the configured byte limit": {
+    "test/protocol/dispatcher.test.ts#[C13-ADV-COMMAND-REJECTIONS] rejects an envelope beyond the configured byte limit": {
       "src/interaction-references/id.ts": [
         46
       ]

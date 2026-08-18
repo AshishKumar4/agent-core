@@ -112,7 +112,7 @@ describe("Scope epoch and path evidence mutation gates", () => {
     );
 
     test(
-        "accepts every canonical Scope chain and rejects malformed paths with exact reasons",
+        "[C13-AUTH-PATH-ORDER] accepts every canonical Scope chain and rejects malformed paths with exact reasons",
         { tags: "p0" },
         () => {
             expect(new PathEpochEvidence([new ScopeEpoch(tenantScope, 1)]).target.epoch).toBe(1);

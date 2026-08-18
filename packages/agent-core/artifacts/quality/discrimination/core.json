@@ -282,7 +282,7 @@
         13
       ]
     },
-    "test/core/codec.test.ts#Canonical codecs decodes and upcasts an older minor in the same major": {
+    "test/core/codec.test.ts#Canonical codecs [C13-CODEC-VERSIONING] decodes and upcasts an older minor in the same major": {
       "src/core/canonical.ts": [
         44
       ],
@@ -386,7 +386,7 @@
         41
       ]
     },
-    "test/core/codec.test.ts#Canonical codecs rejects an unknown major with its typed error": {
+    "test/core/codec.test.ts#Canonical codecs [C13-CODEC-VERSIONING] rejects an unknown major with its typed error": {
       "src/core/codec.ts": [
         67,
         114
@@ -412,7 +412,7 @@
         153
       ]
     },
-    "test/core/codec.test.ts#Canonical codecs rejects future minor versions and unknown envelope fields": {
+    "test/core/codec.test.ts#Canonical codecs [C13-CODEC-VERSIONING] rejects future minor versions and unknown envelope fields": {
       "src/core/codec.ts": [
         73,
         75,
@@ -1509,7 +1509,7 @@
         41
       ]
     },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects a missing caller cause before content and replays its identity": {
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-ADV-COMMAND-REJECTIONS] rejects a missing caller cause before content and replays its identity": {
       "src/core/base64.ts": [
         16,
         32,

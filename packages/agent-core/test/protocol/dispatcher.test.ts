@@ -369,7 +369,7 @@ test("protocol dependency errors expose canonical own properties", { tags: "p1" 
     );
 });
 
-test("byte limit validation names the failing limit exactly", { tags: "p1" }, () => {
+test("[C13-ADV-COMMAND-REJECTIONS] byte limit validation names the failing limit exactly", { tags: "p1" }, () => {
     expect(() => new CounterHarness({ limits: { envelopeBytes: 0, payloadBytes: 1024 } })).toThrow(
         "Command envelope byte limit must be a positive safe integer"
     );
@@ -474,7 +474,7 @@ test("a write-kind caller cause is rejected before mutation", { tags: "p1" }, as
     expect(harness.snapshot().value).toBe(1);
 });
 
-test("rejects an envelope beyond the configured byte limit", { tags: "p0" }, async () => {
+test("[C13-ADV-COMMAND-REJECTIONS] rejects an envelope beyond the configured byte limit", { tags: "p0" }, async () => {
     const harness = new CounterHarness({ limits: { envelopeBytes: 32, payloadBytes: 1024 } });
 
     const result = await harness.dispatch(harness.envelope({ key: "oversized-envelope" }));

@@ -136,7 +136,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/authority/grant.ts#Grant"],
       "testSelectors": [
-        "test/authority/hard-gates.test.ts#Grant and authority identifier hard gates strictly validates Grant construction and replacement",
+        "test/authority/hard-gates.test.ts#Grant and authority identifier hard gates [C13-AUTH-DENY-PATH] strictly validates Grant construction and replacement",
         "test/authority/hard-gates.test.ts#canonical capability hard gates [C13-AUTH-DENY-PATH] [authority.capability-spec] covers matching, narrowing, wildcards, and argument paths"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
@@ -225,7 +225,7 @@
         "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
       ],
       "testSelectors": [
-        "test/authority/hard-gates.test.ts#Binding and epoch hard gates enforces exact path and watermark invariants",
+        "test/authority/hard-gates.test.ts#Binding and epoch hard gates [C13-AUTH-DIRECT-WATERMARK] enforces exact path and watermark invariants",
         "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-DIRECT-WATERMARK] a delivered higher epoch ends direct authorization; equal or lower does not",
         "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-DIRECT-WATERMARK] a delivered higher epoch ends direct authorization; equal or lower does not"
       ],
@@ -273,7 +273,7 @@
         "src/identity/guest-verification.ts#GuestVerification"
       ],
       "testSelectors": [
-        "test/authority/materializer.test.ts#RoleGrantMaterializer rejects handshake as a steady-state guest verification scheme"
+        "test/authority/materializer.test.ts#RoleGrantMaterializer [C13-AUTH-GUEST-HANDSHAKE-BOOTSTRAP] rejects handshake as a steady-state guest verification scheme"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -400,10 +400,10 @@
         "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
       ],
       "testSelectors": [
-        "test/authority/runtime-foundation.test.ts#Tenant authority runtime returns current path evidence and detects stale evidence",
-        "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
-        "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
-        "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence"
+        "test/authority/runtime-foundation.test.ts#Tenant authority runtime [C13-AUTH-MEDIATED-STALE] returns current path evidence and detects stale evidence",
+        "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] [C13-AUTH-RESOLUTION-LIFETIME] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
+        "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] [C13-AUTH-RESOLUTION-LIFETIME] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
+        "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) [C13-AUTH-MEDIATED-STALE] advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
@@ -437,7 +437,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/authority/epoch.ts#validatePath"],
       "testSelectors": [
-        "test/authority/runtime-epoch-mutation-gates.test.ts#Scope epoch and path evidence mutation gates accepts every canonical Scope chain and rejects malformed paths with exact reasons",
+        "test/authority/runtime-epoch-mutation-gates.test.ts#Scope epoch and path evidence mutation gates [C13-AUTH-PATH-ORDER] accepts every canonical Scope chain and rejects malformed paths with exact reasons",
         "test/protocol/authority-evidence.test.ts#authority protocol evidence [C13-AUTH-PATH-ORDER] rejects evidence with inconsistent issuer, path, reason, or matched Grants"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
@@ -474,8 +474,8 @@
       "testSelectors": [
         "test/composition/authority-state.test.ts#production authority state seams (memory) [C13-AUTH-PRINCIPAL-REF] rejects an exact cross-Tenant NUL collision without consulting or poisoning the local cache",
         "test/identity/authority-foundation.test.ts#qualified identity and Tenant topology [C13-AUTH-PRINCIPAL-REF] [identity.principal-ref] qualifies equal Principal IDs by Tenant and round-trips canonically",
-        "test/authority/permit.test.ts#AuthorityPermit rejects a lease holder with the same PrincipalId from another Tenant",
-        "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission",
+        "test/authority/permit.test.ts#AuthorityPermit [C13-AUTH-PRINCIPAL-REF] rejects a lease holder with the same PrincipalId from another Tenant",
+        "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition [C13-AUTH-PRINCIPAL-REF] rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission",
         "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] separates equal Principal IDs from different Tenants in every subject key",
         "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] refuses a record whose Principal subject belongs to another Tenant",
         "test/authority/tenant-qualified-subject.test.ts#tenant-qualified Principal subjects [C13-AUTH-PRINCIPAL-REF] rejects an unqualified stored Principal subject rather than inferring its Tenant",
@@ -501,9 +501,9 @@
       ],
       "testSelectors": [
         "test/composition/authority-state.test.ts#production authority state seams (memory) [C13-AUTH-RESOLUTION-LIFETIME] a bundled resolution cannot outlive its Turn without an explicit release",
-        "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
-        "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
-        "test/composition/authority-membrane.test.ts#Tenant operation authority membrane the direct tier gate requires a lease, local authority, granted capability, and a window",
+        "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] [C13-AUTH-RESOLUTION-LIFETIME] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
+        "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] [C13-AUTH-RESOLUTION-LIFETIME] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt",
+        "test/composition/authority-membrane.test.ts#Tenant operation authority membrane [C13-AUTH-RESOLUTION-LIFETIME] direct authorization stamps the exact resolution identity and operation digests and ends direct admission at the resolution deadline",
         "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-AUTH-RESOLUTION-LIFETIME] [C13-FACET-DISPOSAL] releases a provider resolution before resolving the next invocation",
         "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-AUTH-RESOLUTION-LIFETIME] [C13-FACET-DISPOSAL] releases a dynamic resolution before resolving the next invocation"
       ],
@@ -610,7 +610,7 @@
       "sourceSymbols": ["src/authority/runtime.ts#TenantAuthorityRuntime"],
       "testSelectors": [
         "test/authority/memory-service-hard-gates.test.ts#AuthorityMutationService hard gates [C13-AUTH-TEAM-SUBJECT] covers Principal, Team, Project, and Workspace lifecycle errors",
-        "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates checks Team closure and rejects foreign identity substitution"
+        "test/authority/runtime-hard-gates.test.ts#TenantAuthorityRuntime hard gates [C13-AUTH-TEAM-SUBJECT] checks Team closure and rejects foreign identity substitution"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -630,7 +630,7 @@
         "src/substrates/sqlite/watermark.ts#SqliteInvalidationWatermarkStore"
       ],
       "testSelectors": [
-        "test/authority/model.test.ts#authority value records [authority.invalidation-watermark] joins qualified Actor-local watermarks monotonically",
+        "test/authority/model.test.ts#authority value records [C13-AUTH-WATERMARK-MONOTONE] [authority.invalidation-watermark] joins qualified Actor-local watermarks monotonically",
         "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-WATERMARK-MONOTONE] delivery and observation share one monotone per-holder watermark",
         "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-WATERMARK-MONOTONE] delivery and observation share one monotone per-holder watermark"
       ],

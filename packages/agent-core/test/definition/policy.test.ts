@@ -56,7 +56,7 @@ describe("pure policy floors", () => {
     });
 
     test(
-        "never lowers a floor across every impact, placement, and policy tier",
+        "[C13-POLICY-MEDIATION-FLOOR] never lowers a floor across every impact, placement, and policy tier",
         { tags: "p0" },
         () => {
             for (const impact of POLICY_IMPACTS) {

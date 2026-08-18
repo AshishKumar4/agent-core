@@ -200,7 +200,7 @@ describe("Tenant authority runtime", () => {
         }
     );
 
-    test("returns current path evidence and detects stale evidence", { tags: "p0" }, () => {
+    test("[C13-AUTH-MEDIATED-STALE] returns current path evidence and detects stale evidence", { tags: "p0" }, () => {
         const { service, runtime } = fixture();
         const allow = grant(
             "allow-stale",

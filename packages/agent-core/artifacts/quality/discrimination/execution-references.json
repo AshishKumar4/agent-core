@@ -166,7 +166,7 @@
         16
       ]
     },
-    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-ADV-WRONG-TURN-LEASE] rejects undo while a branch Turn holds an unexpired lease": {
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-ADV-WRONG-TURN-LEASE] [C13-RUN-UNDO-FENCE] rejects undo while a branch Turn holds a lease, unexpired or expired": {
       "src/execution-references/id.ts": [
         4,
         10,
@@ -251,7 +251,7 @@
         16
       ]
     },
-    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants permits unary commits to carry an independent tree checkpoint": {
+    "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-RUN-CHECKPOINT-KINDS] permits unary commits to carry an independent tree checkpoint": {
       "src/execution-references/id.ts": [
         4,
         10,
@@ -317,7 +317,7 @@
         16
       ]
     },
-    "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] cancels an exhausted Run through the ordinary terminal rows and refuses to name a dimension with allowance left": {
+    "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-CEILING-EXHAUSTION] cancels an exhausted Run through the ordinary terminal rows and refuses to name a dimension with allowance left": {
       "src/execution-references/id.ts": [
         4,
         10,
@@ -600,7 +600,7 @@
         16
       ]
     },
-    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-RUN-RESOURCE-CEILING] advances the Run's durable token total where each model call commits": {
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-RUN-CEILING-REMAINDER] advances the Run's durable token total where each model call commits": {
       "src/execution-references/id.ts": [
         4,
         10,
@@ -712,7 +712,7 @@
         16
       ]
     },
-    "test/agents/runs/executor.test.ts#TurnExecutor seam observes exact takeover cancellation and fences every effectful handle": {
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] observes exact takeover cancellation and fences every effectful handle": {
       "src/execution-references/id.ts": [
         4,
         10,
@@ -922,7 +922,7 @@
         16
       ]
     },
-    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects wrong-Turn, wrong-holder, and stale-epoch host admission before executor code": {
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] rejects wrong-Turn, wrong-holder, and stale-epoch host admission before executor code": {
       "src/execution-references/id.ts": [
         4,
         10,
@@ -1580,7 +1580,7 @@
         16
       ]
     },
-    "test/agents/runs/runtime-mutation.test.ts#append guards non-migration commits must inherit the parent pins": {
+    "test/agents/runs/runtime-mutation.test.ts#append guards [C13-RUN-MIGRATED-TURN-REJECTION] non-migration commits must inherit the parent pins": {
       "src/execution-references/id.ts": [
         4,
         10,
@@ -1852,21 +1852,21 @@
         16
       ]
     },
-    "test/agents/runs/runtime-mutation.test.ts#suspension guards rejects each checkpoint and commit mismatch individually": {
+    "test/agents/runs/runtime-mutation.test.ts#suspension guards [C13-RUN-CHECKPOINT-KINDS] rejects each checkpoint and commit mismatch individually": {
       "src/execution-references/id.ts": [
         4,
         10,
         16
       ]
     },
-    "test/agents/runs/runtime-mutation.test.ts#suspension guards suspends with matching absent tree checkpoints": {
+    "test/agents/runs/runtime-mutation.test.ts#suspension guards [C13-RUN-CHECKPOINT-KINDS] suspends with matching absent tree checkpoints": {
       "src/execution-references/id.ts": [
         4,
         10,
         16
       ]
     },
-    "test/agents/runs/runtime-mutation.test.ts#suspension guards suspends with matching present tree checkpoints": {
+    "test/agents/runs/runtime-mutation.test.ts#suspension guards [C13-RUN-CHECKPOINT-KINDS] suspends with matching present tree checkpoints": {
       "src/execution-references/id.ts": [
         4,
         10,
@@ -2049,7 +2049,7 @@
         10
       ]
     },
-    "test/agents/runs/turn-exhaustive.test.ts#checkpoint and inbox codecs round-trips tree and no-tree checkpoints and rejects cursor shape": {
+    "test/agents/runs/turn-exhaustive.test.ts#checkpoint and inbox codecs [C13-RUN-CHECKPOINT-KINDS] round-trips tree and no-tree checkpoints and rejects cursor shape": {
       "src/execution-references/id.ts": [
         10,
         16
@@ -2307,7 +2307,7 @@
         10
       ]
     },
-    "test/authority/permit.test.ts#AuthorityPermit rejects a lease holder with the same PrincipalId from another Tenant": {
+    "test/authority/permit.test.ts#AuthorityPermit [C13-AUTH-PRINCIPAL-REF] rejects a lease holder with the same PrincipalId from another Tenant": {
       "src/execution-references/id.ts": [
         4
       ]
@@ -2554,7 +2554,7 @@
         10
       ]
     },
-    "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt": {
+    "test/composition/authority-state.test.ts#production authority state (memory) [C13-AUTH-MEDIATED-STALE] [C13-AUTH-RESOLUTION-LIFETIME] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt": {
       "src/execution-references/id.ts": [
         10
       ]
@@ -2594,7 +2594,7 @@
         10
       ]
     },
-    "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt": {
+    "test/composition/authority-state.test.ts#production authority state (sqlite) [C13-AUTH-MEDIATED-STALE] [C13-AUTH-RESOLUTION-LIFETIME] a stale observation atomically joins the watermark, invalidates the cache, and records the denial without an EffectAttempt": {
       "src/execution-references/id.ts": [
         10
       ]
@@ -2707,7 +2707,7 @@
         10
       ]
     },
-    "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence": {
+    "test/composition/stale-denial.test.ts#stale mediated authority produces durable denial evidence (§3.4 rule 7) [C13-AUTH-MEDIATED-STALE] advancing a scope epoch denies mediated with joined watermark, invalidation, and evidence": {
       "src/execution-references/id.ts": [
         10
       ]
@@ -2780,7 +2780,7 @@
         10
       ]
     },
-    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission": {
+    "test/integration/conformance/w9-composition.test.ts#W9 internal typed composition [C13-AUTH-PRINCIPAL-REF] rejects a same-PrincipalId cross-Tenant lease at resolution, direct, and mediated admission": {
       "src/execution-references/id.ts": [
         10
       ]
@@ -2925,7 +2925,7 @@
         16
       ]
     },
-    "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-EFFECT-WRITE-AHEAD] rejects structurally permitted edges with substituted domain evidence": {
+    "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-EDGE-RELATION] rejects structurally permitted edges with substituted domain evidence": {
       "src/execution-references/id.ts": [
         16
       ]
@@ -3330,7 +3330,7 @@
         10
       ]
     },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant": {
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-PROTOCOL-EXACT-ENVELOPE] preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant": {
       "src/execution-references/id.ts": [
         10
       ]
@@ -3340,7 +3340,7 @@
         10
       ]
     },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) rejects expired required lease tokens": {
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (memory) [C13-ADV-COMMAND-REJECTIONS] rejects expired required lease tokens": {
       "src/execution-references/id.ts": [
         10
       ]
@@ -3375,7 +3375,7 @@
         10
       ]
     },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant": {
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) [C13-PROTOCOL-EXACT-ENVELOPE] preserves the qualified current lease across restart and rejects its PrincipalId from another Tenant": {
       "src/execution-references/id.ts": [
         10
       ]
@@ -3385,7 +3385,7 @@
         10
       ]
     },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) rejects expired required lease tokens": {
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) [C13-ADV-COMMAND-REJECTIONS] rejects expired required lease tokens": {
       "src/execution-references/id.ts": [
         10
       ]

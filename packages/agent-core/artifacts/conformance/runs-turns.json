@@ -195,7 +195,7 @@
         "src/agents/runs/runtime.ts#RunRuntime.appendInTransaction"
       ],
       "testSelectors": [
-        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-ADV-WRONG-TURN-LEASE] rejects undo while a branch Turn holds an unexpired lease"
+        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-ADV-WRONG-TURN-LEASE] [C13-RUN-UNDO-FENCE] rejects undo while a branch Turn holds a lease, unexpired or expired"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -316,7 +316,7 @@
         "src/agents/runs/settlement.ts#TerminalSnapshot"
       ],
       "testSelectors": [
-        "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] cancels an exhausted Run through the ordinary terminal rows and refuses to name a dimension with allowance left"
+        "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-CEILING-EXHAUSTION] cancels an exhausted Run through the ordinary terminal rows and refuses to name a dimension with allowance left"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -335,7 +335,7 @@
       ],
       "testSelectors": [
         "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-CEILING-REMAINDER] derives depth and wall time from lineage while model accounting alone advances durable token totals",
-        "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-RUN-RESOURCE-CEILING] advances the Run's durable token total where each model call commits"
+        "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-RUN-CEILING-REMAINDER] advances the Run's durable token total where each model call commits"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -352,11 +352,11 @@
         "src/agents/runs/turn.ts#RunCheckpoint"
       ],
       "testSelectors": [
-        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants permits unary commits to carry an independent tree checkpoint",
-        "test/agents/runs/runtime-mutation.test.ts#suspension guards rejects each checkpoint and commit mismatch individually",
-        "test/agents/runs/runtime-mutation.test.ts#suspension guards suspends with matching absent tree checkpoints",
-        "test/agents/runs/runtime-mutation.test.ts#suspension guards suspends with matching present tree checkpoints",
-        "test/agents/runs/turn-exhaustive.test.ts#checkpoint and inbox codecs round-trips tree and no-tree checkpoints and rejects cursor shape"
+        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-RUN-CHECKPOINT-KINDS] permits unary commits to carry an independent tree checkpoint",
+        "test/agents/runs/runtime-mutation.test.ts#suspension guards [C13-RUN-CHECKPOINT-KINDS] rejects each checkpoint and commit mismatch individually",
+        "test/agents/runs/runtime-mutation.test.ts#suspension guards [C13-RUN-CHECKPOINT-KINDS] suspends with matching absent tree checkpoints",
+        "test/agents/runs/runtime-mutation.test.ts#suspension guards [C13-RUN-CHECKPOINT-KINDS] suspends with matching present tree checkpoints",
+        "test/agents/runs/turn-exhaustive.test.ts#checkpoint and inbox codecs [C13-RUN-CHECKPOINT-KINDS] round-trips tree and no-tree checkpoints and rejects cursor shape"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -599,7 +599,7 @@
       "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
       "testSelectors": [
         "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-RUN-MIGRATED-TURN-REJECTION] rejects duplicate commits, stale parents, pin changes, and foreign Turn writers",
-        "test/agents/runs/runtime-mutation.test.ts#append guards non-migration commits must inherit the parent pins"
+        "test/agents/runs/runtime-mutation.test.ts#append guards [C13-RUN-MIGRATED-TURN-REJECTION] non-migration commits must inherit the parent pins"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -712,7 +712,7 @@
         "src/agents/runs/pins.ts#requireSourcePin"
       ],
       "testSelectors": [
-        "test/agents/runs/foundation.test.ts#Agent and Run records [C13-RUN-PINS-VALIDITY] round-trips authoritative source revisions and canonical pins",
+        "test/agents/runs/foundation.test.ts#Agent and Run records [C13-RUN-PINS-SOURCES] round-trips authoritative source revisions and canonical pins",
         "test/agents/runs/foundation.test.ts#memory Run runtime [C13-RUN-PINS-SOURCES] rejects migration ahead of an admitted old-pin Turn"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
@@ -727,7 +727,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/agents/runs/pins.ts#RunPins"],
       "testSelectors": [
-        "test/agents/runs/foundation.test.ts#Agent and Run records [C13-RUN-PINS-VALIDITY] round-trips authoritative source revisions and canonical pins"
+        "test/agents/runs/foundation.test.ts#Agent and Run records [C13-RUN-PINS-VALIDITY] rejects duplicate package IDs and nonpreferred placement"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -781,8 +781,7 @@
         "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] admits a spawned ceiling only at or below the parent's remaining allowance",
         "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] inherits an undeclared dimension from the parent's remainder and bounds nothing without a declaration",
         "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] spends wall clock from the spawn that started the Run",
-        "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] binds the ceiling to the attenuation content the reservation digests",
-        "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-RUN-RESOURCE-CEILING] advances the Run's durable token total where each model call commits"
+        "test/agents/runs/ceiling.test.ts#Run resource ceilings [C13-RUN-RESOURCE-CEILING] binds the ceiling to the attenuation content the reservation digests"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -803,7 +802,7 @@
       "testSelectors": [
         "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-REWRITE-BRACKET] completes exactly the obligation it reserved and excludes a second attempt per branch",
         "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-RUN-REWRITE-BRACKET] records an abandoned attempt as the reserved commit on its failed Receipt",
-        "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-WRITER-MATRIX] admits a rewrite only on the evidence its form requires"
+        "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-WRITER-MATRIX] [C13-RUN-REWRITE-BRACKET] admits a rewrite only on the evidence its form requires"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": [
@@ -880,7 +879,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
       "testSelectors": [
-        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-ADV-WRONG-TURN-LEASE] rejects undo while a branch Turn holds an unexpired lease"
+        "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-ADV-WRONG-TURN-LEASE] [C13-RUN-UNDO-FENCE] rejects undo while a branch Turn holds a lease, unexpired or expired"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -1086,8 +1085,8 @@
       ],
       "testSelectors": [
         "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] hosts a model call only inside the exact live Turn and commits its complete output",
-        "test/agents/runs/executor.test.ts#TurnExecutor seam observes exact takeover cancellation and fences every effectful handle",
-        "test/agents/runs/executor.test.ts#TurnExecutor seam rejects wrong-Turn, wrong-holder, and stale-epoch host admission before executor code"
+        "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] observes exact takeover cancellation and fences every effectful handle",
+        "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] rejects wrong-Turn, wrong-holder, and stale-epoch host admission before executor code"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -1162,7 +1161,7 @@
         "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RECONSTRUCTABLE] refuses model-visible content that no committed record carries",
         "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RECONSTRUCTABLE] holds only the observed bytes, never a digest of them and never a bare record that an interceptor ran",
         "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RECONSTRUCTABLE] names every admitted Event's content in the request and leaves an unadmitted Event out of it",
-        "test/agents/runs/model-input.test.ts#Turn model input [turn.model-input] provides static codec, encode, decode, and frozen records with an exact shape"
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RECONSTRUCTABLE] [turn.model-input] provides static codec, encode, decode, and frozen records with an exact shape"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -1320,7 +1319,7 @@
       ],
       "testSelectors": [
         "test/agents/runs/commit-exhaustive.test.ts#closed commit writer matrix [C13-WRITER-MATRIX] rejects every Receipt evidence mismatch",
-        "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-WRITER-MATRIX] admits a rewrite only on the evidence its form requires"
+        "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-WRITER-MATRIX] [C13-RUN-REWRITE-BRACKET] admits a rewrite only on the evidence its form requires"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

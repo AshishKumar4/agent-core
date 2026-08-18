@@ -506,7 +506,7 @@
         459
       ]
     },
-    "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-EFFECT-WRITE-AHEAD] rejects structurally permitted edges with substituted domain evidence": {
+    "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-EDGE-RELATION] rejects structurally permitted edges with substituted domain evidence": {
       "src/invocations/audit.ts": [
         370
       ]
@@ -3212,7 +3212,7 @@
         260
       ]
     },
-    "test/invocations/reconciliation.test.ts#InvocationReconciler concurrent reconciliation records one authoritative final lineage": {
+    "test/invocations/reconciliation.test.ts#InvocationReconciler [C13-EFFECT-SUPERSEDING-RECEIPT] concurrent reconciliation records one authoritative final lineage": {
       "src/invocations/reconciliation.ts": [
         88,
         89,

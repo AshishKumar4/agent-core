@@ -246,7 +246,7 @@ describe("Grant and authority identifier hard gates", () => {
         ).toBe("mutable-principal");
     });
 
-    test("strictly validates Grant construction and replacement", { tags: "p0" }, () => {
+    test("[C13-AUTH-DENY-PATH] strictly validates Grant construction and replacement", { tags: "p0" }, () => {
         expect(
             () =>
                 new Grant(
@@ -457,7 +457,7 @@ describe("Binding and epoch hard gates", () => {
         }));
     });
 
-    test("enforces exact path and watermark invariants", { tags: "p0" }, () => {
+    test("[C13-AUTH-DIRECT-WATERMARK] enforces exact path and watermark invariants", { tags: "p0" }, () => {
         expect(() => new ScopeEpoch(tenantScope, -1)).toThrow(TypeError);
         expectAgentError(
             () => new ScopeEpoch(tenantScope, Number.MAX_SAFE_INTEGER).next(),

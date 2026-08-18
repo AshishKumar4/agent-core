@@ -500,7 +500,7 @@ describe("Tenant operation authority membrane", () => {
     );
 
     test(
-        "direct authorization stamps the exact resolution identity and operation digests",
+        "[C13-AUTH-RESOLUTION-LIFETIME] direct authorization stamps the exact resolution identity and operation digests and ends direct admission at the resolution deadline",
         { tags: "p0" },
         async () => {
             const { resolution, authority } = await resolveOf(leasedCandidate());

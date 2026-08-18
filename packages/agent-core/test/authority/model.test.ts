@@ -178,7 +178,7 @@ describe("authority value records", () => {
     );
 
     test(
-        "[authority.invalidation-watermark] joins qualified Actor-local watermarks monotonically",
+        "[C13-AUTH-WATERMARK-MONOTONE] [authority.invalidation-watermark] joins qualified Actor-local watermarks monotonically",
         { tags: "p0" },
         () => {
             const ownerTenant = new TenantId("watermark-owner");

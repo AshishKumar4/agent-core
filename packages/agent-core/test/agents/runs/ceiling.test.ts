@@ -332,7 +332,7 @@ describe("Run resource ceilings", () => {
     );
 
     it(
-        "[C13-RUN-RESOURCE-CEILING] cancels an exhausted Run through the ordinary terminal rows and refuses to name a dimension with allowance left",
+        "[C13-RUN-CEILING-EXHAUSTION] cancels an exhausted Run through the ordinary terminal rows and refuses to name a dimension with allowance left",
         { tags: "p0" },
         () => {
             const root = seedRunningTurn();

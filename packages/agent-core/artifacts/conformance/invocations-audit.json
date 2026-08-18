@@ -554,7 +554,6 @@
         "src/invocations/audit.ts#validateAuditAppend"
       ],
       "testSelectors": [
-        "test/invocations/audit-relation.test.ts#complete local AuditKind relation [C13-AUDIT-EDGE-RELATION] fails closed for evidence substitutions across every mediation edge",
         "test/invocations/audit.test.ts#AuditRecord codec [C13-AUDIT-TELEMETRY-EXCLUDED] refuses diagnostic evidence kinds outside the closed durable taxonomy"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
@@ -730,7 +729,7 @@
       "prerequisites": [],
       "sourceSymbols": ["src/invocations/reconciliation.ts#InvocationReconciler"],
       "testSelectors": [
-        "test/invocations/reconciliation.test.ts#InvocationReconciler [C13-EFFECT-RECONCILIATION] re-queries the exact indeterminate attempt and appends one final lineage"
+        "test/invocations/reconciliation.test.ts#InvocationReconciler [C13-EFFECT-RECONCILIATION] [C13-EFFECT-WRITE-AHEAD] re-queries the exact indeterminate attempt and appends one final lineage"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -767,7 +766,7 @@
       ],
       "testSelectors": [
         "test/invocations/reconciliation.test.ts#InvocationReconciler [C13-EFFECT-SUPERSEDING-RECEIPT] restart and redelivery never regenerate existing audit identifiers",
-        "test/invocations/reconciliation.test.ts#InvocationReconciler concurrent reconciliation records one authoritative final lineage"
+        "test/invocations/reconciliation.test.ts#InvocationReconciler [C13-EFFECT-SUPERSEDING-RECEIPT] concurrent reconciliation records one authoritative final lineage"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -784,7 +783,7 @@
         "src/invocations/canonical-batch.ts#CanonicalBatchInvocationPort"
       ],
       "testSelectors": [
-        "test/invocations/reconciliation.test.ts#InvocationReconciler persists the exact attempt before the provider and atomically finalizes complete reconciliation evidence"
+        "test/invocations/reconciliation.test.ts#InvocationReconciler [C13-EFFECT-RECONCILIATION] [C13-EFFECT-WRITE-AHEAD] re-queries the exact indeterminate attempt and appends one final lineage"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []

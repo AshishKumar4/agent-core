@@ -246,7 +246,7 @@
         81
       ]
     },
-    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-RUN-RESOURCE-CEILING] advances the Run's durable token total where each model call commits": {
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-RUN-CEILING-REMAINDER] advances the Run's durable token total where each model call commits": {
       "src/content/memory.ts": [
         118,
         120,
@@ -611,7 +611,7 @@
         81
       ]
     },
-    "test/agents/runs/executor.test.ts#TurnExecutor seam observes exact takeover cancellation and fences every effectful handle": {
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] observes exact takeover cancellation and fences every effectful handle": {
       "src/content/memory.ts": [
         118,
         120,
@@ -1185,7 +1185,7 @@
         81
       ]
     },
-    "test/agents/runs/executor.test.ts#TurnExecutor seam rejects wrong-Turn, wrong-holder, and stale-epoch host admission before executor code": {
+    "test/agents/runs/executor.test.ts#TurnExecutor seam [C13-TURN-MODEL-CALL] rejects wrong-Turn, wrong-holder, and stale-epoch host admission before executor code": {
       "src/content/memory.ts": [
         118,
         120,
@@ -11667,7 +11667,7 @@
         5
       ]
     },
-    "test/definition/loader.test.ts#production Blueprint validation-before-load does not resolve or evaluate code when config validation fails": {
+    "test/definition/loader.test.ts#production Blueprint validation-before-load [C13-BLUEPRINT-VALIDATE-BEFORE-LOAD] does not resolve or evaluate code when config validation fails": {
       "src/content/media.ts": [
         5
       ]
@@ -11737,7 +11737,7 @@
         5
       ]
     },
-    "test/definition/materialize-blueprint.test.ts#complete Blueprint materialization re-applying an unchanged Blueprint reconciles to a semantic no-op": {
+    "test/definition/materialize-blueprint.test.ts#complete Blueprint materialization [C13-BLUEPRINT-REMATERIALIZE] re-applying an unchanged Blueprint reconciles to a semantic no-op": {
       "src/content/media.ts": [
         5
       ]
@@ -13704,7 +13704,7 @@
         120
       ]
     },
-    "test/invocations/reconciliation.test.ts#InvocationReconciler [C13-EFFECT-RECONCILIATION] re-queries the exact indeterminate attempt and appends one final lineage": {
+    "test/invocations/reconciliation.test.ts#InvocationReconciler [C13-EFFECT-RECONCILIATION] [C13-EFFECT-WRITE-AHEAD] re-queries the exact indeterminate attempt and appends one final lineage": {
       "src/content/memory.ts": [
         118,
         120,
@@ -13732,7 +13732,7 @@
         564
       ]
     },
-    "test/invocations/reconciliation.test.ts#InvocationReconciler concurrent reconciliation records one authoritative final lineage": {
+    "test/invocations/reconciliation.test.ts#InvocationReconciler [C13-EFFECT-SUPERSEDING-RECEIPT] concurrent reconciliation records one authoritative final lineage": {
       "src/content/memory.ts": [
         118,
         120,
@@ -14314,7 +14314,7 @@
         120
       ]
     },
-    "test/operations/runtime.test.ts#Protected Operation gateway binds payload shape into direct and mediated identities and returns replay without rerunning interceptors": {
+    "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-FROZEN-RETRY] binds payload shape into direct and mediated identities and returns replay without rerunning interceptors": {
       "src/content/memory.ts": [
         118,
         120
@@ -14338,7 +14338,7 @@
         120
       ]
     },
-    "test/operations/runtime.test.ts#Protected Operation gateway executes direct only after synchronous authorization and rejects hidden handlers": {
+    "test/operations/runtime.test.ts#Protected Operation gateway [C13-FACET-INSTALL-VERIFICATION] executes direct only after synchronous authorization and rejects hidden handlers": {
       "src/content/memory.ts": [
         118,
         120

@@ -1412,7 +1412,7 @@
         453
       ]
     },
-    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) rejects a missing caller cause before content and replays its identity": {
+    "test/protocol/dispatcher.test.ts#CommandIngress and CommandDispatcher (SQLite) [C13-ADV-COMMAND-REJECTIONS] rejects a missing caller cause before content and replays its identity": {
       "src/substrates/sqlite/protocol.ts": [
         448,
         454

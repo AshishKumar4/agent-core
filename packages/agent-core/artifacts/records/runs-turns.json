@@ -293,7 +293,7 @@
       "codec": "src/agents/runs/executor.ts#TurnModelInput.codec",
       "store": null,
       "tests": [
-        "test/agents/runs/model-input.test.ts#Turn model input [turn.model-input] provides static codec, encode, decode, and frozen records with an exact shape"
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RECONSTRUCTABLE] [turn.model-input] provides static codec, encode, decode, and frozen records with an exact shape"
       ]
     },
     {
