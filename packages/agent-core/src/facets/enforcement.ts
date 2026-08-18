@@ -1,6 +1,11 @@
-export type Impact = "observe" | "mutate" | "externalSend" | "execute" | "delegate" | "administer";
+// `Impact` and `EnforcementTier` are lowered from `AgentCore.Facets.Enforcement`'s
+// inductives, so the generated module is their one declaration and this module re-exports
+// it rather than restating it. A second copy here would drift in precisely the direction
+// the twin exists to rule out: substitution swaps the two implementations at runtime, where
+// a type is already erased, so a vocabulary that disagreed between them would fail no test.
+import type { EnforcementTier, Impact } from "./enforcement.generated";
 
-export type EnforcementTier = "direct" | "mediated";
+export type { EnforcementTier, Impact };
 
 /**
  * SPEC §7.2's enforcement floor: `observe` is always direct; `execute` is direct only
@@ -14,7 +19,8 @@ export type EnforcementTier = "direct" | "mediated";
  *
  * This module is the substitution point for `enforcement.generated.ts`, which the TSLean
  * compiler lowers from `AgentCore.Facets.Enforcement` and which exports this same surface.
- * Neither is authoritative: the suite runs against either so the two can be compared.
+ * Neither implementation is authoritative: the suite runs against either so the two can be
+ * compared. Only the implementations are written twice; the vocabulary above is not.
  */
 export function enforcementFloor(
     impact: Impact,

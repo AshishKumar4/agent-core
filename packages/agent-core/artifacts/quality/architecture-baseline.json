@@ -384,34 +384,6 @@
       "symbol": "TurnInterceptorRunner",
       "message": "TurnInterceptorRunner introduces vocabulary the SPEC does not contain: \"runner\"",
       "fingerprint": "ACQ-SPEC-VOCAB:packages/agent-core/artifacts/quality/exports.json:TurnInterceptorRunner:c59c1b358213"
-    },
-    {
-      "rule": "ACQ-VOCAB",
-      "file": "packages/agent-core/src/facets/enforcement.generated.ts",
-      "symbol": "EnforcementTier",
-      "message": "Closed string vocabulary is duplicated",
-      "fingerprint": "ACQ-VOCAB:packages/agent-core/src/facets/enforcement.generated.ts:EnforcementTier:2808b2f8832d"
-    },
-    {
-      "rule": "ACQ-VOCAB",
-      "file": "packages/agent-core/src/facets/enforcement.generated.ts",
-      "symbol": "Impact",
-      "message": "Closed string vocabulary is duplicated",
-      "fingerprint": "ACQ-VOCAB:packages/agent-core/src/facets/enforcement.generated.ts:Impact:2808b2f8832d"
-    },
-    {
-      "rule": "ACQ-VOCAB",
-      "file": "packages/agent-core/src/facets/enforcement.ts",
-      "symbol": "EnforcementTier",
-      "message": "Closed string vocabulary is duplicated",
-      "fingerprint": "ACQ-VOCAB:packages/agent-core/src/facets/enforcement.ts:EnforcementTier:2808b2f8832d"
-    },
-    {
-      "rule": "ACQ-VOCAB",
-      "file": "packages/agent-core/src/facets/enforcement.ts",
-      "symbol": "Impact",
-      "message": "Closed string vocabulary is duplicated",
-      "fingerprint": "ACQ-VOCAB:packages/agent-core/src/facets/enforcement.ts:Impact:2808b2f8832d"
     }
   ]
 }
