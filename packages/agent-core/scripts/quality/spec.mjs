@@ -960,6 +960,7 @@ function ownerFor(id) {
         ["C13-WRITER-", "W5"],
         ["C13-TURN-", "W5"],
         ["C13-VIEW-", "W7"],
+        ["C13-PLAN-", "W7"],
         ["C13-CONTENT-", "W1"],
         ["C13-CODEC-", "W1"],
         ["C13-PROTOCOL-", "W1"],

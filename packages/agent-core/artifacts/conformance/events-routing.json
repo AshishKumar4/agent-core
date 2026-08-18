@@ -379,6 +379,133 @@
         "The aggregating conjunct has no site. No production Surface composes the surface-backed slot entries §4.2 describes, so dropping a retired child's entry at the next revision cannot be exercised yet; closure requires that composition to read contributor attribution rather than a cached child snapshot.",
         "The behavior test must prove terminality through the public interface — the terminal delta arrives, a further revision for that Surface is refused, and a cursor presented after retirement yields the terminal revision rather than an error — and must detect retirement without holding a live handle, since the rule's cost argument rests on C13-VIEW-NO-LIVE-STATE."
       ]
+    },
+    {
+      "id": "C13-PLAN-PROJECTION",
+      "owner": "W7",
+      "specAnchor": "C13-PLAN-PROJECTION",
+      "specTextSha256": "sha256:e27db32e1815500e2b31821a4ffbb36e64045749013dc7b501525be6fbd29e06",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/workspaces/plan.ts#PlanFact",
+        "src/workspaces/plan.ts#TaskPlan"
+      ],
+      "testSelectors": [
+        "test/workspaces/plan.test.ts#[C13-PLAN-PROJECTION] a projection rebuilt from the same Events is byte-identical",
+        "test/workspaces/plan.test.ts#[C13-PLAN-PROJECTION] the projection carries no state beyond identifiers, edges, and its cursor"
+      ],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-PLAN-APPEND-ONLY",
+      "owner": "W7",
+      "specAnchor": "C13-PLAN-APPEND-ONLY",
+      "specTextSha256": "sha256:ce694abc683b33dadcd50271aef60d1a43b68c4b26601589c3960980d50892e0",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/workspaces/plan.ts#DependencyRetraction",
+        "src/workspaces/plan.ts#TaskPlan.advance"
+      ],
+      "testSelectors": [
+        "test/workspaces/plan.test.ts#[C13-PLAN-APPEND-ONLY] a task discovered mid-Turn appends without touching the plan it grew from",
+        "test/workspaces/plan.test.ts#[C13-PLAN-APPEND-ONLY] reordering retracts and re-declares rather than editing an edge"
+      ],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-PLAN-ACYCLIC",
+      "owner": "W7",
+      "specAnchor": "C13-PLAN-ACYCLIC",
+      "specTextSha256": "sha256:c767c5ca29a9ea3ea729ca508bf9e25fdac14de7cd7f471101729639a8d62ea7",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/workspaces/plan.ts#DependencyDeclaration.fold",
+        "src/workspaces/plan.ts#TaskPlan.precedes"
+      ],
+      "testSelectors": [
+        "test/workspaces/plan.test.ts#[C13-PLAN-ACYCLIC] a dependency closing a cycle is refused at admission and at replay alike",
+        "test/workspaces/plan.test.ts#[C13-PLAN-ACYCLIC] an edge that only shares endpoints with a chain is admitted"
+      ],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-PLAN-FOLD-CLOSED",
+      "owner": "W7",
+      "specAnchor": "C13-PLAN-FOLD-CLOSED",
+      "specTextSha256": "sha256:3fa0378c1929885f02cc715239e936a536d21ec2495c34c6ba8eadb19c21048e",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/workspaces/plan.ts#DependencyDeclaration.fold",
+        "src/workspaces/plan.ts#DependencyRetraction.fold",
+        "src/workspaces/plan.ts#TaskDeclaration.fold"
+      ],
+      "testSelectors": [
+        "test/workspaces/plan.test.ts#[C13-PLAN-FOLD-CLOSED] the fold refuses undeclared, duplicated, and absent facts by name"
+      ],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-PLAN-DECLARER-BOUNDED",
+      "owner": "W7",
+      "specAnchor": "C13-PLAN-DECLARER-BOUNDED",
+      "specTextSha256": "sha256:ace206a272149007bc1de23db2bf7b39118362e012202d811b4d67650bcfabc4",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/workspaces/plan.ts#PlanFact",
+        "src/workspaces/plan.ts#requireDeclaringTurn"
+      ],
+      "testSelectors": [
+        "test/workspaces/plan.test.ts#[C13-PLAN-DECLARER-BOUNDED] a fact declared by another Turn cannot be appended",
+        "test/workspaces/plan.test.ts#[C13-PLAN-DECLARER-BOUNDED] a plan fact's wire form carries identifiers and nothing else"
+      ],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-PLAN-CRITICAL-PATH",
+      "owner": "W7",
+      "specAnchor": "C13-PLAN-CRITICAL-PATH",
+      "specTextSha256": "sha256:271a5afeed3efc49bfdac95062f76666ec49fd535d4cc9199a4ad83eadbd3ff7",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/workspaces/plan.ts#criticalPath",
+        "src/workspaces/plan.ts#longerChain"
+      ],
+      "testSelectors": [
+        "test/workspaces/plan.test.ts#[C13-PLAN-CRITICAL-PATH] an empty plan and an edgeless plan each answer without a path to walk",
+        "test/workspaces/plan.test.ts#[C13-PLAN-CRITICAL-PATH] equally long chains resolve to one path by canonical task order",
+        "test/workspaces/plan.test.ts#[C13-PLAN-CRITICAL-PATH] the critical path is recomputed after a discovery extends the chain"
+      ],
+      "checkerInvariants": [
+        "ACQ-IMPORT",
+        "ACQ-TEST"
+      ],
+      "remainingEvidence": []
     }
   ]
 }

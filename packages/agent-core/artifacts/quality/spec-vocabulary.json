@@ -144,10 +144,6 @@
             "reason": "The Options suffix names optional constructor configuration records; a code-organization convention beneath the SPEC's altitude."
         },
         {
-            "word": "plan",
-            "reason": "ActorPlan and MaterializationPlan stage \u00a79.3 reconciliation into an inspectable step list before application; the SPEC prescribes idempotent materialization, not its intermediate."
-        },
-        {
             "word": "preflight",
             "reason": "MediatedInvocationPreflight is the \u00a77.3 pre-interceptor replay-record lookup ('before any mutating interceptor runs, the host atomically looks up'); the SPEC mandates the step without naming it."
         },
