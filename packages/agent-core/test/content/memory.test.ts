@@ -11,6 +11,7 @@ import { TenantId } from "../../src/identity";
 import { contentStoreContract } from "./contract";
 import { at, bindingFor, contentOwner, contentRetentionContract } from "./retention-contract";
 import { expectAgentCoreError, expectAgentCoreRejection } from "../protocol/error-assertion";
+import { compareText } from "../../src/core";
 
 const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
 
@@ -341,14 +342,14 @@ describe("MemoryContentStore canonical state", () => {
             };
         });
         const contentOrder = [...entries].sort((left, right) =>
-            right.binding.ref.value.localeCompare(left.binding.ref.value)
+            compareText(right.binding.ref.value, left.binding.ref.value)
         );
         const edgeOrder = [...entries].sort((left, right) =>
             Buffer.compare(right.edgeBytes, left.edgeBytes)
         );
         const expectedRefs = entries
             .map((entry) => entry.binding.ref.value)
-            .sort((left, right) => left.localeCompare(right));
+            .sort((left, right) => compareText(left, right));
         const expectedEdges = entries.map((entry) => entry.edgeBytes).sort(Buffer.compare);
         const expectedLeases = entries.map((entry) => entry.leaseBytes).sort(Buffer.compare);
 
@@ -411,7 +412,7 @@ describe("MemoryContentStore collection and lease generations", () => {
         }
         const ascending = [...edges]
             .map((edge) => edge.ref.value)
-            .sort((left, right) => left.localeCompare(right));
+            .sort((left, right) => compareText(left, right));
         const descending = [...ascending].reverse();
         const releaseOrder = descending.map((value) =>
             defined(edges.find((edge) => edge.ref.value === value))

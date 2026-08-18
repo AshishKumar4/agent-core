@@ -4,6 +4,7 @@ import {
     CompatRange,
     ContentRef,
     Digest,
+    compareText,
     JsonSchema,
     Revision,
     SemVer,
@@ -487,7 +488,7 @@ function packageRelease(
         ...(overrides.codeRefs ?? [
             ContentRef.fromDigest(overrides.codeDigest ?? digestOf(`code:${id}:${version}`))
         ])
-    ].sort((left, right) => left.value.localeCompare(right.value));
+    ].sort((left, right) => compareText(left.value, right.value));
     const modules = requireNonempty(
         references.map(
         (reference, index) =>

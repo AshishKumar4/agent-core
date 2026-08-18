@@ -51,6 +51,36 @@ const files = (await Promise.all(roots.map((root) => collectFiles(root, isTypeSc
     .flat()
     .sort();
 const issues = [];
+/**
+ * The rules here fall into two categories, and they need different success conditions.
+ *
+ * Every other rule is a defect rule: ACQ-ERR, ACQ-ID, ACQ-CODEC, ACQ-IMMUTABLE and
+ * ACQ-VOCAB each flag something wrong that has a fix, so their correct target is zero,
+ * and the tree has driven all of them there.
+ *
+ * The rules below are shape rules. They flag a construction that requires review rather
+ * than a defect: a composite key, a rendered comparison, a locale-dependent operation.
+ * A shape can be sound -- a delimiter is safe when no component can contain it, and some
+ * flagged sites are not identities at all but a SemVer rendering, a URL, a SQL fragment
+ * -- so a shape rule can never reach zero by fixing code. Demanding zero from one would
+ * force either pointless rewrites of persisted key formats or, far worse, someone
+ * weakening the rule to make the gate green.
+ *
+ * So a shape-rule site is resolved by a written proof, and the final stage counts
+ * outstanding issues rather than detected ones. Both conditions on `reviewed` below are
+ * load-bearing: the rule must be in this set, and its baseline entry must carry a
+ * non-empty reason. That is what keeps the exemption path closed to the defect rules --
+ * no defect-rule entry carries a reason, so none can return through it.
+ */
+const reasonedRules = new Set(["ACQ-KEY", "ACQ-RENDER", "ACQ-LOCALE"]);
+const localeSensitiveMembers = new Set([
+    "localeCompare",
+    "toLocaleDateString",
+    "toLocaleLowerCase",
+    "toLocaleString",
+    "toLocaleTimeString",
+    "toLocaleUpperCase"
+]);
 const identifiers = new Map();
 const vocabularies = new Map();
 const permits = await loadPermits(options.permits);
@@ -140,13 +170,27 @@ const baselineFingerprints = new Set(baseline.issues.map((item) => item.fingerpr
 const currentFingerprints = new Set(issues.map((item) => item.fingerprint));
 const additions = issues.filter((item) => !baselineFingerprints.has(item.fingerprint));
 const resolved = baseline.issues.filter((item) => !currentFingerprints.has(item.fingerprint));
+// ACQ-ERR and its siblings flag debt: each site has a fix, and the tree has driven all
+// of them to zero. ACQ-KEY and ACQ-RENDER flag a shape instead, and a shape can be sound
+// -- a delimiter is safe when no component can contain it, and several flagged sites are
+// not identities at all but a SemVer rendering, a URL, a SQL fragment. Their terminal
+// state is therefore a written proof, not an empty list, so a site whose baseline entry
+// carries one is reviewed rather than outstanding. New sites still fail outright at every
+// stage, and a baseline entry without a reason still fails, so nothing is silenced.
+const reviewed = new Set(
+    baseline.issues
+        .filter((item) => reasonedRules.has(item.rule) && (item.reason ?? "").trim().length > 0)
+        .map((item) => item.fingerprint)
+);
+const outstanding = issues.filter((item) => !reviewed.has(item.fingerprint));
 const report = {
     stage: options.stage,
     files: files.map((path) => portable(relative(options.root, path))),
     issues,
     additions,
     resolved,
-    complete: issues.length === 0
+    outstanding,
+    complete: outstanding.length === 0
 };
 
 if (options.writeBaseline) {
@@ -155,14 +199,35 @@ if (options.writeBaseline) {
             "Writing the architecture baseline requires QUALITY_WRITE_BASELINE=1 outside CI"
         );
     }
-    await writeCanonicalJson(options.baseline, { edition: "1.0.0", issues });
+    const reasons = new Map(
+        baseline.issues
+            .filter((item) => item.reason !== undefined)
+            .map((i) => [i.fingerprint, i.reason])
+    );
+    await writeCanonicalJson(options.baseline, {
+        edition: "1.0.0",
+        issues: issues.map((item) => {
+            const reason = reasons.get(item.fingerprint);
+            return reason === undefined ? item : { ...item, reason };
+        })
+    });
 } else {
     await writeCanonicalJson(resolve(reportRoot, "architecture.json"), report);
     if (additions.length > 0) fail("New architecture violations", additions);
-    if (options.stage === "final" && issues.length > 0)
-        fail("Final architecture violations", issues);
+    // A composite identity or a rendered comparison is permitted only with the argument
+    // for why it is sound written down beside it, so the next reader inherits the proof
+    // rather than the assumption.
+    const unexplained = baseline.issues.filter(
+        (item) =>
+            reasonedRules.has(item.rule) &&
+            currentFingerprints.has(item.fingerprint) &&
+            (item.reason ?? "").trim().length === 0
+    );
+    if (unexplained.length > 0) fail("Baselined sites missing a written reason", unexplained);
+    if (options.stage === "final" && outstanding.length > 0)
+        fail("Final architecture violations", outstanding);
     console.log(
-        `architecture ${report.complete ? "complete" : "incomplete"}: ${issues.length} issue(s), ${resolved.length} resolved`
+        `architecture ${report.complete ? "complete" : "incomplete"}: ${outstanding.length} outstanding, ${reviewed.size} reviewed, ${resolved.length} resolved`
     );
 }
 
@@ -245,6 +310,80 @@ function inspectNode(node, source, file, aliases) {
             file,
             node.name.getText(source),
             "Public identifier fields must not use string"
+        );
+    }
+    const composite =
+        ts.isReturnStatement(node) && node.expression !== undefined
+            ? node.expression
+            : ts.isVariableDeclaration(node) && node.initializer !== undefined
+              ? node.initializer
+              : undefined;
+    // The motivating defect was a NUL join, so a delimiter-joined array is the same
+    // candidate identity as a template literal. The receiver must be syntactically an
+    // array -- a literal or a map/filter/sort/slice chain -- so that domain methods that
+    // happen to be named `join`, such as WatermarkSet.join, are not mistaken for it.
+    if (
+        composite !== undefined &&
+        ts.isCallExpression(composite) &&
+        ts.isPropertyAccessExpression(composite.expression) &&
+        composite.expression.name.text === "join" &&
+        isArrayExpression(composite.expression.expression) &&
+        composite.arguments.length === 1 &&
+        ts.isStringLiteral(composite.arguments[0]) &&
+        composite.arguments[0].text !== "" &&
+        !composite.arguments[0].text.includes("\n") &&
+        symbolAt(node, source).startsWith("offset:") === false
+    ) {
+        issue(
+            "ACQ-KEY",
+            file,
+            symbolAt(node, source),
+            "Composite identity built by string concatenation must be injective"
+        );
+    }
+    if (
+        composite !== undefined &&
+        ts.isTemplateExpression(composite) &&
+        composite.templateSpans.length >= 2 &&
+        // A module-level constant is built from other module-level constants; no
+        // caller-supplied text can reach it, and its position-based fingerprint would
+        // move on any edit above it.
+        symbolAt(node, source).startsWith("offset:") === false
+    ) {
+        issue(
+            "ACQ-KEY",
+            file,
+            symbolAt(node, source),
+            "Composite identity built by string concatenation must be injective"
+        );
+    }
+    if (
+        ts.isBinaryExpression(node) &&
+        (node.operatorToken.kind === ts.SyntaxKind.EqualsEqualsEqualsToken ||
+            node.operatorToken.kind === ts.SyntaxKind.ExclamationEqualsEqualsToken) &&
+        [node.left, node.right].some(
+            (side) =>
+                ts.isCallExpression(side) && side.expression.getText(source) === "JSON.stringify"
+        )
+    ) {
+        issue(
+            "ACQ-RENDER",
+            file,
+            symbolAt(node, source),
+            "Equality by JSON.stringify depends on key insertion order"
+        );
+    }
+    if (
+        ts.isPropertyAccessExpression(node) &&
+        localeSensitiveMembers.has(node.name.text) &&
+        ts.isCallExpression(node.parent) &&
+        node.parent.expression === node
+    ) {
+        issue(
+            "ACQ-LOCALE",
+            file,
+            symbolAt(node, source),
+            `${node.name.text} derives behaviour from the host locale and ICU build`
         );
     }
     if (ts.isTypeAliasDeclaration(node)) {
@@ -742,6 +881,12 @@ function freezesThis(constructor) {
             found = true;
     });
     return found;
+}
+
+function isArrayExpression(node) {
+    if (ts.isArrayLiteralExpression(node)) return true;
+    if (!ts.isCallExpression(node) || !ts.isPropertyAccessExpression(node.expression)) return false;
+    return ["filter", "map", "slice", "sort"].includes(node.expression.name.text);
 }
 
 function isRawIdDeclaration(node, source) {

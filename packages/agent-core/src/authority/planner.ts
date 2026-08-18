@@ -1,3 +1,4 @@
+import { compareText } from "../core";
 import type { ScopeRef } from "../identity";
 import { AgentCoreError } from "../errors";
 import { ScopeEpoch } from "./epoch";
@@ -84,7 +85,7 @@ function mutationScopes(mutation: ResolverInputMutation): readonly ScopeRef[] {
 
 function canonicalEpochs(entries: readonly ScopeEpoch[]): readonly ScopeEpoch[] {
     const ordered = [...entries].sort((left, right) =>
-        scopeKey(left.scope).localeCompare(scopeKey(right.scope))
+        compareText(scopeKey(left.scope), scopeKey(right.scope))
     );
     if (new Set(ordered.map((entry) => scopeKey(entry.scope))).size !== ordered.length) {
         throw new AgentCoreError("protocol.invalid-state", "Epoch plan Scopes must be unique");

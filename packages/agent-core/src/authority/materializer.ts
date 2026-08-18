@@ -1,3 +1,4 @@
+import { compareText } from "../core";
 import type { Membership, Role, RoleRule } from "../identity";
 import { AgentCoreError } from "../errors";
 import type { CapabilitySpec } from "../facets";
@@ -26,7 +27,7 @@ export class RoleGrantMaterialization {
         this.desiredRecords = canonicalGrants(desiredRecords);
         this.changedRecords = canonicalGrants(changedRecords);
         this.affectedScopes = Object.freeze(
-            [...affectedScopes].sort((left, right) => scopeKey(left).localeCompare(scopeKey(right)))
+            [...affectedScopes].sort((left, right) => compareText(scopeKey(left), scopeKey(right)))
         );
         Object.freeze(this);
     }
@@ -123,7 +124,7 @@ function roleCapability(rule: RoleRule): CapabilitySpec {
 }
 
 function canonicalGrants(grants: readonly Grant[]): readonly Grant[] {
-    const ordered = [...grants].sort((left, right) => left.id.value.localeCompare(right.id.value));
+    const ordered = [...grants].sort((left, right) => compareText(left.id.value, right.id.value));
     if (new Set(ordered.map((grant) => grant.id.value)).size !== ordered.length) {
         throw new AgentCoreError(
             "protocol.invalid-state",

@@ -2,7 +2,7 @@ import { AgentCoreError } from "../errors";
 import type { ActorRef } from "../actors";
 import type { AuditRecordId } from "../interaction-references";
 import type { FacetRef } from "../facets";
-import { ContentRef, isJsonObject, type JsonValue, type Revision } from "../core";
+import { ContentRef, compareText, isJsonObject, type JsonValue, type Revision } from "../core";
 import type { TenantId } from "../identity";
 import type {
     EventId,
@@ -178,7 +178,7 @@ export class WorkspacePersistence<Transaction> {
             }
         }
         return Object.freeze(
-            subscriptions.sort((left, right) => left.id.value.localeCompare(right.id.value))
+            subscriptions.sort((left, right) => compareText(left.id.value, right.id.value))
         );
     }
 
@@ -387,7 +387,7 @@ export class WorkspacePersistence<Transaction> {
                     this.requireReservationIndex(transaction, route);
                     return route;
                 })
-                .sort((left, right) => left.id.value.localeCompare(right.id.value))
+                .sort((left, right) => compareText(left.id.value, right.id.value))
         );
     }
 

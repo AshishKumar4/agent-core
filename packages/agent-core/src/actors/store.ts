@@ -1,7 +1,7 @@
 import { types as utilTypes } from "node:util";
 
 import { AgentCoreError } from "../errors";
-import { Revision, TextId } from "../core";
+import { Revision, TextId, hasExactKeys } from "../core";
 import { ActorRecoveryState } from "./fence";
 import { ActorId } from "./id";
 import {
@@ -352,8 +352,7 @@ function noop(): void {}
 function requireSnapshot<TState>(value: MemoryActorStoreSnapshot<TState>): void {
     if (
         !isActorStateObject(value) ||
-        JSON.stringify(Object.keys(value).sort()) !==
-            JSON.stringify(["actor", "recoveryState", "state", "version"]) ||
+        !hasExactKeys(value, ["actor", "recoveryState", "state", "version"]) ||
         value.version !== 1 ||
         !isActorStateObject(value.state) ||
         !isSnapshotActor(value.actor) ||
@@ -369,7 +368,7 @@ function isSnapshotActor(
     return (
         value === null ||
         (isActorStateObject(value) &&
-            JSON.stringify(Object.keys(value).sort()) === JSON.stringify(["id", "kind"]) &&
+            hasExactKeys(value, ["id", "kind"]) &&
             isActorId(value.id) &&
             isActorKind(value.kind))
     );

@@ -4,6 +4,7 @@ import {
     Digest,
     JsonSchema,
     Revision,
+    compareText,
     encodeCanonicalJson,
     isJsonObject,
     type JsonObject,
@@ -2064,7 +2065,7 @@ describe("W6 mediation memory persistence", () => {
             InvocationPublicationOutbox.pending(observation(`memory-order-${suffix}`))
         );
         const [low, middle, high] = [...pendings].sort((left, right) =>
-            left.id.value.localeCompare(right.id.value)
+            compareText(left.id.value, right.id.value)
         );
         if (low === undefined || middle === undefined || high === undefined) {
             throw new TypeError("Expected three publications");

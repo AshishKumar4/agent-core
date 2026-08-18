@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import fc, { type Command } from "fast-check";
 import { expect, test } from "vitest";
-import { ContentRef, Digest } from "../../../../src/core";
+import { ContentRef, Digest, compareText } from "../../../../src/core";
 import { AgentCoreError } from "../../../../src/errors";
 import { TenantId } from "../../../../src/identity";
 import {
@@ -875,7 +875,7 @@ function expectedObservation(model: Readonly<InvocationModel>): Observation {
         audits: expectedAudits(model),
         publications: model.receipts
             .map((receipt) => projectPublication(publicationFor(receipt)))
-            .sort((left, right) => left.id.localeCompare(right.id))
+            .sort((left, right) => compareText(left.id, right.id))
     };
 }
 
@@ -909,11 +909,11 @@ function observe<Transaction>(
                 return record === undefined ? undefined : projectAudit(record);
             })
             .filter((record): record is ReturnType<typeof projectAudit> => record !== undefined)
-            .sort((left, right) => left.id.localeCompare(right.id)),
+            .sort((left, right) => compareText(left.id, right.id)),
         publications: evidence
             .pendingPublications(transaction)
             .map(projectPublication)
-            .sort((left, right) => left.id.localeCompare(right.id))
+            .sort((left, right) => compareText(left.id, right.id))
     };
 }
 
@@ -1064,7 +1064,7 @@ function expectedAudits(
             receiptAudit(receiptRecord(receipt), new AuditRecordId(attempt.audit), receipt.audit)
         );
     }
-    return records.map(projectAudit).sort((left, right) => left.id.localeCompare(right.id));
+    return records.map(projectAudit).sort((left, right) => compareText(left.id, right.id));
 }
 
 function publicationFor(receipt: ReceiptState): InvocationPublicationOutbox {

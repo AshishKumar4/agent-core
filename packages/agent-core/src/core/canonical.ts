@@ -88,11 +88,17 @@ function canonicalString(value: JsonValue): string {
     if (isJsonArray(value)) {
         return `[${value.map(canonicalString).join(",")}]`;
     }
-    const entries = Object.entries(value).sort(([left], [right]) => compareCodeUnits(left, right));
+    const entries = Object.entries(value).sort(([left], [right]) => compareText(left, right));
     return `{${entries.map(([key, entry]) => `${JSON.stringify(key)}:${canonicalString(entry)}`).join(",")}}`;
 }
 
-function compareCodeUnits(left: string, right: string): number {
+/**
+ * The repository's one ordering law: compare by UTF-16 code unit, the same order
+ * `encodeCanonicalJson` imposes on object keys. Unlike `localeCompare` it is total --
+ * it returns 0 only for equal strings -- and independent of the host locale and ICU
+ * build, so any two hosts derive the same order and therefore the same digest.
+ */
+export function compareText(left: string, right: string): number {
     if (left < right) {
         return -1;
     }
@@ -100,6 +106,11 @@ function compareCodeUnits(left: string, right: string): number {
         return 1;
     }
     return 0;
+}
+
+/** Equality by canonical bytes: the only sound way to compare two JSON values. */
+export function canonicalJsonEqual(left: JsonValue, right: JsonValue): boolean {
+    return bytesEqual(encodeCanonicalJson(left), encodeCanonicalJson(right));
 }
 
 function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {

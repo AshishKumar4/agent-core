@@ -29,7 +29,7 @@ export {
     requireAuthoredCodeConsumer
 } from "./authored-code";
 export type { AuthoredCodeConsumer } from "./authored-code";
-export { CapabilitySpec, isCapabilityEffect } from "./capability";
+export { CapabilitySpec, isCapabilityEffect, matchesGlob } from "./capability";
 export type { CapabilityEffect, CapabilityIntent, CapabilitySpecInit } from "./capability";
 export {
     BindingRequirement,

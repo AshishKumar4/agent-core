@@ -2,14 +2,13 @@ import type { FacetData } from "./data";
 import {
     DataRecordCodec,
     canonicalFacetData,
-    compareText,
     requireArray,
     requireDataObject,
     requireExactFields,
     requireOptionalString,
     requireString
 } from "./data";
-import { encodeCanonicalJson } from "../core";
+import { compareText, encodeCanonicalJson } from "../core";
 import { FacetPackageId } from "./id";
 
 export class FieldMove {

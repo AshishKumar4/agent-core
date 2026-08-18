@@ -23,6 +23,7 @@ import {
     watermarkKey,
     type MemoryInvalidationWatermarkSnapshot
 } from "../../src/authority/watermark-store";
+import { compareText } from "../../src/core";
 
 const tenantId = new TenantId("epoch-gate-tenant");
 const otherTenant = new TenantId("epoch-gate-other");
@@ -481,7 +482,7 @@ describe("memory invalidation watermark store mutation gates", () => {
             owner,
             new PrincipalRef(tenantId, new PrincipalId("epoch-gate-holder-b"))
         );
-        expect(watermarkKey(first).localeCompare(watermarkKey(second))).toBeLessThan(0);
+        expect(compareText(watermarkKey(first), watermarkKey(second))).toBeLessThan(0);
         store.save(second);
         store.save(first);
         expect(store.snapshot().records.map((record) => record.key)).toEqual([

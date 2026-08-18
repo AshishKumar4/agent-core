@@ -177,3 +177,4 @@ export type {
     MaterializationGenerationInit,
     MaterializationGenerationPointerInit
 } from "./generation";
+export { UnsupportedMaterializationKindError } from "./materialization-kind";

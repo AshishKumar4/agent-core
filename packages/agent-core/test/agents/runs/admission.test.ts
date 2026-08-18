@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Revision } from "../../../src/core";
+import { Revision, compareText } from "../../../src/core";
 import { RunCommitId } from "../../../src/execution-references";
 import { ApprovalId, EffectAttemptId } from "../../../src/invocation-references";
 import { InvocationId, RouteReservationId } from "../../../src/interaction-references";
@@ -155,7 +155,7 @@ describe("durable Run admission registry", () => {
             expect(closed.frontier().map(runObligationKey)).toEqual(
                 [...pending]
                     .sort((left, right) =>
-                        runObligationKey(left).localeCompare(runObligationKey(right))
+                        compareText(runObligationKey(left), runObligationKey(right))
                     )
                     .map(runObligationKey)
             );
@@ -347,7 +347,7 @@ describe("transactional terminal frontier", () => {
             expect(snapshot.obligation.obligations.map(runObligationKey)).toEqual(
                 [...obligations]
                     .sort((left, right) =>
-                        runObligationKey(left).localeCompare(runObligationKey(right))
+                        compareText(runObligationKey(left), runObligationKey(right))
                     )
                     .map(runObligationKey)
             );

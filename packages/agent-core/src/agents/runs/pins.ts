@@ -3,6 +3,7 @@ import {
     RecordCodec,
     Revision,
     SemVer,
+    compareText,
     encodeCanonicalJson,
     type JsonValue
 } from "../../core";
@@ -12,7 +13,6 @@ import { AgentId, AgentPolicyId, ModelPolicyId } from "../id";
 import {
     bytesEqual,
     CodecRecord,
-    compareText,
     digestFromData,
     requireArray,
     requireExactFields,

@@ -201,9 +201,7 @@ export function canonicalOrder<Value extends string>(
     return requireNonempty(Object.freeze(order.filter((value) => values.includes(value))), subject);
 }
 
-export function compareText(left: string, right: string): number {
-    return left < right ? -1 : left > right ? 1 : 0;
-}
+export { compareText } from "../core";
 
 export function requireNonblank(value: string, subject: string): void {
     if (value.length === 0 || value !== value.trim()) {

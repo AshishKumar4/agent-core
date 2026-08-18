@@ -1,5 +1,5 @@
 import { AgentCoreError } from "../../../errors";
-import { isObjectRecord, type RecordCodec } from "../../../core";
+import type { RecordCodec } from "../../../core";
 import { TransactionalSqlite, isSqliteNumber, isSqliteText, type SqliteRow } from "../sqlite";
 import { InvocationError } from "../../../invocations";
 
@@ -593,23 +593,24 @@ function appendRecord(
     }
 }
 
-interface SqliteConstraintFailure {
-    readonly code?: unknown;
-    readonly message?: unknown;
-}
+/**
+ * SQLite extended result codes. Both drivers report the same numbers -- bun:sqlite as
+ * `errno`, node:sqlite as `errcode` -- while their string `code` disagrees: node:sqlite
+ * answers ERR_SQLITE_ERROR for every failure, so the string test never matched there and
+ * a substring search of the driver's prose was left deciding. That search read "NOT NULL
+ * constraint failed" and even the column name in "no such column: unique_key" as an
+ * append race, which reports the schema's own corruption backstops as a benign conflict.
+ * Only a uniqueness violation is a duplicate append.
+ */
+const SQLITE_CONSTRAINT_PRIMARYKEY = 1555;
+const SQLITE_CONSTRAINT_UNIQUE = 2067;
 
-function isConstraintFailure(error: unknown): error is SqliteConstraintFailure {
-    try {
-        if (!isObjectRecord(error)) return false;
-        const code = error["code"];
-        if (isErrorText(code) && code.startsWith("SQLITE_CONSTRAINT")) return true;
-        const message = error["message"];
-        return isErrorText(message) && /(?:constraint|unique)/iu.test(message);
-    } catch {
-        return false;
-    }
-}
-
-function isErrorText(value: unknown): value is string {
-    return typeof value === "string";
+function isConstraintFailure(error: unknown): boolean {
+    if (error === null || typeof error !== "object") return false;
+    const { errcode, errno } = error as {
+        readonly errcode?: unknown;
+        readonly errno?: unknown;
+    };
+    const result = typeof errcode === "number" ? errcode : errno;
+    return result === SQLITE_CONSTRAINT_PRIMARYKEY || result === SQLITE_CONSTRAINT_UNIQUE;
 }

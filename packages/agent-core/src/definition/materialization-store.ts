@@ -10,8 +10,8 @@ import {
 import { LocalMaterializationStore } from "./materializer";
 import { MaterializationPlan } from "./plan";
 import { DeploymentId, MaterializationGenerationId } from "./id";
-import { compareText } from "./order";
 import { definitionRevisionConflict, invalidDefinitionState } from "./error";
+import { compareText } from "./order";
 
 export interface StoredBlueprint {
     readonly name: string;

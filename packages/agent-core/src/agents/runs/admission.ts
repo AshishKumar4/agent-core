@@ -1,4 +1,4 @@
-import { RecordCodec, type JsonValue } from "../../core";
+import { RecordCodec, compareText, type JsonValue } from "../../core";
 import { AgentCoreError } from "../../errors";
 import { RunCommitId } from "../../execution-references";
 import { ApprovalId, EffectAttemptId } from "../../invocation-references";
@@ -403,7 +403,7 @@ function canonicalObligations(
     if (!Array.isArray(values)) throw new TypeError(`${subject}s must be an array`);
     const result = values
         .map(copyRunObligation)
-        .sort((left, right) => runObligationKey(left).localeCompare(runObligationKey(right)));
+        .sort((left, right) => compareText(runObligationKey(left), runObligationKey(right)));
     if (new Set(result.map(runObligationKey)).size !== result.length) {
         throw new TypeError(`${subject}s must have unique canonical identities`);
     }

@@ -1,4 +1,4 @@
-import { ContentRef, RecordCodec, Revision, type JsonValue } from "../core";
+import { ContentRef, RecordCodec, Revision, compareText, type JsonValue } from "../core";
 import { requireSynchronousResult } from "../actors";
 import { AgentCoreError } from "../errors";
 import { WorkspaceId } from "../identity";
@@ -375,7 +375,7 @@ export class MemorySlateStore extends SlateStore {
     public listSlates(workspaceId_?: WorkspaceId): readonly Slate[] {
         return Object.freeze(
             [...this.#latest.keys()]
-                .sort((left, right) => left.localeCompare(right))
+                .sort((left, right) => compareText(left, right))
                 .map((id) => this.getSlate(new SlateId(id))!)
                 .filter(
                     (slate) => workspaceId_ === undefined || slate.workspaceId.equals(workspaceId_)
@@ -959,7 +959,7 @@ function listRecords<Record extends SlateRecordProjection>(
 ): readonly Record[] {
     return Object.freeze(
         [...rows.values()]
-            .sort((left, right) => left.id.localeCompare(right.id))
+            .sort((left, right) => compareText(left.id, right.id))
             .map((row) => {
                 const record = codec.decode(copyBytes(row.bytes));
                 verifyCommonProjection(row, record);
@@ -1070,7 +1070,7 @@ function frozenRows<Row extends StoredSlateRecord | StoredSlate>(
         [...rows]
             .sort(
                 (left, right) =>
-                    left.id.localeCompare(right.id) ||
+                    compareText(left.id, right.id) ||
                     ("revision" in left && "revision" in right ? left.revision - right.revision : 0)
             )
             .map((row) => Object.freeze(copy(row)))

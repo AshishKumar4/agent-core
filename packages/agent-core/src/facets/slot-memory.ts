@@ -1,4 +1,4 @@
-import { Revision } from "../core";
+import { Revision, compareText, hasExactKeys } from "../core";
 import {
     requireSynchronousResult,
     type SynchronousResultGuard,
@@ -267,11 +267,6 @@ function compareEntries(left: SlotEntry, right: SlotEntry): number {
         compareText(left.attribution.contributor.value, right.attribution.contributor.value)
     );
 }
-
-function compareText(left: string, right: string): number {
-    return left < right ? -1 : 1;
-}
-
 function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
     return (
         left.byteLength === right.byteLength && left.every((value, index) => value === right[index])
@@ -289,8 +284,7 @@ function requireSynchronousSlotResult<Result>(result: Result): Result {
 
 function requireSnapshot(snapshot: MemoryWorkspaceSlotSnapshot): void {
     if (
-        JSON.stringify(Object.keys(snapshot).sort()) !==
-            JSON.stringify(["entries", "owner", "revision", "slots", "version"]) ||
+        !hasExactKeys(snapshot, ["entries", "owner", "revision", "slots", "version"]) ||
         snapshot.version !== 1 ||
         !isString(snapshot.owner) ||
         !Number.isSafeInteger(snapshot.revision) ||

@@ -1,4 +1,4 @@
-import { Revision } from "../core";
+import { Revision, compareText } from "../core";
 import { AgentCoreError } from "../errors";
 import { Environment, EnvironmentRevisionRecord } from "./environment";
 import { PortExposure } from "./exposure";
@@ -72,7 +72,7 @@ export class MemoryEnvironmentStore extends EnvironmentStore {
             rows: Object.freeze(
                 [...this.#rows.values()]
                     .sort((left, right) =>
-                        rowKey(left.kind, left.key).localeCompare(rowKey(right.kind, right.key))
+                        compareText(rowKey(left.kind, left.key), rowKey(right.kind, right.key))
                     )
                     .map(copyRow)
             )
@@ -271,7 +271,7 @@ export class MemoryEnvironmentStore extends EnvironmentStore {
                     this.validateExposurePin(exposure);
                     return exposure;
                 })
-                .sort((left, right) => left.id.value.localeCompare(right.id.value))
+                .sort((left, right) => compareText(left.id.value, right.id.value))
         );
     }
 
