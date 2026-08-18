@@ -857,8 +857,7 @@
             "src/operations/interception.ts#TurnCutPointPort"
         ],
         "testSelectors": [
-            "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-REWRITE] applies the cut point's rewrite rule to each rewriter's own answer rather than to the final value",
-            "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-MODE-FIDELITY] polices a rewriting gate at every Turn-bound cut point instead of refusing the declaration it could not police"
+            "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-REWRITE] applies the cut point's rewrite rule to each rewriter's own answer rather than to the final value"
         ],
         "checkerInvariants": [
             "ACQ-IMPORT",
@@ -866,7 +865,8 @@
         ],
         "remainingEvidence": [
             "Recorded discrimination, which is not this row's to write; W0 owns artifacts/quality/discrimination/operations.json and it carries no attribution for selectors newer than the last mutation run. Measured by hand in a detached worktree: moving the admit call after the loop so it sees only the final value kills the per-rewriter selector from inside TurnInterceptorRunner, and deleting the gate-fidelity comparison kills the mode-fidelity selector from inside the same symbol.",
-            "The per-rewriter selector is a join rather than two facts side by side: the refusal names the FIRST rewriter, and the recorded sequence of values offered to the rule is exactly one entry, so a runner that checked only the value it ended with would have admitted the illegal answer that the second rewriter overwrote. A test asserting only that the illegal answer was refused would pass against that defect."
+            "The per-rewriter selector is a join rather than two facts side by side: the refusal names the FIRST rewriter, and the recorded sequence of values offered to the rule is exactly one entry, so a runner that checked only the value it ended with would have admitted the illegal answer that the second rewriter overwrote. A test asserting only that the illegal answer was refused would pass against that defect.",
+            "This row's anchoring paragraph closes by restating rule 10 at the Turn-bound cut points -- a gate whose result differs from the value it received is refused here too -- and that clause is evidenced under C13-INTERCEPTOR-MODE-FIDELITY rather than here, by test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-MODE-FIDELITY] polices a rewriting gate at every Turn-bound cut point instead of refusing the declaration it could not police. This row cited that test as a second selector and should not have: the label join is what proves a citation, and that test runs one interceptor per cell, so it can show gate fidelity and nothing per-rewriter. Adding this row's label to its title would have made the join claim the opposite. The clause is recorded here as cross-referenced, not as demonstrated by this row's own evidence."
         ]
     }
   ]
