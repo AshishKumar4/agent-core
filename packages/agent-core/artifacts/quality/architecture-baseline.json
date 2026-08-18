@@ -377,13 +377,6 @@
       "message": "Composite identity built by string concatenation must be injective",
       "fingerprint": "ACQ-KEY:packages/agent-core/src/workspaces/view-replay.ts:viewId:574bb9cb741f",
       "reason": "The trailing component is Revision.value, a non-negative safe integer, so the last '@' delimits it however the SurfaceId is spelled."
-    },
-    {
-      "rule": "ACQ-SPEC-VOCAB",
-      "file": "packages/agent-core/artifacts/quality/exports.json",
-      "symbol": "TurnInterceptorRunner",
-      "message": "TurnInterceptorRunner introduces vocabulary the SPEC does not contain: \"runner\"",
-      "fingerprint": "ACQ-SPEC-VOCAB:packages/agent-core/artifacts/quality/exports.json:TurnInterceptorRunner:c59c1b358213"
     }
   ]
 }

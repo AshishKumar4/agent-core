@@ -152,6 +152,10 @@
       "reason": "MaterializationRollout orders §9.3 reconciliation on a live platform so existing RunPins stay resolvable; deployment vocabulary the SPEC does not use."
     },
     {
+      "word": "runner",
+      "reason": "TurnInterceptorRunner is the agentive form of a §4.4 act the SPEC states without naming an actor: 'a host executes all five cut points', and the noun it does supply — the Turn-bound schedule, 'rule 3's order and rule 1's confinement' — names the ordering relation, which orderSchedule already computes and both cut-point families share. Naming the component after that relation would give one word to the schedule and to the thing that walks it. §5.6's Turn executor is likewise taken: it is the seam that reaches these cut points through TurnCutPointPort, not the implementation behind it. Its Operation-bound sibling in the same module is OperationInterceptorRunner, so 'runner' is this codebase's single word for the component that executes one cut-point family's schedule."
+    },
+    {
       "word": "sem",
       "reason": "SemVer is the exact version type used throughout the SPEC's fenced interfaces; the export-name tokenizer exposes its Sem and Ver fragments separately."
     },
