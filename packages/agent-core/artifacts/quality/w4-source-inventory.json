@@ -12,6 +12,7 @@
     "src/definition/code-manifest.ts",
     "src/definition/compatibility.ts",
     "src/definition/config.ts",
+    "src/definition/credential-custody.ts",
     "src/definition/declaration.ts",
     "src/definition/error.ts",
     "src/definition/generation.ts",
@@ -41,5 +42,5 @@
     "src/substrates/sqlite/materialization.ts",
     "src/substrates/sqlite/package.ts"
   ],
-  "sourceSha256": "25c04168c8b605d6a71a35ab73307f9d824304e1e1d834575e0ea6bdc70b5e78"
+  "sourceSha256": "9902e17e73e977f44123b2258ff5b534bf6a96c71797e18cd14e1d1966074c27"
 }

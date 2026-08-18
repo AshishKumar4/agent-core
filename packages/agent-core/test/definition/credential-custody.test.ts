@@ -434,4 +434,68 @@ describe("SecretRef custody", () => {
             }
         }
     );
+
+    test(
+        "[C13-CONFIG-SECRET-CUSTODY] refuses every inexact or non-canonical custody value where it is written",
+        { tags: "p0" },
+        () => {
+            // §3.5 makes `source` the exact canonical TenantId and the consumer and
+            // endpoint the exact ones the Tenant recorded. Exactness is only enforceable
+            // if the values carrying it cannot be approximated, so each of these refusals
+            // is a reviewed throw site rather than defensive programming: a subtype, a
+            // structural look-alike, or a free-form label is rejected where it is written
+            // and never carried into a custody decision.
+            class WiderSecret extends SecretRef {}
+            const wider = new WiderSecret(tenantId.value, "vault", "deploy-token");
+            const lookAlike = { kind: "binding", id: consumer.id } as CredentialConsumerRef;
+            const fact = new CredentialCustodyFact(credential, endpoint);
+
+            for (const [subject, construct] of [
+                ["consumer kind is not canonical", () => new CredentialConsumerRef("Binding", "x")],
+                ["consumer ID is blank", () => new CredentialConsumerRef("binding", "  ")],
+                [
+                    "custody fact secret is not exact",
+                    () => new CredentialCustodyFact(wider, endpoint)
+                ],
+                [
+                    "custody tenant is not canonical",
+                    () => new CredentialCustody(" tenant-custody ", consumer, true, [])
+                ],
+                [
+                    "custody consumer is not exact",
+                    () => new CredentialCustody(tenantId.value, lookAlike, true, [])
+                ],
+                [
+                    "custody fact is not exact",
+                    () =>
+                        new CredentialCustody(tenantId.value, consumer, true, [
+                            { secret: credential, endpoint } as CredentialCustodyFact
+                        ])
+                ],
+                [
+                    "request secret is not exact",
+                    () => new CredentialResolutionRequest(wider, consumer, endpoint)
+                ],
+                [
+                    "request consumer is not exact",
+                    () => new CredentialResolutionRequest(credential, lookAlike, endpoint)
+                ],
+                [
+                    "endpoint is blank",
+                    () => new CredentialResolutionRequest(credential, consumer, " ")
+                ]
+            ] as const) {
+                expect(construct, subject).toThrow(TypeError);
+            }
+
+            // The exact values these refusals protect still construct, so the guards
+            // discriminate the inexact case rather than rejecting the shape outright.
+            expect(
+                new CredentialCustody(tenantId.value, consumer, true, [fact]).facts
+            ).toHaveLength(1);
+            expect(new CredentialResolutionRequest(credential, consumer, endpoint).endpoint).toBe(
+                endpoint
+            );
+        }
+    );
 });

@@ -104,6 +104,7 @@
         "src/definition/credential-custody.ts#CredentialIsolationSeam",
         "src/definition/credential-custody.ts#RecordedCustodySeam",
         "src/definition/credential-custody.ts#CredentialCustody",
+        "src/definition/credential-custody.ts#CredentialCustodyFact",
         "src/definition/credential-custody.ts#CredentialConsumerRef",
         "src/definition/credential-custody.ts#CredentialResolutionRequest",
         "src/definition/credential-custody.ts#CredentialResolution",
@@ -116,7 +117,8 @@
         "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] invalidates a ref presented outside the endpoint and generation that recorded it",
         "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] decides from the triple alone and refuses a key carrying any further discriminant",
         "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] separates a confirmed custody refusal from a provider outcome it does not hold",
-        "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] reads custody from the consumer's own durable record and adds no store of its own"
+        "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] reads custody from the consumer's own durable record and adds no store of its own",
+        "test/definition/credential-custody.test.ts#SecretRef custody [C13-CONFIG-SECRET-CUSTODY] refuses every inexact or non-canonical custody value where it is written"
       ],
       "checkerInvariants": [],
       "remainingEvidence": [
