@@ -14,12 +14,12 @@
       "site": "src/composition/authority.ts#TenantOperationAuthority.replayBinding"
     },
     {
-      "accounting": "unaccounted",
+      "accounting": "accounted-forked",
       "consumer": "field:packageOperationPin",
       "emitsSignal": false,
       "hasObservableConsequence": true,
-      "justification": "The second, unnamed path from descriptor.toData() into InvocationId. composition/authority.ts digests descriptor.toData() into MediatedReplayBinding.packageOperationPin, and mediation-identity.ts feeds that value into the same derive() call that mints the Invocation. MIGRATE-OPERATION-DESCRIPTOR-PRESENCE enumerates thirteen descriptor-digest sites and names two as durable; this site is in neither list, measured by grep -F with a negative control: packageOperationPin 0, replayBinding 0, authority.ts:458 0, against descriptor 12. So the row's own count is short and the fork it describes reaches its own identity twice.",
-      "migration": null,
+      "justification": "The third durable path from descriptor.toData() into InvocationId, and the one that proves the migration rather than widening it. composition/authority.ts digests descriptor.toData() into MediatedReplayBinding.packageOperationPin, and mediation-identity.ts feeds that value into the same derive() call that mints the Invocation, so MIGRATE-OPERATION-DESCRIPTOR-PRESENCE's count of two durable sites was short by this one. It is accounted here rather than merely counted because this site digests the descriptor AND the PackagePin together, and PackagePin.manifestDigest is derived over the manifests that carry those same descriptor bytes: presence change -> manifestDigest change -> PackagePin change -> explicit re-pin -> migrateRun. So the fork cannot occur without the pin moving, which makes the presence migration a corollary of C13-RUN-EXPLICIT-MIGRATION rather than a second mechanism. Signal false unchanged and measured at this site: the value is minted, never compared inside a throwing guard. The crossing itself is refused, but at install verification rather than here, so the bit stays a property of this derivation. Consequence true: a duplicate mint or a refusal naming the wrong cause against a reservation that already exists.",
+      "migration": "MIGRATE-OPERATION-DESCRIPTOR-PRESENCE",
       "recordType": "src/facets/contribution.ts#OperationDescriptor",
       "shapeDigest": "9747e1a4ce60b7c1",
       "shapeSource": "src/facets/contribution.ts#OperationDescriptor",
