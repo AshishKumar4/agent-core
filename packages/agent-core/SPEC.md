@@ -1542,6 +1542,47 @@ is missing is resolution rather than correctness: whether a join has two lineage
 commit an abridgement withheld, are facts about what the Run did that the Run's own records
 cannot answer. This maps to **C13-RUN-DISTINCTION-REPRESENTABLE**.
 
+A multiway fold inherits the equal-pin requirement at every one of its steps, so a swarm whose
+members advanced their Package pins independently cannot fold at all. Migration is already the
+whole answer to that — branches with different pins merge once they are explicitly migrated to
+equal pins (above) — and what a caller lacks is not the mechanism but the fact it would need to
+use one: the refusal that stops the fold MUST name the exact **divergence** it refused on, as
+the pin dimensions that disagree and, inside the Package closure, the exact `PackageId`s. A
+refusal saying only that two pin sets were unequal leaves a caller holding six branches to
+search for the disagreement the platform had just found, and pins reconciled from that search
+are a migration to a target nobody compared. The divergence is derived from the two parents'
+own RunPins whenever it is asked for and is stored nowhere: a merge names both parents, so both
+pin records are already durable, and recording their difference would be a second copy of what
+the graph holds. Naming it changes no verdict — an unequal-pin merge is refused exactly as
+before — and it is what makes the reconciliation something a caller computes rather than
+guesses: migrate every divergent member to one common pin set, and the fold that was
+unreachable becomes an ordinary sequence of equal-pinned binary merges. This maps to
+**C13-RUN-FOLD-RECONCILIATION**.
+
+`synthesize` (§5.2.1) says how one merge's content was produced, not what the fold was: it is
+defined over one ordered parent pair, so a fold over three members runs it twice and the second
+aggregation reads the first merge's synthesized content where the first read a member's own.
+The order therefore decides which members a later aggregation reads through a summary and which
+one it reads verbatim, and two orders over the same three members produce different content.
+A fold's order is caller-supplied, and until the caller supplies it somewhere durable the only
+order that exists is the sequence in which merges happened to be requested — a reconstruction
+reads the chain and cannot tell a chosen order from an incidental one. The Run's admission
+registry cannot hold the choice, because its reserved obligations are a set of unique canonical
+identities and a set has no order. What can hold it is the one place §7 already puts an ordered
+caller declaration: a **fold** is one `administer`-impact merge-resolution Invocation whose
+nonempty ordered payload carries one item per binary merge, so the complete order is fixed by
+that Invocation's argument digest before the first merge is attempted, and item *k*'s Receipt is
+the exact control Receipt merge *k* names. Nothing is copied — the declaration is the request,
+the merge chain is the result, and the graph keeps naming a Receipt it already had to name.
+Three clauses bind them. A merge authorized by item *k* MUST join exactly the source branch
+that item declared; its target parent MUST be the merge appended for item *k−1* of the same
+Invocation, so no step lands out of the declared order or re-parents onto another lineage; and
+the sources a fold's items declare MUST be distinct branches, so no member is folded twice.
+Because each item is admitted as an `invocationItem` obligation like any other, a fold abandoned
+halfway is snapshotted at terminalization as exactly the merges it did not perform instead of
+settling as though convergence had finished. A merge outside any fold is unchanged, and a
+one-item payload declares no order. This maps to **C13-RUN-FOLD-ORDER**.
+
 A Run's commit graph is closed over that Run. Every RunCommit names the Run it belongs to,
 that Run owns the RunBranch the commit's `branch` field names, and every parent a commit
 names MUST be a commit of the same Run — its unary parent, and both merge parents, whose
@@ -4043,6 +4084,8 @@ A conforming implementation provides:
 - **C13-RUN-PLACEMENT-SNAPSHOT** Each Turn has a separate immutable placement snapshot.
 - **C13-RUN-EQUAL-PIN-MERGE** Merge admission requires equal pins.
 - **C13-RUN-EXPLICIT-MIGRATION** Run migration is explicit, durably evidenced, and rejects invalid target RunPins before installation.
+- **C13-RUN-FOLD-RECONCILIATION** An unequal-pin merge is refused with the exact divergence named — the disagreeing pin dimensions and the exact diverging `PackageId`s — derived from the two parents' own RunPins and stored nowhere, so a caller migrates every divergent member to one common pin set and the fold that was unreachable becomes ordinary equal-pinned binary merges.
+- **C13-RUN-FOLD-ORDER** A multiway fold's order is declared once as the ordered payload of one `administer`-impact merge-resolution Invocation, and each merge it authorizes joins exactly the source branch its item declared, extends the merge its predecessor item appended, and names a source no other item of that fold declares.
 - **C13-RUN-ADMISSION-REGISTRY** Every Run-associated asynchronous obligation uses canonical pre-remote identity reserve, completion, and close transitions in the Run-owner registry.
 - **C13-RUN-RESERVATION-EPOCH** Remote admission validates the exact reserved identity and open Run registry epoch.
 - **C13-RUN-ACCEPTANCE-OBLIGATION** A declared acceptance criterion is a reserved Run obligation that only a succeeded verifier Receipt discharges, and declaring none changes nothing.

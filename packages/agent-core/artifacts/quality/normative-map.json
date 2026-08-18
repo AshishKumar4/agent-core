@@ -1,6 +1,6 @@
 {
     "edition": "1.0.0",
-    "idSetSha256": "sha256:08d7b7b5d07c2dc8eac7a5a3379a778ab7c4b603645a5373613b0a6c1d91a8cd",
+    "idSetSha256": "sha256:a4a7cdc5e936fdcfd1dc1a530c1658d2d9846e02a3d43901c870af77e4ed95ad",
     "section13IntroductionSha256": "sha256:bcd08b83db231be475282c821362040c63873ebf64ecef199621dcf5027e3b27",
     "authoritativeOutsideSection13": [
         "C13-ATTEMPT-ORDINAL-AFTER-FAILURE",
@@ -161,6 +161,8 @@
         "C13-RUN-CUT-BALANCE",
         "C13-RUN-DISTINCTION-REPRESENTABLE",
         "C13-RUN-EFFECTIVE-TRANSCRIPT",
+        "C13-RUN-FOLD-ORDER",
+        "C13-RUN-FOLD-RECONCILIATION",
         "C13-RUN-FORCED-CANCELLATION",
         "C13-RUN-FRONTIER-COMPLETE",
         "C13-RUN-FRONTIER-EMPTY",

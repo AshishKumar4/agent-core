@@ -105,6 +105,22 @@ export class RunPins extends CodecRecord {
         return bytesEqual(RunPinsCodec.encode(this), RunPinsCodec.encode(other));
     }
 
+    /**
+     * The dimensions in which this pin set differs from another, with the exact identities
+     * that differ in each. Derived from the two records whenever it is asked for and stored
+     * nowhere: a merge names both of its parents, so both pin records are already durable,
+     * and recording their difference would be a second copy of what the graph holds. Empty
+     * exactly when `equals` holds.
+     */
+    public divergence(other: RunPins): readonly RunPinDivergence[] {
+        const divergence: RunPinDivergence[] = [];
+        for (const dimension of RunPinDimension.all) {
+            const identities = dimension.divergentIdentities(this, other);
+            if (identities.length > 0) divergence.push(Object.freeze({ dimension, identities }));
+        }
+        return Object.freeze(divergence);
+    }
+
     public toData(): JsonValue {
         return {
             agent: pinData(this.agent),
@@ -154,6 +170,127 @@ class RunPinsRecordCodec extends RecordCodec<RunPins> {
 }
 
 export const RunPinsCodec: RecordCodec<RunPins> = new RunPinsRecordCodec();
+
+/** One dimension of a RunPins comparison, with the exact identities that differ in it. */
+export interface RunPinDivergence {
+    readonly dimension: RunPinDimension;
+    /** Nonempty: the identities this dimension disagrees about. */
+    readonly identities: readonly string[];
+}
+
+/**
+ * The closed set of dimensions RunPins carries. A merge requires equal pins on both parents,
+ * and a refusal saying only that two pin sets were unequal leaves the caller to search for the
+ * disagreement the platform already found — so each case owns the comparison for its own
+ * dimension and names what differs. `all` is the one place the dimensions are enumerated, so a
+ * pin field nobody taught to compare is visible here rather than silently equal.
+ */
+export abstract class RunPinDimension {
+    public static get blueprint(): RunPinDimension {
+        return blueprintDimension;
+    }
+    public static get packages(): RunPinDimension {
+        return packagesDimension;
+    }
+    public static get agent(): RunPinDimension {
+        return agentDimension;
+    }
+    public static get effectivePolicy(): RunPinDimension {
+        return effectivePolicyDimension;
+    }
+    public static get modelPolicy(): RunPinDimension {
+        return modelPolicyDimension;
+    }
+    public static get environment(): RunPinDimension {
+        return environmentDimension;
+    }
+    /** Every dimension, in the order a refusal names them. */
+    public static get all(): readonly RunPinDimension[] {
+        return allDimensions;
+    }
+
+    public abstract readonly label: string;
+
+    /** The identities that differ in this dimension, empty when it agrees. */
+    public abstract divergentIdentities(left: RunPins, right: RunPins): readonly string[];
+
+    public equals(other: RunPinDimension): boolean {
+        return this === other;
+    }
+}
+
+class BlueprintDimension extends RunPinDimension {
+    public readonly label = "blueprint";
+    public divergentIdentities(left: RunPins, right: RunPins): readonly string[] {
+        const first = left.blueprint;
+        const second = right.blueprint;
+        if (
+            first.name === second.name &&
+            first.version.equals(second.version) &&
+            first.digest.equals(second.digest)
+        ) {
+            return [];
+        }
+        return distinctIdentities([first.name, second.name]);
+    }
+}
+
+class SourceDimension extends RunPinDimension {
+    public constructor(
+        public readonly label: string,
+        private readonly select: (pins: RunPins) => SourcePin<{ readonly value: string }>
+    ) {
+        super();
+    }
+    public divergentIdentities(left: RunPins, right: RunPins): readonly string[] {
+        const first = this.select(left);
+        const second = this.select(right);
+        if (
+            first.id.value === second.id.value &&
+            first.revision.equals(second.revision) &&
+            first.digest.equals(second.digest)
+        ) {
+            return [];
+        }
+        return distinctIdentities([first.id.value, second.id.value]);
+    }
+}
+
+class PackagesDimension extends RunPinDimension {
+    public readonly label = "packages";
+    public divergentIdentities(left: RunPins, right: RunPins): readonly string[] {
+        const remaining = new Map(right.packages.map((pin) => [pin.id.value, pin]));
+        const divergent: string[] = [];
+        for (const pin of left.packages) {
+            const other = remaining.get(pin.id.value);
+            if (other === undefined || !pin.equals(other)) divergent.push(pin.id.value);
+            remaining.delete(pin.id.value);
+        }
+        return distinctIdentities([...divergent, ...remaining.keys()]);
+    }
+}
+
+function distinctIdentities(values: readonly string[]): readonly string[] {
+    return Object.freeze([...new Set(values)].sort(compareText));
+}
+
+const blueprintDimension = new BlueprintDimension();
+const packagesDimension = new PackagesDimension();
+const agentDimension = new SourceDimension("agent", (pins) => pins.agent);
+const effectivePolicyDimension = new SourceDimension(
+    "effectivePolicy",
+    (pins) => pins.effectivePolicy
+);
+const modelPolicyDimension = new SourceDimension("modelPolicy", (pins) => pins.modelPolicy);
+const environmentDimension = new SourceDimension("environment", (pins) => pins.environment);
+const allDimensions: readonly RunPinDimension[] = Object.freeze([
+    blueprintDimension,
+    packagesDimension,
+    agentDimension,
+    effectivePolicyDimension,
+    modelPolicyDimension,
+    environmentDimension
+]);
 
 export interface RunConfigurationSnapshotInit {
     readonly pins: RunPins;
