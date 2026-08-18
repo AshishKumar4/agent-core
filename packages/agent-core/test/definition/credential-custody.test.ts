@@ -447,6 +447,11 @@ describe("SecretRef custody", () => {
             // and never carried into a custody decision.
             class WiderSecret extends SecretRef {}
             const wider = new WiderSecret(tenantId.value, "vault", "deploy-token");
+            // SAFETY: a structural counterfeit is the only way to reach the exactness guards,
+            // which compare `constructor` rather than shape — a real CredentialConsumerRef
+            // cannot fail them, and a subclass instance is the separate case `wider` covers.
+            // The narrowing never reaches a custody decision: both uses below hand it to a
+            // constructor that refuses it at the guard before reading either field.
             const lookAlike = { kind: "binding", id: consumer.id } as CredentialConsumerRef;
             const fact = new CredentialCustodyFact(credential, endpoint);
 
@@ -469,6 +474,10 @@ describe("SecretRef custody", () => {
                     "custody fact is not exact",
                     () =>
                         new CredentialCustody(tenantId.value, consumer, true, [
+                            // SAFETY: the same counterfeit one level down. CredentialCustody
+                            // rejects a fact whose constructor is not CredentialCustodyFact
+                            // before it reads `secret`, so this literal is refused at that
+                            // guard and never becomes a recorded custody fact.
                             { secret: credential, endpoint } as CredentialCustodyFact
                         ])
                 ],

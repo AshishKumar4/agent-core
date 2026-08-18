@@ -5,6 +5,7 @@ import {
     artifactRoot,
     assertExactKeys,
     assertFlatFragmentNames,
+    assertObject,
     assertString,
     assertUniqueIds,
     assertUniqueStrings,
@@ -365,7 +366,7 @@ function requireEvidenceOwner(path, owner, patterns, requirement) {
     }
 }
 
-function validateRequirement(requirement) {
+function validateRequirement(value) {
     // `bounds` is optional at every status, so it joins the exact key set only when present.
     // It records what the rule deliberately does NOT claim, which is a different fact from
     // `remainingEvidence`'s what-is-still-owed, and the two are deliberately not one field:
@@ -377,8 +378,8 @@ function validateRequirement(requirement) {
     // `requireEvidenceOwner`, `resolveSourceSymbol`, `requirePassingTests`, the
     // `checkerInvariants` execution check, the priority floor, or `validateStatus` — reads it.
     // A path, symbol or atom id inside a bound is therefore prose and never a citation.
-    const carriesBounds =
-        typeof requirement === "object" && requirement !== null && "bounds" in requirement;
+    const requirement = assertObject(value, "Requirement");
+    const carriesBounds = "bounds" in requirement;
     assertExactKeys(
         requirement,
         [
@@ -394,7 +395,7 @@ function validateRequirement(requirement) {
             "status",
             "testSelectors"
         ],
-        `Requirement ${requirement?.id ?? "<unknown>"}`
+        `Requirement ${requirement.id ?? "<unknown>"}`
     );
     for (const field of ["id", "owner", "specAnchor", "specTextSha256", "status"]) {
         assertString(requirement[field], `Requirement ${field}`);

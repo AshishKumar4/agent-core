@@ -417,7 +417,8 @@ describe("Filesystem backend invariants", () => {
             expect(typeof FilesystemWriteMode.replace).toBe("function");
             // @ts-expect-error A replace that names no content it replaces is illegal.
             expect(() => FilesystemWriteMode.replace()).toThrow(TypeError);
-            expect(() => FilesystemWriteMode.replace(guard.value as never)).toThrow(TypeError);
+            // @ts-expect-error A replace guarded by a bare digest string names no content.
+            expect(() => FilesystemWriteMode.replace(guard.value)).toThrow(TypeError);
 
             // `create` and `upsert` carry no guard, so they stay argument-less getters
             // yielding one frozen value each rather than factories.
@@ -1141,7 +1142,7 @@ function guardedWriteBackings(): ReadonlyArray<readonly [string, () => Filesyste
 }
 
 function expectFilesystemDetail(
-    action: () => unknown,
+    action: () => void,
     detailCode: FilesystemError["detailCode"] | "operation.invalid-input",
     label?: string
 ): void {

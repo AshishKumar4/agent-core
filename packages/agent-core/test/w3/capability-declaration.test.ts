@@ -25,11 +25,13 @@ import {
     FacetManifest,
     FacetPackageId,
     FacetRef,
+    isFacetDataMap,
     Operation,
     OperationDescriptor,
     OperationName,
     SlotName,
-    type FacetData
+    type FacetData,
+    type FacetDataMap
 } from "../../src/facets";
 import { FacetCorrespondenceValidator } from "../../src/operations";
 
@@ -42,12 +44,12 @@ const facetId = new FacetPackageId("acme.gateway");
  * not among them: SPEC §4.1 makes it present exactly when the capability is offered, so a
  * withheld capability has no key here to carry a value.
  */
-const withheldData: Readonly<Record<string, FacetData>> = {
+const withheldData = {
     impact: "observe",
     input: { type: "object" },
     name: "read",
     output: { type: "object" }
-};
+} satisfies FacetDataMap;
 
 function descriptor(interceptable?: true): OperationDescriptor {
     return new OperationDescriptor(
@@ -183,7 +185,11 @@ describe("W3 capability declarations", () => {
             // and the bytes. A decoder that read absence as `false` and re-emitted it would
             // produce a key here, and would then be refused by its own decoder below.
             expect(withheld.interceptable).toBeUndefined();
-            expect(Object.keys(withheld.toData() as object).sort()).toEqual([
+            const withheldFields = withheld.toData();
+            if (!isFacetDataMap(withheldFields)) {
+                throw new TypeError("Expected descriptor data map");
+            }
+            expect(Object.keys(withheldFields).sort()).toEqual([
                 "impact",
                 "input",
                 "name",

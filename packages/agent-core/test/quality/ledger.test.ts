@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import { canonicalSpec, specRequirements } from "../../scripts/quality/spec.mjs";
+import type { JsonValue } from "../../scripts/quality/project.mjs";
 import {
     type QualitySubprocessResult,
     runQualitySubprocess,
@@ -29,6 +30,17 @@ interface ConformanceRequirement {
     remainingEvidence: string[];
     /** Optional at every status and read by no evidence check; see the bounds cases below. */
     bounds?: string[];
+}
+
+/**
+ * A requirement record as `addFragment` writes it. The bound refusals below must write shapes a
+ * `ConformanceRequirement` forbids — a non-array `bounds`, a duplicated list, a misspelled
+ * `bound` — so the written record admits raw JSON in the two bound spellings and nowhere else,
+ * which is what keeps a fixture from laundering an off-shape value through the record type.
+ */
+interface WrittenRequirement extends Omit<ConformanceRequirement, "bounds"> {
+    readonly bounds?: JsonValue;
+    readonly bound?: JsonValue;
 }
 
 interface ConformanceFragment {
@@ -895,15 +907,14 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         await addFragment(fixture, "foundation.json", "W1", requirement);
         expect(runFixture(fixture).status).toBe(0);
 
-        const refusals: [unknown, string][] = [
+        const refusals: ReadonlyArray<readonly [JsonValue, string]> = [
             ["not an array at all", "bounds must be array"],
             [[bound, bound], "bounds must NOT have duplicate items"],
             [["Not covered."], "bounds/0 must NOT have fewer than 80 characters"],
             [[""], "bounds/0 must NOT have fewer than 80 characters"]
         ];
         for (const [value, message] of refusals) {
-            requirement.bounds = value as string[];
-            await addFragment(fixture, "foundation.json", "W1", requirement);
+            await addFragment(fixture, "foundation.json", "W1", { ...requirement, bounds: value });
             const refused = runFixture(fixture);
             expect(refused.status, `${JSON.stringify(value)} was admitted`).toBe(1);
             expect(refused.stderr).toContain(message);
@@ -912,8 +923,7 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         // A misspelled field is a shape error rather than a silently ignored one, because the
         // compiled schema forbids additional properties and runs before the exact-key check.
         delete requirement.bounds;
-        (requirement as unknown as Record<string, unknown>)["bound"] = [bound];
-        await addFragment(fixture, "foundation.json", "W1", requirement);
+        await addFragment(fixture, "foundation.json", "W1", { ...requirement, bound: [bound] });
         const typo = runFixture(fixture);
         expect(typo.status).toBe(1);
         expect(typo.stderr).toContain("must NOT have additional properties");
@@ -1064,7 +1074,7 @@ async function addFragment(
     root: string,
     name: string,
     owner: string,
-    requirement: ConformanceRequirement
+    requirement: WrittenRequirement
 ): Promise<void> {
     const indexPath = resolve(root, "conformance/index.json");
     const index = await readFixtureJson<ConformanceIndex>(indexPath);

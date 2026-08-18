@@ -21,7 +21,7 @@ import {
 import { TurnPlacementSnapshot } from "../../../src/agents/runs/placement";
 import { RunBranch } from "../../../src/agents/runs/run";
 import { RunBranchId } from "../../../src/agents/runs/id";
-import type { RunRepository } from "../../../src/agents/runs/store";
+import type { RunRepository, RunTransaction } from "../../../src/agents/runs/store";
 import { RunRuntime } from "../../../src/agents/runs/runtime";
 import { Turn } from "../../../src/agents/runs/turn";
 import {
@@ -46,7 +46,7 @@ const encoder = new TextEncoder();
  * text must be the parent-order concatenation of the two parents' texts. That is what makes a
  * fold's result in this suite depend on its order rather than on what the test asserted.
  */
-class ConcatMergePort extends RunMergePort<object> {
+class ConcatMergePort extends RunMergePort<RunTransaction> {
     private readonly texts = new Map<string, string>();
 
     public constructor(private readonly store: ContentStore) {
@@ -74,7 +74,7 @@ class ConcatMergePort extends RunMergePort<object> {
     }
 
     public verifyConcat(
-        _transaction: object,
+        _transaction: RunTransaction,
         commit: RunCommit,
         target: RunCommit,
         source: RunCommit
@@ -95,10 +95,10 @@ class ConcatMergePort extends RunMergePort<object> {
 }
 
 interface Convergence {
-    readonly repository: RunRepository<object>;
-    readonly evidence: TestEvidencePort<object>;
+    readonly repository: RunRepository<RunTransaction>;
+    readonly evidence: TestEvidencePort<RunTransaction>;
     readonly merge: ConcatMergePort;
-    readonly runtime: RunRuntime<object>;
+    readonly runtime: RunRuntime<RunTransaction>;
 }
 
 const foldInvocation = new InvocationId("invocation-fold");
@@ -106,14 +106,14 @@ const otherInvocation = new InvocationId("invocation-other");
 
 function convergence(): Convergence {
     const repository = testRunRepository(memoryRunStorage());
-    const evidence = new TestEvidencePort();
+    const evidence = new TestEvidencePort<RunTransaction>();
     const merge = new ConcatMergePort(repository.content);
     const runtime = new RunRuntime(
         repository,
-        new TestSourcePort(),
+        new TestSourcePort<RunTransaction>(),
         evidence,
-        new TestSettlementPort(),
-        new TestSpawnPort(),
+        new TestSettlementPort<RunTransaction>(),
+        new TestSpawnPort<RunTransaction>(),
         merge,
         new UncontributedCutPoints()
     );
@@ -131,7 +131,7 @@ function branchRevision(value: Convergence, branch: RunBranchId): Revision {
     return value.repository.transaction((tx) => value.repository.loadBranch(tx, branch)!.revision);
 }
 
-function headIn(value: Convergence, tx: object, branch: RunBranchId): RunCommit {
+function headIn(value: Convergence, tx: RunTransaction, branch: RunBranchId): RunCommit {
     const head = value.repository.loadBranch(tx, branch)!.head;
     return value.repository.loadCommit(tx, head)!;
 }
@@ -245,14 +245,15 @@ async function foldStep(value: Convergence, request: FoldStepRequest): Promise<R
         receipt,
         ...request.over
     });
-    const control: ControlCommitEvidence = {
+    const base = {
         kind: "control",
         run: ids.run,
         receipt,
         audit: refs.audit,
-        proposalDigest: commit.proposalDigest.value,
-        ...(request.fold === undefined ? {} : { fold: request.fold })
-    };
+        proposalDigest: commit.proposalDigest.value
+    } satisfies Omit<ControlCommitEvidence, "fold">;
+    const control: ControlCommitEvidence =
+        request.fold === undefined ? base : { ...base, fold: request.fold };
     value.evidence.controls.set(`${receipt.value}:${refs.audit.value}`, control);
     return commit;
 }
