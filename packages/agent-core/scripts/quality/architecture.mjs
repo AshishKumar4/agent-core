@@ -680,16 +680,12 @@ function checkCodecTarget(target) {
         });
     }
 
-    // Which codecs' tuples name each class. A debt filed against an omitted class needs to
-    // say whether anything freezes that class at all, and when something does, that the
-    // freeze is another codec's construction rather than this codec's seal.
-    const namedBy = new Map();
-    for (const entry of entries) {
-        const codec = `${portable(relative(options.root, entry.source.fileName))}#${entry.symbol}`;
-        for (const named of entry.classes) {
-            namedBy.set(named, [...(namedBy.get(named) ?? []), codec]);
-        }
-    }
+    // Whether any tuple in the target names a class at all. A debt filed against an omitted
+    // class has to say whether anything freezes that class ever, or whether the freeze it
+    // appears to have is another codec's construction rather than this codec's seal. Which
+    // other codecs those are is not recorded: it is not needed to pay the debt, and pinning
+    // it would rewrite this ledger every time an unrelated file shifted a byte offset.
+    const sealedSomewhere = new Set(entries.flatMap((entry) => entry.classes));
     for (const entry of entries) {
         const seen = new Set();
         const reached = new Set(entry.seedDependencies ?? []);
@@ -721,7 +717,7 @@ function checkCodecTarget(target) {
                 codec: entry.symbol,
                 missing: dependency.name,
                 missingFile: portable(relative(options.root, declaration.path)),
-                namedBy: (namedBy.get(dependency) ?? []).sort(compareCanonicalText)
+                risk: sealedSomewhere.has(dependency) ? "load-order" : "unsealed"
             });
         }
     }
@@ -2429,16 +2425,28 @@ async function loadCodecOwed(path) {
                 "codec",
                 "missing",
                 "missingFile",
-                "namedBy",
+                "risk",
                 "owner",
                 "counterfactual"
             ],
             "Codec closure debt"
         );
-        for (const key of ["fingerprint", "file", "codec", "missing", "missingFile", "owner"]) {
+        for (const key of [
+            "fingerprint",
+            "file",
+            "codec",
+            "missing",
+            "missingFile",
+            "risk",
+            "owner"
+        ]) {
             assertString(entry[key], `Codec closure debt ${key}`);
         }
-        assertArray(entry.namedBy, `Codec closure debt ${entry.fingerprint} namedBy`);
+        if (entry.risk !== "unsealed" && entry.risk !== "load-order") {
+            throw new TypeError(
+                `Codec closure debt ${entry.fingerprint} states an unknown risk ${entry.risk}`
+            );
+        }
         if (seen.has(entry.fingerprint)) {
             throw new TypeError(`Duplicate codec closure debt ${entry.fingerprint}`);
         }
@@ -2464,23 +2472,23 @@ async function loadCodecOwed(path) {
 }
 
 function owedCodecClosure(omission, patterns) {
-    const { fingerprint, file, codec, missing, missingFile, namedBy } = omission;
+    const { fingerprint, file, codec, missing, missingFile, risk } = omission;
     return {
         fingerprint,
         file,
         codec,
         missing,
         missingFile,
-        namedBy,
+        risk,
         owner: ownersForPath(file, patterns).join("/"),
         // The apparently harmless case is a class some other codec's tuple names, and it is
         // the `TextId` hazard rather than a seal: the freeze is a side effect of when that
         // other codec happens to be constructed, so this codec's module imported on its own
         // decodes through a writable class.
         counterfactual:
-            namedBy.length === 0
-                ? `No codec tuple names ${missing}, so nothing ever freezes it: Object.defineProperty(${missing}.prototype, …) succeeds and ${codec} still decodes through it`
-                : `${codec}'s own seal does not cover ${missing}: ${missing}.prototype is frozen only once ${namedBy.length === 1 ? "the codec named in namedBy" : `one of the ${namedBy.length} codecs named in namedBy`} is constructed, so what protects it is those modules' load order rather than this tuple`
+            risk === "unsealed"
+                ? `No codec tuple names ${missing} anywhere, so nothing ever freezes it: Object.defineProperty(${missing}.prototype, …) succeeds and ${codec} still decodes through it`
+                : `${codec}'s own seal does not cover ${missing}: ${missing} is frozen only once some other codec that does name it is constructed, so what protects it is that module's load order rather than this tuple`
     };
 }
 

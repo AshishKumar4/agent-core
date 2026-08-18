@@ -869,7 +869,7 @@ function codecDebt(fingerprint: string, missing: string): JsonObject {
         codec: "BoundCodec",
         missing,
         missingFile: "src/codec.ts",
-        namedBy: [],
+        risk: "unsealed",
         owner: "W0",
         counterfactual: `No codec tuple names ${missing}, so nothing freezes it and BoundCodec decodes through a writable prototype`
     };
