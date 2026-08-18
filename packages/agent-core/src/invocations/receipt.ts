@@ -8,6 +8,7 @@ import {
     type RecordVersion,
     TextId
 } from "../core";
+import { AgentCoreError } from "../errors";
 import {
     requireDate,
     requireExactObject,
@@ -81,6 +82,12 @@ export interface AttemptFailureObservation {
  *
  * Only construction is guarded. `kind` is the wire label, but reading one proves nothing the
  * caller did not already establish to obtain the value.
+ *
+ * A guard that refuses is answering "the fact you name is not established by what you
+ * presented", which is a determination about this attempt rather than a malformed argument,
+ * so it carries `invocation.invalid` like every other unsubstantiated Receipt claim. The
+ * exact-class checks belong to the same answer: evidence that is not the declared output
+ * shape, or not the cancellation the host owns, establishes nothing either.
  */
 export abstract class AttemptFailureKind {
     public abstract readonly kind: AttemptFailureKindName;
@@ -110,7 +117,7 @@ export abstract class AttemptFailureKind {
     public static deadline(bound: Date, observedAt: Date): AttemptFailureKind {
         const elapsed = validDate(bound, "Attempt bound");
         if (validDate(observedAt, "Attempt bound observation") < elapsed) {
-            throw new TypeError("A deadline failure requires a bound that has elapsed");
+            throw invalid("A deadline failure requires a bound that has elapsed");
         }
         return deadlineFailure;
     }
@@ -118,9 +125,7 @@ export abstract class AttemptFailureKind {
     /** Cancellation of the Turn or Run that owns the item reached the attempt. */
     public static aborted(cancellation: AbortSignal): AttemptFailureKind {
         if (!(cancellation instanceof AbortSignal) || !cancellation.aborted) {
-            throw new TypeError(
-                "An aborted failure requires cancellation that reached the attempt"
-            );
+            throw invalid("An aborted failure requires cancellation that reached the attempt");
         }
         return abortedFailure;
     }
@@ -128,7 +133,7 @@ export abstract class AttemptFailureKind {
     /** The protection domain hosting the target stopped answering. */
     public static domainLost(target: AttemptTargetDomain): AttemptFailureKind {
         if (target.answering()) {
-            throw new TypeError("A domainLost failure requires a domain that stopped answering");
+            throw invalid("A domainLost failure requires a domain that stopped answering");
         }
         return domainLostFailure;
     }
@@ -136,10 +141,10 @@ export abstract class AttemptFailureKind {
     /** The handler resolved with a value the Operation's declared output shape rejects. */
     public static outputInvalid(output: JsonSchema, value: JsonValue): AttemptFailureKind {
         if (output.constructor !== JsonSchema) {
-            throw new TypeError("An outputInvalid failure requires the declared output shape");
+            throw invalid("An outputInvalid failure requires the declared output shape");
         }
         if (output.accepts(value)) {
-            throw new TypeError("An outputInvalid failure requires a rejected resolved value");
+            throw invalid("An outputInvalid failure requires a rejected resolved value");
         }
         return outputInvalidFailure;
     }
@@ -222,7 +227,7 @@ export abstract class AttemptCompletion {
     }
     public static failed(failure: AttemptFailureKind): AttemptCompletion {
         if (!(failure instanceof AttemptFailureKind)) {
-            throw new TypeError("A failed attempt outcome requires one closed §7.4 failure kind");
+            throw invalid("A failed attempt outcome requires one closed §7.4 failure kind");
         }
         return new FailedCompletion(failure);
     }
@@ -559,3 +564,7 @@ function requireAttemptOutcome(value: string): AttemptReceiptOutcome {
 }
 
 export const ReceiptCodec: RecordCodec<Receipt> = new ReceiptCodecV2();
+
+function invalid(message: string): AgentCoreError {
+    return new AgentCoreError("invocation.invalid", message);
+}

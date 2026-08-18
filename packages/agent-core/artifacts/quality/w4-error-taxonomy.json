@@ -409,13 +409,6 @@
       "occurrence": 1
     },
     {
-      "declarationSha256": "eea310a3178c5354edf7b5f6d79232c72ca1d1552812717e090f2c34a337b444",
-      "file": "src/definition/credential-custody.ts",
-      "symbol": "RecordedCustodySeam.resolve",
-      "statementSha256": "9cf3408a06356be312668960c1865ec90211129c6eb35801316ebda003a2992f",
-      "occurrence": 1
-    },
-    {
       "declarationSha256": "5aa2f24abaa48747238a8c6d34d87205bc9864333f56e4f329f0e48ee711420e",
       "file": "src/definition/credential-custody.ts",
       "symbol": "requireExactEndpoint",
@@ -1210,14 +1203,14 @@
     }
   ],
   "expected": {
-    "agentCoreOperationalThrows": 242,
-    "allowedTypeErrors": 169,
+    "agentCoreOperationalThrows": 243,
+    "allowedTypeErrors": 168,
     "preservedRethrows": 1,
     "bareErrors": 0
   },
   "expectedOperationalByCode": {
     "codec.invalid": 114,
-    "operation.invalid-input": 35,
+    "operation.invalid-input": 36,
     "protocol.invalid-envelope": 5,
     "protocol.invalid-state": 71,
     "protocol.revision-conflict": 17

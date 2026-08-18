@@ -76,7 +76,9 @@ describe("§7.4 attempt failure kinds", () => {
                 try {
                     admitted.push(`${name}=${build().kind}`);
                 } catch (error) {
-                    refused.push(`${name}=${error instanceof TypeError ? "TypeError" : "other"}`);
+                    refused.push(
+                        `${name}=${error instanceof AgentCoreError ? error.code : "other"}`
+                    );
                 }
             }
 
@@ -88,10 +90,10 @@ describe("§7.4 attempt failure kinds", () => {
                 "outputInvalid/rejected=outputInvalid"
             ]);
             expect(refused).toEqual([
-                "deadline/not-yet-elapsed=TypeError",
-                "aborted/still-open=TypeError",
-                "domainLost/answering=TypeError",
-                "outputInvalid/accepted=TypeError"
+                "deadline/not-yet-elapsed=invocation.invalid",
+                "aborted/still-open=invocation.invalid",
+                "domainLost/answering=invocation.invalid",
+                "outputInvalid/accepted=invocation.invalid"
             ]);
             expect(AttemptFailureKind.raised.kind).toBe("raised");
             expect(AttemptFailureKind.raised.authoredByHandler).toBe(true);

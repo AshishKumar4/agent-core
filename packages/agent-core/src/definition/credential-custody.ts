@@ -1,4 +1,5 @@
 import { SecretRef } from "../core";
+import { invalidDefinition } from "./error";
 
 /**
  * §3.5 SecretRef custody. A SecretRef resolves only inside the Tenant its `source` names
@@ -256,7 +257,7 @@ export class RecordedCustodySeam extends CredentialIsolationSeam {
         // Principal would otherwise be honored as a narrower scope, which §3.5 forbids
         // for a custody fact and equally for the key presented against one.
         if (request.constructor !== CredentialResolutionRequest) {
-            throw new TypeError("A credential resolution requires an exact request triple");
+            throw invalidDefinition("A credential resolution requires an exact request triple");
         }
         if (!this.custody.consumer.equals(request.consumer)) {
             return CredentialResolution.refused("consumer-unrecorded");

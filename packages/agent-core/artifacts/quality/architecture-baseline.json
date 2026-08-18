@@ -2,55 +2,6 @@
   "edition": "1.0.0",
   "issues": [
     {
-      "rule": "ACQ-ERR",
-      "file": "packages/agent-core/src/definition/credential-custody.ts",
-      "symbol": "resolve",
-      "message": "Operational failures must use AgentCoreError rather than TypeError",
-      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/credential-custody.ts:resolve:73dccfc86391"
-    },
-    {
-      "rule": "ACQ-ERR",
-      "file": "packages/agent-core/src/invocations/receipt.ts",
-      "symbol": "aborted",
-      "message": "Operational failures must use AgentCoreError rather than TypeError",
-      "fingerprint": "ACQ-ERR:packages/agent-core/src/invocations/receipt.ts:aborted:73dccfc86391"
-    },
-    {
-      "rule": "ACQ-ERR",
-      "file": "packages/agent-core/src/invocations/receipt.ts",
-      "symbol": "deadline",
-      "message": "Operational failures must use AgentCoreError rather than TypeError",
-      "fingerprint": "ACQ-ERR:packages/agent-core/src/invocations/receipt.ts:deadline:73dccfc86391"
-    },
-    {
-      "rule": "ACQ-ERR",
-      "file": "packages/agent-core/src/invocations/receipt.ts",
-      "symbol": "domainLost",
-      "message": "Operational failures must use AgentCoreError rather than TypeError",
-      "fingerprint": "ACQ-ERR:packages/agent-core/src/invocations/receipt.ts:domainLost:73dccfc86391"
-    },
-    {
-      "rule": "ACQ-ERR",
-      "file": "packages/agent-core/src/invocations/receipt.ts",
-      "symbol": "failed",
-      "message": "Operational failures must use AgentCoreError rather than TypeError",
-      "fingerprint": "ACQ-ERR:packages/agent-core/src/invocations/receipt.ts:failed:73dccfc86391"
-    },
-    {
-      "rule": "ACQ-ERR",
-      "file": "packages/agent-core/src/invocations/receipt.ts",
-      "symbol": "outputInvalid",
-      "message": "Operational failures must use AgentCoreError rather than TypeError",
-      "fingerprint": "ACQ-ERR:packages/agent-core/src/invocations/receipt.ts:outputInvalid:73dccfc86391"
-    },
-    {
-      "rule": "ACQ-ERR",
-      "file": "packages/agent-core/src/invocations/receipt.ts",
-      "symbol": "outputInvalid",
-      "message": "Operational failures must use AgentCoreError rather than TypeError",
-      "fingerprint": "ACQ-ERR:packages/agent-core/src/invocations/receipt.ts:outputInvalid:73dccfc86391:2"
-    },
-    {
       "rule": "ACQ-KEY",
       "file": "packages/agent-core-cloudflare/src/actor-name.ts",
       "symbol": "actorObjectName",

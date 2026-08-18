@@ -323,7 +323,9 @@ describe("SecretRef custody", () => {
             }
             const widened = new PrincipalScopedRequest(credential, consumer, endpoint);
             expect(widened.principal).toBe("principal-custody");
-            expect(() => seam.resolve(widened, transport)).toThrow(/exact request triple/u);
+            expect(() => seam.resolve(widened, transport)).toThrow(
+                expect.objectContaining({ code: "operation.invalid-input" })
+            );
             expect(transport.injected).toEqual([]);
 
             // Two presentations of one triple observe the identical outcome, so no asker
