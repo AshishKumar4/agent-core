@@ -127,6 +127,15 @@
       ]
     },
     {
+      "id": "ACQ-PRESENCE",
+      "instructionSources": ["packages/agent-core/SPEC.md"],
+      "instructionContains": "A manifest declares what a Facet has and never what it lacks",
+      "checker": "scripts/quality/architecture.mjs",
+      "tests": [
+        "test/quality/architecture.test.ts#generic AGENTS architecture rules rejects a nullable record field and a negative form on a presence-declared one"
+      ]
+    },
+    {
       "id": "ACQ-SCOPE",
       "instructionSources": ["packages/agent-core/artifacts/quality/root-agents.md"],
       "instructionContains": "isolated worktrees",

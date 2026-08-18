@@ -68,6 +68,27 @@ describe("generic AGENTS architecture rules", subprocessTestOptions, () => {
         expect(result.stderr).toContain("ACQ-TEST");
     });
 
+    test("rejects a nullable record field and a negative form on a presence-declared one", async () => {
+        const fixture = await createFixture({
+            "src/id.ts": "export class NoteId {}\n",
+            "src/shape.ts": [
+                "export interface OfferedInit {",
+                "  readonly supersedes: NoteId | null;",
+                "  readonly interceptable: boolean;",
+                "}"
+            ].join("\n"),
+            "test/shape.test.ts": "export const tested = true;\n"
+        });
+        const result = run(fixture);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("ACQ-PRESENCE");
+        expect(result.stderr).toContain("OfferedInit.supersedes declares the nullable form");
+        expect(result.stderr).toContain(
+            "OfferedInit.interceptable declares the negative form boolean for a presence-declared field"
+        );
+    });
+
     test("rejects unpermitted weak types and stale permits", async () => {
         const fixture = await createFixture({
             "src/id.ts": "export class NoteId {}\n",
