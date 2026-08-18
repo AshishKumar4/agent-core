@@ -1,3 +1,4 @@
+import { compareCanonicalText } from "../../src/core";
 import { describe, expect, test } from "vitest";
 import { MemoryContentStore } from "../../src/content";
 import {
@@ -53,12 +54,7 @@ import {
 } from "../../src/invocations";
 import { OperationRequestKey } from "../../src/operations";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
-import {
-    failedByAbort,
-    mutableObject,
-    mutateRecord,
-    referenceCodec
-} from "./fixture";
+import { failedByAbort, mutableObject, mutateRecord, referenceCodec } from "./fixture";
 
 const descriptor = new OperationDescriptor(
     new OperationName("send"),
@@ -2064,7 +2060,7 @@ describe("W6 mediation memory persistence", () => {
             InvocationPublicationOutbox.pending(observation(`memory-order-${suffix}`))
         );
         const [low, middle, high] = [...pendings].sort((left, right) =>
-            left.id.value.localeCompare(right.id.value)
+            compareCanonicalText(left.id.value, right.id.value)
         );
         if (low === undefined || middle === undefined || high === undefined) {
             throw new TypeError("Expected three publications");

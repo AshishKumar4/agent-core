@@ -1,6 +1,7 @@
 export { TextId } from "./id";
 export {
     canonicalJsonCopy,
+    compareCanonicalText,
     decodeCanonicalJson,
     encodeCanonicalJson,
     frozenCanonicalJson

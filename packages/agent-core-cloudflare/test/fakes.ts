@@ -1,4 +1,10 @@
-import { AgentCoreError, isJsonValue, jsonDataParser, type JsonValue } from "@agent-core/core";
+import {
+    AgentCoreError,
+    type JsonValue,
+    compareCanonicalText,
+    isJsonValue,
+    jsonDataParser
+} from "@agent-core/core";
 import type {
     AlarmStorageLike,
     AuthoritativeDurableObjectHost,
@@ -195,7 +201,7 @@ export class FakeRuntimeSqlite implements SynchronousSqlitePort {
                 .filter(([, scheduledAt]) => scheduledAt <= now)
                 .sort(
                     ([leftId, leftTime], [rightId, rightTime]) =>
-                        leftTime - rightTime || leftId.localeCompare(rightId)
+                        leftTime - rightTime || compareCanonicalText(leftId, rightId)
                 )
                 .slice(0, limit)
                 .map(([id, scheduledAt]) => ({ id, scheduled_at: scheduledAt }));
@@ -568,7 +574,7 @@ export class FakeReconciliationOutbox implements ReconciliationOutbox {
             .filter(([, scheduledAt]) => scheduledAt <= now)
             .sort(
                 ([leftId, leftTime], [rightId, rightTime]) =>
-                    leftTime - rightTime || leftId.localeCompare(rightId)
+                    leftTime - rightTime || compareCanonicalText(leftId, rightId)
             )
             .slice(0, limit)
             .map(([id, scheduledAt]) => ({ id: new ReconciliationOutboxId(id), scheduledAt }));

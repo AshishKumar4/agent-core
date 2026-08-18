@@ -8,6 +8,11 @@ export const repositoryRoot = resolve(packageRoot, "../..");
 export const reportRoot = resolve(packageRoot, "reports/quality");
 export const artifactRoot = resolve(packageRoot, "artifacts");
 
+/** Orders text by ECMAScript UTF-16 code units, independent of host locale and ICU data. */
+export function compareCanonicalText(left, right) {
+    return left < right ? -1 : left > right ? 1 : 0;
+}
+
 export async function readJson(path) {
     return parseCanonicalJson(await readFile(path, "utf8"), portablePath(path));
 }
@@ -263,7 +268,9 @@ export async function collectFiles(root, predicate = () => true) {
         throw error;
     }
     const files = [];
-    for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    for (const entry of entries.sort((left, right) =>
+        compareCanonicalText(left.name, right.name)
+    )) {
         const path = resolve(root, entry.name);
         if (entry.isSymbolicLink()) {
             throw new TypeError(`Source universe contains symbolic link ${portablePath(path)}`);

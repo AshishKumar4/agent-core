@@ -88,11 +88,14 @@ function canonicalString(value: JsonValue): string {
     if (isJsonArray(value)) {
         return `[${value.map(canonicalString).join(",")}]`;
     }
-    const entries = Object.entries(value).sort(([left], [right]) => compareCodeUnits(left, right));
+    const entries = Object.entries(value).sort(([left], [right]) =>
+        compareCanonicalText(left, right)
+    );
     return `{${entries.map(([key, entry]) => `${JSON.stringify(key)}:${canonicalString(entry)}`).join(",")}}`;
 }
 
-function compareCodeUnits(left: string, right: string): number {
+/** Orders text by ECMAScript UTF-16 code units, independent of host locale and ICU data. */
+export function compareCanonicalText(left: string, right: string): number {
     if (left < right) {
         return -1;
     }

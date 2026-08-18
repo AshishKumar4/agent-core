@@ -45,6 +45,7 @@ import {
 } from "./mutation-equivalence.mjs";
 import {
     artifactRoot,
+    compareCanonicalText,
     packageRoot,
     readCanonicalJson,
     sha256,
@@ -478,7 +479,9 @@ function recordKills(path, mutant) {
 }
 
 function sortedObject(map) {
-    return Object.fromEntries([...map].sort(([left], [right]) => left.localeCompare(right, "en")));
+    return Object.fromEntries(
+        [...map].sort(([left], [right]) => compareCanonicalText(left, right))
+    );
 }
 
 // The exact span, not just the line. One line routinely carries several mutants: a

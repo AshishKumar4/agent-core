@@ -7,6 +7,7 @@ import {
     assertExactKeys,
     assertString,
     collectFiles,
+    compareCanonicalText,
     isNonEmptyString,
     readCanonicalJson,
     reportRoot,
@@ -163,8 +164,8 @@ for (const path of files) {
         addRequest(identity, document.owner, document.kind, source, entry);
     }
 }
-requests.sort((left, right) => left.identity.localeCompare(right.identity));
-documents.sort((left, right) => left.source.localeCompare(right.source));
+requests.sort((left, right) => compareCanonicalText(left.identity, right.identity));
+documents.sort((left, right) => compareCanonicalText(left.source, right.source));
 let archived = 0;
 let integrationIndex;
 if (selectedBom !== undefined) {

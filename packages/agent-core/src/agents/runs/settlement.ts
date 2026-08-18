@@ -1,5 +1,5 @@
 import { requireSynchronousResult } from "../../actors";
-import { RecordCodec, type JsonValue } from "../../core";
+import { type JsonValue, RecordCodec, compareCanonicalText } from "../../core";
 import { RunCommitId, TurnId } from "../../execution-references";
 import { ApprovalId, EffectAttemptId } from "../../invocation-references";
 import { InvocationId, RouteReservationId } from "../../interaction-references";
@@ -54,7 +54,9 @@ export class SettlementObligation extends CodecRecord {
         }
         const obligations = [...init.obligations]
             .map(copyRunObligation)
-            .sort((left, right) => runObligationKey(left).localeCompare(runObligationKey(right)));
+            .sort((left, right) =>
+                compareCanonicalText(runObligationKey(left), runObligationKey(right))
+            );
         if (new Set(obligations.map(runObligationKey)).size !== obligations.length) {
             throw new TypeError("Settlement obligations must have unique canonical identities");
         }
@@ -311,5 +313,5 @@ function deriveRequiredAudits(
                 return [];
         }
     });
-    return Object.freeze(audits.sort((left, right) => left.kind.localeCompare(right.kind)));
+    return Object.freeze(audits.sort((left, right) => compareCanonicalText(left.kind, right.kind)));
 }

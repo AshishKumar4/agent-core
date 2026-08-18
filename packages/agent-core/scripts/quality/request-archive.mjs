@@ -2,7 +2,13 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
-import { artifactRoot, fileSha256, readCanonicalJson, repositoryRoot } from "./project.mjs";
+import {
+    artifactRoot,
+    compareCanonicalText,
+    fileSha256,
+    readCanonicalJson,
+    repositoryRoot
+} from "./project.mjs";
 import { verifyCompletionArtifacts } from "./completion.mjs";
 import { extractRequestObligations } from "./request-obligations.mjs";
 
@@ -57,12 +63,12 @@ export async function validateFinalRequestArchive({
                 .filter((artifact) => isRequestSource(artifact.source))
                 .map((artifact) => ({ owner: entry.owner, ...artifact }))
         )
-        .sort((left, right) => left.source.localeCompare(right.source));
+        .sort((left, right) => compareCanonicalText(left.source, right.source));
     const archived = [...archive.entries].sort((left, right) =>
-        left.source.localeCompare(right.source)
+        compareCanonicalText(left.source, right.source)
     );
     const finalized = normalizeResolutions(resolutions).sort((left, right) =>
-        left.source.localeCompare(right.source)
+        compareCanonicalText(left.source, right.source)
     );
     assertUnique(
         archived.map((entry) => entry.source),

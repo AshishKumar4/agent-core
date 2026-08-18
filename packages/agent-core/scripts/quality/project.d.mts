@@ -6,6 +6,7 @@ export type JsonValue = string | number | boolean | null | readonly JsonValue[] 
 export type JsonKind =
     "absent" | "array" | "boolean" | "null" | "number" | "object" | "other" | "string";
 
+export function compareCanonicalText(left: string, right: string): number;
 export function globMatches(pattern: string, path: string): boolean;
 export function readJson(path: string): Promise<JsonValue>;
 export function readCanonicalJson(path: string): Promise<JsonValue>;

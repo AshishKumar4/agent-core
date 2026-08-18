@@ -1,5 +1,5 @@
 import { verifyCompletionArtifacts } from "./completion.mjs";
-import { isNonEmptyString, repositoryRoot, sha256 } from "./project.mjs";
+import { compareCanonicalText, isNonEmptyString, repositoryRoot, sha256 } from "./project.mjs";
 
 // The outcome baseline makes the resolutions ledger tamper-evident. Every recorded
 // outcome is the immutable history of one ratified review: its artifact pins are bound
@@ -150,6 +150,6 @@ export function updateOutcomeBaseline(resolutions, previous, reason, root = repo
                 `Re-run with ${acknowledgeFlag} to record why.`
         );
     }
-    outcomes.sort((left, right) => left.source.localeCompare(right.source));
+    outcomes.sort((left, right) => compareCanonicalText(left.source, right.source));
     return { baseline: { edition: "1.0.0", outcomes }, additions, restorations, regressions };
 }

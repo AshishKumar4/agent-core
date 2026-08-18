@@ -5,7 +5,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { parseCanonicalJson, portablePath } from "./project.mjs";
+import { compareCanonicalText, parseCanonicalJson, portablePath } from "./project.mjs";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const artifactPath = resolve(packageRoot, "artifacts/quality/w1-error-taxonomy.json");
@@ -77,7 +77,8 @@ const sorted = entries
     .filter((entry) => entry !== undefined)
     .sort(
         (left, right) =>
-            (left.file + left.line).localeCompare(right.file + right.line) || left.line - right.line
+            compareCanonicalText(left.file + left.line, right.file + right.line) ||
+            left.line - right.line
     );
 const testCases = Object.fromEntries(
     Object.entries(taxonomy.testCases).filter(([source]) =>

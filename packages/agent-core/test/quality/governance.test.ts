@@ -1,3 +1,4 @@
+import { compareCanonicalText } from "../../src/core";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -85,7 +86,7 @@ describe("R1 integration governance", subprocessTestOptions, () => {
         }));
 
         const bySource = (left: { source: string }, right: { source: string }) =>
-            left.source.localeCompare(right.source);
+            compareCanonicalText(left.source, right.source);
         expect([...archived].sort(bySource)).toEqual([...imported].sort(bySource));
     });
 

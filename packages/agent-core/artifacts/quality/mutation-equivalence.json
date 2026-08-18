@@ -1656,30 +1656,6 @@
       "symbol": "canonicalString"
     },
     {
-      "file": "src/core/canonical.ts",
-      "mutated": "left > right",
-      "mutator": "ConditionalExpression",
-      "proof": "The comparator is private to this module and reached only from the sort over Object.entries, whose keys are property keys and therefore pairwise distinct. Control arrives here only after left < right returned nothing, so on every reachable call the operands differ and left > right necessarily holds; replacing the test with true selects the same branch on every pair the sort can present. The proof rests on the distinctness of object keys rather than on how the engine's sort consumes a comparator result.",
-      "replacement": "true",
-      "symbol": "compareCodeUnits"
-    },
-    {
-      "file": "src/core/canonical.ts",
-      "mutated": "left < right",
-      "mutator": "EqualityOperator",
-      "proof": "The comparator is called only by the sort over Object.entries, and property keys within one object are distinct, so the two operands are never equal on any reachable call. On distinct strings left <= right and left < right agree, which makes the mutation a no-op for every pair the sort can present. This says nothing about how a comparator result is consumed: it is the input domain, not the sort algorithm, that makes the two operators indistinguishable here.",
-      "replacement": "left <= right",
-      "symbol": "compareCodeUnits"
-    },
-    {
-      "file": "src/core/canonical.ts",
-      "mutated": "left > right",
-      "mutator": "EqualityOperator",
-      "proof": "Reaching this test means left < right was false, and the operands come from Object.entries over one object, whose property keys are pairwise distinct, so left > right holds on every reachable call. Widening to >= admits only the equal case, which cannot occur, leaving the same branch selected for every pair. The argument is about which pairs can arrive rather than about which comparator results the engine's sort distinguishes.",
-      "replacement": "left >= right",
-      "symbol": "compareCodeUnits"
-    },
-    {
       "file": "src/core/codec.ts",
       "mutated": "kind.trim()",
       "mutator": "MethodExpression",

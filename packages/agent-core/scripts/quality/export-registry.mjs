@@ -1,5 +1,5 @@
 import { SymbolFlags } from "typescript/unstable/sync";
-import { assertObject, assertOneOf } from "./project.mjs";
+import { assertObject, assertOneOf, compareCanonicalText } from "./project.mjs";
 
 const declarationKinds = [
     "class",
@@ -17,7 +17,7 @@ export function exportedDeclarations(checker, module) {
         checker
             .getExportsOfModule(module)
             .map((symbol) => [symbol.name, declarationKind(checker, symbol)])
-            .sort(([left], [right]) => left.localeCompare(right))
+            .sort(([left], [right]) => compareCanonicalText(left, right))
     );
 }
 
@@ -30,7 +30,7 @@ export function declarationRegistry(document) {
     for (const [specifier, value] of Object.entries(declarations)) {
         const entries = assertObject(value, `Export registry declarations for ${specifier}`);
         const names = Object.keys(entries);
-        const sorted = [...names].sort((left, right) => left.localeCompare(right));
+        const sorted = [...names].sort((left, right) => compareCanonicalText(left, right));
         if (JSON.stringify(names) !== JSON.stringify(sorted)) {
             throw new TypeError(`${specifier} declaration registry is not sorted by name`);
         }

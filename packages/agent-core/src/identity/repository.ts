@@ -1,3 +1,4 @@
+import { compareCanonicalText } from "../core";
 import type {
     GuestTrustId,
     MembershipId,
@@ -114,7 +115,10 @@ export class MemoryIdentityRepository extends IdentityRepository {
             records: Object.freeze(
                 [...this.#records.values()]
                     .sort((left, right) =>
-                        recordKey(left.kind, left.id).localeCompare(recordKey(right.kind, right.id))
+                        compareCanonicalText(
+                            recordKey(left.kind, left.id),
+                            recordKey(right.kind, right.id)
+                        )
                     )
                     .map(copyRecord)
             )

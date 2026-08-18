@@ -1,3 +1,4 @@
+import { compareCanonicalText } from "../../src/core";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
@@ -315,7 +316,7 @@ async function writeExports(root: string, symbols: readonly string[]): Promise<v
                 declarations: {
                     "@fixture/core": Object.fromEntries(
                         [...symbols]
-                            .sort((left, right) => left.localeCompare(right))
+                            .sort((left, right) => compareCanonicalText(left, right))
                             .map((name) => [name, "class"])
                     )
                 }
@@ -340,7 +341,7 @@ async function writeDeclarationExports(
                 declarations: {
                     "@fixture/core": Object.fromEntries(
                         [...declarations]
-                            .sort((left, right) => left.name.localeCompare(right.name))
+                            .sort((left, right) => compareCanonicalText(left.name, right.name))
                             .map(({ name, kind }) => [name, kind])
                     )
                 }
@@ -360,7 +361,7 @@ async function writeProjectExports(root: string, symbols: readonly string[]): Pr
     if (core === undefined) throw new TypeError("Project export registry has no core package");
     for (const name of symbols) core[name] = "class";
     registry.declarations["@agent-core/core"] = Object.fromEntries(
-        Object.entries(core).sort(([left], [right]) => left.localeCompare(right))
+        Object.entries(core).sort(([left], [right]) => compareCanonicalText(left, right))
     );
     await writeFile(
         resolve(root, "exports.json"),

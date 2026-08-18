@@ -44,6 +44,7 @@ import {
     assertOneOf,
     assertString,
     collectFiles,
+    compareCanonicalText,
     readCanonicalJson,
     reportRoot,
     sha256,
@@ -187,7 +188,7 @@ const reported = derivations.map((derivation) => {
 // Worst cell first: an unregistered derivation that emits no signal and has no observable
 // consequence is discoverable by nothing except this gate.
 reported.sort(
-    (left, right) => severity(left) - severity(right) || left.site.localeCompare(right.site)
+    (left, right) => severity(left) - severity(right) || compareCanonicalText(left.site, right.site)
 );
 
 await writeCanonicalJson(resolve(reportRoot, "digest-derivations.json"), {
@@ -218,7 +219,7 @@ function keyOf(value) {
 }
 
 function bySite(left, right) {
-    return keyOf(left).localeCompare(keyOf(right));
+    return compareCanonicalText(keyOf(left), keyOf(right));
 }
 
 function validateEntry(value, index) {
