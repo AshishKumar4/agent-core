@@ -134,11 +134,13 @@
       "packages/agent-core/test/substrates/sqlite/authority-hard-gates.test.ts",
       "packages/agent-core/test/substrates/sqlite/binding.test.ts",
       "packages/agent-core/test/substrates/sqlite/bootstrap.test.ts",
+      "packages/agent-core/test/substrates/sqlite/divergent-sqlite.fixture.ts",
       "packages/agent-core/test/substrates/sqlite/identity.test.ts",
       "packages/agent-core/test/substrates/sqlite/permit.test.ts",
       "packages/agent-core/test/substrates/sqlite/store-parity.test.ts",
       "packages/agent-core/test/substrates/sqlite/tenant-behavior.test.ts",
       "packages/agent-core/test/substrates/sqlite/tenant-control.test.ts",
+      "packages/agent-core/test/substrates/sqlite/tenant-row-sweep-guards.test.ts",
       "packages/agent-core/test/substrates/sqlite/watermark.test.ts"
     ],
     "W3": [
