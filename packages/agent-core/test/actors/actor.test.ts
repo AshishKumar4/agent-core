@@ -25,6 +25,7 @@ import { ActorRecoveryState } from "../../src/actors/fence";
 import { MemoryActorStore } from "../../src/actors/store";
 import { encodeCanonicalJson, Revision, TextId } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
+import { recordContractExecution } from "../../scripts/quality/oracle-execution-evidence.js";
 import {
     SqliteActorStore,
     type ReadableSqlite,
@@ -206,6 +207,7 @@ function actorStoreContract(name: string, create: HarnessFactory): void {
                 await expect(first).resolves.toBe(1);
                 await expect(second).resolves.toBe(2);
                 expect(harness.initializations()).toBe(1);
+                recordContractExecution("ActorStore contract", name);
             }
         );
 

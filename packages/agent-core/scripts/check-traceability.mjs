@@ -1,13 +1,21 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { allowedBuiltInAxioms } from "./formal-policy.mjs";
 import { isJsonObject, isNonEmptyString, parseCanonicalJson } from "./quality/project.mjs";
 import {
-    declaredContractBackings,
-    declaredOracleOperations,
+    contractEvidenceDirectoryEnvironment,
+    contractEvidenceTestPathEnvironment,
+    contractExecutionManifest,
+    exactEvidencePath,
+    oracleEvidenceDirectoryEnvironment,
+    oracleEvidenceTestPathEnvironment,
+    oracleExecutionManifest,
+    passingTestPaths
+} from "./quality/oracle-execution-evidence.ts";
+import {
     deployedVersionIds,
     oracleOperationManifest,
     passingLiveAtoms
@@ -242,6 +250,98 @@ function readOracleOperations() {
         throw new Error(`check-traceability: unable to read oracle operations: ${detail}`);
     }
     return oracleOperationManifest(result.stdout.trim(), "oracle --operations");
+}
+
+function runTestEvidence(path) {
+    const directory = mkdtempSync(join(tmpdir(), "agent-core-oracle-evidence-"));
+    const evidenceDirectory = join(directory, "oracle");
+    const contractDirectory = join(directory, "contract");
+    const reportPath = join(directory, "vitest.json");
+    mkdirSync(evidenceDirectory);
+    mkdirSync(contractDirectory);
+    try {
+        const vitest = join(packageRoot, "node_modules", "vitest", "vitest.mjs");
+        const result = spawnSync(
+            process.execPath,
+            [vitest, "run", path, "--reporter=json", `--outputFile=${reportPath}`],
+            {
+                cwd: packageRoot,
+                encoding: "utf8",
+                env: {
+                    ...process.env,
+                    [oracleEvidenceDirectoryEnvironment]: evidenceDirectory,
+                    [oracleEvidenceTestPathEnvironment]: path,
+                    [contractEvidenceDirectoryEnvironment]: contractDirectory,
+                    [contractEvidenceTestPathEnvironment]: path
+                },
+                maxBuffer: 64 * 1024 * 1024,
+                timeout: 900_000
+            }
+        );
+        if (result.error || result.status !== 0) {
+            const detail =
+                result.error?.message ?? [result.stdout, result.stderr].filter(Boolean).join("\n");
+            throw new Error(`executing ${path} failed: ${detail}`);
+        }
+        const report = readFileSync(reportPath, "utf8");
+        const passed = passingTestPaths(report, reportPath);
+        if (passed.size !== 1 || !passed.has(path)) {
+            throw new TypeError(`${path} did not produce its exact passing test report`);
+        }
+        const files = readdirSync(evidenceDirectory).filter((file) => file.endsWith(".json"));
+        const contractFiles = readdirSync(contractDirectory).filter((file) =>
+            file.endsWith(".json")
+        );
+        return {
+            report,
+            oracleManifests: files.sort().map((file) => {
+                const evidencePath = join(evidenceDirectory, file);
+                return { location: evidencePath, source: readFileSync(evidencePath, "utf8") };
+            }),
+            contractManifests: contractFiles.sort().map((file) => {
+                const evidencePath = join(contractDirectory, file);
+                return { location: evidencePath, source: readFileSync(evidencePath, "utf8") };
+            })
+        };
+    } finally {
+        rmSync(directory, { recursive: true, force: true });
+    }
+}
+
+function observedContractBackings(path, suite, evidence) {
+    const backings = new Set();
+    for (const manifest of evidence.contractManifests) {
+        const observed = contractExecutionManifest(manifest.source, manifest.location);
+        if (observed.testPath !== path || observed.suite !== suite) continue;
+        if (backings.has(observed.backing)) {
+            throw new TypeError(`${path} executed duplicate ${suite} backing ${observed.backing}`);
+        }
+        backings.add(observed.backing);
+    }
+    if (backings.size === 0) {
+        throw new TypeError(`${path} executed no ${suite} backing`);
+    }
+    return backings;
+}
+
+function observedOracleOperations(path, evidence) {
+    if (evidence.oracleManifests.length === 0) {
+        throw new TypeError(`${path} produced no oracle execution manifest`);
+    }
+    const operations = new Set();
+    for (const manifest of evidence.oracleManifests) {
+        const observed = oracleExecutionManifest(manifest.source, manifest.location);
+        if (observed.testPath !== path) {
+            throw new TypeError(`${path} produced evidence for ${observed.testPath}`);
+        }
+        for (const operation of observed.operations) {
+            if (operations.has(operation)) {
+                throw new TypeError(`${path} executed duplicate oracle operation ${operation}`);
+            }
+            operations.add(operation);
+        }
+    }
+    return operations;
 }
 
 function checkLeanDefinitions(definitions) {
@@ -620,9 +720,10 @@ if (checkExactKeys(boundary, ["requiredAreaIds", "areas"], "formalBoundary")) {
 
 /**
  * The release assurance chain. Each link is recorded or open: a recorded link names an
- * artifact and the checker confirms that artifact actually contains the named evidence, so
- * a link cannot be closed by assertion; an open link names a reason and carries no
- * evidence, so a gap cannot be closed by silence either.
+ * artifact. The checker either validates immutable evidence bytes or executes the named
+ * test and verifies its passing report plus runtime evidence, so a link cannot be closed by
+ * source text alone. An open link names a reason and carries no evidence, so a gap cannot
+ * be closed by silence either.
  */
 async function checkReleaseChain() {
     const chain = traceability.releaseChain;
@@ -641,6 +742,7 @@ async function checkReleaseChain() {
     } catch (error) {
         fail(error.message);
     }
+    const executedTests = new Map();
     checkExactIds(
         chain.entries.map((entry) => entry?.requirementId),
         requiredChainRequirementIds,
@@ -676,9 +778,14 @@ async function checkReleaseChain() {
             fail(`${location} must name a path under test/ or artifacts/: ${path}`);
             return undefined;
         }
-        const resolved = join(packageRoot, path);
-        if (!existsSync(resolved)) {
-            fail(`${location} names a missing artifact: ${path}`);
+        let resolved;
+        try {
+            resolved = exactEvidencePath(
+                join(packageRoot, path.startsWith("test/") ? "test" : "artifacts"),
+                path.slice(path.indexOf("/") + 1)
+            );
+        } catch (error) {
+            fail(`${location} has invalid evidence path ${path}: ${error.message}`);
             return undefined;
         }
         return readFileSync(resolved, "utf8");
@@ -784,7 +891,12 @@ async function checkReleaseChain() {
                 if (source === undefined) continue;
                 let operations;
                 try {
-                    operations = declaredOracleOperations(source, path);
+                    let evidence = executedTests.get(path);
+                    if (evidence === undefined) {
+                        evidence = runTestEvidence(path);
+                        executedTests.set(path, evidence);
+                    }
+                    operations = observedOracleOperations(path, evidence);
                 } catch (error) {
                     fail(`${field} has invalid oracle evidence in ${path}: ${error.message}`);
                     continue;
@@ -797,9 +909,10 @@ async function checkReleaseChain() {
             }
         }
 
-        const substrate = linkStatus(entry, "substrateContract", ["paths", "backings"]);
+        const substrate = linkStatus(entry, "substrateContract", ["paths", "backings", "suite"]);
         if (substrate === "recorded") {
             const field = `${location}.substrateContract`;
+            checkString(entry.substrateContract.suite, `${field}.suite`);
             const backings = checkStringArray(
                 entry.substrateContract.backings,
                 `${field}.backings`,
@@ -815,9 +928,20 @@ async function checkReleaseChain() {
                 if (source === undefined) continue;
                 let declared;
                 try {
-                    declared = declaredContractBackings(source, path);
+                    let evidence = executedTests.get(path);
+                    if (evidence === undefined) {
+                        evidence = runTestEvidence(path);
+                        executedTests.set(path, evidence);
+                    }
+                    declared = observedContractBackings(
+                        path,
+                        entry.substrateContract.suite,
+                        evidence
+                    );
                 } catch (error) {
-                    fail(`${field} has invalid contract evidence in ${path}: ${error.message}`);
+                    fail(
+                        `${field} has invalid executed contract evidence in ${path}: ${error.message}`
+                    );
                     continue;
                 }
                 checkExactIds([...declared], backings, `${field} backing declaration in ${path}`);

@@ -3,7 +3,12 @@ import { isJsonObject, isJsonValue, isMember, type JsonObject } from "../../src/
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
+import {
+    isDifferentialTestPath,
+    oracleEvidenceDirectoryEnvironment,
+    oracleEvidenceTestPathEnvironment
+} from "../../scripts/quality/oracle-execution-evidence.js";
 
 const packageRoot = resolve(import.meta.dirname, "../..");
 const formalRoot = resolve(packageRoot, "formal");
@@ -95,7 +100,6 @@ export class LeanOracle {
         if (!isMember([...this.#expectedOperations], operation)) {
             throw new TypeError(`Unexpected Lean oracle operation: ${String(operation)}`);
         }
-        this.#observedOperations.add(operation);
         const response = await new Promise<JsonObject>((resolvePromise, reject) => {
             this.#pending.push({ resolve: resolvePromise, reject });
             this.#child.stdin?.write(`${JSON.stringify(request)}\n`);
@@ -106,6 +110,7 @@ export class LeanOracle {
         if (error !== undefined) {
             throw new Error(`Lean oracle rejected the request: ${String(error)}`);
         }
+        this.#observedOperations.add(operation);
         return response;
     }
 
@@ -119,11 +124,42 @@ export class LeanOracle {
                     `Lean oracle operations were not exercised: ${missing.join(", ")}`
                 );
             }
+            recordOracleExecution(this.#expectedOperations, this.#observedOperations);
         } finally {
             this.#child.stdin?.end();
             this.#child.kill();
         }
     }
+}
+
+function recordOracleExecution(
+    expectedOperations: ReadonlySet<string>,
+    observedOperations: ReadonlySet<string>
+): void {
+    const directory = process.env[oracleEvidenceDirectoryEnvironment];
+    const testPath = process.env[oracleEvidenceTestPathEnvironment];
+    if (directory === undefined && testPath === undefined) return;
+    if (directory === undefined || directory.length === 0 || !isDifferentialTestPath(testPath)) {
+        throw new TypeError("Oracle execution evidence environment is incomplete");
+    }
+    const expected = [...expectedOperations].sort(codePointOrder);
+    const observed = [...observedOperations].sort(codePointOrder);
+    const manifest = {
+        edition: "1.0.0",
+        expectedOperations: expected,
+        observedOperations: observed,
+        testPath
+    };
+    const identity = `${testPath}\n${expected.join("\n")}`;
+    const name = `${createHash("sha256").update(identity).digest("hex")}.json`;
+    writeFileSync(join(directory, name), `${JSON.stringify(manifest)}\n`, {
+        encoding: "utf8",
+        flag: "wx"
+    });
+}
+
+function codePointOrder(left: string, right: string): number {
+    return left < right ? -1 : left > right ? 1 : 0;
 }
 
 /**
