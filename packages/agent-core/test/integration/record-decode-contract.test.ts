@@ -81,7 +81,7 @@ const constructedCodecs = [
     "src/invocations/continuation.ts#InvocationContinuationCodec",
     "src/invocations/prepared.ts#PreparedInvocationCodec",
     "src/invocations/publication.ts#InvocationPublicationOutboxCodecV1",
-    "src/invocations/receipt.ts#ReceiptCodecV1",
+    "src/invocations/receipt.ts#ReceiptCodecV2",
     "src/invocations/replay.ts#MediatedReplayRecordCodecV1",
     "src/substrates/sqlite/tenant.ts#TenantBootstrapMarker.codec"
 ] as const;
