@@ -1,4 +1,4 @@
-import { Digest, SemVer } from "../../core";
+import { Digest, SemVer, compareCanonicalText } from "../../core";
 import { MetadataSnapshot, PackageId, PackageLock, PackageRelease } from "../../definition";
 import { AgentCoreError } from "../../errors";
 import type { SqliteRow } from "./sqlite";
@@ -347,17 +347,13 @@ function bytes(row: SqliteRow, column: string): Uint8Array {
 
 function compareReleases(left: PackageRelease, right: PackageRelease): number {
     return (
-        compareText(left.id.value, right.id.value) ||
-        compareText(left.version.toString(), right.version.toString())
+        compareCanonicalText(left.id.value, right.id.value) ||
+        compareCanonicalText(left.version.toString(), right.version.toString())
     );
 }
 
 function releaseKey(release: PackageRelease): string {
     return `${release.id.value}\0${release.version.toString()}`;
-}
-
-function compareText(left: string, right: string): number {
-    return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function equalBytes(left: Uint8Array, right: Uint8Array): boolean {

@@ -1,6 +1,5 @@
 import {
     type JsonFields,
-    encodeCanonicalJson,
     frozenCanonicalJson,
     jsonDataParser,
     type JsonValue
@@ -40,10 +39,6 @@ export function requireArray(value: JsonValue | undefined, name: string): readon
 
 export function canonicalJson<Value extends JsonValue>(value: Value): Value {
     return frozenCanonicalJson(value);
-}
-
-export function canonicalJsonEqual(left: JsonValue, right: JsonValue): boolean {
-    return bytesEqual(encodeCanonicalJson(left), encodeCanonicalJson(right));
 }
 
 export function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {

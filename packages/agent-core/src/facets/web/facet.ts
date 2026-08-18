@@ -447,8 +447,11 @@ export class FixedWindowRatePolicy implements WebRatePolicy {
 
 function normalizeHeaders(headers: WebHeaders) {
     const normalized: Record<string, string> = {};
-    for (const [name, value] of Object.entries(headers))
-        normalized[name.toLocaleLowerCase()] = value;
+    // toLowerCase, not toLocaleLowerCase: header names are ASCII, and under a Turkish
+    // host locale the latter folds "AUTHORIZATION" to "authorızatıon" with a dotless i,
+    // which the CREDENTIAL_HEADERS gate below does not recognise -- so a caller could
+    // attach a credential header the credential policy is supposed to own exclusively.
+    for (const [name, value] of Object.entries(headers)) normalized[name.toLowerCase()] = value;
     return normalized;
 }
 

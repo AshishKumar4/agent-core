@@ -1,4 +1,4 @@
-import { compareCanonicalText } from "../core";
+import { compareCanonicalText, hasExactKeys } from "../core";
 import { AgentCoreError } from "../errors";
 import type { ActorRef } from "../actors";
 import type { TenantId } from "../identity";
@@ -128,7 +128,7 @@ function requireSnapshot(
 ): asserts snapshot is MemoryInvalidationWatermarkSnapshot {
     if (
         !isSnapshotObject(snapshot) ||
-        JSON.stringify(Object.keys(snapshot).sort()) !== JSON.stringify(["records", "version"]) ||
+        !hasExactKeys(snapshot, ["records", "version"]) ||
         snapshot.version !== 1 ||
         !Array.isArray(snapshot.records)
     ) {
@@ -137,7 +137,7 @@ function requireSnapshot(
     for (const record of snapshot.records) {
         if (
             !isWatermarkRecord(record) ||
-            JSON.stringify(Object.keys(record).sort()) !== JSON.stringify(["bytes", "key"]) ||
+            !hasExactKeys(record, ["bytes", "key"]) ||
             record.key.length === 0 ||
             !(record.bytes instanceof Uint8Array)
         ) {

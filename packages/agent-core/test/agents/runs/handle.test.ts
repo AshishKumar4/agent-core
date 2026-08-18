@@ -655,7 +655,9 @@ describe("addressing an admitted item", () => {
             });
 
             expect(steering.event).toBe("admission.steering");
-            expect(steering.idempotencyKey).toBe(`${handle.address}:steering:nonce-1`);
+            expect(steering.idempotencyKey).toBe(
+                JSON.stringify([handle.address, "steering", "nonce-1"])
+            );
             expect(steering.cancellationToken).toBeUndefined();
             expect(steering.sequence).toBe(0);
 

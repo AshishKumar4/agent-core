@@ -1,5 +1,5 @@
 import { requireSynchronousResult } from "../actors";
-import { Digest, encodeCanonicalJson, isObjectRecord } from "../core";
+import { Digest, compareCanonicalText, encodeCanonicalJson, isObjectRecord } from "../core";
 import { AgentCoreError } from "../errors";
 import {
     InterceptorDeclaration,
@@ -172,8 +172,8 @@ export class OperationInterceptorRunner<Resolution> {
             (left, right) =>
                 left.declaration.modeRank - right.declaration.modeRank ||
                 left.declaration.priority - right.declaration.priority ||
-                compareText(left.facet.manifest.id.value, right.facet.manifest.id.value) ||
-                compareText(left.declaration.id.value, right.declaration.id.value)
+                compareCanonicalText(left.facet.manifest.id.value, right.facet.manifest.id.value) ||
+                compareCanonicalText(left.declaration.id.value, right.declaration.id.value)
         );
     }
 
@@ -241,10 +241,6 @@ function blocked(declaration: InterceptorDeclaration, detail: string): AgentCore
         "authority.denied",
         `Interceptor ${declaration.id.value} blocked the operation: ${detail}`
     );
-}
-
-function compareText(left: string, right: string): number {
-    return left < right ? -1 : left > right ? 1 : 0;
 }
 
 const interceptorSlot = new SlotName("interceptors");

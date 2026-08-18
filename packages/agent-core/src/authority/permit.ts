@@ -4,6 +4,7 @@ import {
     Digest,
     RecordCodec,
     Revision,
+    canonicalJsonEqual,
     isMember,
     type JsonValue,
     type RecordVersion
@@ -15,7 +16,6 @@ import { PrincipalId, PrincipalRef, TenantId } from "../identity";
 import { ClaimWorkerId, ItemClaimId } from "../invocation-references";
 import { InvocationId } from "../interaction-references";
 import {
-    canonicalJsonEqual,
     requireExact,
     requireObject,
     requireSafeInteger,

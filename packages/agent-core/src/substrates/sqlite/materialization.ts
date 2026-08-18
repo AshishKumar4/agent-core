@@ -4,7 +4,7 @@ import {
     type SynchronousResultGuard,
     type TransactionOperation
 } from "../../actors";
-import { Digest, Revision, SemVer } from "../../core";
+import { Digest, Revision, SemVer, compareCanonicalText } from "../../core";
 import {
     Blueprint,
     DeploymentId,
@@ -21,6 +21,7 @@ import {
     isLegalDeploymentTransition,
     isLegalOutboxTransition,
     requirePlanAttestation,
+    UnknownMaterializationKindError,
     requireExactOutboxClosure
 } from "../../definition";
 import { AgentCoreError } from "../../errors";
@@ -778,7 +779,7 @@ export class SqliteMaterializationStore {
         requireTenantDefinitionOwner(this.owner, "Materialization plan");
         const plans = this.planRecords(this.database)
             .map((stored) => this.decodePlan(stored))
-            .sort((left, right) => compareText(left.id.value, right.id.value));
+            .sort((left, right) => compareCanonicalText(left.id.value, right.id.value));
         requireUnique(
             plans.map((plan) => plan.id.value),
             "Stored materialization plans contain a duplicate immutable key"
@@ -860,7 +861,7 @@ export class SqliteMaterializationStore {
             .sort(
                 (left, right) =>
                     compareActors(left.actor, right.actor) ||
-                    compareText(left.deploymentId.value, right.deploymentId.value)
+                    compareCanonicalText(left.deploymentId.value, right.deploymentId.value)
             );
         requireUnique(
             pointers.map(
@@ -1653,7 +1654,7 @@ function decodeStoredMaterialization<Value>(decode: () => Value): Value {
     try {
         return decode();
     } catch (error) {
-        if (isUnsupportedMaterializationKindError(error)) {
+        if (error instanceof UnknownMaterializationKindError) {
             throw resetRequired(
                 "stored codec bytes contain an unsupported materialization closure"
             );
@@ -1668,16 +1669,6 @@ function decodeStoredMaterialization<Value>(decode: () => Value): Value {
     }
 }
 
-function isUnsupportedMaterializationKindError(error: unknown): error is Error {
-    try {
-        return (
-            error instanceof Error &&
-            error.message.includes("Unsupported materialization record kind")
-        );
-    } catch {
-        return false;
-    }
-}
 
 function projectBlueprint(blueprint: Blueprint, recordBytes: Uint8Array): StoredBlueprint {
     return {
@@ -1806,8 +1797,8 @@ function equalGenerationPointerProjection(
 
 function compareBlueprints(left: Blueprint, right: Blueprint): number {
     return (
-        compareText(left.meta.name, right.meta.name) ||
-        compareText(left.meta.version.toString(), right.meta.version.toString())
+        compareCanonicalText(left.meta.name, right.meta.name) ||
+        compareCanonicalText(left.meta.version.toString(), right.meta.version.toString())
     );
 }
 
@@ -1815,19 +1806,19 @@ function compareGenerations(
     left: MaterializationGeneration,
     right: MaterializationGeneration
 ): number {
-    return compareActors(left.actor, right.actor) || compareText(left.id.value, right.id.value);
+    return compareActors(left.actor, right.actor) || compareCanonicalText(left.id.value, right.id.value);
 }
 
 function compareManagedState(left: ManagedStateRecord, right: ManagedStateRecord): number {
     return (
-        compareText(left.generationId.value, right.generationId.value) ||
-        compareText(left.logicalKey, right.logicalKey) ||
-        compareText(left.id.value, right.id.value)
+        compareCanonicalText(left.generationId.value, right.generationId.value) ||
+        compareCanonicalText(left.logicalKey, right.logicalKey) ||
+        compareCanonicalText(left.id.value, right.id.value)
     );
 }
 
 function compareActors(left: ActorRef, right: ActorRef): number {
-    return compareText(left.kind, right.kind) || compareText(left.id.value, right.id.value);
+    return compareCanonicalText(left.kind, right.kind) || compareCanonicalText(left.id.value, right.id.value);
 }
 
 function requireOwnedPlan(plan: MaterializationPlan, owner: ActorRef): void {
@@ -1962,10 +1953,6 @@ function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
     return (
         left.byteLength === right.byteLength && left.every((value, index) => value === right[index])
     );
-}
-
-function compareText(left: string, right: string): number {
-    return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function requireMaterializationKindCheck(column: string): string {
