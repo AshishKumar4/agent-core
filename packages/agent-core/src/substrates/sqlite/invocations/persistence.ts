@@ -1,5 +1,5 @@
 import { AgentCoreError } from "../../../errors";
-import type { RecordCodec } from "../../../core";
+import { isObjectRecord, type RecordCodec } from "../../../core";
 import { TransactionalSqlite, isSqliteNumber, isSqliteText, type SqliteRow } from "../sqlite";
 import { InvocationError } from "../../../invocations";
 
@@ -605,12 +605,13 @@ function appendRecord(
 const SQLITE_CONSTRAINT_PRIMARYKEY = 1555;
 const SQLITE_CONSTRAINT_UNIQUE = 2067;
 
-function isConstraintFailure(error: unknown): boolean {
-    if (error === null || typeof error !== "object") return false;
-    const { errcode, errno } = error as {
-        readonly errcode?: unknown;
-        readonly errno?: unknown;
-    };
-    const result = typeof errcode === "number" ? errcode : errno;
+interface SqliteConstraintFailure {
+    readonly errcode?: number;
+    readonly errno?: number;
+}
+
+function isConstraintFailure(error: unknown): error is SqliteConstraintFailure {
+    if (!isObjectRecord(error)) return false;
+    const result = error["errcode"] ?? error["errno"];
     return result === SQLITE_CONSTRAINT_PRIMARYKEY || result === SQLITE_CONSTRAINT_UNIQUE;
 }

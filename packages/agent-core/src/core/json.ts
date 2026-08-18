@@ -69,7 +69,10 @@ export function isObjectRecord(value: unknown): value is ObjectRecord {
 }
 
 /** Exact own-key-set check for any object, without narrowing its member types. */
-export function hasExactKeys(value: object, expected: readonly string[]): boolean {
+export function hasExactKeys<Value extends object>(
+    value: Value,
+    expected: readonly string[]
+): boolean {
     const keys = Object.keys(value);
     return keys.length === expected.length && expected.every((key) => Object.hasOwn(value, key));
 }

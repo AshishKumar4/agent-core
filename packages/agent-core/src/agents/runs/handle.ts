@@ -500,7 +500,7 @@ class OutcomeMessage extends TurnAdmissionMessage {
     }
 
     public key(handle: TurnAdmissionHandle): string {
-        return `${handle.address}:outcome`;
+        return JSON.stringify([handle.address, "outcome"]);
     }
 }
 
@@ -517,7 +517,9 @@ class SteeringMessage extends TurnAdmissionMessage {
     }
 
     public key(handle: TurnAdmissionHandle): string {
-        return `${handle.address}:steering:${this.nonce}`;
+        // The address and the caller's nonce are both unconstrained text, so a
+        // delimiter join is not injective; JSON escaping closes each component.
+        return JSON.stringify([handle.address, "steering", this.nonce]);
     }
 }
 

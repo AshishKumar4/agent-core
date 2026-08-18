@@ -490,13 +490,9 @@ describe("SqliteInvocationPersistence append conflict taxonomy", () => {
                 database.fault = () => {
                     throw thrown;
                 };
-                let caught: unknown = "unset";
-                try {
-                    persistence.insertPrepared(database, prepared("sqlite-passthrough"));
-                } catch (error) {
-                    caught = error;
-                }
-                expect(caught).toBe(thrown);
+                expect(() =>
+                    persistence.insertPrepared(database, prepared("sqlite-passthrough"))
+                ).toThrow(thrown);
             }
         }
     );

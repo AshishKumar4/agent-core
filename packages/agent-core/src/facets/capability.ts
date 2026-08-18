@@ -218,10 +218,11 @@ function validatePattern(pattern: string): void {
  * as well as linear.
  */
 export function matchesGlob(pattern: string, value: string): boolean {
+    const wildcard = pattern.indexOf("*");
+    if (wildcard < 0) return value === pattern;
     const segments = pattern.split("*");
-    const first = segments[0]!;
-    const last = segments[segments.length - 1]!;
-    if (segments.length === 1) return value === pattern;
+    const first = pattern.slice(0, wildcard);
+    const last = pattern.slice(pattern.lastIndexOf("*") + 1);
     if (
         first.length + last.length > value.length ||
         !value.startsWith(first) ||

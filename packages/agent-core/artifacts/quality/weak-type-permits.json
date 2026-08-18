@@ -1724,23 +1724,6 @@
       "reason": "A row read back at an index the query's own limit or ordering established, and a state field the record's variant guarantees, are present by those facts."
     },
     {
-      "file": "packages/agent-core/src/substrates/sqlite/invocations/persistence.ts",
-      "kind": "unknown",
-      "anchors": [
-        {
-          "symbol": "SqliteConstraintFailure.code",
-          "source": "readonly code?: unknown;",
-          "count": 1
-        },
-        {
-          "symbol": "SqliteConstraintFailure.message",
-          "source": "readonly message?: unknown;",
-          "count": 1
-        }
-      ],
-      "reason": "SQLite constraint failures cross the host boundary as untyped objects; their optional code and message fields remain unknown until the constraint classifier narrows them."
-    },
-    {
       "file": "packages/agent-core/src/substrates/sqlite/materialization.ts",
       "kind": "non-null",
       "anchors": [

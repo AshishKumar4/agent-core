@@ -15,10 +15,10 @@ type MaterializationKindValidator = (desired: JsonValue) => JsonValue;
  * TypeError into a new message, so that test survived only by textual coincidence. An
  * AgentCoreError subclass is rethrown by that wrapper unchanged.
  */
-export class UnsupportedMaterializationKindError extends AgentCoreError {
+export class UnknownMaterializationKindError extends AgentCoreError {
     public constructor(recordKind: string) {
         super("codec.invalid", `Unsupported materialization record kind ${recordKind}`);
-        this.name = "UnsupportedMaterializationKindError";
+        this.name = "UnknownMaterializationKindError";
     }
 }
 
@@ -55,7 +55,7 @@ export function canonicalMaterializationDesired(recordKind: string, desired: Jso
 
 function requireMaterializationKindValidator(recordKind: string): MaterializationKindValidator {
     if (!Object.hasOwn(materializationKinds, recordKind)) {
-        throw new UnsupportedMaterializationKindError(recordKind);
+        throw new UnknownMaterializationKindError(recordKind);
     }
     return materializationKinds[recordKind]!;
 }

@@ -21,7 +21,7 @@ import {
     isLegalDeploymentTransition,
     isLegalOutboxTransition,
     requirePlanAttestation,
-    UnsupportedMaterializationKindError,
+    UnknownMaterializationKindError,
     requireExactOutboxClosure
 } from "../../definition";
 import { AgentCoreError } from "../../errors";
@@ -1654,7 +1654,7 @@ function decodeStoredMaterialization<Value>(decode: () => Value): Value {
     try {
         return decode();
     } catch (error) {
-        if (error instanceof UnsupportedMaterializationKindError) {
+        if (error instanceof UnknownMaterializationKindError) {
             throw resetRequired(
                 "stored codec bytes contain an unsupported materialization closure"
             );
