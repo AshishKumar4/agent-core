@@ -267,6 +267,13 @@ The codebase is deliberately object-oriented with deep modules. Keep it that way
 - Facet profiles live at `src/facets/<profile>/` with `facet.ts` + `index.ts`; the
   public class is `<Profile>Facet` using SPEC vocabulary (`ApprovalGatewayFacet`, not
   internal codenames).
+- **Every public export's name is SPEC vocabulary, word by word**, not just facet
+  classes. Each capitalized word in every exported type, class, and constant is checked
+  against SPEC.md. A word translated in SPEC.md Appendix A (`Tool`, `Sandbox`, `Hook`,
+  `Plugin`, ...) is a defect with no review path — rename to the SPEC's word. A word the
+  SPEC does not use at all may stand only with a written, current reason recorded in
+  `artifacts/quality/spec-vocabulary.json`; the reason goes stale, and the check fails,
+  once the SPEC adopts the word or no export still uses it.
 - Files are lowercase, single-concept; a file that needs a plural name is usually two
   files.
 

@@ -145,6 +145,16 @@
       ]
     },
     {
+      "id": "ACQ-SPEC-VOCAB",
+      "instructionSources": ["AGENTS.md"],
+      "instructionContains": "is SPEC vocabulary, word by word",
+      "checker": "scripts/quality/architecture.mjs",
+      "tests": [
+        "test/quality/architecture.test.ts#generic AGENTS architecture rules does not admit public vocabulary found only in fenced SPEC examples",
+        "test/quality/architecture.test.ts#generic AGENTS architecture rules checks vocabulary for public type declarations regardless of identifier prefix"
+      ]
+    },
+    {
       "id": "ACQ-TEST",
       "instructionSources": ["AGENTS.md"],
       "instructionContains": "Unit Tests",
