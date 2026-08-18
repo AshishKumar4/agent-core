@@ -323,114 +323,21 @@
       }
     },
     {
-      "id": "T-EVIDENCE:C13-ADV-NONBINARY-MERGE",
+      "id": "T-EVIDENCE:C13-AUTH-ISOLATE-NAMESPACE-CLOSED",
       "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-ADV-NONBINARY-MERGE" },
-      "owner": "W5",
-      "priority": 5,
-      "summary": "Advance C13-ADV-NONBINARY-MERGE from implemented with exact evidence",
-      "notes": [
-        "Names a non-binary merge. Its only test asserts missing merge sources and invalid picked content are rejected; arity is not exercised."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "C13-ADV-NONBINARY-MERGE",
-        "expected": "verified"
-      }
-    },
-    {
-      "id": "T-EVIDENCE:C13-ADV-POST-TERMINAL-ROUTE",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-ADV-POST-TERMINAL-ROUTE" },
-      "owner": "W5",
-      "priority": 5,
-      "summary": "Advance C13-ADV-POST-TERMINAL-ROUTE from implemented with exact evidence",
-      "notes": [
-        "Names a post-terminal route. Its only test asserts duplicate reservations are reused, completion is idempotent, and substitutions are rejected, none of which routes after terminalization."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "C13-ADV-POST-TERMINAL-ROUTE",
-        "expected": "verified"
-      }
-    },
-    {
-      "id": "T-EVIDENCE:C13-ADV-RECEIPT-CANCELLED",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-ADV-RECEIPT-CANCELLED" },
-      "owner": "W6",
-      "priority": 5,
-      "summary": "Advance C13-ADV-RECEIPT-CANCELLED from implemented with exact evidence",
-      "notes": [
-        "Names cancelled pre-effect Receipt lineage. Its only test asserts Receipt publication drains durably without fire-and-forget, which is publication delivery, not cancelled lineage."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "C13-ADV-RECEIPT-CANCELLED",
-        "expected": "verified"
-      }
-    },
-    {
-      "id": "T-EVIDENCE:C13-ADV-REORDERED-INTENT",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-ADV-REORDERED-INTENT" },
-      "owner": "W6",
-      "priority": 5,
-      "summary": "Advance C13-ADV-REORDERED-INTENT from implemented with exact evidence",
-      "notes": [
-        "Names a reordered intent. Its only test asserts strict canonical payloads and synchronous delegation, neither of which reorders an intent."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "C13-ADV-REORDERED-INTENT",
-        "expected": "verified"
-      }
-    },
-    {
-      "id": "T-EVIDENCE:C13-ADV-STALE-RECOVERY-OWNER",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-ADV-STALE-RECOVERY-OWNER" },
-      "owner": "W6",
-      "priority": 5,
-      "summary": "Advance C13-ADV-STALE-RECOVERY-OWNER from implemented with exact evidence",
-      "notes": [
-        "Names a stale recovery owner. Its only test asserts the invocation error taxonomy uses AgentCoreError for append conflicts and missing persisted evidence, which is error typing, not claim-owner staleness."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "C13-ADV-STALE-RECOVERY-OWNER",
-        "expected": "verified"
-      }
-    },
-    {
-      "id": "T-EVIDENCE:C13-ADV-SUPPLIED-ITEM-KEY",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-ADV-SUPPLIED-ITEM-KEY" },
-      "owner": "W6",
-      "priority": 5,
-      "summary": "Advance C13-ADV-SUPPLIED-ITEM-KEY from implemented with exact evidence",
-      "notes": [
-        "Names a supplied item key. Its only test asserts that SqliteInvocationPersistence uses the supplied transaction for every operation, which is transaction scope and says nothing about item-key derivation."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "C13-ADV-SUPPLIED-ITEM-KEY",
-        "expected": "verified"
-      }
-    },
-    {
-      "id": "T-EVIDENCE:C13-AUTH-MEDIATED-ADMISSION",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-AUTH-MEDIATED-ADMISSION" },
+      "source": { "kind": "conformance", "id": "C13-AUTH-ISOLATE-NAMESPACE-CLOSED" },
       "owner": "W2",
       "priority": 5,
-      "summary": "Advance C13-AUTH-MEDIATED-ADMISSION from implemented with exact evidence",
+      "summary": "Advance C13-AUTH-ISOLATE-NAMESPACE-CLOSED from planned with exact evidence",
       "notes": [
-        "The corrected target-request and Tenant-decision path is implemented, but complete cross-Actor admission refinement is not proved"
+        "W3 holds the isolate channel: src/operations/authored-code.ts#AuthoredCodeCapabilitySet keys the namespace by a Map and GatewayAuthoredCodeInvocationPort checks passed-set membership before resolving, with test/operations/authored-code.test.ts covering an unpassed language-supplied name, a passed one, and the fixed set, so a W2 row cannot cite them under the evidence-ownership rule",
+        "Closure is unproven for the Slate-backend and agent-authored-facet consumers: only the programmatic-tool-call channel has a covered namespace",
+        "No checker forbids a host from assembling a capability namespace as a prototype-bearing structure, so the Map keying is a convention rather than an enforced one",
+        "The no-renaming half is unproven: no test asserts a host refuses rather than normalizes a passed capability whose name is inadmissible"
       ],
       "oracle": {
         "kind": "conformance-status",
-        "requirementId": "C13-AUTH-MEDIATED-ADMISSION",
+        "requirementId": "C13-AUTH-ISOLATE-NAMESPACE-CLOSED",
         "expected": "verified"
       }
     },
@@ -451,6 +358,118 @@
       }
     },
     {
+      "id": "T-EVIDENCE:C13-AUTH-SCOPE-DIRECTION",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-AUTH-SCOPE-DIRECTION" },
+      "owner": "W2",
+      "priority": 5,
+      "summary": "Advance C13-AUTH-SCOPE-DIRECTION from planned with exact evidence",
+      "notes": [
+        "The downward half needs discrimination rather than construction for authority and has no evidence at all for policy: src/authority/runtime.ts#TenantAuthorityRuntime and src/composition/authority.ts already resolve along the ordered Tenant-to-target path under C13-AUTH-DENY-PRECEDENCE and C13-AUTH-PATH-ORDER, while nothing asserts that declared PolicySet material — enforcement tiers, quotas, retention — resolves along that same path, so a host resolving policy per-Workspace only would satisfy every current test",
+        "The composition conjunct is true by construction and unasserted, which is the direction a regression arrives from: src/facets/slot-store.ts#WorkspaceSlotCatalog reads a WorkspaceSlotStore and can only return the queried Workspace's own entries, so an ancestor's install cannot compose into a descendant today because no ancestor-scoped slot store exists. Closure needs the adversarial case — a Facet installed at the Tenant, a slot query at a Workspace beneath it, no entry returned — so the confinement survives the day a Tenant-scoped store is added",
+        "The Event conjunct cannot be proved by the matcher and has to be proved at the store that supplies candidate Subscriptions: src/workspaces/policy.ts#eventMatches compares kind, source and accepted trust only, so a Subscription (src/workspaces/subscription.ts#Subscription) whose pattern matches an Event accepted by a sibling or ancestor Actor exactly must still be shown never to receive it, and a mutation widening the candidate set past the accepting Actor must break a cited test",
+        "The positive cross-Scope path is untested as a Scope statement: a Tenant reacting to a Workspace Event must be shown to require a declared Subscription whose delivery authority is checked under C13-SUBSCRIPTION-AUTHORITY, and the same reaction must be impossible without that Subscription and its Grant, which is what separates a declared route from inherited visibility",
+        "Nothing keeps the two directions from being conflated, so the rule needs two mutations of its own: a Grant that stops at the Scope holding it instead of reaching descendants, and a slot entry or an Event that traverses the chain the way a Grant does, each killing a distinct test — a host doing either would violate this rule while satisfying every atom it cites"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-AUTH-SCOPE-DIRECTION",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-AUTH-SECRET-SCOPE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-AUTH-SECRET-SCOPE" },
+      "owner": "W2",
+      "priority": 5,
+      "summary": "Advance C13-AUTH-SECRET-SCOPE from implemented with exact evidence",
+      "notes": [
+        "Principal-independence is enforced today at the durable custody boundary and in the custody lookup: BindingCredentialCustody.fromData admits exactly an (endpoint, secret) fact and refuses any further discriminant, and Binding.hasCredentialCustody decides from the (SecretRef, endpoint) pair with no subject input, so two Principals of one Tenant observe the identical answer. That is the half of the rule a record can carry",
+        "The other half needs the seam that does not exist yet. C13-CONFIG-SECRET-CUSTODY's remaining provider work is a concrete credential-isolation adapter; until it exists nothing demonstrates that a live resolution presents the (SecretRef, consumer, endpoint) triple with no Principal component, that a resolution refused for one Principal is refused for every Principal of that Tenant, or that a seam offered a Principal-qualified key fails the attempt rather than degrading to a narrower scope"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-AUTH-SECRET-SCOPE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-AUTH-SHARE-OFFER",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-AUTH-SHARE-OFFER" },
+      "owner": "W2",
+      "priority": 5,
+      "summary": "Advance C13-AUTH-SHARE-OFFER from implemented with exact evidence",
+      "notes": [
+        "The record and its redemption semantics are complete and adversarially evidenced: grants-nothing-before-redemption, secret-before-state check order, per-holder idempotency keyed without a guest's verifiedVia, revocation before redemption, the exact expiry boundary, the exhausted bound, the Team-holder refusal, the mandatory expiry and positive bound, and revocation never retracting a minted Membership",
+        "No AuthorityService operation issues, revokes, or redeems a ShareOffer yet, so the guarded Tenant-Actor transaction that must linearize a redemption against Grant and path-epoch mutation is unevidenced, as is the administer-impact authorization of issuance and the requirement that a minted Membership be bounded by what the issuer could have assigned directly",
+        "Durability is evidenced through the Memory identity store only. The SQLite substrate has no share-offer table, writer, or authority-closure change bucket, so store parity and restart-replay behaviour for an offer revoked between deliveries are unevidenced"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-AUTH-SHARE-OFFER",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-BLUEPRINT-CONVERGENCE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-BLUEPRINT-CONVERGENCE" },
+      "owner": "W4",
+      "priority": 5,
+      "summary": "Advance C13-BLUEPRINT-CONVERGENCE from planned with exact evidence",
+      "notes": [
+        "Nothing built today discriminates convergence from the idempotence C13-BLUEPRINT-REMATERIALIZE already verifies. Its selector proves re-applying one unchanged Blueprint reconciles to a semantic no-op, which is f(f(x)) = f(x) for one input; path-independence needs a differential harness that applies one Blueprint to a Scope by at least two admissible issue orders and from at least two different prior managed states, then asserts one identical Blueprint-managed record set once the pending set is empty. An implementation that reached the declared state only from an empty Scope must fail it",
+        "The pending set has to be carried by the reconciliation outcome rather than computed alongside it, so that converged is that set being empty rather than a separate report a host can get wrong. Verification requires the outcome type to hold the obligations and a mutation that states convergence while an obligation stands to break a cited test; a boolean flag set next to a nonempty obligation list satisfies the prose and must not satisfy the atom",
+        "Each of the four stated deferrals needs its own obligation-shape evidence — record, reason, and discharging condition all named: a reliance hold under C13-FACET-DEPENDENCY-ORDER, each draining Invocation item under C13-FACET-WITHDRAWAL-DRAIN, each unadmitted RouteReservation terminalized by a rejected RouteDelivery, and a Package retained under SPEC 5.2. No current test exercises any of them, and the Package case additionally has no coverage of the Session, tree-checkpoint, and Snapshot pin holders",
+        "The rejected-reconciliation clause is what stops converging from becoming an excuse, so it needs the strongest negative evidence: a divergence expressible as no pending obligation — a withdrawal set the host cannot compute, or a retired Slot declaration still holding an entry attributed to a retained Facet — must be refused at validation before package code loads, on the no-code-loaded terms C13-BLUEPRINT-VALIDATE-BEFORE-LOAD already tests, and must never be admitted and left pending",
+        "The managed-set scoping needs its own test because it is what makes the endpoint a function at all: an adopted manual edit must appear as a change to the Blueprint, and a host that marks an adopted record Blueprint-managed without a declaring Blueprint must be rejected. src/definition/materializer.ts#LocalMaterializer marks managed state but has no adoption path to discriminate",
+        "This rule's paragraph tightened the SPEC 9.3 retention condition from 'no Run references it' to the full SPEC 5.2 pin-holder set, so C13-BLUEPRINT-RUN-PINS carries anchored text whose Turn, Session, tree-checkpoint, and Snapshot cases its two selectors do not exercise. That atom was demoted from verified to implemented rather than left over-credited, and it now names the per-pin-holder retention tests it owes. This atom cannot be verified while the fourth deferral's discharging condition is under-covered by the neighbour that owns it"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-BLUEPRINT-CONVERGENCE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-BLUEPRINT-RUN-PINS",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-BLUEPRINT-RUN-PINS" },
+      "owner": "W4",
+      "priority": 5,
+      "summary": "Advance C13-BLUEPRINT-RUN-PINS from implemented with exact evidence",
+      "notes": [
+        "Demoted from verified because this atom's anchored text now names the full SPEC 5.2 pin-holder set. SPEC 9.3 previously deferred removing a pinned Package until 'no Run references it', while SPEC 5.2 keeps a Package release resolvable while any Run, Turn, Session, tree checkpoint, or Snapshot pins it; Session and Snapshot outlive a Run, so as written the clause licensed a removal 5.2 forbids. The clause was corrected, and the two selectors cited here exercise the Run case only",
+        "Verification requires one retention test per additional pin holder: a Package release named by a Turn's retained pins, by an Environment Session, by a tree checkpoint, and by a Snapshot must each defer removal on its own, with the Run terminal or absent so that no Run-shaped check can pass in its place. A single combined fixture does not discriminate, because an implementation that only consults Runs would still pass whenever a Run happens to pin the same release",
+        "The discharge side needs the mirror evidence: removal must proceed once the last pin holder of any kind releases, so a host that never removes is not silently credited with satisfying a deferral rule"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-BLUEPRINT-RUN-PINS",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-CLOUDFLARE-ADDITIVE-MIGRATION",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-ADDITIVE-MIGRATION" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-CLOUDFLARE-ADDITIVE-MIGRATION from planned with exact evidence",
+      "notes": [
+        "The mechanical gate exists at cloudflare/scripts/check-additive-migrations.mjs, wired as the package's check:migrations script: it applies every declared migration to the schema its predecessors produced in real SQLite, compares the schema object by object and column by column, and reads each statement's compiled SQLite program to reject one that writes rows an earlier release owns. Promotion to implemented owes the checker a registered invariant id in artifacts/quality/rules.json, which W0 owns.",
+        "cloudflare/test/additive-migrations.test.ts drives the gate through thirteen non-additive families (dropped table, dropped index, dropped column, renamed table, renamed column, deleted rows, rewritten rows, inserted rows, added uniqueness, non-omissible column, declared trigger, a second statement hidden in one entry, and a rebuilt table) and confirms the declared set passes. That set is now seven migrations and sixteen statements: the runtime set gained cloudflare-runtime-resumable-operations, two new tables that carry a resumable operation's progress, and the gate accepts it because a table no earlier release reads takes nothing away and narrows nothing. Those selectors can be cited once this atom leaves planned.",
+        "The two-release protocol for a destructive change is stated but unexercised: no test walks an expand, backfill, dual-read, contract sequence across two releases, and the live lane owes that scenario under ACQ-LIVE."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CLOUDFLARE-ADDITIVE-MIGRATION",
+        "expected": "verified"
+      }
+    },
+    {
       "id": "T-EVIDENCE:C13-CLOUDFLARE-ALARM-DURABILITY",
       "type": "T-EVIDENCE",
       "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-ALARM-DURABILITY" },
@@ -458,7 +477,10 @@
       "priority": 5,
       "summary": "Advance C13-CLOUDFLARE-ALARM-DURABILITY from implemented with exact evidence",
       "notes": [
-        "The corrected §10.4 rule bounds platform re-firing and requires the Actor to rebuild the alarm from the outbox on start. createCloudflareDurableObjectClass arms that rebuild under blockConcurrencyWhile, but no test named here exercises a start that recovers an alarm the platform stopped re-firing, and the live lane owes that scenario under ACQ-LIVE."
+        "The corrected §10.4 rule bounds platform re-firing and requires the Actor to rebuild the alarm from the outbox on start. createCloudflareDurableObjectClass arms that rebuild under blockConcurrencyWhile, but no test named here exercises a start that recovers an alarm the platform stopped re-firing, and the live lane owes that scenario under ACQ-LIVE.",
+        "The platform exposes alarmInfo.retryCount and alarmInfo.isRetry (https://developers.cloudflare.com/durable-objects/api/alarms/#alarm) and the adapter reads neither: durable-object.ts#alarm takes no parameter, so the object cannot tell how close the platform is to abandoning a schedule and cannot record it. Owed as evidence for the bounded-re-firing clause.",
+        "blockConcurrencyWhile is a documented whole-object stall that resets the object at thirty seconds and on any throw (https://developers.cloudflare.com/durable-objects/api/state/#blockconcurrencywhile), and setAlarm inside a constructor is a documented hazard because the constructor runs before the alarm handler on wake (https://developers.cloudflare.com/durable-objects/api/alarms/#setalarm). durable-object.ts calls a host-supplied repairAlarm inside blockConcurrencyWhile, which is both at once. It converges because the repair is derived from the outbox rather than an unconditional setAlarm, but nothing in the package bounds the host callback or records why the constructor may touch the alarm at all.",
+        "The fifteen-minute alarm wall-time cap (https://developers.cloudflare.com/durable-objects/platform/limits/#wall-time-limits-by-invocation-type) and the CPU budget between network events (same page, footnote 4) are unmodelled: a sweep killed at either boundary is not a throw, so it reaches neither AlarmOutboxReconciler's retry path nor its floored re-arm. The resumption journal bounds the loss to one uncommitted step but nothing bounds the sweep itself."
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -511,11 +533,120 @@
       "summary": "Advance C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY from implemented with exact evidence",
       "notes": [
         "Its prerequisite C13-CLOUDFLARE-ALARM-DURABILITY carries an open obligation, so continuity cannot rest on it yet.",
-        "Every named scenario redeploys forward. SqliteApplicationMigrator treats an applied marker this runtime does not declare as codec.invalid, so rolling back past a migration fails the constructor of every object that ran the newer code, with no recovery path. Failing closed on a schema this runtime cannot read is defensible, but continuity across a rollback is unevidenced and §10.4 does not state which of the two it promises."
+        "The rollback direction is now stated in §10.4 and implemented: createCloudflareDurableObjectClass constructs an object whose applied schema this release cannot read and refuses each operation with schema.unreadable, leaving the durable state untouched. cloudflare/test/deployment-rollback.test.ts covers N to N+1 to N and back to N+1 on real SQLite, which closes the structural half of the obligation this atom carried.",
+        "Continuity across a rollout is not only schema continuity. Cloudflare documents that a request can reach a new Worker version and call a Durable Object still running the previous version for seconds to minutes (https://developers.cloudflare.com/durable-objects/platform/known-issues/#code-updates), that many exceptions leave a stub permanently broken, that errors carry .retryable and .overloaded properties, and that a retryable error should be retried with backoff on a freshly created stub while an overloaded one must not be retried at all (https://developers.cloudflare.com/durable-objects/best-practices/error-handling/). The adapter classifies none of this: grep for retryable and overloaded across cloudflare/src returns nothing, namespace.ts and placement.ts hand back raw stubs, and neither property is declared in the generated worker-configuration.d.ts, so reading them needs an explicit narrowing at the boundary that does not exist. The documented stub-lookup rate limit and the thousand-request-per-second soft limit reach the caller the same unclassified way. This is the most production-proven gap in the corpus and it has no §10 clause; the clause is owed before the code."
       ],
       "oracle": {
         "kind": "conformance-status",
         "requirementId": "C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-CLOUDFLARE-DYNAMIC-COMPUTE-BOUND",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-DYNAMIC-COMPUTE-BOUND" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-CLOUDFLARE-DYNAMIC-COMPUTE-BOUND from implemented with exact evidence",
+      "notes": [
+        "DynamicWorkerLimits is a construction argument of DynamicWorkerLoaderAdapter and DynamicWorkerLoadOptions.limits is required where the platform's own workerdResourceLimits is optional, so no load without a bound is expressible and no runtime refusal path is reachable from inside this package. The rule's refuse-rather-than-inherit clause is therefore discharged by the type here and is untested as a runtime branch; a substrate whose loader offers no per-load bound would need its own refusal and its own test.",
+        "Nothing yet proves Cloudflare enforces the bound it is handed. cpuMs and subRequests are documented as thrown-at-the-boundary (/dynamic-workers/usage/limits/, updated 2026-05-05) and the workerd lane does not exercise them, so the live lane owes a submission that spins past a small cpuMs and a submission that exceeds subRequests, each asserting the platform's immediate throw rather than a completed run. That evidence is a live run and this atom stays below verified until it has been taken.",
+        "The bound is one per adapter, not one per §4.7 consumer. A profile that wants a different budget for programmatic tool calling than for a Slate backend constructs a second adapter today; whether the consumer-to-bound mapping belongs in policies.placement beside the consumer-to-backing mapping (§9.2) is undecided and owned by W4."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CLOUDFLARE-DYNAMIC-COMPUTE-BOUND",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY from implemented with exact evidence",
+      "notes": [
+        "The guarantee is currently structural: WorkerLoaderBindingLike declares only the unkeyed load, so the name-keyed WorkerLoader.get warm path this rule constrains is unreachable from the adapter and no reuse identity is ever computed. The test proves two submissions of byte-identical code get two isolates with distinct env, which fails under any code-keyed cache, but nothing proves a correct reuse identity because none is built. If a profile ever wants warm reuse, the identity type is owed here before the call site is.",
+        "No test observes the hazard itself, only its absence. Cloudflare documents that get() skips the callback for a warm name (/dynamic-workers/usage/durable-object-facets/, updated 2026-04-21) and does not document what the retained isolate's env holds; the live lane owes one scenario that loads under a name, then re-gets that name with a different capability set, and records whether the second submission observes the first's env. That measurement is what turns a documented inference into evidence, and it is a live run."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CLOUDFLARE-DYNAMIC-ISOLATE-IDENTITY",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-CLOUDFLARE-DYNAMIC-NO-EGRESS",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-DYNAMIC-NO-EGRESS" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-CLOUDFLARE-DYNAMIC-NO-EGRESS from planned with exact evidence",
+      "notes": [
+        "The enforcement boundary is cloudflare/src/loader.ts, where globalOutbound is fixed at the point the isolate is constructed and is not reachable from DynamicWorkerLoadOptions as a caller-supplied value. That is the half this package can hold structurally, and it is deliberately uncited here: validateStatus:371-380 forbids a planned row from carrying sourceSymbols at all, so the symbol is named in prose until a live run lets this row leave planned.",
+        "The discriminating evidence is a live run and has not been taken. It is adversarial code in a real isolate of each offered backing, failing an unbound global fetch AND an unbound connect while a Binding it was explicitly passed still answers. The last clause is what makes it discriminating rather than decorative: a refusal that also severs the passed capability has bounded nothing, it has only broken the isolate. That lane is CloudflareCapabilities-2's and the scenario is written down here rather than run.",
+        "Do NOT cite cloudflare/test/hosting.test.ts 'forces one-time Dynamic Worker load with null outbound and only passed Bindings' for this atom. It drives DynamicWorkerLoaderAdapter against a FakeWorkerLoader and asserts the argument the adapter passed, so it cannot fail on any egress the platform did or did not refuse, and no egress is attempted anywhere in it. It is a sound witness for a structural claim and none at all for this runtime one; RemainingAtoms identified the same test as uncitable for the substrate-neutral atom before this row existed.",
+        "This atom is the profile half of a split Main ruled on: C13-PLACEMENT-DYNAMIC-NO-EGRESS (W4) keeps the substrate-neutral rule that a dynamic domain holds no ambient egress, which no single substrate's evidence can discharge, and this row carries the obligation that THIS substrate demonstrates it. The two must not restate each other, or one host satisfying either reads as satisfying both. Only dispatchNamespace is additionally owed: there is no DispatchNamespaceAuthoredCodeBacking today, so the per-backing clause is unexercisable for the GA fallback until one exists."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CLOUDFLARE-DYNAMIC-NO-EGRESS",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY from implemented with exact evidence",
+      "notes": [
+        "The half this package can enforce is enforced: the startup record handed to ctx.facets.get is rebuilt to exactly {class} or {class, id}, and the host exposes open, suspend and retire and no reader. The half it cannot is the prohibition itself, that no record type §8.4 assigns an owning Actor is written into such a store, which is a property of whatever code a supervisor loads rather than of the supervisor. The mechanical form of that half is a column on the §8.4 rule 6 ownership map naming, for each record type, whether a dynamic domain may hold it; that artifact is W0's and the registered invariant id in artifacts/quality/rules.json is W0's to grant.",
+        "No facet has been created against a real Durable Object. Storage isolation in both directions is Cloudflare's documented claim (/dynamic-workers/usage/durable-object-facets/, updated 2026-04-21: the dynamic code cannot read the supervisor's database) and the local lane models it with a fake rather than observing it. The live lane owes one scenario that writes a row from the supervisor, writes a row from the facet, and shows neither side can read the other's. That is a live run, so this atom stays below verified.",
+        "Facet memory is undocumented and prior-art PA-15 remains open. Cloudflare documents storage co-location and storage isolation and says nothing about whether a facet shares the parent's 128 MB isolate, so this atom deliberately states nothing about memory and no test asserts anything about it. If a profile ever depends on a facet's memory being its own, that dependency needs its own measurement first."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CLOUDFLARE-DYNAMIC-STORE-CUSTODY",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-CLOUDFLARE-DYNAMIC-STORE-LIFECYCLE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-DYNAMIC-STORE-LIFECYCLE" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-CLOUDFLARE-DYNAMIC-STORE-LIFECYCLE from implemented with exact evidence",
+      "notes": [
+        "The two verbs are named and tested against a fake that models the platform's own consequence, abort keeping the database and delete destroying it, so swapping either implementation fails a test. What is not wired is the caller: no withdrawal path in this package calls retire, because no §4.1 withdrawal reaches a hosted dynamic domain yet. Until one does, the rule that a withdrawal destroys rather than stops is stated and unexercised end to end.",
+        "The restart-under-a-different-class clause is discharged by reference rather than by a test here: RunPins fixes the Package closure by code digest and re-materialization preserves those pins (§5.2, §9.3), so the hazard is already refused by C13-BLUEPRINT-RUN-PINS and this profile adds no rule of its own. The evidence for that refusal belongs to W4's atom rather than to this one; if that atom weakens, this clause loses its ground and this row is where that has to be said.",
+        "Cloudflare's abort and delete differ by one word and by everything, and the prior-art corpus records the exact mistake being made (AUDIT_cloudflare.md PA-14: an abort-named cleanup evicted the instance and kept the database, leaving one orphan per branch). Nothing here proves delete on a real facet reclaims the database rather than merely detaching it, and the live lane owes that confirmation."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CLOUDFLARE-DYNAMIC-STORE-LIFECYCLE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-CLOUDFLARE-ROLLBACK-WINDOW",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CLOUDFLARE-ROLLBACK-WINDOW" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-CLOUDFLARE-ROLLBACK-WINDOW from planned with exact evidence",
+      "notes": [
+        "createCloudflareDurableObjectClass captures an unreadable-schema refusal at construction and raises it from fetch, alarm, webSocketMessage, webSocketClose, and webSocketError, and SqliteApplicationMigrator raises the stable schema.unreadable code for an undeclared, corrupt, or duplicated marker. Promotion to implemented needs those symbols cited here once the atom leaves planned.",
+        "cloudflare/test/deployment-rollback.test.ts proves construction succeeds, every entry point refuses with schema.unreadable, the durable state is untouched, a two-release rollback fails closed the same way, and a release that declares every applied marker still serves. cloudflare/test/migration.test.ts covers the migrator's own refusals.",
+        "The live half has now run and passed. At commit 7a780e87 the lane walked base, next, base, next across four deployments, each recorded with its release in artifacts/conformance/live-evidence/run.json, and phase 3 is 2/2 with phase 4 4/4. The refusal scenario asserts the deployed release is base before asserting anything else, and collects all four operations before asserting any: blob-read, outbox, alarms and events each refuse with schema.unreadable naming live-harness-rollout. That settles a question this row could not previously answer, because revisions.replay reads Durable Object SQLite without inspecting a schema marker itself and it does meet the refusal. Promotion beyond planned needs the symbols and selectors named above cited here, which is a judgement this row's owner has not yet made."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CLOUDFLARE-ROLLBACK-WINDOW",
         "expected": "verified"
       }
     },
@@ -527,11 +658,35 @@
       "priority": 5,
       "summary": "Advance C13-CLOUDFLARE-STORAGE-LIMIT from implemented with exact evidence",
       "notes": [
-        "The named live case claims it stores a row at the declared limit, and its own comment says the seam is only correct if production accepts a row that large with overhead included, but it wrote SQL_BLOB_LIMIT_BYTES - 1_000 and exercised neither boundary. It now writes at the limit and owes a live run. The documented bound covers a string, BLOB or row while requireStorableBlob measures only the payload, so at-limit acceptance rests on workerd's undocumented SQLITE_LIMIT_LENGTH headroom rather than on anything Cloudflare promises."
+        "The named live case claims it stores a row at the declared limit, and its own comment says the seam is only correct if production accepts a row that large with overhead included, but it wrote SQL_BLOB_LIMIT_BYTES - 1_000 and exercised neither boundary. It now writes at the limit and owes a live run. The documented bound covers a string, BLOB or row while requireStorableBlob measures only the payload, so at-limit acceptance rests on workerd's undocumented SQLITE_LIMIT_LENGTH headroom rather than on anything Cloudflare promises.",
+        "SQLITE_FULL is documented as the failure a Durable Object at its ten-gigabyte storage limit returns for every write while reads and DELETEs keep working, and a storage operation that exceeds the platform's internal timeout is documented to reset the object (https://developers.cloudflare.com/durable-objects/platform/limits/#what-happens-when-a-durable-object-exceeds-its-storage-limit, https://developers.cloudflare.com/durable-objects/observability/troubleshooting/). Neither is classified: CloudflareSqlite maps both to a generic protocol.invalid-state, so a full object is indistinguishable from a malformed statement and the documented drain-to-recover path cannot be taken.",
+        "Two further documented SQL bounds are unenforced: the hundred-kilobyte statement length and the hundred-bound-parameter cap (https://developers.cloudflare.com/durable-objects/platform/limits/#sql-storage-limits). Nothing in the package approaches either today, and nothing prevents a host from doing so.",
+        "The two size seams in this package measure bytes the platform does not. requireStorableBlob measures the payload against a bound the documentation applies to the whole row, and the WebSocket attachment guard measures UTF-8 JSON bytes against a bound the platform applies to the structured clone (https://developers.cloudflare.com/durable-objects/best-practices/websockets/#websocketserializeattachment). Both approximations are stated in comments; neither is derived. A payload the storage seam accepts is also not bounded against the transport that has to carry it: a near-limit ViewDelta becomes roughly 2.7 MB of base64 in one frame, and the outbound frame ceiling is undocumented, so the delta can be unsendable to its own subscribers as an opaque socket failure.",
+        "The R2 content path buffers whole objects inside a 128 MB isolate — content-object.ts copies the payload on put and reads the entire body on get — with no size, key-length or metadata guard against R2's documented 1,024-byte key and 8,192-byte metadata bounds (https://developers.cloudflare.com/r2/platform/limits/, https://developers.cloudflare.com/workers/platform/limits/#memory). §10.1 routes the ContentStore to R2 expressly for large content, so this is the one path where the memory limit rather than the storage limit is the binding constraint."
       ],
       "oracle": {
         "kind": "conformance-status",
         "requirementId": "C13-CLOUDFLARE-STORAGE-LIMIT",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-CODEC-INCOMPATIBILITY-TOTAL",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-CODEC-INCOMPATIBILITY-TOTAL" },
+      "owner": "W1",
+      "priority": 5,
+      "summary": "Advance C13-CODEC-INCOMPATIBILITY-TOTAL from planned with exact evidence",
+      "notes": [
+        "Neither half exists. src/core/codec.ts#RecordCodec stamps `{ kind, version: { major, minor }, payload }` on every encode and decides compatibility inside decode, one record at a time, so incompatibility is discovered by reading rather than from a declaration a reader reaches before any read. There is no record-set-level declaration to check and nowhere to check one: the codec is a per-record object held by each record class — RunCommit.codec, Environment.codec, PortExposure.codec and the rest — and no Actor declares the codec version of the records it owns",
+        "The totality half changes behaviour rather than only timing, and its conformance cases are the derivations this document already builds over whole record sets. A store whose incompatible rows are the ones a caller has not reached serves normally today, so reserved-minus-completed under C13-RUN-FRONTIER-COMPLETE, an ancestry walk under C13-RUN-ANCESTRY, and the settlement test under C13-RUN-SETTLED-DERIVED can each answer from the subset that decodes and return a wrong answer where a rejection would have returned none. Each of the three is owed as a case that rejects rather than answering short. Cross-wave ownership answered, since naming a foreign atom is not the same as owing its evidence: C13-RUN-FRONTIER-COMPLETE, C13-RUN-ANCESTRY and C13-RUN-SETTLED-DERIVED are W5 atoms over W5 records, and this row is W1. requireEvidenceOwner admits sourceSymbols only under the owning wave or W9, so a W1 row can never cite src/agents/runs symbols and must not try. The three derivation cases are therefore W5's to evidence under W5 rows once the record-set-level declaration exists — not this row's to cite and not this row's to block on. What this row owes is the substrate-neutral declaration and its total refusal at the W1 seam; what those three owe is that each rejects rather than answering short over a partially decodable set. Stated so a promoter reads three named atoms as the scope of the behaviour change rather than as evidence this row must produce",
+        "The recovery half needs both directions asserted, because a reader that refused by failing to construct would satisfy a rejection-only test. An incompatible declaration leaves every operation failing with the codec's typed error while the set stays addressable for inspection and export, the durable bytes are unchanged afterwards, and a reader that understands the declared version then serves the same set with no repair step",
+        "The Cloudflare profile already implements this rule for its own schema markers and is the working reference rather than a second mechanism: packages/agent-core-cloudflare/src/migration.ts raises the stable `schema.unreadable` code for an undeclared, corrupt, or duplicated marker, and the Durable Object class captures that one refusal at construction and raises it from fetch, alarm, and every socket entry point under C13-CLOUDFLARE-ROLLBACK-WINDOW. What is owed here is the substrate-level obligation that profile specialises, so a non-Cloudflare substrate owes the same property. Ownership answered, because this path was enumerated as a structural-ownership-blocker candidate: packages/agent-core-cloudflare/src/migration.ts is W8 while this row is W1, and it is named here as a working PRECEDENT and never as a required citation. This row's discriminating evidence must come from the substrate-neutral W1 seam — src/core/codec.ts plus whatever record-set-level declaration is eventually built — so no promoter should ever move a W8 path into this row's sourceSymbols, where requireEvidenceOwner would reject it. The row is planned and therefore carries no symbols at all today; this sentence exists so the clause is not misread as pointing at where the evidence has to live",
+        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants, so what follows is named as prose rather than cited. One half of the rule — that the decision is total, admitting no third unknown answer and leaving no input undecided — is now measured by test/core/codec.test.ts#Canonical codecs decides every version pair in its domain with no third answer, which enumerates the decision's domain instead of sampling it as the C13-CODEC-VERSIONING cases above do. The version domain is bounded to non-negative safe integers because isEnvelope refuses every other JSON number; over that domain the outcome is measured to factor through the sign of the major difference and the sign of the minor difference by requiring exactly one outcome per class across components that reach both ends of the domain, which is what makes nine classes exhaust an infinite domain rather than merely sample it widely; all nine classes are populated; and every out-of-domain version and malformed envelope is required to answer codec.invalid specifically, never codec.unknown-major, which is reserved for a well-formed envelope whose major differs. What that does not establish is the set-level half: the decision it exhausts is still per record and still reached by decoding, so the four obligations above stand unchanged and the status stays planned. Promoting this row on the strength of the totality test alone would claim a record-set-level declaration that does not exist"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-CODEC-INCOMPATIBILITY-TOTAL",
         "expected": "verified"
       }
     },
@@ -541,11 +696,12 @@
       "source": { "kind": "conformance", "id": "C13-CONFIG-SECRET-CUSTODY" },
       "owner": "W4",
       "priority": 5,
-      "summary": "Advance C13-CONFIG-SECRET-CUSTODY from planned with exact evidence",
+      "summary": "Advance C13-CONFIG-SECRET-CUSTODY from implemented with exact evidence",
       "notes": [
-        "The Binding foundation is present: the Tenant-owned Binding record carries canonical, unique (SecretRef, endpoint) custody facts, validates each SecretRef source against its exact TenantId, preserves or explicitly rotates those facts through the Binding mutation path, and restores the same record through Memory and SQLite storage. This is constituent data in the Binding codec, not a second durable custody record or mirror",
-        "The remaining authority work is to bind that complete Binding snapshot to the target-owned request and Tenant-issued permit used for cross-Actor mediated admission. Tenant issuance must compare it with the current canonical Binding in the Tenant transaction, and target consumption must authenticate the exact retained request and permit without a synchronous cross-Actor read or a copied Binding authority plane",
-        "The remaining provider work is a concrete credential-isolation adapter that accepts only authenticated permit/request evidence, rejects inactive, substituted, guest, cross-Tenant, SecretRef, consumer, and endpoint mismatches, and injects raw credential material directly into transport. Confirmed custody refusal must become a failed attempted Receipt, while unavailable or unknown provider outcomes remain indeterminate. Redirect/repoint behavior, restart/replay, raw-secret non-escape, and the deployed Cloudflare boundary still need behavioral evidence before this atom can be verified"
+        "The resolution seam this clause names now exists and every MUST about its decision is discriminated by a killed mutation, measured in a detached worktree at an explicit sha rather than in the shared tree: Tenant scope by SecretRef source at read time and at write time, the exact recorded consumer, the exact recorded endpoint with a repoint answered distinctly from a ref never accepted, the check standing before any value is produced (the provider is never consulted on a refusal), and no member on a resolution a credential could travel back to a caller in. Custody stays constituent data a consumer's own record carries: the seam takes the (SecretRef, consumer, endpoint) triple as data, adds no store, and a Binding's custody projects into it through the Binding codec unchanged",
+        "Only one of the three consumer kinds this clause names by name actually records a custody record, so for the other two there is nothing for the seam to check and the acceptance clause is unmet in the tree. Measured: src/environments/environment.ts#Environment carries no credential at all, and a SecretRef reaches an Environment only as the runtime values src/environments/provider.ts#EnvironmentCredentialProxyCapability and src/facets/environment/facet.ts#EnvironmentCredentialInput, neither of which is durable nor paired with a target endpoint; src/facets/event.ts#IngressVerification is durable inside an EventDeclaration codec but pairs verification.secret with a scheme and no endpoint, and its requireExactFields(['scheme','secret']) refuses one. Closing this atom needs the endpoint pairing on both consumers, which is a W3 shape change on src/facets/event.ts plus an Environment-side custody record, and W3 evidence a W4 row cannot cite",
+        "The mediated disposition has no caller. This clause says that for a mediated externalSend effect a custody failure is an ordinary failed AttemptReceipt, and no operation in the tree resolves a SecretRef, so the positive half is unreachable rather than unevidenced and a test asserting it would assert its own mapping. The negative half is proven and must stay proven: a refusal is a returned outcome rather than a thrown control-flow signal, carries exactly an outcome and a custody reason, registers no codec in artifacts/records, and adds no code to src/errors.ts, so custody denial has no record kind or vocabulary of its own",
+        "Two inherited items are dropped rather than carried, because measurement contradicts their basis. Binding-snapshot-to-permit/request binding for cross-Actor mediated admission is C13-AUTH-MEDIATED-ADMISSION's mechanism and appears nowhere in this clause's text, so it is that row's to evidence. A deployed Cloudflare boundary was named as blocking verification, but this clause's substrate credential injection is a SHOULD and the ref-only MUST belongs to the verified C13-CONFIG-SECRET-REF, so no W8 evidence is owed here and none is cited"
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -572,6 +728,115 @@
       }
     },
     {
+      "id": "T-EVIDENCE:C13-FACET-CANCELLATION-REACH",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-FACET-CANCELLATION-REACH" },
+      "owner": "W3",
+      "priority": 5,
+      "summary": "Advance C13-FACET-CANCELLATION-REACH from implemented with exact evidence",
+      "notes": [
+        "The reachability conjunct is built and partly tested, so what remains here is narrower than construction: src/facets/runtime.ts#OperationContext declares a required `signal: AbortSignal`, and a Turn's cancellation reaches it through the scope signal TurnExecutor hands its executor, GatewayTurnInvocationPort's TurnGatewayScope, ComposedTurnGatewaySource.open calling operations(scope.signal), and the shared { signal, content } resources both DerivedDirectOperationContext and CanonicalBatchInvocationPort put on the handler's context. test/composition/mediation-pipeline.test.ts already discriminates the never-abort substitute over the concrete pipeline — 'the published mediation composition root runs each Operation under its own Turn's cancellation signal' asserts the handler's observed context signal is identically the Turn's signal and that an already-aborted Turn signal prevents dispatch with zero handler calls — but it carries no atom tag, so it is not yet conformance evidence for this row under scripts/quality/ledger.mjs's priority-evidence rule",
+        "What no test does is abort a Turn while an Operation handler is suspended and observe that handler's own context signal fire: the pipeline case aborts before invoke and then uses a controller it never aborts, and the only mid-execution abort observation in the suite is on a facet `start` hook's FacetLifecycleContext in test/operations/runtime.test.ts, not on an OperationContext. Availability at handler entry and observability during handler execution are different claims, and this rule makes the second one",
+        "The distinction this rule exists for is untested: an attempt whose wait the host abandoned must record `indeterminate` while an attempt whose handler observed its context cancellation must record `aborted` under C13-RECEIPT-FAILURE-KIND, and a mutation substituting a never-abort sentinel for the context signal must collapse the second case into the first rather than leaving both green",
+        "Propagation past the seam has no enforcement point at all. Nothing requires a handler that awaits further asynchronous work under its own invocation's lifetime to pass its context cancellation on, and nothing keeps a bound it derives linked to the cancellation it derived from. Closure needs a profile handler that delegates — §11.2 Shell is the sharpest, since P11-SHELL-CANCELLATION already asserts prompt cancellation — proving the abort reaches the side-effect owner, that awaited work reaches quiescence, and that a handler deriving a narrower deadline still aborts when the upstream cancellation fires",
+        "The schema exclusion is unchecked: OperationDescriptor.input accepts any JsonSchema, so nothing today refuses a declared input property that purports to carry cancellation, and nothing proves a handler cannot be reachable only through such a field. Verification requires the install-time manifest validation to refuse it, not the first invocation to fail on it",
+        "The durable-record boundary is satisfied by construction rather than by assertion, which is the direction a regression would come from: the ContentStore seam and the §8.5 command dispatcher take no signal, so an added one would silently widen this atom into the requirement it explicitly is not. A conformance assertion that those two seams stay cancellation-free is what keeps this rule from being read as requiring cancellation everywhere",
+        "Promotion to verified is blocked across a fragment boundary and the blocker is a true dependency rather than a bookkeeping accident: this row names C13-RECEIPT-FAILURE-KIND, which is W6's in invocations-audit.json and planned, so ledger.mjs's verified-status monotonicity rejects a verified row here until §7.4's failure-kind taxonomy is itself verified. An implemented status depending on a planned prerequisite is legal, and the dependency is real — the aborted-versus-indeterminate discrimination this atom exists to make is a claim about that taxonomy — so the edge stays and the promotion waits on W6 rather than being eased by dropping it"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-FACET-CANCELLATION-REACH",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-FACET-CAPABILITY-ABSENCE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-FACET-CAPABILITY-ABSENCE" },
+      "owner": "W3",
+      "priority": 5,
+      "summary": "Advance C13-FACET-CAPABILITY-ABSENCE from implemented with exact evidence",
+      "notes": [
+        "Discharged: the negative encoding is gone from the class, the codec's required/optional split and toData() together. OperationDescriptor.interceptable is `true | undefined` and requireOfferedCapability is the single place the presence rule is implemented, called by both the constructor and the decoder, so no construction path leaves the negative form alive and the host holds no second state in which the two disagree.",
+        "Discharged: both readers now test presence rather than truth (authority.ts#allowsInterception and the interceptor runner's refusal), and the refusal that had no implementation has one. Refused at install verification, correspondence.ts:134, where a contribution entry is actually decoded — NOT at the manifest codec, because `operations` travels through FacetManifest as opaque slot data. The test asserts the manifest codec's acceptance too, so no later reader mistakes it for the gate.",
+        "Discharged: the digest consequence is measured. Two independently built withheld manifests pin one manifestDigest, and the offered manifest pins a different one — the second half is the anti-adjacency guard, because deleting the field from the digest input would satisfy the first alone while answering a different question.",
+        "Discharged: mutation attribution exceeds the two the clause asked for. Five hand mutants run in a clean detached worktree at the commit, each killed by a cited test, each restored byte-identically: A refusal-accepts-present-false (3 failed), B absence-decoded-as-false (3), C declaration-dropped-from-digest-input (2), D decoder-ignores-the-declaration (4), E reader-ignores-declaration-presence (1, test/composition/authority-membrane.test.ts). Every failure is an assertion on the rule's own behaviour, not a cascade or a reference error.",
+        "Not discharged, and it is why this row is implemented rather than verified: ACQ-PRESENCE exists and discriminates — 0 issues over 1312 codec-backed record fields in 773 files, red under all five defect forms including the un-annotated `= false` this change removed, seeded from SPEC §4.1's own paragraph so it survives a full revert — but it joins the architecture debt list at 17 rather than being registered in gate-corpus.json, because gate-integrity.mjs has no `architecture` harness. So nothing but its own measurement says the checker can go red, which is the standard ACQ-EQUIV was held to.",
+        "Not discharged: the `architecture` node is red at this revision on two peers' in-flight files (ACQ-ERR in src/invocations/receipt.ts, ACQ-VOCAB across the enforcement twins), so invariants.mjs certifies none of this row's three checkerInvariants. That blocks every W3 row citing ACQ-* equally and is not specific to this atom, but a verified status may not be claimed while the certification it names has not executed."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-FACET-CAPABILITY-ABSENCE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-FACET-CODE-AVAILABILITY",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-FACET-CODE-AVAILABILITY" },
+      "owner": "W3",
+      "priority": 5,
+      "summary": "Advance C13-FACET-CODE-AVAILABILITY from planned with exact evidence",
+      "notes": [
+        "The declaration does not exist yet and its absence is enforced: src/facets/contribution.ts#OperationDescriptor carries no availability member and its codec's exact-field check would reject one, so the type, the codec's optional-field set, toData(), and the descriptor reconstruction in src/facets/profile-runtime/contract.ts all need the new member before any other clause can be asserted",
+        "The absent-means-native default needs discrimination and not merely a default value: a descriptor declaring no availability must be shown unreachable from agent-authored code, and a mutation defaulting it to both must break a cited test rather than silently widening every existing Operation into code mode",
+        "The one-set clause is the substance of the rule and has nothing to test against: nothing today computes the Bindings handed to a dynamic isolate, so verification needs that computation plus proof that its members are exactly the code- or both-available Operations the caller holds authority for, that a native-only Operation is not passable, and that the same declared set is what the offered catalog records under C13-TURN-MODEL-INPUT-RECONSTRUCTABLE — a host keeping two sets in agreement must fail",
+        "The composition clauses ride on atoms that are themselves planned: availability changed at the Scope mid-Turn must not change what that Turn's isolate reaches, which needs the captured FacetSet of C13-TURN-FACET-SET-STABLE, and the materialized availability record must appear in the declaring Facet's withdrawal set under C13-FACET-WITHDRAWAL-EXACT rather than surviving its contributor",
+        "The validation-time rejection is a definition-plane obligation with no current reader: the Blueprint validator does not relate policies.placement's consumer-to-backing mapping to any Operation's declared availability, so a code-available Operation on a platform that maps no backing and declares no default cannot be refused today. Closure requires that relation, the no-code-loaded assertion C13-BLUEPRINT-VALIDATE-BEFORE-LOAD already tests against, and a discriminating case proving the failure lands at validation rather than at the first submission that needs the runtime"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-FACET-CODE-AVAILABILITY",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-FACET-CONTRIBUTION-ATTRIBUTION",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-FACET-CONTRIBUTION-ATTRIBUTION" },
+      "owner": "W3",
+      "priority": 5,
+      "summary": "Advance C13-FACET-CONTRIBUTION-ATTRIBUTION from implemented with exact evidence",
+      "notes": [
+        "Discharged: facet.slot-entry carries `package: PackagePin` as a declared field of the identity digest at codec major 3; an entry payload carrying no pin is refused and the major-2 bytes that used to carry one are refused as an unsupported major; the pinned entry restores through MemoryWorkspaceSlotStore and reopens through the SQLite Workspace slot store, both driven by the shared test/w3/slot-store-contract.ts seam contract. The installed Slot record was split from the manifest SlotDeclaration as facet.installed-slot so it carries attribution too, and derived Subscriptions carry it at workspace.subscription major 2, immutably across revisions",
+        "Discharged, and it was an absent mechanism rather than unwritten evidence: SPEC §4.2 requires that a slot hold at most one entry per contributor per ordinal so that a changed contribution supersedes its predecessor, and both stores refused the changed contribution instead. The entry id digests every declared field including the pin, so it answered `is this the same materialization` while being used as the supersession key, which is the two-questions-one-representation collapse; a Facet re-reading its contribution from a later release could therefore never re-materialize at the same position. src/facets/slot-entry.ts#SlotContributionOrigin now names the position as its own shape, WorkspaceSlotStore.contribute supersedes at an occupied origin inside one transaction, and WorkspaceSlotStore.requireFreeOrigin keeps the storage primitive from accreting behind it. The origin is derived from declared fields, so no record changed shape and no codec major moved: SlotEntry.toData() and every slot: identity digest are byte-identical across this change",
+        "Not discharged, and the reason is that the records do not exist rather than that they are unattributed: this runtime materializes no catalog entry, Surface registration, prompt section, ingress endpoint, or merged settings fragment record, so there is nothing to attribute and no test that could fail if the MUST were violated for them. Verification requires each of those five kinds to become a real record first. This is the row's binding blocker and it is not one W3 slice: src/facets/surface.ts is a two-field interface with no codec, AGENTS.md forbids restoring the old OperationCatalog, and §11 profiles are declaration-first",
+        "Not discharged and structurally not reachable from this row: verified status additionally requires checkerInvariants to be non-empty and executed, and no rule in artifacts/quality/rules.json asserts anything about contribution attribution. Measured: 0 of 19 rules mention attribution, contribution or slots, and 13 of 29 implemented rows do carry invariants, so the emptiness here is a real gap rather than a status constraint. Closing it means a new W0 rule plus a --stage building invariants run, neither of which a W3 slice may land",
+        "Blocked on a W4 change this slice did not make: src/definition/materialization-kind.ts#validateSlotEntry still admits exactly contributor/index/slot/value. Adding `package` to the desired-state shape requires ValidatedContribution to carry the source pin through src/definition/validator.ts and src/definition/plan.ts, and a decision for the `contributor: \"blueprint\"` projection plan.ts emits for a Blueprint-declared slot, which has no Package release behind it. Measured: adding the key without that work reds 17 W4 tests. Those three paths appear here as prose only and are named by no citation of this row",
+        "Cross-wave ownership, stated rather than routed around: derived Subscriptions now carry the same attribution at workspace.subscription major 2 and src/workspaces/persistence.ts#WorkspacePersistence.saveSubscription refuses any later revision that adds, drops or rewrites it, but both files are W7-owned. This W3 row therefore does not name them as its own sourceSymbols, and requireEvidenceOwner would reject them if it did. The test axis is separate and permits the citation this row already carries, because test/w3/ is a W3 test path. That half of the rule still needs a W7 row to claim its symbols, or an explicit decision that W3 owns Subscription attribution",
+        "Totality is enforced at the materializing seam rather than only asserted: FacetSlotInstallCommand and FacetSlotContributeCommand both deny when PackageInstallationProvenancePort answers no authenticated installation, and ContributionAttribution refuses construction without both halves, so a host that cannot attribute a contribution cannot build the record it would materialize",
+        "Citation discrimination, measured by mutation in an isolated worktree rather than inherited, and stated at the tier it was measured at. 16 probes; every clause of the rule that has a materialized record is defended, and every kill was an assertion failure rather than a collection error. Retiring the superseded predecessor and asking occupancy by position rather than by identity each kill 6 labelled cases; the per-contributor origin key kills exactly the supersedes-only-its-own case (1); a pin-gated supersession kills exactly the later-release case (2); dropping the same-entry early return kills exactly the idempotence case (2); neutering requireFreeOrigin kills exactly the occupied-origin case (2). Attribution fidelity is killed by naming a fixed Facet (10) or a fixed release (11), and the exact declared field set by dropping `package` from it (10). Relaxing Subscription attribution immutability kills the withdrawal citation (1) in a W7 file this row deliberately does not name. In-span attribution, checked per cited symbol rather than per file: the 6 supersession probes live in src/facets/slot-store.ts#WorkspaceSlotStore and src/facets/slot-entry.ts#SlotContributionOrigin, which is why both are now named as sourceSymbols — before that they were file-tier kills wearing symbol-tier language, which is the same overstatement three peers found in their own headline lines today. Attribution-fidelity probes are in-span in src/facets/attribution.ts#ContributionAttribution and src/facets/slot-entry.ts#SlotEntry. The remaining file-tier kill is named rather than claimed: the Subscription immutability probe defends the withdrawal citation from a W7 symbol this row cannot own. One correction to an inherited citation: test/facets/declarations.test.ts discriminates through SlotEntry.fromData's exact-field set and the ContributionAttribution constructor, not through ContributionAttribution.decodeFields' own `pin === undefined` guard, which is unreachable from every current caller (0 kills when removed) and survives only as the narrowing that keeps `package` off the undefined path",
+        "Verification order, because a promoter reading only a dependent's own row would not see it: this atom has no prerequisites and roots the withdrawal family, so C13-FACET-WITHDRAWAL-EXACT depends on it directly and every atom depending on that one is transitively gated on it. Re-derived at this rev over all fragments: 9 transitive dependents, all open — C13-FACET-WITHDRAWAL-EXACT, C13-FACET-START-ATOMIC and C13-FACET-CODE-AVAILABILITY directly, then C13-FACET-DEPENDENCY-ORDER, C13-FACET-WITHDRAWAL-DRAIN, C13-TURN-FACET-SET-STABLE, C13-VIEW-WITHDRAWAL-TERMINAL, C13-BLUEPRINT-CONVERGENCE and C13-SLATE-SKELETON-ARTIFACT. None of them promotes while this row holds at implemented, and the two blockers above are what hold it there. Inbound edges are written by other owners in other fragments, so the dependent set must be re-derived at the promotion rev rather than trusted from this note"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-FACET-CONTRIBUTION-ATTRIBUTION",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-FACET-DEPENDENCY-ORDER",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-FACET-DEPENDENCY-ORDER" },
+      "owner": "W3",
+      "priority": 5,
+      "summary": "Advance C13-FACET-DEPENDENCY-ORDER from planned with exact evidence",
+      "notes": [
+        "The declaration half exists and is already better keyed than a nominal string: src/facets/manifest.ts#BindingRequirement carries (name: BindingName, facet: FacetPackageId, compat: CompatRange) and round-trips through the facet manifest codec. Nothing consumes it as an activation precondition — no facet runtime in src/facets gates start on requirement resolution, so the whole ordering half of this atom is unbuilt",
+        "The activation gate needs a host that resolves every BindingRequirement to a live ResolvedFacet before calling start, and four discriminating mutations must each break a cited test: calling start with one requirement unresolved, starting a Facet degraded rather than leaving it inactive, reporting an unresolvable requirement as a runtime failure instead of a rejected install, and admitting a resolution whose ResolutionStamp is not current under C13-AUTH-RESOLUTION-LIFETIME",
+        "The reliance guard needs the withdrawal path of C13-FACET-WITHDRAWAL-EXACT first, then evidence that withdrawing a relied-upon Facet records a pending obligation under the C13-BLUEPRINT-CONVERGENCE shape instead of retiring its records, that the obligation discharges exactly when the last relying Facet goes inactive, and that the withdrawal is never rejected and never silently completed while reliance stands",
+        "The teardown-window clause is the clause most easily lost and needs its own two-Facet test: a dependent whose teardown its provider's withdrawal triggered must successfully resolve that provider from inside its own stop, which means the provider stays resolvable for the whole of its own teardown rather than being unresolvable from the first retirement",
+        "Exact-FacetRef keying needs an adversarial substitution: a second installed Facet answering the same BindingName and compatible FacetPackageId must neither satisfy an unresolved requirement nor discharge an existing reliance, so reliance tracks the exact provider a dependent reached rather than the capability name it asked for",
+        "Pre-load rejection is a definition-plane obligation with no current implementation: the Blueprint validator holds no reliance graph, so a reliance cycle and a retained Facet whose requirement names a withdrawn Facet cannot be refused today. Verification requires that graph built from the Blueprint's declared Bindings and the installed manifests' requirements, plus the no-code-loaded assertion C13-BLUEPRINT-VALIDATE-BEFORE-LOAD already tests against",
+        "The independence-from-the-child-tree clause needs discrimination against the existing tree ordering: a Facet that is a child of the withdrawing Facet but relies on nothing it provides must not be held, and a Facet that relies on it but is not its child must be, so an implementation cannot satisfy this atom by reusing the stop-children-first order alone"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-FACET-DEPENDENCY-ORDER",
+        "expected": "verified"
+      }
+    },
+    {
       "id": "T-EVIDENCE:C13-FACET-DISPOSAL",
       "type": "T-EVIDENCE",
       "source": { "kind": "conformance", "id": "C13-FACET-DISPOSAL" },
@@ -584,6 +849,153 @@
       "oracle": {
         "kind": "conformance-status",
         "requirementId": "C13-FACET-DISPOSAL",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-FACET-START-ATOMIC",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-FACET-START-ATOMIC" },
+      "owner": "W3",
+      "priority": 5,
+      "summary": "Advance C13-FACET-START-ATOMIC from implemented with exact evidence",
+      "notes": [
+        "Discharged: FacetActivation is an activation path that materializes into records the host can retire whole. The discriminating case has a test — a Facet whose start commits a slot entry and a derived Subscription and then throws leaves both planes equal to their pre-attempt state, and the outcome is a typed failed install rather than a live or half-live Facet. Retirement reuses the same attributed withdrawal set FacetWithdrawal computes and has no independent path",
+        "Discharged: the no-retry clause has adversarial coverage. Activating against a Scope that still holds a record attributed to the Facet is refused, and the same test shows a failed Facet obstructing no other Facet's activation",
+        "Cannot be verified before its two prerequisites are, and neither is verified yet. C13-FACET-CONTRIBUTION-ATTRIBUTION is implemented pending the five unmaterialized record kinds, and C13-FACET-WITHDRAWAL-EXACT is implemented pending the authority plane",
+        "Not discharged: retiring a partial activation must drain on the same terms as a withdrawal, because an Invocation already admitted against the Facet is frozen intent and still settles. That is C13-FACET-WITHDRAWAL-DRAIN's machinery and it does not exist, so a partial activation with an in-flight Invocation is untested",
+        "Not discharged: a failed Facet must be shown to obstruct no other Facet's withdrawal. The activation path records no durable failed-install state, so there is nothing yet for another Facet's withdrawal to trip over and nothing to assert against"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-FACET-START-ATOMIC",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-FACET-WITHDRAWAL-DRAIN",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-FACET-WITHDRAWAL-DRAIN" },
+      "owner": "W3",
+      "priority": 5,
+      "summary": "Advance C13-FACET-WITHDRAWAL-DRAIN from planned with exact evidence",
+      "notes": [
+        "The drain gate itself does not exist. Verification requires the withdrawal transaction to durably capture the finite set of admitted Invocation items whose PreparedInvocationHeader.target names the Facet, and to refuse completion while any captured item lacks a terminal current Receipt. Nothing in the runtime captures that set, so this row stays planned even though its sibling reservation-split obligation is now closed",
+        "Admission closure needs adversarial evidence on both sides: an Invocation prepared against the withdrawing Facet after the withdrawal transaction must be refused, and an item admitted before it must still settle against its frozen intent, placement, and Package pin across restart rather than against whatever later occupies that FacetRef. The withdrawal writes no durable record a later admission could consult, so neither side is checkable today",
+        "The reservation split is now half-proved. src/workspaces/withdrawal.ts#WorkspaceRoutingWithdrawal leaves a reservation that reached preparation alone and drives one the target has not admitted to a terminal rejected RouteDelivery, and appendWithdrawalRejection refuses a prepared reservation so the two cases cannot overlap; the case that no reservation falls in neither is covered by the same query. What is still owed is the other half: showing that the reservation left alone actually drains as an Invocation item, which needs the capture above, plus ownership-correct integration evidence against the W7 routing surface that owns RouteDelivery rather than a W3-authored persistence test",
+        "The prohibition is the part a passing test can hide: a host that reports a withdrawal complete by discarding, synthesizing, or shortcutting a draining item's Receipt must fail, and a mutation removing the drain gate must break a cited test rather than merely change timing"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-FACET-WITHDRAWAL-DRAIN",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-FACET-WITHDRAWAL-EXACT",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-FACET-WITHDRAWAL-EXACT" },
+      "owner": "W3",
+      "priority": 5,
+      "summary": "Advance C13-FACET-WITHDRAWAL-EXACT from implemented with exact evidence",
+      "notes": [
+        "Discharged: the slot plane now retires. WorkspaceSlotStore gained retireSlot/retireEntry/listSlots/listAllEntries, withdrawalSet computes the set purely by querying attribution, requireWithdrawable refuses rather than defers, and both Memory and SQLite implement retirement with snapshot and reopen round-trips through the shared seam contract. FacetSlotWithdrawCommand is the administer-impact control transaction, and FacetWithdrawal computes every plane's set before writing any of them so an incomputable set refuses the whole withdrawal with no partial effect",
+        "Discharged: the two-contributor exactness case and the retained-Slot refusal both have adversarial tests that byte-compare the retained Facet's entry after the withdrawal. The §6.2 Subscription liveness closure is implemented and tested end to end: WorkspaceRoutingWithdrawal retires the Subscriptions a Facet's commands/automations contributions materialized, listSubscriptions excludes a retired Subscription so no further reservation is appended, and every reservation already appended and not yet prepared takes a terminal rejected RouteDelivery written by the owning Actor. A reservation that reached preparation is deliberately left to drain, and appendWithdrawalRejection refuses it",
+        "The authority half is still entirely unbuilt: nothing retires a Binding naming a withdrawn FacetRef or a Grant whose capability names only the withdrawn Facet's Operations, and the Scope epoch advance those retirements must share with the Binding mutation transaction (§3.4 rule 5, C13-OWNERSHIP-AUTHORITY-RECORDS) still has no withdrawal trigger to attach to. FacetWithdrawal composes exactly two planes today and needs a third",
+        "Content retention needs a counterfactual rather than an assertion: retiring an attributed record that names a ContentRef must leave that content resolvable while any retained record still names it, and must never release a ContentRef a RunCommit or an admitted inbox Event names, so that C13-TURN-MODEL-INPUT-RECONSTRUCTABLE survives a withdrawal. No slot-plane record names a ContentRef today, so this is owed by whichever attributed kind acquires one first",
+        "Ownership-correct integration evidence is still owed for the routing half, and the gap is now precise. The implementation exists at src/workspaces/withdrawal.ts#WorkspaceRoutingWithdrawal and src/workspaces/persistence.ts#appendWithdrawalRejection, but those are W7-owned files that this W3 row cannot name as sourceSymbols without failing requireEvidenceOwner on promotion. The rejected-delivery closure is also proved against WorkspacePersistence over a memory record store rather than against the W7 routing surface running its own Actor, so the reservation-split exhaustiveness claim rests on a W3-authored test of a W7-owned record"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-FACET-WITHDRAWAL-EXACT",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-INTERCEPTOR-MODE-DECLARED",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-INTERCEPTOR-MODE-DECLARED" },
+      "owner": "W3",
+      "priority": 5,
+      "summary": "Advance C13-INTERCEPTOR-MODE-DECLARED from implemented with exact evidence",
+      "notes": [
+        "Recorded discrimination is the only thing left between this row and verified, and it is not this row's to write. Eleven mutants were run in an isolated worktree and every cited selector is killed by a mutant inside a cited symbol: making mode optional in the exact-field gate and replacing requireMode with a constant both kill the two mode-refusal selectors from inside InterceptorDeclaration, collapsing modeRank to a constant kills the schedule selector from inside it, and making priority dominate mode or dropping the facetId comparison kills the schedule selector from inside OperationInterceptorRunner. That measurement is by hand. artifacts/quality/discrimination/facets.json is W0-owned, is stale against src/facets/interceptor.ts, and records none of the three cited selectors, so scripts/quality/discrimination.mjs classifies a verified row here as DISC-STALE. The facets and operations areas must be re-measured by the mutation campaign; nothing in this row's own source or tests is outstanding",
+        "The refinement the previous revision owed is now witnessed executably rather than by the model: the schedule selector transcribes AgentCore.InterceptorOrder's four clauses as a predicate, asserts the observed order satisfies it, and asserts that exactly one of the 120 permutations of the contributed set does, which is AgentCore.ordered_schedule_unique in executable form and pins the order completely. It also asserts the contributed order is not admitted, so the host cannot pass by leaving candidates alone. What remains is documentary and W0-owned: artifacts/traceability.yaml and formal/AgentCore/Interceptors.lean record no link between OperationInterceptorRunner and the relation, and AC-INTERCEPTOR-001's own boundary declares runtime candidate discovery unmodelled, so the recorded model-to-implementation edge is the formal owner's to add",
+        "Superseded premise, recorded so a later reader does not reopen it. The earlier obligation assumed FacetSlotContributeCommand admits interceptor entries into the schedule; it does not. A durable SlotEntry is validated only against the installed Slot's entrySchema and is read back through WorkspaceSlotStore, while both OperationInterceptorRunner and FacetCorrespondenceValidator read facet.manifest.contributions, which comes from validated release manifests through PackageFacetRuntime.activate. A mode-less entry contributed over the protocol therefore never becomes an ordering claim, and the boundary where a declaration does become one is manifest validation. The refusal there is now evidenced as atomic over four malformed mode shapes: activation refuses before any Facet's start hook runs, and a co-located lawful Facet in the same host is never started, which is what distinguishes no partial manifest from merely the bad Facet did not run"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-INTERCEPTOR-MODE-DECLARED",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-INTERCEPTOR-MODE-FIDELITY",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-INTERCEPTOR-MODE-FIDELITY" },
+      "owner": "W3",
+      "priority": 5,
+      "summary": "Advance C13-INTERCEPTOR-MODE-FIDELITY from implemented with exact evidence",
+      "notes": [
+        "Recorded discrimination is the only thing left between this row and verified, and it is not this row's to write. Measured by hand over eleven mutants in an isolated worktree, every cited selector is killed from inside a cited symbol: disabling the gate comparison and inverting the policed mode each kill the two refusal selectors from inside OperationInterceptorRunner, forcing every trace entry to read rewritten and forcing none to kills the attribution and no-trace selectors from inside it, and admitting unhosted cut points kills the cut-point selector from inside validateImplementations. artifacts/quality/discrimination/operations.json is W0-owned and records none of the four cited selectors, so scripts/quality/discrimination.mjs classifies a verified row here as DISC-STALE. The operations and facets areas must be re-measured by the mutation campaign",
+        "What the cut-point selector establishes now that every cut point has a runtime. It used to record the weaker property that a gate could not be admitted where its read-only claim would go unenforced, because only the two operation cut points had a runner. All five are executed, so the selector states the property directly: over the whole Turn-bound cut point by mode domain, a rewrite returning a changed value is admitted and traced as rewritten while a gate returning the identical changed value is refused by name. Both halves are asserted in one run because the two interceptors differ only in declared mode, so a host that admitted both, or refused both, would be indistinguishable from one that policed neither. The install-time refusal this selector previously carried is gone with the hole it covered, and src/operations/correspondence.ts#validateImplementations is no longer cited here; admission at the Turn-bound cut points is C13-INTERCEPTOR-TURN-HOSTED's claim.",
+        "The attribution half is evidenced as a join rather than as two facts side by side, which is the part a nearby test would miss: the last trace entry whose outcome is rewritten names alpha, and its after digest equals a digest recomputed over the persisted preparedArguments, so the record says this interceptor produced the value the PreparedInvocation froze. A host recording only that an interceptor ran satisfies none of it, and one reporting the final trace entry as the rewriter names omega, whose entry carries the identical digest with outcome unchanged. beta and omega behave identically and differ only in declared mode, so a phase inferred from observed behaviour could not separate them, while the declared band still orders beta ahead of omega at priority 2 against -100. Outstanding here is only the same recorded measurement as the clause above"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-INTERCEPTOR-MODE-FIDELITY",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-INTERCEPTOR-TURN-CONTEXT",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-INTERCEPTOR-TURN-CONTEXT" },
+      "owner": "W3",
+      "priority": 5,
+      "summary": "Advance C13-INTERCEPTOR-TURN-CONTEXT from implemented with exact evidence",
+      "notes": [
+        "Recorded discrimination, which is not this row's to write. Measured by hand in a detached worktree: deleting the isTurnBoundCutPoint conjunct from the InterceptorDeclaration constructor guard, and replacing isTurnBoundCutPoint's body with `return false`, each kill the cited selector from inside a cited symbol -- the fifteen-cell cut point x selector table then reports the three Turn-bound cut points admitting a narrowed selector. artifacts/quality/discrimination/facets.json is W0-owned and carries no attribution for a selector added after the last mutation run, so scripts/quality/discrimination.mjs would classify a verified row as DISC-STALE and fail the gate as a new addition; the row therefore stands at implemented rather than claiming a green it cannot yet evidence.",
+        "The claim's negative half is in the same test rather than a neighbouring one: the two operation cut points keep all three selectors, so the refusal is evidenced as a property of the cut point and not of the selector. A guard that refused every narrowed selector everywhere would pass a Turn-only assertion and fail this one."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-INTERCEPTOR-TURN-CONTEXT",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-INTERCEPTOR-TURN-HOSTED",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-INTERCEPTOR-TURN-HOSTED" },
+      "owner": "W3",
+      "priority": 5,
+      "summary": "Advance C13-INTERCEPTOR-TURN-HOSTED from implemented with exact evidence",
+      "notes": [
+        "Recorded discrimination, which is not this row's to write; the same W0-owned staleness that caps the sibling Turn-bound rows caps this one. Measured by hand in a detached worktree: collapsing orderSchedule's modeRank term kills the ordering selector from inside orderSchedule (the observed schedule becomes alpha/early/gate first), dropping its facetId comparison kills the same selector, restoring the unhosted-cut-point refusal in validateImplementations kills the admission selector from inside validateImplementations, and inverting the `cutPoint !== \"turn.step\"` test in TurnInterceptorRunner kills the stop-shape selector from inside TurnInterceptorRunner.",
+        "What the admission selector does and does not establish. It shows that a declaration at each Turn-bound cut point is admitted with its interceptor resolved, and -- in the same run -- that a declaration with no implementation behind it is still refused at each of them. So admission is the host executing these cut points rather than the correspondence check having stopped asking, which is the reading a bare admission assertion would leave open."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-INTERCEPTOR-TURN-HOSTED",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-INTERCEPTOR-TURN-REWRITE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-INTERCEPTOR-TURN-REWRITE" },
+      "owner": "W3",
+      "priority": 5,
+      "summary": "Advance C13-INTERCEPTOR-TURN-REWRITE from implemented with exact evidence",
+      "notes": [
+        "Recorded discrimination, which is not this row's to write; W0 owns artifacts/quality/discrimination/operations.json and it carries no attribution for selectors newer than the last mutation run. Measured by hand in a detached worktree: moving the admit call after the loop so it sees only the final value kills the per-rewriter selector from inside TurnInterceptorRunner, and deleting the gate-fidelity comparison kills the mode-fidelity selector from inside the same symbol.",
+        "The per-rewriter selector is a join rather than two facts side by side: the refusal names the FIRST rewriter, and the recorded sequence of values offered to the rule is exactly one entry, so a runner that checked only the value it ended with would have admitted the illegal answer that the second rewriter overwrote. A test asserting only that the illegal answer was refused would pass against that defect.",
+        "This row's anchoring paragraph closes by restating rule 10 at the Turn-bound cut points -- a gate whose result differs from the value it received is refused here too -- and that clause is evidenced under C13-INTERCEPTOR-MODE-FIDELITY rather than here, by test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-MODE-FIDELITY] polices a rewriting gate at every Turn-bound cut point instead of refusing the declaration it could not police. This row cited that test as a second selector and should not have: the label join is what proves a citation, and that test runs one interceptor per cell, so it can show gate fidelity and nothing per-rewriter. Adding this row's label to its title would have made the join claim the opposite. The clause is recorded here as cross-referenced, not as demonstrated by this row's own evidence."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-INTERCEPTOR-TURN-REWRITE",
         "expected": "verified"
       }
     },
@@ -650,9 +1062,10 @@
       "priority": 5,
       "summary": "Advance C13-PLACEMENT-DYNAMIC-NO-EGRESS from planned with exact evidence",
       "notes": [
-        "The rule is enforced by domain construction at the substrate (SPEC §1.5: policy code inside the domain is not a security boundary); W4's definition plane can declare only the dynamic mode and cannot establish the network posture of a W8 backing",
-        "No substrate-neutral interface, nominal token, or local reference can prove zero ambient egress. Verification requires ownership-correct integration between the W4 placement decision and every concrete backing the selected profile offers, together with evidence from each backing's real enforcement boundary",
-        "For Worker Loader, adversarial code running in the real substrate must fail both global fetch and connect while an explicitly passed Binding remains callable. A dispatch-namespace backing additionally requires the exact deployed namespace and deny-all outbound Worker configuration; local fakes do not satisfy either obligation"
+        "The rule is enforced by domain construction at the substrate (SPEC §1.5: the clause is placed there expressly because an outbound policy code can reach around is advice). W4's definition plane selects the mode and constructs no domain, so no W4 symbol can witness a refused connection and no substrate-neutral interface, nominal token, or local reference can stand in for one.",
+        "The rule is not closeable by any single substrate's evidence either: one backing demonstrating zero ambient egress says nothing about another, so this is a rule about what every backing must preserve rather than a claim any one of them discharges. C13-PLACEMENT-AUTHORED-BACKING carries the per-backing declaration half.",
+        "The substrate obligation is C13-CLOUDFLARE-DYNAMIC-NO-EGRESS (W8, §10.2): adversarial code in a real isolate failing both global fetch and connect while an explicitly passed Binding stays callable. That obligation cannot be cited from here — ownerFor maps C13-PLACEMENT-* to W4, W4's globs in artifacts/quality/ownership.json name no packages/agent-core-cloudflare path, and ledger.mjs#requireEvidenceOwner admits only W4 or W9 source, so a W4 row citing the enforcement boundary fails the ledger by name even with live evidence in hand.",
+        "The one globalOutbound assertion in the tree is not evidence for this rule and must not be cited: packages/agent-core-cloudflare/test/{hosting,authored-code}.test.ts drive DynamicWorkerLoaderAdapter against a recording fake and assert the argument the adapter passed, so they cannot fail on any egress the platform did or did not refuse."
       ],
       "oracle": {
         "kind": "conformance-status",
@@ -677,66 +1090,97 @@
       }
     },
     {
-      "id": "T-EVIDENCE:C13-PROTOCOL-ATOMIC-EVIDENCE",
+      "id": "T-EVIDENCE:C13-RECEIPT-FAILURE-ORTHOGONAL",
       "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-PROTOCOL-ATOMIC-EVIDENCE" },
-      "owner": "W1",
+      "source": { "kind": "conformance", "id": "C13-RECEIPT-FAILURE-ORTHOGONAL" },
+      "owner": "W6",
       "priority": 5,
-      "summary": "Advance C13-PROTOCOL-ATOMIC-EVIDENCE from implemented with exact evidence",
+      "summary": "Advance C13-RECEIPT-FAILURE-ORTHOGONAL from implemented with exact evidence",
       "notes": [
-        "End-to-end target denial handling must prove the Tenant decision and target deniedPreEffect evidence across the cross-Actor boundary without a refinement shortcut"
+        "Admission independence still has no enforcement point. No §3.4 rule 7 comparison input derives from Receipt state, so the failure field is absent from every admission input by construction rather than by a check; closure needs an assertion over the admission inputs themselves, not over what the pipeline happens to read",
+        "The supersession half is only partly shown. deriveBatchOutcome and the recorded outcome are proven to ignore the kind, and reconciliation is proven to be the first record permitted to name one through src/invocations/reconciliation.ts#matches, but no case yet drives a retry after each of the five kinds to show next-ordinal eligibility is identical across them",
+        "Both persistence layers reject a pre-effect Receipt carrying a kind only through the shared codec. The memory and sqlite stores are not separately shown to refuse one, so a store that bypassed the codec would not be caught"
       ],
       "oracle": {
         "kind": "conformance-status",
-        "requirementId": "C13-PROTOCOL-ATOMIC-EVIDENCE",
+        "requirementId": "C13-RECEIPT-FAILURE-ORTHOGONAL",
         "expected": "verified"
       }
     },
     {
-      "id": "T-EVIDENCE:C13-PROTOCOL-DUPLICATE",
+      "id": "T-EVIDENCE:C13-RUN-CEILING-COST",
       "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-PROTOCOL-DUPLICATE" },
-      "owner": "W1",
+      "source": { "kind": "conformance", "id": "C13-RUN-CEILING-COST" },
+      "owner": "W5",
       "priority": 5,
-      "summary": "Advance C13-PROTOCOL-DUPLICATE from implemented with exact evidence",
+      "summary": "Advance C13-RUN-CEILING-COST from planned with exact evidence",
       "notes": [
-        "Duplicate denial replay is covered for the Tenant command, but the complete command-family duplicate matrix remains outside this vertical"
+        "RESOURCE_DIMENSIONS in src/agents/runs/ceiling.ts is frozen at depth, tokens, and wallClockMs, and its comment still asserts the SPEC names exactly three dimensions. Closure requires costMicros in that tuple, in ResourceCeiling.fromData's exact-field set, and in the ceiling codec, with the comment corrected",
+        "A Run keeps no cost total: src/agents/runs/run.ts#Run.recordTokens and Run.tokensConsumed are the only running total, and src/agents/runs/runtime.ts#RunRuntime.recordModelTokensInTransaction is its only commit point. Closure requires a durable realized-cost total advanced in that same transaction and a Run codec major that carries it",
+        "Nothing supplies a realized cost. The §5.6 executor seam reports token usage only, so closure requires the seam to carry a cost the host records verbatim, plus rejection of any path that derives cost from a rate table instead of recording what the call incurred",
+        "The one-currency rule has no enforcement point. Closure requires the recording path to reject a realized cost whose currency differs from the one already recorded for the Run lineage, and an adversarial case proving a mixed-currency lineage cannot narrow a ceiling",
+        "src/agents/runs/ceiling.ts#exhaustedResource must name costMicros only when that dimension has no allowance left, extending the existing C13-RUN-CEILING-EXHAUSTION check rather than adding a second exhaustion path"
       ],
       "oracle": {
         "kind": "conformance-status",
-        "requirementId": "C13-PROTOCOL-DUPLICATE",
+        "requirementId": "C13-RUN-CEILING-COST",
         "expected": "verified"
       }
     },
     {
-      "id": "T-EVIDENCE:C13-PROTOCOL-OUTCOMES",
+      "id": "T-EVIDENCE:C13-RUN-DISTINCTION-REPRESENTABLE",
       "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-PROTOCOL-OUTCOMES" },
-      "owner": "W1",
+      "source": { "kind": "conformance", "id": "C13-RUN-DISTINCTION-REPRESENTABLE" },
+      "owner": "W5",
       "priority": 5,
-      "summary": "Advance C13-PROTOCOL-OUTCOMES from implemented with exact evidence",
+      "summary": "Advance C13-RUN-DISTINCTION-REPRESENTABLE from planned with exact evidence",
       "notes": [
-        "The Tenant permit command now returns a closed authority-denial outcome; complete end-to-end outcome coverage remains outstanding"
+        "The merge half, in its discloser's own words. `RunCommit.parents` is a flat `readonly RunCommitId[]` with arity validated per kind, so `parents.length === 2` answers whether this has two entries while the rule needs whether this joins two distinct lineages. A merge naming ONE commit as both parents is fully constructable, passes the codec, and is refused only later by `RunRuntime.validateMerge` — a unary merge wearing binary shape. That is demonstrated rather than argued: dropping the runtime's distinctness clause survives every record-level check, so the record-level mutant is the one that lives. The absent mechanism is a `MergeParents` value object in src/agents/runs/commit.ts that cannot hold one commit twice, plus the codec path that admits only it",
+        "Stated honestly because the row must not read as a correctness gap: `RunRuntime.validateMerge` refuses the unary-merge case correctly today, and src/agents/runs/commit.ts refuses every arity but two. No wrong merge lands and no wrong answer is returned. This is a representability rule — the illegal value exists and is checked rather than being unconstructable — so the evidence owed is that the value cannot be built, never that a build is rejected",
+        "The omission-attribution half, in its discloser's own words. `TurnModelInput.covers` is per-RECORD, a flat `readonly RunCommitId[]`, while `TurnOmission` is per-SECTION, so the two facts sit at different granularities with no third field joining them. `covers` therefore answers whether a commit was in scope of the assembly while being read as whether the model observed that commit's content, and a host that lists a commit and renders zero bytes of it — fully abridging it inside a multi-commit section — is indistinguishable in the record from one that rendered it whole. The withheld byte count exists but cannot be attributed to a commit. The absent mechanism is a per-commit coverage entry in src/agents/runs/executor.ts",
+        "What the omission half does and does not break, from the same disclosure. Reconstruction stays byte-exact either way because the bytes come from the sections and not from the accounting, so C13-TURN-MODEL-INPUT-RECONSTRUCTABLE is unaffected, and C13-TURN-SURFACE-ACCOUNTED claims coverage equals the transcript and that abridgement states the withheld amount without claiming per-commit attribution, so no landed row overclaims and no test asserts something false. What is unavailable is the audit question of which commit was abridged — exactly the question a reader of the phrase compaction and abridgement compose would assume is answerable. It composes for reconstruction; it does not compose for attribution",
+        "Why it is owed rather than settled, in the discloser's own judgement: per-commit entries carrying carried versus withheld were considered and dropped as duplicative of the section-level omission, and that objection treated two different questions as one fact. Per-commit omission attribution is a fact about the world, so the duplication objection was wrong and the gap is debt rather than a decision",
+        "SHAPE WARNING for whoever discharges the omission half, because the choice is load-bearing and the discloser corrected their own first estimate here. Replacing the field — `covers: readonly TurnCoveredCommit[]` with `{commit, omission}` per entry — changes the canonical value of an existing key, and `TurnModelInput.toData()` reaches `modelInputCommitId` through a content-addressed ref, so that shape forks every `modelInput` RunCommitId exactly as presence-typing `interceptable` forked InvocationIds, and it is a migration rather than a refactor. An ADDITIVE optional field emitted only when non-empty forks nothing: existing records serialise byte-identically and only records that use it differ, with `TurnShownContent.toData()` emitting `inline` XOR `ref` as the in-record precedent. Take the additive form; the residual cost is then §5.6 prose and one digest re-affirmation, not a durable-identity migration",
+        "Both halves are unmeasured against the mutation campaign, so no discrimination attribution exists for either mechanism. Discharging this row means the two value objects, a record-level test that a unary merge cannot be constructed rather than that it is rejected, a test that a fully abridged carried commit is distinguishable from a whole one, and the mutation attribution that shows each new test dies when its own clause is removed"
       ],
       "oracle": {
         "kind": "conformance-status",
-        "requirementId": "C13-PROTOCOL-OUTCOMES",
+        "requirementId": "C13-RUN-DISTINCTION-REPRESENTABLE",
         "expected": "verified"
       }
     },
     {
-      "id": "T-EVIDENCE:C13-PROTOCOL-REJECTION-ROOT",
+      "id": "T-EVIDENCE:C13-RUN-GRAPH-CLOSED",
       "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-PROTOCOL-REJECTION-ROOT" },
-      "owner": "W1",
+      "source": { "kind": "conformance", "id": "C13-RUN-GRAPH-CLOSED" },
+      "owner": "W5",
       "priority": 5,
-      "summary": "Advance C13-PROTOCOL-REJECTION-ROOT from implemented with exact evidence",
+      "summary": "Advance C13-RUN-GRAPH-CLOSED from implemented with exact evidence",
       "notes": [
-        "The Tenant permit denial uses dispatcher rejection roots, but the cross-Actor denial chain is not yet verified as a complete conformance atom"
+        "The closure is enforced today and the enforcement predates the rule, so what is owed is conformance naming rather than behaviour. src/agents/runs/commit.ts declares a `run: RunId` field on RunCommit beside `branch`, and src/agents/runs/runtime.ts#RunRuntime rejects each of the three ways a foreign commit could enter one Run's graph: appendInTransaction rejects a branch whose `run` differs from the loaded Run with `Run commit target is invalid`, rejects a unary or first-merge parent whose `run` differs with `Run commit parent belongs to another Run`, and validateMerge cannot find a second-parent branch that this Run does not own because its source lookup filters on `branch.run.equals(target.run)`, so a foreign source head rejects with `Merge requires equal-pinned current heads from distinct branches`",
+        "Three p0 tests exercise exactly those three paths and none carries this atom's label, so no selector can be claimed until they are tagged. test/agents/runs/runtime-mutation.test.ts `append guards` > `rejects a parent commit that belongs to another Run` inserts a commit under RunId `run-elsewhere` and appends against it; `merge validation` > `merge requires an exact source branch and stored head commits` registers branch `branch-elsewhere` under RunId `run-elsewhere` and merges its head; `runtime lookup errors` > `effective commits reject a branch of another Run` covers the branch side. Moving this row to verified is the tagging plus ACQ-IMPORT and ACQ-TEST, not new behaviour",
+        "A positive assertion is owed alongside the rejections, because a runtime that rejected every merge would satisfy a rejection-only test: a merge whose source is a distinct branch of the same Run at equal pins is accepted, and the resulting graph still holds exactly one zero-parent commit. The second half is the interaction with C13-RUN-GRAPH-ARITY this rule depends on — closure and the single-root rule are one fact read from two directions — and no test asserts the zero-parent count after a merge",
+        "The whole-graph consequence a reader relies on has no check, only the three per-append checks that imply it. src/agents/runs/runtime.ts#RunRuntime spawnRunInTransaction creates the child Run with its own root commit, and nothing asserts that no commit of the parent Run is reachable from any commit of the child, nor that the child's graph holds exactly one zero-parent commit after arbitrary appends, merges, and branch creation. That assertion is what makes the absence of an inheritance watermark testable rather than incidental"
       ],
       "oracle": {
         "kind": "conformance-status",
-        "requirementId": "C13-PROTOCOL-REJECTION-ROOT",
+        "requirementId": "C13-RUN-GRAPH-CLOSED",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-RUN-REWRITE-BRACKET",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-RUN-REWRITE-BRACKET" },
+      "owner": "W5",
+      "priority": 5,
+      "summary": "Advance C13-RUN-REWRITE-BRACKET from implemented with exact evidence",
+      "notes": [
+        "One clause of the owed log assertion is not dischargeable in this plane and is the only thing between this row and verified: that the closed failure kind on the abandoned attempt's Receipt says why the attempt ended. The reservation half, the per-branch exclusion, the close-by-exact-identity rule, and the abandoned form are implemented and tested, and the abandoned commit is required to name a Receipt whose recorded outcome is failed through src/agents/runs/evidence.ts#AbandonedRewriteEvidence, whose outcome the type pins, so a host that simply drops the record of the failure is rejected rather than admitted. The failure kind itself is C13-RECEIPT-FAILURE-KIND, W6's in invocations-audit.json and planned, and no failure-kind taxonomy exists in src/invocations/receipt.ts to assert against. The edge is deliberately not added as a prerequisite: §5.2 cites the kind as already saying why rather than making this rule a claim about that taxonomy, so gating this atom permanently on W6 would overstate the dependency. Promote when §7.4's taxonomy lands and one assertion binds the abandoned rewrite's ReceiptId to a Receipt carrying a closed failure kind"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-RUN-REWRITE-BRACKET",
         "expected": "verified"
       }
     },
@@ -759,20 +1203,240 @@
       }
     },
     {
-      "id": "T-EVIDENCE:C13-TURN-ADMISSION-HANDLE",
+      "id": "T-EVIDENCE:C13-SLATE-INSTANTIATE-SCOPE",
       "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-TURN-ADMISSION-HANDLE" },
-      "owner": "W5",
+      "source": { "kind": "conformance", "id": "C13-SLATE-INSTANTIATE-SCOPE" },
+      "owner": "W8",
       "priority": 5,
-      "summary": "Advance C13-TURN-ADMISSION-HANDLE from planned with exact evidence",
+      "summary": "Advance C13-SLATE-INSTANTIATE-SCOPE from implemented with exact evidence",
       "notes": [
-        "GatewayTurnInvocationPort currently returns only Operation output, so no concrete mediated pipeline path can return a verified InvocationId or child RunRef in the model tool position; a fake TurnInvocationPort returning a preconstructed handle would not prove this rule",
-        "SpawnReservation alone does not prove successful admission. Closure requires the exact EffectAttempt named by the AttemptReceipt, the succeeded Receipt and its hashed result bytes, and an exact canonical child-RunRef-only payload to be validated before constructing the handle; extra child-output fields must be rejected",
-        "The public-interface test must traverse the concrete mediated gateway and prove unchanged admission plus linked Receipt and audit evidence, then observe only the verified admission identity at the executor boundary"
+        "The cited test kills seven discriminating mutants measured by hand at this rev -- lineage recorded on the instantiated Slate, unsatisfied reported empty, the source-digest comparison removed, and the intent key set unenforced each fail it -- but src/slates/skeleton.ts is new and src/slates/{runtime,intent,codec}.ts changed, so artifacts/quality/discrimination/slates.json holds no attribution for any of it. A mutation re-measurement of the slates area is required before this atom may be raised to verified",
+        "checkerInvariants is empty because no invariant in artifacts/quality/rules.json asserts anything about this rule; naming ACQ-IMPORT/ACQ-TEST would be evidence for the module graph and the test style, not for the no-lineage rule",
+        "The §11 profile surface does not reach this Operation: SLATE_OPERATION_CONTRACTS in src/facets/slate/facet.ts still declares six operations and SlateRuntimePort in src/composition/slate-profile.ts still picks six, so instantiate is reachable through SlateRuntime only. A P11-SLATE-INSTANTIATE contract and its wire codec are a separate slice",
+        "The skeletonDigest this Operation records is a durable value derived from canonical declaration bytes another wave owns: Digest.sha256(SlateSkeleton.encode(skeleton)) covers SlateSkeleton.toData() -> {bindings, sourceDigest} -> BindingRequirement.toData() -> {compat, facet, name}. Checked against MIGRATE-OPERATION-DESCRIPTOR-PRESENCE: manifest.ts carries zero interceptable/requireOfferedCapability references, so BindingRequirement is disjoint from the OperationDescriptor digest sites and this derivation did NOT fork. Two standing exposures remain and they fail differently. If BindingName's canonical form moves (C13-AUTH-BINDING-NAME-CANONICAL, W2) or BindingRequirement's three fields change (W3), a recorded intent's digest silently stops matching a re-derived one -- no throw and no failing test -- unlike the descriptor fork, which surfaces as a re-dispatch. A silently forking identity and a loudly forking one are different hazards and this is the quieter. Second: applying the presence idiom to bindings, which the declared-nothing/never-asked collapse would otherwise invite, changes toData()'s canonical key set and is therefore a migration rather than a refactor. The migration question is vacuous today -- slate.skeleton is durability value with store null, the digest lives only in an intent record, and no committed slate instantiate rows exist -- and stops being vacuous at the first recorded instantiate"
       ],
       "oracle": {
         "kind": "conformance-status",
-        "requirementId": "C13-TURN-ADMISSION-HANDLE",
+        "requirementId": "C13-SLATE-INSTANTIATE-SCOPE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-SLATE-SKELETON-ARTIFACT",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-SLATE-SKELETON-ARTIFACT" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-SLATE-SKELETON-ARTIFACT from implemented with exact evidence",
+      "notes": [
+        "The negative half is tested through Blueprint's public decoder: adding a slates field to an otherwise admissible Blueprint declaration is refused while the same declaration without it decodes, and adding \"slates\" to the optional-field list in src/definition/blueprint.ts#Blueprint.fromData kills the test. The positive half -- that materialization places no Slate -- is asserted only by the absence of the field it would have to read, and a direct materializer test belongs to W4's src/definition surface rather than this atom's evidence",
+        "src/slates/skeleton.ts is new, so artifacts/quality/discrimination/slates.json holds no attribution for the cited symbol; a slates-area mutation re-measurement is required before verified"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-SLATE-SKELETON-ARTIFACT",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-SLATE-SKELETON-CREDENTIAL-FREE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-SLATE-SKELETON-CREDENTIAL-FREE" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance C13-SLATE-SKELETON-CREDENTIAL-FREE from implemented with exact evidence",
+      "notes": [
+        "A third witness defect, found by GateIntegrityAudit's label-to-citation join and confirmed by probe rather than by agreement. This row used to cite the slate.skeleton codec round-trip test. A round-trip answers 'does this record survive encode/decode', where the rule asks 'does the exported shape carry no credential' -- adjacent questions. Probe: SlateSkeleton was mutated to admit and faithfully round-trip a `secret` string field. The round-trip test PASSED (24 passed, 1 failed) and only the credential-free test failed, so the citation could not fail under the exact mutation the rule forbids. Dropped rather than relabelled, on the principle that a stale label is worse than none. The selector remains in artifacts/records/profiles-cloudflare.json, where a codec round-trip is the correct evidence for a record kind",
+        "Correcting an overstatement in the previous revision of this row: the non-exact-payload-key-set mutant was reported as failing two tests including the round-trip. That second failure was a reference error from the mutation, not a semantic kill. It kills exactly one test, the credential-free one, via its Object.keys(payload) assertion",
+        "Discriminating evidence, as measured: three mutants are killed by the two cited tests -- a non-exact skeleton payload key set, a digest decoder tolerating a ContentRef, and exportSkeleton reading publication.materialization.digest where the rule requires the published version's own source digest (2 tests fail). A dropped duplicate-BindingName check is also killed, by the same credential-free test. An earlier revision claimed a mutant, 'an exported publication id', that was never run; it was removed rather than left standing",
+        "The SecretRef substring assertions are a regression tripwire, NOT a witness, and must not be read as one. The ref is constructed in the test and never reaches the exporter, so no mutation of src/slates kills them: they answer 'does this string appear in these bytes', trivially no. What actually witnesses credential absence is structural and IS discriminating -- the payload's exact two-key set and the five smuggling payloads asserted refused -- because SlateSkeleton's only two field types, Digest and BindingRequirement, have total canonical validators and cannot represent a credential. The tripwire earns its place only against a future field that could carry one",
+        "The originating-Scope half of that assertion IS a real witness: the Workspace, Slate, version, publication and materialization values genuinely exist in the source records exportSkeleton reads. No selector of this atom depends on a redeployment having taken effect, so the void-evidence category CloudflareCapabilities-2 recorded on C13-CLOUDFLARE-DEPLOYMENT-CONTINUITY does not apply here",
+        "src/slates/skeleton.ts is new and src/slates/{publication,codec}.ts changed, so artifacts/quality/discrimination/slates.json holds no attribution for the cited symbols; a slates-area mutation re-measurement is required before verified",
+        "The prerequisite C13-CONFIG-SECRET-CUSTODY is planned. This atom does not depend on custody being implemented -- it forbids the ref rather than relying on the ref failing to resolve -- but the topology-leak justification this rule states is only as strong as that rule, so raising this atom to verified should wait on it",
+        "Declaring requirements at publish is reachable through SlateRuntime.publish only; the section 11 profile publish operation declares the empty set, so an agent publishing through the facet cannot yet state a requirement. Extending SLATE_OPERATION_CONTRACTS.publish is a separate P11 slice",
+        "Named limitation on this rule, distinct from the surface gap above: the declared set is a non-optional array, so an EMPTY set answers 'the publisher declared no requirements' with the same value as 'the publisher was never asked'. Both readings are reachable -- exportSkeleton copies publication.bindings verbatim, and src/composition/slate-profile.ts supplies [] because the section 11 publish operation has no requirements field -- so a consumer cannot ask whether the list is COMPLETE, which is the question the prose clause 'what a consumer must supply is data they read before anything of theirs runs' would invite. Traced rather than pattern-matched, and the trace narrowed it: exportSkeleton is absent from SlateRuntimePort, so every reader of a skeleton is platform-side rather than an agent. Nothing overclaims -- the section 13 line and this atom's prose both say 'declares', the unsatisfied return is the declared set verbatim, and no test asserts completeness -- so this is an unclaimed gap and not a defect. The presence idiom is deliberately NOT the fix: the cause is a missing field on the publish operation rather than too few record states, an export artifact that says 'I do not know what I need' hands a forker nothing actionable, and per the entry on C13-SLATE-INSTANTIATE-SCOPE the change would fork that atom's durable skeletonDigest and is therefore a migration. Closing the section 11 gap makes the empty set unambiguous again and the third state dead weight"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-SLATE-SKELETON-CREDENTIAL-FREE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-SUBSCRIPTION-COHERENCE-EVIDENCE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-SUBSCRIPTION-COHERENCE-EVIDENCE" },
+      "owner": "W7",
+      "priority": 5,
+      "summary": "Advance C13-SUBSCRIPTION-COHERENCE-EVIDENCE from implemented with exact evidence",
+      "notes": [
+        "src/workspaces/coherence.ts carries no mutation attribution yet, so discrimination.mjs cannot judge whether these citations constrain the cited symbols; the row stays implemented until a W7 mutation run records a symbol-tier kill inside CoherenceFinding, CoherenceVerdict, and decideCoherenceFinding"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-SUBSCRIPTION-COHERENCE-EVIDENCE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-SUBSCRIPTION-OBSERVATION-GRANT",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-SUBSCRIPTION-OBSERVATION-GRANT" },
+      "owner": "W7",
+      "priority": 5,
+      "summary": "Advance C13-SUBSCRIPTION-OBSERVATION-GRANT from implemented with exact evidence",
+      "notes": [
+        "src/workspaces/coherence.ts carries no mutation attribution yet, so discrimination.mjs cannot judge whether these citations constrain admitCrossRunObservation; the row stays implemented until a W7 mutation run records a symbol-tier kill inside it",
+        "No host wires this policy into SourceEventProtocol yet: the refusal is proven as a decision, and the reservation-suppressing half of the clause rests on the already-verified SourceRoutePort rejection path, where a rejected authorize decision makes commit throw before any reservation is appended (test/workspaces/coverage-protocols.test.ts)"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-SUBSCRIPTION-OBSERVATION-GRANT",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-SUBSCRIPTION-OBSERVATION-INTERVENTION",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-SUBSCRIPTION-OBSERVATION-INTERVENTION" },
+      "owner": "W7",
+      "priority": 5,
+      "summary": "Advance C13-SUBSCRIPTION-OBSERVATION-INTERVENTION from implemented with exact evidence",
+      "notes": [
+        "src/workspaces/coherence.ts carries no mutation attribution yet, so discrimination.mjs cannot judge whether these citations constrain authorizeObservedIntervention; the row stays implemented until a W7 mutation run records a symbol-tier kill inside it",
+        "The authorized-intervention path through the §4.4 turn.step cut point is C13-INTERCEPTOR-STEP-STOP's mechanism; this row proves only that observation authority never supplies it"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-SUBSCRIPTION-OBSERVATION-INTERVENTION",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-SUBSCRIPTION-OBSERVATION-TENANT",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-SUBSCRIPTION-OBSERVATION-TENANT" },
+      "owner": "W7",
+      "priority": 5,
+      "summary": "Advance C13-SUBSCRIPTION-OBSERVATION-TENANT from implemented with exact evidence",
+      "notes": [
+        "src/workspaces/coherence.ts carries no mutation attribution yet, so discrimination.mjs cannot judge whether these citations constrain the cross-tenant branch of admitCrossRunObservation; the row stays implemented until a W7 mutation run records a symbol-tier kill inside it",
+        "The guest-attenuation and credential-custody halves of the rule are C13-AUTH-GUEST-ELEVATION and C13-AUTH-SECRET-SCOPE evidence; this row proves only that the three route authorities do not substitute for one another"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-SUBSCRIPTION-OBSERVATION-TENANT",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-TURN-FACET-SET-STABLE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-TURN-FACET-SET-STABLE" },
+      "owner": "W5",
+      "priority": 5,
+      "summary": "Advance C13-TURN-FACET-SET-STABLE from planned with exact evidence",
+      "notes": [
+        "FacetSet has no representation in src. §4.1 now defines it as the canonical-ordered, unique FacetRef membership of one composition view, and §5.3 fixes a Turn's FacetSet to the facet refs of its immutable TurnPlacementSnapshot placements. Closure requires that derivation to exist once, over the existing TurnPlacementSnapshot record (src/agents/runs/placement.ts#TurnPlacementSnapshot), rather than as a second membership list a host could populate independently.",
+        "The no-second-composition-view conjunct has no enforcement point. src/agents/runs/executor.ts#validateOperations already rejects a TurnBoundOperation whose facet is absent from the immutable placement snapshot, which is membership stability for bound Operations only; nothing yet answers a general membership question from the captured set, and nothing prevents a host from answering one from the Scope's current install records instead. Closure requires the executor seam to expose the captured set as the Turn's only composition view.",
+        "The typed unavailability a withdrawn captured member yields at its next use has no error class and no reachable path, because withdrawal itself is planned: there is no retired-Binding state for a resolution attempt to observe, and C13-FACET-WITHDRAWAL-EXACT is a prerequisite for that reason.",
+        "The behavior test must prove both halves in one exercise over the public interface and must fail if either is traded for the other: an install and a withdrawal committed mid-Turn leave the Turn's membership identical, while a Grant revoked mid-Turn denies the next use of a member the Turn still composes. A test that asserts only stable membership would pass against a host that had frozen authority with it."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-TURN-FACET-SET-STABLE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-TURN-HANDLE-DETACHMENT",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-TURN-HANDLE-DETACHMENT" },
+      "owner": "W5",
+      "priority": 5,
+      "summary": "Advance C13-TURN-HANDLE-DETACHMENT from planned with exact evidence",
+      "notes": [
+        "Every clause is downstream of C13-TURN-ADMISSION-HANDLE, which is itself planned: GatewayTurnInvocationPort returns Operation output only, so no handle is ever put in the model's tool position and there is nothing whose ownership could transfer. Until a handle exists the commit point cannot be exercised from either side, which is why this atom names that one as a prerequisite rather than restating it",
+        "The commit point needs both sides proved against the same admission: a Turn expired, cancelled, or lost before admission must yield a `cancelledPreEffect` Receipt with no EffectAttempt and no handle, while a Turn cancelled after admission must leave the item's Receipt to be appended against its frozen intent, placement, and Package pin. A test that only cancels before admission would pass against a host that revoked every handle on Turn cancellation",
+        "The prohibition is the clause a passing test hides. Cancelling the issuing Turn must not abort an item whose admission identity it published, so a mutation propagating the Turn's cancellation to a published handle must break a cited test rather than merely change timing; the discriminating observation is the failure kind, since such a host records `aborted` on an item this rule requires to settle on its own terms",
+        "The two owners must be shown distinct in one exercise, because a host that cascaded would pass every test that spawns and waits: cancelling the Run aborts an outstanding `InvocationId` handle and withholds Settled until that item has a terminal current Receipt, while cancelling a parent Run leaves a spawned child Run running and does not withhold the parent's Settled, the spawn's `delegate` Receipt already being terminal once it carries the child RunRef",
+        "Child-Run isolation needs an adversarial authority case rather than a timing one: a caller holding only the parent Turn's LeaseToken must fail to cancel the child Run under C13-TURN-EXACT-LEASE, and cancellation must succeed only through authority that reaches that child Run",
+        "The derived-ceiling exception needs its own case because it is the one thing that legitimately crosses the boundary: a child must exhaust an inherited `depth` or `wallClockMs` bound computed from the spawn lineage and a root RunCommit timestamp (C13-RUN-CEILING-REMAINDER) and cancel itself through its own §5.3 rows with the exhausted dimension recorded, rather than being cancelled by the ancestor that declared the ceiling"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-TURN-HANDLE-DETACHMENT",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-TURN-INPUT-SUBMITTED",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-TURN-INPUT-SUBMITTED" },
+      "owner": "W5",
+      "priority": 5,
+      "summary": "Advance C13-TURN-INPUT-SUBMITTED from implemented with exact evidence",
+      "notes": [
+        "Recorded discrimination, which is not this row's to write, for the same W0-owned staleness reason as its sibling rows. Measured by hand in a detached worktree: firing the cut point for turn.cancel as well kills the cancellation half of the first selector from inside RunRuntime, returning the original entry unconditionally instead of rebuilding it on a substituted reference kills the transform half, and deleting admitSubmission's delivery-identity comparison kills the second selector from inside admitSubmission.",
+        "The cancellation clause is evidenced by absence, which needs a positive control to mean anything: the run asserts that no turn.cancel envelope reached the schedule AND that exactly two other submissions did, so a port that was never called at all would fail rather than pass."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-TURN-INPUT-SUBMITTED",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-TURN-MODEL-INPUT-ABRIDGED",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-TURN-MODEL-INPUT-ABRIDGED" },
+      "owner": "W5",
+      "priority": 5,
+      "summary": "Advance C13-TURN-MODEL-INPUT-ABRIDGED from implemented with exact evidence",
+      "notes": [
+        "One of this rule's four adversarial cases is not closable inside the request record, and it is the only reason this row is not verified: a host reporting a byte-ranged `read` or a `list` page as an omission under a bound. An omission is a count of withheld bytes and says nothing about the source's own coverage, so that report is byte-for-byte indistinguishable from a truthful budget omission of the same size, and closing it here would mean carrying source coverage on the request, which this rule's own separation clause forbids. Discharging it needs the §7.4 Receipt for the same Invocation read alongside the request, so what is owed is a composition test across the two records rather than further work on this one",
+        "The other three adversarial cases are closed by construction and covered by executed tests: a host recording the whole result plus a shortened flag cannot mislead, because src/agents/runs/executor.ts#ScopedModelHandle issues the reconstruction of the record and a model therefore observes exactly the shown form the record holds; a digest of the shown bytes is not an expressible shown form, because src/agents/runs/executor.ts#TurnShownContent admits inline bytes or a resolving `ContentRef` and rejects every other shape; and an omission under a bound cannot be recorded as source incompleteness, because src/agents/runs/executor.ts#TurnOmission has no case for it and the record's exact field set admits no completeness field",
+        "testSelectors and checkerInvariants stay empty because scripts/quality/ledger.mjs#validateStatus admits them only on a row whose remaining evidence is empty. The three executed [C13-TURN-MODEL-INPUT-ABRIDGED] cases in test/agents/runs/model-input.test.ts already cover the four owed shapes, the record-level separation, and the three closed adversarial cases; they move onto this row together with the composition test above"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-TURN-MODEL-INPUT-ABRIDGED",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-TURN-PROMPT-ASSEMBLE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-TURN-PROMPT-ASSEMBLE" },
+      "owner": "W5",
+      "priority": 5,
+      "summary": "Advance C13-TURN-PROMPT-ASSEMBLE from implemented with exact evidence",
+      "notes": [
+        "Recorded discrimination, which is not this row's to write: artifacts/quality/discrimination/*.json is W0-owned and has no attribution for a test file that post-dates the last mutation run, so a verified status would be a DISC-STALE addition rather than a green. Measured by hand in a detached worktree, 15 mutants over the whole Turn-bound cut-point change with a clean-tree control run first: replacing the assembleSections call in ScopedModelHandle.call with assembly.sections kills the reconstruction selector (2 of 7 dead). One mutant SURVIVED and is recorded rather than omitted: making admitAssembledSections a no-op leaves both selectors passing, because decodeSections still runs once on the schedule's final value and refuses a malformed answer there. So this row's cited admitAssembledSections is undiscriminated by these selectors -- its only observable effect needs two rewriters where the first answers malformed and the second ignores its input, which the single-rewriter schedule here never builds. The per-rewriter property itself is evidenced at the runner instead, under C13-INTERCEPTOR-TURN-REWRITE, where deleting the admit call kills its selector.",
+        "The reconstruction selector is a join, not two adjacent facts: the recorded section names are the rewritten ones AND the bytes a records-only replay rebuilds equal the bytes the model port received. Either half alone passes against a host that recorded the rewrite but sent the original, which is exactly the drift SPEC 5.6 forbids.",
+        "One clause of the anchoring paragraph is stated but not evidenced here: a rewrite offered after the model input commit is refused. No such call exists to make -- the cut point is reachable only from inside ScopedModelHandle.call, before the commit -- so the refusal is structural rather than a code path a test can drive, and the row does not claim it as demonstrated."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-TURN-PROMPT-ASSEMBLE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:C13-TURN-STEP-STOP",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-TURN-STEP-STOP" },
+      "owner": "W5",
+      "priority": 5,
+      "summary": "Advance C13-TURN-STEP-STOP from implemented with exact evidence",
+      "notes": [
+        "Recorded discrimination, which is not this row's to write, for the same W0-owned staleness reason as its sibling rows. Measured by hand in a detached worktree: making requireNotStopped return unconditionally kills the withdrawal selector, dropping the ordinal comparison from admitStepRewrite kills the restatement selector from inside admitStepRewrite, and dropping its author check kills the forged-annotation case in the same selector.",
+        "The withdrawal claim is asserted as an ordered sequence rather than as a single refusal: two steps proceed with annotations accumulating, the third returns the stop naming its interceptor, the model call made after it is refused by name, and the fourth open is refused rather than answered again. A host that reported the stop and then kept answering passes any one of those assertions and fails the sequence.",
+        "The Turn-scoping clause is evidenced across two Turns rather than argued from where the state is stored, but it is evidenced across two Runs' Turns rather than two Turns of one Run: seeding a second Turn on the same branch is W5 fixture work this row did not take on, so the claim demonstrated is that step state and a stop are scoped to the Turn that fired the cut point, not the narrower fact that a sibling Turn of the same Run is unaffected."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-TURN-STEP-STOP",
         "expected": "verified"
       }
     },
@@ -796,6 +1460,26 @@
       }
     },
     {
+      "id": "T-EVIDENCE:C13-VIEW-WITHDRAWAL-TERMINAL",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "C13-VIEW-WITHDRAWAL-TERMINAL" },
+      "owner": "W7",
+      "priority": 5,
+      "summary": "Advance C13-VIEW-WITHDRAWAL-TERMINAL from planned with exact evidence",
+      "notes": [
+        "The presence discriminator has no encoding. src/workspaces/view.ts#View declares only intentDigest and marks as optional, and ViewCodecV2 decodes an exact field list, so the terminal field §6.3 now defines cannot round-trip. Closure requires the View codec to carry it under §8.3 compatible evolution and requires viewFromDocument to accept the ViewDelta patch that adds it.",
+        "Nothing retires a Surface. Withdrawal is planned, which is why C13-FACET-WITHDRAWAL-EXACT is a prerequisite, and no production path emits a final ViewDelta or refuses a later revision. Closure requires one place that both emits the terminal delta and rejects every subsequent revision for that Surface, so the no-revision-after-terminal conjunct is enforced rather than conventional.",
+        "EventCursor resume has no liveness branch. ViewDelta replay resolves a cursor without consulting Surface liveness, so a cursor for a retired Surface is today indistinguishable from one for a live Surface. Closure requires resume to return the terminal revision for a retired Surface through the same reader live resume uses, never a second path a client would have to choose between.",
+        "The aggregating conjunct has no site. No production Surface composes the surface-backed slot entries §4.2 describes, so dropping a retired child's entry at the next revision cannot be exercised yet; closure requires that composition to read contributor attribution rather than a cached child snapshot.",
+        "The behavior test must prove terminality through the public interface — the terminal delta arrives, a further revision for that Surface is refused, and a cursor presented after retirement yields the terminal revision rather than an error — and must detect retirement without holding a live handle, since the rule's cost argument rests on C13-VIEW-NO-LIVE-STATE."
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "C13-VIEW-WITHDRAWAL-TERMINAL",
+        "expected": "verified"
+      }
+    },
+    {
       "id": "T-EVIDENCE:P11-ENVIRONMENT-NO-AMBIENT-EGRESS",
       "type": "T-EVIDENCE",
       "source": { "kind": "conformance", "id": "P11-ENVIRONMENT-NO-AMBIENT-EGRESS" },
@@ -810,6 +1494,83 @@
       "oracle": {
         "kind": "conformance-status",
         "requirementId": "P11-ENVIRONMENT-NO-AMBIENT-EGRESS",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:P11-FILESYSTEM-ERROR-CONTENT-MISMATCH",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "P11-FILESYSTEM-ERROR-CONTENT-MISMATCH" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance P11-FILESYSTEM-ERROR-CONTENT-MISMATCH from planned with exact evidence",
+      "notes": [
+        "The code exists as declared vocabulary and has no producer. src/facets/filesystem/error.ts carries `content-mismatch` in FilesystemErrorCode and FILESYSTEM_ERROR_CODES so the amended P11-FILESYSTEM-ERROR-CODES stays true of the code, but no write path raises it, because the guarded `replace` that would raise it is owed under P11-FILESYSTEM-WRITE-OBSERVED",
+        "The conformance test is owed as a three-way branch, since the value of a distinct code is exactly that a caller can act on it: an absent target yields `not-found` and the caller creates; a present target whose content differs yields `content-mismatch` and the caller re-reads; a `create` over a present target yields `exists`. A host that collapses the middle case into either neighbour passes a two-way test and denies the caller the one recovery that differs",
+        "P11-FILESYSTEM-CODE-ASSERTIONS and P11-FILESYSTEM-ERROR-BRANCHING remain satisfied by the existing assertions in test/profiles/facets/conformance-ledger.test.ts and test/profiles/facets/filesystem.test.ts, updated to the seven-member set; what is owed here is the assertion that the seventh member is produced by the guard and by nothing else",
+        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "P11-FILESYSTEM-ERROR-CONTENT-MISMATCH",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:P11-FILESYSTEM-WRITE-GUARD-ATOMIC",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "P11-FILESYSTEM-WRITE-GUARD-ATOMIC" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance P11-FILESYSTEM-WRITE-GUARD-ATOMIC from planned with exact evidence",
+      "notes": [
+        "There is no comparison to make atomic yet, so this atom cannot precede P11-FILESYSTEM-WRITE-OBSERVED. What is owed beyond it is that the comparison and the replacement occupy the single atomic step P11-FILESYSTEM-ATOMIC-WRITE already requires: a backend that reads the current content, compares, and then writes through a second store call satisfies the guard's wording and loses the guarantee, because a concurrent write landing between the two produces a write that passed a check against content it did not replace",
+        "The conformance test is owed as an interleaving, not as a sequential case: a guarded `replace` whose comparison observes matching content while another write lands before the replacement must reject rather than apply. src/facets/filesystem/memory.ts is synchronous and cannot express the interleaving, so the owed test drives it through a backend seam that can, or through an instrumented backend whose comparison step yields, and asserts the prior content survived",
+        "The adversarial case is a guard that is checked at admission rather than at the store. A precondition evaluated during §7.3 preparation and then trusted at effect time is a time-of-check-to-time-of-use hole precisely because §7.3 freezes intent before the effect, so the test must fail a host that discharges the guard anywhere other than the atomic store step",
+        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "P11-FILESYSTEM-WRITE-GUARD-ATOMIC",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:P11-FILESYSTEM-WRITE-GUARD-PORTABLE",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "P11-FILESYSTEM-WRITE-GUARD-PORTABLE" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance P11-FILESYSTEM-WRITE-GUARD-PORTABLE from planned with exact evidence",
+      "notes": [
+        "The choice this atom fixes is not yet expressible, and it is the reason the guard is a `Digest` (§1.4) rather than a store-native token: src/facets/filesystem/facet.ts#FilesystemStat reports `{ path, kind, size, modifiedAt }`, and a modification time is a per-store heuristic that a mount composition would have to translate between backings. Owed: the guard value is derived from content and from nothing else, so the same guard is meaningful against every backing store without a translation layer, and no backend introduces a private token as an alternative",
+        "The conformance test is owed as a cross-backing assertion rather than a single-store one: a guard produced by reading through one backing store and presented to a write through a different backing store holding identical content must be accepted, and one presented against different content must reject. src/facets/filesystem/mount.ts routes a write to whichever mount resolves the path, so the mount composition is where a per-store token would break and where the digest must not",
+        "A negative obligation is owed as well: `stat` MUST NOT be extended to always report a content digest, because the profile's cheap metadata Operation would then pay a full read per call. The guard is derived by the caller from the content a `read` already returned, which is what keeps the observation requirement free of any new per-session state and keeps `stat` at its current cost",
+        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "P11-FILESYSTEM-WRITE-GUARD-PORTABLE",
+        "expected": "verified"
+      }
+    },
+    {
+      "id": "T-EVIDENCE:P11-FILESYSTEM-WRITE-UNOBSERVED",
+      "type": "T-EVIDENCE",
+      "source": { "kind": "conformance", "id": "P11-FILESYSTEM-WRITE-UNOBSERVED" },
+      "owner": "W8",
+      "priority": 5,
+      "summary": "Advance P11-FILESYSTEM-WRITE-UNOBSERVED from planned with exact evidence",
+      "notes": [
+        "The distinction this atom draws does not yet exist, because today every mode overwrites without naming content and `upsert` is merely the mode with no existence precondition (src/facets/filesystem/facet.ts#UpsertWriteMode has an empty `requireWritable`). Once `replace` is guarded, `upsert` becomes the profile's single unobserved overwrite, and what is owed is that this is the only such path: no default, no absent-mode fallback, and no third route to overwriting content the caller never read",
+        "src/facets/filesystem/memory.ts defaults an omitted mode to `FilesystemWriteMode.upsert`, and test/profiles/facets/filesystem.test.ts exercises `filesystem.write(\"/fresh\", new Uint8Array([5]))` with no mode at all, so an unobserved overwrite is currently reachable without being declared. Owed: whether an omitted mode remains admissible at the backend seam is a decision this rule forces, and the model-facing Operation input must not admit one, because a declared intent that a caller can decline to declare is not a declaration",
+        "The policy half is owed and is what makes the rule worth stating: `upsert` carries `mutate` impact like every other write, so the fact that a Workspace policy can refuse it specifically depends on policy resolving on the mode and not only on the Operation. A test is owed showing a policy that admits `create` and guarded `replace` while denying `upsert`, and showing that the denial is a pre-effect outcome under §7.3 rather than a store-level rejection",
+        "The conformance test is owed in two shapes: an `upsert` over a present target succeeds and replaces content the caller never observed, which is the behaviour this rule permits rather than forbids; and the Receipt for that write records the mode, so an unobserved overwrite is distinguishable in the audit trail from a guarded one after the fact",
+        "testSelectors is empty because scripts/quality/ledger.mjs#validateStatus rejects a planned requirement that carries source symbols, test selectors, or checker invariants; the selectors above are named as prose obligations until the code exists and the status moves to implemented"
+      ],
+      "oracle": {
+        "kind": "conformance-status",
+        "requirementId": "P11-FILESYSTEM-WRITE-UNOBSERVED",
         "expected": "verified"
       }
     },
@@ -1802,6 +2563,27 @@
         "kind": "typed-disposition",
         "requirementId": "AC-MATERIALIZE-001",
         "evidenceDigest": "3c0f8e4cbf83062c1589eea7282ae026d014539a38c573f4480428d6a09cf061",
+        "expected": "migrated-or-permanent"
+      }
+    },
+    {
+      "id": "T-TRIAGE:AC-MATERIALIZE-001:8487e509e96bfc3e5bc3fd817a7d3fadc48b571aa91afc804ad866efc8f2f936",
+      "type": "T-TRIAGE",
+      "source": {
+        "kind": "traceability-remaining-evidence",
+        "id": "AC-MATERIALIZE-001",
+        "digest": "8487e509e96bfc3e5bc3fd817a7d3fadc48b571aa91afc804ad866efc8f2f936"
+      },
+      "owner": "maintainer-triage",
+      "priority": 5,
+      "summary": "Type the disposition and oracle for AC-MATERIALIZE-001 evidence 8487e509e96bfc3e5bc3fd817a7d3fadc48b571aa91afc804ad866efc8f2f936",
+      "notes": [
+        "the model's verification fact carries no time index, so guest verification expiry is enforced only by the TypeScript materialization boundary"
+      ],
+      "oracle": {
+        "kind": "typed-disposition",
+        "requirementId": "AC-MATERIALIZE-001",
+        "evidenceDigest": "8487e509e96bfc3e5bc3fd817a7d3fadc48b571aa91afc804ad866efc8f2f936",
         "expected": "migrated-or-permanent"
       }
     },
