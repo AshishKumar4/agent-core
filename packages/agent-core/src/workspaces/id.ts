@@ -14,6 +14,13 @@ function isActionIdText(value: unknown): value is string {
     return typeof value === "string";
 }
 
+export class CoherenceFindingId extends TextId {
+    public constructor(value: string) {
+        super(value, "Coherence finding ID");
+        Object.freeze(this);
+    }
+}
+
 export class ContentRetentionId extends TextId {
     public constructor(value: string) {
         super(value, "Content retention ID");

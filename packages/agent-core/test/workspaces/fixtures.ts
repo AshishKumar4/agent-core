@@ -1,5 +1,7 @@
 import { ActorId, ActorRef } from "../../src/actors";
 import { TurnId } from "../../src/agents";
+import { GrantId } from "../../src/authority";
+import { RunId } from "../../src/execution-references";
 import {
     ContentRef,
     Digest,
@@ -36,9 +38,17 @@ import {
     RouteReservationId
 } from "../../src/interaction-references";
 import { requireString } from "../../src/workspaces/codec";
+import {
+    CoherenceFinding,
+    CoherenceVerdict,
+    type CoherenceFindingIdentity,
+    type CrossRunObservation,
+    type ObservedIntent
+} from "../../src/workspaces/coherence";
 import { Event, type EventInit } from "../../src/workspaces/event";
 import {
     ActionId,
+    CoherenceFindingId,
     ContentRetentionId,
     EventCursor,
     InboxReferenceId,
@@ -293,6 +303,60 @@ export function inboxFixture(
         sequence,
         leaseEpoch
     });
+}
+
+export const observedSubjects = Object.freeze([
+    new RunId("run-observed-left"),
+    new RunId("run-observed-right")
+] as const);
+
+export const observationGrant = new GrantId("grant-observe");
+
+export function observedIntentFixture(
+    run: RunId,
+    argumentsDigest = "a".repeat(64),
+    operation = "facet.test:consume"
+): ObservedIntent {
+    return {
+        run,
+        event: new EventId(`event-${run.value}`),
+        reservation: new RouteReservationId(`reservation-${run.value}`),
+        operation: new OperationRef(operation),
+        argumentsDigest: new Digest(argumentsDigest)
+    };
+}
+
+export function coherenceFindingIdentityFixture(suffix = "default"): CoherenceFindingIdentity {
+    return {
+        id: new CoherenceFindingId(`coherence-${suffix}`),
+        observer: principal,
+        scope,
+        grant: observationGrant,
+        subjects: observedSubjects
+    };
+}
+
+export function coherenceFindingFixture(suffix = "default"): CoherenceFinding {
+    return new CoherenceFinding({
+        ...coherenceFindingIdentityFixture(suffix),
+        verdict: CoherenceVerdict.duplicate,
+        witnesses: [
+            {
+                left: observedIntentFixture(observedSubjects[0]),
+                right: observedIntentFixture(observedSubjects[1])
+            }
+        ]
+    });
+}
+
+export function crossRunObservationFixture(suffix = "default"): CrossRunObservation {
+    return {
+        subscription: new SubscriptionId(`subscription-${suffix}`),
+        observer: principal,
+        subject: observedSubjects[1],
+        subjectScope: scope,
+        grant: observationGrant
+    };
 }
 
 export function viewFixture(revision = 0, suffix = "default"): View {

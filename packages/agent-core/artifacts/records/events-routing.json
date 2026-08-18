@@ -15,6 +15,18 @@
       ]
     },
     {
+      "symbol": "CoherenceFinding",
+      "kind": "workspace.coherence-finding",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/workspaces/coherence.ts#CoherenceFinding",
+      "codec": "src/workspaces/coherence.ts#CoherenceFinding.codec",
+      "store": null,
+      "tests": [
+        "test/workspaces/registry.test.ts#[workspace.coherence-finding] codec and ownership evidence"
+      ]
+    },
+    {
       "symbol": "ActionDescriptor",
       "kind": "workspace.action-descriptor",
       "durability": "value",
