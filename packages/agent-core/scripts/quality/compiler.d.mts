@@ -1,6 +1,12 @@
 import type { Node, SourceFile, SyntaxKind } from "typescript/unstable/ast";
 import type { ConfigResponse } from "typescript/unstable/proto";
-import type { CompilerOptions, Diagnostic, Project } from "typescript/unstable/sync";
+import type {
+    Checker,
+    CompilerOptions,
+    Diagnostic,
+    Project,
+    Symbol as TypeSymbol
+} from "typescript/unstable/sync";
 
 export function sourceFiles(paths: readonly string[]): Map<string, SourceFile>;
 export function sourceFile(path: string): SourceFile | undefined;
@@ -15,3 +21,4 @@ export function openProject(options: {
 export function configuredProject(path: string): Project;
 export function configuration(path: string): ConfigResponse;
 export function hasModifier(node: Node, kind: SyntaxKind): boolean;
+export function aliasTarget(checker: Checker, symbol: TypeSymbol): TypeSymbol;

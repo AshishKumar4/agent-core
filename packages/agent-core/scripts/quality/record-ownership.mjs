@@ -1,6 +1,5 @@
 import * as ts from "typescript/unstable/ast";
-import { SymbolFlags } from "typescript/unstable/sync";
-import { hasModifier } from "./compiler.mjs";
+import { aliasTarget, hasModifier } from "./compiler.mjs";
 import { resolveSourceSymbol } from "./evidence.mjs";
 import { isJsonObject, isNonEmptyString } from "./project.mjs";
 
@@ -173,10 +172,7 @@ function contentProjectionDeclaration(checker, expression) {
         throw new TypeError("Run content descriptor projection is malformed");
     }
     const imported = checker.getSymbolAtLocation(expression);
-    const symbol =
-        imported !== undefined && (imported.flags & SymbolFlags.Alias) !== 0
-            ? checker.getAliasedSymbol(imported)
-            : imported;
+    const symbol = imported === undefined ? undefined : aliasTarget(checker, imported);
     const declaration = (symbol?.valueDeclaration ?? symbol?.declarations?.[0])?.resolve();
     if (declaration === undefined || !ts.isFunctionDeclaration(declaration)) {
         throw new TypeError("Run content descriptor projection is not a function declaration");

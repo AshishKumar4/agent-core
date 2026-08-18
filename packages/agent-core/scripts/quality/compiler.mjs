@@ -1,5 +1,5 @@
 import { resolve } from "node:path";
-import { API } from "typescript/unstable/sync";
+import { API, SymbolFlags } from "typescript/unstable/sync";
 import { isModifier } from "typescript/unstable/ast";
 import { packageRoot } from "./project.mjs";
 
@@ -200,4 +200,14 @@ export function hasModifier(node, kind) {
     return (node.modifiers ?? []).some(
         (modifier) => isModifier(modifier) && modifier.kind === kind
     );
+}
+
+/**
+ * What a name denotes: an import or re-export alias resolved to the symbol it stands for,
+ * anything else itself. Alias-ness is a `SymbolFlags` bit, and `SymbolFlags` lives on the
+ * session module rather than the AST module — reading it off the latter yields `undefined`
+ * and a `TypeError` at the mask — so the flag is read here and nowhere else.
+ */
+export function aliasTarget(checker, symbol) {
+    return (symbol.flags & SymbolFlags.Alias) === 0 ? symbol : checker.getAliasedSymbol(symbol);
 }
