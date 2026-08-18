@@ -2397,6 +2397,48 @@
       ]
     },
     {
+      "id": "C13-INTERCEPTOR-TURN-CONTEXT",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-TURN-CONTEXT",
+      "specTextSha256": "sha256:0e7dac0971697cb52560544700553a7bfa08953ad6054f533f420dab0139a8df",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-INTERCEPTOR-TURN-HOSTED",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-TURN-HOSTED",
+      "specTextSha256": "sha256:770ab3cd2dcdfe6a3bafa4c1b8d7ac755df5d9aad8a3fe95641429f0e53227ce",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-INTERCEPTOR-TURN-REWRITE",
+      "owner": "W3",
+      "specAnchor": "C13-INTERCEPTOR-TURN-REWRITE",
+      "specTextSha256": "sha256:119b1a88661f9def845043f7f64cc84a6640ac1d67760a5201b910a1db82b181",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-OWNERSHIP-ACTOR-CONTRACT",
       "owner": "W0",
       "specAnchor": "C13-OWNERSHIP-ACTOR-CONTRACT",
@@ -4091,6 +4133,20 @@
       ]
     },
     {
+      "id": "C13-TURN-INPUT-SUBMITTED",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-INPUT-SUBMITTED",
+      "specTextSha256": "sha256:4da719c9a57051c49aedba0273adcd18cb2bd2067723b7697266bc3fcfec6a2a",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-TURN-LEASE-EXPIRY",
       "owner": "W5",
       "specAnchor": "C13-TURN-LEASE-EXPIRY",
@@ -4249,6 +4305,34 @@
       "owner": "W5",
       "specAnchor": "C13-TURN-NO-RETRY-RUNTIME",
       "specTextSha256": "sha256:51353f230757ccb27ecaef1d740fb90a9e7579bdc006e37abdbad0257377d004",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TURN-PROMPT-ASSEMBLE",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-PROMPT-ASSEMBLE",
+      "specTextSha256": "sha256:e3f268014b712483d277944120ac8f3d320cfdbd87cc9208cee87b4c3b662c4f",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-TURN-STEP-STOP",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-STEP-STOP",
+      "specTextSha256": "sha256:650f3c35c3ad9d648c406a35949548f37380287e9c646bbb3d92ee9e89cbac09",
       "status": "planned",
       "prerequisites": [],
       "sourceSymbols": [],

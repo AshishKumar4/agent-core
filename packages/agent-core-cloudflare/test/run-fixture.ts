@@ -43,7 +43,25 @@ import {
     type ControlCommitEvidence,
     type RunStoragePort
 } from "@agent-core/core/agents/runs";
+import { TurnCutPointPort, type TurnInterceptionResult } from "@agent-core/core/operations";
 import type { CloudflareErrorPort } from "../src/index.js";
+
+/**
+ * A Turn-bound cut-point schedule with no contributions: every value passes through and no
+ * gate can refuse it. Mirrors the core package's own fixture so hosting tests exercise Run
+ * behaviour without standing a Facet runtime up beside them.
+ *
+ * The parameters are derived from the port rather than annotated: `TurnBoundCutPoint` and
+ * `FacetData` are reachable from no public subpath, so naming them here would either
+ * hard-code the cut-point union or require widening the published surface.
+ */
+class UncontributedCutPoints extends TurnCutPointPort {
+    public override run(
+        ...[, , value]: Parameters<TurnCutPointPort["run"]>
+    ): TurnInterceptionResult {
+        return Object.freeze({ value, traces: Object.freeze([]), stop: undefined });
+    }
+}
 
 export const errors: CloudflareErrorPort = {
     raise(code, message, cause): never {
@@ -315,7 +333,8 @@ export async function runHarness<Transaction>(
             evidence,
             settlement,
             new TestSpawnPort(),
-            new TestMergePort()
+            new TestMergePort(),
+            new UncontributedCutPoints()
         )
     };
 }
