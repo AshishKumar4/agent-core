@@ -750,27 +750,6 @@
       }
     },
     {
-      "id": "T-EVIDENCE:C13-FACET-CAPABILITY-ABSENCE",
-      "type": "T-EVIDENCE",
-      "source": { "kind": "conformance", "id": "C13-FACET-CAPABILITY-ABSENCE" },
-      "owner": "W3",
-      "priority": 5,
-      "summary": "Advance C13-FACET-CAPABILITY-ABSENCE from implemented with exact evidence",
-      "notes": [
-        "Discharged: the negative encoding is gone from the class, the codec's required/optional split and toData() together. OperationDescriptor.interceptable is `true | undefined` and requireOfferedCapability is the single place the presence rule is implemented, called by both the constructor and the decoder, so no construction path leaves the negative form alive and the host holds no second state in which the two disagree.",
-        "Discharged: both readers now test presence rather than truth (authority.ts#allowsInterception and the interceptor runner's refusal), and the refusal that had no implementation has one. Refused at install verification, correspondence.ts:134, where a contribution entry is actually decoded — NOT at the manifest codec, because `operations` travels through FacetManifest as opaque slot data. The test asserts the manifest codec's acceptance too, so no later reader mistakes it for the gate.",
-        "Discharged: the digest consequence is measured. Two independently built withheld manifests pin one manifestDigest, and the offered manifest pins a different one — the second half is the anti-adjacency guard, because deleting the field from the digest input would satisfy the first alone while answering a different question.",
-        "Discharged: mutation attribution exceeds the two the clause asked for. Five hand mutants run in a clean detached worktree at the commit, each killed by a cited test, each restored byte-identically: A refusal-accepts-present-false (3 failed), B absence-decoded-as-false (3), C declaration-dropped-from-digest-input (2), D decoder-ignores-the-declaration (4), E reader-ignores-declaration-presence (1, test/composition/authority-membrane.test.ts). Every failure is an assertion on the rule's own behaviour, not a cascade or a reference error.",
-        "Not discharged, and it is why this row is implemented rather than verified: ACQ-PRESENCE exists and discriminates — 0 issues over 1312 codec-backed record fields in 773 files, red under all five defect forms including the un-annotated `= false` this change removed, seeded from SPEC §4.1's own paragraph so it survives a full revert — but it joins the architecture debt list at 17 rather than being registered in gate-corpus.json, because gate-integrity.mjs has no `architecture` harness. So nothing but its own measurement says the checker can go red, which is the standard ACQ-EQUIV was held to.",
-        "Not discharged: the `architecture` node is red at this revision on two peers' in-flight files (ACQ-ERR in src/invocations/receipt.ts, ACQ-VOCAB across the enforcement twins), so invariants.mjs certifies none of this row's three checkerInvariants. That blocks every W3 row citing ACQ-* equally and is not specific to this atom, but a verified status may not be claimed while the certification it names has not executed."
-      ],
-      "oracle": {
-        "kind": "conformance-status",
-        "requirementId": "C13-FACET-CAPABILITY-ABSENCE",
-        "expected": "verified"
-      }
-    },
-    {
       "id": "T-EVIDENCE:C13-FACET-CODE-AVAILABILITY",
       "type": "T-EVIDENCE",
       "source": { "kind": "conformance", "id": "C13-FACET-CODE-AVAILABILITY" },
