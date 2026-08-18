@@ -366,9 +366,23 @@ function requireEvidenceOwner(path, owner, patterns, requirement) {
 }
 
 function validateRequirement(requirement) {
+    // `bounds` is optional at every status, so it joins the exact key set only when present.
+    // It records what the rule deliberately does NOT claim, which is a different fact from
+    // `remainingEvidence`'s what-is-still-owed, and the two are deliberately not one field:
+    // `verified` requires `remainingEvidence` empty, so promotion to `verified` is destructive
+    // rather than additive — it erases a row's only prose channel, deleting what the row said
+    // about its own scope. `bounds` survives promotion because nothing below reads it. Shape is
+    // all that is checked here and all that is checked anywhere: the item floor lives in
+    // conformance/schema.json beside the field's description, and no evidence check —
+    // `requireEvidenceOwner`, `resolveSourceSymbol`, `requirePassingTests`, the
+    // `checkerInvariants` execution check, the priority floor, or `validateStatus` — reads it.
+    // A path, symbol or atom id inside a bound is therefore prose and never a citation.
+    const carriesBounds =
+        typeof requirement === "object" && requirement !== null && "bounds" in requirement;
     assertExactKeys(
         requirement,
         [
+            ...(carriesBounds ? ["bounds"] : []),
             "checkerInvariants",
             "id",
             "owner",
@@ -390,7 +404,8 @@ function validateRequirement(requirement) {
         "sourceSymbols",
         "testSelectors",
         "checkerInvariants",
-        "remainingEvidence"
+        "remainingEvidence",
+        ...(carriesBounds ? ["bounds"] : [])
     ]) {
         assertUniqueStrings(requirement[field], `Requirement ${requirement.id} ${field}`);
     }
@@ -399,6 +414,12 @@ function validateRequirement(requirement) {
     return requirement;
 }
 
+// Every branch below reads `remainingEvidence` and none reads `bounds`, deliberately: a bound is
+// a statement about what the rule does not claim, not evidence owed, so no status may require,
+// forbid or bound it. Adding a `bounds` predicate to any branch here — in either direction —
+// rebuilds the collapse the field exists to undo, and would make promotion lossy again by
+// turning a recorded non-claim back into an obligation. The absence is the invariant; it is
+// asserted in test/quality/ledger.test.ts rather than left to be inferred from this comment.
 function validateStatus(requirement) {
     if (requirement.status === "planned") {
         if (

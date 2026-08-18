@@ -40,7 +40,14 @@
           "sourceSymbols": { "$ref": "#/$defs/uniqueStrings" },
           "testSelectors": { "$ref": "#/$defs/uniqueStrings" },
           "checkerInvariants": { "$ref": "#/$defs/uniqueStrings" },
-          "remainingEvidence": { "$ref": "#/$defs/uniqueStrings" }
+          "remainingEvidence": {
+            "$ref": "#/$defs/uniqueStrings",
+            "description": "What evidence this row still owes. Status-constrained: required nonempty at planned, implemented and external-gated, and required empty at verified. This is not the field for what a rule declines to claim; see bounds."
+          },
+          "bounds": {
+            "$ref": "#/$defs/boundStatements",
+            "description": "What this rule deliberately does NOT claim, one statement per entry. Optional at every status and constrained by none of them, verified included. remainingEvidence answers what evidence is still owed; bounds answers what the rule does not cover. Those are two facts, and one field for both is the collapse this field exists to undo: because verified requires remainingEvidence empty, promotion to verified is destructive rather than additive today - it erases the row's only prose channel, so raising a row deletes what that row said about its own scope. Non-evidentiary by construction: no evidence check reads this field, so a path, symbol, atom id or foreign wave's file named inside a bound is prose and never a citation - it is not resolved, not ownership-checked, and never a debt. The inverse hazard has no mechanical guard: owed evidence relabelled as a bound empties remainingEvidence and reaches verified, which looks like progress, so a reviewer owns that distinction. Identify code by name, never by position: a line or offset in a durable field goes stale silently the moment anything is inserted above it, while a symbol name degrades loudly under the change that removes it. The item floor rejects a non-statement such as \"Not covered.\" - a field nothing can contradict is worth having only if it cannot be satisfied by padding."
+          }
         }
       }
     }
@@ -50,6 +57,11 @@
       "type": "array",
       "uniqueItems": true,
       "items": { "type": "string", "minLength": 1 }
+    },
+    "boundStatements": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 80 }
     }
   }
 }

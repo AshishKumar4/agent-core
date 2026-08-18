@@ -27,6 +27,8 @@ interface ConformanceRequirement {
     testSelectors: string[];
     checkerInvariants: string[];
     remainingEvidence: string[];
+    /** Optional at every status and read by no evidence check; see the bounds cases below. */
+    bounds?: string[];
 }
 
 interface ConformanceFragment {
@@ -749,6 +751,173 @@ describe("atomic SPEC ledger", subprocessTestOptions, () => {
         expect(result.status).toBe(1);
         expect(result.stderr).toContain("invariant did not execute: ACQ-ID");
     });
+
+    // `bounds` records what a rule deliberately does NOT claim. `remainingEvidence` records
+    // what evidence is still owed. They are two facts, and the schema had one field for both:
+    // because `verified` requires `remainingEvidence` empty, promotion to `verified` was
+    // DESTRUCTIVE rather than additive — it erased a row's only prose channel, so raising a row
+    // deleted what that row said about its own scope. These cases pin the two properties that
+    // make the second field worth having, neither of which any absent constraint can express:
+    // every status admits a bound, and no evidence check reads one.
+    test("admits a bound at every status and reads it as evidence at none", async () => {
+        const fixture = await ledgerFixture();
+        const seed = await readFixtureJson<ConformanceFragment>(
+            resolve(fixture, "conformance/seed.json")
+        );
+        const requirement = seed.requirements.find((item) => item.owner === "W1")!;
+        const selector = "test/core/id.test.ts#TextId [C13-FIXTURE] refuses an empty identifier";
+        const bound =
+            "Fixture bound: the rule does not claim that a decoded identifier round-trips through " +
+            "a foreign codec, and nothing downstream depends on that property holding.";
+
+        // `verified` is the status the field exists for: it is the one status whose prose channel
+        // is forced empty, so a bound surviving here is the whole point.
+        markVerified(requirement, "src/core/id.ts#TextId", selector);
+        requirement.bounds = [bound];
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        await writePassingSelectors(fixture, [selector]);
+        await writeFile(
+            resolve(fixture, "invariants.json"),
+            `${JSON.stringify({ passed: ["ACQ-ID"] }, null, 2)}\n`,
+            "utf8"
+        );
+        let result = runFixture(fixture);
+        expect(result.status, result.stderr).toBe(0);
+
+        // The same row, same bound, at every other status. A bound costs nothing to carry, which
+        // is exactly what makes promotion non-lossy.
+        markImplemented(requirement, "src/core/id.ts#TextId", selector);
+        requirement.bounds = [bound];
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        expect(runFixture(fixture).status, runFixture(fixture).stderr).toBe(0);
+
+        requirement.status = "external-gated";
+        requirement.remainingEvidence = ["Fixture: gated on a consent this fixture never grants."];
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        await gateExternally(fixture, requirement.id);
+        result = runFixture(fixture);
+        expect(result.status, result.stderr).toBe(0);
+
+        // And `planned`, which carries prose and nothing else — so a bound rides alongside the
+        // one field that status is defined by, without being confused for it.
+        requirement.status = "planned";
+        requirement.sourceSymbols = [];
+        requirement.testSelectors = [];
+        requirement.checkerInvariants = [];
+        requirement.remainingEvidence = ["Fixture: the rule's remaining evidence is unwritten."];
+        requirement.bounds = [bound];
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        await gateExternally(fixture, undefined);
+        result = runFixture(fixture);
+        expect(result.status, result.stderr).toBe(0);
+
+        // `bounds` does not relax the constraint beside it: a `verified` row still may not carry
+        // remaining evidence, and carrying a bound does not buy it the right to.
+        markVerified(requirement, "src/core/id.ts#TextId", selector);
+        requirement.bounds = [bound];
+        requirement.remainingEvidence = ["Fixture: an unclosed obligation."];
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        result = runFixture(fixture);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("incomplete verified evidence");
+
+        // Nor does it satisfy one: a row whose only named symbol lives inside a bound has no
+        // source evidence at all, because nothing reads the bound.
+        markVerified(requirement, "src/core/id.ts#TextId", selector);
+        requirement.sourceSymbols = [];
+        requirement.bounds = [`${bound} The mechanism is src/core/id.ts#TextId.`];
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        result = runFixture(fixture);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("incomplete verified evidence");
+    });
+
+    // The inverse of the case above, and the one that fails loudly if a later gate ever iterates
+    // `bounds` the way it iterates `sourceSymbols`. Each string below would be refused by a
+    // different evidence check if it were read as a citation: an unresolvable symbol by
+    // `resolveSourceSymbol`, a foreign wave's path by `requireEvidenceOwner`, a selector naming
+    // no executed test by `requirePassingTests`, and an unknown invariant by the execution check.
+    // A bound naming any of them is prose, so the row must pass.
+    test("never treats a bound's contents as a citation, a label, or a debt", async () => {
+        const fixture = await ledgerFixture();
+        const seed = await readFixtureJson<ConformanceFragment>(
+            resolve(fixture, "conformance/seed.json")
+        );
+        const requirement = seed.requirements.find((item) => item.owner === "W1")!;
+        const selector = "test/core/id.test.ts#TextId [C13-FIXTURE] refuses an empty identifier";
+
+        markVerified(requirement, "src/core/id.ts#TextId", selector);
+        requirement.bounds = [
+            "Fixture bound naming a symbol that does not exist: the rule does not claim anything " +
+                "about src/core/id.ts#NoSuchSymbolAnywhere, which resolveSourceSymbol would refuse.",
+            "Fixture bound naming another wave's file: not claimed for src/slates/skeleton.ts#Slate " +
+                "or cloudflare/src/index.ts#Adapter, either of which requireEvidenceOwner would refuse.",
+            "Fixture bound naming an unexecuted test and an unknown invariant: no claim is made by " +
+                "test/core/absent.test.ts#nothing ran this, nor by invariant ACQ-NO-SUCH-INVARIANT.",
+            "Fixture bound naming a sibling atom id, C13-PROTOCOL-OUTCOMES, which is a reference in " +
+                "prose and must not be read as this row's prerequisite, citation, or coherence label."
+        ];
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        await writePassingSelectors(fixture, [selector]);
+        await writeFile(
+            resolve(fixture, "invariants.json"),
+            `${JSON.stringify({ passed: ["ACQ-ID"] }, null, 2)}\n`,
+            "utf8"
+        );
+        const result = runFixture(fixture);
+        expect(result.status, result.stderr).toBe(0);
+    });
+
+    // Shape is the only thing enforced, and it has to be enforced, or the field degrades into a
+    // comment nothing can contradict. The floor rejects a non-statement; uniqueness stops one
+    // sentence being spread across a row; the key set stops a typo becoming a silent no-op.
+    test("enforces the bound's shape and nothing else about it", async () => {
+        const fixture = await ledgerFixture();
+        const seed = await readFixtureJson<ConformanceFragment>(
+            resolve(fixture, "conformance/seed.json")
+        );
+        const requirement = seed.requirements.find((item) => item.owner === "W1")!;
+        const selector = "test/core/id.test.ts#TextId [C13-FIXTURE] refuses an empty identifier";
+        const bound =
+            "Fixture bound: the rule does not claim that a decoded identifier round-trips through " +
+            "a foreign codec, and nothing downstream depends on that property holding.";
+        markVerified(requirement, "src/core/id.ts#TextId", selector);
+        await writePassingSelectors(fixture, [selector]);
+        await writeFile(
+            resolve(fixture, "invariants.json"),
+            `${JSON.stringify({ passed: ["ACQ-ID"] }, null, 2)}\n`,
+            "utf8"
+        );
+
+        // An empty array is legal — the field is optional and defaults to nothing — so this
+        // case is what keeps the refusals below from being vacuous.
+        requirement.bounds = [];
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        expect(runFixture(fixture).status).toBe(0);
+
+        const refusals: [unknown, string][] = [
+            ["not an array at all", "bounds must be array"],
+            [[bound, bound], "bounds must NOT have duplicate items"],
+            [["Not covered."], "bounds/0 must NOT have fewer than 80 characters"],
+            [[""], "bounds/0 must NOT have fewer than 80 characters"]
+        ];
+        for (const [value, message] of refusals) {
+            requirement.bounds = value as string[];
+            await addFragment(fixture, "foundation.json", "W1", requirement);
+            const refused = runFixture(fixture);
+            expect(refused.status, `${JSON.stringify(value)} was admitted`).toBe(1);
+            expect(refused.stderr).toContain(message);
+        }
+
+        // A misspelled field is a shape error rather than a silently ignored one, because the
+        // compiled schema forbids additional properties and runs before the exact-key check.
+        delete requirement.bounds;
+        (requirement as unknown as Record<string, unknown>)["bound"] = [bound];
+        await addFragment(fixture, "foundation.json", "W1", requirement);
+        const typo = runFixture(fixture);
+        expect(typo.status).toBe(1);
+        expect(typo.stderr).toContain("must NOT have additional properties");
+    });
 });
 
 /**
@@ -906,6 +1075,13 @@ async function addFragment(
         `${JSON.stringify({ edition: "1.0.0", owner, requirements: [requirement] }, null, 2)}\n`,
         "utf8"
     );
+}
+
+async function gateExternally(root: string, id: string | undefined): Promise<void> {
+    const indexPath = resolve(root, "conformance/index.json");
+    const index = await readFixtureJson<ConformanceIndex>(indexPath);
+    index["externalGates"] = id === undefined ? [] : [id];
+    await writeFile(indexPath, `${JSON.stringify(index, null, 2)}\n`, "utf8");
 }
 
 async function writePassingSelectors(root: string, selectors: readonly string[]): Promise<void> {

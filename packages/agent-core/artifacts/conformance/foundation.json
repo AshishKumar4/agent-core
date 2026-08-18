@@ -162,7 +162,10 @@
         "test/protocol/tenant-decision.test.ts#[C13-PROTOCOL-OUTCOMES] [actor-local-store] [protocol-persistence] two hosts decide every declared command outcome identically"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [],
+      "bounds": [
+        "Determinism is measured across hosts, not across runs. Twelve cases run on the memory and SQLite compositions agree case by case including on the envelope digest, so the two hosts are shown to have decided the same bytes rather than merely to have produced the same labels, and the observed outcome set equals the exact declared CommandOutcome union. Not measured: repeated runs of one host, and concurrent interleaving of two commands on one Actor. 'Two hosts agree once' and 'one host agrees with itself always' are different facts and only the first is evidenced. This is the same reading the prior citation claimed for the [actor-local-store] [protocol-persistence] seam pair, so the bound is inherited rather than introduced. (W1, ProtocolEvidence.)"
+      ]
     },
     {
       "id": "C13-PROTOCOL-REJECTION-ROOT",
@@ -177,7 +180,10 @@
         "test/protocol/tenant-decision.test.ts#[C13-PROTOCOL-REJECTION-ROOT] (sqlite) a cross-Actor rejection with no usable caller cause still produces an attributable host root"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [],
+      "bounds": [
+        "The field-level root assertion covers two of the six rejection outcomes directly. In the (memory) and (sqlite) cases of the cited test, the two expect blocks whose keys include rootKind, rootCause, rootIsTheDecidingHost and correlationIsHostMinted check the audit for kind write, absent cause, naming its own write, the deciding host's Actor and tenant, and a correlation measured to differ from the caller's decision correlation - one block for the rejectedAuthority traversal, one for the rejectedMalformed traversal whose caller cause belongs to the other Actor. The remaining four outcomes - rejectedLease, rejectedLifecycle, rejectedRevision, rejectedAuthentication - are covered by the plane-level attribution walk, which requires every audit in the Actor's plane to reach a root section 8.5 admits with actor, tenant and correlation held constant along the chain, and by host-to-host parity on whether the decision's audit is a root. The atom's stated MUST is covered for all eight outcomes; what is checked on two rather than six is the field-by-field shape of the root, not the property that a rejection is attributable. (W1, ProtocolEvidence.)"
+      ]
     },
     {
       "id": "C13-PROTOCOL-WRITE-AUDIT-LINK",

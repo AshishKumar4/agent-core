@@ -46,7 +46,11 @@
         "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-ADV-NONBINARY-MERGE] rejects every merge arity but two distinct ordered parents"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [],
+      "bounds": [
+        "RunCommit.parents is a flat readonly RunCommitId[] with arity validated per kind in validateClosedKind, so parents.length === 2 answers 'does this commit have two entries' while the rule asks 'does this merge join two distinct lineages'. A merge naming one commit as both parents is therefore constructable and passes the codec, and is refused only downstream by RunRuntime.validateMerge - a unary merge wearing binary shape. Measured: dropping the runtime's distinctness clause survives every record-level check and is killed only by the cited runtime test. The unrepresentable form is a MergeParents factory refusing equal ids; it serialises byte-identically to today's string array, so it is a refactor and not a migration. Not landed: co-edit risk on a file three W5 agents touched, for a case refused correctly at every reachable path today. (W5, RemainingAtoms; the author named this validator from memory as validateCommitFields, which does not exist - validateClosedKind is the read name.)",
+        "The proposalDigest derivation these records pass through is named in no artifact. The RunCommit constructor digests canonical proposalData(), whose emitted fields include parents, and RunExecutor.durablyStored compares a reloaded commit's proposalDigest against the in-memory one to decide durability - six sites across commit.ts, executor.ts and evidence.ts. Measured: no artifact names proposalDigest at all, and the single artifact occurrence of the phrase 'proposal digest' is an unrelated Receipt obligation on C13-RUN-TREE-CONFLICT-EXPLICIT, so the derivation is unaccounted rather than merely hard to grep. It sits in the worst cell of the two-bit failure classification, emitting no signal and having no observable consequence: a broken derivation makes the durability comparison quietly stop matching, with no throw and no failing test. Attribution W5; DigestDerivationGate is landing the register that consumes it."
+      ]
     },
     {
       "id": "C13-ADV-POST-FENCE-SYSTEM-EVIDENCE",
@@ -1255,7 +1259,11 @@
         "test/agents/runs/compaction.test.ts#Compaction as a policy over rewrite [C13-TURN-SURFACE-ACCOUNTED] accounts against the effective state of the base rather than its raw commit"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
+      "remainingEvidence": [],
+      "bounds": [
+        "A model input's coverage claim is per-record while its omission fact is per-section, so a commit carried in fully-reduced form is indistinguishable in the record from one carried whole; the rule does not claim per-commit attribution of withheld bytes and no reconstruction depends on it. Correcting it means adding a per-commit omission to the record, which is an ADDITIVE optional field that forks no existing modelInputCommitId - measured: an absent optional key encodes identically - but the accompanying section 5.6 prose moves this atom's own specTextSha256, so it is a declared digest re-affirmation and not a silent edit. (W5, CompactionConcept.)",
+        "The shape choice above is load-bearing rather than stylistic, and stating which shape is safe is the point of recording it: the natural replacement, covers carrying {commit, omission} elements, does fork every modelInputCommitId, because TurnModelInput.toData() reaches a content-addressed ref that becomes the commit id - a derivation MIGRATE-OPERATION-DESCRIPTOR-PRESENCE already names. TurnShownContent.toData()'s inline XOR ref is the in-record precedent for emitting an optional key only when non-empty. On whether any deployment already holds run.commit records of kind modelInput under the old derivation: negative for the Cloudflare substrate only, established by absence of a write path rather than by inventory - no RunCommit occurrence in that adapter's source, no run-commit store among its durable tables, and its only references in-memory test fixtures. That closes the question for that substrate and says nothing about any other host."
+      ]
     },
     {
       "id": "C13-WRITER-MATRIX",
