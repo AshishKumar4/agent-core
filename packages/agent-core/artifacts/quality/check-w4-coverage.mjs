@@ -13,6 +13,7 @@ requireInventory(expectedFiles);
 const currentFiles = [
     ...(await sourceFiles(resolve(packageRoot, "src/definition"))),
     ...(await sourceFiles(resolve(packageRoot, "src/definition-references"))),
+    "src/facets/glob.ts",
     "src/facets/installation.ts",
     "src/protocol/materialization-commands.ts",
     "src/substrates/sqlite/materialization.ts",
@@ -97,6 +98,7 @@ function requireInventory(paths) {
     }
     for (const required of [
         "src/definition/installation.ts",
+        "src/facets/glob.ts",
         "src/facets/installation.ts",
         "src/protocol/materialization-commands.ts",
         "src/substrates/sqlite/materialization.ts",

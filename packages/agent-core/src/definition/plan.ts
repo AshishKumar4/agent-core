@@ -8,7 +8,13 @@ import {
     isJsonObject,
     type JsonValue
 } from "../core";
-import { Command, SlotDeclaration, type FacetManifest, type IsolationMode } from "../facets";
+import {
+    Command,
+    SlotDeclaration,
+    matchesGlob,
+    type FacetManifest,
+    type IsolationMode
+} from "../facets";
 import { Blueprint } from "./blueprint";
 import {
     canonicalMaterializationDesired,
@@ -428,7 +434,7 @@ function attestedProjections(validated: ValidatedBlueprint): readonly DesiredPro
     }
 
     const contributeAuthority = slotContributeAuthority(validated);
-    const commandSurfaceNames = new Set<string>();
+    const commandNamesBySurface = new Map<string, Set<string>>();
     for (const declaration of validated.declarations) {
         requireSlotContributeAuthority(declaration, contributeAuthority);
         projections.push(
@@ -438,7 +444,7 @@ function attestedProjections(validated: ValidatedBlueprint): readonly DesiredPro
             )
         );
         if (declaration.slot === "commands") {
-            projections.push(commandSubscriptionProjection(declaration, commandSurfaceNames));
+            projections.push(commandSubscriptionProjection(declaration, commandNamesBySurface));
         } else if (declaration.slot === "automations") {
             projections.push(
                 subscriptionProjection(
@@ -486,17 +492,18 @@ function attestedProjections(validated: ValidatedBlueprint): readonly DesiredPro
 
 function commandSubscriptionProjection(
     declaration: ValidatedContribution,
-    surfaceNames: Set<string>
+    commandNamesBySurface: Map<string, Set<string>>
 ): DesiredProjection {
     const command = Command.fromData(declaration.value);
     for (const surface of command.surfaces) {
-        const key = `${surface.value} ${command.name}`;
-        if (surfaceNames.has(key)) {
+        const commandNames = commandNamesBySurface.get(surface.value) ?? new Set<string>();
+        if (commandNames.has(command.name)) {
             throw invalidDefinition(
                 `Command ${command.name} is not unique in surface slot ${surface.value}`
             );
         }
-        surfaceNames.add(key);
+        commandNames.add(command.name);
+        commandNamesBySurface.set(surface.value, commandNames);
     }
     const template: JsonValue = {
         authority: "initiator",
@@ -538,19 +545,11 @@ function requireSlotContributeAuthority(
     if (CORE_SLOT_NAMES.has(declaration.slot)) return;
     const contribute = authority.get(declaration.slot);
     if (contribute === undefined) return;
-    if (!contribute.some((selector) => selectorMatches(selector, declaration.contributor))) {
+    if (!contribute.some((selector) => matchesGlob(selector, declaration.contributor))) {
         throw invalidDefinition(
             `Contributor ${declaration.contributor} may not contribute to slot ${declaration.slot}`
         );
     }
-}
-
-function selectorMatches(selector: string, value: string): boolean {
-    const expression = selector
-        .split("*")
-        .map((part) => part.replace(/[.+?^${}()|[\]\\]/gu, "\\$&"))
-        .join(".*");
-    return new RegExp(`^${expression}$`, "u").test(value);
 }
 
 function compareProjections(left: DesiredProjection, right: DesiredProjection): number {

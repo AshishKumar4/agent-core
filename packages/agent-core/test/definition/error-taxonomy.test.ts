@@ -6,6 +6,12 @@ import { ActorId, ActorRef } from "../../src/actors";
 import { Digest } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import {
+    assertArray,
+    assertObject,
+    assertString,
+    type JsonValue
+} from "../../scripts/quality/project.mjs";
+import {
     DeploymentId,
     DeploymentKey,
     DeploymentRecord,
@@ -31,9 +37,18 @@ describe("W4 error taxonomy", () => {
         const taxonomy = JSON.parse(
             readFileSync(resolve(packageRoot, "artifacts/quality/w4-error-taxonomy.json"), "utf8")
         );
+        expect(taxonomy.edition).toBe("3.0.0");
+        expect(taxonomy.allowedTypeErrorSites).toHaveLength(170);
+        expect(taxonomy.allowedTypeErrorSites[0]).toEqual({
+            declarationSha256: expect.stringMatching(/^[0-9a-f]{64}$/u),
+            file: expect.stringMatching(/^src\/.+\.ts$/u),
+            symbol: expect.any(String),
+            statementSha256: expect.stringMatching(/^[0-9a-f]{64}$/u),
+            occurrence: expect.any(Number)
+        });
         expect(taxonomy.expected).toEqual({
             agentCoreOperationalThrows: 241,
-            allowedTypeErrors: 159,
+            allowedTypeErrors: 170,
             preservedRethrows: 1,
             bareErrors: 0
         });
@@ -89,6 +104,31 @@ describe("W4 error taxonomy", () => {
         expect(new ActorRef("tenant", new ActorId("tenant")).id.value).toBe("tenant");
     });
 
+    test("binds a permit to declaration semantics but not formatting", { tags: "p2" }, () => {
+        const original = fingerprint(`
+function requireObject(value: unknown, subject: string): void {
+    if (typeof value !== "object") throw new TypeError(\`\${subject} must be an object\`);
+}
+`);
+        const reformatted = fingerprint(`
+function requireObject(value: unknown, subject: string): void {
+    // Formatting and comments do not reopen the review.
+    if (typeof value !== "object")
+        throw new TypeError(\`\${subject} must be an object\`);
+}
+`);
+        const changedGuard = fingerprint(`
+function requireObject(value: unknown, subject: string): void {
+    if (typeof value !== "object" && subject.length > 0)
+        throw new TypeError(\`\${subject} must be an object\`);
+}
+`);
+
+        expect(reformatted).toEqual(original);
+        expect(changedGuard.statementSha256).toBe(original.statementSha256);
+        expect(changedGuard.declarationSha256).not.toBe(original.declarationSha256);
+    });
+
     test.each([
         "test/definition/fixtures/taxonomy-rethrow.ts",
         "test/definition/fixtures/taxonomy-shadow.ts",
@@ -108,6 +148,32 @@ describe("W4 error taxonomy", () => {
         expect(result.stderr).toContain("Unclassified integrated W4 error sites");
     });
 });
+
+interface TaxonomyFingerprint {
+    readonly declarationSha256: string;
+    readonly statementSha256: string;
+}
+
+function fingerprint(source: string): TaxonomyFingerprint {
+    const result = spawnSync(
+        process.execPath,
+        [
+            resolve(packageRoot, "artifacts/quality/check-w4-error-taxonomy.mjs"),
+            "--fingerprint-source",
+            "-"
+        ],
+        { cwd: packageRoot, encoding: "utf8", input: source }
+    );
+    expect(result.status, result.stderr).toBe(0);
+    const parsed: JsonValue = JSON.parse(result.stdout);
+    const values = assertArray(parsed, "taxonomy fingerprint output");
+    if (values.length !== 1) throw new TypeError("Taxonomy fingerprint output must have one site");
+    const site = assertObject(values[0], "taxonomy fingerprint site");
+    return {
+        declarationSha256: assertString(site["declarationSha256"], "declaration digest"),
+        statementSha256: assertString(site["statementSha256"], "statement digest")
+    };
+}
 
 function expectOperational(action: () => void, code: AgentCoreError["code"]): void {
     try {

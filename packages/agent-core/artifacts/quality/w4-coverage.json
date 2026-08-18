@@ -1,32 +1,40 @@
 {
   "edition": "1.0.0",
-  "owners": ["W0", "W9"],
+  "owners": [
+    "W0",
+    "W9"
+  ],
   "wave": "W4",
   "inventory": "artifacts/quality/w4-source-inventory.json",
   "config": "artifacts/quality/w4-vitest.config.mjs",
   "checker": "artifacts/quality/check-w4-coverage.mjs",
   "threshold": 95,
-  "metrics": ["statements", "branches", "functions", "lines"],
+  "metrics": [
+    "statements",
+    "branches",
+    "functions",
+    "lines"
+  ],
   "reports": {
     "final": "coverage/w4-integrated/coverage-final.json",
     "summary": "coverage/w4-integrated/coverage-summary.json"
   },
   "expectedCounters": {
     "statements": {
-      "covered": 3546,
-      "total": 3560
+      "covered": 3575,
+      "total": 3591
     },
     "branches": {
-      "covered": 2003,
-      "total": 2031
+      "covered": 2033,
+      "total": 2063
     },
     "functions": {
-      "covered": 1140,
-      "total": 1141
+      "covered": 1139,
+      "total": 1140
     },
     "lines": {
-      "covered": 3359,
-      "total": 3370
+      "covered": 3382,
+      "total": 3393
     }
   }
 }

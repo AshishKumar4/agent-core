@@ -1,6 +1,9 @@
 {
   "edition": "1.0.0",
-  "owners": ["W0", "W9"],
+  "owners": [
+    "W0",
+    "W9"
+  ],
   "wave": "W4",
   "description": "Current integrated W4 production source, including authenticated package installation provenance.",
   "sources": [
@@ -37,10 +40,11 @@
     "src/definition/resolver.ts",
     "src/definition/rollout.ts",
     "src/definition/validator.ts",
+    "src/facets/glob.ts",
     "src/facets/installation.ts",
     "src/protocol/materialization-commands.ts",
     "src/substrates/sqlite/materialization.ts",
     "src/substrates/sqlite/package.ts"
   ],
-  "sourceSha256": "9902e17e73e977f44123b2258ff5b534bf6a96c71797e18cd14e1d1966074c27"
+  "sourceSha256": "e9ff03ef8a3da4981ec2479422226efec905da4368825ba9ef4d92110b8f9695"
 }

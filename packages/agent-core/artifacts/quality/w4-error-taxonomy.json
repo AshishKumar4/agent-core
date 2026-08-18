@@ -1,6 +1,9 @@
 {
-  "edition": "1.0.0",
-  "owners": ["W0", "W9"],
+  "edition": "3.0.0",
+  "owners": [
+    "W0",
+    "W9"
+  ],
   "wave": "W4",
   "inventory": "artifacts/quality/w4-source-inventory.json",
   "checker": "artifacts/quality/check-w4-error-taxonomy.mjs",
@@ -11,180 +14,1208 @@
     "protocol.invalid-state": "Required stored state, ownership, lineage, immutable state, or integration evidence is absent or inconsistent.",
     "protocol.revision-conflict": "A generation, pointer, deployment, or outbox CAS/revision transition conflicts."
   },
-  "typeErrorPolicy": "TypeError is allowed only at the explicitly reviewed immediate constructor, codec decode, canonical value, or programmer-shape sites.",
+  "typeErrorPolicy": "TypeError is allowed only at the explicitly reviewed immediate constructor, codec decode, canonical value, or programmer-shape sites; each permit is bound to its normalized enclosing declaration and exact normalized throw statement.",
   "allowedTypeErrorSites": [
-    "src/definition-references/id.ts:7",
-    "src/definition-references/pin.ts:53",
-    "src/definition-references/pin.ts:63",
-    "src/definition-references/pin.ts:69",
-    "src/definition/attestation.ts:100",
-    "src/definition/attestation.ts:155",
-    "src/definition/attestation.ts:160",
-    "src/definition/attestation.ts:170",
-    "src/definition/attestation.ts:62",
-    "src/definition/blueprint.ts:151",
-    "src/definition/blueprint.ts:157",
-    "src/definition/blueprint.ts:264",
-    "src/definition/blueprint.ts:296",
-    "src/definition/blueprint.ts:309",
-    "src/definition/blueprint.ts:325",
-    "src/definition/blueprint.ts:331",
-    "src/definition/blueprint.ts:346",
-    "src/definition/code-manifest.ts:147",
-    "src/definition/code-manifest.ts:161",
-    "src/definition/code-manifest.ts:169",
-    "src/definition/code-manifest.ts:176",
-    "src/definition/code-manifest.ts:184",
-    "src/definition/code-manifest.ts:215",
-    "src/definition/code-manifest.ts:261",
-    "src/definition/code-manifest.ts:269",
-    "src/definition/code-manifest.ts:281",
-    "src/definition/code-manifest.ts:315",
-    "src/definition/code-manifest.ts:322",
-    "src/definition/code-manifest.ts:328",
-    "src/definition/code-manifest.ts:338",
-    "src/definition/code-manifest.ts:343",
-    "src/definition/code-manifest.ts:354",
-    "src/definition/code-manifest.ts:383",
-    "src/definition/code-manifest.ts:388",
-    "src/definition/compatibility.ts:51",
-    "src/definition/compatibility.ts:73",
-    "src/definition/compatibility.ts:79",
-    "src/definition/compatibility.ts:84",
-    "src/definition/config.ts:119",
-    "src/definition/config.ts:123",
-    "src/definition/config.ts:201",
-    "src/definition/config.ts:213",
-    "src/definition/config.ts:228",
-    "src/definition/config.ts:237",
-    "src/definition/config.ts:255",
-    "src/definition/config.ts:261",
-    "src/definition/config.ts:48",
-    "src/definition/credential-custody.ts:104",
-    "src/definition/credential-custody.ts:128",
-    "src/definition/credential-custody.ts:131",
-    "src/definition/credential-custody.ts:259",
-    "src/definition/credential-custody.ts:299",
-    "src/definition/credential-custody.ts:32",
-    "src/definition/credential-custody.ts:35",
-    "src/definition/credential-custody.ts:61",
-    "src/definition/credential-custody.ts:88",
-    "src/definition/credential-custody.ts:91",
-    "src/definition/credential-custody.ts:99",
-    "src/definition/declaration.ts:19",
-    "src/definition/generation.ts:215",
-    "src/definition/generation.ts:454",
-    "src/definition/generation.ts:486",
-    "src/definition/generation.ts:522",
-    "src/definition/generation.ts:527",
-    "src/definition/generation.ts:537",
-    "src/definition/generation.ts:543",
-    "src/definition/generation.ts:550",
-    "src/definition/generation.ts:557",
-    "src/definition/generation.ts:572",
-    "src/definition/generation.ts:80",
-    "src/definition/generation.ts:84",
-    "src/definition/generation.ts:88",
-    "src/definition/id.ts:10",
-    "src/definition/id.ts:20",
-    "src/definition/id.ts:30",
-    "src/definition/installation.ts:84",
-    "src/definition/materialization-kind.ts:106",
-    "src/definition/materialization-kind.ts:112",
-    "src/definition/materialization-kind.ts:118",
-    "src/definition/materialization-kind.ts:124",
-    "src/definition/materialization-kind.ts:147",
-    "src/definition/materialization-kind.ts:42",
-    "src/definition/materialization-kind.ts:52",
-    "src/definition/materialization-kind.ts:66",
-    "src/definition/materialization-kind.ts:76",
-    "src/definition/materialization-kind.ts:87",
-    "src/definition/materializer.ts:91",
-    "src/definition/origin.ts:130",
-    "src/definition/origin.ts:140",
-    "src/definition/origin.ts:146",
-    "src/definition/origin.ts:157",
-    "src/definition/origin.ts:50",
-    "src/definition/package-lock.ts:119",
-    "src/definition/package-lock.ts:129",
-    "src/definition/package-lock.ts:135",
-    "src/definition/package-lock.ts:142",
-    "src/definition/package-lock.ts:149",
-    "src/definition/package-lock.ts:55",
-    "src/definition/package-lock.ts:61",
-    "src/definition/package.ts:107",
-    "src/definition/package.ts:117",
-    "src/definition/package.ts:120",
-    "src/definition/package.ts:135",
-    "src/definition/package.ts:140",
-    "src/definition/package.ts:189",
-    "src/definition/package.ts:199",
-    "src/definition/package.ts:274",
-    "src/definition/package.ts:319",
-    "src/definition/package.ts:324",
-    "src/definition/package.ts:338",
-    "src/definition/package.ts:375",
-    "src/definition/package.ts:380",
-    "src/definition/package.ts:390",
-    "src/definition/package.ts:405",
-    "src/definition/package.ts:411",
-    "src/definition/package.ts:418",
-    "src/definition/package.ts:425",
-    "src/definition/package.ts:46",
-    "src/definition/placement.ts:177",
-    "src/definition/placement.ts:257",
-    "src/definition/placement.ts:312",
-    "src/definition/placement.ts:315",
-    "src/definition/placement.ts:326",
-    "src/definition/placement.ts:332",
-    "src/definition/placement.ts:338",
-    "src/definition/placement.ts:347",
-    "src/definition/placement.ts:358",
-    "src/definition/placement.ts:367",
-    "src/definition/plan.ts:207",
-    "src/definition/plan.ts:279",
-    "src/definition/plan.ts:283",
-    "src/definition/plan.ts:58",
-    "src/definition/plan.ts:592",
-    "src/definition/plan.ts:618",
-    "src/definition/plan.ts:665",
-    "src/definition/plan.ts:696",
-    "src/definition/plan.ts:721",
-    "src/definition/plan.ts:726",
-    "src/definition/plan.ts:736",
-    "src/definition/plan.ts:742",
-    "src/definition/plan.ts:753",
-    "src/definition/plan.ts:760",
-    "src/definition/policy.ts:193",
-    "src/definition/policy.ts:205",
-    "src/definition/policy.ts:213",
-    "src/definition/policy.ts:230",
-    "src/definition/policy.ts:246",
-    "src/definition/policy.ts:255",
-    "src/definition/policy.ts:262",
-    "src/definition/policy.ts:269",
-    "src/definition/policy.ts:280",
-    "src/definition/policy.ts:78",
-    "src/definition/reconciliation.ts:20",
-    "src/definition/reconciliation.ts:23",
-    "src/definition/rollout.ts:234",
-    "src/definition/rollout.ts:320",
-    "src/definition/rollout.ts:325",
-    "src/definition/rollout.ts:331",
-    "src/definition/rollout.ts:344",
-    "src/definition/rollout.ts:422",
-    "src/definition/rollout.ts:63",
-    "src/definition/rollout.ts:853",
-    "src/definition/rollout.ts:864",
-    "src/definition/rollout.ts:874",
-    "src/definition/rollout.ts:879",
-    "src/definition/rollout.ts:885",
-    "src/definition/rollout.ts:921",
-    "src/facets/installation.ts:19",
-    "src/protocol/materialization-commands.ts:194",
-    "src/substrates/sqlite/materialization.ts:1973"
+    {
+      "declarationSha256": "e28376c01b18ca1c2a210d3c3f8c689099e145749671cbe7b06668512c5b337c",
+      "file": "src/definition-references/id.ts",
+      "symbol": "PackageId.constructor",
+      "statementSha256": "80e672b6080bda756fce8addaacabe2ebbf64e09f6376d437cbf874da1f44b20",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0d56d35219b015a1a1e414726a92b5f970c71297580ccaca27a7af12caa314cf",
+      "file": "src/definition-references/pin.ts",
+      "symbol": "requireFields",
+      "statementSha256": "43d47638984cb3d6c1e5229e20dd1ba0c614619e17d234e9339f2ae3bd970f92",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "fec3e0db627a493fe91246645202bfdcfdcc87463416f026e96f4fe7b03c4274",
+      "file": "src/definition-references/pin.ts",
+      "symbol": "requireObject",
+      "statementSha256": "3db4091eeb600245b70b5f61d7bb4b71e6553e69061c1b1f20f45da67e80e100",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0a057f4a9bcb680d7a19d4276aed1cd99ba6359c1a2614c68c757d9318ecb9b4",
+      "file": "src/definition-references/pin.ts",
+      "symbol": "requireString",
+      "statementSha256": "731f3cd7a39573c144b4da156773c1d126090e87e83908f866537e2afe567622",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "b22d195070471a94a886fcab24efc0e53ed65b066b672335b7a2a49678e2afc2",
+      "file": "src/definition/attestation.ts",
+      "symbol": "ValidationAttestation.constructor",
+      "statementSha256": "a6bf4f8e997eb504336b7b427a3e5df36db7953dfbbd1c88f2639b2f9325b233",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "187e814a61981aeb87eeecc5be7d4bc4f7fbece97f713f3dee012164e4f4f8bc",
+      "file": "src/definition/attestation.ts",
+      "symbol": "ValidationAttestation.fromData",
+      "statementSha256": "5f47cf952e5d45d3a6a1115fca00dd1403d9c5c526f180f5e2ef507c68de3534",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "72a1e2194d10d6adc20d110e6fa43f0e8dccfb4d94e9659e1661e0caa167eb22",
+      "file": "src/definition/attestation.ts",
+      "symbol": "requireCanonicalName",
+      "statementSha256": "a5bf55e47430badcb6be29e8d194191ec093e2a108ec0162f95a6567df99c84d",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "f77f99d180a175116be5ff8e3eab5668149b564b3fcc7cef7f3994883a0a819a",
+      "file": "src/definition/attestation.ts",
+      "symbol": "requireObject",
+      "statementSha256": "3db4091eeb600245b70b5f61d7bb4b71e6553e69061c1b1f20f45da67e80e100",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "43493cd042f4e780e5c1c81005489396b4f8fbc89938585795c720dac89f8779",
+      "file": "src/definition/attestation.ts",
+      "symbol": "requireString",
+      "statementSha256": "731f3cd7a39573c144b4da156773c1d126090e87e83908f866537e2afe567622",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "87549bc31939d559463271e62fbf2489518d43192173d6f7f5937d7a4398fe5e",
+      "file": "src/definition/blueprint.ts",
+      "symbol": "Blueprint.constructor",
+      "statementSha256": "1089bacf6072dc8310d52be2b5c1099755329a7376086399bbb12fad8ffba7f9",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "87549bc31939d559463271e62fbf2489518d43192173d6f7f5937d7a4398fe5e",
+      "file": "src/definition/blueprint.ts",
+      "symbol": "Blueprint.constructor",
+      "statementSha256": "c1a13463f4b4c5030da9363ea60a654c814cc61523717821be511ef991aa680c",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "070cc17c2d064795434234ca3f4a54ca09a0371acbdaf9b693bf2c362e6d57f3",
+      "file": "src/definition/blueprint.ts",
+      "symbol": "canonicalDeclarationMap",
+      "statementSha256": "f9eff6f0904cf0e8c5d31219bf146782107d2945ace16d4030a6246d732715da",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "100e4e3ed713e5815eb4ce43daa6be04fd3533d71c291a3d8febb534179f1825",
+      "file": "src/definition/blueprint.ts",
+      "symbol": "requireArray",
+      "statementSha256": "e5ee61ca24af65af8acbbc070fb280ac2c35936e743fd274fa037a1801934581",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "3e4d983778497fb0d72815ec3397c30cd26a4a34dfdbf4aa58f535ecb23cd7e5",
+      "file": "src/definition/blueprint.ts",
+      "symbol": "requireFields",
+      "statementSha256": "43d47638984cb3d6c1e5229e20dd1ba0c614619e17d234e9339f2ae3bd970f92",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "f4e4786b81917eb040bb5c9ca700633f98627686edcace58ce8ea1dde32dc5ea",
+      "file": "src/definition/blueprint.ts",
+      "symbol": "requireNonblank",
+      "statementSha256": "a5bf55e47430badcb6be29e8d194191ec093e2a108ec0162f95a6567df99c84d",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "08f21870f27d200bcd8f7bf9ea883e6f3fe5398381452a83d45ba49c9e710139",
+      "file": "src/definition/blueprint.ts",
+      "symbol": "requireObject",
+      "statementSha256": "3db4091eeb600245b70b5f61d7bb4b71e6553e69061c1b1f20f45da67e80e100",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0a057f4a9bcb680d7a19d4276aed1cd99ba6359c1a2614c68c757d9318ecb9b4",
+      "file": "src/definition/blueprint.ts",
+      "symbol": "requireString",
+      "statementSha256": "731f3cd7a39573c144b4da156773c1d126090e87e83908f866537e2afe567622",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "5c3a9e337a277c3f599dd418e6fc1f549ec4830dc7a82641df1a8e772e9c598c",
+      "file": "src/definition/code-manifest.ts",
+      "symbol": "PackageCodeManifest.constructor",
+      "statementSha256": "10d22958f766b02ce09367edfd37ce24e67fd536d4c4c3bd0a497412e7cf8af2",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "5c3a9e337a277c3f599dd418e6fc1f549ec4830dc7a82641df1a8e772e9c598c",
+      "file": "src/definition/code-manifest.ts",
+      "symbol": "PackageCodeManifest.constructor",
+      "statementSha256": "91338a1c4130ff0ef4215d4a052d52c6b8da7cdaa7b1e36107aecd40e4c8980c",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "5c3a9e337a277c3f599dd418e6fc1f549ec4830dc7a82641df1a8e772e9c598c",
+      "file": "src/definition/code-manifest.ts",
+      "symbol": "PackageCodeManifest.constructor",
+      "statementSha256": "cb46337dd2cc4f0af4516dcf75df2643dcbfc4559ee535d034657ebfc7a79b15",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "5c3a9e337a277c3f599dd418e6fc1f549ec4830dc7a82641df1a8e772e9c598c",
+      "file": "src/definition/code-manifest.ts",
+      "symbol": "PackageCodeManifest.constructor",
+      "statementSha256": "cb4832fdedc3b4e788633a3f85a3a4a09d85be96062a35dc1f5acb972cd41d7e",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "5c3a9e337a277c3f599dd418e6fc1f549ec4830dc7a82641df1a8e772e9c598c",
+      "file": "src/definition/code-manifest.ts",
+      "symbol": "PackageCodeManifest.constructor",
+      "statementSha256": "de997b95d917403f3d48adef7781135e6c532a044a18d294c1bda1a25bcaaddd",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "43885413cdd4e45481200191d114be767244e830ff2bdc1c67cb1f2e252ea1bc",
+      "file": "src/definition/code-manifest.ts",
+      "symbol": "PackageCodeManifest.fromData",
+      "statementSha256": "cb4832fdedc3b4e788633a3f85a3a4a09d85be96062a35dc1f5acb972cd41d7e",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "277ed99829204f68d7de9a9ea1e4b8b8b579edebd21dd1065c91871fb2a19a19",
+      "file": "src/definition/code-manifest.ts",
+      "symbol": "canonicalCompatibilityDate",
+      "statementSha256": "392da460a9a8727c2a0fffdd09d151f6784937faea96f259a3ea0420f5d85336",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "277ed99829204f68d7de9a9ea1e4b8b8b579edebd21dd1065c91871fb2a19a19",
+      "file": "src/definition/code-manifest.ts",
+      "symbol": "canonicalCompatibilityDate",
+      "statementSha256": "d5c9854a137f89d649a4947b7c239816b980cdd805533f7db3bd0b8e806551a4",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "2eb364cd790021dfaf9ab90732f6f403b9ff8367a3c064b553817190c8def715",
+      "file": "src/definition/code-manifest.ts",
+      "symbol": "canonicalExportName",
+      "statementSha256": "417d6fa8acc74854848f9b42639d747913763013580a2fb4a70ff32bd25ccd94",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "c1d0f8761e4b853ac843f49e807039c8e7b1ba5329970b7574aa6ff8974d67f3",
+      "file": "src/definition/code-manifest.ts",
+      "symbol": "canonicalMedia",
+      "statementSha256": "2fc9c09c6c50ab094c5eb9dcaffedac8ba46e337d6d7a7d28bdc12a51104095a",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "06517355a1d9c3994226b421fe4076980c21a99e49a862d99f2fa19d2463d72a",
+      "file": "src/definition/code-manifest.ts",
+      "symbol": "canonicalSpecifier",
+      "statementSha256": "a5bf55e47430badcb6be29e8d194191ec093e2a108ec0162f95a6567df99c84d",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "a3b47914ae7d749c8ca181f97a6eb985ce5d21a3db62f3a323ee271cedd3a70d",
+      "file": "src/definition/code-manifest.ts",
+      "symbol": "requireArray",
+      "statementSha256": "e5ee61ca24af65af8acbbc070fb280ac2c35936e743fd274fa037a1801934581",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0d56d35219b015a1a1e414726a92b5f970c71297580ccaca27a7af12caa314cf",
+      "file": "src/definition/code-manifest.ts",
+      "symbol": "requireFields",
+      "statementSha256": "43d47638984cb3d6c1e5229e20dd1ba0c614619e17d234e9339f2ae3bd970f92",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "72150cbf8486223de74b7efac88190dab86ac433fbd75b26f3bcecedba2ab731",
+      "file": "src/definition/code-manifest.ts",
+      "symbol": "requireMediaType",
+      "statementSha256": "c75817f86a34d6ea56270f3a4f1c6a64a17083d4bf5395968dcfdef66b117138",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "f77f99d180a175116be5ff8e3eab5668149b564b3fcc7cef7f3994883a0a819a",
+      "file": "src/definition/code-manifest.ts",
+      "symbol": "requireObject",
+      "statementSha256": "3db4091eeb600245b70b5f61d7bb4b71e6553e69061c1b1f20f45da67e80e100",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "43493cd042f4e780e5c1c81005489396b4f8fbc89938585795c720dac89f8779",
+      "file": "src/definition/code-manifest.ts",
+      "symbol": "requireString",
+      "statementSha256": "731f3cd7a39573c144b4da156773c1d126090e87e83908f866537e2afe567622",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "f14ebbe984eb1cfbdb62c34a845ca8b3dcac88df7fb1eb33c726124b9f699709",
+      "file": "src/definition/code-manifest.ts",
+      "symbol": "requireUnique",
+      "statementSha256": "22c4fd4a13593b2ea9e87088f5d62446163d275455ec0f8bdb6856c6169237e8",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "e06a4d0aeaa9ad012efe6e45225c75569dfba75096a295c2ef394e84e328bd04",
+      "file": "src/definition/compatibility.ts",
+      "symbol": "PlatformCompatibility.fromData",
+      "statementSha256": "5b7f8ff8e5ddf0d1cbe1894dea1594b155d9ac4bf2c3fa7028fa7b17e46c1d5e",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "e3e42864611a2235ff7f293e4c8d01e6e732f15399b5c3550760451d226890f8",
+      "file": "src/definition/compatibility.ts",
+      "symbol": "canonicalCompatibilityRange",
+      "statementSha256": "3848a3b42908ecb05b86d68c2c7d4474e22f65e9d206aa9566964da21d94c086",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "e3e42864611a2235ff7f293e4c8d01e6e732f15399b5c3550760451d226890f8",
+      "file": "src/definition/compatibility.ts",
+      "symbol": "canonicalCompatibilityRange",
+      "statementSha256": "c90685c06eae554036c4fc1caa0b66b42ae4c5e920ebb508bb1ca924b3f2418f",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0facf15a745ecf9233567fbd5025f2b33d74eef02d6a3c7ebe8c0964714a0c9c",
+      "file": "src/definition/compatibility.ts",
+      "symbol": "requireObject",
+      "statementSha256": "19244e356f12b4f7d9bb64b02bf9e7bcb01d59f65d772c239738a816db9b97bb",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "79da6c79ffe83ea68b16cd4b8702277846b15a61e65dec147e281a5c988871db",
+      "file": "src/definition/config.ts",
+      "symbol": "ConfigCodec.decodePayload",
+      "statementSha256": "66d30c1cbae06c937acfd0230980d25bd708838e4fe37f22ca93167c016a1f2a",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "2aec117d18848a50652261c707bf4fd9614aac37d84c2ab578f09e17caf50f18",
+      "file": "src/definition/config.ts",
+      "symbol": "canonicalConfigMap",
+      "statementSha256": "6d398474f14363fb91eac06665dde4d6b5324ae9daf019c0a8f6ee06c65713c9",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "f5e8c6f87e30c1bb469894ba2b93c0bf813452060fbdd741ff9c952bd7d86435",
+      "file": "src/definition/config.ts",
+      "symbol": "canonicalConfigValue",
+      "statementSha256": "c8b158ddcd74126b0a9ffae76a4601d81e3838bbda3da58dfdc4d910f6a7f3c2",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "bd8d8562b04ee1a05c8aebc4585857be5060b8ec7942b1a39db9c81adc94a1cc",
+      "file": "src/definition/config.ts",
+      "symbol": "decodeSecretRef",
+      "statementSha256": "32893ae274198670b412032489791532fee58bb75c752dc2ce45894a8eaf479d",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "bd8d8562b04ee1a05c8aebc4585857be5060b8ec7942b1a39db9c81adc94a1cc",
+      "file": "src/definition/config.ts",
+      "symbol": "decodeSecretRef",
+      "statementSha256": "d783bbfa1498dbdeba2de21e9c3ee3bc7efe04eb940a1aac0939641a6da6a4cb",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "f77f99d180a175116be5ff8e3eab5668149b564b3fcc7cef7f3994883a0a819a",
+      "file": "src/definition/config.ts",
+      "symbol": "requireObject",
+      "statementSha256": "3db4091eeb600245b70b5f61d7bb4b71e6553e69061c1b1f20f45da67e80e100",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "1ae99dfdd1b4b26021a732f94cbaf8ef4439266b23d549d54cbcff1d679d0a8a",
+      "file": "src/definition/config.ts",
+      "symbol": "requireSchemaDocument",
+      "statementSha256": "97201de80d7b72106cc458a2a3f34f9ceec4bf6ee4b17d512e63565a418ac505",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0a057f4a9bcb680d7a19d4276aed1cd99ba6359c1a2614c68c757d9318ecb9b4",
+      "file": "src/definition/config.ts",
+      "symbol": "requireString",
+      "statementSha256": "731f3cd7a39573c144b4da156773c1d126090e87e83908f866537e2afe567622",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "9568568be36bff6119ac545eac01869bd202b028e4475090ef052e5795907c27",
+      "file": "src/definition/config.ts",
+      "symbol": "validateUniquePackageReleases",
+      "statementSha256": "b9b6868ca8a6c65a53efc646e61409221154a9a636a5692cd534ab1780145e81",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "cff6e4f9180b9237f1c8f571dde6e7af7cab6f18dd0c07f8a3c179ce5b3c142c",
+      "file": "src/definition/credential-custody.ts",
+      "symbol": "CredentialConsumerRef.constructor",
+      "statementSha256": "27ca2be9cd91e62b4a2a9804fe7e4846c23baaccb5d5a05f9197b4f35de293bb",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "cff6e4f9180b9237f1c8f571dde6e7af7cab6f18dd0c07f8a3c179ce5b3c142c",
+      "file": "src/definition/credential-custody.ts",
+      "symbol": "CredentialConsumerRef.constructor",
+      "statementSha256": "74f6ea9e7c289c381bdcd9f3baa4c388041f864abae1b77d6c1dcd2221370c89",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "bce774005799bcf619d125520456b3f78a4f6a48b61aa37b2cef6fa9a2063fd2",
+      "file": "src/definition/credential-custody.ts",
+      "symbol": "CredentialCustody.constructor",
+      "statementSha256": "35bf3b0ed1ce12b13aaaf0cc6aeafe85ce1a2b7f89cb3f95dd5ca1b360b60a92",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "bce774005799bcf619d125520456b3f78a4f6a48b61aa37b2cef6fa9a2063fd2",
+      "file": "src/definition/credential-custody.ts",
+      "symbol": "CredentialCustody.constructor",
+      "statementSha256": "571174361041cbd286d0ab8447022298799347ece7713964b7802a307279d2d7",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "bce774005799bcf619d125520456b3f78a4f6a48b61aa37b2cef6fa9a2063fd2",
+      "file": "src/definition/credential-custody.ts",
+      "symbol": "CredentialCustody.constructor",
+      "statementSha256": "c57208bef4153262d6aff587cc26b3040852d11288c38651e52d3cc804f33357",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "bce774005799bcf619d125520456b3f78a4f6a48b61aa37b2cef6fa9a2063fd2",
+      "file": "src/definition/credential-custody.ts",
+      "symbol": "CredentialCustody.constructor",
+      "statementSha256": "d7aad84f3ddea95cf7e5fbdddea081c18d55cf8bd2e32fb2904e4a5ce810afef",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "501857a5cdc0c5aaeee88582bab807c78107b1c2e079cf44e3267ba20e42e324",
+      "file": "src/definition/credential-custody.ts",
+      "symbol": "CredentialCustodyFact.constructor",
+      "statementSha256": "13a2af5d48c0c20e45c3ab0c58777ef42fa12b554624fed7c81d91beec410178",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "1725d7527dabcd2f9fa897d29289129c05a5759f6c06737e40e25041bb601efb",
+      "file": "src/definition/credential-custody.ts",
+      "symbol": "CredentialResolutionRequest.constructor",
+      "statementSha256": "b508a21c34c7cea895174900e4de9b9c8de0eec77cd70d7efb51ae093e628e3c",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "1725d7527dabcd2f9fa897d29289129c05a5759f6c06737e40e25041bb601efb",
+      "file": "src/definition/credential-custody.ts",
+      "symbol": "CredentialResolutionRequest.constructor",
+      "statementSha256": "dd69b2fd90b82dd869425a79506ba18f863fcf25886cdb3f68b1dc1527fce886",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "eea310a3178c5354edf7b5f6d79232c72ca1d1552812717e090f2c34a337b444",
+      "file": "src/definition/credential-custody.ts",
+      "symbol": "RecordedCustodySeam.resolve",
+      "statementSha256": "9cf3408a06356be312668960c1865ec90211129c6eb35801316ebda003a2992f",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "5aa2f24abaa48747238a8c6d34d87205bc9864333f56e4f329f0e48ee711420e",
+      "file": "src/definition/credential-custody.ts",
+      "symbol": "requireExactEndpoint",
+      "statementSha256": "5db54f001a10024aaa72573b11c8046a55d1e2404523b3b93a8a3031d63c69c4",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "5d5551a36b68ad98d04bdf8556b738ef1de0e47c0a6bdab8d6dcb2b3dd88d2be",
+      "file": "src/definition/declaration.ts",
+      "symbol": "BlueprintDeclarationCodecPort.constructor",
+      "statementSha256": "2a536568552c4b1ed2dd719a49eb8f0ccc015f8e88a891c1ee81097099020f50",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "19468a819c6571d0670391af7e82bc8f77366fedf1ab4082e27e6628bdec9f9b",
+      "file": "src/definition/generation.ts",
+      "symbol": "ManagedStateRecord.constructor",
+      "statementSha256": "05d6601141daf22a4357af0592d637868bae1b069debf496fc295e3ab2665ca9",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "19468a819c6571d0670391af7e82bc8f77366fedf1ab4082e27e6628bdec9f9b",
+      "file": "src/definition/generation.ts",
+      "symbol": "ManagedStateRecord.constructor",
+      "statementSha256": "857f6681d3b5fcaf9c332dc52c41e59404ef8627d1f6c18a60f20a6e88262058",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "19468a819c6571d0670391af7e82bc8f77366fedf1ab4082e27e6628bdec9f9b",
+      "file": "src/definition/generation.ts",
+      "symbol": "ManagedStateRecord.constructor",
+      "statementSha256": "b45b6ad7fbfd2c9ab69a985a75a0d6b0dee1ff2bd1ac0c5b511cbbc9675f7f92",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "b76ba1f7e0569ff2c3ec4803ffb3e148c661e6569517800ca9f77cc8554047c5",
+      "file": "src/definition/generation.ts",
+      "symbol": "MaterializationGeneration.constructor",
+      "statementSha256": "58630d620d76c6301b3ab50e3af4efcce1ce26e02f13fbff342465b1c8c19e4a",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "7fd402dbc119af8ba9b2e4bb53ac84016313e81fc5574c5e63488364c5a5f5b7",
+      "file": "src/definition/generation.ts",
+      "symbol": "canonicalDigests",
+      "statementSha256": "66a14f0bc6f373b2798cc536fdb69adc6a7b731f991821a57ec5692076b441d9",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "01721373c3a2a784fbc39cc4dc43eb3d5e10e9d9d61e8000d6d4e8a33165886b",
+      "file": "src/definition/generation.ts",
+      "symbol": "requireActorKind",
+      "statementSha256": "1178c42fcb7bdee9db96c807b4e2e7643a2df16fcaf7950994218d145c0d6e7a",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "100e4e3ed713e5815eb4ce43daa6be04fd3533d71c291a3d8febb534179f1825",
+      "file": "src/definition/generation.ts",
+      "symbol": "requireArray",
+      "statementSha256": "e5ee61ca24af65af8acbbc070fb280ac2c35936e743fd274fa037a1801934581",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "1e0e99178d96dde3473628e4126e2957a8afc590a3432d54156880a597d6e4a3",
+      "file": "src/definition/generation.ts",
+      "symbol": "requireCanonicalName",
+      "statementSha256": "a5bf55e47430badcb6be29e8d194191ec093e2a108ec0162f95a6567df99c84d",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0d56d35219b015a1a1e414726a92b5f970c71297580ccaca27a7af12caa314cf",
+      "file": "src/definition/generation.ts",
+      "symbol": "requireFields",
+      "statementSha256": "43d47638984cb3d6c1e5229e20dd1ba0c614619e17d234e9339f2ae3bd970f92",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "01a24c3b7d40181e3fac014537b1082370d2e5d948dea53c8e5f61a287ea93f7",
+      "file": "src/definition/generation.ts",
+      "symbol": "requireNonnegativeInteger",
+      "statementSha256": "0be987cf0332b702f4137c4d0cb69417ef309ceca82432afb63ee0f1a55b779a",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "f77f99d180a175116be5ff8e3eab5668149b564b3fcc7cef7f3994883a0a819a",
+      "file": "src/definition/generation.ts",
+      "symbol": "requireObject",
+      "statementSha256": "3db4091eeb600245b70b5f61d7bb4b71e6553e69061c1b1f20f45da67e80e100",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0a057f4a9bcb680d7a19d4276aed1cd99ba6359c1a2614c68c757d9318ecb9b4",
+      "file": "src/definition/generation.ts",
+      "symbol": "requireString",
+      "statementSha256": "731f3cd7a39573c144b4da156773c1d126090e87e83908f866537e2afe567622",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "31eb96e13b0f2e7a634642324987ba6a3a73940c5ae1651a9987be89cc36a1f7",
+      "file": "src/definition/generation.ts",
+      "symbol": "requireValue",
+      "statementSha256": "7f14e88ee53543d4edb0593bb6552abafd7712df7b80c4001cb7ea5e64147175",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "ecc12f5766f6d389909b327586bf39bc2355dbde2fc63ed902c1c64626d18787",
+      "file": "src/definition/id.ts",
+      "symbol": "DeploymentId.constructor",
+      "statementSha256": "42efcb4918c7fee14848baf48daa7446e624ee0f9989f5ab6da35986dac483a8",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "2dc29cac4bffb7c95e0e845d05d9253a446147f94ebbf3b3a91ddca275c3b752",
+      "file": "src/definition/id.ts",
+      "symbol": "DeploymentKey.constructor",
+      "statementSha256": "e87d9b68bfa4527c6549c50cc5db319ce24db6eb56a40da4bc52cd3fc831114d",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "07db1e7bb23e885586f8ac28fc2e3d46ef64438a801c84203499c279d6145c7c",
+      "file": "src/definition/id.ts",
+      "symbol": "MaterializationGenerationId.constructor",
+      "statementSha256": "5788aae4a74fb54c4be29a02fef2bf336c8a197913583b1f3de06c520ca75a45",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "5aae21c163241b3aef3d9b03aa85448538c2a332349025e8219595e84d3f6eb8",
+      "file": "src/definition/installation.ts",
+      "symbol": "requireInstallation",
+      "statementSha256": "352e6da83e755cf28a1a982325059d105f9d778e9ce96976084a8aa77fd30b96",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "df0a2e9f9ac862fd46b89e03efafe5ccea3435093f91f018b9bcad99fc09b079",
+      "file": "src/definition/materialization-kind.ts",
+      "symbol": "requireCanonicalModes",
+      "statementSha256": "a72d529cd5ae568ce57e69039057dcf82a862140b303fb9e8b13ed743533d53c",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "091e768edc9291a377496338b6e625f2fc753c5333467700c34a48445189a28e",
+      "file": "src/definition/materialization-kind.ts",
+      "symbol": "requireCanonicalName",
+      "statementSha256": "a5bf55e47430badcb6be29e8d194191ec093e2a108ec0162f95a6567df99c84d",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "d231c5fb1b7d95f9b70267d921c7e566e4508f7f16347611ea9042fe61cb8b7d",
+      "file": "src/definition/materialization-kind.ts",
+      "symbol": "requireMaterializationKindValidator",
+      "statementSha256": "116cb59238e2b2f5047e7563c67908bfbdfc3f057ec7abd9c3cd40ee76612cd4",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "ccccad04a754f83aa42c68f37ef79feeabc54df00301b5313e90558eff5de2c8",
+      "file": "src/definition/materialization-kind.ts",
+      "symbol": "requireModes",
+      "statementSha256": "e5ee61ca24af65af8acbbc070fb280ac2c35936e743fd274fa037a1801934581",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "da569dfa5fa2ee332ba99a6204193e215812a725a16ce50667da8ba090533309",
+      "file": "src/definition/materialization-kind.ts",
+      "symbol": "requireNonnegativeInteger",
+      "statementSha256": "0be987cf0332b702f4137c4d0cb69417ef309ceca82432afb63ee0f1a55b779a",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "f77f99d180a175116be5ff8e3eab5668149b564b3fcc7cef7f3994883a0a819a",
+      "file": "src/definition/materialization-kind.ts",
+      "symbol": "requireObject",
+      "statementSha256": "3db4091eeb600245b70b5f61d7bb4b71e6553e69061c1b1f20f45da67e80e100",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "58409f9e3fef6777c9b488b08f9f1f98b0f5fb0539eaa1cc70418f273c930d0c",
+      "file": "src/definition/materialization-kind.ts",
+      "symbol": "validateFacetInstall",
+      "statementSha256": "bf28fe6c049d23c5d3b45ba539f4ccfceabc49e28c74fd8606a2afbb6bc591e7",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "062a752e5673ac694d23e3ce9388a77217c1f9117073dd4c627b0c0f6da50130",
+      "file": "src/definition/materialization-kind.ts",
+      "symbol": "validateFacetPlacement",
+      "statementSha256": "0d18e0b20f3078c4edc02da7964c82f30a999232bd7fa15b074201f696dfb08b",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "062a752e5673ac694d23e3ce9388a77217c1f9117073dd4c627b0c0f6da50130",
+      "file": "src/definition/materialization-kind.ts",
+      "symbol": "validateFacetPlacement",
+      "statementSha256": "d50312dcd0286a7a2c71a5e96cc3a7780b7dda0a3e01d45ac5619b818c40c8d2",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "686ea0939aacfa855dd797281fad778ce7d09146674d33b9f4a1b18dbcd1beb0",
+      "file": "src/definition/materialization-kind.ts",
+      "symbol": "validateSlotEntry",
+      "statementSha256": "8ddf5d44a45d21079d7627fdbaa25775e9639597e9ee3e126176cc4197a9bd4d",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "a369d3a261c36f9ffc4ec62ed13a1705afcdc4bdce29b4dc67996a77c21b31a0",
+      "file": "src/definition/materializer.ts",
+      "symbol": "LocalMaterializer.constructor",
+      "statementSha256": "974aae00a3bae31f3cf38a13af0827566ad1ddd9abda818035f9302c28854f51",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "8a8bbebff0bee91e5617fcab7276ad90fb8c89477da8512977172680f175f3ed",
+      "file": "src/definition/origin.ts",
+      "symbol": "ManagedOrigin.constructor",
+      "statementSha256": "1633017c4ce20772925798f398b9ac513e84fc3ddf2b670eec38aa67af61870e",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0d56d35219b015a1a1e414726a92b5f970c71297580ccaca27a7af12caa314cf",
+      "file": "src/definition/origin.ts",
+      "symbol": "requireFields",
+      "statementSha256": "43d47638984cb3d6c1e5229e20dd1ba0c614619e17d234e9339f2ae3bd970f92",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "9589e97d40a1ab281e0feab688a57ed15bf7ba80ce93b67ed1173045d4a21885",
+      "file": "src/definition/origin.ts",
+      "symbol": "requireNumber",
+      "statementSha256": "aa0201f817c80129d50a8f8663189427962bd76e8d19f9a432d251bf5112fd7e",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "f77f99d180a175116be5ff8e3eab5668149b564b3fcc7cef7f3994883a0a819a",
+      "file": "src/definition/origin.ts",
+      "symbol": "requireObject",
+      "statementSha256": "3db4091eeb600245b70b5f61d7bb4b71e6553e69061c1b1f20f45da67e80e100",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0a057f4a9bcb680d7a19d4276aed1cd99ba6359c1a2614c68c757d9318ecb9b4",
+      "file": "src/definition/origin.ts",
+      "symbol": "requireString",
+      "statementSha256": "731f3cd7a39573c144b4da156773c1d126090e87e83908f866537e2afe567622",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "53454b6695b92c6fcce693aa4967de27ee2e08e15b28e45822e57f91499d2131",
+      "file": "src/definition/package-lock.ts",
+      "symbol": "PackageLock.constructor",
+      "statementSha256": "34db87a5ac2c70adda67436642b54900925a46051ea82cbca0c615c40d63bc01",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "53454b6695b92c6fcce693aa4967de27ee2e08e15b28e45822e57f91499d2131",
+      "file": "src/definition/package-lock.ts",
+      "symbol": "PackageLock.constructor",
+      "statementSha256": "58f473ec6966501480f225219ef5bbe95e1ed3210a3e53388363aacb16dd34ba",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "100e4e3ed713e5815eb4ce43daa6be04fd3533d71c291a3d8febb534179f1825",
+      "file": "src/definition/package-lock.ts",
+      "symbol": "requireArray",
+      "statementSha256": "e5ee61ca24af65af8acbbc070fb280ac2c35936e743fd274fa037a1801934581",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0d56d35219b015a1a1e414726a92b5f970c71297580ccaca27a7af12caa314cf",
+      "file": "src/definition/package-lock.ts",
+      "symbol": "requireFields",
+      "statementSha256": "43d47638984cb3d6c1e5229e20dd1ba0c614619e17d234e9339f2ae3bd970f92",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "01a24c3b7d40181e3fac014537b1082370d2e5d948dea53c8e5f61a287ea93f7",
+      "file": "src/definition/package-lock.ts",
+      "symbol": "requireNonnegativeInteger",
+      "statementSha256": "0be987cf0332b702f4137c4d0cb69417ef309ceca82432afb63ee0f1a55b779a",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "f77f99d180a175116be5ff8e3eab5668149b564b3fcc7cef7f3994883a0a819a",
+      "file": "src/definition/package-lock.ts",
+      "symbol": "requireObject",
+      "statementSha256": "3db4091eeb600245b70b5f61d7bb4b71e6553e69061c1b1f20f45da67e80e100",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0a057f4a9bcb680d7a19d4276aed1cd99ba6359c1a2614c68c757d9318ecb9b4",
+      "file": "src/definition/package-lock.ts",
+      "symbol": "requireString",
+      "statementSha256": "731f3cd7a39573c144b4da156773c1d126090e87e83908f866537e2afe567622",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "84d0642cd6829ddef599dd8541bebf479e0843d10008a2709f4af99102f5be7b",
+      "file": "src/definition/package.ts",
+      "symbol": "MetadataSnapshot.constructor",
+      "statementSha256": "66db92bcece69fd8161d6c1678f179825f4945256393b0865387ca4f48b3d89e",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "2990cfd7b894ac05a1d01325cf6eb5d9cc44fe8592b1a0f48cfd22f1e6ba201d",
+      "file": "src/definition/package.ts",
+      "symbol": "PackageDependency.fromData",
+      "statementSha256": "6993e4a29795e53d14fd5dfeb255144bb2b417c8d72ceb493e09eed58c3b9e0b",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0829ca885b7cef54c81664fcc5e25965d6444836475d8fd204bb1109c325e440",
+      "file": "src/definition/package.ts",
+      "symbol": "PackageRelease.constructor",
+      "statementSha256": "2f7435375994b7c14c15c326d02184add0627dc8e63b4b4a9f1c9fab00f1ea66",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0829ca885b7cef54c81664fcc5e25965d6444836475d8fd204bb1109c325e440",
+      "file": "src/definition/package.ts",
+      "symbol": "PackageRelease.constructor",
+      "statementSha256": "5e0cde7ed44d0230d2272ad1158ff48f4658f8848d0efb81e33f637abd4a1876",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0829ca885b7cef54c81664fcc5e25965d6444836475d8fd204bb1109c325e440",
+      "file": "src/definition/package.ts",
+      "symbol": "PackageRelease.constructor",
+      "statementSha256": "64a87625071ce66f0141dbecb6e5853d7eafcb1781ee6e20e6e81dcf4cc2fea2",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0829ca885b7cef54c81664fcc5e25965d6444836475d8fd204bb1109c325e440",
+      "file": "src/definition/package.ts",
+      "symbol": "PackageRelease.constructor",
+      "statementSha256": "bba276f1ca54c2c6becafdbef9c552fdaa71dd5ef74ddf9685ca6cddb438f7eb",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0829ca885b7cef54c81664fcc5e25965d6444836475d8fd204bb1109c325e440",
+      "file": "src/definition/package.ts",
+      "symbol": "PackageRelease.constructor",
+      "statementSha256": "d819c8e29646ba822756cb45718b3f7fe6da6578298678f0a8f92ac36bcf0eb8",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "1a89cb3517ad97fb5d7b072b1d7a9fb7953cf7c99ee24c6b38bc3542a6d9a16a",
+      "file": "src/definition/package.ts",
+      "symbol": "PackageRelease.fromData",
+      "statementSha256": "2f7435375994b7c14c15c326d02184add0627dc8e63b4b4a9f1c9fab00f1ea66",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "1a89cb3517ad97fb5d7b072b1d7a9fb7953cf7c99ee24c6b38bc3542a6d9a16a",
+      "file": "src/definition/package.ts",
+      "symbol": "PackageRelease.fromData",
+      "statementSha256": "d819c8e29646ba822756cb45718b3f7fe6da6578298678f0a8f92ac36bcf0eb8",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "f504b2618ebaab9f9b5b2bb8d0a2c099ff98c977a67e9756808befb1c6680e59",
+      "file": "src/definition/package.ts",
+      "symbol": "canonicalPackageRange",
+      "statementSha256": "498495905d19e9dc3ab6c9a44b56466a415c05b25783b908cd3303b31ea263d0",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "f504b2618ebaab9f9b5b2bb8d0a2c099ff98c977a67e9756808befb1c6680e59",
+      "file": "src/definition/package.ts",
+      "symbol": "canonicalPackageRange",
+      "statementSha256": "fce400d0d40fd2b05902beda5ae25a4fa8366a629f9053d3331ad11ba53802de",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "60b16d0817089d40099cd3bba44062f0f83d5bd8e6e18b1a5170bcac70d7d454",
+      "file": "src/definition/package.ts",
+      "symbol": "canonicalReleases",
+      "statementSha256": "a7c7a90bbd9810b88dcb4b2d3c7d6b9428d447cab66e79e963a44d5a08466c30",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "100e4e3ed713e5815eb4ce43daa6be04fd3533d71c291a3d8febb534179f1825",
+      "file": "src/definition/package.ts",
+      "symbol": "requireArray",
+      "statementSha256": "e5ee61ca24af65af8acbbc070fb280ac2c35936e743fd274fa037a1801934581",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0d56d35219b015a1a1e414726a92b5f970c71297580ccaca27a7af12caa314cf",
+      "file": "src/definition/package.ts",
+      "symbol": "requireFields",
+      "statementSha256": "43d47638984cb3d6c1e5229e20dd1ba0c614619e17d234e9339f2ae3bd970f92",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "01a24c3b7d40181e3fac014537b1082370d2e5d948dea53c8e5f61a287ea93f7",
+      "file": "src/definition/package.ts",
+      "symbol": "requireNonnegativeInteger",
+      "statementSha256": "0be987cf0332b702f4137c4d0cb69417ef309ceca82432afb63ee0f1a55b779a",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "f77f99d180a175116be5ff8e3eab5668149b564b3fcc7cef7f3994883a0a819a",
+      "file": "src/definition/package.ts",
+      "symbol": "requireObject",
+      "statementSha256": "3db4091eeb600245b70b5f61d7bb4b71e6553e69061c1b1f20f45da67e80e100",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "b99873469b08f92c2f554cf893b0c736c4aa41d0e31c6ee7a4be44eab6c24c07",
+      "file": "src/definition/package.ts",
+      "symbol": "requireOptionalFields",
+      "statementSha256": "43d47638984cb3d6c1e5229e20dd1ba0c614619e17d234e9339f2ae3bd970f92",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0a057f4a9bcb680d7a19d4276aed1cd99ba6359c1a2614c68c757d9318ecb9b4",
+      "file": "src/definition/package.ts",
+      "symbol": "requireString",
+      "statementSha256": "731f3cd7a39573c144b4da156773c1d126090e87e83908f866537e2afe567622",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "3d587aebcfe6cc81920b08d70a7e0f69414d0948753c3aaef71928365e544e04",
+      "file": "src/definition/package.ts",
+      "symbol": "requireUnique",
+      "statementSha256": "22c4fd4a13593b2ea9e87088f5d62446163d275455ec0f8bdb6856c6169237e8",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "c2d4c90da69ad3f6b69b1eb43f7e05b0c7335aa87daef55df7f6d8a95287f121",
+      "file": "src/definition/placement.ts",
+      "symbol": "PlacementPolicy.fromData",
+      "statementSha256": "83e5dbac2655d357cdb0dea7731e47366796cb2e3495a9f52400393890a3c770",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "44eacb9d21c230c25b3426dac654a87f13108ce828a4dcb61f4e9e06d12b9ea3",
+      "file": "src/definition/placement.ts",
+      "symbol": "PlacementSelection.constructor",
+      "statementSha256": "37052da9d928d910a03da88a2da845025cf83d703163e204cbfca2804e56cce8",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0fc0f1df75bce63ebd6f75573ebb7be9493fba8b5386925be4ff38bf9ced8abf",
+      "file": "src/definition/placement.ts",
+      "symbol": "canonicalGlobs",
+      "statementSha256": "984363d0b779d7efd125ea293c8908bb24e86a6232d819d7727b807ecbe7009b",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "86aaafdeb33bf19ff8da6ee9fb0eabb7f614b87a0390ebf837e0d11eab2b4bd9",
+      "file": "src/definition/placement.ts",
+      "symbol": "canonicalModes",
+      "statementSha256": "05f57ed92758727a22ffe16b164487c7b8fa94673bacb993c34bac6342c0c7a7",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "86aaafdeb33bf19ff8da6ee9fb0eabb7f614b87a0390ebf837e0d11eab2b4bd9",
+      "file": "src/definition/placement.ts",
+      "symbol": "canonicalModes",
+      "statementSha256": "ef54d66f4251e51e68ae4664dc8b57c38fe932b1f56833deedc73f0d65cccc67",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "254f7360f638c559a1ce0426f08cf63e9b0802b35d6e0aaebae7036695a9b3a6",
+      "file": "src/definition/placement.ts",
+      "symbol": "parseIsolationMode",
+      "statementSha256": "05f57ed92758727a22ffe16b164487c7b8fa94673bacb993c34bac6342c0c7a7",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "e06ed36ada549bee03c9bc739ede37ededebdf2f4c8c48f6f71b9af490043e61",
+      "file": "src/definition/placement.ts",
+      "symbol": "requireCanonicalString",
+      "statementSha256": "a5bf55e47430badcb6be29e8d194191ec093e2a108ec0162f95a6567df99c84d",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "a618779091535670adb21f35ffcad0f8168c8fe9847f1e2da31cd0451ee158dd",
+      "file": "src/definition/placement.ts",
+      "symbol": "requireGlobArray",
+      "statementSha256": "e5ee61ca24af65af8acbbc070fb280ac2c35936e743fd274fa037a1801934581",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "87ad37114d80f1d6ac5bf674f46903ad0aa33ded138fe01735b4b28ba780ff05",
+      "file": "src/definition/placement.ts",
+      "symbol": "requireModeArray",
+      "statementSha256": "e5ee61ca24af65af8acbbc070fb280ac2c35936e743fd274fa037a1801934581",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "f77f99d180a175116be5ff8e3eab5668149b564b3fcc7cef7f3994883a0a819a",
+      "file": "src/definition/placement.ts",
+      "symbol": "requireObject",
+      "statementSha256": "3db4091eeb600245b70b5f61d7bb4b71e6553e69061c1b1f20f45da67e80e100",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "6d17c496e08f4cc169f64ea07ea0429616fd9f1a48027576307773481ea00992",
+      "file": "src/definition/plan.ts",
+      "symbol": "ActorPlan.constructor",
+      "statementSha256": "c369a86131f76c79eb69840e52c051004bd0f8c95e42590850c4fbe6541cd09d",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "d5d955e3ee034fe8edbe3e8faaa99f74d9ae566c2fd707c2a063f70c60f714aa",
+      "file": "src/definition/plan.ts",
+      "symbol": "DesiredProjection.constructor",
+      "statementSha256": "80928298b12596ef958f245378735e38364be80ada22aceab9bc53204fcbc898",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "ef44f33d4886bb7c5e0b29ebb8808f809a2ce9d1f2672b8648f249c67979d734",
+      "file": "src/definition/plan.ts",
+      "symbol": "MaterializationPlan.constructor",
+      "statementSha256": "cd8077bfd3e9bacfb458b0f67907b0b033e72c5b38c96c62dc02b955fc7c77eb",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "ef44f33d4886bb7c5e0b29ebb8808f809a2ce9d1f2672b8648f249c67979d734",
+      "file": "src/definition/plan.ts",
+      "symbol": "MaterializationPlan.constructor",
+      "statementSha256": "f59b41928c58b7c29d2def57134241c32e2f638e8da96c4498c0d1ea2ab4662d",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "b1291e586354fc49c4e06ededb297e514ae26d0642f0db31f70b3cfd61e09906",
+      "file": "src/definition/plan.ts",
+      "symbol": "canonicalActorPlans",
+      "statementSha256": "02fccafe7f11c9151099203151c9423f1e33cab4ee74fd8399c05b7f0237b34e",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "03e85440b3fac27861760ed66e712ffadb422e36ff8fb149847b0681d2e969de",
+      "file": "src/definition/plan.ts",
+      "symbol": "canonicalProjections",
+      "statementSha256": "fe51ab84f708868fae61ff712d2554ad95b93c1bca4f3e286ecfefe059a74330",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "01721373c3a2a784fbc39cc4dc43eb3d5e10e9d9d61e8000d6d4e8a33165886b",
+      "file": "src/definition/plan.ts",
+      "symbol": "requireActorKind",
+      "statementSha256": "1178c42fcb7bdee9db96c807b4e2e7643a2df16fcaf7950994218d145c0d6e7a",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "100e4e3ed713e5815eb4ce43daa6be04fd3533d71c291a3d8febb534179f1825",
+      "file": "src/definition/plan.ts",
+      "symbol": "requireArray",
+      "statementSha256": "e5ee61ca24af65af8acbbc070fb280ac2c35936e743fd274fa037a1801934581",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "1e0e99178d96dde3473628e4126e2957a8afc590a3432d54156880a597d6e4a3",
+      "file": "src/definition/plan.ts",
+      "symbol": "requireCanonicalName",
+      "statementSha256": "a5bf55e47430badcb6be29e8d194191ec093e2a108ec0162f95a6567df99c84d",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "cb782e17c0ad0d054234a4bd956add37f0e7394039e274efe4e37344255a6ea6",
+      "file": "src/definition/plan.ts",
+      "symbol": "requireFields",
+      "statementSha256": "43d47638984cb3d6c1e5229e20dd1ba0c614619e17d234e9339f2ae3bd970f92",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "f77f99d180a175116be5ff8e3eab5668149b564b3fcc7cef7f3994883a0a819a",
+      "file": "src/definition/plan.ts",
+      "symbol": "requireObject",
+      "statementSha256": "3db4091eeb600245b70b5f61d7bb4b71e6553e69061c1b1f20f45da67e80e100",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "0a057f4a9bcb680d7a19d4276aed1cd99ba6359c1a2614c68c757d9318ecb9b4",
+      "file": "src/definition/plan.ts",
+      "symbol": "requireString",
+      "statementSha256": "731f3cd7a39573c144b4da156773c1d126090e87e83908f866537e2afe567622",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "31eb96e13b0f2e7a634642324987ba6a3a73940c5ae1651a9987be89cc36a1f7",
+      "file": "src/definition/plan.ts",
+      "symbol": "requireValue",
+      "statementSha256": "7f14e88ee53543d4edb0593bb6552abafd7712df7b80c4001cb7ea5e64147175",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "72c0ca583b521380ab25508d58e779cd0ba306598146b6e4d8fee8b8bd3d7092",
+      "file": "src/definition/plan.ts",
+      "symbol": "validatePlacementSelection",
+      "statementSha256": "08a92977c3b173c8eb27c0232eb5ff34e2cde70b3eef7eb212970b52be6aec24",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "e489f8ee8c2c0ad3a8a1555442b25bb4cf93f63b9445747f3f3933bdb6b40ead",
+      "file": "src/definition/policy.ts",
+      "symbol": "PolicySet.fromData",
+      "statementSha256": "b5c00a9c6c05894a1de3099f48ee4afa4acb99f9c31f5ea671b663b605454420",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "4f78a170c271b199760f3e7aedfd2e798bf5f7ef576e9b873657bb518ce9e3d1",
+      "file": "src/definition/policy.ts",
+      "symbol": "canonicalApprovals",
+      "statementSha256": "9f069d6f2fa6b2287ebc50ae74dcb960ee304040af7d8b3aac02e74442f5b478",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "ecc03acd20eb4a15c688e8a80a960b19e5b6d01b99422610357e252f0111c5f6",
+      "file": "src/definition/policy.ts",
+      "symbol": "canonicalTiers",
+      "statementSha256": "b1e3996f12c7720a8b9a60d5b99070b19b0f068902726e97b8d272873f57cba1",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "7070e7aa13a6795dd475d5bcaedd5a1e16956e38c0deeea5a188dbecb80357f2",
+      "file": "src/definition/policy.ts",
+      "symbol": "decodeOptionalDirectRevocationWindow",
+      "statementSha256": "cf7353982f428a7f5833034a38afb9957e1e5fc8442ff880c679f8cb25c37606",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "96cf4d1bbdc9565763a2da720b2859574cbc7fe1e5ca5b4472e3d1896f1b14a6",
+      "file": "src/definition/policy.ts",
+      "symbol": "requireDirectRevocationWindow",
+      "statementSha256": "cdb0909537ada04bfa729dad93f68839fd70e556f6bc59977ffdf0045dc0e19e",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "5617ecafcd316ee37d231ac8332e770349faae2a66e286b8955c13e97cee2cea",
+      "file": "src/definition/policy.ts",
+      "symbol": "requireImpact",
+      "statementSha256": "647deb750902f0bd75030dd792e9f444448eeb983d6851084b291f9474fe5a9f",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "08dbf5e61344f4d744eeb4bf8780b378ce5a740acfdf056abef706106b5184b4",
+      "file": "src/definition/policy.ts",
+      "symbol": "requireImpactArray",
+      "statementSha256": "e5ee61ca24af65af8acbbc070fb280ac2c35936e743fd274fa037a1801934581",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "65431b24f5dd8e77375f1d7feab61e4303a01005a3758d4256ac2d41e8eb1105",
+      "file": "src/definition/policy.ts",
+      "symbol": "requireMode",
+      "statementSha256": "d242f1f29c4ea209cc5b155e6a6d7f68c0bea984048453266c9e44b5e494aead",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "63b780271315080a49eaad69104e5322ce8dc308aa935977fc1e1d6ffb326300",
+      "file": "src/definition/policy.ts",
+      "symbol": "requireObject",
+      "statementSha256": "3db4091eeb600245b70b5f61d7bb4b71e6553e69061c1b1f20f45da67e80e100",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "d73232da4411f50fb162dd353732f188d2706cc10a408145151a16f31a82dbf5",
+      "file": "src/definition/policy.ts",
+      "symbol": "requireTier",
+      "statementSha256": "1cdda3dde797f32f829efbe4d73d1680340951a8644509ef460329bf4fa279af",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "4840300d2db874b01acaae0238bbcbb26a91f2c03736616d198a682450dcdaf7",
+      "file": "src/definition/reconciliation.ts",
+      "symbol": "RunPinEvidence.constructor",
+      "statementSha256": "0b87becab582853787dcce1ce26ed9a173068c8ef6262f1e1e639445aacb91fd",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "4840300d2db874b01acaae0238bbcbb26a91f2c03736616d198a682450dcdaf7",
+      "file": "src/definition/reconciliation.ts",
+      "symbol": "RunPinEvidence.constructor",
+      "statementSha256": "27726413fa2c242c9f771a2af6e660df006d92d84599f803928a7084e2f0cdb5",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "e5e5a77ba38d908124690e50397d4cb7850dae3c6124834fa97354dcf151f80b",
+      "file": "src/definition/rollout.ts",
+      "symbol": "DeploymentRecord.constructor",
+      "statementSha256": "fd8d3bab8286b666b3692bd14a7066da145c5e6cf6ef7185ffe580cfe6fb1510",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "53358a2ecbae234b07d2c7a963642d7cbaf5be7e6e4d63a0c6f9bd9b8e6d26da",
+      "file": "src/definition/rollout.ts",
+      "symbol": "MaterializationOutboxEntry.constructor",
+      "statementSha256": "113c70e451c47e8deac37f633360ba0ffa473681fc4c3d9ac5a6b7e8b0e740cb",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "53358a2ecbae234b07d2c7a963642d7cbaf5be7e6e4d63a0c6f9bd9b8e6d26da",
+      "file": "src/definition/rollout.ts",
+      "symbol": "MaterializationOutboxEntry.constructor",
+      "statementSha256": "2413213070e121e8566a11374e42ae8c908f690dba939c344b1df098bb02bdbc",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "53358a2ecbae234b07d2c7a963642d7cbaf5be7e6e4d63a0c6f9bd9b8e6d26da",
+      "file": "src/definition/rollout.ts",
+      "symbol": "MaterializationOutboxEntry.constructor",
+      "statementSha256": "7f703d1a98f6ee2699dc0002b6372d1e3f354f31c0ec49f241e130ceb0acc27c",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "53358a2ecbae234b07d2c7a963642d7cbaf5be7e6e4d63a0c6f9bd9b8e6d26da",
+      "file": "src/definition/rollout.ts",
+      "symbol": "MaterializationOutboxEntry.constructor",
+      "statementSha256": "f0a1dba02d2f5aaf57ce1eb86774f6f59750dec8067a8cc6b691ff89da31b170",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "520e62bede9baefc9f63584f34cad350d0d15c54038747039f7474aa2c581c86",
+      "file": "src/definition/rollout.ts",
+      "symbol": "MaterializationOutboxEntry.fromData",
+      "statementSha256": "c1b68d58980f89eb224d949d35725c066a2a5bee5123bef4f9b3de1c0961ea31",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "7818c76e3afc741c99b97ab0f27c2adaaf0490c33d95b66bb9e4ee25645574a5",
+      "file": "src/definition/rollout.ts",
+      "symbol": "MaterializationRollout.constructor",
+      "statementSha256": "d564ea908e98b11080e3a45c00ee25784a651ea78fde7cbc2a720640138cadb9",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "f01ea823cdfd69bddedc0e7240f0d8bcaf0baa85e6628cc0eef75ff7f88c3496",
+      "file": "src/definition/rollout.ts",
+      "symbol": "requireActor",
+      "statementSha256": "f4743f3ace3f8a9f2ff90eb6d4185b5030b089b74c9d45511a6f34bb8c8630bd",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "8cdde7fb85132c17c51f0ed775de87a0829a651299995f289ff058ce1e94c290",
+      "file": "src/definition/rollout.ts",
+      "symbol": "requireFields",
+      "statementSha256": "43d47638984cb3d6c1e5229e20dd1ba0c614619e17d234e9339f2ae3bd970f92",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "e1074fd354496534d8d59d0d0acf43b8f544d00f09ffae606ab434e921c8b425",
+      "file": "src/definition/rollout.ts",
+      "symbol": "requireInteger",
+      "statementSha256": "0be987cf0332b702f4137c4d0cb69417ef309ceca82432afb63ee0f1a55b779a",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "f77f99d180a175116be5ff8e3eab5668149b564b3fcc7cef7f3994883a0a819a",
+      "file": "src/definition/rollout.ts",
+      "symbol": "requireObject",
+      "statementSha256": "3db4091eeb600245b70b5f61d7bb4b71e6553e69061c1b1f20f45da67e80e100",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "18453181ff8fe57e9bed542e7bf5c48d38fdc4912886b51e2c25b97f43de8798",
+      "file": "src/definition/rollout.ts",
+      "symbol": "requireSafeGeneration",
+      "statementSha256": "00bb52d59f2a66a69094b20e1d141b7a1e136bb3e27379bd78bef2ee4abd7a55",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "43493cd042f4e780e5c1c81005489396b4f8fbc89938585795c720dac89f8779",
+      "file": "src/definition/rollout.ts",
+      "symbol": "requireString",
+      "statementSha256": "731f3cd7a39573c144b4da156773c1d126090e87e83908f866537e2afe567622",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "aaf4b4bf63de2af7e4a368cca774cfe1541b248bc5b7b7c3837419a58b714f1c",
+      "file": "src/facets/installation.ts",
+      "symbol": "PackageInstallationRef.constructor",
+      "statementSha256": "ebadce80a8ae24c0a966cac8d46e289cc8f047d418b64cc826cea9d6401bcb0e",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "4f98af6846dd8828730ffbaf57f66d7403072fdf7012a8e382cc9749a28a2b61",
+      "file": "src/protocol/materialization-commands.ts",
+      "symbol": "requireApplyLocalPayload",
+      "statementSha256": "d1df4b3b54d1e37c0a3e64a785fed27744fd6da1246b7003a12d7aa2cb9bd13d",
+      "occurrence": 1
+    },
+    {
+      "declarationSha256": "d343f835ed0e81fdcf4b41aae8c09e4f6b3120c9fab5c675d0e164c8bb7a093c",
+      "file": "src/substrates/sqlite/materialization.ts",
+      "symbol": "requireMaterializationKindCheck",
+      "statementSha256": "463969a4bd1edf93e34c9e2d43a1028e0b9f7eb39ebc73e099f80c8e11f00717",
+      "occurrence": 1
+    }
   ],
-  "allowedPreservedRethrows": ["src/definition/loader.ts:251"],
+  "allowedPreservedRethrows": [
+    {
+      "declarationSha256": "00347ad93f45989f6c4de7789d4ff357058668bf27730af3ea35f080c58fb695",
+      "file": "src/definition/loader.ts",
+      "symbol": "disposeModules",
+      "statementSha256": "d703b0cbc61cbdf594ad11d8e54aa3da6f8f0c46f858f04d0bce6e4f05cf93f8",
+      "occurrence": 1
+    }
+  ],
   "expected": {
     "agentCoreOperationalThrows": 241,
     "allowedTypeErrors": 170,
