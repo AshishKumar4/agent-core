@@ -127,7 +127,7 @@
             "store": "src/substrates/sqlite/invocations/mediation.ts#SqliteInvocationMediationPersistence",
             "tests": [
                 "test/invocations/mediation.test.ts#W6 operation mediation integration [invocation.continuation] [invocation.mediated-replay] [invocation.publication-outbox] round-trips continuation, replay, and publication durable records",
-                "test/invocations/mediation.test.ts#W6 operation mediation integration [C13-ADV-RECEIPT-CANCELLED] [invocation.publication-outbox] [invocation-evidence-persistence] durably drains Receipt publication without fire-and-forget",
+                "test/invocations/mediation.test.ts#W6 operation mediation integration [invocation.publication-outbox] [invocation-evidence-persistence] durably drains Receipt publication without fire-and-forget",
                 "test/substrates/sqlite/invocations/mediation.test.ts#SqliteInvocationMediationPersistence [invocation.mediated-replay] [invocation.publication-outbox] persists replay revisions and durable publication acknowledgement"
             ]
         }
