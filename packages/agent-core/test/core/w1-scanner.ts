@@ -15,8 +15,6 @@ export interface SourceAnchor {
 
 export interface ErrorTaxonomyEntry {
     readonly id: string;
-    readonly file: string;
-    readonly line: number;
     readonly source: string;
     readonly sourceAnchor: SourceAnchor;
     readonly classification: TypeErrorClassification;
@@ -42,6 +40,13 @@ export interface SourceScan {
     readonly typeErrors: readonly ErrorConstruction[];
     readonly bareErrors: readonly string[];
     readonly unresolved: readonly string[];
+}
+
+export interface AnchorReconciliation {
+    readonly duplicateReviewed: readonly string[];
+    readonly duplicateLive: readonly string[];
+    readonly unclassified: readonly string[];
+    readonly stale: readonly string[];
 }
 
 interface Binding {
@@ -411,6 +416,9 @@ function className(node: ts.ClassLikeDeclaration, sourceFile: ts.SourceFile): st
     return node.name?.getText(sourceFile) ?? "<anonymous>";
 }
 
+// TypeScript 7's unstable AST exposes no printer, so anchors normalize the node's source
+// text. Comment edits inside an anchored expression therefore surface as a stale/
+// unclassified pair for a reviewer, never silently.
 function nearestGuard(node: ts.Node, sourceFile: ts.SourceFile): string | null {
     for (let current = node.parent; current !== undefined; current = current.parent) {
         if (ts.isIfStatement(current)) return normalize(current.expression.getText(sourceFile));
@@ -422,11 +430,20 @@ function normalize(value: string): string {
     return value.replace(/\s+/g, " ").trim();
 }
 
+// Anchor identity ignores whitespace inside the recorded guard and expression, the same
+// canonicalization constructionKey uses, so a pure reflow never strands a reviewed entry
+// while any token change still surfaces as a stale/unclassified pair.
 export function anchorKey(value: {
     readonly source: string;
     readonly sourceAnchor: SourceAnchor;
 }): string {
-    return JSON.stringify({ source: value.source, sourceAnchor: value.sourceAnchor });
+    const { container, guard, expression } = value.sourceAnchor;
+    return JSON.stringify({
+        source: value.source,
+        container,
+        guard: guard === null ? null : guard.replaceAll(/\s/gu, ""),
+        expression: expression.replaceAll(/\s/gu, "")
+    });
 }
 
 export function constructionKey(value: {
@@ -436,11 +453,23 @@ export function constructionKey(value: {
     return `${value.source}:${value.sourceAnchor.expression.replaceAll(/\s/gu, "")}`;
 }
 
-export function siteKey(value: { readonly file: string; readonly line: number }): string {
-    return `${value.file}:${value.line}`;
+export function reconcileAnchors(
+    reviewed: readonly { readonly source: string; readonly sourceAnchor: SourceAnchor }[],
+    live: readonly { readonly source: string; readonly sourceAnchor: SourceAnchor }[]
+): AnchorReconciliation {
+    const reviewedKeys = reviewed.map(anchorKey);
+    const liveKeys = live.map(anchorKey);
+    const reviewedSet = new Set(reviewedKeys);
+    const liveSet = new Set(liveKeys);
+    return {
+        duplicateReviewed: duplicateValues(reviewedKeys),
+        duplicateLive: duplicateValues(liveKeys),
+        unclassified: [...liveSet].filter((key) => !reviewedSet.has(key)).sort(),
+        stale: [...reviewedSet].filter((key) => !liveSet.has(key)).sort()
+    };
 }
 
-export function duplicateKeys(values: readonly string[]): string[] {
+function duplicateValues(values: readonly string[]): string[] {
     const seen = new Set<string>();
     const duplicates = new Set<string>();
     for (const value of values) {
