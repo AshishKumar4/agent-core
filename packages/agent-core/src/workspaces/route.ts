@@ -418,6 +418,7 @@ class RouteDeliveryCodecV1 extends RecordCodec<RouteDelivery> {
                 TextId,
                 RouteReservationId,
                 AuditRecordId,
+                DeliveredRouteDelivery,
                 RejectedRouteDelivery
             ],
             "workspace.route-delivery",

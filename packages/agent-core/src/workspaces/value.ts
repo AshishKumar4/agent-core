@@ -55,7 +55,16 @@ export interface EventProvenanceInit {
 class EventProvenanceCodecV1 extends RecordCodec<EventProvenance> {
     public constructor() {
         super(
-            [EventProvenance, EventVerification, TextId, TenantId, PrincipalId, PrincipalRef],
+            [
+                EventProvenance,
+                EventVerification,
+                VerifiedEvent,
+                HostEvent,
+                TextId,
+                TenantId,
+                PrincipalId,
+                PrincipalRef
+            ],
             "workspace.event-provenance",
             {
                 major: 1,
