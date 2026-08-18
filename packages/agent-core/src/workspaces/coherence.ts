@@ -1,8 +1,14 @@
-import { Digest, RecordCodec, type JsonValue, type RecordVersion } from "../core";
+import { Digest, RecordCodec, TextId, type JsonValue, type RecordVersion } from "../core";
 import { AgentCoreError } from "../errors";
 import { GrantId } from "../authority";
-import { BindingName, OperationRef, type Impact } from "../facets";
-import { PrincipalRef, type ScopeRef } from "../identity";
+import {
+    BindingName,
+    FacetPackageId,
+    OperationName,
+    OperationRef,
+    type Impact
+} from "../facets";
+import { PrincipalId, PrincipalRef, ProjectId, ScopeRef, TenantId, WorkspaceId } from "../identity";
 import { RunId } from "../execution-references";
 import { EventId, RouteReservationId, SubscriptionId } from "../interaction-references";
 import {
@@ -277,7 +283,35 @@ export type CoherenceFindingIdentity = Omit<
 
 class CoherenceFindingCodecV1 extends RecordCodec<CoherenceFinding> {
     public constructor() {
-        super("workspace.coherence-finding", { major: 1, minor: 0 });
+        super(
+            [
+                CoherenceFinding,
+                CoherenceVerdict,
+                DuplicateWork,
+                DistinctWork,
+                ScopeRef,
+                PrincipalRef,
+                OperationRef,
+                TextId,
+                Digest,
+                CoherenceFindingId,
+                GrantId,
+                RunId,
+                EventId,
+                RouteReservationId,
+                OperationName,
+                FacetPackageId,
+                PrincipalId,
+                TenantId,
+                ProjectId,
+                WorkspaceId
+            ],
+            "workspace.coherence-finding",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(finding: CoherenceFinding): JsonValue {
@@ -335,7 +369,9 @@ class CoherenceFindingCodecV1 extends RecordCodec<CoherenceFinding> {
  * observed Events through the same Grant, and it is no second copy of what those Runs hold.
  */
 export class CoherenceFinding {
-    public static readonly codec: RecordCodec<CoherenceFinding> = new CoherenceFindingCodecV1();
+    public static get codec(): RecordCodec<CoherenceFinding> {
+        return coherenceFindingCodecInstance;
+    }
 
     public static encode(finding: CoherenceFinding): Uint8Array {
         return CoherenceFinding.codec.encode(finding);
@@ -392,6 +428,8 @@ export class CoherenceFinding {
         return this.init.discriminator;
     }
 }
+
+const coherenceFindingCodecInstance = new CoherenceFindingCodecV1();
 
 /**
  * The finding two Runs' observed intents support, or undefined when nothing resembles
