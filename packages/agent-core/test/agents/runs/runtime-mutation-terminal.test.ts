@@ -42,7 +42,8 @@ import {
     pins,
     seedRunningTurn,
     thrownBy,
-    type Assembled
+    type Assembled,
+    UncontributedCutPoints
 } from "./fixture";
 
 function expectCode(
@@ -1180,7 +1181,8 @@ describe("terminal sibling read-back", () => {
             seeded.evidence,
             seeded.settlement,
             seeded.spawn,
-            seeded.merge
+            seeded.merge,
+            new UncontributedCutPoints()
         );
         storage.divergence = build(sibling, forced);
         return {

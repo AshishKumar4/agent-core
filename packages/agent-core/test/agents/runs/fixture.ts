@@ -25,6 +25,11 @@ import {
     RouteReservationId
 } from "../../../src/interaction-references";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
+import {
+    TurnCutPointPort,
+    type TurnInterceptionResult
+} from "../../../src/operations";
+import type { FacetData, TurnBoundCutPoint } from "../../../src/facets";
 import { RunCommit } from "../../../src/agents/runs/commit";
 import {
     RunEvidencePort,
@@ -274,7 +279,26 @@ export function settlementAuditKey(audit: SettlementAuditObligation): string {
     }
 }
 
-export function harness(snapshot?: ReturnType<MemoryRunStorage["snapshot"]>) {
+/**
+ * A Turn-bound cut-point schedule with no contributions: every value passes through and no
+ * gate can refuse it. This is what a Run whose Facets contribute no Interceptor actually
+ * looks like, so tests about anything else get the same behaviour without standing a Facet
+ * runtime up beside them.
+ */
+export class UncontributedCutPoints extends TurnCutPointPort {
+    public override run(
+        _cutPoint: TurnBoundCutPoint,
+        _turn: TurnId,
+        value: FacetData
+    ): TurnInterceptionResult {
+        return Object.freeze({ value, traces: Object.freeze([]), stop: undefined });
+    }
+}
+
+export function harness(
+    snapshot?: ReturnType<MemoryRunStorage["snapshot"]>,
+    cutPoints: TurnCutPointPort = new UncontributedCutPoints()
+) {
     const storage = new MemoryRunStorage(snapshot);
     const repository = new RunRepository(storage);
     const sources = new TestSourcePort();
@@ -282,7 +306,15 @@ export function harness(snapshot?: ReturnType<MemoryRunStorage["snapshot"]>) {
     const settlement = new TestSettlementPort();
     const spawn = new TestSpawnPort();
     const merge = new TestMergePort();
-    const runtime = new RunRuntime(repository, sources, evidence, settlement, spawn, merge);
+    const runtime = new RunRuntime(
+        repository,
+        sources,
+        evidence,
+        settlement,
+        spawn,
+        merge,
+        cutPoints
+    );
     return {
         storage,
         repository,

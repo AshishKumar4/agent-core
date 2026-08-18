@@ -3,5 +3,7 @@ export type {
     FacetLifecycleContext,
     InterceptContext,
     InterceptResult,
-    OperationContext
+    OperationContext,
+    OperationInterceptContext,
+    TurnInterceptContext
 } from "../facets";

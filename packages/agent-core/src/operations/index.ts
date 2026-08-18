@@ -52,15 +52,23 @@ export type {
     OperationPayloadCardinality,
     OperationRequest
 } from "./gateway";
+export { TurnCutPointPort, TurnInterceptorRunner } from "./interception";
 export type {
     InterceptionResult,
     InterceptorAuthorityPort,
-    InterceptorTrace
+    InterceptorTrace,
+    TurnInterceptionResult,
+    TurnInterceptorDomainPort,
+    TurnInterceptorTrace,
+    TurnRewriteRule,
+    TurnStopRequest
 } from "./interception";
 export { Facet, Interceptor, Operation, Surface } from "./runtime";
 export type {
     FacetLifecycleContext,
     InterceptContext,
     InterceptResult,
-    OperationContext
+    OperationContext,
+    OperationInterceptContext,
+    TurnInterceptContext
 } from "./runtime";

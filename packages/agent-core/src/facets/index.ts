@@ -76,7 +76,13 @@ export {
     ProvenanceMapping
 } from "./mapping";
 export { InterceptorDeclaration } from "./interceptor";
-export type { CutPoint, InterceptorMode } from "./interceptor";
+export { TURN_BOUND_CUT_POINTS, isTurnBoundCutPoint } from "./interceptor";
+export type {
+    CutPoint,
+    InterceptorMode,
+    OperationCutPoint,
+    TurnBoundCutPoint
+} from "./interceptor";
 export { ProtectionDomain } from "./protection";
 export { PackageInstallationRef } from "./installation";
 export { Facet, Interceptor, Operation, ProtectedOperationPort, Surface } from "./runtime";
@@ -86,8 +92,10 @@ export type {
     InterceptResult,
     OperationAttemptIdentity,
     OperationContext,
+    OperationInterceptContext,
     ProtectedOperationRequest,
-    ProtectedOperationResult
+    ProtectedOperationResult,
+    TurnInterceptContext
 } from "./runtime";
 export * from "./approval-gateway";
 export * from "./device";

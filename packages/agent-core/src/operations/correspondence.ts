@@ -164,18 +164,6 @@ function validateImplementations(facet: Facet, manifest: FacetManifest): Impleme
     const interceptors = new Map<string, Interceptor>();
     for (const value of manifest.contributions.get(interceptorSlot) ?? []) {
         const declaration = InterceptorDeclaration.fromData(value);
-        // §4.4 declares five cut points; this runtime hosts the two operation cut
-        // points. An admitted declaration nothing ever fires would be a silently
-        // inert veto — a fail-open — so an unhosted cut point refuses at install.
-        if (
-            declaration.cutPoint !== "operation.before" &&
-            declaration.cutPoint !== "operation.after"
-        ) {
-            throw runtimeMismatch(
-                `Interceptor ${declaration.id.value} declares cut point ` +
-                    `${declaration.cutPoint}, which this host does not execute`
-            );
-        }
         requireUnique(interceptors, declaration.id.value, "Interceptor");
         const interceptor = facet.interceptor(declaration.id);
         requireImplementation(interceptor, "Interceptor", declaration.id.value);

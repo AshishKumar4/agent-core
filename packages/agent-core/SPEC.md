@@ -1096,6 +1096,81 @@ appliesTo: own("web.fetch"), priority: 10 }` that rewrites outbound URLs onto an
 allowlisted proxy — its own operation, no opt-in needed, and the rewrite is
 digest-logged.
 
+Three of the five cut points are **Turn-bound**: `prompt.assemble`, `input.submitted`, and
+`turn.step`. Their value in flight belongs to a Turn rather than to an Operation of a target
+Facet, so `ctx.operation` is absent, `ctx.turn` is required, and an `OperationSelector` has
+nothing to select. A declaration at a Turn-bound cut point therefore MUST leave `appliesTo`
+at its default, and a narrower selector is refused at contribution rather than silently
+ignored: rule 2's cross-facet opt-in scopes interception by naming a target Operation, and a
+selector admitted where no Operation exists would read as a scoping claim the host cannot
+honor. What scopes these cut points instead is rule 1's protection domain alone — a Facet
+fires at a Turn's cut points because the Run's Blueprint placed it in that Turn's domain
+(§9.2), and for no other reason. This maps to **C13-INTERCEPTOR-TURN-CONTEXT**.
+
+A host executes all five cut points. A declaration at any of them is admitted at
+installation on the same terms as an operation declaration — the contributing Facet must
+implement it, and its runtime declaration must match its pinned bytes — and the Turn-bound
+schedule is rule 3's order and rule 1's confinement, not a second relation beside them: one
+ascending `(mode, priority, facetId, interceptorId)` key over the candidates of one
+protection domain, so two independently authored Facets meeting at `turn.step` are ordered
+by exactly what orders two meeting at `operation.before`. This maps to
+**C13-INTERCEPTOR-TURN-HOSTED**.
+
+Each Turn-bound cut point declares what a rewrite there may change, and the host admits an
+interceptor's answer against that rule before passing it on. The rule is applied to each
+rewriter's own answer rather than to the value the schedule ends with, because what it
+enforces is per-rewriter: an answer that is not a well-formed value of that cut point MUST
+NOT reach the next interceptor as though it were, and an annotation MUST name the
+interceptor that appended it, neither of which is answerable from a final value a later
+rewriter may have overwritten. A refused answer is a scoped block naming that interceptor,
+exactly as rule 4's thrown error is. Rule 10 holds unchanged here: a `gate` whose result
+differs from the value it received is refused at a Turn-bound cut point too. This maps to
+**C13-INTERCEPTOR-TURN-REWRITE**.
+
+At `prompt.assemble` the value in flight is exactly the ordered prompt sections of the model
+input the Turn is about to record (§5.6), and a rewrite may reorder, add, and remove them.
+Nothing else the model input records is in flight — not the operation catalog as offered,
+not the admitted inbox Events, not the admission cut, not the transcript coverage — so no
+rewrite can reach past §5.6's reconstruction guarantee by changing what the request claims
+about itself. The cut point fires before the model input record is produced, which is what
+keeps that guarantee exact rather than approximate: the surface the Turn commits is the
+rewritten one, so a records-only reconstruction rebuilds the request the model read instead
+of the one the executor first assembled. A rewrite offered after that record is committed is
+refused, on rule 6's reasoning at rule 6's boundary; and a rewrite that leaves no section,
+or that names content no ContentStore holds, is refused by the record it would have become.
+This maps to **C13-TURN-PROMPT-ASSEMBLE**.
+
+At `input.submitted` the value in flight is the envelope of a submission reaching a running
+Turn — §5.6's `turn.deliverEvent` — and the cut point fires before that submission becomes
+durable inbox history, so a block refuses it outright and leaves no entry behind. A rewrite
+may transform only the payload. An Interceptor is synchronous while content resolves through
+an asynchronous ContentStore (§8.2), so transforming means naming content the interceptor
+has already stored rather than editing bytes in hand, and the substitution inherits exactly
+the retention obligation the original submission carried. The event name and the idempotency
+key are delivery identity and MUST NOT change: a renamed event forges a different
+submission, and a rekeyed one defeats the at-least-once dedupe the inbox is ordered by
+(§6.2). The reserved `turn.cancel` Event is never offered to this cut point, because a Facet
+able to refuse a cancellation could suppress the fence that stops it. This maps to
+**C13-TURN-INPUT-SUBMITTED**.
+
+At `turn.step` the value in flight is the step context: which iteration of the Turn's loop is
+opening, the branch head and inbox cut it opened on, and the annotations earlier firings of
+that Turn left. Only the annotations are the interceptor's to change, and only by appending
+ones that name it — the head, the cut, and the ordinal are host facts about the step, and an
+interceptor able to restate them would be describing a step that did not happen.
+
+A stop requested at `turn.step` is a scoped refusal naming the interceptor that requested it,
+bound to the exact Turn and lease that fired the cut point. It is not a Turn status
+transition: §5.2's writer matrix admits the root, the Turn's own lease, and system control
+evidence, and an Interceptor is none of them, so the interceptor requests and the host
+enforces. The host enforces it by withdrawing what a step does — after a stop that Turn
+issues no further model call and opens no further step, each refused by name — while leaving
+its terminal transition open, because a Turn that cannot record its own transition is a Turn
+nothing can settle (§5.3). The refusal reaches nothing else: step annotations and the stop
+are Turn-scoped, so a later Turn opens at its first step with neither, and a Run's remaining
+Turns are governed by their own cut points rather than by a refusal aimed at this one's
+trajectory. This maps to **C13-TURN-STEP-STOP**.
+
 ### 4.5 Environment and Session
 
 An **Environment** is an execution endpoint that opens live **Sessions**; a Session
@@ -4178,6 +4253,12 @@ A conforming implementation provides:
 - **C13-INTERCEPTOR-FROZEN-RETRY** Retrying a frozen intent does not rerun mutating interceptors.
 - **C13-INTERCEPTOR-REPLAY** Replay persists and reuses both pre-effect and post-effect interceptor transformations and traces.
 - **C13-INTERCEPTOR-THROW-BLOCK** A thrown interceptor error is a scoped block.
+- **C13-INTERCEPTOR-TURN-CONTEXT** A Turn-bound cut point carries its Turn and no Operation, and an interceptor declared there carries no operation selector.
+- **C13-INTERCEPTOR-TURN-HOSTED** All five cut points are executed, and the Turn-bound ones are admitted at installation and scheduled by the same banded order and protection-domain confinement as the operation ones.
+- **C13-INTERCEPTOR-TURN-REWRITE** A Turn-bound rewrite is admitted against its cut point's declared rule, applied to each rewriter's own answer, and a `gate` that changes the value is still refused.
+- **C13-TURN-PROMPT-ASSEMBLE** `prompt.assemble` carries exactly the model input's ordered sections, fires before that record is produced, and reaches nothing else the record states about itself.
+- **C13-TURN-INPUT-SUBMITTED** `input.submitted` carries a submission's envelope before it becomes durable, admits a payload transform only, and never sees the reserved cancellation Event.
+- **C13-TURN-STEP-STOP** A `turn.step` stop is a Turn-scoped refusal naming its interceptor, which withdraws that Turn's remaining steps and model calls without authoring a Turn status transition.
 - **C13-ENVIRONMENT-STALE-SESSION** Environment session lifecycle rejects a stale session.
 - **C13-ENVIRONMENT-DISPOSE-CLOSE** Environment session close disposes child Facets.
 - **C13-ENVIRONMENT-ROTATION** Environment rotation does not retarget open Sessions.

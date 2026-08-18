@@ -10,18 +10,26 @@ import {
     encodeCanonicalJson,
     type JsonValue
 } from "../../core";
-import { RunCommitId } from "../../execution-references";
+import { RunCommitId, TurnId } from "../../execution-references";
 import { AgentCoreError } from "../../errors";
 import {
     BindingName,
     FacetPackageId,
     FacetRef,
+    InterceptorId,
     OperationDescriptor,
     OperationRef,
     canonicalFacetData,
     type FacetData
 } from "../../facets";
-import { OperationGateway, type OperationRequestKey, type ResolvedFacet } from "../../operations";
+import {
+    OperationGateway,
+    TurnCutPointPort,
+    type OperationRequestKey,
+    type ResolvedFacet,
+    type TurnRewriteRule,
+    type TurnStopRequest
+} from "../../operations";
 import { InvocationId } from "../../interaction-references";
 import { ReceiptId } from "../../invocation-references";
 import { RunCommit } from "./commit";
@@ -408,6 +416,93 @@ export class TurnAdmittedEvent {
             requireInteger(object["sequence"], "Admitted Event sequence"),
             requireString(object["event"], "Admitted Event kind"),
             new ContentRef(requireString(object["content"], "Admitted Event content"))
+        );
+    }
+}
+
+/**
+ * One observation a `turn.step` interceptor left on a step, naming its author (SPEC §4.4).
+ * The author is part of the annotation rather than beside it because the host admits an
+ * appended annotation only when it names the interceptor that appended it: a supervisor
+ * reading a trajectory must be able to tell whose judgement it is reading, and an
+ * annotation an interceptor could sign with a neighbour's id would say the opposite.
+ */
+export class TurnStepAnnotation {
+    public constructor(
+        public readonly interceptor: InterceptorId,
+        public readonly note: string
+    ) {
+        if (note.length === 0) throw new TypeError("A step annotation carries a note");
+        Object.freeze(this);
+    }
+
+    public toData(): JsonValue {
+        return { interceptor: this.interceptor.value, note: this.note };
+    }
+
+    public static fromData(value: JsonValue): TurnStepAnnotation {
+        const object = requireObject(value, "Step annotation");
+        requireExactFields(object, ["interceptor", "note"], [], "Step annotation");
+        return new TurnStepAnnotation(
+            new InterceptorId(requireString(object["interceptor"], "Step annotation interceptor")),
+            requireString(object["note"], "Step annotation note")
+        );
+    }
+}
+
+/**
+ * The value in flight at `turn.step`: which iteration of the Turn's loop is opening, the
+ * branch head and inbox cut it opened on, and the annotations earlier firings of this Turn
+ * left. SPEC §5.3 defines a Turn step as the interval between two firings of this cut
+ * point, so the ordinal counts firings and nothing else.
+ *
+ * The head and the cut are host facts the interceptor may read and not change; only the
+ * annotations are its to extend. This is not a durable record: the annotations are Turn
+ * state, they do not outlive the Turn that collected them, and no later Turn reads them.
+ */
+export class TurnStepContext {
+    public readonly annotations: readonly TurnStepAnnotation[];
+
+    public constructor(
+        public readonly ordinal: number,
+        public readonly head: RunCommitId,
+        public readonly inboxCut: number,
+        annotations: readonly TurnStepAnnotation[] = []
+    ) {
+        if (!Number.isSafeInteger(ordinal) || ordinal < 0) {
+            throw new TypeError("A Turn step ordinal is a non-negative safe integer");
+        }
+        if (!Number.isSafeInteger(inboxCut) || inboxCut < 0) {
+            throw new TypeError("A Turn step inbox cut is a non-negative safe integer");
+        }
+        this.annotations = Object.freeze([...annotations]);
+        Object.freeze(this);
+    }
+
+    public toData(): JsonValue {
+        return {
+            annotations: this.annotations.map((annotation) => annotation.toData()),
+            head: this.head.value,
+            inboxCut: this.inboxCut,
+            ordinal: this.ordinal
+        };
+    }
+
+    public static fromData(value: JsonValue): TurnStepContext {
+        const object = requireObject(value, "Turn step context");
+        requireExactFields(
+            object,
+            ["annotations", "head", "inboxCut", "ordinal"],
+            [],
+            "Turn step context"
+        );
+        return new TurnStepContext(
+            requireInteger(object["ordinal"], "Turn step ordinal"),
+            new RunCommitId(requireString(object["head"], "Turn step head")),
+            requireInteger(object["inboxCut"], "Turn step inbox cut"),
+            requireArray(object["annotations"], "Turn step annotations").map(
+                TurnStepAnnotation.fromData
+            )
         );
     }
 }
@@ -821,6 +916,30 @@ export abstract class TurnInboxHandle {
     public abstract read(afterSequence: number): Promise<readonly TurnInboxEntry[]>;
 }
 
+/**
+ * What opening a Turn step produced. A `turn.step` gate can only *request* a stop (SPEC
+ * §4.4): it holds no lease and is no CommitWriter (§5.2), so it cannot author the Turn's
+ * status. The request is returned rather than thrown because the Turn still owes its own
+ * terminal transition, and the host enforces the request instead of hoping for it — a
+ * stopped Turn issues no further model call and opens no further step.
+ */
+export type TurnStepDecision =
+    | { readonly kind: "proceed"; readonly step: TurnStepContext }
+    | {
+          readonly kind: "stopped";
+          readonly step: TurnStepContext;
+          readonly stop: TurnStopRequest;
+      };
+
+export abstract class TurnStepHandle {
+    /**
+     * Opens the next Turn step, firing `turn.step`. SPEC §5.3 defines a Turn step as the
+     * interval between two successive firings, so what one iteration comprises stays the
+     * executor's to decide while the cut point stays the host's to run.
+     */
+    public abstract open(): Promise<TurnStepDecision>;
+}
+
 export abstract class TurnOutcomeHandle {
     public abstract succeed(commit: RunCommit): Promise<TurnOutcome>;
     public abstract fail(commit: RunCommit): Promise<TurnOutcome>;
@@ -838,6 +957,7 @@ export interface TurnContext extends TurnExecutionScope {
     readonly invocation: TurnInvocationHandle;
     readonly model: TurnModelHandle;
     readonly modelInput: TurnModelInputHandle;
+    readonly step: TurnStepHandle;
     readonly stream: TurnStreamHandle;
     readonly outcome: TurnOutcomeHandle;
     readonly cancellation: AbortSignal;
@@ -856,6 +976,7 @@ export interface TurnExecutorHostInit<Transaction> {
     readonly invocations: TurnInvocationPort;
     readonly model: TurnModelPort;
     readonly stream: TurnStreamPort;
+    readonly cutPoints: TurnCutPointPort;
     readonly now: () => Date;
 }
 
@@ -884,6 +1005,7 @@ export class TurnExecutorHost<Transaction> {
             invocation: new ScopedInvocationHandle(scope, operations),
             model: new ScopedModelHandle(scope, operations, replay),
             modelInput: new ScopedModelInputHandle(scope, replay),
+            step: new ScopedStepHandle(scope),
             stream: new ScopedStreamHandle(scope),
             outcome: new ScopedOutcomeHandle(scope),
             cancellation: scope.signal
@@ -919,6 +1041,80 @@ class LeaseScopedTurn<Transaction> {
         public readonly init: TurnExecutorHostInit<Transaction>,
         public readonly token: LeaseToken
     ) {}
+
+    /**
+     * Turn-scoped `turn.step` state: how many steps this Turn has opened, the annotations
+     * its interceptors have left, and the stop one of them requested. None of it outlives
+     * the Turn. A later Turn on the same branch opens at ordinal zero with no annotations
+     * and no stop, because a step is an iteration of *this* Turn's loop (SPEC §5.3) and a
+     * refusal aimed at this Turn's trajectory is evidence about nothing else.
+     */
+    #steps = 0;
+    #annotations: readonly TurnStepAnnotation[] = [];
+    #stop: TurnStopRequest | undefined;
+
+    /**
+     * Fires `turn.step` and hands the Turn what survived. A stop already requested refuses
+     * here rather than being reported again: the executor was told once, and asking for
+     * another step is not the winding down the request asked for.
+     */
+    public openStep(): TurnStepDecision {
+        const snapshot = this.active();
+        this.requireNotStopped("open another Turn step");
+        const proposed = new TurnStepContext(
+            this.#steps,
+            snapshot.head.id,
+            this.readInbox(0).length,
+            this.#annotations
+        );
+        const outcome = this.init.cutPoints.run(
+            "turn.step",
+            snapshot.scope.turn.id,
+            proposed.toData(),
+            admitStepRewrite
+        );
+        const step = TurnStepContext.fromData(outcome.value);
+        this.#steps += 1;
+        this.#annotations = step.annotations;
+        if (outcome.stop === undefined) return Object.freeze({ kind: "proceed", step });
+        this.#stop = outcome.stop;
+        return Object.freeze({ kind: "stopped", step, stop: outcome.stop });
+    }
+
+    /**
+     * The stop's teeth. A `turn.step` gate authors no Turn status (SPEC §5.2's writer
+     * matrix admits root, this Turn's lease, and system control evidence, and an
+     * Interceptor is none of them), so the refusal has to be enforced where the Turn would
+     * otherwise carry on: the two things a step does are call the model and open the next
+     * step, and after a stop this Turn does neither. Terminalizing is left open, because a
+     * Turn that cannot record its own transition is a Turn nothing can settle.
+     */
+    public requireNotStopped(attempt: string): void {
+        if (this.#stop === undefined) return;
+        throw new AgentCoreError(
+            "authority.denied",
+            `Interceptor ${this.#stop.interceptor} stopped this Turn, so it may not ${attempt}: ${this.#stop.reason}`
+        );
+    }
+
+    /**
+     * Fires `prompt.assemble` on the sections about to be recorded. It runs before the
+     * model input record exists, which is what keeps SPEC §5.6's reconstruction exact: the
+     * surface that gets committed is the rewritten one, so a replay rebuilds what the model
+     * read rather than what the executor first assembled.
+     */
+    public assembleSections(
+        turn: TurnId,
+        sections: readonly TurnPromptSection[]
+    ): readonly TurnPromptSection[] {
+        const outcome = this.init.cutPoints.run(
+            "prompt.assemble",
+            turn,
+            sections.map((section) => section.toData()),
+            admitAssembledSections
+        );
+        return decodeSections(outcome.value);
+    }
 
     public active(): ActiveTurnSnapshot {
         const now = this.init.now();
@@ -1146,7 +1342,14 @@ class ScopedModelHandle<Transaction> extends TurnModelHandle {
      */
     public async call(assembly: TurnModelInputAssembly): Promise<TurnModelExchange> {
         const snapshot = this.scope.active();
-        const record = this.record(assembly);
+        // A `turn.step` gate that requested a stop withdrew this Turn's remaining model
+        // calls, so the refusal lands before anything is recorded rather than after a
+        // request the supervisor already vetoed has been made durable.
+        this.scope.requireNotStopped("call the model again");
+        const record = this.record({
+            ...assembly,
+            sections: this.scope.assembleSections(snapshot.scope.turn.id, assembly.sections)
+        });
         for (const section of record.sections) {
             const ref = section.shown.ref;
             if (ref !== undefined) await this.scope.requireContent(ref);
@@ -1248,6 +1451,16 @@ class ScopedModelInputHandle<Transaction> extends TurnModelInputHandle {
 
     public async accountable(): Promise<readonly RunCommitId[]> {
         return this.scope.withActive(async () => this.replay.accountable(this.scope.active().head.id));
+    }
+}
+
+class ScopedStepHandle<Transaction> extends TurnStepHandle {
+    public constructor(private readonly scope: LeaseScopedTurn<Transaction>) {
+        super();
+    }
+
+    public async open(): Promise<TurnStepDecision> {
+        return this.scope.withActive(async () => this.scope.openStep());
     }
 }
 
@@ -1414,6 +1627,75 @@ class ScopedOutcomeHandle<Transaction> extends TurnOutcomeHandle {
         return canonicalOutcome(this.scope);
     }
 }
+
+/**
+ * The sections a `prompt.assemble` answer carries, decoded rather than trusted. Decoding is
+ * the whole of the rule at this cut point: SPEC §4.4 lets a rewrite reorder, add, and
+ * remove sections, and everything else the model input records — the offered catalog, the
+ * admitted Events, the admission cut, the transcript coverage — is simply not in flight, so
+ * no rewrite can reach it. What a rewrite must not do is hand the next interceptor, or the
+ * record, something that is not a section: an unparseable answer would otherwise become the
+ * committed surface and take §5.6's reconstruction with it.
+ */
+function decodeSections(value: FacetData): readonly TurnPromptSection[] {
+    return Object.freeze(
+        requireArray(value, "Assembled prompt sections").map(TurnPromptSection.fromData)
+    );
+}
+
+const admitAssembledSections: TurnRewriteRule = (_before, after) => {
+    decodeSections(after);
+};
+
+/**
+ * What a `turn.step` rewrite may do: annotate, and nothing else (SPEC §4.4). The ordinal,
+ * the head, and the inbox cut are host facts about the step — an interceptor that could
+ * change them would be describing a step that did not happen — and the annotations already
+ * present belong to the interceptors that wrote them, so a rewrite may only append, and
+ * only annotations naming itself. Together these are the `turn.step` counterpart of the
+ * gate-fidelity clause: the shape of an admitted rewrite is declared, not discovered from
+ * what an interceptor turned out to do.
+ */
+/**
+ * A Turn-bound rewrite the cut point does not admit. It is an operational refusal rather
+ * than a shape violation — the value parsed, the host declined what it asked for — so it
+ * carries the same code the runner's scoped block does (SPEC §4.4 rule 4).
+ */
+function refusedRewrite(detail: string): AgentCoreError {
+    return new AgentCoreError("authority.denied", detail);
+}
+
+const admitStepRewrite: TurnRewriteRule = (before, after, interceptor) => {
+    const previous = TurnStepContext.fromData(before);
+    const next = TurnStepContext.fromData(after);
+    if (
+        next.ordinal !== previous.ordinal ||
+        !next.head.equals(previous.head) ||
+        next.inboxCut !== previous.inboxCut
+    ) {
+        throw refusedRewrite("A turn.step rewrite may annotate a step, not restate it");
+    }
+    if (next.annotations.length < previous.annotations.length) {
+        throw refusedRewrite("A turn.step rewrite may not drop another interceptor's annotation");
+    }
+    for (const [index, annotation] of next.annotations.entries()) {
+        const kept = previous.annotations[index];
+        if (kept !== undefined) {
+            if (
+                !kept.interceptor.equals(annotation.interceptor) ||
+                kept.note !== annotation.note
+            ) {
+                throw refusedRewrite(
+                    "A turn.step rewrite may not rewrite another interceptor's annotation"
+                );
+            }
+            continue;
+        }
+        if (!annotation.interceptor.equals(interceptor.id)) {
+            throw refusedRewrite("A step annotation names the interceptor that appended it");
+        }
+    }
+};
 
 function validateOperations(
     placement: TurnPlacementSnapshot,

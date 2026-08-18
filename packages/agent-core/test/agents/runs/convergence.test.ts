@@ -33,7 +33,8 @@ import {
     ids,
     pins,
     refs,
-    thrownBy
+    thrownBy,
+    UncontributedCutPoints
 } from "./fixture";
 
 /**
@@ -101,7 +102,8 @@ function convergence(): Convergence {
         evidence,
         new TestSettlementPort(),
         new TestSpawnPort(),
-        merge
+        merge,
+        new UncontributedCutPoints()
     );
     const start = genesis();
     runtime.createRun(start);

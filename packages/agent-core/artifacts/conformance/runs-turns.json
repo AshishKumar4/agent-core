@@ -1377,6 +1377,82 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
+    },
+    {
+        "id": "C13-TURN-PROMPT-ASSEMBLE",
+        "owner": "W5",
+        "specAnchor": "C13-TURN-PROMPT-ASSEMBLE",
+        "specTextSha256": "sha256:e3f268014b712483d277944120ac8f3d320cfdbd87cc9208cee87b4c3b662c4f",
+        "status": "implemented",
+        "prerequisites": [],
+        "sourceSymbols": [
+            "src/agents/runs/executor.ts#decodeSections",
+            "src/agents/runs/executor.ts#admitAssembledSections"
+        ],
+        "testSelectors": [
+            "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-PROMPT-ASSEMBLE] records and reconstructs the rewritten sections, not the ones the executor assembled",
+            "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-PROMPT-ASSEMBLE] refuses a rewrite that is not a section list and one that leaves no section at all"
+        ],
+        "checkerInvariants": [
+            "ACQ-IMPORT",
+            "ACQ-TEST"
+        ],
+        "remainingEvidence": [
+            "Recorded discrimination, which is not this row's to write: artifacts/quality/discrimination/*.json is W0-owned and has no attribution for a test file that post-dates the last mutation run, so a verified status would be a DISC-STALE addition rather than a green. Measured by hand in a detached worktree, 15 mutants over the whole Turn-bound cut-point change with a clean-tree control run first: replacing the assembleSections call in ScopedModelHandle.call with assembly.sections kills the reconstruction selector (2 of 7 dead). One mutant SURVIVED and is recorded rather than omitted: making admitAssembledSections a no-op leaves both selectors passing, because decodeSections still runs once on the schedule's final value and refuses a malformed answer there. So this row's cited admitAssembledSections is undiscriminated by these selectors -- its only observable effect needs two rewriters where the first answers malformed and the second ignores its input, which the single-rewriter schedule here never builds. The per-rewriter property itself is evidenced at the runner instead, under C13-INTERCEPTOR-TURN-REWRITE, where deleting the admit call kills its selector.",
+            "The reconstruction selector is a join, not two adjacent facts: the recorded section names are the rewritten ones AND the bytes a records-only replay rebuilds equal the bytes the model port received. Either half alone passes against a host that recorded the rewrite but sent the original, which is exactly the drift SPEC 5.6 forbids.",
+            "One clause of the anchoring paragraph is stated but not evidenced here: a rewrite offered after the model input commit is refused. No such call exists to make -- the cut point is reachable only from inside ScopedModelHandle.call, before the commit -- so the refusal is structural rather than a code path a test can drive, and the row does not claim it as demonstrated."
+        ]
+    },
+    {
+        "id": "C13-TURN-INPUT-SUBMITTED",
+        "owner": "W5",
+        "specAnchor": "C13-TURN-INPUT-SUBMITTED",
+        "specTextSha256": "sha256:4da719c9a57051c49aedba0273adcd18cb2bd2067723b7697266bc3fcfec6a2a",
+        "status": "implemented",
+        "prerequisites": [],
+        "sourceSymbols": [
+            "src/agents/runs/runtime.ts#RunRuntime",
+            "src/agents/runs/runtime.ts#admitSubmission"
+        ],
+        "testSelectors": [
+            "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-INPUT-SUBMITTED] transforms a submission's payload, refuses one outright, and never offers a cancellation",
+            "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-INPUT-SUBMITTED] refuses a rewrite that changes the delivery identity or names an unresolvable payload"
+        ],
+        "checkerInvariants": [
+            "ACQ-IMPORT",
+            "ACQ-TEST"
+        ],
+        "remainingEvidence": [
+            "Recorded discrimination, which is not this row's to write, for the same W0-owned staleness reason as its sibling rows. Measured by hand in a detached worktree: firing the cut point for turn.cancel as well kills the cancellation half of the first selector from inside RunRuntime, returning the original entry unconditionally instead of rebuilding it on a substituted reference kills the transform half, and deleting admitSubmission's delivery-identity comparison kills the second selector from inside admitSubmission.",
+            "The cancellation clause is evidenced by absence, which needs a positive control to mean anything: the run asserts that no turn.cancel envelope reached the schedule AND that exactly two other submissions did, so a port that was never called at all would fail rather than pass."
+        ]
+    },
+    {
+        "id": "C13-TURN-STEP-STOP",
+        "owner": "W5",
+        "specAnchor": "C13-TURN-STEP-STOP",
+        "specTextSha256": "sha256:650f3c35c3ad9d648c406a35949548f37380287e9c646bbb3d92ee9e89cbac09",
+        "status": "implemented",
+        "prerequisites": [],
+        "sourceSymbols": [
+            "src/agents/runs/executor.ts#TurnStepContext",
+            "src/agents/runs/executor.ts#admitStepRewrite",
+            "src/agents/runs/executor.ts#TurnStepHandle"
+        ],
+        "testSelectors": [
+            "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-STEP-STOP] annotates a step, then withdraws the Turn's remaining steps and model calls when a gate requests a stop",
+            "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-STEP-STOP] refuses a step rewrite that restates a host fact, forges another interceptor's annotation, or drops one",
+            "test/agents/runs/turn-cut-points.test.ts#Turn-bound interceptor cut points [C13-TURN-STEP-STOP] scopes a step's annotations and its stop to the Turn that fired the cut point"
+        ],
+        "checkerInvariants": [
+            "ACQ-IMPORT",
+            "ACQ-TEST"
+        ],
+        "remainingEvidence": [
+            "Recorded discrimination, which is not this row's to write, for the same W0-owned staleness reason as its sibling rows. Measured by hand in a detached worktree: making requireNotStopped return unconditionally kills the withdrawal selector, dropping the ordinal comparison from admitStepRewrite kills the restatement selector from inside admitStepRewrite, and dropping its author check kills the forged-annotation case in the same selector.",
+            "The withdrawal claim is asserted as an ordered sequence rather than as a single refusal: two steps proceed with annotations accumulating, the third returns the stop naming its interceptor, the model call made after it is refused by name, and the fourth open is refused rather than answered again. A host that reported the stop and then kept answering passes any one of those assertions and fails the sequence.",
+            "The Turn-scoping clause is evidenced across two Turns rather than argued from where the state is stored, but it is evidenced across two Runs' Turns rather than two Turns of one Run: seeding a second Turn on the same branch is W5 fixture work this row did not take on, so the claim demonstrated is that step state and a stop are scoped to the Turn that fired the cut point, not the narrower fact that a sibling Turn of the same Run is unaffected."
+        ]
     }
   ]
 }

@@ -680,11 +680,11 @@
       "prerequisites": [],
       "sourceSymbols": [
         "src/operations/interception.ts#OperationInterceptorRunner",
-        "src/operations/correspondence.ts#validateImplementations"
+        "src/operations/interception.ts#TurnInterceptorRunner"
       ],
       "testSelectors": [
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-MODE-FIDELITY] refuses a gate interceptor that returns a value it was not given",
-        "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-MODE-FIDELITY] refuses a gate at every cut point it cannot police rather than admitting it unenforced",
+        "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-MODE-FIDELITY] polices a rewriting gate at every Turn-bound cut point instead of refusing the declaration it could not police",
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-MODE-FIDELITY] attributes the rewrite to its exact rewriter, not to the interceptor that ran last",
         "test/operations/runtime.test.ts#Protected Operation gateway [C13-INTERCEPTOR-MODE-FIDELITY] persists no trace and no partial chain when it refuses a rewriting gate"
       ],
@@ -694,7 +694,7 @@
       ],
       "remainingEvidence": [
         "Recorded discrimination is the only thing left between this row and verified, and it is not this row's to write. Measured by hand over eleven mutants in an isolated worktree, every cited selector is killed from inside a cited symbol: disabling the gate comparison and inverting the policed mode each kill the two refusal selectors from inside OperationInterceptorRunner, forcing every trace entry to read rewritten and forcing none to kills the attribution and no-trace selectors from inside it, and admitting unhosted cut points kills the cut-point selector from inside validateImplementations. artifacts/quality/discrimination/operations.json is W0-owned and records none of the four cited selectors, so scripts/quality/discrimination.mjs classifies a verified row here as DISC-STALE. The operations and facets areas must be re-measured by the mutation campaign",
-        "What the cut-point selector does and does not establish, labelled so a green tick is not read as the stronger claim. It does not show a gate being policed at prompt.assemble, input.submitted or turn.step, which is impossible until those cut points have a runtime. It shows the weaker property that closes the hole instead: over the whole cut point by mode domain, all ten cells, the two operation cut points admit both modes and the other three refuse both, naming the interceptor and the cut point, with the host left inactive and no Facet started. So a gate cannot be admitted where its read-only claim would go unenforced, which makes the enforcement total by refusal rather than partial by omission. When those cut points gain runtimes each owes its own in-band refusal case and this clause is what says so",
+        "What the cut-point selector establishes now that every cut point has a runtime. It used to record the weaker property that a gate could not be admitted where its read-only claim would go unenforced, because only the two operation cut points had a runner. All five are executed, so the selector states the property directly: over the whole Turn-bound cut point by mode domain, a rewrite returning a changed value is admitted and traced as rewritten while a gate returning the identical changed value is refused by name. Both halves are asserted in one run because the two interceptors differ only in declared mode, so a host that admitted both, or refused both, would be indistinguishable from one that policed neither. The install-time refusal this selector previously carried is gone with the hole it covered, and src/operations/correspondence.ts#validateImplementations is no longer cited here; admission at the Turn-bound cut points is C13-INTERCEPTOR-TURN-HOSTED's claim.",
         "The attribution half is evidenced as a join rather than as two facts side by side, which is the part a nearby test would miss: the last trace entry whose outcome is rewritten names alpha, and its after digest equals a digest recomputed over the persisted preparedArguments, so the record says this interceptor produced the value the PreparedInvocation froze. A host recording only that an interceptor ran satisfies none of it, and one reporting the final trace entry as the rewriter names omega, whose entry carries the identical digest with outcome unchanged. beta and omega behave identically and differ only in declared mode, so a phase inferred from observed behaviour could not separate them, while the declared band still orders beta ahead of omega at priority 2 against -100. Outstanding here is only the same recorded measurement as the clause above"
       ]
     },
@@ -795,6 +795,79 @@
         "ACQ-TEST"
       ],
       "remainingEvidence": []
+    },
+    {
+        "id": "C13-INTERCEPTOR-TURN-CONTEXT",
+        "owner": "W3",
+        "specAnchor": "C13-INTERCEPTOR-TURN-CONTEXT",
+        "specTextSha256": "sha256:0e7dac0971697cb52560544700553a7bfa08953ad6054f533f420dab0139a8df",
+        "status": "implemented",
+        "prerequisites": [],
+        "sourceSymbols": [
+            "src/facets/interceptor.ts#InterceptorDeclaration",
+            "src/facets/interceptor.ts#isTurnBoundCutPoint"
+        ],
+        "testSelectors": [
+            "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-CONTEXT] refuses an operation selector at a Turn-bound cut point and keeps one at an operation cut point"
+        ],
+        "checkerInvariants": [
+            "ACQ-IMPORT",
+            "ACQ-TEST"
+        ],
+        "remainingEvidence": [
+            "Recorded discrimination, which is not this row's to write. Measured by hand in a detached worktree: deleting the isTurnBoundCutPoint conjunct from the InterceptorDeclaration constructor guard, and replacing isTurnBoundCutPoint's body with `return false`, each kill the cited selector from inside a cited symbol -- the fifteen-cell cut point x selector table then reports the three Turn-bound cut points admitting a narrowed selector. artifacts/quality/discrimination/facets.json is W0-owned and carries no attribution for a selector added after the last mutation run, so scripts/quality/discrimination.mjs would classify a verified row as DISC-STALE and fail the gate as a new addition; the row therefore stands at implemented rather than claiming a green it cannot yet evidence.",
+            "The claim's negative half is in the same test rather than a neighbouring one: the two operation cut points keep all three selectors, so the refusal is evidenced as a property of the cut point and not of the selector. A guard that refused every narrowed selector everywhere would pass a Turn-only assertion and fail this one."
+        ]
+    },
+    {
+        "id": "C13-INTERCEPTOR-TURN-HOSTED",
+        "owner": "W3",
+        "specAnchor": "C13-INTERCEPTOR-TURN-HOSTED",
+        "specTextSha256": "sha256:770ab3cd2dcdfe6a3bafa4c1b8d7ac755df5d9aad8a3fe95641429f0e53227ce",
+        "status": "implemented",
+        "prerequisites": [],
+        "sourceSymbols": [
+            "src/operations/correspondence.ts#validateImplementations",
+            "src/operations/interception.ts#TurnInterceptorRunner",
+            "src/operations/interception.ts#orderSchedule"
+        ],
+        "testSelectors": [
+            "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-HOSTED] admits an interceptor at every Turn-bound cut point and still refuses one with no implementation",
+            "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-HOSTED] orders two contributing Facets at one Turn-bound cut point by the same banded key as an operation cut point",
+            "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-HOSTED] returns a turn.step refusal as an attributed stop request and blocks the other Turn-bound cut points outright"
+        ],
+        "checkerInvariants": [
+            "ACQ-IMPORT",
+            "ACQ-TEST"
+        ],
+        "remainingEvidence": [
+            "Recorded discrimination, which is not this row's to write; the same W0-owned staleness that caps the sibling Turn-bound rows caps this one. Measured by hand in a detached worktree: collapsing orderSchedule's modeRank term kills the ordering selector from inside orderSchedule (the observed schedule becomes alpha/early/gate first), dropping its facetId comparison kills the same selector, restoring the unhosted-cut-point refusal in validateImplementations kills the admission selector from inside validateImplementations, and inverting the `cutPoint !== \"turn.step\"` test in TurnInterceptorRunner kills the stop-shape selector from inside TurnInterceptorRunner.",
+            "What the admission selector does and does not establish. It shows that a declaration at each Turn-bound cut point is admitted with its interceptor resolved, and -- in the same run -- that a declaration with no implementation behind it is still refused at each of them. So admission is the host executing these cut points rather than the correspondence check having stopped asking, which is the reading a bare admission assertion would leave open."
+        ]
+    },
+    {
+        "id": "C13-INTERCEPTOR-TURN-REWRITE",
+        "owner": "W3",
+        "specAnchor": "C13-INTERCEPTOR-TURN-REWRITE",
+        "specTextSha256": "sha256:119b1a88661f9def845043f7f64cc84a6640ac1d67760a5201b910a1db82b181",
+        "status": "implemented",
+        "prerequisites": [],
+        "sourceSymbols": [
+            "src/operations/interception.ts#TurnInterceptorRunner",
+            "src/operations/interception.ts#TurnCutPointPort"
+        ],
+        "testSelectors": [
+            "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-TURN-REWRITE] applies the cut point's rewrite rule to each rewriter's own answer rather than to the final value",
+            "test/operations/runtime.test.ts#Facet runtime [C13-INTERCEPTOR-MODE-FIDELITY] polices a rewriting gate at every Turn-bound cut point instead of refusing the declaration it could not police"
+        ],
+        "checkerInvariants": [
+            "ACQ-IMPORT",
+            "ACQ-TEST"
+        ],
+        "remainingEvidence": [
+            "Recorded discrimination, which is not this row's to write; W0 owns artifacts/quality/discrimination/operations.json and it carries no attribution for selectors newer than the last mutation run. Measured by hand in a detached worktree: moving the admit call after the loop so it sees only the final value kills the per-rewriter selector from inside TurnInterceptorRunner, and deleting the gate-fidelity comparison kills the mode-fidelity selector from inside the same symbol.",
+            "The per-rewriter selector is a join rather than two facts side by side: the refusal names the FIRST rewriter, and the recorded sequence of values offered to the rule is exactly one entry, so a runner that checked only the value it ended with would have admitted the illegal answer that the second rewriter overwrote. A test asserting only that the illegal answer was refused would pass against that defect."
+        ]
     }
   ]
 }

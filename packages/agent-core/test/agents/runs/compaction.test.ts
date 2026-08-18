@@ -20,7 +20,14 @@ import {
     type TurnModelCall,
     type TurnOutcome
 } from "../../../src/agents/runs/executor";
-import { ids, pins, refs, seedRunningTurn, type Assembled } from "./fixture";
+import {
+    UncontributedCutPoints,
+    ids,
+    pins,
+    refs,
+    seedRunningTurn,
+    type Assembled
+} from "./fixture";
 
 type Harness = ReturnType<typeof seedRunningTurn>;
 
@@ -196,6 +203,7 @@ function dispatcher(value: Harness, store: MemoryContentStore, output: ContentRe
         host: (body) =>
             new TurnExecutorHost({
                 runtime: value.runtime,
+                cutPoints: new UncontributedCutPoints(),
                 executor: new CallingExecutor(body),
                 content: store,
                 operations: { resolve: async () => [] },
