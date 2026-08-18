@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { beforeAll, afterEach, describe, expect, test } from "vitest";
+import { objectsAt, readArtifact } from "./artifacts";
 import {
     type QualitySubprocessResult,
     runQualitySubprocess,
@@ -13,9 +14,17 @@ const packageRoot = resolve(import.meta.dirname, "../..");
 const checker = resolve(packageRoot, "scripts/quality/coherence.mjs");
 const temporary: string[] = [];
 let original: string;
+// Derived, never written down. The fixture section must be one §6 subsection the SPEC
+// does not already occupy: spec.mjs refuses a duplicate section id outright, so a
+// hardcoded number turns this whole suite red the moment §6 grows a subsection — which
+// is exactly what §6.4 Plan did.
+let fixtureSection: string;
 
 beforeAll(async () => {
     original = await readFile(resolve(packageRoot, "SPEC.md"), "utf8");
+    const occupied = [...original.matchAll(/^### 6\.(\d+) /gmu)].map(([, index]) => Number(index));
+    if (occupied.length === 0) throw new TypeError("SPEC §6 states no subsection");
+    fixtureSection = `6.${Math.max(...occupied) + 1}`;
 });
 
 afterEach(async () => {
@@ -25,7 +34,11 @@ afterEach(async () => {
 });
 
 describe("SPEC coherence rules", subprocessTestOptions, () => {
-    test("stays green at HEAD against the committed baseline", () => {
+    test("stays green at HEAD against the committed baseline", async () => {
+        const baselined = objectsAt(
+            await readArtifact("artifacts/quality/coherence-baseline.json"),
+            "issues"
+        ).length;
         const result = runQualitySubprocess(
             process.execPath,
             [checker, "--stage", "building"],
@@ -33,11 +46,10 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         );
 
         expect(result.status, result.stderr).toBe(0);
-        // 50 baselined join findings: 49 citations carrying the wrong label or none, and
-        // C13-EFFECT-WRITE-AHEAD, whose label sits on a test its row does not cite. Debt,
-        // not an allowance — a finding that stops reproducing must leave the baseline or
-        // this goes red.
-        expect(result.stdout).toContain("coherence incomplete: 50 issue(s), 0 resolved");
+        // Debt, not an allowance. The count is read from the baseline rather than written
+        // down, because paying debt down must not turn this red; what must turn it red is
+        // a baselined finding that stops reproducing, which the gate reports as resolved.
+        expect(result.stdout).toContain(`coherence incomplete: ${baselined} issue(s), 0 resolved`);
     });
 
     test("binds bracketed atom labels in test titles and nowhere else", async () => {
@@ -186,7 +198,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
             })
         );
         expect(normative.status).toBe(1);
-        expect(normative.stderr).toContain("Normative §6.4 rule is bound by no atom");
+        expect(normative.stderr).toContain(`Normative §${fixtureSection} rule is bound by no atom`);
     });
 
     test("does not let inline code splice a visible wave token", async () => {
@@ -214,7 +226,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
 
         expect(result.status, result.stderr).toBe(0);
         expect(result.stderr).not.toContain("COH-UNDEFINED-TOKEN");
-        expect(result.stderr).not.toContain("Normative §6.4");
+        expect(result.stderr).not.toContain(`Normative §${fixtureSection}`);
     });
 
     test("owns a rule through a tab-separated structural heading", async () => {
@@ -303,7 +315,9 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         });
         const unboundResult = run(unbound);
         expect(unboundResult.status).toBe(1);
-        expect(unboundResult.stderr).toContain("Normative §6.4 carries no conformance atom");
+        expect(unboundResult.stderr).toContain(
+            `Normative §${fixtureSection} carries no conformance atom`
+        );
 
         const bound = await fixture({
             spec: insertSection(
@@ -313,7 +327,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         });
         const boundResult = run(bound);
         expect(boundResult.status, boundResult.stderr).toBe(0);
-        expect(boundResult.stderr).not.toContain("§6.4");
+        expect(boundResult.stderr).not.toContain(`§${fixtureSection}`);
         expect(boundResult.stderr).not.toContain("Normative §5.2 carries no conformance atom");
     });
 
@@ -328,7 +342,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         const result = run(await fixture({ spec: insertSection(original, body) }));
 
         expect(result.status).toBe(1);
-        expect(result.stderr).toContain("Normative §6.4 rule is bound by no atom");
+        expect(result.stderr).toContain(`Normative §${fixtureSection} rule is bound by no atom`);
     });
 
     test.each([
@@ -363,7 +377,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         const result = run(await fixture({ spec: insertSection(original, body) }));
 
         expect(result.status).toBe(1);
-        expect(result.stderr).toContain("Normative §6.4 rule is bound by no atom");
+        expect(result.stderr).toContain(`Normative §${fixtureSection} rule is bound by no atom`);
     });
 
     test.each([
@@ -382,7 +396,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         const result = run(await fixture({ spec: insertSection(original, body) }));
 
         expect(result.status).toBe(1);
-        expect(result.stderr).toContain("Normative §6.4 rule is bound by no atom");
+        expect(result.stderr).toContain(`Normative §${fixtureSection} rule is bound by no atom`);
         expect(result.stderr).toContain(title);
     });
 
@@ -406,7 +420,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         const result = run(await fixture({ spec: insertSection(original, body) }));
 
         expect(result.status).toBe(1);
-        expect(result.stderr).toContain(`Normative §6.4 ${message}`);
+        expect(result.stderr).toContain(`Normative §${fixtureSection} ${message}`);
     });
 
     test("rejects a structurally bold undefined requirement ID", async () => {
@@ -437,7 +451,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         );
 
         expect(result.status, result.stderr).toBe(0);
-        expect(result.stderr).not.toContain("§6.4");
+        expect(result.stderr).not.toContain(`§${fixtureSection}`);
     });
 
     test("reports one structural rule unit hashed into more atoms than the bound allows", async () => {
@@ -523,7 +537,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         const unrecordedResult = run(unrecorded);
         expect(unrecordedResult.status).toBe(1);
         expect(unrecordedResult.stderr).toContain(
-            "Normative §6.4 rule is bound by no atom and no disposition judges it"
+            `Normative §${fixtureSection} rule is bound by no atom and no disposition judges it`
         );
         expect(unrecordedResult.stderr).toContain("Every fixture obligation MUST hold.");
 
@@ -535,12 +549,15 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
         });
         const anchoredResult = run(anchored);
         expect(anchoredResult.status, anchoredResult.stderr).toBe(0);
-        expect(anchoredResult.stderr).not.toContain("§6.4");
+        expect(anchoredResult.stderr).not.toContain(`§${fixtureSection}`);
     });
 
     test("refuses a baseline that accepts an unjudged normative rule as debt", async () => {
         const spec = insertSection(original, "Every fixture obligation MUST hold.");
-        const fingerprint = /ACQ-NORM:\S+:6\.4:\S+/u.exec(run(await fixture({ spec })).stderr)?.[0];
+        const fingerprint = new RegExp(
+            `ACQ-NORM:\\S+:${fixtureSection.replace(".", "\\.")}:\\S+`,
+            "u"
+        ).exec(run(await fixture({ spec })).stderr)?.[0];
         expect(fingerprint).toBeDefined();
 
         const accepted = await fixture({
@@ -551,7 +568,7 @@ describe("SPEC coherence rules", subprocessTestOptions, () => {
                     {
                         rule: "ACQ-NORM",
                         file: "SPEC.md",
-                        symbol: "6.4",
+                        symbol: fixtureSection,
                         message: "accepted as debt",
                         fingerprint
                     }
@@ -876,11 +893,11 @@ function combineTurnRetryRules(spec: string): string {
     return `${spec.slice(0, start)}${combined}${spec.slice(end)}`;
 }
 
-/** A §6.4 that §7 does not yet occupy, so the fixture adds prose without moving any atom. */
+/** A §6 subsection §7 does not yet occupy, so the fixture adds prose without moving any atom. */
 function insertSection(spec: string, body: string): string {
     return spec.replace(
         "## 7. Mediation (L4)",
-        `### 6.4 Fixture\n\n${body}\n\n## 7. Mediation (L4)`
+        `### ${fixtureSection} Fixture\n\n${body}\n\n## 7. Mediation (L4)`
     );
 }
 

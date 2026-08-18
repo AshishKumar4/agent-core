@@ -1,6 +1,7 @@
-import { basename, relative, resolve } from "node:path";
+import { basename, dirname, relative, resolve, sep } from "node:path";
 import * as ts from "typescript/unstable/ast";
-import { hasModifier, sourceFiles } from "./compiler.mjs";
+import { SignatureKind, SymbolFlags } from "typescript/unstable/sync";
+import { configuration, hasModifier, openProject, sourceFiles } from "./compiler.mjs";
 import {
     artifactRoot,
     assertArray,
@@ -19,6 +20,7 @@ import {
     writeCanonicalJson
 } from "./project.mjs";
 import { vocabularyDeclarationNames } from "./export-registry.mjs";
+import { ownersForPath, patternsForOwnership } from "./ownership.mjs";
 import { canonicalSpec } from "./spec.mjs";
 
 // Weakening a type is how a wrong program stops being rejected, so every escape is
@@ -52,12 +54,18 @@ const files = (await Promise.all(roots.map((root) => collectFiles(root, isTypeSc
     .flat()
     .sort();
 const issues = [];
+// Tuple omissions, kept structured beside the issue list because their ledger names the
+// codec and the class it fails to seal rather than a fingerprint alone. See `loadCodecOwed`.
+const codecOmissions = [];
 /**
  * The rules here fall into two categories, and they need different success conditions.
  *
  * Every other rule is a defect rule: ACQ-ERR, ACQ-ID, ACQ-CODEC, ACQ-IMMUTABLE and
- * ACQ-VOCAB each flag something wrong that has a fix, so their correct target is zero,
- * and the tree has driven all of them there.
+ * ACQ-VOCAB each flag something wrong that has a fix, so their correct target is zero.
+ * A defect that is not yet fixed is carried as debt, enumerated and never exempted: its
+ * ledger entry states what is owed rather than why it stands, it remains outstanding, and
+ * the final stage refuses while it is there. Debt lets the building stage move without
+ * letting the release claim be made.
  *
  * The rules below are shape rules. They flag a construction that requires review rather
  * than a defect: a composite key, a rendered comparison, a locale-dependent operation.
@@ -101,6 +109,7 @@ for (const [path, parsed] of sourceFiles(files)) {
     }
 }
 
+const codecBindings = checkCodecBindings();
 reconcilePermits();
 const spec = await canonicalSpec(options.spec);
 await checkSpecVocabulary(spec, options.exports, options.vocabulary);
@@ -166,15 +175,28 @@ for (const field of recordFields) {
 }
 
 issues.sort((left, right) => compareCanonicalText(left.fingerprint, right.fingerprint));
+codecOmissions.sort((left, right) => compareCanonicalText(left.fingerprint, right.fingerprint));
 const baseline = await loadBaseline(options.baseline);
+const owed = await loadCodecOwed(options.codecOwed);
 const baselineFingerprints = new Set(baseline.issues.map((item) => item.fingerprint));
 const currentFingerprints = new Set(issues.map((item) => item.fingerprint));
-const additions = issues.filter((item) => !baselineFingerprints.has(item.fingerprint));
+// A tuple omission is ledgered in the owed list and nowhere else. Two ledgers for one
+// finding would let a baselined omission outlive the owed list's discharge check, and that
+// check is the only thing making the list a ratchet rather than a filter.
+const omissions = new Map(codecOmissions.map((item) => [item.fingerprint, item]));
+const ledgered = new Set(
+    owed.owed.map((entry) => entry.fingerprint).filter((fingerprint) => omissions.has(fingerprint))
+);
+const discharged = owed.owed.filter((entry) => !omissions.has(entry.fingerprint));
+const misledgered = baseline.issues.filter((item) => omissions.has(item.fingerprint));
+const additions = issues.filter(
+    (item) => !baselineFingerprints.has(item.fingerprint) && !ledgered.has(item.fingerprint)
+);
 const resolved = baseline.issues.filter((item) => !currentFingerprints.has(item.fingerprint));
-// ACQ-ERR and its siblings flag debt: each site has a fix, and the tree has driven all
-// of them to zero. ACQ-KEY and ACQ-RENDER flag a shape instead, and a shape can be sound
-// -- a delimiter is safe when no component can contain it, and several flagged sites are
-// not identities at all but a SemVer rendering, a URL, a SQL fragment. Their terminal
+// ACQ-ERR and its siblings flag a defect: every site has a fix, so an outstanding one is a
+// debt awaiting payment. ACQ-KEY and ACQ-RENDER flag a shape instead, and a shape can be
+// sound -- a delimiter is safe when no component can contain it, and several flagged sites
+// are not identities at all but a SemVer rendering, a URL, a SQL fragment. Their terminal
 // state is therefore a written proof, not an empty list, so a site whose baseline entry
 // carries one is reviewed rather than outstanding. New sites still fail outright at every
 // stage, and a baseline entry without a reason still fails, so nothing is silenced.
@@ -187,8 +209,11 @@ const outstanding = issues.filter((item) => !reviewed.has(item.fingerprint));
 const report = {
     stage: options.stage,
     files: files.map((path) => portable(relative(options.root, path))),
+    codecBindings,
     issues,
     additions,
+    owed: [...ledgered].sort(compareCanonicalText),
+    discharged,
     resolved,
     outstanding,
     complete: outstanding.length === 0
@@ -207,14 +232,43 @@ if (options.writeBaseline) {
     );
     await writeCanonicalJson(options.baseline, {
         edition: "1.0.0",
-        issues: issues.map((item) => {
-            const reason = reasons.get(item.fingerprint);
-            return reason === undefined ? item : { ...item, reason };
-        })
+        issues: issues
+            .filter((item) => !omissions.has(item.fingerprint))
+            .map((item) => {
+                const reason = reasons.get(item.fingerprint);
+                return reason === undefined ? item : { ...item, reason };
+            })
     });
+} else if (options.updateOwed) {
+    if (process.env.QUALITY_WRITE_BASELINE !== "1" || process.env.CI) {
+        throw new TypeError(
+            "Writing the codec closure owed list requires QUALITY_WRITE_BASELINE=1 outside CI"
+        );
+    }
+    const patterns = patternsForOwnership(
+        await readCanonicalJson(resolve(artifactRoot, "quality/ownership.json"))
+    );
+    await writeCanonicalJson(options.codecOwed, {
+        edition: "1.0.0",
+        owed: codecOmissions.map((omission) => owedCodecClosure(omission, patterns))
+    });
+    console.log(`recorded ${codecOmissions.length} owed codec closure(s)`);
 } else {
     await writeCanonicalJson(resolve(reportRoot, "architecture.json"), report);
     if (additions.length > 0) fail("New architecture violations", additions);
+    // Paying a debt down means deleting its entry in the same change. A list that keeps an
+    // entry whose finding stopped reproducing re-accepts the omission the moment it returns,
+    // silently, so a discharged entry fails exactly as a new finding does.
+    if (discharged.length > 0)
+        fail(
+            "Discharged codec closure debt left in the owed list",
+            discharged.map((entry) => ({
+                fingerprint: entry.fingerprint,
+                message: `${entry.codec} no longer omits ${entry.missing}; remove this entry from ${basename(options.codecOwed)}`
+            }))
+        );
+    if (misledgered.length > 0)
+        fail("Codec closure debt belongs in the owed list, not the baseline", misledgered);
     // A composite identity or a rendered comparison is permitted only with the argument
     // for why it is sound written down beside it, so the next reader inherits the proof
     // rather than the assumption.
@@ -228,7 +282,7 @@ if (options.writeBaseline) {
     if (options.stage === "final" && outstanding.length > 0)
         fail("Final architecture violations", outstanding);
     console.log(
-        `architecture ${report.complete ? "complete" : "incomplete"}: ${outstanding.length} outstanding, ${reviewed.size} reviewed, ${resolved.length} resolved`
+        `architecture ${report.complete ? "complete" : "incomplete"}: ${outstanding.length} outstanding, ${reviewed.size} reviewed, ${ledgered.size} codec closure(s) owed, ${resolved.length} resolved; ${codecBindings.instances} codec instance(s)`
     );
 }
 
@@ -396,6 +450,1385 @@ function inspectNode(node, source, file, aliases) {
             vocabularies.set(key, locations);
         }
     }
+}
+
+function checkCodecBindings() {
+    const coreSource = resolve(packageRoot, "src");
+    const harnessSource = resolve(repositoryRoot, "packages/agent-core-harness/src");
+    const targets =
+        options.root === repositoryRoot
+            ? [
+                  {
+                      config: resolve(packageRoot, "tsconfig.json"),
+                      entryRoots: [coreSource],
+                      ownedRoots: [coreSource]
+                  },
+                  {
+                      config: resolve(repositoryRoot, "packages/agent-core-harness/tsconfig.json"),
+                      entryRoots: [harnessSource],
+                      ownedRoots: [coreSource, harnessSource],
+                      // The harness resolves the core package through its workspace name.
+                      // Reading its declarations instead would give the checker a second
+                      // symbol for every class the tuple rule compares by identity.
+                      compilerOptions: {
+                          baseUrl: repositoryRoot,
+                          paths: { "@agent-core/core/*": ["packages/agent-core/src/*/index.ts"] }
+                      }
+                  }
+              ]
+            : [
+                  {
+                      entryRoots: [resolve(options.root, "src")],
+                      ownedRoots: [resolve(options.root, "src")]
+                  }
+              ];
+    const total = {
+        behavioralDependencies: 0,
+        behavioralSubclasses: 0,
+        classBacked: 0,
+        concreteSubclasses: 0,
+        genericFactories: 0,
+        instances: 0,
+        interfaceOrPlain: 0,
+        moduleLevelInstances: 0,
+        runtimeInstances: 0,
+        subclasses: 0
+    };
+    for (const target of targets) {
+        const observed = checkCodecTarget(target);
+        for (const key of Object.keys(total)) total[key] += observed[key];
+    }
+    return total;
+}
+
+/**
+ * One project per target, because a symbol is only comparable with symbols the same
+ * checker produced and every rule below compares class identity. A target naming a
+ * configuration inherits its resolved options; a fixture root names none and gets the
+ * settings this package compiles under, since a fixture carries source and nothing else.
+ */
+function codecProject(target) {
+    if (target.config === undefined) {
+        return openProject({
+            files: files.filter((file) => isWithin(file, target.entryRoots)),
+            compilerOptions: {
+                module: "esnext",
+                moduleResolution: "bundler",
+                strict: true,
+                target: "es2022"
+            }
+        });
+    }
+    return openProject({
+        files: configuration(target.config).fileNames,
+        extend: target.config,
+        compilerOptions: target.compilerOptions ?? {}
+    });
+}
+
+/** Every non-declaration source of a program that lies under one of `roots`. */
+function projectSources(program, roots) {
+    return program
+        .getSourceFileNames()
+        .filter((name) => isWithin(name, roots))
+        .map((name) => program.getSourceFile(name))
+        .filter((source) => source !== undefined && !source.isDeclarationFile);
+}
+
+function checkCodecTarget(target) {
+    const { program, checker } = codecProject(target);
+    const ownedSources = projectSources(program, target.ownedRoots);
+    const sources = projectSources(program, target.entryRoots);
+    const recordCodecBases = recordCodecSymbols(ownedSources, checker);
+    const structuralCopiers = structuralCopierSymbols(program, checker, target.ownedRoots);
+    const nativeBinds = nativeBindSymbols(program, checker);
+    const projectDescendants = classDescendants(ownedSources, checker);
+    const codecClasses = new Map();
+    const entries = [];
+    const census = {
+        behavioralDependencies: 0,
+        behavioralSubclasses: 0,
+        classBacked: 0,
+        concreteSubclasses: 0,
+        genericFactories: 0,
+        instances: 0,
+        interfaceOrPlain: 0,
+        moduleLevelInstances: 0,
+        runtimeInstances: 0,
+        subclasses: 0
+    };
+
+    for (const source of sources) {
+        visit(source, (node) => {
+            if (!ts.isClassLikeDeclaration(node)) return;
+            const codec = classSymbol(node, checker);
+            const recordType = recordCodecRecordType(node, checker, recordCodecBases);
+            if (recordType === undefined || codec === undefined) return;
+            const record = resolvedSymbol(
+                recordType.getAliasSymbol() ?? recordType.getSymbol(),
+                checker
+            );
+            if (record === undefined) return;
+            census.subclasses += 1;
+            const behavioralDependencies = checkCodecBehavioralDependencies(node, source, checker);
+            if (behavioralDependencies > 0) {
+                census.behavioralSubclasses += 1;
+                census.behavioralDependencies += behavioralDependencies;
+            }
+            if (record.flags & SymbolFlags.TypeParameter) {
+                census.genericFactories += 1;
+                checkCodecFactory(node, source, checker);
+                codecClasses.set(codec, {
+                    declaration: node,
+                    generic: true,
+                    record
+                });
+                return;
+            }
+            census.concreteSubclasses += 1;
+            const tuple = codecSuperTuple(node);
+            if (tuple === undefined) {
+                codecIssue(
+                    source,
+                    codec.name,
+                    "RecordCodec subclasses must bind a literal nonempty class tuple"
+                );
+                return;
+            }
+            const classes = codecTupleSymbols(tuple, checker);
+            if (classes[0] !== record) {
+                codecIssue(
+                    source,
+                    codec.name,
+                    "RecordCodec tuple must name its exact concrete record class first"
+                );
+            }
+            const roots = codecPayloadMethods(codec, checker);
+            const binding = concreteCodecMethodBinding(roots, record, checker);
+            codecClasses.set(codec, { record, declaration: node, classes, generic: false });
+            entries.push({
+                source,
+                scope: node,
+                symbol: codec.name,
+                classes,
+                roots: [...roots, ...binding.roots],
+                seedDependencies: binding.dependencies,
+                resolvedDynamicCalls: binding.resolvedDynamicCalls,
+                record,
+                codec
+            });
+        });
+    }
+
+    for (const source of sources) {
+        visit(source, (node) => {
+            if (!ts.isNewExpression(node)) return;
+            const constructed = constructedClassSymbol(node, checker);
+            const codecClass = codecClasses.get(constructed);
+            if (codecClass === undefined) return;
+            census.instances += 1;
+            if (isModuleLevelConstruction(node)) census.moduleLevelInstances += 1;
+            else census.runtimeInstances += 1;
+            const constructionRecord = codecClass.generic
+                ? genericCodecRecord(node, checker)
+                : codecClass.record;
+            if (constructionRecord?.declarations?.some(ts.isClassDeclaration)) {
+                census.classBacked += 1;
+            } else {
+                census.interfaceOrPlain += 1;
+            }
+            if (!codecClass.generic) {
+                checkCodecConstruction(source, node, codecClass.classes);
+                return;
+            }
+            const tuple = node.arguments?.[0];
+            if (tuple === undefined || !ts.isArrayLiteralExpression(tuple)) {
+                codecIssue(
+                    source,
+                    symbolAt(node, source),
+                    "Generic RecordCodec instances must bind a literal nonempty class tuple"
+                );
+                return;
+            }
+            const classes = codecTupleSymbols(tuple, checker);
+            const primary = classes[0];
+            if (primary === undefined) {
+                codecIssue(source, symbolAt(node, source), "Codec class tuple must be nonempty");
+                return;
+            }
+            const inferred = genericCodecRecord(node, checker);
+            if (inferred !== primary) {
+                codecIssue(
+                    source,
+                    symbolAt(node, source),
+                    "Generic RecordCodec tuple must name its inferred concrete record class first"
+                );
+            }
+            const binding = genericCodecBinding(node, codecClass, primary, checker);
+            checkCodecConstruction(source, node, classes);
+            entries.push({
+                source,
+                scope: node,
+                symbol: symbolAt(node, source),
+                classes,
+                roots: binding.roots,
+                seedDependencies: binding.dependencies,
+                resolvedDynamicCalls: binding.resolvedDynamicCalls,
+                record: primary,
+                codec: undefined
+            });
+        });
+    }
+
+    // Which codecs' tuples name each class. A debt filed against an omitted class needs to
+    // say whether anything freezes that class at all, and when something does, that the
+    // freeze is another codec's construction rather than this codec's seal.
+    const namedBy = new Map();
+    for (const entry of entries) {
+        const codec = `${portable(relative(options.root, entry.source.fileName))}#${entry.symbol}`;
+        for (const named of entry.classes) {
+            namedBy.set(named, [...(namedBy.get(named) ?? []), codec]);
+        }
+    }
+    for (const entry of entries) {
+        const seen = new Set();
+        const reached = new Set(entry.seedDependencies ?? []);
+        const closure = dependencies(
+            entry.roots,
+            entry.codec,
+            seen,
+            entry.resolvedDynamicCalls ?? new Set(),
+            entry.record,
+            projectDescendants
+        );
+        for (const dependency of closure.classes) {
+            reached.add(dependency);
+        }
+        for (const unresolved of closure.unresolved) {
+            codecIssue(entry.source, entry.symbol, unresolved);
+        }
+        for (const dependency of reached) {
+            if (entry.classes.includes(dependency)) continue;
+            const declaration = dependency.declarations.find(ts.isClassDeclaration);
+            const omission = codecIssue(
+                entry.source,
+                entry.symbol,
+                `Codec tuple omits reached project class ${dependency.name}`
+            );
+            codecOmissions.push({
+                fingerprint: omission.fingerprint,
+                file: omission.file,
+                codec: entry.symbol,
+                missing: dependency.name,
+                missingFile: portable(relative(options.root, declaration.path)),
+                namedBy: (namedBy.get(dependency) ?? []).sort(compareCanonicalText)
+            });
+        }
+    }
+
+    function codecTupleSymbols(tuple, semanticChecker) {
+        const classes = [];
+        for (const element of tuple.elements) {
+            const recordClass = resolvedSymbol(
+                semanticChecker.getSymbolAtLocation(element),
+                semanticChecker
+            );
+            const declaration = recordClass?.declarations?.find(ts.isClassDeclaration);
+            if (
+                recordClass === undefined ||
+                declaration === undefined ||
+                !isWithin(declaration.path, target.ownedRoots)
+            ) {
+                codecIssue(
+                    tuple.getSourceFile(),
+                    symbolAt(tuple, tuple.getSourceFile()),
+                    "Codec tuples may contain only explicit project-owned classes"
+                );
+                continue;
+            }
+            if (classes.includes(recordClass)) {
+                codecIssue(
+                    tuple.getSourceFile(),
+                    symbolAt(tuple, tuple.getSourceFile()),
+                    `Codec tuple duplicates project class ${recordClass.name}`
+                );
+                continue;
+            }
+            classes.push(recordClass);
+        }
+        return classes;
+    }
+
+    function codecIssue(source, symbol, message) {
+        return issue(
+            "ACQ-CODEC",
+            portable(relative(options.root, source.fileName)),
+            symbol,
+            message
+        );
+    }
+
+    function checkCodecBehavioralDependencies(node, source, semanticChecker) {
+        const constructor = node.members.find(ts.isConstructorDeclaration);
+        if (constructor?.body === undefined) return 0;
+        let dependencies = 0;
+        let invalid = !endsWithThisFreeze(constructor);
+
+        for (const parameter of constructor.parameters) {
+            if (!ts.isIdentifier(parameter.name)) {
+                invalid = true;
+                continue;
+            }
+            const symbol = resolvedSymbol(
+                semanticChecker.getSymbolAtLocation(parameter.name),
+                semanticChecker
+            );
+            if (symbol === undefined) continue;
+            const parameterProperty = parameter.modifiers?.length > 0;
+            const references = [];
+            visit(constructor.body, (candidate) => {
+                if (
+                    ts.isIdentifier(candidate) &&
+                    !enclosedBySuperCall(candidate, constructor) &&
+                    resolvedSymbol(
+                        semanticChecker.getSymbolAtLocation(candidate),
+                        semanticChecker
+                    ) === symbol
+                ) {
+                    references.push(candidate);
+                }
+            });
+            if (!parameterProperty && references.length === 0) continue;
+            dependencies += 1;
+            invalid ||= parameterProperty;
+            for (const reference of references) {
+                invalid ||= !isPrivateTrustCapture(
+                    reference,
+                    constructor,
+                    semanticChecker,
+                    structuralCopiers,
+                    nativeBinds
+                );
+            }
+        }
+
+        if (dependencies === 0) return 0;
+        if (invalid) {
+            codecIssue(
+                source,
+                node.name?.text ?? "RecordCodec",
+                "RecordCodec injected behavior must cross its trust boundary into private state before a final Object.freeze(this)"
+            );
+        }
+        return dependencies;
+    }
+
+    function dependencies(roots, codec, seen, resolvedDynamicCalls, record, descendants) {
+        return codecDependencies(
+            roots,
+            codec,
+            checker,
+            seen,
+            (path) => isWithin(path, target.ownedRoots),
+            resolvedDynamicCalls,
+            record,
+            descendants,
+            recordCodecBases
+        );
+    }
+
+    return census;
+}
+
+function enclosedBySuperCall(node, constructor) {
+    for (let current = node; current !== constructor; current = current.parent) {
+        if (
+            ts.isCallExpression(current) &&
+            current.expression.kind === ts.SyntaxKind.SuperKeyword
+        ) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function isPrivateTrustCapture(node, constructor, checker, structuralCopiers, nativeBinds) {
+    let crossedBoundary = false;
+    for (let current = node.parent; current !== constructor; current = current.parent) {
+        if (ts.isCallExpression(current)) {
+            const called = calledSymbol(current, checker);
+            if (structuralCopiers.has(called)) crossedBoundary = true;
+            if (
+                nativeBinds.has(called) &&
+                current.arguments.length === 1 &&
+                current.arguments[0].kind === ts.SyntaxKind.Identifier &&
+                current.arguments[0].getText() === "undefined"
+            ) {
+                crossedBoundary = true;
+            }
+        }
+        if (
+            ts.isBinaryExpression(current) &&
+            current.operatorToken.kind === ts.SyntaxKind.EqualsToken
+        ) {
+            return (
+                crossedBoundary &&
+                ts.isPropertyAccessExpression(current.left) &&
+                current.left.expression.kind === ts.SyntaxKind.ThisKeyword &&
+                ts.isPrivateIdentifier(current.left.name)
+            );
+        }
+    }
+    return false;
+}
+
+function endsWithThisFreeze(constructor) {
+    const statement = constructor.body.statements.at(-1);
+    if (statement === undefined || !ts.isExpressionStatement(statement)) return false;
+    const node = statement.expression;
+    return (
+        ts.isCallExpression(node) &&
+        node.arguments.length === 1 &&
+        ts.isPropertyAccessExpression(node.expression) &&
+        node.expression.expression.getText() === "Object" &&
+        node.expression.name.text === "freeze" &&
+        node.arguments[0].kind === ts.SyntaxKind.ThisKeyword
+    );
+}
+
+function recordCodecSymbols(sources, checker) {
+    const symbols = new Set();
+    for (const source of sources) {
+        visit(source, (node) => {
+            if (!ts.isClassLikeDeclaration(node) || node.name?.text !== "RecordCodec") return;
+            const symbol = classSymbol(node, checker);
+            if (symbol !== undefined) symbols.add(symbol);
+        });
+    }
+    return symbols;
+}
+
+/**
+ * The base types of a class type. An instantiated generic arrives as a type reference and
+ * reports no bases of its own — they belong to the generic it instantiates — so the walk
+ * reads through the target. Asking the reference directly stops the chain one link short,
+ * which is a codec whose record this rule then never sees.
+ */
+function baseTypesOf(checker, type) {
+    return checker.getBaseTypes(type.isTypeReference() ? (type.getTarget() ?? type) : type) ?? [];
+}
+
+function recordCodecRecordType(node, checker, recordCodecBases) {
+    const symbol = classSymbol(node, checker);
+    if (symbol === undefined || recordCodecBases.has(symbol)) return undefined;
+    const declared = checker.getDeclaredTypeOfSymbol(symbol);
+    const seen = new Set();
+    const pending = [...baseTypesOf(checker, declared)];
+    let reachesRecordCodec = false;
+    while (pending.length > 0) {
+        const candidate = pending.pop();
+        if (candidate === undefined || seen.has(candidate)) continue;
+        seen.add(candidate);
+        const base = resolvedSymbol(candidate.getAliasSymbol() ?? candidate.getSymbol(), checker);
+        if (base !== undefined && recordCodecBases.has(base)) {
+            reachesRecordCodec = true;
+            break;
+        }
+        pending.push(...baseTypesOf(checker, candidate));
+    }
+    if (!reachesRecordCodec) return undefined;
+    const encoder = checker.getPropertyOfType(declared, "encodePayload");
+    if (encoder === undefined) return undefined;
+    // Through the checker, not through `signature.parameters`: a signature hands back
+    // detached parameter symbols the checker refuses as handles.
+    const signature = checker.getSignaturesOfType(
+        checker.getTypeOfSymbolAtLocation(encoder, node),
+        SignatureKind.Call
+    )[0];
+    return signature === undefined ? undefined : checker.getParameterType(signature, 0);
+}
+
+function structuralCopierSymbols(program, checker, ownedRoots) {
+    const symbols = new Set();
+    for (const source of programSources(program)) {
+        if (
+            source.isDeclarationFile ||
+            !isWithin(source.fileName, ownedRoots) ||
+            !portable(source.fileName).endsWith("/src/invocations/codec.ts")
+        ) {
+            continue;
+        }
+        const module = checker.getSymbolAtLocation(source);
+        for (const exported of module === undefined ? [] : checker.getExportsOfModule(module)) {
+            if (exported.name === "copyStructuralCodec") {
+                const symbol = resolvedSymbol(exported, checker);
+                if (symbol !== undefined) symbols.add(symbol);
+            }
+        }
+    }
+    return symbols;
+}
+
+function nativeBindSymbols(program, checker) {
+    const symbols = new Set();
+    for (const source of programSources(program)) {
+        if (!program.isSourceFileDefaultLibrary(source)) continue;
+        visit(source, (node) => {
+            if (
+                (ts.isMethodSignatureDeclaration(node) || ts.isMethodDeclaration(node)) &&
+                node.name?.getText(source) === "bind"
+            ) {
+                const symbol = resolvedSymbol(checker.getSymbolAtLocation(node.name), checker);
+                if (symbol !== undefined) symbols.add(symbol);
+            }
+        });
+    }
+    return symbols;
+}
+
+function calledSymbol(call, checker) {
+    const expression = call.expression;
+    return resolvedSymbol(
+        checker.getSymbolAtLocation(
+            ts.isPropertyAccessExpression(expression) ? expression.name : expression
+        ),
+        checker
+    );
+}
+
+/**
+ * The class a construction names. The instance type is what resolves it: `new Renamed()`
+ * and `new Codecs.Renamed()` both produce the type the class declares, while the
+ * constructed expression's own symbol stops at the binding that renamed it. Reading the
+ * construct signature's declaration instead is not available here — a signature's
+ * declaration is a detached node the checker will not accept back.
+ */
+function constructedClassSymbol(node, checker) {
+    const instance = checker.getTypeAtLocation(node);
+    return resolvedSymbol(instance.getAliasSymbol() ?? instance.getSymbol(), checker);
+}
+
+function codecPayloadMethods(codec, checker) {
+    const declared = checker.getDeclaredTypeOfSymbol(codec);
+    const roots = [];
+    for (const name of ["encodePayload", "decodePayload"]) {
+        for (const declaration of declarationsOf(checker.getPropertyOfType(declared, name))) {
+            if (ts.isMethodDeclaration(declaration)) roots.push(declaration);
+        }
+    }
+    return roots;
+}
+
+function classDescendants(sources, checker) {
+    const direct = new Map();
+    for (const source of sources) {
+        visit(source, (node) => {
+            if (!ts.isClassLikeDeclaration(node)) return;
+            const derived = classSymbol(node, checker);
+            if (derived === undefined) return;
+            for (const clause of node.heritageClauses ?? []) {
+                if (clause.token !== ts.SyntaxKind.ExtendsKeyword) continue;
+                for (const type of clause.types) {
+                    const base = resolvedSymbol(
+                        checker.getSymbolAtLocation(type.expression),
+                        checker
+                    );
+                    if (base === undefined) continue;
+                    const entries = direct.get(base) ?? [];
+                    entries.push({ declaration: node, symbol: derived });
+                    direct.set(base, entries);
+                }
+            }
+        });
+    }
+    return (base) => {
+        const result = [];
+        const seen = new Set();
+        const pending = [...(direct.get(base) ?? [])];
+        while (pending.length > 0) {
+            const candidate = pending.pop();
+            if (candidate === undefined || seen.has(candidate.symbol)) continue;
+            seen.add(candidate.symbol);
+            result.push(candidate);
+            pending.push(...(direct.get(candidate.symbol) ?? []));
+        }
+        return result.sort((left, right) => {
+            const byFile = compareCanonicalText(
+                left.declaration.getSourceFile().fileName,
+                right.declaration.getSourceFile().fileName
+            );
+            return byFile === 0 ? left.declaration.pos - right.declaration.pos : byFile;
+        });
+    };
+}
+
+function isModuleLevelConstruction(node) {
+    for (let current = node.parent; current !== undefined; current = current.parent) {
+        if (ts.isFunctionLikeDeclaration(current) || ts.isClassStaticBlockDeclaration(current))
+            return false;
+        if (ts.isSourceFile(current)) return true;
+    }
+    return false;
+}
+
+function codecSuperTuple(node) {
+    const constructor = node.members.find(ts.isConstructorDeclaration);
+    const call = constructor?.body?.statements
+        .filter(ts.isExpressionStatement)
+        .map((statement) => statement.expression)
+        .find(
+            (expression) =>
+                ts.isCallExpression(expression) &&
+                expression.expression.kind === ts.SyntaxKind.SuperKeyword
+        );
+    const tuple = call !== undefined && ts.isCallExpression(call) ? call.arguments[0] : undefined;
+    return tuple !== undefined && ts.isArrayLiteralExpression(tuple) ? tuple : undefined;
+}
+
+function checkCodecFactory(node, source, checker) {
+    const constructor = node.members.find(ts.isConstructorDeclaration);
+    const firstParameter = constructor?.parameters[0];
+    const call = constructor?.body?.statements
+        .filter(ts.isExpressionStatement)
+        .map((statement) => statement.expression)
+        .find(
+            (expression) =>
+                ts.isCallExpression(expression) &&
+                expression.expression.kind === ts.SyntaxKind.SuperKeyword
+        );
+    if (
+        firstParameter === undefined ||
+        !ts.isIdentifier(firstParameter.name) ||
+        call === undefined ||
+        !ts.isCallExpression(call) ||
+        resolvedSymbol(checker.getSymbolAtLocation(call.arguments[0]), checker) !==
+            resolvedSymbol(checker.getSymbolAtLocation(firstParameter.name), checker)
+    ) {
+        issue(
+            "ACQ-CODEC",
+            portable(relative(options.root, source.fileName)),
+            node.name?.text ?? "RecordCodec factory",
+            "Generic RecordCodec factories must require and forward their class tuple"
+        );
+    }
+}
+
+function checkCodecConstruction(source, node, classes) {
+    let deferred = false;
+    for (let current = node.parent; current !== undefined; current = current.parent) {
+        if (ts.isFunctionLikeDeclaration(current)) {
+            deferred = true;
+            break;
+        }
+        if (ts.isSourceFile(current)) break;
+    }
+    if (!deferred) {
+        for (const recordClass of classes) {
+            const declaration = declarationsOf(recordClass).find(ts.isClassDeclaration);
+            if (
+                declaration !== undefined &&
+                declaration.getSourceFile() === source &&
+                node.getStart(source) < declaration.getEnd()
+            ) {
+                issue(
+                    "ACQ-CODEC",
+                    portable(relative(options.root, source.fileName)),
+                    symbolAt(node, source),
+                    `Codec construction must follow complete initialization of ${recordClass.name}`
+                );
+            }
+        }
+    }
+    for (let current = node.parent; current !== undefined; current = current.parent) {
+        if (
+            ts.isPropertyDeclaration(current) &&
+            hasModifier(current, ts.SyntaxKind.StaticKeyword)
+        ) {
+            issue(
+                "ACQ-CODEC",
+                portable(relative(options.root, source.fileName)),
+                symbolAt(node, source),
+                "Codec construction is forbidden inside static field initialization"
+            );
+            break;
+        }
+        if (ts.isSourceFile(current)) break;
+    }
+}
+
+function codecDependencies(
+    roots,
+    codec,
+    checker,
+    seen,
+    isOwnedSource,
+    resolvedDynamicCalls,
+    record,
+    descendants,
+    recordCodecBases
+) {
+    const dependencies = new Set();
+    const unresolved = new Set();
+
+    function projectClass(symbol) {
+        const resolved = resolvedSymbol(symbol, checker);
+        const declaration = declarationsOf(resolved).find(ts.isClassDeclaration);
+        return declaration !== undefined && isOwnedSource(declaration.getSourceFile().fileName)
+            ? { declaration, symbol: resolved }
+            : undefined;
+    }
+
+    function inspectClass(recordClass, bindings = new Map()) {
+        const key = `${recordClass.getSourceFile().fileName}:${recordClass.pos}:${bindingKey(bindings)}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+
+        for (const clause of recordClass.heritageClauses ?? []) {
+            if (clause.token !== ts.SyntaxKind.ExtendsKeyword) continue;
+            for (const type of clause.types) {
+                const inherited = projectClass(checker.getSymbolAtLocation(type.expression));
+                if (inherited === undefined || inherited.symbol === codec) continue;
+                dependencies.add(inherited.symbol);
+                inspectClass(inherited.declaration);
+            }
+        }
+
+        for (const member of recordClass.members) {
+            if (ts.isConstructorDeclaration(member)) inspectCallable(member, bindings);
+            if (ts.isPropertyDeclaration(member) && member.initializer !== undefined) {
+                inspectTree(member.initializer, member.initializer, bindings);
+            }
+            if (ts.isClassStaticBlockDeclaration(member)) {
+                inspectTree(member.body, member.body, bindings);
+            }
+        }
+    }
+
+    function inspectCallable(callable, bindings = new Map()) {
+        const key = `${callable.getSourceFile().fileName}:${callable.pos}:${bindingKey(bindings)}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+
+        if (callable.body !== undefined) inspectTree(callable.body, callable.body, bindings);
+    }
+
+    function inspectDescendants(base) {
+        for (const descendant of descendants(base)) {
+            dependencies.add(descendant.symbol);
+            inspectClass(descendant.declaration);
+        }
+    }
+
+    function inspectTree(root, node, bindings) {
+        if (
+            node !== root &&
+            (ts.isFunctionLikeDeclaration(node) || ts.isClassLikeDeclaration(node))
+        )
+            return;
+        if (ts.isPropertyAccessExpression(node)) {
+            const member = resolvedSymbol(checker.getSymbolAtLocation(node.name), checker);
+            const declarations = declarationsOf(member);
+            if (
+                declarations.some(isMutableClassMember) &&
+                !declarations.every((declaration) =>
+                    isBoundCodecOperation(declaration, checker, recordCodecBases)
+                )
+            ) {
+                const receiverType = checker.getTypeAtLocation(node.expression);
+                const receiver = resolvedSymbol(
+                    receiverType.getAliasSymbol() ?? receiverType.getSymbol(),
+                    checker
+                );
+                const receiverClass = projectClass(receiver);
+                if (receiverClass !== undefined && receiverClass.symbol !== codec) {
+                    dependencies.add(receiverClass.symbol);
+                    if (
+                        resolvedSymbol(checker.getSymbolAtLocation(node.expression), checker) !==
+                        receiverClass.symbol
+                    ) {
+                        for (const descendant of descendants(receiverClass.symbol)) {
+                            const overrides = descendant.declaration.members.filter(
+                                (member) =>
+                                    isMutableClassMember(member) &&
+                                    !hasModifier(member, ts.SyntaxKind.StaticKeyword) &&
+                                    member.name?.getText() === node.name.getText()
+                            );
+                            for (const override of overrides) {
+                                dependencies.add(descendant.symbol);
+                                if (
+                                    ts.isMethodDeclaration(override) ||
+                                    ts.isGetAccessorDeclaration(override) ||
+                                    ts.isSetAccessorDeclaration(override)
+                                ) {
+                                    inspectCallable(override, bindings);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            for (const declaration of declarations) {
+                if (
+                    isMutableClassMember(declaration) &&
+                    ts.isClassDeclaration(declaration.parent) &&
+                    declaration.parent.name !== undefined &&
+                    isOwnedSource(declaration.getSourceFile().fileName) &&
+                    !isBoundCodecOperation(declaration, checker, recordCodecBases)
+                ) {
+                    const owner = resolvedSymbol(
+                        checker.getSymbolAtLocation(declaration.parent.name),
+                        checker
+                    );
+                    if (owner !== undefined && owner !== codec) dependencies.add(owner);
+                }
+                if (ts.isGetAccessorDeclaration(declaration))
+                    inspectCallable(declaration, bindings);
+            }
+        }
+        if (ts.isCallExpression(node)) {
+            if (valueIsThrown(node)) {
+                node.forEachChild((child) => inspectTree(root, child, bindings));
+                return;
+            }
+            if (node.expression.kind === ts.SyntaxKind.SuperKeyword) {
+                node.forEachChild((child) => inspectTree(root, child, bindings));
+                return;
+            }
+            const called = resolvedSymbol(
+                checker.getSymbolAtLocation(
+                    ts.isPropertyAccessExpression(node.expression)
+                        ? node.expression.name
+                        : node.expression
+                ),
+                checker
+            );
+            let resolved = false;
+            for (const declaration of declarationsOf(called)) {
+                if (
+                    ts.isFunctionDeclaration(declaration) ||
+                    ts.isMethodDeclaration(declaration) ||
+                    ts.isGetAccessorDeclaration(declaration) ||
+                    ts.isSetAccessorDeclaration(declaration)
+                ) {
+                    if (isBoundCodecOperation(declaration, checker, recordCodecBases)) {
+                        resolved = true;
+                        continue;
+                    }
+                    inspectCallable(
+                        declaration,
+                        callBindings(declaration, node.arguments, bindings)
+                    );
+                    resolved =
+                        declaration.body !== undefined ||
+                        ts.isClassDeclaration(declaration.parent) ||
+                        resolved;
+                }
+            }
+            const target = resolveTarget(node.expression, bindings);
+            for (const callable of target.callables) {
+                inspectCallable(callable, callBindings(callable, node.arguments, bindings));
+                resolved = true;
+            }
+            for (const argument of node.arguments) {
+                const callback = resolveTarget(argument, bindings);
+                for (const callable of callback.callables) {
+                    inspectCallable(callable, bindings);
+                }
+            }
+            if (ts.isArrowFunction(node.expression) || ts.isFunctionExpression(node.expression)) {
+                inspectCallable(
+                    node.expression,
+                    callBindings(node.expression, node.arguments, bindings)
+                );
+                resolved = true;
+            }
+            if (called !== undefined && resolvedDynamicCalls.has(called)) resolved = true;
+            if (
+                !resolved &&
+                !ts.isPropertyAccessExpression(node.expression) &&
+                dynamicTargetIsProjectOwned(node.expression, called)
+            ) {
+                unresolved.add(
+                    `Codec dependency analysis cannot resolve dynamic call ${node.expression.getText()}`
+                );
+            }
+        }
+        if (ts.isNewExpression(node)) {
+            if (valueIsThrown(node)) {
+                node.forEachChild((child) => inspectTree(root, child, bindings));
+                return;
+            }
+            const target = resolveTarget(node.expression, bindings);
+            let resolved = false;
+            for (const constructed of target.classes) {
+                if (constructed.symbol !== codec) {
+                    dependencies.add(constructed.symbol);
+                    const constructor = constructed.declaration.members.find(
+                        ts.isConstructorDeclaration
+                    );
+                    inspectClass(
+                        constructed.declaration,
+                        constructor === undefined
+                            ? new Map()
+                            : callBindings(constructor, node.arguments ?? [], bindings)
+                    );
+                    resolved = true;
+                }
+            }
+            if (!resolved && dynamicTargetIsProjectOwned(node.expression, undefined)) {
+                unresolved.add(
+                    `Codec dependency analysis cannot resolve dynamic construction ${node.expression.getText()}`
+                );
+            }
+        }
+        node.forEachChild((child) => inspectTree(root, child, bindings));
+    }
+
+    const recordClass = projectClass(record);
+    if (recordClass !== undefined) {
+        inspectClass(recordClass.declaration);
+        inspectDescendants(recordClass.symbol);
+    }
+    for (const root of roots) inspectCallable(root);
+    return { classes: dependencies, unresolved };
+
+    // Only the declaring file matters here, which a declaration handle already carries;
+    // resolving each one to a node would cost a round trip to answer the same question.
+    function dynamicTargetIsProjectOwned(expression, symbol) {
+        const declarations = symbol?.declarations ?? [];
+        if (declarations.length > 0) {
+            return declarations.some((declaration) => isOwnedSource(declaration.path));
+        }
+        if (
+            ts.isIdentifier(expression) ||
+            ts.isPropertyAccessExpression(expression) ||
+            ts.isElementAccessExpression(expression)
+        ) {
+            const type = checker.getTypeAtLocation(expression);
+            const typeSymbol = resolvedSymbol(type.getAliasSymbol() ?? type.getSymbol(), checker);
+            const typeDeclarations = typeSymbol?.declarations ?? [];
+            if (typeDeclarations.length > 0) {
+                return typeDeclarations.some((declaration) => isOwnedSource(declaration.path));
+            }
+        }
+        return !ts.isIdentifier(expression) && !ts.isPropertyAccessExpression(expression);
+    }
+
+    function resolveTarget(expression, bindings, resolving = new Set()) {
+        const target = { callables: [], classes: [] };
+        if (isValueWrapper(expression)) {
+            return resolveTarget(expression.expression, bindings, resolving);
+        }
+        if (ts.isPropertyAccessExpression(expression)) {
+            const member = resolveObjectMembers(expression.expression, bindings, resolving).get(
+                expression.name.text
+            );
+            if (member !== undefined) mergeTarget(target, member);
+        }
+        if (ts.isCallExpression(expression)) {
+            const callees = resolveTarget(expression.expression, bindings, resolving);
+            for (const callable of callees.callables) {
+                const returnedBindings = callBindings(callable, expression.arguments, bindings);
+                visitCallableReturns(callable, (returned) => {
+                    mergeTarget(target, resolveTarget(returned, returnedBindings, resolving));
+                });
+            }
+            return target;
+        }
+        if (ts.isElementAccessExpression(expression)) {
+            const members = resolveObjectMembers(expression.expression, bindings, resolving);
+            const selected =
+                ts.isStringLiteral(expression.argumentExpression) ||
+                ts.isNumericLiteral(expression.argumentExpression)
+                    ? [members.get(expression.argumentExpression.text)]
+                    : [...members.values()];
+            for (const member of selected) {
+                if (member !== undefined) mergeTarget(target, member);
+            }
+            return target;
+        }
+        if (ts.isArrowFunction(expression) || ts.isFunctionExpression(expression)) {
+            target.callables.push(expression);
+            return target;
+        }
+        const location = ts.isPropertyAccessExpression(expression) ? expression.name : expression;
+        const symbol = resolvedSymbol(checker.getSymbolAtLocation(location), checker);
+        if (symbol === undefined || resolving.has(symbol)) return target;
+        const bound = bindings.get(symbol);
+        if (bound !== undefined) return bound;
+        const recordClass = projectClass(symbol);
+        if (recordClass !== undefined) target.classes.push(recordClass);
+        resolving.add(symbol);
+        for (const declaration of declarationsOf(symbol)) {
+            if (
+                (ts.isFunctionDeclaration(declaration) ||
+                    ts.isMethodDeclaration(declaration) ||
+                    ts.isGetAccessorDeclaration(declaration)) &&
+                declaration.body !== undefined
+            ) {
+                target.callables.push(declaration);
+            }
+            if (
+                ((ts.isVariableDeclaration(declaration) && isConstVariable(declaration)) ||
+                    ts.isPropertyDeclaration(declaration)) &&
+                declaration.initializer !== undefined
+            ) {
+                mergeTarget(target, resolveTarget(declaration.initializer, bindings, resolving));
+            }
+        }
+        resolving.delete(symbol);
+        return target;
+    }
+
+    function resolveObjectMembers(expression, bindings, resolving) {
+        if (isValueWrapper(expression)) {
+            return resolveObjectMembers(expression.expression, bindings, resolving);
+        }
+        if (
+            ts.isCallExpression(expression) &&
+            ts.isPropertyAccessExpression(expression.expression) &&
+            expression.expression.expression.getText() === "Object" &&
+            expression.expression.name.text === "freeze" &&
+            expression.arguments[0] !== undefined
+        ) {
+            return resolveObjectMembers(expression.arguments[0], bindings, resolving);
+        }
+        if (ts.isCallExpression(expression)) {
+            const members = new Map();
+            const callees = resolveTarget(expression.expression, bindings, resolving);
+            for (const callable of callees.callables) {
+                const returnedBindings = callBindings(callable, expression.arguments, bindings);
+                visitCallableReturns(callable, (returned) => {
+                    mergeMembers(
+                        members,
+                        resolveObjectMembers(returned, returnedBindings, resolving)
+                    );
+                });
+            }
+            return members;
+        }
+        if (ts.isObjectLiteralExpression(expression)) {
+            const members = new Map();
+            for (const property of expression.properties) {
+                if (ts.isPropertyAssignment(property)) {
+                    members.set(
+                        property.name.getText().replaceAll(/^['"]|['"]$/gu, ""),
+                        resolveTarget(property.initializer, bindings, resolving)
+                    );
+                } else if (ts.isShorthandPropertyAssignment(property)) {
+                    members.set(
+                        property.name.text,
+                        resolveTarget(property.name, bindings, resolving)
+                    );
+                } else if (ts.isMethodDeclaration(property)) {
+                    members.set(property.name.getText(), {
+                        callables: [property],
+                        classes: []
+                    });
+                }
+            }
+            return members;
+        }
+        const symbol = resolvedSymbol(checker.getSymbolAtLocation(expression), checker);
+        if (symbol === undefined || resolving.has(symbol)) return new Map();
+        resolving.add(symbol);
+        for (const declaration of declarationsOf(symbol)) {
+            if (
+                (ts.isVariableDeclaration(declaration) || ts.isPropertyDeclaration(declaration)) &&
+                declaration.initializer !== undefined
+            ) {
+                const members = resolveObjectMembers(declaration.initializer, bindings, resolving);
+                resolving.delete(symbol);
+                return members;
+            }
+        }
+        resolving.delete(symbol);
+        return new Map();
+    }
+
+    function mergeMembers(target, addition) {
+        for (const [name, member] of addition) {
+            const existing = target.get(name);
+            if (existing === undefined) target.set(name, member);
+            else mergeTarget(existing, member);
+        }
+    }
+
+    function visitCallableReturns(callable, inspectReturn) {
+        if (callable.body === undefined) return;
+        const inspect = (node) => {
+            if (
+                node !== callable.body &&
+                (ts.isFunctionLikeDeclaration(node) || ts.isClassLikeDeclaration(node))
+            )
+                return;
+            if (ts.isReturnStatement(node) && node.expression !== undefined) {
+                inspectReturn(node.expression);
+                return;
+            }
+            node.forEachChild(inspect);
+        };
+        inspect(callable.body);
+    }
+
+    function isConstVariable(declaration) {
+        return (
+            ts.isVariableDeclarationList(declaration.parent) &&
+            (declaration.parent.flags & ts.NodeFlags.Const) !== 0
+        );
+    }
+
+    function callBindings(callable, arguments_, outer) {
+        const bindings = new Map(outer);
+        for (const [index, parameter] of callable.parameters.entries()) {
+            const argument = arguments_[index];
+            if (argument === undefined) continue;
+            const symbol = resolvedSymbol(checker.getSymbolAtLocation(parameter.name), checker);
+            if (symbol === undefined) continue;
+            bindings.set(symbol, resolveTarget(argument, outer));
+        }
+        return bindings;
+    }
+
+    function mergeTarget(target, addition) {
+        for (const callable of addition.callables) {
+            if (!target.callables.includes(callable)) target.callables.push(callable);
+        }
+        for (const recordClass of addition.classes) {
+            if (!target.classes.some((candidate) => candidate.symbol === recordClass.symbol)) {
+                target.classes.push(recordClass);
+            }
+        }
+    }
+
+    function bindingKey(bindings) {
+        return [...bindings.entries()]
+            .map(([symbol, target]) => {
+                const callables = target.callables
+                    .map((callable) => `${callable.getSourceFile().fileName}:${callable.pos}`)
+                    .sort();
+                const classes = target.classes
+                    .map(
+                        (recordClass) =>
+                            `${recordClass.declaration.getSourceFile().fileName}:${recordClass.declaration.pos}`
+                    )
+                    .sort();
+                return `${symbol.name}:${callables.join(",")}:${classes.join(",")}`;
+            })
+            .sort()
+            .join(";");
+    }
+}
+
+function valueIsThrown(node) {
+    let current = node;
+    while (
+        ts.isParenthesizedExpression(current.parent) ||
+        ts.isAsExpression(current.parent) ||
+        ts.isTypeAssertion(current.parent)
+    ) {
+        current = current.parent;
+    }
+    return ts.isThrowStatement(current.parent);
+}
+
+function isMutableClassMember(declaration) {
+    return (
+        ts.isMethodDeclaration(declaration) ||
+        ts.isGetAccessorDeclaration(declaration) ||
+        ts.isSetAccessorDeclaration(declaration) ||
+        (ts.isPropertyDeclaration(declaration) &&
+            hasModifier(declaration, ts.SyntaxKind.StaticKeyword))
+    );
+}
+
+function isBoundCodecOperation(declaration, checker, recordCodecBases) {
+    return (
+        ts.isMethodDeclaration(declaration) &&
+        ts.isClassLikeDeclaration(declaration.parent) &&
+        recordCodecBases.has(classSymbol(declaration.parent, checker)) &&
+        ts.isIdentifier(declaration.name) &&
+        (declaration.name.text === "encode" || declaration.name.text === "decode")
+    );
+}
+
+function genericCodecRecord(node, checker) {
+    const instance = checker.getTypeAtLocation(node);
+    const record = checker.getTypeArguments(instance)[0];
+    return resolvedSymbol(record?.getAliasSymbol() ?? record?.getSymbol(), checker);
+}
+
+function genericCodecBinding(node, codecClass, record, checker) {
+    const roots = [];
+    const dependencies = new Set();
+    const resolvedDynamicCalls = new Set();
+    const payloadMethods = codecClass.declaration.members.filter(
+        (member) =>
+            ts.isMethodDeclaration(member) &&
+            ts.isIdentifier(member.name) &&
+            (member.name.text === "encodePayload" || member.name.text === "decodePayload")
+    );
+    roots.push(...payloadMethods);
+    const constructor = codecClass.declaration.members.find(ts.isConstructorDeclaration);
+    for (const [index, argument] of (node.arguments ?? []).entries()) {
+        const argumentRoots = codecArgumentRoots(argument, checker);
+        roots.push(...argumentRoots);
+        const parameter = constructor?.parameters[index];
+        if (parameter !== undefined && argumentRoots.length > 0) {
+            const parameterSymbol = resolvedSymbol(
+                checker.getSymbolAtLocation(parameter.name),
+                checker
+            );
+            if (parameterSymbol !== undefined) resolvedDynamicCalls.add(parameterSymbol);
+        }
+        for (const declaration of argumentRoots) {
+            const owner = classSymbol(declaration.parent, checker);
+            if (owner !== undefined) dependencies.add(owner);
+        }
+    }
+    for (const name of genericRecordMemberNames(payloadMethods, codecClass.record, checker)) {
+        const genericMember = checker.getPropertyOfType(
+            checker.getDeclaredTypeOfSymbol(codecClass.record),
+            name
+        );
+        if (genericMember !== undefined) resolvedDynamicCalls.add(genericMember);
+        const member = checker.getPropertyOfType(checker.getDeclaredTypeOfSymbol(record), name);
+        for (const declaration of declarationsOf(member)) {
+            if (!ts.isMethodDeclaration(declaration) && !ts.isGetAccessorDeclaration(declaration)) {
+                continue;
+            }
+            roots.push(declaration);
+            const owner = classSymbol(declaration.parent, checker);
+            if (owner !== undefined) dependencies.add(owner);
+        }
+    }
+    return { dependencies, resolvedDynamicCalls, roots };
+}
+
+function concreteCodecMethodBinding(roots, record, checker) {
+    const dependencies = new Set();
+    const resolvedDynamicCalls = new Set();
+    const boundRoots = [];
+    for (const root of roots) {
+        const parameter = root.parameters[0];
+        if (parameter?.type === undefined) continue;
+        const generic = resolvedSymbol(
+            checker.getTypeFromTypeNode(parameter.type).getSymbol(),
+            checker
+        );
+        if (generic === undefined || !(generic.flags & SymbolFlags.TypeParameter)) continue;
+        for (const name of genericRecordMemberNames(roots, generic, checker)) {
+            const genericMember = checker.getPropertyOfType(
+                checker.getDeclaredTypeOfSymbol(generic),
+                name
+            );
+            if (genericMember !== undefined) resolvedDynamicCalls.add(genericMember);
+            const member = checker.getPropertyOfType(checker.getDeclaredTypeOfSymbol(record), name);
+            for (const declaration of declarationsOf(member)) {
+                if (
+                    !ts.isMethodDeclaration(declaration) &&
+                    !ts.isGetAccessorDeclaration(declaration)
+                ) {
+                    continue;
+                }
+                boundRoots.push(declaration);
+                const owner = classSymbol(declaration.parent, checker);
+                if (owner !== undefined) dependencies.add(owner);
+            }
+        }
+    }
+    return { dependencies, resolvedDynamicCalls, roots: boundRoots };
+}
+
+function codecArgumentRoots(argument, checker) {
+    if (codecCallable(argument)) return [argument];
+    const location = ts.isPropertyAccessExpression(argument) ? argument.name : argument;
+    const member = resolvedSymbol(checker.getSymbolAtLocation(location), checker);
+    return declarationsOf(member).filter(
+        (declaration) =>
+            (ts.isFunctionDeclaration(declaration) ||
+                ts.isMethodDeclaration(declaration) ||
+                ts.isGetAccessorDeclaration(declaration)) &&
+            declaration.body !== undefined
+    );
+}
+
+function genericRecordMemberNames(roots, record, checker) {
+    const names = new Set();
+    for (const root of roots) {
+        visit(root, (node) => {
+            if (!ts.isPropertyAccessExpression(node)) return;
+            const receiver = checker.getTypeAtLocation(node.expression);
+            if (
+                resolvedSymbol(receiver.getAliasSymbol() ?? receiver.getSymbol(), checker) ===
+                record
+            ) {
+                names.add(node.name.text);
+            }
+        });
+    }
+    return names;
+}
+
+function classSymbol(node, checker) {
+    if (!ts.isClassLikeDeclaration(node)) return undefined;
+    if (node.name !== undefined) {
+        return resolvedSymbol(checker.getSymbolAtLocation(node.name), checker);
+    }
+    const type = checker.getTypeAtLocation(node);
+    return resolvedSymbol(type.getAliasSymbol() ?? type.getSymbol(), checker);
+}
+
+/**
+ * Whether an expression only wraps the value its operand already is. Grouping and the
+ * three type-only forms carry no runtime step, so a resolution that stopped at one would
+ * report a dispatch table it can see through as unresolvable — a false unresolved target,
+ * which this gate must fail on and therefore must not manufacture.
+ */
+function isValueWrapper(node) {
+    return (
+        ts.isParenthesizedExpression(node) ||
+        ts.isNonNullExpression(node) ||
+        ts.isAsExpression(node) ||
+        ts.isSatisfiesExpression(node) ||
+        ts.isTypeAssertion(node)
+    );
+}
+
+function codecCallable(node) {
+    return node !== undefined && (ts.isArrowFunction(node) || ts.isFunctionExpression(node));
+}
+
+function resolvedSymbol(symbol, checker) {
+    return symbol !== undefined && symbol.flags & SymbolFlags.Alias
+        ? checker.getAliasedSymbol(symbol)
+        : symbol;
+}
+
+/**
+ * The live nodes a symbol declares. TypeScript 7 reports declarations as handles carrying
+ * a kind and a path and nothing else, so a rule that reads a body, a parent or a position
+ * resolves them; a rule that only asks where a declaration lives reads `path` directly.
+ */
+function declarationsOf(symbol) {
+    return (symbol?.declarations ?? [])
+        .map((handle) => handle.resolve())
+        .filter((node) => node !== undefined);
+}
+
+/** Every source of a program the session can materialize, including its default library. */
+function programSources(program) {
+    return program
+        .getSourceFileNames()
+        .map((name) => program.getSourceFile(name))
+        .filter((source) => source !== undefined);
+}
+
+function isWithin(path, roots) {
+    return roots.some((root) => {
+        const local = relative(root, path);
+        return local === "" || (local !== ".." && !local.startsWith(`..${sep}`));
+    });
 }
 
 /**
@@ -856,7 +2289,9 @@ function issue(rule, file, symbol, message) {
             (item) => item.fingerprint === base || item.fingerprint.startsWith(`${base}:`)
         ).length + 1;
     const fingerprint = ordinal === 1 ? base : `${base}:${ordinal}`;
-    issues.push({ rule, file, symbol, message, fingerprint });
+    const recorded = { rule, file, symbol, message, fingerprint };
+    issues.push(recorded);
+    return recorded;
 }
 
 function extendsError(node) {
@@ -962,6 +2397,93 @@ async function loadBaseline(path) {
     }
 }
 
+/**
+ * The owed codec closures: an enumeration of debts, never a set of exemptions. `RecordCodec`
+ * freezes the prototype and the constructor of exactly the classes its tuple names, so a
+ * class the codec constructs while decoding but does not name keeps both writable. The
+ * counterfactual therefore runs toward the tamper succeeding, which is why no entry may
+ * carry a reason for standing: there is nothing true to write there. A debt is discharged by
+ * naming the class in the tuple and deleting the entry, and by nothing else.
+ */
+async function loadCodecOwed(path) {
+    let document;
+    try {
+        document = await readCanonicalJson(path);
+    } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+        return { edition: "1.0.0", owed: [] };
+    }
+    assertExactKeys(document, ["edition", "owed"], "Codec closure owed document");
+    if (document.edition !== "1.0.0") {
+        throw new TypeError("Codec closure owed document must use edition 1.0.0");
+    }
+    assertArray(document.owed, "Codec closure debts");
+    const seen = new Set();
+    for (const entry of document.owed) {
+        assertObject(entry, "Codec closure debt");
+        assertExactKeys(
+            entry,
+            [
+                "fingerprint",
+                "file",
+                "codec",
+                "missing",
+                "missingFile",
+                "namedBy",
+                "owner",
+                "counterfactual"
+            ],
+            "Codec closure debt"
+        );
+        for (const key of ["fingerprint", "file", "codec", "missing", "missingFile", "owner"]) {
+            assertString(entry[key], `Codec closure debt ${key}`);
+        }
+        assertArray(entry.namedBy, `Codec closure debt ${entry.fingerprint} namedBy`);
+        if (seen.has(entry.fingerprint)) {
+            throw new TypeError(`Duplicate codec closure debt ${entry.fingerprint}`);
+        }
+        seen.add(entry.fingerprint);
+        // The entry has to be about the site its fingerprint identifies, and its evidence has
+        // to be about the class it is filed against, so neither can be transplanted from
+        // another debt and left to suppress a finding it does not describe.
+        if (!entry.fingerprint.startsWith(`ACQ-CODEC:${entry.file}:${entry.codec}:`)) {
+            throw new TypeError(
+                `Codec closure debt ${entry.fingerprint} does not name the site it suppresses`
+            );
+        }
+        if (
+            !isNonEmptyString(entry.counterfactual) ||
+            !entry.counterfactual.includes(entry.missing)
+        ) {
+            throw new TypeError(
+                `Codec closure debt ${entry.fingerprint} must state the counterfactual for ${entry.missing}`
+            );
+        }
+    }
+    return document;
+}
+
+function owedCodecClosure(omission, patterns) {
+    const { fingerprint, file, codec, missing, missingFile, namedBy } = omission;
+    return {
+        fingerprint,
+        file,
+        codec,
+        missing,
+        missingFile,
+        namedBy,
+        owner: ownersForPath(file, patterns).join("/"),
+        // The apparently harmless case is a class some other codec's tuple names, and it is
+        // the `TextId` hazard rather than a seal: the freeze is a side effect of when that
+        // other codec happens to be constructed, so this codec's module imported on its own
+        // decodes through a writable class.
+        counterfactual:
+            namedBy.length === 0
+                ? `No codec tuple names ${missing}, so nothing ever freezes it: Object.defineProperty(${missing}.prototype, …) succeeds and ${codec} still decodes through it`
+                : `${codec}'s own seal does not cover ${missing}: ${missing}.prototype is frozen only once ${namedBy.length === 1 ? "the codec named in namedBy" : `one of the ${namedBy.length} codecs named in namedBy`} is constructed, so what protects it is those modules' load order rather than this tuple`
+    };
+}
+
 async function loadPermits(path) {
     let document;
     try {
@@ -1032,6 +2554,7 @@ function parseArguments(args) {
     let exportsFile = resolve(artifactRoot, "quality/exports.json");
     let vocabulary = resolve(artifactRoot, "quality/spec-vocabulary.json");
     let writeBaseline = false;
+    let updateOwed = false;
     for (let index = 0; index < args.length; index += 1) {
         const argument = args[index];
         if (argument === "--stage") stage = required(args, ++index, argument);
@@ -1043,18 +2566,27 @@ function parseArguments(args) {
         else if (argument === "--vocabulary")
             vocabulary = resolve(required(args, ++index, argument));
         else if (argument === "--write-baseline") writeBaseline = true;
+        else if (argument === "--update-owed") updateOwed = true;
         else throw new TypeError(`Unknown architecture argument ${argument}`);
+    }
+    if (writeBaseline && updateOwed) {
+        throw new TypeError("Write the architecture baseline and the owed list one at a time");
     }
     if (stage !== "building" && stage !== "final") throw new TypeError(`Unknown stage ${stage}`);
     return {
         stage,
         root,
         baseline,
+        // The owed list accompanies the baseline it divides the ledger with, so it is found
+        // beside it rather than named twice on the command line -- and a fixture root, which
+        // names its own baseline and carries no owed list, gets an empty one.
+        codecOwed: resolve(dirname(baseline), "architecture-codec-owed.json"),
         permits,
         spec,
         exports: exportsFile,
         vocabulary,
-        writeBaseline
+        writeBaseline,
+        updateOwed
     };
 }
 

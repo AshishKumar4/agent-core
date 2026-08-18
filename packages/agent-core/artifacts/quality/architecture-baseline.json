@@ -2,6 +2,55 @@
   "edition": "1.0.0",
   "issues": [
     {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/definition/credential-custody.ts",
+      "symbol": "resolve",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/definition/credential-custody.ts:resolve:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/invocations/receipt.ts",
+      "symbol": "aborted",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/invocations/receipt.ts:aborted:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/invocations/receipt.ts",
+      "symbol": "deadline",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/invocations/receipt.ts:deadline:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/invocations/receipt.ts",
+      "symbol": "domainLost",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/invocations/receipt.ts:domainLost:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/invocations/receipt.ts",
+      "symbol": "failed",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/invocations/receipt.ts:failed:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/invocations/receipt.ts",
+      "symbol": "outputInvalid",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/invocations/receipt.ts:outputInvalid:73dccfc86391"
+    },
+    {
+      "rule": "ACQ-ERR",
+      "file": "packages/agent-core/src/invocations/receipt.ts",
+      "symbol": "outputInvalid",
+      "message": "Operational failures must use AgentCoreError rather than TypeError",
+      "fingerprint": "ACQ-ERR:packages/agent-core/src/invocations/receipt.ts:outputInvalid:73dccfc86391:2"
+    },
+    {
       "rule": "ACQ-KEY",
       "file": "packages/agent-core-cloudflare/src/actor-name.ts",
       "symbol": "actorObjectName",
@@ -328,6 +377,69 @@
       "message": "Composite identity built by string concatenation must be injective",
       "fingerprint": "ACQ-KEY:packages/agent-core/src/workspaces/view-replay.ts:viewId:574bb9cb741f",
       "reason": "The trailing component is Revision.value, a non-negative safe integer, so the last '@' delimits it however the SurfaceId is spelled."
+    },
+    {
+      "rule": "ACQ-SPEC-VOCAB",
+      "file": "packages/agent-core/artifacts/quality/exports.json",
+      "symbol": "TurnInterceptorRunner",
+      "message": "TurnInterceptorRunner introduces vocabulary the SPEC does not contain: \"runner\"",
+      "fingerprint": "ACQ-SPEC-VOCAB:packages/agent-core/artifacts/quality/exports.json:TurnInterceptorRunner:c59c1b358213"
+    },
+    {
+      "rule": "ACQ-TYPE",
+      "file": "packages/agent-core/src/definition/resolver.ts",
+      "symbol": "canonicalCycle",
+      "message": "packages/agent-core/src/definition/resolver.ts non-null permit for canonicalCycle is stale",
+      "fingerprint": "ACQ-TYPE:packages/agent-core/src/definition/resolver.ts:canonicalCycle:430c9557ce2f"
+    },
+    {
+      "rule": "ACQ-TYPE",
+      "file": "packages/agent-core/src/definition/resolver.ts",
+      "symbol": "canonicalCycle",
+      "message": "packages/agent-core/src/definition/resolver.ts non-null permit for canonicalCycle is stale",
+      "fingerprint": "ACQ-TYPE:packages/agent-core/src/definition/resolver.ts:canonicalCycle:430c9557ce2f:2"
+    },
+    {
+      "rule": "ACQ-TYPE",
+      "file": "packages/agent-core/src/definition/resolver.ts",
+      "symbol": "dependencyCycle.visit.release",
+      "message": "packages/agent-core/src/definition/resolver.ts non-null permit for dependencyCycle.visit.release is stale",
+      "fingerprint": "ACQ-TYPE:packages/agent-core/src/definition/resolver.ts:dependencyCycle.visit.release:1e6bbda53207"
+    },
+    {
+      "rule": "ACQ-TYPE",
+      "file": "packages/agent-core/src/facets/filesystem/memory.ts",
+      "symbol": "MemoryFilesystemBackend.write",
+      "message": "packages/agent-core/src/facets/filesystem/memory.ts uses an unpermitted non-null escape in MemoryFilesystemBackend.write",
+      "fingerprint": "ACQ-TYPE:packages/agent-core/src/facets/filesystem/memory.ts:MemoryFilesystemBackend.write:ce405d41613e"
+    },
+    {
+      "rule": "ACQ-VOCAB",
+      "file": "packages/agent-core/src/facets/enforcement.generated.ts",
+      "symbol": "EnforcementTier",
+      "message": "Closed string vocabulary is duplicated",
+      "fingerprint": "ACQ-VOCAB:packages/agent-core/src/facets/enforcement.generated.ts:EnforcementTier:2808b2f8832d"
+    },
+    {
+      "rule": "ACQ-VOCAB",
+      "file": "packages/agent-core/src/facets/enforcement.generated.ts",
+      "symbol": "Impact",
+      "message": "Closed string vocabulary is duplicated",
+      "fingerprint": "ACQ-VOCAB:packages/agent-core/src/facets/enforcement.generated.ts:Impact:2808b2f8832d"
+    },
+    {
+      "rule": "ACQ-VOCAB",
+      "file": "packages/agent-core/src/facets/enforcement.ts",
+      "symbol": "EnforcementTier",
+      "message": "Closed string vocabulary is duplicated",
+      "fingerprint": "ACQ-VOCAB:packages/agent-core/src/facets/enforcement.ts:EnforcementTier:2808b2f8832d"
+    },
+    {
+      "rule": "ACQ-VOCAB",
+      "file": "packages/agent-core/src/facets/enforcement.ts",
+      "symbol": "Impact",
+      "message": "Closed string vocabulary is duplicated",
+      "fingerprint": "ACQ-VOCAB:packages/agent-core/src/facets/enforcement.ts:Impact:2808b2f8832d"
     }
   ]
 }
