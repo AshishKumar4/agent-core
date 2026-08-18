@@ -265,6 +265,99 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-SUBSCRIPTION-COHERENCE-EVIDENCE",
+      "owner": "W7",
+      "specAnchor": "C13-SUBSCRIPTION-COHERENCE-EVIDENCE",
+      "specTextSha256": "sha256:c2f27e207068862097050ccf08082dcbddca03a5c24fdf5e563062324667e152",
+      "status": "implemented",
+      "prerequisites": [],
+      "sourceSymbols": [
+        "src/workspaces/coherence.ts#CoherenceFinding",
+        "src/workspaces/coherence.ts#CoherenceFindingCodecV1",
+        "src/workspaces/coherence.ts#CoherenceVerdict",
+        "src/workspaces/coherence.ts#decideCoherenceFinding"
+      ],
+      "testSelectors": [
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-COHERENCE-EVIDENCE] decides duplicate from equal arguments digests and names its witnesses",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-COHERENCE-EVIDENCE] decides distinct for two Runs that merely resemble each other",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-COHERENCE-EVIDENCE] makes no determination where nothing resembles anything",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-COHERENCE-EVIDENCE] refuses a duplicate finding witnessed by unequal digests",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-COHERENCE-EVIDENCE] refuses a distinct finding discriminated by equal digests",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-COHERENCE-EVIDENCE] refuses evidence that is not about the two subject Runs",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-COHERENCE-EVIDENCE] round-trips through its codec and rejects an unknown verdict",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-COHERENCE-EVIDENCE] refuses a payload carrying anything but identifiers and digests",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-COHERENCE-EVIDENCE] refuses a distinct payload whose discriminator digests are equal"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": [
+        "src/workspaces/coherence.ts carries no mutation attribution yet, so discrimination.mjs cannot judge whether these citations constrain the cited symbols; the row stays implemented until a W7 mutation run records a symbol-tier kill inside CoherenceFinding, CoherenceVerdict, and decideCoherenceFinding"
+      ]
+    },
+    {
+      "id": "C13-SUBSCRIPTION-OBSERVATION-GRANT",
+      "owner": "W7",
+      "specAnchor": "C13-SUBSCRIPTION-OBSERVATION-GRANT",
+      "specTextSha256": "sha256:6c90f4a7056cec88727074e945bd238962a06087de1f5124fee9d48630f2dd22",
+      "status": "implemented",
+      "prerequisites": [],
+      "sourceSymbols": ["src/workspaces/coherence.ts#admitCrossRunObservation"],
+      "testSelectors": [
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-OBSERVATION-GRANT] refuses an observer presenting no Grant at all",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-OBSERVATION-GRANT] refuses a Grant that admits another Run",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-OBSERVATION-GRANT] refuses a Grant held outside the observed Run's Scope path",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-OBSERVATION-GRANT] refuses a Grant the observation does not name",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-OBSERVATION-GRANT] refuses a named Grant carrying no observe impact",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-OBSERVATION-GRANT] admits an observe Grant reaching the Run through an ancestor Scope"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": [
+        "src/workspaces/coherence.ts carries no mutation attribution yet, so discrimination.mjs cannot judge whether these citations constrain admitCrossRunObservation; the row stays implemented until a W7 mutation run records a symbol-tier kill inside it",
+        "No host wires this policy into SourceEventProtocol yet: the refusal is proven as a decision, and the reservation-suppressing half of the clause rests on the already-verified SourceRoutePort rejection path, where a rejected authorize decision makes commit throw before any reservation is appended (test/workspaces/coverage-protocols.test.ts)"
+      ]
+    },
+    {
+      "id": "C13-SUBSCRIPTION-OBSERVATION-INTERVENTION",
+      "owner": "W7",
+      "specAnchor": "C13-SUBSCRIPTION-OBSERVATION-INTERVENTION",
+      "specTextSha256": "sha256:120f5b17c375da772d8ed5ef85433caa676c569b897b7bb6f1c66d274edea1ad",
+      "status": "implemented",
+      "prerequisites": [],
+      "sourceSymbols": ["src/workspaces/coherence.ts#authorizeObservedIntervention"],
+      "testSelectors": [
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-OBSERVATION-INTERVENTION] refuses an observer holding only its observation Grant",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-OBSERVATION-INTERVENTION] refuses an intervention laundered through a widened observation Grant",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-OBSERVATION-INTERVENTION] admits an intervention backed by a separate Grant of that impact",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-OBSERVATION-INTERVENTION] refuses a separate Grant that reaches another Run",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-OBSERVATION-INTERVENTION] cannot express observe as an intervention impact"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": [
+        "src/workspaces/coherence.ts carries no mutation attribution yet, so discrimination.mjs cannot judge whether these citations constrain authorizeObservedIntervention; the row stays implemented until a W7 mutation run records a symbol-tier kill inside it",
+        "The authorized-intervention path through the §4.4 turn.step cut point is C13-INTERCEPTOR-STEP-STOP's mechanism; this row proves only that observation authority never supplies it"
+      ]
+    },
+    {
+      "id": "C13-SUBSCRIPTION-OBSERVATION-TENANT",
+      "owner": "W7",
+      "specAnchor": "C13-SUBSCRIPTION-OBSERVATION-TENANT",
+      "specTextSha256": "sha256:c63025de7fb3007aef90f33bfe896f49b0b333808763b0792b5fa00a7a98f276",
+      "status": "implemented",
+      "prerequisites": [],
+      "sourceSymbols": ["src/workspaces/coherence.ts#admitCrossRunObservation"],
+      "testSelectors": [
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-OBSERVATION-TENANT] refuses a cross-tenant observation with no cross-tenant Binding",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-OBSERVATION-TENANT] refuses a cross-tenant observation naming another Binding",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-OBSERVATION-TENANT] refuses a same-tenant route carrying cross-tenant authority",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-OBSERVATION-TENANT] refuses an observer whose Tenant is not the route's target",
+        "test/workspaces/coherence.test.ts#[C13-SUBSCRIPTION-OBSERVATION-TENANT] admits a cross-tenant observation holding both authorities"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": [
+        "src/workspaces/coherence.ts carries no mutation attribution yet, so discrimination.mjs cannot judge whether these citations constrain the cross-tenant branch of admitCrossRunObservation; the row stays implemented until a W7 mutation run records a symbol-tier kill inside it",
+        "The guest-attenuation and credential-custody halves of the rule are C13-AUTH-GUEST-ELEVATION and C13-AUTH-SECRET-SCOPE evidence; this row proves only that the three route authorities do not substitute for one another"
+      ]
+    },
+    {
       "id": "C13-TRUST-ASSERTION-REJECTION",
       "owner": "W7",
       "specAnchor": "C13-TRUST-ASSERTION-REJECTION",

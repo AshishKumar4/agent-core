@@ -11,7 +11,26 @@ export {
 export { Event } from "./event";
 export type { EventInit } from "./event";
 export {
+    CoherenceFinding,
+    CoherenceVerdict,
+    ObservationRefusal,
+    admitCrossRunObservation,
+    authorizeObservedIntervention,
+    decideCoherenceFinding
+} from "./coherence";
+export type {
+    CoherenceFindingIdentity,
+    CoherenceFindingInit,
+    CrossRunObservation,
+    InterventionImpact,
+    ObservationAuthority,
+    ObservationDecision,
+    ObservedIntent,
+    ObservedResemblance
+} from "./coherence";
+export {
     ActionId,
+    CoherenceFindingId,
     ContentRetentionId,
     EventCursor,
     InboxReferenceId,

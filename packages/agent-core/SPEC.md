@@ -2390,6 +2390,85 @@ automation is a Subscription from a verified ingress Event. Example:
 target: "report.generate", dedupe: "event",
 authority: { kind: "delegated", binding: "daily-report" } }`.
 
+**Watching another Run is a Grant, not a Subscription.** Everything above authorizes the
+*target* of a route: an `AuthoritySource` decides what the delivered Operation may do, and
+says nothing about whose Events the subscriber was entitled to read. Between Runs that
+leaves a gap, because Runs are not Scopes: two Runs of one Workspace sit at the same point
+of the §3.2 chain, so a pattern matching one Run's Events matches every sibling's, and the
+Subscription set becomes an ambient read of the Workspace's history — the one thing §3.2
+refuses between Scopes. A **cross-Run observation** is a Subscription matching Events a Run
+other than the subscriber's own emitted, and it is admissible only as authority. The
+observing Principal MUST hold a live allow-Grant that reaches the observed Run's Scope and
+whose capability admits `observe` on that Run, the observation MUST name that exact Grant,
+and the Event-owning source Actor MUST check it where it already checks trust and mapping:
+before appending the RouteReservation, so an absent, revoked, or non-`observe` Grant denies
+delivery and appends no reservation at all. Holding a matching Subscription is therefore
+never itself a read, and a `delegated` Binding that resolves for the target Operation does
+not stand in for one. A Principal watching its siblings this way is what other systems
+build as a privileged supervising component; here it is a **Conductor** only in the sense
+that it plays that role, holding a Subscription and a Grant and nothing else — which is
+what makes the watching enumerable, because the Grants naming a Run are exactly the list
+of who may observe it, and revoking one ends one observation without disturbing another.
+This maps to **C13-SUBSCRIPTION-OBSERVATION-GRANT**.
+
+**Observing across a Tenant boundary takes both Tenants' authority.** An observation is a
+route, so the rules above hold for it unchanged: a cross-tenant reservation requires the
+`TenantRelation.cross.authority` Binding in addition to the Subscription's
+`AuthoritySource`, and a same-tenant reservation prohibits cross-tenant authority. The
+observe-Grant is a third, independent requirement, and none of the three substitutes for
+another — an observer holding a foreign Tenant's observe-Grant but no cross-tenant Binding
+is refused, and one holding the Binding but no observe-Grant is refused, so watching a
+foreign Tenant's Runs takes two authorizations that two different Tenants issued and one
+declaration naming both. A guest observer carries §3.3 with it besides: its materialized
+Grants are attenuated, carry neither `delegate` nor `administer`, and MUST NOT resolve the
+observed Tenant's credentials, so what crosses the boundary is the authenticated projection
+and its digest — data the observer was mapped, never a credential, a live handle, or a
+second copy of the observed Run's state. This maps to
+**C13-SUBSCRIPTION-OBSERVATION-TENANT**.
+
+**Observation authority is not intervention authority.** The Grant admitting a read admits
+exactly the read. An Invocation whose subject is an observed Run — steering it, writing to
+it, stopping it — carries the impact of what it does, and is authorized only by a live
+allow-Grant of that impact through the ordinary §7 pipeline, with its own
+PreparedInvocation, its own approval where policy requires one, and its own Receipt. An
+observation's own Grant MUST NOT be the source of that authority, and that holds even where
+the Grant's capability happens to carry a wider impact set, so an observer presenting only
+the Grant its observation names is refused and the refusal names the impact it lacked.
+Where an intervention is authorized, its effect reaches the observed Turn only through a
+Facet placed in that Turn's protection domain, at the `turn.step` cut point (§4.4): a stop
+requested there is a scoped refusal naming the Interceptor that requested it, bound to the
+exact Turn and lease that fired the cut point, and it authors no Turn status transition.
+There is no second stop path, and none an observer can fire from outside the observed
+Turn's protection domain. A recorded determination is evidence and never an instruction:
+writing one changes nothing in the observed Runs, and no part of the platform reads one as
+a command. This maps to **C13-SUBSCRIPTION-OBSERVATION-INTERVENTION**.
+
+**A duplicate-work determination is checkable evidence or it is nothing.** Two Runs are
+doing the same work when they are preparing the same effects, which is a fact about digests
+rather than a judgement about purpose. A **CoherenceFinding** is one observer's decision
+over pairs of **observed intents**, an observed intent being the
+`(Run, Event, RouteReservation, Operation, arguments digest)` an admitted observation
+delivered, and a pair being a **resemblance** exactly when its two intents name different
+Runs and the same Operation. A finding decides resemblances and nothing else, so a finding
+exists only where there was something to decide. Its verdict is `duplicate` or `distinct`
+and each names the evidence deciding it: `duplicate` carries a nonempty witness list, every
+witness a resemblance whose two arguments digests are equal; `distinct` carries exactly one
+discriminator, a resemblance whose two arguments digests differ. Both verdicts are
+refutable by a reader holding the finding alone, and both MUST be refused where they are
+written when their own evidence contradicts them — a `duplicate` witnessed by unequal
+digests and a `distinct` discriminated by equal ones are inadmissible rather than merely
+mistaken. That is what makes the negative verdict a verdict: two Runs calling one Operation
+with different arguments are representable exactly as `distinct`, and are thereby
+distinguished both from duplication and from two Runs that never resembled each other,
+which no finding describes at all. A finding carries identifiers and digests only and never
+a copy of an observed payload, so it adds no second durable copy of the observed Runs'
+state (§8.4): checking one again means reading the observed Events again through the same
+Grant, and an observer whose Grant was revoked has correctly lost the standing to recheck
+its own conclusion. Recording a determination is an ordinary `mutate` in the observer's own
+Scope, so the durable evidence is the observer's own Event and Receipt, and the observed
+Runs acquire no record and no obligation from having been compared. This maps to
+**C13-SUBSCRIPTION-COHERENCE-EVIDENCE**.
+
 ### 6.3 Surface, View, ViewDelta
 
 A **Surface** is a stable UI contribution from a Facet; a **View** is one rendered
@@ -4009,6 +4088,10 @@ A conforming implementation provides:
 - **C13-ROUTE-TENANT-RELATION** RouteReservations authenticate their tenant relation.
 - **C13-ROUTE-CROSS-TENANT-BINDING** Cross-tenant RouteReservations authenticate their Binding.
 - **C13-ROUTE-DELIVERY-ONCE** A reservation has at most one terminal RouteDelivery and it is written once; redelivery returns it.
+- **C13-SUBSCRIPTION-OBSERVATION-GRANT** A cross-Run observation is admissible only as authority: the observing Principal holds a live allow-Grant reaching the observed Run's Scope and admitting `observe` on it, the observation names that exact Grant, and the source Actor denies delivery and appends no reservation when it is absent, revoked, or not `observe`.
+- **C13-SUBSCRIPTION-OBSERVATION-TENANT** Cross-tenant observation requires the cross-tenant Binding, the Subscription's AuthoritySource, and the observe-Grant independently, none substituting for another, and a guest observer's attenuated Grants never resolve the observed Tenant's credentials.
+- **C13-SUBSCRIPTION-OBSERVATION-INTERVENTION** An observation's Grant authorizes exactly the read: an Invocation acting on an observed Run needs its own live allow-Grant of that impact and its own Receipt, the observation's Grant is never that source even when it carries a wider impact set, the refusal names the missing impact, and a recorded determination is evidence rather than an instruction.
+- **C13-SUBSCRIPTION-COHERENCE-EVIDENCE** A CoherenceFinding decides resemblances between observed intents and is refutable in both directions: `duplicate` carries witnesses whose arguments digests are equal, `distinct` carries one discriminator whose arguments digests differ, the contradicted shapes are refused where they are written, and the finding carries identifiers and digests only.
 - **C13-PREPARED-SHARED-HEADER** PreparedInvocation uses one shared header.
 - **C13-PREPARED-OPTIONAL-LEASE** The shared header carries an optional exact LeaseToken.
 - **C13-PREPARED-PAYLOAD-SHAPE** Payload is exactly single or nonempty ordered homogeneous batch.

@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import {
     ContentRetentionReference,
     ActionDescriptor,
+    CoherenceFinding,
     Event,
     EventProvenance,
     InboxEventReference,
@@ -14,6 +15,7 @@ import {
     ViewMark
 } from "../../src/workspaces";
 import {
+    coherenceFindingFixture,
     deliveryFixture,
     eventFixture,
     eventRetention,
@@ -105,4 +107,11 @@ test("[workspace.inbox-reference] codec and ownership evidence", { tags: "p1" },
     expect(
         InboxEventReference.encode(InboxEventReference.decode(InboxEventReference.encode(value)))
     ).toEqual(InboxEventReference.encode(value));
+});
+
+test("[workspace.coherence-finding] codec and ownership evidence", { tags: "p1" }, () => {
+    const value = coherenceFindingFixture("registry");
+    expect(CoherenceFinding.encode(CoherenceFinding.decode(CoherenceFinding.encode(value)))).toEqual(
+        CoherenceFinding.encode(value)
+    );
 });
