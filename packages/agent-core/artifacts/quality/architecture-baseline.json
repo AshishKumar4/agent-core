@@ -43,6 +43,14 @@
     },
     {
       "rule": "ACQ-KEY",
+      "file": "packages/agent-core/src/agents/runs/runtime.ts",
+      "symbol": "describeDivergence",
+      "message": "Composite identity built by string concatenation must be injective",
+      "fingerprint": "ACQ-KEY:packages/agent-core/src/agents/runs/runtime.ts:describeDivergence:574bb9cb741f",
+      "reason": "Not an identity: the result is only interpolated into the refusal message of an unequal-pin merge, and nothing in the system keys, stores, compares, or parses it. The programmatic answer the SPEC requires is the structured RunPinDivergence[] that RunPins.divergence returns, which callers read by dimension and PackageId; recovering the divergence by parsing this string is the message-prose dependency ACQ-ERR and the sqlite duplicate-append fix exist to forbid. A collision here can therefore merge no two records, only render two divergences with the same words."
+    },
+    {
+      "rule": "ACQ-KEY",
       "file": "packages/agent-core/src/agents/runs/store.ts",
       "symbol": "acceptanceVerdictKey",
       "message": "Composite identity built by string concatenation must be injective",

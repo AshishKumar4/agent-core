@@ -382,6 +382,26 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-RUN-DISTINCTION-REPRESENTABLE",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-DISTINCTION-REPRESENTABLE",
+      "specTextSha256": "sha256:6027bd9e5f21aae4a195b4161b4113ffe8cc2e9516e2aec03f6abbdd22c5b663",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The merge half, in its discloser's own words. `RunCommit.parents` is a flat `readonly RunCommitId[]` with arity validated per kind, so `parents.length === 2` answers whether this has two entries while the rule needs whether this joins two distinct lineages. A merge naming ONE commit as both parents is fully constructable, passes the codec, and is refused only later by `RunRuntime.validateMerge` — a unary merge wearing binary shape. That is demonstrated rather than argued: dropping the runtime's distinctness clause survives every record-level check, so the record-level mutant is the one that lives. The absent mechanism is a `MergeParents` value object in src/agents/runs/commit.ts that cannot hold one commit twice, plus the codec path that admits only it",
+        "Stated honestly because the row must not read as a correctness gap: `RunRuntime.validateMerge` refuses the unary-merge case correctly today, and src/agents/runs/commit.ts refuses every arity but two. No wrong merge lands and no wrong answer is returned. This is a representability rule — the illegal value exists and is checked rather than being unconstructable — so the evidence owed is that the value cannot be built, never that a build is rejected",
+        "The omission-attribution half, in its discloser's own words. `TurnModelInput.covers` is per-RECORD, a flat `readonly RunCommitId[]`, while `TurnOmission` is per-SECTION, so the two facts sit at different granularities with no third field joining them. `covers` therefore answers whether a commit was in scope of the assembly while being read as whether the model observed that commit's content, and a host that lists a commit and renders zero bytes of it — fully abridging it inside a multi-commit section — is indistinguishable in the record from one that rendered it whole. The withheld byte count exists but cannot be attributed to a commit. The absent mechanism is a per-commit coverage entry in src/agents/runs/executor.ts",
+        "What the omission half does and does not break, from the same disclosure. Reconstruction stays byte-exact either way because the bytes come from the sections and not from the accounting, so C13-TURN-MODEL-INPUT-RECONSTRUCTABLE is unaffected, and C13-TURN-SURFACE-ACCOUNTED claims coverage equals the transcript and that abridgement states the withheld amount without claiming per-commit attribution, so no landed row overclaims and no test asserts something false. What is unavailable is the audit question of which commit was abridged — exactly the question a reader of the phrase compaction and abridgement compose would assume is answerable. It composes for reconstruction; it does not compose for attribution",
+        "Why it is owed rather than settled, in the discloser's own judgement: per-commit entries carrying carried versus withheld were considered and dropped as duplicative of the section-level omission, and that objection treated two different questions as one fact. Per-commit omission attribution is a fact about the world, so the duplication objection was wrong and the gap is debt rather than a decision",
+        "SHAPE WARNING for whoever discharges the omission half, because the choice is load-bearing and the discloser corrected their own first estimate here. Replacing the field — `covers: readonly TurnCoveredCommit[]` with `{commit, omission}` per entry — changes the canonical value of an existing key, and `TurnModelInput.toData()` reaches `modelInputCommitId` through a content-addressed ref, so that shape forks every `modelInput` RunCommitId exactly as presence-typing `interceptable` forked InvocationIds, and it is a migration rather than a refactor. An ADDITIVE optional field emitted only when non-empty forks nothing: existing records serialise byte-identically and only records that use it differ, with `TurnShownContent.toData()` emitting `inline` XOR `ref` as the in-record precedent. Take the additive form; the residual cost is then §5.6 prose and one digest re-affirmation, not a durable-identity migration",
+        "Both halves are unmeasured against the mutation campaign, so no discrimination attribution exists for either mechanism. Discharging this row means the two value objects, a record-level test that a unary merge cannot be constructed rather than that it is rejected, a test that a fully abridged carried commit is distinguishable from a whole one, and the mutation attribution that shows each new test dies when its own clause is removed"
+      ]
+    },
+    {
       "id": "C13-RUN-EFFECTIVE-TRANSCRIPT",
       "owner": "W5",
       "specAnchor": "C13-RUN-EFFECTIVE-TRANSCRIPT",
@@ -433,6 +453,50 @@
       "sourceSymbols": ["src/agents/runs/runtime.ts#RunRuntime"],
       "testSelectors": [
         "test/agents/runs/adversarial.test.ts#W5 adversarial invariants [C13-RUN-EXPLICIT-MIGRATION] [MIGRATE-RUN-PINS] preserves old Turn pins, adopts exact new pins, rejects unequal merges, and survives restart"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-FOLD-ORDER",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-FOLD-ORDER",
+      "specTextSha256": "sha256:a6a56f0b719606b840fb346aed8f682bba77b042324b1519e591c1a994df6a9c",
+      "status": "verified",
+      "prerequisites": ["C13-RUN-GRAPH-ARITY"],
+      "sourceSymbols": [
+        "src/agents/runs/evidence.ts#MergeFoldStep",
+        "src/agents/runs/runtime.ts#RunRuntime.mergeRunInTransaction"
+      ],
+      "testSelectors": [
+        "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-ORDER] folds four equal-pinned parents as exactly the chain its declared items name",
+        "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-ORDER] records two orders over the same three members as two different results",
+        "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-ORDER] refuses a step that joins a source its item did not declare",
+        "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-ORDER] refuses a step that does not extend the merge its predecessor appended",
+        "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-ORDER] refuses a repeated source, a changed payload length, and an item outside it",
+        "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-ORDER] leaves a merge that declares no fold exactly as it was",
+        "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-ORDER] keeps the merges a fold did not perform outstanding in the Run registry"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
+      "id": "C13-RUN-FOLD-RECONCILIATION",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-FOLD-RECONCILIATION",
+      "specTextSha256": "sha256:c313f12a80ceebc16e8643956755b5a5432db7ad914d1946009a61d995e70268",
+      "status": "verified",
+      "prerequisites": ["C13-ADV-UNEQUAL-PIN-MERGE"],
+      "sourceSymbols": [
+        "src/agents/runs/pins.ts#RunPins.divergence",
+        "src/agents/runs/pins.ts#RunPinDivergence",
+        "src/agents/runs/pins.ts#RunPinDimension",
+        "src/agents/runs/runtime.ts#RunRuntime.mergeRunInTransaction"
+      ],
+      "testSelectors": [
+        "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-RECONCILIATION] refuses a divergent-pin fold naming the exact divergence, and folds once it is reconciled",
+        "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-RECONCILIATION] refuses a merge commit whose own pins diverge from its parents",
+        "test/agents/runs/convergence.test.ts#swarm convergence [C13-RUN-FOLD-RECONCILIATION] names every pin dimension that disagrees and nothing that agrees"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -523,26 +587,6 @@
         "Three p0 tests exercise exactly those three paths and none carries this atom's label, so no selector can be claimed until they are tagged. test/agents/runs/runtime-mutation.test.ts `append guards` > `rejects a parent commit that belongs to another Run` inserts a commit under RunId `run-elsewhere` and appends against it; `merge validation` > `merge requires an exact source branch and stored head commits` registers branch `branch-elsewhere` under RunId `run-elsewhere` and merges its head; `runtime lookup errors` > `effective commits reject a branch of another Run` covers the branch side. Moving this row to verified is the tagging plus ACQ-IMPORT and ACQ-TEST, not new behaviour",
         "A positive assertion is owed alongside the rejections, because a runtime that rejected every merge would satisfy a rejection-only test: a merge whose source is a distinct branch of the same Run at equal pins is accepted, and the resulting graph still holds exactly one zero-parent commit. The second half is the interaction with C13-RUN-GRAPH-ARITY this rule depends on — closure and the single-root rule are one fact read from two directions — and no test asserts the zero-parent count after a merge",
         "The whole-graph consequence a reader relies on has no check, only the three per-append checks that imply it. src/agents/runs/runtime.ts#RunRuntime spawnRunInTransaction creates the child Run with its own root commit, and nothing asserts that no commit of the parent Run is reachable from any commit of the child, nor that the child's graph holds exactly one zero-parent commit after arbitrary appends, merges, and branch creation. That assertion is what makes the absence of an inheritance watermark testable rather than incidental"
-      ]
-    },
-    {
-      "id": "C13-RUN-DISTINCTION-REPRESENTABLE",
-      "owner": "W5",
-      "specAnchor": "C13-RUN-DISTINCTION-REPRESENTABLE",
-      "specTextSha256": "sha256:6027bd9e5f21aae4a195b4161b4113ffe8cc2e9516e2aec03f6abbdd22c5b663",
-      "status": "planned",
-      "prerequisites": [],
-      "sourceSymbols": [],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "The merge half, in its discloser's own words. `RunCommit.parents` is a flat `readonly RunCommitId[]` with arity validated per kind, so `parents.length === 2` answers whether this has two entries while the rule needs whether this joins two distinct lineages. A merge naming ONE commit as both parents is fully constructable, passes the codec, and is refused only later by `RunRuntime.validateMerge` — a unary merge wearing binary shape. That is demonstrated rather than argued: dropping the runtime's distinctness clause survives every record-level check, so the record-level mutant is the one that lives. The absent mechanism is a `MergeParents` value object in src/agents/runs/commit.ts that cannot hold one commit twice, plus the codec path that admits only it",
-        "Stated honestly because the row must not read as a correctness gap: `RunRuntime.validateMerge` refuses the unary-merge case correctly today, and src/agents/runs/commit.ts refuses every arity but two. No wrong merge lands and no wrong answer is returned. This is a representability rule — the illegal value exists and is checked rather than being unconstructable — so the evidence owed is that the value cannot be built, never that a build is rejected",
-        "The omission-attribution half, in its discloser's own words. `TurnModelInput.covers` is per-RECORD, a flat `readonly RunCommitId[]`, while `TurnOmission` is per-SECTION, so the two facts sit at different granularities with no third field joining them. `covers` therefore answers whether a commit was in scope of the assembly while being read as whether the model observed that commit's content, and a host that lists a commit and renders zero bytes of it — fully abridging it inside a multi-commit section — is indistinguishable in the record from one that rendered it whole. The withheld byte count exists but cannot be attributed to a commit. The absent mechanism is a per-commit coverage entry in src/agents/runs/executor.ts",
-        "What the omission half does and does not break, from the same disclosure. Reconstruction stays byte-exact either way because the bytes come from the sections and not from the accounting, so C13-TURN-MODEL-INPUT-RECONSTRUCTABLE is unaffected, and C13-TURN-SURFACE-ACCOUNTED claims coverage equals the transcript and that abridgement states the withheld amount without claiming per-commit attribution, so no landed row overclaims and no test asserts something false. What is unavailable is the audit question of which commit was abridged — exactly the question a reader of the phrase compaction and abridgement compose would assume is answerable. It composes for reconstruction; it does not compose for attribution",
-        "Why it is owed rather than settled, in the discloser's own judgement: per-commit entries carrying carried versus withheld were considered and dropped as duplicative of the section-level omission, and that objection treated two different questions as one fact. Per-commit omission attribution is a fact about the world, so the duplication objection was wrong and the gap is debt rather than a decision",
-        "SHAPE WARNING for whoever discharges the omission half, because the choice is load-bearing and the discloser corrected their own first estimate here. Replacing the field — `covers: readonly TurnCoveredCommit[]` with `{commit, omission}` per entry — changes the canonical value of an existing key, and `TurnModelInput.toData()` reaches `modelInputCommitId` through a content-addressed ref, so that shape forks every `modelInput` RunCommitId exactly as presence-typing `interceptable` forked InvocationIds, and it is a migration rather than a refactor. An ADDITIVE optional field emitted only when non-empty forks nothing: existing records serialise byte-identically and only records that use it differ, with `TurnShownContent.toData()` emitting `inline` XOR `ref` as the in-record precedent. Take the additive form; the residual cost is then §5.6 prose and one digest re-affirmation, not a durable-identity migration",
-        "Both halves are unmeasured against the mutation campaign, so no discrimination attribution exists for either mechanism. Discharging this row means the two value objects, a record-level test that a unary merge cannot be constructed rather than that it is rejected, a test that a fully abridged carried commit is distinguishable from a whole one, and the mutation attribution that shows each new test dies when its own clause is removed"
       ]
     },
     {
@@ -856,6 +900,21 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-TURN-ADMISSION-FACTS-DISTINCT",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-ADMISSION-FACTS-DISTINCT",
+      "specTextSha256": "sha256:329d0ee3f45ca1d7eaaead4735e58e2e494d46968b6a60abd45e44e4026d70cd",
+      "status": "verified",
+      "prerequisites": [],
+      "sourceSymbols": ["src/agents/runs/handle.ts#TurnAdmissionReceiptFacts"],
+      "testSelectors": [
+        "test/agents/runs/handle.test.ts#distinguishing the admission Receipt shapes [C13-TURN-ADMISSION-FACTS-DISTINCT] refuses a pre-effect denial and an unsuccessful attempt with different reasons",
+        "test/agents/runs/handle.test.ts#distinguishing the admission Receipt shapes [C13-TURN-ADMISSION-FACTS-DISTINCT] admits the succeeded shape alone, carrying both the attempt and its result"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
       "id": "C13-TURN-ADMISSION-HANDLE",
       "owner": "W5",
       "specAnchor": "C13-TURN-ADMISSION-HANDLE",
@@ -877,21 +936,6 @@
         "test/agents/runs/handle.test.ts#verified admission identities [C13-TURN-ADMISSION-HANDLE] refuses a delegate Receipt carrying the child's output beside its RunRef",
         "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-TURN-ADMISSION-HANDLE] offers the verified admission identity at the executor boundary without changing admission",
         "test/composition/mediation-pipeline.test.ts#the published mediation composition root [C13-TURN-ADMISSION-HANDLE] carries the child RunRef for a delegate spawn and never the child's result"
-      ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
-    },
-    {
-      "id": "C13-TURN-ADMISSION-FACTS-DISTINCT",
-      "owner": "W5",
-      "specAnchor": "C13-TURN-ADMISSION-FACTS-DISTINCT",
-      "specTextSha256": "sha256:329d0ee3f45ca1d7eaaead4735e58e2e494d46968b6a60abd45e44e4026d70cd",
-      "status": "verified",
-      "prerequisites": [],
-      "sourceSymbols": ["src/agents/runs/handle.ts#TurnAdmissionReceiptFacts"],
-      "testSelectors": [
-        "test/agents/runs/handle.test.ts#distinguishing the admission Receipt shapes [C13-TURN-ADMISSION-FACTS-DISTINCT] refuses a pre-effect denial and an unsuccessful attempt with different reasons",
-        "test/agents/runs/handle.test.ts#distinguishing the admission Receipt shapes [C13-TURN-ADMISSION-FACTS-DISTINCT] admits the succeeded shape alone, carrying both the attempt and its result"
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
@@ -1049,6 +1093,51 @@
       "remainingEvidence": []
     },
     {
+      "id": "C13-TURN-MODEL-INPUT-ABRIDGED",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-MODEL-INPUT-ABRIDGED",
+      "specTextSha256": "sha256:83c2c34d2be4cfd461b90399f1ea7cd0e28d0ed119919d36e12b222688e6f258",
+      "status": "implemented",
+      "prerequisites": ["C13-TURN-MODEL-INPUT-RECONSTRUCTABLE"],
+      "sourceSymbols": [
+        "src/agents/runs/executor.ts#TurnModelInput",
+        "src/agents/runs/executor.ts#TurnOmission",
+        "src/agents/runs/executor.ts#TurnPromptSection",
+        "src/agents/runs/executor.ts#TurnShownContent"
+      ],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "One of this rule's four adversarial cases is not closable inside the request record, and it is the only reason this row is not verified: a host reporting a byte-ranged `read` or a `list` page as an omission under a bound. An omission is a count of withheld bytes and says nothing about the source's own coverage, so that report is byte-for-byte indistinguishable from a truthful budget omission of the same size, and closing it here would mean carrying source coverage on the request, which this rule's own separation clause forbids. Discharging it needs the §7.4 Receipt for the same Invocation read alongside the request, so what is owed is a composition test across the two records rather than further work on this one",
+        "The other three adversarial cases are closed by construction and covered by executed tests: a host recording the whole result plus a shortened flag cannot mislead, because src/agents/runs/executor.ts#ScopedModelHandle issues the reconstruction of the record and a model therefore observes exactly the shown form the record holds; a digest of the shown bytes is not an expressible shown form, because src/agents/runs/executor.ts#TurnShownContent admits inline bytes or a resolving `ContentRef` and rejects every other shape; and an omission under a bound cannot be recorded as source incompleteness, because src/agents/runs/executor.ts#TurnOmission has no case for it and the record's exact field set admits no completeness field",
+        "testSelectors and checkerInvariants stay empty because scripts/quality/ledger.mjs#validateStatus admits them only on a row whose remaining evidence is empty. The three executed [C13-TURN-MODEL-INPUT-ABRIDGED] cases in test/agents/runs/model-input.test.ts already cover the four owed shapes, the record-level separation, and the three closed adversarial cases; they move onto this row together with the composition test above"
+      ]
+    },
+    {
+      "id": "C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH",
+      "specTextSha256": "sha256:10268d6c2ecc045627e1720ec7b1c991b7737e4a46eaab718fd9c491ceff4f7a",
+      "status": "verified",
+      "prerequisites": ["C13-TURN-MODEL-INPUT-RECONSTRUCTABLE"],
+      "sourceSymbols": [
+        "src/agents/runs/executor.ts#LeaseScopedTurn",
+        "src/agents/runs/executor.ts#ScopedModelHandle",
+        "src/agents/runs/runtime.ts#RunRuntime.appendTurnCommitInTransaction"
+      ],
+      "testSelectors": [
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] refuses to dispatch on a store that rejects the record",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] refuses to dispatch on a store that is unavailable",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] refuses to dispatch on an outcome the substrate cannot report",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] a fenced Turn's rejected commit prevents dispatch and leaves the branch head where it was",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] the port observes its request already durable on entry, which no after-the-fact record inspection could establish",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] settles an unknown outcome by re-reading that exact commit rather than assuming either branch",
+        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] reaches durability on a further attempt at that same commit, and fails without a model call when its attempts are exhausted"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
+    },
+    {
       "id": "C13-TURN-MODEL-INPUT-RECONSTRUCTABLE",
       "owner": "W5",
       "specAnchor": "C13-TURN-MODEL-INPUT-RECONSTRUCTABLE",
@@ -1079,41 +1168,13 @@
       "remainingEvidence": []
     },
     {
-      "id": "C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH",
-      "owner": "W5",
-      "specAnchor": "C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH",
-      "specTextSha256": "sha256:10268d6c2ecc045627e1720ec7b1c991b7737e4a46eaab718fd9c491ceff4f7a",
-      "status": "verified",
-      "prerequisites": [
-        "C13-TURN-MODEL-INPUT-RECONSTRUCTABLE"
-      ],
-      "sourceSymbols": [
-        "src/agents/runs/executor.ts#LeaseScopedTurn",
-        "src/agents/runs/executor.ts#ScopedModelHandle",
-        "src/agents/runs/runtime.ts#RunRuntime.appendTurnCommitInTransaction"
-      ],
-      "testSelectors": [
-        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] refuses to dispatch on a store that rejects the record",
-        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] refuses to dispatch on a store that is unavailable",
-        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] refuses to dispatch on an outcome the substrate cannot report",
-        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] a fenced Turn's rejected commit prevents dispatch and leaves the branch head where it was",
-        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] the port observes its request already durable on entry, which no after-the-fact record inspection could establish",
-        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] settles an unknown outcome by re-reading that exact commit rather than assuming either branch",
-        "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-DURABLE-BEFORE-DISPATCH] reaches durability on a further attempt at that same commit, and fails without a model call when its attempts are exhausted"
-      ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
-    },
-    {
       "id": "C13-TURN-MODEL-INPUT-RETENTION-LOSS",
       "owner": "W5",
       "specAnchor": "C13-TURN-MODEL-INPUT-RETENTION-LOSS",
       "specTextSha256": "sha256:1934799615d0db74b66d71fa9879a81d131f89920c668cb4dbbfe538a553ba22",
       "status": "verified",
       "prerequisites": ["C13-TURN-MODEL-INPUT-RECONSTRUCTABLE"],
-      "sourceSymbols": [
-        "src/agents/runs/executor.ts#TurnModelInputReplay"
-      ],
+      "sourceSymbols": ["src/agents/runs/executor.ts#TurnModelInputReplay"],
       "testSelectors": [
         "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RETENTION-LOSS] fails typed on a released prompt section reference and names what is missing",
         "test/agents/runs/model-input.test.ts#Turn model input [C13-TURN-MODEL-INPUT-RETENTION-LOSS] fails typed on a no-longer-retained admitted Event and names what is missing",
@@ -1121,27 +1182,6 @@
       ],
       "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
       "remainingEvidence": []
-    },
-    {
-      "id": "C13-TURN-MODEL-INPUT-ABRIDGED",
-      "owner": "W5",
-      "specAnchor": "C13-TURN-MODEL-INPUT-ABRIDGED",
-      "specTextSha256": "sha256:83c2c34d2be4cfd461b90399f1ea7cd0e28d0ed119919d36e12b222688e6f258",
-      "status": "implemented",
-      "prerequisites": ["C13-TURN-MODEL-INPUT-RECONSTRUCTABLE"],
-      "sourceSymbols": [
-        "src/agents/runs/executor.ts#TurnModelInput",
-        "src/agents/runs/executor.ts#TurnOmission",
-        "src/agents/runs/executor.ts#TurnPromptSection",
-        "src/agents/runs/executor.ts#TurnShownContent"
-      ],
-      "testSelectors": [],
-      "checkerInvariants": [],
-      "remainingEvidence": [
-        "One of this rule's four adversarial cases is not closable inside the request record, and it is the only reason this row is not verified: a host reporting a byte-ranged `read` or a `list` page as an omission under a bound. An omission is a count of withheld bytes and says nothing about the source's own coverage, so that report is byte-for-byte indistinguishable from a truthful budget omission of the same size, and closing it here would mean carrying source coverage on the request, which this rule's own separation clause forbids. Discharging it needs the §7.4 Receipt for the same Invocation read alongside the request, so what is owed is a composition test across the two records rather than further work on this one",
-        "The other three adversarial cases are closed by construction and covered by executed tests: a host recording the whole result plus a shortened flag cannot mislead, because src/agents/runs/executor.ts#ScopedModelHandle issues the reconstruction of the record and a model therefore observes exactly the shown form the record holds; a digest of the shown bytes is not an expressible shown form, because src/agents/runs/executor.ts#TurnShownContent admits inline bytes or a resolving `ContentRef` and rejects every other shape; and an omission under a bound cannot be recorded as source incompleteness, because src/agents/runs/executor.ts#TurnOmission has no case for it and the record's exact field set admits no completeness field",
-        "testSelectors and checkerInvariants stay empty because scripts/quality/ledger.mjs#validateStatus admits them only on a row whose remaining evidence is empty. The three executed [C13-TURN-MODEL-INPUT-ABRIDGED] cases in test/agents/runs/model-input.test.ts already cover the four owed shapes, the record-level separation, and the three closed adversarial cases; they move onto this row together with the composition test above"
-      ]
     },
     {
       "id": "C13-TURN-NO-RETRY",
@@ -1220,24 +1260,6 @@
       "remainingEvidence": []
     },
     {
-      "id": "C13-TURN-TRANSCRIPT-RECONSTRUCTION",
-      "owner": "W5",
-      "specAnchor": "C13-TURN-TRANSCRIPT-RECONSTRUCTION",
-      "specTextSha256": "sha256:1b07b735eda91d9ad7ed3df548079d30a1947b7bd3ad361ff6ae8757d1175440",
-      "status": "verified",
-      "prerequisites": ["C13-TURN-MODEL-INPUT-RECONSTRUCTABLE", "C13-RUN-EFFECTIVE-TRANSCRIPT"],
-      "sourceSymbols": [
-        "src/agents/runs/runtime.ts#RunRuntime",
-        "src/agents/runs/transcript.ts#effectiveTranscript"
-      ],
-      "testSelectors": [
-        "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-TURN-TRANSCRIPT-RECONSTRUCTION] derives at the exact base commit, so a later rewrite cannot enter it",
-        "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-TURN-TRANSCRIPT-RECONSTRUCTION] rebuilds an earlier call's request byte for byte across a rewrite that shadows what it read"
-      ],
-      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
-      "remainingEvidence": []
-    },
-    {
       "id": "C13-TURN-SURFACE-ACCOUNTED",
       "owner": "W5",
       "specAnchor": "C13-TURN-SURFACE-ACCOUNTED",
@@ -1266,6 +1288,24 @@
         "A model input's coverage claim is per-record while its omission fact is per-section, so a commit carried in fully-reduced form is indistinguishable in the record from one carried whole; the rule does not claim per-commit attribution of withheld bytes and no reconstruction depends on it. Correcting it means adding a per-commit omission to the record, which is an ADDITIVE optional field that forks no existing modelInputCommitId - measured: an absent optional key encodes identically - but the accompanying section 5.6 prose moves this atom's own specTextSha256, so it is a declared digest re-affirmation and not a silent edit. (W5, CompactionConcept.)",
         "The shape choice above is load-bearing rather than stylistic, and stating which shape is safe is the point of recording it: the natural replacement, covers carrying {commit, omission} elements, does fork every modelInputCommitId, because TurnModelInput.toData() reaches a content-addressed ref that becomes the commit id - a derivation MIGRATE-OPERATION-DESCRIPTOR-PRESENCE already names. TurnShownContent.toData()'s inline XOR ref is the in-record precedent for emitting an optional key only when non-empty. On whether any deployment already holds run.commit records of kind modelInput under the old derivation: negative for the Cloudflare substrate only, established by absence of a write path rather than by inventory - no RunCommit occurrence in that adapter's source, no run-commit store among its durable tables, and its only references in-memory test fixtures. That closes the question for that substrate and says nothing about any other host."
       ]
+    },
+    {
+      "id": "C13-TURN-TRANSCRIPT-RECONSTRUCTION",
+      "owner": "W5",
+      "specAnchor": "C13-TURN-TRANSCRIPT-RECONSTRUCTION",
+      "specTextSha256": "sha256:1b07b735eda91d9ad7ed3df548079d30a1947b7bd3ad361ff6ae8757d1175440",
+      "status": "verified",
+      "prerequisites": ["C13-TURN-MODEL-INPUT-RECONSTRUCTABLE", "C13-RUN-EFFECTIVE-TRANSCRIPT"],
+      "sourceSymbols": [
+        "src/agents/runs/runtime.ts#RunRuntime",
+        "src/agents/runs/transcript.ts#effectiveTranscript"
+      ],
+      "testSelectors": [
+        "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-TURN-TRANSCRIPT-RECONSTRUCTION] derives at the exact base commit, so a later rewrite cannot enter it",
+        "test/agents/runs/transcript.test.ts#Run effective transcript, rewrite bracket, and cut balance [C13-TURN-TRANSCRIPT-RECONSTRUCTION] rebuilds an earlier call's request byte for byte across a rewrite that shadows what it read"
+      ],
+      "checkerInvariants": ["ACQ-IMPORT", "ACQ-TEST"],
+      "remainingEvidence": []
     },
     {
       "id": "C13-WRITER-MATRIX",

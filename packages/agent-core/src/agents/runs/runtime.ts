@@ -1388,7 +1388,8 @@ export class RunRuntime<Transaction> {
         if (!fold.source.equals(source.id)) {
             throw invalidRun("Fold step must join the exact source branch its item declared");
         }
-        const preceding = this.precedingFoldSteps(tx, commit.parents[0]!, fold.invocation);
+        const target = requireValue(commit.parents[0], "A merge names its target parent");
+        const preceding = this.precedingFoldSteps(tx, target, fold.invocation);
         if (
             preceding.length !== fold.itemIndex ||
             preceding.some((step, offset) => step.itemIndex !== fold.itemIndex - 1 - offset)
