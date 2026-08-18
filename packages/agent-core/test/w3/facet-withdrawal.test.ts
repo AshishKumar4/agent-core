@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest";
 import { AuditRecordId } from "../../src/interaction-references";
 import { FacetRef, MemoryWorkspaceSlotStore, SlotName } from "../../src/facets";
 import { WorkspaceId } from "../../src/identity";
+import { AgentCoreError } from "../../src/errors";
 import { FacetActivation, FacetWithdrawal } from "../../src/composition";
 import {
     MemoryWorkspaceRecords,
@@ -290,6 +291,27 @@ describe("Facet withdrawal across owning Actors", () => {
     );
 
     test(
+        "[C13-FACET-WITHDRAWAL-EXACT] carries a non-Error refusal from a plane into the reason it reports",
+        { tags: "p2" },
+        () => {
+            // A control transaction that rejects with something other than an Error still has
+            // to name why the set is incomputable, so the raised value is reported as text
+            // rather than swallowed into an empty reason.
+            const harness = crossPlaneHarness();
+            contribute(harness.slots, entry("workspace:withdrawn", 1, { title: "Withdrawn" }));
+            harness.routingFails = true;
+            harness.routingFailure = "routing Actor rejected without an Error";
+
+            expect(() => harness.withdrawal.plan(new FacetRef("workspace:withdrawn"))).toThrow(
+                new AgentCoreError(
+                    "protocol.invalid-state",
+                    "Withdrawal set is not computable from the routing plane: routing Actor rejected without an Error"
+                )
+            );
+        }
+    );
+
+    test(
         "[C13-FACET-WITHDRAWAL-EXACT] refuses before writing any plane when the set holds a Slot a retained Facet still contributes to",
         { tags: "p0" },
         () => {
@@ -351,6 +373,37 @@ describe("Facet activation atomicity", () => {
             });
             expect(harness.slots.entries(new SlotName("dashboard.card"))).toEqual(before);
             expect(harness.persistence.listSubscriptions(harness.records)).toEqual([]);
+            expect(
+                harness.slots.transaction((transaction) =>
+                    harness.slots.withdrawalSet(transaction, contributor.contributor)
+                ).entries
+            ).toEqual([]);
+        }
+    );
+
+    test(
+        "[C13-FACET-START-ATOMIC] records a non-Error start rejection as the failed install's reason",
+        { tags: "p2" },
+        async () => {
+            // The outcome is the record of the install, so a Facet that rejects with a value
+            // that is not an Error still has to say what it rejected with.
+            const harness = crossPlaneHarness();
+            const activation = new FacetActivation(harness.withdrawal);
+            const contributor = attribution("workspace:non-error");
+            const facet = activationFacet(contributor.contributor, () => {
+                contribute(harness.slots, entry("workspace:non-error", 1, { title: "One" }));
+                throw "start rejected without an Error";
+            });
+
+            const outcome = await activation.activate(facet, contributor, {
+                signal: new AbortController().signal
+            });
+
+            expect(outcome).toEqual({
+                kind: "failed",
+                facet: contributor.contributor,
+                reason: "start rejected without an Error"
+            });
             expect(
                 harness.slots.transaction((transaction) =>
                     harness.slots.withdrawalSet(transaction, contributor.contributor)
@@ -430,6 +483,8 @@ interface CrossPlaneHarness {
     readonly slots: MemoryWorkspaceSlotStore;
     readonly withdrawal: FacetWithdrawal<SlotTransaction, MemoryWorkspaceRecords>;
     routingFails: boolean;
+    /** What the routing Actor's control transaction raises when it fails. */
+    routingFailure: unknown;
 }
 
 function crossPlaneHarness(): CrossPlaneHarness {
@@ -441,12 +496,11 @@ function crossPlaneHarness(): CrossPlaneHarness {
         persistence: routing.persistence,
         slots,
         withdrawal: new FacetWithdrawal(slots, routing.routing, (operation) => {
-            if (harness.routingFails) {
-                throw new TypeError("routing Actor is unreachable");
-            }
+            if (harness.routingFails) throw harness.routingFailure;
             return operation(routing.records);
         }),
-        routingFails: false
+        routingFails: false,
+        routingFailure: new TypeError("routing Actor is unreachable")
     };
     return harness;
 }

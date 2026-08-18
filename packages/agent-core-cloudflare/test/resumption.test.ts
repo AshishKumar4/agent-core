@@ -6,8 +6,13 @@ import {
     SqliteReconciliationOutbox,
     cloudflareRuntimeMigrations,
     type ResumableAttempt,
-    type ResumableWork
+    type ResumableWork,
+    type ResumptionSchedule,
+    type SqliteRow,
+    type SynchronousResultGuard,
+    type SynchronousSqlitePort
 } from "../src/index.js";
+import { expectOperationalFailure, malformedInput } from "./assertions.js";
 import { FakeAlarmStorage, fakeErrors } from "./fakes.js";
 import { NodeSqlite } from "./node-sqlite.js";
 
@@ -46,6 +51,31 @@ function isolate(
 
 function operationId(value = "operation-1"): ReconciliationOutboxId {
     return new ReconciliationOutboxId(value);
+}
+
+/**
+ * A substrate that reports a row it cannot hand over. Real SQLite counts only rows it
+ * produces, so the journal reading a counted-but-absent row as an absent operation —
+ * rather than decoding a hole into a record — is only reachable through this port.
+ */
+class MiscountingSqlite implements SynchronousSqlitePort {
+    public all(): readonly SqliteRow[] {
+        return new Array<SqliteRow>(1);
+    }
+
+    public run(): void {}
+
+    public transaction<Result>(
+        operation: () => Result,
+        ..._guard: SynchronousResultGuard<Result>
+    ): Result {
+        return operation();
+    }
+}
+
+/** The journal never reaches its schedule in the tests that use the miscounting port. */
+class NoSchedule implements ResumptionSchedule {
+    public enqueue(): void {}
 }
 
 describe("DurableOperationJournal", () => {
@@ -412,5 +442,77 @@ describe("DurableOperationJournal", () => {
         await expect(journal.resume(id)).rejects.toThrow(
             "Stored resumable operation column work is corrupt"
         );
+    });
+
+    test("reads a counted-but-absent row as no record rather than a corrupt one", { tags: "p1" }, () => {
+        const journal = new DurableOperationJournal(
+            new MiscountingSqlite(),
+            new NoSchedule(),
+            { settle: async () => undefined },
+            fakeErrors
+        );
+
+        expect(journal.record(operationId())).toBeUndefined();
+    });
+
+    test("refuses an operation ID that only looks like one", { tags: "p1" }, () => {
+        const journal = isolate(
+            storage(),
+            { settle: async () => undefined },
+            new FakeAlarmStorage()
+        ).journal;
+
+        // An operation ID is the unit of work's identity; a bare record carrying the same
+        // text is not that identity, and reading one as an ID would let unvalidated text
+        // claim, resume and clear another operation's journal.
+        expectOperationalFailure(
+            () => journal.record(malformedInput({ value: "operation-1" })),
+            "operation.invalid-input"
+        );
+        expect(() => journal.begin(malformedInput({ value: "operation-1" }), "settle", NOW)).toThrow(
+            "Resumable operation ID must be a ReconciliationOutboxId"
+        );
+    });
+
+    test("refuses a work name that is not nonempty canonical text", { tags: "p1" }, () => {
+        const database = storage();
+        const outbox = new SqliteReconciliationOutbox(database, fakeErrors);
+
+        // A padded key is a different name from the one a resumed attempt would look up.
+        expect(
+            () =>
+                new DurableOperationJournal(
+                    database,
+                    outbox,
+                    { " settle ": async () => undefined },
+                    fakeErrors
+                )
+        ).toThrow("Resumable work name must be nonempty canonical text");
+        const journal = new DurableOperationJournal(
+            database,
+            outbox,
+            { settle: async () => undefined },
+            fakeErrors
+        );
+        expect(() => journal.begin(operationId(), "", NOW)).toThrow(
+            "Resumable work name must be nonempty canonical text"
+        );
+    });
+
+    test("refuses a schedule it cannot wake at and records nothing", { tags: "p1" }, () => {
+        const database = storage();
+        const journal = isolate(database, { settle: async () => undefined }, new FakeAlarmStorage())
+            .journal;
+
+        for (const scheduledAt of [-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+            expect(() => journal.begin(operationId(), "settle", scheduledAt)).toThrow(
+                "Resumable operation schedule must be a nonnegative safe integer"
+            );
+        }
+
+        // The guard runs before the transaction, so a refused begin leaves no operation
+        // the driver would later find with an unusable wakeup.
+        expect(database.all("SELECT id FROM agent_core_resumable_operations", [])).toEqual([]);
+        expect(database.all("SELECT id FROM agent_core_reconciliation_outbox", [])).toEqual([]);
     });
 });

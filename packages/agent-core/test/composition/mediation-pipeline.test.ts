@@ -53,6 +53,7 @@ import {
     WorkspaceId
 } from "../../src/identity";
 import {
+    AttemptCompletion,
     AttemptReceipt,
     AuditRecord,
     AuthorityAdmissionReference,
@@ -60,6 +61,7 @@ import {
     InvocationPlacementPin,
     MemoryInvocationMediationPersistence,
     MemoryInvocationPersistence,
+    PreEffectReceipt,
     PreparedInvocation,
     Receipt,
     cloneInvocationMediationMemoryState,
@@ -73,10 +75,12 @@ import {
     type CanonicalBatchAuthorityPermitPort,
     type CanonicalBatchFinalAdmissionPort,
     type CanonicalBatchFinalAdmissionResult,
+    type EffectAttemptId,
     type InvocationMediationMemoryState,
     type InvocationMemoryState,
     type InvocationTransactionPort,
     type ItemClaim,
+    type ReceiptId,
     type ReceiptObservation,
     type StructuralCodec
 } from "../../src/invocations";
@@ -98,6 +102,7 @@ import {
     type MediationDomainReference,
     type MediationLeaseReference,
     type MediationPathEpochReference,
+    type MediationPersistence,
     type MediationPreparedInvocation,
     type OperationAuthorityStatePort,
     type OperationResolutionCandidate
@@ -117,6 +122,7 @@ import {
     type LeaseToken
 } from "../../src/agents";
 import { RunId, TurnId } from "../../src/execution-references";
+import { InvocationId } from "../../src/interaction-references";
 import { EnvironmentId } from "../../src/environments";
 import { AuthorityPermitIssuanceReply, AuthorityPermitIssuanceRequest } from "../../src/protocol";
 import {
@@ -212,6 +218,7 @@ class RecallOperation extends Operation {
         this.observed.calls += 1;
         this.observed.signal = context.signal;
         this.observed.content = context.content;
+        this.observed.fail?.();
         return { attempt: context.attempt?.id.value ?? null };
     }
 }
@@ -234,6 +241,8 @@ interface Observed {
     content: ContentStore | undefined;
     calls: number;
     stops: number;
+    /** Raises from the Operation body, so the host classifies an unconfirmed failure. */
+    fail?: (() => void) | undefined;
 }
 
 class MemoryFacet extends Facet {
@@ -596,7 +605,11 @@ interface Harness {
     readonly content: ContentStore;
 }
 
-async function harness(): Promise<Harness> {
+async function harness(
+    persistence: MediationPersistence<PipelineState, DemoAdmission> = new MemoryInvocationPersistence(
+        mediationInvocationCodecs(admissionCodec)
+    )
+): Promise<Harness> {
     const transactions = new MemoryTransactions();
     const authority = new DemoAuthorityState();
     const observed: Observed = {
@@ -617,7 +630,7 @@ async function harness(): Promise<Harness> {
         tenant,
         worker: new ClaimWorkerId("worker-1"),
         transactions,
-        persistence: new MemoryInvocationPersistence(mediationInvocationCodecs(admissionCodec)),
+        persistence,
         evidence: new MemoryInvocationMediationPersistence(),
         authority,
         manifests: [manifest()],
@@ -642,6 +655,57 @@ async function harness(): Promise<Harness> {
         now: () => new Date(2_000)
     });
     return { pipeline, transactions, authority, observed, observations, content };
+}
+
+/**
+ * The mediation persistence, with the stored Receipt and EffectAttempt a reader sees under the
+ * test's control once the attempt has committed. The admission record projection is the only
+ * reader that reads a committed Receipt back by id, so what it reports is exactly what these
+ * substitutions decide; the audit chain reads the Receipt it is writing and is left alone.
+ */
+class ProjectedRecords extends MemoryInvocationPersistence<
+    MediationLeaseReference,
+    MediationAuthorityReference,
+    MediationDomainReference,
+    MediationPathEpochReference,
+    DemoAdmission
+> {
+    #committed = false;
+    #projecting = false;
+    public substitute: ((stored: AttemptReceipt) => Receipt | undefined) | undefined;
+    public hideAttempt = false;
+
+    public override appendReceipt(transaction: InvocationMemoryState, record: Receipt): void {
+        super.appendReceipt(transaction, record);
+        this.#committed = true;
+    }
+
+    public override receipt(
+        transaction: InvocationMemoryState,
+        id: ReceiptId
+    ): Receipt | undefined {
+        const stored = super.receipt(transaction, id);
+        if (!this.#committed) return stored;
+        this.#projecting = true;
+        if (this.substitute === undefined || !(stored instanceof AttemptReceipt)) return stored;
+        return this.substitute(stored);
+    }
+
+    public override attempt(transaction: InvocationMemoryState, id: EffectAttemptId) {
+        if (this.#projecting && this.hideAttempt) return undefined;
+        return super.attempt(transaction, id);
+    }
+}
+
+function storedAttemptReceipt(value: Harness): AttemptReceipt {
+    const receipts = [...value.transactions.read().receipts.values()].map((bytes) =>
+        Receipt.decode(bytes)
+    );
+    const receipt = receipts[0];
+    if (receipts.length !== 1 || !(receipt instanceof AttemptReceipt)) {
+        throw new TypeError("expected exactly one attempt Receipt");
+    }
+    return receipt;
 }
 
 class DeniedPermitExpectations implements AuthorityPermitExpectationFactory<
@@ -1229,4 +1293,121 @@ describe("the published mediation composition root", () => {
             })
         ).rejects.toMatchObject({ code: "facet.inactive" });
     });
+
+    it(
+        "classifies an unconfirmed attempt failure against the domain hosting the target",
+        { tags: "p1" },
+        async () => {
+            // §7.4: the host owns the boundary questions. A raised failure the callee did
+            // not confirm leaves nothing to name while the domain still answers for the
+            // target, and the Receipt says exactly that rather than manufacturing a kind.
+            const value = await harness();
+            value.observed.fail = () => {
+                throw new TypeError("recall raised");
+            };
+
+            await expect(value.pipeline.invocations.invoke(invocationRequest())).rejects.toThrow();
+
+            const receipt = storedAttemptReceipt(value);
+            expect(receipt.outcome).toBe("indeterminate");
+            expect(receipt.failure).toBeUndefined();
+            await value.pipeline.dispose();
+        }
+    );
+
+    it(
+        "names domainLost once the runtime stops answering for the target Facet",
+        { tags: "p1" },
+        async () => {
+            // The witness is the pipeline's own Facet runtime hosting that exact Facet, so a
+            // disposal racing an in-flight attempt is the boundary §7.4's domainLost names.
+            const value = await harness();
+            const disposal: Promise<void>[] = [];
+            value.observed.fail = () => {
+                disposal.push(value.pipeline.dispose());
+                throw new TypeError("recall raised while the host was stopping");
+            };
+
+            await expect(value.pipeline.invocations.invoke(invocationRequest())).rejects.toThrow();
+
+            const receipt = storedAttemptReceipt(value);
+            expect(receipt.outcome).toBe("failed");
+            expect(receipt.failure?.kind).toBe("domainLost");
+            await Promise.all(disposal);
+        }
+    );
+
+    it(
+        "[C13-RECEIPT-FAILURE-ORTHOGONAL] projects each stored Receipt shape the admission verifier refuses",
+        { tags: "p1" },
+        async () => {
+            // One transaction's records answer three different questions, and each answer
+            // refuses on its own behalf: a Receipt that is not stored at all, one that
+            // reached no EffectAttempt, one whose EffectAttempt is missing, and one that
+            // did not succeed. None of them can be read as an admitted item.
+            const refusals: readonly (readonly [string, (records: ProjectedRecords) => void])[] = [
+                [
+                    "Admission evidence names no stored Receipt",
+                    (records) => (records.substitute = () => undefined)
+                ],
+                [
+                    "Admission Receipt reached no EffectAttempt: deniedPreEffect",
+                    (records) =>
+                        (records.substitute = (stored) =>
+                            new PreEffectReceipt(
+                                stored.id,
+                                new InvocationId("pipeline-denied"),
+                                0,
+                                "deniedPreEffect",
+                                stored.recordedAt,
+                                "denied before any effect"
+                            ))
+                ],
+                [
+                    "which is not stored",
+                    (records) => (records.hideAttempt = true)
+                ],
+                [
+                    "did not succeed: indeterminate",
+                    (records) =>
+                        (records.substitute = (stored) =>
+                            new AttemptReceipt(
+                                stored.id,
+                                stored.attempt,
+                                AttemptCompletion.indeterminate,
+                                undefined,
+                                stored.recordedAt,
+                                undefined
+                            ))
+                ],
+                [
+                    "did not succeed: succeeded",
+                    (records) =>
+                        (records.substitute = (stored) =>
+                            new AttemptReceipt(
+                                stored.id,
+                                stored.attempt,
+                                AttemptCompletion.succeeded,
+                                undefined,
+                                stored.recordedAt,
+                                undefined
+                            ))
+                ]
+            ];
+
+            let ordinal = 0;
+            for (const [refusal, tamper] of refusals) {
+                ordinal += 1;
+                const records = new ProjectedRecords(mediationInvocationCodecs(admissionCodec));
+                const value = await harness(records);
+                tamper(records);
+                await expect(
+                    value.pipeline.invocations.invoke(
+                        invocationRequest(undefined, `projection-${ordinal}`)
+                    )
+                ).rejects.toThrow(refusal);
+                await value.pipeline.dispose();
+            }
+        }
+    );
 });

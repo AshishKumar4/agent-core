@@ -412,13 +412,7 @@ test("authority protocol codec failures carry the codec.invalid code", { tags: "
 });
 
 test("permit issuance replies and payload codecs round-trip frozen permits", { tags: "p2" }, () => {
-    const permit = new AuthorityPermit({
-        ...permitExpectationInit(),
-        nonce: "permit-nonce",
-        requestDigest: targetPermitRequest().digest(),
-        issuedAt: new Date(1_000),
-        expiresAt: new Date(2_000)
-    });
+    const permit = issuedPermit(targetPermitRequest());
     const reply = AuthorityPermitIssuanceReply.issued(
         permitEvidence(targetPermitRequest()),
         permit
@@ -437,6 +431,85 @@ test("permit issuance replies and payload codecs round-trip frozen permits", { t
     const decoded = codec.decode(encoded);
     expect(decoded.targetRequest.digest().equals(targetRequest.digest())).toBe(true);
 });
+
+test(
+    "permit issuance replies refuse a decision their permit and evidence do not agree with",
+    { tags: "p0" },
+    () => {
+        const request = targetPermitRequest();
+        const allowed = permitEvidence(request);
+        const denied = deniedPermitEvidence(request);
+        const permit = issuedPermit(request);
+
+        // A permit carried on evidence that denied the check would be authority the reply
+        // created rather than authority it reports, so no such reply can be assembled.
+        expect(() => AuthorityPermitIssuanceReply.issued(denied, permit)).toThrow(TypeError);
+        expect(() => AuthorityPermitIssuanceReply.issued(denied, permit)).toThrow(
+            "Authority permit issuance reply does not match its decision"
+        );
+        // The mirror: a denial cannot be reported over evidence that allowed.
+        expect(() => AuthorityPermitIssuanceReply.denied(allowed)).toThrow(
+            "Authority permit issuance reply does not match its decision"
+        );
+
+        // Both agreeing pairs are assembled, so the refusal is about the disagreement.
+        expect(
+            AuthorityPermitIssuanceReply.issued(allowed, permit)
+                .requirePermit()
+                .expectation.equals(permit.expectation)
+        ).toBe(true);
+        const refused = AuthorityPermitIssuanceReply.denied(denied);
+        expect(refused.permit).toBeUndefined();
+        expect(refused.evidence.allowed).toBe(false);
+        expectAgentCoreError(() => refused.requirePermit(), "protocol.invalid-state");
+        expect(() => refused.requirePermit()).toThrow(
+            "Denied authority permit reply carries no permit"
+        );
+
+        // A denial is durable in its own right: it encodes carrying no permit and decodes back
+        // to a reply that still carries none, so the wire cannot turn one into an issuance.
+        const restored = AuthorityPermitIssuanceReply.decode(
+            AuthorityPermitIssuanceReply.encode(refused)
+        );
+        expect(restored.kind).toBe("denied");
+        expect(restored.permit).toBeUndefined();
+        expect(restored.evidence.reason).toBe("noMatchingAllow");
+    }
+);
+
+test(
+    "permit issuance decoding refuses a reply whose kind and permit disagree",
+    { tags: "p1" },
+    () => {
+        const request = targetPermitRequest();
+        const evidence = permitEvidence(request).toData();
+        const permit = issuedPermit(request).toData();
+        const disagreeing: readonly JsonValue[] = [
+            { evidence, kind: "issued", permit: null },
+            { evidence, kind: "denied", permit },
+            { evidence, kind: "revoked", permit },
+            { evidence, kind: "revoked", permit: null }
+        ];
+        for (const payload of disagreeing) {
+            expectAgentCoreError(
+                () => AuthorityPermitIssuanceReply.decode(issuanceReplyEnvelope(payload)),
+                "codec.invalid"
+            );
+            expect(() =>
+                AuthorityPermitIssuanceReply.decode(issuanceReplyEnvelope(payload))
+            ).toThrow("Authority permit issuance reply is malformed");
+        }
+        // The same exact field set, with a kind that agrees with its permit, decodes — so the
+        // refusal is the disagreement and not the payload's shape.
+        expect(
+            AuthorityPermitIssuanceReply.decode(
+                issuanceReplyEnvelope({ evidence, kind: "issued", permit })
+            )
+                .requirePermit()
+                .expectation.equals(issuedPermit(request).expectation)
+        ).toBe(true);
+    }
+);
 
 function permitExpectationInit(): AuthorityPermitExpectationInit {
     const invocation = new InvocationId("permit-invocation");
@@ -553,4 +626,38 @@ function permitEvidence(request: TargetAuthorityPermitRequest): AuthorityCheckEv
         request.authority.expectedPath,
         new Date(1_000)
     );
+}
+
+function deniedPermitEvidence(request: TargetAuthorityPermitRequest): AuthorityCheckEvidence {
+    return new AuthorityCheckEvidence(
+        tenant,
+        issuer,
+        request.authority.digest(),
+        request.authority.binding.key,
+        request.authority.binding.generation,
+        "deny",
+        "noMatchingAllow",
+        [],
+        [],
+        request.authority.expectedPath,
+        new Date(1_000)
+    );
+}
+
+function issuedPermit(request: TargetAuthorityPermitRequest): AuthorityPermit {
+    return new AuthorityPermit({
+        ...permitExpectationInit(),
+        nonce: "permit-nonce",
+        requestDigest: request.digest(),
+        issuedAt: new Date(1_000),
+        expiresAt: new Date(2_000)
+    });
+}
+
+function issuanceReplyEnvelope(payload: JsonValue): Uint8Array {
+    return encodeCanonicalJson({
+        kind: "protocol.authority-permit-issuance-reply",
+        version: { major: 2, minor: 0 },
+        payload
+    });
 }

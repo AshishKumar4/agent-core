@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { ActorId, ActorRef } from "../../../src/actors";
+import { ActorId, ActorRef, type SynchronousResultGuard } from "../../../src/actors";
 import {
     AuthorityCheckRequest,
     AuthorityCheckEvidence,
@@ -10,6 +10,7 @@ import {
     AuthorityPermitExpectation,
     AuthorityPermitIssuedRecordSource,
     AuthenticatedAuthorityPermit,
+    type AuthorityPermitTargetRequestStore,
     Binding,
     GrantId,
     InvalidationWatermark,
@@ -19,10 +20,12 @@ import {
     ScopeEpoch,
     TargetAuthorityPermitRequest,
     watermarkKey,
-    type MemoryAuthorityPermitTransaction,
+    MemoryAuthorityPermitTransaction,
     StoredAuthorityPermitAdmissionPort
 } from "../../../src/authority";
 import {
+    AuthenticatedAuthorityPermitDenial,
+    authorityPermitReferenceCodec,
     ConsumedAuthorityAdmissionPort,
     AuthorityPermitIssuanceTransport,
     IssuedAuthorityPermitPort,
@@ -56,6 +59,7 @@ import {
     PackagePin,
     PolicySet
 } from "../../../src/definition";
+import { AgentCoreError } from "../../../src/errors";
 import {
     RunCommitId as ExecutionRunCommitId,
     RunId as ExecutionRunId
@@ -1300,6 +1304,392 @@ describe("W9 internal typed composition", () => {
     );
 });
 
+describe("W9 authority permit issuance guards", () => {
+    test(
+        "round-trips a canonical permit reference and refuses malformed data both ways",
+        { tags: "p2" },
+        () => {
+            const expected = permitExpectation();
+            const permit = new AuthorityPermit({
+                ...expected,
+                nonce: "w9-reference-codec",
+                requestDigest: targetPermitRequest(
+                    expected,
+                    "w9-reference-codec",
+                    new Date(20)
+                ).digest(),
+                issuedAt: new Date(10),
+                expiresAt: new Date(20)
+            });
+            const reference = permit.toData();
+
+            const encoded = authorityPermitReferenceCodec.encode(reference);
+            const decoded = authorityPermitReferenceCodec.decode(encoded);
+
+            expect(encoded).toEqual(reference);
+            expect(decoded).toEqual(reference);
+            expect(AuthorityPermit.fromData(decoded).digest().equals(permit.digest())).toBe(true);
+            expect(() => authorityPermitReferenceCodec.encode({})).toThrow(TypeError);
+            expect(() => authorityPermitReferenceCodec.decode({})).toThrow(TypeError);
+        }
+    );
+
+    test("refuses a Tenant Actor as the target denial owner", { tags: "p0" }, () => {
+        const tenantOwner = new ActorRef("tenant", new ActorId("w9-denial-tenant-owner"));
+
+        expect(
+            () =>
+                new TargetAuthorityPermitDenialPort(
+                    tenant,
+                    tenantOwner,
+                    new MemoryAuthorityPermitStore(tenantOwner),
+                    inertDenialState
+                )
+        ).toThrow(/non-Tenant Actor/);
+    });
+
+    test(
+        "refuses an authority permit denial that no Tenant authenticated",
+        { tags: "p0" },
+        () => {
+            const expected = permitExpectation();
+            const request = targetPermitRequest(expected, "w9-forged-denial", new Date(20));
+
+            expect(
+                () =>
+                    new AuthenticatedAuthorityPermitDenial(
+                        Symbol("w9-forged-denial-authority"),
+                        request,
+                        deniedPermitEvidence(request, expected.pathEpochs, new Date(10))
+                    )
+            ).toThrow(/requires authenticated Tenant evidence/);
+        }
+    );
+
+    test(
+        "refuses authenticated denial evidence that belongs to another owner",
+        { tags: "p0" },
+        async () => {
+            const { expected, denial } = await deniedIssuance("w9-foreign-denial");
+            const store = new MemoryAuthorityPermitStore(expected.target.actor);
+            const port = new TargetAuthorityPermitDenialPort(
+                new TenantId("w9-foreign-tenant"),
+                expected.target.actor,
+                store,
+                inertDenialState
+            );
+
+            const refusal = refused(() =>
+                store.transaction((transaction) => port.deny(transaction, denial))
+            );
+
+            expect(refusal.code).toBe("authority.denied");
+            expect(refusal.message).toBe("Target authority denial evidence has the wrong owner");
+            expect(
+                store.transaction((transaction) => store.denied(transaction, "w9-foreign-denial"))
+            ).toBeUndefined();
+        }
+    );
+
+    test(
+        "refuses a denial that does not bind its exact retained request",
+        { tags: "p0" },
+        async () => {
+            const { expected, denial } = await deniedIssuance("w9-unretained-denial");
+            const divergent = new MemoryAuthorityPermitStore(expected.target.actor);
+            divergent.transaction((transaction) =>
+                divergent.request(
+                    transaction,
+                    targetPermitRequest(expected, "w9-unretained-denial", new Date(25))
+                )
+            );
+
+            for (const store of [new MemoryAuthorityPermitStore(expected.target.actor), divergent]) {
+                const port = new TargetAuthorityPermitDenialPort(
+                    tenant,
+                    expected.target.actor,
+                    store,
+                    inertDenialState
+                );
+
+                const refusal = refused(() =>
+                    store.transaction((transaction) => port.deny(transaction, denial))
+                );
+
+                expect(refusal.code).toBe("authority.denied");
+                expect(refusal.message).toBe(
+                    "Target authority denial does not bind its exact retained request"
+                );
+                expect(
+                    store.transaction((transaction) =>
+                        store.denied(transaction, "w9-unretained-denial")
+                    )
+                ).toBeUndefined();
+            }
+        }
+    );
+
+    test(
+        "refuses an authenticated denial that does not bind the expectation of its claim",
+        { tags: "p0" },
+        async () => {
+            const { expected, denial, inputs } = await deniedIssuance("w9-mismatched-denial");
+            const foreign = new AuthorityPermitExpectation({ ...expected, attemptOrdinal: 1 });
+            const store = new MemoryAuthorityPermitStore(expected.target.actor);
+            const port = new IssuedAuthorityPermitPort(
+                store,
+                new FixedExpectationFactory(foreign),
+                targetDenialPort(store),
+                new FixedAuthorityRequestFactory(foreign),
+                new FixedPermitIssuanceTransport(unreachableTransportReply),
+                () => "w9-mismatched-denial",
+                () => new Date(10),
+                10
+            );
+
+            const refusal = refused(() =>
+                store.transaction((transaction) =>
+                    port.deny(transaction, inputs.invocation, inputs.claim, denial)
+                )
+            );
+
+            expect(refusal.code).toBe("authority.denied");
+            expect(refusal.message).toBe(
+                "Authenticated authority denial does not bind the retained target request"
+            );
+            expect(
+                store.transaction((transaction) =>
+                    store.denied(transaction, "w9-mismatched-denial")
+                )
+            ).toBeUndefined();
+        }
+    );
+
+    test(
+        "reports a claim expiring at or before the request time as expired and retains nothing",
+        { tags: "p1" },
+        async () => {
+            const expected = permitExpectation();
+            const inputs = permitClaimInputs(expected);
+            const requestTimes = [
+                inputs.claim.expiresAt,
+                new Date(inputs.claim.expiresAt.getTime() + 1)
+            ];
+
+            for (const requestedAt of requestTimes) {
+                const store = new MemoryAuthorityPermitStore(expected.target.actor);
+                const port = new IssuedAuthorityPermitPort(
+                    store,
+                    new FixedExpectationFactory(expected),
+                    targetDenialPort(store),
+                    new FixedAuthorityRequestFactory(expected),
+                    new FixedPermitIssuanceTransport(unreachableTransportReply),
+                    () => "w9-expired-claim",
+                    () => requestedAt,
+                    10
+                );
+
+                await expect(port.issue(inputs.invocation, inputs.claim)).resolves.toEqual({
+                    kind: "expired"
+                });
+                expect(
+                    store.transaction((transaction) =>
+                        store.requested(transaction, "w9-expired-claim")
+                    )
+                ).toBeUndefined();
+            }
+        }
+    );
+
+    test(
+        "issues at the exact permit lifetime and refuses a claim one millisecond past it",
+        { tags: "p1" },
+        async () => {
+            const expected = permitExpectation();
+            const inputs = permitClaimInputs(expected);
+            const boundaryStore = new MemoryAuthorityPermitStore(expected.target.actor);
+            const boundary = new IssuedAuthorityPermitPort(
+                boundaryStore,
+                new FixedExpectationFactory(expected),
+                targetDenialPort(boundaryStore),
+                new FixedAuthorityRequestFactory(expected),
+                new FixedPermitIssuanceTransport((request) => permitReply(request, new Date(10))),
+                () => "w9-lifetime-boundary",
+                clock(new Date(10), new Date(11), new Date(12)),
+                10
+            );
+            const exceededStore = new MemoryAuthorityPermitStore(expected.target.actor);
+            const exceeded = new IssuedAuthorityPermitPort(
+                exceededStore,
+                new FixedExpectationFactory(expected),
+                targetDenialPort(exceededStore),
+                new FixedAuthorityRequestFactory(expected),
+                new FixedPermitIssuanceTransport(unreachableTransportReply),
+                () => "w9-lifetime-exceeded",
+                () => new Date(10),
+                9
+            );
+
+            await expect(boundary.issue(inputs.invocation, inputs.claim)).resolves.toMatchObject({
+                kind: "issued"
+            });
+            expect(() => exceeded.issue(inputs.invocation, inputs.claim)).toThrow(
+                /Item claim exceeds the authority permit lifetime/
+            );
+            expect(
+                exceededStore.transaction((transaction) =>
+                    exceededStore.requested(transaction, "w9-lifetime-exceeded")
+                )
+            ).toBeUndefined();
+        }
+    );
+
+    test(
+        "refuses a request clock that is not a non-negative safe integer",
+        { tags: "p1" },
+        () => {
+            const expected = permitExpectation();
+            const inputs = permitClaimInputs(expected);
+
+            for (const requestedAt of [new Date(Number.NaN), new Date(-1)]) {
+                const store = new MemoryAuthorityPermitStore(expected.target.actor);
+                const port = new IssuedAuthorityPermitPort(
+                    store,
+                    new FixedExpectationFactory(expected),
+                    targetDenialPort(store),
+                    new FixedAuthorityRequestFactory(expected),
+                    new FixedPermitIssuanceTransport(unreachableTransportReply),
+                    () => "w9-invalid-clock",
+                    () => requestedAt,
+                    10
+                );
+
+                expect(() => port.issue(inputs.invocation, inputs.claim)).toThrow(
+                    /Authority permit request time is invalid/
+                );
+                expect(
+                    store.transaction((transaction) =>
+                        store.requested(transaction, "w9-invalid-clock")
+                    )
+                ).toBeUndefined();
+            }
+        }
+    );
+
+    test(
+        "refuses a retained request that does not bind the current claim",
+        { tags: "p0" },
+        () => {
+            const expected = permitExpectation();
+            const inputs = permitClaimInputs(expected);
+            const store = new MemoryAuthorityPermitStore(expected.target.actor);
+            store.transaction((transaction) =>
+                store.request(
+                    transaction,
+                    targetPermitRequest(expected, "w9-divergent-retained", new Date(25))
+                )
+            );
+            const port = new IssuedAuthorityPermitPort(
+                store,
+                new FixedExpectationFactory(expected),
+                targetDenialPort(store),
+                new FixedAuthorityRequestFactory(expected),
+                new FixedPermitIssuanceTransport(unreachableTransportReply),
+                () => "w9-divergent-retained",
+                () => new Date(10),
+                20
+            );
+
+            const refusal = refused(() => {
+                void port.issue(inputs.invocation, inputs.claim);
+            });
+
+            expect(refusal.code).toBe("authority.denied");
+            expect(refusal.message).toBe(
+                "Retained authority permit request does not bind the current claim"
+            );
+        }
+    );
+
+    test(
+        "reports an undecodable transport reply as invalid and rethrows an unsupported major",
+        { tags: "p1" },
+        async () => {
+            const expected = permitExpectation();
+            const inputs = permitClaimInputs(expected);
+
+            await expect(
+                rawReplyPort(expected, "w9-malformed-reply", encodeCanonicalJson({})).issue(
+                    inputs.invocation,
+                    inputs.claim
+                )
+            ).resolves.toEqual({ kind: "invalid", reason: "Record envelope is malformed" });
+            await expect(
+                rawReplyPort(
+                    expected,
+                    "w9-unknown-major-reply",
+                    encodeCanonicalJson({
+                        kind: "protocol.authority-permit-issuance-reply",
+                        payload: null,
+                        version: { major: 3, minor: 0 }
+                    })
+                ).issue(inputs.invocation, inputs.claim)
+            ).rejects.toMatchObject({ code: "codec.unknown-major" });
+        }
+    );
+
+    test(
+        "always reports a nonblank reason when the retained request cannot be re-digested",
+        { tags: "p2" },
+        async () => {
+            const expected = permitExpectation();
+            const inputs = permitClaimInputs(expected);
+            const request = targetPermitRequest(expected, "w9-undigestable", new Date(20));
+            const scenarios = [
+                {
+                    retained: new BlankFailureRetainedRequest(
+                        request.expectation,
+                        request.authority,
+                        request.nonce,
+                        request.expiresAt
+                    ),
+                    reason: "Authority permit response is invalid"
+                },
+                {
+                    retained: new UnreadableRetainedRequest(
+                        request.expectation,
+                        request.authority,
+                        request.nonce,
+                        request.expiresAt
+                    ),
+                    reason: "Retained authority permit request is unreadable"
+                }
+            ];
+
+            for (const scenario of scenarios) {
+                const store = new RetainedRequestStore(expected.target.actor, scenario.retained);
+                const port = new IssuedAuthorityPermitPort(
+                    store,
+                    new FixedExpectationFactory(expected),
+                    targetDenialPort(new MemoryAuthorityPermitStore(expected.target.actor)),
+                    new FixedAuthorityRequestFactory(expected),
+                    new FixedPermitIssuanceTransport((issuance) =>
+                        permitReply(issuance, new Date(10))
+                    ),
+                    () => "w9-undigestable",
+                    clock(new Date(11), new Date(12)),
+                    10
+                );
+
+                await expect(port.issue(inputs.invocation, inputs.claim)).resolves.toEqual({
+                    kind: "invalid",
+                    reason: scenario.reason
+                });
+            }
+        }
+    );
+});
+
 class AuthorityState implements OperationAuthorityStatePort<PrincipalRef> {
     public readonly binding = Binding.active(
         scope,
@@ -1859,4 +2249,115 @@ function w9ReplayBinding() {
         packageOperationPin: new Digest("d".repeat(64)),
         execution: { kind: "lease" as const, digest: new Digest("e".repeat(64)) }
     };
+}
+
+const inertDenialState = {
+    joinDeniedEpochs: (): undefined => undefined,
+    invalidateResolution: (): undefined => undefined
+};
+
+function unreachableTransportReply(): never {
+    throw new TypeError("Authority permit issuance transport must not be reached");
+}
+
+/** Runs a refusal and hands back the refusal it threw. */
+function refused(action: () => void): AgentCoreError {
+    try {
+        action();
+    } catch (error) {
+        if (error instanceof AgentCoreError) return error;
+        throw error;
+    }
+    throw new TypeError("Expected an authority refusal");
+}
+
+async function deniedIssuance(nonce: string) {
+    const expected = permitExpectation();
+    const request = targetPermitRequest(expected, nonce, new Date(20));
+    const store = new MemoryAuthorityPermitStore(expected.target.actor);
+    const port = new IssuedAuthorityPermitPort(
+        store,
+        new FixedExpectationFactory(expected),
+        targetDenialPort(store),
+        new FixedAuthorityRequestFactory(expected),
+        new FixedPermitIssuanceTransport(() =>
+            AuthorityPermitIssuanceReply.denied(
+                deniedPermitEvidence(request, expected.pathEpochs, new Date(10))
+            )
+        ),
+        () => nonce,
+        () => new Date(10),
+        10
+    );
+    const inputs = permitClaimInputs(expected);
+    const issuance = await port.issue(inputs.invocation, inputs.claim);
+    if (issuance.kind !== "denied") throw new TypeError("Expected denied permit issuance");
+    return { denial: issuance.denial, expected, inputs, request };
+}
+
+function rawReplyPort(
+    expected: AuthorityPermitExpectation,
+    nonce: string,
+    reply: Uint8Array
+) {
+    const store = new MemoryAuthorityPermitStore(expected.target.actor);
+    return new IssuedAuthorityPermitPort(
+        store,
+        new FixedExpectationFactory(expected),
+        targetDenialPort(store),
+        new FixedAuthorityRequestFactory(expected),
+        new RawPermitIssuanceTransport(reply),
+        () => nonce,
+        clock(new Date(10), new Date(11), new Date(12)),
+        10
+    );
+}
+
+class RawPermitIssuanceTransport extends AuthorityPermitIssuanceTransport {
+    public constructor(private readonly reply: Uint8Array) {
+        super();
+    }
+
+    public issue(): Promise<Uint8Array> {
+        return Promise.resolve(this.reply.slice());
+    }
+}
+
+class BlankFailureRetainedRequest extends TargetAuthorityPermitRequest {
+    public override digest(): Digest {
+        throw new AgentCoreError("codec.invalid", "");
+    }
+}
+
+class UnreadableRetainedRequest extends TargetAuthorityPermitRequest {
+    public override digest(): Digest {
+        throw new AgentCoreError(
+            "protocol.invalid-state",
+            "Retained authority permit request is unreadable"
+        );
+    }
+}
+
+class RetainedRequestStore
+    implements AuthorityPermitTargetRequestStore<MemoryAuthorityPermitTransaction>
+{
+    public constructor(
+        public readonly owner: ActorRef,
+        private readonly retained: TargetAuthorityPermitRequest
+    ) {}
+
+    public transaction<Result>(
+        operation: (transaction: MemoryAuthorityPermitTransaction) => Result,
+        ..._guard: SynchronousResultGuard<Result>
+    ): Result {
+        return operation(new MemoryAuthorityPermitTransaction());
+    }
+
+    public requested(): TargetAuthorityPermitRequest {
+        return this.retained;
+    }
+
+    public request(): TargetAuthorityPermitRequest {
+        return this.retained;
+    }
 }

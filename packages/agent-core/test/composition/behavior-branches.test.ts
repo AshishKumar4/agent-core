@@ -55,6 +55,7 @@ import {
     FacetPackageId,
     FacetRef,
     InstalledSlot,
+    MemoryWorkspaceSlotStore,
     OperationRef,
     PackageInstallationRef,
     SlotAuthorityPolicy,
@@ -70,7 +71,7 @@ import {
     type SurfaceId,
     type WorkspaceSlotStore
 } from "../../src/facets";
-import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
+import { PrincipalId, PrincipalRef, TenantId, WorkspaceId } from "../../src/identity";
 import { forwarded, reaching, type Assembled } from "./fixture";
 import { attribution } from "../w3/slot-store-contract";
 import type { CommandEnvelope } from "../../src/protocol";
@@ -642,6 +643,120 @@ describe("W9 composition behavior branches", () => {
     );
 
     test(
+        "admits a Slot declaration and a Facet withdrawal only under current authority and provenance",
+        { tags: "p0" },
+        () => {
+            const store = new MemoryWorkspaceSlotStore(new WorkspaceId("composition-workspace"));
+            const contribution = attribution("workspace:declarer");
+            const contributor = contribution.contributor;
+            const declaration = slotDeclaration({ type: "object" });
+            const installed = new InstalledSlot(declaration, contribution);
+            const packageFacet = new FacetPackageId("composition.slot-package");
+            const expectedInstallation = new PackageInstallationRef(contribution, packageFacet);
+            const commandEnvelope = reaching<CommandEnvelope>({});
+            let installation: PackageInstallationRef | undefined = expectedInstallation;
+            let installAllowed = true;
+            let withdrawalAllowed = true;
+            const backend = new ProvenanceFacetSlotBackend(
+                store,
+                reaching<PackageInstallationProvenancePort<SlotTransaction, CommandEnvelope>>({
+                    resolveContributionForApply: () => installation
+                }),
+                {
+                    permitsInstall: () => installAllowed,
+                    permitsContribution: () => true,
+                    permitsWithdrawal: () => withdrawalAllowed
+                },
+                {
+                    revision: (read: SlotTransaction) => store.loadRevision(read),
+                    slot: (read: SlotTransaction, name: SlotName) => store.loadSlot(read, name)
+                }
+            );
+            // A command applies its record and advances the Slot revision in one transaction,
+            // which is the relation the memory store validates on commit.
+            const install = (): boolean =>
+                store.transaction((transaction) => {
+                    const changed = backend.applyInstall(
+                        transaction,
+                        commandEnvelope,
+                        {},
+                        installed
+                    );
+                    if (changed) {
+                        backend.advanceRevision(transaction, backend.currentRevision(transaction));
+                    }
+                    return changed;
+                });
+            const withdraw = (): boolean =>
+                store.transaction((transaction) => {
+                    const changed = backend.applyWithdrawal(transaction, contributor);
+                    if (changed) {
+                        backend.advanceRevision(transaction, backend.currentRevision(transaction));
+                    }
+                    return changed;
+                });
+            const declarerProvenanceChanged = new AgentCoreError(
+                "authority.denied",
+                "Slot declarer installation provenance changed before apply"
+            );
+
+            installation = undefined;
+            expect(install).toThrow(declarerProvenanceChanged);
+            installation = new PackageInstallationRef(
+                attribution("workspace:substituted"),
+                packageFacet
+            );
+            expect(install).toThrow(declarerProvenanceChanged);
+            installation = expectedInstallation;
+            installAllowed = false;
+            expect(install).toThrow(
+                new AgentCoreError(
+                    "authority.denied",
+                    "Current authority does not admit the Slot declarer"
+                )
+            );
+            expect(store.slot(declaration.name)).toBeUndefined();
+
+            installAllowed = true;
+            expect(install()).toBe(true);
+            store.contribute(new SlotEntry(declaration.name, contribution, 0, { value: 1 }));
+
+            // The set is computed by querying attribution, and `withdrawalSet` reads nothing
+            // from the state it is handed: it opens the Slot Actor's own transaction.
+            const planned = backend.withdrawalSet(
+                forwarded("the withdrawal set read"),
+                contributor
+            );
+            expect(planned.slots.map((name) => name.value)).toEqual([declaration.name.value]);
+            expect(planned.entries).toHaveLength(1);
+            expect(store.transaction((read) => backend.permitsWithdrawal(read, contributor))).toBe(
+                true
+            );
+
+            withdrawalAllowed = false;
+            expect(store.transaction((read) => backend.permitsWithdrawal(read, contributor))).toBe(
+                false
+            );
+            expect(withdraw).toThrow(
+                new AgentCoreError(
+                    "authority.denied",
+                    "Current authority does not admit the Facet withdrawal"
+                )
+            );
+            expect(store.slot(declaration.name)).toBeDefined();
+
+            withdrawalAllowed = true;
+            expect(withdraw()).toBe(true);
+            expect(store.slot(declaration.name)).toBeUndefined();
+            const retired = backend.withdrawalSet(
+                forwarded("the withdrawal set read"),
+                contributor
+            );
+            expect([retired.slots.length, retired.entries.length]).toEqual([0, 0]);
+        }
+    );
+
+    test(
         "delegates canonical run evidence without reconstructing cross-domain identities",
         { tags: "p1" },
         () => {
@@ -1171,6 +1286,8 @@ function loadedBlueprint(
 function loaderReturning(value: LoadedBlueprint<unknown>): BlueprintLoader<unknown> {
     return reaching<BlueprintLoader<unknown>>({ load: async () => value });
 }
+
+type SlotTransaction = Parameters<Parameters<MemoryWorkspaceSlotStore["transaction"]>[0]>[0];
 
 function slotDeclaration(schema: Record<string, string>): SlotDeclaration {
     return new SlotDeclaration(

@@ -7,7 +7,7 @@ import {
     type MediaHint
 } from "../../../src/content";
 import { AgentCoreError } from "../../../src/errors";
-import { RunCommitId, TurnId } from "../../../src/execution-references";
+import { RunCommitId, RunId, TurnId } from "../../../src/execution-references";
 import { InvocationId } from "../../../src/interaction-references";
 import { ReceiptId } from "../../../src/invocations";
 import { RunCommit, type RunCommitInit } from "../../../src/agents/runs/commit";
@@ -29,7 +29,15 @@ import {
     type TurnOutcome
 } from "../../../src/agents/runs/executor";
 import {
+    effectiveCommitOf,
+    effectiveTranscript,
+    orderedAncestry,
+    unbalancedCut,
+    type RunCommitLoader
+} from "../../../src/agents/runs/transcript";
+import {
     content,
+    forgedCommit,
     genesis,
     harness,
     ids,
@@ -1118,6 +1126,291 @@ describe("Run effective transcript, rewrite bracket, and cut balance", () => {
             });
             // The reduced call, whose content was never released, still rebuilds.
             expect(turnModelRequestBytes(await replay.reconstruct(inputs[1]!))).toEqual(sent[1]);
+        }
+    );
+});
+
+/**
+ * Commits handed straight to the derivations, over a loader holding exactly the records a case
+ * names. The runtime refuses to install the graphs these derivations must still judge — a
+ * parent from another Run, one commit two rewrites both claim, a rewrite chain that closes on
+ * itself — so each is assembled as a record and the derivation is asked about it directly.
+ */
+function detachedLoader(...commits: readonly RunCommit[]): RunCommitLoader {
+    const records = new Map(commits.map((commit) => [commit.id.value, commit]));
+    return (id) => records.get(id.value);
+}
+
+function detachedRoot(id = "commit-root", run = ids.run): RunCommit {
+    return new RunCommit({
+        id: new RunCommitId(id),
+        run,
+        branch: ids.branch,
+        kind: "root",
+        parents: [],
+        pins: pins(),
+        writer: { kind: "root" }
+    });
+}
+
+function detachedNote(
+    id: string,
+    parent: RunCommitId,
+    requests?: readonly InvocationId[]
+): RunCommit {
+    const init: Assembled<RunCommitInit> = {
+        id: new RunCommitId(id),
+        run: ids.run,
+        branch: ids.branch,
+        kind: "message",
+        parents: [parent],
+        pins: pins(),
+        writer: { kind: "turn", token: { turn: ids.turn, holder: ids.holder, epoch: 1 } },
+        subjectTurn: ids.turn,
+        content: content("1")
+    };
+    if (requests !== undefined) init.requests = requests;
+    return new RunCommit(init);
+}
+
+function detachedAnswer(
+    id: string,
+    parent: RunCommitId,
+    invocation: InvocationId,
+    receipt: ReceiptId
+): RunCommit {
+    return new RunCommit({
+        id: new RunCommitId(id),
+        run: ids.run,
+        branch: ids.branch,
+        kind: "invocation",
+        parents: [parent],
+        pins: pins(),
+        writer: { kind: "system", cause: { kind: "receipt", audit: refs.audit, receipt } },
+        subjectTurn: ids.turn,
+        invocation,
+        receipt
+    });
+}
+
+function detachedUndo(id: string, parent: RunCommitId, selects: RunCommitId): RunCommit {
+    return new RunCommit({
+        id: new RunCommitId(id),
+        run: ids.run,
+        branch: ids.branch,
+        kind: "undo",
+        parents: [parent],
+        pins: pins(),
+        writer: {
+            kind: "system",
+            cause: { kind: "control", audit: refs.audit, receipt: refs.receipt }
+        },
+        selects,
+        receipt: refs.receipt
+    });
+}
+
+function detachedRewrite(
+    id: string,
+    parent: RunCommitId,
+    shadows: readonly RunCommitId[]
+): RunCommit {
+    return new RunCommit({
+        id: new RunCommitId(id),
+        run: ids.run,
+        branch: ids.branch,
+        kind: "rewrite",
+        parents: [parent],
+        pins: pins(),
+        writer: {
+            kind: "system",
+            cause: { kind: "control", audit: refs.audit, receipt: rewriteReceipt }
+        },
+        shadows,
+        content: content("9"),
+        receipt: rewriteReceipt
+    });
+}
+
+describe("Run transcript derivation over records the runtime would refuse", () => {
+    it(
+        "[C13-RUN-EFFECTIVE-TRANSCRIPT] reads a head through its undo selection and refuses every head it cannot resolve",
+        { tags: "p1" },
+        () => {
+            const root = detachedRoot();
+            const note = detachedNote("note-1", root.id);
+            const selecting = detachedUndo("undo-1", note.id, root.id);
+
+            // A plain head is current at itself; an undo marker is current at what it selected,
+            // so §5.6 assembles from the selection and never from the raw head.
+            const load = detachedLoader(root, note, selecting);
+            expect(effectiveCommitOf(load, note.id).id.value).toBe(note.id.value);
+            expect(effectiveCommitOf(load, selecting.id).id.value).toBe(root.id.value);
+
+            expect(() => effectiveCommitOf(load, new RunCommitId("commit-absent"))).toThrowError(
+                expect.objectContaining({
+                    code: "codec.invalid",
+                    message: "Run commit commit-absent does not exist"
+                })
+            );
+
+            // An undo record naming no selection is a broken state rather than a malformed
+            // reference: there is nothing to look up, so it cannot be reported as absent.
+            const unselected = forgedCommit(selecting, { selects: undefined });
+            expect(() =>
+                effectiveCommitOf(detachedLoader(root, note, unselected), unselected.id)
+            ).toThrowError(
+                expect.objectContaining({
+                    code: "run.invalid-state",
+                    message: "Undo commit names no selection"
+                })
+            );
+
+            // A selection that does not load is the malformed reference, and it names which one.
+            const dangling = detachedUndo("undo-dangling", note.id, new RunCommitId("commit-gone"));
+            expect(() =>
+                effectiveCommitOf(detachedLoader(root, note, dangling), dangling.id)
+            ).toThrowError(
+                expect.objectContaining({
+                    code: "codec.invalid",
+                    message: "Run commit commit-gone does not exist"
+                })
+            );
+        }
+    );
+
+    it(
+        "[C13-RUN-EFFECTIVE-TRANSCRIPT] refuses an ancestry whose named parent is unreachable or belongs to another Run",
+        { tags: "p1" },
+        () => {
+            const root = detachedRoot();
+            const note = detachedNote("note-1", root.id);
+            expect(
+                orderedAncestry(note, detachedLoader(root, note)).map((commit) => commit.id.value)
+            ).toEqual([root.id.value, note.id.value]);
+
+            const broken = expect.objectContaining({
+                code: "codec.invalid",
+                message: "Run ancestry contains a missing or foreign parent"
+            });
+            // The parent is named and does not load.
+            expect(() => orderedAncestry(note, detachedLoader(note))).toThrowError(broken);
+            // The parent loads and belongs to another Run. Reachable is not ancestral, so a
+            // commit from a second Run cannot be walked into this one's transcript.
+            const foreign = detachedRoot("commit-foreign", new RunId("run-2"));
+            const adopting = detachedNote("note-foreign", foreign.id);
+            expect(() =>
+                orderedAncestry(adopting, detachedLoader(foreign, adopting))
+            ).toThrowError(broken);
+        }
+    );
+
+    it(
+        "[C13-RUN-EFFECTIVE-TRANSCRIPT] refuses two rewrites over one commit and a shadow set the rewrite's own ancestry does not reach",
+        { tags: "p1" },
+        () => {
+            const root = detachedRoot();
+            const note = detachedNote("note-1", root.id);
+            const first = detachedRewrite("rewrite-first", note.id, [note.id]);
+            const second = detachedRewrite("rewrite-second", first.id, [note.id]);
+            expect(() =>
+                effectiveTranscript(second, detachedLoader(root, note, first, second))
+            ).toThrowError(
+                expect.objectContaining({
+                    code: "run.invalid-state",
+                    message: `Run commit ${note.id.value} is shadowed by both ${first.id.value} and ${second.id.value}`
+                })
+            );
+
+            // A rewrite naming a commit its own ancestry never reaches is read nowhere, so it
+            // would drop out of the transcript while claiming to have replaced something.
+            const unreachable = detachedRewrite("rewrite-unreachable", note.id, [
+                new RunCommitId("commit-elsewhere")
+            ]);
+            expect(() =>
+                effectiveTranscript(unreachable, detachedLoader(root, note, unreachable))
+            ).toThrowError(
+                expect.objectContaining({
+                    code: "run.invalid-state",
+                    message: `Rewrite ${unreachable.id.value} shadows no commit its own ancestry reaches`
+                })
+            );
+
+            // A rewrite record carrying no shadow set at all shadows nothing: it is omitted from
+            // the transcript, exactly as an abandoned attempt is, and refuses nothing.
+            const shadowless = forgedCommit(first, { shadows: undefined });
+            expect(
+                effectiveTranscript(shadowless, detachedLoader(root, note, shadowless)).map(
+                    (commit) => commit.id.value
+                )
+            ).toEqual([root.id.value, note.id.value]);
+        }
+    );
+
+    it(
+        "[C13-RUN-EFFECTIVE-TRANSCRIPT] follows a chain of rewrites to the one commit read in place of the first and refuses a chain that closes on itself",
+        { tags: "p1" },
+        () => {
+            const root = detachedRoot();
+            const note = detachedNote("note-1", root.id);
+            const first = detachedRewrite("rewrite-first", note.id, [note.id]);
+            const second = detachedRewrite("rewrite-second", first.id, [first.id]);
+
+            // The note is read as `first`, which a later rewrite shadows in turn, so the chain is
+            // followed to its end and `second` alone stands where the note did.
+            expect(
+                effectiveTranscript(second, detachedLoader(root, note, first, second)).map(
+                    (commit) => commit.id.value
+                )
+            ).toEqual([root.id.value, second.id.value]);
+
+            // A chain that returns to a rewrite it already passed has no end to read, so the
+            // walk refuses rather than circling.
+            const cyclingId = new RunCommitId("rewrite-cycling");
+            const closing = detachedRewrite("rewrite-closing", note.id, [cyclingId]);
+            const cycling = detachedRewrite(cyclingId.value, closing.id, [note.id, closing.id]);
+            expect(() =>
+                effectiveTranscript(cycling, detachedLoader(root, note, closing, cycling))
+            ).toThrowError(
+                expect.objectContaining({
+                    code: "run.invalid-state",
+                    message: `Run rewrite ${cycling.id.value} shadows its own replacement`
+                })
+            );
+        }
+    );
+
+    it(
+        "[C13-RUN-CUT-BALANCE] judges only the Invocations a transcript both asked for and answered",
+        { tags: "p1" },
+        () => {
+            const root = detachedRoot();
+            const asked = detachedNote("note-asked", root.id, [refs.invocation]);
+            const answered = detachedAnswer("answer-1", asked.id, refs.invocation, refs.receipt);
+            const orphan = detachedAnswer(
+                "answer-orphan",
+                root.id,
+                secondInvocation,
+                secondReceipt
+            );
+
+            // A request the transcript never answered, and an answer it never asked for: neither
+            // is a pair a cut could separate, so dropping either half strands nothing.
+            expect(unbalancedCut([root, asked], [root])).toBeUndefined();
+            expect(unbalancedCut([root, orphan], [root])).toBeUndefined();
+
+            // The same cut over a whole pair is judged, and names which half survived it.
+            expect(unbalancedCut([root, asked, answered], [root, asked])).toEqual({
+                kind: "unanswered",
+                invocation: refs.invocation,
+                commit: asked.id
+            });
+            expect(unbalancedCut([root, asked, answered], [root, answered])).toEqual({
+                kind: "orphaned",
+                invocation: refs.invocation,
+                commit: answered.id
+            });
+            expect(unbalancedCut([root, asked, answered], [root, asked, answered])).toBeUndefined();
         }
     );
 });

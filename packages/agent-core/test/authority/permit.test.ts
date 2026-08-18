@@ -1,5 +1,11 @@
 import { describe, expect, test } from "vitest";
-import { ActorId, ActorRef, type SynchronousResultGuard } from "../../src/actors";
+import {
+    ActorId,
+    ActorRecoveryState,
+    ActorRef,
+    MemoryActorStore,
+    type SynchronousResultGuard
+} from "../../src/actors";
 import { RunId, TurnId } from "../../src/agents";
 import {
     AuthenticatedAuthorityPermit,
@@ -13,6 +19,8 @@ import {
     Binding,
     GrantId,
     MemoryAuthorityPermitStore,
+    MemoryTenantAuthorityPermitStore,
+    MemoryTenantControlStore,
     PathEpochEvidence,
     ScopeEpoch,
     StoredAuthorityPermitAdmissionPort,
@@ -21,7 +29,9 @@ import {
     requireAuthenticatedAuthorityPermit,
     type AuthorityPermitExpectationInit,
     type AuthorityPermitIssueStore,
-    type AuthorityPermitTargetStore
+    type AuthorityPermitTargetStore,
+    type MemoryAuthorityPermitSnapshot,
+    type MemoryTenantControlSnapshot
 } from "../../src/authority";
 import {
     Digest,
@@ -61,6 +71,7 @@ const principal = new PrincipalRef(tenant, principalId);
 const issuerActor = new ActorRef("tenant", new ActorId("permit-tenant-actor"));
 const sourceActor = new ActorRef("workspace", new ActorId("permit-source-actor"));
 const targetActor = new ActorRef("run", new ActorId("permit-target-actor"));
+const auxiliaryIssuerActor = new ActorRef("tenant", new ActorId("permit-auxiliary-tenant-actor"));
 const workspaceScope = ScopeRef.workspace(tenant, new WorkspaceId("permit-workspace"));
 const path = new PathEpochEvidence([
     new ScopeEpoch(ScopeRef.tenant(tenant), 4),
@@ -2362,6 +2373,365 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         expect(consumedHole.code).toBe("codec.invalid");
         expect(consumedHole.message).toBe("Stored authority permit ownership is malformed");
     });
+
+    test(
+        "replays the exact recorded Tenant denial and refuses a rewritten one",
+        { tags: "p0" },
+        () => {
+            const store = new MemoryAuthorityPermitStore(targetActor);
+            const request = targetRequest("store-denial-conflict");
+            const authority = new CurrentAuthority<unknown>();
+            authority.live = false;
+            const recorded = new TargetAuthorityPermitDenial(
+                request,
+                authority.evidence(undefined, request, issuedAt)
+            );
+            const rewritten = new TargetAuthorityPermitDenial(
+                request,
+                authority.evidence(undefined, request, new Date(issuedAt.getTime() + 1))
+            );
+            expect(rewritten.digest().equals(recorded.digest())).toBe(false);
+            store.transaction((transaction) => {
+                store.request(transaction, request);
+                store.deny(transaction, recorded);
+                return undefined;
+            });
+            expect(
+                TargetAuthorityPermitDenial.encode(
+                    store.transaction((transaction) => store.deny(transaction, recorded))
+                )
+            ).toEqual(TargetAuthorityPermitDenial.encode(recorded));
+
+            const error = caughtAgentCoreError(() =>
+                store.transaction((transaction) => store.deny(transaction, rewritten))
+            );
+
+            expect(error.code).toBe("authority.denied");
+            expect(error.message).toBe("Authority permit nonce is bound to another Tenant denial");
+            expect(
+                store.transaction(
+                    (transaction) => store.denied(transaction, request.nonce)?.digest().value
+                )
+            ).toBe(recorded.digest().value);
+        }
+    );
+
+    test(
+        "refuses a Tenant denial for a nonce this Actor owner already consumed",
+        { tags: "p0" },
+        async () => {
+            const expected = expectation();
+            const nonce = "store-denial-after-consume";
+            const store = await consumedNonceStore(expected, nonce);
+            const request = targetRequestFor(expected, nonce);
+            const authority = new CurrentAuthority<unknown>();
+            authority.live = false;
+            const denial = new TargetAuthorityPermitDenial(
+                request,
+                authority.evidence(undefined, request, issuedAt)
+            );
+
+            const error = caughtAgentCoreError(() =>
+                store.transaction((transaction) => store.deny(transaction, denial))
+            );
+
+            expect(error.code).toBe("authority.denied");
+            expect(error.message).toBe(
+                "Authority permit nonce was already consumed by this Actor owner"
+            );
+            expect(
+                store.transaction((transaction) => store.denied(transaction, nonce))
+            ).toBeUndefined();
+        }
+    );
+
+    test("refuses issuing a nonce this Actor owner already consumed", { tags: "p0" }, async () => {
+        const nonce = "store-issue-after-consume";
+        const store = await consumedNonceStore(
+            expectation({
+                issuer: auxiliaryIssuerActor,
+                target: permitTarget(issuerActor)
+            }),
+            nonce
+        );
+        const reissued = issuedPermit(expectation({ target: permitTarget(sourceActor) }), nonce);
+        expect(reissued.issuer.equals(issuerActor)).toBe(true);
+
+        const error = caughtAgentCoreError(() =>
+            store.transaction((transaction) => store.issue(transaction, reissued))
+        );
+
+        expect(error.code).toBe("authority.denied");
+        expect(error.message).toBe("Authority permit nonce was already used by this Actor owner");
+        expect(
+            store.transaction((transaction) => store.issued(transaction, nonce))
+        ).toBeUndefined();
+    });
+
+    test(
+        "refuses consuming a permit whose target request its Tenant denied",
+        { tags: "p0" },
+        async () => {
+            const expected = expectation();
+            const nonce = "store-denied-before-consume";
+            const issuerStore = new MemoryAuthorityPermitStore(issuerActor);
+            const permit = issuedPermit(expected, nonce);
+            issuerStore.transaction((transaction) => issuerStore.issue(transaction, permit));
+            const authentication = await authenticate(issuerStore, permit, expected);
+            const request = targetRequestFor(expected, nonce);
+            const authority = new CurrentAuthority<unknown>();
+            authority.live = false;
+            const store = new MemoryAuthorityPermitStore(targetActor);
+            store.transaction((transaction) => {
+                store.request(transaction, request);
+                store.deny(
+                    transaction,
+                    new TargetAuthorityPermitDenial(
+                        request,
+                        authority.evidence(undefined, request, issuedAt)
+                    )
+                );
+                return undefined;
+            });
+
+            const error = caughtAgentCoreError(() =>
+                store.transaction((transaction) =>
+                    store.consume(
+                        transaction,
+                        authentication,
+                        permit,
+                        expected,
+                        new Date(issuedAt.getTime() + 1)
+                    )
+                )
+            );
+
+            expect(error.code).toBe("authority.denied");
+            expect(error.message).toBe("Authority permit request was denied by its Tenant");
+            expect(
+                store.transaction((transaction) => store.consumed(transaction, nonce))
+            ).toBeUndefined();
+        }
+    );
+
+    test(
+        "refuses a target request for a nonce this Actor owner already issued",
+        { tags: "p0" },
+        () => {
+            const nonce = "store-request-after-issue";
+            const store = new MemoryAuthorityPermitStore(issuerActor);
+            store.transaction((transaction) =>
+                store.issue(transaction, issuedPermit(expectation(), nonce))
+            );
+            const request = targetRequestFor(
+                expectation({
+                    issuer: auxiliaryIssuerActor,
+                    target: permitTarget(issuerActor)
+                }),
+                nonce
+            );
+
+            const error = caughtAgentCoreError(() =>
+                store.transaction((transaction) => store.request(transaction, request))
+            );
+
+            expect(error.code).toBe("authority.denied");
+            expect(error.message).toBe(
+                "Authority permit nonce was already used by this Actor owner"
+            );
+            expect(
+                store.transaction((transaction) => store.requested(transaction, nonce))
+            ).toBeUndefined();
+        }
+    );
+
+    test("refuses consuming a nonce this Actor owner already issued", { tags: "p0" }, async () => {
+        const nonce = "store-consume-after-issue";
+        const expected = expectation({
+            issuer: auxiliaryIssuerActor,
+            target: permitTarget(issuerActor)
+        });
+        const issuerStore = new MemoryAuthorityPermitStore(auxiliaryIssuerActor);
+        const permit = issuedPermit(expected, nonce);
+        issuerStore.transaction((transaction) => issuerStore.issue(transaction, permit));
+        const authentication = await authenticate(issuerStore, permit, expected);
+        const store = new MemoryAuthorityPermitStore(issuerActor);
+        store.transaction((transaction) =>
+            store.issue(transaction, issuedPermit(expectation(), nonce))
+        );
+
+        const error = caughtAgentCoreError(() =>
+            store.transaction((transaction) =>
+                store.consume(
+                    transaction,
+                    authentication,
+                    permit,
+                    expected,
+                    new Date(issuedAt.getTime() + 1)
+                )
+            )
+        );
+
+        expect(error.code).toBe("authority.denied");
+        expect(error.message).toBe("Authority permit nonce was already used by this Actor owner");
+        expect(
+            store.transaction((transaction) => store.consumed(transaction, nonce))
+        ).toBeUndefined();
+    });
+
+    test("refuses a target request that targets another Actor owner", { tags: "p0" }, () => {
+        const store = new MemoryAuthorityPermitStore(targetActor);
+        const foreign = targetRequest("store-foreign-target", {
+            target: permitTarget(new ActorRef("run", new ActorId("permit-other-target-actor")))
+        });
+
+        const error = caughtAgentCoreError(() =>
+            store.transaction((transaction) => store.request(transaction, foreign))
+        );
+
+        expect(error.code).toBe("authority.denied");
+        expect(error.message).toBe("Authority permit request targets another Actor owner");
+    });
+
+    test("snapshots order denied records canonically", { tags: "p1" }, () => {
+        const store = new MemoryAuthorityPermitStore(targetActor);
+        const authority = new CurrentAuthority<unknown>();
+        authority.live = false;
+        const deny = (nonce: string): void => {
+            const request = targetRequest(nonce);
+            store.transaction((transaction) => {
+                store.request(transaction, request);
+                store.deny(
+                    transaction,
+                    new TargetAuthorityPermitDenial(
+                        request,
+                        authority.evidence(undefined, request, issuedAt)
+                    )
+                );
+                return undefined;
+            });
+        };
+
+        deny("store-denial-order-b");
+        deny("store-denial-order-a");
+
+        expect(store.snapshot().denied.map((record) => record.nonce)).toEqual([
+            "store-denial-order-a",
+            "store-denial-order-b"
+        ]);
+    });
+
+    test(
+        "restore rejects requested and denied records filed under a foreign nonce",
+        { tags: "p0" },
+        () => {
+            const request = targetRequest("store-restore-real-nonce");
+            const denial = deniedTargetRequest(request);
+            const alias = "store-restore-alias-nonce";
+
+            const aliasedRequest = caughtAgentCoreError(
+                () =>
+                    new MemoryAuthorityPermitStore(targetActor, {
+                        version: 3,
+                        requested: [
+                            { nonce: alias, bytes: TargetAuthorityPermitRequest.encode(request) }
+                        ],
+                        issued: [],
+                        denied: [],
+                        consumed: []
+                    })
+            );
+            expect(aliasedRequest.code).toBe("codec.invalid");
+            expect(aliasedRequest.message).toBe("Stored authority permit ownership is malformed");
+
+            const aliasedDenial = caughtAgentCoreError(
+                () =>
+                    new MemoryAuthorityPermitStore(targetActor, {
+                        version: 3,
+                        requested: [requestedRecord(request)],
+                        issued: [],
+                        denied: [
+                            { nonce: alias, bytes: TargetAuthorityPermitDenial.encode(denial) }
+                        ],
+                        consumed: []
+                    })
+            );
+            expect(aliasedDenial.code).toBe("codec.invalid");
+            expect(aliasedDenial.message).toBe("Stored authority permit ownership is malformed");
+        }
+    );
+
+    test("restore rejects duplicated requested and denied records", { tags: "p0" }, () => {
+        const request = targetRequest("store-restore-duplicate-nonce");
+        const denial = deniedTargetRequest(request);
+
+        const duplicatedRequest = caughtAgentCoreError(
+            () =>
+                new MemoryAuthorityPermitStore(targetActor, {
+                    version: 3,
+                    requested: [requestedRecord(request), requestedRecord(request)],
+                    issued: [],
+                    denied: [],
+                    consumed: []
+                })
+        );
+        expect(duplicatedRequest.code).toBe("codec.invalid");
+        expect(duplicatedRequest.message).toBe("Stored authority permit ownership is malformed");
+
+        const duplicatedDenial = caughtAgentCoreError(
+            () =>
+                new MemoryAuthorityPermitStore(targetActor, {
+                    version: 3,
+                    requested: [requestedRecord(request)],
+                    issued: [],
+                    denied: [deniedRecord(denial), deniedRecord(denial)],
+                    consumed: []
+                })
+        );
+        expect(duplicatedDenial.code).toBe("codec.invalid");
+        expect(duplicatedDenial.message).toBe("Stored authority permit ownership is malformed");
+    });
+
+    test(
+        "restore rejects denied and consumed records without their durable target request",
+        { tags: "p0" },
+        () => {
+            const expected = expectation();
+            const nonce = "store-restore-orphan-nonce";
+            const request = targetRequestFor(expected, nonce);
+
+            const orphanDenial = caughtAgentCoreError(
+                () =>
+                    new MemoryAuthorityPermitStore(targetActor, {
+                        version: 3,
+                        requested: [],
+                        issued: [],
+                        denied: [deniedRecord(deniedTargetRequest(request))],
+                        consumed: []
+                    })
+            );
+            expect(orphanDenial.code).toBe("codec.invalid");
+            expect(orphanDenial.message).toBe("Stored authority permit ownership is malformed");
+
+            const orphanConsumed = caughtAgentCoreError(
+                () =>
+                    new MemoryAuthorityPermitStore(targetActor, {
+                        version: 3,
+                        requested: [],
+                        issued: [],
+                        denied: [],
+                        consumed: [
+                            {
+                                nonce,
+                                bytes: AuthorityPermit.encode(issuedPermit(expected, nonce))
+                            }
+                        ]
+                    })
+            );
+            expect(orphanConsumed.code).toBe("codec.invalid");
+            expect(orphanConsumed.message).toBe("Stored authority permit ownership is malformed");
+        }
+    );
 });
 
 class FixedIssuedRecordSource extends AuthorityPermitIssuedRecordSource {
@@ -2387,6 +2757,420 @@ function caughtAgentCoreError(run: () => void): AgentCoreError {
     }
     return caught;
 }
+
+function caughtTypeError(run: () => void): TypeError {
+    let caught: unknown;
+    try {
+        run();
+    } catch (error) {
+        caught = error;
+    }
+    expect(caught).toBeInstanceOf(TypeError);
+    if (!(caught instanceof TypeError)) {
+        throw new TypeError("Expected a TypeError");
+    }
+    return caught;
+}
+
+function permitTarget(actor: ActorRef) {
+    return {
+        actor,
+        fence: 11,
+        domain: new ProtectionDomain("backend", "permit-domain", "may-hold-secrets")
+    };
+}
+
+function issuedPermit(expected: AuthorityPermitExpectation, nonce: string): AuthorityPermit {
+    return new AuthorityPermit({
+        ...expected,
+        nonce,
+        requestDigest: requestDigestFor(expected, nonce),
+        issuedAt,
+        expiresAt
+    });
+}
+
+function deniedTargetRequest(request: TargetAuthorityPermitRequest): TargetAuthorityPermitDenial {
+    const authority = new CurrentAuthority<unknown>();
+    authority.live = false;
+    return new TargetAuthorityPermitDenial(
+        request,
+        authority.evidence(undefined, request, issuedAt)
+    );
+}
+
+function requestedRecord(request: TargetAuthorityPermitRequest) {
+    return { nonce: request.nonce, bytes: TargetAuthorityPermitRequest.encode(request) };
+}
+
+function deniedRecord(denial: TargetAuthorityPermitDenial) {
+    return {
+        nonce: denial.request.nonce,
+        bytes: TargetAuthorityPermitDenial.encode(denial)
+    };
+}
+
+/** One Actor owner that already consumed `nonce` for the exact `expected` admission. */
+async function consumedNonceStore(
+    expected: AuthorityPermitExpectation,
+    nonce: string
+): Promise<MemoryAuthorityPermitStore> {
+    const issuerStore = new MemoryAuthorityPermitStore(expected.issuer);
+    const permit = issuedPermit(expected, nonce);
+    issuerStore.transaction((transaction) => issuerStore.issue(transaction, permit));
+    const authentication = await authenticate(issuerStore, permit, expected);
+    const store = new MemoryAuthorityPermitStore(expected.target.actor);
+    recordTargetRequest(store, expected, nonce);
+    store.transaction((transaction) =>
+        store.consume(
+            transaction,
+            authentication,
+            permit,
+            expected,
+            new Date(issuedAt.getTime() + 1)
+        )
+    );
+    return store;
+}
+
+describe("AuthorityPermitIssuer issuance gates", () => {
+    test("refuses an issuance time that is not a safe nonnegative instant", { tags: "p1" }, () => {
+        const store = new MemoryAuthorityPermitStore(issuerActor);
+        const request = targetRequest("issuer-invalid-issuance-time");
+        const evidence = new CurrentAuthority<unknown>().evidence(undefined, request, issuedAt);
+
+        for (const at of [new Date(Number.NaN), new Date(-1)]) {
+            const error = caughtTypeError(() =>
+                store.transaction((transaction) =>
+                    new TenantAuthorityPermitIssuer(store).issue(transaction, request, evidence, at)
+                )
+            );
+            expect(error.message).toBe("Authority permit issuance time is invalid");
+        }
+        expect(
+            store.transaction((transaction) => store.issued(transaction, request.nonce))
+        ).toBeUndefined();
+    });
+
+    test(
+        "refuses issuance for a request that does not outlive its issuance",
+        { tags: "p1" },
+        () => {
+            const store = new MemoryAuthorityPermitStore(issuerActor);
+            const request = targetRequestFor(expectation(), "issuer-expiry-at-issuance", issuedAt);
+            const evidence = new CurrentAuthority<unknown>().evidence(undefined, request, issuedAt);
+
+            const error = caughtAgentCoreError(() =>
+                store.transaction((transaction) =>
+                    new TenantAuthorityPermitIssuer(store).issue(
+                        transaction,
+                        request,
+                        evidence,
+                        issuedAt
+                    )
+                )
+            );
+
+            expect(error.code).toBe("authority.denied");
+            expect(error.message).toBe("Authority permit request expiry must be after issuance");
+            expect(
+                store.transaction((transaction) => store.issued(transaction, request.nonce))
+            ).toBeUndefined();
+        }
+    );
+});
+
+describe("TargetAuthorityPermitRequest construction gates", () => {
+    test("refuses a blank or untrimmed nonce", { tags: "p1" }, () => {
+        const valid = targetRequest("request-nonce-gate");
+
+        for (const nonce of ["", " request-nonce-gate", "request-nonce-gate "]) {
+            const error = caughtTypeError(
+                () =>
+                    new TargetAuthorityPermitRequest(
+                        valid.expectation,
+                        valid.authority,
+                        nonce,
+                        expiresAt
+                    )
+            );
+            expect(error.message).toBe(
+                "Target authority permit request nonce must be canonical and nonblank"
+            );
+        }
+    });
+
+    test("refuses an expiry that is not a safe nonnegative instant", { tags: "p1" }, () => {
+        const valid = targetRequest("request-expiry-gate");
+
+        for (const expiry of [new Date(Number.NaN), new Date(-1)]) {
+            const error = caughtTypeError(
+                () =>
+                    new TargetAuthorityPermitRequest(
+                        valid.expectation,
+                        valid.authority,
+                        valid.nonce,
+                        expiry
+                    )
+            );
+            expect(error.message).toBe("Target authority permit request expiry is invalid");
+        }
+    });
+
+    test("refuses a request whose authority input names another nonce", { tags: "p0" }, () => {
+        const valid = targetRequest("request-identity-gate");
+
+        const error = caughtTypeError(
+            () =>
+                new TargetAuthorityPermitRequest(
+                    valid.expectation,
+                    valid.authority,
+                    "request-identity-gate-substituted",
+                    expiresAt
+                )
+        );
+
+        expect(error.message).toBe(
+            "Target authority permit request does not match its exact target identity"
+        );
+    });
+
+    test("refuses a request whose Tenant issuer is its own target", { tags: "p0" }, () => {
+        const nonce = "request-self-issued-gate";
+        const mediated = targetRequestFor(
+            expectation({ issuer: auxiliaryIssuerActor, target: permitTarget(issuerActor) }),
+            nonce
+        );
+
+        const error = caughtTypeError(
+            () =>
+                new TargetAuthorityPermitRequest(
+                    expectation({ issuer: issuerActor, target: permitTarget(issuerActor) }),
+                    mediated.authority,
+                    nonce,
+                    expiresAt
+                )
+        );
+
+        expect(error.message).toBe(
+            "Target authority permit request does not match its exact target identity"
+        );
+    });
+
+    test("refuses a request whose authority Binding is not its own", { tags: "p1" }, () => {
+        const nonce = "request-binding-gate";
+        const substituted = targetRequestFor(
+            expectation({
+                binding: { name: new BindingName("calendar"), generation: Revision.initial() }
+            }),
+            nonce
+        );
+
+        const error = caughtTypeError(
+            () =>
+                new TargetAuthorityPermitRequest(
+                    expectation(),
+                    substituted.authority,
+                    nonce,
+                    expiresAt
+                )
+        );
+
+        expect(error.message).toBe(
+            "Target authority permit request does not match its exact Binding and path"
+        );
+    });
+
+    test("refuses a request whose authority intent is not its own", { tags: "p2" }, () => {
+        const nonce = "request-intent-gate";
+        const substituted = targetRequestFor(
+            expectation({ argumentsDigest: authorityArgumentsDigest(externalArguments) }),
+            nonce
+        );
+
+        const error = caughtTypeError(
+            () =>
+                new TargetAuthorityPermitRequest(
+                    expectation(),
+                    substituted.authority,
+                    nonce,
+                    expiresAt
+                )
+        );
+
+        expect(error.message).toBe(
+            "Target authority permit request does not match its exact authority intent"
+        );
+    });
+});
+
+describe("TargetAuthorityPermitDenial construction gates", () => {
+    test(
+        "refuses evidence that is not a timely denial of its exact request",
+        { tags: "p0" },
+        () => {
+            const request = targetRequest("denial-evidence-gate");
+            const admitting = new CurrentAuthority<unknown>();
+            const denying = new CurrentAuthority<unknown>();
+            denying.live = false;
+
+            const admitted = caughtTypeError(
+                () =>
+                    new TargetAuthorityPermitDenial(
+                        request,
+                        admitting.evidence(undefined, request, issuedAt)
+                    )
+            );
+            expect(admitted.message).toBe(
+                "Target authority permit denial requires exact timely denied Tenant evidence"
+            );
+
+            const stale = caughtTypeError(
+                () =>
+                    new TargetAuthorityPermitDenial(
+                        request,
+                        denying.evidence(undefined, request, request.expiresAt)
+                    )
+            );
+            expect(stale.message).toBe(
+                "Target authority permit denial requires exact timely denied Tenant evidence"
+            );
+        }
+    );
+});
+
+const permitRuntimeAnchor = Object.freeze({
+    actorId: issuerActor.id,
+    tenantId: tenant,
+    principalId,
+    trustAnchor: Uint8Array.of(7, 11, 13)
+});
+
+interface PermitRuntimeState {
+    authority: MemoryTenantControlSnapshot;
+    permits: MemoryAuthorityPermitSnapshot;
+}
+
+function clonePermitRuntimeState(state: PermitRuntimeState): PermitRuntimeState {
+    return {
+        authority: MemoryTenantControlStore.restore(state.authority).snapshot(),
+        permits: new MemoryAuthorityPermitStore(issuerActor, state.permits).snapshot()
+    };
+}
+
+function permitRuntimeActors(): MemoryActorStore<PermitRuntimeState> {
+    const control = MemoryTenantControlStore.create(permitRuntimeAnchor);
+    control.bootstrapTenant(permitRuntimeAnchor, Revision.initial());
+    return new MemoryActorStore<PermitRuntimeState>(
+        {
+            authority: control.snapshot(),
+            permits: new MemoryAuthorityPermitStore(issuerActor).snapshot()
+        },
+        clonePermitRuntimeState
+    );
+}
+
+function permitRuntimeStore(
+    actors: MemoryActorStore<PermitRuntimeState>,
+    owner: ActorRef = issuerActor
+): MemoryTenantAuthorityPermitStore<PermitRuntimeState> {
+    return new MemoryTenantAuthorityPermitStore(actors, owner, {
+        authority: (state) => state.authority,
+        permits: (state) => state.permits,
+        savePermits: (state, permits) => (state.permits = permits)
+    });
+}
+
+describe("MemoryTenantAuthorityPermitStore", () => {
+    test("refuses an owner that is not a Tenant Actor", { tags: "p0" }, () => {
+        const actors = permitRuntimeActors();
+
+        const error = caughtTypeError(() => permitRuntimeStore(actors, targetActor));
+
+        expect(error.message).toBe("Memory Tenant authority permit store requires a Tenant Actor");
+    });
+
+    test(
+        "binds one Tenant Actor and retains the recovery state written through it",
+        { tags: "p1" },
+        () => {
+            const store = permitRuntimeStore(permitRuntimeActors());
+            const initial = ActorRecoveryState.initial(issuerActor);
+            store.bindActor(issuerActor);
+
+            store.transaction((transaction) => {
+                store.saveRecoveryState(transaction, initial);
+                return undefined;
+            });
+
+            expect(
+                store.transaction(
+                    (transaction) => store.loadRecoveryState(transaction, issuerActor)?.recoveries
+                )
+            ).toBe(1);
+            const shared = caughtAgentCoreError(() => store.bindActor(auxiliaryIssuerActor));
+            expect(shared.message).toBe("An ActorStore cannot be shared by different Actors");
+        }
+    );
+
+    test("activates its Tenant Actor with initial recovery state", { tags: "p1" }, () => {
+        const store = permitRuntimeStore(permitRuntimeActors());
+
+        const activated = store.activateActor(issuerActor, () => undefined);
+
+        expect(activated.actor.equals(issuerActor)).toBe(true);
+        expect(activated.recoveries).toBe(1);
+        expect(
+            store.transaction(
+                (transaction) => store.loadRecoveryState(transaction, issuerActor)?.recoveries
+            )
+        ).toBe(1);
+    });
+
+    test(
+        "issues one durable permit beside the Tenant authority view in the same Actor span",
+        { tags: "p0" },
+        () => {
+            const actors = permitRuntimeActors();
+            const store = permitRuntimeStore(actors);
+            const expected = expectation();
+            const nonce = "runtime-issued-permit";
+            const permit = issuedPermit(expected, nonce);
+
+            const issued = store.transaction((transaction) => {
+                const view = store.authority(transaction);
+                expect(view.tenantId.equals(tenant)).toBe(true);
+                expect(view.principal(principalId)?.status).toBe("active");
+                expect(
+                    view.epoch(ScopeRef.tenant(tenant)).scope.equals(ScopeRef.tenant(tenant))
+                ).toBe(true);
+                expect(store.issued(transaction, nonce)).toBeUndefined();
+                return store.issue(transaction, permit);
+            });
+            expect(issued.digest().equals(permit.digest())).toBe(true);
+
+            expect(
+                store.transaction((transaction) => store.issued(transaction, nonce)?.digest().value)
+            ).toBe(permit.digest().value);
+            expect(
+                store.transaction((transaction) =>
+                    store.read(transaction, (state) =>
+                        state.permits.issued.map((record) => record.nonce)
+                    )
+                )
+            ).toEqual([nonce]);
+
+            const restarted = permitRuntimeStore(
+                MemoryActorStore.restore(actors.snapshot(), clonePermitRuntimeState)
+            );
+            expect(
+                restarted.transaction(
+                    (transaction) => restarted.issued(transaction, nonce)?.digest().value
+                )
+            ).toBe(permit.digest().value);
+        }
+    );
+});
 
 // §3.4 rule 7 makes permit issuance the final authority-admission linearization point.
 // `AuthorityPermitIssuer.issue` holds one clause per mutation class the rule names, so each

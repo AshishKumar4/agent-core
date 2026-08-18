@@ -1,5 +1,6 @@
 import { AgentCoreError } from "@agent-core/core";
 import { CloudflareSqlite } from "../src/index.js";
+import { storedRowReader } from "../src/sqlite.js";
 import { malformedInput } from "./assertions.js";
 import { FakeDurableObjectStorage, FakeSqlStorage, boundInteger, fakeErrors } from "./fakes.js";
 
@@ -163,5 +164,75 @@ describe("CloudflareSqlite", () => {
         });
         expect(() => database.transaction(() => thenable)).toThrow("must be synchronous");
         expect(() => database.run("UPDATE", [])).toThrow("adapter is poisoned");
+    });
+
+    test(
+        "settles a rejected asynchronous callback instead of leaking it",
+        { tags: "p1" },
+        async () => {
+            const database = new CloudflareSqlite(
+                new FakeDurableObjectStorage(new FakeSqlStorage(() => ({}))),
+                fakeErrors
+            );
+            const leaked: unknown[] = [];
+            const collect = (reason: unknown): void => {
+                leaked.push(reason);
+            };
+
+            process.on("unhandledRejection", collect);
+            try {
+                expect(() =>
+                    database.transaction(async () => {
+                        throw new TypeError("the callback failed after the adapter refused it");
+                    }, "Actor transaction callbacks must be synchronous")
+                ).toThrow("Cloudflare SQLite transaction callbacks must be synchronous");
+                // Node decides a rejection is unhandled at the end of the tick that
+                // created it, so the check phase is the earliest point that answer exists.
+                await new Promise<void>((resolve) => {
+                    setImmediate(resolve);
+                });
+            } finally {
+                process.off("unhandledRejection", collect);
+            }
+
+            // The refused callback keeps running, and its failure is the adapter's to
+            // absorb: an unhandled rejection here would take down the whole isolate over
+            // work the adapter already refused.
+            expect(leaked).toEqual([]);
+            expect(() => database.run("UPDATE", [])).toThrow("adapter is poisoned");
+        }
+    );
+});
+
+describe("storedRowReader", () => {
+    const reader = storedRowReader((column): never => {
+        throw new AgentCoreError("codec.invalid", `stored column ${column} is corrupt`);
+    });
+
+    test("reads a nullable INTEGER as null only for SQL NULL", { tags: "p1" }, () => {
+        expect(reader.nullableInteger({ due_at: null }, "due_at")).toBeNull();
+        expect(reader.nullableInteger({ due_at: 0 }, "due_at")).toBe(0);
+        // Absent is not NULL: a column the query never selected is corrupt storage, not
+        // a recorded absence.
+        expect(() => reader.nullableInteger({}, "due_at")).toThrow("stored column due_at is corrupt");
+        expect(() => reader.nullableInteger({ due_at: 1.5 }, "due_at")).toThrow(
+            "stored column due_at is corrupt"
+        );
+    });
+
+    test("hands a BLOB column over without copying it", { tags: "p1" }, () => {
+        const stored = new Uint8Array([7, 8, 9]);
+
+        expect(reader.bytes({ payload: stored }, "payload")).toBe(stored);
+        // Every other representation SQLite can hold in the column names that column.
+        expect(() => reader.bytes({ payload: "Bwg" }, "payload")).toThrow(
+            "stored column payload is corrupt"
+        );
+        expect(() => reader.bytes({ payload: 7 }, "payload")).toThrow(
+            "stored column payload is corrupt"
+        );
+        expect(() => reader.bytes({ payload: null }, "payload")).toThrow(
+            "stored column payload is corrupt"
+        );
     });
 });

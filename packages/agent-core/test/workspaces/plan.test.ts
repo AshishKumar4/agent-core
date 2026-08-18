@@ -175,6 +175,37 @@ test(
 );
 
 test(
+    "[C13-PLAN-ACYCLIC] the reachability walk expands a re-converged task once and still reaches past it",
+    { tags: "p1" },
+    () => {
+        // a blocks b and c, both block d, d blocks e: the walk meets d on two frontiers.
+        const diamond = TaskPlan.replay(
+            origin,
+            log(
+                declare("a"),
+                declare("b"),
+                declare("c"),
+                declare("d"),
+                declare("e"),
+                declare("f"),
+                block("b", "a"),
+                block("c", "a"),
+                block("d", "b"),
+                block("d", "c"),
+                block("e", "d")
+            )
+        );
+
+        expect(diamond.precedes(task("a"), task("e"))).toBe(true);
+        expect(diamond.precedes(task("a"), task("f"))).toBe(false);
+        expect(names(diamond.blocking(task("d")))).toEqual(["e"]);
+        expect(() => diamond.advance(block("a", "e"), cursor(12))).toThrow(
+            expect.objectContaining({ code: "plan.cycle" })
+        );
+    }
+);
+
+test(
     "[C13-PLAN-FOLD-CLOSED] the fold refuses undeclared, duplicated, and absent facts by name",
     { tags: "p0" },
     () => {
@@ -237,6 +268,33 @@ test(
 );
 
 test(
+    "[C13-PLAN-FOLD-CLOSED] every fact reports its own kind, and a retraction decodes back into one",
+    { tags: "p1" },
+    () => {
+        expect(declare("a").kind).toBe("plan.taskDeclared");
+        expect(block("b", "a").kind).toBe("plan.dependencyDeclared");
+
+        const retraction = unblock("c", "b");
+        expect(retraction.kind).toBe("plan.dependencyRetracted");
+
+        const decoded = PlanFact.decode(PlanFact.encode(retraction));
+        expect(decoded.kind).toBe("plan.dependencyRetracted");
+        expect(decoded.origin.equals(discoverer)).toBe(true);
+        expect(decoded.toData()).toEqual({
+            blocked: "c",
+            blockedBy: "b",
+            kind: "plan.dependencyRetracted",
+            origin: discoverer.value
+        });
+
+        const retracted = TaskPlan.replay(origin, chainLog).advance(decoded, cursor(7));
+        expect(retracted.dependsDirectly({ blocked: task("c"), blockedBy: task("b") })).toBe(false);
+        expect(retracted.dependsDirectly({ blocked: task("b"), blockedBy: task("a") })).toBe(true);
+        expect(names(criticalPath(retracted))).toEqual(["a", "b"]);
+    }
+);
+
+test(
     "[C13-PLAN-CRITICAL-PATH] the critical path is recomputed after a discovery extends the chain",
     { tags: "p0" },
     () => {
@@ -273,6 +331,31 @@ test(
         );
 
         expect(names(criticalPath(tied))).toEqual(["a-early", "m-mid", "z-late"]);
+    }
+);
+
+test(
+    "[C13-PLAN-CRITICAL-PATH] a tie is broken by the chain's own order, not by the blocker that closes it",
+    { tags: "p1" },
+    () => {
+        // Two chains of three reach t. The canonically later blocker q carries the
+        // canonically earlier chain, so tie-breaking on the blocker would answer wrong.
+        const tied = TaskPlan.replay(
+            origin,
+            log(
+                declare("t"),
+                declare("p"),
+                declare("q"),
+                declare("zz"),
+                declare("aa"),
+                block("p", "zz"),
+                block("q", "aa"),
+                block("t", "p"),
+                block("t", "q")
+            )
+        );
+
+        expect(names(criticalPath(tied))).toEqual(["aa", "q", "t"]);
     }
 );
 

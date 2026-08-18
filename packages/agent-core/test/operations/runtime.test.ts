@@ -55,7 +55,7 @@ import {
     type CommandInvocationOrigin,
     type InstalledCommand
 } from "../../src/operations/command-runtime";
-import { FacetCorrespondenceValidator } from "../../src/operations/correspondence";
+import { FacetCorrespondenceValidator, ValidatedFacet } from "../../src/operations/correspondence";
 import {
     OperationGatewayHost,
     OperationRequestKey,
@@ -71,8 +71,10 @@ import {
 } from "../../src/operations/gateway";
 import { FacetRuntimeHost } from "../../src/operations/lifecycle";
 import {
+    OperationInterceptorRunner,
     TurnInterceptorRunner,
-    type TurnInterceptorDomainPort
+    type TurnInterceptorDomainPort,
+    type TurnRewriteRule
 } from "../../src/operations/interception";
 import {
     Facet,
@@ -103,6 +105,34 @@ class LeaseRefusingHost extends FacetRuntimeHost {
         expected: Parameters<FacetRuntimeHost["acquire"]>[1]
     ): ReturnType<FacetRuntimeHost["acquire"]> {
         return this.refuseLeases ? undefined : super.acquire(ref, expected);
+    }
+}
+
+/**
+ * A host that reports the Facet its pinned manifest declares while resolving no interceptor
+ * behind those declarations — what a Facet becomes once its implementation is gone after
+ * correspondence was checked. Nothing the validator produces is in this state, which is the
+ * point: neither runner may trust the schedule it was validated against.
+ */
+class DroppedInterceptorHost extends FacetRuntimeHost {
+    public constructor(private readonly source: TestFacet) {
+        super([source.manifest], [source]);
+    }
+
+    public override facets(): readonly ValidatedFacet[] {
+        return super
+            .facets()
+            .map(
+                (facet) =>
+                    new ValidatedFacet(
+                        this.source,
+                        facet.ref,
+                        facet.manifest,
+                        new Map(),
+                        new Map(),
+                        new Map()
+                    )
+            );
     }
 }
 
@@ -816,6 +846,254 @@ describe("Facet runtime", () => {
             // schedule, so the second rewriter never ran and never overwrote the evidence.
             expect(seen).toEqual(['{"forbidden":true}']);
             await host.dispose();
+        }
+    );
+
+    test(
+        "[C13-INTERCEPTOR-TURN-HOSTED] consults only what a Facet declared at the requested cut point, and nothing from a Facet that declared none",
+        { tags: "p2" },
+        async () => {
+            const consulted: string[] = [];
+            const elsewhere = new InterceptorDeclaration(
+                new InterceptorId("elsewhere"),
+                "prompt.assemble",
+                "rewrite",
+                0
+            );
+            const declaring = manifest("acme.elsewhere", [], [elsewhere]);
+            // A Facet that contributes to no slot at all. An absent contribution is an empty
+            // schedule, not a declaration the runner failed to read.
+            const silent = manifest("acme.silent", []);
+            const host = new FacetRuntimeHost(
+                [declaring, silent],
+                [
+                    new TestFacet(
+                        "workspace:elsewhere",
+                        declaring,
+                        [],
+                        new Map(),
+                        new Map([
+                            [
+                                "elsewhere",
+                                new TestInterceptor(elsewhere, (value) => {
+                                    consulted.push("elsewhere");
+                                    return {
+                                        proceed: true,
+                                        value: { ...requireObject(value), seen: true }
+                                    };
+                                })
+                            ]
+                        ])
+                    ),
+                    new TestFacet("workspace:silent", silent)
+                ]
+            );
+            await host.activate();
+            expect(host.facets()).toHaveLength(2);
+            const runner = new TurnInterceptorRunner(host, new TestTurnDomains());
+            const turn = new TurnId("turn-slots");
+
+            const skipped = runner.run("turn.step", turn, { step: 1 }, () => {});
+            // Not consulted, rather than consulted and its answer discarded: an interceptor that
+            // ran at the wrong cut point would already have read the value in flight.
+            expect(consulted).toEqual([]);
+            expect(skipped.traces).toEqual([]);
+            expect(skipped.stop).toBeUndefined();
+            expect(skipped.value).toEqual({ step: 1 });
+
+            // The same schedule at the cut point the declaration names does consult it, so the
+            // skip is the cut point and not the runner having found nothing at all to run.
+            const applied = runner.run("prompt.assemble", turn, { step: 1 }, () => {});
+            expect(consulted).toEqual(["elsewhere"]);
+            expect(applied.value).toEqual({ seen: true, step: 1 });
+            expect(applied.traces.map((trace) => trace.interceptor)).toEqual(["elsewhere"]);
+            await host.dispose();
+        }
+    );
+
+    test(
+        "[C13-INTERCEPTOR-TURN-HOSTED] blocks the Turn naming what the interceptor did, whatever it threw or returned",
+        { tags: "p0" },
+        async () => {
+            /**
+             * Third-party code answers a cut point, so every way it can fail has to end at one
+             * attributed refusal: a thrown Error, a thrown value that is not an Error, an answer
+             * outside the declared union, and a rewrite the cut point's own rule refused with a
+             * non-Error. A runner that let any of these through would let unchecked third-party
+             * output stand as the value in flight.
+             */
+            const inadmissible: readonly {
+                readonly id: string;
+                readonly answer: (value: FacetData) => InterceptResult;
+                readonly rule: TurnRewriteRule;
+            }[] = [
+                {
+                    id: "throws-error",
+                    answer: () => {
+                        throw new TypeError("the prompt carries a secret");
+                    },
+                    rule: () => {}
+                },
+                {
+                    id: "throws-nonerror",
+                    answer: () => {
+                        throw refusalReason;
+                    },
+                    rule: () => {}
+                },
+                {
+                    id: "answers-outside-the-union",
+                    answer: () => ({ proceed: "yes" }) as unknown as InterceptResult,
+                    rule: () => {}
+                },
+                {
+                    id: "rewrites-inadmissibly",
+                    answer: (value) => ({ proceed: true, value }),
+                    rule: () => {
+                        throw refusalReason;
+                    }
+                }
+            ];
+            const turn = new TurnId("turn-blocked");
+            const outcomes: string[] = [];
+            for (const scenario of inadmissible) {
+                const declaration = new InterceptorDeclaration(
+                    new InterceptorId(scenario.id),
+                    "turn.step",
+                    "rewrite",
+                    0
+                );
+                const facetManifest = manifest("acme.blocked", [], [declaration]);
+                const host = new FacetRuntimeHost(
+                    [facetManifest],
+                    [
+                        new TestFacet(
+                            "workspace:blocked",
+                            facetManifest,
+                            [],
+                            new Map(),
+                            new Map([
+                                [scenario.id, new TestInterceptor(declaration, scenario.answer)]
+                            ])
+                        )
+                    ]
+                );
+                await host.activate();
+                const runner = new TurnInterceptorRunner(host, new TestTurnDomains());
+                try {
+                    const result = runner.run("turn.step", turn, { step: 0 }, scenario.rule);
+                    outcomes.push(`${scenario.id}: ADMITTED ${JSON.stringify(result.value)}`);
+                } catch (error) {
+                    outcomes.push(
+                        `${scenario.id}: ${error instanceof AgentCoreError ? error.code : "non-AgentCoreError"} ` +
+                            `${error instanceof Error ? error.message : ""}`
+                    );
+                }
+                await host.dispose();
+            }
+            expect(outcomes).toEqual([
+                "throws-error: authority.denied Interceptor throws-error blocked turn.step: " +
+                    "the prompt carries a secret",
+                "throws-nonerror: authority.denied Interceptor throws-nonerror blocked turn.step: " +
+                    "unknown interceptor failure",
+                "answers-outside-the-union: authority.denied " +
+                    "Interceptor answers-outside-the-union blocked turn.step: " +
+                    "Interceptor returned an invalid result",
+                "rewrites-inadmissibly: authority.denied " +
+                    "Interceptor rewrites-inadmissibly blocked turn.step: invalid rewrite"
+            ]);
+        }
+    );
+
+    test(
+        "[C13-INTERCEPTOR-TURN-HOSTED] refuses a declared interceptor with no implementation behind it at an operation and a Turn-bound cut point alike",
+        { tags: "p1" },
+        async () => {
+            const descriptor = operationDescriptor("run");
+            const turnDeclaration = new InterceptorDeclaration(
+                new InterceptorId("dropped-turn"),
+                "turn.step",
+                "rewrite",
+                0
+            );
+            const operationDeclaration = new InterceptorDeclaration(
+                new InterceptorId("dropped-operation"),
+                "operation.before",
+                "rewrite",
+                OperationSelector.own(),
+                0
+            );
+            const facetManifest = manifest(
+                "acme.dropped",
+                [descriptor],
+                [turnDeclaration, operationDeclaration]
+            );
+            const operation = new TestOperation(descriptor, async (input) => input);
+            const passThrough = (declaration: InterceptorDeclaration): TestInterceptor =>
+                new TestInterceptor(declaration, (value) => ({ proceed: true, value }));
+            const facet = new TestFacet(
+                "workspace:dropped",
+                facetManifest,
+                [],
+                new Map([["run", operation]]),
+                new Map([
+                    ["dropped-turn", passThrough(turnDeclaration)],
+                    ["dropped-operation", passThrough(operationDeclaration)]
+                ])
+            );
+            const dropped = new DroppedInterceptorHost(facet);
+            await dropped.activate();
+            const droppedTarget = dropped.facets()[0]!;
+            expect(() =>
+                new TurnInterceptorRunner(dropped, new TestTurnDomains()).run(
+                    "turn.step",
+                    new TurnId("turn-dropped"),
+                    { step: 0 },
+                    () => {}
+                )
+            ).toThrowError(
+                expect.objectContaining({
+                    code: "facet.inactive",
+                    message: "Interceptor dropped-turn is no longer active"
+                })
+            );
+            expect(() =>
+                new OperationInterceptorRunner<string>(dropped, new TestAuthority([], "direct")).run(
+                    "operation.before",
+                    "resolution",
+                    droppedTarget,
+                    operation,
+                    0,
+                    {}
+                )
+            ).toThrowError(
+                expect.objectContaining({
+                    code: "facet.inactive",
+                    message: "Interceptor dropped-operation is no longer active"
+                })
+            );
+
+            // The identical manifest, with the implementations resolved, runs both schedules —
+            // so the refusal is the missing implementation and not either cut point being empty.
+            const resolved = new FacetRuntimeHost([facetManifest], [facet]);
+            await resolved.activate();
+            const target = resolved.facets()[0]!;
+            expect(
+                new TurnInterceptorRunner(resolved, new TestTurnDomains()).run(
+                    "turn.step",
+                    new TurnId("turn-dropped"),
+                    { step: 0 },
+                    () => {}
+                ).traces
+            ).toHaveLength(1);
+            expect(
+                new OperationInterceptorRunner<string>(
+                    resolved,
+                    new TestAuthority([], "direct")
+                ).run("operation.before", "resolution", target, operation, 0, {}).traces
+            ).toHaveLength(1);
+            await resolved.dispose();
+            await dropped.dispose();
         }
     );
 
