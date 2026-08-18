@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MemoryContentStore } from "../../../src/content";
+import type { ContentStore } from "../../../src/content";
 import { ContentRef } from "../../../src/core";
 import { AgentCoreError } from "../../../src/errors";
 import {
@@ -151,17 +151,19 @@ function resultCommit(
 
 interface Fixture {
     readonly seeded: ReturnType<typeof seedRunningTurn>;
-    readonly store: MemoryContentStore;
+    readonly store: ContentStore;
     readonly output: ContentRef;
     readonly port: RecordingModelPort;
     readonly host: (executor: TurnExecutor, cutPoints: TurnCutPointPort) => TurnExecutorHost<object>;
 }
 
 async function fixture(cutPoints: TurnCutPointPort = new UncontributedCutPoints()): Promise<Fixture> {
-    const store = new MemoryContentStore();
+    const seeded = seedRunningTurn(harness(undefined, cutPoints));
+    // The Run's own content store is the only plane its records may name, so the prompt and
+    // the response go through it and the refs are the addresses that store derived.
+    const store = seeded.storage.content;
     const prompt = (await store.put(encoder.encode("assembled"))).ref;
     const output = (await store.put(encoder.encode("response"))).ref;
-    const seeded = seedRunningTurn(harness(undefined, cutPoints));
     const port = new RecordingModelPort(output);
     return {
         seeded,
@@ -442,13 +444,16 @@ describe("Turn-bound interceptor cut points", () => {
             });
             await base.host(executor, cutPoints).execute(base.seeded.token);
             const second = seedRunningTurn(harness(undefined, cutPoints), { id: new TurnId("turn-second") });
+            // The second Turn belongs to a second Run, which owns its own content plane; the
+            // same bytes written there resolve to the same address the first Run derived.
+            const secondOutput = (await second.storage.content.put(encoder.encode("response"))).ref;
             await new TurnExecutorHost({
                 runtime: second.runtime,
                 cutPoints,
                 executor,
-                content: base.store,
+                content: second.storage.content,
                 operations: { resolve: async () => [] },
-                prompt: { assemble: async () => base.output },
+                prompt: { assemble: async () => secondOutput },
                 invocations: { invoke: async () => ({ tier: "direct" as const, output: {} }) },
                 model: { call: base.port.call },
                 stream: { publish: async () => undefined },
