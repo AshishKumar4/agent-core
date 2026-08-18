@@ -82,6 +82,11 @@
       "description": "Every seam implementation runs one shared contract"
     },
     {
+      "id": "ACQ-SPEC-VOCAB",
+      "node": "architecture",
+      "description": "Every public export's words are SPEC vocabulary; foreign terms are never reviewable and reviewed words carry a written, current reason"
+    },
+    {
       "id": "ACQ-TEST",
       "node": "architecture",
       "description": "Focused, skipped, and placeholder tests are forbidden"
