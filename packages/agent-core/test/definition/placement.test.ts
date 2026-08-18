@@ -136,6 +136,31 @@ describe("placement policy trust patterns", () => {
         expect(PlacementPolicy.encode(PlacementPolicy.decode(encoded))).toEqual(encoded);
     });
 
+    test(
+        "matches wildcard-heavy trust patterns without backtracking",
+        { tags: "p0", timeout: 1_000 },
+        () => {
+            const policy = new PlacementPolicy(["dynamic"], [`${"*a".repeat(12)}b`]);
+
+            expect(policy.trusts(new PackageId("a".repeat(48)))).toBe(false);
+        }
+    );
+
+    test("does not match a fragment of a Unicode scalar value", { tags: "p0" }, () => {
+        const packageId = new PackageId("x😀y");
+        const cases = [
+            { pattern: `*\ud83d*`, expected: false },
+            { pattern: `*\ude00*`, expected: false },
+            { pattern: `*😀*`, expected: true },
+            { pattern: `x\ud83d*`, expected: false },
+            { pattern: `*\ude00y`, expected: false }
+        ];
+
+        for (const { pattern, expected } of cases) {
+            expect(new PlacementPolicy(["dynamic"], [pattern]).trusts(packageId)).toBe(expected);
+        }
+    });
+
     test("defaults trust to everything so callers that only restrict `allowed` are unaffected", { tags: "p1" }, () => {
         expect(new PlacementPolicy(["dynamic"]).trusted).toEqual(["*"]);
         expect(PlacementPolicy.all().trusted).toEqual(["*"]);

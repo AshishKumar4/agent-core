@@ -31,6 +31,7 @@ export {
 export type { AuthoredCodeConsumer } from "./authored-code";
 export { CapabilitySpec, isCapabilityEffect } from "./capability";
 export type { CapabilityEffect, CapabilityIntent, CapabilitySpecInit } from "./capability";
+export { matchesGlob } from "./glob";
 export {
     BindingRequirement,
     FacetManifest,

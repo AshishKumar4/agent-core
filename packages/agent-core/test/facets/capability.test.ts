@@ -75,6 +75,16 @@ describe("CapabilitySpec authority semantics", () => {
         expect(operated.matches(intent({ operation: "write" }))).toBe(false);
     });
 
+    test(
+        "matches wildcard-heavy facet patterns without backtracking",
+        { tags: "p0", timeout: 1_000 },
+        () => {
+            expect(cap(`${"*a".repeat(12)}b`).matches(intent({ facet: "a".repeat(48) }))).toBe(
+                false
+            );
+        }
+    );
+
     test("constraint paths never traverse into arrays or string properties", { tags: "p0" }, () => {
         const indexed = cap("*", { argumentConstraints: { "a.0": 5 } });
         expect(indexed.matches(intent({ arguments: { a: [5] } }))).toBe(false);

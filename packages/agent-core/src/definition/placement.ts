@@ -10,6 +10,7 @@ import {
 import {
     AuthoredCodeBackingId,
     PLACEMENT_PREFERENCE,
+    matchesGlob,
     requireAuthoredCodeConsumer,
     type AuthoredCodeConsumer,
     type IsolationMode
@@ -117,17 +118,6 @@ class PlacementPolicyCodec extends RecordCodec<PlacementPolicy> {
     }
 }
 
-// Matches "core.*" against a PackageId the way SPEC §9.2's example intends: '*' is a
-// wildcard for any sequence of characters, the rest of the pattern is literal, and the
-// match covers the package's whole id (no partial/substring matches).
-function globMatches(pattern: string, value: string): boolean {
-    const escaped = pattern
-        .split("*")
-        .map((segment) => segment.replace(/[.+?^${}()|[\]\\]/gu, "\\$&"))
-        .join(".*");
-    return new RegExp(`^${escaped}$`, "u").test(value);
-}
-
 export class PlacementPolicy {
     public static readonly codec: RecordCodec<PlacementPolicy> = new PlacementPolicyCodec();
     public readonly allowed: NonemptyIsolationModes;
@@ -190,7 +180,7 @@ export class PlacementPolicy {
     // SPEC §9.2 / C13-PLACEMENT-UNTRUSTED-BUNDLED: a Package is trusted exactly when its
     // id matches one of the configured glob patterns.
     public trusts(packageId: PackageId): boolean {
-        return this.trusted.some((pattern) => globMatches(pattern, packageId.value));
+        return this.trusted.some((pattern) => matchesGlob(pattern, packageId.value));
     }
 
     public trustedModes(packageId: PackageId): NonemptyIsolationModes {

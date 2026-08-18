@@ -70,6 +70,7 @@ import {
     SurfaceId
 } from "../../src/facets";
 import { TenantId } from "../../src/identity";
+import { expectAgentCoreError } from "../protocol/error-assertion";
 import {
     MemoryManagedResourcePort,
     cloneManagedResources,
@@ -259,6 +260,44 @@ describe("complete Blueprint materialization", () => {
         ).toThrow(/may not contribute to slot custom.card/);
     });
 
+    test(
+        "matches wildcard-heavy slot authority without backtracking",
+        { tags: "p0", timeout: 1_000 },
+        () => {
+            expectAgentCoreError(
+                () =>
+                    planMaterialization({
+                        validatedBlueprint: fullBlueprint({
+                            slotContributor: `${"*".repeat(12)}b`
+                        }),
+                        tenantId,
+                        deploymentKey,
+                        generation: 1,
+                        topology
+                    }),
+                "operation.invalid-input"
+            );
+        }
+    );
+
+    test("keeps command surface identities injective", { tags: "p1" }, () => {
+        const plan = planMaterialization({
+            validatedBlueprint: fullBlueprint({ straddlingCommands: true }),
+            tenantId,
+            deploymentKey,
+            generation: 1,
+            topology
+        });
+        const subscriptions = plan.actors.flatMap((actor) =>
+            actor.projections
+                .filter((projection) => projection.recordKind === "subscription")
+                .map((projection) => projection.logicalKey)
+        );
+
+        expect(subscriptions).toContain("subscription:command:core.deploy.facet:one\u0000two");
+        expect(subscriptions).toContain("subscription:command:core.deploy.facet:two");
+    });
+
     test("rejects a duplicate command name in the same surface slot", { tags: "p1" }, () => {
         expect(() =>
             planMaterialization({
@@ -276,6 +315,7 @@ interface FullBlueprintOptions {
     readonly approvals?: readonly ("execute" | "externalSend")[];
     readonly slotContributor?: string;
     readonly duplicateCommand?: boolean;
+    readonly straddlingCommands?: boolean;
 }
 
 function fullBlueprint(options: FullBlueprintOptions = {}): ValidatedBlueprint {
@@ -297,6 +337,22 @@ function fullBlueprint(options: FullBlueprintOptions = {}): ValidatedBlueprint {
         binding: new BindingName("deploy"),
         surfaces: [new SlotName("surfaces")]
     });
+    const straddleLeft = new Command({
+        name: "one\u0000two",
+        title: "Straddle left",
+        arguments: objectSchema,
+        operation: new OperationRef(`${facetId}:run`),
+        binding: new BindingName("deploy"),
+        surfaces: [new SlotName("surfaces")]
+    });
+    const straddleRight = new Command({
+        name: "two",
+        title: "Straddle right",
+        arguments: objectSchema,
+        operation: new OperationRef(`${facetId}:run`),
+        binding: new BindingName("deploy"),
+        surfaces: [new SlotName("surfaces\u0000one")]
+    });
     const contributions = new Contributions([
         new Contribution(new SlotName("operations"), [
             new OperationDescriptor(
@@ -312,6 +368,8 @@ function fullBlueprint(options: FullBlueprintOptions = {}): ValidatedBlueprint {
             new SlotName("commands"),
             options.duplicateCommand === true
                 ? [command.toData(), duplicate.toData()]
+                : options.straddlingCommands === true
+                  ? [straddleLeft.toData(), straddleRight.toData()]
                 : [command.toData()]
         ),
         new Contribution(new SlotName("automations"), [
@@ -337,7 +395,16 @@ function fullBlueprint(options: FullBlueprintOptions = {}): ValidatedBlueprint {
                 new SlotName("custom.card"),
                 objectSchema,
                 new SlotAuthorityPolicy([options.slotContributor ?? facetId], ["scope.read"])
-            ).toData()
+            ).toData(),
+            ...(options.straddlingCommands === true
+                ? [
+                      new SlotDeclaration(
+                          new SlotName("surfaces\u0000one"),
+                          objectSchema,
+                          new SlotAuthorityPolicy([facetId], ["scope.read"])
+                      ).toData()
+                  ]
+                : [])
         ]),
         new Contribution(new SlotName("custom.card"), [{ title: "Card" }]),
         new Contribution(new SlotName("surfaces"), [

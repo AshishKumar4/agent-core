@@ -9,6 +9,7 @@ import {
     type RecordVersion
 } from "../core";
 import type { Impact } from "./contribution";
+import { matchesGlob } from "./glob";
 import {
     canonicalFacetDataMap,
     canonicalOrder,
@@ -89,7 +90,7 @@ export class CapabilitySpec {
 
     public matches(intent: CapabilityIntent): boolean {
         return (
-            matchesPattern(this.facetPattern, intent.facet) &&
+            matchesGlob(this.facetPattern, intent.facet) &&
             (this.operations.length === 0 || this.operations.includes(intent.operation)) &&
             this.impacts.includes(intent.impact) &&
             Object.entries(this.argumentConstraints).every(([path, expected]) => {
@@ -110,7 +111,7 @@ export class CapabilitySpec {
      */
     public covers(candidate: CapabilitySpec): boolean {
         return (
-            matchesPattern(this.facetPattern, candidate.facetPattern) &&
+            matchesGlob(this.facetPattern, candidate.facetPattern) &&
             (this.operations.length === 0 ||
                 (candidate.operations.length > 0 &&
                     candidate.operations.every((operation) =>
@@ -201,14 +202,6 @@ function validatePattern(pattern: string): void {
     ) {
         throw new TypeError("Facet pattern must be a canonical glob containing only '*' wildcards");
     }
-}
-
-function matchesPattern(pattern: string, value: string): boolean {
-    const expression = pattern
-        .split("*")
-        .map((part) => part.replace(/[.+?^${}()|[\]\\]/gu, "\\$&"))
-        .join(".*");
-    return new RegExp(`^${expression}$`, "u").test(value);
 }
 
 function valueAtPath(
