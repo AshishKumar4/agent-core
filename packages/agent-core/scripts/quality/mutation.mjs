@@ -41,7 +41,8 @@ import {
     equivalenceArea,
     equivalenceKey,
     readEquivalenceRegister,
-    reconcileEquivalence
+    reconcileEquivalence,
+    requireCompleteMutationReport
 } from "./mutation-equivalence.mjs";
 import {
     artifactRoot,
@@ -170,7 +171,9 @@ const report = measurement();
  */
 function measurement() {
     if (options.report !== undefined) {
-        return JSON.parse(readFileSync(resolve(packageRoot, options.report), "utf8"));
+        return requireCompleteMutationReport(
+            JSON.parse(readFileSync(resolve(packageRoot, options.report), "utf8"))
+        );
     }
     // An empty report carries a barrel-only area through the same classification, survivor
     // and baseline path as any other, recording the zeros it truly has instead of branching.
@@ -187,8 +190,10 @@ function measurement() {
         { cwd: packageRoot, encoding: "utf8", stdio: ["ignore", "inherit", "inherit"] }
     );
     if (stryker.status !== 0) throw new TypeError(`Stryker failed for area ${options.area}`);
-    return JSON.parse(
-        readFileSync(resolve(packageRoot, "reports/quality/mutation/report.json"), "utf8")
+    return requireCompleteMutationReport(
+        JSON.parse(
+            readFileSync(resolve(packageRoot, "reports/quality/mutation/report.json"), "utf8")
+        )
     );
 }
 

@@ -5,8 +5,10 @@ import { describe, expect, test } from "vitest";
 import type { JsonValue } from "../../scripts/quality/project.mjs";
 import {
     auditEquivalenceAnchors,
+    mutationOutcome,
     readEquivalenceRegister,
     reconcileEquivalence,
+    requireCompleteMutationReport,
     type EquivalenceEntry,
     type MutationReport,
     type ReportMutant
@@ -404,6 +406,33 @@ describe("mutation equivalence register", () => {
             expect(resolved.refuted.map((item) => item.entry)).toEqual(entries);
             expect(resolved.stale).toEqual([]);
         }
+    });
+
+    test("distinguishes detected, undetected, invalid, ignored, and incomplete results", () => {
+        expect(mutationOutcome("Killed")).toBe("detected");
+        expect(mutationOutcome("Timeout")).toBe("detected");
+        expect(mutationOutcome("Survived")).toBe("undetected");
+        expect(mutationOutcome("NoCoverage")).toBe("undetected");
+        expect(mutationOutcome("RuntimeError")).toBe("invalid");
+        expect(mutationOutcome("CompileError")).toBe("invalid");
+        expect(mutationOutcome("Ignored")).toBe("ignored");
+        expect(mutationOutcome("Pending")).toBe("incomplete");
+        expect(() => mutationOutcome("WorkerExited")).toThrow(/Unknown mutant status/u);
+    });
+
+    test("refuses to measure an invalid or incomplete mutation run", () => {
+        for (const status of ["RuntimeError", "CompileError", "Pending"]) {
+            const report = reportFor(guardModule, [{ ...guardMutant, status }]);
+            expect(() => requireCompleteMutationReport(report)).toThrow(
+                new RegExp(`Mutation run contains[\\s\\S]*${status}`, "u")
+            );
+        }
+
+        expect(() =>
+            requireCompleteMutationReport(
+                reportFor(guardModule, [{ ...guardMutant, status: "Timeout" }])
+            )
+        ).not.toThrow();
     });
 
     test("reports an entry whose mutant is gone, ignored, or elsewhere as stale", () => {
