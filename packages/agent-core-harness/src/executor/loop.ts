@@ -5,7 +5,13 @@ import type {
     TurnInboxEntry,
     TurnOutcome
 } from "@agent-core/core/agents/runs";
-import { RunCommitId } from "@agent-core/core/agents/runs";
+import {
+    RunCommitId,
+    TurnOmission,
+    TurnPromptSection,
+    TurnPromptSectionName,
+    TurnShownContent
+} from "@agent-core/core/agents/runs";
 import type { ContentRef } from "@agent-core/core/core";
 import { OperationRequestKey } from "@agent-core/core/operations";
 import { HarnessError } from "../error.js";
@@ -22,6 +28,13 @@ export interface AgentLoopOptions {
     /** Upper bound on model calls in one Turn. Reaching it fails the Turn explicitly. */
     readonly maximumSteps: number;
 }
+
+/**
+ * This loop shows the model one section holding the whole conversation, so the name a
+ * model input records for it is fixed rather than derived from what the step happened to
+ * assemble.
+ */
+const transcriptSection = new TurnPromptSectionName("transcript");
 
 /**
  * The agent loop, hosted behind SPEC §5.6's executor seam.
@@ -50,8 +63,9 @@ export class AgentLoopTurnExecutor extends TurnExecutor {
     public async execute(turn: TurnContext): Promise<TurnOutcome> {
         let transcript = TranscriptCodec.decode(await turn.content.get(turn.prompt));
         let cursor = 0;
-        // The context exposes the branch head only once, so the loop carries it
-        // forward: every commit it appends becomes the parent of the next one.
+        // The context exposes the branch head only once, so the loop carries it forward:
+        // every commit that lands becomes the parent of the next one, including the
+        // `modelInput` the model seam commits on the loop's behalf.
         let head = turn.effectiveCommit.id;
         const append = async (id: string, content: ContentRef): Promise<void> => {
             const commit = messageCommit(turn, id, head, content);
@@ -67,8 +81,24 @@ export class AgentLoopTurnExecutor extends TurnExecutor {
                     return await this.settle(turn, cancellation.entry, transcript, head);
                 }
 
-                const promptRef = (await turn.content.put(TranscriptCodec.encode(transcript))).ref;
-                const reply = await turn.model.call({ prompt: promptRef });
+                const reply = await turn.model.call({
+                    sections: [
+                        new TurnPromptSection(
+                            transcriptSection,
+                            TurnShownContent.reference(
+                                (await turn.content.put(TranscriptCodec.encode(transcript))).ref
+                            ),
+                            TurnOmission.none
+                        )
+                    ],
+                    catalog: turn.operations,
+                    admitted: [],
+                    // The one conforming coverage claim for a surface assembled at this
+                    // head: the seam holds the record to the same derivation it reports
+                    // here, and this loop withholds no history, so it owes all of it.
+                    covers: await turn.modelInput.accountable()
+                });
+                head = reply.input;
                 const message = AssistantMessageCodec.decode(await turn.content.get(reply.output));
                 transcript = transcript.append(message);
                 await turn.stream.publish({ kind: "usage", usage: reply.usage });

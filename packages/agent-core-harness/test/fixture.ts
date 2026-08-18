@@ -11,6 +11,8 @@ import {
     OperationRef
 } from "@agent-core/core/facets";
 import { PrincipalId, PrincipalRef, TenantId } from "@agent-core/core/identity";
+import { EffectAttemptId, InvocationId, ReceiptId } from "@agent-core/core/invocations";
+import { TurnCutPointPort, type TurnInterceptionResult } from "@agent-core/core/operations";
 import {
     AgentId,
     AgentPolicyId,
@@ -35,10 +37,14 @@ import {
     SpawnAttenuation,
     SettlementEvidencePort,
     Turn,
+    TurnAdmissionHandle,
+    TurnAdmissionIdentity,
     TurnBoundOperation,
     type TurnModelCall,
     TurnId,
+    TurnOmission,
     TurnPlacementSnapshot,
+    TurnPromptSectionName,
     type LeaseToken
 } from "@agent-core/core/agents/runs";
 
@@ -102,6 +108,9 @@ class EmptyEvidencePort extends RunEvidencePort<MemoryTransaction> {
     public control() {
         return undefined;
     }
+    public abandonedRewrite() {
+        return undefined;
+    }
     public synthesis() {
         return undefined;
     }
@@ -115,6 +124,26 @@ class EmptyEvidencePort extends RunEvidencePort<MemoryTransaction> {
         return undefined;
     }
 }
+
+/**
+ * A Turn-bound cut-point schedule with no contributions: every value passes through and
+ * no gate can refuse it, so these tests exercise the loop without standing a Facet
+ * runtime up beside it.
+ *
+ * The parameters are derived from the port rather than annotated: `TurnBoundCutPoint` and
+ * `FacetData` are reachable from no public subpath, so naming them here would either
+ * hard-code the cut-point union or require widening the published surface.
+ */
+class UncontributedCutPoints extends TurnCutPointPort {
+    public override run(
+        ...[, , value]: Parameters<TurnCutPointPort["run"]>
+    ): TurnInterceptionResult {
+        return Object.freeze({ value, traces: Object.freeze([]), stop: undefined });
+    }
+}
+
+/** Stateless, so one instance serves every host these tests stand up. */
+export const cutPoints: TurnCutPointPort = new UncontributedCutPoints();
 
 class EmptySettlementPort extends SettlementEvidencePort<MemoryTransaction> {
     public approvalResolved(): boolean {
@@ -184,7 +213,8 @@ export async function seedRunningTurn(inputText: string): Promise<RunFixture> {
         new EmptyEvidencePort(),
         new EmptySettlementPort(),
         new RejectingSpawnPort(),
-        new RejectingMergePort()
+        new RejectingMergePort(),
+        cutPoints
     );
     const content = storage.content;
     const snapshot = new RunConfigurationSnapshot({ pins: pins() });
@@ -270,13 +300,36 @@ export function boundOperation(binding: string, operation: string): TurnBoundOpe
 }
 
 /**
- * A TurnModelCall carrying a real Turn and lease token rather than stand-ins: the
- * port under test reads only the prompt, operations, and signal, but a call built
- * from the kernel's own constructors cannot quietly diverge from the record the
- * runtime hands it.
+ * A mediated admission handle for a stand-in invocation port. Every record it names is
+ * synthetic because nothing in the loop reads them: the tool position a real handle
+ * renders is the authority plane's concern, and the loop commits the tool output either
+ * way (§7.2).
+ */
+export function admissionHandle(sequence: number): TurnAdmissionHandle {
+    const invocation = new InvocationId(`invocation-${sequence}`);
+    return new TurnAdmissionHandle({
+        run: ids.run,
+        turn: ids.turn,
+        issuedEpoch: 1,
+        invocation,
+        itemIndex: 0,
+        itemKey: `${ids.turn.value}:${sequence}`,
+        attempt: new EffectAttemptId(`attempt-${sequence}`),
+        receipt: new ReceiptId(`receipt-${sequence}`),
+        result: digest("a"),
+        identity: TurnAdmissionIdentity.invocation(invocation)
+    });
+}
+
+/**
+ * A TurnModelCall carrying a real Turn and lease token rather than stand-ins: the port
+ * under test reads only the shown sections, the catalog, and the signal, but a call built
+ * from the kernel's own constructors cannot quietly diverge from the record the runtime
+ * hands it. The request is the reconstruction of a recorded model input, so the shown
+ * bytes arrive resolved and the Turn's input names exactly them.
  */
 export function modelCall(
-    prompt: ContentRef,
+    prompt: Uint8Array,
     operations: readonly TurnBoundOperation[],
     signal: AbortSignal
 ): TurnModelCall {
@@ -291,12 +344,23 @@ export function modelCall(
             effectiveInput: ids.root,
             pins: snapshot.pins,
             placement: placement.digest,
-            input: prompt,
+            input: ContentRef.fromDigest(Digest.sha256(prompt)),
             revision: new Revision(0)
         }),
         token: Object.freeze({ turn: ids.turn, holder: ids.holder, epoch: 1 }),
-        prompt,
-        operations,
+        input: new RunCommitId("commit-model-input"),
+        baseCommit: ids.root,
+        sections: Object.freeze([
+            Object.freeze({
+                name: new TurnPromptSectionName("transcript"),
+                bytes: prompt,
+                omission: TurnOmission.none
+            })
+        ]),
+        catalog: operations,
+        admitted: Object.freeze([]),
+        admissionCut: 0,
+        covers: Object.freeze([]),
         signal
     });
 }

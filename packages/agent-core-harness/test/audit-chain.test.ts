@@ -32,7 +32,7 @@ import {
     type ModelRequest
 } from "../src/index";
 import { OperationRequestKey } from "@agent-core/core/operations";
-import { boundOperation, ids, seedRunningTurn } from "./fixture";
+import { boundOperation, cutPoints, ids, seedRunningTurn } from "./fixture";
 import {
     demoAdmissionCodec,
     mediationHarness,
@@ -99,6 +99,8 @@ describe("audit chain for one real conversation", () => {
 
             const outcome = await new TurnExecutorHost({
                 runtime: fixture.runtime,
+                content: fixture.content,
+                cutPoints,
                 executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
                 operations: new PlacementOperationSource([recall]),
                 prompt: new TranscriptPromptAssembler("You are a helpful agent.", fixture.content),
@@ -122,7 +124,8 @@ describe("audit chain for one real conversation", () => {
                 .filter((commit) => commit.subjectTurn?.equals(ids.turn) === true)
                 .map((commit) => `${commit.id.value}:${commit.kind}`)
                 .sort();
-            expect(turnCommits).toEqual([
+            expect(turnCommits.filter((entry) => entry.endsWith(":modelInput"))).toHaveLength(2);
+            expect(turnCommits.filter((entry) => !entry.endsWith(":modelInput"))).toEqual([
                 `${ids.turn.value}-assistant-0:message`,
                 `${ids.turn.value}-result:result`,
                 `${ids.turn.value}-tools-0:message`

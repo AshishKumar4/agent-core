@@ -28,7 +28,14 @@ import {
     type ModelCompletion,
     type ModelRequest
 } from "../src/index";
-import { boundOperation, ids, seedRunningTurn, type RunFixture } from "./fixture";
+import {
+    admissionHandle,
+    boundOperation,
+    cutPoints,
+    ids,
+    seedRunningTurn,
+    type RunFixture
+} from "./fixture";
 
 class ScriptedModelProvider extends ModelProvider {
     public readonly requests: ModelRequest[] = [];
@@ -60,7 +67,8 @@ class RecordingInvocationPort extends TurnInvocationPort {
                 : {
                       tier: "mediated",
                       output,
-                      evidence: { receipt: `receipt-${this.requests.length}` }
+                      evidence: { receipt: `receipt-${this.requests.length}` },
+                      admission: admissionHandle(this.requests.length)
                   }
         );
         this.served.push(result);
@@ -122,6 +130,8 @@ async function runLoop(
     const stream = new RecordingStreamPort();
     const host = new TurnExecutorHost({
         runtime: fixture.runtime,
+        content: fixture.content,
+        cutPoints,
         executor: new AgentLoopTurnExecutor({ maximumSteps: options.maximumSteps ?? 4 }),
         operations: new PlacementOperationSource([
             boundOperation("recall", "recall"),
@@ -208,7 +218,12 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
                 )
                 .map((commit) => `${commit.id.value}:${commit.kind}`)
                 .sort();
-            expect(authored).toEqual([
+            // The model seam commits the request it issued before issuing it, under this
+            // Turn's own lease (§5.6), so a Turn that called the model twice authors two
+            // `modelInput` commits the loop never appended. Their ids are content-addressed,
+            // so the count is the claim; the loop's own commits stay named exactly.
+            expect(authored.filter((entry) => entry.endsWith(":modelInput"))).toHaveLength(2);
+            expect(authored.filter((entry) => !entry.endsWith(":modelInput"))).toEqual([
                 `${ids.turn.value}-assistant-0:message`,
                 `${ids.turn.value}-result:result`,
                 `${ids.turn.value}-tools-0:message`
@@ -250,7 +265,8 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
                 .filter((commit) => commit.subjectTurn?.equals(ids.turn) === true)
                 .map((commit) => `${commit.id.value}:${commit.kind}`)
                 .sort();
-            expect(authored).toEqual([
+            expect(authored.filter((entry) => entry.endsWith(":modelInput"))).toHaveLength(2);
+            expect(authored.filter((entry) => !entry.endsWith(":modelInput"))).toEqual([
                 `${ids.turn.value}-assistant-0:message`,
                 `${ids.turn.value}-result:result`,
                 `${ids.turn.value}-tools-0:message`
@@ -281,6 +297,8 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
         ]);
         const outcome = await new TurnExecutorHost({
             runtime: fixture.runtime,
+            content: fixture.content,
+            cutPoints,
             executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
             operations: new PlacementOperationSource([boundOperation("recall", "recall")]),
             prompt: new TranscriptPromptAssembler("Be brief.", fixture.content),
@@ -355,6 +373,8 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
             };
             const host = new TurnExecutorHost({
                 runtime: fixture.runtime,
+                content: fixture.content,
+                cutPoints,
                 executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
                 operations: new PlacementOperationSource([boundOperation("recall", "recall")]),
                 prompt: new TranscriptPromptAssembler("You are a helpful agent.", fixture.content),
@@ -414,6 +434,8 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
 
             const outcome = await new TurnExecutorHost({
                 runtime: fixture.runtime,
+                content: fixture.content,
+                cutPoints,
                 executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
                 operations: new PlacementOperationSource([boundOperation("recall", "recall")]),
                 prompt: new TranscriptPromptAssembler("You are a helpful agent.", fixture.content),
@@ -469,6 +491,8 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
             await expect(
                 new TurnExecutorHost({
                     runtime: fixture.runtime,
+                    content: fixture.content,
+                    cutPoints,
                     executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
                     operations: new PlacementOperationSource([boundOperation("recall", "recall")]),
                     prompt: new TranscriptPromptAssembler("Be brief.", fixture.content),
@@ -499,6 +523,8 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
 
             const outcome = await new TurnExecutorHost({
                 runtime: fixture.runtime,
+                content: fixture.content,
+                cutPoints,
                 executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
                 operations: new PlacementOperationSource([boundOperation("recall", "recall")]),
                 prompt: new TranscriptPromptAssembler("Be brief.", fixture.content),
@@ -555,6 +581,8 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
         );
         const outcome = await new TurnExecutorHost({
             runtime: fixture.runtime,
+            content: fixture.content,
+            cutPoints,
             executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
             operations: new PlacementOperationSource([boundOperation("recall", "recall")]),
             prompt: new TranscriptPromptAssembler("You are a helpful agent.", fixture.content),

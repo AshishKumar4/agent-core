@@ -294,11 +294,9 @@ describe("Transcript model port", () => {
         operations = [boundOperation("recall", "recall")]
     ) {
         const content = new MemoryContentStore();
-        const prompt = (
-            await content.put(
-                TranscriptCodec.encode(new Transcript("Be brief.", [new UserMessage("Hello")]))
-            )
-        ).ref;
+        const prompt = TranscriptCodec.encode(
+            new Transcript("Be brief.", [new UserMessage("Hello")])
+        );
         const port = new TranscriptTurnModelPort(
             new StubModelProvider(async () => ({
                 message,
@@ -315,11 +313,9 @@ describe("Transcript model port", () => {
         { tags: "p2" },
         async () => {
             const content = new MemoryContentStore();
-            const prompt = (
-                await content.put(
-                    TranscriptCodec.encode(new Transcript("Be brief.", [new UserMessage("Hello")]))
-                )
-            ).ref;
+            const prompt = TranscriptCodec.encode(
+                new Transcript("Be brief.", [new UserMessage("Hello")])
+            );
             const helpless = new TurnBoundOperation(
                 new BindingName("recall"),
                 ids.facet,

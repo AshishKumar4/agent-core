@@ -3,16 +3,18 @@ import {
     TurnModelPort,
     type TurnBoundOperation,
     type TurnModelCall,
-    type TurnModelResult
+    type TurnModelResult,
+    type TurnShownSection
 } from "@agent-core/core/agents/runs";
 import { AssistantMessage, Transcript, TranscriptCodec } from "../transcript.js";
 import { HarnessError } from "../error.js";
 import { ModelProvider, type ModelToolSpec } from "./provider.js";
 
 /**
- * Binds a `ModelProvider` to the kernel's content-addressed model seam: the prompt
- * arrives as a ContentRef naming exactly one Transcript, and the reply leaves as a
- * ContentRef naming exactly one assistant message. The port never touches Run state.
+ * Binds a `ModelProvider` to the kernel's content-addressed model seam: the request
+ * arrives as the reconstruction of a committed model input, whose one shown section holds
+ * exactly one Transcript, and the reply leaves as a ContentRef naming exactly one
+ * assistant message. The port never touches Run state.
  */
 export class TranscriptTurnModelPort extends TurnModelPort {
     public constructor(
@@ -23,15 +25,15 @@ export class TranscriptTurnModelPort extends TurnModelPort {
     }
 
     public async call(request: TurnModelCall): Promise<TurnModelResult> {
-        const transcript = TranscriptCodec.decode(await this.content.get(request.prompt));
+        const transcript = TranscriptCodec.decode(shownTranscript(request.sections));
         const completion = await this.provider.complete(
             Object.freeze({
                 transcript,
-                tools: toolSpecs(request.operations),
+                tools: toolSpecs(request.catalog),
                 signal: request.signal
             })
         );
-        requireDeclaredTools(completion.message, request.operations);
+        requireDeclaredTools(completion.message, request.catalog);
         const stored = await this.content.put(
             AssistantMessageCodec.encode(completion.message),
             undefined
@@ -60,6 +62,24 @@ export const AssistantMessageCodec = Object.freeze({
         return message;
     }
 });
+
+/**
+ * The Transcript the model was shown. This harness assembles the conversation as one
+ * section, so a request carrying any other count was not assembled by it and the port
+ * refuses it rather than guessing which part is the conversation. Nothing is fetched: the
+ * reconstruction already resolved every section's bytes, whether it held them inline or by
+ * reference.
+ */
+function shownTranscript(sections: readonly TurnShownSection[]): Uint8Array {
+    const section = sections[0];
+    if (sections.length !== 1 || section === undefined) {
+        throw new HarnessError(
+            "transcript.invalid",
+            `A model request must show exactly one Transcript section, not ${sections.length}`
+        );
+    }
+    return section.bytes;
+}
 
 function toolSpecs(operations: readonly TurnBoundOperation[]): readonly ModelToolSpec[] {
     return Object.freeze(
