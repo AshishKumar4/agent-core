@@ -39,7 +39,9 @@
       "prerequisites": [],
       "sourceSymbols": [
         "src/agents/runs/commit.ts#RunCommit",
-        "src/agents/runs/runtime.ts#RunRuntime.mergeRunInTransaction"
+        "src/agents/runs/commit.ts#validateClosedKind",
+        "src/agents/runs/runtime.ts#RunRuntime.mergeRunInTransaction",
+        "src/agents/runs/runtime.ts#RunRuntime.validateMerge"
       ],
       "testSelectors": [
         "test/agents/runs/runtime-exhaustive.test.ts#RunRuntime rejection matrix [C13-ADV-NONBINARY-MERGE] rejects missing merge sources and invalid picked content",
