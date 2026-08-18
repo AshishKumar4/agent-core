@@ -3377,6 +3377,34 @@
       ]
     },
     {
+      "id": "C13-RUN-FOLD-ORDER",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-FOLD-ORDER",
+      "specTextSha256": "sha256:a6a56f0b719606b840fb346aed8f682bba77b042324b1519e591c1a994df6a9c",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
+      "id": "C13-RUN-FOLD-RECONCILIATION",
+      "owner": "W5",
+      "specAnchor": "C13-RUN-FOLD-RECONCILIATION",
+      "specTextSha256": "sha256:c313f12a80ceebc16e8643956755b5a5432db7ad914d1946009a61d995e70268",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-RUN-FORCED-CANCELLATION",
       "owner": "W5",
       "specAnchor": "C13-RUN-FORCED-CANCELLATION",

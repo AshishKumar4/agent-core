@@ -49,8 +49,8 @@ export { effectiveTranscript, orderedAncestry, unbalancedCut } from "./transcrip
 export type { RunCommitLoader, UnbalancedCut } from "./transcript";
 export { AgentId, AgentPolicyId, ModelPolicyId } from "../id";
 export { RunSourceRevisionPort } from "../source";
-export { BlueprintPin, RunConfigurationSnapshot, RunPins } from "./pins";
-export type { RunPinsInit, SourcePin } from "./pins";
+export { BlueprintPin, RunConfigurationSnapshot, RunPinDimension, RunPins } from "./pins";
+export type { RunPinDivergence, RunPinsInit, SourcePin } from "./pins";
 export { PlacementPin, TurnPlacementSnapshot } from "./placement";
 export type { PlacementPinInit } from "./placement";
 export { Run, RunBranch } from "./run";
@@ -72,6 +72,7 @@ export type {
     ControlCommitEvidence,
     DeliveryCommitEvidence,
     ForcedCancellationEvidence,
+    MergeFoldStep,
     ReceiptCommitEvidence,
     SynthesisCommitEvidence
 } from "./evidence";

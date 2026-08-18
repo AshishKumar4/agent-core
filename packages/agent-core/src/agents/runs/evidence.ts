@@ -9,7 +9,7 @@ import type {
     RouteReservationId
 } from "../../interaction-references";
 import type { LeaseToken } from "./lease";
-import type { RunId } from "./id";
+import type { RunBranchId, RunId } from "./id";
 import type { RunCommit } from "./commit";
 import type { TurnId } from "../../execution-references";
 
@@ -30,12 +30,30 @@ export interface DeliveryCommitEvidence {
     readonly subjectTurn?: LeaseToken["turn"];
 }
 
+/**
+ * One item of the ordered `administer` payload a multiway fold declares (§5.2). The order is
+ * the caller's, fixed by the Invocation's argument digest before the first merge is attempted,
+ * so nothing here is a second copy of the graph: the fold is the request, the merge chain is
+ * the result, and each merge already had to name this exact control Receipt.
+ */
+export interface MergeFoldStep {
+    readonly invocation: InvocationId;
+    /** Zero-based position of this binary merge in the declared fold. */
+    readonly itemIndex: number;
+    /** Length of the declared payload; one item declares no order. */
+    readonly itemCount: number;
+    /** The branch this item declared as the merge's source lineage. */
+    readonly source: RunBranchId;
+}
+
 export interface ControlCommitEvidence {
     readonly kind: "control";
     readonly run: RunId;
     readonly receipt: ReceiptId;
     readonly audit: AuditRecordId;
     readonly proposalDigest: string;
+    /** Present when this control Receipt is one item of a declared fold. */
+    readonly fold?: MergeFoldStep;
 }
 
 /**

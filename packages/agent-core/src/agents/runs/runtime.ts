@@ -4,7 +4,7 @@ import { AgentCoreError } from "../../errors";
 import type { PrincipalRef } from "../../identity";
 import type { RunCommitId, TurnId } from "../../execution-references";
 import type { ReceiptId } from "../../invocation-references";
-import type { AuditRecordId, EventId } from "../../interaction-references";
+import type { AuditRecordId, EventId, InvocationId } from "../../interaction-references";
 import type { RunSourceRevisionPort } from "../source";
 import { bytesEqual } from "../record-data";
 import type { AcceptanceCriterion, AcceptanceVerdict } from "./acceptance";
@@ -22,11 +22,11 @@ import {
     type ResourceCeiling,
     type ResourceDimension
 } from "./ceiling";
-import type { RunEvidencePort, RunMergePort } from "./evidence";
+import type { MergeFoldStep, RunEvidencePort, RunMergePort } from "./evidence";
 import { ForcedTurnCancellation } from "./forced-cancellation";
 import type { AcceptanceId, RunBranchId, RunId } from "./id";
 import { leaseTokensEqual, type LeaseToken } from "./lease";
-import { RunConfigurationSnapshot, RunPins } from "./pins";
+import { RunConfigurationSnapshot, RunPins, type RunPinDivergence } from "./pins";
 import { TurnPlacementSnapshot } from "./placement";
 import { Run, RunBranch, RunLifecycle } from "./run";
 import { RunSpawnPort, SpawnReservation, SpawnReservationCodec } from "./spawn";
@@ -1298,15 +1298,24 @@ export class RunRuntime<Transaction> {
             );
         const targetCommit = this.repository.loadCommit(tx, target.head);
         const sourceCommit = this.repository.loadCommit(tx, commit.parents[1]);
-        if (
-            source === undefined ||
-            targetCommit === undefined ||
-            sourceCommit === undefined ||
-            !targetCommit.pins.equals(sourceCommit.pins) ||
-            !commit.pins.equals(targetCommit.pins)
-        ) {
+        if (source === undefined || targetCommit === undefined || sourceCommit === undefined) {
             throw invalidRun("Merge requires equal-pinned current heads from distinct branches");
         }
+        const parentDivergence = targetCommit.pins.divergence(sourceCommit.pins);
+        if (parentDivergence.length > 0) {
+            throw invalidRun(
+                "Merge requires equal-pinned current heads; migrate the divergent pins first: " +
+                    describeDivergence(parentDivergence)
+            );
+        }
+        const commitDivergence = commit.pins.divergence(targetCommit.pins);
+        if (commitDivergence.length > 0) {
+            throw invalidRun(
+                "Merge commit must carry its equal-pinned parents' pins; divergent pins: " +
+                    describeDivergence(commitDivergence)
+            );
+        }
+        this.validateFoldStep(tx, commit, source);
         const parentIds = commit.parents.map((parent) => parent.value);
         if (commit.resolution?.kind === "pick") {
             const pickedIndex = parentIds.indexOf(commit.resolution.parent.value);
@@ -1357,6 +1366,67 @@ export class RunRuntime<Transaction> {
                 );
             }
         }
+    }
+
+    /**
+     * A merge authorized by one item of a declared fold must be the step that item declared.
+     * The declaration is the ordered `administer` payload (§5.2); the merge chain below this
+     * commit is what the fold has done so far, so the two are compared rather than a position
+     * being trusted from the record that claims it.
+     */
+    private validateFoldStep(tx: Transaction, commit: RunCommit, source: RunBranch): void {
+        const fold = this.foldStepOf(tx, commit);
+        if (fold === undefined) return;
+        if (
+            !Number.isSafeInteger(fold.itemIndex) ||
+            !Number.isSafeInteger(fold.itemCount) ||
+            fold.itemIndex < 0 ||
+            fold.itemIndex >= fold.itemCount
+        ) {
+            throw invalidRun("Fold item index is outside its declared payload");
+        }
+        if (!fold.source.equals(source.id)) {
+            throw invalidRun("Fold step must join the exact source branch its item declared");
+        }
+        const target = requireValue(commit.parents[0], "A merge names its target parent");
+        const preceding = this.precedingFoldSteps(tx, target, fold.invocation);
+        if (
+            preceding.length !== fold.itemIndex ||
+            preceding.some((step, offset) => step.itemIndex !== fold.itemIndex - 1 - offset)
+        ) {
+            throw invalidRun("Fold item must extend exactly the merge its predecessor appended");
+        }
+        if (preceding.some((step) => step.itemCount !== fold.itemCount)) {
+            throw invalidRun("Fold items must declare one payload length");
+        }
+        if (preceding.some((step) => step.source.equals(fold.source))) {
+            throw invalidRun("A fold joins each declared source branch once");
+        }
+    }
+
+    /** The fold item a control-authored commit's Receipt carries, if it carries one. */
+    private foldStepOf(tx: Transaction, commit: RunCommit): MergeFoldStep | undefined {
+        const writer = commit.writer;
+        if (writer.kind !== "system" || writer.cause.kind !== "control") return undefined;
+        return this.evidence.control(tx, writer.cause.receipt, writer.cause.audit)?.fold;
+    }
+
+    /** Steps of the same fold already appended below a commit, nearest first. */
+    private precedingFoldSteps(
+        tx: Transaction,
+        from: RunCommitId,
+        invocation: InvocationId
+    ): readonly MergeFoldStep[] {
+        const steps: MergeFoldStep[] = [];
+        let cursor = this.repository.loadCommit(tx, from);
+        while (cursor?.kind === "merge") {
+            const step = this.foldStepOf(tx, cursor);
+            if (step === undefined || !step.invocation.equals(invocation)) break;
+            steps.push(step);
+            const parent = cursor.parents[0];
+            cursor = parent === undefined ? undefined : this.repository.loadCommit(tx, parent);
+        }
+        return steps;
     }
 
     private updateTurnInTransaction(
@@ -1790,6 +1860,16 @@ function optionalRefsEqual<Value extends { equals(other: Value): boolean }>(
 
 function invalidRun(message: string): AgentCoreError {
     return new AgentCoreError("run.invalid-state", message);
+}
+
+/**
+ * Names the divergence a refusal refused on, so a caller reconciling before a fold migrates
+ * the pins this platform compared rather than pins it went looking for.
+ */
+function describeDivergence(divergence: readonly RunPinDivergence[]): string {
+    return divergence
+        .map(({ dimension, identities }) => `${dimension.label}(${identities.join(" ")})`)
+        .join(", ");
 }
 
 function invalidTurn(message: string): AgentCoreError {
