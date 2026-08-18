@@ -11,11 +11,20 @@ import {
 } from "./facet";
 import { filesystemParent, normalizeFilesystemPath } from "./path";
 
-interface MemoryNode {
-    readonly kind: "file" | "directory";
-    readonly content?: Uint8Array;
+// A directory has no bytes, so the two kinds are two shapes rather than one shape with an
+// optional field: `kind` then narrows the node and every content read is a plain read.
+interface MemoryFileNode {
+    readonly kind: "file";
+    readonly content: Uint8Array;
     readonly modifiedAt: number;
 }
+
+interface MemoryDirectoryNode {
+    readonly kind: "directory";
+    readonly modifiedAt: number;
+}
+
+type MemoryNode = MemoryFileNode | MemoryDirectoryNode;
 
 const DEFAULT_MAX_FILE_BYTES = 16 * 1024 * 1024;
 
@@ -38,7 +47,7 @@ export class MemoryFilesystemBackend extends FilesystemBackend {
         const node = this.node(normalized);
         if (node.kind === "directory")
             throw fileError("is-a-directory", normalized, "Cannot read a directory");
-        const content = node.content!;
+        const content = node.content;
         const offset = range.offset ?? 0;
         const length = range.length;
         if (
@@ -107,7 +116,7 @@ export class MemoryFilesystemBackend extends FilesystemBackend {
             normalized,
             existing === undefined
                 ? FilesystemTargetState.absent
-                : FilesystemTargetState.present(existing.content!)
+                : FilesystemTargetState.present(existing.content)
         );
         this.#nodes.set(normalized, {
             kind: "file",
@@ -211,7 +220,7 @@ export class MemoryFilesystemBackend extends FilesystemBackend {
         return Object.freeze({
             path,
             kind: node.kind,
-            size: node.content?.byteLength ?? 0,
+            size: node.kind === "file" ? node.content.byteLength : 0,
             modifiedAt: node.modifiedAt
         });
     }
