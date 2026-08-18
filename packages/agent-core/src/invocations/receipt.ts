@@ -46,6 +46,29 @@ export interface AttemptTargetDomain {
 }
 
 /**
+ * The facts a host holds when an attempt ended without a usable result. §7.4 lets the host
+ * derive four kinds from boundaries it owns and lets the invoked handler originate only
+ * `raised`, so the callee's contribution arrives as a verdict the seam already narrowed to
+ * rather than as anything the callee said about itself: labelling a rejection `domainLost`
+ * cannot reach `domainLost`, because that kind is read off the domain and not off the error.
+ *
+ * `target` is required and has no default. It carries the entire content of `domainLost`, so
+ * an observation without one is not classifiable rather than classifiable as answering — a
+ * default would let that kind be ruled out by nothing having been asked.
+ */
+export interface AttemptFailureObservation {
+    /** True exactly when the handler signalled failure itself (§4.1 `execute`). */
+    readonly confirmed: boolean;
+    /** The host's own bound on this attempt, present only when it is what ended the wait. */
+    readonly elapsedBound: Date | undefined;
+    /** Cancellation of the Turn or Run that owns the item. */
+    readonly cancellation: AbortSignal;
+    /** The protection domain hosting the target. */
+    readonly target: AttemptTargetDomain;
+    readonly observedAt: Date;
+}
+
+/**
  * §7.4's closed failure taxonomy for an attempted `failed` Receipt.
  *
  * Each case is reachable only through the fact that distinguishes it, so a host cannot
@@ -119,6 +142,34 @@ export abstract class AttemptFailureKind {
             throw new TypeError("An outputInvalid failure requires a rejected resolved value");
         }
         return outputInvalidFailure;
+    }
+
+    /**
+     * §7.4's derivation, or `undefined` when the host holds no determination and the outcome
+     * is therefore `indeterminate`.
+     *
+     * The order is causal, not arbitrary. A confirmed verdict is the handler's own answer, so
+     * the host is not guessing and asks nothing further. Otherwise a lost domain explains any
+     * boundary of the host's that also closed; a cancelled Turn or Run explains an elapsed
+     * bound but not a lost domain; and the host's own bound is named only when nothing else
+     * accounts for the end of the wait. Falling through to `undefined` is the point rather
+     * than a gap: an unexplained end is not a kind, because naming one would convert "I
+     * cannot tell" into "I know why".
+     */
+    public static classify(
+        observation: AttemptFailureObservation
+    ): AttemptFailureKind | undefined {
+        if (observation.confirmed) return AttemptFailureKind.raised;
+        if (!observation.target.answering()) {
+            return AttemptFailureKind.domainLost(observation.target);
+        }
+        if (observation.cancellation.aborted) {
+            return AttemptFailureKind.aborted(observation.cancellation);
+        }
+        if (observation.elapsedBound !== undefined) {
+            return AttemptFailureKind.deadline(observation.elapsedBound, observation.observedAt);
+        }
+        return undefined;
     }
 
     public equals(other: AttemptFailureKind): boolean {

@@ -1,4 +1,5 @@
 import { SymbolFlags } from "typescript/unstable/sync";
+import { aliasTarget } from "./compiler.mjs";
 import { assertObject, assertOneOf, compareCanonicalText } from "./project.mjs";
 
 const declarationKinds = [
@@ -60,7 +61,7 @@ export function vocabularyDeclarationNames(document) {
 }
 
 function declarationKind(checker, symbol) {
-    const target = symbol.flags & SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
+    const target = aliasTarget(checker, symbol);
     const flags = target.flags;
     if (flags & SymbolFlags.Class) return "class";
     if (flags & SymbolFlags.Enum) return "enum";

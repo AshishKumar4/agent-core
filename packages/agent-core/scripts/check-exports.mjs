@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import * as ts from "typescript/unstable/ast";
-import { openProject, sourceFiles } from "./quality/compiler.mjs";
+import { aliasTarget, openProject, sourceFiles } from "./quality/compiler.mjs";
 import { declarationRegistry, exportedDeclarations } from "./quality/export-registry.mjs";
 import {
     artifactRoot,
@@ -88,20 +88,14 @@ for (const rule of registry.forbiddenMembers ?? []) {
         module === undefined
             ? undefined
             : checker.getExportsOfModule(module).find((symbol) => symbol.name === rule.symbol);
-    const target =
-        exported === undefined
-            ? undefined
-            : exported.flags & ts.SymbolFlags.Alias
-              ? checker.getAliasedSymbol(exported)
-              : exported;
+    const target = exported === undefined ? undefined : aliasTarget(checker, exported);
     const members = new Set(
-        (target?.declarations ?? []).flatMap((declaration) =>
-            "members" in declaration
-                ? [...declaration.members]
-                      .map((member) => member.name?.getText(source))
-                      .filter(Boolean)
-                : []
-        )
+        (target?.declarations ?? []).flatMap((handle) => {
+            const declaration = handle.resolve();
+            return "members" in declaration
+                ? [...declaration.members].map((member) => member.name?.text).filter(Boolean)
+                : [];
+        })
     );
     for (const member of rule.members) {
         if (
