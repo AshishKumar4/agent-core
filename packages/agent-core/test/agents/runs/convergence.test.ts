@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ContentRef, Revision, SemVer } from "../../../src/core";
+import type { ContentStore } from "../../../src/content";
 import { AgentCoreError } from "../../../src/errors";
 import { PackageId, PackagePin } from "../../../src/definition";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
@@ -11,7 +12,6 @@ import {
     type ControlCommitEvidence,
     type MergeFoldStep
 } from "../../../src/agents/runs/evidence";
-import { MemoryRunStorage } from "../../../src/agents/runs/memory";
 import {
     BlueprintPin,
     RunConfigurationSnapshot,
@@ -21,7 +21,7 @@ import {
 import { TurnPlacementSnapshot } from "../../../src/agents/runs/placement";
 import { RunBranch } from "../../../src/agents/runs/run";
 import { RunBranchId } from "../../../src/agents/runs/id";
-import { RunRepository } from "../../../src/agents/runs/store";
+import type { RunRepository } from "../../../src/agents/runs/store";
 import { RunRuntime } from "../../../src/agents/runs/runtime";
 import { Turn } from "../../../src/agents/runs/turn";
 import {
@@ -31,11 +31,15 @@ import {
     TestSpawnPort,
     genesis,
     ids,
+    memoryRunStorage,
     pins,
     refs,
+    testRunRepository,
     thrownBy,
     UncontributedCutPoints
 } from "./fixture";
+
+const encoder = new TextEncoder();
 
 /**
  * A merge port that resolves `concat` against real content rather than a boolean: the merged
@@ -44,15 +48,23 @@ import {
  */
 class ConcatMergePort extends RunMergePort<object> {
     private readonly texts = new Map<string, string>();
-    private next = 1;
 
-    /** Registers one content ref carrying `text` and hands the ref back. */
-    public say(text: string): ContentRef {
-        const ref = new ContentRef(`sha256:${(this.next++).toString(16).padStart(64, "0")}`);
+    public constructor(private readonly store: ContentStore) {
+        super();
+    }
+
+    /**
+     * Writes `text` into the Run's own content store, the only plane a Run commit may name, and
+     * hands back the ref that store derived from the bytes. The text is kept alongside because a
+     * merge is resolved inside a storage transaction, where content cannot be read back.
+     */
+    public async say(text: string): Promise<ContentRef> {
+        const { ref } = await this.store.put(encoder.encode(text));
         this.texts.set(ref.value, text);
         return ref;
     }
 
+    /** Ascribes a text to content the Run already holds, such as the genesis root's. */
     public remember(ref: ContentRef, text: string): void {
         this.texts.set(ref.value, text);
     }
@@ -93,9 +105,9 @@ const foldInvocation = new InvocationId("invocation-fold");
 const otherInvocation = new InvocationId("invocation-other");
 
 function convergence(): Convergence {
-    const repository = new RunRepository(new MemoryRunStorage());
+    const repository = testRunRepository(memoryRunStorage());
     const evidence = new TestEvidencePort();
-    const merge = new ConcatMergePort();
+    const merge = new ConcatMergePort(repository.content);
     const runtime = new RunRuntime(
         repository,
         new TestSourcePort(),
@@ -116,9 +128,7 @@ function runRevision(value: Convergence): Revision {
 }
 
 function branchRevision(value: Convergence, branch: RunBranchId): Revision {
-    return value.repository.transaction(
-        (tx) => value.repository.loadBranch(tx, branch)!.revision
-    );
+    return value.repository.transaction((tx) => value.repository.loadBranch(tx, branch)!.revision);
 }
 
 function headIn(value: Convergence, tx: object, branch: RunBranchId): RunCommit {
@@ -131,7 +141,7 @@ function headOf(value: Convergence, branch: RunBranchId): RunCommit {
 }
 
 /** A swarm member: its own branch off the root, carrying one Turn's completed work. */
-function member(value: Convergence, name: string, text: string): RunBranch {
+async function member(value: Convergence, name: string, text: string): Promise<RunBranch> {
     const branch = new RunBranch(
         new RunBranchId(`branch-${name}`),
         ids.run,
@@ -140,7 +150,7 @@ function member(value: Convergence, name: string, text: string): RunBranch {
         new Revision(0)
     );
     value.runtime.createBranch(ids.run, branch, runRevision(value));
-    contribute(value, branch, `${name}-turn`, text);
+    await contribute(value, branch, `${name}-turn`, text);
     return branch;
 }
 
@@ -149,7 +159,12 @@ function member(value: Convergence, name: string, text: string): RunBranch {
  * Completed rather than left running, because a held Turn blocks the branch from migrating and
  * a member reconciling its pins is exactly what the reconciliation case needs to do.
  */
-function contribute(value: Convergence, branch: RunBranch, name: string, text: string): RunCommit {
+async function contribute(
+    value: Convergence,
+    branch: RunBranch,
+    name: string,
+    text: string
+): Promise<RunCommit> {
     const head = headOf(value, branch.id);
     const turn = new TurnId(`turn-${name}`);
     const placement = new TurnPlacementSnapshot(turn, head.pins, []);
@@ -163,7 +178,7 @@ function contribute(value: Convergence, branch: RunBranch, name: string, text: s
                 effectiveInput: head.id,
                 pins: head.pins,
                 placement: placement.digest,
-                input: value.merge.say(`${text}?`),
+                input: await value.merge.say(`${text}?`),
                 revision: new Revision(0)
             }),
             placement
@@ -187,7 +202,7 @@ function contribute(value: Convergence, branch: RunBranch, name: string, text: s
         pins: head.pins,
         writer: { kind: "turn", token },
         subjectTurn: turn,
-        content: value.merge.say(text)
+        content: await value.merge.say(text)
     });
     value.runtime.completeTurn({
         turn,
@@ -213,7 +228,7 @@ interface FoldStepRequest {
  * this exact proposal, which is why every step of a fold carries its own Receipt rather than
  * one Receipt covering the whole chain.
  */
-function foldStep(value: Convergence, request: FoldStepRequest): RunCommit {
+async function foldStep(value: Convergence, request: FoldStepRequest): Promise<RunCommit> {
     const target = headOf(value, ids.branch);
     const source = headOf(value, request.source.id);
     const receipt = new ReceiptId(`receipt-${request.id}`);
@@ -225,7 +240,7 @@ function foldStep(value: Convergence, request: FoldStepRequest): RunCommit {
         parents: [target.id, source.id],
         pins: target.pins,
         writer: { kind: "system", cause: { kind: "control", audit: refs.audit, receipt } },
-        content: value.merge.say(value.merge.text(target) + value.merge.text(source)),
+        content: await value.merge.say(value.merge.text(target) + value.merge.text(source)),
         resolution: { kind: "concat" },
         receipt,
         ...request.over
@@ -242,14 +257,14 @@ function foldStep(value: Convergence, request: FoldStepRequest): RunCommit {
     return commit;
 }
 
-function applyFold(value: Convergence, request: FoldStepRequest): RunCommit {
-    const commit = foldStep(value, request);
+async function applyFold(value: Convergence, request: FoldStepRequest): Promise<RunCommit> {
+    const commit = await foldStep(value, request);
     value.runtime.mergeRun(commit, branchRevision(value, ids.branch), new Date(1100));
     return commit;
 }
 
-function refuseFold(value: Convergence, request: FoldStepRequest): AgentCoreError {
-    const commit = foldStep(value, request);
+async function refuseFold(value: Convergence, request: FoldStepRequest): Promise<AgentCoreError> {
+    const commit = await foldStep(value, request);
     return thrownBy(AgentCoreError, () =>
         value.runtime.mergeRun(commit, branchRevision(value, ids.branch), new Date(1100))
     );
@@ -410,15 +425,15 @@ describe("swarm convergence", () => {
     it(
         "[C13-RUN-FOLD-ORDER] folds four equal-pinned parents as exactly the chain its declared items name",
         { tags: "p0" },
-        () => {
+        async () => {
             const value = convergence();
-            const alpha = member(value, "alpha", "A");
-            const beta = member(value, "beta", "B");
-            const gamma = member(value, "gamma", "C");
+            const alpha = await member(value, "alpha", "A");
+            const beta = await member(value, "beta", "B");
+            const gamma = await member(value, "gamma", "C");
 
-            applyFold(value, { id: "fold-0", source: alpha, fold: step(alpha, 0) });
-            applyFold(value, { id: "fold-1", source: beta, fold: step(beta, 1) });
-            applyFold(value, { id: "fold-2", source: gamma, fold: step(gamma, 2) });
+            await applyFold(value, { id: "fold-0", source: alpha, fold: step(alpha, 0) });
+            await applyFold(value, { id: "fold-1", source: beta, fold: step(beta, 1) });
+            await applyFold(value, { id: "fold-2", source: gamma, fold: step(gamma, 2) });
 
             expect(converged(value)).toBe("RABC");
             const recorded = recordedFold(value);
@@ -436,22 +451,46 @@ describe("swarm convergence", () => {
     it(
         "[C13-RUN-FOLD-ORDER] records two orders over the same three members as two different results",
         { tags: "p0" },
-        () => {
+        async () => {
             const forward = convergence();
-            const forwardAlpha = member(forward, "alpha", "A");
-            const forwardBeta = member(forward, "beta", "B");
-            const forwardGamma = member(forward, "gamma", "C");
-            applyFold(forward, { id: "fold-0", source: forwardAlpha, fold: step(forwardAlpha, 0) });
-            applyFold(forward, { id: "fold-1", source: forwardBeta, fold: step(forwardBeta, 1) });
-            applyFold(forward, { id: "fold-2", source: forwardGamma, fold: step(forwardGamma, 2) });
+            const forwardAlpha = await member(forward, "alpha", "A");
+            const forwardBeta = await member(forward, "beta", "B");
+            const forwardGamma = await member(forward, "gamma", "C");
+            await applyFold(forward, {
+                id: "fold-0",
+                source: forwardAlpha,
+                fold: step(forwardAlpha, 0)
+            });
+            await applyFold(forward, {
+                id: "fold-1",
+                source: forwardBeta,
+                fold: step(forwardBeta, 1)
+            });
+            await applyFold(forward, {
+                id: "fold-2",
+                source: forwardGamma,
+                fold: step(forwardGamma, 2)
+            });
 
             const swapped = convergence();
-            const swappedAlpha = member(swapped, "alpha", "A");
-            const swappedBeta = member(swapped, "beta", "B");
-            const swappedGamma = member(swapped, "gamma", "C");
-            applyFold(swapped, { id: "fold-0", source: swappedAlpha, fold: step(swappedAlpha, 0) });
-            applyFold(swapped, { id: "fold-1", source: swappedGamma, fold: step(swappedGamma, 1) });
-            applyFold(swapped, { id: "fold-2", source: swappedBeta, fold: step(swappedBeta, 2) });
+            const swappedAlpha = await member(swapped, "alpha", "A");
+            const swappedBeta = await member(swapped, "beta", "B");
+            const swappedGamma = await member(swapped, "gamma", "C");
+            await applyFold(swapped, {
+                id: "fold-0",
+                source: swappedAlpha,
+                fold: step(swappedAlpha, 0)
+            });
+            await applyFold(swapped, {
+                id: "fold-1",
+                source: swappedGamma,
+                fold: step(swappedGamma, 1)
+            });
+            await applyFold(swapped, {
+                id: "fold-2",
+                source: swappedBeta,
+                fold: step(swappedBeta, 2)
+            });
 
             expect(converged(forward)).toBe("RABC");
             expect(converged(swapped)).toBe("RACB");
@@ -472,11 +511,11 @@ describe("swarm convergence", () => {
     it(
         "[C13-RUN-FOLD-ORDER] refuses a step that joins a source its item did not declare",
         { tags: "p0" },
-        () => {
+        async () => {
             const value = convergence();
-            const alpha = member(value, "alpha", "A");
-            const beta = member(value, "beta", "B");
-            const failure = refuseFold(value, {
+            const alpha = await member(value, "alpha", "A");
+            const beta = await member(value, "beta", "B");
+            const failure = await refuseFold(value, {
                 id: "fold-0",
                 source: alpha,
                 fold: step(beta, 0)
@@ -491,37 +530,39 @@ describe("swarm convergence", () => {
     it(
         "[C13-RUN-FOLD-ORDER] refuses a step that does not extend the merge its predecessor appended",
         { tags: "p0" },
-        () => {
+        async () => {
             const early = convergence();
-            const earlyAlpha = member(early, "alpha", "A");
-            expect(
-                refuseFold(early, {
-                    id: "fold-1",
-                    source: earlyAlpha,
-                    fold: step(earlyAlpha, 1)
-                }).message
-            ).toBe("Fold item must extend exactly the merge its predecessor appended");
+            const earlyAlpha = await member(early, "alpha", "A");
+            const beforeStart = await refuseFold(early, {
+                id: "fold-1",
+                source: earlyAlpha,
+                fold: step(earlyAlpha, 1)
+            });
+            expect(beforeStart.message).toBe(
+                "Fold item must extend exactly the merge its predecessor appended"
+            );
 
             const restarted = convergence();
-            const restartedAlpha = member(restarted, "alpha", "A");
-            const restartedBeta = member(restarted, "beta", "B");
-            applyFold(restarted, {
+            const restartedAlpha = await member(restarted, "alpha", "A");
+            const restartedBeta = await member(restarted, "beta", "B");
+            await applyFold(restarted, {
                 id: "fold-0",
                 source: restartedAlpha,
                 fold: step(restartedAlpha, 0)
             });
-            expect(
-                refuseFold(restarted, {
-                    id: "fold-restart",
-                    source: restartedBeta,
-                    fold: step(restartedBeta, 0)
-                }).message
-            ).toBe("Fold item must extend exactly the merge its predecessor appended");
+            const restart = await refuseFold(restarted, {
+                id: "fold-restart",
+                source: restartedBeta,
+                fold: step(restartedBeta, 0)
+            });
+            expect(restart.message).toBe(
+                "Fold item must extend exactly the merge its predecessor appended"
+            );
 
             const foreign = convergence();
-            const foreignAlpha = member(foreign, "alpha", "A");
-            const foreignBeta = member(foreign, "beta", "B");
-            applyFold(foreign, {
+            const foreignAlpha = await member(foreign, "alpha", "A");
+            const foreignBeta = await member(foreign, "beta", "B");
+            await applyFold(foreign, {
                 id: "fold-0",
                 source: foreignAlpha,
                 fold: {
@@ -531,79 +572,76 @@ describe("swarm convergence", () => {
                     source: foreignAlpha.id
                 }
             });
-            expect(
-                refuseFold(foreign, {
-                    id: "fold-1",
-                    source: foreignBeta,
-                    fold: step(foreignBeta, 1)
-                }).message
-            ).toBe("Fold item must extend exactly the merge its predecessor appended");
+            const crossInvocation = await refuseFold(foreign, {
+                id: "fold-1",
+                source: foreignBeta,
+                fold: step(foreignBeta, 1)
+            });
+            expect(crossInvocation.message).toBe(
+                "Fold item must extend exactly the merge its predecessor appended"
+            );
         }
     );
 
     it(
         "[C13-RUN-FOLD-ORDER] refuses a repeated source, a changed payload length, and an item outside it",
         { tags: "p0" },
-        () => {
+        async () => {
             const repeated = convergence();
-            const repeatedAlpha = member(repeated, "alpha", "A");
-            applyFold(repeated, {
+            const repeatedAlpha = await member(repeated, "alpha", "A");
+            await applyFold(repeated, {
                 id: "fold-0",
                 source: repeatedAlpha,
                 fold: step(repeatedAlpha, 0)
             });
-            expect(
-                refuseFold(repeated, {
-                    id: "fold-1",
-                    source: repeatedAlpha,
-                    fold: step(repeatedAlpha, 1)
-                }).message
-            ).toBe("A fold joins each declared source branch once");
+            const twice = await refuseFold(repeated, {
+                id: "fold-1",
+                source: repeatedAlpha,
+                fold: step(repeatedAlpha, 1)
+            });
+            expect(twice.message).toBe("A fold joins each declared source branch once");
 
             const relength = convergence();
-            const relengthAlpha = member(relength, "alpha", "A");
-            const relengthBeta = member(relength, "beta", "B");
-            applyFold(relength, {
+            const relengthAlpha = await member(relength, "alpha", "A");
+            const relengthBeta = await member(relength, "beta", "B");
+            await applyFold(relength, {
                 id: "fold-0",
                 source: relengthAlpha,
                 fold: step(relengthAlpha, 0)
             });
-            expect(
-                refuseFold(relength, {
-                    id: "fold-1",
-                    source: relengthBeta,
-                    fold: step(relengthBeta, 1, 2)
-                }).message
-            ).toBe("Fold items must declare one payload length");
+            const relengthed = await refuseFold(relength, {
+                id: "fold-1",
+                source: relengthBeta,
+                fold: step(relengthBeta, 1, 2)
+            });
+            expect(relengthed.message).toBe("Fold items must declare one payload length");
 
             const beyond = convergence();
-            const beyondAlpha = member(beyond, "alpha", "A");
-            expect(
-                refuseFold(beyond, {
-                    id: "fold-0",
-                    source: beyondAlpha,
-                    fold: step(beyondAlpha, 3)
-                }).message
-            ).toBe("Fold item index is outside its declared payload");
-            expect(
-                refuseFold(beyond, {
-                    id: "fold-negative",
-                    source: beyondAlpha,
-                    fold: step(beyondAlpha, -1)
-                }).message
-            ).toBe("Fold item index is outside its declared payload");
+            const beyondAlpha = await member(beyond, "alpha", "A");
+            const above = await refuseFold(beyond, {
+                id: "fold-0",
+                source: beyondAlpha,
+                fold: step(beyondAlpha, 3)
+            });
+            expect(above.message).toBe("Fold item index is outside its declared payload");
+            const below = await refuseFold(beyond, {
+                id: "fold-negative",
+                source: beyondAlpha,
+                fold: step(beyondAlpha, -1)
+            });
+            expect(below.message).toBe("Fold item index is outside its declared payload");
         }
     );
 
     it(
         "[C13-RUN-FOLD-ORDER] leaves a merge that declares no fold exactly as it was",
         { tags: "p0" },
-        () => {
+        async () => {
             const value = convergence();
-            const alpha = member(value, "alpha", "A");
-            const beta = member(value, "beta", "B");
-            applyFold(value, { id: "plain-0", source: alpha });
-            applyFold(value, { id: "plain-1", source: beta });
+            const alpha = await member(value, "alpha", "A");
+            const beta = await member(value, "beta", "B");
+            await applyFold(value, { id: "plain-0", source: alpha });
+            await applyFold(value, { id: "plain-1", source: beta });
             expect(converged(value)).toBe("RAB");
             expect(recordedFold(value)).toEqual([]);
         }
@@ -612,11 +650,11 @@ describe("swarm convergence", () => {
     it(
         "[C13-RUN-FOLD-ORDER] keeps the merges a fold did not perform outstanding in the Run registry",
         { tags: "p0" },
-        () => {
+        async () => {
             const value = convergence();
-            const alpha = member(value, "alpha", "A");
-            const beta = member(value, "beta", "B");
-            member(value, "gamma", "C");
+            const alpha = await member(value, "alpha", "A");
+            const beta = await member(value, "beta", "B");
+            await member(value, "gamma", "C");
             const reservations = [0, 1, 2].map((itemIndex) =>
                 value.runtime.reserveRunObligation(ids.run, {
                     kind: "invocationItem",
@@ -626,9 +664,9 @@ describe("swarm convergence", () => {
                 })
             );
 
-            applyFold(value, { id: "fold-0", source: alpha, fold: step(alpha, 0) });
+            await applyFold(value, { id: "fold-0", source: alpha, fold: step(alpha, 0) });
             value.runtime.completeRunObligation(reservations[0]!);
-            applyFold(value, { id: "fold-1", source: beta, fold: step(beta, 1) });
+            await applyFold(value, { id: "fold-1", source: beta, fold: step(beta, 1) });
             value.runtime.completeRunObligation(reservations[1]!);
 
             const outstanding = value.repository.transaction((tx) =>
@@ -645,15 +683,15 @@ describe("swarm convergence", () => {
     it(
         "[C13-RUN-FOLD-RECONCILIATION] refuses a divergent-pin fold naming the exact divergence, and folds once it is reconciled",
         { tags: "p0" },
-        () => {
+        async () => {
             const value = convergence();
-            const alpha = member(value, "alpha", "A");
-            const beta = member(value, "beta", "B");
-            applyFold(value, { id: "fold-0", source: alpha, fold: step(alpha, 0) });
+            const alpha = await member(value, "alpha", "A");
+            const beta = await member(value, "beta", "B");
+            await applyFold(value, { id: "fold-0", source: alpha, fold: step(alpha, 0) });
 
             migrate(value, beta, "beta-advance", pins(), advancedPins());
-            contribute(value, beta, "beta-advanced", "B");
-            const refused = refuseFold(value, {
+            await contribute(value, beta, "beta-advanced", "B");
+            const refused = await refuseFold(value, {
                 id: "fold-1",
                 source: beta,
                 fold: step(beta, 1)
@@ -664,9 +702,9 @@ describe("swarm convergence", () => {
             );
 
             migrate(value, beta, "beta-reconcile", advancedPins(), pins());
-            contribute(value, beta, "beta-reconciled", "B");
+            await contribute(value, beta, "beta-reconciled", "B");
             expect(headOf(value, beta.id).pins.divergence(pins())).toEqual([]);
-            applyFold(value, { id: "fold-1", source: beta, fold: step(beta, 1) });
+            await applyFold(value, { id: "fold-1", source: beta, fold: step(beta, 1) });
             expect(converged(value)).toBe("RAB");
         }
     );
@@ -674,17 +712,16 @@ describe("swarm convergence", () => {
     it(
         "[C13-RUN-FOLD-RECONCILIATION] refuses a merge commit whose own pins diverge from its parents",
         { tags: "p0" },
-        () => {
+        async () => {
             const value = convergence();
-            const alpha = member(value, "alpha", "A");
-            expect(
-                refuseFold(value, {
-                    id: "fold-0",
-                    source: alpha,
-                    fold: step(alpha, 0),
-                    over: { pins: advancedPins() }
-                }).message
-            ).toBe(
+            const alpha = await member(value, "alpha", "A");
+            const refused = await refuseFold(value, {
+                id: "fold-0",
+                source: alpha,
+                fold: step(alpha, 0),
+                over: { pins: advancedPins() }
+            });
+            expect(refused.message).toBe(
                 "Merge commit must carry its equal-pinned parents' pins; divergent pins: packages(zeta)"
             );
         }
