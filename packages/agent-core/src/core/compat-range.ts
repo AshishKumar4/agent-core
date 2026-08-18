@@ -5,7 +5,7 @@ import { hasOnlyUnicodeScalarValues } from "./unicode";
 
 class CompatRangeCodec extends RecordCodec<CompatRange> {
     public constructor() {
-        super("core.compat-range", { major: 1, minor: 0 });
+        super([CompatRange], "core.compat-range", { major: 1, minor: 0 });
     }
 
     protected encodePayload(range: CompatRange): JsonValue {
@@ -24,8 +24,6 @@ class CompatRangeCodec extends RecordCodec<CompatRange> {
         return new CompatRange(payload["spec"], payload["host"]);
     }
 }
-
-const compatRangeCodec = new CompatRangeCodec();
 
 export class CompatRange {
     public readonly spec: string;
@@ -55,6 +53,8 @@ export class CompatRange {
         return other instanceof CompatRange && this.spec === other.spec && this.host === other.host;
     }
 }
+
+const compatRangeCodec = new CompatRangeCodec();
 
 function requireRange(value: string, name: string): void {
     if (

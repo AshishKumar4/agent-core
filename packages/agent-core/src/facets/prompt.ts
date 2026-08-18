@@ -48,6 +48,7 @@ export class Prompt {
 }
 
 const promptCodec = new DataRecordCodec(
+    [Prompt],
     "facet.prompt",
     (prompt: Prompt) => prompt.toData(),
     (payload) => Prompt.fromData(payload)
@@ -80,6 +81,7 @@ export class PromptContribution {
 }
 
 const promptContributionCodec = new DataRecordCodec(
+    [PromptContribution, Prompt],
     "facet.prompt-contribution",
     (contribution: PromptContribution) => contribution.toData(),
     (payload) =>

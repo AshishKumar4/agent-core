@@ -1,10 +1,11 @@
-import { Digest, RecordCodec, type JsonValue, type RecordVersion } from "../core";
+import { Digest, RecordCodec, type JsonValue, type RecordVersion, TextId } from "../core";
 import {
     requireDate,
     requireExactObject,
     requireNonnegativeInteger,
     requireString,
     validDate,
+    copyStructuralCodec,
     immutableReference,
     type StructuralCodec
 } from "./codec";
@@ -77,18 +78,37 @@ export class EffectAttempt<Lease, Admission> {
 export class EffectAttemptCodec<Lease, Admission> extends RecordCodec<
     EffectAttempt<Lease, Admission>
 > {
-    public constructor(
-        private readonly lease: StructuralCodec<Lease>,
-        private readonly admission: StructuralCodec<Admission>
-    ) {
-        super("invocation.effect-attempt", { major: 1, minor: 0 });
+    readonly #lease: StructuralCodec<Lease>;
+    readonly #admission: StructuralCodec<Admission>;
+
+    public constructor(lease: StructuralCodec<Lease>, admission: StructuralCodec<Admission>) {
+        super(
+            [
+                EffectAttempt,
+                AuthorityAdmissionReference,
+                TextId,
+                Digest,
+                InvocationId,
+                ItemClaimId,
+                AuditRecordId,
+                EffectAttemptId
+            ],
+            "invocation.effect-attempt",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
+        this.#lease = copyStructuralCodec(lease);
+        this.#admission = copyStructuralCodec(admission);
+        Object.freeze(this);
     }
 
     protected encodePayload(record: EffectAttempt<Lease, Admission>): JsonValue {
         return {
             admission: {
                 digest: record.admission.digest.value,
-                reference: this.admission.encode(record.admission.reference)
+                reference: this.#admission.encode(record.admission.reference)
             },
             auditCause: record.auditCause.value,
             claim: record.claim.value,
@@ -98,7 +118,7 @@ export class EffectAttemptCodec<Lease, Admission> extends RecordCodec<
             itemIndex: record.itemIndex,
             ordinal: record.ordinal,
             startedAt: record.startedAt.toISOString(),
-            token: record.token === undefined ? null : this.lease.encode(record.token)
+            token: record.token === undefined ? null : this.#lease.encode(record.token)
         };
     }
 
@@ -129,8 +149,8 @@ export class EffectAttemptCodec<Lease, Admission> extends RecordCodec<
             requireNonnegativeInteger(object, "itemIndex"),
             requireNonnegativeInteger(object, "ordinal"),
             new ItemClaimId(requireString(object, "claim")),
-            token === null ? undefined : this.lease.decode(token),
-            decodeAdmission(object["admission"], this.admission),
+            token === null ? undefined : this.#lease.decode(token),
+            decodeAdmission(object["admission"], this.#admission),
             requireDate(object, "startedAt"),
             requireString(object, "idempotencyKey"),
             new AuditRecordId(requireString(object, "auditCause"))

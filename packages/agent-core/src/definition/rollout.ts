@@ -13,15 +13,37 @@ import {
     encodeCanonicalJson,
     hasExactJsonKeys,
     isJsonObject,
-    type JsonValue
+    type JsonValue,
+    TextId
 } from "../core";
+import {
+    Automation,
+    AuthoredCodeBackingId,
+    BindingName,
+    BoundOperationRef,
+    EventPattern,
+    FacetPackageId,
+    FieldMove,
+    JsonPointer,
+    MappingRecord,
+    OperationName,
+    OperationRef,
+    PayloadMapping
+} from "../facets";
 import { TenantId } from "../identity";
 import { DeploymentId, DeploymentKey } from "./id";
 import { ManagedOrigin } from "./origin";
-import { ActorPlan, MaterializationPlan } from "./plan";
+import { ActorPlan, DesiredProjection, MaterializationPlan } from "./plan";
 import { compareText } from "./order";
 import type { ValidationAttestation } from "./attestation";
 import { definitionRevisionConflict, invalidDefinition, invalidDefinitionState } from "./error";
+import {
+    AuthoredCodeBackingPolicy,
+    PlacementInput,
+    PlacementPolicy,
+    PlacementSelection
+} from "./placement";
+import { PolicySet } from "./policy";
 
 export interface DeploymentRecordInit {
     readonly id: DeploymentId;
@@ -35,7 +57,14 @@ export interface DeploymentRecordInit {
 
 class DeploymentRecordCodec extends RecordCodec<DeploymentRecord> {
     public constructor() {
-        super("definition.deployment", { major: 1, minor: 0 });
+        super(
+            [DeploymentRecord, Revision, TextId, Digest, DeploymentId, DeploymentKey, TenantId],
+            "definition.deployment",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(record: DeploymentRecord): JsonValue {
@@ -48,7 +77,9 @@ class DeploymentRecordCodec extends RecordCodec<DeploymentRecord> {
 }
 
 export class DeploymentRecord {
-    public static readonly codec: RecordCodec<DeploymentRecord> = new DeploymentRecordCodec();
+    public static get codec(): RecordCodec<DeploymentRecord> {
+        return deploymentRecordCodecInstance;
+    }
 
     public constructor(
         public readonly id: DeploymentId,
@@ -190,6 +221,8 @@ export class DeploymentRecord {
     }
 }
 
+const deploymentRecordCodecInstance = new DeploymentRecordCodec();
+
 export interface MaterializationRolloutInit {
     readonly plan: MaterializationPlan;
     readonly previousPlanId?: Digest;
@@ -199,7 +232,43 @@ export interface MaterializationRolloutInit {
 
 class MaterializationRolloutCodec extends RecordCodec<MaterializationRollout> {
     public constructor() {
-        super("definition.materialization-rollout", { major: 1, minor: 0 });
+        super(
+            [
+                MaterializationRollout,
+                TextId,
+                ManagedOrigin,
+                MaterializationPlan,
+                ActorPlan,
+                DesiredProjection,
+                Digest,
+                ActorRef,
+                ActorId,
+                TenantId,
+                DeploymentId,
+                BindingName,
+                PolicySet,
+                FacetPackageId,
+                PlacementInput,
+                PlacementSelection,
+                OperationName,
+                OperationRef,
+                AuthoredCodeBackingPolicy,
+                BoundOperationRef,
+                MappingRecord,
+                FieldMove,
+                Automation,
+                EventPattern,
+                PayloadMapping,
+                PlacementPolicy,
+                AuthoredCodeBackingId,
+                JsonPointer
+            ],
+            "definition.materialization-rollout",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(record: MaterializationRollout): JsonValue {
@@ -212,8 +281,9 @@ class MaterializationRolloutCodec extends RecordCodec<MaterializationRollout> {
 }
 
 export class MaterializationRollout {
-    public static readonly codec: RecordCodec<MaterializationRollout> =
-        new MaterializationRolloutCodec();
+    public static get codec(): RecordCodec<MaterializationRollout> {
+        return materializationRolloutCodecInstance;
+    }
 
     public readonly id: Digest;
     public readonly plan: MaterializationPlan;
@@ -275,6 +345,8 @@ export class MaterializationRollout {
     }
 }
 
+const materializationRolloutCodecInstance = new MaterializationRolloutCodec();
+
 export type OutboxStatus = "pending" | "acknowledged";
 
 export interface MaterializationApplyReceipt {
@@ -287,7 +359,11 @@ export interface MaterializationApplyReceipt {
 
 class MaterializationOutboxEntryCodec extends RecordCodec<MaterializationOutboxEntry> {
     public constructor() {
-        super("definition.materialization-outbox", { major: 1, minor: 0 });
+        super(
+            [MaterializationOutboxEntry, ActorRef, Revision, TextId, Digest, ActorId],
+            "definition.materialization-outbox",
+            { major: 1, minor: 0 }
+        );
     }
 
     protected encodePayload(record: MaterializationOutboxEntry): JsonValue {
@@ -300,8 +376,9 @@ class MaterializationOutboxEntryCodec extends RecordCodec<MaterializationOutboxE
 }
 
 export class MaterializationOutboxEntry {
-    public static readonly codec: RecordCodec<MaterializationOutboxEntry> =
-        new MaterializationOutboxEntryCodec();
+    public static get codec(): RecordCodec<MaterializationOutboxEntry> {
+        return materializationOutboxEntryCodecInstance;
+    }
 
     public readonly id: Digest;
     public readonly idempotencyKey: string;
@@ -446,6 +523,8 @@ export class MaterializationOutboxEntry {
         };
     }
 }
+
+const materializationOutboxEntryCodecInstance = new MaterializationOutboxEntryCodec();
 
 export abstract class MaterializationControlStore<Transaction> {
     public abstract transaction<Result>(

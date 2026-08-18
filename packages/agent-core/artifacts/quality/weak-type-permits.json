@@ -1778,18 +1778,6 @@
       "reason": "A row read back at an index the query's own limit or ordering established, and a state field the record's variant guarantees, are present by those facts."
     },
     {
-      "file": "packages/agent-core/src/substrates/sqlite/run.ts",
-      "kind": "non-null",
-      "anchors": [
-        {
-          "symbol": "SqliteRunStorage.validateSchema",
-          "source": "marker[0]!",
-          "count": 3
-        }
-      ],
-      "reason": "A row read back at an index the query's own limit or ordering established, and a state field the record's variant guarantees, are present by those facts."
-    },
-    {
       "file": "packages/agent-core/src/substrates/sqlite/slot.ts",
       "kind": "non-null",
       "anchors": [

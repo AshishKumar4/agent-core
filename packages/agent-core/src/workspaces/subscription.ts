@@ -1,10 +1,14 @@
-import { RecordCodec, Revision, isJsonObject, type JsonValue, type RecordVersion } from "../core";
+import { RecordCodec, Revision, isJsonObject, type JsonValue, type RecordVersion, TextId } from "../core";
 import {
     BindingName,
     ContributionAttribution,
     EventPattern,
+    FacetPackageId,
     FieldMove,
+    JsonPointer,
+    MappingRecord,
     OperationRef,
+    OperationName,
     PayloadMapping,
     dataRecord,
     type DedupePolicy
@@ -54,7 +58,26 @@ export interface SubscriptionInit {
  */
 class SubscriptionCodecV2 extends RecordCodec<Subscription> {
     public constructor() {
-        super("workspace.subscription", { major: 2, minor: 0 });
+        super(
+            [
+                Subscription,
+                ContributionAttribution,
+                Revision,
+                TextId,
+                MappingRecord,
+                FieldMove,
+                EventPattern,
+                OperationRef,
+                PayloadMapping,
+                BindingName,
+                SubscriptionId,
+                FacetPackageId,
+                OperationName,
+                JsonPointer
+            ],
+            "workspace.subscription",
+            { major: 2, minor: 0 }
+        );
     }
 
     protected encodePayload(subscription: Subscription): JsonValue {
@@ -106,7 +129,9 @@ class SubscriptionCodecV2 extends RecordCodec<Subscription> {
 }
 
 export class Subscription {
-    public static readonly codec: RecordCodec<Subscription> = new SubscriptionCodecV2();
+    public static get codec(): RecordCodec<Subscription> {
+        return subscriptionCodecInstance;
+    }
 
     public static encode(subscription: Subscription): Uint8Array {
         return Subscription.codec.encode(subscription);
@@ -199,6 +224,8 @@ function decodeContribution(value: JsonValue): ContributionAttribution {
     }
     return ContributionAttribution.decodeFields(value, "Subscription contribution");
 }
+
+const subscriptionCodecInstance = new SubscriptionCodecV2();
 
 function decodeDedupe(value: JsonValue | undefined): DedupePolicy {
     if (value === "none" || value === "event" || value === "causation" || value === "payload") {

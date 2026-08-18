@@ -869,7 +869,10 @@ function encodeAs<Value extends { toData(): JsonValue }>(visible: Value, encoded
     // its toData deliberately disagrees with the rest of it. Only the store check asserted to
     // reject the mismatch ever reads it.
     const bare = Object.create(Object.getPrototypeOf(visible)) as Value;
-    return Object.assign(bare, visible, { toData: () => encoded.toData() });
+    return Object.defineProperties(
+        bare,
+        Object.getOwnPropertyDescriptors({ ...visible, toData: () => encoded.toData() })
+    );
 }
 
 export function actorRef(id: string, kind: "tenant" | "workspace" = "tenant"): ActorRef {

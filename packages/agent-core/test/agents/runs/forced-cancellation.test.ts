@@ -6,11 +6,9 @@ import {
     ForcedTurnCancellation,
     ForcedTurnCancellationCodec
 } from "../../../src/agents/runs/forced-cancellation";
-import { MemoryRunStorage } from "../../../src/agents/runs/memory";
-import { RunRepository } from "../../../src/agents/runs/store";
 import { ReceiptId } from "../../../src/invocation-references";
 import { AuditRecordId, EventId } from "../../../src/interaction-references";
-import { ids, objectAt, thrownBy } from "./fixture";
+import { ids, memoryRunStorage, objectAt, testRunRepository, thrownBy } from "./fixture";
 
 function cancellation(overrides: { readonly audit?: string } = {}): ForcedTurnCancellation {
     return new ForcedTurnCancellation({
@@ -31,98 +29,110 @@ function expectCode(operation: () => void, code: AgentCoreError["code"]): void {
 }
 
 describe("ForcedTurnCancellation record", () => {
-    it("[run.forced-turn-cancellation] round-trips every exact evidence identity and fence epoch", { tags: "p1" }, () => {
-        const record = cancellation();
-        const decoded = ForcedTurnCancellationCodec.decode(
-            ForcedTurnCancellationCodec.encode(record)
-        );
+    it(
+        "[run.forced-turn-cancellation] round-trips every exact evidence identity and fence epoch",
+        { tags: "p1" },
+        () => {
+            const record = cancellation();
+            const decoded = ForcedTurnCancellationCodec.decode(
+                ForcedTurnCancellationCodec.encode(record)
+            );
 
-        expect(decoded).toEqual(record);
-        expect(Object.isFrozen(decoded)).toBe(true);
-        expect(decoded.priorLeaseEpoch).toBe(4);
-        expect(decoded.fencedLeaseEpoch).toBe(5);
-        expect(decoded.controlReceipt.value).toBe("forced-control-receipt");
-        expect(decoded.controlAudit.value).toBe("forced-control-audit");
-        expect(decoded.cancellationEvent.value).toBe("forced-cancellation-event");
-        expect(decoded.cancellationAudit.value).toBe("forced-cancellation-audit");
-    });
+            expect(decoded).toEqual(record);
+            expect(Object.isFrozen(decoded)).toBe(true);
+            expect(decoded.priorLeaseEpoch).toBe(4);
+            expect(decoded.fencedLeaseEpoch).toBe(5);
+            expect(decoded.controlReceipt.value).toBe("forced-control-receipt");
+            expect(decoded.controlAudit.value).toBe("forced-control-audit");
+            expect(decoded.cancellationEvent.value).toBe("forced-cancellation-event");
+            expect(decoded.cancellationAudit.value).toBe("forced-cancellation-audit");
+        }
+    );
 
-    it("rejects same-Turn, nonincrementing fences, unknown fields, and unknown codec majors", { tags: "p1" }, () => {
-        expect(
-            () =>
-                new ForcedTurnCancellation({
-                    run: ids.run,
-                    terminalTurn: ids.turn,
-                    turn: ids.turn,
-                    priorLeaseEpoch: 0,
-                    fencedLeaseEpoch: 1,
-                    controlReceipt: new ReceiptId("receipt"),
-                    controlAudit: new AuditRecordId("control"),
-                    cancellationEvent: new EventId("event"),
-                    cancellationAudit: new AuditRecordId("audit")
-                })
-        ).toThrow(TypeError);
-        expect(
-            () =>
-                new ForcedTurnCancellation({
-                    run: ids.run,
-                    terminalTurn: ids.turn,
-                    turn: new TurnId("sibling"),
-                    priorLeaseEpoch: 2,
-                    fencedLeaseEpoch: 4,
-                    controlReceipt: new ReceiptId("receipt"),
-                    controlAudit: new AuditRecordId("control"),
-                    cancellationEvent: new EventId("event"),
-                    cancellationAudit: new AuditRecordId("audit")
-                })
-        ).toThrow(TypeError);
-
-        const envelope = objectAt(
-            decodeCanonicalJson(ForcedTurnCancellationCodec.encode(cancellation())),
-            "record envelope"
-        );
-        const payload = objectAt(envelope["payload"], "record payload");
-        expectCode(
-            () =>
-                ForcedTurnCancellationCodec.decode(
-                    encodeCanonicalJson({ ...envelope, payload: { ...payload, extra: true } })
-                ),
-            "codec.invalid"
-        );
-        expectCode(
-            () =>
-                ForcedTurnCancellationCodec.decode(
-                    encodeCanonicalJson({
-                        ...envelope,
-                        version: { major: 2, minor: 0 }
+    it(
+        "rejects same-Turn, nonincrementing fences, unknown fields, and unknown codec majors",
+        { tags: "p1" },
+        () => {
+            expect(
+                () =>
+                    new ForcedTurnCancellation({
+                        run: ids.run,
+                        terminalTurn: ids.turn,
+                        turn: ids.turn,
+                        priorLeaseEpoch: 0,
+                        fencedLeaseEpoch: 1,
+                        controlReceipt: new ReceiptId("receipt"),
+                        controlAudit: new AuditRecordId("control"),
+                        cancellationEvent: new EventId("event"),
+                        cancellationAudit: new AuditRecordId("audit")
                     })
-                ),
-            "codec.unknown-major"
-        );
-    });
+            ).toThrow(TypeError);
+            expect(
+                () =>
+                    new ForcedTurnCancellation({
+                        run: ids.run,
+                        terminalTurn: ids.turn,
+                        turn: new TurnId("sibling"),
+                        priorLeaseEpoch: 2,
+                        fencedLeaseEpoch: 4,
+                        controlReceipt: new ReceiptId("receipt"),
+                        controlAudit: new AuditRecordId("control"),
+                        cancellationEvent: new EventId("event"),
+                        cancellationAudit: new AuditRecordId("audit")
+                    })
+            ).toThrow(TypeError);
 
-    it("[run.forced-turn-cancellation] persists immutably through memory snapshot restart and rejects identity conflict", { tags: "p0" }, () => {
-        const storage = new MemoryRunStorage();
-        const repository = new RunRepository(storage);
-        const record = cancellation();
-        repository.transaction((tx) => repository.insertForcedCancellation(tx, record));
+            const envelope = objectAt(
+                decodeCanonicalJson(ForcedTurnCancellationCodec.encode(cancellation())),
+                "record envelope"
+            );
+            const payload = objectAt(envelope["payload"], "record payload");
+            expectCode(
+                () =>
+                    ForcedTurnCancellationCodec.decode(
+                        encodeCanonicalJson({ ...envelope, payload: { ...payload, extra: true } })
+                    ),
+                "codec.invalid"
+            );
+            expectCode(
+                () =>
+                    ForcedTurnCancellationCodec.decode(
+                        encodeCanonicalJson({
+                            ...envelope,
+                            version: { major: 2, minor: 0 }
+                        })
+                    ),
+                "codec.unknown-major"
+            );
+        }
+    );
 
-        const restarted = new RunRepository(new MemoryRunStorage(storage.snapshot()));
-        expect(
-            restarted.transaction((tx) => restarted.loadForcedCancellation(tx, record.turn))
-        ).toEqual(record);
-        expect(
-            restarted.transaction((tx) => restarted.listForcedCancellations(tx, ids.run))
-        ).toEqual([record]);
-        expectCode(
-            () =>
-                restarted.transaction((tx) =>
-                    restarted.insertForcedCancellation(
-                        tx,
-                        cancellation({ audit: "conflicting-cancellation-audit" })
-                    )
-                ),
-            "run.invalid-state"
-        );
-    });
+    it(
+        "[run.forced-turn-cancellation] persists immutably through memory snapshot restart and rejects identity conflict",
+        { tags: "p0" },
+        () => {
+            const storage = memoryRunStorage();
+            const repository = testRunRepository(storage);
+            const record = cancellation();
+            repository.transaction((tx) => repository.insertForcedCancellation(tx, record));
+
+            const restarted = testRunRepository(memoryRunStorage(storage.snapshot()));
+            expect(
+                restarted.transaction((tx) => restarted.loadForcedCancellation(tx, record.turn))
+            ).toEqual(record);
+            expect(
+                restarted.transaction((tx) => restarted.listForcedCancellations(tx, ids.run))
+            ).toEqual([record]);
+            expectCode(
+                () =>
+                    restarted.transaction((tx) =>
+                        restarted.insertForcedCancellation(
+                            tx,
+                            cancellation({ audit: "conflicting-cancellation-audit" })
+                        )
+                    ),
+                "run.invalid-state"
+            );
+        }
+    );
 });

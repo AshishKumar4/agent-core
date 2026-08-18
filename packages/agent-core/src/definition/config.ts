@@ -35,7 +35,7 @@ export type SecretRefData = {
 
 class ConfigCodec extends RecordCodec<Config> {
     public constructor() {
-        super("definition.config", { major: 1, minor: 0 });
+        super([Config, SecretRef], "definition.config", { major: 1, minor: 0 });
     }
 
     protected encodePayload(config: Config): JsonValue {
@@ -52,7 +52,9 @@ class ConfigCodec extends RecordCodec<Config> {
 }
 
 export class Config {
-    public static readonly codec: RecordCodec<Config> = new ConfigCodec();
+    public static get codec(): RecordCodec<Config> {
+        return configCodecInstance;
+    }
     public readonly value: ConfigData;
 
     public constructor(value: ConfigInputMap) {
@@ -80,6 +82,8 @@ export class Config {
         return this.value;
     }
 }
+
+const configCodecInstance = new ConfigCodec();
 
 export const SECRET_REF_SCHEMA = new JsonSchema({
     additionalProperties: false,

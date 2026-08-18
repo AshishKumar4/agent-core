@@ -8,7 +8,8 @@ import {
     type JsonSchemaDocument,
     type JsonObject,
     type JsonValue,
-    type RecordVersion
+    type RecordVersion,
+    TextId
 } from "../core";
 import { AgentCoreError } from "../errors";
 import { EventKind, JsonPointer, SurfaceId, canonicalTrustTiers, type TrustTier } from "../facets";
@@ -32,7 +33,14 @@ export interface ActionDescriptorInit {
 
 class ActionDescriptorCodecV1 extends RecordCodec<ActionDescriptor> {
     public constructor() {
-        super("workspace.action-descriptor", { major: 1, minor: 0 });
+        super(
+            [ActionDescriptor, TextId, JsonSchema, EventKind, ActionId],
+            "workspace.action-descriptor",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(action: ActionDescriptor): JsonValue {
@@ -45,7 +53,9 @@ class ActionDescriptorCodecV1 extends RecordCodec<ActionDescriptor> {
 }
 
 export class ActionDescriptor {
-    public static readonly codec: RecordCodec<ActionDescriptor> = new ActionDescriptorCodecV1();
+    public static get codec(): RecordCodec<ActionDescriptor> {
+        return actionDescriptorCodecInstance;
+    }
     public readonly id: ActionId;
     public readonly label: string;
     public readonly emits: EventKind;
@@ -73,6 +83,8 @@ export class ActionDescriptor {
     }
 }
 
+const actionDescriptorCodecInstance = new ActionDescriptorCodecV1();
+
 interface ViewBaseInit {
     readonly surface: SurfaceId;
     readonly revision: Revision;
@@ -95,7 +107,7 @@ export type ViewInit = ViewBaseInit & (OrdinaryViewInit | DecisionViewInit);
 
 class ViewMarkCodecV1 extends RecordCodec<ViewMark> {
     public constructor() {
-        super("workspace.view-mark", { major: 1, minor: 0 });
+        super([ViewMark, JsonPointer], "workspace.view-mark", { major: 1, minor: 0 });
     }
 
     protected encodePayload(mark: ViewMark): JsonValue {
@@ -108,7 +120,9 @@ class ViewMarkCodecV1 extends RecordCodec<ViewMark> {
 }
 
 export class ViewMark {
-    public static readonly codec: RecordCodec<ViewMark> = new ViewMarkCodecV1();
+    public static get codec(): RecordCodec<ViewMark> {
+        return viewMarkCodecInstance;
+    }
     public readonly path: string;
     public readonly tier: TrustTier;
 
@@ -128,9 +142,28 @@ export class ViewMark {
     }
 }
 
+const viewMarkCodecInstance = new ViewMarkCodecV1();
+
 class ViewCodecV2 extends RecordCodec<View> {
     public constructor() {
-        super("workspace.view", { major: 2, minor: 0 });
+        super(
+            [
+                View,
+                Revision,
+                TextId,
+                ViewMark,
+                JsonPointer,
+                Digest,
+                ActionDescriptor,
+                ActionId,
+                SurfaceId,
+                EventCursor,
+                JsonSchema,
+                EventKind
+            ],
+            "workspace.view",
+            { major: 2, minor: 0 }
+        );
     }
 
     protected encodePayload(view: View): JsonValue {
@@ -165,7 +198,9 @@ class ViewCodecV2 extends RecordCodec<View> {
 }
 
 export class View {
-    public static readonly codec: RecordCodec<View> = new ViewCodecV2();
+    public static get codec(): RecordCodec<View> {
+        return viewCodecInstance;
+    }
 
     public static encode(view: View): Uint8Array {
         return View.codec.encode(view);
@@ -215,6 +250,8 @@ export class View {
     }
 }
 
+const viewCodecInstance = new ViewCodecV2();
+
 export interface ViewDeltaInit {
     readonly surface: SurfaceId;
     readonly baseRevision: Revision;
@@ -225,7 +262,10 @@ export interface ViewDeltaInit {
 
 class ViewDeltaCodecV1 extends RecordCodec<ViewDelta> {
     public constructor() {
-        super("workspace.view-delta", { major: 1, minor: 0 });
+        super([ViewDelta, Revision, TextId, SurfaceId, EventCursor], "workspace.view-delta", {
+            major: 1,
+            minor: 0
+        });
     }
 
     protected encodePayload(delta: ViewDelta): JsonValue {
@@ -256,7 +296,9 @@ class ViewDeltaCodecV1 extends RecordCodec<ViewDelta> {
 }
 
 export class ViewDelta {
-    public static readonly codec: RecordCodec<ViewDelta> = new ViewDeltaCodecV1();
+    public static get codec(): RecordCodec<ViewDelta> {
+        return viewDeltaCodecInstance;
+    }
 
     public static encode(delta: ViewDelta): Uint8Array {
         return ViewDelta.codec.encode(delta);
@@ -284,6 +326,8 @@ export class ViewDelta {
         Object.freeze(this);
     }
 }
+
+const viewDeltaCodecInstance = new ViewDeltaCodecV1();
 
 export interface JsonPatchEngine {
     apply(document: JsonValue, patch: readonly JsonValue[]): JsonValue;

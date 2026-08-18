@@ -208,7 +208,19 @@ class ReplayedShareOfferRedemption extends ShareOfferRedemptionOutcome {
 
 class ShareOfferRecordCodec extends RecordCodec<ShareOffer> {
     public constructor() {
-        super("identity.share-offer", { major: 1, minor: 0 });
+        super(
+            [
+                ShareOffer,
+                ShareOfferRedemption,
+                ShareOfferId,
+                MembershipId,
+                RoleName,
+                Digest,
+                Revision
+            ],
+            "identity.share-offer",
+            { major: 1, minor: 0 }
+        );
     }
 
     protected encodePayload(offer: ShareOffer): JsonValue {
@@ -268,7 +280,9 @@ class ShareOfferRecordCodec extends RecordCodec<ShareOffer> {
  * recorded it confers nothing at all.
  */
 export class ShareOffer {
-    public static readonly codec: RecordCodec<ShareOffer> = new ShareOfferRecordCodec();
+    public static get codec(): RecordCodec<ShareOffer> {
+        return shareOfferCodecInstance;
+    }
     public readonly bound: number;
     public readonly redemptions: readonly ShareOfferRedemption[];
     readonly #lifecycle: ShareOfferLifecycle;
@@ -520,3 +534,5 @@ function validShareOfferTime(value: Date, subject: string): number {
     }
     return time;
 }
+
+const shareOfferCodecInstance = new ShareOfferRecordCodec();

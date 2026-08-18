@@ -8,9 +8,39 @@ import {
     type JsonValue
 } from "../core";
 
+const structuralCodecBrand: unique symbol = Symbol("agent-core.structural-codec");
+const structuralCodecMarker: true = true;
+const structuralCodecs = new WeakSet<object>();
+
 export interface StructuralCodec<Value> {
-    encode(value: Value): JsonValue;
-    decode(value: JsonValue): Value;
+    readonly [structuralCodecBrand]: true;
+    readonly encode: (value: Value) => JsonValue;
+    readonly decode: (value: JsonValue) => Value;
+}
+
+/**
+ * Creates a codec from trusted canonical functions. The returned operations cannot be
+ * redirected; purity and determinism of supplied closures remain the SPEC section 14 trust
+ * boundary.
+ */
+export function structuralCodec<Value>(
+    encode: (value: Value) => JsonValue,
+    decode: (value: JsonValue) => Value
+): StructuralCodec<Value> {
+    const codec: StructuralCodec<Value> = Object.freeze({
+        [structuralCodecBrand]: structuralCodecMarker,
+        decode: decode.bind(undefined),
+        encode: encode.bind(undefined)
+    });
+    structuralCodecs.add(codec);
+    return codec;
+}
+
+export function copyStructuralCodec<Value>(codec: StructuralCodec<Value>): StructuralCodec<Value> {
+    if (!structuralCodecs.has(codec)) {
+        throw new TypeError("Structural codecs must be created by structuralCodec");
+    }
+    return structuralCodec(codec.encode, codec.decode);
 }
 
 const parse = jsonDataParser((message) => new TypeError(message));

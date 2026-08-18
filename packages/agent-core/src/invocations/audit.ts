@@ -5,7 +5,8 @@ import {
     encodeCanonicalJson,
     hasExactJsonKeys,
     type JsonValue,
-    type RecordVersion
+    type RecordVersion,
+    TextId
 } from "../core";
 import { TenantId } from "../identity";
 import { RunCommitId } from "../execution-references";
@@ -65,7 +66,28 @@ export interface AuditRecordInit {
 
 class AuditRecordCodecV1 extends RecordCodec<AuditRecord> {
     public constructor() {
-        super("audit-record", { major: 1, minor: 0 });
+        super(
+            [
+                AuditRecord,
+                ActorRef,
+                TextId,
+                ApprovalId,
+                ActorId,
+                RouteProjectionId,
+                RouteReservationId,
+                ReceiptId,
+                RunCommitId,
+                CorrelationId,
+                AuditRecordId,
+                TenantId,
+                WriteRecordId,
+                EffectAttemptId,
+                InvocationId,
+                EventId
+            ],
+            "audit-record",
+            { major: 1, minor: 0 }
+        );
     }
 
     protected encodePayload(record: AuditRecord): JsonValue {
@@ -113,7 +135,9 @@ class AuditRecordCodecV1 extends RecordCodec<AuditRecord> {
 }
 
 export class AuditRecord {
-    public static readonly codec: RecordCodec<AuditRecord> = new AuditRecordCodecV1();
+    public static get codec(): RecordCodec<AuditRecord> {
+        return auditRecordCodecInstance;
+    }
     public static encode(record: AuditRecord): Uint8Array {
         return AuditRecord.codec.encode(record);
     }
@@ -142,6 +166,8 @@ export class AuditRecord {
         Object.freeze(this);
     }
 }
+
+const auditRecordCodecInstance = new AuditRecordCodecV1();
 
 export type AuditRootAdmission =
     | { readonly kind: "commandRejection" }

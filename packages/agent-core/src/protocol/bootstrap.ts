@@ -7,7 +7,8 @@ import {
     encodeCanonicalJson,
     hasExactJsonKeys,
     type JsonValue,
-    type Revision
+    type Revision,
+    TextId
 } from "../core";
 import { PrincipalId, PrincipalRef, TenantId, type TenantKind } from "../identity";
 import { AgentCoreError } from "../errors";
@@ -28,7 +29,14 @@ export interface TenantBootstrapAnchor {
 
 class TenantBootstrapAnchorCodec extends RecordCodec<TenantBootstrapAnchorRecord> {
     public constructor() {
-        super("protocol.tenant-bootstrap-anchor", { major: 1, minor: 0 });
+        super(
+            [TenantBootstrapAnchorRecord, TextId, ActorId, TenantId, PrincipalId],
+            "protocol.tenant-bootstrap-anchor",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(anchor: TenantBootstrapAnchorRecord): JsonValue {
@@ -71,8 +79,9 @@ class TenantBootstrapAnchorCodec extends RecordCodec<TenantBootstrapAnchorRecord
 }
 
 export class TenantBootstrapAnchorRecord implements TenantBootstrapAnchor {
-    public static readonly codec: RecordCodec<TenantBootstrapAnchorRecord> =
-        new TenantBootstrapAnchorCodec();
+    public static get codec(): RecordCodec<TenantBootstrapAnchorRecord> {
+        return tenantBootstrapAnchorRecordCodecInstance;
+    }
     public readonly actorId: ActorId;
     public readonly tenantId: TenantId;
     public readonly principalId: PrincipalId;
@@ -107,6 +116,8 @@ export class TenantBootstrapAnchorRecord implements TenantBootstrapAnchor {
         return this.#trustAnchor.slice();
     }
 }
+
+const tenantBootstrapAnchorRecordCodecInstance = new TenantBootstrapAnchorCodec();
 
 // Structural by design: protocol cannot import concrete substrate stores without a cycle.
 // Implementations expose one high-level atomic operation, never constituent record writers.

@@ -535,12 +535,12 @@ function saturateSqliteEpoch(database: TestSqlite, saturated: ScopeEpoch): Autho
 class PointerCardinalitySqlite extends TestSqlite {
     public fault: "none" | "zero" | "multiple" | "malformed" = "none";
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         if (!statement.includes("INSERT INTO definition_materialization_pointers")) {
-            return super.all(statement, bindings);
+            return super.query(statement, bindings);
         }
         if (this.fault === "zero") return [];
-        const rows = super.all(statement, bindings);
+        const rows = super.query(statement, bindings);
         if (this.fault === "multiple") return [...rows, ...rows];
         if (this.fault === "malformed" && rows[0] !== undefined) {
             return [{ ...rows[0], record: Uint8Array.of(0) }];

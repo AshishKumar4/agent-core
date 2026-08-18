@@ -1,4 +1,4 @@
-import { RecordCodec, type JsonValue } from "../../core";
+import { RecordCodec, type JsonValue, TextId } from "../../core";
 import { ReceiptId } from "../../invocation-references";
 import { AuditRecordId, EventId } from "../../interaction-references";
 import {
@@ -24,7 +24,23 @@ export interface ForcedTurnCancellationInit {
 
 class ForcedCancellationCodec extends RecordCodec<ForcedTurnCancellation> {
     public constructor() {
-        super("run.forced-turn-cancellation", { major: 1, minor: 0 });
+        super(
+            [
+                ForcedTurnCancellation,
+                TextId,
+                RunId,
+                EventId,
+                ReceiptId,
+                AuditRecordId,
+                TurnId,
+                CodecRecord
+            ],
+            "run.forced-turn-cancellation",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(value: ForcedTurnCancellation): JsonValue {
@@ -37,8 +53,9 @@ class ForcedCancellationCodec extends RecordCodec<ForcedTurnCancellation> {
 }
 
 export class ForcedTurnCancellation extends CodecRecord {
-    public static readonly codec: RecordCodec<ForcedTurnCancellation> =
-        new ForcedCancellationCodec();
+    public static get codec(): RecordCodec<ForcedTurnCancellation> {
+        return forcedTurnCancellationCodecInstance;
+    }
     public static override encode<Value>(
         this: { readonly codec: RecordCodec<Value> },
         value: Value
@@ -159,6 +176,8 @@ export class ForcedTurnCancellation extends CodecRecord {
         });
     }
 }
+
+const forcedTurnCancellationCodecInstance = new ForcedCancellationCodec();
 
 export const ForcedTurnCancellationCodec: RecordCodec<ForcedTurnCancellation> =
     ForcedTurnCancellation.codec;

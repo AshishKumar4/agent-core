@@ -1,4 +1,4 @@
-import { RecordCodec, Revision, isStringArray, type JsonValue } from "../core";
+import { RecordCodec, Revision, isStringArray, type JsonValue, TextId } from "../core";
 import { AgentCoreError } from "../errors";
 import {
     compareIdentityText,
@@ -12,7 +12,10 @@ import { PrincipalId, TeamId, TenantId } from "./id";
 
 class TeamRecordCodec extends RecordCodec<Team> {
     public constructor() {
-        super("identity.team", { major: 1, minor: 0 });
+        super([Team, Revision, TextId, TeamId, TenantId, PrincipalId], "identity.team", {
+            major: 1,
+            minor: 0
+        });
     }
 
     protected encodePayload(team: Team): JsonValue {
@@ -47,7 +50,9 @@ class TeamRecordCodec extends RecordCodec<Team> {
 }
 
 export class Team {
-    public static readonly codec: RecordCodec<Team> = new TeamRecordCodec();
+    public static get codec(): RecordCodec<Team> {
+        return teamCodecInstance;
+    }
     public readonly name: string;
     public readonly principals: readonly PrincipalId[];
 
@@ -96,6 +101,8 @@ export class Team {
         return new Team(this.id, this.tenantId, name, principals, this.revision.next());
     }
 }
+
+const teamCodecInstance = new TeamRecordCodec();
 
 function requireName(value: string, subject: string): string {
     if (value.trim() !== value || value.length === 0 || value.length > 256) {

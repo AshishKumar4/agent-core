@@ -123,7 +123,6 @@ async function runLoop(
     const host = new TurnExecutorHost({
         runtime: fixture.runtime,
         executor: new AgentLoopTurnExecutor({ maximumSteps: options.maximumSteps ?? 4 }),
-        content: fixture.content,
         operations: new PlacementOperationSource([
             boundOperation("recall", "recall"),
             boundOperation("remember", "remember")
@@ -283,7 +282,6 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
         const outcome = await new TurnExecutorHost({
             runtime: fixture.runtime,
             executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
-            content: fixture.content,
             operations: new PlacementOperationSource([boundOperation("recall", "recall")]),
             prompt: new TranscriptPromptAssembler("Be brief.", fixture.content),
             invocations,
@@ -358,7 +356,6 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
             const host = new TurnExecutorHost({
                 runtime: fixture.runtime,
                 executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
-                content: fixture.content,
                 operations: new PlacementOperationSource([boundOperation("recall", "recall")]),
                 prompt: new TranscriptPromptAssembler("You are a helpful agent.", fixture.content),
                 invocations,
@@ -418,7 +415,6 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
             const outcome = await new TurnExecutorHost({
                 runtime: fixture.runtime,
                 executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
-                content: fixture.content,
                 operations: new PlacementOperationSource([boundOperation("recall", "recall")]),
                 prompt: new TranscriptPromptAssembler("You are a helpful agent.", fixture.content),
                 invocations: new RecordingInvocationPort(),
@@ -474,7 +470,6 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
                 new TurnExecutorHost({
                     runtime: fixture.runtime,
                     executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
-                    content: fixture.content,
                     operations: new PlacementOperationSource([boundOperation("recall", "recall")]),
                     prompt: new TranscriptPromptAssembler("Be brief.", fixture.content),
                     invocations: new RecordingInvocationPort(),
@@ -505,7 +500,6 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
             const outcome = await new TurnExecutorHost({
                 runtime: fixture.runtime,
                 executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
-                content: fixture.content,
                 operations: new PlacementOperationSource([boundOperation("recall", "recall")]),
                 prompt: new TranscriptPromptAssembler("Be brief.", fixture.content),
                 invocations,
@@ -562,7 +556,6 @@ describe("Agent loop hosted behind the Turn executor seam", () => {
         const outcome = await new TurnExecutorHost({
             runtime: fixture.runtime,
             executor: new AgentLoopTurnExecutor({ maximumSteps: 4 }),
-            content: fixture.content,
             operations: new PlacementOperationSource([boundOperation("recall", "recall")]),
             prompt: new TranscriptPromptAssembler("You are a helpful agent.", fixture.content),
             invocations: new RecordingInvocationPort(),

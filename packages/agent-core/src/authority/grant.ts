@@ -1,7 +1,19 @@
-import { RecordCodec, type JsonValue, type RecordVersion } from "../core";
+import { RecordCodec, type JsonValue, type RecordVersion, TextId } from "../core";
 import { AgentCoreError } from "../errors";
 import { CapabilitySpec, isCapabilityEffect, type CapabilityEffect } from "../facets";
-import { MembershipId, requireSubjectTenant, type ScopeRef, type SubjectRef } from "../identity";
+import {
+    GuestVerificationScheme,
+    MembershipId,
+    PrincipalId,
+    PrincipalRef,
+    ProjectId,
+    ScopeRef,
+    TeamId,
+    TenantId,
+    WorkspaceId,
+    requireSubjectTenant,
+    type SubjectRef
+} from "../identity";
 import {
     bytesEqual,
     requireBoolean,
@@ -80,7 +92,29 @@ const revokedGrantState = Object.freeze(new RevokedGrantState());
 
 class GrantCodecV1 extends RecordCodec<Grant> {
     public constructor() {
-        super("authority.grant", { major: 2, minor: 0 });
+        super(
+            [
+                Grant,
+                GrantState,
+                GuestVerificationScheme,
+                ScopeRef,
+                TextId,
+                CapabilitySpec,
+                TeamId,
+                MembershipId,
+                TenantId,
+                WorkspaceId,
+                GrantId,
+                ProjectId,
+                PrincipalId,
+                PrincipalRef
+            ],
+            "authority.grant",
+            {
+                major: 2,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(grant: Grant): JsonValue {
@@ -93,7 +127,9 @@ class GrantCodecV1 extends RecordCodec<Grant> {
 }
 
 export class Grant {
-    public static readonly codec: RecordCodec<Grant> = new GrantCodecV1();
+    public static get codec(): RecordCodec<Grant> {
+        return grantCodecInstance;
+    }
     public readonly state: GrantState;
     public readonly attenuationOf: GrantId | undefined;
     public readonly origin: GrantOrigin;
@@ -232,6 +268,8 @@ export class Grant {
         );
     }
 }
+
+const grantCodecInstance = new GrantCodecV1();
 
 function isGrantIdValue(value: JsonValue | undefined): value is string {
     return typeof value === "string";

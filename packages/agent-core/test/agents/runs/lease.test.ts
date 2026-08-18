@@ -164,6 +164,26 @@ describe("TurnLease", () => {
         expect(lease.admits(token(), at(10))).toBe(false);
     });
 
+    test("keeps concrete lease admission immutable through the public factory", { tags: "p0" }, () => {
+        const lease = TurnLease.unclaimed(turn).claim(holder, at(1), at(10));
+        const concretePrototype = Object.getPrototypeOf(lease);
+        const original = Object.getOwnPropertyDescriptor(concretePrototype, "admits");
+        if (original === undefined) throw new TypeError("Concrete Turn lease admits is missing");
+
+        const redirected = Reflect.defineProperty(concretePrototype, "admits", {
+            configurable: true,
+            value: () => true,
+            writable: true
+        });
+        try {
+            expect(Object.isFrozen(concretePrototype)).toBe(true);
+            expect(redirected).toBe(false);
+            expect(lease.admits(token(turn, holder, 0), at(9))).toBe(false);
+        } finally {
+            if (redirected) Reflect.defineProperty(concretePrototype, "admits", original);
+        }
+    });
+
     test("renews only an exact live token with a later expiration", { tags: "p0" }, () => {
         const lease = TurnLease.unclaimed(turn).claim(holder, at(1), at(10));
         const renewed = lease.renew(holder, 1, at(2), at(20));

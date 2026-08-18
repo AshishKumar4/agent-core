@@ -4,9 +4,10 @@ import {
     Revision,
     SemVer,
     encodeCanonicalJson,
-    type JsonValue
+    type JsonValue,
+    TextId
 } from "../../core";
-import { PackagePin } from "../../definition";
+import { PackageId, PackagePin } from "../../definition";
 import { EnvironmentId } from "../../environments";
 import { AgentId, AgentPolicyId, ModelPolicyId } from "../id";
 import {
@@ -157,7 +158,28 @@ export class RunPins extends CodecRecord {
 
 class RunPinsRecordCodec extends RecordCodec<RunPins> {
     public constructor() {
-        super("run.pins", { major: 1, minor: 0 });
+        super(
+            [
+                RunPins,
+                BlueprintPin,
+                Revision,
+                TextId,
+                SemVer,
+                PackagePin,
+                Digest,
+                AgentId,
+                CodecRecord,
+                ModelPolicyId,
+                EnvironmentId,
+                AgentPolicyId,
+                PackageId
+            ],
+            "run.pins",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(value: RunPins): JsonValue {
@@ -325,7 +347,26 @@ export class RunConfigurationSnapshot extends CodecRecord {
 
 class RunConfigurationCodec extends RecordCodec<RunConfigurationSnapshot> {
     public constructor() {
-        super("run.configuration-snapshot", { major: 1, minor: 0 });
+        super(
+            [
+                RunConfigurationSnapshot,
+                BlueprintPin,
+                Revision,
+                TextId,
+                SemVer,
+                RunPins,
+                PackagePin,
+                Digest,
+                AgentId,
+                CodecRecord,
+                ModelPolicyId,
+                EnvironmentId,
+                AgentPolicyId,
+                PackageId
+            ],
+            "run.configuration-snapshot",
+            { major: 1, minor: 0 }
+        );
     }
 
     protected encodePayload(value: RunConfigurationSnapshot): JsonValue {

@@ -1071,9 +1071,9 @@ function expectCorrupt(operation: () => void): void {
 class FaultingSqlite extends TestSqlite {
     public fault: (() => never) | undefined;
 
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         if (this.fault !== undefined && statement.startsWith("INSERT")) this.fault();
-        super.run(statement, bindings);
+        super.execute(statement, bindings);
     }
 }
 
@@ -1081,8 +1081,8 @@ class FaultingSqlite extends TestSqlite {
 class ColumnDroppingSqlite extends TestSqlite {
     public dropped: readonly [table: string, column: string] | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const rows = super.all(statement, bindings);
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
         const dropped = this.dropped;
         if (dropped === undefined || !statement.includes(dropped[0])) return rows;
         return rows.map((row) =>
@@ -1094,8 +1094,8 @@ class ColumnDroppingSqlite extends TestSqlite {
 class ColumnSubstitutingSqlite extends TestSqlite {
     public substitute = false;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const rows = super.all(statement, bindings);
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
         if (!this.substitute) return rows;
         if (statement.includes("FROM invocation_prepared_records")) {
             return rows.map((row) => ({ ...row, id: "sqlite-doctored-key" }));
@@ -1142,12 +1142,8 @@ function systemAttempt(
 }
 
 class RejectingSqlite extends TransactionalSqlite {
-    public all(): never {
-        throw new TypeError("supplied transaction was used");
-    }
-
-    public run(): never {
-        throw new TypeError("supplied transaction was used");
+    public constructor() {
+        super({ read: rejectSuppliedTransaction, write: rejectSuppliedTransaction });
     }
 
     public transaction<Result>(
@@ -1156,4 +1152,8 @@ class RejectingSqlite extends TransactionalSqlite {
     ): Result {
         throw new TypeError("supplied transaction was used");
     }
+}
+
+function rejectSuppliedTransaction(): never {
+    throw new TypeError("supplied transaction was used");
 }

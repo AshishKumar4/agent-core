@@ -19,7 +19,8 @@ export type {
     SqliteInvocationAuditAppendPort,
     SqliteInvocationCodecs
 } from "./invocations";
-export { ReadableSqlite, TransactionalSqlite } from "./sqlite";
+export { SqliteRunStorage } from "./run";
+export { ReadableSqlite, TransactionalSqlite, ownSqliteMutations } from "./sqlite";
 export type { SqliteRow, SqliteValue } from "./sqlite";
 export { SqliteAuthorityPermitStore, SqliteTenantAuthorityPermitStore } from "./permit";
 export { SqliteInvalidationWatermarkStore } from "./watermark";

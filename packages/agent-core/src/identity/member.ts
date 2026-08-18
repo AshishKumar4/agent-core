@@ -1,4 +1,4 @@
-import { RecordCodec, Revision, type JsonValue } from "../core";
+import { Digest, RecordCodec, Revision, type JsonValue, TextId } from "../core";
 import { AgentCoreError } from "../errors";
 import {
     requireIdentityFields,
@@ -6,19 +6,30 @@ import {
     requireIdentityRevision,
     requireIdentityString
 } from "./codec";
-import { MembershipId, RoleName } from "./id";
+import {
+    GuestTrustId,
+    MembershipId,
+    PrincipalId,
+    ProjectId,
+    RoleName,
+    TeamId,
+    TenantId,
+    WorkspaceId
+} from "./id";
+import { PrincipalRef } from "./principal-ref";
 import {
     GuestVerification,
     isFreshGuestVerification,
     isRestoredGuestVerification,
     restoreGuestVerification
 } from "./guest-verification";
-import { decodeScopeRef, encodeScopeRef, type ScopeRef } from "./scope";
+import { ScopeRef, decodeScopeRef, encodeScopeRef } from "./scope";
 import {
     decodeSubjectRef,
     encodeSubjectRef,
     requireSubjectTenant,
-    type SubjectRef
+    type SubjectRef,
+    GuestVerificationScheme
 } from "./subject";
 
 export type MembershipState = "active" | "suspended" | "revoked";
@@ -75,7 +86,29 @@ const restoredMembershipToken = Object.freeze(new MembershipRestorationAuthority
 
 class MembershipRecordCodec extends RecordCodec<Membership> {
     public constructor() {
-        super("identity.membership", { major: 2, minor: 0 });
+        super(
+            [
+                Membership,
+                GuestVerificationScheme,
+                MembershipLifecycle,
+                Revision,
+                ScopeRef,
+                TextId,
+                GuestVerification,
+                Digest,
+                GuestTrustId,
+                TeamId,
+                RoleName,
+                MembershipId,
+                TenantId,
+                WorkspaceId,
+                ProjectId,
+                PrincipalId,
+                PrincipalRef
+            ],
+            "identity.membership",
+            { major: 2, minor: 0 }
+        );
     }
 
     protected encodePayload(membership: Membership): JsonValue {
@@ -112,7 +145,9 @@ class MembershipRecordCodec extends RecordCodec<Membership> {
 }
 
 export class Membership {
-    public static readonly codec: RecordCodec<Membership> = new MembershipRecordCodec();
+    public static get codec(): RecordCodec<Membership> {
+        return membershipCodecInstance;
+    }
     readonly #lifecycle: MembershipLifecycle;
     public readonly subject: SubjectRef;
 
@@ -227,6 +262,8 @@ export class Membership {
         return this.revise(this.role, "revoked");
     }
 }
+
+const membershipCodecInstance = new MembershipRecordCodec();
 
 function requireMembershipState(value: JsonValue | undefined): MembershipState {
     if (value === "active" || value === "suspended" || value === "revoked") {

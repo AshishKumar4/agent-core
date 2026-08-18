@@ -3,6 +3,7 @@ import {
     Digest,
     RecordCodec,
     Revision,
+    TextId,
     type JsonObject,
     type JsonValue
 } from "../core";
@@ -145,11 +146,19 @@ export class ModelPolicyRevisionRecord extends RevisionRecord<ModelPolicyId> {
 }
 
 class SourceCodec<Value extends { toData(): JsonValue }> extends RecordCodec<Value> {
+    readonly #decodeValue: (value: JsonValue) => Value;
+
     public constructor(
+        recordClasses: readonly [
+            { readonly prototype: Value },
+            ...{ readonly prototype: object }[]
+        ],
         kind: string,
-        private readonly decodeValue: (value: JsonValue) => Value
+        decodeValue: (value: JsonValue) => Value
     ) {
-        super(kind, { major: 1, minor: 0 });
+        super(recordClasses, kind, { major: 1, minor: 0 });
+        this.#decodeValue = decodeValue.bind(undefined);
+        Object.freeze(this);
     }
 
     protected encodePayload(value: Value): JsonValue {
@@ -157,18 +166,58 @@ class SourceCodec<Value extends { toData(): JsonValue }> extends RecordCodec<Val
     }
 
     protected decodePayload(value: JsonValue): Value {
-        return this.decodeValue(value);
+        return this.#decodeValue(value);
     }
 }
 
 export const AgentRevisionRecordCodec: RecordCodec<AgentRevisionRecord> = new SourceCodec(
+    [
+        AgentRevisionRecord,
+        RevisionRecord,
+        ContentRef,
+        Digest,
+        Revision,
+        TextId,
+        AgentId,
+        ModelPolicyId,
+        EnvironmentId,
+        AgentPolicyId,
+        AgentProfileId,
+        CodecRecord
+    ],
     "agent.revision",
     AgentRevisionRecord.fromData
 );
 export const AgentPolicyRevisionRecordCodec: RecordCodec<AgentPolicyRevisionRecord> =
-    new SourceCodec("agent.policy-revision", AgentPolicyRevisionRecord.fromData);
+    new SourceCodec(
+        [
+            AgentPolicyRevisionRecord,
+            RevisionRecord,
+            ContentRef,
+            Digest,
+            Revision,
+            TextId,
+            AgentPolicyId,
+            CodecRecord
+        ],
+        "agent.policy-revision",
+        AgentPolicyRevisionRecord.fromData
+    );
 export const ModelPolicyRevisionRecordCodec: RecordCodec<ModelPolicyRevisionRecord> =
-    new SourceCodec("agent.model-revision", ModelPolicyRevisionRecord.fromData);
+    new SourceCodec(
+        [
+            ModelPolicyRevisionRecord,
+            RevisionRecord,
+            ContentRef,
+            Digest,
+            Revision,
+            TextId,
+            ModelPolicyId,
+            CodecRecord
+        ],
+        "agent.model-revision",
+        ModelPolicyRevisionRecord.fromData
+    );
 export abstract class RunSourceRevisionPort<Transaction, Snapshot> {
     public abstract verify(transaction: Transaction, snapshot: Snapshot): boolean;
     public abstract verifyPackageClosure(transaction: Transaction, snapshot: Snapshot): boolean;

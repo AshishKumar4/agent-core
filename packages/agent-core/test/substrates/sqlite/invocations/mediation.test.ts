@@ -766,8 +766,8 @@ class ReplayColumnTamperSqlite extends TestSqlite {
     public revisionIdentity: SqliteValue | undefined;
     public reservationIdentity: SqliteValue | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const rows = super.all(statement, bindings);
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
         const forged = statement.includes("FROM invocation_mediated_replay_revisions")
             ? this.revisionIdentity
             : statement.includes("FROM invocation_mediated_replay_identities")
@@ -780,29 +780,29 @@ class ReplayColumnTamperSqlite extends TestSqlite {
 class RedirectingOutboxSqlite extends TestSqlite {
     public redirect: string | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         if (
             this.redirect !== undefined &&
             statement.includes("FROM invocation_publication_outbox") &&
             statement.includes("WHERE id = ?")
         ) {
-            return super.all(statement, [this.redirect]);
+            return super.query(statement, [this.redirect]);
         }
-        return super.all(statement, bindings);
+        return super.query(statement, bindings);
     }
 }
 
 class FaultingMediationSqlite extends TestSqlite {
     public fault: (() => never) | undefined;
 
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         if (
             this.fault !== undefined &&
             statement.includes("INSERT INTO invocation_publication_outbox")
         ) {
             this.fault();
         }
-        super.run(statement, bindings);
+        super.execute(statement, bindings);
     }
 }
 

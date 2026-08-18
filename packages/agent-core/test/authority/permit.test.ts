@@ -1508,24 +1508,24 @@ function authenticate<Transaction>(
     );
 }
 
-class ControlledSqlite extends TransactionalSqlite {
+class ControlledSqlite extends TestSqlite {
     readonly #database = new TestSqlite();
     public failAll: unknown;
     public failRun: unknown;
     public dropRun = false;
     public mapRows: (rows: readonly SqliteRow[]) => readonly SqliteRow[] = (rows) => rows;
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         if (this.failAll !== undefined) throw this.failAll;
         return this.mapRows(this.#database.all(statement, bindings));
     }
 
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         if (this.failRun !== undefined) throw this.failRun;
         if (!this.dropRun) this.#database.run(statement, bindings);
     }
 
-    public transaction<Result>(
+    public override transaction<Result>(
         operation: () => Result,
         ...guard: SynchronousResultGuard<Result>
     ): Result {

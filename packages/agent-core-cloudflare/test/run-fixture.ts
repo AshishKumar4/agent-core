@@ -14,6 +14,7 @@ import {
     SemVer,
     TenantId
 } from "@agent-core/core";
+import { type ContentStore } from "@agent-core/core/content";
 import { EnvironmentId } from "@agent-core/core/environment-provider";
 import {
     AgentId,
@@ -66,11 +67,46 @@ export const ids = Object.freeze({
 });
 
 export function digest(character: string): Digest {
-    return new Digest(character.repeat(64));
+    return Digest.sha256(fixtureContentBytes(character));
 }
 
 export function content(character: string): ContentRef {
-    return new ContentRef(`sha256:${character.repeat(64)}`);
+    return ContentRef.fromDigest(digest(character));
+}
+
+const FIXTURE_CONTENT_KEYS = Object.freeze([
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f"
+]);
+
+function fixtureContentBytes(character: string): Uint8Array {
+    if (!FIXTURE_CONTENT_KEYS.includes(character)) {
+        throw new TypeError("Run fixture content key must be one hexadecimal character");
+    }
+    return new TextEncoder().encode(`cloudflare-run-fixture:${character}`);
+}
+
+async function seedFixtureContent(store: ContentStore): Promise<void> {
+    for (const character of FIXTURE_CONTENT_KEYS) {
+        const stored = await store.put(fixtureContentBytes(character));
+        if (!stored.ref.equals(content(character))) {
+            throw new TypeError("Cloudflare Run fixture stored an unexpected ContentRef");
+        }
+    }
 }
 
 export function pins(agentRevision = 3): RunPins {
@@ -259,10 +295,11 @@ export interface RunHarness<Transaction> {
     readonly runtime: RunRuntime<Transaction>;
 }
 
-export function runHarness<Transaction>(
+export async function runHarness<Transaction>(
     storage: RunStoragePort<Transaction>,
     settlement: TestSettlementPort<Transaction> = new TestSettlementPort()
-): RunHarness<Transaction> {
+): Promise<RunHarness<Transaction>> {
+    await seedFixtureContent(storage.content);
     const repository = new RunRepository(storage);
     const sources = new TestSourcePort<Transaction>();
     const evidence = new TestEvidencePort<Transaction>();

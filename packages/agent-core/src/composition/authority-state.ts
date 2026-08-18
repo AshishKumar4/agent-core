@@ -236,7 +236,9 @@ export class ActorAuthorityState implements OperationAuthorityStatePort<Principa
      */
     private leaseCurrent(candidate: OperationResolutionCandidate): boolean {
         if (candidate.lease === undefined) return true;
-        return this.host.currentLease(candidate.lease)?.admits(candidate.lease, this.now()) === true;
+        return (
+            this.host.currentLease(candidate.lease)?.admits(candidate.lease, this.now()) === true
+        );
     }
 }
 

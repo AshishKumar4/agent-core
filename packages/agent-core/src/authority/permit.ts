@@ -4,15 +4,25 @@ import {
     Digest,
     RecordCodec,
     Revision,
+    SemVer,
     canonicalJsonEqual,
     isMember,
     type JsonValue,
-    type RecordVersion
+    type RecordVersion,
+    TextId
 } from "../core";
-import { POLICY_IMPACTS, PackagePin } from "../definition";
+import { POLICY_IMPACTS, PackageId, PackagePin } from "../definition";
 import { AgentCoreError } from "../errors";
-import { BindingName, FacetRef, OperationRef, type Impact, type ProtectionDomain } from "../facets";
-import { PrincipalId, PrincipalRef, TenantId } from "../identity";
+import {
+    BindingName,
+    FacetPackageId,
+    FacetRef,
+    type Impact,
+    OperationName,
+    OperationRef,
+    ProtectionDomain
+} from "../facets";
+import { PrincipalId, PrincipalRef, ProjectId, ScopeRef, TenantId, WorkspaceId } from "../identity";
 import { ClaimWorkerId, ItemClaimId } from "../invocation-references";
 import { InvocationId } from "../interaction-references";
 import {
@@ -23,7 +33,7 @@ import {
     type JsonObject
 } from "./data";
 import { decodeDomain, encodeDomain } from "./binding";
-import { PathEpochEvidence } from "./epoch";
+import { PathEpochEvidence, ScopeEpoch } from "./epoch";
 
 const EXPECTATION_FIELDS = Object.freeze([
     "argumentsDigest",
@@ -295,7 +305,41 @@ export interface AuthorityPermitInit extends AuthorityPermitExpectationInit {
 
 class AuthorityPermitCodec extends RecordCodec<AuthorityPermit> {
     public constructor() {
-        super("authority.permit", { major: 3, minor: 0 });
+        super(
+            [
+                AuthorityPermit,
+                ActorRef,
+                AuthorityPermitExpectation,
+                Revision,
+                TextId,
+                SemVer,
+                PathEpochEvidence,
+                PackagePin,
+                ScopeEpoch,
+                FacetRef,
+                ScopeRef,
+                Digest,
+                OperationRef,
+                PrincipalRef,
+                RunId,
+                BindingName,
+                InvocationId,
+                ActorId,
+                PackageId,
+                ItemClaimId,
+                ClaimWorkerId,
+                TenantId,
+                TurnId,
+                ProjectId,
+                PrincipalId,
+                FacetPackageId,
+                ProtectionDomain,
+                OperationName,
+                WorkspaceId
+            ],
+            "authority.permit",
+            { major: 3, minor: 0 }
+        );
     }
 
     protected encodePayload(permit: AuthorityPermit): JsonValue {
@@ -308,7 +352,9 @@ class AuthorityPermitCodec extends RecordCodec<AuthorityPermit> {
 }
 
 export class AuthorityPermit {
-    public static readonly codec: RecordCodec<AuthorityPermit> = new AuthorityPermitCodec();
+    public static get codec(): RecordCodec<AuthorityPermit> {
+        return authorityPermitCodecInstance;
+    }
     readonly #issuedAt: number;
     readonly #expiresAt: number;
     public readonly expectation: AuthorityPermitExpectation;
@@ -456,6 +502,8 @@ export class AuthorityPermit {
         });
     }
 }
+
+const authorityPermitCodecInstance = new AuthorityPermitCodec();
 
 function copyTarget(target: AuthorityPermitTarget): AuthorityPermitTarget {
     return Object.freeze({

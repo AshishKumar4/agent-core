@@ -755,24 +755,24 @@ describe("SQLite materialization schema", () => {
 class MarkerReadFaultSqlite extends TestSqlite {
     public fault = false;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         if (
             this.fault &&
             /FROM definition_materialization_schema ORDER BY version/u.test(statement)
         ) {
             throw new TypeError("Materialization schema marker is unreadable");
         }
-        return super.all(statement, bindings);
+        return super.query(statement, bindings);
     }
 }
 
 class SchemaRowFaultSqlite extends TestSqlite {
     public rows: readonly SqliteRow[] | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         return this.rows !== undefined && /FROM sqlite_master/u.test(statement)
             ? this.rows
-            : super.all(statement, bindings);
+            : super.query(statement, bindings);
     }
 }
 

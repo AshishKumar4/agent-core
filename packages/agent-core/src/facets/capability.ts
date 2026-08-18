@@ -52,7 +52,7 @@ export interface CapabilityIntent {
 class CapabilitySpecCodecV1 extends RecordCodec<CapabilitySpec> {
     public constructor() {
         // Preserve the established wire identity while W3 takes canonical ownership.
-        super("authority.capability-spec", { major: 1, minor: 0 });
+        super([CapabilitySpec], "authority.capability-spec", { major: 1, minor: 0 });
     }
 
     protected encodePayload(spec: CapabilitySpec): JsonValue {
@@ -65,7 +65,9 @@ class CapabilitySpecCodecV1 extends RecordCodec<CapabilitySpec> {
 }
 
 export class CapabilitySpec {
-    public static readonly codec: RecordCodec<CapabilitySpec> = new CapabilitySpecCodecV1();
+    public static get codec(): RecordCodec<CapabilitySpec> {
+        return capabilitySpecCodecInstance;
+    }
     public readonly facetPattern: string;
     public readonly operations: readonly string[];
     public readonly impacts: readonly [Impact, ...Impact[]];
@@ -170,6 +172,8 @@ export class CapabilitySpec {
         });
     }
 }
+
+const capabilitySpecCodecInstance = new CapabilitySpecCodecV1();
 
 function canonicalStrings(values: readonly string[], name: string): readonly string[] {
     for (const value of values) {

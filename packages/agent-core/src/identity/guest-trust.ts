@@ -3,6 +3,7 @@ import {
     RecordCodec,
     Revision,
     SecretRef,
+    TextId,
     canonicalJsonEqual,
     type JsonValue
 } from "../core";
@@ -64,7 +65,20 @@ const revokedGuestTrust = Object.freeze(new RevokedGuestTrustLifecycle());
 
 class GuestTrustRecordCodec extends RecordCodec<GuestTrust> {
     public constructor() {
-        super("identity.guest-trust", { major: 1, minor: 0 });
+        super(
+            [
+                GuestTrust,
+                GuestTrustLifecycle,
+                Revision,
+                SecretRef,
+                TextId,
+                Digest,
+                GuestTrustId,
+                TenantId
+            ],
+            "identity.guest-trust",
+            { major: 1, minor: 0 }
+        );
     }
 
     protected encodePayload(trust: GuestTrust): JsonValue {
@@ -107,7 +121,9 @@ function isHandshakeDigest(value: JsonValue | undefined): value is string {
 }
 
 export class GuestTrust {
-    public static readonly codec: RecordCodec<GuestTrust> = new GuestTrustRecordCodec();
+    public static get codec(): RecordCodec<GuestTrust> {
+        return guestTrustCodecInstance;
+    }
     public readonly verifier: GuestTrustVerifier;
     readonly #lifecycle: GuestTrustLifecycle;
 
@@ -212,6 +228,8 @@ export class GuestTrust {
         }
     }
 }
+
+const guestTrustCodecInstance = new GuestTrustRecordCodec();
 
 function encodeVerifier(verifier: GuestTrustVerifier): JsonValue {
     return verifier.kind === "token"

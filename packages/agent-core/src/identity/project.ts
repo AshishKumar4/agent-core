@@ -1,4 +1,4 @@
-import { RecordCodec, Revision, type JsonValue } from "../core";
+import { RecordCodec, Revision, type JsonValue, TextId } from "../core";
 import { AgentCoreError } from "../errors";
 import {
     requireIdentityFields,
@@ -10,7 +10,10 @@ import { ProjectId, TenantId } from "./id";
 
 class ProjectRecordCodec extends RecordCodec<Project> {
     public constructor() {
-        super("identity.project", { major: 1, minor: 0 });
+        super([Project, Revision, TextId, TenantId, ProjectId], "identity.project", {
+            major: 1,
+            minor: 0
+        });
     }
 
     protected encodePayload(project: Project): JsonValue {
@@ -35,7 +38,9 @@ class ProjectRecordCodec extends RecordCodec<Project> {
 }
 
 export class Project {
-    public static readonly codec: RecordCodec<Project> = new ProjectRecordCodec();
+    public static get codec(): RecordCodec<Project> {
+        return projectCodecInstance;
+    }
     public readonly name: string;
 
     public constructor(
@@ -72,3 +77,5 @@ export class Project {
         return new Project(this.id, this.tenantId, name, this.revision.next());
     }
 }
+
+const projectCodecInstance = new ProjectRecordCodec();

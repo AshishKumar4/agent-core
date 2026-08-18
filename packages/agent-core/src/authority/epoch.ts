@@ -4,11 +4,12 @@ import {
     RecordCodec,
     type RecordVersion,
     Revision,
+    TextId,
     compareCanonicalText,
     isNonempty
 } from "../core";
 import { AgentCoreError } from "../errors";
-import { PrincipalId, PrincipalRef, TenantId, type ScopeRef } from "../identity";
+import { PrincipalId, PrincipalRef, ProjectId, ScopeRef, TenantId, WorkspaceId } from "../identity";
 import {
     requireArray,
     requireExact,
@@ -21,7 +22,11 @@ import { decodeAuthorityScope, encodeAuthorityScope, scopeKey } from "./referenc
 
 class ScopeEpochCodecV1 extends RecordCodec<ScopeEpoch> {
     public constructor() {
-        super("authority.scope-epoch", { major: 1, minor: 0 });
+        super(
+            [ScopeEpoch, ScopeRef, TextId, TenantId, WorkspaceId, ProjectId],
+            "authority.scope-epoch",
+            { major: 1, minor: 0 }
+        );
     }
     protected encodePayload(record: ScopeEpoch): JsonValue {
         return record.toData();
@@ -33,7 +38,14 @@ class ScopeEpochCodecV1 extends RecordCodec<ScopeEpoch> {
 
 class PathEpochEvidenceCodecV1 extends RecordCodec<PathEpochEvidence> {
     public constructor() {
-        super("authority.path-epoch-evidence", { major: 1, minor: 0 });
+        super(
+            [PathEpochEvidence, ScopeEpoch, ScopeRef, TextId, ProjectId, TenantId, WorkspaceId],
+            "authority.path-epoch-evidence",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
     protected encodePayload(record: PathEpochEvidence): JsonValue {
         return record.toData();
@@ -45,7 +57,24 @@ class PathEpochEvidenceCodecV1 extends RecordCodec<PathEpochEvidence> {
 
 class InvalidationWatermarkCodecV1 extends RecordCodec<InvalidationWatermark> {
     public constructor() {
-        super("authority.invalidation-watermark", { major: 1, minor: 0 });
+        super(
+            [
+                InvalidationWatermark,
+                ActorRef,
+                Revision,
+                TextId,
+                ScopeEpoch,
+                ActorId,
+                TenantId,
+                WorkspaceId,
+                ProjectId,
+                PrincipalId,
+                PrincipalRef,
+                ScopeRef
+            ],
+            "authority.invalidation-watermark",
+            { major: 1, minor: 0 }
+        );
     }
     protected encodePayload(record: InvalidationWatermark): JsonValue {
         return record.toData();
@@ -56,7 +85,9 @@ class InvalidationWatermarkCodecV1 extends RecordCodec<InvalidationWatermark> {
 }
 
 export class ScopeEpoch {
-    public static readonly codec: RecordCodec<ScopeEpoch> = new ScopeEpochCodecV1();
+    public static get codec(): RecordCodec<ScopeEpoch> {
+        return scopeEpochCodecInstance;
+    }
     public constructor(
         public readonly scope: ScopeRef,
         public readonly epoch: number
@@ -106,8 +137,12 @@ export class ScopeEpoch {
     }
 }
 
+const scopeEpochCodecInstance = new ScopeEpochCodecV1();
+
 export class PathEpochEvidence {
-    public static readonly codec: RecordCodec<PathEpochEvidence> = new PathEpochEvidenceCodecV1();
+    public static get codec(): RecordCodec<PathEpochEvidence> {
+        return pathEpochEvidenceCodecInstance;
+    }
     public readonly path: readonly [ScopeEpoch, ...ScopeEpoch[]];
 
     public constructor(path: readonly [ScopeEpoch, ...ScopeEpoch[]]) {
@@ -165,9 +200,12 @@ export class PathEpochEvidence {
     }
 }
 
+const pathEpochEvidenceCodecInstance = new PathEpochEvidenceCodecV1();
+
 export class InvalidationWatermark {
-    public static readonly codec: RecordCodec<InvalidationWatermark> =
-        new InvalidationWatermarkCodecV1();
+    public static get codec(): RecordCodec<InvalidationWatermark> {
+        return invalidationWatermarkCodecInstance;
+    }
     public readonly delivered: readonly ScopeEpoch[];
 
     public constructor(
@@ -298,6 +336,8 @@ export class InvalidationWatermark {
         );
     }
 }
+
+const invalidationWatermarkCodecInstance = new InvalidationWatermarkCodecV1();
 
 function validatePath(path: readonly ScopeEpoch[]): void {
     if (path.length < 1 || path.length > 3) {

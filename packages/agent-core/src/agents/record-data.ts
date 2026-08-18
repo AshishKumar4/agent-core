@@ -2,12 +2,18 @@ import {
     Digest,
     Revision,
     isJsonObject,
+    type ContentRef,
     type JsonFields,
     type JsonObject,
     type JsonValue,
     type RecordCodec
 } from "../core";
 export { compareCanonicalText as compareText } from "../core";
+
+export interface ContentRetentionField {
+    readonly field: string;
+    readonly ref: ContentRef;
+}
 
 export abstract class CodecRecord {
     public static readonly encode = function <Value>(
@@ -23,6 +29,14 @@ export abstract class CodecRecord {
     ): Value {
         return this.codec.decode(bytes);
     };
+}
+
+export function contentRetentionFields(
+    fields: readonly (readonly [field: string, ref: ContentRef | undefined])[]
+): readonly ContentRetentionField[] {
+    return Object.freeze(
+        fields.flatMap(([field, ref]) => (ref === undefined ? [] : [Object.freeze({ field, ref })]))
+    );
 }
 
 export function requireObject(value: JsonValue, subject: string): JsonObject {

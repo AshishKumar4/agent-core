@@ -46,22 +46,22 @@ class StatementFaultSqlite extends TestSqlite {
     public onRun: ((statement: string) => "skip" | undefined) | undefined;
     public onAll: ((statement: string) => void) | undefined;
 
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         if (this.onRun?.(statement) === "skip") return;
-        super.run(statement, bindings);
+        super.execute(statement, bindings);
     }
 
-    public override all(statement: string, bindings: readonly SqliteValue[]) {
+    protected override query(statement: string, bindings: readonly SqliteValue[]) {
         this.onAll?.(statement);
-        return super.all(statement, bindings);
+        return super.query(statement, bindings);
     }
 }
 
 class ProtocolIdTamperSqlite extends TestSqlite {
     public nextId: number | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]) {
-        const rows = super.all(statement, bindings);
+    protected override query(statement: string, bindings: readonly SqliteValue[]) {
+        const rows = super.query(statement, bindings);
         const forged = this.nextId;
         if (forged === undefined || !statement.includes("SELECT next_id")) return rows;
         return rows.map((row) => ({ ...row, next_id: forged }));
@@ -72,12 +72,12 @@ class AnchorVanishSqlite extends TestSqlite {
     #anchorReads = 0;
     public vanishAfter: number | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]) {
+    protected override query(statement: string, bindings: readonly SqliteValue[]) {
         if (this.vanishAfter !== undefined && statement.includes("FROM tenant_bootstrap_anchor")) {
             this.#anchorReads += 1;
             if (this.#anchorReads > this.vanishAfter) return [];
         }
-        return super.all(statement, bindings);
+        return super.query(statement, bindings);
     }
 }
 

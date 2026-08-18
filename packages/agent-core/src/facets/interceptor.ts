@@ -6,8 +6,9 @@ import {
     requireSafeInteger,
     requireString
 } from "./data";
-import { InterceptorId } from "./id";
+import { FacetPackageId, InterceptorId } from "./id";
 import { OperationPattern, OperationSelector } from "./mapping";
+import { TextId } from "../core";
 
 /** The cut points whose value in flight belongs to one Operation of one target Facet. */
 export type OperationCutPoint = "operation.before" | "operation.after";
@@ -129,6 +130,14 @@ export class InterceptorDeclaration {
 }
 
 const interceptorDeclarationCodec = new DataRecordCodec(
+    [
+        InterceptorDeclaration,
+        TextId,
+        OperationPattern,
+        OperationSelector,
+        InterceptorId,
+        FacetPackageId
+    ],
     "facet.interceptor-declaration",
     (interceptor: InterceptorDeclaration) => interceptor.toData(),
     (payload) => InterceptorDeclaration.fromData(payload)

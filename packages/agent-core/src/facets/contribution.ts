@@ -1,4 +1,4 @@
-import { JsonSchema } from "../core";
+import { JsonSchema, TextId } from "../core";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
@@ -91,6 +91,7 @@ export class OperationDescriptor {
 }
 
 const operationDescriptorCodec = new DataRecordCodec(
+    [OperationDescriptor, TextId, JsonSchema, OperationName],
     "facet.operation-descriptor",
     (descriptor: OperationDescriptor) => descriptor.toData(),
     (payload) => OperationDescriptor.fromData(payload)
@@ -140,6 +141,7 @@ export class SurfaceDescriptor {
 }
 
 const surfaceDescriptorCodec = new DataRecordCodec(
+    [SurfaceDescriptor, TextId, SurfaceId],
     "facet.surface-descriptor",
     (descriptor: SurfaceDescriptor) => descriptor.toData(),
     (payload) => SurfaceDescriptor.fromData(payload)
@@ -182,6 +184,7 @@ export class Contribution {
 }
 
 const contributionCodec = new DataRecordCodec(
+    [Contribution, TextId, SlotName],
     "facet.contribution",
     (contribution: Contribution) => contribution.toData(),
     (payload) => Contribution.fromData(payload)
@@ -233,6 +236,7 @@ export class Contributions {
 }
 
 const contributionsCodec = new DataRecordCodec(
+    [Contributions, SlotName, TextId, Contribution],
     "facet.contributions",
     (contributions: Contributions) => contributions.toData(),
     (payload) => Contributions.fromMap(requireContributionMap(payload)),

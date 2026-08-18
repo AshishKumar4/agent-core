@@ -1,4 +1,4 @@
-import { Digest, RecordCodec, Revision, type JsonValue } from "../core";
+import { Digest, RecordCodec, Revision, type JsonValue, TextId } from "../core";
 import { AgentCoreError } from "../errors";
 import {
     requireIdentityFields,
@@ -12,7 +12,21 @@ import { GuestVerificationScheme, type ForeignPrincipalRef } from "./subject";
 
 class GuestVerificationCodec extends RecordCodec<GuestVerification> {
     public constructor() {
-        super("identity.guest-verification", { major: 1, minor: 0 });
+        super(
+            [
+                GuestVerification,
+                GuestVerificationScheme,
+                Revision,
+                TextId,
+                Digest,
+                GuestTrustId,
+                TenantId,
+                PrincipalId,
+                PrincipalRef
+            ],
+            "identity.guest-verification",
+            { major: 1, minor: 0 }
+        );
     }
 
     protected encodePayload(verification: GuestVerification): JsonValue {
@@ -27,10 +41,11 @@ class GuestVerificationCodec extends RecordCodec<GuestVerification> {
 const constructionToken = Symbol("guest-verification-construction");
 const freshVerifications = new WeakSet<GuestVerification>();
 const restoredVerifications = new WeakSet<GuestVerification>();
-export const guestVerificationCodec: RecordCodec<GuestVerification> = new GuestVerificationCodec();
 
 export class GuestVerification {
-    public static readonly codec: RecordCodec<GuestVerification> = guestVerificationCodec;
+    public static get codec(): RecordCodec<GuestVerification> {
+        return guestVerificationCodec;
+    }
     readonly #verifiedAt: number;
     readonly #expiresAt: number;
 
@@ -109,6 +124,8 @@ export class GuestVerification {
         };
     }
 }
+
+export const guestVerificationCodec: RecordCodec<GuestVerification> = new GuestVerificationCodec();
 
 export function mintGuestVerification(
     principal: PrincipalRef,

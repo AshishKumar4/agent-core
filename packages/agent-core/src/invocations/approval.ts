@@ -4,7 +4,8 @@ import {
     Revision,
     isJsonObject,
     type JsonValue,
-    type RecordVersion
+    type RecordVersion,
+    TextId
 } from "../core";
 import { AgentCoreError } from "../errors";
 import { PrincipalId } from "../identity";
@@ -193,7 +194,20 @@ export class Approval {
 
 class ApprovalRecordCodec extends RecordCodec<Approval> {
     public constructor() {
-        super("invocation.approval", { major: 1, minor: 0 });
+        super(
+            [
+                Approval,
+                Revision,
+                TextId,
+                Digest,
+                ApprovalId,
+                InvocationId,
+                EffectAttemptId,
+                PrincipalId
+            ],
+            "invocation.approval",
+            { major: 1, minor: 0 }
+        );
     }
 
     protected encodePayload(record: Approval): JsonValue {

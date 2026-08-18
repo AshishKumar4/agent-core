@@ -1,4 +1,5 @@
 import * as ts from "typescript/unstable/ast";
+import { SymbolFlags } from "typescript/unstable/sync";
 import { hasModifier } from "./compiler.mjs";
 import { resolveSourceSymbol } from "./evidence.mjs";
 import { isJsonObject, isNonEmptyString } from "./project.mjs";
@@ -15,6 +16,7 @@ const recordFields = [
     "tests"
 ];
 const contentBearingRecordFields = [...recordFields, "contentRetention"].sort();
+const runRepository = "src/agents/runs/store.ts#RunRepository";
 
 export function validateRecordOwnership(records) {
     if (!Array.isArray(records)) throw new TypeError("Record ownership registry must be an array");
@@ -29,15 +31,11 @@ export function validateRecordOwnership(records) {
 export function validateRecordContentRetention(records, project) {
     validateRecordOwnership(records);
     const checker = project.checker;
+    const runDescriptors = runDescriptorFactories(project, checker);
     // Names first, files second: a program spanning both packages also carries every
     // library declaration it resolved, and materialising those across the API boundary
     // to discard them is the one avoidable cost in this walk.
-    const classes = project.program
-        .getSourceFileNames()
-        .filter((name) => !name.includes("/node_modules/"))
-        .map((name) => project.program.getSourceFile(name))
-        .filter((source) => source !== undefined && !source.isDeclarationFile)
-        .flatMap((source) => source.statements.filter(ts.isClassDeclaration));
+    const classes = recordClasses(project);
 
     for (const record of records) {
         const declaration = resolveSourceSymbol(project, record.source);
@@ -45,6 +43,9 @@ export function validateRecordContentRetention(records, project) {
             throw new TypeError(`Record source is not a class: ${record.source}`);
         }
         const actualFields = contentRefFields(checker, declaration, classes);
+        if (record.store === runRepository) {
+            validateRunContentProjection(record, declaration, actualFields, runDescriptors);
+        }
         const declared = record.contentRetention;
         if (actualFields.length === 0) {
             if (declared !== undefined) {
@@ -68,6 +69,174 @@ export function validateRecordContentRetention(records, project) {
             );
         }
     }
+}
+
+export function declaredContentRefFields(project, declaration) {
+    return contentRefFields(project.checker, declaration, recordClasses(project));
+}
+
+function recordClasses(project) {
+    return project.program
+        .getSourceFileNames()
+        .filter((name) => !name.includes("/node_modules/"))
+        .map((name) => project.program.getSourceFile(name))
+        .filter((source) => source !== undefined && !source.isDeclarationFile)
+        .flatMap((source) => source.statements.filter(ts.isClassDeclaration));
+}
+
+function validateRunContentProjection(record, declaration, actualFields, descriptors) {
+    const descriptor = descriptors.get(declaration.name?.text);
+    const expectedFactory =
+        actualFields.length === 0 ? "recordDescriptor" : "contentRecordDescriptor";
+    if (descriptor?.factory !== expectedFactory) {
+        throw new TypeError(
+            `Record ${record.kind} runtime content descriptor differs from its record shape`
+        );
+    }
+    if (actualFields.length === 0) return;
+    const projected = contentProjectionFields(descriptor.projection, declaration);
+    if (JSON.stringify(projected) !== JSON.stringify(actualFields)) {
+        throw new TypeError(
+            `Record ${record.kind} content projection differs from its record shape`
+        );
+    }
+}
+
+function runDescriptorFactories(project, checker) {
+    const declaration = resolveSourceSymbol(
+        project,
+        "src/agents/runs/store.ts#RUN_RECORD_DESCRIPTORS"
+    );
+    if (!ts.isVariableDeclaration(declaration) || declaration.initializer === undefined) {
+        throw new TypeError("Run record descriptors are not a variable initializer");
+    }
+    const expression = unwrapExpression(declaration.initializer);
+    if (!ts.isObjectLiteralExpression(expression)) {
+        throw new TypeError("Run record descriptors are not an object literal");
+    }
+    const descriptors = new Map();
+    for (const property of expression.properties) {
+        if (!ts.isPropertyAssignment(property)) {
+            throw new TypeError("Run record descriptors must use property assignments");
+        }
+        const call = unwrapExpression(property.initializer);
+        if (
+            !ts.isCallExpression(call) ||
+            !ts.isIdentifier(call.expression) ||
+            (call.expression.text !== "recordDescriptor" &&
+                call.expression.text !== "contentRecordDescriptor") ||
+            call.arguments.length < 1 ||
+            !ts.isIdentifier(call.arguments[0])
+        ) {
+            throw new TypeError("Run record descriptor is malformed");
+        }
+        const codecType = checker.getTypeAtLocation(call.arguments[0]);
+        const recordType = typeArguments(checker, codecType)[0];
+        const record = recordType?.getSymbol()?.name;
+        if (record === undefined) throw new TypeError("Run record descriptor codec is untyped");
+        if (descriptors.has(record))
+            throw new TypeError(`Duplicate Run record descriptor ${record}`);
+        descriptors.set(record, {
+            factory: call.expression.text,
+            projection:
+                call.expression.text === "contentRecordDescriptor"
+                    ? contentProjectionDeclaration(checker, call.arguments[2])
+                    : undefined
+        });
+    }
+    return descriptors;
+}
+
+function unwrapExpression(expression) {
+    let current = expression;
+    while (
+        ts.isParenthesizedExpression(current) ||
+        ts.isAsExpression(current) ||
+        ts.isSatisfiesExpression(current)
+    ) {
+        current = current.expression;
+    }
+    if (
+        ts.isCallExpression(current) &&
+        ts.isPropertyAccessExpression(current.expression) &&
+        current.expression.expression.getText(current.getSourceFile()) === "Object" &&
+        current.expression.name.text === "freeze" &&
+        current.arguments.length === 1
+    ) {
+        return unwrapExpression(current.arguments[0]);
+    }
+    return current;
+}
+
+function contentProjectionDeclaration(checker, expression) {
+    if (expression === undefined || !ts.isIdentifier(expression)) {
+        throw new TypeError("Run content descriptor projection is malformed");
+    }
+    const imported = checker.getSymbolAtLocation(expression);
+    const symbol =
+        imported !== undefined && (imported.flags & SymbolFlags.Alias) !== 0
+            ? checker.getAliasedSymbol(imported)
+            : imported;
+    const declaration = (symbol?.valueDeclaration ?? symbol?.declarations?.[0])?.resolve();
+    if (declaration === undefined || !ts.isFunctionDeclaration(declaration)) {
+        throw new TypeError("Run content descriptor projection is not a function declaration");
+    }
+    return declaration;
+}
+
+function contentProjectionFields(projection, record) {
+    const parameter = projection?.parameters[0];
+    const statement = projection?.body?.statements[0];
+    if (
+        projection?.body?.statements.length !== 1 ||
+        projection.parameters.length !== 1 ||
+        parameter === undefined ||
+        !ts.isIdentifier(parameter.name) ||
+        statement === undefined ||
+        !ts.isReturnStatement(statement) ||
+        statement.expression === undefined ||
+        !ts.isCallExpression(statement.expression) ||
+        !ts.isIdentifier(statement.expression.expression) ||
+        statement.expression.expression.text !== "contentRetentionFields" ||
+        statement.expression.arguments.length !== 1 ||
+        !ts.isArrayLiteralExpression(statement.expression.arguments[0])
+    ) {
+        throw new TypeError(
+            `Run record ${record.name?.text ?? "<unknown>"} content projection is indirect`
+        );
+    }
+    return statement.expression.arguments[0].elements
+        .map((element) => contentProjectionField(record, parameter.name.text, element))
+        .sort();
+}
+
+function contentProjectionField(record, parameter, element) {
+    if (
+        !ts.isArrayLiteralExpression(element) ||
+        element.elements.length !== 2 ||
+        !ts.isStringLiteral(element.elements[0])
+    ) {
+        throw new TypeError(
+            `Run record ${record.name?.text ?? "<unknown>"} content projection is malformed`
+        );
+    }
+    const field = element.elements[0].text;
+    if (propertyPath(element.elements[1], parameter) !== field) {
+        throw new TypeError(
+            `Run record ${record.name?.text ?? "<unknown>"} content projection names the wrong field`
+        );
+    }
+    return field;
+}
+
+function propertyPath(expression, root) {
+    const parts = [];
+    let current = expression;
+    while (ts.isPropertyAccessExpression(current)) {
+        parts.unshift(current.name.text);
+        current = current.expression;
+    }
+    return ts.isIdentifier(current) && current.text === root ? parts.join(".") : undefined;
 }
 
 function validateRecord(record, kinds, symbols) {
@@ -254,12 +423,20 @@ function dataProperties(checker, type) {
     return checker.getPropertiesOfType(type).flatMap((symbol) => {
         const declaration = (symbol.valueDeclaration ?? symbol.declarations[0])?.resolve();
         if (
+            declaration !== undefined &&
+            "name" in declaration &&
+            ts.isPrivateIdentifier(declaration.name)
+        ) {
+            const field = checker.getTypeOfSymbolAtLocation(symbol, declaration);
+            if (containsContentRef(checker, field, new Set())) {
+                throw new TypeError("ECMAScript-private ContentRef fields cannot be projected");
+            }
+            return [];
+        }
+        if (
             declaration === undefined ||
             ts.isMethodDeclaration(declaration) ||
             ts.isMethodSignatureDeclaration(declaration) ||
-            ("name" in declaration && ts.isPrivateIdentifier(declaration.name)) ||
-            hasModifier(declaration, ts.SyntaxKind.PrivateKeyword) ||
-            hasModifier(declaration, ts.SyntaxKind.ProtectedKeyword) ||
             hasModifier(declaration, ts.SyntaxKind.StaticKeyword)
         ) {
             return [];

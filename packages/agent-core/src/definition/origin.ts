@@ -5,7 +5,8 @@ import {
     RecordCodec,
     hasExactJsonKeys,
     isJsonObject,
-    type JsonValue
+    type JsonValue,
+    TextId
 } from "../core";
 import { TenantId } from "../identity";
 import { DeploymentId } from "./id";
@@ -22,7 +23,11 @@ export interface ManagedOriginInit {
 
 class ManagedOriginCodec extends RecordCodec<ManagedOrigin> {
     public constructor() {
-        super("definition.managed-origin", { major: 2, minor: 0 });
+        super(
+            [ManagedOrigin, TextId, Digest, TenantId, DeploymentId],
+            "definition.managed-origin",
+            { major: 2, minor: 0 }
+        );
     }
 
     protected encodePayload(origin: ManagedOrigin): JsonValue {
@@ -35,7 +40,9 @@ class ManagedOriginCodec extends RecordCodec<ManagedOrigin> {
 }
 
 export class ManagedOrigin {
-    public static readonly codec: RecordCodec<ManagedOrigin> = new ManagedOriginCodec();
+    public static get codec(): RecordCodec<ManagedOrigin> {
+        return managedOriginCodecInstance;
+    }
 
     public readonly blueprintDigest: Digest;
     public readonly tenantId: TenantId;
@@ -125,6 +132,8 @@ export class ManagedOrigin {
         };
     }
 }
+
+const managedOriginCodecInstance = new ManagedOriginCodec();
 
 function requireObject(value: JsonValue, subject: string): { readonly [key: string]: JsonValue } {
     if (!isJsonObject(value)) throw new TypeError(`${subject} must be an object`);

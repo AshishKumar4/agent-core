@@ -22,11 +22,6 @@ interface StringLike {
     trim(): StringLike;
 }
 
-interface FixtureRecord {
-    readonly label: string;
-    readonly enabled: boolean;
-}
-
 /** A codec's own metadata without their readonly modifiers, so writes can be attempted. */
 interface WritableCodec {
     kind: string;
@@ -45,26 +40,48 @@ const fixturePayload = jsonDataParser(
     (message) => new AgentCoreError("codec.invalid", `${message}; fixture payload is malformed`)
 );
 
-class FixtureCodec extends RecordCodec<FixtureRecord> {
-    public decodedVersion: RecordVersion | undefined;
+class FixtureRecordBase {
+    public constructor(
+        public readonly label: string,
+        public readonly enabled: boolean
+    ) {}
 
-    public constructor(version: RecordVersion = { major: 1, minor: 1 }, kind = "test.fixture") {
-        super(kind, version);
+    public toData(): JsonValue {
+        return { enabled: this.enabled, label: this.label };
+    }
+}
+
+class FixtureRecord extends FixtureRecordBase {
+    public constructor(label: string, enabled: boolean) {
+        super(label, enabled);
+        Object.freeze(this);
     }
 
-    protected encodePayload(record: FixtureRecord): JsonValue {
-        return { enabled: record.enabled, label: record.label };
-    }
-
-    protected decodePayload(payload: JsonValue, version: RecordVersion): FixtureRecord {
-        this.decodedVersion = version;
+    public static fromData(payload: JsonValue, version: RecordVersion): FixtureRecord {
         const object = fixturePayload.object(payload, "Fixture payload");
         const label = fixturePayload.string(object["label"], "Fixture payload label");
         const enabled = object["enabled"];
         if (version.minor > 0 && enabled !== true && enabled !== false) {
             throw new AgentCoreError("codec.invalid", "Fixture enabled flag is malformed");
         }
-        return { label, enabled: enabled === true };
+        return new FixtureRecord(label, enabled === true);
+    }
+}
+
+class FixtureCodec extends RecordCodec<FixtureRecord> {
+    public decodedVersion: RecordVersion | undefined;
+
+    public constructor(version: RecordVersion = { major: 1, minor: 1 }, kind = "test.fixture") {
+        super([FixtureRecord, FixtureRecordBase], kind, version);
+    }
+
+    protected encodePayload(record: FixtureRecord): JsonValue {
+        return record.toData();
+    }
+
+    protected decodePayload(payload: JsonValue, version: RecordVersion): FixtureRecord {
+        this.decodedVersion = version;
+        return FixtureRecord.fromData(payload, version);
     }
 }
 
@@ -293,6 +310,238 @@ describe("Canonical codecs", () => {
         expect(detached.kind).toBe("test.fixture");
     });
 
+    test(
+        "binds codec operations against instance and base prototype redirection",
+        { tags: "p0" },
+        () => {
+            const bound = new FixtureCodec();
+            const record = new FixtureRecord("bound", true);
+            const bytes = bound.encode(record);
+            const baseEncode = Object.getOwnPropertyDescriptor(RecordCodec.prototype, "encode");
+            const baseDecode = Object.getOwnPropertyDescriptor(RecordCodec.prototype, "decode");
+            if (baseEncode === undefined || baseDecode === undefined) {
+                throw new TypeError("RecordCodec operations are unavailable");
+            }
+
+            const instanceEncodeRedirected = Reflect.defineProperty(bound, "encode", {
+                configurable: true,
+                value: () => new Uint8Array(),
+                writable: true
+            });
+            const instanceDecodeRedirected = Reflect.defineProperty(bound, "decode", {
+                configurable: true,
+                value: () => ({ label: "redirected", enabled: false }),
+                writable: true
+            });
+            try {
+                expect(instanceEncodeRedirected).toBe(false);
+                expect(instanceDecodeRedirected).toBe(false);
+            } finally {
+                if (instanceEncodeRedirected) Reflect.deleteProperty(bound, "encode");
+                if (instanceDecodeRedirected) Reflect.deleteProperty(bound, "decode");
+            }
+
+            Reflect.defineProperty(RecordCodec.prototype, "encode", {
+                ...baseEncode,
+                value: () => new Uint8Array()
+            });
+            Reflect.defineProperty(RecordCodec.prototype, "decode", {
+                ...baseDecode,
+                value: () => ({ label: "redirected", enabled: false })
+            });
+            try {
+                expect(bound.encode(record)).toEqual(bytes);
+                expect(bound.decode(bytes)).toEqual(record);
+            } finally {
+                Object.defineProperty(RecordCodec.prototype, "encode", baseEncode);
+                Object.defineProperty(RecordCodec.prototype, "decode", baseDecode);
+            }
+        }
+    );
+
+    test("captures concrete payload operations at codec construction", { tags: "p0" }, () => {
+        const bound = new FixtureCodec();
+        const record = new FixtureRecord("payload-bound", true);
+        const bytes = bound.encode(record);
+        const prototype = FixtureCodec.prototype;
+        const encodePayload = Object.getOwnPropertyDescriptor(prototype, "encodePayload");
+        const decodePayload = Object.getOwnPropertyDescriptor(prototype, "decodePayload");
+        if (encodePayload === undefined || decodePayload === undefined) {
+            throw new TypeError("Fixture payload operations are unavailable");
+        }
+
+        Reflect.defineProperty(prototype, "encodePayload", {
+            ...encodePayload,
+            value: () => ({ enabled: false, label: "redirected" })
+        });
+        Reflect.defineProperty(prototype, "decodePayload", {
+            ...decodePayload,
+            value: () => ({ label: "redirected", enabled: false })
+        });
+        try {
+            expect(bound.encode(record)).toEqual(bytes);
+            expect(bound.decode(bytes)).toEqual(record);
+        } finally {
+            Object.defineProperty(prototype, "encodePayload", encodePayload);
+            Object.defineProperty(prototype, "decodePayload", decodePayload);
+        }
+    });
+
+    test("seals explicit record code without freezing built-ins", { tags: "p0" }, () => {
+        const builtinDescriptors = {
+            function: Object.getOwnPropertyDescriptors(Function),
+            functionPrototype: Object.getOwnPropertyDescriptors(Function.prototype),
+            object: Object.getOwnPropertyDescriptors(Object),
+            objectPrototype: Object.getOwnPropertyDescriptors(Object.prototype)
+        };
+        class TupleDependency {
+            public static project(label: string): string {
+                return label;
+            }
+        }
+        class TupleRecordBase {
+            public static normalize(label: string): string {
+                return label;
+            }
+            public constructor(public readonly label: string) {}
+            public toData(): JsonValue {
+                return TupleDependency.project(this.label);
+            }
+        }
+        class TupleRecord extends TupleRecordBase {
+            public constructor(label: string) {
+                super(label);
+                Object.freeze(this);
+            }
+            public static fromData(payload: JsonValue): TupleRecord {
+                return new TupleRecord(
+                    TupleRecord.normalize(fixturePayload.string(payload, "Tuple record"))
+                );
+            }
+        }
+        class ReplacementTupleRecord extends TupleRecord {}
+        class ReplacementTupleDependency extends TupleDependency {}
+        function LegacyRecordConstructor(): void {}
+        class TupleCodec extends RecordCodec<TupleRecord> {
+            public constructor(
+                classes: readonly [
+                    { readonly prototype: TupleRecord },
+                    ...{ readonly prototype: object }[]
+                ]
+            ) {
+                super(classes, "test.tuple", { major: 1, minor: 0 });
+            }
+            protected encodePayload(record: TupleRecord): JsonValue {
+                return record.toData();
+            }
+            protected decodePayload(payload: JsonValue): TupleRecord {
+                return TupleRecord.fromData(payload);
+            }
+        }
+        class GenericTupleCodec<Value extends TupleRecord> extends RecordCodec<Value> {
+            public constructor(
+                classes: readonly [
+                    { readonly prototype: Value },
+                    ...{ readonly prototype: object }[]
+                ],
+                private readonly restore: (payload: JsonValue) => Value
+            ) {
+                super(classes, "test.generic-tuple", { major: 1, minor: 0 });
+            }
+            protected encodePayload(record: Value): JsonValue {
+                return record.toData();
+            }
+            protected decodePayload(payload: JsonValue): Value {
+                return this.restore(payload);
+            }
+        }
+
+        expect(() => new TupleCodec([ReplacementTupleRecord, LegacyRecordConstructor])).toThrow(
+            "Record codec classes must be ordinary class constructors"
+        );
+        expect(Object.isFrozen(ReplacementTupleRecord)).toBe(false);
+        expect(Object.isFrozen(ReplacementTupleRecord.prototype)).toBe(false);
+
+        const classes: [
+            { readonly prototype: TupleRecord },
+            { readonly prototype: object },
+            { readonly prototype: object },
+            { readonly prototype: object }
+        ] = [TupleRecord, TupleRecordBase, TupleDependency, TupleDependency];
+        const bound = new TupleCodec(classes);
+        const record = new TupleRecord("tuple-bound");
+        const bytes = bound.encode(record);
+        classes[0] = ReplacementTupleRecord;
+        classes[1] = ReplacementTupleDependency;
+
+        expect(
+            Reflect.defineProperty(TupleRecord, "fromData", {
+                configurable: true,
+                value: () => new TupleRecord("redirected")
+            })
+        ).toBe(false);
+        expect(
+            Reflect.defineProperty(TupleRecord.prototype, "toData", {
+                configurable: true,
+                value: () => "redirected"
+            })
+        ).toBe(false);
+        expect(
+            Reflect.defineProperty(TupleRecordBase.prototype, "toData", {
+                configurable: true,
+                value: () => "redirected"
+            })
+        ).toBe(false);
+        expect(
+            Reflect.defineProperty(TupleDependency, "project", {
+                configurable: true,
+                value: () => "redirected"
+            })
+        ).toBe(false);
+        expect(
+            Reflect.defineProperty(TupleRecordBase, "normalize", {
+                configurable: true,
+                value: () => "redirected"
+            })
+        ).toBe(false);
+        expect(
+            Reflect.defineProperty(TupleRecord, "normalize", {
+                configurable: true,
+                value: () => "redirected"
+            })
+        ).toBe(false);
+        expect(Reflect.setPrototypeOf(TupleRecord, ReplacementTupleRecord)).toBe(false);
+        expect(Reflect.setPrototypeOf(TupleRecord.prototype, {})).toBe(false);
+        expect(bound.encode(record)).toEqual(bytes);
+        expect(bound.decode(bytes)).toEqual(record);
+        expect(Object.isFrozen(ReplacementTupleRecord)).toBe(false);
+        expect(Object.isFrozen(ReplacementTupleDependency)).toBe(false);
+        expect(
+            () => new TupleCodec([TupleRecord, TupleRecordBase, TupleDependency, TupleDependency])
+        ).not.toThrow();
+        const generic = new GenericTupleCodec(
+            [TupleRecord, TupleRecordBase, TupleDependency],
+            TupleRecord.fromData
+        );
+        expect(generic.decode(generic.encode(record))).toEqual(record);
+        expect(Object.isFrozen(Object)).toBe(false);
+        expect(Object.isFrozen(Object.prototype)).toBe(false);
+        expect(Object.isFrozen(Function)).toBe(false);
+        expect(Object.isFrozen(Function.prototype)).toBe(false);
+        expect(Object.isExtensible(Object)).toBe(true);
+        expect(Object.isExtensible(Object.prototype)).toBe(true);
+        expect(Object.isExtensible(Function)).toBe(true);
+        expect(Object.isExtensible(Function.prototype)).toBe(true);
+        expect(Object.getOwnPropertyDescriptors(Object)).toEqual(builtinDescriptors.object);
+        expect(Object.getOwnPropertyDescriptors(Object.prototype)).toEqual(
+            builtinDescriptors.objectPrototype
+        );
+        expect(Object.getOwnPropertyDescriptors(Function)).toEqual(builtinDescriptors.function);
+        expect(Object.getOwnPropertyDescriptors(Function.prototype)).toEqual(
+            builtinDescriptors.functionPrototype
+        );
+    });
+
     test("decodes and upcasts an older minor in the same major", { tags: "p2" }, () => {
         const older = encodeCanonicalJson({
             kind: "test.fixture",
@@ -303,10 +552,9 @@ describe("Canonical codecs", () => {
         expect(codec.decode(older)).toEqual({ label: "legacy", enabled: false });
         expect(Object.isFrozen(codec.decodedVersion)).toBe(true);
         expect(codec.decodedVersion).toEqual({ major: 1, minor: 0 });
-        expect(codec.decode(codec.encode({ label: "current", enabled: true }))).toEqual({
-            label: "current",
-            enabled: true
-        });
+        expect(codec.decode(codec.encode(new FixtureRecord("current", true)))).toEqual(
+            new FixtureRecord("current", true)
+        );
     });
 
     test("rejects malformed data with a typed codec error", { tags: "p1" }, () => {
@@ -1167,7 +1415,11 @@ class VerbatimVersionCodec extends RecordCodec<FixtureRecord> {
     public constructor(version: RecordVersion | undefined) {
         // SAFETY: forwarding an absent version is the whole reason this subclass exists — it
         // is the only way to reach RecordCodec's first version clause from outside.
-        super("test.verbatim-version", version as RecordVersion);
+        super(
+            [FixtureRecord, FixtureRecordBase],
+            "test.verbatim-version",
+            version as RecordVersion
+        );
     }
 
     protected encodePayload(record: FixtureRecord): JsonValue {
@@ -1175,13 +1427,13 @@ class VerbatimVersionCodec extends RecordCodec<FixtureRecord> {
     }
 
     protected decodePayload(_payload: JsonValue, _version: RecordVersion): FixtureRecord {
-        return { label: "", enabled: false };
+        return new FixtureRecord("", false);
     }
 }
 
 class RejectingFixtureCodec extends RecordCodec<FixtureRecord> {
     public constructor(private readonly failure: Error | string) {
-        super("test.rejecting", { major: 1, minor: 0 });
+        super([FixtureRecord, FixtureRecordBase], "test.rejecting", { major: 1, minor: 0 });
     }
 
     protected encodePayload(_record: FixtureRecord): JsonValue {

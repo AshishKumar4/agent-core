@@ -14,7 +14,12 @@ import {
 } from "../authority";
 import { AgentCoreError } from "../errors";
 import type { ActorRef } from "../actors";
-import type { ItemClaim, PreparedInvocation, StructuralCodec } from "../invocations";
+import {
+    structuralCodec,
+    type ItemClaim,
+    type PreparedInvocation,
+    type StructuralCodec
+} from "../invocations";
 import type { JsonValue } from "../core";
 import type { PrincipalRef, TenantId } from "../identity";
 import {
@@ -29,12 +34,11 @@ import { AuthorityPermitIssuanceReply, AuthorityPermitIssuanceRequest } from "..
 export type AuthorityPermitReference = ReturnType<AuthorityPermit["toData"]>;
 
 export const authorityPermitReferenceCodec: StructuralCodec<AuthorityPermitReference> =
-    Object.freeze({
-        encode: (reference: AuthorityPermitReference): JsonValue =>
+    structuralCodec(
+        (reference: AuthorityPermitReference): JsonValue =>
             AuthorityPermit.fromData(reference).toData(),
-        decode: (value: JsonValue): AuthorityPermitReference =>
-            AuthorityPermit.fromData(value).toData()
-    });
+        (value: JsonValue): AuthorityPermitReference => AuthorityPermit.fromData(value).toData()
+    );
 
 export interface AuthorityPermitExpectationFactory<
     Transaction,

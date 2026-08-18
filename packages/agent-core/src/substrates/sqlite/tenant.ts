@@ -10,7 +10,7 @@ import {
     type AuthorityRecordPresence
 } from "../../authority";
 import { requireSynchronousResult } from "../../actors";
-import { RecordCodec, Revision, isJsonObject, type JsonValue } from "../../core";
+import { RecordCodec, Revision, isJsonObject, type JsonValue, TextId } from "../../core";
 import { AgentCoreError } from "../../errors";
 import {
     Membership,
@@ -54,7 +54,14 @@ import { ReadableSqlite, TransactionalSqlite, isSqliteNumber, isSqliteText } fro
 
 class BootstrapMarkerCodec extends RecordCodec<TenantBootstrapMarker> {
     public constructor() {
-        super("protocol.tenant-bootstrap-marker", { major: 1, minor: 0 });
+        super(
+            [TenantBootstrapMarker, Revision, TextId, TenantId, PrincipalId],
+            "protocol.tenant-bootstrap-marker",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(marker: TenantBootstrapMarker): JsonValue {
@@ -85,7 +92,9 @@ class BootstrapMarkerCodec extends RecordCodec<TenantBootstrapMarker> {
 }
 
 class TenantBootstrapMarker {
-    public static readonly codec: RecordCodec<TenantBootstrapMarker> = new BootstrapMarkerCodec();
+    public static get codec(): RecordCodec<TenantBootstrapMarker> {
+        return tenantBootstrapMarkerCodecInstance;
+    }
 
     public constructor(
         public readonly tenantId: TenantId,
@@ -103,6 +112,8 @@ class TenantBootstrapMarker {
         return TenantBootstrapMarker.codec.decode(bytes);
     }
 }
+
+const tenantBootstrapMarkerCodecInstance = new BootstrapMarkerCodec();
 
 const CREATE_BOOTSTRAP_ANCHOR = `CREATE TABLE IF NOT EXISTS tenant_bootstrap_anchor (
     singleton INTEGER PRIMARY KEY CHECK (singleton = 1),

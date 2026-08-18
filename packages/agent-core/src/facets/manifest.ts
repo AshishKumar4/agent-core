@@ -1,4 +1,4 @@
-import { isMember, isNonempty, CompatRange, JsonSchema, SemVer } from "../core";
+import { isMember, isNonempty, CompatRange, JsonSchema, SemVer, TextId } from "../core";
 import type { FacetData } from "./data";
 import {
     DataRecordCodec,
@@ -11,8 +11,8 @@ import {
     requireSchemaDocument,
     requireString
 } from "./data";
-import { Contributions } from "./contribution";
-import { BindingName, FacetPackageId } from "./id";
+import { Contribution, Contributions } from "./contribution";
+import { BindingName, FacetPackageId, SlotName } from "./id";
 
 export type IsolationMode = "dynamic" | "provider" | "bundled";
 
@@ -68,6 +68,7 @@ export class BindingRequirement {
 }
 
 const bindingRequirementCodec = new DataRecordCodec(
+    [BindingRequirement, TextId, CompatRange, BindingName, FacetPackageId],
     "facet.binding-requirement",
     (requirement: BindingRequirement) => requirement.toData(),
     (payload) => BindingRequirement.fromData(payload)
@@ -179,6 +180,19 @@ function requireContributionMap(
 }
 
 const facetManifestCodec = new DataRecordCodec(
+    [
+        FacetManifest,
+        BindingRequirement,
+        TextId,
+        SemVer,
+        CompatRange,
+        JsonSchema,
+        Contributions,
+        FacetPackageId,
+        BindingName,
+        SlotName,
+        Contribution
+    ],
     "facet.manifest",
     (manifest: FacetManifest) => manifest.toData(),
     (payload) => FacetManifest.fromData(payload),

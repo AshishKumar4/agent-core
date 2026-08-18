@@ -76,6 +76,7 @@ describe("invocation context barrel", () => {
             "requireSafeInteger",
             "requireString",
             "sameJson",
+            "structuralCodec",
             "terminalBatchOutcome",
             "validDate",
             "validateAuditAppend",

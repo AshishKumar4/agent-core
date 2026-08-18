@@ -5,7 +5,6 @@ import { join } from "node:path";
 import { ActorId, ActorRef } from "../../../src/actors";
 import {
     ForcedTurnCancellation,
-    MemoryRunStorage,
     Run,
     RunAdmissionRegistry,
     RunBranch,
@@ -18,6 +17,7 @@ import {
     RunPins,
     RunRepository,
     RunRuntime,
+    type RunTransaction,
     RepositoryTurnLeaseVerifier,
     SettlementObligation,
     TerminalSnapshot,
@@ -33,7 +33,11 @@ import { PrincipalId, PrincipalRef, TenantId } from "../../../src/identity";
 import { RunCommitId } from "../../../src/execution-references";
 import { ApprovalId, ReceiptId } from "../../../src/invocation-references";
 import { AuditRecordId, EventId, InvocationId } from "../../../src/interaction-references";
-import { sqliteText } from "../../../src/substrates/sqlite/content";
+import {
+    initializeSqliteContent,
+    insertSqliteContent,
+    sqliteText
+} from "../../../src/substrates/sqlite/content";
 import { SqliteRunStorage, type SqliteStoredRunRecord } from "../../../src/substrates/sqlite/run";
 import { TransactionalSqlite, type SqliteRow, type SqliteValue } from "../../../src/substrates";
 import type { SynchronousResultGuard } from "../../../src/actors";
@@ -48,35 +52,66 @@ import {
     configuration,
     content,
     digest,
+    fixtureContentEntries,
     genesis,
     ids,
+    memoryRunStorage,
     pins,
     refs,
+    testRunRepository,
     UncontributedCutPoints
 } from "../../agents/runs/fixture";
 
 const owner = new ActorRef("workspace", new ActorId("workspace-run-owner"));
+
+function sqliteRunStorage(database: TransactionalSqlite, actor: ActorRef): SqliteRunStorage {
+    const initialized =
+        database.all("SELECT name, type, sql FROM sqlite_schema WHERE name = 'content_blobs'", [])
+            .length > 0;
+    if (!initialized) {
+        initializeSqliteContent(database);
+        database.transaction(() => {
+            for (const entry of fixtureContentEntries()) {
+                insertSqliteContent(database, entry.ref, entry.digest, entry.bytes);
+            }
+        });
+    }
+    return new SqliteRunStorage(database, ids.holder.tenantId, actor, () => new Date(0));
+}
 
 function holder(principal: string, tenant = ids.holder.tenantId.value): PrincipalRef {
     return new PrincipalRef(new TenantId(tenant), new PrincipalId(principal));
 }
 
 class MutatingSqlite extends TransactionalSqlite {
-    public mutate: (statement: string, rows: readonly SqliteRow[]) => readonly SqliteRow[] = (
-        _statement,
-        rows
-    ) => rows;
+    readonly #projection: {
+        mutate: (statement: string, rows: readonly SqliteRow[]) => readonly SqliteRow[];
+    };
 
     public constructor(private readonly base: TestSqlite) {
-        super();
+        const projection = {
+            mutate: (_statement: string, rows: readonly SqliteRow[]) => rows
+        };
+        super({
+            source: base,
+            view: {
+                projectRows: (statement, rows) => projection.mutate(statement, rows)
+            }
+        });
+        this.#projection = projection;
     }
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        return this.mutate(statement, this.base.all(statement, bindings));
+    public get mutate(): (
+        statement: string,
+        rows: readonly SqliteRow[]
+    ) => readonly SqliteRow[] {
+        return this.#projection.mutate;
     }
 
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
-        this.base.run(statement, bindings);
+    public set mutate(
+        value: (statement: string, rows: readonly SqliteRow[]) => readonly SqliteRow[]
+    ) {
+        this.#projection.mutate = value;
     }
 
     public transaction<Result>(
@@ -87,9 +122,15 @@ class MutatingSqlite extends TransactionalSqlite {
     }
 }
 
+class DamagedSqlite extends TestSqlite {
+    public damage(statement: string): void {
+        this.execute(statement, []);
+    }
+}
+
 function row(key: string, revision: number | null = null): SqliteStoredRunRecord {
     return {
-        kind: "commit",
+        kind: "verdict",
         key,
         revision,
         bytes: new TextEncoder().encode(`record:${key}:${revision}`)
@@ -101,8 +142,126 @@ describe("SQLite Run storage", () => {
         "[run-storage-port] memory and SQLite satisfy one shared transaction and record contract",
         { tags: "p1" },
         () => {
-            assertStorageContract(new MemoryRunStorage());
-            assertStorageContract(new SqliteRunStorage(new TestSqlite(), owner));
+            assertStorageContract(memoryRunStorage());
+            assertStorageContract(sqliteRunStorage(new TestSqlite(), owner));
+        }
+    );
+
+    it(
+        "rejects inactive, nested, sibling, captured, and foreign transaction capabilities",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const storage = sqliteRunStorage(database, owner);
+            const sibling = sqliteRunStorage(database, owner);
+            const candidate = row("guarded", 0);
+            expect("retention" in storage).toBe(false);
+            expect("retention" in storage.content).toBe(false);
+
+            const inactive = storage.transaction((transaction) => transaction);
+            expectCode(() => storage.insert(inactive, candidate), "protocol.invalid-state");
+            expect(
+                database.all("SELECT record_key FROM agent_run_records WHERE record_key = ?", [
+                    candidate.key
+                ])
+            ).toEqual([]);
+
+            const foreign = sqliteRunStorage(new TestSqlite(), owner);
+            foreign.transaction((transaction) =>
+                expectCode(() => storage.insert(transaction, candidate), "protocol.invalid-state")
+            );
+
+            for (const nested of [storage, sibling]) {
+                expectCode(
+                    () =>
+                        storage.transaction((transaction) => {
+                            storage.insert(transaction, candidate);
+                            expectCode(
+                                () => nested.transaction(() => undefined),
+                                "protocol.invalid-state"
+                            );
+                        }),
+                    "protocol.invalid-state"
+                );
+                expect(
+                    database.all("SELECT record_key FROM agent_run_records WHERE record_key = ?", [
+                        candidate.key
+                    ])
+                ).toEqual([]);
+            }
+
+            sibling.transaction((transaction) => sibling.insert(transaction, candidate));
+            expect(
+                storage.transaction((transaction) =>
+                    storage.get(transaction, candidate.kind, candidate.key)
+                )
+            ).toEqual(candidate);
+
+            const captured = storage.transaction((transaction) => {
+                expect(Object.isFrozen(transaction)).toBe(true);
+                expect(Reflect.ownKeys(transaction)).toEqual([]);
+                storage.insert(transaction, candidate);
+                return transaction;
+            });
+            expectCode(
+                () => storage.get(captured, candidate.kind, candidate.key),
+                "protocol.invalid-state"
+            );
+
+            const rollback = new TypeError("rollback");
+            expectThrownIdentity(
+                () =>
+                    storage.transaction((transaction) => {
+                        storage.insert(transaction, row("guarded-rollback", 0));
+                        throw rollback;
+                    }),
+                rollback
+            );
+            expect(
+                storage.transaction((transaction) =>
+                    storage.get(transaction, "verdict", "guarded-rollback")
+                )
+            ).toBeUndefined();
+        }
+    );
+
+    it(
+        "rejects retained database writes between Run transactions before an unowned record can load",
+        { tags: "p0" },
+        () => {
+            const database = new TestSqlite();
+            const retainedRun = database.run;
+            const storage = sqliteRunStorage(database, owner);
+            const repository = new RunRepository(storage);
+            const checkpoint = new RunCheckpoint(
+                new RunCheckpointId("retained-root-write"),
+                ids.turn,
+                ids.root,
+                content("a"),
+                0,
+                undefined
+            );
+
+            expectCode(
+                () =>
+                    retainedRun(
+                        `INSERT INTO agent_run_records (kind, record_key, revision, record)
+                         VALUES (?, ?, ?, ?)`,
+                        [
+                            "checkpoint",
+                            checkpoint.id.value,
+                            null,
+                            RunCheckpoint.codec.encode(checkpoint)
+                        ]
+                    ),
+                "protocol.invalid-state"
+            );
+            expect(
+                repository.transaction((transaction) =>
+                    repository.loadCheckpoint(transaction, checkpoint.id)
+                )
+            ).toBeUndefined();
+            expect(database.all("SELECT owner_key FROM content_owner_edges", [])).toEqual([]);
         }
     );
 
@@ -200,7 +359,7 @@ describe("SQLite Run storage", () => {
 
     it("binds a strict closed schema to one Run-owning Actor", { tags: "p0" }, () => {
         const database = new TestSqlite();
-        new SqliteRunStorage(database, owner);
+        sqliteRunStorage(database, owner);
         const objects = database
             .all("SELECT name FROM sqlite_schema WHERE name LIKE 'agent_run_%' ORDER BY name", [])
             .map((value) => value["name"]);
@@ -210,35 +369,31 @@ describe("SQLite Run storage", () => {
             "agent_run_records",
             "agent_run_storage_schema"
         ]);
-        expect(
-            () => new SqliteRunStorage(database, new ActorRef("run", new ActorId("different")))
+        expect(() =>
+            sqliteRunStorage(database, new ActorRef("run", new ActorId("different")))
         ).toThrow(/owner/);
-        expect(
-            () =>
-                new SqliteRunStorage(
-                    new TestSqlite(),
-                    new ActorRef("tenant", new ActorId("tenant"))
-                )
+        expect(() =>
+            sqliteRunStorage(new TestSqlite(), new ActorRef("tenant", new ActorId("tenant")))
         ).toThrow(/Workspace/);
     });
 
     it("round-trips detached bytes and enforces revision CAS", { tags: "p0" }, () => {
         const database = new TestSqlite();
-        const storage = new SqliteRunStorage(database, owner);
+        const storage = sqliteRunStorage(database, owner);
         const candidate = row("commit-1", 0);
         storage.transaction((tx) => storage.insert(tx, candidate));
         candidate.bytes.fill(0);
-        const stored = storage.transaction((tx) => storage.get(tx, "commit", "commit-1"));
+        const stored = storage.transaction((tx) => storage.get(tx, "verdict", "commit-1"));
         expect(new TextDecoder().decode(stored?.bytes)).toBe("record:commit-1:0");
 
         storage.transaction((tx) => storage.replace(tx, row("commit-1", 1), 0));
-        expect(storage.transaction((tx) => storage.get(tx, "commit", "commit-1"))?.revision).toBe(
+        expect(storage.transaction((tx) => storage.get(tx, "verdict", "commit-1"))?.revision).toBe(
             1
         );
         expect(() =>
             storage.transaction((tx) => storage.replace(tx, row("commit-1", 2), 0))
         ).toThrow(AgentCoreError);
-        expect(storage.transaction((tx) => storage.list(tx, "commit"))).toHaveLength(1);
+        expect(storage.transaction((tx) => storage.list(tx, "verdict"))).toHaveLength(1);
         storage.transaction((tx) => storage.insert(tx, row("commit-1", 1)));
         expect(() =>
             storage.transaction((tx) => storage.insert(tx, row("commit-1", 1)))
@@ -258,13 +413,13 @@ describe("SQLite Run storage", () => {
 
     it("preserves ordered parent edges and adapter recreation", { tags: "p1" }, () => {
         const database = new TestSqlite();
-        const storage = new SqliteRunStorage(database, owner);
+        const storage = sqliteRunStorage(database, owner);
         storage.transaction((tx) => {
             storage.insertParent(tx, { commit: "merge", ordinal: 0, parent: "target" });
             storage.insertParent(tx, { commit: "merge", ordinal: 1, parent: "source" });
             storage.insertParent(tx, { commit: "merge", ordinal: 1, parent: "source" });
         });
-        const restored = new SqliteRunStorage(database, owner);
+        const restored = sqliteRunStorage(database, owner);
         expect(
             restored.transaction((tx) => restored.parents(tx, "merge")).map((edge) => edge.parent)
         ).toEqual(["target", "source"]);
@@ -281,8 +436,8 @@ describe("SQLite Run storage", () => {
 
     it("rolls back records and edges together", { tags: "p0" }, () => {
         const database = new TestSqlite();
-        const storage = new SqliteRunStorage(database, owner);
-        const repository = new RunRepository(storage);
+        const storage = sqliteRunStorage(database, owner);
+        const repository = testRunRepository(storage);
         const run = new RunId("atomic-cancellation-run");
         const terminalTurn = new TurnId("atomic-terminal-turn");
         const sibling = new Turn({
@@ -318,7 +473,7 @@ describe("SQLite Run storage", () => {
             })
         ).toThrow("fault");
         expect(
-            storage.transaction((tx) => storage.get(tx, "commit", "commit-rollback"))
+            storage.transaction((tx) => storage.get(tx, "verdict", "commit-rollback"))
         ).toBeUndefined();
         expect(storage.transaction((tx) => storage.parents(tx, "commit-rollback"))).toEqual([]);
         expect(repository.transaction((tx) => repository.loadTurn(tx, sibling.id))).toEqual(
@@ -332,7 +487,7 @@ describe("SQLite Run storage", () => {
     it("fails closed for unmarked protected state", { tags: "p0" }, () => {
         const database = new TestSqlite();
         database.run("CREATE TABLE agent_run_unmarked (id TEXT) STRICT", []);
-        expect(() => new SqliteRunStorage(database, owner)).toThrow(/Unmarked/);
+        expect(() => sqliteRunStorage(database, owner)).toThrow(/Unmarked/);
         const rows = database.all(
             "SELECT name FROM sqlite_schema WHERE name = 'agent_run_unmarked'",
             []
@@ -344,7 +499,7 @@ describe("SQLite Run storage", () => {
         "rejects malformed records, kinds, and parent projections with codec.invalid",
         { tags: "p1" },
         () => {
-            const storage = new SqliteRunStorage(new TestSqlite(), owner);
+            const storage = sqliteRunStorage(new TestSqlite(), owner);
             const malformed = [
                 row(""),
                 row("bad-revision", -1),
@@ -382,17 +537,17 @@ describe("SQLite Run storage", () => {
             "INSERT INTO agent_run_storage_schema (version, owner_kind, owner_id) VALUES (1, 'workspace', 'workspace-run-owner')",
             []
         );
-        expect(() => new SqliteRunStorage(incomplete, owner)).toThrow(/incomplete/);
+        expect(() => sqliteRunStorage(incomplete, owner)).toThrow(/incomplete/);
 
-        const extra = new TestSqlite();
-        new SqliteRunStorage(extra, owner);
-        extra.run("CREATE TABLE agent_run_extra (id TEXT) STRICT", []);
-        expect(() => new SqliteRunStorage(extra, owner)).toThrow(/unexpected/);
+        const extra = new DamagedSqlite();
+        sqliteRunStorage(extra, owner);
+        extra.damage("CREATE TABLE agent_run_extra (id TEXT) STRICT");
+        expect(() => sqliteRunStorage(extra, owner)).toThrow(/unexpected/);
 
-        const emptyMarker = new TestSqlite();
-        new SqliteRunStorage(emptyMarker, owner);
-        emptyMarker.run("DELETE FROM agent_run_storage_schema", []);
-        expect(() => new SqliteRunStorage(emptyMarker, owner)).toThrow(/version or owner/);
+        const emptyMarker = new DamagedSqlite();
+        sqliteRunStorage(emptyMarker, owner);
+        emptyMarker.damage("DELETE FROM agent_run_storage_schema");
+        expect(() => sqliteRunStorage(emptyMarker, owner)).toThrow(/version.*owner/);
     });
 
     it("rejects same-named unconstrained replacement objects", { tags: "p0" }, () => {
@@ -417,7 +572,7 @@ describe("SQLite Run storage", () => {
             "INSERT INTO agent_run_storage_schema (version, owner_kind, owner_id) VALUES (1, 'workspace', 'workspace-run-owner')",
             []
         );
-        expect(() => new SqliteRunStorage(database, owner)).toThrow(/exact schema/);
+        expect(() => sqliteRunStorage(database, owner)).toThrow(/exact schema/);
     });
 
     it(
@@ -426,21 +581,21 @@ describe("SQLite Run storage", () => {
         () => {
             const base = new TestSqlite();
             const database = new MutatingSqlite(base);
-            const storage = new SqliteRunStorage(database, owner);
+            const storage = sqliteRunStorage(database, owner);
             storage.transaction((tx) => storage.insert(tx, row("duplicate")));
             database.mutate = (statement, rows) =>
                 statement.includes("WHERE kind = ? AND record_key = ?") && rows.length === 1
                     ? [rows[0]!, rows[0]!]
                     : rows;
             expect(() =>
-                storage.transaction((tx) => storage.get(tx, "commit", "duplicate"))
+                storage.transaction((tx) => storage.get(tx, "verdict", "duplicate"))
             ).toThrow(/multiple rows/);
 
             database.mutate = (statement, rows) =>
                 statement.includes("WHERE kind = ? ORDER BY record_key")
                     ? rows.map((value) => ({ ...value, record_key: "" }))
                     : rows;
-            expect(() => storage.transaction((tx) => storage.list(tx, "commit"))).toThrow(
+            expect(() => storage.transaction((tx) => storage.list(tx, "verdict"))).toThrow(
                 /record_key/
             );
         }
@@ -454,9 +609,9 @@ describe("SQLite Run storage", () => {
             const path = join(directory, "run.sqlite");
             try {
                 const firstDatabase = new FileSqlite(path);
-                const first = new SqliteRunStorage(firstDatabase, owner);
+                const first = sqliteRunStorage(firstDatabase, owner);
                 const run = new RunId("restart-run");
-                const repository = new RunRepository(first);
+                const repository = testRunRepository(first);
                 const reserved = RunAdmissionRegistry.initial(run).reserve({
                     kind: "invocationItem",
                     invocation: new InvocationId("restart-invocation"),
@@ -474,8 +629,9 @@ describe("SQLite Run storage", () => {
                     cancellationEvent: new EventId("restart-cancellation-event"),
                     cancellationAudit: new AuditRecordId("restart-cancellation-audit")
                 });
+                const raw = row("restart", 0);
                 first.transaction((tx) => {
-                    first.insert(tx, row("restart", 0));
+                    first.insert(tx, raw);
                     first.insertParent(tx, { commit: "restart", ordinal: 0, parent: "root" });
                     repository.insertAdmission(tx, reserved.registry);
                     repository.insertForcedCancellation(tx, cancellation);
@@ -483,10 +639,10 @@ describe("SQLite Run storage", () => {
                 firstDatabase.close();
 
                 const secondDatabase = new FileSqlite(path);
-                const second = new SqliteRunStorage(secondDatabase, owner);
-                const restartedRepository = new RunRepository(second);
+                const second = sqliteRunStorage(secondDatabase, owner);
+                const restartedRepository = testRunRepository(second);
                 expect(
-                    second.transaction((tx) => second.get(tx, "commit", "restart"))?.revision
+                    second.transaction((tx) => second.get(tx, "verdict", "restart"))?.revision
                 ).toBe(0);
                 expect(second.transaction((tx) => second.parents(tx, "restart"))[0]?.parent).toBe(
                     "root"
@@ -568,9 +724,7 @@ describe("SQLite Run storage", () => {
                 "checkpoint",
                 "lifecycle"
             ] as const) {
-                assertAcrossRunStorages((value) =>
-                    assertCorruptExecutionScope(value, corruption)
-                );
+                assertAcrossRunStorages((value) => assertCorruptExecutionScope(value, corruption));
             }
         }
     );
@@ -590,7 +744,7 @@ interface RunningHarness<Transaction> extends RuntimeHarness<Transaction> {
 function runtimeHarness<Transaction>(
     storage: RunStoragePort<Transaction>
 ): RuntimeHarness<Transaction> {
-    const repository = new RunRepository(storage);
+    const repository = testRunRepository(storage);
     const evidence = new TestEvidencePort<Transaction>();
     return {
         repository,
@@ -613,19 +767,17 @@ function assertAcrossRunStorages(
         restart: () => RuntimeHarness<Transaction>
     ) => void
 ): void {
-    const memory = new MemoryRunStorage();
-    assertion(runtimeHarness(memory), () =>
-        runtimeHarness(new MemoryRunStorage(memory.snapshot()))
-    );
+    const memory = memoryRunStorage();
+    assertion(runtimeHarness(memory), () => runtimeHarness(memoryRunStorage(memory.snapshot())));
 
     const directory = mkdtempSync(join(tmpdir(), "w5-run-behavior-"));
     const path = join(directory, "run.sqlite");
     let database = new FileSqlite(path);
     try {
-        assertion(runtimeHarness(new SqliteRunStorage(database, ids.actor)), () => {
+        assertion(runtimeHarness(sqliteRunStorage(database, ids.actor)), () => {
             database.close();
             database = new FileSqlite(path);
-            return runtimeHarness(new SqliteRunStorage(database, ids.actor));
+            return runtimeHarness(sqliteRunStorage(database, ids.actor));
         });
     } finally {
         database.close();
@@ -670,12 +822,7 @@ function seedRunning<Transaction>(value: RuntimeHarness<Transaction>): RunningHa
 function assertCorruptExecutionScope<Transaction>(
     value: RuntimeHarness<Transaction>,
     corruption:
-        | "branch"
-        | "headPins"
-        | "effectiveAncestry"
-        | "placement"
-        | "checkpoint"
-        | "lifecycle"
+        "branch" | "headPins" | "effectiveAncestry" | "placement" | "checkpoint" | "lifecycle"
 ): void {
     const running = seedRunning(value);
     value.repository.transaction((transaction) => {
@@ -1396,13 +1543,23 @@ function expectCode(operation: () => void, code: AgentCoreError["code"]): void {
     throw new TypeError(`Expected AgentCoreError ${code}`);
 }
 
+function expectThrownIdentity(operation: () => void, expected: Error): void {
+    try {
+        operation();
+    } catch (error) {
+        expect(error).toBe(expected);
+        return;
+    }
+    throw new TypeError(`Expected ${expected.name}`);
+}
+
 function assertStorageContract<Transaction>(storage: RunStoragePort<Transaction>): void {
     storage.transaction((transaction) => {
         storage.insert(transaction, row("shared", 0));
         storage.insert(transaction, row("shared", 0));
         storage.insertParent(transaction, { commit: "shared", ordinal: 0, parent: "root" });
     });
-    expect(storage.transaction((transaction) => storage.list(transaction, "commit"))).toHaveLength(
+    expect(storage.transaction((transaction) => storage.list(transaction, "verdict"))).toHaveLength(
         1
     );
     expect(storage.transaction((transaction) => storage.parents(transaction, "shared"))).toEqual([
@@ -1415,30 +1572,30 @@ function assertStorageContract<Transaction>(storage: RunStoragePort<Transaction>
         })
     ).toThrow(/rollback/);
     expect(
-        storage.transaction((transaction) => storage.get(transaction, "commit", "rolled-back"))
+        storage.transaction((transaction) => storage.get(transaction, "verdict", "rolled-back"))
     ).toBeUndefined();
 }
 
-function sqliteRuntime(database: TransactionalSqlite): RuntimeHarness<TransactionalSqlite> {
-    const repository = new RunRepository(new SqliteRunStorage(database, ids.actor));
-    const evidence = new TestEvidencePort<TransactionalSqlite>();
+function sqliteRuntime(database: TransactionalSqlite): RuntimeHarness<RunTransaction> {
+    const repository = testRunRepository(sqliteRunStorage(database, ids.actor));
+    const evidence = new TestEvidencePort<RunTransaction>();
     return {
         repository,
         evidence,
-        runtime: new RunRuntime<TransactionalSqlite>(
+        runtime: new RunRuntime<RunTransaction>(
             repository,
-            new TestSourcePort<TransactionalSqlite>(),
+            new TestSourcePort<RunTransaction>(),
             evidence,
-            new TestSettlementPort<TransactionalSqlite>(),
-            new TestSpawnPort<TransactionalSqlite>(),
-            new TestMergePort<TransactionalSqlite>(),
+            new TestSettlementPort<RunTransaction>(),
+            new TestSpawnPort<RunTransaction>(),
+            new TestMergePort<RunTransaction>(),
             new UncontributedCutPoints()
         )
     };
 }
 
 function createPinnedTurn(
-    runtime: RunRuntime<TransactionalSqlite>,
+    runtime: RunRuntime<RunTransaction>,
     id: TurnId,
     branch: RunBranchId,
     head: RunCommitId,
@@ -1470,7 +1627,7 @@ describe("SQLite Run storage exact projections", () => {
         "replace without an existing record fails as a typed revision conflict",
         { tags: "p0" },
         () => {
-            const storage = new SqliteRunStorage(new TestSqlite(), owner);
+            const storage = sqliteRunStorage(new TestSqlite(), owner);
             expectExactFailure(
                 () => storage.transaction((tx) => storage.replace(tx, row("absent", 1), 0)),
                 "protocol.revision-conflict",
@@ -1480,7 +1637,7 @@ describe("SQLite Run storage exact projections", () => {
     );
 
     it("replace rejects stale and skipped revisions without writing", { tags: "p0" }, () => {
-        const storage = new SqliteRunStorage(new TestSqlite(), owner);
+        const storage = sqliteRunStorage(new TestSqlite(), owner);
         storage.transaction((tx) => storage.insert(tx, row("cas", 0)));
         expectExactFailure(
             () => storage.transaction((tx) => storage.replace(tx, row("cas", 2), 0)),
@@ -1492,17 +1649,17 @@ describe("SQLite Run storage exact projections", () => {
             "protocol.revision-conflict",
             "Run record revision changed"
         );
-        const unchanged = storage.transaction((tx) => storage.get(tx, "commit", "cas"));
+        const unchanged = storage.transaction((tx) => storage.get(tx, "verdict", "cas"));
         expect(unchanged?.revision).toBe(0);
         expect(new TextDecoder().decode(unchanged?.bytes)).toBe("record:cas:0");
         storage.transaction((tx) => storage.replace(tx, row("cas", 1), 0));
-        expect(storage.transaction((tx) => storage.get(tx, "commit", "cas"))?.revision).toBe(1);
+        expect(storage.transaction((tx) => storage.get(tx, "verdict", "cas"))?.revision).toBe(1);
     });
 
     it("insert idempotence compares the exact revision and bytes", { tags: "p0" }, () => {
-        const storage = new SqliteRunStorage(new TestSqlite(), owner);
+        const storage = sqliteRunStorage(new TestSqlite(), owner);
         const template = {
-            kind: "commit" as const,
+            kind: "verdict" as const,
             key: "exact-bytes",
             revision: null,
             bytes: Uint8Array.of(1, 2)
@@ -1532,13 +1689,13 @@ describe("SQLite Run storage exact projections", () => {
         storage.transaction((tx) =>
             storage.insert(tx, { ...template, bytes: Uint8Array.of(1, 2) })
         );
-        const stored = storage.transaction((tx) => storage.get(tx, "commit", "exact-bytes"));
+        const stored = storage.transaction((tx) => storage.get(tx, "verdict", "exact-bytes"));
         expect(stored?.revision).toBeNull();
         expect(Array.from(stored?.bytes ?? [])).toEqual([1, 2]);
     });
 
     it("insertParent rejects a negative ordinal as a typed malformed edge", { tags: "p1" }, () => {
-        const storage = new SqliteRunStorage(new TestSqlite(), owner);
+        const storage = sqliteRunStorage(new TestSqlite(), owner);
         expectExactFailure(
             () =>
                 storage.transaction((tx) =>
@@ -1552,34 +1709,31 @@ describe("SQLite Run storage exact projections", () => {
 
     it("reopen rejects marker version drift from the substrate", { tags: "p0" }, () => {
         const database = new MutatingSqlite(new TestSqlite());
-        new SqliteRunStorage(database, owner);
+        sqliteRunStorage(database, owner);
         database.mutate = (statement, rows) =>
-            statement.includes("SELECT version, owner_kind, owner_id")
-                ? rows.map((value) => ({ ...value, version: 2 }))
+            statement.includes("SELECT version, tenant_id, owner_kind, owner_id")
+                ? rows.map((value) => ({ ...value, version: 1 }))
                 : rows;
         expectExactFailure(
-            () => new SqliteRunStorage(database, owner),
+            () => sqliteRunStorage(database, owner),
             "codec.invalid",
-            "Run storage schema version or owner does not match"
+            "Run storage schema version, Tenant, or owner does not match"
         );
     });
 
     it("reopen rejects owner drift in kind or id alone", { tags: "p0" }, () => {
         const database = new TestSqlite();
-        new SqliteRunStorage(database, owner);
+        sqliteRunStorage(database, owner);
         expectExactFailure(
-            () => new SqliteRunStorage(database, new ActorRef("run", new ActorId(owner.id.value))),
+            () => sqliteRunStorage(database, new ActorRef("run", new ActorId(owner.id.value))),
             "codec.invalid",
-            "Run storage schema version or owner does not match"
+            "Run storage schema version, Tenant, or owner does not match"
         );
         expectExactFailure(
             () =>
-                new SqliteRunStorage(
-                    database,
-                    new ActorRef("workspace", new ActorId("another-owner"))
-                ),
+                sqliteRunStorage(database, new ActorRef("workspace", new ActorId("another-owner"))),
             "codec.invalid",
-            "Run storage schema version or owner does not match"
+            "Run storage schema version, Tenant, or owner does not match"
         );
     });
 
@@ -1587,15 +1741,14 @@ describe("SQLite Run storage exact projections", () => {
         "reports a renamed object with a matching count as an incomplete schema",
         { tags: "p0" },
         () => {
-            const database = new TestSqlite();
-            new SqliteRunStorage(database, owner);
-            database.run("DROP INDEX agent_run_commit_parent_reverse", []);
-            database.run(
-                "CREATE INDEX agent_run_commit_parent_alternate ON agent_run_commit_parents (parent_id, commit_id)",
-                []
+            const database = new DamagedSqlite();
+            sqliteRunStorage(database, owner);
+            database.damage("DROP INDEX agent_run_commit_parent_reverse");
+            database.damage(
+                "CREATE INDEX agent_run_commit_parent_alternate ON agent_run_commit_parents (parent_id, commit_id)"
             );
             expectExactFailure(
-                () => new SqliteRunStorage(database, owner),
+                () => sqliteRunStorage(database, owner),
                 "codec.invalid",
                 "Run storage schema is incomplete or contains unexpected objects"
             );
@@ -1604,7 +1757,7 @@ describe("SQLite Run storage exact projections", () => {
 
     it("get rejects each drifted record projection column exactly", { tags: "p0" }, () => {
         const database = new MutatingSqlite(new TestSqlite());
-        const storage = new SqliteRunStorage(database, owner);
+        const storage = sqliteRunStorage(database, owner);
         storage.transaction((tx) => storage.insert(tx, row("drift", 0)));
         const drifts: readonly ((value: SqliteRow) => SqliteRow)[] = [
             (value) => ({ ...value, kind: "turn" }),
@@ -1617,7 +1770,7 @@ describe("SQLite Run storage exact projections", () => {
             database.mutate = (statement, rows) =>
                 statement.includes("WHERE kind = ? AND record_key = ?") ? rows.map(drift) : rows;
             expectExactFailure(
-                () => storage.transaction((tx) => storage.get(tx, "commit", "drift")),
+                () => storage.transaction((tx) => storage.get(tx, "verdict", "drift")),
                 "codec.invalid",
                 "Stored Run record projection is malformed"
             );
@@ -1626,7 +1779,7 @@ describe("SQLite Run storage exact projections", () => {
 
     it("parent projections report the exact invalid column", { tags: "p1" }, () => {
         const database = new MutatingSqlite(new TestSqlite());
-        const storage = new SqliteRunStorage(database, owner);
+        const storage = sqliteRunStorage(database, owner);
         storage.transaction((tx) =>
             storage.insertParent(tx, { commit: "commit", ordinal: 0, parent: "root" })
         );
@@ -1648,13 +1801,13 @@ describe("SQLite Run storage exact projections", () => {
 
     it("restart validation scans every stored parent edge", { tags: "p0" }, () => {
         const database = new MutatingSqlite(new TestSqlite());
-        new SqliteRunStorage(database, owner);
+        sqliteRunStorage(database, owner);
         database.mutate = (statement, rows) =>
             statement.includes("ORDER BY commit_id, ordinal")
                 ? [{ commit_id: "scan", ordinal: 2, parent_id: "parent" }]
                 : rows;
         expectExactFailure(
-            () => new SqliteRunStorage(database, owner),
+            () => sqliteRunStorage(database, owner),
             "codec.invalid",
             "Stored Run parent edge is malformed"
         );
@@ -1662,32 +1815,32 @@ describe("SQLite Run storage exact projections", () => {
 
     it("get returns bytes detached from the substrate row", { tags: "p1" }, () => {
         const database = new MutatingSqlite(new TestSqlite());
-        const storage = new SqliteRunStorage(database, owner);
+        const storage = sqliteRunStorage(database, owner);
         storage.transaction((tx) => storage.insert(tx, row("alias")));
         const sharedBytes = Uint8Array.of(7, 8, 9);
         database.mutate = (statement, rows) =>
             statement.includes("WHERE kind = ? AND record_key = ?")
-                ? [{ kind: "commit", record_key: "alias", revision: null, record: sharedBytes }]
+                ? [{ kind: "verdict", record_key: "alias", revision: null, record: sharedBytes }]
                 : rows;
-        const first = storage.transaction((tx) => storage.get(tx, "commit", "alias"));
+        const first = storage.transaction((tx) => storage.get(tx, "verdict", "alias"));
         first?.bytes.fill(0);
         expect(Array.from(sharedBytes)).toEqual([7, 8, 9]);
-        const second = storage.transaction((tx) => storage.get(tx, "commit", "alias"));
+        const second = storage.transaction((tx) => storage.get(tx, "verdict", "alias"));
         expect(Array.from(second?.bytes ?? [])).toEqual([7, 8, 9]);
     });
 
     it("insert and replace hand the substrate detached record bytes", { tags: "p0" }, () => {
         const database = new BlobRecordingSqlite();
-        const storage = new SqliteRunStorage(database, owner);
+        const storage = sqliteRunStorage(database, owner);
         const inserted: SqliteStoredRunRecord = {
-            kind: "commit",
+            kind: "verdict",
             key: "detached",
             revision: 0,
             bytes: Uint8Array.of(1, 2, 3)
         };
         const stored = (): readonly number[] =>
             Array.from(
-                storage.transaction((tx) => storage.get(tx, "commit", "detached"))?.bytes ?? []
+                storage.transaction((tx) => storage.get(tx, "verdict", "detached"))?.bytes ?? []
             );
         storage.transaction((tx) => storage.insert(tx, inserted));
         const insertedBlob = database.lastRecordBlob;
@@ -1696,7 +1849,7 @@ describe("SQLite Run storage exact projections", () => {
         expect(stored()).toEqual([1, 2, 3]);
 
         const replaced: SqliteStoredRunRecord = {
-            kind: "commit",
+            kind: "verdict",
             key: "detached",
             revision: 1,
             bytes: Uint8Array.of(4, 5, 6)
@@ -1710,7 +1863,7 @@ describe("SQLite Run storage exact projections", () => {
 
     it("schema validation compares object type and normalized SQL apart", { tags: "p0" }, () => {
         const database = new MutatingSqlite(new TestSqlite());
-        new SqliteRunStorage(database, owner);
+        sqliteRunStorage(database, owner);
         database.mutate = (statement, rows) =>
             statement.includes("FROM sqlite_schema")
                 ? rows.map((value) => ({
@@ -1719,7 +1872,7 @@ describe("SQLite Run storage exact projections", () => {
                   }))
                 : rows;
         expectExactFailure(
-            () => new SqliteRunStorage(database, owner),
+            () => sqliteRunStorage(database, owner),
             "codec.invalid",
             "Run storage object agent_run_commit_parent_reverse does not match its exact schema"
         );
@@ -1732,17 +1885,17 @@ describe("SQLite Run storage exact projections", () => {
         ];
         for (const rewrite of rewrites) {
             const database = new MutatingSqlite(new TestSqlite());
-            new SqliteRunStorage(database, owner);
+            sqliteRunStorage(database, owner);
             database.mutate = (statement, rows) =>
                 statement.includes("FROM sqlite_schema")
                     ? rows.map((value) => ({ ...value, sql: rewrite(sqliteText(value, "sql")) }))
                     : rows;
-            const reopened = new SqliteRunStorage(database, owner);
+            const reopened = sqliteRunStorage(database, owner);
             expect(reopened.transaction((tx) => reopened.list(tx, "commit"))).toEqual([]);
         }
 
         const squeezed = new MutatingSqlite(new TestSqlite());
-        new SqliteRunStorage(squeezed, owner);
+        sqliteRunStorage(squeezed, owner);
         squeezed.mutate = (statement, rows) =>
             statement.includes("FROM sqlite_schema")
                 ? rows.map((value) => ({
@@ -1751,7 +1904,7 @@ describe("SQLite Run storage exact projections", () => {
                   }))
                 : rows;
         expectExactFailure(
-            () => new SqliteRunStorage(squeezed, owner),
+            () => sqliteRunStorage(squeezed, owner),
             "codec.invalid",
             "Run storage object agent_run_records does not match its exact schema"
         );
@@ -1759,14 +1912,14 @@ describe("SQLite Run storage exact projections", () => {
 
     it("reports a non-text record projection column as an invalid column", { tags: "p1" }, () => {
         const database = new MutatingSqlite(new TestSqlite());
-        const storage = new SqliteRunStorage(database, owner);
+        const storage = sqliteRunStorage(database, owner);
         storage.transaction((tx) => storage.insert(tx, row("typed", 0)));
         database.mutate = (statement, rows) =>
             statement.includes("WHERE kind = ? AND record_key = ?")
                 ? rows.map((value) => ({ ...value, kind: 7 }))
                 : rows;
         expectExactFailure(
-            () => storage.transaction((tx) => storage.get(tx, "commit", "typed")),
+            () => storage.transaction((tx) => storage.get(tx, "verdict", "typed")),
             "codec.invalid",
             "SQLite kind is invalid"
         );
@@ -1776,8 +1929,8 @@ describe("SQLite Run storage exact projections", () => {
 class BlobRecordingSqlite extends TestSqlite {
     public lastRecordBlob: Uint8Array | undefined;
 
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
-        super.run(statement, bindings);
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
+        super.execute(statement, bindings);
         if (!statement.includes("agent_run_records")) return;
         for (const binding of bindings) {
             if (binding instanceof Uint8Array) this.lastRecordBlob = binding;

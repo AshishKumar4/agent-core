@@ -1,5 +1,5 @@
-import { Digest, RecordCodec, type JsonValue } from "../../core";
-import { OperationRef } from "../../facets";
+import { Digest, RecordCodec, type JsonValue, TextId } from "../../core";
+import { FacetPackageId, OperationName, OperationRef } from "../../facets";
 import { ReceiptId } from "../../invocation-references";
 import {
     CodecRecord,
@@ -54,7 +54,22 @@ export class AcceptanceCriterion extends CodecRecord {
 
 class AcceptanceCriterionRecordCodec extends RecordCodec<AcceptanceCriterion> {
     public constructor() {
-        super("run.acceptance-criterion", { major: 1, minor: 0 });
+        super(
+            [
+                AcceptanceCriterion,
+                TextId,
+                OperationRef,
+                AcceptanceId,
+                FacetPackageId,
+                CodecRecord,
+                OperationName
+            ],
+            "run.acceptance-criterion",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
     protected encodePayload(value: AcceptanceCriterion): JsonValue {
         return value.toData();
@@ -120,7 +135,14 @@ export class AcceptanceVerdict extends CodecRecord {
 
 class AcceptanceVerdictRecordCodec extends RecordCodec<AcceptanceVerdict> {
     public constructor() {
-        super("run.acceptance-verdict", { major: 1, minor: 0 });
+        super(
+            [AcceptanceVerdict, TextId, Digest, AcceptanceId, ReceiptId, CodecRecord],
+            "run.acceptance-verdict",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
     protected encodePayload(value: AcceptanceVerdict): JsonValue {
         return value.toData();

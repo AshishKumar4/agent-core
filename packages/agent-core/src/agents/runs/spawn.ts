@@ -1,16 +1,18 @@
-import { ContentRef, Digest, RecordCodec, type JsonValue } from "../../core";
+import { ContentRef, Digest, RecordCodec, type JsonValue, TextId } from "../../core";
 import { TurnId } from "../../execution-references";
 import { ReceiptId } from "../../invocation-references";
 import { InvocationId } from "../../interaction-references";
-import { PrincipalRef } from "../../identity";
+import { PrincipalId, PrincipalRef, TenantId } from "../../identity";
 import {
     CodecRecord,
+    contentRetentionFields,
     digestFromData,
     requireExactFields,
     requireObject,
     requireString,
     requireTimestamp
 } from "../record-data";
+import type { ContentRetentionField } from "../record-data";
 import type { SpawnAttenuation } from "./ceiling";
 import { RunId, SpawnReservationId } from "./id";
 import { leaseTokenFromData, leaseTokenToData, type LeaseToken } from "./lease";
@@ -111,9 +113,36 @@ export class SpawnReservation extends CodecRecord {
     }
 }
 
+export function spawnReservationContentRetention(
+    value: SpawnReservation
+): readonly ContentRetentionField[] {
+    return contentRetentionFields([["rootContent", value.rootContent]]);
+}
+
 class SpawnCodec extends RecordCodec<SpawnReservation> {
     public constructor() {
-        super("run.spawn-reservation", { major: 2, minor: 0 });
+        super(
+            [
+                SpawnReservation,
+                TextId,
+                ContentRef,
+                Digest,
+                RunId,
+                InvocationId,
+                ReceiptId,
+                TenantId,
+                SpawnReservationId,
+                TurnId,
+                PrincipalId,
+                CodecRecord,
+                PrincipalRef
+            ],
+            "run.spawn-reservation",
+            {
+                major: 2,
+                minor: 0
+            }
+        );
     }
     protected encodePayload(value: SpawnReservation): JsonValue {
         return value.toData();

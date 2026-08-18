@@ -13,8 +13,8 @@ import { digestOf, packageLock, packageRelease } from "../../definition/package-
 class RowTamperSqlite extends TestSqlite {
     public tamper: ((statement: string, rows: readonly SqliteRow[]) => readonly SqliteRow[]) | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const rows = super.all(statement, bindings);
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
         return this.tamper === undefined ? rows : this.tamper(statement, rows);
     }
 }

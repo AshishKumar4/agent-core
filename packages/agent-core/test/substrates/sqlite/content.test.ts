@@ -4,7 +4,6 @@ import { ContentRef, Digest } from "../../../src/core";
 import { AgentCoreError, type AgentCoreErrorCode } from "../../../src/errors";
 import {
     SqliteContentStore,
-    TransactionalSqlite,
     type SqliteRow,
     type SqliteValue
 } from "../../../src/substrates/sqlite";
@@ -14,7 +13,7 @@ import { TestSqlite } from "../../helpers/sqlite";
 const encode = (value: string): Uint8Array => new TextEncoder().encode(value);
 const EMPTY_SHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-class InterceptingSqlite extends TransactionalSqlite {
+class InterceptingSqlite extends TestSqlite {
     public mutateRows:
         | ((statement: string, rows: readonly SqliteRow[]) => readonly SqliteRow[])
         | undefined;
@@ -23,16 +22,16 @@ class InterceptingSqlite extends TransactionalSqlite {
         super();
     }
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         const rows = this.inner.all(statement, bindings);
         return this.mutateRows?.(statement, rows) ?? rows;
     }
 
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         this.inner.run(statement, bindings);
     }
 
-    public transaction<Result>(
+    public override transaction<Result>(
         operation: () => Result,
         ...guard: SynchronousResultGuard<Result>
     ): Result {
@@ -44,8 +43,8 @@ class InterceptingSqlite extends TransactionalSqlite {
 class BlobRecordingSqlite extends TestSqlite {
     public lastBlob: Uint8Array | undefined;
 
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
-        super.run(statement, bindings);
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
+        super.execute(statement, bindings);
         if (!statement.includes("INTO content_blobs")) return;
         for (const binding of bindings) {
             if (binding instanceof Uint8Array) this.lastBlob = binding;

@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+    ContentRef,
+    Digest,
     JsonSchema,
     Revision,
     encodeCanonicalJson,
-    type ContentRef,
     type JsonValue
 } from "../../../src/core";
 import { ContentStore, MemoryContentStore } from "../../../src/content";
@@ -37,6 +38,7 @@ import {
     TurnAdmissionHandle,
     TurnAdmissionIdentity,
     TurnAdmissionRecordPort,
+    TurnAdmissionReceiptFacts,
     TurnAdmissionVerifier,
     TurnShownContent,
     type TurnContext,
@@ -44,7 +46,6 @@ import {
     type TurnModelCall,
     type TurnModelInputAssembly,
     type TurnModelRequest,
-    type TurnAdmissionReceiptFacts,
     type TurnModelUsage,
     type TurnOutcome,
     type TurnStreamPublication
@@ -245,7 +246,7 @@ describe("TurnExecutor seam", () => {
                 selected: "dynamic"
             });
             const seeded = seedRunningTurn(undefined, {}, [placement]);
-            const contentStore = new MemoryContentStore();
+            const contentStore = seeded.repository.content;
             const prompt = (await contentStore.put(new TextEncoder().encode("prompt"))).ref;
             const output = (await contentStore.put(new TextEncoder().encode("complete output")))
                 .ref;
@@ -410,7 +411,7 @@ describe("TurnExecutor seam", () => {
         async (_, settle) => {
             const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
             const tool = boundTool("read", "memory.read", "observe", "Read memory.");
-            const boundaries = await TestBoundaries.create([tool]);
+            const boundaries = await TestBoundaries.create(seeded.repository.content, [tool]);
             const resolved = new TestResolvedFacet(tool, { kind: "direct", output: {} });
             const executor = new FunctionExecutor(async (context) => {
                 await context.invocation.invoke(
@@ -436,7 +437,7 @@ describe("TurnExecutor seam", () => {
         async () => {
             const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
             const tool = boundTool("read", "memory.read", "observe", "Read memory.");
-            const boundaries = await TestBoundaries.create([tool]);
+            const boundaries = await TestBoundaries.create(seeded.repository.content, [tool]);
             const resolved = new TestResolvedFacet(tool, { kind: "direct", output: {} });
             const executor = new FunctionExecutor(async (context) => {
                 await context.invocation.invoke(
@@ -463,7 +464,7 @@ describe("TurnExecutor seam", () => {
         async (placement) => {
             const seeded = seedRunningTurn(undefined, {}, [memoryPlacement(placement)]);
             const tool = boundTool("read", "memory.read", "observe", "Read memory.");
-            const boundaries = await TestBoundaries.create([tool]);
+            const boundaries = await TestBoundaries.create(seeded.repository.content, [tool]);
             const first = new TestResolvedFacet(tool, { kind: "direct", output: { call: 1 } });
             const second = new TestResolvedFacet(tool, { kind: "direct", output: { call: 2 } });
             const executor = new FunctionExecutor(async (context) => {
@@ -505,7 +506,7 @@ describe("TurnExecutor seam", () => {
             const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
             const firstTool = boundTool("read", "memory.read", "observe", "Read memory.");
             const deniedTool = boundTool("write", "memory.write", "mutate", "Write memory.");
-            const boundaries = await TestBoundaries.create([firstTool, deniedTool]);
+            const boundaries = await TestBoundaries.create(seeded.repository.content, [firstTool, deniedTool]);
             const first = new TestResolvedFacet(firstTool, { kind: "direct", output: {} });
             const denied = new TestResolvedFacet(
                 deniedTool,
@@ -645,7 +646,7 @@ describe("TurnExecutor seam", () => {
         { tags: "p0" },
         async () => {
             const seeded = seedRunningTurn();
-            const boundaries = await TestBoundaries.create();
+            const boundaries = await TestBoundaries.create(seeded.repository.content);
             const executor = new FunctionExecutor(async () => {
                 throw new TypeError("executor must not run");
             });
@@ -674,13 +675,13 @@ describe("TurnExecutor seam", () => {
         const executor = new FunctionExecutor(async () => {
             throw new TypeError("executor must not run");
         });
-        const duplicate = await TestBoundaries.create([read, write]);
+        const duplicate = await TestBoundaries.create(seeded.repository.content, [read, write]);
         await expect(duplicate.host(seeded, executor).execute(seeded.token)).rejects.toThrow(
             /unique/
         );
 
         const absent = seedRunningTurn();
-        const absentBoundaries = await TestBoundaries.create([read]);
+        const absentBoundaries = await TestBoundaries.create(absent.repository.content, [read]);
         await expect(
             absentBoundaries.host(absent, executor).execute(absent.token)
         ).rejects.toMatchObject({ code: "turn.invalid-state" });
@@ -691,7 +692,7 @@ describe("TurnExecutor seam", () => {
         const placement = memoryPlacement();
         const seeded = seedRunningTurn(undefined, {}, [placement]);
         const tool = boundTool("read", "memory.read", "observe", "Read memory.");
-        const boundaries = await TestBoundaries.create([tool]);
+        const boundaries = await TestBoundaries.create(seeded.repository.content, [tool]);
         let assemblies = 0;
         const executor = new FunctionExecutor(async (context) => {
             expect(context.prompt).toBe(boundaries.prompt);
@@ -729,7 +730,7 @@ describe("TurnExecutor seam", () => {
             operation: tool.operation,
             descriptor: tool.descriptor
         });
-        const boundaries = await TestBoundaries.create();
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         const executor = new FunctionExecutor(async () => {
             throw new TypeError("executor must not run");
         });
@@ -759,7 +760,7 @@ describe("TurnExecutor seam", () => {
         ];
         for (const testCase of cases) {
             const seeded = seedRunningTurn();
-            const boundaries = await TestBoundaries.create();
+            const boundaries = await TestBoundaries.create(seeded.repository.content);
             const executor = new FunctionExecutor(async (context) => {
                 return context.outcome.succeed(
                     resultCommit(
@@ -791,7 +792,7 @@ describe("TurnExecutor seam", () => {
             const tool = boundTool("read", "memory.read", "observe", "Read memory.");
             const placement = memoryPlacement();
             const seeded = seedRunningTurn(undefined, {}, [placement]);
-            const boundaries = await TestBoundaries.create([tool]);
+            const boundaries = await TestBoundaries.create(seeded.repository.content, [tool]);
             const newHolder = new PrincipalRef(
                 ids.holder.tenantId,
                 new PrincipalId("takeover-holder")
@@ -893,7 +894,7 @@ describe("TurnExecutor seam", () => {
             // what the Turn was told, and the executor cannot pick between them — it reads
             // the first match to decide whether the Turn is cancelled at all.
             const seeded = seedRunningTurn();
-            const boundaries = await TestBoundaries.create();
+            const boundaries = await TestBoundaries.create(seeded.repository.content);
             seeded.repository.transaction((transaction) => {
                 seeded.repository.insertInbox(
                     transaction,
@@ -937,7 +938,7 @@ describe("TurnExecutor seam", () => {
             // transition come apart, and the host has to refuse the scope rather than fault
             // on the Turn's absent result.
             const seeded = seedRunningTurn();
-            const boundaries = await TestBoundaries.create();
+            const boundaries = await TestBoundaries.create(seeded.repository.content);
             const orphan = new RunCommit({
                 id: new RunCommitId("orphan-result"),
                 run: ids.run,
@@ -978,7 +979,7 @@ describe("TurnExecutor seam", () => {
         { tags: "p0" },
         async () => {
             const seeded = seedRunningTurn();
-            const boundaries = await TestBoundaries.create();
+            const boundaries = await TestBoundaries.create(seeded.repository.content);
             const cancellation = cancellationEntry(
                 "requested-cancellation",
                 seeded.token,
@@ -1025,7 +1026,7 @@ describe("TurnExecutor seam", () => {
 
     it("atomically suspends with the canonical checkpoint and recovers it after restart", async () => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         const executor = new FunctionExecutor(async (context) => {
             const commit = checkpointCommit(
                 context,
@@ -1113,7 +1114,7 @@ describe("TurnExecutor seam", () => {
 
     it("durably records explicit failure and self-cancellation outcomes", async () => {
         const failure = seedRunningTurn();
-        const failureBoundaries = await TestBoundaries.create();
+        const failureBoundaries = await TestBoundaries.create(failure.repository.content);
         const failExecutor = new FunctionExecutor(async (context) => {
             return context.outcome.fail(
                 resultCommit(context, "failed-result", failureBoundaries.output, ids.root)
@@ -1128,7 +1129,7 @@ describe("TurnExecutor seam", () => {
         });
 
         const cancelled = seedRunningTurn();
-        const cancelBoundaries = await TestBoundaries.create();
+        const cancelBoundaries = await TestBoundaries.create(cancelled.repository.content);
         const cancelExecutor = new FunctionExecutor(async (context) => {
             return context.outcome.cancel(
                 resultCommit(context, "cancelled-result", cancelBoundaries.output, ids.root),
@@ -1151,7 +1152,7 @@ describe("TurnExecutor seam", () => {
 
     it("recovers a committed result when the executor crashes before returning and never reruns it", async () => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         const crashing = new FunctionExecutor(async (context) => {
             await context.outcome.succeed(
                 resultCommit(context, "crash-result", boundaries.output, ids.root)
@@ -1189,7 +1190,7 @@ describe("TurnExecutor seam", () => {
 
     it("recovers only the terminal result matching the Turn outcome", async () => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         const matching = resultCommitFor(seeded, "matching-result", boundaries.output, ids.root);
         completeSeededTurn(seeded, matching);
         const mustNotRun = new FunctionExecutor(async () => {
@@ -1202,12 +1203,13 @@ describe("TurnExecutor seam", () => {
         });
 
         const diverged = seedRunningTurn();
+        const divergedBoundaries = await TestBoundaries.create(diverged.repository.content);
         diverged.repository.transaction((transaction) => {
             const running = diverged.repository.loadTurn(transaction, ids.turn);
             if (running === undefined) throw new TypeError("Seeded Turn must exist");
             diverged.repository.insertCommit(
                 transaction,
-                resultCommitFor(diverged, "diverged-result", boundaries.output, ids.root)
+                resultCommitFor(diverged, "diverged-result", divergedBoundaries.output, ids.root)
             );
             diverged.repository.replaceTurn(
                 transaction,
@@ -1215,20 +1217,20 @@ describe("TurnExecutor seam", () => {
                 running.complete(
                     diverged.token,
                     "succeeded",
-                    boundaries.checkpointState,
+                    divergedBoundaries.checkpointState,
                     new Date(2_000)
                 )
             );
         });
         await expect(
-            boundaries.host(diverged, mustNotRun).execute(diverged.token)
+            divergedBoundaries.host(diverged, mustNotRun).execute(diverged.token)
         ).rejects.toMatchObject({ code: "lease.invalid" });
         expect(mustNotRun.calls).toBe(0);
     });
 
     it("rejects ambiguous same-token terminal result evidence", async () => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         const result = resultCommitFor(seeded, "ambiguous-result", boundaries.output, ids.root);
         completeSeededTurn(seeded, result);
         const mustNotRun = new FunctionExecutor(async () => {
@@ -1254,7 +1256,7 @@ describe("TurnExecutor seam", () => {
 
     it("rejects checkpoint and result commits outside their atomic lifecycle transitions", async () => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         const invalid = [
             resultCommitFor(seeded, "premature-result", boundaries.output, ids.root),
             checkpointCommitFor(
@@ -1285,7 +1287,7 @@ describe("TurnExecutor seam", () => {
 
     it("leaves canonical state unchanged when the executor crashes before a transition", async () => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         const executor = new FunctionExecutor(async () => {
             throw new TypeError("crash before transition");
         });
@@ -1305,7 +1307,7 @@ describe("TurnExecutor seam", () => {
 
     it("uses the exact current head after an intermediate message commit", async () => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         const executor = new FunctionExecutor(async (context) => {
             const message = messageCommit(context, "message", boundaries.prompt, ids.root);
             await context.commit.append(message);
@@ -1328,7 +1330,7 @@ describe("TurnExecutor seam", () => {
 
     it("rejects an executor that returns without a canonical outcome transition", async () => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         const executor = new FunctionExecutor(async () => ({
             kind: "succeeded",
             result: boundaries.output,
@@ -1347,7 +1349,7 @@ describe("TurnExecutor seam", () => {
         "rejects a %s mismatch between returned and durable terminal outcomes",
         async (mismatch) => {
             const seeded = seedRunningTurn();
-            const boundaries = await TestBoundaries.create();
+            const boundaries = await TestBoundaries.create(seeded.repository.content);
             const canonical = {
                 kind: "succeeded" as const,
                 result: boundaries.output,
@@ -1383,7 +1385,7 @@ describe("TurnExecutor seam", () => {
 
     it("rejects a returned checkpoint that differs from the durable checkpoint record", async () => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         const checkpointId = new RunCheckpointId("durable-return-checkpoint");
         const commitId = new RunCommitId("durable-return-checkpoint-commit");
         const canonicalCheckpoint = new RunCheckpoint(
@@ -1438,7 +1440,7 @@ describe("TurnExecutor seam", () => {
         "rejects a %s mismatch between returned and durable cancellation outcomes",
         async (mismatch) => {
             const seeded = seedRunningTurn();
-            const boundaries = await TestBoundaries.create();
+            const boundaries = await TestBoundaries.create(seeded.repository.content);
             const commitId = new RunCommitId(`durable-cancel-${mismatch}`);
             const canonical = {
                 kind: "cancelled" as const,
@@ -1474,34 +1476,26 @@ describe("TurnExecutor seam", () => {
         }
     );
 
-    it("rejects a prompt that is absent or reported under another exact content identity", async () => {
+    it("rejects a prompt the Run's own content custody does not hold", async () => {
+        const staged = new MemoryContentStore();
         const cases = [
-            async () => undefined,
-            async () => {
-                const other = content("9");
-                return {
-                    ref: other,
-                    digest: other.digest,
-                    size: 1,
-                    hint: undefined
-                };
-            }
+            // Staged in a store outside the Run: the bytes exist and custody never received them.
+            (await staged.put(new TextEncoder().encode("staged outside the Run"))).ref,
+            // Named under an identity nothing was ever stored under, anywhere.
+            ContentRef.fromDigest(Digest.sha256(new TextEncoder().encode("never stored")))
         ];
-        for (const stat of cases) {
+        for (const absent of cases) {
             const seeded = seedRunningTurn();
-            const boundaries = await TestBoundaries.create();
+            const boundaries = await TestBoundaries.create(seeded.repository.content);
             const executor = new FunctionExecutor(async () => {
                 throw new TypeError("executor must not run");
             });
-            const contentBoundary: ContentStore = {
-                put: (bytes, hint) => boundaries.content.put(bytes, hint),
-                get: (ref, range) => boundaries.content.get(ref, range),
-                stat
-            };
 
+            // Availability is read from the Run's own content plane, so no store a host is
+            // handed can report a prompt into reach that custody does not hold.
             await expect(
                 boundaries
-                    .host(seeded, executor, { content: contentBoundary })
+                    .host(seeded, executor, { prompt: { assemble: async () => absent } })
                     .execute(seeded.token)
             ).rejects.toMatchObject({
                 code: "content.not-found",
@@ -1511,63 +1505,47 @@ describe("TurnExecutor seam", () => {
         }
     });
 
-    it("keeps content access owned and rejects a mismatched put identity", async () => {
+    it("keeps content access owned and writes every byte into the Run's own store", async () => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
-        let putBytes: Uint8Array | undefined;
-        let validPut = true;
-        const sharedBytes = new Uint8Array([7, 8, 9]);
-        const contentBoundary: ContentStore = {
-            put: async (bytes) => {
-                putBytes = bytes;
-                return {
-                    ref: boundaries.prompt,
-                    digest: validPut ? boundaries.prompt.digest : boundaries.output.digest
-                };
-            },
-            get: async () => sharedBytes,
-            stat: (ref) => boundaries.content.stat(ref)
-        };
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         const executor = new FunctionExecutor(async (context) => {
             const source = new Uint8Array([1, 2, 3]);
             const stored = await context.content.put(source);
-            expect(stored).toEqual({
-                ref: boundaries.prompt,
-                digest: boundaries.prompt.digest
-            });
             expect(Object.isFrozen(stored)).toBe(true);
-            validPut = false;
-            await expect(context.content.put(source)).rejects.toMatchObject({
-                code: "codec.invalid",
-                message: "Content store returned mismatched identity"
-            });
-            expect(putBytes).toEqual(source);
-            expect(putBytes).not.toBe(source);
+            expect(stored.digest).toEqual(stored.ref.digest);
 
-            const first = await context.content.get(boundaries.prompt);
+            // Copied in: the caller's buffer is not the Run's, so writing through it after the
+            // put cannot reach what custody now holds.
+            source[0] = 9;
+            await expect(seeded.repository.content.get(stored.ref)).resolves.toEqual(
+                new Uint8Array([1, 2, 3])
+            );
+
+            // Copied out: each read is the caller's own array, and writing through it leaves
+            // the stored bytes alone.
+            const first = await context.content.get(stored.ref);
             first[0] = 0;
-            const second = await context.content.get(boundaries.prompt);
+            const second = await context.content.get(stored.ref);
             expect(second).not.toBe(first);
-            expect(second).toEqual(new Uint8Array([7, 8, 9]));
-            expect(sharedBytes).toEqual(new Uint8Array([7, 8, 9]));
-            await expect(context.content.stat(boundaries.prompt)).resolves.toMatchObject({
-                ref: boundaries.prompt,
-                digest: boundaries.prompt.digest
+            expect(second).toEqual(new Uint8Array([1, 2, 3]));
+            await expect(context.content.stat(stored.ref)).resolves.toMatchObject({
+                ref: stored.ref,
+                digest: stored.ref.digest
             });
             return context.outcome.succeed(
                 resultCommit(context, "content-result", boundaries.output, ids.root)
             );
         });
 
-        await expect(
-            boundaries.host(seeded, executor, { content: contentBoundary }).execute(seeded.token)
-        ).resolves.toMatchObject({ kind: "succeeded", result: boundaries.output });
+        await expect(boundaries.host(seeded, executor).execute(seeded.token)).resolves.toMatchObject(
+            { kind: "succeeded", result: boundaries.output }
+        );
     });
 
     it("accepts only the exact immutable bound-tool object for mediated invocation", async () => {
         const seeded = seedRunningTurn(undefined, {}, [memoryPlacement()]);
         const tool = boundTool("read", "memory.read", "observe", "Read memory.");
-        const boundaries = await TestBoundaries.create([tool]);
+        const boundaries = await TestBoundaries.create(seeded.repository.content, [tool]);
         const executor = new FunctionExecutor(async (context) => {
             const equivalent = boundTool("read", "memory.read", "observe", "Read memory.");
             await expect(
@@ -1598,7 +1576,7 @@ describe("TurnExecutor seam", () => {
 
     it("canonicalizes ephemeral stream events and validates complete model usage", async () => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         const publications: TurnStreamPublication[] = [];
         const executor = new FunctionExecutor(async (context) => {
             const bytes = new Uint8Array([4, 5, 6]);
@@ -1659,7 +1637,7 @@ describe("TurnExecutor seam", () => {
         ["unsafe", Number.MAX_SAFE_INTEGER + 1]
     ])("rejects %s model usage at the model boundary", async (_, invalid) => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         const executor = new FunctionExecutor(async (context) => {
             await expect(
                 context.model.call(await promptDraft(context, boundaries.prompt))
@@ -1689,7 +1667,7 @@ describe("TurnExecutor seam", () => {
 
     it("returns the exact inclusive inbox cursor slice", async () => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         const first = inboxEntry("inbox-first", ids.turn, 0, "turn.message", boundaries.prompt);
         seeded.runtime.deliverEvent(
             ids.turn,
@@ -1731,7 +1709,7 @@ describe("TurnExecutor seam", () => {
 
     it("does not let a prior lease epoch cancel the current holder", async () => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         const displaced = cancellationEntry(
             "prior-epoch-cancellation",
             seeded.token,
@@ -1772,7 +1750,7 @@ describe("TurnExecutor seam", () => {
         { tags: "p0" },
         async () => {
             const seeded = seedRunningTurn();
-            const boundaries = await TestBoundaries.create();
+            const boundaries = await TestBoundaries.create(seeded.repository.content);
             let now = new Date(2_000);
             const cancellation = cancellationEntry(
                 "boundary-cancellation",
@@ -1780,26 +1758,21 @@ describe("TurnExecutor seam", () => {
                 boundaries.cancellationPayload,
                 0
             );
-            const contentBoundary: ContentStore = {
-                put: (bytes, hint) => boundaries.content.put(bytes, hint),
-                get: async (ref, range) => {
-                    seeded.runtime.reclaimTurn(
-                        ids.turn,
-                        seeded.running.revision,
-                        ids.holder,
-                        new Date(6_000),
-                        new Date(10_000),
-                        cancellation
-                    );
-                    now = new Date(7_000);
-                    return boundaries.content.get(ref, range);
-                },
-                stat: (ref) => boundaries.content.stat(ref)
-            };
             let boundaryError: string | undefined;
             let boundaryCancellation = false;
             let boundaryOutcome: unknown;
             const executor = new FunctionExecutor(async (context) => {
+                // The cancellation arrives while the Turn is inside the operation, so the very
+                // next content access is the boundary that has to refuse.
+                seeded.runtime.reclaimTurn(
+                    ids.turn,
+                    seeded.running.revision,
+                    ids.holder,
+                    new Date(6_000),
+                    new Date(10_000),
+                    cancellation
+                );
+                now = new Date(7_000);
                 try {
                     await context.content.get(boundaries.prompt);
                 } catch (error) {
@@ -1813,9 +1786,7 @@ describe("TurnExecutor seam", () => {
             });
 
             await expect(
-                boundaries
-                    .host(seeded, executor, { content: contentBoundary, now: () => now })
-                    .execute(seeded.token)
+                boundaries.host(seeded, executor, { now: () => now }).execute(seeded.token)
             ).resolves.toEqual({ kind: "cancelled" });
             expect(boundaryError).toBe("lease.invalid");
             expect(boundaryCancellation).toBe(true);
@@ -1825,7 +1796,7 @@ describe("TurnExecutor seam", () => {
 
     it("rejects every stale content operation and stale inbox reads without exact cancellation", async () => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         let now = new Date(2_000);
         const executor = new FunctionExecutor(async (context) => {
             now = new Date(9_000);
@@ -1868,7 +1839,7 @@ describe("TurnExecutor seam", () => {
         ]
     ] as const)("rejects a result commit with %s", async (_, override) => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         const executor = new FunctionExecutor(async (context) => {
             const valid = resultCommit(
                 context,
@@ -1892,7 +1863,7 @@ describe("TurnExecutor seam", () => {
 
     it("rejects checkpoint commits through the ordinary append handle", async () => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         const executor = new FunctionExecutor(async (context) => {
             await expect(
                 context.commit.append(
@@ -1913,8 +1884,10 @@ describe("TurnExecutor seam", () => {
 
     it("requires optional checkpoint tree content before suspension", async () => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
-        const missingTree = content("9");
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
+        const missingTree = ContentRef.fromDigest(
+            Digest.sha256(new TextEncoder().encode("a checkpoint tree nothing ever stored"))
+        );
         const executor = new FunctionExecutor(async (context) => {
             const commit = checkpointCommit(
                 context,
@@ -1951,7 +1924,7 @@ describe("TurnExecutor seam", () => {
         { tags: "p1" },
         async () => {
             const seeded = seedRunningTurn();
-            const boundaries = await TestBoundaries.create();
+            const boundaries = await TestBoundaries.create(seeded.repository.content);
             const tokens = () =>
                 seeded.repository.transaction(
                     (tx) => seeded.repository.loadRun(tx, ids.run)!.tokensConsumed
@@ -1991,7 +1964,7 @@ describe("TurnExecutor seam", () => {
 
     it("appends verdict commits through the ordinary Turn commit handle", async () => {
         const seeded = seedRunningTurn();
-        const boundaries = await TestBoundaries.create();
+        const boundaries = await TestBoundaries.create(seeded.repository.content);
         const executor = new FunctionExecutor(async (context) => {
             const verdict = turnCommit(
                 context,
@@ -2020,7 +1993,7 @@ class TestBoundaries {
     public lastModelSignal: AbortSignal | undefined;
 
     private constructor(
-        public readonly content: MemoryContentStore,
+        public readonly content: ContentStore,
         public readonly prompt: ContentRef,
         public readonly output: ContentRef,
         public readonly checkpointState: ContentRef,
@@ -2028,12 +2001,18 @@ class TestBoundaries {
         public readonly tools: readonly TurnBoundOperation[]
     ) {}
 
-    public static async create(tools: readonly TurnBoundOperation[] = []): Promise<TestBoundaries> {
-        const contentStore = new MemoryContentStore();
+    /**
+     * Custody makes the Run's own store the only content plane a Run record may name, so the
+     * boundaries write every byte a commit will reference straight into it.
+     */
+    public static async create(
+        content: ContentStore,
+        tools: readonly TurnBoundOperation[] = []
+    ): Promise<TestBoundaries> {
         const put = async (value: string) =>
-            (await contentStore.put(new TextEncoder().encode(value))).ref;
+            (await content.put(new TextEncoder().encode(value))).ref;
         return new TestBoundaries(
-            contentStore,
+            content,
             await put("prompt"),
             await put("output"),
             await put("checkpoint"),
@@ -2385,16 +2364,15 @@ class TestAdmissionRecords extends TurnAdmissionRecordPort {
 
     public async receipt(receipt: ReceiptId): Promise<TurnAdmissionReceiptFacts> {
         this.#result ??= (await this.#content.put(encodeCanonicalJson(this.output))).ref;
-        return {
-            succeeded: true,
-            attempt: {
+        return TurnAdmissionReceiptFacts.succeeded(
+            {
                 id: new EffectAttemptId("attempt-1"),
                 invocation: refs.invocation,
                 itemIndex: 0,
                 idempotencyKey: `item:${receipt.value}`
             },
-            result: this.#result
-        };
+            this.#result
+        );
     }
 
     public result(ref: ContentRef): Promise<Uint8Array> {

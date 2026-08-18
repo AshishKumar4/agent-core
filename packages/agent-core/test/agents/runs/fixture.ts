@@ -43,7 +43,7 @@ import {
     type SynthesisCommitEvidence,
     RunMergePort
 } from "../../../src/agents/runs/evidence";
-import { MemoryRunStorage } from "../../../src/agents/runs/memory";
+import { MemoryRunStorage, type MemoryRunStorageSnapshot } from "../../../src/agents/runs/memory";
 import { BlueprintPin, RunConfigurationSnapshot, RunPins } from "../../../src/agents/runs/pins";
 import { Run, RunBranch } from "../../../src/agents/runs/run";
 import { RunSpawnPort, type SpawnReservation } from "../../../src/agents/runs/spawn";
@@ -57,6 +57,7 @@ import { RunRepository } from "../../../src/agents/runs/store";
 import { AcceptanceId, RunBranchId, RunId } from "../../../src/agents/runs/id";
 import { Turn, type TurnInit } from "../../../src/agents/runs/turn";
 import { type PlacementPin, TurnPlacementSnapshot } from "../../../src/agents/runs/placement";
+import type { RunStoragePort } from "../../../src/agents/runs/store";
 
 export const ids = Object.freeze({
     actor: new ActorRef("workspace", new ActorId("workspace-1")),
@@ -72,12 +73,50 @@ export const ids = Object.freeze({
     holder: new PrincipalRef(new TenantId("tenant-1"), new PrincipalId("principal-1"))
 });
 
+const FIXTURE_CONTENT_KEYS = Object.freeze([
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "a",
+    "b",
+    "c",
+    "d",
+    "e",
+    "f"
+]);
+
+function fixtureContentBytes(character: string): Uint8Array {
+    if (!FIXTURE_CONTENT_KEYS.includes(character)) {
+        throw new TypeError("Run fixture content key must be one hexadecimal character");
+    }
+    return new TextEncoder().encode(`run-fixture:${character}`);
+}
+
+export function fixtureContentEntries(): readonly {
+    readonly bytes: Uint8Array;
+    readonly digest: Digest;
+    readonly ref: ContentRef;
+}[] {
+    return FIXTURE_CONTENT_KEYS.map((character) => {
+        const bytes = fixtureContentBytes(character);
+        const digest = Digest.sha256(bytes);
+        return Object.freeze({ bytes, digest, ref: ContentRef.fromDigest(digest) });
+    });
+}
+
 export function digest(character: string): Digest {
-    return new Digest(character.repeat(64));
+    return Digest.sha256(fixtureContentBytes(character));
 }
 
 export function content(character: string): ContentRef {
-    return new ContentRef(`sha256:${character.repeat(64)}`);
+    return ContentRef.fromDigest(digest(character));
 }
 
 export function sourceRecords() {
@@ -299,8 +338,8 @@ export function harness(
     snapshot?: ReturnType<MemoryRunStorage["snapshot"]>,
     cutPoints: TurnCutPointPort = new UncontributedCutPoints()
 ) {
-    const storage = new MemoryRunStorage(snapshot);
-    const repository = new RunRepository(storage);
+    const storage = memoryRunStorage(snapshot);
+    const repository = testRunRepository(storage);
     const sources = new TestSourcePort();
     const evidence = new TestEvidencePort();
     const settlement = new TestSettlementPort();
@@ -324,6 +363,45 @@ export function harness(
         spawn,
         merge,
         runtime
+    };
+}
+
+export function memoryRunStorage(snapshot?: ReturnType<MemoryRunStorage["snapshot"]>) {
+    return new MemoryRunStorage(
+        ids.holder.tenantId,
+        ids.actor,
+        snapshot ?? fixtureMemoryRunSnapshot(),
+        () => new Date(0)
+    );
+}
+
+export function testRunRepository<Transaction>(
+    storage: RunStoragePort<Transaction>
+): RunRepository<Transaction> {
+    return new RunRepository(storage);
+}
+
+export function fixtureMemoryRunSnapshot(): MemoryRunStorageSnapshot {
+    return {
+        version: 2,
+        records: [],
+        parents: [],
+        content: {
+            version: 1,
+            binding: {
+                tenant: ids.holder.tenantId.value,
+                actor: { kind: ids.actor.kind, id: ids.actor.id.value }
+            },
+            content: fixtureContentEntries().map(({ bytes, digest, ref }) => ({
+                ref: ref.value,
+                digest: digest.value,
+                bytes,
+                mediaType: null
+            })),
+            edges: [],
+            relations: [],
+            leases: []
+        }
     };
 }
 
@@ -472,4 +550,3 @@ export function objectAt(value: JsonValue | undefined, field: string): MutableRe
     }
     return value;
 }
-

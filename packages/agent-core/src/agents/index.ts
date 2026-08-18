@@ -55,6 +55,8 @@ export {
     RepositoryTurnLeaseVerifier
 } from "./runs";
 export { RunCheckpointId } from "./runs/id";
+export { ownRunStorageBackend, RUN_RECORD_KINDS } from "./runs/store";
+export type { RunRecordKind, StoredRunParent, StoredRunRecord } from "./runs/store";
 export { leaseTokensEqual } from "./runs/lease";
 export {
     BlueprintPin,
@@ -80,8 +82,10 @@ export type {
     TurnGatewayScope,
     TurnInvocationPort
 } from "./runs";
+export type { RunTransaction } from "./runs";
 export { RunPins } from "./runs/pins";
-export type { LeaseToken, RunStoragePort, TurnLeaseVerifier } from "./runs";
+export { RunStoragePort } from "./runs";
+export type { LeaseToken, TurnLeaseVerifier } from "./runs";
 export type {
     ResourceDimension,
     ResourceLimits,

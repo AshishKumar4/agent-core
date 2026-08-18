@@ -4,17 +4,26 @@ import { PrincipalId, PrincipalRef } from "../../../src/identity";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
 import { RunCommit, RunCommitCodec, validateCommitWriter } from "../../../src/agents/runs/commit";
 import { AgentId } from "../../../src/agents/id";
-import { MemoryRunStorage } from "../../../src/agents/runs/memory";
 import { TurnPlacementSnapshot } from "../../../src/agents/runs/placement";
 import { RunConfigurationSnapshot } from "../../../src/agents/runs/pins";
 import { RunPins } from "../../../src/agents/runs/pins";
 import { RunBranch } from "../../../src/agents/runs/run";
 import { RunBranchId } from "../../../src/agents/runs/id";
-import { RunRepository } from "../../../src/agents/runs/store";
 import { Turn, TurnInboxEntry, TurnStatus } from "../../../src/agents/runs/turn";
 import { TurnLease } from "../../../src/agents/runs/lease";
 import { TurnInboxEntryId } from "../../../src/agents/runs/id";
-import { configuration, content, digest, genesis, harness, ids, pins, refs } from "./fixture";
+import {
+    configuration,
+    content,
+    digest,
+    genesis,
+    harness,
+    ids,
+    memoryRunStorage,
+    pins,
+    refs,
+    testRunRepository
+} from "./fixture";
 
 function runningHarness(turnId = ids.turn) {
     const value = harness();
@@ -110,31 +119,27 @@ describe("W5 adversarial invariants", () => {
         }
     );
 
-    it(
-        "[C13-TURN-EXECUTOR-WRITER] rejects nonfresh ordinary Turn genesis",
-        { tags: "p0" },
-        () => {
-            const value = harness();
-            value.runtime.createRun(genesis());
-            const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);
-            const forged = new Turn({
-                id: ids.turn,
-                run: ids.run,
-                branch: ids.branch,
-                startHead: ids.root,
-                effectiveInput: ids.root,
-                pins: pins(),
-                placement: placement.digest,
-                input: content("c"),
-                status: TurnStatus.running,
-                lease: TurnLease.restore(ids.turn, ids.holder, 9, new Date(5000)),
-                revision: new Revision(4)
-            });
-            expect(() =>
-                value.runtime.createTurn({ turn: forged, placement }, new Revision(0))
-            ).toThrow(/genesis/);
-        }
-    );
+    it("[C13-TURN-EXECUTOR-WRITER] rejects nonfresh ordinary Turn genesis", { tags: "p0" }, () => {
+        const value = harness();
+        value.runtime.createRun(genesis());
+        const placement = new TurnPlacementSnapshot(ids.turn, pins(), []);
+        const forged = new Turn({
+            id: ids.turn,
+            run: ids.run,
+            branch: ids.branch,
+            startHead: ids.root,
+            effectiveInput: ids.root,
+            pins: pins(),
+            placement: placement.digest,
+            input: content("c"),
+            status: TurnStatus.running,
+            lease: TurnLease.restore(ids.turn, ids.holder, 9, new Date(5000)),
+            revision: new Revision(4)
+        });
+        expect(() =>
+            value.runtime.createTurn({ turn: forged, placement }, new Revision(0))
+        ).toThrow(/genesis/);
+    });
 
     it(
         "[C13-ADV-TURN-MERGE] rejects completing one Turn with another Turn's valid commit",
@@ -817,9 +822,9 @@ describe("W5 adversarial invariants", () => {
                 resolution: { kind: "concat" },
                 receipt: refs.receipt
             });
-            expect(() =>
-                value.runtime.mergeRun(unequal, new Revision(1), new Date(1100))
-            ).toThrow(/equal-pinned/);
+            expect(() => value.runtime.mergeRun(unequal, new Revision(1), new Date(1100))).toThrow(
+                /equal-pinned/
+            );
 
             const rollback = new RunCommit({
                 id: new RunCommitId("migration-rollback"),
@@ -1069,14 +1074,14 @@ describe("W5 adversarial invariants", () => {
         value.runtime.appendTurnCommit(commit, new Revision(0), new Date(1500));
         const snapshot = value.storage.snapshot();
         const corrupted = {
-            version: 1 as const,
+            ...snapshot,
             records: snapshot.records,
             parents: snapshot.parents.map((edge) =>
                 edge.commit === commit.id.value ? { ...edge, parent: "forged-parent" } : edge
             )
         };
-        const storage = new MemoryRunStorage(corrupted);
-        const repository = new RunRepository(storage);
+        const storage = memoryRunStorage(corrupted);
+        const repository = testRunRepository(storage);
         expect(() => repository.transaction((tx) => repository.loadCommit(tx, commit.id))).toThrow(
             /parents/
         );

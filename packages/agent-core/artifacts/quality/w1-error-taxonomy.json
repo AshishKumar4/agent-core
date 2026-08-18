@@ -147,9 +147,6 @@
             "test/protocol/codec.test.ts#rejects a %s",
             "test/protocol/codec.test.ts#rejects %s",
             "test/protocol/codec.test.ts#rejects a malformed write identity without its command"
-        ],
-        "src/substrates/sqlite/sqlite.ts": [
-            "test/substrates/sqlite/sqlite.test.ts#rejects SQLite provenance transfer involving uninitialized capabilities"
         ]
     },
     "entries": [
@@ -625,6 +622,34 @@
             },
             "classification": "constructor-shape",
             "rationale": "Rejects malformed immediate construction or value shape without consulting runtime state.",
+            "testedBy": [
+                "test/core/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.codec.validateanddetachrecordclasses.a8466c83cc",
+            "source": "src/core/codec.ts",
+            "sourceAnchor": {
+                "container": "validateAndDetachRecordClasses",
+                "guard": "!Array.isArray(recordClasses) || Object.getPrototypeOf(recordClasses) !== Array.prototype || recordClasses.length === 0 || Reflect.ownKeys(recordClasses).length !== recordClasses.length + 1",
+                "expression": "new TypeError(\"Record codec must name a nonempty ordinary class tuple\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "A codec must bind a nonempty ordinary dependency tuple before its record classes can be sealed.",
+            "testedBy": [
+                "test/core/codec.test.ts"
+            ]
+        },
+        {
+            "id": "w1.core.codec.validateanddetachrecordclasses.cd8d82f0b4",
+            "source": "src/core/codec.ts",
+            "sourceAnchor": {
+                "container": "validateAndDetachRecordClasses",
+                "guard": "descriptor === undefined || !(\"value\" in descriptor) || !descriptor.enumerable || !isOrdinaryRecordClass(candidate)",
+                "expression": "new TypeError(\"Record codec classes must be ordinary class constructors\")"
+            },
+            "classification": "constructor-shape",
+            "rationale": "Codec class dependencies are immediate constructor input and must be ordinary class constructors before sealing.",
             "testedBy": [
                 "test/core/codec.test.ts"
             ]
@@ -1444,20 +1469,6 @@
             "rationale": "Rejects malformed codec, schema, or byte input before it becomes domain state.",
             "testedBy": [
                 "test/protocol/codec.test.ts"
-            ]
-        },
-        {
-            "id": "w1.substrates.sqlite.requiresqliteprovenance.bfc9af6430",
-            "source": "src/substrates/sqlite/sqlite.ts",
-            "sourceAnchor": {
-                "container": "requireSqliteProvenance",
-                "guard": "provenance === undefined || !sqliteProvenance.has(scope)",
-                "expression": "new TypeError(\"SQLite provenance requires initialized capabilities\")"
-            },
-            "classification": "programmer-contract",
-            "rationale": "SQLite capability provenance is established at substrate initialization; missing provenance is a wiring error.",
-            "testedBy": [
-                "test/substrates/sqlite/sqlite.test.ts"
             ]
         }
     ]

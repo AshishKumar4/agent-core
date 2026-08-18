@@ -186,7 +186,21 @@ export class Transcript {
 
 class TranscriptRecordCodec extends RecordCodec<Transcript> {
     public constructor() {
-        super("harness.transcript", { major: 1, minor: 0 });
+        super(
+            [
+                Transcript,
+                TranscriptMessage,
+                ToolCall,
+                UserMessage,
+                AssistantMessage,
+                ToolResultMessage,
+                TextId,
+                BindingName,
+                ToolCallId
+            ],
+            "harness.transcript",
+            { major: 1, minor: 0 }
+        );
         Object.freeze(this);
     }
 

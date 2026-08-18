@@ -29,9 +29,12 @@ import {
     OperationDescriptor
 } from "../../src/facets";
 import { describe, expect, test } from "vitest";
+import * as ts from "typescript/unstable/ast";
 import { sourceProject } from "../../scripts/quality/evidence.mjs";
+import { ContentRef } from "../../src/core";
 import { validateCompleteOwnership } from "../../scripts/quality/ownership.mjs";
 import {
+    declaredContentRefFields,
     validateRecordContentRetention,
     validateRecordOwnership
 } from "../../scripts/quality/record-ownership.mjs";
@@ -58,6 +61,29 @@ const profiles = [
     [SLATE_CONTRIBUTIONS, SLATE_OPERATIONS],
     [SINGLE_TENANT_CONTRIBUTIONS, SINGLE_TENANT_OPERATIONS]
 ] as const;
+
+class NonPublicContentRecord {
+    public constructor(
+        private readonly privateContent: ContentRef,
+        protected readonly protectedContent: ContentRef
+    ) {}
+
+    public content(): readonly ContentRef[] {
+        return [this.privateContent, this.protectedContent];
+    }
+}
+
+class EcmaPrivateContentRecord {
+    readonly #content: ContentRef;
+
+    public constructor(content: ContentRef) {
+        this.#content = content;
+    }
+
+    public content(): ContentRef {
+        return this.#content;
+    }
+}
 
 describe("Profile base conformance", () => {
     test(
@@ -180,6 +206,36 @@ describe("Profile base conformance", () => {
                     TypeError
                 );
             }
+
+            const sourceName = project.program
+                .getSourceFileNames()
+                .find((candidate) => candidate.endsWith("/profile-base.test.ts"));
+            const source =
+                sourceName === undefined ? undefined : project.program.getSourceFile(sourceName);
+            if (source === undefined) throw new TypeError("Profile base fixture source is missing");
+            const nonPublicRecord = source.statements.find(
+                (statement) =>
+                    ts.isClassDeclaration(statement) &&
+                    statement.name?.text === NonPublicContentRecord.name
+            );
+            if (nonPublicRecord === undefined || !ts.isClassDeclaration(nonPublicRecord)) {
+                throw new TypeError("Non-public ContentRef record fixture is missing");
+            }
+            expect(declaredContentRefFields(project, nonPublicRecord)).toEqual([
+                "privateContent",
+                "protectedContent"
+            ]);
+            const ecmaPrivateRecord = source.statements.find(
+                (statement) =>
+                    ts.isClassDeclaration(statement) &&
+                    statement.name?.text === EcmaPrivateContentRecord.name
+            );
+            if (ecmaPrivateRecord === undefined || !ts.isClassDeclaration(ecmaPrivateRecord)) {
+                throw new TypeError("ECMAScript-private ContentRef record fixture is missing");
+            }
+            expect(() => declaredContentRefFields(project, ecmaPrivateRecord)).toThrow(
+                "ECMAScript-private ContentRef fields cannot be projected"
+            );
         }
     );
 

@@ -9,10 +9,18 @@ import { RunId, TurnInboxEntryId } from "../../../src/agents/runs/id";
 import { RunCommit } from "../../../src/agents/runs/commit";
 import { ForcedTurnCancellation } from "../../../src/agents/runs/forced-cancellation";
 import type { LeaseToken } from "../../../src/agents/runs/lease";
-import { MemoryRunStorage } from "../../../src/agents/runs/memory";
-import { RunRepository, type StoredRunRecord } from "../../../src/agents/runs/store";
+import type { StoredRunRecord } from "../../../src/agents/runs/store";
 import { TurnInboxEntry } from "../../../src/agents/runs/turn";
-import { content, digest, ids, pins, seedRunningTurn, thrownBy } from "./fixture";
+import {
+    content,
+    digest,
+    ids,
+    memoryRunStorage,
+    pins,
+    seedRunningTurn,
+    testRunRepository,
+    thrownBy
+} from "./fixture";
 
 function expectError(
     label: string,
@@ -27,7 +35,7 @@ function expectError(
 
 function rawRecord(overrides: Partial<StoredRunRecord> = {}): StoredRunRecord {
     return {
-        kind: "turn",
+        kind: "verdict",
         key: "record-key",
         revision: 0,
         bytes: new Uint8Array([1, 2]),
@@ -40,7 +48,7 @@ describe("MemoryRunStorage mutation kills", () => {
         "transactions accept synchronous results, reject thenables, and roll back on failure",
         { tags: "p0" },
         () => {
-            const storage = new MemoryRunStorage();
+            const storage = memoryRunStorage();
 
             expect(storage.transaction(() => 42)).toBe(42);
             const plain = { value: 1 };
@@ -101,7 +109,7 @@ describe("MemoryRunStorage mutation kills", () => {
             );
             expect(aborted.message).toBe("abort");
             storage.transaction((tx) => {
-                expect(storage.get(tx, "turn", "rollback")).toBeUndefined();
+                expect(storage.get(tx, "verdict", "rollback")).toBeUndefined();
                 expect(storage.parents(tx, "commit-rollback")).toEqual([]);
             });
             expect(storage.snapshot().records).toEqual([]);
@@ -110,7 +118,7 @@ describe("MemoryRunStorage mutation kills", () => {
     );
 
     test("insert replay equality compares the revision and every byte", { tags: "p0" }, () => {
-        const storage = new MemoryRunStorage();
+        const storage = memoryRunStorage();
         storage.transaction((tx) => storage.insert(tx, rawRecord()));
         storage.transaction((tx) => storage.insert(tx, rawRecord()));
 
@@ -138,12 +146,12 @@ describe("MemoryRunStorage mutation kills", () => {
             );
         }
         storage.transaction((tx) => {
-            expect(storage.get(tx, "turn", "record-key")).toEqual(rawRecord());
+            expect(storage.get(tx, "verdict", "record-key")).toEqual(rawRecord());
         });
     });
 
     test("replace enforces exact compare-and-swap without mutating state", { tags: "p0" }, () => {
-        const storage = new MemoryRunStorage();
+        const storage = memoryRunStorage();
         expectError(
             "replace on a missing record",
             () => storage.transaction((tx) => storage.replace(tx, rawRecord({ revision: 1 }), 0)),
@@ -171,21 +179,21 @@ describe("MemoryRunStorage mutation kills", () => {
             "Run record revision changed"
         );
         storage.transaction((tx) => {
-            expect(storage.get(tx, "turn", "record-key")).toEqual(rawRecord());
+            expect(storage.get(tx, "verdict", "record-key")).toEqual(rawRecord());
         });
 
         storage.transaction((tx) => {
             storage.replace(tx, rawRecord({ revision: 1, bytes: new Uint8Array([3]) }), 0);
         });
         storage.transaction((tx) => {
-            expect(storage.get(tx, "turn", "record-key")).toEqual(
+            expect(storage.get(tx, "verdict", "record-key")).toEqual(
                 rawRecord({ revision: 1, bytes: new Uint8Array([3]) })
             );
         });
     });
 
     test("parent edges validate the ordinal and stay immutable", { tags: "p1" }, () => {
-        const storage = new MemoryRunStorage();
+        const storage = memoryRunStorage();
         const ordinals: readonly (readonly [string, number])[] = [
             ["negative ordinal", -1],
             ["ordinal above one", 2],
@@ -230,7 +238,7 @@ describe("MemoryRunStorage mutation kills", () => {
         "parents returns only the requested commit's edges ordered by ordinal",
         { tags: "p1" },
         () => {
-            const storage = new MemoryRunStorage();
+            const storage = memoryRunStorage();
             storage.transaction((tx) => {
                 storage.insertParent(tx, { commit: "commit-a", ordinal: 1, parent: "parent-1" });
                 storage.insertParent(tx, { commit: "commit-a", ordinal: 0, parent: "parent-0" });
@@ -249,12 +257,12 @@ describe("MemoryRunStorage mutation kills", () => {
         "snapshots order every table canonically and deep-copy record bytes",
         { tags: "p0" },
         () => {
-            const storage = new MemoryRunStorage();
+            const storage = memoryRunStorage();
             const bytes = new Uint8Array([1, 2, 3]);
             storage.transaction((tx) => {
                 storage.insert(tx, { kind: "run", key: "z", revision: 0, bytes });
                 storage.insert(tx, {
-                    kind: "commit",
+                    kind: "verdict",
                     key: "a",
                     revision: null,
                     bytes: new Uint8Array([4])
@@ -274,10 +282,10 @@ describe("MemoryRunStorage mutation kills", () => {
             });
 
             const snapshot = storage.snapshot();
-            expect(snapshot.records.map((record) => record.kind)).toEqual(["commit", "run"]);
+            expect(snapshot.records.map((record) => record.kind)).toEqual(["run", "verdict"]);
             expect(snapshot.parents.map((edge) => edge.commit)).toEqual(["commit-a", "commit-b"]);
 
-            const restored = new MemoryRunStorage(snapshot);
+            const restored = memoryRunStorage(snapshot);
             snapshot.records[1]?.bytes.set([7], 0);
             storage.transaction((tx) => {
                 expect(storage.get(tx, "run", "z")?.bytes).toEqual(new Uint8Array([1, 2, 3]));
@@ -294,6 +302,7 @@ describe("MemoryRunStorage mutation kills", () => {
         () => {
             const record = rawRecord();
             const edge = { commit: "commit-a", ordinal: 0, parent: "parent-a" };
+            const empty = memoryRunStorage().snapshot();
             const rejected: readonly {
                 readonly label: string;
                 readonly snapshot: unknown;
@@ -301,34 +310,33 @@ describe("MemoryRunStorage mutation kills", () => {
             }[] = [
                 {
                     label: "unknown version",
-                    snapshot: { version: 2, records: [], parents: [] },
+                    snapshot: { ...empty, version: 1 },
                     message: "Memory Run storage snapshot is malformed"
                 },
                 {
                     label: "records is not an array",
-                    snapshot: { version: 1, records: {}, parents: [] },
+                    snapshot: { ...empty, records: {} },
                     message: "Memory Run storage snapshot is malformed"
                 },
                 {
                     label: "parents is not an array",
-                    snapshot: { version: 1, records: [], parents: {} },
+                    snapshot: { ...empty, parents: {} },
                     message: "Memory Run storage snapshot is malformed"
                 },
                 {
                     label: "duplicate records",
-                    snapshot: { version: 1, records: [record, record], parents: [] },
+                    snapshot: { ...empty, records: [record, record] },
                     message: "Memory Run snapshot contains duplicate records"
                 },
                 {
                     label: "malformed stored record",
-                    snapshot: { version: 1, records: [rawRecord({ key: "" })], parents: [] },
+                    snapshot: { ...empty, records: [rawRecord({ key: "" })] },
                     message: "Stored Run record is malformed"
                 },
                 {
                     label: "empty edge commit",
                     snapshot: {
-                        version: 1,
-                        records: [],
+                        ...empty,
                         parents: [{ commit: "", ordinal: 0, parent: "parent-a" }]
                     },
                     message: "Memory Run snapshot contains a malformed parent edge"
@@ -336,8 +344,7 @@ describe("MemoryRunStorage mutation kills", () => {
                 {
                     label: "empty edge parent",
                     snapshot: {
-                        version: 1,
-                        records: [],
+                        ...empty,
                         parents: [{ commit: "commit-a", ordinal: 0, parent: "" }]
                     },
                     message: "Memory Run snapshot contains a malformed parent edge"
@@ -345,8 +352,7 @@ describe("MemoryRunStorage mutation kills", () => {
                 {
                     label: "fractional edge ordinal",
                     snapshot: {
-                        version: 1,
-                        records: [],
+                        ...empty,
                         parents: [{ commit: "commit-a", ordinal: 0.5, parent: "parent-a" }]
                     },
                     message: "Memory Run snapshot contains a malformed parent edge"
@@ -354,8 +360,7 @@ describe("MemoryRunStorage mutation kills", () => {
                 {
                     label: "negative edge ordinal",
                     snapshot: {
-                        version: 1,
-                        records: [],
+                        ...empty,
                         parents: [{ commit: "commit-a", ordinal: -1, parent: "parent-a" }]
                     },
                     message: "Memory Run snapshot contains a malformed parent edge"
@@ -363,36 +368,34 @@ describe("MemoryRunStorage mutation kills", () => {
                 {
                     label: "edge ordinal above one",
                     snapshot: {
-                        version: 1,
-                        records: [],
+                        ...empty,
                         parents: [{ commit: "commit-a", ordinal: 2, parent: "parent-a" }]
                     },
                     message: "Memory Run snapshot contains a malformed parent edge"
                 },
                 {
                     label: "duplicate parents",
-                    snapshot: { version: 1, records: [], parents: [edge, edge] },
+                    snapshot: { ...empty, parents: [edge, edge] },
                     message: "Memory Run snapshot contains duplicate parents"
                 }
             ];
             for (const { label, snapshot, message } of rejected) {
-                // SAFETY: MemoryRunStorageSnapshot pins `version` to 1 and both collections to
+                // SAFETY: MemoryRunStorageSnapshot pins `version` to 2 and both collections to
                 // arrays, so every defect in this list is unreachable through the declared type.
                 // Restoration reads a snapshot back from storage, so it must reject them anyway.
                 expectError(
                     label,
                     () => {
                         // @ts-expect-error Persisted snapshots cross the static trust boundary.
-                        return new MemoryRunStorage(snapshot);
+                        return memoryRunStorage(snapshot);
                     },
                     "codec.invalid",
                     message
                 );
             }
 
-            const restored = new MemoryRunStorage({
-                version: 1,
-                records: [],
+            const restored = memoryRunStorage({
+                ...empty,
                 parents: [
                     { commit: "commit-a", ordinal: 0, parent: "parent-0" },
                     { commit: "commit-a", ordinal: 1, parent: "parent-1" }
@@ -500,8 +503,8 @@ describe("RunRepository over MemoryRunStorage mutation kills", () => {
             seeded.runtime.appendTurnCommit(second, new Revision(1), new Date(1600));
 
             const snapshot = seeded.storage.snapshot();
-            const restoredStorage = new MemoryRunStorage(snapshot);
-            const restored = new RunRepository(restoredStorage);
+            const restoredStorage = memoryRunStorage(snapshot);
+            const restored = testRunRepository(restoredStorage);
 
             expect(restoredStorage.snapshot()).toEqual(snapshot);
             expect(restored.transaction((tx) => restored.isAncestor(tx, ids.root, second.id))).toBe(
@@ -528,7 +531,7 @@ describe("RunRepository over MemoryRunStorage mutation kills", () => {
 
 describe("transaction result forwarding", () => {
     test("returns a null transaction result unchanged", { tags: "p1" }, () => {
-        const storage = new MemoryRunStorage();
+        const storage = memoryRunStorage();
         expect(storage.transaction(() => null)).toBeNull();
     });
 });

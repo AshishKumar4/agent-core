@@ -70,6 +70,14 @@ describe("Agent and Run records", () => {
                     ModelPolicyRevisionRecordCodec.encode(sources.model)
                 )
             ).toEqual(sources.model);
+            for (const codec of [
+                AgentRevisionRecordCodec,
+                AgentPolicyRevisionRecordCodec,
+                ModelPolicyRevisionRecordCodec
+            ]) {
+                expect(Object.isFrozen(codec)).toBe(true);
+                expect(Reflect.set(codec, "decodeValue", () => sources.agent)).toBe(false);
+            }
 
             const value = RunPinsCodec.decode(RunPinsCodec.encode(pins()));
             expect(value.packages.map((pin) => pin.id.value)).toEqual(["alpha", "zeta"]);

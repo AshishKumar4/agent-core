@@ -6,7 +6,7 @@ import {
     PathEpochEvidence,
     ScopeEpoch
 } from "@agent-core/core/authority";
-import { MemoryContentStore } from "@agent-core/core/content";
+import type { ContentStore } from "@agent-core/core/content";
 import {
     CompatRange,
     Digest,
@@ -44,6 +44,7 @@ import {
     cloneInvocationMemoryState,
     createInvocationMediationMemoryState,
     createInvocationMemoryState,
+    structuralCodec,
     type AuthorityAdmissionContext,
     type AuthorityAdmissionPort,
     type CanonicalBatchAuthorityAuthenticationPort,
@@ -296,13 +297,13 @@ export class DemoAuthorityState implements OperationAuthorityStatePort<MediatedT
     }
 }
 
-export const demoAdmissionCodec: StructuralCodec<DemoAdmissionReference> = Object.freeze({
-    encode: (value: DemoAdmissionReference): JsonValue => ({
+export const demoAdmissionCodec: StructuralCodec<DemoAdmissionReference> = structuralCodec(
+    (value: DemoAdmissionReference): JsonValue => ({
         attemptOrdinal: value.attemptOrdinal,
         invocation: value.invocation,
         itemIndex: value.itemIndex
     }),
-    decode: (value: JsonValue): DemoAdmissionReference => {
+    (value: JsonValue): DemoAdmissionReference => {
         if (!isJsonObject(value)) {
             throw new TypeError("Admission reference must be an object");
         }
@@ -318,7 +319,7 @@ export const demoAdmissionCodec: StructuralCodec<DemoAdmissionReference> = Objec
         }
         return Object.freeze({ invocation, itemIndex, attemptOrdinal });
     }
-});
+);
 
 function admissionDigest(reference: DemoAdmissionReference): Digest {
     return Digest.sha256(encodeCanonicalJson(demoAdmissionCodec.encode(reference)));
@@ -456,7 +457,7 @@ export interface MediationHarness {
 
 export async function mediationHarness(
     token: LeaseToken,
-    content: MemoryContentStore,
+    content: ContentStore,
     answers: ReadonlyMap<string, string>
 ): Promise<MediationHarness> {
     const transactions = new MemoryMediationTransactions();

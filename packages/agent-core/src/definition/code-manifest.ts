@@ -11,7 +11,8 @@ import {
     hasExactJsonKeys,
     isJsonObject,
     isObjectRecord,
-    type JsonValue
+    type JsonValue,
+    TextId
 } from "../core";
 import type { MediaHint } from "../content";
 import { FacetPackageId } from "../facets";
@@ -116,7 +117,20 @@ export interface PackageCodeManifestInit {
 
 class PackageCodeManifestCodec extends RecordCodec<PackageCodeManifest> {
     public constructor() {
-        super("definition.package-code-manifest", { major: 1, minor: 0 });
+        super(
+            [
+                PackageCodeManifest,
+                PackageCodeEntrypoint,
+                PackageCodeModule,
+                TextId,
+                Digest,
+                SemVer,
+                FacetPackageId,
+                ContentRef
+            ],
+            "definition.package-code-manifest",
+            { major: 1, minor: 0 }
+        );
     }
 
     protected encodePayload(manifest: PackageCodeManifest): JsonValue {
@@ -129,7 +143,9 @@ class PackageCodeManifestCodec extends RecordCodec<PackageCodeManifest> {
 }
 
 export class PackageCodeManifest {
-    public static readonly codec: RecordCodec<PackageCodeManifest> = new PackageCodeManifestCodec();
+    public static get codec(): RecordCodec<PackageCodeManifest> {
+        return packageCodeManifestCodecInstance;
+    }
 
     public readonly modules: readonly [PackageCodeModule, ...PackageCodeModule[]];
     public readonly entrypoints: readonly [PackageCodeEntrypoint, ...PackageCodeEntrypoint[]];
@@ -238,6 +254,8 @@ export class PackageCodeManifest {
         };
     }
 }
+
+const packageCodeManifestCodecInstance = new PackageCodeManifestCodec();
 
 function codeData(
     modules: readonly PackageCodeModule[],

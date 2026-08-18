@@ -4,7 +4,8 @@ import {
     Revision,
     encodeCanonicalJson,
     type JsonValue,
-    type RecordVersion
+    type RecordVersion,
+    TextId
 } from "../core";
 import {
     requireNullableDate,
@@ -132,7 +133,22 @@ export class InvocationPublicationOutbox {
 
 class InvocationPublicationOutboxCodecV1 extends RecordCodec<InvocationPublicationOutbox> {
     public constructor() {
-        super("invocation.publication-outbox", { major: 1, minor: 0 });
+        super(
+            [
+                InvocationPublicationOutbox,
+                Revision,
+                TextId,
+                Digest,
+                InvocationId,
+                ReceiptId,
+                AuditRecordId
+            ],
+            "invocation.publication-outbox",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(record: InvocationPublicationOutbox): JsonValue {

@@ -203,12 +203,12 @@ export class MemoryContentStore extends ContentStore {
 
 export class MemoryContentRetention extends ContentRetention<MemoryContentRetentionState> {
     public constructor(
-        private readonly store: MemoryContentStore,
+        private readonly owner: MemoryContentStore,
         tenant: TenantId,
         actor: ActorRef
     ) {
         super(tenant, actor);
-        requireSameBinding(backendFor(store), tenant, actor);
+        requireSameBinding(backendFor(owner), tenant, actor);
     }
 
     public retain(
@@ -294,8 +294,20 @@ export class MemoryContentRetention extends ContentRetention<MemoryContentRetent
         return Object.freeze(collected);
     }
 
+    protected listOwnerEdges(
+        transaction: MemoryContentRetentionState
+    ): readonly ContentOwnerEdge[] {
+        const state = this.requireState(transaction);
+        validateBackend(state);
+        return Object.freeze(
+            [...state.edges.entries()]
+                .sort(([left], [right]) => compareCanonicalText(left, right))
+                .map(([ownerKey, bytes]) => decodeStoredEdge(bytes, ownerKey, state))
+        );
+    }
+
     private requireState(transaction: MemoryContentRetentionState): MemoryBackend {
-        const state = requireTransactionState(transaction, this.store);
+        const state = requireTransactionState(transaction, this.owner);
         requireSameBinding(state, this.tenant, this.actor);
         return state;
     }

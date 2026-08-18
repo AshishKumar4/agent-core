@@ -9,8 +9,27 @@ import {
     requireOptionalString,
     requireString
 } from "./data";
-import { encodeCanonicalJson } from "../core";
+import { encodeCanonicalJson, TextId } from "../core";
 import { FacetPackageId } from "./id";
+
+export class JsonPointer {
+    public readonly tokens: readonly string[];
+
+    public constructor(public readonly value: string) {
+        if (value !== "" && (!value.startsWith("/") || /~(?:[^01]|$)/.test(value))) {
+            throw new TypeError("Value must be an RFC 6901 JSON Pointer");
+        }
+        this.tokens = Object.freeze(
+            value === ""
+                ? []
+                : value
+                      .slice(1)
+                      .split("/")
+                      .map((token) => token.replaceAll("~1", "/").replaceAll("~0", "~"))
+        );
+        Object.freeze(this);
+    }
+}
 
 export class FieldMove {
     public readonly from: string | undefined;
@@ -65,13 +84,7 @@ export class FieldMove {
     }
 }
 
-const fieldMoveCodec = new DataRecordCodec(
-    "facet.field-move",
-    (move: FieldMove) => move.toData(),
-    (payload) => FieldMove.fromData(payload)
-);
-
-abstract class MappingRecord {
+export abstract class MappingRecord {
     public readonly moves: readonly FieldMove[];
 
     protected constructor(moves: readonly FieldMove[]) {
@@ -99,6 +112,7 @@ export class FieldMapping extends MappingRecord {
 }
 
 const fieldMappingCodec = new DataRecordCodec(
+    [FieldMapping, FieldMove, MappingRecord, JsonPointer],
     "facet.field-mapping",
     (mapping: FieldMapping) => mapping.toData(),
     (payload) => new FieldMapping(decodeMoves(payload, "Field mapping"))
@@ -120,6 +134,7 @@ export class PayloadMapping extends MappingRecord {
 }
 
 const payloadMappingCodec = new DataRecordCodec(
+    [PayloadMapping, FieldMove, MappingRecord, JsonPointer],
     "facet.payload-mapping",
     (mapping: PayloadMapping) => mapping.toData(),
     (payload) => new PayloadMapping(decodeMoves(payload, "Payload mapping"))
@@ -141,6 +156,7 @@ export class ProvenanceMapping extends MappingRecord {
 }
 
 const provenanceMappingCodec = new DataRecordCodec(
+    [ProvenanceMapping, FieldMove, MappingRecord, JsonPointer],
     "facet.provenance-mapping",
     (mapping: ProvenanceMapping) => mapping.toData(),
     (payload) => new ProvenanceMapping(decodeMoves(payload, "Provenance mapping"))
@@ -188,6 +204,7 @@ export class OperationPattern {
 }
 
 const operationPatternCodec = new DataRecordCodec(
+    [OperationPattern, TextId, FacetPackageId],
     "facet.operation-pattern",
     (pattern: OperationPattern) => pattern.toData(),
     (payload) => OperationPattern.fromData(payload)
@@ -226,6 +243,7 @@ export class OperationSelector {
 }
 
 const operationSelectorCodec = new DataRecordCodec(
+    [OperationSelector, OperationPattern, FacetPackageId, TextId],
     "facet.operation-selector",
     (selector: OperationSelector) => selector.toData(),
     (payload) =>
@@ -255,24 +273,12 @@ function ensureUnique(values: readonly string[], message: string): void {
     }
 }
 
-export class JsonPointer {
-    public readonly tokens: readonly string[];
-
-    public constructor(public readonly value: string) {
-        if (value !== "" && (!value.startsWith("/") || /~(?:[^01]|$)/.test(value))) {
-            throw new TypeError("Value must be an RFC 6901 JSON Pointer");
-        }
-        this.tokens = Object.freeze(
-            value === ""
-                ? []
-                : value
-                      .slice(1)
-                      .split("/")
-                      .map((token) => token.replaceAll("~1", "/").replaceAll("~0", "~"))
-        );
-        Object.freeze(this);
-    }
-}
+const fieldMoveCodec = new DataRecordCodec(
+    [FieldMove, JsonPointer],
+    "facet.field-move",
+    (move: FieldMove) => move.toData(),
+    (payload) => FieldMove.fromData(payload)
+);
 
 function requirePrefixPattern(value: string, subject: string): void {
     if (value.length === 0 || value.trim() !== value || value.slice(0, -1).includes("*")) {

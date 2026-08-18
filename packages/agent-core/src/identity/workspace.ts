@@ -1,4 +1,4 @@
-import { RecordCodec, Revision, type JsonValue } from "../core";
+import { RecordCodec, Revision, type JsonValue, TextId } from "../core";
 import {
     requireIdentityFields,
     requireIdentityObject,
@@ -10,7 +10,14 @@ import { ScopeRef } from "./scope";
 
 class WorkspaceRecordCodec extends RecordCodec<Workspace> {
     public constructor() {
-        super("identity.workspace", { major: 1, minor: 0 });
+        super(
+            [Workspace, Revision, TextId, TenantId, WorkspaceId, ProjectId],
+            "identity.workspace",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(workspace: Workspace): JsonValue {
@@ -43,7 +50,9 @@ function isProjectIdValue(value: JsonValue | undefined): value is string {
 }
 
 export class Workspace {
-    public static readonly codec: RecordCodec<Workspace> = new WorkspaceRecordCodec();
+    public static get codec(): RecordCodec<Workspace> {
+        return workspaceCodecInstance;
+    }
 
     public constructor(
         public readonly id: WorkspaceId,
@@ -71,3 +80,5 @@ export class Workspace {
             : ScopeRef.workspace(this.tenantId, this.projectId, this.id);
     }
 }
+
+const workspaceCodecInstance = new WorkspaceRecordCodec();

@@ -1,4 +1,4 @@
-import { ActorRef } from "../actors";
+import { ActorId, ActorRef } from "../actors";
 import { AgentCoreError } from "../errors";
 import {
     ContentRef,
@@ -7,10 +7,17 @@ import {
     encodeBase64,
     encodeCanonicalJson,
     type JsonValue,
-    type RecordVersion
+    type RecordVersion,
+    TextId
 } from "../core";
-import { BindingName, OperationRef, type TrustTier } from "../facets";
-import { PrincipalRef, TenantId } from "../identity";
+import {
+    BindingName,
+    FacetPackageId,
+    OperationName,
+    OperationRef,
+    type TrustTier
+} from "../facets";
+import { PrincipalId, PrincipalRef, TenantId } from "../identity";
 import {
     AuditRecordId,
     EventId,
@@ -54,7 +61,34 @@ export interface RouteReservationInit {
 
 class RouteReservationCodecV1 extends RecordCodec<RouteReservation> {
     public constructor() {
-        super("workspace.route-reservation", { major: 1, minor: 0 });
+        super(
+            [
+                RouteReservation,
+                ActorRef,
+                ContentRef,
+                TextId,
+                Digest,
+                OperationRef,
+                BindingName,
+                InvocationId,
+                ActorId,
+                RouteProjectionId,
+                EventId,
+                RouteReservationId,
+                AuditRecordId,
+                TenantId,
+                SubscriptionId,
+                PrincipalId,
+                FacetPackageId,
+                OperationName,
+                PrincipalRef
+            ],
+            "workspace.route-reservation",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(route: RouteReservation): JsonValue {
@@ -133,7 +167,9 @@ class RouteReservationCodecV1 extends RecordCodec<RouteReservation> {
 }
 
 export class RouteReservation {
-    public static readonly codec: RecordCodec<RouteReservation> = new RouteReservationCodecV1();
+    public static get codec(): RecordCodec<RouteReservation> {
+        return routeReservationCodecInstance;
+    }
 
     public static encode(reservation: RouteReservation): Uint8Array {
         return RouteReservation.codec.encode(reservation);
@@ -215,6 +251,8 @@ export class RouteReservation {
     }
 }
 
+const routeReservationCodecInstance = new RouteReservationCodecV1();
+
 export interface RouteProjectionInit {
     readonly id: RouteProjectionId;
     readonly reservation: RouteReservationId;
@@ -225,7 +263,14 @@ export interface RouteProjectionInit {
 
 class RouteProjectionCodecV2 extends RecordCodec<RouteProjection> {
     public constructor() {
-        super("workspace.route-projection", { major: 2, minor: 0 });
+        super(
+            [RouteProjection, ContentRef, TextId, Digest, RouteProjectionId, RouteReservationId],
+            "workspace.route-projection",
+            {
+                major: 2,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(projection: RouteProjection): JsonValue {
@@ -268,7 +313,9 @@ class RouteProjectionCodecV2 extends RecordCodec<RouteProjection> {
 }
 
 export class RouteProjection {
-    public static readonly codec: RecordCodec<RouteProjection> = new RouteProjectionCodecV2();
+    public static get codec(): RecordCodec<RouteProjection> {
+        return routeProjectionCodecInstance;
+    }
 
     public static encode(projection: RouteProjection): Uint8Array {
         return RouteProjection.codec.encode(projection);
@@ -318,6 +365,8 @@ export class RouteProjection {
     }
 }
 
+const routeProjectionCodecInstance = new RouteProjectionCodecV2();
+
 export abstract class RouteDeliveryState {
     public static delivered(): RouteDeliveryState {
         return deliveredRoute;
@@ -362,7 +411,21 @@ export interface RouteDeliveryInit {
 
 class RouteDeliveryCodecV1 extends RecordCodec<RouteDelivery> {
     public constructor() {
-        super("workspace.route-delivery", { major: 1, minor: 0 });
+        super(
+            [
+                RouteDelivery,
+                RouteDeliveryState,
+                TextId,
+                RouteReservationId,
+                AuditRecordId,
+                RejectedRouteDelivery
+            ],
+            "workspace.route-delivery",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(delivery: RouteDelivery): JsonValue {
@@ -405,7 +468,9 @@ class RouteDeliveryCodecV1 extends RecordCodec<RouteDelivery> {
 }
 
 export class RouteDelivery {
-    public static readonly codec: RecordCodec<RouteDelivery> = new RouteDeliveryCodecV1();
+    public static get codec(): RecordCodec<RouteDelivery> {
+        return routeDeliveryCodecInstance;
+    }
 
     public static encode(delivery: RouteDelivery): Uint8Array {
         return RouteDelivery.codec.encode(delivery);
@@ -429,6 +494,8 @@ export class RouteDelivery {
         Object.freeze(this);
     }
 }
+
+const routeDeliveryCodecInstance = new RouteDeliveryCodecV1();
 
 export interface RouteProjectionEnvelope {
     readonly reservation: RouteReservation;

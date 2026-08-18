@@ -9,9 +9,10 @@ import {
     requireString
 } from "./data";
 import { EventPattern } from "./event";
-import { BindingName, OperationRef } from "./id";
-import { FieldMove, PayloadMapping } from "./mapping";
+import { BindingName, FacetPackageId, OperationName, OperationRef } from "./id";
+import { FieldMove, JsonPointer, MappingRecord, PayloadMapping } from "./mapping";
 import { BoundOperationRef } from "./operation";
+import { TextId } from "../core";
 
 export type DedupePolicy = "none" | "event" | "causation" | "payload";
 export type AutomationAuthority = "initiator" | "delegated";
@@ -92,6 +93,20 @@ export class Automation {
 }
 
 const automationCodec = new DataRecordCodec(
+    [
+        Automation,
+        TextId,
+        MappingRecord,
+        FieldMove,
+        EventPattern,
+        OperationRef,
+        BindingName,
+        FacetPackageId,
+        OperationName,
+        BoundOperationRef,
+        PayloadMapping,
+        JsonPointer
+    ],
     "facet.automation",
     (automation: Automation) => automation.toData(),
     (payload) => Automation.fromData(payload)

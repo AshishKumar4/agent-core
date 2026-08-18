@@ -6,7 +6,8 @@ import {
     RecordCodec,
     Revision,
     type JsonValue,
-    type RecordVersion
+    type RecordVersion,
+    TextId
 } from "../core";
 import { PrincipalId, PrincipalRef, TenantId } from "../identity";
 import { AuditRecordId } from "../invocations";
@@ -38,7 +39,27 @@ export interface CommandEnvelopeInit {
 
 class CommandEnvelopeCodecV1 extends RecordCodec<CommandEnvelope> {
     public constructor() {
-        super("command-envelope", { major: 1, minor: 0 });
+        super(
+            [
+                CommandEnvelope,
+                ActorRef,
+                Revision,
+                TextId,
+                ContentRef,
+                Digest,
+                ActorId,
+                AuditRecordId,
+                TenantId,
+                TurnId,
+                PrincipalId,
+                PrincipalRef
+            ],
+            "command-envelope",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(envelope: CommandEnvelope): JsonValue {
@@ -99,7 +120,9 @@ class CommandEnvelopeCodecV1 extends RecordCodec<CommandEnvelope> {
 }
 
 export class CommandEnvelope {
-    public static readonly codec: RecordCodec<CommandEnvelope> = new CommandEnvelopeCodecV1();
+    public static get codec(): RecordCodec<CommandEnvelope> {
+        return commandEnvelopeCodecInstance;
+    }
     public readonly command: string;
     public readonly caller: CommandCaller;
     public readonly idempotencyKey: string;
@@ -141,6 +164,8 @@ export class CommandEnvelope {
         return CommandEnvelope.codec.decode(bytes);
     }
 }
+
+const commandEnvelopeCodecInstance = new CommandEnvelopeCodecV1();
 
 export const CommandEnvelopeCodec: RecordCodec<CommandEnvelope> = CommandEnvelope.codec;
 

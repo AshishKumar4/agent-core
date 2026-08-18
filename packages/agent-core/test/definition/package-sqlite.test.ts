@@ -243,8 +243,8 @@ describe("SqlitePackageStore persistence", () => {
 class DropInsertSqlite extends TestSqlite {
     public dropInserts = false;
 
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         if (this.dropInserts && /^\s*INSERT OR IGNORE INTO definition_/u.test(statement)) return;
-        super.run(statement, bindings);
+        super.execute(statement, bindings);
     }
 }

@@ -1,12 +1,92 @@
-import { Digest, RecordCodec, encodeCanonicalJson, type JsonValue } from "../core";
+import {
+    Digest,
+    RecordCodec,
+    encodeCanonicalJson,
+    type JsonValue,
+    Revision,
+    SecretRef,
+    SemVer,
+    TextId
+} from "../core";
+import { RunId, TurnId } from "../agents";
+import { ActorId, ActorRef } from "../actors";
+import { PackageId, PackagePin } from "../definition";
+import {
+    BindingName,
+    FacetPackageId,
+    FacetRef,
+    OperationName,
+    OperationRef,
+    ProtectionDomain
+} from "../facets";
+import { ClaimWorkerId, ItemClaimId } from "../invocation-references";
+import { InvocationId } from "../interaction-references";
 import type { JsonObject } from "./data";
 import { requireExact, requireObject } from "./data";
-import { AuthorityCheckEvidence } from "./evidence";
+import { Binding, BindingCredentialCustody, BindingLifecycle } from "./binding";
+import { AuthorityCheckEvidence, AuthorityCheckRequest } from "./evidence";
+import { PathEpochEvidence, ScopeEpoch } from "./epoch";
+import { AuthorityPermitExpectation } from "./permit";
 import { TargetAuthorityPermitRequest } from "./permit-request";
+import {
+    GuestVerificationScheme,
+    PrincipalId,
+    PrincipalRef,
+    ProjectId,
+    ScopeRef,
+    TeamId,
+    TenantId,
+    WorkspaceId
+} from "../identity";
+import { GrantId } from "./id";
 
 class TargetAuthorityPermitDenialCodec extends RecordCodec<TargetAuthorityPermitDenial> {
     public constructor() {
-        super("authority.target-permit-denial", { major: 1, minor: 0 });
+        super(
+            [
+                TargetAuthorityPermitDenial,
+                ActorRef,
+                GuestVerificationScheme,
+                Revision,
+                ScopeRef,
+                TextId,
+                SemVer,
+                AuthorityCheckRequest,
+                AuthorityPermitExpectation,
+                Binding,
+                AuthorityCheckEvidence,
+                BindingLifecycle,
+                TargetAuthorityPermitRequest,
+                BindingCredentialCustody,
+                PathEpochEvidence,
+                PackagePin,
+                ScopeEpoch,
+                FacetRef,
+                ProtectionDomain,
+                Digest,
+                OperationRef,
+                SecretRef,
+                PrincipalRef,
+                RunId,
+                BindingName,
+                InvocationId,
+                ActorId,
+                FacetPackageId,
+                PackageId,
+                TeamId,
+                ItemClaimId,
+                OperationName,
+                ClaimWorkerId,
+                TenantId,
+                WorkspaceId,
+                TurnId,
+                GrantId,
+                ProjectId,
+                PrincipalId
+            ],
+            "authority.target-permit-denial",
+            { major: 1, minor: 0 }
+        );
     }
 
     protected encodePayload(denial: TargetAuthorityPermitDenial): JsonValue {
@@ -20,8 +100,9 @@ class TargetAuthorityPermitDenialCodec extends RecordCodec<TargetAuthorityPermit
 
 /** The exact denied Tenant decision for one target-owned permit request. */
 export class TargetAuthorityPermitDenial {
-    public static readonly codec: RecordCodec<TargetAuthorityPermitDenial> =
-        new TargetAuthorityPermitDenialCodec();
+    public static get codec(): RecordCodec<TargetAuthorityPermitDenial> {
+        return targetAuthorityPermitDenialCodecInstance;
+    }
 
     public constructor(
         public readonly request: TargetAuthorityPermitRequest,
@@ -69,3 +150,5 @@ export class TargetAuthorityPermitDenial {
         return TargetAuthorityPermitDenial.codec.decode(bytes);
     }
 }
+
+const targetAuthorityPermitDenialCodecInstance = new TargetAuthorityPermitDenialCodec();

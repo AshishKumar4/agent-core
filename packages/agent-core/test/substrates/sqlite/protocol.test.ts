@@ -10,8 +10,8 @@ import {
 class RowTamperSqlite extends TestSqlite {
     public tamper: ((statement: string, rows: readonly SqliteRow[]) => readonly SqliteRow[]) | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const rows = super.all(statement, bindings);
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
         return this.tamper === undefined ? rows : this.tamper(statement, rows);
     }
 }
@@ -19,7 +19,7 @@ class RowTamperSqlite extends TestSqlite {
 class ViewRebuildLossSqlite extends TestSqlite {
     public suppressRebuild = false;
 
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         if (
             this.suppressRebuild &&
             (statement === "DROP VIEW protocol_command_identities" ||
@@ -27,21 +27,21 @@ class ViewRebuildLossSqlite extends TestSqlite {
         ) {
             return;
         }
-        super.run(statement, bindings);
+        super.execute(statement, bindings);
     }
 }
 
 class IndexRebuildFaultSqlite extends TestSqlite {
     public failPrincipalIndex = false;
 
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         if (
             this.failPrincipalIndex &&
             statement.startsWith("CREATE UNIQUE INDEX protocol_principal_identity")
         ) {
             throw new Error("index rebuild fault");
         }
-        super.run(statement, bindings);
+        super.execute(statement, bindings);
     }
 }
 

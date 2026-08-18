@@ -52,7 +52,6 @@ import {
 } from "../../../src/substrates/sqlite/tenant";
 import { SqliteInvalidationWatermarkStore } from "../../../src/substrates/sqlite/watermark";
 import {
-    TransactionalSqlite,
     type SqliteRow,
     type SqliteValue
 } from "../../../src/substrates/sqlite/sqlite";
@@ -1151,7 +1150,7 @@ function expectErrorCode(operation: () => void, code: AgentCoreError["code"]): v
     }
 }
 
-class StubSqlite extends TransactionalSqlite {
+class StubSqlite extends TestSqlite {
     public failRuns = false;
     public failReads = false;
     public readFailure: unknown;
@@ -1159,16 +1158,16 @@ class StubSqlite extends TransactionalSqlite {
     public constructor(private readonly row?: SqliteRow) {
         super();
     }
-    public all(statement: string, _bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, _bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         if (this.readFailure !== undefined) throw this.readFailure;
         if (this.failReads) throw new Error("injected SQLite read failure");
         return this.row !== undefined && statement.includes("SELECT *") ? [this.row] : [];
     }
-    public run(_statement: string, _bindings: readonly SqliteValue[]): void {
+    protected override execute(_statement: string, _bindings: readonly SqliteValue[]): void {
         if (this.runFailure !== undefined) throw this.runFailure;
         if (this.failRuns) throw new Error("injected SQLite failure");
     }
-    public transaction<Result>(
+    public override transaction<Result>(
         operation: () => Result,
         ..._guard: SynchronousResultGuard<Result>
     ): Result {
@@ -1658,27 +1657,27 @@ class SwappedRecordSqlite extends TestSqlite {
         super();
     }
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        const rows = super.all(statement, bindings);
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
         const swapped = this.swapped;
         if (swapped === undefined || !statement.includes(`FROM ${this.table}`)) return rows;
         return rows.map((row) => ({ ...row, record: swapped }));
     }
 }
 
-class TamperedSqlite extends TransactionalSqlite {
+class TamperedSqlite extends TestSqlite {
     readonly #database = new TestSqlite();
     public dropRuns = false;
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         return this.#database.all(statement, bindings);
     }
 
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         if (!this.dropRuns) this.#database.run(statement, bindings);
     }
 
-    public transaction<Result>(
+    public override transaction<Result>(
         operation: () => Result,
         ...guard: SynchronousResultGuard<Result>
     ): Result {

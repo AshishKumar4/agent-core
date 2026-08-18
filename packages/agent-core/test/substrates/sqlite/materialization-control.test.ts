@@ -330,21 +330,21 @@ class FaultControlSqlite extends TestSqlite {
         "none" | "deployment-empty" | "deployment-multiple" | "rollout-drop" | "outbox-drop" =
         "none";
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         if (
             this.fault === "deployment-empty" &&
             /INSERT INTO definition_deployments/u.test(statement)
         ) {
             return [];
         }
-        const rows = super.all(statement, bindings);
+        const rows = super.query(statement, bindings);
         return this.fault === "deployment-multiple" &&
             /INSERT INTO definition_deployments/u.test(statement)
             ? [...rows, ...rows]
             : rows;
     }
 
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         if (
             (this.fault === "rollout-drop" &&
                 /INSERT INTO definition_materialization_rollouts/u.test(statement)) ||
@@ -353,7 +353,7 @@ class FaultControlSqlite extends TestSqlite {
         ) {
             return;
         }
-        super.run(statement, bindings);
+        super.execute(statement, bindings);
     }
 }
 
@@ -1021,21 +1021,21 @@ describe("SQLite materialization rollout control corruption and lineage", () => 
 class AttestationDropSqlite extends TestSqlite {
     public drop = false;
 
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         if (this.drop && /INSERT INTO definition_validation_attestations/u.test(statement)) {
             return;
         }
-        super.run(statement, bindings);
+        super.execute(statement, bindings);
     }
 }
 
 class OutboxCasFaultSqlite extends TestSqlite {
     public fault: "none" | "update-empty" | "update-duplicate" | "update-tamper" = "none";
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         const isOutboxUpdate = /UPDATE definition_materialization_outbox/u.test(statement);
         if (this.fault === "update-empty" && isOutboxUpdate) return [];
-        const rows = super.all(statement, bindings);
+        const rows = super.query(statement, bindings);
         if (this.fault === "update-duplicate" && isOutboxUpdate) return [...rows, ...rows];
         if (this.fault === "update-tamper" && isOutboxUpdate) {
             return rows.map((row) => ({ ...row, record: Uint8Array.of(1) }));

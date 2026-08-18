@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, test } from "vitest";
 import { MemoryActorStore, type SynchronousResultGuard } from "../../../src/actors";
 import { Revision } from "../../../src/core";
 import { AgentCoreError, type AgentCoreErrorCode } from "../../../src/errors";
@@ -71,20 +71,6 @@ interface StorageHarness {
 }
 
 type HarnessFactory = (options?: HarnessOptions) => StorageHarness;
-
-type WorkspaceDecodedRecord =
-    | ContentRetentionReference
-    | Event
-    | RouteDelivery
-    | RouteProjection
-    | RouteReservation
-    | Subscription
-    | View
-    | ViewDelta;
-
-interface WorkspaceRecordCodec {
-    decode(bytes: Uint8Array): WorkspaceDecodedRecord;
-}
 
 const encoder = new TextEncoder();
 
@@ -1227,7 +1213,7 @@ describe.each(factories)("%s View replay and retention coverage", (_name, create
 });
 
 describe("stored codec corruption coverage", () => {
-    test("rejects malformed metadata, bytes, and wrong decoded record classes", { tags: "p1" }, () => {
+    test("rejects malformed metadata, envelopes, and bytes", { tags: "p1" }, () => {
         const event = eventFixture("malformed-storage");
         const records = new MemoryWorkspaceRecords();
         records.insertRecord(stored("event", event.id.value, Event.codec.encode(event)));
@@ -1248,36 +1234,36 @@ describe("stored codec corruption coverage", () => {
         malformedBytes.insertRecord(stored("event", event.id.value, encoder.encode("not-json")));
         expectCodecInvalid(() => newPersistence().findEvent(malformedBytes, event.id));
 
-        const typeFailure = vi.spyOn(Event.codec, "decode").mockImplementation(() => {
-            throw new TypeError("synthetic codec type failure");
-        });
-        expectCodecInvalid(() => persistence.findEvent(records, event.id));
-        typeFailure.mockRestore();
-
-        const eventCodec: WorkspaceRecordCodec = Event.codec;
-        const wrongClass = vi
-            .spyOn(eventCodec, "decode")
-            .mockReturnValue(subscriptionFixture("wrong-codec-class"));
-        expectCodecInvalid(() => persistence.findEvent(records, event.id));
-        wrongClass.mockRestore();
+        const malformedEnvelope = new MemoryWorkspaceRecords();
+        malformedEnvelope.insertRecord(
+            stored(
+                "event",
+                event.id.value,
+                encoder.encode(
+                    JSON.stringify({
+                        kind: Event.codec.kind,
+                        payload: null,
+                        version: Event.codec.version
+                    })
+                )
+            )
+        );
+        expectCodecInvalid(() => newPersistence().findEvent(malformedEnvelope, event.id));
     });
 
-    test("rejects wrong decoded classes for every non-Event durable record kind", { tags: "p1" }, () => {
+    test("rejects bytes encoded for another durable record kind", { tags: "p1" }, () => {
         const records = new MemoryWorkspaceRecords();
         const persistence = newPersistence();
-        const event = eventFixture("wrong-class-value");
-        const subscription = subscriptionFixture("wrong-class-subscription");
-        const reservation = reservationFixture("wrong-class-reservation");
+        const event = eventFixture("wrong-kind-value");
+        const wrongKindBytes = Event.codec.encode(event);
+        const subscription = subscriptionFixture("wrong-kind-subscription");
+        const reservation = reservationFixture("wrong-kind-reservation");
         const projection = projectionFixture(reservation);
         const delivery = deliveryFixture(reservation);
-        const view = viewFixture(0, "wrong-class-view");
+        const view = viewFixture(0, "wrong-kind-view");
         const delta = viewDeltaFixture(view);
         records.insertRecord(
-            stored(
-                "subscription",
-                `${subscription.id.value}@0`,
-                Subscription.codec.encode(subscription)
-            )
+            stored("subscription", `${subscription.id.value}@0`, wrongKindBytes)
         );
         records.compareAndSetPointer(
             {
@@ -1288,28 +1274,20 @@ describe("stored codec corruption coverage", () => {
             undefined
         );
         records.insertRecord(
-            stored(
-                "routeReservation",
-                reservation.id.value,
-                RouteReservation.codec.encode(reservation)
-            )
+            stored("routeReservation", reservation.id.value, wrongKindBytes)
         );
         records.insertRecord(
-            stored("routeProjection", projection.id.value, RouteProjection.codec.encode(projection))
+            stored("routeProjection", projection.id.value, wrongKindBytes)
         );
         records.insertRecord(
-            stored(
-                "routeDelivery",
-                delivery.reservation.value,
-                RouteDelivery.codec.encode(delivery)
-            )
+            stored("routeDelivery", delivery.reservation.value, wrongKindBytes)
         );
         records.insertUnique({
             namespace: "route.delivery",
             key: delivery.reservation.value,
             recordKey: delivery.reservation.value
         });
-        records.insertRecord(stored("view", `${view.surface.value}@0`, View.codec.encode(view)));
+        records.insertRecord(stored("view", `${view.surface.value}@0`, wrongKindBytes));
         records.compareAndSetPointer(
             {
                 namespace: "view.current",
@@ -1319,39 +1297,28 @@ describe("stored codec corruption coverage", () => {
             undefined
         );
         records.insertRecord(
-            stored("viewDelta", `${delta.surface.value}@1`, ViewDelta.codec.encode(delta))
+            stored("viewDelta", `${delta.surface.value}@1`, wrongKindBytes)
         );
 
-        const cases: readonly [WorkspaceRecordCodec, () => void][] = [
-            [Subscription.codec, () => persistence.currentSubscription(records, subscription.id)],
-            [RouteReservation.codec, () => persistence.findReservation(records, reservation.id)],
-            [RouteProjection.codec, () => persistence.findProjection(records, projection.id)],
-            [RouteDelivery.codec, () => persistence.findDelivery(records, delivery.reservation)],
-            [View.codec, () => persistence.currentView(records, view.surface.value)],
-            [
-                ViewDelta.codec,
-                () => persistence.listViewDeltas(records, view.surface.value, Revision.initial())
-            ]
+        const operations: readonly (() => void)[] = [
+            () => persistence.currentSubscription(records, subscription.id),
+            () => persistence.findReservation(records, reservation.id),
+            () => persistence.findProjection(records, projection.id),
+            () => persistence.findDelivery(records, delivery.reservation),
+            () => persistence.currentView(records, view.surface.value),
+            () => persistence.listViewDeltas(records, view.surface.value, Revision.initial())
         ];
-        for (const [codec, operation] of cases) {
-            const decode = vi.spyOn(codec, "decode").mockReturnValue(event);
-            expectCodecInvalid(operation);
-            decode.mockRestore();
-        }
+        for (const operation of operations) expectCodecInvalid(operation);
 
-        const retained = content("wrong-class-retention");
+        const retained = content("wrong-kind-retention");
         const reference = retentionFixture({
-            id: "wrong-class-retention",
+            id: "wrong-kind-retention",
             recordKind: "view",
             recordId: `${view.surface.value}@0`,
             content: retained
         });
         records.insertRecord(
-            stored(
-                "contentRetention",
-                reference.id.value,
-                ContentRetentionReference.codec.encode(reference)
-            )
+            stored("contentRetention", reference.id.value, wrongKindBytes)
         );
         const next = new View({ ...view, revision: new Revision(1) });
         records.insertRecord(stored("view", `${view.surface.value}@1`, View.codec.encode(next)));
@@ -1363,12 +1330,9 @@ describe("stored codec corruption coverage", () => {
             },
             `${view.surface.value}@0`
         );
-        const retentionCodec: WorkspaceRecordCodec = ContentRetentionReference.codec;
-        const retentionDecode = vi.spyOn(retentionCodec, "decode").mockReturnValue(event);
         expectCodecInvalid(() =>
             persistence.compactView(records, view.surface.value, new Revision(1))
         );
-        retentionDecode.mockRestore();
     });
 });
 
@@ -2014,15 +1978,15 @@ class ReadCorruptingStorage extends StorageDecorator {
 }
 
 class MissingSchemaSqlite extends TestSqlite {
-    public override run(statement: string, bindings: readonly SqliteValue[]): void {
-        if (!statement.startsWith("CREATE TABLE")) super.run(statement, bindings);
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
+        if (!statement.startsWith("CREATE TABLE")) super.execute(statement, bindings);
     }
 }
 
 class RowMutatingSqlite extends TestSqlite {
     public mutate: ((statement: string, row: SqliteRow) => SqliteRow) | undefined;
 
-    public override all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        return super.all(statement, bindings).map((row) => this.mutate?.(statement, row) ?? row);
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        return super.query(statement, bindings).map((row) => this.mutate?.(statement, row) ?? row);
     }
 }

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
     ByteRange,
     ContentStore,
-    MemoryContentStore,
     type ContentPutResult,
     type MediaHint
 } from "../../../src/content";
@@ -30,8 +29,6 @@ import {
     TurnShownContent,
     turnModelRequestBytes,
     type RunRecordKind,
-    type RunStoragePort,
-    type StoredRunParent,
     type StoredRunRecord,
     type TurnContext,
     type TurnModelCall,
@@ -55,6 +52,7 @@ import {
     content,
     ids,
     mutableData,
+    fixtureMemoryRunSnapshot,
     seedRunningTurn,
     UncontributedCutPoints
 } from "./fixture";
@@ -71,7 +69,7 @@ type MemoryTransaction = Parameters<MemoryRunStorage["get"]>[0];
 class ReleasableContentStore extends ContentStore {
     readonly #released = new Set<string>();
 
-    public constructor(public readonly inner: MemoryContentStore) {
+    public constructor(private readonly inner: ContentStore) {
         super();
     }
 
@@ -118,11 +116,9 @@ const retentionLosses: readonly RetentionLoss[] = [
  * `unknownAfterCommit` case is the decisive one: the write landed and the substrate cannot
  * say so, which is exactly when a host must not assume either branch.
  */
-class FaultyRunStorage implements RunStoragePort<MemoryTransaction> {
+class FaultyRunStorage extends MemoryRunStorage {
     readonly #faults: CommitFault[] = [];
     #observed = false;
-
-    public constructor(private readonly inner: MemoryRunStorage) {}
 
     public arm(...faults: readonly CommitFault[]): void {
         this.#faults.push(...faults);
@@ -133,12 +129,13 @@ class FaultyRunStorage implements RunStoragePort<MemoryTransaction> {
         return this.#faults.length;
     }
 
-    public transaction<Result>(
+    public override transaction<Result>(
         operation: (transaction: MemoryTransaction) => Result,
         ...guard: SynchronousResultGuard<Result>
     ): Result {
+        if (!(#faults in this)) return super.transaction(operation, ...guard);
         this.#observed = false;
-        const result = this.inner.transaction(operation, ...guard);
+        const result = super.transaction(operation, ...guard);
         if (this.#observed && this.#faults[0] === "unknownAfterCommit") {
             this.#faults.shift();
             throw new ActorCommitUnknownError();
@@ -146,20 +143,8 @@ class FaultyRunStorage implements RunStoragePort<MemoryTransaction> {
         return result;
     }
 
-    public get(
-        transaction: MemoryTransaction,
-        kind: RunRecordKind,
-        key: string
-    ): StoredRunRecord | undefined {
-        return this.inner.get(transaction, kind, key);
-    }
-
-    public list(transaction: MemoryTransaction, kind: RunRecordKind): readonly StoredRunRecord[] {
-        return this.inner.list(transaction, kind);
-    }
-
-    public insert(transaction: MemoryTransaction, record: StoredRunRecord): void {
-        if (record.kind === "commit" && record.key.startsWith("model-input:")) {
+    public override insert(transaction: MemoryTransaction, record: StoredRunRecord): void {
+        if (#faults in this && record.kind === "commit" && record.key.startsWith("model-input:")) {
             const fault = this.#faults[0];
             if (fault === "reject" || fault === "unavailable" || fault === "unknown") {
                 this.#faults.shift();
@@ -171,23 +156,28 @@ class FaultyRunStorage implements RunStoragePort<MemoryTransaction> {
             }
             this.#observed = true;
         }
-        this.inner.insert(transaction, record);
+        super.insert(transaction, record);
     }
+}
 
-    public replace(
+/**
+ * Storage that keeps its records and its content custody whole and answers no inbox row, so
+ * a replay which reached for a delivered Event through the inbox could not pass.
+ */
+class InboxlessRunStorage extends MemoryRunStorage {
+    public override get(
         transaction: MemoryTransaction,
-        record: StoredRunRecord,
-        expectedRevision: number
-    ): void {
-        this.inner.replace(transaction, record, expectedRevision);
+        kind: RunRecordKind,
+        key: string
+    ): StoredRunRecord | undefined {
+        return kind === "inbox" ? undefined : super.get(transaction, kind, key);
     }
 
-    public insertParent(transaction: MemoryTransaction, edge: StoredRunParent): void {
-        this.inner.insertParent(transaction, edge);
-    }
-
-    public parents(transaction: MemoryTransaction, commit: string): readonly StoredRunParent[] {
-        return this.inner.parents(transaction, commit);
+    public override list(
+        transaction: MemoryTransaction,
+        kind: RunRecordKind
+    ): readonly StoredRunRecord[] {
+        return kind === "inbox" ? [] : super.list(transaction, kind);
     }
 }
 
@@ -221,8 +211,7 @@ class ObservingModelPort {
 }
 
 function faultyHarness() {
-    const inner = new MemoryRunStorage();
-    const faults = new FaultyRunStorage(inner);
+    const faults = new FaultyRunStorage(ids.holder.tenantId, ids.actor, fixtureMemoryRunSnapshot(), () => new Date(0));
     const repository = new RunRepository(faults);
     const sources = new TestSourcePort<MemoryTransaction>();
     const evidence = new TestEvidencePort<MemoryTransaction>();
@@ -238,7 +227,7 @@ function faultyHarness() {
         merge,
         new UncontributedCutPoints()
     );
-    return { storage: inner, faults, repository, sources, evidence, settlement, spawn, merge, runtime };
+    return { storage: faults, faults, repository, sources, evidence, settlement, spawn, merge, runtime };
 }
 
 function tool(binding: string, operation: string): TurnBoundOperation {
@@ -330,11 +319,12 @@ interface Fixture {
 }
 
 async function fixture(catalog: readonly TurnBoundOperation[] = []): Promise<Fixture> {
-    const memory = new MemoryContentStore();
-    const store = new ReleasableContentStore(memory);
+    const built = faultyHarness();
+    // Custody admits only content the Run's own store holds, so the fixture writes through
+    // that store and the release wrapper only withholds reads.
+    const store = new ReleasableContentStore(built.storage.content);
     const prompt = (await store.put(encoder.encode("assembled"))).ref;
     const output = (await store.put(encoder.encode("response"))).ref;
-    const built = faultyHarness();
     const seeded = seedRunningTurn(
         built,
         {},
@@ -422,10 +412,16 @@ describe("Turn model input", () => {
             expect(replayed.catalog).toEqual([read]);
             expect(replayed.baseCommit).toEqual(ids.root);
 
-            // The restart discards every executor process and keeps only the records.
+            // The restart discards every executor process and keeps only the records, whose
+            // one aggregate snapshot carries the Run's content custody with them.
+            const reopened = new MemoryRunStorage(
+                ids.holder.tenantId,
+                ids.actor,
+                base.seeded.storage.snapshot()
+            );
             const restarted = new TurnModelInputReplay({
-                repository: new RunRepository(new MemoryRunStorage(base.seeded.storage.snapshot())),
-                content: MemoryContentStore.restore(base.content.inner.snapshot())
+                repository: new RunRepository(reopened),
+                content: reopened.content
             });
             expect(turnModelRequestBytes(await restarted.reconstruct(input))).toEqual(sent);
         }
@@ -549,15 +545,14 @@ describe("Turn model input", () => {
             expect(document.admitted.map((entry) => entry.content.value)).toEqual([first.value]);
             expect(document.admissionCut).toBe(2);
 
-            // Retention reaches the admitted Event's content through the undeletable commit,
-            // so a replay that never reads the inbox still rebuilds it whole.
+            // The committed model input names the admitted Event's content itself, so a
+            // replay rebuilds the request whole from a store that answers no inbox row.
             const inboxFree = new RunRepository(
-                new MemoryRunStorage({
-                    ...base.seeded.storage.snapshot(),
-                    records: base.seeded.storage
-                        .snapshot()
-                        .records.filter((row) => row.kind !== "inbox")
-                })
+                new InboxlessRunStorage(
+                    ids.holder.tenantId,
+                    ids.actor,
+                    base.seeded.storage.snapshot()
+                )
             );
             const replayed = await new TurnModelInputReplay({
                 repository: inboxFree,

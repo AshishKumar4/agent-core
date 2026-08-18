@@ -7,6 +7,7 @@ import { AgentCoreError } from "../../src/errors";
 import { WorkspaceId } from "../../src/identity";
 import { InstalledSlot, SlotDeclaration, SlotEntry, SlotEntryId, SlotName } from "../../src/facets";
 import { SqliteWorkspaceSlotStore } from "../../src/substrates/sqlite/slot";
+import type { SqliteRow, SqliteValue } from "../../src/substrates/sqlite/sqlite";
 import { FileSqlite, TestSqlite } from "../helpers/sqlite";
 import {
     contribute,
@@ -240,35 +241,54 @@ describe("SqliteWorkspaceSlotStore persistence", () => {
         "fails closed when a hostile SQLite adapter returns invalid projected types",
         { tags: "p0" },
         () => {
-            const revisionDatabase = new TestSqlite();
+            const revisionDatabase = new InvalidRevisionSqlite();
             const revisionStore = new SqliteWorkspaceSlotStore(
                 new WorkspaceId("workspace"),
                 revisionDatabase
             );
-            const revisionAll = revisionDatabase.all.bind(revisionDatabase);
-            revisionDatabase.all = (statement, bindings) =>
-                statement.includes("SELECT revision FROM facet_slot_revision")
-                    ? [{ revision: "invalid" }]
-                    : revisionAll(statement, bindings);
+            revisionDatabase.invalid = true;
             expect(() => revisionStore.revision()).toThrow(/integer/);
 
-            const recordDatabase = new TestSqlite();
+            const recordDatabase = new InvalidRecordSqlite();
             const recordStore = new SqliteWorkspaceSlotStore(
                 new WorkspaceId("workspace"),
                 recordDatabase
             );
             recordStore.install(slot());
-            const recordAll = recordDatabase.all.bind(recordDatabase);
-            recordDatabase.all = (statement, bindings) => {
-                const rows = recordAll(statement, bindings);
-                return statement.includes("FROM facet_slots WHERE name") && rows[0] !== undefined
-                    ? [{ ...rows[0], record: "invalid" }]
-                    : rows;
-            };
+            recordDatabase.invalid = true;
             expect(() => recordStore.slot(slot().declaration.name)).toThrow(/bytes/);
         }
     );
 });
+
+class InvalidRevisionSqlite extends TestSqlite {
+    public invalid = false;
+
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
+        return this.invalid && statement.includes("SELECT revision FROM facet_slot_revision")
+            ? [{ revision: "invalid" }]
+            : super.query(statement, bindings);
+    }
+}
+
+class InvalidRecordSqlite extends TestSqlite {
+    public invalid = false;
+
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
+        return this.invalid &&
+            statement.includes("FROM facet_slots WHERE name") &&
+            rows[0] !== undefined
+            ? [{ ...rows[0], record: "invalid" }]
+            : rows;
+    }
+}
 
 function expectAgentCoreError(action: () => void, code: AgentCoreError["code"]): void {
     try {

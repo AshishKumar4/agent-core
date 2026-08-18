@@ -1,4 +1,4 @@
-import { RecordCodec, type JsonValue, type RecordVersion } from "../core";
+import { RecordCodec, type JsonValue, type RecordVersion, TextId } from "../core";
 import { TurnId } from "../execution-references";
 import { EventId } from "../interaction-references";
 import { requireFields, requireInteger, requireObject, requireString } from "./codec";
@@ -14,7 +14,11 @@ export interface InboxEventReferenceInit {
 
 class InboxEventReferenceCodecV1 extends RecordCodec<InboxEventReference> {
     public constructor() {
-        super("workspace.inbox-reference", { major: 1, minor: 0 });
+        super(
+            [InboxEventReference, TextId, InboxReferenceId, EventId, TurnId],
+            "workspace.inbox-reference",
+            { major: 1, minor: 0 }
+        );
     }
 
     protected encodePayload(reference: InboxEventReference): JsonValue {
@@ -45,8 +49,9 @@ class InboxEventReferenceCodecV1 extends RecordCodec<InboxEventReference> {
 }
 
 export class InboxEventReference {
-    public static readonly codec: RecordCodec<InboxEventReference> =
-        new InboxEventReferenceCodecV1();
+    public static get codec(): RecordCodec<InboxEventReference> {
+        return inboxEventReferenceCodecInstance;
+    }
 
     public static encode(reference: InboxEventReference): Uint8Array {
         return InboxEventReference.codec.encode(reference);
@@ -89,3 +94,5 @@ export class InboxEventReference {
         return this.init.leaseEpoch;
     }
 }
+
+const inboxEventReferenceCodecInstance = new InboxEventReferenceCodecV1();

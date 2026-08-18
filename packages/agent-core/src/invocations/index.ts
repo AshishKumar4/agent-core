@@ -45,6 +45,7 @@ export {
     requireString,
     immutableReference,
     sameJson,
+    structuralCodec,
     validDate
 } from "./codec";
 export type { StructuralCodec } from "./codec";

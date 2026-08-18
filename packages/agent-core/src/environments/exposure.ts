@@ -1,4 +1,4 @@
-import { RecordCodec, Revision, type JsonValue, type RecordVersion } from "../core";
+import { RecordCodec, Revision, type JsonValue, type RecordVersion, TextId } from "../core";
 import { AgentCoreError } from "../errors";
 import {
     advanceRevision,
@@ -111,7 +111,22 @@ const revokedPortState = freezeState(new RevokedPortState());
 
 class PortExposureCodecV1 extends RecordCodec<PortExposure> {
     public constructor() {
-        super("environment.port-exposure", { major: 1, minor: 0 });
+        super(
+            [
+                PortExposure,
+                PortExposureState,
+                Revision,
+                TextId,
+                PortExposureId,
+                EnvironmentSessionId,
+                EnvironmentId
+            ],
+            "environment.port-exposure",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(exposure: PortExposure): JsonValue {
@@ -165,7 +180,9 @@ class PortExposureCodecV1 extends RecordCodec<PortExposure> {
 }
 
 export class PortExposure {
-    public static readonly codec: RecordCodec<PortExposure> = new PortExposureCodecV1();
+    public static get codec(): RecordCodec<PortExposure> {
+        return portExposureCodecInstance;
+    }
 
     public constructor(
         public readonly id: PortExposureId,
@@ -254,6 +271,8 @@ export class PortExposure {
         );
     }
 }
+
+const portExposureCodecInstance = new PortExposureCodecV1();
 
 function isExposureUrl(value: unknown): value is string {
     return typeof value === "string";

@@ -287,7 +287,20 @@ export class TurnAdmissionHandle extends CodecRecord {
 
 class AdmissionHandleCodec extends RecordCodec<TurnAdmissionHandle> {
     public constructor() {
-        super("turn.admission-handle", { major: 1, minor: 0 });
+        super(
+            [
+                TurnAdmissionHandle,
+                TurnAdmissionIdentity,
+                Digest,
+                RunId,
+                TurnId,
+                InvocationId,
+                EffectAttemptId,
+                ReceiptId
+            ],
+            "turn.admission-handle",
+            { major: 1, minor: 0 }
+        );
     }
     protected encodePayload(value: TurnAdmissionHandle): JsonValue {
         return value.toData();

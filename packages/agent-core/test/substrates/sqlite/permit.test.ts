@@ -441,20 +441,20 @@ describe("SQLite authority permit store exact behavior", () => {
     });
 });
 
-class ProjectedSqlite extends TransactionalSqlite {
+class ProjectedSqlite extends TestSqlite {
     readonly #database = new TestSqlite();
     public dropRuns = false;
     public mapRows: (rows: readonly SqliteRow[]) => readonly SqliteRow[] = (rows) => rows;
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+    protected override query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
         return this.mapRows(this.#database.all(statement, bindings));
     }
 
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
         if (!this.dropRuns) this.#database.run(statement, bindings);
     }
 
-    public transaction<Result>(
+    public override transaction<Result>(
         operation: () => Result,
         ...guard: SynchronousResultGuard<Result>
     ): Result {

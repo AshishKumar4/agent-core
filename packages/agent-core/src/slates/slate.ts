@@ -1,4 +1,4 @@
-import { ContentRef, RecordCodec, Revision, type JsonValue } from "../core";
+import { ContentRef, Digest, RecordCodec, Revision, type JsonValue, TextId } from "../core";
 import { AgentCoreError } from "../errors";
 import { WorkspaceId } from "../identity";
 import {
@@ -32,7 +32,22 @@ export interface SlateInit {
 
 class SlateCodecV1 extends RecordCodec<Slate> {
     public constructor() {
-        super("slate", { major: 1, minor: 0 });
+        super(
+            [
+                Slate,
+                Revision,
+                TextId,
+                ContentRef,
+                Digest,
+                SlateVersionId,
+                SlateId,
+                WorkspaceId,
+                SlatePublicationId,
+                SlateDeploymentId
+            ],
+            "slate",
+            { major: 1, minor: 0 }
+        );
     }
 
     protected encodePayload(slate: Slate): JsonValue {
@@ -45,7 +60,9 @@ class SlateCodecV1 extends RecordCodec<Slate> {
 }
 
 export class Slate {
-    public static readonly codec: RecordCodec<Slate> = new SlateCodecV1();
+    public static get codec(): RecordCodec<Slate> {
+        return slateCodecInstance;
+    }
     public readonly id: SlateId;
     public readonly workspaceId: WorkspaceId;
     public readonly source: ContentRef;
@@ -247,6 +264,8 @@ export class Slate {
         return new Slate(revised);
     }
 }
+
+const slateCodecInstance = new SlateCodecV1();
 
 function nextSlateRevision(revision_: Revision): Revision {
     if (revision_.value === Number.MAX_SAFE_INTEGER) {

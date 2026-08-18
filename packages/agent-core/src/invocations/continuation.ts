@@ -1,5 +1,5 @@
 import { ActorId, ActorRef, type ActorKind } from "../actors";
-import { Digest, RecordCodec, type JsonValue, type RecordVersion } from "../core";
+import { Digest, RecordCodec, type JsonValue, type RecordVersion, TextId } from "../core";
 import {
     requireDate,
     requireDigest,
@@ -7,6 +7,7 @@ import {
     requireNonnegativeInteger,
     requireObject,
     requireString,
+    copyStructuralCodec,
     immutableReference,
     validDate,
     type StructuralCodec
@@ -72,8 +73,30 @@ export class InvocationContinuation<Lease> {
 }
 
 export class InvocationContinuationCodec<Lease> extends RecordCodec<InvocationContinuation<Lease>> {
-    public constructor(private readonly lease: StructuralCodec<Lease>) {
-        super("invocation.continuation", { major: 1, minor: 0 });
+    readonly #lease: StructuralCodec<Lease>;
+
+    public constructor(lease: StructuralCodec<Lease>) {
+        super(
+            [
+                InvocationContinuation,
+                ActorRef,
+                TextId,
+                Digest,
+                ApprovalId,
+                InvocationId,
+                ActorId,
+                ItemClaimId,
+                ClaimWorkerId,
+                EffectAttemptId
+            ],
+            "invocation.continuation",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
+        this.#lease = copyStructuralCodec(lease);
+        Object.freeze(this);
     }
 
     protected encodePayload(record: InvocationContinuation<Lease>): JsonValue {
@@ -82,7 +105,7 @@ export class InvocationContinuationCodec<Lease> extends RecordCodec<InvocationCo
             approval: record.approval.value,
             firstAttempt: record.firstAttempt.value,
             firstClaim: record.firstClaim.value,
-            firstClaimOwner: encodeOwner(record.firstClaimOwner, this.lease),
+            firstClaimOwner: encodeOwner(record.firstClaimOwner, this.#lease),
             firstItemIndex: record.firstItemIndex,
             firstItemKey: record.firstItemKey,
             firstOrdinal: record.firstOrdinal,
@@ -119,7 +142,7 @@ export class InvocationContinuationCodec<Lease> extends RecordCodec<InvocationCo
             requireNonnegativeInteger(object, "firstItemIndex"),
             requireNonnegativeInteger(object, "firstOrdinal"),
             new ItemClaimId(requireString(object, "firstClaim")),
-            decodeOwner(object["firstClaimOwner"], this.lease),
+            decodeOwner(object["firstClaimOwner"], this.#lease),
             requireString(object, "firstItemKey"),
             requireDate(object, "admittedAt")
         );

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { ContentRef, Revision } from "../../../src/core";
+import { ContentOwnerEdge } from "../../../src/content";
 import { AgentCoreError } from "../../../src/errors";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
 import { ReceiptId } from "../../../src/invocation-references";
@@ -12,10 +13,10 @@ import {
     SpawnReservationId,
     TurnInboxEntryId
 } from "../../../src/agents/runs/id";
-import { MemoryRunStorage, type MemoryRunStorageSnapshot } from "../../../src/agents/runs/memory";
+import type { MemoryRunStorageSnapshot } from "../../../src/agents/runs/memory";
 import { RunBranch } from "../../../src/agents/runs/run";
 import { SpawnReservation } from "../../../src/agents/runs/spawn";
-import { RunRepository } from "../../../src/agents/runs/store";
+import type { RunRepository } from "../../../src/agents/runs/store";
 import { RunCheckpoint, RunCheckpointCodec, TurnInboxEntry } from "../../../src/agents/runs/turn";
 import {
     attenuationDigest,
@@ -24,9 +25,11 @@ import {
     genesis,
     harness,
     ids,
+    memoryRunStorage,
     pins,
     refs,
     seedRunningTurn,
+    testRunRepository,
     thrownBy,
     type Assembled
 } from "./fixture";
@@ -44,8 +47,8 @@ function expectCode(
 }
 
 function repository() {
-    const storage = new MemoryRunStorage();
-    return { storage, repository: new RunRepository(storage) };
+    const storage = memoryRunStorage();
+    return { storage, repository: testRunRepository(storage) };
 }
 
 function rootCommit(): RunCommit {
@@ -152,31 +155,101 @@ function resumedTurn(tree?: ContentRef) {
     };
 }
 
-type StoredRecords = MemoryRunStorageSnapshot["records"];
-
-function restored(
-    snapshot: MemoryRunStorageSnapshot,
-    update: (records: StoredRecords) => StoredRecords
-) {
-    return new RunRepository(
-        new MemoryRunStorage({ ...snapshot, records: update(snapshot.records) })
-    );
-}
-
 function withCheckpoint(snapshot: MemoryRunStorageSnapshot, checkpoint: RunCheckpoint) {
-    return restored(snapshot, (records) =>
-        records.map((row) =>
-            row.kind === "checkpoint"
-                ? { ...row, bytes: RunCheckpointCodec.encode(checkpoint) }
-                : row
-        )
+    const records = snapshot.records.map((row) =>
+        row.kind === "checkpoint" ? { ...row, bytes: RunCheckpointCodec.encode(checkpoint) } : row
+    );
+    const prefix = ownerPrefix("checkpoint", checkpoint.id.value);
+    const edges = [
+        new ContentOwnerEdge(ids.holder.tenantId, ids.actor, `${prefix}state`, checkpoint.state),
+        ...(checkpoint.tree === undefined
+            ? []
+            : [
+                  new ContentOwnerEdge(
+                      ids.holder.tenantId,
+                      ids.actor,
+                      `${prefix}tree`,
+                      checkpoint.tree
+                  )
+              ])
+    ];
+    return testRunRepository(
+        memoryRunStorage({
+            ...snapshot,
+            records,
+            content: replaceOwnerNamespace(snapshot, prefix, edges)
+        })
     );
 }
 
 function without(snapshot: MemoryRunStorageSnapshot, kind: string, key: string) {
-    return restored(snapshot, (records) =>
-        records.filter((row) => !(row.kind === kind && row.key === key))
+    const prefix = recordOwnerPrefix(kind, key);
+    return testRunRepository(
+        memoryRunStorage({
+            ...snapshot,
+            records: snapshot.records.filter((row) => !(row.kind === kind && row.key === key)),
+            content:
+                prefix === undefined
+                    ? snapshot.content
+                    : replaceOwnerNamespace(snapshot, prefix, [])
+        })
     );
+}
+
+function recordOwnerPrefix(kind: string, key: string): string | undefined {
+    switch (kind) {
+        case "commit":
+            return ownerPrefix("commit", key);
+        case "turn":
+            return ownerPrefix("turn", key);
+        case "checkpoint":
+            return ownerPrefix("checkpoint", key);
+        case "inbox":
+            return ownerPrefix("inbox", key);
+        case "spawn":
+            return ownerPrefix("spawn", key);
+        default:
+            return undefined;
+    }
+}
+
+function ownerPrefix(
+    kind: "checkpoint" | "commit" | "inbox" | "spawn" | "turn",
+    key: string
+): string {
+    const ownerKind = {
+        checkpoint: "run.checkpoint",
+        commit: "run.commit",
+        inbox: "turn.inbox-entry",
+        spawn: "run.spawn-reservation",
+        turn: "turn.record"
+    }[kind];
+    return `record:${ownerKind}:${key.length}:${key}:`;
+}
+
+function replaceOwnerNamespace(
+    snapshot: MemoryRunStorageSnapshot,
+    prefix: string,
+    replacements: readonly ContentOwnerEdge[]
+): MemoryRunStorageSnapshot["content"] {
+    const edges = [
+        ...snapshot.content.edges.filter(
+            (bytes) => !ContentOwnerEdge.decode(bytes).ownerKey.startsWith(prefix)
+        ),
+        ...replacements.map(ContentOwnerEdge.encode)
+    ];
+    const owned = new Set(edges.map((bytes) => ContentOwnerEdge.decode(bytes).ref.value));
+    const relations = snapshot.content.relations
+        .filter((relation) => relation.unownedSince !== null || owned.has(relation.ref))
+        .map((relation) =>
+            owned.has(relation.ref) ? { ...relation, unownedSince: null } : relation
+        );
+    for (const ref of owned) {
+        if (!relations.some((relation) => relation.ref === ref)) {
+            relations.push({ ref, unownedSince: null });
+        }
+    }
+    return { ...snapshot.content, edges, relations };
 }
 
 function expectScopeRefused<Transaction>(
@@ -576,8 +649,8 @@ describe("RunRepository corruption detection", () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const snapshot = value.storage.snapshot();
-        const corrupted = new RunRepository(
-            new MemoryRunStorage({
+        const corrupted = testRunRepository(
+            memoryRunStorage({
                 ...snapshot,
                 records: snapshot.records.map((row) =>
                     row.kind === "run" ? { ...row, revision: 99 } : row
@@ -597,8 +670,8 @@ describe("RunRepository corruption detection", () => {
         const value = harness();
         value.runtime.createRun(genesis());
         const snapshot = value.storage.snapshot();
-        const corrupted = new RunRepository(
-            new MemoryRunStorage({
+        const corrupted = testRunRepository(
+            memoryRunStorage({
                 ...snapshot,
                 records: snapshot.records.map((row) =>
                     row.kind === "run" ? { ...row, key: "store-wrong-run" } : row
@@ -636,8 +709,8 @@ describe("RunRepository corruption detection", () => {
             value.repository.insertCommit(tx, merge);
         });
         const snapshot = value.storage.snapshot();
-        const pruned = new RunRepository(
-            new MemoryRunStorage({
+        const pruned = testRunRepository(
+            memoryRunStorage({
                 ...snapshot,
                 parents: snapshot.parents.filter(
                     (edge) => !(edge.commit === merge.id.value && edge.ordinal === 1)
@@ -667,8 +740,8 @@ describe("RunRepository corruption detection", () => {
             value.repository.insertCommit(tx, child);
         });
         const snapshot = value.storage.snapshot();
-        const tampered = new RunRepository(
-            new MemoryRunStorage({
+        const tampered = testRunRepository(
+            memoryRunStorage({
                 ...snapshot,
                 parents: snapshot.parents.map((edge) =>
                     edge.commit === child.id.value
@@ -697,8 +770,8 @@ describe("RunRepository corruption detection", () => {
                 value.repository.insertCommit(tx, child);
             });
             const snapshot = value.storage.snapshot();
-            const shifted = new RunRepository(
-                new MemoryRunStorage({
+            const shifted = testRunRepository(
+                memoryRunStorage({
                     ...snapshot,
                     parents: snapshot.parents.map((edge) =>
                         edge.commit === child.id.value ? { ...edge, ordinal: 1 } : edge

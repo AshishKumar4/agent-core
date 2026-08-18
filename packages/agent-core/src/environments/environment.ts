@@ -1,4 +1,12 @@
-import { ContentRef, RecordCodec, Revision, type JsonValue, type RecordVersion } from "../core";
+import {
+    ContentRef,
+    Digest,
+    RecordCodec,
+    Revision,
+    type JsonValue,
+    type RecordVersion,
+    TextId
+} from "../core";
 import { AgentCoreError } from "../errors";
 import {
     advanceRevision,
@@ -14,7 +22,10 @@ import { ProviderDescriptor } from "./provider";
 
 class EnvironmentCodecV1 extends RecordCodec<Environment> {
     public constructor() {
-        super("environment.head", { major: 1, minor: 0 });
+        super([Environment, Revision, TextId, EnvironmentId], "environment.head", {
+            major: 1,
+            minor: 0
+        });
     }
 
     protected encodePayload(environment: Environment): JsonValue {
@@ -48,7 +59,23 @@ class EnvironmentCodecV1 extends RecordCodec<Environment> {
 
 class EnvironmentRevisionCodecV1 extends RecordCodec<EnvironmentRevisionRecord> {
     public constructor() {
-        super("environment.revision", { major: 1, minor: 0 });
+        super(
+            [
+                EnvironmentRevisionRecord,
+                Revision,
+                TextId,
+                ContentRef,
+                Digest,
+                EnvironmentId,
+                ProviderId,
+                ProviderDescriptor
+            ],
+            "environment.revision",
+            {
+                major: 1,
+                minor: 0
+            }
+        );
     }
 
     protected encodePayload(record: EnvironmentRevisionRecord): JsonValue {
@@ -90,7 +117,9 @@ class EnvironmentRevisionCodecV1 extends RecordCodec<EnvironmentRevisionRecord> 
 }
 
 export class Environment {
-    public static readonly codec: RecordCodec<Environment> = new EnvironmentCodecV1();
+    public static get codec(): RecordCodec<Environment> {
+        return environmentCodecInstance;
+    }
 
     public constructor(
         public readonly id: EnvironmentId,
@@ -137,9 +166,12 @@ export class Environment {
     }
 }
 
+const environmentCodecInstance = new EnvironmentCodecV1();
+
 export class EnvironmentRevisionRecord {
-    public static readonly codec: RecordCodec<EnvironmentRevisionRecord> =
-        new EnvironmentRevisionCodecV1();
+    public static get codec(): RecordCodec<EnvironmentRevisionRecord> {
+        return environmentRevisionRecordCodecInstance;
+    }
 
     public constructor(
         public readonly environmentId: EnvironmentId,
@@ -164,3 +196,5 @@ export class EnvironmentRevisionRecord {
         return EnvironmentRevisionRecord.codec.decode(bytes);
     }
 }
+
+const environmentRevisionRecordCodecInstance = new EnvironmentRevisionCodecV1();

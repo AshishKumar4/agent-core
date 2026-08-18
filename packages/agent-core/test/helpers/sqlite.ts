@@ -3,15 +3,23 @@ import { DatabaseSync, type SQLOutputValue } from "node:sqlite";
 import { requireSynchronousResult, type SynchronousResultGuard } from "../../src/actors";
 import { TransactionalSqlite, type SqliteRow, type SqliteValue } from "../../src/substrates";
 
+interface TestSqliteDispatch {
+    target?: TestSqlite;
+}
+
 export class TestSqlite extends TransactionalSqlite {
-    readonly #database = new Database(":memory:");
+    readonly #database: Database;
 
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        return this.#database.query<SqliteRow, SqliteValue[]>(statement).all(...bindings);
-    }
-
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
-        this.#database.query<SqliteRow, SqliteValue[]>(statement).run(...bindings);
+    public constructor() {
+        const database = new Database(":memory:");
+        const dispatch: TestSqliteDispatch = {};
+        super({
+            read: (statement, bindings) => requireTarget(dispatch).query(statement, bindings),
+            write: (statement, bindings) => requireTarget(dispatch).execute(statement, bindings),
+            identity: database
+        });
+        this.#database = database;
+        dispatch.target = this;
     }
 
     public transaction<Result>(
@@ -20,25 +28,31 @@ export class TestSqlite extends TransactionalSqlite {
     ): Result {
         return this.#database.transaction(() => requireSynchronousResult(operation()))();
     }
+
+    protected query(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
+        return this.#database.query<SqliteRow, SqliteValue[]>(statement).all(...bindings);
+    }
+
+    protected execute(statement: string, bindings: readonly SqliteValue[]): void {
+        this.#database.query<SqliteRow, SqliteValue[]>(statement).run(...bindings);
+    }
 }
 
 export class FileSqlite extends TransactionalSqlite {
     readonly #database: DatabaseSync;
 
     public constructor(path: string) {
-        super();
-        this.#database = new DatabaseSync(path);
-    }
-
-    public all(statement: string, bindings: readonly SqliteValue[]): readonly SqliteRow[] {
-        return this.#database
-            .prepare(statement)
-            .all(...bindings)
-            .map((row) => parseSqliteRow(row));
-    }
-
-    public run(statement: string, bindings: readonly SqliteValue[]): void {
-        this.#database.prepare(statement).run(...bindings);
+        const database = new DatabaseSync(path);
+        super({
+            read: (statement, bindings) =>
+                database
+                    .prepare(statement)
+                    .all(...bindings)
+                    .map((row) => parseSqliteRow(row)),
+            write: (statement, bindings) => database.prepare(statement).run(...bindings),
+            identity: database
+        });
+        this.#database = database;
     }
 
     public transaction<Result>(
@@ -75,6 +89,11 @@ function parseSqliteRow(row: Record<string, SQLOutputValue>): SqliteRow {
         parsed[column] = value;
     }
     return parsed;
+}
+
+function requireTarget(dispatch: TestSqliteDispatch): TestSqlite {
+    if (dispatch.target === undefined) throw new TypeError("Test SQLite is not initialized");
+    return dispatch.target;
 }
 
 function isSqliteValue(value: SQLOutputValue): value is Exclude<SQLOutputValue, bigint> {

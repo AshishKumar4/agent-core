@@ -26,6 +26,7 @@ import {
     RouteReservationId,
     cloneInvocationMemoryState,
     createInvocationMemoryState,
+    structuralCodec,
     type InvocationMemoryState,
     type InvocationTransactionPort,
     type PreparedInvocationHeaderInit
@@ -188,10 +189,10 @@ class MemoryTransactions implements InvocationTransactionPort<InvocationMemorySt
     }
 }
 
-const admissionCodec = Object.freeze({
-    encode: (value: string): JsonValue => value,
-    decode: (value: JsonValue): string => String(value)
-});
+const admissionCodec = structuralCodec(
+    (value: string): JsonValue => value,
+    (value: JsonValue): string => String(value)
+);
 
 function preparation() {
     const transactions = new MemoryTransactions();

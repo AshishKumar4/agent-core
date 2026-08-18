@@ -1,7 +1,9 @@
-import { RecordCodec, Revision, type JsonValue } from "../../core";
-import { RunCommitId } from "../../execution-references";
+import { RecordCodec, Revision, type JsonValue, TextId } from "../../core";
+import { RunCommitId, TurnId } from "../../execution-references";
 import { AgentCoreError } from "../../errors";
 import { AgentId } from "../id";
+import { ApprovalId, EffectAttemptId } from "../../invocation-references";
+import { InvocationId, RouteReservationId } from "../../interaction-references";
 import {
     CodecRecord,
     digestFromData,
@@ -14,8 +16,8 @@ import {
     revisionData,
     revisionFromData
 } from "../record-data";
-import { RunBranchId, RunId } from "./id";
-import { TerminalSnapshot } from "./settlement";
+import { AcceptanceId, RunBranchId, RunId } from "./id";
+import { SettlementObligation, TerminalSnapshot } from "./settlement";
 import type { ResourceDimension } from "./ceiling";
 import { Digest } from "../../core";
 
@@ -251,7 +253,34 @@ export class Run extends CodecRecord {
 
 class RunRecordCodec extends RecordCodec<Run> {
     public constructor() {
-        super("run.record", { major: 2, minor: 0 });
+        super(
+            [
+                Run,
+                Revision,
+                TextId,
+                SettlementObligation,
+                TerminalSnapshot,
+                Digest,
+                RunLifecycle,
+                RunId,
+                AgentId,
+                RunCommitId,
+                TurnId,
+                RunBranchId,
+                CodecRecord,
+                TerminalRun,
+                ApprovalId,
+                InvocationId,
+                AcceptanceId,
+                RouteReservationId,
+                EffectAttemptId
+            ],
+            "run.record",
+            {
+                major: 2,
+                minor: 0
+            }
+        );
     }
     protected encodePayload(value: Run): JsonValue {
         return value.toData();
@@ -350,7 +379,11 @@ export class RunBranch extends CodecRecord {
 
 class BranchCodec extends RecordCodec<RunBranch> {
     public constructor() {
-        super("run.branch", { major: 2, minor: 0 });
+        super(
+            [RunBranch, Revision, TextId, RunId, RunCommitId, RunBranchId, CodecRecord],
+            "run.branch",
+            { major: 2, minor: 0 }
+        );
     }
     protected encodePayload(value: RunBranch): JsonValue {
         return value.toData();

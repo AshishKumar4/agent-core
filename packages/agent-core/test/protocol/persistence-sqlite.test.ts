@@ -11,7 +11,12 @@ import {
     CorrelationId,
     auditEvidenceIdentity
 } from "../../src/invocations";
-import { SqliteProtocolPersistence, TransactionalSqlite } from "../../src/substrates";
+import {
+    SqliteProtocolPersistence,
+    TransactionalSqlite,
+    type SqliteRow,
+    type SqliteValue
+} from "../../src/substrates";
 import { WriteRecordCodec } from "../../src/protocol";
 import { FileSqlite, TestSqlite } from "../helpers/sqlite";
 import {
@@ -537,16 +542,10 @@ test.each(["wrong-type", "non-strict", "columns"] as const)(
 );
 
 test("SQLite schema validation propagates an unexpected driver TypeError", { tags: "p2" }, () => {
-    const database = new TestSqlite();
+    const database = new SchemaFaultSqlite();
     new SqliteProtocolPersistence(database);
-    const all = database.all.bind(database);
     const fault = new TypeError("injected schema driver fault");
-    Object.defineProperty(database, "all", {
-        value(statement: string, bindings: Parameters<TestSqlite["all"]>[1]) {
-            if (statement === "PRAGMA table_list") throw fault;
-            return all(statement, bindings);
-        }
-    });
+    database.schemaFault = fault;
 
     let failure: unknown;
     try {
@@ -586,24 +585,18 @@ test.each([
     ["text", "id", 7],
     ["nullable text", "write_id", 7]
 ] as const)(
-    "SQLite rejects a projected %s column with the wrong runtime type", { tags: "p0" },
+    "SQLite rejects a projected %s column with the wrong runtime type",
+    { tags: "p0" },
     (_case, column, corruptValue) => {
-        const database = new TestSqlite();
+        const database = new ProjectingSqlite();
         const persistence = new SqliteProtocolPersistence(database);
         const expected = protocolTestRecords(`sqlite-runtime-type-${column}`);
         database.transaction(() => appendProtocolTestRecords(persistence, database, expected));
-        const all = database.all.bind(database);
-        Object.defineProperty(database, "all", {
-            value(statement: string, bindings: Parameters<TestSqlite["all"]>[1]) {
-                const rows = all(statement, bindings);
-                if (
-                    !statement.includes("FROM protocol_audit_records") ||
-                    bindings[0] !== expected.audit.id.value
-                )
-                    return rows;
-                return rows.map((row) => ({ ...row, [column]: corruptValue }));
-            }
-        });
+        database.projection = {
+            auditId: expected.audit.id.value,
+            column,
+            value: corruptValue
+        };
 
         expectAgentCoreError(
             () => persistence.findAudit(database, expected.audit.id),
@@ -615,28 +608,81 @@ test.each([
 test.each([
     ["Error", new Error("index rebuild fault")],
     ["non-Error", "index rebuild fault"]
-] as const)("SQLite rolls back an %s identity-index rebuild fault", { tags: "p0" }, (_case, fault) => {
-    const database = new TestSqlite();
-    new SqliteProtocolPersistence(database);
-    const run = database.run.bind(database);
-    Object.defineProperty(database, "run", {
-        value(statement: string, bindings: Parameters<TestSqlite["run"]>[1]) {
-            if (statement.startsWith("CREATE UNIQUE INDEX protocol_principal_identity")) {
-                throw fault;
-            }
-            run(statement, bindings);
-        }
-    });
+] as const)(
+    "SQLite rolls back an %s identity-index rebuild fault",
+    { tags: "p0" },
+    (_case, fault) => {
+        const database = new RebuildFaultSqlite();
+        new SqliteProtocolPersistence(database);
+        database.rebuildFault = fault;
 
-    expectAgentCoreError(() => new SqliteProtocolPersistence(database), "protocol.invalid-state");
-    expect(
-        database.all(
-            `SELECT name FROM sqlite_schema
+        expectAgentCoreError(
+            () => new SqliteProtocolPersistence(database),
+            "protocol.invalid-state"
+        );
+        expect(
+            database.all(
+                `SELECT name FROM sqlite_schema
          WHERE name IN ('protocol_principal_identity', 'protocol_actor_identity')`,
-            []
-        )
-    ).toHaveLength(2);
-});
+                []
+            )
+        ).toHaveLength(2);
+    }
+);
+
+class SchemaFaultSqlite extends TestSqlite {
+    public schemaFault: TypeError | undefined;
+
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
+        if (statement === "PRAGMA table_list" && this.schemaFault !== undefined) {
+            throw this.schemaFault;
+        }
+        return super.query(statement, bindings);
+    }
+}
+
+class ProjectingSqlite extends TestSqlite {
+    public projection:
+        | {
+              readonly auditId: string;
+              readonly column: string;
+              readonly value: SqliteValue;
+          }
+        | undefined;
+
+    protected override query(
+        statement: string,
+        bindings: readonly SqliteValue[]
+    ): readonly SqliteRow[] {
+        const rows = super.query(statement, bindings);
+        const projection = this.projection;
+        if (
+            projection === undefined ||
+            !statement.includes("FROM protocol_audit_records") ||
+            bindings[0] !== projection.auditId
+        ) {
+            return rows;
+        }
+        return rows.map((row) => ({ ...row, [projection.column]: projection.value }));
+    }
+}
+
+class RebuildFaultSqlite extends TestSqlite {
+    public rebuildFault: Error | string | undefined;
+
+    protected override execute(statement: string, bindings: readonly SqliteValue[]): void {
+        if (
+            statement.startsWith("CREATE UNIQUE INDEX protocol_principal_identity") &&
+            this.rebuildFault !== undefined
+        ) {
+            throw this.rebuildFault;
+        }
+        super.execute(statement, bindings);
+    }
+}
 
 function createSqliteHarness(): ProtocolPersistenceHarness<TransactionalSqlite> {
     const directory = mkdtempSync(join(tmpdir(), "agent-core-protocol-contract-"));
