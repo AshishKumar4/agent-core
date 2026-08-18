@@ -72,6 +72,16 @@ export {
     validatePayloadMapping
 } from "./policy";
 export type { TrustDerivationFacts } from "./policy";
+export {
+    PlanChange,
+    PlanFact,
+    TaskPlan,
+    criticalPath,
+    planView,
+    planViewBody,
+    requireDeclaringTurn
+} from "./plan";
+export type { PlanEdge, PlanEntry, PlanFactKind } from "./plan";
 export type {
     EventPayloadPort,
     EventTrustPort,

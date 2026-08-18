@@ -2550,6 +2550,114 @@ reads as showing someone else's input, not the platform speaking. Without this t
 step of the chain — a person reading rendered text — is the one step decided on
 unattributed input. This maps to **C13-VIEW-APPROVAL-PROVENANCE**.
 
+### 6.4 Plan
+
+A **plan** answers three questions about work that has not happened yet: which tasks exist,
+which of them block which, and which chain of blocked tasks is the longest. Nothing else in
+this document answers them. §5.2's commit graph is append-only history of what did happen;
+§9 defines what may be deployed rather than what is to be done; and `spawn` creates work
+without ever stating what the work was for. The plan is not a fourth kind of state. It is a
+**projection**: a left fold over the same Workspace Events §6.1 already owns, presented as a
+§6.3 View of the task board Surface (§11.4).
+
+```ts
+// A PlanFact is the decoded payload of one plan Event. Three kinds and no fourth: a task
+// enters the plan, a dependency is declared, a declared dependency is retracted.
+interface PlanTaskDeclared {
+  readonly kind: "plan.taskDeclared";
+  readonly task: TaskId;                     // a §11.4 Task, by reference
+  readonly origin: TurnRef;                  // the Turn that declared it
+}
+interface PlanDependencyDeclared {
+  readonly kind: "plan.dependencyDeclared";
+  readonly blocked: TaskId;                  // cannot start until `blockedBy` is done
+  readonly blockedBy: TaskId;
+  readonly origin: TurnRef;
+}
+interface PlanDependencyRetracted {
+  readonly kind: "plan.dependencyRetracted";
+  readonly blocked: TaskId;
+  readonly blockedBy: TaskId;
+  readonly origin: TurnRef;
+}
+type PlanFact = PlanTaskDeclared | PlanDependencyDeclared | PlanDependencyRetracted;
+
+// The projection: the tasks declared, the edges standing at the folded position, and the
+// §6.3 cursor naming that position in the owning Actor's Event log. No status, no duration,
+// no critical path — the first two belong to the product, the third is computed on demand.
+interface TaskPlan {
+  readonly tasks: readonly TaskId[];         // in declaration order
+  readonly dependencies: readonly PlanEdge[];
+  readonly cursor: EventCursor;
+}
+interface PlanEdge {
+  readonly blocked: TaskId;
+  readonly blockedBy: TaskId;
+}
+```
+
+The plan owns no record. Every fact it holds is the decoded payload of an Event whose owning
+Actor already holds it (§6.1, §8.4), so the projection is a derived, rebuildable, disposable
+cache in the exact sense of §8.4 rule 3: discarding it loses nothing, and a host MUST NOT
+persist it as a second durable copy of state the Event log already carries. Folding the same
+Events in the same order MUST reproduce the identical projection, which is what makes the
+cache disposable rather than merely cheap — a projection that could not be rebuilt would be
+the second copy this rule forbids, whatever it was called. This maps to
+**C13-PLAN-PROJECTION**.
+
+A task enters the plan, and a dependency is declared or retracted, only by appending an
+Event; a host MUST NOT admit a plan change by any other means. The plan has no in-place
+edit and no delete. Reordering work is a retraction followed by whatever replaces it, both
+appended, exactly as §5.2's `undo` appends a commit rather than rewriting one — so the shape
+of the plan at any cursor is evidence with a cause and a Turn behind it, and the history of
+how the plan came to look this way survives the reordering that produced it. This maps to
+**C13-PLAN-APPEND-ONLY**.
+
+Declared dependencies MUST remain acyclic, and one predicate decides that at both ends: the
+step admitting an appended dependency and the step folding a stored one are the same
+function, applied to the same projection. A dependency whose edge closes a cycle over the
+edges already standing is refused where it is written. Sharing the predicate is what makes
+the refusal worth anything — a separate admission check would let a plan exist in storage
+that no replay could produce, and the disagreement would surface as a fold that throws on
+its own log. This maps to **C13-PLAN-ACYCLIC**.
+
+The fold is closed under its own vocabulary and fails closed on everything else: a
+dependency naming a task no earlier fact declared, a second declaration of a task or of an
+edge already in the plan, and a retraction of an edge that does not stand MUST each be
+refused rather than ignored, deduplicated, or repaired. Silently dropping any of them would
+make the projection a function of which facts happened to be acceptable rather than of the
+log, and two hosts folding one log could then disagree. This maps to
+**C13-PLAN-FOLD-CLOSED**.
+
+A Turn discovers work in flight. It appends a plan Event under its own lease, which §6.1
+derives as the `self` tier from host provenance, so the declaration is attributable to
+exactly one Turn and cannot be minted for it by anything else: `origin` MUST be the
+appending Turn, and a declaration naming another Turn is refused. The attenuation discipline
+is `spawn`'s (§5.2, §3.4 rule 2), and it holds here by construction rather than by check,
+because a plan entry is identifiers and nothing else — no capability, no BindingName, no
+ResourceCeiling, no SecretRef, not even a Run reference. There is no field in which a
+discoverer could hand its successor more than it held, so the authority question stays where
+it already belongs, at the `spawn` that picks the task up under the authority of whoever
+picks it up. This maps to **C13-PLAN-DECLARER-BOUNDED**.
+
+The **critical path** is the longest chain of declared dependencies standing in the
+projection. It MUST be a pure total function of that projection and MUST NOT be stored: it
+is never an Event, never a field of the projection, and recomputed after every discovery, so
+it cannot disagree with the edges it summarizes. Ties break by canonical `TaskId` order
+(§1.4), which makes the answer one path rather than a set of equally long ones. Length is
+counted in tasks, not in time, because the base plane records neither duration nor status —
+§11.4 leaves a Task's lifecycle to the product — so what the chain states is the number of
+steps that must happen in order, which is exactly the question a plan can answer from
+dependencies alone. This maps to **C13-PLAN-CRITICAL-PATH**.
+
+Presenting the plan needs nothing new, and that is the point of placing it here rather than
+in a plane of its own. A projection of identifiers and edges is already data, so the §6.3
+no-live-state rule admits the plan's View body unchanged — task ids, the edges standing at
+its cursor, and the recomputed critical path — while refusing any body that would smuggle a
+live Facet, stub, credential, or hidden state in beside them. The View's `cursor` is the
+folded position, so a client resumes a plan exactly as it resumes any other Surface, and the
+plan streams as ViewDelta patches like every other View.
+
 ---
 
 ## 7. Mediation (L4)
@@ -4208,6 +4316,12 @@ A conforming implementation provides:
 - **C13-VIEW-DELTA-REPLAY** ViewDelta supports revision replay.
 - **C13-VIEW-APPROVAL-PROVENANCE** A decision View marks every value the host did not originate with its TrustTier, names the exact `intentDigest` it authorizes, and its Surface renders a marked value as data rather than as platform voice.
 - **C13-VIEW-WITHDRAWAL-TERMINAL** A retired Surface emits one final ViewDelta marking its View terminal and no revision after it, an `EventCursor` presented for a retired Surface returns that terminal revision rather than a resumable stream or an error, and an aggregating Surface drops the retired child's entry at its next revision.
+- **C13-PLAN-PROJECTION** The plan owns no record: it is a derived, rebuildable, disposable projection folded from Workspace Events, never persisted as a second durable copy, and folding the same Events in the same order reproduces the identical projection.
+- **C13-PLAN-APPEND-ONLY** A task enters the plan, and a dependency is declared or retracted, only by appending an Event; the plan admits no in-place edit and no delete, so reordering work is itself appended evidence.
+- **C13-PLAN-ACYCLIC** Declared dependencies remain acyclic, and the step admitting an appended dependency is the same predicate as the step folding a stored one, so no plan exists in storage that a replay could not produce.
+- **C13-PLAN-FOLD-CLOSED** The fold refuses a dependency naming an undeclared task, a second declaration of a task or of an edge already in the plan, and a retraction of an edge that does not stand, rather than ignoring, deduplicating, or repairing any of them.
+- **C13-PLAN-DECLARER-BOUNDED** A discovered task names the appending Turn as its origin and carries identifiers only — no capability, BindingName, ResourceCeiling, SecretRef, or Run reference — so a discovery grants its discoverer's successor nothing the discoverer did not hold.
+- **C13-PLAN-CRITICAL-PATH** The critical path is a pure total function of the projection with canonical `TaskId` tie-breaking, is never an Event or a field of the projection, and is recomputed after every discovery.
 - **C13-CONTENT-RESOLUTION** Every ContentRef resolves through a ContentStore that belongs to exactly one Tenant, and only for a caller whose authority reaches that Tenant.
 - **C13-CONTENT-CUSTODY** Every record naming a `ContentRef` retains that content until the record releases it.
 - **C13-CODEC-VERSIONING** Every durable record codec satisfies §8.3.

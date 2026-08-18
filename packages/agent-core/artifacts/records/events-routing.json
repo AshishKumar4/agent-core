@@ -169,6 +169,18 @@
       "tests": [
         "test/workspaces/registry.test.ts#[workspace.inbox-reference] codec and ownership evidence"
       ]
+    },
+    {
+      "symbol": "PlanFact",
+      "kind": "workspace.plan-fact",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/workspaces/plan.ts#PlanFact",
+      "codec": "src/workspaces/plan.ts#PlanFact.codec",
+      "store": null,
+      "tests": [
+        "test/workspaces/registry.test.ts#[workspace.plan-fact] codec and ownership evidence"
+      ]
     }
   ]
 }

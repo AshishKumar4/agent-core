@@ -1,4 +1,6 @@
 import { expect, test } from "vitest";
+import { TaskId } from "../../src/facets";
+import { TurnId } from "../../src/execution-references";
 import {
     ContentRetentionReference,
     ActionDescriptor,
@@ -6,6 +8,8 @@ import {
     Event,
     EventProvenance,
     InboxEventReference,
+    PlanChange,
+    PlanFact,
     RouteDelivery,
     RouteProjection,
     RouteReservation,
@@ -111,7 +115,20 @@ test("[workspace.inbox-reference] codec and ownership evidence", { tags: "p1" },
 
 test("[workspace.coherence-finding] codec and ownership evidence", { tags: "p1" }, () => {
     const value = coherenceFindingFixture("registry");
-    expect(CoherenceFinding.encode(CoherenceFinding.decode(CoherenceFinding.encode(value)))).toEqual(
-        CoherenceFinding.encode(value)
+    expect(
+        CoherenceFinding.encode(CoherenceFinding.decode(CoherenceFinding.encode(value)))
+    ).toEqual(CoherenceFinding.encode(value));
+});
+
+test("[workspace.plan-fact] codec and ownership evidence", { tags: "p1" }, () => {
+    const value = new PlanFact(
+        PlanChange.declaredDependency(
+            new TaskId("registry-blocked"),
+            new TaskId("registry-blocking")
+        ),
+        new TurnId("turn-registry")
+    );
+    expect(PlanFact.encode(PlanFact.decode(PlanFact.encode(value)))).toEqual(
+        PlanFact.encode(value)
     );
 });
