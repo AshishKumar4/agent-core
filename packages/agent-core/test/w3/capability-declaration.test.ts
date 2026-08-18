@@ -31,7 +31,7 @@ import {
     SlotName,
     type FacetData
 } from "../../src/facets";
-import { FacetCorrespondenceValidator } from "../../src/operations/correspondence";
+import { FacetCorrespondenceValidator } from "../../src/operations";
 
 const schema = new JsonSchema({ type: "object" });
 const operationsSlot = new SlotName("operations");

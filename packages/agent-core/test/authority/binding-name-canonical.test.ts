@@ -25,7 +25,7 @@ import {
     TenantId,
     WorkspaceId
 } from "../../src/identity";
-import { Contributions } from "../../src/facets/contribution";
+import { Contributions } from "../../src/facets";
 import { PrincipalRef, Workspace } from "../identity/internal-fixture";
 
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
