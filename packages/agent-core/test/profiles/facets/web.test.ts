@@ -231,12 +231,17 @@ describe("Web policy backend", () => {
                     return response();
                 }
             });
-            await expect(
-                web.fetch(
-                    { url: "https://allowed.test/", headers: { Authorization: "secret" } },
-                    DISPATCH
-                )
-            ).rejects.toMatchObject({ detailCode: "credential.denied" });
+            // Every casing a caller may send. Header names are case-insensitive, so the
+            // gate has to fold them; folding with the host locale would let a Turkish
+            // deployment read "AUTHORIZATION" as "authorızatıon" and miss the match.
+            for (const name of ["Authorization", "AUTHORIZATION", "COOKIE", "Cookie"]) {
+                await expect(
+                    web.fetch(
+                        { url: "https://allowed.test/", headers: { [name]: "secret" } },
+                        DISPATCH
+                    )
+                ).rejects.toMatchObject({ detailCode: "credential.denied" });
+            }
             expect(sends).toBe(0);
         }
     );

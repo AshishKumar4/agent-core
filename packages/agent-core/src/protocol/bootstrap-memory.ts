@@ -1,6 +1,6 @@
 import { MemoryActorStore, type MemoryActorStoreSnapshot } from "../actors";
 import { MemoryTenantControlStore, type MemoryTenantControlSnapshot } from "../authority";
-import { isObjectRecord, Revision } from "../core";
+import { hasExactKeys, isObjectRecord, Revision } from "../core";
 import type { TransientContentAccess } from "../content";
 import { AgentCoreError } from "../errors";
 import type { TenantId } from "../identity";
@@ -165,7 +165,7 @@ function snapshotValue(
     if (snapshot === undefined) return undefined;
     if (
         !isObjectRecord(snapshot) ||
-        Object.keys(snapshot).sort().join(",") !== "opaque,version" ||
+        !hasExactKeys(snapshot, ["opaque", "version"]) ||
         snapshot.version !== 1 ||
         !isRestoredActorSnapshot(snapshot.opaque)
     ) {
@@ -185,7 +185,7 @@ function isRestoredActorSnapshot(
 ): value is MemoryActorStoreSnapshot<MemoryTenantBootstrapState> {
     if (!isObjectRecord(value) || !isObjectRecord(value["state"])) return false;
     if (
-        Object.keys(value).sort().join(",") !== "actor,recoveryState,state,version" ||
+        !hasExactKeys(value, ["actor", "recoveryState", "state", "version"]) ||
         value["version"] !== 1 ||
         !isSnapshotActor(value["actor"]) ||
         (value["recoveryState"] !== null && !(value["recoveryState"] instanceof Uint8Array))
@@ -201,7 +201,7 @@ function isSnapshotActor(
     if (value === null) return true;
     if (
         !isObjectRecord(value) ||
-        Object.keys(value).sort().join(",") !== "id,kind" ||
+        !hasExactKeys(value, ["id", "kind"]) ||
         !isString(value["id"])
     ) {
         return false;

@@ -1,6 +1,7 @@
 export { TextId } from "./id";
 export {
     canonicalJsonCopy,
+    canonicalJsonEqual,
     compareCanonicalText,
     decodeCanonicalJson,
     encodeCanonicalJson,
@@ -16,6 +17,7 @@ export { RecordCodec } from "./codec";
 export type { RecordEnvelope, RecordVersion } from "./codec";
 export {
     hasExactJsonKeys,
+    hasExactKeys,
     isJsonObject,
     isJsonValue,
     isObjectRecord,

@@ -4,7 +4,6 @@ import { AgentCoreError } from "../../../src/errors";
 import { FacetRef, type IsolationMode } from "../../../src/facets";
 import { RunCommitId, TurnId } from "../../../src/execution-references";
 import {
-    compareText,
     digestFromData,
     requireArray,
     requireExactFields,
@@ -239,9 +238,6 @@ describe("record data shape helpers", () => {
         expect(revisionData(new Revision(2))).toBe(2);
         expect(revisionFromData(2, "revision").value).toBe(2);
         expect(digestFromData(digest("f").value, "digest")).toEqual(digest("f"));
-        expect(compareText("a", "b")).toBe(-1);
-        expect(compareText("b", "a")).toBe(1);
-        expect(compareText("a", "a")).toBe(0);
     });
 });
 

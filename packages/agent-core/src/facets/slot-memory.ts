@@ -1,4 +1,4 @@
-import { Revision } from "../core";
+import { Revision, compareCanonicalText, hasExactKeys } from "../core";
 import {
     requireSynchronousResult,
     type SynchronousResultGuard,
@@ -264,14 +264,9 @@ function insertImmutable(
 function compareEntries(left: SlotEntry, right: SlotEntry): number {
     return (
         left.ordinal - right.ordinal ||
-        compareText(left.attribution.contributor.value, right.attribution.contributor.value)
+        compareCanonicalText(left.attribution.contributor.value, right.attribution.contributor.value)
     );
 }
-
-function compareText(left: string, right: string): number {
-    return left < right ? -1 : 1;
-}
-
 function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
     return (
         left.byteLength === right.byteLength && left.every((value, index) => value === right[index])
@@ -289,8 +284,7 @@ function requireSynchronousSlotResult<Result>(result: Result): Result {
 
 function requireSnapshot(snapshot: MemoryWorkspaceSlotSnapshot): void {
     if (
-        JSON.stringify(Object.keys(snapshot).sort()) !==
-            JSON.stringify(["entries", "owner", "revision", "slots", "version"]) ||
+        !hasExactKeys(snapshot, ["entries", "owner", "revision", "slots", "version"]) ||
         snapshot.version !== 1 ||
         !isString(snapshot.owner) ||
         !Number.isSafeInteger(snapshot.revision) ||
@@ -349,7 +343,7 @@ function compareRecordKeys(
     left: readonly [string, Uint8Array],
     right: readonly [string, Uint8Array]
 ): number {
-    return compareText(left[0], right[0]);
+    return compareCanonicalText(left[0], right[0]);
 }
 
 function corrupt(message: string): AgentCoreError {

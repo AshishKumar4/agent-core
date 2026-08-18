@@ -563,13 +563,6 @@
       "occurrence": 1
     },
     {
-      "declarationSha256": "d231c5fb1b7d95f9b70267d921c7e566e4508f7f16347611ea9042fe61cb8b7d",
-      "file": "src/definition/materialization-kind.ts",
-      "symbol": "requireMaterializationKindValidator",
-      "statementSha256": "116cb59238e2b2f5047e7563c67908bfbdfc3f057ec7abd9c3cd40ee76612cd4",
-      "occurrence": 1
-    },
-    {
       "declarationSha256": "ccccad04a754f83aa42c68f37ef79feeabc54df00301b5313e90558eff5de2c8",
       "file": "src/definition/materialization-kind.ts",
       "symbol": "requireModes",
@@ -1217,13 +1210,13 @@
     }
   ],
   "expected": {
-    "agentCoreOperationalThrows": 241,
-    "allowedTypeErrors": 170,
+    "agentCoreOperationalThrows": 242,
+    "allowedTypeErrors": 169,
     "preservedRethrows": 1,
     "bareErrors": 0
   },
   "expectedOperationalByCode": {
-    "codec.invalid": 113,
+    "codec.invalid": 114,
     "operation.invalid-input": 35,
     "protocol.invalid-envelope": 5,
     "protocol.invalid-state": 71,

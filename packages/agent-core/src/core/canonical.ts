@@ -105,6 +105,11 @@ export function compareCanonicalText(left: string, right: string): number {
     return 0;
 }
 
+/** Equality by canonical bytes: the only sound way to compare two JSON values. */
+export function canonicalJsonEqual(left: JsonValue, right: JsonValue): boolean {
+    return bytesEqual(encodeCanonicalJson(left), encodeCanonicalJson(right));
+}
+
 function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
     if (left.byteLength !== right.byteLength) {
         return false;

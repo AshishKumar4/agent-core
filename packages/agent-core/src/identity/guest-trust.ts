@@ -1,4 +1,11 @@
-import { Digest, RecordCodec, Revision, SecretRef, type JsonValue } from "../core";
+import {
+    Digest,
+    RecordCodec,
+    Revision,
+    SecretRef,
+    canonicalJsonEqual,
+    type JsonValue
+} from "../core";
 import { AgentCoreError } from "../errors";
 import {
     requireIdentityFields,
@@ -196,8 +203,7 @@ export class GuestTrust {
         }
         if (
             next.state === "revoked" &&
-            JSON.stringify(encodeVerifier(this.verifier)) !==
-                JSON.stringify(encodeVerifier(next.verifier))
+            !canonicalJsonEqual(encodeVerifier(this.verifier), encodeVerifier(next.verifier))
         ) {
             throw new AgentCoreError(
                 "protocol.invalid-state",

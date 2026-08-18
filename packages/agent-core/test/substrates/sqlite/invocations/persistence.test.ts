@@ -451,21 +451,49 @@ describe("SqliteInvocationPersistence append conflict taxonomy", () => {
     });
 
     test(
-        "classifies substrate errors as conflicts by SQLITE_CONSTRAINT code alone",
+        "classifies substrate conflicts by SQLite result code, never by driver prose",
         { tags: "p1" },
         () => {
-            const database = new FaultingSqlite();
-            const persistence = createSqliteInvocationPersistence(database);
-            database.fault = () => {
-                throw Object.assign(new TypeError("row rejected"), {
-                    code: "SQLITE_CONSTRAINT_UNIQUE"
-                });
-            };
-            expectInvocationFailure(
-                () => persistence.insertPrepared(database, prepared("sqlite-coded-conflict")),
-                "store.duplicate-record",
-                "Invocation record append conflicted"
-            );
+            // Extended result codes observed from both drivers this repo runs:
+            // bun:sqlite exposes them as `errno`, node:sqlite as `errcode`. Only a
+            // uniqueness violation is an append race. NOT NULL and CHECK are the
+            // schema's corruption backstops and must reach the caller unchanged, and
+            // a driver message is not a contract -- "no such column: unique_key" says
+            // nothing about conflicts.
+            const duplicates = [
+                { errno: 1555, message: "UNIQUE constraint failed: prepared.id" },
+                { errcode: 2067, message: "UNIQUE constraint failed: prepared.id" }
+            ];
+            for (const shape of duplicates) {
+                const database = new FaultingSqlite();
+                const persistence = createSqliteInvocationPersistence(database);
+                database.fault = () => {
+                    throw Object.assign(new TypeError(shape.message), shape);
+                };
+                expectInvocationFailure(
+                    () => persistence.insertPrepared(database, prepared("sqlite-coded-conflict")),
+                    "store.duplicate-record",
+                    "Invocation record append conflicted"
+                );
+            }
+
+            const passThrough = [
+                { errno: 1299, message: "NOT NULL constraint failed: prepared.bytes" },
+                { errcode: 275, message: "CHECK constraint failed: revision >= 0" },
+                { errno: 1, message: "no such column: unique_key" },
+                { code: "SQLITE_CONSTRAINT_UNIQUE", message: "row rejected" }
+            ];
+            for (const shape of passThrough) {
+                const database = new FaultingSqlite();
+                const persistence = createSqliteInvocationPersistence(database);
+                const thrown = Object.assign(new TypeError(shape.message), shape);
+                database.fault = () => {
+                    throw thrown;
+                };
+                expect(() =>
+                    persistence.insertPrepared(database, prepared("sqlite-passthrough"))
+                ).toThrow(thrown);
+            }
         }
     );
 

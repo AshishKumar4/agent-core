@@ -1,6 +1,6 @@
 import {
     RecordCodec,
-    encodeCanonicalJson,
+    canonicalJsonEqual,
     hasExactJsonKeys,
     isJsonObject,
     isMember,
@@ -95,7 +95,7 @@ export class CapabilitySpec {
             this.impacts.includes(intent.impact) &&
             Object.entries(this.argumentConstraints).every(([path, expected]) => {
                 const actual = valueAtPath(intent.arguments, path);
-                return actual !== undefined && canonicalEqual(actual, expected);
+                return actual !== undefined && canonicalJsonEqual(actual, expected);
             })
         );
     }
@@ -120,7 +120,7 @@ export class CapabilitySpec {
             candidate.impacts.every((impact) => this.impacts.includes(impact)) &&
             Object.entries(this.argumentConstraints).every(([path, expected]) => {
                 const actual = candidate.argumentConstraints[path];
-                return actual !== undefined && canonicalEqual(actual, expected);
+                return actual !== undefined && canonicalJsonEqual(actual, expected);
             })
         );
     }
@@ -130,7 +130,7 @@ export class CapabilitySpec {
     }
 
     public equals(other: CapabilitySpec): boolean {
-        return other instanceof CapabilitySpec && canonicalEqual(this.toData(), other.toData());
+        return other instanceof CapabilitySpec && canonicalJsonEqual(this.toData(), other.toData());
     }
 
     public toData(): FacetDataMap {
@@ -220,14 +220,6 @@ function isConstraintPath(path: string): boolean {
     return path.length > 0 && path.split(".").every((segment) => /^[a-zA-Z0-9_-]+$/u.test(segment));
 }
 
-function canonicalEqual(left: JsonValue, right: JsonValue): boolean {
-    const leftBytes = encodeCanonicalJson(left);
-    const rightBytes = encodeCanonicalJson(right);
-    return (
-        leftBytes.byteLength === rightBytes.byteLength &&
-        leftBytes.every((value, index) => value === rightBytes[index])
-    );
-}
 
 function requireImpact(value: JsonValue): Impact {
     if (isMember(impacts, value)) return value;
