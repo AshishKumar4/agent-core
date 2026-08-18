@@ -8,6 +8,7 @@ import {
 } from "../../src/core";
 import { requireInteger } from "../../src/workspaces/codec";
 import { codecCase } from "../helpers/codec-case";
+import { malformed } from "../helpers/malformed";
 
 function fieldOf(value: JsonValue, field: string): JsonValue {
     if (!isJsonObject(value)) throw new TypeError(`Expected an object holding ${field}`);
@@ -15,7 +16,12 @@ function fieldOf(value: JsonValue, field: string): JsonValue {
     if (nested === undefined) throw new TypeError(`Expected a ${field} field`);
     return nested;
 }
-import { EventPattern, FieldMove, PayloadMapping } from "../../src/facets";
+import {
+    ContributionAttribution,
+    EventPattern,
+    FieldMove,
+    PayloadMapping
+} from "../../src/facets";
 import { Event } from "../../src/workspaces/event";
 import { InboxEventReference } from "../../src/workspaces/inbox";
 import {
@@ -29,6 +35,7 @@ import { RouteDelivery, RouteProjection, RouteReservation } from "../../src/work
 import { Subscription } from "../../src/workspaces/subscription";
 import { EventProvenance, EventVerification } from "../../src/workspaces/value";
 import { View, ViewDelta, ViewMark } from "../../src/workspaces/view";
+import { attribution } from "../w3/slot-store-contract";
 import {
     deliveryFixture,
     eventFixture,
@@ -315,6 +322,87 @@ describe("event policy", () => {
             })
         ).toThrow(/duplicate or overlap/);
     });
+
+    test(
+        "[C13-FACET-WITHDRAWAL-EXACT] a Subscription admits retirement only as the presence marker",
+        { tags: "p1" },
+        () => {
+            const live = subscriptionFixture("retirement-marker");
+            expect(live.retired).toBeUndefined();
+
+            for (const forged of [false, 0, "true"]) {
+                expect(
+                    () => new Subscription({ ...live, retired: malformed<true>(forged) })
+                ).toThrow(new TypeError("Subscription retirement is declared by presence"));
+            }
+            expect(new Subscription({ ...live, retired: undefined }).retired).toBeUndefined();
+        }
+    );
+
+    test(
+        "[C13-FACET-CONTRIBUTION-ATTRIBUTION] a Subscription refuses attribution that is not the canonical record",
+        { tags: "p0" },
+        () => {
+            const live = subscriptionFixture("attribution-shape");
+            expect(
+                () =>
+                    new Subscription({
+                        ...live,
+                        contribution: malformed<ContributionAttribution>({
+                            contributor: "workspace:forged",
+                            package: { id: "workspace:forged", version: "1.0.0" }
+                        })
+                    })
+            ).toThrow(new TypeError("Subscription contribution must carry canonical attribution"));
+        }
+    );
+
+    test(
+        "[C13-FACET-WITHDRAWAL-EXACT] only a contributed Subscription retires, and retirement is a later revision",
+        { tags: "p0" },
+        () => {
+            expect(() => subscriptionFixture("uncontributed").retire()).toThrow(
+                expect.objectContaining({
+                    code: "protocol.invalid-state",
+                    message: "Only a contributed Subscription is retired by withdrawal"
+                })
+            );
+
+            const contributed = subscriptionFixture("contributed", {
+                contribution: attribution("workspace:contributor")
+            });
+            const retired = contributed.retire();
+
+            expect(retired.retired).toBe(true);
+            expect(retired.revision.value).toBe(contributed.revision.value + 1);
+            expect(retired.contribution?.contributor.value).toBe("workspace:contributor");
+            expect(contributed.retired).toBeUndefined();
+        }
+    );
+
+    test(
+        "a revised Subscription keeps its identity while its authority and dedupe move",
+        { tags: "p1" },
+        () => {
+            const original = subscriptionFixture("delegating");
+            const delegated = original.revise({
+                source: original.source,
+                target: original.target,
+                mapping: original.mapping,
+                dedupe: "causation",
+                authority: { kind: "delegated", binding: original.authority.binding }
+            });
+
+            expect(delegated.id.value).toBe(original.id.value);
+            expect(delegated.revision.value).toBe(original.revision.value + 1);
+
+            const restored = Subscription.decode(Subscription.encode(delegated));
+            expect(restored.authority.kind).toBe("delegated");
+            expect(restored.authority.binding.value).toBe(original.authority.binding.value);
+            expect(restored.dedupe).toBe("causation");
+            expect(restored.contribution).toBeUndefined();
+        }
+    );
 
     test("treats prototype names as inert own JSON keys", { tags: "p1" }, () => {
         Reflect.deleteProperty(Object.prototype, "polluted");

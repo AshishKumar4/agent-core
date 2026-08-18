@@ -20,7 +20,8 @@ import {
     type AuthorityPermitExpectationInit,
     type AuthorityMutationStore,
     type MemoryAuthorityPermitSnapshot,
-    type MemoryTenantControlSnapshot
+    type MemoryTenantControlSnapshot,
+    type TenantAuthorityPermitStore
 } from "../../src/authority";
 import {
     TENANT_AUTHORITY_COMMANDS,
@@ -28,6 +29,7 @@ import {
     TenantAuthorityRuntimeCommandBackend,
     createClosedTenantAuthorityComposition,
     type ClosedTenantAuthorityComposition,
+    type ClosedTenantAuthorityCompositionInit,
     type TenantAuthorityCommandBackend
 } from "../../src/composition";
 import {
@@ -88,7 +90,7 @@ import {
 import { RunId, TurnId } from "../../src/agents";
 import { TestSqlite } from "../helpers/sqlite";
 import { CounterAuthenticator, CounterContentStore } from "../protocol/counter-fixture";
-import type { Assembled } from "./fixture";
+import { reaching, type Assembled } from "./fixture";
 
 const recordData = jsonDataParser((message) => new TypeError(message));
 
@@ -640,6 +642,10 @@ const otherTenantPath = new PathEpochEvidence([
         1
     )
 ]);
+const otherWorkspaceActor = new ActorRef(
+    "workspace",
+    new ActorId("authority-command-other-workspace")
+);
 const spoofedCaller: CommandCaller = {
     kind: "actor",
     actor: new ActorRef("workspace", new ActorId("authority-command-spoofed"))
@@ -1149,6 +1155,42 @@ describe("closed Tenant authority command gates", () => {
     });
 
     test(
+        "a permit decision whose evidence answers another request fails closed",
+        { tags: "p0" },
+        async () => {
+            // The issuer's own guard reports an unbound decision as a typed protocol fault;
+            // this pins the composition's independent check of the same property, which is
+            // what stands between a substituted backend and a committed permit decision.
+            const harness = createMemoryHarness({
+                issuePermit: (_state, request, at) =>
+                    AuthorityPermitIssuanceReply.issued(
+                        checkEvidenceWith({
+                            requestDigest: digest("substituted-permit-decision"),
+                            checkedAt: at
+                        }),
+                        permitFor(request, at)
+                    )
+            });
+            const payload = AuthorityPermitIssuanceRequest.encode(permitRequest(currentPath(1)));
+            const error = await dispatchFailure(
+                harness,
+                harness.envelope(
+                    TENANT_AUTHORITY_COMMANDS.issuePermit,
+                    "permit-unbound-decision",
+                    payload
+                ),
+                payload
+            );
+
+            expect(error).toBeInstanceOf(TypeError);
+            expect(error).toMatchObject({
+                message: "Authority permit issuer returned substituted evidence"
+            });
+            expect(harness.snapshot()).toEqual({ writes: 0, audits: 0, permits: 0, checks: 0 });
+        }
+    );
+
+    test(
         "an exact prior issuance can be replayed after response loss",
         { tags: "p0" },
         async () => {
@@ -1189,7 +1231,344 @@ describe("closed Tenant authority command gates", () => {
             expect(AuthorityCheckReply.decode(result.reply).evidence.checkedAt).toEqual(future);
         }
     );
+
+    test(
+        "the composition ingress leases command payloads on the wall clock by default",
+        { tags: "p1" },
+        async () => {
+            const before = Date.now();
+            const harness = createMemoryHarness({}, "wall");
+            const request = harness.checkRequest();
+            const payload = AuthorityCheckRequest.encode(request);
+            const result = await harness.dispatch(
+                harness.envelope(TENANT_AUTHORITY_COMMANDS.check, "default-clock", payload),
+                payload
+            );
+            const checkedAt = AuthorityCheckReply.decode(result.reply).evidence.checkedAt.getTime();
+
+            expect(result.outcome).toBe("committed");
+            expect(checkedAt).toBeGreaterThanOrEqual(before);
+            expect(checkedAt).toBeLessThanOrEqual(Date.now());
+        }
+    );
+
+    test(
+        "refuses an envelope naming a revision or a lease no authority command carries",
+        { tags: "p2" },
+        async () => {
+            // Both authority commands forbid an expected revision and Binding validation
+            // forbids a lease, so the ingress refuses the envelope outright and no command
+            // is ever asked for a current revision or a current lease.
+            const harness = createMemoryHarness();
+            const validation = BindingValidationRequest.encode(bindingRequest());
+            const revisioned = await harness.dispatch(
+                envelope(
+                    TENANT_AUTHORITY_COMMANDS.validateBinding,
+                    "binding-revision",
+                    validation,
+                    harness.caller,
+                    undefined,
+                    Revision.initial()
+                ),
+                validation
+            );
+            const leased = await harness.dispatch(
+                envelope(
+                    TENANT_AUTHORITY_COMMANDS.validateBinding,
+                    "binding-lease",
+                    validation,
+                    harness.caller,
+                    { turn: authorityTurn, holder: principal, epoch: 2 }
+                ),
+                validation
+            );
+            const checkPayload = AuthorityCheckRequest.encode(harness.checkRequest());
+            const checkRevision = await harness.dispatch(
+                envelope(
+                    TENANT_AUTHORITY_COMMANDS.check,
+                    "check-revision",
+                    checkPayload,
+                    harness.caller,
+                    undefined,
+                    Revision.initial()
+                ),
+                checkPayload
+            );
+
+            expect([revisioned.outcome, leased.outcome, checkRevision.outcome]).toEqual([
+                "rejectedMalformed",
+                "rejectedLease",
+                "rejectedMalformed"
+            ]);
+            expect(harness.snapshot()).toMatchObject({ checks: 0, permits: 0 });
+        }
+    );
 });
+
+/**
+ * The production runtime backend under the same ingress the mock backends run under: the
+ * fence, Principal and lease each command compares are the state port's answers, and the
+ * evidence it returns is live Tenant authority's rather than a double's.
+ */
+describe("the Tenant authority runtime command backend", () => {
+    test(
+        "answers Binding validation and authority checks from live Tenant authority",
+        { tags: "p0" },
+        async () => {
+            const harness = createProductionCommandHarness();
+            const validation = bindingRequest();
+            const validated = await harness.dispatch(
+                TENANT_AUTHORITY_COMMANDS.validateBinding,
+                "runtime-binding",
+                BindingValidationRequest.encode(validation)
+            );
+            const evidence = BindingValidationReply.decode(validated.reply).evidence;
+
+            expect(validated.outcome).toBe("committed");
+            expect(evidence.binds(validation)).toBe(true);
+            expect(evidence.grantId.equals(grant)).toBe(true);
+            expect(evidence.issuer.equals(tenantActor)).toBe(true);
+            expect(evidence.pathEpochs.equals(harness.path())).toBe(true);
+
+            const request = checkRequest(harness.path(), principal);
+            const checked = await harness.dispatch(
+                TENANT_AUTHORITY_COMMANDS.check,
+                "runtime-check",
+                AuthorityCheckRequest.encode(request)
+            );
+            const decision = AuthorityCheckReply.decode(checked.reply).evidence;
+
+            expect(checked.outcome).toBe("committed");
+            expect(decision.binds(request)).toBe(true);
+            expect(decision.allowed).toBe(true);
+            expect(decision.reason).toBe("allowed");
+            expect(decision.matchedAllow.map((id) => id.value)).toContain(grant.value);
+        }
+    );
+
+    test(
+        "compares the exact fence and Principal the state port answers",
+        { tags: "p0" },
+        async () => {
+            const harness = createProductionCommandHarness();
+            const stale = bindingRequest({ workspaceFence: 8, nonce: "runtime-stale-fence" });
+            const fenced = await harness.dispatch(
+                TENANT_AUTHORITY_COMMANDS.validateBinding,
+                "runtime-stale-fence",
+                BindingValidationRequest.encode(stale)
+            );
+            // The state port answers a fence for the Workspace Actor alone, so a request
+            // naming any other Actor has no fence to equal rather than a mismatched one.
+            const unfenced = bindingRequest({
+                workspaceActor: otherWorkspaceActor,
+                nonce: "runtime-unfenced-actor"
+            });
+            const unknown = await harness.dispatch(
+                TENANT_AUTHORITY_COMMANDS.validateBinding,
+                "runtime-unfenced-actor",
+                BindingValidationRequest.encode(unfenced),
+                { kind: "actor", actor: otherWorkspaceActor }
+            );
+            const substituted = AuthorityCheckRequest.encode(
+                checkRequest(harness.path(), otherPrincipal)
+            );
+            const spoofed = await harness.dispatch(
+                TENANT_AUTHORITY_COMMANDS.check,
+                "runtime-substituted-principal",
+                substituted
+            );
+
+            expect([fenced.outcome, unknown.outcome, spoofed.outcome]).toEqual([
+                "rejectedAuthority",
+                "rejectedAuthority",
+                "rejectedAuthority"
+            ]);
+            expect(harness.issued("authority-command-permit")).toBeUndefined();
+        }
+    );
+
+    test(
+        "admits exactly the check and permit leases the state port reports as current",
+        { tags: "p0" },
+        async () => {
+            const harness = createProductionCommandHarness(new LeasedProductionCommandState());
+            const lease = { turn: authorityTurn, holder: principal, epoch: 2 };
+            const checkPayload = AuthorityCheckRequest.encode(
+                checkRequest(harness.path(), principal)
+            );
+            const leased = await harness.dispatch(
+                TENANT_AUTHORITY_COMMANDS.check,
+                "runtime-leased-check",
+                checkPayload,
+                undefined,
+                lease
+            );
+            const fenced = await harness.dispatch(
+                TENANT_AUTHORITY_COMMANDS.check,
+                "runtime-fenced-check",
+                checkPayload,
+                undefined,
+                { ...lease, epoch: 3 }
+            );
+
+            const permit = permitRequest(harness.path(), lease);
+            const issued = await harness.dispatch(
+                TENANT_AUTHORITY_COMMANDS.issuePermit,
+                "runtime-leased-permit",
+                AuthorityPermitIssuanceRequest.encode(permit),
+                { kind: "actor", actor: targetActor },
+                lease
+            );
+            const reply = AuthorityPermitIssuanceReply.decode(issued.reply).requirePermit();
+
+            expect(leased.outcome).toBe("committed");
+            expect(fenced.outcome).toBe("rejectedLease");
+            expect(issued.outcome).toBe("committed");
+            expect(reply.expectation.lease).toEqual(lease);
+            expect(
+                harness.issued(permit.targetRequest.nonce)?.digest().equals(reply.digest())
+            ).toBe(true);
+        }
+    );
+
+    test("requires its own Tenant permit owner as the issuing Actor", { tags: "p0" }, () => {
+        expect(
+            () =>
+                new TenantAuthorityRuntimeCommandBackend(
+                    productionCommandState,
+                    createProductionMemoryStore(createProductionActorStore()),
+                    otherTenantActor
+                )
+        ).toThrow(/requires its Tenant permit owner/);
+        // A real Tenant permit store refuses a non-Tenant owner in its own constructor, so
+        // only a stand-in can present the owner the second clause of this guard exists for.
+        expect(
+            () =>
+                new TenantAuthorityRuntimeCommandBackend(
+                    productionCommandState,
+                    reaching<TenantAuthorityPermitStore<ProductionMemoryState>>({
+                        owner: sourceActor
+                    }),
+                    sourceActor
+                )
+        ).toThrow(/requires its Tenant permit owner/);
+    });
+
+    test(
+        "refuses a composition whose dispatcher commits to another transaction store",
+        { tags: "p0" },
+        () => {
+            const store = createProductionMemoryStore(createProductionActorStore());
+            const other = createProductionMemoryStore(createProductionActorStore());
+            expect(() =>
+                createComposition(
+                    store,
+                    new MemoryProtocolPersistence<ProductionMemoryState>((state) => state.records),
+                    new TenantAuthorityRuntimeCommandBackend(
+                        productionCommandState,
+                        other,
+                        tenantActor
+                    ),
+                    nextProductionMemoryId
+                )
+            ).toThrow(/require one transaction store/);
+        }
+    );
+});
+
+/** Dispatches any Tenant authority command against the production runtime backend. */
+interface ProductionCommandHarness {
+    path(): PathEpochEvidence;
+    dispatch(
+        command: string,
+        key: string,
+        payload: Uint8Array,
+        caller?: CommandCaller,
+        lease?: NonNullable<CommandEnvelope["lease"]>
+    ): Promise<CommandDispatchResult>;
+    issued(nonce: string): AuthorityPermit | undefined;
+}
+
+/** A state port answering the current lease the leased command paths compare against. */
+class LeasedProductionCommandState extends TenantAuthorityCommandStatePort<AuthorityCommandRead> {
+    public actorFence(read: AuthorityCommandRead, actor: ActorRef): number | undefined {
+        return actor.equals(sourceActor) ? read.fence : undefined;
+    }
+
+    public checkPrincipal(read: AuthorityCommandRead): PrincipalRef {
+        return read.principal;
+    }
+
+    public currentCheckLease(
+        _read: AuthorityCommandRead,
+        _request: AuthorityCheckRequest,
+        at: Date
+    ) {
+        return {
+            turn: authorityTurn,
+            holder: principal,
+            epoch: 2,
+            expiresAt: new Date(at.getTime() + 5_000)
+        };
+    }
+
+    public currentPermitLease(
+        _read: AuthorityCommandRead,
+        request: AuthorityPermitIssuanceRequest,
+        at: Date
+    ) {
+        const lease = request.targetRequest.expectation.lease;
+        if (lease === undefined) return undefined;
+        return {
+            turn: lease.turn,
+            holder: principal,
+            epoch: lease.epoch,
+            expiresAt: new Date(at.getTime() + 5_000)
+        };
+    }
+}
+
+function createProductionCommandHarness(
+    state: TenantAuthorityCommandStatePort<AuthorityCommandRead> = productionCommandState
+): ProductionCommandHarness {
+    const actorStore = createProductionActorStore();
+    const store = createProductionMemoryStore(actorStore);
+    const composition = createComposition(
+        store,
+        new MemoryProtocolPersistence<ProductionMemoryState>((record) => record.records),
+        new TenantAuthorityRuntimeCommandBackend(state, store, tenantActor),
+        nextProductionMemoryId
+    );
+    return {
+        path: () => productionPath(readProductionMemoryControl(actorStore)),
+        dispatch: (command, key, payload, caller, lease) => {
+            const dispatchCaller = caller ?? { kind: "actor", actor: sourceActor };
+            return composition.dispatch(
+                envelope(command, key, payload, dispatchCaller, lease),
+                dispatchCaller,
+                payload
+            );
+        },
+        issued: (nonce) => store.transaction((transaction) => store.issued(transaction, nonce))
+    };
+}
+
+function createProductionActorStore(): MemoryActorStore<ProductionMemoryState> {
+    return new MemoryActorStore<ProductionMemoryState>(
+        {
+            authority: createProductionMemoryControl().snapshot(),
+            permits: new MemoryAuthorityPermitStore(tenantActor).snapshot(),
+            records: new MemoryProtocolRecords(),
+            nextId: 0
+        },
+        cloneProductionMemoryState
+    );
+}
+
+function nextProductionMemoryId(state: ProductionMemoryState): number {
+    state.nextId += 1;
+    return state.nextId;
+}
 
 function checkEvidenceWith(init: {
     readonly requestDigest: Digest;
@@ -1227,7 +1606,7 @@ type AuthorityBackend = TenantAuthorityCommandBackend<MemoryAuthorityState, Auth
 
 function createMemoryHarness(
     overrides: Partial<AuthorityBackend> = {},
-    clock: Date = now
+    clock: Date | "wall" = now
 ): AuthorityCommandHarness {
     const store = new MemoryActorStore<MemoryAuthorityState>(
         {
@@ -1682,14 +2061,21 @@ function createComposition<Transaction, ReadTransaction extends AuthorityReadTra
     persistence: ProtocolPersistence<Transaction>,
     backend: TenantAuthorityCommandBackend<Transaction, AuthorityCommandRead>,
     nextId: (transaction: Transaction) => number,
-    clock: Date = now
+    clock: Date | "wall" = now
 ): ClosedTenantAuthorityComposition<
     Transaction,
     AuthorityCommandRead,
     ReadTransaction,
     CommandCaller
 > {
-    return createClosedTenantAuthorityComposition({
+    const init: Assembled<
+        ClosedTenantAuthorityCompositionInit<
+            Transaction,
+            AuthorityCommandRead,
+            ReadTransaction,
+            CommandCaller
+        >
+    > = {
         store,
         persistence,
         backend,
@@ -1709,9 +2095,10 @@ function createComposition<Transaction, ReadTransaction extends AuthorityReadTra
         limits: { envelopeBytes: 32_768, payloadBytes: 32_768 },
         content: new CounterContentStore(() => undefined),
         authenticator: new CounterAuthenticator(tenant),
-        leaseForMilliseconds: 60_000,
-        now: () => clock
-    });
+        leaseForMilliseconds: 60_000
+    };
+    if (clock !== "wall") init.now = () => clock;
+    return createClosedTenantAuthorityComposition(init);
 }
 
 /** The read transactions composed by the mock and production harnesses. */
@@ -2006,7 +2393,8 @@ function envelope(
     key: string,
     payload: Uint8Array,
     caller: CommandCaller,
-    lease?: NonNullable<CommandEnvelope["lease"]>
+    lease?: NonNullable<CommandEnvelope["lease"]>,
+    expectedRevision?: Revision
 ): Uint8Array {
     const payloadDigest = Digest.sha256(payload);
     const envelopeInit: Assembled<CommandEnvelopeInit> = {
@@ -2017,6 +2405,7 @@ function envelope(
         payloadDigest
     };
     if (lease !== undefined) envelopeInit.lease = lease;
+    if (expectedRevision !== undefined) envelopeInit.expectedRevision = expectedRevision;
     return CommandEnvelopeCodec.encode(new CommandEnvelope(envelopeInit));
 }
 

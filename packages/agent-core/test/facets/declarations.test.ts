@@ -57,6 +57,7 @@ import {
 } from "../../src/facets/contribution";
 import { FacetRef } from "../../src/facets/id";
 import { BoundOperationRef, FacetOperationRef } from "../../src/facets/operation";
+import { SlotContributionOrigin } from "../../src/facets/slot-entry";
 
 const objectSchema = new JsonSchema({ type: "object" });
 const goldenPin = new PackagePin(
@@ -314,6 +315,98 @@ describe("Declarative facet vocabulary", () => {
                         undefined
                     )
             ).toThrow(/contributing FacetRef and source PackagePin/);
+        }
+    );
+
+    test(
+        "[C13-FACET-CONTRIBUTION-ATTRIBUTION] names the record whose payload carries no source Package pin",
+        { tags: "p1" },
+        () => {
+            expect(() =>
+                ContributionAttribution.decodeFields({ contributor: "workspace:a" }, "Slot entry")
+            ).toThrow(/^Slot entry carries no source Package pin$/);
+            expect(() =>
+                ContributionAttribution.decodeFields(
+                    { contributor: "workspace:a" },
+                    "Subscription contribution"
+                )
+            ).toThrow(/^Subscription contribution carries no source Package pin$/);
+        }
+    );
+
+    test(
+        "[facet.installed-slot] refuses an installed Slot missing either half of its declaration and attribution",
+        { tags: "p1" },
+        () => {
+            const declaration = new SlotDeclaration(
+                new SlotName("dashboard.card"),
+                objectSchema,
+                new SlotAuthorityPolicy(["installed"], ["scope.read"])
+            );
+            const pairError = /An installed Slot carries its declaration and its attribution/;
+            // A structured clone keeps every field and loses the prototype, so the pair check
+            // is what stops a message-passed look-alike from installing as a declared Slot.
+            expect(() =>
+                new InstalledSlot(structuredClone(declaration), goldenAttribution)
+            ).toThrow(pairError);
+            expect(() =>
+                new InstalledSlot(declaration, structuredClone(goldenAttribution))
+            ).toThrow(pairError);
+            expect(() =>
+                // @ts-expect-error A declaration field carrying no value has no installed form.
+                InstalledSlot.fromData({
+                    ...goldenAttribution.encodeFields(),
+                    declaration: undefined
+                })
+            ).toThrow(/^Installed Slot carries no Slot declaration$/);
+        }
+    );
+
+    test(
+        "[C13-FACET-CONTRIBUTION-MATERIALIZATION] admits only canonical slot contribution positions",
+        { tags: "p1" },
+        () => {
+            const slot = new SlotName("dashboard.card");
+            const contributor = new FacetRef("workspace:codec.facet");
+            const positionError = /A slot contribution origin names its slot and contributor/;
+            expect(() =>
+                new SlotContributionOrigin(structuredClone(slot), contributor, 0)
+            ).toThrow(positionError);
+            expect(() =>
+                new SlotContributionOrigin(slot, structuredClone(contributor), 0)
+            ).toThrow(positionError);
+
+            const ordinalError = /ordinal must be a non-negative safe integer/;
+            expect(() => new SlotContributionOrigin(slot, contributor, 1.5)).toThrow(ordinalError);
+            expect(() => new SlotContributionOrigin(slot, contributor, -1)).toThrow(ordinalError);
+
+            const position = new SlotContributionOrigin(slot, contributor, 2);
+            expect(position.equals(new SlotContributionOrigin(slot, contributor, 2))).toBe(true);
+            expect(position.equals(new SlotContributionOrigin(slot, contributor, 3))).toBe(false);
+            expect(
+                position.equals(
+                    new SlotContributionOrigin(slot, new FacetRef("workspace:other"), 2)
+                )
+            ).toBe(false);
+            expect(
+                position.equals(new SlotContributionOrigin(new SlotName("other"), contributor, 2))
+            ).toBe(false);
+        }
+    );
+
+    test(
+        "[C13-FACET-CONTRIBUTION-ATTRIBUTION] refuses to materialize a slot entry from a look-alike attribution",
+        { tags: "p0" },
+        () => {
+            expect(
+                () =>
+                    new SlotEntry(
+                        new SlotName("core.card"),
+                        structuredClone(goldenAttribution),
+                        0,
+                        null
+                    )
+            ).toThrow(/^Slot entry requires its contribution attribution$/);
         }
     );
 

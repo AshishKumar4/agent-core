@@ -1,6 +1,13 @@
 import { describe, expect, test } from "vitest";
 import { AgentCoreError } from "../../src/errors";
-import { Digest, Revision, decodeCanonicalJson, isJsonObject } from "../../src/core";
+import {
+    Digest,
+    Revision,
+    decodeCanonicalJson,
+    encodeCanonicalJson,
+    isJsonObject,
+    type JsonObject
+} from "../../src/core";
 import {
     GuestVerificationScheme,
     MembershipId,
@@ -20,7 +27,7 @@ import {
     WorkspaceId,
     shareOfferHolderKey
 } from "../../src/identity";
-import type { ShareOfferRefusal } from "../../src/identity";
+import type { ShareOfferHolder, ShareOfferRefusal, ShareOfferState } from "../../src/identity";
 import { PrincipalRef, mintGuestVerification } from "./internal-fixture";
 import { GuestTrustId } from "../../src/identity/id";
 
@@ -430,6 +437,257 @@ describe("share offer adversarial redemption", () => {
                         Revision.initial()
                     )
             ).toThrow(TypeError);
+        }
+    );
+});
+
+/**
+ * Values that are structurally everything the record expects while not being the class it
+ * names. A bearer artifact's fields decide authority on their own, so a look-alike has to be
+ * refused rather than read as the real thing.
+ */
+class ForgedDigest extends Digest {}
+class ForgedRedemption extends ShareOfferRedemption {}
+
+interface ShareOfferOverrides {
+    readonly secretDigest?: Digest;
+    readonly createdAt?: Date;
+    readonly expiresAt?: Date;
+    readonly bound?: number;
+    readonly redemptions?: readonly ShareOfferRedemption[];
+    readonly state?: ShareOfferState;
+    readonly revision?: Revision;
+}
+
+function offerWith(overrides: ShareOfferOverrides): ShareOffer {
+    return new ShareOffer(
+        new ShareOfferId("offer-share"),
+        scope,
+        editor,
+        overrides.secretDigest ?? secretDigest,
+        overrides.createdAt ?? createdAt,
+        overrides.expiresAt ?? expiresAt,
+        overrides.bound ?? 1,
+        overrides.redemptions ?? [],
+        overrides.state ?? "open",
+        overrides.revision ?? Revision.initial()
+    );
+}
+
+/**
+ * A holder the record's own type forbids. `recordedFor` and `ShareOfferRedemption` identify
+ * holders by class, so a Team standing in the holder position is the case they must refuse
+ * rather than answer with whatever an unredeemed Principal is answered with.
+ */
+function forgedHolder<TActual>(value: TActual): ShareOfferHolder {
+    // SAFETY: a Team is not a ShareOfferHolder. The call under test must reject it by class.
+    return value as TActual & ShareOfferHolder;
+}
+
+/**
+ * A presented secret that is not bearer bytes. Redemption compares bytes, so each of the
+ * representations a secret is confused with must be refused before any comparison runs.
+ */
+function forgedSecret<TActual>(value: TActual): Uint8Array {
+    // SAFETY: not bearer secret bytes. Redemption must refuse it before it compares anything.
+    return value as TActual & Uint8Array;
+}
+
+/** An offer's own durable payload, owned by the caller, for corrupting one field of it. */
+function offerPayload(source = offer()): JsonObject {
+    const envelope = decodeCanonicalJson(ShareOffer.encode(source));
+    if (!isJsonObject(envelope)) throw new TypeError("Expected share offer envelope");
+    const payload = envelope["payload"];
+    if (!isJsonObject(payload)) throw new TypeError("Expected share offer payload");
+    return { ...payload };
+}
+
+function decodeOfferPayload(payload: JsonObject): ShareOffer {
+    return ShareOffer.decode(
+        encodeCanonicalJson({
+            kind: "identity.share-offer",
+            version: { major: 1, minor: 0 },
+            payload
+        })
+    );
+}
+
+describe("share offer record integrity", () => {
+    test(
+        "[C13-AUTH-SHARE-OFFER] [identity.share-offer] refuses a bearer digest and a redemption that are not exactly the class the record names",
+        { tags: "p0" },
+        () => {
+            expect(() => offerWith({ secretDigest: new ForgedDigest(secretDigest.value) })).toThrow(
+                "Share offer requires an exact bearer secret Digest"
+            );
+            expect(() =>
+                offerWith({
+                    redemptions: [new ForgedRedemption(holder, mintedMembership, withinWindow)]
+                })
+            ).toThrow("Share offer requires exact ShareOfferRedemption values");
+
+            // Both look-alikes carry exactly the values the named classes would, so the refusal
+            // is about the constructor and nothing else: the same values, through those classes,
+            // are admitted.
+            const admitted = offerWith({
+                secretDigest: new Digest(secretDigest.value),
+                redemptions: [new ShareOfferRedemption(holder, mintedMembership, withinWindow)]
+            });
+            expect(admitted.secretDigest.value).toBe(secretDigest.value);
+            expect(admitted.recordedFor(holder)?.membership.value).toBe(mintedMembership.value);
+        }
+    );
+
+    test(
+        "[C13-AUTH-SHARE-OFFER] [identity.share-offer] records a redemption only inside the half-open window the offer was presentable in",
+        { tags: "p1" },
+        () => {
+            const at = (time: number): ShareOffer =>
+                offerWith({
+                    redemptions: [
+                        new ShareOfferRedemption(holder, mintedMembership, new Date(time))
+                    ]
+                });
+            const outside = "Share offer redemption falls outside its redemption window";
+
+            expect(() => at(createdAt.getTime() - 1)).toThrow(outside);
+            expect(() => at(expiresAt.getTime())).toThrow(outside);
+            expect(() => at(expiresAt.getTime() + 1)).toThrow(outside);
+            // Both admitted ends, so the bound is the window's own and not one unit inside it.
+            expect(at(createdAt.getTime()).redemptions[0]?.redeemedAt).toEqual(createdAt);
+            expect(at(expiresAt.getTime() - 1).redemptions[0]?.redeemedAt).toEqual(
+                new Date(expiresAt.getTime() - 1)
+            );
+        }
+    );
+
+    test(
+        "[C13-AUTH-SHARE-OFFER] [identity.share-offer] refuses every transition of an offer whose revision is exhausted",
+        { tags: "p0" },
+        () => {
+            const exhausted = offerWith({ revision: new Revision(Number.MAX_SAFE_INTEGER) });
+            for (const act of [() => exhausted.revoke(), () => redeem(holder, exhausted)]) {
+                expect(act).toThrow(AgentCoreError);
+                expect(act).toThrowError(
+                    expect.objectContaining({
+                        code: "protocol.invalid-state",
+                        message: "Share offer revision is exhausted"
+                    })
+                );
+            }
+            // The offer refuses ahead of Revision's own ceiling, so the caller is told the offer
+            // cannot advance rather than being handed a revision conflict to retry against.
+            expect(() => new Revision(Number.MAX_SAFE_INTEGER).next()).toThrowError(
+                expect.objectContaining({ code: "protocol.revision-conflict" })
+            );
+            // Nothing transitioned: the record is still open and still records no redemption.
+            expect(exhausted.state).toBe("open");
+            expect(exhausted.redemptions).toEqual([]);
+        }
+    );
+
+    test(
+        "[C13-AUTH-SHARE-OFFER] [identity.share-offer] refuses a Team wherever a record's own holder belongs",
+        { tags: "p1" },
+        () => {
+            const team = SubjectRef.team(new TeamId("team-share"));
+            const notAHolder = "A share offer redemption records a Principal holder, never a Team";
+
+            // A caller that defeats `recordedFor`'s holder type is refused rather than answered
+            // with the value an unredeemed Principal is answered with.
+            expect(() => offer().recordedFor(forgedHolder(team))).toThrow(notAHolder);
+            expect(offer().recordedFor(holder)).toBeUndefined();
+            expect(() => new ShareOfferRedemption(team, mintedMembership, withinWindow)).toThrow(
+                notAHolder
+            );
+        }
+    );
+
+    test(
+        "[C13-AUTH-SHARE-OFFER] [identity.share-offer] refuses a presented secret that is not bytes before it compares anything",
+        { tags: "p1" },
+        () => {
+            const presentable = { subject: holder, membership: mintedMembership, now: withinWindow };
+            for (const presented of [secretDigest.value, [...secret], undefined, null]) {
+                const act = (): ShareOfferRedemptionOutcome =>
+                    offer().redeem({ ...presentable, secret: forgedSecret(presented) });
+                expect(act).toThrow(TypeError);
+                expect(act).toThrow("Share offer redemption requires bearer secret bytes");
+                // A malformed presentation is not a refusal: it carries no ShareOfferRefusal, so
+                // it can never be reported to a bearer as a secret mismatch.
+                expect(act).not.toThrow(ShareOfferRedemptionDenied);
+            }
+            expect(redeem(holder, offer()).membership?.id.value).toBe(mintedMembership.value);
+        }
+    );
+
+    test(
+        "[C13-AUTH-SHARE-OFFER] [identity.share-offer] admits exactly the two lifecycle states, in the record and on the wire",
+        { tags: "p1" },
+        () => {
+            for (const state of ["closed", "Open", "", "open "]) {
+                // SAFETY: none of these is a ShareOfferState. The record admits exactly two, so
+                // every neighbouring string must be refused rather than stored.
+                expect(() => offerWith({ state: state as ShareOfferState })).toThrow(
+                    "Share offer state is invalid"
+                );
+            }
+            expect(offerWith({ state: "open" }).isOpen).toBe(true);
+            expect(offerWith({ state: "revoked" }).isOpen).toBe(false);
+
+            // A stored offer cannot be made to confer anything by rewriting its state to a value
+            // the record does not know: the payload is malformed rather than read as one of two.
+            expect(() => decodeOfferPayload({ ...offerPayload(), state: "closed" })).toThrowError(
+                expect.objectContaining({ code: "codec.invalid" })
+            );
+            expect(decodeOfferPayload(offerPayload(offer().revoke())).state).toBe("revoked");
+        }
+    );
+
+    test(
+        "[C13-AUTH-SHARE-OFFER] [identity.share-offer] refuses an unrepresentable instant wherever a share offer records a time",
+        { tags: "p1" },
+        () => {
+            const recorded = redeem(holder, offer(2)).offer.redemptions[0]!.toData();
+            if (!isJsonObject(recorded)) throw new TypeError("Expected redemption data");
+            expect(ShareOfferRedemption.fromData(recorded).redeemedAt).toEqual(withinWindow);
+            for (const redeemedAt of [1.5, "1500000", null, Number.MAX_SAFE_INTEGER + 2]) {
+                expect(() =>
+                    ShareOfferRedemption.fromData({ ...recorded, redeemedAt })
+                ).toThrow("Share offer redemption time must be a safe integer");
+            }
+
+            // A Date carries instants no wire integer can, so the same bound is re-derived from
+            // the value rather than trusted: unrepresentable and pre-epoch are both invalid.
+            expect(() => offerWith({ createdAt: new Date(Number.NaN) })).toThrow(
+                "Share offer creation time is invalid"
+            );
+            expect(() => offerWith({ expiresAt: new Date(8.64e15 + 1) })).toThrow(
+                "Share offer expiry is invalid"
+            );
+            expect(() => offerWith({ createdAt: new Date(-1), expiresAt: new Date(1) })).toThrow(
+                "Share offer creation time is invalid"
+            );
+            expect(
+                () => new ShareOfferRedemption(holder, mintedMembership, new Date(Number.NaN))
+            ).toThrow("Share offer redemption time is invalid");
+        }
+    );
+
+    test(
+        "[C13-AUTH-SHARE-OFFER] [identity.share-offer] names the minted Membership through the accessor a replay answers with",
+        { tags: "p2" },
+        () => {
+            const issued = redeem(holder, offer(2));
+            expect(issued.isReplay).toBe(false);
+            expect(issued.membershipId.value).toBe(mintedMembership.value);
+            expect(issued.membershipId.value).toBe(issued.membership?.id.value);
+
+            // The accessor is what a caller reads without branching on isReplay, so issuance and
+            // replay must answer it with the one identity — only the minted record differs.
+            const replay = redeem(holder, issued.offer);
+            expect(replay.membershipId.value).toBe(issued.membershipId.value);
+            expect(replay.membership).toBeUndefined();
         }
     );
 });

@@ -72,6 +72,18 @@ describe("Actor object names", () => {
         );
     });
 
+    test("refuses an ID that is not an ActorId but carries the same text", () => {
+        // The name is a pure function of `id.value`, so a bare record holding the same text
+        // would mint the same object name -- and so address the same authoritative store --
+        // without ever having passed ActorId's well-formed-Unicode validation.
+        expect(() =>
+            actorObjectName({ kind: "workspace", id: malformedInput({ value: "42" }) })
+        ).toThrow("Actor ID is invalid");
+        expect(actorObjectName({ kind: "workspace", id: new ActorId("42") })).toBe(
+            "agent-core:actor:v1:workspace:42"
+        );
+    });
+
     test("selects one stable namespace object per Actor identity", () => {
         const namespace = new FakeDurableObjectNamespace((name, jurisdiction) => ({
             name,

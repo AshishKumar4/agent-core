@@ -3,6 +3,7 @@ import { CompatRange, SemVer, isJsonObject, type JsonValue } from "../../../src/
 import {
     FacetPackageId,
     OperationName,
+    SELF_OPERATION_CONTRACTS,
     SELF_OPERATIONS,
     SelfFacet,
     SelfRunDependency,
@@ -147,6 +148,25 @@ describe("Self protected Run contract", () => {
                 code: "authority.denied"
             });
             expect(run.calls).toEqual([]);
+        }
+    );
+
+    test(
+        "refuses an Operation input that omits the single field its contract declares",
+        { tags: "p1" },
+        () => {
+            expect(() => SELF_OPERATION_CONTRACTS.checkpoint.decodeInput({})).toThrow(
+                /^Self checkpoint input must carry checkpoint$/
+            );
+            expect(() => SELF_OPERATION_CONTRACTS.commitMessage.decodeInput({})).toThrow(
+                /^Self commitMessage input must carry message$/
+            );
+            expect(() => SELF_OPERATION_CONTRACTS.proposeMigration.decodeInput({})).toThrow(
+                /^Self proposeMigration input must carry migration$/
+            );
+            expect(SELF_OPERATION_CONTRACTS.spawn.decodeInput({ child: { id: 1 } })).toEqual({
+                child: { id: 1 }
+            });
         }
     );
 });

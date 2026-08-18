@@ -240,6 +240,7 @@
       "packages/agent-core/test/integration/**",
       "packages/agent-core/test/integration-consumer/**",
       "packages/agent-core/test/substrates/sqlite/behavior-branches.test.ts",
+      "packages/agent-core/test/substrates/sqlite/target-mediation.test.ts",
       "packages/agent-core/test/differential/**",
       "packages/agent-core-harness/scripts/**",
       "packages/agent-core-harness/src/**",

@@ -21,6 +21,7 @@ import {
 import { InboxEventReference } from "../../src/workspaces/inbox";
 import { ContentRetentionReference } from "../../src/workspaces/retention";
 import { Subscription } from "../../src/workspaces/subscription";
+import { attribution } from "../w3/slot-store-contract";
 import { content, inboxFixture, retentionFixture, subscriptionFixture } from "./fixtures";
 
 function recordPayload(bytes: Uint8Array): JsonObject {
@@ -207,4 +208,105 @@ describe("Subscription mutation coverage", () => {
             );
         }
     });
+
+    test(
+        "[C13-FACET-WITHDRAWAL-EXACT] decode admits retirement only as the literal presence marker",
+        { tags: "p1" },
+        () => {
+            const retired = subscriptionFixture("retired", {
+                contribution: attribution("workspace:retired")
+            }).retire();
+            const payload = recordPayload(Subscription.encode(retired));
+            expect(payload["retired"]).toBe(true);
+            expect(
+                Subscription.decode(recordBytes("workspace.subscription", payload, 2)).retired
+            ).toBe(true);
+
+            const live = recordPayload(Subscription.encode(subscriptionFixture("live")));
+            expect(Object.hasOwn(live, "retired")).toBe(false);
+            expect(
+                Subscription.decode(recordBytes("workspace.subscription", live, 2)).retired
+            ).toBeUndefined();
+
+            for (const forged of [false, 0, "true"]) {
+                expect(() =>
+                    Subscription.decode(
+                        recordBytes("workspace.subscription", { ...payload, retired: forged }, 2)
+                    )
+                ).toThrow(
+                    expect.objectContaining({
+                        code: "codec.invalid",
+                        message:
+                            "Invalid workspace.subscription record: Subscription retirement is encoded by presence"
+                    })
+                );
+            }
+        }
+    );
+
+    test(
+        "[C13-FACET-CONTRIBUTION-ATTRIBUTION] decode refuses an attribution that is not a record",
+        { tags: "p1" },
+        () => {
+            const payload = recordPayload(
+                Subscription.encode(
+                    subscriptionFixture("attributed", {
+                        contribution: attribution("workspace:attributed")
+                    })
+                )
+            );
+            expect(
+                Subscription.decode(recordBytes("workspace.subscription", payload, 2)).contribution
+                    ?.contributor.value
+            ).toBe("workspace:attributed");
+
+            expect(() =>
+                Subscription.decode(
+                    recordBytes(
+                        "workspace.subscription",
+                        { ...payload, contribution: "workspace:attributed" },
+                        2
+                    )
+                )
+            ).toThrow(
+                expect.objectContaining({
+                    code: "codec.invalid",
+                    message:
+                        "Invalid workspace.subscription record: Subscription contribution must be an object"
+                })
+            );
+        }
+    );
+
+    test(
+        "decode refuses a dedupe policy and an authority kind outside the vocabulary",
+        { tags: "p2" },
+        () => {
+            const payload = recordPayload(Subscription.encode(subscriptionFixture("vocabulary")));
+            expect(() =>
+                Subscription.decode(
+                    recordBytes("workspace.subscription", { ...payload, dedupe: "always" }, 2)
+                )
+            ).toThrow(
+                expect.objectContaining({
+                    message:
+                        "Invalid workspace.subscription record: Subscription dedupe policy is invalid"
+                })
+            );
+            expect(() =>
+                Subscription.decode(
+                    recordBytes(
+                        "workspace.subscription",
+                        { ...payload, authority: { binding: "binding.route", kind: "ambient" } },
+                        2
+                    )
+                )
+            ).toThrow(
+                expect.objectContaining({
+                    message:
+                        "Invalid workspace.subscription record: Subscription authority kind is invalid"
+                })
+            );
+        }
+    );
 });

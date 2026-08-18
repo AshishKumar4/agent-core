@@ -1,7 +1,35 @@
 import { AlarmOutboxReconciler, DurableAlarmClaims, ReconciliationOutboxId } from "../src/index.js";
+import type {
+    SqliteRow,
+    SynchronousResultGuard,
+    SynchronousSqlitePort
+} from "../src/index.js";
 import { SqliteApplicationMigrator } from "../src/migration.js";
+import { expectOperationalFailure } from "./assertions.js";
 import { FakeAlarmStorage, fakeErrors } from "./fakes.js";
 import { NodeSqlite } from "./node-sqlite.js";
+
+/**
+ * Reads the ledger's own schema cannot produce: `MIN(due_at)` always yields exactly one
+ * row, and `due_at INTEGER NOT NULL CHECK (due_at >= 0)` refuses every value the ledger
+ * rejects. Both refusals guard against a substrate that misreports its own storage.
+ */
+class ScriptedReads implements SynchronousSqlitePort {
+    public constructor(private readonly rows: readonly SqliteRow[]) {}
+
+    public all(): readonly SqliteRow[] {
+        return this.rows;
+    }
+
+    public run(): void {}
+
+    public transaction<Result>(
+        operation: () => Result,
+        ..._guard: SynchronousResultGuard<Result>
+    ): Result {
+        return operation();
+    }
+}
 
 /** A real database: the claim ledger's value is in the SQL it runs. */
 function claims() {
@@ -115,6 +143,32 @@ describe("DurableAlarmClaims", () => {
         await first.setAlarm(500);
 
         expect(alarms.scheduledAt).toBe(200);
+    });
+
+    test(
+        "refuses an aggregate read that did not return exactly one row",
+        { tags: "p1" },
+        () => {
+            for (const rows of [[], [{ due_at: 10 }, { due_at: 20 }]]) {
+                const ledger = new DurableAlarmClaims(new ScriptedReads(rows), fakeErrors);
+                expectOperationalFailure(() => ledger.earliest(), "operation.invalid-output");
+                expect(() => ledger.earliest()).toThrow(
+                    "SQLite alarm claim query returned an invalid row count"
+                );
+            }
+        }
+    );
+
+    test("refuses a stored claim time it cannot arm an alarm at", { tags: "p1" }, () => {
+        // Not a number, past the safe-integer range, and negative: each is a due time the
+        // platform would silently mistake for a different instant.
+        for (const stored of ["soon", Number.MAX_SAFE_INTEGER + 2, -1]) {
+            const ledger = new DurableAlarmClaims(new ScriptedReads([{ due_at: stored }]), fakeErrors);
+            expectOperationalFailure(() => ledger.claimed("runtime"), "codec.invalid");
+            expect(() => ledger.earliest()).toThrow(
+                "Stored alarm claim time is not a nonnegative safe integer"
+            );
+        }
     });
 });
 
