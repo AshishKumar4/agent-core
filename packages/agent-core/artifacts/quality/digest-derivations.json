@@ -1,0 +1,161 @@
+{
+  "edition": "1.0.0",
+  "entries": [
+    {
+      "accounting": "unaccounted",
+      "consumer": "field:authorityIdentity",
+      "emitsSignal": false,
+      "hasObservableConsequence": true,
+      "justification": "Binding.toData() and pathEpochs.toData() are digested into MediatedReplayBinding.authorityIdentity at composition/authority.ts, and mediation-identity.ts reads that exact value as the authorityIdentity key of the InvocationId derivation. So a W2 Binding shape change mints a different Invocation for the same intent, by a path no migration row names: grep -F over every artifact returns 0 occurrences of authorityIdentity. Signal false: the only comparisons over this value are equality reads with no throwing guard. Consequence true for the same reason the direct descriptor path has one, a wrong-looking refusal or a duplicate mint against an existing reservation.",
+      "migration": null,
+      "recordType": "src/authority/binding.ts#Binding",
+      "shapeDigest": "b024972ae3dba37f",
+      "shapeSource": "src/authority/binding.ts#Binding",
+      "site": "src/composition/authority.ts#TenantOperationAuthority.replayBinding"
+    },
+    {
+      "accounting": "unaccounted",
+      "consumer": "field:packageOperationPin",
+      "emitsSignal": false,
+      "hasObservableConsequence": true,
+      "justification": "The second, unnamed path from descriptor.toData() into InvocationId. composition/authority.ts digests descriptor.toData() into MediatedReplayBinding.packageOperationPin, and mediation-identity.ts feeds that value into the same derive() call that mints the Invocation. MIGRATE-OPERATION-DESCRIPTOR-PRESENCE enumerates thirteen descriptor-digest sites and names two as durable; this site is in neither list, measured by grep -F with a negative control: packageOperationPin 0, replayBinding 0, authority.ts:458 0, against descriptor 12. So the row's own count is short and the fork it describes reaches its own identity twice.",
+      "migration": null,
+      "recordType": "src/facets/contribution.ts#OperationDescriptor",
+      "shapeDigest": "9747e1a4ce60b7c1",
+      "shapeSource": "src/facets/contribution.ts#OperationDescriptor",
+      "site": "src/composition/authority.ts#TenantOperationAuthority.replayBinding"
+    },
+    {
+      "accounting": "accounted-forked",
+      "consumer": "identity:InvocationId",
+      "emitsSignal": false,
+      "hasObservableConsequence": true,
+      "justification": "The derivation MIGRATE-OPERATION-DESCRIPTOR-PRESENCE was opened for: presence-typing interceptable moved OperationDescriptor's canonical bytes, so every Invocation minted against an Operation that withholds interception now derives a different id from the same intent. Signal false, measured: the value is minted rather than compared, so nothing throws. Consequence true: a duplicate mint or a refusal that names the wrong cause against a replay reservation that already exists. The filesystem write descriptor realised this fork today under P11-FILESYSTEM-WRITE-OBSERVED, which is a second instance of this same site rather than a new one.",
+      "migration": "MIGRATE-OPERATION-DESCRIPTOR-PRESENCE",
+      "recordType": "src/facets/contribution.ts#OperationDescriptor",
+      "shapeDigest": "9747e1a4ce60b7c1",
+      "shapeSource": "src/facets/contribution.ts#OperationDescriptor",
+      "site": "src/composition/mediation-identity.ts#DerivedMediationIdentities.invocation"
+    },
+    {
+      "accounting": "accounted-forked",
+      "consumer": "field:descriptorDigest",
+      "emitsSignal": false,
+      "hasObservableConsequence": false,
+      "justification": "MIGRATE-OPERATION-DESCRIPTOR-PRESENCE names mediation-preparation.ts:344 among the sites that record a descriptorDigest alongside the intent rather than deriving an identity from it, and states each still needs confirming against stored evidence before the row closes. Signal false and consequence false, measured: no comparison over descriptorDigest sits inside a throwing guard, and the recorded value is read back only where both sides are re-derived in the same revision. Worst cell, so it outranks the identity-minting sites for triage even though its blast radius is smaller.",
+      "migration": "MIGRATE-OPERATION-DESCRIPTOR-PRESENCE",
+      "recordType": "src/facets/contribution.ts#OperationDescriptor",
+      "shapeDigest": "9747e1a4ce60b7c1",
+      "shapeSource": "src/facets/contribution.ts#OperationDescriptor",
+      "site": "src/composition/mediation-preparation.ts#CanonicalMediationPreparation.operationPin"
+    },
+    {
+      "accounting": "unaccounted",
+      "consumer": "field:digest",
+      "emitsSignal": false,
+      "hasObservableConsequence": true,
+      "justification": "PackageLock.encode(this) is digested into PackageLock.digest, and substrates/sqlite/package.ts persists that value as the lockDigest column and looks locks up by it (getLock/findLock, 8 references). PackageLock.toData() does not emit digest, so a loaded lock recomputes it: across a shape change a stored lockDigest no longer matches any re-derived one and getLock misses. Signal false, measured: no throwing comparison over this value. Consequence true: a lookup miss on a content-addressed store, the same observable shape as the modelInput re-dispatch. No artifact names this derivation.",
+      "migration": null,
+      "recordType": "src/definition/package-lock.ts#PackageLock",
+      "shapeDigest": "b4876fc82ef0843e",
+      "shapeSource": "src/definition/package-lock.ts#PackageLock",
+      "site": "src/definition/package-lock.ts#PackageLock"
+    },
+    {
+      "accounting": "unaccounted",
+      "consumer": "field:blueprintDigest",
+      "emitsSignal": false,
+      "hasObservableConsequence": true,
+      "justification": "Blueprint.encode(...) is digested into a materialization plan's blueprintDigest, and substrates/sqlite/materialization.ts persists it as a string column on both the plan and the generation rows. A Blueprint shape change therefore leaves stored plans carrying a digest no re-derivation reproduces. Signal false, measured: no throwing comparison over blueprintDigest. Consequence true: a stored plan stops resolving to its Blueprint. Named in no migration row; the definition.json occurrences are the field's own declaration rather than an account of the derivation.",
+      "migration": null,
+      "recordType": "src/definition/blueprint.ts#Blueprint",
+      "shapeDigest": "adbd4677b4c56470",
+      "shapeSource": "src/definition/blueprint.ts#Blueprint",
+      "site": "src/definition/plan.ts#planMaterialization"
+    },
+    {
+      "accounting": "unaccounted",
+      "consumer": "field:proposalDigest",
+      "emitsSignal": true,
+      "hasObservableConsequence": true,
+      "justification": "This entry disagrees with the false/false published for this site and the disagreement is the measurement. RunCommit.toData() does NOT emit proposalDigest, so a loaded commit recomputes it and the executor.ts:1003 durability check compares two freshly derived values, which is silent exactly as reported. But ControlCommitEvidence.proposalDigest is a stored string on a separate durable record, and commit.ts:408 compares it against a re-derived commit.proposalDigest.value inside a guard that throws deniedEvidence. That check is non-vacuous only if a host persists the string, and persisting it is the only non-vacuous implementation, because recomputing it from the commit would compare the value to itself. So across a revision boundary a control commit whose evidence predates the change is refused. The seam has no in-repo implementation and every in-repo construction is a same-revision fixture, which is precisely the blind spot this gate exists for.",
+      "migration": null,
+      "recordType": "src/agents/runs/commit.ts#RunCommit",
+      "shapeDigest": "0466476cec9d8366",
+      "shapeSource": "src/agents/runs/commit.ts#RunCommit",
+      "site": "src/agents/runs/commit.ts#RunCommit"
+    },
+    {
+      "accounting": "accounted-forked",
+      "consumer": "identity:RunCommitId",
+      "emitsSignal": false,
+      "hasObservableConsequence": true,
+      "justification": "TurnModelInput.encode goes into the content-addressed store and the resulting ContentRef, with the parent commit, derives the modelInput RunCommitId. SPEC 5.6 settles an unknown outcome by re-reading the commit whose id derives from its content, so a host that crashed mid-dispatch and retries across a descriptor change computes a different id, fails to find its own prior commit, and dispatches a second model call. Signal false: no throw, the lookup simply misses. Consequence true and traced beyond cost: the second dispatch double-counts the Run's durable token total at a new Run revision and leaves two modelInput commits in an append-only graph. Named twice in MIGRATE-OPERATION-DESCRIPTOR-PRESENCE.",
+      "migration": "MIGRATE-OPERATION-DESCRIPTOR-PRESENCE",
+      "recordType": "content-addressed",
+      "shapeDigest": "54ada9acc56404e0",
+      "shapeSource": "src/agents/runs/executor.ts#TurnModelInput",
+      "site": "src/agents/runs/executor.ts#modelInputCommitId"
+    },
+    {
+      "accounting": "unaccounted",
+      "consumer": "field:digest",
+      "emitsSignal": false,
+      "hasObservableConsequence": false,
+      "justification": "RunPins.toData() does not emit digest, so the value is recomputed on every load and no stored counterpart exists: a grep for pins.digest read sites in src returns nothing. A RunPins shape change therefore forks a value nothing currently compares, which is the cheapest cell to be in today and the most expensive to discover the day something starts comparing it. MIGRATE-RUN-PINS is verified and names no digest, no toData and no RunPins derivation, measured with a negative control, so the derivation is unaccounted rather than governed by the pins migration.",
+      "migration": null,
+      "recordType": "src/agents/runs/pins.ts#RunPins",
+      "shapeDigest": "d247a18a9af99685",
+      "shapeSource": "src/agents/runs/pins.ts#RunPins",
+      "site": "src/agents/runs/pins.ts#RunPins"
+    },
+    {
+      "accounting": "unaccounted",
+      "consumer": "field:id",
+      "emitsSignal": false,
+      "hasObservableConsequence": true,
+      "justification": "RunConfigurationSnapshot.id is derived from the snapshot's own canonical bytes and Run.configuration is a stored Digest naming it, so the id is a cross-record reference rather than a local. toData() does not emit id, so a loaded snapshot recomputes it: across a shape change a stored Run.configuration names a snapshot id that no longer exists. Signal false as measured here, since the identity-equality guards that would fire are in genesis validation rather than on the reload path. Consequence true: a Run whose configuration reference no longer resolves. Named in no migration row.",
+      "migration": null,
+      "recordType": "src/agents/runs/pins.ts#RunConfigurationSnapshot",
+      "shapeDigest": "638a42ea9c7af6a4",
+      "shapeSource": "src/agents/runs/pins.ts#RunConfigurationSnapshot",
+      "site": "src/agents/runs/pins.ts#RunConfigurationSnapshot"
+    },
+    {
+      "accounting": "unaccounted",
+      "consumer": "field:digest",
+      "emitsSignal": false,
+      "hasObservableConsequence": false,
+      "justification": "TurnPlacementSnapshot.toData() does not emit digest and no read site compares it, so the derivation forks a value nothing currently reads. The placementDigest in definition/attestation.ts is a different derivation over a different input and must not be confused with this one, which is the kind of same-name collision that makes a prose account of these sites unreliable. Worst cell, and unaccounted: no migration row names TurnPlacementSnapshot, measured with a negative control.",
+      "migration": null,
+      "recordType": "src/agents/runs/placement.ts#TurnPlacementSnapshot",
+      "shapeDigest": "e56c21284a9a04a6",
+      "shapeSource": "src/agents/runs/placement.ts#TurnPlacementSnapshot",
+      "site": "src/agents/runs/placement.ts#TurnPlacementSnapshot"
+    },
+    {
+      "accounting": "accounted-forked",
+      "consumer": "field:descriptorDigest",
+      "emitsSignal": false,
+      "hasObservableConsequence": false,
+      "justification": "MIGRATE-OPERATION-DESCRIPTOR-PRESENCE names operation-mediation.ts:270 among the sites recording a descriptorDigest alongside the intent, and states each still needs confirming against stored evidence before the row closes. The replay reservation records the digest with the intent it reserves; a fork makes a recorded reservation stop matching a re-derived one. Signal false and consequence false, measured: no throwing comparison over descriptorDigest anywhere in src, and no traced downstream effect. Worst cell.",
+      "migration": "MIGRATE-OPERATION-DESCRIPTOR-PRESENCE",
+      "recordType": "src/facets/contribution.ts#OperationDescriptor",
+      "shapeDigest": "9747e1a4ce60b7c1",
+      "shapeSource": "src/facets/contribution.ts#OperationDescriptor",
+      "site": "src/invocations/operation-mediation.ts#replayReservation"
+    },
+    {
+      "accounting": "accounted-unforked",
+      "consumer": "field:skeletonDigest",
+      "emitsSignal": false,
+      "hasObservableConsequence": false,
+      "justification": "SlateSkeleton.encode(skeleton) pins the exact artifact a Slate instantiate admits, and the value is emitted into canonical intent data through slates/intent.ts mutationData. Recorded as a hazard on C13-SLATE-INSTANTIATE-SCOPE rather than in a migration row because there is no migration to declare: the skeleton closure reaches BindingRequirement.toData() and is disjoint from the descriptor closure, so this derivation has not forked, and its owner confirmed BindingName's accepted set unmoved by measurement rather than intention. Signal false and consequence false: a recorded intent's digest would simply stop matching a re-derived one, with no throw and no red test, and nothing until someone re-derives. Worst cell, and the state a one-column report would misread as a gap.",
+      "migration": null,
+      "recordType": "src/slates/skeleton.ts#SlateSkeleton",
+      "shapeDigest": "e0ea69f939785fc5",
+      "shapeSource": "src/slates/skeleton.ts#SlateSkeleton",
+      "site": "src/slates/runtime.ts#SlateRuntime.instantiate"
+    }
+  ]
+}

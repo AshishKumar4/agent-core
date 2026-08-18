@@ -9,7 +9,7 @@
       "specTextSha256": "sha256:74ebb32fcebc46680efe31f3f4a39980cf9088486314f5118474ec0791ce26cb",
       "status": "verified",
       "prerequisites": [],
-      "sourceSymbols": ["scripts/quality/records.mjs#discoverCodecRecords"],
+      "sourceSymbols": ["scripts/quality/codec-records.mjs#discoverCodecRecords"],
       "testSelectors": [
         "test/integration/cache-loss.test.ts#[C13-ADV-CACHE-LOSS] rebuilds a lost derived index from canonical content"
       ],
