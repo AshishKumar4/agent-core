@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
+import type { JsonObject } from "../../scripts/quality/project.mjs";
 import {
     type QualitySubprocessResult,
     runQualitySubprocess,
@@ -602,6 +603,102 @@ describe("generic AGENTS architecture rules", subprocessTestOptions, () => {
         );
         expect(run(fixture).status).toBe(1);
     });
+
+    test("ratchets codec closure debt in both directions", async () => {
+        const fixture = await createFixture({
+            "src/codec.ts": ledgerCodecFixture("BoundRecord, First")
+        });
+
+        const unledgered = run(fixture, "building");
+        expect(unledgered.status).toBe(1);
+        expect(unledgered.stderr).toContain("New architecture violations");
+        const second = omissionFingerprint(unledgered.stderr, "Second");
+
+        await writeCodecOwed(fixture, [codecDebt(second, "Second")]);
+        const ledgered = run(fixture, "building");
+        expect(ledgered.status, ledgered.stderr).toBe(0);
+        expect(ledgered.stdout).toContain("1 codec closure(s) owed");
+
+        // Debt is owed, never exempt: the final stage still refuses while it is outstanding.
+        expect(run(fixture).status).toBe(1);
+
+        await writeFile(
+            resolve(fixture, "src/codec.ts"),
+            ledgerCodecFixture("BoundRecord"),
+            "utf8"
+        );
+        const widened = run(fixture, "building");
+        expect(widened.status).toBe(1);
+        expect(widened.stderr).toContain("Codec tuple omits reached project class First");
+        expect(widened.stderr).not.toContain(second);
+
+        await writeFile(
+            resolve(fixture, "src/codec.ts"),
+            ledgerCodecFixture("BoundRecord, First"),
+            "utf8"
+        );
+        await writeCodecOwed(fixture, []);
+        expect(run(fixture, "building").status).toBe(1);
+
+        // Paid down but still listed: the stale entry would re-accept the omission on its
+        // return, so the gate refuses until the entry goes with the fix.
+        await writeCodecOwed(fixture, [codecDebt(second, "Second")]);
+        await writeFile(
+            resolve(fixture, "src/codec.ts"),
+            ledgerCodecFixture("BoundRecord, First, Second"),
+            "utf8"
+        );
+        const stale = run(fixture, "building");
+        expect(stale.status).toBe(1);
+        expect(stale.stderr).toContain("Discharged codec closure debt left in the owed list");
+        await writeCodecOwed(fixture, []);
+        expect(run(fixture, "building").status).toBe(0);
+
+        await writeFile(
+            resolve(fixture, "src/codec.ts"),
+            ledgerCodecFixture("BoundRecord, First"),
+            "utf8"
+        );
+        await writeCodecOwed(fixture, [
+            { ...codecDebt(second, "Second"), counterfactual: "Reviewed and considered benign." }
+        ]);
+        const transplanted = run(fixture, "building");
+        expect(transplanted.status).toBe(1);
+        expect(transplanted.stderr).toContain("must state the counterfactual for Second");
+
+        await writeCodecOwed(fixture, [{ ...codecDebt(second, "Second"), codec: "OtherCodec" }]);
+        const mismatched = run(fixture, "building");
+        expect(mismatched.status).toBe(1);
+        expect(mismatched.stderr).toContain("does not name the site it suppresses");
+
+        // One finding, one ledger: a baselined omission would outlive the discharge check.
+        await writeCodecOwed(fixture, []);
+        await writeFile(
+            resolve(fixture, "baseline.json"),
+            `${JSON.stringify(
+                {
+                    edition: "1.0.0",
+                    issues: [
+                        {
+                            rule: "ACQ-CODEC",
+                            file: "src/codec.ts",
+                            symbol: "BoundCodec",
+                            message: "Codec tuple omits reached project class Second",
+                            fingerprint: second
+                        }
+                    ]
+                },
+                null,
+                2
+            )}\n`,
+            "utf8"
+        );
+        const misledgered = run(fixture, "building");
+        expect(misledgered.status).toBe(1);
+        expect(misledgered.stderr).toContain(
+            "Codec closure debt belongs in the owed list, not the baseline"
+        );
+    });
 });
 
 async function writePermits(
@@ -733,13 +830,13 @@ async function createFixture(files: Record<string, string>): Promise<string> {
     return root;
 }
 
-function run(root: string): QualitySubprocessResult {
+function run(root: string, stage = "final"): QualitySubprocessResult {
     return runQualitySubprocess(
         process.execPath,
         [
             checker,
             "--stage",
-            "final",
+            stage,
             "--root",
             root,
             "--baseline",
@@ -755,6 +852,65 @@ function run(root: string): QualitySubprocessResult {
         ],
         packageRoot
     );
+}
+
+async function writeCodecOwed(root: string, owed: readonly JsonObject[]): Promise<void> {
+    await writeFile(
+        resolve(root, "architecture-codec-owed.json"),
+        `${JSON.stringify({ edition: "1.0.0", owed }, null, 2)}\n`,
+        "utf8"
+    );
+}
+
+function codecDebt(fingerprint: string, missing: string): JsonObject {
+    return {
+        fingerprint,
+        file: "src/codec.ts",
+        codec: "BoundCodec",
+        missing,
+        missingFile: "src/codec.ts",
+        namedBy: [],
+        owner: "W0",
+        counterfactual: `No codec tuple names ${missing}, so nothing freezes it and BoundCodec decodes through a writable prototype`
+    };
+}
+
+/** Read back rather than recomputed: the fingerprint hashes the message the gate wrote. */
+function omissionFingerprint(stderr: string, missing: string): string {
+    const found = new RegExp(
+        `(ACQ-CODEC:\\S+) Codec tuple omits reached project class ${missing}$`,
+        "mu"
+    ).exec(stderr);
+    if (found?.[1] === undefined) {
+        throw new TypeError(`No reported omission of ${missing} in ${stderr}`);
+    }
+    return found[1];
+}
+
+/** Two reached classes, so a tuple can omit them one at a time. */
+function ledgerCodecFixture(classes: string): string {
+    return [
+        "abstract class RecordCodec<Record> {",
+        "  protected constructor(_classes: readonly object[], _kind: string, _version: object) {}",
+        "  protected abstract encodePayload(record: Record): string;",
+        "  protected abstract decodePayload(payload: string): Record;",
+        "}",
+        "class First { public static project(value: string): string { return value; } }",
+        "class Second { public static restore(value: string): string { return value; } }",
+        "class BoundRecord {",
+        "  public constructor(public readonly value: string) {}",
+        "  public toData(): string { return First.project(this.value); }",
+        "  public static fromData(value: string): BoundRecord {",
+        "    return new BoundRecord(Second.restore(value));",
+        "  }",
+        "}",
+        "class BoundCodec extends RecordCodec<BoundRecord> {",
+        `  public constructor() { super([${classes}], 'fixture.record', { major: 1, minor: 0 }); }`,
+        "  protected encodePayload(record: BoundRecord): string { return record.toData(); }",
+        "  protected decodePayload(payload: string): BoundRecord { return BoundRecord.fromData(payload); }",
+        "}",
+        "export const codec = new BoundCodec();"
+    ].join("\n");
 }
 
 function codecFixture(classes: string): string {

@@ -1,4 +1,4 @@
-import { basename, relative, resolve, sep } from "node:path";
+import { basename, dirname, relative, resolve, sep } from "node:path";
 import * as ts from "typescript/unstable/ast";
 import { SignatureKind, SymbolFlags } from "typescript/unstable/sync";
 import { configuration, hasModifier, openProject, sourceFiles } from "./compiler.mjs";
@@ -20,6 +20,7 @@ import {
     writeCanonicalJson
 } from "./project.mjs";
 import { vocabularyDeclarationNames } from "./export-registry.mjs";
+import { ownersForPath, patternsForOwnership } from "./ownership.mjs";
 import { canonicalSpec } from "./spec.mjs";
 
 // Weakening a type is how a wrong program stops being rejected, so every escape is
@@ -53,12 +54,18 @@ const files = (await Promise.all(roots.map((root) => collectFiles(root, isTypeSc
     .flat()
     .sort();
 const issues = [];
+// Tuple omissions, kept structured beside the issue list because their ledger names the
+// codec and the class it fails to seal rather than a fingerprint alone. See `loadCodecOwed`.
+const codecOmissions = [];
 /**
  * The rules here fall into two categories, and they need different success conditions.
  *
  * Every other rule is a defect rule: ACQ-ERR, ACQ-ID, ACQ-CODEC, ACQ-IMMUTABLE and
- * ACQ-VOCAB each flag something wrong that has a fix, so their correct target is zero,
- * and the tree has driven all of them there.
+ * ACQ-VOCAB each flag something wrong that has a fix, so their correct target is zero.
+ * A defect that is not yet fixed is carried as debt, enumerated and never exempted: its
+ * ledger entry states what is owed rather than why it stands, it remains outstanding, and
+ * the final stage refuses while it is there. Debt lets the building stage move without
+ * letting the release claim be made.
  *
  * The rules below are shape rules. They flag a construction that requires review rather
  * than a defect: a composite key, a rendered comparison, a locale-dependent operation.
@@ -168,15 +175,28 @@ for (const field of recordFields) {
 }
 
 issues.sort((left, right) => compareCanonicalText(left.fingerprint, right.fingerprint));
+codecOmissions.sort((left, right) => compareCanonicalText(left.fingerprint, right.fingerprint));
 const baseline = await loadBaseline(options.baseline);
+const owed = await loadCodecOwed(options.codecOwed);
 const baselineFingerprints = new Set(baseline.issues.map((item) => item.fingerprint));
 const currentFingerprints = new Set(issues.map((item) => item.fingerprint));
-const additions = issues.filter((item) => !baselineFingerprints.has(item.fingerprint));
+// A tuple omission is ledgered in the owed list and nowhere else. Two ledgers for one
+// finding would let a baselined omission outlive the owed list's discharge check, and that
+// check is the only thing making the list a ratchet rather than a filter.
+const omissions = new Map(codecOmissions.map((item) => [item.fingerprint, item]));
+const ledgered = new Set(
+    owed.owed.map((entry) => entry.fingerprint).filter((fingerprint) => omissions.has(fingerprint))
+);
+const discharged = owed.owed.filter((entry) => !omissions.has(entry.fingerprint));
+const misledgered = baseline.issues.filter((item) => omissions.has(item.fingerprint));
+const additions = issues.filter(
+    (item) => !baselineFingerprints.has(item.fingerprint) && !ledgered.has(item.fingerprint)
+);
 const resolved = baseline.issues.filter((item) => !currentFingerprints.has(item.fingerprint));
-// ACQ-ERR and its siblings flag debt: each site has a fix, and the tree has driven all
-// of them to zero. ACQ-KEY and ACQ-RENDER flag a shape instead, and a shape can be sound
-// -- a delimiter is safe when no component can contain it, and several flagged sites are
-// not identities at all but a SemVer rendering, a URL, a SQL fragment. Their terminal
+// ACQ-ERR and its siblings flag a defect: every site has a fix, so an outstanding one is a
+// debt awaiting payment. ACQ-KEY and ACQ-RENDER flag a shape instead, and a shape can be
+// sound -- a delimiter is safe when no component can contain it, and several flagged sites
+// are not identities at all but a SemVer rendering, a URL, a SQL fragment. Their terminal
 // state is therefore a written proof, not an empty list, so a site whose baseline entry
 // carries one is reviewed rather than outstanding. New sites still fail outright at every
 // stage, and a baseline entry without a reason still fails, so nothing is silenced.
@@ -192,6 +212,8 @@ const report = {
     codecBindings,
     issues,
     additions,
+    owed: [...ledgered].sort(compareCanonicalText),
+    discharged,
     resolved,
     outstanding,
     complete: outstanding.length === 0
@@ -210,14 +232,43 @@ if (options.writeBaseline) {
     );
     await writeCanonicalJson(options.baseline, {
         edition: "1.0.0",
-        issues: issues.map((item) => {
-            const reason = reasons.get(item.fingerprint);
-            return reason === undefined ? item : { ...item, reason };
-        })
+        issues: issues
+            .filter((item) => !omissions.has(item.fingerprint))
+            .map((item) => {
+                const reason = reasons.get(item.fingerprint);
+                return reason === undefined ? item : { ...item, reason };
+            })
     });
+} else if (options.updateOwed) {
+    if (process.env.QUALITY_WRITE_BASELINE !== "1" || process.env.CI) {
+        throw new TypeError(
+            "Writing the codec closure owed list requires QUALITY_WRITE_BASELINE=1 outside CI"
+        );
+    }
+    const patterns = patternsForOwnership(
+        await readCanonicalJson(resolve(artifactRoot, "quality/ownership.json"))
+    );
+    await writeCanonicalJson(options.codecOwed, {
+        edition: "1.0.0",
+        owed: codecOmissions.map((omission) => owedCodecClosure(omission, patterns))
+    });
+    console.log(`recorded ${codecOmissions.length} owed codec closure(s)`);
 } else {
     await writeCanonicalJson(resolve(reportRoot, "architecture.json"), report);
     if (additions.length > 0) fail("New architecture violations", additions);
+    // Paying a debt down means deleting its entry in the same change. A list that keeps an
+    // entry whose finding stopped reproducing re-accepts the omission the moment it returns,
+    // silently, so a discharged entry fails exactly as a new finding does.
+    if (discharged.length > 0)
+        fail(
+            "Discharged codec closure debt left in the owed list",
+            discharged.map((entry) => ({
+                fingerprint: entry.fingerprint,
+                message: `${entry.codec} no longer omits ${entry.missing}; remove this entry from ${basename(options.codecOwed)}`
+            }))
+        );
+    if (misledgered.length > 0)
+        fail("Codec closure debt belongs in the owed list, not the baseline", misledgered);
     // A composite identity or a rendered comparison is permitted only with the argument
     // for why it is sound written down beside it, so the next reader inherits the proof
     // rather than the assumption.
@@ -231,7 +282,7 @@ if (options.writeBaseline) {
     if (options.stage === "final" && outstanding.length > 0)
         fail("Final architecture violations", outstanding);
     console.log(
-        `architecture ${report.complete ? "complete" : "incomplete"}: ${outstanding.length} outstanding, ${reviewed.size} reviewed, ${resolved.length} resolved; ${codecBindings.instances} codec instance(s)`
+        `architecture ${report.complete ? "complete" : "incomplete"}: ${outstanding.length} outstanding, ${reviewed.size} reviewed, ${ledgered.size} codec closure(s) owed, ${resolved.length} resolved; ${codecBindings.instances} codec instance(s)`
     );
 }
 
@@ -629,6 +680,16 @@ function checkCodecTarget(target) {
         });
     }
 
+    // Which codecs' tuples name each class. A debt filed against an omitted class needs to
+    // say whether anything freezes that class at all, and when something does, that the
+    // freeze is another codec's construction rather than this codec's seal.
+    const namedBy = new Map();
+    for (const entry of entries) {
+        const codec = `${portable(relative(options.root, entry.source.fileName))}#${entry.symbol}`;
+        for (const named of entry.classes) {
+            namedBy.set(named, [...(namedBy.get(named) ?? []), codec]);
+        }
+    }
     for (const entry of entries) {
         const seen = new Set();
         const reached = new Set(entry.seedDependencies ?? []);
@@ -647,13 +708,21 @@ function checkCodecTarget(target) {
             codecIssue(entry.source, entry.symbol, unresolved);
         }
         for (const dependency of reached) {
-            if (!entry.classes.includes(dependency)) {
-                codecIssue(
-                    entry.source,
-                    entry.symbol,
-                    `Codec tuple omits reached project class ${dependency.name}`
-                );
-            }
+            if (entry.classes.includes(dependency)) continue;
+            const declaration = dependency.declarations.find(ts.isClassDeclaration);
+            const omission = codecIssue(
+                entry.source,
+                entry.symbol,
+                `Codec tuple omits reached project class ${dependency.name}`
+            );
+            codecOmissions.push({
+                fingerprint: omission.fingerprint,
+                file: omission.file,
+                codec: entry.symbol,
+                missing: dependency.name,
+                missingFile: portable(relative(options.root, declaration.path)),
+                namedBy: (namedBy.get(dependency) ?? []).sort(compareCanonicalText)
+            });
         }
     }
 
@@ -691,7 +760,12 @@ function checkCodecTarget(target) {
     }
 
     function codecIssue(source, symbol, message) {
-        issue("ACQ-CODEC", portable(relative(options.root, source.fileName)), symbol, message);
+        return issue(
+            "ACQ-CODEC",
+            portable(relative(options.root, source.fileName)),
+            symbol,
+            message
+        );
     }
 
     function checkCodecBehavioralDependencies(node, source, semanticChecker) {
@@ -979,9 +1053,10 @@ function classDescendants(sources, checker) {
             pending.push(...(direct.get(candidate.symbol) ?? []));
         }
         return result.sort((left, right) => {
-            const byFile = left.declaration
-                .getSourceFile()
-                .fileName.localeCompare(right.declaration.getSourceFile().fileName);
+            const byFile = compareCanonicalText(
+                left.declaration.getSourceFile().fileName,
+                right.declaration.getSourceFile().fileName
+            );
             return byFile === 0 ? left.declaration.pos - right.declaration.pos : byFile;
         });
     };
@@ -2214,7 +2289,9 @@ function issue(rule, file, symbol, message) {
             (item) => item.fingerprint === base || item.fingerprint.startsWith(`${base}:`)
         ).length + 1;
     const fingerprint = ordinal === 1 ? base : `${base}:${ordinal}`;
-    issues.push({ rule, file, symbol, message, fingerprint });
+    const recorded = { rule, file, symbol, message, fingerprint };
+    issues.push(recorded);
+    return recorded;
 }
 
 function extendsError(node) {
@@ -2320,6 +2397,93 @@ async function loadBaseline(path) {
     }
 }
 
+/**
+ * The owed codec closures: an enumeration of debts, never a set of exemptions. `RecordCodec`
+ * freezes the prototype and the constructor of exactly the classes its tuple names, so a
+ * class the codec constructs while decoding but does not name keeps both writable. The
+ * counterfactual therefore runs toward the tamper succeeding, which is why no entry may
+ * carry a reason for standing: there is nothing true to write there. A debt is discharged by
+ * naming the class in the tuple and deleting the entry, and by nothing else.
+ */
+async function loadCodecOwed(path) {
+    let document;
+    try {
+        document = await readCanonicalJson(path);
+    } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+        return { edition: "1.0.0", owed: [] };
+    }
+    assertExactKeys(document, ["edition", "owed"], "Codec closure owed document");
+    if (document.edition !== "1.0.0") {
+        throw new TypeError("Codec closure owed document must use edition 1.0.0");
+    }
+    assertArray(document.owed, "Codec closure debts");
+    const seen = new Set();
+    for (const entry of document.owed) {
+        assertObject(entry, "Codec closure debt");
+        assertExactKeys(
+            entry,
+            [
+                "fingerprint",
+                "file",
+                "codec",
+                "missing",
+                "missingFile",
+                "namedBy",
+                "owner",
+                "counterfactual"
+            ],
+            "Codec closure debt"
+        );
+        for (const key of ["fingerprint", "file", "codec", "missing", "missingFile", "owner"]) {
+            assertString(entry[key], `Codec closure debt ${key}`);
+        }
+        assertArray(entry.namedBy, `Codec closure debt ${entry.fingerprint} namedBy`);
+        if (seen.has(entry.fingerprint)) {
+            throw new TypeError(`Duplicate codec closure debt ${entry.fingerprint}`);
+        }
+        seen.add(entry.fingerprint);
+        // The entry has to be about the site its fingerprint identifies, and its evidence has
+        // to be about the class it is filed against, so neither can be transplanted from
+        // another debt and left to suppress a finding it does not describe.
+        if (!entry.fingerprint.startsWith(`ACQ-CODEC:${entry.file}:${entry.codec}:`)) {
+            throw new TypeError(
+                `Codec closure debt ${entry.fingerprint} does not name the site it suppresses`
+            );
+        }
+        if (
+            !isNonEmptyString(entry.counterfactual) ||
+            !entry.counterfactual.includes(entry.missing)
+        ) {
+            throw new TypeError(
+                `Codec closure debt ${entry.fingerprint} must state the counterfactual for ${entry.missing}`
+            );
+        }
+    }
+    return document;
+}
+
+function owedCodecClosure(omission, patterns) {
+    const { fingerprint, file, codec, missing, missingFile, namedBy } = omission;
+    return {
+        fingerprint,
+        file,
+        codec,
+        missing,
+        missingFile,
+        namedBy,
+        owner: ownersForPath(file, patterns).join("/"),
+        // The apparently harmless case is a class some other codec's tuple names, and it is
+        // the `TextId` hazard rather than a seal: the freeze is a side effect of when that
+        // other codec happens to be constructed, so this codec's module imported on its own
+        // decodes through a writable class.
+        counterfactual:
+            namedBy.length === 0
+                ? `No codec tuple names ${missing}, so nothing ever freezes it: Object.defineProperty(${missing}.prototype, …) succeeds and ${codec} still decodes through it`
+                : `${codec}'s own seal does not cover ${missing}: ${missing}.prototype is frozen only once ${namedBy.length === 1 ? "the codec named in namedBy" : `one of the ${namedBy.length} codecs named in namedBy`} is constructed, so what protects it is those modules' load order rather than this tuple`
+    };
+}
+
 async function loadPermits(path) {
     let document;
     try {
@@ -2390,6 +2554,7 @@ function parseArguments(args) {
     let exportsFile = resolve(artifactRoot, "quality/exports.json");
     let vocabulary = resolve(artifactRoot, "quality/spec-vocabulary.json");
     let writeBaseline = false;
+    let updateOwed = false;
     for (let index = 0; index < args.length; index += 1) {
         const argument = args[index];
         if (argument === "--stage") stage = required(args, ++index, argument);
@@ -2401,18 +2566,27 @@ function parseArguments(args) {
         else if (argument === "--vocabulary")
             vocabulary = resolve(required(args, ++index, argument));
         else if (argument === "--write-baseline") writeBaseline = true;
+        else if (argument === "--update-owed") updateOwed = true;
         else throw new TypeError(`Unknown architecture argument ${argument}`);
+    }
+    if (writeBaseline && updateOwed) {
+        throw new TypeError("Write the architecture baseline and the owed list one at a time");
     }
     if (stage !== "building" && stage !== "final") throw new TypeError(`Unknown stage ${stage}`);
     return {
         stage,
         root,
         baseline,
+        // The owed list accompanies the baseline it divides the ledger with, so it is found
+        // beside it rather than named twice on the command line -- and a fixture root, which
+        // names its own baseline and carries no owed list, gets an empty one.
+        codecOwed: resolve(dirname(baseline), "architecture-codec-owed.json"),
         permits,
         spec,
         exports: exportsFile,
         vocabulary,
-        writeBaseline
+        writeBaseline,
+        updateOwed
     };
 }
 
