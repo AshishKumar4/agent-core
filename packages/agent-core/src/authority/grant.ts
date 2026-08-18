@@ -96,6 +96,8 @@ class GrantCodecV1 extends RecordCodec<Grant> {
             [
                 Grant,
                 GrantState,
+                ActiveGrantState,
+                RevokedGrantState,
                 GuestVerificationScheme,
                 ScopeRef,
                 TextId,
