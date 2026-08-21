@@ -2,6 +2,21 @@
   "edition": "1.0.0",
   "gates": [
     {
+      "rule": "ACQ-ATTRIBUTION",
+      "node": "architecture",
+      "input": "src/facets/attribution.ts",
+      "mutations": [
+        {
+          "id": "ACQ-ATTRIBUTION/attribution-refusal-loses-the-package-half",
+          "find": "        if (!(contributor instanceof FacetRef) || !(pin instanceof PackagePin)) {",
+          "replace": "        if (!(contributor instanceof FacetRef)) {",
+          "expects": "SPEC names contribution attribution halves FacetRef and PackagePin but no constructor refuses them together",
+          "diagnostic": " but no constructor refuses them together",
+          "defect": "An attribution object stopped refusing one of the two halves the SPEC names, so a record materialized with a contributor but no source release counted as attributed and the withdrawal query over attribution fields answered from a half-empty pair."
+        }
+      ]
+    },
+    {
       "rule": "ACQ-CODEC",
       "node": "architecture",
       "input": "src/facets/slot-entry.ts",

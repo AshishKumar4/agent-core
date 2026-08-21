@@ -95,6 +95,7 @@ const vocabularies = new Map();
 const permits = await loadPermits(options.permits);
 const observed = new Map();
 const recordFields = [];
+const classDeclarations = [];
 
 for (const [path, parsed] of sourceFiles(files)) {
     const source = parsed.text;
@@ -173,6 +174,11 @@ for (const field of recordFields) {
         );
     }
 }
+
+// ACQ-ATTRIBUTION (SPEC §4.2, C13-FACET-CONTRIBUTION-ATTRIBUTION): every materialized
+// contribution record carries the contributing FacetRef and the source PackagePin, and a
+// record the host cannot attribute is refused rather than materialized unattributed.
+checkContributionAttribution(spec.source);
 
 issues.sort((left, right) => compareCanonicalText(left.fingerprint, right.fingerprint));
 codecOmissions.sort((left, right) => compareCanonicalText(left.fingerprint, right.fingerprint));
@@ -289,6 +295,7 @@ if (options.writeBaseline) {
 function inspectNode(node, source, file, aliases) {
     if (ts.isClassDeclaration(node) && node.name !== undefined) {
         const name = node.name.text;
+        classDeclarations.push({ name, file, node, source });
         if (name.endsWith("Id")) {
             const location = { file, symbol: name };
             const values = identifiers.get(name) ?? [];
@@ -1895,6 +1902,153 @@ function specPresenceFields(source) {
         throw new TypeError(`SPEC ${label} paragraph names no presence-declared field`);
     }
     return names;
+}
+
+/**
+ * The attribution halves SPEC §4.2's paragraph names, read from the paragraph that maps to
+ * C13-FACET-CONTRIBUTION-ATTRIBUTION. An empty extraction is a failure rather than a quiet
+ * pass, for the same reason `specPresenceFields` fails: a rule whose anchor stopped
+ * resolving would report a clean run over a set it no longer seeds.
+ */
+function specAttributionHalves(source) {
+    const label = "**C13-FACET-CONTRIBUTION-ATTRIBUTION**";
+    const anchor = source.indexOf(label);
+    if (anchor < 0) throw new TypeError(`SPEC states no ${label} anchor for ACQ-ATTRIBUTION`);
+    const start = source.lastIndexOf("\n\n", anchor);
+    const paragraph = source.slice(start < 0 ? 0 : start, anchor);
+    const names = [
+        ...new Set([...paragraph.matchAll(/`([A-Za-z][A-Za-z0-9]*)`/gu)].map(([, id]) => id))
+    ];
+    if (names.length === 0) {
+        throw new TypeError(`SPEC ${label} paragraph names no attribution half`);
+    }
+    return names;
+}
+
+function instanceOfTests(node, source) {
+    const tested = new Set();
+    visit(node, (child) => {
+        if (
+            ts.isBinaryExpression(child) &&
+            child.operatorToken.kind === ts.SyntaxKind.InstanceOfKeyword
+        ) {
+            tested.add(child.right.getText(source));
+        }
+    });
+    return tested;
+}
+
+function guardsAttributionHalves(entry, halves) {
+    const constructor = entry.node.members.find(ts.isConstructorDeclaration);
+    if (constructor === undefined) return false;
+    const tested = instanceOfTests(constructor, entry.source);
+    return halves.every((half) => tested.has(half));
+}
+
+/**
+ * The refusal whose reachability makes attribution total: an if that tests the carried
+ * attribution with instanceof and throws. Every construction path of a carrying record
+ * runs its constructor, so this guard — not a call-site convention — is what stops an
+ * unattributed record from materializing.
+ */
+function refusesAttribution(entry, className) {
+    const constructor = entry.node.members.find(ts.isConstructorDeclaration);
+    if (constructor === undefined) return false;
+    let refused = false;
+    visit(constructor, (node) => {
+        if (!ts.isIfStatement(node)) return;
+        if (!instanceOfTests(node.expression, entry.source).has(className)) return;
+        visit(node.thenStatement, (child) => {
+            if (ts.isThrowStatement(child)) refused = true;
+        });
+    });
+    return refused;
+}
+
+/** Instance members whose declared type names the attribution object. */
+function attributionCarryingMembers(entry, className) {
+    const carried = new RegExp(`\\b${className}\\b`);
+    return entry.node.members.filter((member) => {
+        if (
+            ts.isPropertyDeclaration(member) &&
+            !hasModifier(member, ts.SyntaxKind.StaticKeyword) &&
+            member.type !== undefined &&
+            carried.test(member.type.getText(entry.source))
+        ) {
+            return true;
+        }
+        return (
+            ts.isConstructorDeclaration(member) &&
+            member.parameters.some(
+                (parameter) =>
+                    (hasModifier(parameter, ts.SyntaxKind.PublicKeyword) ||
+                        hasModifier(parameter, ts.SyntaxKind.ReadonlyKeyword)) &&
+                    parameter.type !== undefined &&
+                    carried.test(parameter.type.getText(entry.source))
+            )
+        );
+    });
+}
+
+/**
+ * ACQ-ATTRIBUTION binds where the SPEC-named halves are declared: a tree declaring none of
+ * them has no attribution to check — a fixture, or a rename the SPEC-vocabulary rule
+ * already refuses — while a tree declaring any half owes the refusal this atom states, and
+ * its absence is the defect rather than the rule's. The refusal must be total (one
+ * constructor refusing every half), owned once, thrown, and frozen; every record carrying
+ * the attribution object must refuse an unattributed construction of its own, which is the
+ * reachability claim: any path that materializes the record passes a constructor that
+ * throws without attribution.
+ */
+function checkContributionAttribution(specSource) {
+    const halves = specAttributionHalves(specSource);
+    const declared = classDeclarations.filter((entry) => halves.includes(entry.name));
+    if (declared.length === 0) return;
+    const candidates = classDeclarations.filter((entry) => guardsAttributionHalves(entry, halves));
+    if (candidates.length === 0) {
+        throw new TypeError(
+            `SPEC names contribution attribution halves ${halves.join(" and ")} but no constructor refuses them together`
+        );
+    }
+    if (candidates.length > 1) {
+        throw new TypeError(
+            `SPEC contribution attribution halves ${halves.join(" and ")} are refused by ${candidates.map((entry) => entry.name).join(", ")}; one attribution object must own the refusal`
+        );
+    }
+    const attribution = candidates[0];
+    const constructor = attribution.node.members.find(ts.isConstructorDeclaration);
+    let thrown = false;
+    visit(constructor, (node) => {
+        if (ts.isThrowStatement(node)) thrown = true;
+    });
+    if (!thrown) {
+        issue(
+            "ACQ-ATTRIBUTION",
+            attribution.file,
+            attribution.name,
+            `${attribution.name} must refuse construction that lacks an attribution half`
+        );
+    }
+    if (!freezesThis(constructor)) {
+        issue(
+            "ACQ-ATTRIBUTION",
+            attribution.file,
+            attribution.name,
+            `${attribution.name} must freeze constructed attribution`
+        );
+    }
+    for (const entry of classDeclarations) {
+        if (entry === attribution) continue;
+        if (attributionCarryingMembers(entry, attribution.name).length === 0) continue;
+        if (!refusesAttribution(entry, attribution.name)) {
+            issue(
+                "ACQ-ATTRIBUTION",
+                entry.file,
+                entry.name,
+                `${entry.name} carries ${attribution.name} but does not refuse an unattributed construction`
+            );
+        }
+    }
 }
 
 function checkWeakTypes(parsed, source, file, testFile) {

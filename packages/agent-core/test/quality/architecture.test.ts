@@ -89,6 +89,109 @@ describe("generic AGENTS architecture rules", subprocessTestOptions, () => {
         );
     });
 
+    test("rejects a record that constructs without its contribution attribution", async () => {
+        const fixture = await createFixture({
+            "src/id.ts": "export class NoteId {}\n",
+            "src/attribution.ts": [
+                "export class FacetRef {}",
+                "export class PackagePin {}",
+                "export class ContributionAttribution {",
+                "  public constructor(",
+                "    public readonly contributor: FacetRef,",
+                "    public readonly package: PackagePin",
+                "  ) {",
+                "    if (!(this.contributor instanceof FacetRef) || !(this.package instanceof PackagePin)) {",
+                "      this.contributor = new FacetRef();",
+                "    }",
+                "  }",
+                "}",
+                "export class SlotRecord {",
+                "  public readonly attribution: ContributionAttribution;",
+                "  public constructor(attribution: ContributionAttribution) {",
+                "    this.attribution = attribution;",
+                "  }",
+                "}"
+            ].join("\n"),
+            "test/attribution.test.ts": "export const tested = true;\n"
+        });
+        const result = run(fixture);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain("ACQ-ATTRIBUTION");
+        expect(result.stderr).toContain(
+            "ContributionAttribution must refuse construction that lacks an attribution half"
+        );
+        expect(result.stderr).toContain(
+            "ContributionAttribution must freeze constructed attribution"
+        );
+        expect(result.stderr).toContain(
+            "SlotRecord carries ContributionAttribution but does not refuse an unattributed construction"
+        );
+    });
+
+    test("rejects an attribution object that refuses only one of the SPEC's halves", async () => {
+        const fixture = await createFixture({
+            "src/id.ts": "export class NoteId {}\n",
+            "src/attribution.ts": [
+                "export class FacetRef {}",
+                "export class PackagePin {}",
+                "export class ContributionAttribution {",
+                "  public constructor(",
+                "    public readonly contributor: FacetRef,",
+                "    public readonly package: PackagePin",
+                "  ) {",
+                "    if (!(this.contributor instanceof FacetRef)) {",
+                "      throw new TypeError('attribution refuses a missing contributor');",
+                "    }",
+                "    Object.freeze(this);",
+                "  }",
+                "}"
+            ].join("\n"),
+            "test/attribution.test.ts": "export const tested = true;\n"
+        });
+        const result = run(fixture);
+
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+            "SPEC names contribution attribution halves FacetRef and PackagePin but no constructor refuses them together"
+        );
+    });
+
+    test("accepts an attributed record whose construction refuses a missing attribution", async () => {
+        const fixture = await createFixture({
+            "src/id.ts": "export class NoteId {}\n",
+            "src/attribution.ts": [
+                "export class FacetRef {}",
+                "export class PackagePin {}",
+                "export class ContributionAttribution {",
+                "  public constructor(",
+                "    public readonly contributor: FacetRef,",
+                "    public readonly package: PackagePin",
+                "  ) {",
+                "    if (!(this.contributor instanceof FacetRef) || !(this.package instanceof PackagePin)) {",
+                "      throw new TypeError('attribution is total');",
+                "    }",
+                "    Object.freeze(this);",
+                "  }",
+                "}",
+                "export class SlotRecord {",
+                "  public constructor(",
+                "    public readonly attribution: ContributionAttribution",
+                "  ) {",
+                "    if (!(this.attribution instanceof ContributionAttribution)) {",
+                "      throw new TypeError('record refuses an unattributed construction');",
+                "    }",
+                "    Object.freeze(this);",
+                "  }",
+                "}"
+            ].join("\n"),
+            "test/attribution.test.ts": "export const tested = true;\n"
+        });
+        const result = run(fixture);
+
+        expect(result.status, result.stderr).toBe(0);
+    });
+
     test("rejects unpermitted weak types and stale permits", async () => {
         const fixture = await createFixture({
             "src/id.ts": "export class NoteId {}\n",

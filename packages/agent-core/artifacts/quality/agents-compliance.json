@@ -2,6 +2,15 @@
   "edition": "1.0.0",
   "rules": [
     {
+      "id": "ACQ-ATTRIBUTION",
+      "instructionSources": ["packages/agent-core/SPEC.md"],
+      "instructionContains": "Every materialized contribution record carries the contributing",
+      "checker": "scripts/quality/architecture.mjs",
+      "tests": [
+        "test/quality/architecture.test.ts#generic AGENTS architecture rules rejects a record that constructs without its contribution attribution"
+      ]
+    },
+    {
       "id": "ACQ-CODEC",
       "instructionSources": ["AGENTS.md"],
       "instructionContains": "Every record type gets a codec",

@@ -2,6 +2,11 @@
   "edition": "1.0.0",
   "rules": [
     {
+      "id": "ACQ-ATTRIBUTION",
+      "node": "architecture",
+      "description": "Every attributed record refuses construction without its attribution"
+    },
+    {
       "id": "ACQ-CODEC",
       "node": "architecture",
       "description": "Codec-backed records expose static encode and decode"
