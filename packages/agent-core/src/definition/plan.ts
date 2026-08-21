@@ -42,6 +42,7 @@ import {
     PlacementSelection
 } from "./placement";
 import { PolicySet } from "./policy";
+import { BLUEPRINT_CONTRIBUTOR } from "./materialization-kind";
 import { CORE_SLOT_NAMES, ValidatedBlueprint, type ValidatedContribution } from "./validator";
 import { TenantId } from "../identity";
 import { DeploymentId, DeploymentKey } from "./id";
@@ -178,7 +179,11 @@ function slotEntryProjection(logicalKey: string, entry: ValidatedContribution): 
             contributor: entry.contributor,
             index: entry.index,
             slot: entry.slot,
-            value: entry.value
+            value: entry.value,
+            // Presence encoding (ACQ-PRESENCE): a release-backed contribution carries
+            // its §4.2 source pin; a Blueprint-declared slot is read from no release,
+            // so the field is absent rather than null or a sentinel.
+            ...(entry.package && { package: entry.package.toData() })
         }
     });
 }
@@ -557,8 +562,8 @@ function attestedProjections(validated: ValidatedBlueprint): readonly DesiredPro
 
     (blueprint.slots ?? []).forEach((slot, index) => {
         projections.push(
-            slotEntryProjection(`contribution:blueprint:slots:${index}`, {
-                contributor: "blueprint",
+            slotEntryProjection(`contribution:${BLUEPRINT_CONTRIBUTOR}:slots:${index}`, {
+                contributor: BLUEPRINT_CONTRIBUTOR,
                 index,
                 slot: "slots",
                 value: slot

@@ -1,4 +1,5 @@
 import { hasExactJsonKeys, isJsonObject, type JsonValue } from "../core";
+import { PackagePin } from "../definition-references";
 import { Automation, type IsolationMode } from "../facets";
 import { AgentCoreError } from "../errors";
 import { invalidDefinition } from "./error";
@@ -21,6 +22,15 @@ export class UnknownMaterializationKindError extends AgentCoreError {
         this.name = "UnknownMaterializationKindError";
     }
 }
+
+/**
+ * The synthetic contributor the planner projects Blueprint-declared slots under
+ * (SPEC §9.3). A Blueprint declares slots from its own document (§9.2), not from a
+ * Package release, so slot-entry records under this contributor carry no source pin,
+ * and no Facet may claim the name: declaration validation refuses a manifest whose id
+ * would collide with it.
+ */
+export const BLUEPRINT_CONTRIBUTOR = "blueprint";
 
 const materializationKinds: Readonly<Record<string, MaterializationKindValidator>> = Object.freeze({
     "agent-profile": declarationMapValidator("Agent profile"),
@@ -99,12 +109,21 @@ function validateFacetInstall(desired: JsonValue): JsonValue {
 
 function validateSlotEntry(desired: JsonValue): JsonValue {
     const object = requireObject(desired, "Slot entry");
-    if (!hasExactJsonKeys(object, ["contributor", "index", "slot", "value"])) {
+    const pinned = object["contributor"] !== BLUEPRINT_CONTRIBUTOR;
+    if (
+        !hasExactJsonKeys(
+            object,
+            pinned
+                ? ["contributor", "index", "package", "slot", "value"]
+                : ["contributor", "index", "slot", "value"]
+        )
+    ) {
         throw new TypeError("Slot entry contains missing or unknown fields");
     }
     requireCanonicalName(object["contributor"], "Slot entry contributor");
     requireCanonicalName(object["slot"], "Slot entry slot");
     requireNonnegativeInteger(object["index"], "Slot entry index");
+    if (pinned) PackagePin.fromData(object["package"]);
     return desired;
 }
 

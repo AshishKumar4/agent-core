@@ -309,7 +309,8 @@ describe("Blueprint validation", () => {
                 contributor: "cards.facet",
                 index: 0,
                 slot: "dashboard.card",
-                value: { title: "Health" }
+                value: { title: "Health" },
+                package: pinOf(release)
             }
         ]);
 
@@ -718,7 +719,10 @@ describe("Blueprint validation", () => {
                             contributor: declaration.contributor,
                             index: declaration.index,
                             slot: declaration.slot,
-                            value: declaration.value
+                            value: declaration.value,
+                            ...(declaration.package && {
+                                package: declaration.package.toData()
+                            })
                         }))
                     )
                 )
@@ -809,7 +813,8 @@ describe("Blueprint validation", () => {
                 contributor: "host-cards.facet",
                 index: 0,
                 slot: "host.panel",
-                value: { title: "Status" }
+                value: { title: "Status" },
+                package: pinOf(release)
             }
         ]);
         expect(() =>
@@ -930,10 +935,34 @@ describe("Blueprint validation", () => {
             { lock: packageLock([multi]), releases: [multi], schemaValidator }
         );
         expect(interleaved.declarations).toEqual([
-            { contributor: "multi.facet", index: 0, slot: "ordered.slot", value: { n: "v1-0" } },
-            { contributor: "multi.facet", index: 0, slot: "ordered.slot", value: { n: "v2-0" } },
-            { contributor: "multi.facet", index: 1, slot: "ordered.slot", value: { n: "v1-1" } },
-            { contributor: "multi.facet", index: 1, slot: "ordered.slot", value: { n: "v2-1" } }
+            {
+                contributor: "multi.facet",
+                index: 0,
+                slot: "ordered.slot",
+                value: { n: "v1-0" },
+                package: pinOf(multi)
+            },
+            {
+                contributor: "multi.facet",
+                index: 0,
+                slot: "ordered.slot",
+                value: { n: "v2-0" },
+                package: pinOf(multi)
+            },
+            {
+                contributor: "multi.facet",
+                index: 1,
+                slot: "ordered.slot",
+                value: { n: "v1-1" },
+                package: pinOf(multi)
+            },
+            {
+                contributor: "multi.facet",
+                index: 1,
+                slot: "ordered.slot",
+                value: { n: "v2-1" },
+                package: pinOf(multi)
+            }
         ]);
 
         const aSlot = new SlotDeclaration(
@@ -973,8 +1002,20 @@ describe("Blueprint validation", () => {
             { lock: packageLock([apkg, bpkg]), releases: [apkg, bpkg], schemaValidator }
         );
         expect(crossed.declarations).toEqual([
-            { contributor: "a.facet", index: 0, slot: "z.slot", value: { n: "za" } },
-            { contributor: "z.facet", index: 0, slot: "a.slot", value: { n: "az" } }
+            {
+                contributor: "a.facet",
+                index: 0,
+                slot: "z.slot",
+                value: { n: "za" },
+                package: pinOf(apkg)
+            },
+            {
+                contributor: "z.facet",
+                index: 0,
+                slot: "a.slot",
+                value: { n: "az" },
+                package: pinOf(bpkg)
+            }
         ]);
     });
 
@@ -1331,6 +1372,12 @@ function packageLock(
                 )
         )
     });
+}
+
+// The expected pin of a validated declaration: the lock pin of the release whose
+// manifest contributed it, which is what validateDeclarations derives.
+function pinOf(release: PackageRelease): PackagePin {
+    return new PackagePin(release.id, release.version, release.manifestDigest, release.codeDigest);
 }
 
 function validateBlueprint(

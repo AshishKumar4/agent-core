@@ -66,6 +66,12 @@ const encoder = new TextEncoder();
 const target = new PlatformCompatibility({ spec: new SemVer("1.0.0"), host: new SemVer("1.0.0") });
 const tenantId = new TenantId("tenant-a");
 const deploymentKey = new DeploymentKey("platform");
+const slotEntryPin = {
+    codeDigest: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    id: "acme",
+    manifestDigest: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    version: "1.0.0"
+} as const;
 const placementSource = new (class extends PlacementSourcePort {
     public substrateModes(_release: PackageRelease, _manifest: FacetManifest) {
         return ["dynamic", "provider", "bundled"] as const;
@@ -305,7 +311,8 @@ describe("materialization planning", () => {
                 contributor: "acme.deploy",
                 slot: "chat.composer",
                 index: -1,
-                value: { command: "deploy" }
+                value: { command: "deploy" },
+                package: slotEntryPin
             },
             message: /Slot entry index must be a non-negative safe integer/
         }
@@ -840,12 +847,24 @@ describe("materialization planning mutation boundaries", () => {
         const left = new DesiredProjection({
             logicalKey: "contribution:acme:cards:0",
             recordKind: "slot-entry",
-            desired: { contributor: "acme", index: 0, slot: "cards", value: { a: 1 } }
+            desired: {
+                contributor: "acme",
+                index: 0,
+                slot: "cards",
+                value: { a: 1 },
+                package: slotEntryPin
+            }
         });
         const right = new DesiredProjection({
             logicalKey: "contribution:acme:cards:0",
             recordKind: "slot-entry",
-            desired: { contributor: "acme", index: 0, slot: "cards", value: { a: 2 } }
+            desired: {
+                contributor: "acme",
+                index: 0,
+                slot: "cards",
+                value: { a: 2 },
+                package: slotEntryPin
+            }
         });
         expect(encodeCanonicalJson(left.toData()).byteLength).toBe(
             encodeCanonicalJson(right.toData()).byteLength

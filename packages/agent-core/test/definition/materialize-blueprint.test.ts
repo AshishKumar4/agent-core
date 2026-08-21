@@ -148,6 +148,56 @@ describe("complete Blueprint materialization", () => {
         ]);
     });
 
+    test("carries each contribution's source pin into its slot-entry record", { tags: "p1" }, () => {
+        const validated = fullBlueprint();
+        const plan = planMaterialization({
+            validatedBlueprint: validated,
+            tenantId,
+            deploymentKey,
+            generation: 1,
+            topology
+        });
+        const desiredOf = (logicalKey: string): JsonValue => {
+            const found = plan.actors
+                .flatMap((actor) => actor.projections)
+                .find((candidate) => candidate.logicalKey === logicalKey);
+            if (found === undefined) throw new Error(`No projection for ${logicalKey}`);
+            return found.desired;
+        };
+        const release = validated.releases[0]!;
+        const pin = new PackagePin(
+            release.id,
+            release.version,
+            release.manifestDigest,
+            release.codeDigest
+        );
+
+        expect(desiredOf("contribution:core.deploy.facet:custom.card:0")).toEqual({
+            contributor: "core.deploy.facet",
+            index: 0,
+            slot: "custom.card",
+            value: { title: "Card" },
+            package: {
+                codeDigest: pin.codeDigest.value,
+                id: pin.id.value,
+                manifestDigest: pin.manifestDigest.value,
+                version: pin.version.toString()
+            }
+        });
+        // A Blueprint-declared slot (§9.2) is read from no release, so its record
+        // carries no source pin: absence of the field is the encoding (ACQ-PRESENCE).
+        expect(desiredOf("contribution:blueprint:slots:0")).toEqual({
+            contributor: "blueprint",
+            index: 0,
+            slot: "slots",
+            value: new SlotDeclaration(
+                new SlotName("board.card"),
+                objectSchema,
+                new SlotAuthorityPolicy(["*"], ["*"])
+            ).toData()
+        });
+    });
+
     test("materializes each supported record kind and covers every Blueprint field", { tags: "p1" }, () => {
         const plan = planMaterialization({
             validatedBlueprint: fullBlueprint(),

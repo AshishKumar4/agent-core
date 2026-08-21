@@ -28,7 +28,8 @@ import { BASE_CONFIG_SCHEMA, composeConfigSchema } from "./config";
 import { Blueprint } from "./blueprint";
 import { PlatformCompatibility } from "./compatibility";
 import { BlueprintDeclarationCodecPort } from "./declaration";
-import { PackageLock, type PackagePin } from "./package-lock";
+import { PackageLock, PackagePin } from "./package-lock";
+import { BLUEPRINT_CONTRIBUTOR } from "./materialization-kind";
 import { MetadataSnapshot, type PackageRelease } from "./package";
 import { resolvePackageLock } from "./resolver";
 import { ValidationAttestation } from "./attestation";
@@ -86,6 +87,13 @@ export interface ValidatedContribution {
     readonly index: number;
     readonly slot: string;
     readonly value: FacetData;
+    /**
+     * The §4.2 source pin of the release the contribution was read from. Declaration
+     * validation sets it for every manifest contribution; only the Blueprint's own
+     * slot projections (plan.ts) go without one, because a Blueprint-declared slot is
+     * read from no release.
+     */
+    readonly package?: PackagePin;
 }
 
 interface ValidatedBlueprintInit {
@@ -119,7 +127,8 @@ export class ValidatedBlueprint {
                     contributor: declaration.contributor,
                     index: declaration.index,
                     slot: declaration.slot,
-                    value: canonicalFacetData(declaration.value)
+                    value: canonicalFacetData(declaration.value),
+                    ...(declaration.package && { package: declaration.package })
                 })
             )
         );
@@ -171,7 +180,8 @@ export class ValidatedBlueprint {
                     contributor: declaration.contributor,
                     index: declaration.index,
                     slot: declaration.slot,
-                    value: declaration.value
+                    value: declaration.value,
+                    ...(declaration.package && { package: declaration.package.toData() })
                 }))
             )
         );
@@ -383,6 +393,12 @@ function exactLockedReleases(
     );
 }
 
+function releasePin(release: PackageRelease): PackagePin {
+    // exactLockedReleases has matched every release against its lock pin on all four
+    // identity fields, so the pin derived here is that lock pin.
+    return new PackagePin(release.id, release.version, release.manifestDigest, release.codeDigest);
+}
+
 function matchesPin(release: PackageRelease, pin: PackagePin): boolean {
     return (
         release.id.equals(pin.id) &&
@@ -417,8 +433,19 @@ function validateDeclarations(
         addSlot(slots, slot, "Blueprint slot");
     }
 
-    const manifests = releases.flatMap((release) => release.manifests).sort(compareManifests);
-    for (const manifest of manifests) {
+    const manifests = releases
+        .flatMap((release) =>
+            release.manifests.map((manifest) => ({ manifest, pin: releasePin(release) }))
+        )
+        .sort((left, right) => compareManifests(left.manifest, right.manifest));
+    for (const { manifest } of manifests) {
+        if (manifest.id.value === BLUEPRINT_CONTRIBUTOR) {
+            throw invalidDefinition(
+                `Facet id ${BLUEPRINT_CONTRIBUTOR} is reserved for Blueprint-declared slots`
+            );
+        }
+    }
+    for (const { manifest } of manifests) {
         for (const value of manifest.contributions.get(SLOT_DECLARATIONS) ?? []) {
             const slot = SlotDeclaration.fromData(value);
             rejectCoreSlotRedefinition(slot);
@@ -427,7 +454,7 @@ function validateDeclarations(
     }
 
     const declarations: ValidatedContribution[] = [];
-    for (const manifest of manifests) {
+    for (const { manifest, pin } of manifests) {
         for (const contribution of manifest.contributions.entries) {
             for (const [index, value] of contribution.entries.entries()) {
                 validateCoreContribution(contribution.slot.value, value);
@@ -446,12 +473,16 @@ function validateDeclarations(
                     contributor: manifest.id.value,
                     index,
                     slot: contribution.slot.value,
-                    value
+                    value,
+                    package: pin
                 });
             }
         }
     }
-    validateCommandSurfaceSlots(manifests, slots);
+    validateCommandSurfaceSlots(
+        manifests.map(({ manifest }) => manifest),
+        slots
+    );
     declarations.sort(compareDeclarations);
     return Object.freeze(declarations);
 }

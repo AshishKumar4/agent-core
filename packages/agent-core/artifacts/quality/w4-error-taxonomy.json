@@ -598,7 +598,7 @@
       "occurrence": 1
     },
     {
-      "declarationSha256": "686ea0939aacfa855dd797281fad778ce7d09146674d33b9f4a1b18dbcd1beb0",
+      "declarationSha256": "8672373f8ddc84bcd5f18e9c946be81a8744f9b16d5e0539800a03ae06b87024",
       "file": "src/definition/materialization-kind.ts",
       "symbol": "validateSlotEntry",
       "statementSha256": "8ddf5d44a45d21079d7627fdbaa25775e9639597e9ee3e126176cc4197a9bd4d",
@@ -1203,14 +1203,14 @@
     }
   ],
   "expected": {
-    "agentCoreOperationalThrows": 243,
+    "agentCoreOperationalThrows": 244,
     "allowedTypeErrors": 168,
     "preservedRethrows": 1,
     "bareErrors": 0
   },
   "expectedOperationalByCode": {
     "codec.invalid": 114,
-    "operation.invalid-input": 36,
+    "operation.invalid-input": 37,
     "protocol.invalid-envelope": 5,
     "protocol.invalid-state": 71,
     "protocol.revision-conflict": 17
