@@ -14,7 +14,8 @@ import {
     hasExactJsonKeys,
     isJsonObject,
     type JsonValue,
-    TextId
+    TextId,
+    SemVer
 } from "../core";
 import {
     Automation,
@@ -32,6 +33,7 @@ import {
 } from "../facets";
 import { TenantId } from "../identity";
 import { DeploymentId, DeploymentKey } from "./id";
+import { PackageId, PackagePin } from "../definition-references";
 import { ManagedOrigin } from "./origin";
 import { ActorPlan, DesiredProjection, MaterializationPlan } from "./plan";
 import { compareText } from "./order";
@@ -261,7 +263,10 @@ class MaterializationRolloutCodec extends RecordCodec<MaterializationRollout> {
                 PayloadMapping,
                 PlacementPolicy,
                 AuthoredCodeBackingId,
-                JsonPointer
+                JsonPointer,
+                SemVer,
+                PackageId,
+                PackagePin
             ],
             "definition.materialization-rollout",
             {

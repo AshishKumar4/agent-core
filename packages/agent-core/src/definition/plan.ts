@@ -7,7 +7,8 @@ import {
     hasExactJsonKeys,
     isJsonObject,
     type JsonValue,
-    TextId
+    TextId,
+    SemVer
 } from "../core";
 import {
     Automation,
@@ -46,7 +47,8 @@ import { BLUEPRINT_CONTRIBUTOR } from "./materialization-kind";
 import { CORE_SLOT_NAMES, ValidatedBlueprint, type ValidatedContribution } from "./validator";
 import { TenantId } from "../identity";
 import { DeploymentId, DeploymentKey } from "./id";
-import type { PackagePin } from "./package-lock";
+import { PackagePin } from "./package-lock";
+import { PackageId } from "../definition-references";
 import { compareText } from "./order";
 import { invalidDefinition } from "./error";
 
@@ -236,7 +238,10 @@ class ActorPlanCodec extends RecordCodec<ActorPlan> {
                 PayloadMapping,
                 PlacementPolicy,
                 AuthoredCodeBackingId,
-                JsonPointer
+                JsonPointer,
+                SemVer,
+                PackageId,
+                PackagePin
             ],
             "definition.actor-plan",
             {
@@ -349,7 +354,10 @@ class MaterializationPlanCodec extends RecordCodec<MaterializationPlan> {
                 PayloadMapping,
                 PlacementPolicy,
                 AuthoredCodeBackingId,
-                JsonPointer
+                JsonPointer,
+                SemVer,
+                PackageId,
+                PackagePin
             ],
             "definition.materialization-plan",
             {

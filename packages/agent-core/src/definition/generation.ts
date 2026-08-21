@@ -10,7 +10,8 @@ import {
     hasExactJsonKeys,
     isJsonObject,
     type JsonValue,
-    TextId
+    TextId,
+    SemVer
 } from "../core";
 import {
     Automation,
@@ -27,6 +28,7 @@ import {
     PayloadMapping
 } from "../facets";
 import { TenantId } from "../identity";
+import { PackageId, PackagePin } from "../definition-references";
 import {
     canonicalMaterializationDesired,
     supportedMaterializationKinds
@@ -84,7 +86,10 @@ class ManagedStateRecordCodec extends RecordCodec<ManagedStateRecord> {
                 PayloadMapping,
                 PlacementPolicy,
                 AuthoredCodeBackingId,
-                JsonPointer
+                JsonPointer,
+                SemVer,
+                PackageId,
+                PackagePin
             ],
             "definition.managed-state",
             {
