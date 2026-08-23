@@ -26,6 +26,7 @@ const tenant = new TenantId("target-lease-evidence-tenant");
 const holder = new PrincipalRef(tenant, new PrincipalId("target-lease-evidence-holder"));
 const source = new ActorRef("workspace", new ActorId("target-lease-evidence-source"));
 const target = new ActorRef("run", new ActorId("target-lease-evidence-target"));
+const otherTenant = new TenantId("target-lease-evidence-other");
 const tenantActor = new ActorRef("tenant", new ActorId("target-lease-evidence-issuer"));
 const key = new TargetLeaseEvidenceKey(source, "target-lease-evidence-key");
 const deadline = new Date("2026-08-23T12:00:05.000Z");
@@ -55,7 +56,7 @@ describe("TargetLeaseEvidence", () => {
     test("[authority.target-lease-evidence] [runs.target-lease-evidence] records one exact source-owned immutable attestation across restart", { tags: "p0" }, () => {
         const storage = new MemoryRunStorage(tenant, source);
         const store = new RunTargetLeaseEvidenceStore<RunTransaction>(tenant, source, storage, {
-            turnLease: () => undefined,
+            turn: () => undefined,
             watermark: (_tx, h) => InvalidationWatermark.empty(tenant, source, h),
             invocationIntent: () => undefined
         });
@@ -65,7 +66,7 @@ describe("TargetLeaseEvidence", () => {
             source,
             new MemoryRunStorage(tenant, source, storage.snapshot()),
             {
-                turnLease: () => undefined,
+                turn: () => undefined,
                 watermark: (_tx, h) => InvalidationWatermark.empty(tenant, source, h),
                 invocationIntent: () => undefined
             }
@@ -85,7 +86,7 @@ describe("TargetLeaseEvidence", () => {
     test("[target-lease-evidence-source] answers only its exact owner through one run storage", { tags: "p0" }, () => {
         const storage = new MemoryRunStorage(tenant, source);
         const store = new RunTargetLeaseEvidenceStore<RunTransaction>(tenant, source, storage, {
-            turnLease: () => undefined,
+            turn: () => undefined,
             watermark: (_tx, h) => InvalidationWatermark.empty(tenant, source, h),
             invocationIntent: () => undefined
         });
@@ -97,27 +98,28 @@ describe("TargetLeaseEvidence", () => {
             )
         ).toThrow(/bound to another source attestation/);
 
-        const foreignOwner = new RunTargetLeaseEvidenceStore<RunTransaction>(tenant, target, storage, {
-            turnLease: () => undefined,
-            watermark: (_tx, h) => InvalidationWatermark.empty(tenant, target, h),
-            invocationIntent: () => undefined
-        });
-        expect(() =>
-            foreignOwner.transaction((transaction) => foreignOwner.record(transaction, evidence()))
-        ).toThrow(/another source Actor/);
+        // The same physical storage cannot be wrapped under a foreign identity.
+        expect(
+            () =>
+                new RunTargetLeaseEvidenceStore<RunTransaction>(tenant, target, storage, {
+                    turn: () => undefined,
+                    watermark: (_tx, h) => InvalidationWatermark.empty(tenant, target, h),
+                    invocationIntent: () => undefined
+                })
+        ).toThrow(/belongs to another source Actor/);
     });
 
     test("[target-lease-evidence-store] persists the source-owned record through SQLite restart", { tags: "p0" }, () => {
         const database = new TestSqlite();
         const storage = new SqliteRunStorage(database, tenant, source);
         let store = new RunTargetLeaseEvidenceStore<RunTransaction>(tenant, source, storage, {
-            turnLease: () => undefined,
+            turn: () => undefined,
             watermark: (_tx, h) => InvalidationWatermark.empty(tenant, source, h),
             invocationIntent: () => undefined
         });
         const recorded = store.transaction((transaction) => store.record(transaction, evidence()));
         store = new RunTargetLeaseEvidenceStore<RunTransaction>(tenant, source, storage, {
-            turnLease: () => undefined,
+            turn: () => undefined,
             watermark: (_tx, h) => InvalidationWatermark.empty(tenant, source, h),
             invocationIntent: () => undefined
         });
@@ -128,16 +130,48 @@ describe("TargetLeaseEvidence", () => {
         expect(restored?.digest().equals(recorded.digest())).toBe(true);
     });
 
-    test("refuses a record under another source Actor", { tags: "p0" }, () => {
+    test("[target-lease-evidence-source] refuses a foreign owner over the same run storage", { tags: "p0" }, () => {
         const storage = new MemoryRunStorage(tenant, source);
-        const store = new RunTargetLeaseEvidenceStore<RunTransaction>(tenant, target, storage, {
-            turnLease: () => undefined,
-            watermark: (_tx, h) => InvalidationWatermark.empty(tenant, target, h),
+        new RunTargetLeaseEvidenceStore<RunTransaction>(tenant, source, storage, {
+            turn: () => undefined,
+            watermark: (_tx, h) => InvalidationWatermark.empty(tenant, source, h),
             invocationIntent: () => undefined
         });
-        expect(() => store.transaction((transaction) => store.record(transaction, evidence()))).toThrow(
-            /another source Actor/
-        );
+        expect(
+            () =>
+                new RunTargetLeaseEvidenceStore<RunTransaction>(tenant, target, storage, {
+                    turn: () => undefined,
+                    watermark: (_tx, h) => InvalidationWatermark.empty(tenant, target, h),
+                    invocationIntent: () => undefined
+                })
+        ).toThrow(/belongs to another source Actor/);
+        expect(
+            () =>
+                new RunTargetLeaseEvidenceStore<RunTransaction>(otherTenant, source, storage, {
+                    turn: () => undefined,
+                    watermark: (_tx, h) => InvalidationWatermark.empty(otherTenant, source, h),
+                    invocationIntent: () => undefined
+                })
+        ).toThrow(/belongs to another source Actor/);
+    });
+
+    test("refuses a record whose source differs from its bound owner", { tags: "p0" }, () => {
+        const storage = new MemoryRunStorage(tenant, source);
+        const store = new RunTargetLeaseEvidenceStore<RunTransaction>(tenant, source, storage, {
+            turn: () => undefined,
+            watermark: (_tx, h) => InvalidationWatermark.empty(tenant, source, h),
+            invocationIntent: () => undefined
+        });
+        const forgedKey = new TargetLeaseEvidenceKey(target, key.idempotencyKey);
+        const base = evidence();
+        const forged = TargetLeaseEvidence.fromData({
+            ...base.toData(),
+            key: forgedKey.toData(),
+            watermark: InvalidationWatermark.empty(tenant, target, holder).toData()
+        });
+        expect(() =>
+            store.transaction((transaction) => store.record(transaction, forged))
+        ).toThrow(/belongs to another source Actor/);
     });
 });
 

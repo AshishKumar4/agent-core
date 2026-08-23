@@ -26,6 +26,9 @@ import {
 } from "../../src/composition";
 import { Digest, Revision, SemVer, encodeCanonicalJson } from "../../src/core";
 import {
+    MemoryRunStorage,
+    RunRepository,
+    RunRuntime,
     Turn,
     TurnId,
     TurnPlacementSnapshot,
@@ -46,10 +49,16 @@ import {
 import { InvocationId } from "../../src/interaction-references";
 import { ClaimWorkerId, ItemClaimId } from "../../src/invocation-references";
 import {
+    TestEvidencePort,
+    TestMergePort,
+    TestSettlementPort,
+    TestSourcePort,
+    TestSpawnPort,
+    UncontributedCutPoints,
     content,
+    fixtureContentEntries,
     genesis,
-    harness,
-    ids,
+        ids,
     pins,
 } from "../agents/runs/fixture";
 
@@ -251,14 +260,29 @@ function allowedTenantEvidence(request: TargetAuthorityPermitRequest): Authority
 describe("source-hosted target lease attestation across three distinct hosts", () => {
     const nonce = "lease-attest-nonce";
 
-    function buildHosts() {
-        const value = harness();
+    async function buildHosts() {
+        const storage0 = new MemoryRunStorage(tenant, sourceActor);
+        for (const entry of fixtureContentEntries()) await storage0.content.put(entry.bytes);
+        const repository0 = new RunRepository(storage0);
+        const value = {
+            storage: storage0,
+            repository: repository0,
+            runtime: new RunRuntime(
+                repository0,
+                new TestSourcePort(),
+                new TestEvidencePort(),
+                new TestSettlementPort(),
+                new TestSpawnPort(),
+                new TestMergePort(),
+                new UncontributedCutPoints()
+            )
+        };
         // Canonical owners for this source host: the RunRepository above, the
         // canonical watermark store here, one delegation ledger for intent.
         const watermarks = new MemoryInvalidationWatermarkStore(tenant, sourceActor);
         const intents = new Map<string, Digest>();
         const facts: TargetLeaseEvidenceSourceFacts<RunTransaction> = {
-            turnLease: (tx, turn) => value.repository.loadTurn(tx, turn)?.lease,
+            turn: (tx, turn) => value.repository.loadTurn(tx, turn),
             watermark: (_tx, holder) => {
                 const empty = InvalidationWatermark.empty(tenant, sourceActor, holder);
                 return watermarks.load(watermarkKey(empty)) ?? empty;
@@ -317,7 +341,7 @@ describe("source-hosted target lease attestation across three distinct hosts", (
         "commits, self-projects, and returns only an immutable reference to the target",
         { tags: "p0" },
         async () => {
-            const { tenantStore, channel, transport, storedTurn } = buildHosts();
+            const { tenantStore, channel, transport, storedTurn } = await buildHosts();
             const expected = expectation({
                 lease: { ...storedTurn.lease, holder: principal }
             });
@@ -355,7 +379,7 @@ describe("source-hosted target lease attestation across three distinct hosts", (
     );
 
     test("replays the committed attestation across a lost projection reply and a renewal", { tags: "p0" }, async () => {
-        const { runtime, channel, transport, storedTurn } = buildHosts();
+        const { runtime, channel, transport, storedTurn } = await buildHosts();
         const expected = expectation({ lease: { ...storedTurn.lease, holder: principal } });
         const provisional = provisionalRequestFor(expected, nonce, provisionalExpiry);
 
@@ -387,7 +411,7 @@ describe("source-hosted target lease attestation across three distinct hosts", (
     test("refuses a projection channel that does not speak as the source", { tags: "p0" }, async () => {
         // A channel whose caller is the target Actor can never project: the source's
         // own authenticated caller is enforced before anything reaches the Tenant.
-        const { tenantStore, channel } = buildHosts();
+        const { tenantStore, channel } = await buildHosts();
         const forgedChannel = new TenantProjectionChannel(targetActor, tenantStore);
         void channel;
         await expect(forgedChannel.project(TargetLeaseEvidence.encode(
@@ -410,7 +434,7 @@ describe("source-hosted target lease attestation across three distinct hosts", (
     });
 
     test("attests nothing for a request naming another Tenant", { tags: "p0" }, async () => {
-        const { transport } = buildHosts();
+        const { transport } = await buildHosts();
         const foreign = provisionalRequestFor(
             expectation({ tenant: otherTenant }),
             "lease-attest-foreign-tenant",
@@ -423,7 +447,7 @@ describe("source-hosted target lease attestation across three distinct hosts", (
     });
 
     test("keeps issuance closed when a request substitutes the attested binding", { tags: "p0" }, async () => {
-        const { tenantStore, channel, transport, storedTurn } = buildHosts();
+        const { tenantStore, channel, transport, storedTurn } = await buildHosts();
         const expected = expectation({ lease: { ...storedTurn.lease, holder: principal } });
         const provisional = provisionalRequestFor(expected, nonce, provisionalExpiry);
         const attestation = await transport.attest(TargetAuthorityPermitRequest.encode(provisional));

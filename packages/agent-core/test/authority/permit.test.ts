@@ -7,6 +7,7 @@ import {
     type SynchronousResultGuard
 } from "../../src/actors";
 import {
+    MemoryRunStorage,
     RunId,
     RunRepository,
     RunRuntime,
@@ -17,6 +18,7 @@ import {
 } from "../../src/agents";
 import {
     AuthenticatedAuthorityPermit,
+    MemoryAuthorityPermitStore,
     AuthorityCheckEvidence,
     AuthorityCheckRequest,
     AuthorityPermit,
@@ -30,7 +32,6 @@ import {
     InvalidationWatermarkStore,
     MemoryInvalidationWatermarkStore,
     watermarkKey,
-    MemoryAuthorityPermitStore,
     MemoryAuthorityPermitTransaction,
     RunTargetLeaseEvidenceStore,
     MemoryTenantAuthorityPermitStore,
@@ -88,7 +89,6 @@ import { TestSqlite } from "../helpers/sqlite";
 import {
     content,
     genesis,
-    memoryRunStorage,
     ids,
     pins,
     TestEvidencePort,
@@ -868,7 +868,7 @@ function sourceFacts<Transaction>(
     intents: Map<string, Digest>
 ): TargetLeaseEvidenceSourceFacts<Transaction> {
     return {
-        turnLease: (tx, turn) => repository.loadTurn(tx, turn)?.lease,
+        turn: (tx, turn) => repository.loadTurn(tx, turn),
         watermark: (_tx, holder) => {
             const empty = InvalidationWatermark.empty(tenant, sourceActor, holder);
             return watermarks.load(watermarkKey(empty)) ?? empty;
@@ -877,8 +877,9 @@ function sourceFacts<Transaction>(
     };
 }
 
-function memoryEvidenceContext(): SourceEvidenceContext<RunTransaction> {
-    const storage = memoryRunStorage();
+async function memoryEvidenceContext(): Promise<SourceEvidenceContext<RunTransaction>> {
+    const storage = new MemoryRunStorage(tenant, sourceActor);
+    for (const entry of fixtureContentEntries()) await storage.content.put(entry.bytes);
     const repository = new RunRepository(storage);
     const runtime = new RunRuntime(
         repository,
@@ -1077,6 +1078,35 @@ function sourceEvidenceContract<Transaction extends object>(
             reclaimed.store.transaction((transaction) =>
                 reclaimedIssuer.attest(transaction, request, issuedAt)
             );
+            // A valid live lease from Run A with the request naming Run B refuses on
+            // the canonical run identity even when Run B's intent is also on file.
+            const wrongRun = targetRequestFor(
+                expectation({
+                    lease: { ...seededTurn(reclaimed).lease, holder: principal },
+                    reservation: {
+                        run: new RunId("evidence-other-run"),
+                        registryEpoch: 5,
+                        obligation: {
+                            kind: "invocationItem",
+                            invocation,
+                            itemIndex: 2,
+                            itemKey
+                        }
+                    }
+                }),
+                `${nonce}-wrong-run`,
+                provisionalExpiry
+            );
+            reclaimed.intents.set(
+                "evidence-other-run",
+                Digest.sha256(new TextEncoder().encode("other-run-intent"))
+            );
+            expect(
+                reclaimed.store.transaction((transaction) =>
+                    reclaimedIssuer.attest(transaction, wrongRun, issuedAt)
+                )
+            ).toBeUndefined();
+
             // A token naming a Turn the RunRepository has never seen refuses at once.
             const stranger = targetRequestFor(
                 expectation({

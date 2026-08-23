@@ -2,10 +2,13 @@ import type { ActorRef, SynchronousResultGuard } from "../actors";
 import {
     RunId,
     RunStoragePort,
+    TargetLeaseEvidenceRecord,
+    Turn,
     TurnId,
     TurnLease,
     type LeaseToken
 } from "../agents";
+import { decodeBase64, encodeBase64 } from "../core";
 import { Digest } from "../core";
 import { AgentCoreError } from "../errors";
 import type { PrincipalRef, TenantId } from "../identity";
@@ -54,7 +57,8 @@ export abstract class TargetLeaseEvidenceSourcePort<Transaction> {
  * its own mutable copy of any of them.
  */
 export interface TargetLeaseEvidenceSourceFacts<Transaction> {
-    turnLease(transaction: Transaction, turn: TurnId): TurnLease | undefined;
+    /** The canonical Turn record behind this id, loaded inside the same transaction. */
+    turn(transaction: Transaction, turn: TurnId): Turn | undefined;
     watermark(transaction: Transaction, holder: PrincipalRef): InvalidationWatermark;
     invocationIntent(transaction: Transaction, run: RunId): Digest | undefined;
 }
@@ -214,7 +218,13 @@ export class RunTargetLeaseEvidenceStore<Transaction extends object>
         public readonly owner: ActorRef,
         private readonly storage: RunStoragePort<Transaction>,
         private readonly facts: TargetLeaseEvidenceSourceFacts<Transaction>
-    ) {}
+    ) {
+        // One physical Run storage cannot back two source identities: a foreign
+        // owner/Tenant pairing is refused before any evidence can persist.
+        if (!storage.tenant.equals(this.tenant) || !storage.owner.equals(this.owner)) {
+            throw denied("Target lease evidence storage belongs to another source Actor");
+        }
+    }
 
     /** The read side over this exact owner's canonical source state; the store itself. */
     public readonly source: TargetLeaseEvidenceSourcePort<Transaction> = this;
@@ -233,12 +243,16 @@ export class RunTargetLeaseEvidenceStore<Transaction extends object>
         token: LeaseToken
     ): TargetLeaseEvidenceSourceState | undefined {
         if (!source.equals(this.owner)) return undefined;
-        const lease = this.facts.turnLease(transaction, new TurnId(token.turn.value));
-        const intent = this.facts.invocationIntent(transaction, new RunId(run.value));
-        if (lease === undefined || intent === undefined) return undefined;
+        // The loaded Turn owns its Run: the attested Run is the canonical one read
+        // here, never the Run the request names, so a wrong-Run substitution fails
+        // before any intent lookup or evidence write.
+        const loadedTurn = this.facts.turn(transaction, new TurnId(token.turn.value));
+        if (loadedTurn === undefined || !loadedTurn.run.equals(run)) return undefined;
+        const intent = this.facts.invocationIntent(transaction, new RunId(loadedTurn.run.value));
+        if (intent === undefined) return undefined;
         return Object.freeze({
-            run: new RunId(run.value),
-            lease,
+            run: new RunId(loadedTurn.run.value),
+            lease: loadedTurn.lease,
             watermark: this.facts.watermark(transaction, token.holder),
             invocationIntent: new Digest(intent.value)
         });
@@ -247,7 +261,14 @@ export class RunTargetLeaseEvidenceStore<Transaction extends object>
     public evidence(transaction: Transaction, idempotencyKey: string): TargetLeaseEvidence | undefined {
         const record = this.storage.get(transaction, "targetLeaseEvidence", idempotencyKey);
         if (record === undefined) return undefined;
-        const decoded = TargetLeaseEvidence.decode(record.bytes.slice());
+        const wrapper = TargetLeaseEvidenceRecord.decode(record.bytes.slice());
+        if (
+            wrapper.key !== idempotencyKey ||
+            !isStoredTargetLeaseEvidenceKey(wrapper.evidence)
+        ) {
+            throw corrupt();
+        }
+        const decoded = TargetLeaseEvidence.decode(decodeBase64(wrapper.evidence));
         if (
             decoded.key.idempotencyKey !== idempotencyKey ||
             !decoded.key.source.equals(this.owner)
@@ -272,7 +293,12 @@ export class RunTargetLeaseEvidenceStore<Transaction extends object>
             kind: "targetLeaseEvidence",
             key: evidence.key.idempotencyKey,
             revision: null,
-            bytes: TargetLeaseEvidence.encode(evidence)
+            bytes: TargetLeaseEvidenceRecord.encode(
+                new TargetLeaseEvidenceRecord({
+                    key: evidence.key.idempotencyKey,
+                    evidence: encodeBase64(TargetLeaseEvidence.encode(evidence))
+                })
+            )
         });
         return evidence;
     }
@@ -280,6 +306,15 @@ export class RunTargetLeaseEvidenceStore<Transaction extends object>
 
 function denied(message: string): AgentCoreError {
     return new AgentCoreError("authority.denied", message);
+}
+
+/**
+ * Stored evidence payloads are canonical authority bytes wrapped in the run-plane
+ * record codec as base64; the marker keeps a stray plain-hex string from decoding
+ * into an unrelated authority record downstream.
+ */
+function isStoredTargetLeaseEvidenceKey(payload: string): boolean {
+    return payload.length > 0 && payload.length % 4 === 0;
 }
 
 function corrupt(): AgentCoreError {
