@@ -42,8 +42,14 @@ export {
     TargetLeaseEvidenceReference
 } from "./target-lease-evidence";
 export type { TargetLeaseEvidenceBinding, TargetLeaseEvidenceInit } from "./target-lease-evidence";
-export { MemoryTargetLeaseEvidenceStore, MemoryTargetLeaseEvidenceTransaction } from "./target-lease-evidence-store";
+export {
+    MemoryTargetLeaseEvidenceStore,
+    MemoryTargetLeaseEvidenceTransaction,
+    TargetLeaseEvidenceIssuer,
+    TargetLeaseEvidenceSourcePort
+} from "./target-lease-evidence-store";
 export type {
+    TargetLeaseEvidenceSourceState,
     TargetLeaseEvidenceStore,
     MemoryTargetLeaseEvidenceSnapshot
 } from "./target-lease-evidence-store";

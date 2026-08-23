@@ -139,6 +139,18 @@
             ]
         },
         {
+            "symbol": "TargetLeaseEvidence",
+            "kind": "authority.target-lease-evidence",
+            "durability": "durable",
+            "ownerActor": "permit-source-actor",
+            "source": "src/authority/target-lease-evidence.ts#TargetLeaseEvidence",
+            "codec": "src/authority/target-lease-evidence.ts#TargetLeaseEvidence.codec",
+            "store": "src/authority/target-lease-evidence-store.ts#TargetLeaseEvidenceStore",
+            "tests": [
+                "test/authority/target-lease-evidence.test.ts#TargetLeaseEvidence [authority.target-lease-evidence] records one exact source-owned immutable attestation across restart"
+            ]
+        },
+        {
             "symbol": "TargetAuthorityPermitDenial",
             "kind": "authority.target-permit-denial",
             "durability": "durable",

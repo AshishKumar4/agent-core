@@ -45,6 +45,8 @@ export type {
 export {
     AuthenticatedAuthorityPermitDenial,
     AuthorityPermitIssuanceTransport,
+    StoredTargetLeaseEvidenceTransport,
+    TargetLeaseEvidenceTransport,
     authorityPermitReferenceCodec,
     ConsumedAuthorityAdmissionPort,
     IssuedAuthorityPermitPort,

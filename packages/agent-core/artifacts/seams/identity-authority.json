@@ -27,6 +27,17 @@
       "contractTest": "test/authority/permit.test.ts#[authority-permit-owner-store] memory issues and consumes exactly once across owner-store restart"
     },
     {
+      "id": "target-lease-evidence-store",
+      "disposition": "verified",
+      "contract": "src/authority/target-lease-evidence-store.ts#TargetLeaseEvidenceStore",
+      "implementations": [
+        "src/authority/target-lease-evidence-store.ts#MemoryTargetLeaseEvidenceStore",
+        "src/substrates/sqlite/permit.ts#SqliteTargetLeaseEvidenceStore"
+      ],
+      "memoryReference": "src/authority/target-lease-evidence-store.ts#MemoryTargetLeaseEvidenceStore",
+      "contractTest": "test/authority/target-lease-evidence.test.ts#TargetLeaseEvidence [target-lease-evidence-store] persists the source-owned record through SQLite restart"
+    },
+    {
       "id": "tenant-authority-transaction-port",
       "disposition": "verified",
       "contract": "src/authority/permit-runtime.ts#TenantAuthorityTransactionPort",

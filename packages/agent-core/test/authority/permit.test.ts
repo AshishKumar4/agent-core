@@ -6,7 +6,7 @@ import {
     MemoryActorStore,
     type SynchronousResultGuard
 } from "../../src/actors";
-import { RunId, TurnId } from "../../src/agents";
+import { RunId, TurnId, TurnLease } from "../../src/agents";
 import {
     AuthenticatedAuthorityPermit,
     AuthorityCheckEvidence,
@@ -18,18 +18,22 @@ import {
     AuthorityPermitIssuer as TenantAuthorityPermitIssuer,
     Binding,
     GrantId,
+    InvalidationWatermark,
     MemoryAuthorityPermitStore,
     MemoryAuthorityPermitTransaction,
+    MemoryTargetLeaseEvidenceStore,
+    MemoryTargetLeaseEvidenceTransaction,
     MemoryTenantAuthorityPermitStore,
     MemoryTenantControlStore,
-    InvalidationWatermark,
     PathEpochEvidence,
     ScopeEpoch,
     StoredAuthorityPermitAdmissionPort,
     TargetAuthorityPermitDenial,
     TargetAuthorityPermitRequest,
     TargetLeaseEvidence,
+    TargetLeaseEvidenceIssuer,
     TargetLeaseEvidenceKey,
+    TargetLeaseEvidenceSourcePort,
     requireAuthenticatedAuthorityPermit,
     type AuthorityPermitExpectationInit,
     type AuthorityPermitIssueStore,
@@ -813,6 +817,77 @@ test(
                 )
             )
         ).toThrow(/bound to another attestation/);
+    }
+);
+
+test(
+    "source evidence records the original current lease deadline and invocation lineage",
+    { tags: "p0" },
+    () => {
+        const expected = expectation();
+        const nonce = "source-issuer-deadline";
+        const provisionalExpiry = new Date(issuedAt.getTime() + 10_000);
+        const request = targetRequestFor(expected, nonce, provisionalExpiry);
+        const store = new MemoryTargetLeaseEvidenceStore(expected.source);
+        let currentLease = TurnLease.restore(
+            expected.lease!.turn,
+            expected.lease!.holder,
+            expected.lease!.epoch,
+            expiresAt
+        );
+        let currentIntent = expected.intentDigest;
+        const source = new (class extends TargetLeaseEvidenceSourcePort<MemoryTargetLeaseEvidenceTransaction> {
+            public current(
+                _transaction: MemoryTargetLeaseEvidenceTransaction,
+                actor: ActorRef,
+                run: RunId,
+                token: NonNullable<AuthorityPermitExpectationInit["lease"]>
+            ) {
+                if (
+                    !actor.equals(expected.source) ||
+                    !run.equals(expected.reservation.run) ||
+                    !currentLease.admits(token, issuedAt)
+                ) {
+                    return undefined;
+                }
+                return {
+                    run,
+                    lease: currentLease,
+                    watermark: InvalidationWatermark.empty(tenant, expected.source, token.holder),
+                    invocationIntent: currentIntent
+                };
+            }
+        })();
+        const issuer = new TargetLeaseEvidenceIssuer(store, source);
+        const attested = store.transaction((transaction) =>
+            issuer.attest(transaction, request, issuedAt)
+        );
+
+        expect(attested?.deadline).toEqual(expiresAt);
+        expect(attested?.requestIdentity.equals(
+            TargetAuthorityPermitRequest.identityFor(
+                expected,
+                request.authority,
+                nonce,
+                expiresAt
+            )
+        )).toBe(true);
+
+        currentLease = TurnLease.restore(
+            expected.lease!.turn,
+            expected.lease!.holder,
+            expected.lease!.epoch,
+            provisionalExpiry
+        );
+        expect(() =>
+            store.transaction((transaction) => issuer.attest(transaction, request, issuedAt))
+        ).toThrow(/bound to another source attestation/);
+
+        currentIntent = Digest.sha256(new TextEncoder().encode("source-intent-substitution"));
+        const unrelated = targetRequestFor(expected, "source-issuer-unrelated", provisionalExpiry);
+        expect(
+            store.transaction((transaction) => issuer.attest(transaction, unrelated, issuedAt))
+        ).toBeUndefined();
     }
 );
 

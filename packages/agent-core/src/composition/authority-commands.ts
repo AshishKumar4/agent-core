@@ -88,11 +88,6 @@ export abstract class TenantAuthorityCommandStatePort<Read> {
         request: AuthorityCheckRequest,
         at: Date
     ): CurrentLease | undefined;
-    public abstract currentPermitLease(
-        read: Read,
-        request: AuthorityPermitIssuanceRequest,
-        at: Date
-    ): CurrentLease | undefined;
 }
 
 export class TenantAuthorityRuntimeCommandBackend<

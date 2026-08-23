@@ -1,7 +1,13 @@
 import { requireSynchronousResult, type ActorRef, type SynchronousResultGuard } from "../actors";
-import { compareCanonicalText } from "../core";
+import { RunId, type LeaseToken, type TurnLease } from "../agents";
+import { Digest, compareCanonicalText } from "../core";
 import { AgentCoreError } from "../errors";
-import { TargetLeaseEvidence } from "./target-lease-evidence";
+import { TargetAuthorityPermitRequest } from "./permit-request";
+import {
+    TargetLeaseEvidence,
+    TargetLeaseEvidenceKey
+} from "./target-lease-evidence";
+import type { InvalidationWatermark } from "./epoch";
 
 export interface TargetLeaseEvidenceStore<Transaction> {
     readonly owner: ActorRef;
@@ -11,6 +17,89 @@ export interface TargetLeaseEvidenceStore<Transaction> {
     ): Result;
     evidence(transaction: Transaction, idempotencyKey: string): TargetLeaseEvidence | undefined;
     record(transaction: Transaction, evidence: TargetLeaseEvidence): TargetLeaseEvidence;
+}
+
+/**
+ * Source-local facts read in the same Actor transaction that records lease evidence.
+ * The source owns these facts; no Tenant projection may substitute for this read.
+ */
+export interface TargetLeaseEvidenceSourceState {
+    readonly run: RunId;
+    readonly lease: TurnLease;
+    readonly watermark: InvalidationWatermark;
+    readonly invocationIntent: Digest;
+}
+
+export abstract class TargetLeaseEvidenceSourcePort<Transaction> {
+    public abstract current(
+        transaction: Transaction,
+        source: ActorRef,
+        run: RunId,
+        lease: LeaseToken
+    ): TargetLeaseEvidenceSourceState | undefined;
+}
+
+/** Records source-verified immutable evidence in the exact source Actor transaction. */
+export class TargetLeaseEvidenceIssuer<Transaction> {
+    public constructor(
+        private readonly store: TargetLeaseEvidenceStore<Transaction>,
+        private readonly source: TargetLeaseEvidenceSourcePort<Transaction>
+    ) {}
+
+    public attest(
+        transaction: Transaction,
+        request: TargetAuthorityPermitRequest,
+        now: Date
+    ): TargetLeaseEvidence | undefined {
+        const expectation = request.expectation;
+        const token = expectation.lease;
+        if (token === undefined || !expectation.source.equals(this.store.owner)) {
+            return undefined;
+        }
+        const current = this.source.current(
+            transaction,
+            expectation.source,
+            expectation.reservation.run,
+            token
+        );
+        const expiresAt = current?.lease.expiresAt;
+        if (
+            current === undefined ||
+            !current.run.equals(expectation.reservation.run) ||
+            expiresAt === undefined ||
+            !current.lease.admits(token, now) ||
+            !current.invocationIntent.equals(expectation.intentDigest) ||
+            !request.authority.invocationDigest.equals(expectation.intentDigest) ||
+            current.watermark.ownerTenant.equals(expectation.tenant) !== true ||
+            current.watermark.owner.equals(expectation.source) !== true ||
+            current.watermark.holder.equals(token.holder) !== true ||
+            expectation.pathEpochs.path.some(
+                (entry) => current.watermark.epoch(entry.scope) > entry.epoch
+            )
+        ) {
+            return undefined;
+        }
+        const deadline = new Date(
+            Math.min(expiresAt.getTime(), request.expiresAt.getTime())
+        );
+        if (deadline.getTime() <= now.getTime()) return undefined;
+        const evidence = new TargetLeaseEvidence({
+            key: new TargetLeaseEvidenceKey(expectation.source, request.nonce),
+            tenant: expectation.tenant,
+            run: expectation.reservation.run,
+            lease: token,
+            target: expectation.target,
+            requestIdentity: TargetAuthorityPermitRequest.identityFor(
+                expectation,
+                request.authority,
+                request.nonce,
+                deadline
+            ),
+            deadline,
+            watermark: current.watermark
+        });
+        return this.store.record(transaction, evidence);
+    }
 }
 
 export interface MemoryTargetLeaseEvidenceSnapshot {

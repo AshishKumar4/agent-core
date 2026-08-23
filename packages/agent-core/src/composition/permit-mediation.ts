@@ -99,7 +99,7 @@ export interface TargetPermitMediationPipelineInit<
         MediationPathEpochReference
     >;
     readonly issuanceTransport: AuthorityPermitIssuanceTransport;
-    readonly sourceEvidence?: TargetLeaseEvidenceTransport;
+    readonly sourceEvidence: TargetLeaseEvidenceTransport;
     readonly authenticator: AuthorityPermitAuthenticator;
     readonly permitNonce: (
         invocation: Parameters<

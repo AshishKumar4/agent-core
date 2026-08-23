@@ -10,8 +10,8 @@ import {
 import { RunId, TurnId } from "../../src/agents";
 import { Digest } from "../../src/core";
 import { ProtectionDomain } from "../../src/facets";
+import { SqliteAuthorityPermitStore, SqliteTargetLeaseEvidenceStore } from "../../src/substrates";
 import { PrincipalId, PrincipalRef, TenantId } from "../../src/identity";
-import { SqliteAuthorityPermitStore } from "../../src/substrates";
 import { TestSqlite } from "../helpers/sqlite";
 
 const tenant = new TenantId("target-lease-evidence-tenant");
@@ -44,7 +44,7 @@ function evidence(requestIdentity = Digest.sha256(new TextEncoder().encode("targ
 }
 
 describe("TargetLeaseEvidence", () => {
-    test("records one exact source-owned immutable attestation across restart", { tags: "p0" }, () => {
+    test("[authority.target-lease-evidence] records one exact source-owned immutable attestation across restart", { tags: "p0" }, () => {
         const store = new MemoryTargetLeaseEvidenceStore(source);
         const recorded = store.transaction((transaction) => store.record(transaction, evidence()));
         const restarted = new MemoryTargetLeaseEvidenceStore(source, store.snapshot());
@@ -60,6 +60,40 @@ describe("TargetLeaseEvidence", () => {
         expect(restored?.deadline).toEqual(deadline);
     });
 
+    test("binds exact Tenant, target, Run, Turn, holder, epoch, and deadline", { tags: "p0" }, () => {
+        const record = evidence();
+        const binding = {
+            key: record.key,
+            tenant: record.tenant,
+            run: record.run,
+            lease: record.lease,
+            target: record.target,
+            requestIdentity: record.requestIdentity
+        };
+
+        expect(record.matches(binding)).toBe(true);
+        expect(
+            record.matches({
+                ...binding,
+                tenant: new TenantId("target-lease-evidence-other-tenant")
+            })
+        ).toBe(false);
+        expect(
+            record.matches({
+                ...binding,
+                target: { ...binding.target, fence: binding.target.fence + 1 }
+            })
+        ).toBe(false);
+        expect(
+            record.matches({
+                ...binding,
+                lease: { ...binding.lease, turn: new TurnId("target-lease-evidence-other-turn") }
+            })
+        ).toBe(false);
+        expect(record.isCurrentAt(new Date(deadline.getTime() - 1))).toBe(true);
+        expect(record.isCurrentAt(deadline)).toBe(false);
+    });
+
     test("refuses a same-key source substitution", { tags: "p0" }, () => {
         const store = new MemoryTargetLeaseEvidenceStore(source);
         store.transaction((transaction) => store.record(transaction, evidence()));
@@ -72,6 +106,17 @@ describe("TargetLeaseEvidence", () => {
                 )
             )
         ).toThrow(/bound to another source attestation/);
+    });
+    test("[target-lease-evidence-store] persists the source-owned record through SQLite restart", { tags: "p0" }, () => {
+        const database = new TestSqlite();
+        let store = new SqliteTargetLeaseEvidenceStore(database, source);
+        const recorded = store.transaction((transaction) => store.record(transaction, evidence()));
+        store = new SqliteTargetLeaseEvidenceStore(database, source);
+        const restored = store.transaction((transaction) =>
+            store.evidence(transaction, key.idempotencyKey)
+        );
+
+        expect(restored?.digest().equals(recorded.digest())).toBe(true);
     });
 
     test("refuses a record under another source Actor", { tags: "p0" }, () => {

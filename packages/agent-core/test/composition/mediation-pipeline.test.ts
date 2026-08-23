@@ -10,7 +10,10 @@ import {
     GrantId,
     InvalidationWatermark,
     PathEpochEvidence,
-    ScopeEpoch
+    ScopeEpoch,
+    TargetAuthorityPermitRequest,
+    TargetLeaseEvidence,
+    TargetLeaseEvidenceKey
 } from "../../src/authority";
 import { MemoryContentStore, type ContentStore } from "../../src/content";
 import {
@@ -87,6 +90,7 @@ import {
 import { OperationRequestKey } from "../../src/operations";
 import {
     AuthorityPermitIssuanceTransport,
+    TargetLeaseEvidenceTransport,
     MediatedOperationPipeline,
     ResolvedOperationAuthority,
     activateTargetPermitMediation,
@@ -772,7 +776,34 @@ class DeniedPermitRequests implements AuthorityCheckRequestFactory<
     }
 }
 
+class DeniedSourceEvidenceTransport extends TargetLeaseEvidenceTransport {
+    public async attest(bytes: Uint8Array): Promise<Uint8Array | undefined> {
+        const request = TargetAuthorityPermitRequest.decode(bytes);
+        const lease = request.expectation.lease;
+        if (lease === undefined) return undefined;
+        return TargetLeaseEvidence.encode(
+            new TargetLeaseEvidence({
+                key: new TargetLeaseEvidenceKey(request.expectation.source, request.nonce),
+                tenant: request.expectation.tenant,
+                run: request.expectation.reservation.run,
+                lease,
+                target: request.expectation.target,
+                requestIdentity: request.identity(),
+                deadline: request.expiresAt,
+                watermark: InvalidationWatermark.empty(
+                    request.expectation.tenant,
+                    request.expectation.source,
+                    lease.holder
+                )
+            })
+        );
+    }
+}
+
 class DeniedPermitTransport extends AuthorityPermitIssuanceTransport {
+    public override async project(bytes: Uint8Array): Promise<Uint8Array> {
+        return bytes.slice();
+    }
     public async issue(bytes: Uint8Array): Promise<Uint8Array> {
         const request = AuthorityPermitIssuanceRequest.decode(bytes).targetRequest;
         const evidence = new AuthorityCheckEvidence(
@@ -952,9 +983,10 @@ describe("the published mediation composition root", () => {
                 manifests: [manifest()],
                 roots: [new MemoryFacet(observed)],
                 activations,
+                issuanceTransport: new DeniedPermitTransport(),
+                sourceEvidence: new DeniedSourceEvidenceTransport(),
                 expectations: new DeniedPermitExpectations(),
                 authorityRequests: new DeniedPermitRequests(),
-                issuanceTransport: new DeniedPermitTransport(),
                 authenticator: new AuthorityPermitAuthenticator(new MissingIssuedPermits()),
                 permitNonce: (_invocation, claim) => {
                     nonce = claim.id.value;

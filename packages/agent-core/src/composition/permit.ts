@@ -7,11 +7,13 @@ import {
     TargetAuthorityPermitDenial,
     TargetAuthorityPermitRequest,
     TargetLeaseEvidence,
+    TargetLeaseEvidenceIssuer,
     type AuthorityCheckRequest,
     type AuthenticatedAuthorityPermit,
     type AuthorityPermitTargetDenialStore,
     type AuthorityPermitTargetRequestStore,
-    type ScopeEpoch
+    type ScopeEpoch,
+    type TargetLeaseEvidenceStore
 } from "../authority";
 import { AgentCoreError } from "../errors";
 import type { ActorRef } from "../actors";
@@ -118,6 +120,30 @@ export abstract class TargetLeaseEvidenceTransport {
      * provisional target request. `undefined` means its current lease cannot attest it.
      */
     public abstract attest(request: Uint8Array): Promise<Uint8Array | undefined>;
+}
+
+/** Source-side adapter that records an attestation in its owning Actor transaction. */
+export class StoredTargetLeaseEvidenceTransport<Transaction> extends TargetLeaseEvidenceTransport {
+    public constructor(
+        private readonly store: TargetLeaseEvidenceStore<Transaction>,
+        private readonly issuer: TargetLeaseEvidenceIssuer<Transaction>,
+        private readonly now: () => Date
+    ) {
+        super();
+    }
+
+    public async attest(request: Uint8Array): Promise<Uint8Array | undefined> {
+        let decoded: TargetAuthorityPermitRequest;
+        try {
+            decoded = TargetAuthorityPermitRequest.decode(request);
+        } catch {
+            throw new AgentCoreError("codec.invalid", "Target lease evidence request is malformed");
+        }
+        const evidence = this.store.transaction((transaction) =>
+            this.issuer.attest(transaction, decoded, this.now())
+        );
+        return evidence === undefined ? undefined : TargetLeaseEvidence.encode(evidence);
+    }
 }
 
 export abstract class AuthorityPermitIssuanceTransport {
@@ -229,18 +255,6 @@ export class IssuedAuthorityPermitPort<
                 throw new TypeError("Item claim exceeds the authority permit lifetime");
             }
             const expectation = this.expectations.forClaim(invocation, claim);
-            if (expectation.lease !== undefined) {
-                const current = this.expectations.forAdmission(
-                    transaction,
-                    authorityAdmissionContext(invocation, claim)
-                );
-                if (current === undefined || !current.equals(expectation)) {
-                    return {
-                        kind: "invalid" as const,
-                        reason: "Target no longer admits the exact source lease"
-                    };
-                }
-            }
             return {
                 kind: "ready" as const,
                 request: new TargetAuthorityPermitRequest(
@@ -256,10 +270,14 @@ export class IssuedAuthorityPermitPort<
 
         const provisional = candidate.request;
         const sourceEvidence =
-            provisional.expectation.lease === undefined
+            provisional.expectation.lease === undefined || this.sourceEvidence === undefined
                 ? undefined
                 : await this.readSourceEvidence(provisional);
-        if (sourceEvidence === undefined && provisional.expectation.lease !== undefined) {
+        if (
+            sourceEvidence === undefined &&
+            provisional.expectation.lease !== undefined &&
+            this.sourceEvidence !== undefined
+        ) {
             return {
                 kind: "invalid",
                 reason: "Source Actor did not attest the exact current lease"
@@ -288,25 +306,36 @@ export class IssuedAuthorityPermitPort<
                 throw error;
             }
         }
-        const persisted = this.store.transaction((transaction) => {
-            const retained = this.store.requested(transaction, nonce);
-            if (retained !== undefined) {
-                if (!retained.digest().equals(request.digest())) {
-                    throw denied("Target permit request replay changed its source evidence");
+        let persisted: TargetAuthorityPermitRequest;
+        try {
+            persisted = this.store.transaction((transaction) => {
+                const retained = this.store.requested(transaction, nonce);
+                if (retained !== undefined) {
+                    if (!retained.digest().equals(request.digest())) {
+                        throw denied("Target permit request replay changed its source evidence");
+                    }
+                    return retained;
                 }
-                return retained;
+                return this.store.request(transaction, request);
+            });
+            requireRetainedRequest(
+                persisted,
+                invocation,
+                claim,
+                nonce,
+                this.expectations,
+                this.authority,
+                sourceEvidence
+            );
+        } catch (error) {
+            if (isInvalidIssuanceReply(error)) {
+                return {
+                    kind: "invalid",
+                    reason: error.message || "Authority permit response is invalid"
+                };
             }
-            return this.store.request(transaction, request);
-        });
-        requireRetainedRequest(
-            persisted,
-            invocation,
-            claim,
-            nonce,
-            this.expectations,
-            this.authority,
-            sourceEvidence
-        );
+            throw error;
+        }
         const observedAt = validTime(this.now(), "Authority permit request observation time");
         if (observedAt >= persisted.expiresAt.getTime()) {
             return { kind: "expired" };
@@ -388,22 +417,6 @@ export class IssuedAuthorityPermitPort<
     }
 }
 
-function authorityAdmissionContext<Lease, Authority, Domain, PathEpochs>(
-    invocation: PreparedInvocation<Lease, Authority, Domain, PathEpochs>,
-    claim: ItemClaim<Lease>
-): AuthorityAdmissionContext<Lease, Authority, Domain, PathEpochs> {
-    return Object.freeze({
-        invocation: invocation.header.id,
-        itemIndex: claim.itemIndex,
-        ordinal: claim.attemptOrdinal,
-        lease: invocation.header.lease,
-        authority: invocation.header.authority,
-        domain: invocation.header.domain,
-        pathEpochs: invocation.header.pathEpochs,
-        intentDigest: invocation.intentDigest,
-        itemKey: invocation.item(claim.itemIndex).idempotencyKey
-    });
-}
 
 function requireRetainedRequest<Transaction, Lease, Authority, Domain, PathEpochs>(
     request: TargetAuthorityPermitRequest,

@@ -11,6 +11,9 @@ import {
     BindingValidationRequest,
     Grant,
     GrantId,
+    InvalidationWatermark,
+    TargetLeaseEvidence,
+    TargetLeaseEvidenceKey,
     MemoryAuthorityPermitStore,
     MemoryTenantAuthorityPermitStore,
     MemoryTenantControlStore,
@@ -1427,6 +1430,50 @@ describe("the Tenant authority runtime command backend", () => {
         }
     );
 
+    test(
+        "projects source evidence idempotently before issuing the exact permit",
+        { tags: "p0" },
+        async () => {
+            const harness = createProductionCommandHarness();
+            const lease = { turn: authorityTurn, holder: principal, epoch: 2 };
+            const projectedRequest = projectedPermitRequest(harness.path(), lease);
+            const evidenceBytes = TargetLeaseEvidence.encode(projectedRequest.evidence);
+            const forged = await harness.dispatch(
+                TENANT_AUTHORITY_COMMANDS.projectLeaseEvidence,
+                projectedRequest.evidence.key.idempotencyKey,
+                evidenceBytes,
+                { kind: "actor", actor: targetActor }
+            );
+            const projected = await harness.dispatch(
+                TENANT_AUTHORITY_COMMANDS.projectLeaseEvidence,
+                projectedRequest.evidence.key.idempotencyKey,
+                evidenceBytes
+            );
+            const duplicate = await harness.dispatch(
+                TENANT_AUTHORITY_COMMANDS.projectLeaseEvidence,
+                projectedRequest.evidence.key.idempotencyKey,
+                evidenceBytes
+            );
+            const issued = await harness.dispatch(
+                TENANT_AUTHORITY_COMMANDS.issuePermit,
+                "projected-permit-issue",
+                AuthorityPermitIssuanceRequest.encode(projectedRequest.request),
+                { kind: "actor", actor: targetActor }
+            );
+
+            expect(forged.outcome).toBe("rejectedAuthority");
+            expect(forged.write.audit).toBeDefined();
+            expect(projected.outcome).toBe("committed");
+            expect(duplicate.outcome).toBe("duplicate");
+            expect(issued.outcome).toBe("committed");
+            const permit = AuthorityPermitIssuanceReply.decode(issued.reply).requirePermit();
+            expect(permit.requestDigest.equals(projectedRequest.request.targetRequest.digest())).toBe(
+                true
+            );
+            expect(harness.issued(permit.nonce)?.digest().equals(permit.digest())).toBe(true);
+        }
+    );
+
     test("requires its own Tenant permit owner as the issuing Actor", { tags: "p0" }, () => {
         expect(
             () =>
@@ -2320,6 +2367,38 @@ function permitRequest(
             new Date(now.getTime() + 5_000)
         )
     );
+}
+
+function projectedPermitRequest(
+    path: PathEpochEvidence,
+    lease: NonNullable<AuthorityPermitExpectationInit["lease"]>
+) {
+    const provisional = permitRequest(path, lease).targetRequest;
+    const sourceEvidence = new TargetLeaseEvidence({
+        key: new TargetLeaseEvidenceKey(provisional.expectation.source, provisional.nonce),
+        tenant: provisional.expectation.tenant,
+        run: provisional.expectation.reservation.run,
+        lease,
+        target: provisional.expectation.target,
+        requestIdentity: provisional.identity(),
+        deadline: provisional.expiresAt,
+        watermark: InvalidationWatermark.empty(
+            provisional.expectation.tenant,
+            provisional.expectation.source,
+            lease.holder
+        )
+    });
+    const request = new TargetAuthorityPermitRequest(
+        provisional.expectation,
+        provisional.authority,
+        provisional.nonce,
+        provisional.expiresAt,
+        sourceEvidence.reference()
+    );
+    return Object.freeze({
+        evidence: sourceEvidence,
+        request: new AuthorityPermitIssuanceRequest(request)
+    });
 }
 
 function validationEvidence(
