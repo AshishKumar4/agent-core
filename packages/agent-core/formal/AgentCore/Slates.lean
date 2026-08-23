@@ -135,7 +135,7 @@ def ActionsBacked (domain : DynamicDomain) : Prop :=
       ∀ binding destination, action = .egress binding destination →
         capability.destination = some destination
 
-theorem fresh_actions_backed : ActionsBacked .fresh := fun action member =>
+theorem fresh_actions_backed : ActionsBacked .fresh := fun _action member =>
   absurd member List.not_mem_nil
 
 theorem isolate_step_preserves_actions_backed {domain label after}
@@ -190,7 +190,7 @@ theorem dynamic_only_manifest_never_places_ambient (policy substrate trust : Pla
   by_cases admits : ((policy.dynamic && substrate.dynamic) && trust.dynamic) = true
   · simp [admits]
   · simp [Bool.not_eq_true] at admits
-    simp [admits]
+    simp []
 
 structure SlateRecord where
   head : Option SlateVersionId

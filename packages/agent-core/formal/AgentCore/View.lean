@@ -75,6 +75,6 @@ theorem replay_revision {view deltas result} (done : replay view deltas = some r
       | some next =>
           rw [applied] at done
           rw [ih done, apply_advances_revision applied]
-          simp [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm]
+          simp [Nat.add_comm, Nat.add_left_comm]
 
 end AgentCore

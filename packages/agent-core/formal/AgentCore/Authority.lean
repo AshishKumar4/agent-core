@@ -235,7 +235,7 @@ theorem orderedPath_pairwise (target : Scope) :
   | tenant tenant => rw [orderedPath_tenant]; simp
   | project tenant project =>
       rw [orderedPath_project]
-      simp only [List.pairwise_cons, List.mem_singleton, List.mem_cons, List.not_mem_nil]
+      simp only [List.pairwise_cons, List.mem_cons, List.not_mem_nil]
       refine ⟨?_, by simp⟩
       rintro other (rfl | ⟨_, _⟩)
       exact .tenantOfProject _ _
@@ -243,13 +243,13 @@ theorem orderedPath_pairwise (target : Scope) :
       cases project with
       | none =>
           rw [orderedPath_workspace_direct]
-          simp only [List.pairwise_cons, List.mem_singleton, List.mem_cons, List.not_mem_nil]
+          simp only [List.pairwise_cons, List.mem_cons, List.not_mem_nil]
           refine ⟨?_, by simp⟩
           rintro other (rfl | ⟨_, _⟩)
           exact .tenantOfWorkspace _ _ _
       | some project =>
           rw [orderedPath_workspace_nested]
-          simp only [List.pairwise_cons, List.mem_singleton, List.mem_cons, List.not_mem_nil,
+          simp only [List.pairwise_cons, List.mem_cons, List.not_mem_nil,
             or_false]
           refine ⟨?_, ?_, by simp⟩
           · rintro other (rfl | rfl)

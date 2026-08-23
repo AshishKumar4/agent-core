@@ -372,7 +372,7 @@ theorem nonvacuous_same_attempt_supersession :
     (attempt := attempt0)
   · rfl
   · rfl
-  · simp [supersedeBefore, supersedingReceipt]
+  · simp [supersedeBefore]
   · rfl
   · rfl
   · rfl
@@ -1104,7 +1104,7 @@ theorem nonvacuous_forced_sibling_system_fence :
     · exact Or.inl rfl
     · rfl
     · exact terminalControlAuditCause
-    · exact ⟨rootAudit, by simp [terminalAuditLog, synthesisAuditLog, auditOne], rfl⟩
+    · exact ⟨rootAudit, by simp [terminalAuditLog, synthesisAuditLog], rfl⟩
     · exact .terminalFence
     · rfl
   · apply GraphStep.terminalize (run := run) (turn := runningTurn) (token := token)
@@ -1156,7 +1156,7 @@ theorem nonvacuous_forced_sibling_system_fence :
     · rfl
     · rfl
     · rfl
-    · exact ⟨rootAudit, by simp [terminalAuditLog, synthesisAuditLog, auditOne], rfl⟩
+    · exact ⟨rootAudit, by simp [terminalAuditLog, synthesisAuditLog], rfl⟩
     · rfl
     · rfl
     · rfl
@@ -1226,7 +1226,7 @@ private theorem attemptedReceiptStep :
     · simp [attemptedReceiptBeforeState, attemptedReceiptBeforeEffects, successReceipt, attempt0]
     · rfl
     · rfl
-  · simp [attemptedReceiptAfterState, attemptedReceiptAfterEffects,
+  · simp [attemptedReceiptAfterEffects,
       EffectLedger.addAttemptReceipt]
   · exact attemptedReceiptAuditAppend
 
@@ -1688,8 +1688,7 @@ theorem nonvacuous_persisted_approval_continuation :
     startedState.approvals.Continues actionApproval actionPrepared := by
   refine ⟨⟨actionApproval, actionInvocation, actionPrepared.identity, actionPrepared.digest, ⟨50⟩⟩,
     ?_, ?_, rfl, rfl, rfl, rfl⟩
-  · simp [startedState, ApprovalLedger.consume, actionPrepared, actionHeader, noTurnHeader,
-      actionInvocation]
+  · simp [startedState, ApprovalLedger.consume, actionPrepared, actionHeader, noTurnHeader]
   · simp [startedState, ApprovalLedger.consume, actionPrepared, actionHeader, noTurnHeader,
       actionInvocation]
 
@@ -1918,7 +1917,6 @@ theorem nonvacuous_approval_start_then_continue :
         (item := ⟨1, secondArgs,
           deriveItemKey actionHeader actionPrepared.payload 1 secondArgs⟩)
       · simp [startedState, startedEffects, claimedState, claimedEffects, requestedEffects,
-          secondClaimedEffects,
           actionSecondClaim, EffectLedger.addAttempt, EffectLedger.recordAdmission,
           EffectLedger.setClaim, tableSet_self]
       · rfl
@@ -1978,7 +1976,7 @@ theorem nonvacuous_approval_start_then_continue :
             actionSecondAttempt, EffectLedger.setClaim, tableSet_self],
           by simp [EffectLedger.recordAdmission, secondClaimedState, secondClaimedEffects,
             startedEffects, claimedEffects, requestedEffects, actionSecondClaim,
-            actionSecondAttempt, EffectLedger.setClaim, tableSet_self],
+            actionSecondAttempt, EffectLedger.setClaim],
           ⟨rfl, rfl, rfl, rfl, rfl⟩, by decide⟩
       · rfl
       · rfl
@@ -2509,18 +2507,18 @@ theorem nonvacuous_source_reservation_audit_binding :
       by simp [sourceReservedStore, sourceEventStore, reservation], rfl,
       by simp [sourceRouteState, sourceEventAuditLog, reservation], rfl, rfl⟩
 
-private def routePublishStep :
+private theorem routePublishStep :
     EventStep (fun _ => none) ⟨1⟩ (default : EventStore) (.publish reservation.sourceEvent)
       sourceEventStore :=
   EventStep.publish (event := sourceEventRecord) rfl rfl rfl ⟨rfl, rfl⟩
 
-private def routeReserveStep :
+private theorem routeReserveStep :
     EventStep (fun _ => none) ⟨1⟩ sourceEventStore (.reserve reservationId) sourceReservedStore :=
   EventStep.reserveSameTenant (reservation := reservation) (event := sourceEventRecord)
     (source := .initiator principalRef bindingId) rfl rfl
     (by simp [sourceEventStore, reservation]) rfl rfl rfl
 
-private def routeUniquenessReachable :
+private theorem routeUniquenessReachable :
     EventStoreReachable (fun _ => none) ⟨1⟩ sourceReservedStore :=
   .step (.step .boot routePublishStep) routeReserveStep
 
@@ -2999,7 +2997,7 @@ private theorem acceptanceVerdictRecorded :
 private theorem acceptanceOpenRetryAdmissible (accId : AcceptanceId) (subject : TreeId) :
     acceptanceOpenGraph.AcceptanceRetryAdmissible accId subject := by
   intro verdict member _
-  exact absurd member (by simp [acceptanceOpenGraph, GraphStore.acceptanceVerdicts])
+  exact absurd member (by simp [acceptanceOpenGraph])
 
 private theorem acceptanceVerdictStepOver {effects : EffectLedger} {audit : AuditLog}
     {verdict : AcceptanceVerdict} (named : verdict.acceptance = acceptanceId)
@@ -3098,7 +3096,7 @@ theorem nonvacuous_acceptance_obligation_stays_outstanding :
     have exactly : acceptanceVerdictGraph.admissionRegistry runId = some acceptanceRegistry := by
       simp [acceptanceVerdictGraph, GraphStore.recordVerdict, acceptanceOpenGraph]
     exact Option.some.inj (registryLookup.symm.trans exactly)
-  simp [acceptanceRegistry, RunAdmissionRegistry.outstanding, acceptanceCriterion]
+  simp [acceptanceRegistry, RunAdmissionRegistry.outstanding]
 
 /-- No transition can put the acceptance obligation into the completed frontier: the generic
     completion path refuses it outright, and it is the only path that writes one. -/
@@ -3348,7 +3346,7 @@ theorem nonvacuous_acceptance_settlement_invariants :
     · exact absurd declared (by
         have runsEmpty : (default : GraphStore).runs candidate = none := rfl
         simp [GraphStore.acceptanceCriteria, acceptanceSettledState, acceptanceSettlementGraph,
-          settledGraph, terminalBefore, rootGraph, tableSet_other _ _ _ same, same, runsEmpty])
+          settledGraph, terminalBefore, rootGraph, tableSet_other _ _ _ same, runsEmpty])
   refine ⟨?_, ?_, ?_, ?_⟩
   · intro candidate criterion declared
     obtain ⟨rfl, rfl⟩ := criteria candidate criterion declared
@@ -3378,7 +3376,7 @@ theorem nonvacuous_acceptance_settlement_invariants :
       simp [acceptanceTerminalSnapshot, acceptanceClosedRegistry]
     · exact absurd snapshotLookup (by
         simp [acceptanceSettledState, acceptanceSettlementGraph, settledGraph, terminalBefore,
-          rootGraph, tableSet_other _ _ _ same, same])
+          rootGraph, tableSet_other _ _ _ same])
 
 /-- The headline settlement property on a concrete Settled Run: its one declared criterion
     holds a recorded verdict whose subject is the Run's current head tree, whose Receipt
@@ -3503,7 +3501,7 @@ private theorem undoMessageAllowed :
       messageCommit :=
   ⟨⟨rootCommitId, rootCommit, rfl, writerGraphRoot, rfl⟩,
     ⟨runningTurn, writerGraphTurn, rfl, rfl, rfl, rfl, ⟨rfl, rfl, rfl, by decide⟩,
-      ⟨rootAudit, by simp [terminalAuditLog, synthesisAuditLog, auditOne], rfl⟩⟩,
+      ⟨rootAudit, by simp [terminalAuditLog, synthesisAuditLog], rfl⟩⟩,
     rfl⟩
 
 private theorem undoControlAudit {store : GraphStore} (runLookup : store.runs runId = some run) :
@@ -4336,7 +4334,7 @@ private def promptInstalledLedger : SlotLedger :=
   { (default : SlotLedger) with
     slots := tableSet (default : SlotLedger).slots promptSlotName promptSlotDecl }
 
-private def promptInstallStep :
+private theorem promptInstallStep :
     SlotStep slotSchemas (default : SlotLedger) (.installSlot promptSlotDecl)
       promptInstalledLedger :=
   SlotStep.installSlot rfl
@@ -4348,12 +4346,12 @@ private def untrustedPromptEntry : SlotEntry :=
 private def promptTrustedLedger : SlotLedger :=
   { promptInstalledLedger with entries := [trustedPromptEntry] }
 
-private def promptTrustedContributeStep :
+private theorem promptTrustedContributeStep :
     SlotStep slotSchemas promptInstalledLedger (.contribute trustedPromptEntry)
       promptTrustedLedger :=
   SlotStep.contribute rfl rfl (by intro stored member; cases member)
 
-private def promptTrustedAuthorizedStep :
+private theorem promptTrustedAuthorizedStep :
     AuthorizedSlotStep slotSchemas promptContributeAuthority promptInstalledLedger
       (.contribute trustedPromptEntry) promptTrustedLedger :=
   .step (fun entry labelEq => by cases labelEq; decide) promptTrustedContributeStep
@@ -4415,7 +4413,7 @@ private def deployInvocation : CommandInvocation :=
 private def invokedDeployRegistry : CommandRegistry :=
   { deployRegistry with invoked := [deployInvocation] }
 
-private def deployInstallStep :
+private theorem deployInstallStep :
     CommandStep commandSchemas commandMappings (default : CommandRegistry)
       (.installCommand commandScope deployCommand) deployRegistry :=
   CommandStep.installCommand (by decide)
@@ -4550,7 +4548,7 @@ private def resubmittedLedger : SubmissionLedger :=
   { committedSubmissionLedger with
     writes := tableSet committedSubmissionLedger.writes ⟨2⟩ duplicateSubmission }
 
-private def commitSubmissionStep :
+private theorem commitSubmissionStep :
     SubmissionStep (default : SubmissionLedger) (.commit ⟨1⟩ ⟨71⟩)
       committedSubmissionLedger :=
   SubmissionStep.commit (write := committedSubmission) rfl rfl rfl
@@ -5394,7 +5392,7 @@ private def dispatchCommittedRecord : WriteRecord :=
 private def dispatchLedgerCommitted : DispatcherLedger Nat :=
   dispatchLedgerBoot.appendWrite dispatchCommittedRecord (some dispatchEnvelope.identity) 1
 
-private def dispatchCommitStep :
+private theorem dispatchCommitStep :
     DispatchStep dispatchPolicy dispatchLedgerBoot (.process ⟨1⟩ ⟨1⟩ dispatchGoodRaw ⟨0⟩)
       dispatchLedgerCommitted :=
   DispatchStep.commit (envelope := dispatchEnvelope) rfl rfl (by decide) rfl rfl rfl rfl rfl rfl
@@ -5406,7 +5404,7 @@ private def dispatchDuplicateRecord : WriteRecord :=
 private def dispatchLedgerDuplicated : DispatcherLedger Nat :=
   dispatchLedgerCommitted.appendWrite dispatchDuplicateRecord none dispatchLedgerCommitted.domain
 
-private def dispatchDuplicateStep :
+private theorem dispatchDuplicateStep :
     DispatchStep dispatchPolicy dispatchLedgerCommitted (.process ⟨2⟩ ⟨2⟩ dispatchGoodRaw ⟨1⟩)
       dispatchLedgerDuplicated :=
   DispatchStep.duplicate (envelope := dispatchEnvelope) (originalId := ⟨1⟩)
@@ -5418,7 +5416,7 @@ private def dispatchMalformedRecord : WriteRecord :=
 private def dispatchLedgerMalformed : DispatcherLedger Nat :=
   dispatchLedgerDuplicated.appendWrite dispatchMalformedRecord none dispatchLedgerDuplicated.domain
 
-private def dispatchMalformedStep :
+private theorem dispatchMalformedStep :
     DispatchStep dispatchPolicy dispatchLedgerDuplicated (.process ⟨3⟩ ⟨3⟩ dispatchBadRaw ⟨2⟩)
       dispatchLedgerMalformed :=
   DispatchStep.rejectMalformed (by decide) (by decide) (by decide)
@@ -5476,7 +5474,7 @@ private def secretCustody1 : SecretCustody := ⟨secretBinding1, secretEndpoint1
 private def secretsAccepted : SecretLedger :=
   { SecretLedger.boot with custody := tableSet SecretLedger.boot.custody secretRef1 secretCustody1 }
 
-private def secretsAcceptStep :
+private theorem secretsAcceptStep :
     SecretStep SecretLedger.boot (.accept secretRef1 secretBinding1 secretEndpoint1)
       secretsAccepted :=
   SecretStep.accept rfl
@@ -5488,7 +5486,7 @@ private def secretsResolved : SecretLedger :=
   { secretsAccepted with
     resolutions := tableSet secretsAccepted.resolutions secretResolutionId secretResolutionRecord }
 
-private def secretsResolveStep :
+private theorem secretsResolveStep :
     SecretStep secretsAccepted
       (.resolve secretResolutionId secretRef1 secretsTenantA secretBinding1 secretEndpoint1)
       secretsResolved :=
@@ -5498,7 +5496,7 @@ private def secretsRepointed : SecretLedger :=
   { secretsResolved with
     custody := tableSet secretsResolved.custody secretRef1 ⟨secretBinding2, secretEndpoint2, 1⟩ }
 
-private def secretsRepointStep :
+private theorem secretsRepointStep :
     SecretStep secretsResolved (.repoint secretRef1 secretBinding2 secretEndpoint2)
       secretsRepointed :=
   SecretStep.repoint (current := secretCustody1) rfl
@@ -5543,11 +5541,11 @@ private def secretsDelegated : SecretLedger :=
   { secretsAccepted with
     delegations := tableSet secretsAccepted.delegations secretDelegationId (.ref secretRef1) }
 
-private def secretsDelegateStep :
+private theorem secretsDelegateStep :
     SecretStep secretsAccepted (.delegate secretDelegationId secretRef1) secretsDelegated :=
   SecretStep.delegate rfl
 
-private def secretsReachable : SecretReachable secretsDelegated :=
+private theorem secretsReachable : SecretReachable secretsDelegated :=
   .step (.step .boot secretsAcceptStep) secretsDelegateStep
 
 private def secretGuestGrantId : GuestGrantId := ⟨92⟩
@@ -5557,7 +5555,7 @@ private def secretsGuestGranted : SecretLedger :=
   { secretsDelegated with
     guestGrants := tableSet secretsDelegated.guestGrants secretGuestGrantId (.ref secretRef1) }
 
-private def secretsGuestGrantStep :
+private theorem secretsGuestGrantStep :
     SecretStep secretsDelegated (.guestGrant secretGuestGrantId secretRef1) secretsGuestGranted :=
   SecretStep.guestGrant rfl
 
@@ -5566,12 +5564,12 @@ private def secretsReserved : SecretLedger :=
     crossTenantReservations := tableSet secretsGuestGranted.crossTenantReservations
       secretCrossTenantReservationId (.ref secretRef1) }
 
-private def secretsReservationStep :
+private theorem secretsReservationStep :
     SecretStep secretsGuestGranted
       (.crossTenantReserve secretCrossTenantReservationId secretRef1) secretsReserved :=
   SecretStep.crossTenantReserve rfl
 
-private def secretsReservedReachable : SecretReachable secretsReserved :=
+private theorem secretsReservedReachable : SecretReachable secretsReserved :=
   .step (.step secretsReachable secretsGuestGrantStep) secretsReservationStep
 
 /-- A reachable delegation carrier for the accepted secret is a ref; a ledger built
@@ -5626,14 +5624,14 @@ private def contentPutLedger : ContentLedger :=
   { ContentLedger.boot with
     stored := fun candidate => if candidate = contentRef1 then true else ContentLedger.boot.stored candidate }
 
-private def contentPutStep :
+private theorem contentPutStep :
     ContentStep ContentLedger.boot (.put contentRef1) contentPutLedger :=
   ContentStep.put rfl
 
 private def contentOwnedLedger : ContentLedger :=
   { contentPutLedger with owningRecords := mark2 contentPutLedger.owningRecords contentRef1 contentOwningRecord }
 
-private def contentOwnStep :
+private theorem contentOwnStep :
     ContentStep contentPutLedger (.own contentRef1 contentOwningRecord) contentOwnedLedger :=
   ContentStep.own rfl
 
@@ -5643,7 +5641,7 @@ private def contentReleasedLedger : ContentLedger :=
       (candidateRef, candidateRecord) ≠ (contentRef1, contentOwningRecord) ∧
         contentOwnedLedger.owningRecords candidateRef candidateRecord }
 
-private def contentReleaseStep :
+private theorem contentReleaseStep :
     ContentStep contentOwnedLedger (.release contentRef1 contentOwningRecord) contentReleasedLedger :=
   ContentStep.release (Or.inl ⟨rfl, rfl⟩)
 
@@ -5660,11 +5658,11 @@ private theorem contentReleasedUnowned :
     exact differs rfl
   · exact falseCase
 
-private def contentCollectStep :
+private theorem contentCollectStep :
     ContentStep contentReleasedLedger (.collect contentRef1) contentCollectedLedger :=
   ContentStep.collect rfl contentReleasedUnowned
 
-private def contentReachable : ContentReachable contentCollectedLedger :=
+private theorem contentReachable : ContentReachable contentCollectedLedger :=
   .step (.step (.step (.step .boot contentPutStep) contentOwnStep) contentReleaseStep) contentCollectStep
 
 /-- The full custody lifecycle on one ref: home-Tenant resolution succeeds once
@@ -5736,7 +5734,7 @@ private def materializedLedger : MaterializerLedger :=
       subscriptions := tableSet MaterializerLedger.boot.routing.subscriptions materializerSubId
         materializerTemplate.materialize } }
 
-private def materializeStep :
+private theorem materializeStep :
     MaterializeStep MaterializerLedger.boot
       (.materialize materializerBlueprint materializerTemplate materializerSubId) materializedLedger :=
   MaterializeStep.materialize rfl rfl

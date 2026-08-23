@@ -379,13 +379,13 @@ private def oracleOperations : List OracleOperation :=
         pure (Json.mkObj [("covers", Json.bool (parent.coversBool child))])⟩,
     ⟨"json.canonical", [`AgentCore.encodeJson], fun request => do
         let tree ← parseJsonTree (← request.getObjVal? "value")
-        pure (Json.mkObj [("encoded", Json.str (String.mk (encodeJson tree)))])⟩,
+        pure (Json.mkObj [("encoded", Json.str (String.ofList (encodeJson tree)))])⟩,
     ⟨"authority.scopeKey", [`AgentCore.scopeKeyText], fun request => do
         let scope ← parseScopeRefText (← request.getObjVal? "scope")
-        pure (Json.mkObj [("key", Json.str (String.mk (scopeKeyText scope)))])⟩,
+        pure (Json.mkObj [("key", Json.str (String.ofList (scopeKeyText scope)))])⟩,
     ⟨"authority.subjectKey", [`AgentCore.subjectKeyText], fun request => do
         let subject ← parseSubjectRefText (← request.getObjVal? "subject")
-        pure (Json.mkObj [("key", Json.str (String.mk (subjectKeyText subject)))])⟩,
+        pure (Json.mkObj [("key", Json.str (String.ofList (subjectKeyText subject)))])⟩,
     ⟨"authority.evaluate", [`AgentCore.evaluateExec], fun request => do
         let grants ← (← (← request.getObjVal? "grants").getArr?).toList.mapM parseAuthorityGrant
         let evaluated ← parseAuthorityRequest (← request.getObjVal? "request")

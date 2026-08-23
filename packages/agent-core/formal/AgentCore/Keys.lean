@@ -59,7 +59,7 @@ def delimiterFree (delimiter : Char) (component : List Char) : Bool :=
 
 theorem delimiterFree_iff {delimiter : Char} {component : List Char} :
     delimiterFree delimiter component = true ↔ DelimiterFree delimiter component := by
-  simp [delimiterFree, DelimiterFree, List.contains_iff_mem]
+  simp [delimiterFree, DelimiterFree]
 
 /-- **A delimiter-free left component makes the join injective.** -/
 theorem pair_key_injective_of_free_left {delimiter : Char} :

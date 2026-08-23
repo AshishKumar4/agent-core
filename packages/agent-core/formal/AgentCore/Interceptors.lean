@@ -73,7 +73,7 @@ theorem interceptor_order_total (left right : InterceptorContribution) :
   cases leftMode <;> cases rightMode <;>
     simp only [InterceptorOrder, InterceptorContribution.key, InterceptorMode.rank,
       InterceptorRef.mk.injEq, FacetId.mk.injEq, and_true, true_and, reduceCtorEq,
-      and_false, false_or, or_false] <;>
+      and_false, false_or] <;>
     omega
 
 /-- **The declared mode dominates local priority (§4.4 rule 3).** Every `rewrite` precedes

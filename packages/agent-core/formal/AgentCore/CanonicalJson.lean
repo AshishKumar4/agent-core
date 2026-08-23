@@ -162,7 +162,7 @@ theorem unescapeOne_escapeChar (character : Char) (rest : List Char) :
                       omega
                     exact char_of_toNat recombine.symm
                 · next quote backslash _ _ _ _ _ _ =>
-                    simp [unescapeOne, quote, backslash]
+                    simp [unescapeOne, backslash]
 
 def escapeString : List Char → List Char
   | [] => []
