@@ -12,17 +12,15 @@ import {
 import type { FacetRef, PromptSectionId } from "./id";
 
 /**
- * The records one Workspace Actor retires for a withdrawing Facet (SPEC §4.1,
- * C13-FACET-WITHDRAWAL-EXACT: the withdrawal set names exactly the Facet's own prompt
- * sections). It is produced by querying attribution and never by running an inverse the
- * Facet supplied, so it names exactly the withdrawing Facet's own sections and a section it
- * does not name is unchanged by the withdrawal.
+ * The prompt sections one Workspace Actor retires for one withdrawing contribution
+ * (SPEC §4.1 and C13-FACET-WITHDRAWAL-EXACT). The set matches the complete immutable
+ * FacetRef and PackagePin pair, so another release of the same Facet remains live.
  */
 export class PromptWithdrawalSet {
     public readonly sections: readonly PromptSectionId[];
 
     public constructor(
-        public readonly contributor: FacetRef,
+        public readonly attribution: ContributionAttribution,
         sections: readonly PromptSectionId[]
     ) {
         this.sections = Object.freeze([...sections]);
@@ -122,37 +120,36 @@ export abstract class WorkspacePromptSectionStore<Transaction> {
     }
 
     /**
-     * Computes the withdrawal set by querying attribution. Decoding every stored section is
-     * the query: a section whose attribution the store cannot read makes the set
-     * incomputable, and the caller refuses the withdrawal rather than performing a partial
-     * one.
+     * Computes the withdrawal set from the complete immutable attribution. Decoding every
+     * stored section is the query: unreadable attribution makes the set incomputable, so
+     * the caller refuses rather than withdrawing a partial result.
      */
     public withdrawalSet(
         transaction: Transaction,
-        contributor: FacetRef
+        attribution: ContributionAttribution
     ): PromptWithdrawalSet {
         return new PromptWithdrawalSet(
-            contributor,
+            attribution,
             this.listSections(transaction)
-                .filter((section) => section.attribution.contributor.equals(contributor))
+                .filter((section) => section.attribution.equals(attribution))
                 .map((section) => section.id)
         );
     }
 
-    /**
-     * Retires the withdrawing Facet's sections inside the caller's control transaction and
-     * reports whether any record changed.
-     */
-    public retireWithdrawalSet(transaction: Transaction, contributor: FacetRef): boolean {
-        const set = this.withdrawalSet(transaction, contributor);
+    /** Retires one release's prompt sections inside the caller's control transaction. */
+    public retireWithdrawalSet(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): boolean {
+        const set = this.withdrawalSet(transaction, attribution);
         if (set.sections.length === 0) return false;
         for (const id of set.sections) this.retireSection(transaction, id);
         return true;
     }
 
-    public withdraw(contributor: FacetRef): Revision {
+    public withdraw(attribution: ContributionAttribution): Revision {
         return this.transaction((transaction) => {
-            if (!this.retireWithdrawalSet(transaction, contributor)) {
+            if (!this.retireWithdrawalSet(transaction, attribution)) {
                 return this.loadRevision(transaction);
             }
             const revision = this.loadRevision(transaction).next();

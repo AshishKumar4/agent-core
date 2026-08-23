@@ -4,20 +4,19 @@ import { AgentCoreError } from "../errors";
 import type { WorkspaceId } from "../identity";
 import { CatalogEntry, type CatalogOrigin } from "./catalog-entry";
 import type { ContributionAttribution } from "./attribution";
-import type { CatalogEntryId, FacetRef } from "./id";
+import type { CatalogEntryId } from "./id";
 
 /**
- * The catalog entries one Workspace Actor retires for a withdrawing Facet (SPEC §4.1 and
- * §4.2: the withdrawal set is a query over attribution). It names exactly the withdrawing
- * Facet's own contribution-materialized entries. A host's direct declaration carries no
- * attribution, so it is never in the set, and neither is an entry another Facet
- * contributed.
+ * The catalog entries one Workspace Actor retires for one withdrawing contribution
+ * (SPEC §4.1 and §4.2). The set matches the complete immutable attribution pair, so
+ * another release of the same Facet is a different contribution and remains live.
+ * A direct host declaration carries no attribution and never enters the set.
  */
 export class CatalogWithdrawalSet {
     public readonly entries: readonly CatalogEntryId[];
 
     public constructor(
-        public readonly contributor: FacetRef,
+        public readonly attribution: ContributionAttribution,
         entries: readonly CatalogEntryId[]
     ) {
         this.entries = Object.freeze([...entries]);
@@ -119,38 +118,36 @@ export abstract class WorkspaceCatalogStore<Transaction> {
     }
 
     /**
-     * Computes the withdrawal set by querying attribution alone. Decoding every stored
-     * entry is the query: an entry whose attribution the store cannot read makes the set
-     * incomputable, and the caller refuses the withdrawal rather than performing a partial
-     * one.
+     * Computes the withdrawal set from the complete immutable attribution. Decoding every
+     * stored entry is the query: unreadable attribution makes the set incomputable, so the
+     * caller refuses rather than withdrawing a partial result.
      */
-    public withdrawalSet(transaction: Transaction, contributor: FacetRef): CatalogWithdrawalSet {
+    public withdrawalSet(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): CatalogWithdrawalSet {
         return new CatalogWithdrawalSet(
-            contributor,
+            attribution,
             this.listEntries(transaction)
-                .filter(
-                    (entry) =>
-                        entry.attribution !== undefined &&
-                        entry.attribution.contributor.equals(contributor)
-                )
+                .filter((entry) => entry.attribution?.equals(attribution) === true)
                 .map((entry) => entry.id)
         );
     }
 
-    /**
-     * Retires the withdrawing Facet's entries inside the caller's control transaction and
-     * reports whether any record changed.
-     */
-    public retireWithdrawalSet(transaction: Transaction, contributor: FacetRef): boolean {
-        const set = this.withdrawalSet(transaction, contributor);
+    /** Retires one release's catalog entries inside the caller's control transaction. */
+    public retireWithdrawalSet(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): boolean {
+        const set = this.withdrawalSet(transaction, attribution);
         if (set.entries.length === 0) return false;
         for (const id of set.entries) this.retireEntry(transaction, id);
         return true;
     }
 
-    public withdraw(contributor: FacetRef): Revision {
+    public withdraw(attribution: ContributionAttribution): Revision {
         return this.transaction((transaction) => {
-            if (!this.retireWithdrawalSet(transaction, contributor)) {
+            if (!this.retireWithdrawalSet(transaction, attribution)) {
                 return this.loadRevision(transaction);
             }
             const revision = this.loadRevision(transaction).next();

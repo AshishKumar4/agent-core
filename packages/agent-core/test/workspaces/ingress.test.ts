@@ -34,7 +34,7 @@ import {
 import { WorkspaceIngressEndpointMaterializer } from "../../src/workspaces/ingress-endpoint-materializer";
 import { authenticatedInstallationFixture, tenant } from "./fixtures";
 import { malformed } from "../helpers/malformed";
-import { attribution } from "../w3/slot-store-contract";
+import { attribution, pin } from "../w3/slot-store-contract";
 
 const otherTenant = new TenantId("tenant-other");
 const ownScope = ScopeRef.workspace(tenant, new IdentityWorkspaceId("workspace-scope"));
@@ -244,7 +244,10 @@ describe("ingress endpoint store", () => {
         );
         expect(h.store.currentIngressEndpoint(h.storage, laundered.id)).toBeUndefined();
         expect(
-            h.store.listContributedIngressEndpoints(h.storage, new FacetRef("workspace:laundered"))
+            h.store.listContributedIngressEndpoints(
+                h.storage,
+                attribution("workspace:laundered")
+            )
         ).toEqual([]);
     });
 
@@ -339,9 +342,12 @@ describe("ingress endpoint store", () => {
         expect(contributed.revision.value).toBe(0);
         expect(contributed.contribution?.contributor.equals(installation.facet)).toBe(true);
         expect(contributed.contribution?.package.equals(installation.package)).toBe(true);
-        expect(h.store.listContributedIngressEndpoints(h.storage, installation.facet)).toEqual([
-            contributed
-        ]);
+        expect(
+            h.store.listContributedIngressEndpoints(
+                h.storage,
+                new ContributionAttribution(installation.facet, installation.package)
+            )
+        ).toEqual([contributed]);
     });
 
     test("refuses replayed, re-bound, and drifted provenance", () => {
@@ -399,18 +405,28 @@ describe("ingress endpoint store", () => {
         );
     });
 
-    test("withdrawal retires exactly the contributor's live endpoints", () => {
+    test("withdrawal retires exactly one attributed release's live endpoints", () => {
         const h = harness();
         const withdrawnFacet = "workspace:withdrawn";
+        const withdrawnInstallation = authenticatedInstallationFixture(withdrawnFacet);
+        const otherRelease = authenticatedInstallationFixture(
+            withdrawnFacet,
+            pin("9.9.9")
+        );
         const contributedA = prepareAndMaterialize(
             h,
-            authenticatedInstallationFixture(withdrawnFacet),
+            withdrawnInstallation,
             materializationInit(endpointFixture("withdraw-a"))
         );
         const contributedA2 = prepareAndMaterialize(
             h,
-            authenticatedInstallationFixture(withdrawnFacet),
+            withdrawnInstallation,
             materializationInit(endpointFixture("withdraw-a2"))
+        );
+        const sameFacetOtherRelease = prepareAndMaterialize(
+            h,
+            otherRelease,
+            materializationInit(endpointFixture("other-release"))
         );
         const keptByOtherFacet = prepareAndMaterialize(
             h,
@@ -419,10 +435,14 @@ describe("ingress endpoint store", () => {
         );
         const direct = endpointFixture("still-direct");
         h.store.createIngressEndpoint(h.storage, direct);
+        const withdrawnAttribution = new ContributionAttribution(
+            withdrawnInstallation.facet,
+            withdrawnInstallation.package
+        );
 
         const selected = h.store.listContributedIngressEndpoints(
             h.storage,
-            new FacetRef(withdrawnFacet)
+            withdrawnAttribution
         );
         expect(selected.map((endpoint) => endpoint.id.value)).toEqual([
             "ingress-withdraw-a",
@@ -432,12 +452,17 @@ describe("ingress endpoint store", () => {
 
         expect(h.store.currentIngressEndpoint(h.storage, contributedA.id)?.retired).toBe(true);
         expect(h.store.currentIngressEndpoint(h.storage, contributedA2.id)?.retired).toBe(true);
+        expect(
+            h.store.currentIngressEndpoint(h.storage, sameFacetOtherRelease.id)?.retired
+        ).toBeUndefined();
         expect(h.store.currentIngressEndpoint(h.storage, keptByOtherFacet.id)?.retired).toBeUndefined();
         expect(h.store.currentIngressEndpoint(h.storage, direct.id)?.retired).toBeUndefined();
-        expect(h.store.listContributedIngressEndpoints(h.storage, new FacetRef(withdrawnFacet))).toEqual([]);
+        expect(
+            h.store.listContributedIngressEndpoints(h.storage, withdrawnAttribution)
+        ).toEqual([]);
         expect(
             h.store.listIngressEndpoints(h.storage).map((endpoint) => endpoint.id.value)
-        ).toEqual(["ingress-kept", "ingress-still-direct"]);
+        ).toEqual(["ingress-kept", "ingress-other-release", "ingress-still-direct"]);
 
         // A retired endpoint is terminal: no further retirement and no re-creation.
         expect(() => h.store.retireIngressEndpoint(h.storage, contributedA.id)).toThrow(
@@ -470,6 +495,11 @@ describe("ingress endpoint store", () => {
         h.store.retireIngressEndpoint(h.storage, contributed.id);
         h.restart();
         expect(h.store.currentIngressEndpoint(h.storage, contributed.id)?.retired).toBe(true);
-        expect(h.store.listContributedIngressEndpoints(h.storage, installation.facet)).toEqual([]);
+        expect(
+            h.store.listContributedIngressEndpoints(
+                h.storage,
+                new ContributionAttribution(installation.facet, installation.package)
+            )
+        ).toEqual([]);
     });
 });

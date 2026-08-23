@@ -1,6 +1,6 @@
 import { compareCanonicalText, Revision } from "../core";
 import { consumeAuthenticatedContribution, type AuthenticatedContribution } from "../definition";
-import type { FacetRef } from "../facets";
+import type { ContributionAttribution } from "../facets";
 import { AgentCoreError } from "../errors";
 import type { TenantId } from "../identity";
 import {
@@ -154,16 +154,16 @@ export class WorkspaceIngressEndpointStore<Transaction> {
     }
 
     /**
-     * SPEC §4.1 (C13-FACET-WITHDRAWAL-EXACT): the live endpoints a Facet's `ingress`
-     * contribution materialized, found by querying attribution.
+     * SPEC §4.1 (C13-FACET-WITHDRAWAL-EXACT): the live endpoints one exact
+     * contribution materialized, found by matching its complete immutable attribution.
      */
     public listContributedIngressEndpoints(
         transaction: Transaction,
-        contributor: FacetRef
+        attribution: ContributionAttribution
     ): readonly IngressEndpoint[] {
         return Object.freeze(
             this.listIngressEndpoints(transaction).filter(
-                (endpoint) => endpoint.contribution?.contributor.equals(contributor) === true
+                (endpoint) => endpoint.contribution?.equals(attribution) === true
             )
         );
     }

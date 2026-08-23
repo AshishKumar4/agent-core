@@ -2,12 +2,13 @@ import { describe, expect, test } from "vitest";
 import { Revision } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import { WorkspaceId } from "../../src/identity";
-import { FacetRef, SettingsLayer } from "../../src/facets";
+import { SettingsLayer } from "../../src/facets";
 import { MemoryWorkspaceSettingsStore } from "../../src/facets/settings-memory";
 import {
     layer,
     workspaceSettingsStoreContract
 } from "../w3/settings-store-contract";
+import { attribution } from "../w3/slot-store-contract";
 
 workspaceSettingsStoreContract(
     "Memory",
@@ -110,10 +111,7 @@ describe("MemoryWorkspaceSettingsStore", () => {
             const before = store.revision().value;
 
             const retired = store.transaction((transaction) => {
-                const changed = store.retireWithdrawalSet(
-                    transaction,
-                    new FacetRef("workspace:mine")
-                );
+                const changed = store.retireWithdrawalSet(transaction, attribution("workspace:mine"));
                 store.saveRevision(transaction, store.loadRevision(transaction).next());
                 return changed;
             });

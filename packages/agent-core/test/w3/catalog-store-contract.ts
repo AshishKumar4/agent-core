@@ -5,10 +5,10 @@ import { WorkspaceId } from "../../src/identity";
 import {
     CatalogEntry,
     CatalogOrigin,
-    FacetRef,
     OperationDescriptor,
     OperationName,
-    type CatalogKind
+    type CatalogKind,
+    type ContributionAttribution
 } from "../../src/facets";
 import type { CatalogDeclarationInit } from "../../src/facets/catalog-entry-store";
 import { attribution } from "./slot-store-contract";
@@ -33,10 +33,10 @@ export interface CatalogStoreContract<Transaction> {
     contribute(entry: CatalogEntry): Revision;
     withdrawalSet(
         transaction: Transaction,
-        contributor: FacetRef
-    ): { readonly contributor: FacetRef; readonly entries: readonly CatalogEntry["id"][] };
-    retireWithdrawalSet(transaction: Transaction, contributor: FacetRef): boolean;
-    withdraw(contributor: FacetRef): Revision;
+        attribution: ContributionAttribution
+    ): { readonly attribution: ContributionAttribution; readonly entries: readonly CatalogEntry["id"][] };
+    retireWithdrawalSet(transaction: Transaction, attribution: ContributionAttribution): boolean;
+    withdraw(attribution: ContributionAttribution): Revision;
 }
 
 export function workspaceCatalogStoreContract<Transaction>(
@@ -110,7 +110,7 @@ export function workspaceCatalogStoreContract<Transaction>(
                 expect(
                     store
                         .transaction((transaction) =>
-                            store.withdrawalSet(transaction, new FacetRef("workspace:facet"))
+                            store.withdrawalSet(transaction, attribution("workspace:facet"))
                         )
                         .entries.map((held) => held.value)
                 ).toEqual([candidate.id.value]);
@@ -139,7 +139,7 @@ export function workspaceCatalogStoreContract<Transaction>(
                 expect(
                     store
                         .transaction((transaction) =>
-                            store.withdrawalSet(transaction, new FacetRef("workspace:facet"))
+                            store.withdrawalSet(transaction, attribution("workspace:facet"))
                         )
                         .entries
                 ).toHaveLength(1);
@@ -277,15 +277,15 @@ export function workspaceCatalogStoreContract<Transaction>(
                 const theirBytes = CatalogEntry.encode(theirs);
 
                 const set = store.transaction((transaction) =>
-                    store.withdrawalSet(transaction, new FacetRef("workspace:mine"))
+                    store.withdrawalSet(transaction, attribution("workspace:mine"))
                 );
-                expect(set.contributor.value).toBe("workspace:mine");
+                expect(set.attribution.equals(attribution("workspace:mine"))).toBe(true);
                 expect(set.entries.map((held) => held.value)).toEqual(
                     [mine.id.value, alsoMine.id.value].sort()
                 );
                 expect(Object.isFrozen(set.entries)).toBe(true);
 
-                store.withdraw(new FacetRef("workspace:mine"));
+                store.withdraw(attribution("workspace:mine"));
 
                 expect(store.entry(mine.id)).toBeUndefined();
                 expect(store.entry(alsoMine.id)).toBeUndefined();
@@ -300,6 +300,26 @@ export function workspaceCatalogStoreContract<Transaction>(
         );
 
         test(
+            "[C13-FACET-WITHDRAWAL-EXACT] preserves another PackagePin of the same Facet",
+            { tags: "p0" },
+            () => {
+                const store = create(new WorkspaceId("workspace"));
+                const releaseA = attributed("workspace:facet", "1.0.0", "resize");
+                const releaseB = attributed("workspace:facet", "2.0.0", "rotate");
+                store.contribute(releaseA);
+                store.contribute(releaseB);
+                const releaseBBytes = CatalogEntry.encode(releaseB);
+
+                store.withdraw(releaseA.attribution!);
+
+                expect(store.entry(releaseA.id)).toBeUndefined();
+                const retained = store.entry(releaseB.id);
+                expect(retained).toBeDefined();
+                expect([...CatalogEntry.encode(retained!)]).toEqual([...releaseBBytes]);
+            }
+        );
+
+        test(
             "[C13-FACET-WITHDRAWAL-EXACT] leaves a Facet that contributed nothing unchanged",
             { tags: "p1" },
             () => {
@@ -307,10 +327,10 @@ export function workspaceCatalogStoreContract<Transaction>(
                 store.contribute(attributed("workspace:facet", "1.0.0", "resize"));
                 const before = store.revision().value;
 
-                expect(store.withdraw(new FacetRef("workspace:absent")).value).toBe(before);
+                expect(store.withdraw(attribution("workspace:absent")).value).toBe(before);
                 expect(
                     store.transaction((transaction) =>
-                        store.retireWithdrawalSet(transaction, new FacetRef("workspace:absent"))
+                        store.retireWithdrawalSet(transaction, attribution("workspace:absent"))
                     )
                 ).toBe(false);
                 expect(store.entries()).toHaveLength(1);

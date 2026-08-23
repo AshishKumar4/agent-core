@@ -5,13 +5,13 @@ import { afterEach, describe, expect, test } from "vitest";
 import { WorkspaceId } from "../../src/identity";
 import { CatalogEntry } from "../../src/facets/catalog-entry";
 import { SqliteWorkspaceCatalogStore } from "../../src/substrates/sqlite/catalog-entry";
-import { FacetRef } from "../../src/facets/id";
 import { FileSqlite, TestSqlite } from "../helpers/sqlite";
 import {
     attributed,
     directDeclaration,
     workspaceCatalogStoreContract
 } from "../w3/catalog-store-contract";
+import { attribution } from "../w3/slot-store-contract";
 
 workspaceCatalogStoreContract(
     "SQLite",
@@ -64,7 +64,7 @@ describe("SqliteWorkspaceCatalogStore persistence", () => {
             expect([...reopened.entries()].map(CatalogEntry.encode)).toEqual(before);
             // The reopened store keeps the exact attribution, so its withdrawal query is
             // still the one §4.1 computes.
-            expect(reopened.withdraw(new FacetRef("workspace:facet")).value).toBe(revision + 1);
+            expect(reopened.withdraw(attribution("workspace:facet")).value).toBe(revision + 1);
             expect(
                 reopened.entries().every((entry) => entry.attribution === undefined)
             ).toBe(true);

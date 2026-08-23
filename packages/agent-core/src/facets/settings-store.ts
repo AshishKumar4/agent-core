@@ -2,22 +2,22 @@ import type { SynchronousResultGuard, TransactionOperation } from "../actors";
 import { JsonSchema, Revision } from "../core";
 import { AgentCoreError } from "../errors";
 import type { WorkspaceId } from "../identity";
+import type { ContributionAttribution } from "./attribution";
 import { compareText, type FacetData } from "./data";
-import type { FacetRef, SettingsLayerId } from "./id";
+import type { SettingsLayerId } from "./id";
 import { equalBytes } from "./record-map";
 import { SettingsLayer, SettingsLayerOrigin } from "./settings";
 
 /**
- * The layers one Workspace Actor retires for a withdrawing Facet (SPEC §4.1: the
- * withdrawal set is a query over attribution). It is produced by querying attribution and
- * never by running an inverse the Facet supplied, so it names exactly the withdrawing
- * Facet's own layers and a layer it does not name is unchanged by the withdrawal.
+ * The settings layers one Workspace Actor retires for one withdrawing contribution
+ * (SPEC §4.1). The set matches the complete immutable FacetRef and PackagePin pair, so
+ * another release of the same Facet remains live.
  */
 export class SettingsWithdrawalSet {
     public readonly layers: readonly SettingsLayerId[];
 
     public constructor(
-        public readonly contributor: FacetRef,
+        public readonly attribution: ContributionAttribution,
         layers: readonly SettingsLayerId[]
     ) {
         this.layers = Object.freeze([...layers]);
@@ -94,34 +94,36 @@ export abstract class WorkspaceSettingsStore<Transaction> {
     }
 
     /**
-     * Computes the withdrawal set by querying attribution. Decoding every stored layer is
-     * the query: a layer whose attribution the store cannot read makes the set
-     * incomputable, and the caller refuses the withdrawal rather than performing a partial
-     * one.
+     * Computes the withdrawal set from the complete immutable attribution. Decoding every
+     * stored layer is the query: unreadable attribution makes the set incomputable, so the
+     * caller refuses rather than withdrawing a partial result.
      */
-    public withdrawalSet(transaction: Transaction, contributor: FacetRef): SettingsWithdrawalSet {
+    public withdrawalSet(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): SettingsWithdrawalSet {
         return new SettingsWithdrawalSet(
-            contributor,
+            attribution,
             this.listLayers(transaction)
-                .filter((layer) => layer.attribution.contributor.equals(contributor))
+                .filter((layer) => layer.attribution.equals(attribution))
                 .map((layer) => layer.id)
         );
     }
 
-    /**
-     * Retires the withdrawing Facet's layers inside the caller's control transaction and
-     * reports whether any record changed.
-     */
-    public retireWithdrawalSet(transaction: Transaction, contributor: FacetRef): boolean {
-        const set = this.withdrawalSet(transaction, contributor);
+    /** Retires one release's settings layers inside the caller's control transaction. */
+    public retireWithdrawalSet(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): boolean {
+        const set = this.withdrawalSet(transaction, attribution);
         if (set.layers.length === 0) return false;
         for (const id of set.layers) this.retireLayer(transaction, id);
         return true;
     }
 
-    public withdraw(contributor: FacetRef): Revision {
+    public withdraw(attribution: ContributionAttribution): Revision {
         return this.transaction((transaction) => {
-            if (!this.retireWithdrawalSet(transaction, contributor)) {
+            if (!this.retireWithdrawalSet(transaction, attribution)) {
                 return this.loadRevision(transaction);
             }
             const revision = this.loadRevision(transaction).next();

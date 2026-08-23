@@ -1,7 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { WorkspaceId } from "../../src/identity";
 import { CatalogEntry } from "../../src/facets/catalog-entry";
-import { FacetRef } from "../../src/facets/id";
 import {
     MemoryWorkspaceCatalogStore,
     type MemoryWorkspaceCatalogSnapshot
@@ -12,6 +11,7 @@ import {
     withHelp,
     workspaceCatalogStoreContract
 } from "../w3/catalog-store-contract";
+import { attribution } from "../w3/slot-store-contract";
 import { malformed } from "../helpers/malformed";
 
 workspaceCatalogStoreContract("Memory", (owner) => new MemoryWorkspaceCatalogStore(owner));
@@ -84,10 +84,19 @@ describe("MemoryWorkspaceCatalogStore", () => {
                 .flatMap((entry) => entry.attribution!.package.version.toString())
                 .sort()
         ).toEqual(["1.0.0", "2.0.0"]);
-        // A restarted store keeps the withdrawal discipline of the original one.
+        // A restarted store withdraws only the exact release. The later release of the
+        // same Facet and the direct declaration remain live.
         const before = restored.revision().value;
-        expect(restored.withdraw(new FacetRef("workspace:facet")).value).toBe(before + 1);
-        expect(restored.entries().every((entry) => entry.attribution === undefined)).toBe(true);
+        expect(restored.withdraw(attribution("workspace:facet")).value).toBe(before + 1);
+        expect(
+            restored
+                .entries()
+                .map(
+                    (entry) =>
+                        `${entry.name}:${entry.attribution?.package.version.toString() ?? "direct"}`
+                )
+                .sort()
+        ).toEqual(["crop:2.0.0", "run:direct"]);
     });
 
     test("refuses a malformed or foreign snapshot", () => {

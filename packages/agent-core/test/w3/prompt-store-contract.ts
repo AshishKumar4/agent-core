@@ -33,9 +33,9 @@ export interface PromptStoreContract<Transaction> {
     assembledSections(): readonly PromptSection[];
     sectionsOf(contributor: FacetRef): readonly PromptSection[];
     contribute(attribution: ContributionAttribution, declaration: readonly Prompt[]): Revision;
-    withdrawalSet(transaction: Transaction, contributor: FacetRef): PromptWithdrawalSet;
-    retireWithdrawalSet(transaction: Transaction, contributor: FacetRef): boolean;
-    withdraw(contributor: FacetRef): Revision;
+    withdrawalSet(transaction: Transaction, attribution: ContributionAttribution): PromptWithdrawalSet;
+    retireWithdrawalSet(transaction: Transaction, attribution: ContributionAttribution): boolean;
+    withdraw(attribution: ContributionAttribution): Revision;
 }
 
 export function section(
@@ -109,8 +109,9 @@ export function workspacePromptStoreContract<Transaction>(
             { tags: "p0" },
             () => {
                 const store = create(new WorkspaceId("workspace"));
-                const contributor = new FacetRef("workspace:facet");
-                store.contribute(attribution("workspace:facet"), [
+                const release = attribution("workspace:facet");
+                const contributor = release.contributor;
+                store.contribute(release, [
                     new Prompt("One", "One body", 1),
                     new Prompt("Two", "Two body", 2),
                     new Prompt("Three", "Three body", 3)
@@ -119,7 +120,7 @@ export function workspacePromptStoreContract<Transaction>(
 
                 // A shorter replacement retires the tail the predecessor left behind.
                 expect(
-                    store.contribute(attribution("workspace:facet"), [
+                    store.contribute(release, [
                         new Prompt("One", "rewritten", 1)
                     ]).value
                 ).toBe(revision + 1);
@@ -132,7 +133,7 @@ export function workspacePromptStoreContract<Transaction>(
                 // predecessors must not survive in it as extra records to retire.
                 expect(
                     store.transaction((transaction) =>
-                        store.withdrawalSet(transaction, contributor)
+                        store.withdrawalSet(transaction, release)
                     ).sections
                 ).toHaveLength(1);
             }
@@ -238,13 +239,13 @@ export function workspacePromptStoreContract<Transaction>(
 
                 // The set is computed by querying attribution inside one control read.
                 const set = store.transaction((transaction) =>
-                    store.withdrawalSet(transaction, new FacetRef("workspace:mine"))
+                    store.withdrawalSet(transaction, attribution("workspace:mine"))
                 );
-                expect(set.contributor.value).toBe("workspace:mine");
+                expect(set.attribution.equals(attribution("workspace:mine"))).toBe(true);
                 expect(set.sections).toHaveLength(2);
 
                 const revisionBefore = store.revision().value;
-                expect(store.withdraw(new FacetRef("workspace:mine")).value).toBe(
+                expect(store.withdraw(attribution("workspace:mine")).value).toBe(
                     revisionBefore + 1
                 );
 
@@ -257,9 +258,27 @@ export function workspacePromptStoreContract<Transaction>(
 
                 // A withdrawal whose set holds nothing changes nothing.
                 const revision = store.revision().value;
-                expect(store.withdraw(new FacetRef("workspace:absent")).value).toBe(revision);
+                expect(store.withdraw(attribution("workspace:absent")).value).toBe(revision);
                 expect(store.assembledSections()).toHaveLength(2);
             }
         );
+        test(
+            "[C13-FACET-WITHDRAWAL-EXACT] a wrong PackagePin cannot retire the same Facet",
+            { tags: "p0" },
+            () => {
+                const store = create(new WorkspaceId("workspace"));
+                const releaseA = attribution("workspace:mine", "1.0.0");
+                const releaseB = attribution("workspace:mine", "2.0.0");
+                store.contribute(releaseA, [new Prompt("Mine", "body", 1)]);
+                const before = store.revision().value;
+                const bytes = store.assembledSections().map(PromptSection.encode);
+
+                expect(store.withdraw(releaseB).value).toBe(before);
+                expect(store.assembledSections().map(PromptSection.encode)).toEqual(bytes);
+                expect(store.withdraw(releaseA).value).toBe(before + 1);
+                expect(store.assembledSections()).toEqual([]);
+            }
+        );
+
     });
 }

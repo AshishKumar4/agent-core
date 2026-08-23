@@ -1,11 +1,11 @@
 import { describe, expect, test } from "vitest";
 import type { SynchronousResultGuard, TransactionOperation } from "../../src/actors";
 import { JsonSchema, Revision, encodeCanonicalJson } from "../../src/core";
-import type { FacetData } from "../../src/facets";
 import {
-    FacetRef,
+    ContributionAttribution,
     SettingsLayer,
     SettingsLayerOrigin,
+    type FacetData,
     type SettingsWithdrawalSet
 } from "../../src/facets";
 import { WorkspaceId } from "../../src/identity";
@@ -39,9 +39,9 @@ export interface SettingsStoreContract<Transaction> {
     revision(): Revision;
     layers(): readonly SettingsLayer[];
     contribute(layer: SettingsLayer): Revision;
-    withdrawalSet(transaction: Transaction, contributor: FacetRef): SettingsWithdrawalSet;
-    retireWithdrawalSet(transaction: Transaction, contributor: FacetRef): boolean;
-    withdraw(contributor: FacetRef): Revision;
+    withdrawalSet(transaction: Transaction, attribution: ContributionAttribution): SettingsWithdrawalSet;
+    retireWithdrawalSet(transaction: Transaction, attribution: ContributionAttribution): boolean;
+    withdraw(attribution: ContributionAttribution): Revision;
     composedSchema(base: JsonSchema): JsonSchema;
 }
 
@@ -159,7 +159,7 @@ export function workspaceSettingsStoreContract<Transaction>(
                 expect(
                     store
                         .transaction((transaction) =>
-                            store.withdrawalSet(transaction, new FacetRef("workspace:facet"))
+                            store.withdrawalSet(transaction, attribution("workspace:facet"))
                         )
                         .layers.map((held) => held.value)
                 ).toEqual([candidate.id.value]);
@@ -184,7 +184,7 @@ export function workspaceSettingsStoreContract<Transaction>(
                 expect(
                     store
                         .transaction((transaction) =>
-                            store.withdrawalSet(transaction, new FacetRef("workspace:facet"))
+                            store.withdrawalSet(transaction, attribution("workspace:facet"))
                         )
                         .layers
                 ).toHaveLength(1);
@@ -262,19 +262,38 @@ export function workspaceSettingsStoreContract<Transaction>(
                 const theirBytes = SettingsLayer.encode(theirs);
 
                 const set = store.transaction((transaction) =>
-                    store.withdrawalSet(transaction, new FacetRef("workspace:mine"))
+                    store.withdrawalSet(transaction, attribution("workspace:mine"))
                 );
-                expect(set.contributor.value).toBe("workspace:mine");
+                expect(set.attribution.equals(attribution("workspace:mine"))).toBe(true);
                 expect(set.layers.map((held) => held.value)).toEqual([
                     first.id.value,
                     second.id.value
                 ]);
                 expect(Object.isFrozen(set.layers)).toBe(true);
 
-                store.withdraw(new FacetRef("workspace:mine"));
+                store.withdraw(attribution("workspace:mine"));
 
                 expect(store.layers().map((held) => held.id.value)).toEqual([theirs.id.value]);
                 expect([...SettingsLayer.encode(store.layers()[0]!)]).toEqual([...theirBytes]);
+            }
+        );
+
+        test(
+            "[C13-FACET-WITHDRAWAL-EXACT] preserves another PackagePin of the same Facet",
+            { tags: "p0" },
+            () => {
+                const store = create(new WorkspaceId("workspace"));
+                const releaseA = layer("workspace:mine", 0, LOGGING_FRAGMENT, "1.0.0");
+                const releaseB = layer("workspace:mine", 1, UI_FRAGMENT, "2.0.0");
+                store.contribute(releaseA);
+                store.contribute(releaseB);
+                const releaseBBytes = SettingsLayer.encode(releaseB);
+
+                store.withdraw(releaseA.attribution);
+
+                const retained = store.layers();
+                expect(retained).toHaveLength(1);
+                expect([...SettingsLayer.encode(retained[0]!)]).toEqual([...releaseBBytes]);
             }
         );
 
@@ -286,10 +305,10 @@ export function workspaceSettingsStoreContract<Transaction>(
                 store.contribute(layer("workspace:facet", 0));
                 const before = store.revision().value;
 
-                expect(store.withdraw(new FacetRef("workspace:absent")).value).toBe(before);
+                expect(store.withdraw(attribution("workspace:absent")).value).toBe(before);
                 expect(
                     store.transaction((transaction) =>
-                        store.retireWithdrawalSet(transaction, new FacetRef("workspace:absent"))
+                        store.retireWithdrawalSet(transaction, attribution("workspace:absent"))
                     )
                 ).toBe(false);
                 expect(store.layers()).toHaveLength(1);
@@ -345,7 +364,7 @@ export function workspaceSettingsStoreContract<Transaction>(
                     requiredGroups(store.composedSchema(BASE_CONFIG_SCHEMA).document)
                 ).toEqual(["workspace:alpha", "workspace:zulu"]);
 
-                expect(store.withdraw(new FacetRef("workspace:alpha")).value).toBe(before + 1);
+                expect(store.withdraw(attribution("workspace:alpha")).value).toBe(before + 1);
 
                 // The view is derived on read: the withdrawn Facet's group is gone from the
                 // very next call, and nothing but the retired records changed.
@@ -421,7 +440,7 @@ export function workspaceSettingsStoreContract<Transaction>(
 
                 // A withdrawal recorded before the restart stays retired: the surviving
                 // bytes alone produce a view without the withdrawn Facet.
-                expect(restarted.withdraw(new FacetRef("workspace:zulu")).value).toBe(2);
+                expect(restarted.withdraw(attribution("workspace:zulu")).value).toBe(2);
                 expect(
                     requiredGroups(restarted.composedSchema(BASE_CONFIG_SCHEMA).document)
                 ).toEqual(["workspace:alpha"]);
