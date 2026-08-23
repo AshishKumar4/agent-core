@@ -8,6 +8,7 @@ import {
     FacetRef,
     PackageInstallationRef
 } from "../../src/facets";
+import { AuditRecordId } from "../../src/interaction-references";
 import {
     Event,
     EventId,
@@ -17,6 +18,7 @@ import {
     RouteReservationId,
     View,
     WorkspacePersistence,
+    WorkspaceRoutingWithdrawal,
     WorkspaceSubscriptionMaterializer,
     type EventInit,
     type Subscription
@@ -36,6 +38,7 @@ import {
     reservationFixture,
     reservationRetention,
     retentionFixture,
+    materializeAttributedSubscription,
     sourceActor,
     subscriptionFixture,
     subscriptionMaterializationInit,
@@ -273,7 +276,7 @@ export function workspacePersistenceContract<Transaction>(
                         expect(
                             harness.persistence.listContributedSubscriptions(
                                 transaction,
-                                new FacetRef("workspace:laundered")
+                                contribution
                             )
                         ).toEqual([]);
                     });
@@ -400,6 +403,93 @@ export function workspacePersistenceContract<Transaction>(
                         );
                         expect(reopened?.revision.value).toBe(1);
                         expect(reopened?.contribution?.equals(contribution)).toBe(true);
+                    });
+                } finally {
+                    harness.dispose();
+                }
+            }
+        );
+
+        test(
+            "[C13-SUBSCRIPTION-ATTRIBUTION-FIXED] [C13-FACET-WITHDRAWAL-EXACT] selects the exact release across codec restart and replay",
+            { tags: "p0" },
+            () => {
+                const harness = create();
+                try {
+                    const releaseA = attribution("workspace:dual-release", "1.0.0");
+                    const releaseB = attribution("workspace:dual-release", "2.0.0");
+                    const wrongRelease = attribution("workspace:dual-release", "9.9.9");
+                    const routing = new WorkspaceRoutingWithdrawal(harness.persistence, {
+                        deliveryAudit: () => new AuditRecordId(`${name}-unused-withdrawal-audit`)
+                    });
+                    const [subscriptionA, subscriptionB, direct] = harness.transaction(
+                        (transaction) => {
+                            const first = materializeAttributedSubscription(
+                                harness.persistence,
+                                transaction,
+                                releaseA,
+                                subscriptionFixture(`${name}-release-a`)
+                            );
+                            const second = materializeAttributedSubscription(
+                                harness.persistence,
+                                transaction,
+                                releaseB,
+                                subscriptionFixture(`${name}-release-b`)
+                            );
+                            const callerCreated = subscriptionFixture(`${name}-direct-release`);
+                            harness.persistence.saveSubscription(
+                                transaction,
+                                callerCreated,
+                                undefined
+                            );
+                            return [first, second, callerCreated] as const;
+                        }
+                    );
+
+                    harness.restart();
+                    harness.transaction((transaction) => {
+                        expect(
+                            harness.persistence
+                                .listContributedSubscriptions(transaction, releaseA)
+                                .map((subscription) => subscription.id.value)
+                        ).toEqual([subscriptionA.id.value]);
+                        expect(
+                            harness.persistence
+                                .listContributedSubscriptions(transaction, releaseB)
+                                .map((subscription) => subscription.id.value)
+                        ).toEqual([subscriptionB.id.value]);
+                        expect(routing.retire(transaction, wrongRelease)).toEqual({
+                            subscriptions: [],
+                            rejected: []
+                        });
+                        expect(routing.retire(transaction, releaseA).subscriptions).toEqual([
+                            subscriptionA.id
+                        ]);
+                    });
+
+                    harness.restart();
+                    harness.transaction((transaction) => {
+                        expect(
+                            harness.persistence.currentSubscription(transaction, subscriptionA.id)
+                                ?.retired
+                        ).toBe(true);
+                        expect(
+                            harness.persistence.currentSubscription(transaction, subscriptionB.id)
+                                ?.retired
+                        ).toBeUndefined();
+                        expect(
+                            harness.persistence.currentSubscription(transaction, direct.id)
+                                ?.retired
+                        ).toBeUndefined();
+                        expect(
+                            harness.persistence
+                                .listContributedSubscriptions(transaction, releaseB)
+                                .map((subscription) => subscription.id.value)
+                        ).toEqual([subscriptionB.id.value]);
+                        expect(routing.retire(transaction, releaseA)).toEqual({
+                            subscriptions: [],
+                            rejected: []
+                        });
                     });
                 } finally {
                     harness.dispose();

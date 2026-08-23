@@ -6,20 +6,22 @@ import type { ContributionAttribution } from "./attribution";
 import { equalBytes } from "./record-map";
 import { InstalledSlot } from "./slot";
 import { SlotEntry, type SlotContributionOrigin } from "./slot-entry";
-import type { FacetRef, SlotEntryId, SlotName } from "./id";
+import type { SlotEntryId, SlotName } from "./id";
 
 /**
- * The records one Workspace Slot Actor retires for a withdrawing Facet (SPEC §4.1,
- * C13-FACET-WITHDRAWAL-EXACT). It is produced by querying attribution and never by
- * running an inverse the Facet supplied, so it names exactly the withdrawing Facet's own
- * records and a record it does not name is unchanged by the withdrawal.
+ * The records one Workspace Slot Actor retires for one withdrawing contribution (SPEC
+ * §4.1, C13-FACET-WITHDRAWAL-EXACT). It is produced by querying the whole attribution —
+ * the exact FacetRef and PackagePin pair — and never by running an inverse the Facet
+ * supplied, so it names exactly that release's own records and a record it does not name
+ * is unchanged by the withdrawal. Another release of the same Facet is a different
+ * contribution with a different set.
  */
 export class SlotWithdrawalSet {
     public readonly slots: readonly SlotName[];
     public readonly entries: readonly SlotEntryId[];
 
     public constructor(
-        public readonly contributor: FacetRef,
+        public readonly attribution: ContributionAttribution,
         slots: readonly SlotName[],
         entries: readonly SlotEntryId[]
     ) {
@@ -129,14 +131,17 @@ export abstract class WorkspaceSlotStore<Transaction> {
      * incomputable, and the caller refuses the withdrawal rather than performing a partial
      * one.
      */
-    public withdrawalSet(transaction: Transaction, contributor: FacetRef): SlotWithdrawalSet {
+    public withdrawalSet(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): SlotWithdrawalSet {
         const slots = this.listSlots(transaction)
-            .filter((installed) => installed.attribution.contributor.equals(contributor))
+            .filter((installed) => installed.attribution.equals(attribution))
             .map((installed) => installed.declaration.name);
         const entries = this.listAllEntries(transaction)
-            .filter((entry) => entry.attribution.contributor.equals(contributor))
+            .filter((entry) => entry.attribution.equals(attribution))
             .map((entry) => entry.id);
-        return new SlotWithdrawalSet(contributor, slots, entries);
+        return new SlotWithdrawalSet(attribution, slots, entries);
     }
 
     /**
@@ -158,11 +163,14 @@ export abstract class WorkspaceSlotStore<Transaction> {
     }
 
     /**
-     * Retires the withdrawing Facet's records inside the caller's control transaction and
+     * Retires the named contribution's records inside the caller's control transaction and
      * reports whether any record changed.
      */
-    public retireWithdrawalSet(transaction: Transaction, contributor: FacetRef): boolean {
-        const set = this.withdrawalSet(transaction, contributor);
+    public retireWithdrawalSet(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): boolean {
+        const set = this.withdrawalSet(transaction, attribution);
         this.requireWithdrawable(transaction, set);
         if (set.slots.length === 0 && set.entries.length === 0) return false;
         for (const id of set.entries) this.retireEntry(transaction, id);
@@ -170,9 +178,9 @@ export abstract class WorkspaceSlotStore<Transaction> {
         return true;
     }
 
-    public withdraw(contributor: FacetRef): Revision {
+    public withdraw(attribution: ContributionAttribution): Revision {
         return this.transaction((transaction) => {
-            if (!this.retireWithdrawalSet(transaction, contributor)) {
+            if (!this.retireWithdrawalSet(transaction, attribution)) {
                 return this.loadRevision(transaction);
             }
             const revision = this.loadRevision(transaction).next();

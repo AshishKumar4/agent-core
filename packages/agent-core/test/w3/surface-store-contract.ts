@@ -3,7 +3,7 @@ import type { SynchronousResultGuard, TransactionOperation } from "../../src/act
 import { Revision } from "../../src/core";
 import { WorkspaceId } from "../../src/identity";
 import {
-    FacetRef,
+    ContributionAttribution,
     SurfaceDescriptor,
     SurfaceId,
     SurfaceRegistration,
@@ -30,9 +30,12 @@ export interface SurfaceStoreContract<Transaction> {
     registration(surface: SurfaceId): SurfaceRegistration | undefined;
     registrations(): readonly SurfaceRegistration[];
     register(registration: SurfaceRegistration): Revision;
-    withdrawalSet(transaction: Transaction, contributor: FacetRef): SurfaceWithdrawalSet;
-    retireWithdrawalSet(transaction: Transaction, contributor: FacetRef): boolean;
-    withdraw(contributor: FacetRef): Revision;
+    withdrawalSet(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): SurfaceWithdrawalSet;
+    retireWithdrawalSet(transaction: Transaction, attribution: ContributionAttribution): boolean;
+    withdraw(attribution: ContributionAttribution): Revision;
 }
 
 export function workspaceSurfaceStoreContract<Transaction>(
@@ -112,7 +115,7 @@ export function workspaceSurfaceStoreContract<Transaction>(
                 expect(
                     store
                         .transaction((transaction) =>
-                            store.withdrawalSet(transaction, new FacetRef("workspace:facet"))
+                            store.withdrawalSet(transaction, attribution("workspace:facet"))
                         )
                         .surfaces.map((held) => held.value)
                 ).toEqual(["dashboard.overview"]);
@@ -139,7 +142,7 @@ export function workspaceSurfaceStoreContract<Transaction>(
                 expect(
                     store
                         .transaction((transaction) =>
-                            store.withdrawalSet(transaction, new FacetRef("workspace:facet"))
+                            store.withdrawalSet(transaction, attribution("workspace:facet"))
                         )
                         .surfaces.map((held) => held.value)
                 ).toEqual(["dashboard.overview"]);
@@ -260,16 +263,16 @@ export function workspaceSurfaceStoreContract<Transaction>(
                 const theirBytes = SurfaceRegistration.encode(theirs);
 
                 const set = store.transaction((transaction) =>
-                    store.withdrawalSet(transaction, new FacetRef("workspace:mine"))
+                    store.withdrawalSet(transaction, attribution("workspace:mine"))
                 );
-                expect(set.contributor.value).toBe("workspace:mine");
+                expect(set.attribution.contributor.value).toBe("workspace:mine");
                 expect(set.surfaces.map((held) => held.value)).toEqual([
                     "dashboard.overview",
                     "dashboard.pinned"
                 ]);
                 expect(Object.isFrozen(set.surfaces)).toBe(true);
 
-                store.withdraw(new FacetRef("workspace:mine"));
+                store.withdraw(attribution("workspace:mine"));
 
                 expect(store.registration(mine.descriptor.id)).toBeUndefined();
                 expect(store.registration(alsoMine.descriptor.id)).toBeUndefined();
@@ -287,13 +290,49 @@ export function workspaceSurfaceStoreContract<Transaction>(
                 store.register(registration("workspace:facet", "dashboard.overview", "Overview"));
                 const before = store.revision().value;
 
-                expect(store.withdraw(new FacetRef("workspace:absent")).value).toBe(before);
+                expect(store.withdraw(attribution("workspace:absent")).value).toBe(before);
                 expect(
                     store.transaction((transaction) =>
-                        store.retireWithdrawalSet(transaction, new FacetRef("workspace:absent"))
+                        store.retireWithdrawalSet(transaction, attribution("workspace:absent"))
                     )
                 ).toBe(false);
                 expect(store.registrations()).toHaveLength(1);
+            }
+        );
+
+        test(
+            "[C13-FACET-WITHDRAWAL-EXACT] withdraws only the named release and replays as a no-op",
+            { tags: "p0" },
+            () => {
+                const store = create(new WorkspaceId("workspace"));
+                const earlier = registration(
+                    "workspace:facet",
+                    "dashboard.overview",
+                    "Overview",
+                    "1.0.0"
+                );
+                const later = registration(
+                    "workspace:facet",
+                    "dashboard.tasks",
+                    "Tasks",
+                    "2.0.0"
+                );
+                store.register(earlier);
+                store.register(later);
+                const laterBytes = SurfaceRegistration.encode(later);
+
+                const retiredRevision = store.withdraw(attribution("workspace:facet", "1.0.0"));
+
+                expect(store.registration(earlier.descriptor.id)).toBeUndefined();
+                const retained = store.registration(later.descriptor.id);
+                expect(retained).toBeDefined();
+                expect([...SurfaceRegistration.encode(retained!)]).toEqual([...laterBytes]);
+                expect(store.withdraw(attribution("workspace:facet", "1.0.0")).value).toBe(
+                    retiredRevision.value
+                );
+                expect(store.withdraw(attribution("workspace:facet", "9.9.9")).value).toBe(
+                    retiredRevision.value
+                );
             }
         );
     });

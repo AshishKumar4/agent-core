@@ -1,5 +1,7 @@
 import { describe, expect, test } from "vitest";
-import { FacetRef } from "../../src/facets";
+import { SemVer } from "../../src/core";
+import { PackagePin } from "../../src/definition-references";
+import { ContributionAttribution } from "../../src/facets";
 import { AuditRecordId } from "../../src/interaction-references";
 import {
     MemoryWorkspaceRecords,
@@ -76,14 +78,14 @@ describe("routing withdrawal sweep", () => {
         { tags: "p0" },
         () => {
             const harness = sweepHarness();
-            const withdrawn = new FacetRef("workspace:withdrawn");
+            const withdrawn = contributionAttributionFixture("workspace:withdrawn");
 
             // swept qualifies; settled is already terminal; prepared drains as an Invocation
             for (const suffix of ["swept", "settled", "prepared"]) {
                 materializeAttributedSubscription(
                     harness.source,
                     harness.records,
-                    contributionAttributionFixture(withdrawn.value),
+                    withdrawn,
                     subscriptionFixture(suffix)
                 );
             }
@@ -158,7 +160,7 @@ describe("routing withdrawal sweep", () => {
                 reservationRetention(reservation)
             );
 
-            const stranger = new FacetRef("workspace:stranger");
+            const stranger = contributionAttributionFixture("workspace:stranger");
             expect(harness.routing.contributed(harness.records, stranger)).toEqual([]);
 
             const result = harness.routing.retire(harness.records, stranger);
@@ -177,11 +179,11 @@ describe("routing withdrawal sweep", () => {
         { tags: "p0" },
         () => {
             const harness = sweepHarness();
-            const owner = new FacetRef("workspace:owner");
+            const owner = contributionAttributionFixture("workspace:owner");
             const contributed = materializeAttributedSubscription(
                 harness.source,
                 harness.records,
-                contributionAttributionFixture(owner.value),
+                owner,
                 subscriptionFixture("member")
             );
             const direct = subscriptionFixture("nonmember");
@@ -194,10 +196,13 @@ describe("routing withdrawal sweep", () => {
                     .contributed(harness.records, owner)
                     .map((subscription) => subscription.id.value)
             ).toEqual([contributed.id.value]);
-            for (const facet of [owner, new FacetRef("workspace:other")]) {
+            for (const attribution of [
+                owner,
+                contributionAttributionFixture("workspace:other")
+            ]) {
                 expect(
                     harness.routing
-                        .contributed(harness.records, facet)
+                        .contributed(harness.records, attribution)
                         .map((subscription) => subscription.id.value)
                 ).not.toContain(direct.id.value);
             }
@@ -210,4 +215,92 @@ describe("routing withdrawal sweep", () => {
             expect(untouched?.revision.value).toBe(0);
         }
     );
+
+    test(
+        "[C13-SUBSCRIPTION-ATTRIBUTION-FIXED] [C13-FACET-WITHDRAWAL-EXACT] same-Facet releases withdraw independently and replay idempotently",
+        { tags: "p0" },
+        () => {
+            const harness = sweepHarness();
+            const releaseA = releaseAttribution("workspace:dual", "1.0.0");
+            const releaseB = releaseAttribution("workspace:dual", "2.0.0");
+            const wrongRelease = releaseAttribution("workspace:dual", "9.9.9");
+            const subscriptionA = materializeAttributedSubscription(
+                harness.source,
+                harness.records,
+                releaseA,
+                subscriptionFixture("pin-a")
+            );
+            const subscriptionB = materializeAttributedSubscription(
+                harness.source,
+                harness.records,
+                releaseB,
+                subscriptionFixture("pin-b")
+            );
+            const direct = subscriptionFixture("direct");
+            harness.source.saveSubscription(harness.records, direct, undefined);
+            const reservationA = reservationFixture("pin-a");
+            const reservationB = reservationFixture("pin-b");
+            for (const reservation of [reservationA, reservationB]) {
+                harness.source.appendReservation(
+                    harness.records,
+                    reservation,
+                    reservationRetention(reservation)
+                );
+            }
+
+            expect(
+                harness.routing
+                    .contributed(harness.records, releaseA)
+                    .map((subscription) => subscription.id.value)
+            ).toEqual([subscriptionA.id.value]);
+            expect(
+                harness.routing
+                    .contributed(harness.records, releaseB)
+                    .map((subscription) => subscription.id.value)
+            ).toEqual([subscriptionB.id.value]);
+            expect(harness.routing.retire(harness.records, wrongRelease)).toEqual({
+                subscriptions: [],
+                rejected: []
+            });
+
+            const result = harness.routing.retire(harness.records, releaseA);
+
+            expect(result.subscriptions.map((id) => id.value)).toEqual([subscriptionA.id.value]);
+            expect(result.rejected.map((id) => id.value)).toEqual([reservationA.id.value]);
+            expect(
+                harness.source.currentSubscription(harness.records, subscriptionA.id)?.retired
+            ).toBe(true);
+            expect(
+                harness.source.currentSubscription(harness.records, subscriptionB.id)?.retired
+            ).toBeUndefined();
+            expect(
+                harness.source.currentSubscription(harness.records, direct.id)?.retired
+            ).toBeUndefined();
+            expect(harness.source.findDelivery(harness.records, reservationA.id)?.state.kind).toBe(
+                "rejected"
+            );
+            expect(harness.source.findDelivery(harness.records, reservationB.id)).toBeUndefined();
+
+            expect(harness.routing.retire(harness.records, releaseA)).toEqual({
+                subscriptions: [],
+                rejected: []
+            });
+            expect(
+                harness.source.currentSubscription(harness.records, subscriptionB.id)?.retired
+            ).toBeUndefined();
+        }
+    );
 });
+
+function releaseAttribution(facet: string, version: string): ContributionAttribution {
+    const baseline = contributionAttributionFixture(facet);
+    return new ContributionAttribution(
+        baseline.contributor,
+        new PackagePin(
+            baseline.package.id,
+            new SemVer(version),
+            baseline.package.manifestDigest,
+            baseline.package.codeDigest
+        )
+    );
+}

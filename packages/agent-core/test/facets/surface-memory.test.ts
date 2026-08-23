@@ -2,7 +2,7 @@ import { describe, expect, test } from "vitest";
 import { Revision } from "../../src/core";
 import { AgentCoreError } from "../../src/errors";
 import { WorkspaceId } from "../../src/identity";
-import { FacetRef, SurfaceRegistration } from "../../src/facets";
+import { SurfaceRegistration } from "../../src/facets";
 import { MemoryWorkspaceSurfaceStore } from "../../src/facets/surface-memory";
 import {
     registration,
@@ -110,15 +110,13 @@ describe("MemoryWorkspaceSurfaceStore", () => {
         { tags: "p0" },
         () => {
             const store = new MemoryWorkspaceSurfaceStore(new WorkspaceId("workspace"));
-            store.register(registration("workspace:mine", "dashboard.overview", "Overview"));
+            const mine = registration("workspace:mine", "dashboard.overview", "Overview");
+            store.register(mine);
             store.register(registration("workspace:theirs", "dashboard.tasks", "Tasks"));
             const before = store.revision().value;
 
             const retired = store.transaction((transaction) => {
-                const changed = store.retireWithdrawalSet(
-                    transaction,
-                    new FacetRef("workspace:mine")
-                );
+                const changed = store.retireWithdrawalSet(transaction, mine.attribution);
                 store.saveRevision(transaction, store.loadRevision(transaction).next());
                 return changed;
             });

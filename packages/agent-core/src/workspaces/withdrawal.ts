@@ -1,4 +1,4 @@
-import type { FacetRef } from "../facets";
+import type { ContributionAttribution } from "../facets";
 import type { AuditRecordId, RouteReservationId, SubscriptionId } from "../interaction-references";
 import type { WorkspacePersistence } from "./persistence";
 import type { Subscription } from "./subscription";
@@ -18,11 +18,12 @@ export const WITHDRAWN_TARGET_REASON = "facet-withdrawn";
 
 /**
  * SPEC §4.1 (C13-FACET-WITHDRAWAL-EXACT): the routing Actor's half of a withdrawal. It
- * retires the Subscriptions the Facet's `commands` and `automations` contributions
- * materialized, so no further reservation is appended against an unresolvable target, and
- * it admits every reservation already appended and not yet prepared to a terminal rejected
- * RouteDelivery. A reservation that reached preparation is left alone: it drains as an
- * Invocation item under C13-FACET-WITHDRAWAL-DRAIN.
+ * retires the Subscriptions the named `ContributionAttribution` — the exact FacetRef and
+ * PackagePin pair — materialized, so no further reservation is appended against an
+ * unresolvable target, and it admits every reservation already appended and not yet
+ * prepared to a terminal rejected RouteDelivery. A reservation that reached preparation is
+ * left alone: it drains as an Invocation item under C13-FACET-WITHDRAWAL-DRAIN. Another
+ * release of the same Facet is a different contribution and owns a different withdrawal.
  */
 export class WorkspaceRoutingWithdrawal<Transaction> {
     public constructor(
@@ -30,12 +31,18 @@ export class WorkspaceRoutingWithdrawal<Transaction> {
         private readonly audits: RoutingWithdrawalAuditPort
     ) {}
 
-    public contributed(transaction: Transaction, contributor: FacetRef): readonly Subscription[] {
-        return this.persistence.listContributedSubscriptions(transaction, contributor);
+    public contributed(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): readonly Subscription[] {
+        return this.persistence.listContributedSubscriptions(transaction, attribution);
     }
 
-    public retire(transaction: Transaction, contributor: FacetRef): RoutingWithdrawal {
-        const contributed = this.contributed(transaction, contributor);
+    public retire(
+        transaction: Transaction,
+        attribution: ContributionAttribution
+    ): RoutingWithdrawal {
+        const contributed = this.contributed(transaction, attribution);
         const retired = new Set(contributed.map((subscription) => subscription.id.value));
         for (const subscription of contributed) {
             this.persistence.retireSubscription(transaction, subscription);

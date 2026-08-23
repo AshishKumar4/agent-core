@@ -4,10 +4,10 @@ import { requireString } from "./data";
 import { FacetRef } from "./id";
 
 /** The two declared fields an attributed record absorbs into its own payload. */
-export interface ContributionAttributionFields {
+export type ContributionAttributionFields = {
     readonly contributor: FacetData;
     readonly package: FacetData;
-}
+};
 
 /**
  * SPEC §4.2 (C13-FACET-CONTRIBUTION-ATTRIBUTION): the pair every record a contribution

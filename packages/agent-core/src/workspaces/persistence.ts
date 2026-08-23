@@ -1,7 +1,7 @@
 import { AgentCoreError } from "../errors";
 import type { ActorRef } from "../actors";
 import type { AuditRecordId } from "../interaction-references";
-import type { FacetRef } from "../facets";
+import type { ContributionAttribution } from "../facets";
 import { consumeAuthenticatedContribution, type AuthenticatedContribution } from "../definition";
 import { ContentRef, Revision, type JsonValue, compareCanonicalText, isJsonObject } from "../core";
 import type { TenantId } from "../identity";
@@ -193,17 +193,18 @@ export class WorkspacePersistence<Transaction> {
     }
 
     /**
-     * SPEC §4.1 (C13-FACET-WITHDRAWAL-EXACT): the live Subscriptions a Facet's `commands`
-     * and `automations` contributions materialized, found by querying attribution.
+     * SPEC §4.1 (C13-FACET-WITHDRAWAL-EXACT): the live Subscriptions the exact
+     * `ContributionAttribution` — the FacetRef and PackagePin pair of §4.2 — materialized,
+     * found by querying the whole attribution. A different release of the same Facet is a
+     * different contribution, so its Subscriptions are outside this query's result.
      */
     public listContributedSubscriptions(
         transaction: Transaction,
-        contributor: FacetRef
+        attribution: ContributionAttribution
     ): readonly Subscription[] {
         return Object.freeze(
             this.listSubscriptions(transaction).filter(
-                (subscription) =>
-                    subscription.contribution?.contributor.equals(contributor) === true
+                (subscription) => subscription.contribution?.equals(attribution) === true
             )
         );
     }
