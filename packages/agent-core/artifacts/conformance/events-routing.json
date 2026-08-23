@@ -281,7 +281,7 @@
       ],
       "bounds": [
         "This rule does not claim the withdrawal sweep. That a withdrawal retires exactly the contributed Subscriptions, and terminates their unadmitted reservations, is C13-FACET-WITHDRAWAL-EXACT's mechanism and evidence; the citation here is WorkspaceRoutingWithdrawal.contributed, the membership query, because the discriminator is what attribution fixity decides.",
-        "This rule does not claim §4.2's materialization half. That every record a contribution materializes into carries the same pair is C13-FACET-CONTRIBUTION-ATTRIBUTION, which holds at implemented pending five record kinds this runtime does not materialize; the Subscription is one kind that does exist, and nothing here promotes that atom or stands in for the four that do not."
+        "This rule does not claim §4.2's materialization half. C13-FACET-CONTRIBUTION-ATTRIBUTION requires every record a contribution materializes into to carry the same pair, but four kinds still have no runtime materialized record: catalog entry, prompt section, ingress endpoint, and merged settings fragment. The Subscription is one kind that does exist; nothing here promotes the W3 atom or stands in for those four."
       ]
     },
     {
