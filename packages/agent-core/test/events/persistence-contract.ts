@@ -410,7 +410,7 @@ export function workspacePersistenceContract<Transaction>(
         test(
             "[C13-SUBSCRIPTION-ATTRIBUTION-FIXED] refuses forged, replayed, expired, and drifted contribution provenance",
             { tags: "p0" },
-            () => {
+            async () => {
                 const harness = create();
                 try {
                     const context = {};
@@ -453,14 +453,12 @@ export function workspacePersistenceContract<Transaction>(
                             "Authenticated test installation did not prepare a capability"
                         );
                     }
-                    let captured: AuthenticatedContribution | undefined;
                     const materialized = harness.transaction((transaction) =>
                         port.withAuthenticatedContribution(
                             transaction,
                             context,
                             prepared.stamp,
                             (contribution) => {
-                                captured = contribution;
                                 const subscription = harness.persistence.materializeSubscription(
                                     transaction,
                                     contribution,
@@ -482,10 +480,37 @@ export function workspacePersistenceContract<Transaction>(
                     expect(materialized?.contribution?.contributor.equals(installation.facet)).toBe(
                         true
                     );
-                    const expired = captured;
+
+                    const expiringPort = new TestPackageInstallationProvenance<Transaction>(
+                        authenticatedInstallationFixture("workspace:expired")
+                    );
+                    const expiringPrepared = harness.transaction((transaction) =>
+                        expiringPort.prepareContribution(transaction, context)
+                    );
+                    if (expiringPrepared === undefined) {
+                        throw new TypeError(
+                            "Authenticated test installation did not prepare a capability"
+                        );
+                    }
+                    let unconsumed: AuthenticatedContribution | undefined;
+                    expect(
+                        harness.transaction((transaction) =>
+                            expiringPort.withAuthenticatedContribution(
+                                transaction,
+                                context,
+                                expiringPrepared.stamp,
+                                (contribution) => {
+                                    unconsumed = contribution;
+                                    return undefined;
+                                }
+                            )
+                        )
+                    ).toBeUndefined();
+                    const expired = unconsumed;
                     if (expired === undefined) {
                         throw new TypeError("Authenticated contribution was not issued");
                     }
+                    await Promise.resolve();
                     expect(() =>
                         harness.transaction((transaction) => {
                             harness.persistence.materializeSubscription(
@@ -533,21 +558,34 @@ export function workspacePersistenceContract<Transaction>(
                         })
                     );
 
-                    for (const changedInstallation of [
-                        Object.freeze({
-                            ...installation,
-                            package: new PackagePin(
-                                new PackageId("subscription-substituted"),
-                                new SemVer("1.0.0"),
-                                installation.package.manifestDigest,
-                                installation.package.codeDigest
-                            )
-                        }),
-                        Object.freeze({
-                            ...installation,
-                            packageFacet: new FacetPackageId("subscription.substituted")
-                        })
-                    ]) {
+                    for (const [drift, changedInstallation] of [
+                        [
+                            "package",
+                            Object.freeze({
+                                ...installation,
+                                package: new PackagePin(
+                                    new PackageId("subscription-substituted"),
+                                    new SemVer("1.0.0"),
+                                    installation.package.manifestDigest,
+                                    installation.package.codeDigest
+                                )
+                            })
+                        ],
+                        [
+                            "package-facet",
+                            Object.freeze({
+                                ...installation,
+                                packageFacet: new FacetPackageId("subscription.substituted")
+                            })
+                        ],
+                        [
+                            "contributor-facet",
+                            Object.freeze({
+                                ...installation,
+                                facet: new FacetRef("workspace:substituted")
+                            })
+                        ]
+                    ] as const) {
                         const driftedPort = new TestPackageInstallationProvenance<Transaction>(
                             installation
                         );
@@ -571,9 +609,7 @@ export function workspacePersistenceContract<Transaction>(
                                     context,
                                     driftedPrepared,
                                     subscriptionMaterializationInit(
-                                        subscriptionFixture(
-                                            `${name}-drifted-${changedInstallation.packageFacet.value}`
-                                        )
+                                        subscriptionFixture(`${name}-drifted-${drift}`)
                                     )
                                 );
                             })

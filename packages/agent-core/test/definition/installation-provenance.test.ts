@@ -38,30 +38,54 @@ describe("Package installation contribution provenance", () => {
     });
 
     test(
-        "issues one synchronous opaque capability only after current provenance resolves",
+        "issues a capability only for one synchronous materialization callback",
         { tags: "p0" },
-        () => {
+        async () => {
             const authenticated = installation("workspace:materialized.facet");
             const port = new TestInstallationPort(authenticated);
             const prepared = port.prepareContribution({}, {});
             if (prepared === undefined) {
                 throw new TypeError("Authenticated installation did not prepare a contribution");
             }
-            let captured: AuthenticatedContribution | undefined;
+            let consumed: AuthenticatedContribution | undefined;
             expect(
                 port
                     .withAuthenticatedContribution({}, {}, prepared.stamp, (contribution) => {
-                        captured = contribution;
+                        consumed = contribution;
                         return consumeAuthenticatedContribution(contribution);
                     })
                     ?.equals(
                         new ContributionAttribution(authenticated.facet, authenticated.package)
                     )
             ).toBe(true);
-            const expired = captured;
+            const replayed = consumed;
+            if (replayed === undefined) {
+                throw new TypeError("Authenticated installation did not issue a capability");
+            }
+            expect(consumeAuthenticatedContribution(replayed)).toBeUndefined();
+
+            const expiringPrepared = port.prepareContribution({}, {});
+            if (expiringPrepared === undefined) {
+                throw new TypeError("Authenticated installation did not prepare a contribution");
+            }
+            let unconsumed: AuthenticatedContribution | undefined;
+            expect(
+                port.withAuthenticatedContribution(
+                    {},
+                    {},
+                    expiringPrepared.stamp,
+                    (contribution) => {
+                        unconsumed = contribution;
+                        return "captured";
+                    }
+                )
+            ).toBe("captured");
+            const expired = unconsumed;
             if (expired === undefined) {
                 throw new TypeError("Authenticated installation did not issue a capability");
             }
+            await Promise.resolve();
+            expect(consumeAuthenticatedContribution(expired)).toBeUndefined();
             expect(
                 consumeAuthenticatedContribution(malformed<AuthenticatedContribution>({}))
             ).toBeUndefined();
