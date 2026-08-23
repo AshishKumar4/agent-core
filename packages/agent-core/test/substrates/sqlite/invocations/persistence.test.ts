@@ -1,4 +1,5 @@
 import type { SynchronousResultGuard } from "../../../../src/actors";
+import { encodeCanonicalJson } from "../../../../src/core";
 import {
     Approval,
     ApprovalId,
@@ -105,6 +106,47 @@ function verifyPreparedContract<Transaction>(
 }
 
 invocationLedgerContract("sqlite", () => new SqliteHarness(), "excluded");
+
+test(
+    "[C13-RECEIPT-FAILURE-ORTHOGONAL] SQLite refuses pre-effect rows carrying a failure kind",
+    { tags: "p0" },
+    () => {
+        // A row only a writer that bypassed the codec could insert: the projection columns
+        // are consistent, so the refusal must come from decoding the record blob itself.
+        const harness = new SqliteHarness();
+        const record = encodeCanonicalJson({
+            kind: "invocation.receipt",
+            version: { major: 2, minor: 0 },
+            payload: {
+                failure: "raised",
+                id: "sqlite-hostile",
+                invocation: "sqlite-hostile-invocation",
+                itemIndex: 0,
+                outcome: "deniedPreEffect",
+                reason: "denied",
+                recordedAt: new Date(1000).toISOString(),
+                variant: "preEffect"
+            }
+        });
+        harness.database.run(
+            `INSERT INTO invocation_receipts
+             (id, variant, invocation_id, item_index, attempt_id, previous_id, outcome, record)
+             VALUES ('sqlite-hostile', 'preEffect', 'sqlite-hostile-invocation', 0, NULL, NULL,
+                     'deniedPreEffect', ?)`,
+            [record]
+        );
+        expect(() =>
+            harness.persistence.receipt(harness.database, new ReceiptId("sqlite-hostile"))
+        ).toThrow(/Pre-effect Receipt contains missing or unknown fields/);
+        expect(() =>
+            harness.persistence.receiptsForItem(
+                harness.database,
+                new InvocationId("sqlite-hostile-invocation"),
+                0
+            )
+        ).toThrow(/Pre-effect Receipt contains missing or unknown fields/);
+    }
+);
 
 describe("SqliteInvocationPersistence transaction scope", () => {
     test(

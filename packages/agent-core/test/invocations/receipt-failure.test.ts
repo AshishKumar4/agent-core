@@ -22,6 +22,7 @@ import {
     type CanonicalBatchInvocationRequest
 } from "../../src/invocations";
 import { InvocationId } from "../../src/interaction-references";
+import { admissionFor } from "../invocations/fixture";
 import { outsideVocabulary } from "./fixture";
 import { ConfirmedOperationFailure, OperationRequestKey } from "../../src/operations";
 import {
@@ -474,6 +475,139 @@ describe("§7.4 failure kinds at the mediated seam", () => {
             expect(persisted.attempt).toBe(receipt.attempt.value);
         }
     );
+    test(
+        "[C13-RECEIPT-FAILURE-ORTHOGONAL] keeps lineage identity fixed across every boundary and codec restart",
+        { tags: "p0" },
+        async () => {
+            const observed: (readonly [string, string, string | undefined])[] = [];
+            for (const scenario of [...seamScenarios(), denialScenario()]) {
+                const operation = scenario.descriptor ?? descriptor;
+                const harness = new Harness(false, facet, operation);
+                scenario.arm(harness);
+                const invocation = new InvocationId(`lineage-${scenario.name}`);
+                const result = await harness.port.invoke(
+                    seamRequest(invocation, scenario.execute, operation)
+                );
+                const receipt = result.items[0]?.receipt;
+                if (receipt === undefined) {
+                    throw new TypeError(`Expected a Receipt for ${scenario.name}`);
+                }
+                const attempts = harness.transactions.transact((transaction) =>
+                    harness.persistence.attemptsForItem(transaction, invocation, 0)
+                );
+
+                // Which Receipt variant an item has is the only answer to whether an effect
+                // was attempted: a pre-effect denial leaves no EffectAttempt at all, and an
+                // attempted Receipt names exactly the one attempt of ordinal 0 whatever it
+                // recorded — including nothing (indeterminate).
+                expect(attempts.map((attempt) => attempt.ordinal)).toEqual(
+                    receipt instanceof AttemptReceipt ? [0] : []
+                );
+                if (receipt instanceof AttemptReceipt) {
+                    expect(receipt.attempt.equals(attempts[0]!.id)).toBe(true);
+                }
+
+                // The identity survives the codec and a restart that re-decodes every record
+                // through the store.
+                harness.restartRuntime();
+                expectIdentity(Receipt.decode(Receipt.encode(receipt)), receipt);
+                const persisted = harness.transactions.transact((transaction) =>
+                    harness.persistence.receipt(transaction, receipt.id)
+                );
+                if (persisted === undefined) throw new TypeError("Expected the stored Receipt");
+                expectIdentity(persisted, receipt);
+                observed.push([scenario.name, receipt.outcome, receipt.failure?.kind]);
+            }
+            expect(observed).toEqual([
+                ["raised", "failed", "raised"],
+                ["outputInvalid", "failed", "outputInvalid"],
+                ["deadline", "failed", "deadline"],
+                ["aborted", "failed", "aborted"],
+                ["domainLost", "failed", "domainLost"],
+                ["unexplained", "indeterminate", undefined],
+                ["deniedPreEffect", "deniedPreEffect", undefined]
+            ]);
+        }
+    );
+
+    test(
+        "[C13-RECEIPT-FAILURE-ORTHOGONAL] admits the retry through identical admission inputs whatever the kind recorded",
+        { tags: "p0" },
+        async () => {
+            for (const scenario of seamScenarios().filter((entry) => entry.name !== "unexplained")) {
+                const operation = scenario.descriptor ?? descriptor;
+                const harness = new Harness(false, facet, operation);
+                scenario.arm(harness);
+                const invocation = new InvocationId(`retry-${scenario.name}`);
+                let execute = scenario.execute;
+                const request = seamRequest(
+                    invocation,
+                    (): Promise<FacetData> | FacetData => execute(),
+                    operation
+                );
+
+                const first = await harness.port.invoke(request);
+                const failed = first.items[0]?.receipt;
+                if (!(failed instanceof AttemptReceipt)) {
+                    throw new TypeError(`Expected an attempted Receipt for ${scenario.name}`);
+                }
+                expect([failed.outcome, failed.failure?.kind]).toEqual(["failed", scenario.name]);
+
+                // The kind the first attempt recorded must not shape the retry: only the
+                // elapsed bound itself is disarmed, and success needs no classification.
+                execute = (): FacetData => true;
+                if (scenario.name === "deadline") harness.attemptDeadline = undefined;
+                const retried = await harness.port.invoke(request);
+                expect(retried.items[0]).toMatchObject({ kind: "succeeded" });
+
+                // Both authority seams re-entered with inputs derived from exactly
+                // (invocation, item index, ordinal) — ordinal 1 now, never the kind.
+                expect(
+                    harness.permits.issuedAdmissions.map((admission) => [
+                        admission.reference,
+                        admission.digest.equals(admissionFor(invocation.value, 0, 1).digest)
+                    ])
+                ).toEqual([
+                    [admissionFor(invocation.value, 0, 0).reference, false],
+                    [admissionFor(invocation.value, 0, 1).reference, true]
+                ]);
+                expect(harness.finalAdmissions.calls).toBe(2);
+
+                const attempts = harness.transactions.transact((transaction) =>
+                    harness.persistence.attemptsForItem(transaction, invocation, 0)
+                );
+                expect(attempts.map((attempt) => attempt.ordinal)).toEqual([0, 1]);
+                const succeeded = retried.items[0]?.receipt;
+                if (!(succeeded instanceof AttemptReceipt)) {
+                    throw new TypeError("Expected an attempted Receipt after the retry");
+                }
+                expect(succeeded.attempt.equals(attempts[1]!.id)).toBe(true);
+            }
+
+            // An indeterminate head admits no concurrent retry: the second invoke replays the
+            // stored Receipt without issuing another permit or appending an EffectAttempt.
+            const harness = new Harness(false);
+            const invocation = new InvocationId("retry-indeterminate");
+            const request = seamRequest(invocation, () => {
+                throw new Error("handler stopped");
+            });
+            const first = await harness.port.invoke(request);
+            const again = await harness.port.invoke(request);
+            const heads = [first, again].map((result) => result.items[0]?.receipt);
+            if (!(heads[0] instanceof AttemptReceipt) || !(heads[1] instanceof AttemptReceipt)) {
+                throw new TypeError("Expected attempted Receipts");
+            }
+            expect(heads[1].id.equals(heads[0].id)).toBe(true);
+            expect(heads[1].outcome).toBe("indeterminate");
+            expect(
+                harness.transactions.transact((transaction) =>
+                    harness.persistence.attemptsForItem(transaction, invocation, 0)
+                ).map((attempt) => attempt.ordinal)
+            ).toEqual([0]);
+            expect(harness.permits.issuedAdmissions).toHaveLength(1);
+            expect(harness.finalAdmissions.calls).toBe(1);
+        }
+    );
 });
 
 /**
@@ -527,6 +661,46 @@ class ShiftingKindCompletion extends AttemptCompletion {
     public get reads(): number {
         return this.#reads;
     }
+}
+
+/**
+ * Every §7.4 lineage field a codec round-trip or a store restart must carry unchanged: which
+ * Receipt, over which attempt, with which predecessor, result, outcome, and instant. The
+ * failure kind is deliberately absent — kinds may differ across one item's lineage, and this
+ * helper must not let an identity check drift into re-asserting what the taxonomy tests own.
+ */
+function expectIdentity(decoded: Receipt, receipt: Receipt): void {
+    expect(decoded.variant).toBe(receipt.variant);
+    expect(decoded.id.equals(receipt.id)).toBe(true);
+    expect(decoded.outcome).toBe(receipt.outcome);
+    expect(decoded.recordedAt.getTime()).toBe(receipt.recordedAt.getTime());
+    if (!(decoded instanceof AttemptReceipt && receipt instanceof AttemptReceipt)) return;
+    expect(decoded.attempt.equals(receipt.attempt)).toBe(true);
+    expect(decoded.previous === undefined).toBe(receipt.previous === undefined);
+    if (decoded.previous !== undefined) {
+        expect(decoded.previous.equals(receipt.previous)).toBe(true);
+    }
+    expect(decoded.result === undefined).toBe(receipt.result === undefined);
+    if (decoded.result !== undefined) {
+        expect(decoded.result.equals(receipt.result)).toBe(true);
+    }
+}
+
+/**
+ * The final admission denies before any effect, so the pipeline records a pre-effect denial:
+ * the one seam shape whose attempted lineage must stay empty.
+ */
+function denialScenario(): SeamScenario {
+    return {
+        name: "deniedPreEffect",
+        arm: (harness) => {
+            harness.finalAdmissions.decide = () => ({
+                kind: "denied" as const,
+                reason: "final admission denied before any effect"
+            });
+        },
+        execute: (): FacetData => ({ value: 1 })
+    };
 }
 
 interface SeamScenario {
