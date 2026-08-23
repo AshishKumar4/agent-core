@@ -2465,6 +2465,22 @@ automation is a Subscription from a verified ingress Event. Example:
 target: "report.generate", dedupe: "event",
 authority: { kind: "delegated", binding: "daily-report" } }`.
 
+**A Subscription's attribution is fixed when it is created.** A Subscription that a
+Facet's `commands` or `automations` contribution materialized carries that contribution's
+§4.2 attribution — the contributing `FacetRef` and the source `PackagePin` — and that pair
+is what puts the route in exactly one Facet's §4.1 withdrawal set. Only the host materializer
+writes contributed attribution. It derives the exact `FacetRef` and `PackagePin` from
+authenticated package-installation provenance current for that materialization; a caller
+supplies neither. A Subscription a caller created directly is nobody's contribution. It
+carries no attribution at all, absent rather than null or a placeholder contributor, and no
+withdrawal retires it. A later revision MUST NOT add, drop, or rewrite the attribution, and
+the store that holds Subscriptions is where that refusal happens, because a revision is
+written nowhere else. Both directions are authority questions. A route that could acquire
+attribution would launder a caller's own Subscription into a Facet's records and into that
+Facet's withdrawal set. A route that could shed it would outlive the withdrawal of the Facet
+that contributed it and keep routing Events through its `AuthoritySource` Binding. This maps
+to **C13-SUBSCRIPTION-ATTRIBUTION-FIXED**.
+
 **Watching another Run is a Grant, not a Subscription.** Everything above authorizes the
 *target* of a route: an `AuthoritySource` decides what the delivered Operation may do, and
 says nothing about whose Events the subscriber was entitled to read. Between Runs that
@@ -4277,6 +4293,7 @@ A conforming implementation provides:
 - **C13-ROUTE-TENANT-RELATION** RouteReservations authenticate their tenant relation.
 - **C13-ROUTE-CROSS-TENANT-BINDING** Cross-tenant RouteReservations authenticate their Binding.
 - **C13-ROUTE-DELIVERY-ONCE** A reservation has at most one terminal RouteDelivery and it is written once; redelivery returns it.
+- **C13-SUBSCRIPTION-ATTRIBUTION-FIXED** A Subscription a Facet's contribution materialized carries the exact `FacetRef` and `PackagePin`; only the host materializer writes contributed attribution, deriving both from authenticated package-installation provenance current for that materialization, and a caller supplies neither; one a caller created directly carries no attribution, encoded by absence, and no withdrawal retires it; and no later revision adds, drops, or rewrites it.
 - **C13-SUBSCRIPTION-OBSERVATION-GRANT** A cross-Run observation is admissible only as authority: the observing Principal holds a live allow-Grant reaching the observed Run's Scope and admitting `observe` on it, the observation names that exact Grant, and the source Actor denies delivery and appends no reservation when it is absent, revoked, or not `observe`.
 - **C13-SUBSCRIPTION-OBSERVATION-TENANT** Cross-tenant observation requires the cross-tenant Binding, the Subscription's AuthoritySource, and the observe-Grant independently, none substituting for another, and a guest observer's attenuated Grants never resolve the observed Tenant's credentials.
 - **C13-SUBSCRIPTION-OBSERVATION-INTERVENTION** An observation's Grant authorizes exactly the read: an Invocation acting on an observed Run needs its own live allow-Grant of that impact and its own Receipt, the observation's Grant is never that source even when it carries a wider impact set, the refusal names the missing impact, and a recorded determination is evidence rather than an instruction.

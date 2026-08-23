@@ -53,6 +53,9 @@ export { ContributionAttribution } from "./attribution";
 export { SlotContributionOrigin, SlotEntry } from "./slot-entry";
 export { SlotWithdrawalSet, WorkspaceSlotStore } from "./slot-store";
 export { MemoryWorkspaceSlotStore } from "./slot-memory";
+export { SurfaceRegistration } from "./surface";
+export { SurfaceWithdrawalSet, WorkspaceSurfaceStore } from "./surface-store";
+export { MemoryWorkspaceSurfaceStore } from "./surface-memory";
 export {
     EventDeclaration,
     EventPattern,

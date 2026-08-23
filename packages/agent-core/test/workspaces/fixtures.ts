@@ -7,15 +7,25 @@ import {
     Digest,
     JsonSchema,
     Revision,
+    SemVer,
     isJsonObject,
     type JsonValue
 } from "../../src/core";
+import {
+    DeploymentId,
+    ManagedOrigin,
+    PackageId,
+    PackageInstallationProvenancePort,
+    PackagePin,
+    type AuthenticatedPackageInstallation
+} from "../../src/definition";
 import {
     BindingName,
     ContributionAttribution,
     EventKind,
     EventPattern,
     FacetPackageId,
+    FacetRef,
     FieldMove,
     OperationRef,
     PayloadMapping,
@@ -54,7 +64,13 @@ import {
     InboxReferenceId,
     RetainedRecordRef
 } from "../../src/workspaces/id";
-import { EventId, SubscriptionId } from "../../src/workspaces";
+import {
+    EventId,
+    SubscriptionId,
+    WorkspacePersistence,
+    WorkspaceSubscriptionMaterializer,
+    type SubscriptionMaterializationInit
+} from "../../src/workspaces";
 import { InboxEventReference } from "../../src/workspaces/inbox";
 import { ContentRetentionReference, RetainedRecordKind } from "../../src/workspaces/retention";
 import {
@@ -148,6 +164,90 @@ export function subscriptionFixture(
     };
     return new Subscription(
         init.contribution === undefined ? base : { ...base, contribution: init.contribution }
+    );
+}
+
+export function subscriptionMaterializationInit(
+    subscription: Subscription
+): SubscriptionMaterializationInit {
+    return {
+        id: subscription.id,
+        source: subscription.source,
+        target: subscription.target,
+        mapping: subscription.mapping,
+        dedupe: subscription.dedupe,
+        authority: subscription.authority
+    };
+}
+
+export class TestPackageInstallationProvenance<State> extends PackageInstallationProvenancePort<
+    State,
+    object
+> {
+    public constructor(public installation: AuthenticatedPackageInstallation | undefined) {
+        super();
+    }
+
+    protected authenticatedInstallation(): AuthenticatedPackageInstallation | undefined {
+        return this.installation;
+    }
+}
+
+export function authenticatedInstallationFixture(
+    facet = "workspace:subscription",
+    packagePin?: PackagePin
+): AuthenticatedPackageInstallation {
+    const digest = Digest.sha256(encoder.encode(`subscription-installation:${facet}`));
+    return Object.freeze({
+        package:
+            packagePin ??
+            new PackagePin(
+                new PackageId("subscription-package"),
+                new SemVer("1.0.0"),
+                digest,
+                digest
+            ),
+        packageFacet: new FacetPackageId("subscription.materializer"),
+        facet: new FacetRef(facet),
+        materialization: new ManagedOrigin({
+            tenantId: tenant,
+            deploymentId: new DeploymentId(digest.value),
+            attestationDigest: digest,
+            blueprintDigest: digest,
+            packageLockDigest: digest,
+            configDigest: digest,
+            generation: 1
+        })
+    });
+}
+
+export function contributionAttributionFixture(
+    facet = "workspace:subscription"
+): ContributionAttribution {
+    const installation = authenticatedInstallationFixture(facet);
+    return new ContributionAttribution(installation.facet, installation.package);
+}
+
+export function materializeAttributedSubscription<Transaction>(
+    persistence: WorkspacePersistence<Transaction>,
+    transaction: Transaction,
+    contribution: ContributionAttribution,
+    subscription: Subscription
+): Subscription {
+    const provenance = new TestPackageInstallationProvenance<Transaction>(
+        authenticatedInstallationFixture(contribution.contributor.value, contribution.package)
+    );
+    const materializer = new WorkspaceSubscriptionMaterializer(persistence, provenance);
+    const context = {};
+    const prepared = materializer.prepareContribution(transaction, context);
+    if (prepared === undefined) {
+        throw new TypeError("Authenticated test installation did not prepare a contribution");
+    }
+    return materializer.materialize(
+        transaction,
+        context,
+        prepared,
+        subscriptionMaterializationInit(subscription)
     );
 }
 

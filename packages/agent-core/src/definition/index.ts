@@ -124,8 +124,15 @@ export {
     managedStateRecordId,
     materializationGenerationId
 } from "./generation";
-export { PackageInstallationProvenancePort } from "./installation";
-export type { AuthenticatedPackageInstallation } from "./installation";
+export {
+    consumeAuthenticatedContribution,
+    PackageInstallationProvenancePort
+} from "./installation";
+export type {
+    AuthenticatedContribution,
+    AuthenticatedPackageInstallation,
+    PreparedPackageContribution
+} from "./installation";
 export {
     ManagedResourcePort,
     RunPinEvidence,

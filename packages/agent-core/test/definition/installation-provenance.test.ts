@@ -12,8 +12,11 @@ import {
     PackageId,
     PackageInstallationProvenancePort,
     PackagePin,
+    consumeAuthenticatedContribution,
+    type AuthenticatedContribution,
     type AuthenticatedPackageInstallation
 } from "../../src/definition";
+import { malformed } from "../helpers/malformed";
 import { TenantId } from "../../src/identity";
 
 describe("Package installation contribution provenance", () => {
@@ -33,6 +36,76 @@ describe("Package installation contribution provenance", () => {
         expect(reference?.attribution.contributor.equals(supplied.contributor)).toBe(false);
         expect(reference?.packageFacet).toBe(authenticated.packageFacet);
     });
+
+    test(
+        "issues a capability only for one synchronous materialization callback",
+        { tags: "p0" },
+        async () => {
+            const authenticated = installation("workspace:materialized.facet");
+            const port = new TestInstallationPort(authenticated);
+            const prepared = port.prepareContribution({}, {});
+            if (prepared === undefined) {
+                throw new TypeError("Authenticated installation did not prepare a contribution");
+            }
+            let consumed: AuthenticatedContribution | undefined;
+            expect(
+                port
+                    .withAuthenticatedContribution({}, {}, prepared.stamp, (contribution) => {
+                        consumed = contribution;
+                        return consumeAuthenticatedContribution(contribution);
+                    })
+                    ?.equals(
+                        new ContributionAttribution(authenticated.facet, authenticated.package)
+                    )
+            ).toBe(true);
+            const replayed = consumed;
+            if (replayed === undefined) {
+                throw new TypeError("Authenticated installation did not issue a capability");
+            }
+            expect(consumeAuthenticatedContribution(replayed)).toBeUndefined();
+
+            const expiringPrepared = port.prepareContribution({}, {});
+            if (expiringPrepared === undefined) {
+                throw new TypeError("Authenticated installation did not prepare a contribution");
+            }
+            let unconsumed: AuthenticatedContribution | undefined;
+            expect(
+                port.withAuthenticatedContribution(
+                    {},
+                    {},
+                    expiringPrepared.stamp,
+                    (contribution) => {
+                        unconsumed = contribution;
+                        return "captured";
+                    }
+                )
+            ).toBe("captured");
+            const expired = unconsumed;
+            if (expired === undefined) {
+                throw new TypeError("Authenticated installation did not issue a capability");
+            }
+            await Promise.resolve();
+            expect(consumeAuthenticatedContribution(expired)).toBeUndefined();
+            expect(
+                consumeAuthenticatedContribution(malformed<AuthenticatedContribution>({}))
+            ).toBeUndefined();
+
+            const failed = new TestInstallationPort(authenticated);
+            const failedPrepared = failed.prepareContribution({}, {});
+            if (failedPrepared === undefined) {
+                throw new TypeError("Authenticated installation did not prepare a contribution");
+            }
+            failed.installation = undefined;
+            let invoked = false;
+            expect(
+                failed.withAuthenticatedContribution({}, {}, failedPrepared.stamp, () => {
+                    invoked = true;
+                    return true;
+                })
+            ).toBeUndefined();
+            expect(invoked).toBe(false);
+        }
+    );
 
     test("fails closed when authenticated installation provenance is absent", { tags: "p0" }, () => {
         expect(new TestInstallationPort(undefined).reference({}, {})).toBeUndefined();

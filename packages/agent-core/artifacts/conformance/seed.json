@@ -3923,6 +3923,20 @@
       ]
     },
     {
+      "id": "C13-SUBSCRIPTION-ATTRIBUTION-FIXED",
+      "owner": "W7",
+      "specAnchor": "C13-SUBSCRIPTION-ATTRIBUTION-FIXED",
+      "specTextSha256": "sha256:c7ca9539b12a522053071209ffb4214d1ad57640f38d9a7c4b560e033d2d2435",
+      "status": "planned",
+      "prerequisites": [],
+      "sourceSymbols": [],
+      "testSelectors": [],
+      "checkerInvariants": [],
+      "remainingEvidence": [
+        "The owning implementation wave must provide runtime and adversarial evidence"
+      ]
+    },
+    {
       "id": "C13-SUBSCRIPTION-AUTHORITY",
       "owner": "W7",
       "specAnchor": "C13-SUBSCRIPTION-AUTHORITY",

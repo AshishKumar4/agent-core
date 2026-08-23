@@ -19,6 +19,50 @@ export interface PreparedPackageContribution {
     readonly stamp: object;
 }
 
+/**
+ * One-use authority to materialize a record from an authenticated package contribution.
+ * It carries no public fields: only PackageInstallationProvenancePort can mint one after
+ * its prepare/apply proof succeeds.
+ */
+class AuthenticatedContributionToken {
+    readonly #brand = undefined;
+
+    public static consume(
+        candidate: AuthenticatedContributionToken
+    ): ContributionAttribution | undefined {
+        if (!(candidate instanceof AuthenticatedContributionToken)) return undefined;
+        const attribution = authenticatedContributions.get(candidate);
+        if (attribution === undefined || candidate.#brand !== undefined) return undefined;
+        authenticatedContributions.delete(candidate);
+        return attribution;
+    }
+}
+
+export type AuthenticatedContribution = AuthenticatedContributionToken;
+
+const authenticatedContributions = new WeakMap<
+    AuthenticatedContributionToken,
+    ContributionAttribution
+>();
+
+function authenticatedContribution(
+    attribution: ContributionAttribution
+): AuthenticatedContribution {
+    const token = new AuthenticatedContributionToken();
+    authenticatedContributions.set(token, attribution);
+    return token;
+}
+
+/**
+ * Consumes the capability so one successful provenance check authorizes one materialization.
+ * A structurally forged token has no WeakMap entry and is not authority.
+ */
+export function consumeAuthenticatedContribution(
+    candidate: AuthenticatedContribution
+): ContributionAttribution | undefined {
+    return AuthenticatedContributionToken.consume(candidate);
+}
+
 export abstract class PackageInstallationProvenancePort<State, Context> {
     readonly #prepared = new WeakMap<object, AuthenticatedPackageInstallation>();
 
@@ -73,6 +117,27 @@ export abstract class PackageInstallationProvenancePort<State, Context> {
             new ContributionAttribution(installation.facet, installation.package),
             installation.packageFacet
         );
+    }
+
+    /**
+     * Binds an opaque materialization capability to this synchronous prepare/apply span.
+     * The callback must consume it before returning; finally revokes an unconsumed token,
+     * so it cannot cross an await, restart, or RPC boundary as durable authority.
+     */
+    public withAuthenticatedContribution<Result>(
+        state: State,
+        context: Context,
+        stamp: PreparedPackageContribution["stamp"],
+        materialize: (contribution: AuthenticatedContribution) => Result
+    ): Result | undefined {
+        const installation = this.resolveContributionForApply(state, context, stamp);
+        if (installation === undefined) return undefined;
+        const contribution = authenticatedContribution(installation.attribution);
+        try {
+            return materialize(contribution);
+        } finally {
+            authenticatedContributions.delete(contribution);
+        }
     }
 }
 

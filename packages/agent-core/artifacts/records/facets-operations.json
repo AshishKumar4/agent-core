@@ -349,6 +349,18 @@
       "tests": [
         "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.automation] [facet.command] [facet.operation-descriptor] [facet.surface-descriptor] [facet.contribution] [facet.contributions] [facet.event-pattern] [facet.event-declaration] [facet.ingress-verification] [facet.ingress-declaration] [facet.interceptor-declaration] [facet.binding-requirement] [facet.manifest] [facet.field-move] [facet.field-mapping] [facet.payload-mapping] [facet.provenance-mapping] [facet.operation-pattern] [facet.operation-selector] [facet.prompt] [facet.prompt-contribution] [facet.slot-authority-policy] [facet.slot-declaration] round-trips every constituent declaration codec"
       ]
+    },
+    {
+      "symbol": "SurfaceRegistration",
+      "kind": "facet.surface-registration",
+      "durability": "value",
+      "ownerActor": null,
+      "source": "src/facets/surface.ts#SurfaceRegistration",
+      "codec": "src/facets/surface.ts#SurfaceRegistration.encode",
+      "store": null,
+      "tests": [
+        "test/facets/declarations.test.ts#Declarative facet vocabulary [facet.surface-registration] round-trips a Surface declaration together with its contribution attribution"
+      ]
     }
   ]
 }

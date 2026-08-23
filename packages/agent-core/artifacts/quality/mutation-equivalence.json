@@ -2048,10 +2048,10 @@
       "symbol": "requireCanonicalId"
     },
     {
-      "file": "src/facets/slot-memory.ts",
+      "file": "src/facets/record-map.ts",
       "mutated": "bytes.slice()",
       "mutator": "MethodExpression",
-      "proof": "insertImmutable is reached three ways. insertSlot and insertEntry build the bytes inline as SlotDeclaration.encode(declaration) and SlotEntry.encode(entry), so the array has no other holder and copying it buys nothing. MemoryWorkspaceSlotStore.restore is the one path that passes a caller's snapshot array, and it inserts into a local state object which it never installs: its last act is store.#state = cloneState(state), and cloneState rebuilds both maps with a slice of every row. The rows this line wrote are discarded with that local state, so the store's own bytes are copies regardless. No sequence of public calls can therefore reach a stored row that the caller still aliases.",
+      "proof": "insertImmutable is reached four ways, and no caller leaves the written array aliased. insertSlot, insertEntry and insertRegistration build the bytes inline as SlotDeclaration.encode(declaration), SlotEntry.encode(entry) and SurfaceRegistration.encode(registration), so the array has no other holder and copying it buys nothing. MemoryWorkspaceSlotStore.restore is the one path that passes a caller's snapshot array, and it inserts into a local state object which it never installs: its last act is store.#state = cloneState(state), and cloneState rebuilds every map through cloneRecordMap, which slices every row. The rows this line wrote are discarded with that local state, so the store's own bytes are copies regardless. The Surface store has no restore, so it adds no aliasing path. No sequence of public calls can therefore reach a stored row that the caller still aliases.",
       "replacement": "bytes",
       "symbol": "insertImmutable"
     },

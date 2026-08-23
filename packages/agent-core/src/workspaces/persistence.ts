@@ -2,13 +2,8 @@ import { AgentCoreError } from "../errors";
 import type { ActorRef } from "../actors";
 import type { AuditRecordId } from "../interaction-references";
 import type { FacetRef } from "../facets";
-import {
-    ContentRef,
-    type JsonValue,
-    type Revision,
-    compareCanonicalText,
-    isJsonObject
-} from "../core";
+import { consumeAuthenticatedContribution, type AuthenticatedContribution } from "../definition";
+import { ContentRef, Revision, type JsonValue, compareCanonicalText, isJsonObject } from "../core";
 import type { TenantId } from "../identity";
 import type {
     EventId,
@@ -30,7 +25,7 @@ import {
     RouteReservation,
     requireAuthenticatedRouteProjection
 } from "./route";
-import { Subscription } from "./subscription";
+import { Subscription, type SubscriptionInit } from "./subscription";
 import { View, ViewDelta, type JsonPatchEngine, viewDocument, viewFromDocument } from "./view";
 
 export type WorkspaceRecordKind =
@@ -54,6 +49,15 @@ type WorkspaceDurableRecord =
     | View
     | ViewDelta
     | ContentRetentionReference;
+
+/**
+ * A trusted materializer supplies route behavior. The store derives the initial revision,
+ * authenticated contribution attribution, and live state itself.
+ */
+export type SubscriptionMaterializationInit = Omit<
+    SubscriptionInit,
+    "contribution" | "retired" | "revision"
+>;
 
 export interface StoredWorkspaceRecord {
     readonly kind: WorkspaceRecordKind;
@@ -257,20 +261,29 @@ export class WorkspacePersistence<Transaction> {
         return delivery;
     }
 
+    /**
+     * Writes a caller-created Subscription or a revision of an existing one. Attribution
+     * never enters through initial generic creation: only materializeSubscription receives
+     * the one-use capability that authenticated package installation provenance minted.
+     */
     public saveSubscription(
         transaction: Transaction,
         subscription: Subscription,
         expectedRevision: Revision | undefined
     ): void {
-        const storage = this.storage(transaction);
-        const current = this.currentSubscription(transaction, subscription.id);
         if (expectedRevision === undefined) {
-            if (current !== undefined || subscription.revision.value !== 0) {
-                throw revisionConflict(
-                    "New Subscription requires revision zero and no current record"
+            if (subscription.contribution !== undefined) {
+                throw new AgentCoreError(
+                    "authority.denied",
+                    "Subscription attribution requires authenticated contribution materialization"
                 );
             }
-        } else if (
+            this.createSubscription(transaction, subscription);
+            return;
+        }
+
+        const current = this.currentSubscription(transaction, subscription.id);
+        if (
             current === undefined ||
             !current.revision.equals(expectedRevision) ||
             !expectedRevision.next().equals(subscription.revision)
@@ -280,22 +293,72 @@ export class WorkspacePersistence<Transaction> {
         // SPEC §4.2 (C13-FACET-CONTRIBUTION-ATTRIBUTION): attribution is written in the
         // same transaction as the record it attributes and is immutable for that record's
         // lifetime, so no later revision may add, drop, or rewrite it.
-        if (
-            current !== undefined &&
-            !sameContribution(current.contribution, subscription.contribution)
-        ) {
+        if (!sameContribution(current.contribution, subscription.contribution)) {
             throw new AgentCoreError(
                 "protocol.invalid-state",
                 "Subscription contribution attribution is immutable"
             );
         }
         // A retired Subscription is terminal: §4.1 leaves it resolvable by no later route.
-        if (current?.retired === true) {
+        if (current.retired === true) {
             throw new AgentCoreError(
                 "protocol.invalid-state",
                 "Retired Subscription accepts no further revision"
             );
         }
+        this.writeSubscription(transaction, subscription, current);
+    }
+
+    /**
+     * The sole attributed creation seam. It consumes the capability during the synchronous
+     * authenticated provenance callback and constructs the revision-zero record itself.
+     */
+    public materializeSubscription(
+        transaction: Transaction,
+        contribution: AuthenticatedContribution,
+        init: SubscriptionMaterializationInit
+    ): Subscription {
+        if ("contribution" in init || "retired" in init || "revision" in init) {
+            throw new AgentCoreError(
+                "operation.invalid-input",
+                "Subscription materialization input must not supply record state"
+            );
+        }
+        const attribution = consumeAuthenticatedContribution(contribution);
+        if (attribution === undefined) {
+            throw new AgentCoreError(
+                "authority.denied",
+                "Subscription materialization requires authenticated contribution provenance"
+            );
+        }
+        const subscription = new Subscription({
+            id: init.id,
+            revision: Revision.initial(),
+            source: init.source,
+            target: init.target,
+            mapping: init.mapping,
+            dedupe: init.dedupe,
+            authority: init.authority,
+            contribution: attribution
+        });
+        this.createSubscription(transaction, subscription);
+        return subscription;
+    }
+
+    private createSubscription(transaction: Transaction, subscription: Subscription): void {
+        const current = this.currentSubscription(transaction, subscription.id);
+        if (current !== undefined || subscription.revision.value !== 0) {
+            throw revisionConflict("New Subscription requires revision zero and no current record");
+        }
+        this.writeSubscription(transaction, subscription, undefined);
+    }
+
+    private writeSubscription(
+        transaction: Transaction,
+        subscription: Subscription,
+        current: Subscription | undefined
+    ): void {
+        const storage = this.storage(transaction);
         const recordKey = subscriptionRecordId(subscription);
         this.append(storage, "subscription", recordKey, subscription, Subscription.codec);
         storage.compareAndSetPointer(

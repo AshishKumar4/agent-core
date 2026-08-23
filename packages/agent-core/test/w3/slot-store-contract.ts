@@ -445,8 +445,8 @@ export function pin(contributor: string, version = "1.0.0"): PackagePin {
     );
 }
 
-export function attribution(contributor: string): ContributionAttribution {
-    return new ContributionAttribution(new FacetRef(contributor), pin(contributor));
+export function attribution(contributor: string, version = "1.0.0"): ContributionAttribution {
+    return new ContributionAttribution(new FacetRef(contributor), pin(contributor, version));
 }
 
 export function declaration(name = "dashboard.card"): SlotDeclaration {

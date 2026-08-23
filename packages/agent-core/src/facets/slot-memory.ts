@@ -1,9 +1,5 @@
 import { Revision, compareCanonicalText, hasExactKeys } from "../core";
-import {
-    requireSynchronousResult,
-    type SynchronousResultGuard,
-    type TransactionOperation
-} from "../actors";
+import { type SynchronousResultGuard, type TransactionOperation } from "../actors";
 import { AgentCoreError } from "../errors";
 import type { WorkspaceId } from "../identity";
 import { isString } from "./data";
@@ -11,11 +7,19 @@ import { SlotName, type SlotEntryId } from "./id";
 import { InstalledSlot } from "./slot";
 import { SlotEntry, type SlotContributionOrigin } from "./slot-entry";
 import { WorkspaceSlotStore } from "./slot-store";
+import {
+    cloneRecordMap,
+    insertImmutable,
+    orderedRecords,
+    requireSynchronousRecordResult,
+    sameRecordMaps,
+    type RecordMap
+} from "./record-map";
 
 interface MemorySlotState {
     revision: number;
-    slots: Map<string, Uint8Array>;
-    entries: Map<string, Uint8Array>;
+    slots: RecordMap;
+    entries: RecordMap;
 }
 
 export interface MemoryWorkspaceSlotSnapshot {
@@ -82,7 +86,7 @@ export class MemoryWorkspaceSlotStore extends WorkspaceSlotStore<MemorySlotState
         const draft = cloneState(this.#state);
         this.#active = draft;
         try {
-            const result = requireSynchronousSlotResult(operation(draft));
+            const result = requireSynchronousRecordResult(operation(draft), "Slot");
             validateState(draft);
             validateCommit(this.#state, draft);
             this.#state = cloneState(draft);
@@ -130,9 +134,7 @@ export class MemoryWorkspaceSlotStore extends WorkspaceSlotStore<MemorySlotState
     public listSlots(transaction: MemorySlotState): readonly InstalledSlot[] {
         this.requireActive(transaction);
         return Object.freeze(
-            [...transaction.slots]
-                .sort(compareRecordKeys)
-                .map(([key, bytes]) => decodeSlot(bytes, key))
+            orderedRecords(transaction.slots).map(([key, bytes]) => decodeSlot(bytes, key))
         );
     }
 
@@ -169,9 +171,7 @@ export class MemoryWorkspaceSlotStore extends WorkspaceSlotStore<MemorySlotState
     public listAllEntries(transaction: MemorySlotState): readonly SlotEntry[] {
         this.requireActive(transaction);
         return Object.freeze(
-            [...transaction.entries]
-                .sort(compareRecordKeys)
-                .map(([key, bytes]) => decodeEntry(bytes, key))
+            orderedRecords(transaction.entries).map(([key, bytes]) => decodeEntry(bytes, key))
         );
     }
 
@@ -195,10 +195,10 @@ export class MemoryWorkspaceSlotStore extends WorkspaceSlotStore<MemorySlotState
             owner: this.owner.value,
             revision: this.#state.revision,
             slots: Object.freeze(
-                [...this.#state.slots].sort(compareRecordKeys).map(([, bytes]) => bytes.slice())
+                orderedRecords(this.#state.slots).map(([, bytes]) => bytes.slice())
             ),
             entries: Object.freeze(
-                [...this.#state.entries].sort(compareRecordKeys).map(([, bytes]) => bytes.slice())
+                orderedRecords(this.#state.entries).map(([, bytes]) => bytes.slice())
             )
         });
     }
@@ -216,8 +216,8 @@ function emptyState(): MemorySlotState {
 function cloneState(state: MemorySlotState): MemorySlotState {
     return {
         revision: state.revision,
-        slots: new Map([...state.slots].map(([key, bytes]) => [key, bytes.slice()])),
-        entries: new Map([...state.entries].map(([key, bytes]) => [key, bytes.slice()]))
+        slots: cloneRecordMap(state.slots),
+        entries: cloneRecordMap(state.entries)
     };
 }
 
@@ -248,38 +248,11 @@ function requireEntryClosure(state: MemorySlotState, entry: SlotEntry): void {
     }
 }
 
-function insertImmutable(
-    records: Map<string, Uint8Array>,
-    key: string,
-    bytes: Uint8Array,
-    subject: string
-): void {
-    const previous = records.get(key);
-    if (previous !== undefined && !equalBytes(previous, bytes)) {
-        throw invalidState(`${subject} ${key} is immutable`);
-    }
-    records.set(key, bytes.slice());
-}
-
 function compareEntries(left: SlotEntry, right: SlotEntry): number {
     return (
         left.ordinal - right.ordinal ||
         compareCanonicalText(left.attribution.contributor.value, right.attribution.contributor.value)
     );
-}
-function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
-    return (
-        left.byteLength === right.byteLength && left.every((value, index) => value === right[index])
-    );
-}
-
-function requireSynchronousSlotResult<Result>(result: Result): Result {
-    try {
-        return requireSynchronousResult(result);
-    } catch (error) {
-        if (error instanceof TypeError) throw invalidState("Slot transactions must be synchronous");
-        throw error;
-    }
 }
 
 function requireSnapshot(snapshot: MemoryWorkspaceSlotSnapshot): void {
@@ -324,26 +297,10 @@ function validateState(state: MemorySlotState): void {
  */
 function validateCommit(before: MemorySlotState, after: MemorySlotState): void {
     const changed =
-        !sameRecords(before.slots, after.slots) || !sameRecords(before.entries, after.entries);
+        !sameRecordMaps(before.slots, after.slots) || !sameRecordMaps(before.entries, after.entries);
     if (after.revision - before.revision !== (changed ? 1 : 0)) {
         throw corrupt("Memory Workspace Slot revision does not match its records");
     }
-}
-
-function sameRecords(left: Map<string, Uint8Array>, right: Map<string, Uint8Array>): boolean {
-    if (left.size !== right.size) return false;
-    for (const [key, bytes] of left) {
-        const other = right.get(key);
-        if (other === undefined || !equalBytes(bytes, other)) return false;
-    }
-    return true;
-}
-
-function compareRecordKeys(
-    left: readonly [string, Uint8Array],
-    right: readonly [string, Uint8Array]
-): number {
-    return compareCanonicalText(left[0], right[0]);
 }
 
 function corrupt(message: string): AgentCoreError {
