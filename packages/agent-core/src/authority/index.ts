@@ -47,16 +47,16 @@ export type {
     TargetLeaseEvidenceTarget
 } from "./target-lease-evidence";
 export {
-    MemoryTargetLeaseSourceStore,
-    MemoryTargetLeaseEvidenceTransaction,
+    RunTargetLeaseEvidenceStore,
     TargetLeaseEvidenceIssuer,
     TargetLeaseEvidenceSourcePort
 } from "./target-lease-evidence-store";
 export type {
+    TargetLeaseEvidenceSourceFacts,
+    TargetLeaseEvidenceSourceRuns,
     TargetLeaseEvidenceSourceState,
     TargetLeaseEvidenceSourceStore,
-    TargetLeaseEvidenceStore,
-    MemoryTargetLeaseEvidenceSnapshot
+    TargetLeaseEvidenceStore
 } from "./target-lease-evidence-store";
 export { TargetAuthorityPermitDenial } from "./permit-denial";
 export {

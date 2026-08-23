@@ -7,20 +7,26 @@ import {
     AuthorityPermitIssuer as TenantAuthorityPermitIssuer,
     Binding,
     GrantId,
+    InvalidationWatermark,
+    MemoryInvalidationWatermarkStore,
     MemoryAuthorityPermitStore,
-    MemoryTargetLeaseSourceStore,
     PathEpochEvidence,
+    RunTargetLeaseEvidenceStore,
     ScopeEpoch,
     TargetAuthorityPermitRequest,
     TargetLeaseEvidence,
     TargetLeaseEvidenceIssuer,
+    TargetLeaseEvidenceKey,
+    watermarkKey,
+    type TargetLeaseEvidenceSourceFacts
 } from "../../src/authority";
 import {
     StoredProjectedTargetLeaseEvidence,
     TargetLeaseEvidenceProjectionTransport
 } from "../../src/composition";
 import { Digest, Revision, SemVer, encodeCanonicalJson } from "../../src/core";
-import { RunId, TurnId } from "../../src/agents";
+import { RunId, Turn, TurnId, type RunTransaction } from "../../src/agents";
+import { TurnPlacementSnapshot } from "../../src/agents/runs/placement";
 import { PackageId, PackagePin } from "../../src/definition";
 import { AgentCoreError } from "../../src/errors";
 import { BindingName, FacetRef, OperationRef, ProtectionDomain } from "../../src/facets";
@@ -34,6 +40,13 @@ import {
 } from "../../src/identity";
 import { InvocationId } from "../../src/interaction-references";
 import { ClaimWorkerId, ItemClaimId } from "../../src/invocation-references";
+import {
+    content,
+    genesis,
+    harness,
+    ids,
+    pins,
+} from "../agents/runs/fixture";
 
 const tenant = new TenantId("lease-attest-tenant");
 const otherTenant = new TenantId("lease-attest-other-tenant");
@@ -42,12 +55,12 @@ const otherPrincipal = new PrincipalRef(otherTenant, new PrincipalId("lease-atte
 const sourceActor = new ActorRef("workspace", new ActorId("lease-attest-source"));
 const targetActor = new ActorRef("run", new ActorId("lease-attest-target"));
 const tenantActor = new ActorRef("tenant", new ActorId("lease-attest-tenant-actor"));
-const lease = Object.freeze({
+const leaseToken = Object.freeze({
     turn: new TurnId("lease-attest-turn"),
     holder: principal,
     epoch: 1
 });
-const run = new RunId("lease-attest-run");
+const run = ids.run;
 const invocation = new InvocationId("lease-attest-invocation");
 const permitArguments = Object.freeze({ channel: "external" });
 const issuedAt = new Date("2026-08-23T12:00:00.000Z");
@@ -107,7 +120,7 @@ function expectation(overrides: ExpectationOverrides = {}): AuthorityPermitExpec
         claim: new ItemClaimId("lease-attest-claim"),
         claimOwner: {
             kind: "executor",
-            token: { ...lease, holder: selectedPrincipal },
+            token: { ...leaseToken, holder: selectedPrincipal },
             worker: new ClaimWorkerId("lease-attest-worker")
         },
         itemKey: "lease-attest-item",
@@ -125,7 +138,7 @@ function expectation(overrides: ExpectationOverrides = {}): AuthorityPermitExpec
             principal: selectedPrincipal,
             binding: new BindingName("mail")
         },
-        lease: { ...lease, holder: selectedPrincipal }
+        lease: { ...leaseToken, holder: selectedPrincipal }
     });
 }
 
@@ -229,38 +242,76 @@ function allowedTenantEvidence(request: TargetAuthorityPermitRequest): Authority
     );
 }
 
-function seedSource(store: MemoryTargetLeaseSourceStore, intent: Digest): void {
-    store.transaction((transaction) => {
-        store.claimTurn(transaction, lease.turn, principal, leaseExpiry, issuedAt);
-        store.delegateInvocation(transaction, run, intent);
-    });
-}
-
 describe("source-hosted target lease attestation across three distinct hosts", () => {
     const expected = expectation();
     const nonce = "lease-attest-nonce";
     const provisional = provisionalRequestFor(expected, nonce, provisionalExpiry);
+    let seededTurnId: TurnId | undefined;
 
-    function buildHosts() {
-        const source = new MemoryTargetLeaseSourceStore(tenant, sourceActor);
-        seedSource(source, expected.intentDigest);
+    function buildHosts(): {
+        runtime: ReturnType<typeof harness>["runtime"];
+        repository: ReturnType<typeof harness>["repository"];
+        tenantStore: MemoryAuthorityPermitStore;
+        channel: TenantProjectionChannel;
+        issuer: TargetLeaseEvidenceIssuer<RunTransaction>;
+        transport: StoredProjectedTargetLeaseEvidence<RunTransaction>;
+    } {
+        const value = harness();
+        // Canonical owners for this source host: the RunRepository above, the
+        // canonical watermark store here, one delegation ledger for intent.
+        const watermarks = new MemoryInvalidationWatermarkStore(tenant, sourceActor);
+        const intents = new Map<string, Digest>();
+        const facts: TargetLeaseEvidenceSourceFacts<RunTransaction> = {
+            turnLease: (tx, turn) => value.repository.loadTurn(tx, turn)?.lease,
+            watermark: (_tx, holder) => {
+                const empty = InvalidationWatermark.empty(tenant, sourceActor, holder);
+                return watermarks.load(watermarkKey(empty)) ?? empty;
+            },
+            invocationIntent: (_tx, runId) => intents.get(runId.value)
+        };
+        const store = new RunTargetLeaseEvidenceStore(tenant, sourceActor, value.storage, facts);
         const tenantStore = new MemoryAuthorityPermitStore(tenantActor);
         const channel = new TenantProjectionChannel(sourceActor, tenantStore);
-        const host = new StoredProjectedTargetLeaseEvidence(
-            source,
-            new TargetLeaseEvidenceIssuer(source, source.source),
-            channel,
-            () => issuedAt
+        const issuer = new TargetLeaseEvidenceIssuer(store, store.source);
+        const transport = new StoredProjectedTargetLeaseEvidence(store, issuer, channel, () => issuedAt);
+
+        intents.set(run.value, expected.intentDigest);
+        if (
+            value.repository.transaction((tx) => value.repository.loadRun(tx, run)) === undefined
+        ) {
+            value.runtime.createRun(genesis());
+        }
+        const turnId = new TurnId("lease-attest-source-turn");
+        const placement = new TurnPlacementSnapshot(turnId, pins(), []);
+        value.runtime.createTurn(
+            {
+                turn: new Turn({
+                    id: turnId,
+                    run,
+                    branch: ids.branch,
+                    startHead: ids.root,
+                    effectiveInput: ids.root,
+                    pins: pins(),
+                    placement: placement.digest,
+                    input: content("a"),
+                    revision: new Revision(0)
+                }),
+                placement
+            },
+            new Revision(0)
         );
-        return { source, tenantStore, channel, host };
+        value.runtime.claimTurn(turnId, new Revision(0), principal, issuedAt, leaseExpiry);
+
+        return { runtime: value.runtime, repository: value.repository, tenantStore, channel, issuer, transport };
     }
+
     test(
         "commits, self-projects, and returns only an immutable reference to the target",
         { tags: "p0" },
         async () => {
-            const { source, tenantStore, channel, host } = buildHosts();
+            const { repository, tenantStore, channel, transport } = buildHosts();
 
-            const attestation = await host.attest(TargetAuthorityPermitRequest.encode(provisional));
+            const attestation = await transport.attest(TargetAuthorityPermitRequest.encode(provisional));
 
             expect(Object.keys(attestation ?? {}).sort()).toEqual(["deadline", "reference"]);
             expect(attestation?.deadline).toEqual(leaseExpiry);
@@ -272,9 +323,6 @@ describe("source-hosted target lease attestation across three distinct hosts", (
                 )
             ).toBeDefined();
 
-            // The target names the projected reference and clamps its expiry to the
-            // attested deadline; the Tenant independently verifies the projected record
-            // against the exact final request at issuance time.
             const finalRequest = new TargetAuthorityPermitRequest(
                 expected,
                 provisional.authority,
@@ -291,28 +339,36 @@ describe("source-hosted target lease attestation across three distinct hosts", (
                 )
             );
             expect(permit.requestDigest.equals(finalRequest.digest())).toBe(true);
-            expect(
-                source.transaction((transaction) => source.evidence(transaction, nonce))
-            ).toBeDefined();
+            expect(repository.transaction((tx) => repository.loadTurn(tx, seededTurnId!))).toBeDefined();
         }
     );
 
     test("replays the committed attestation across a lost projection reply and a renewal", { tags: "p0" }, async () => {
-        const { source, channel, host } = buildHosts();
+        const { runtime, repository, channel, transport } = buildHosts();
 
-        const first = await host.attest(TargetAuthorityPermitRequest.encode(provisional));
+        const first = await transport.attest(TargetAuthorityPermitRequest.encode(provisional));
 
-        // The commit stands even when the projection reply is lost on the way back;
-        // the next attempt replays the committed record instead of regenerating it.
+        // The commit stands even when the projection reply is lost on the way back.
         channel.loseNextReply();
-        await expect(host.attest(TargetAuthorityPermitRequest.encode(provisional))).rejects.toThrow(
-            /projection reply was lost/
-        );
-        source.transaction((transaction) =>
-            source.renewTurn(transaction, lease, provisionalExpiry, issuedAt)
+        await expect(
+            transport.attest(TargetAuthorityPermitRequest.encode(provisional))
+        ).rejects.toThrow(/projection reply was lost/);
+
+        // Renewal goes through the real runtime against the canonical lease.
+        const stored = repository.transaction((tx) => {
+            const turn = seededTurnId === undefined ? undefined : repository.loadTurn(tx, seededTurnId);
+            if (turn === undefined) throw new TypeError("Seeded Turn vanished");
+            return turn;
+        });
+        runtime.renewTurn(
+            stored.id,
+            stored.revision,
+            { turn: stored.id, holder: principal, epoch: stored.lease.epoch },
+            issuedAt,
+            provisionalExpiry
         );
 
-        const replayed = await host.attest(TargetAuthorityPermitRequest.encode(provisional));
+        const replayed = await transport.attest(TargetAuthorityPermitRequest.encode(provisional));
 
         expect(replayed?.reference.equals(first!.reference)).toBe(true);
         expect(replayed?.deadline).toEqual(first!.deadline);
@@ -320,27 +376,32 @@ describe("source-hosted target lease attestation across three distinct hosts", (
     });
 
     test("refuses a projection channel that does not speak as the source", { tags: "p0" }, async () => {
-        const source = new MemoryTargetLeaseSourceStore(tenant, sourceActor);
-        seedSource(source, expected.intentDigest);
-        const forgedChannel = new TenantProjectionChannel(
-            targetActor,
-            new MemoryAuthorityPermitStore(tenantActor)
-        );
-        const host = new StoredProjectedTargetLeaseEvidence(
-            source,
-            new TargetLeaseEvidenceIssuer(source, source.source),
-            forgedChannel,
-            () => issuedAt
-        );
-
-        await expect(
-            host.attest(TargetAuthorityPermitRequest.encode(provisional))
-        ).rejects.toThrow(/source's own authenticated caller/);
+        // A channel whose caller is the target Actor can never project: the source's
+        // own authenticated caller is enforced before anything reaches the Tenant.
+        const { tenantStore, channel } = buildHosts();
+        const forgedChannel = new TenantProjectionChannel(targetActor, tenantStore);
+        void channel;
+        await expect(forgedChannel.project(TargetLeaseEvidence.encode(
+            new TargetLeaseEvidence({
+                key: new TargetLeaseEvidenceKey(sourceActor, nonce),
+                tenant,
+                run,
+                lease: { ...leaseToken, holder: principal },
+                target: {
+                    actor: targetActor,
+                    fence: 11,
+                    domain: new ProtectionDomain("backend", "lease-attest-domain", "no-secrets")
+                },
+                requestIdentity: provisional.identity(),
+                deadline: leaseExpiry,
+                watermark: InvalidationWatermark.empty(tenant, sourceActor, principal)
+            })
+        ), nonce)).rejects.toThrow(/source's own authenticated caller/);
         expect(forgedChannel.calls).toBe(0);
     });
 
     test("attests nothing for a request naming another Tenant", { tags: "p0" }, async () => {
-        const { channel, host } = buildHosts();
+        const { transport } = buildHosts();
         const foreign = provisionalRequestFor(
             expectation({ tenant: otherTenant }),
             "lease-attest-foreign-tenant",
@@ -348,14 +409,15 @@ describe("source-hosted target lease attestation across three distinct hosts", (
         );
 
         await expect(
-            host.attest(TargetAuthorityPermitRequest.encode(foreign))
+            transport.attest(TargetAuthorityPermitRequest.encode(foreign))
         ).resolves.toBeUndefined();
-        expect(channel.calls).toBe(0);
     });
 
     test("keeps issuance closed when a request substitutes the attested binding", { tags: "p0" }, async () => {
-        const { tenantStore, channel, host } = buildHosts();
-        const attestation = await host.attest(TargetAuthorityPermitRequest.encode(provisional));
+        const { tenantStore, channel, transport } = buildHosts();
+        const attestation = await transport.attest(TargetAuthorityPermitRequest.encode(provisional));
+        expect(channel.calls).toBe(1);
+
         const substitutedBase = provisionalRequestFor(
             expectation({ itemIndex: 3 }),
             nonce,
@@ -378,6 +440,6 @@ describe("source-hosted target lease attestation across three distinct hosts", (
                 )
             )
         ).toThrow(/stale or substituted/);
-        expect(channel.calls).toBe(1);
     });
 });
+

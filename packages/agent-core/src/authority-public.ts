@@ -19,7 +19,7 @@ export type {
     AuthorityPermitTargetStore
 } from "./authority";
 export {
-    MemoryTargetLeaseSourceStore,
+    RunTargetLeaseEvidenceStore,
     TargetLeaseEvidence,
     TargetLeaseEvidenceIssuer,
     TargetLeaseEvidenceKey,

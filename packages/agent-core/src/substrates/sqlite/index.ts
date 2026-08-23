@@ -24,7 +24,6 @@ export { ReadableSqlite, TransactionalSqlite, ownSqliteMutations } from "./sqlit
 export type { SqliteRow, SqliteValue } from "./sqlite";
 export {
     SqliteAuthorityPermitStore,
-    SqliteTargetLeaseSourceStore,
     SqliteTenantAuthorityPermitStore
 } from "./permit";
 export { SqliteInvalidationWatermarkStore } from "./watermark";

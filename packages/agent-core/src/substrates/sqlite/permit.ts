@@ -9,16 +9,10 @@ import type {
 import {
     AuthorityPermit,
     TenantAuthorityTransactionPort,
-    InvalidationWatermark,
-    watermarkKey,
     type AuthenticatedAuthorityPermit,
     type AuthorityPermitExpectation,
     type AuthorityPermitIssueStore,
     type AuthorityPermitTargetStore,
-    type ScopeEpoch,
-    type TargetLeaseEvidenceSourceState,
-    type TargetLeaseEvidenceSourcePort,
-    type TargetLeaseEvidenceSourceStore,
     type TenantAuthorityReadStore,
     TargetAuthorityPermitDenial,
     TargetAuthorityPermitRequest,
@@ -37,9 +31,6 @@ import {
 } from "./sqlite";
 import { SqliteActorStore, isActiveSqliteActorTransaction } from "./actor";
 import { createSqliteTenantControlStore } from "./tenant";
-import { RunId, TurnId, TurnLease, type LeaseToken } from "../../agents";
-import { SqliteInvalidationWatermarkStore } from "./watermark";
-import type { PrincipalRef, TenantId } from "../../identity";
 
 const CREATE_PERMITS = `CREATE TABLE IF NOT EXISTS authority_permit_nonces (
     nonce TEXT PRIMARY KEY CHECK (length(nonce) > 0),
@@ -75,30 +66,7 @@ const CREATE_LEASE_EVIDENCE_PROJECTIONS = `CREATE TABLE IF NOT EXISTS authority_
     PRIMARY KEY (source_kind, source_id, idempotency_key)
 ) STRICT`;
 
-const CREATE_SOURCE_LEASE_EVIDENCE = `CREATE TABLE IF NOT EXISTS authority_target_lease_evidence (
-    owner_kind TEXT NOT NULL CHECK (owner_kind IN ('tenant', 'workspace', 'run', 'environment', 'slate')),
-    owner_id TEXT NOT NULL CHECK (length(owner_id) > 0),
-    idempotency_key TEXT NOT NULL CHECK (length(idempotency_key) > 0),
-    digest TEXT NOT NULL CHECK (length(digest) = 64),
-    evidence BLOB NOT NULL,
-    PRIMARY KEY (owner_kind, owner_id, idempotency_key)
-) STRICT`;
 
-const CREATE_SOURCE_TURN_LEASES = `CREATE TABLE IF NOT EXISTS authority_source_turn_leases (
-    owner_kind TEXT NOT NULL CHECK (owner_kind IN ('tenant', 'workspace', 'run', 'environment', 'slate')),
-    owner_id TEXT NOT NULL CHECK (length(owner_id) > 0),
-    turn_id TEXT NOT NULL CHECK (length(turn_id) > 0),
-    lease BLOB NOT NULL,
-    PRIMARY KEY (owner_kind, owner_id, turn_id)
-) STRICT`;
-
-const CREATE_SOURCE_DELEGATIONS = `CREATE TABLE IF NOT EXISTS authority_source_delegations (
-    owner_kind TEXT NOT NULL CHECK (owner_kind IN ('tenant', 'workspace', 'run', 'environment', 'slate')),
-    owner_id TEXT NOT NULL CHECK (length(owner_id) > 0),
-    run_id TEXT NOT NULL CHECK (length(run_id) > 0),
-    intent TEXT NOT NULL CHECK (length(intent) = 64),
-    PRIMARY KEY (owner_kind, owner_id, run_id)
-) STRICT`;
 
 export class SqliteAuthorityPermitStore
     implements
@@ -597,281 +565,6 @@ export class SqliteAuthorityPermitStore
     }
 }
 
-/**
- * SQLite source-Actor delegation authority. The store binds its Actor identity to
- * the exact declared owner before any transaction exists, and reads the real Turn
- * lease, holder watermark, and delegation intent inside the same transaction that
- * records immutable lease evidence.
- */
-export class SqliteTargetLeaseSourceStore
-    implements
-        TargetLeaseEvidenceSourceStore<TransactionalSqlite>,
-        TargetLeaseEvidenceSourcePort<TransactionalSqlite>
-{
-    readonly #actors: SqliteActorStore;
-    readonly #watermarks: SqliteInvalidationWatermarkStore;
-
-    public constructor(
-        private readonly database: TransactionalSqlite,
-        public readonly tenant: TenantId,
-        public readonly owner: ActorRef
-    ) {
-        this.#actors = new SqliteActorStore(database);
-        this.#actors.bindActor(owner);
-        this.#watermarks = new SqliteInvalidationWatermarkStore(database, tenant, owner);
-        database.transaction(() => {
-            database.run(CREATE_SOURCE_LEASE_EVIDENCE, []);
-            database.run(CREATE_SOURCE_TURN_LEASES, []);
-            database.run(CREATE_SOURCE_DELEGATIONS, []);
-        });
-        this.#actors.transaction((transaction) => this.validateRows(transaction));
-    }
-
-    /** The read side over this exact owner's delegation state; the store itself. */
-    public readonly source: TargetLeaseEvidenceSourcePort<TransactionalSqlite> = this;
-
-    public transaction<Result>(
-        operation: (transaction: TransactionalSqlite) => Result,
-        ...guard: SynchronousResultGuard<Result>
-    ): Result {
-        return this.#actors.transaction(operation, ...guard);
-    }
-
-    public current(
-        transaction: TransactionalSqlite,
-        source: ActorRef,
-        run: RunId,
-        token: LeaseToken
-    ): TargetLeaseEvidenceSourceState | undefined {
-        this.requireTransaction(transaction);
-        if (!source.equals(this.owner)) return undefined;
-        const turnRow = transaction
-            .all(
-                `SELECT lease FROM authority_source_turn_leases
-                 WHERE owner_kind = ? AND owner_id = ? AND turn_id = ?`,
-                [this.owner.kind, this.owner.id.value, token.turn.value]
-            )[0];
-        const delegationRow = transaction
-            .all(
-                `SELECT intent FROM authority_source_delegations
-                 WHERE owner_kind = ? AND owner_id = ? AND run_id = ?`,
-                [this.owner.kind, this.owner.id.value, run.value]
-            )[0];
-        if (turnRow === undefined || delegationRow === undefined) return undefined;
-        return Object.freeze({
-            run: new RunId(run.value),
-            lease: TurnLease.decode(turnRecordBytes(turnRow).slice()),
-            watermark: this.watermarkIn(transaction, token.holder),
-            invocationIntent: new Digest(text(delegationRow, "intent"))
-        });
-    }
-
-    public claimTurn(
-        transaction: TransactionalSqlite,
-        turn: TurnId,
-        holder: PrincipalRef,
-        expiresAt: Date,
-        now: Date
-    ): TurnLease {
-        this.requireTransaction(transaction);
-        const stored = this.turnLeaseIn(transaction, turn);
-        const claimed = (
-            stored ?? TurnLease.unclaimed(new TurnId(turn.value))
-        ).claim(holder, now, expiresAt);
-        this.saveTurnLease(transaction, claimed);
-        return claimed;
-    }
-
-    public renewTurn(
-        transaction: TransactionalSqlite,
-        token: LeaseToken,
-        expiresAt: Date,
-        now: Date
-    ): TurnLease {
-        this.requireTransaction(transaction);
-        const stored = this.turnLeaseIn(transaction, token.turn);
-        if (stored === undefined) {
-            throw new AgentCoreError("lease.invalid", "Turn lease renewal requires a stored lease");
-        }
-        const renewed = stored.renew(token.holder, token.epoch, now, expiresAt);
-        this.saveTurnLease(transaction, renewed);
-        return renewed;
-    }
-
-    public fenceTurn(transaction: TransactionalSqlite, turn: TurnId): TurnLease {
-        this.requireTransaction(transaction);
-        const stored = this.turnLeaseIn(transaction, turn);
-        if (stored === undefined) {
-            throw new AgentCoreError("lease.invalid", "Turn lease fencing requires a stored lease");
-        }
-        const fenced = stored.fence();
-        this.saveTurnLease(transaction, fenced);
-        return fenced;
-    }
-
-    public joinInvalidation(
-        transaction: TransactionalSqlite,
-        holder: PrincipalRef,
-        entries: readonly ScopeEpoch[]
-    ): InvalidationWatermark {
-        this.requireTransaction(transaction);
-        const empty = InvalidationWatermark.empty(this.tenant, this.owner, holder);
-        const key = watermarkKey(empty);
-        if (this.#watermarks.loadInTransaction(transaction, key) === undefined) {
-            this.#watermarks.saveInTransaction(transaction, empty);
-        }
-        return this.#watermarks.joinInTransaction(transaction, key, entries);
-    }
-
-    public delegateInvocation(
-        transaction: TransactionalSqlite,
-        run: RunId,
-        intent: Digest
-    ): void {
-        this.requireTransaction(transaction);
-        transaction.run(
-            `INSERT INTO authority_source_delegations
-                (owner_kind, owner_id, run_id, intent)
-             VALUES (?, ?, ?, ?)
-             ON CONFLICT (owner_kind, owner_id, run_id) DO UPDATE SET intent = excluded.intent`,
-            [this.owner.kind, this.owner.id.value, new RunId(run.value).value, new Digest(intent.value).value]
-        );
-    }
-
-    public evidence(
-        transaction: TransactionalSqlite,
-        idempotencyKey: string
-    ): TargetLeaseEvidence | undefined {
-        this.requireTransaction(transaction);
-        const row = transaction.all(
-            `SELECT * FROM authority_target_lease_evidence
-             WHERE owner_kind = ? AND owner_id = ? AND idempotency_key = ?`,
-            [this.owner.kind, this.owner.id.value, idempotencyKey]
-        )[0];
-        if (row === undefined) return undefined;
-        return this.decode(row, idempotencyKey);
-    }
-
-    public record(
-        transaction: TransactionalSqlite,
-        evidence: TargetLeaseEvidence
-    ): TargetLeaseEvidence {
-        this.requireTransaction(transaction);
-        if (!evidence.key.source.equals(this.owner)) {
-            throw denied("Target lease evidence belongs to another source Actor");
-        }
-        try {
-            transaction.run(
-                `INSERT OR IGNORE INTO authority_target_lease_evidence
-                    (owner_kind, owner_id, idempotency_key, digest, evidence)
-                 VALUES (?, ?, ?, ?, ?)`,
-                [
-                    this.owner.kind,
-                    this.owner.id.value,
-                    evidence.key.idempotencyKey,
-                    evidence.digest().value,
-                    TargetLeaseEvidence.encode(evidence)
-                ]
-            );
-        } catch (error) {
-            if (error instanceof AgentCoreError) throw error;
-            throw denied("Target lease evidence could not be recorded atomically");
-        }
-        const stored = this.evidence(transaction, evidence.key.idempotencyKey);
-        if (stored === undefined) throw conflict("Target lease evidence did not persist");
-        if (!stored.digest().equals(evidence.digest())) {
-            throw denied("Target lease evidence key is bound to another source attestation");
-        }
-        return stored;
-    }
-
-    private validateRows(transaction: TransactionalSqlite): void {
-        this.requireTransaction(transaction);
-        const rows = transaction.all(
-            `SELECT * FROM authority_target_lease_evidence
-             WHERE owner_kind = ? AND owner_id = ? ORDER BY idempotency_key`,
-            [this.owner.kind, this.owner.id.value]
-        );
-        for (const row of rows) {
-            this.decode(row, text(row, "idempotency_key"));
-        }
-        for (const row of transaction.all(
-            `SELECT * FROM authority_source_turn_leases
-             WHERE owner_kind = ? AND owner_id = ? ORDER BY turn_id`,
-            [this.owner.kind, this.owner.id.value]
-        )) {
-            if (TurnLease.decode(turnRecordBytes(row).slice()).turn.value !== text(row, "turn_id")) {
-                throw corrupt();
-            }
-        }
-        for (const row of transaction.all(
-            `SELECT * FROM authority_source_delegations
-             WHERE owner_kind = ? AND owner_id = ? ORDER BY run_id`,
-            [this.owner.kind, this.owner.id.value]
-        )) {
-            new RunId(text(row, "run_id"));
-            new Digest(text(row, "intent"));
-        }
-    }
-
-    private turnLeaseIn(transaction: TransactionalSqlite, turn: TurnId): TurnLease | undefined {
-        const row = transaction
-            .all(
-                `SELECT lease FROM authority_source_turn_leases
-                 WHERE owner_kind = ? AND owner_id = ? AND turn_id = ?`,
-                [this.owner.kind, this.owner.id.value, turn.value]
-            )[0];
-        return row === undefined ? undefined : TurnLease.decode(turnRecordBytes(row).slice());
-    }
-
-    private saveTurnLease(transaction: TransactionalSqlite, lease: TurnLease): void {
-        transaction.run(
-            `INSERT INTO authority_source_turn_leases
-                (owner_kind, owner_id, turn_id, lease)
-             VALUES (?, ?, ?, ?)
-             ON CONFLICT (owner_kind, owner_id, turn_id) DO UPDATE SET lease = excluded.lease`,
-            [this.owner.kind, this.owner.id.value, lease.turn.value, TurnLease.encode(lease)]
-        );
-    }
-
-    private watermarkIn(transaction: TransactionalSqlite, holder: PrincipalRef): InvalidationWatermark {
-        const empty = InvalidationWatermark.empty(this.tenant, this.owner, holder);
-        return this.#watermarks.loadInTransaction(transaction, watermarkKey(empty)) ?? empty;
-    }
-
-    private decode(row: SqliteRow, idempotencyKey: string): TargetLeaseEvidence {
-        const bytes = row["evidence"];
-        if (!(bytes instanceof Uint8Array)) throw corrupt();
-        const evidence = TargetLeaseEvidence.decode(bytes.slice());
-        if (
-            text(row, "owner_kind") !== this.owner.kind ||
-            text(row, "owner_id") !== this.owner.id.value ||
-            text(row, "idempotency_key") !== idempotencyKey ||
-            text(row, "digest") !== evidence.digest().value ||
-            !evidence.key.source.equals(this.owner) ||
-            evidence.key.idempotencyKey !== idempotencyKey
-        ) {
-            throw corrupt();
-        }
-        return evidence;
-    }
-
-    private requireTransaction(transaction: TransactionalSqlite): void {
-        if (
-            !(transaction instanceof TransactionalSqlite) ||
-            !hasSameSqliteProvenance(this.database, transaction)
-        ) {
-            throw new TypeError("Target lease transaction belongs to another SQLite owner");
-        }
-        if (!isActiveSqliteActorTransaction(transaction)) {
-            throw new AgentCoreError(
-                "actor.stale-callback",
-                "Target lease writes require the active SQLite Actor transaction"
-            );
-        }
-    }
-}
-
 /** Binds a Tenant's current authority view and issued permits to one SQLite transaction. */
 
 export class SqliteTenantAuthorityPermitStore
@@ -995,8 +688,3 @@ function corrupt(message = "Stored authority permit ownership is malformed"): Ag
     return new AgentCoreError("codec.invalid", message);
 }
 
-function turnRecordBytes(row: SqliteRow): Uint8Array {
-    const bytes = row["lease"];
-    if (!(bytes instanceof Uint8Array)) throw corrupt();
-    return bytes;
-}
