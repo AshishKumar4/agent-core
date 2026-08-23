@@ -14,7 +14,7 @@ export type { DigestAlgorithm } from "./digest";
 export { ContentRef } from "./content-ref";
 export { Revision } from "./revision";
 export { SecretRef } from "./secret-ref";
-export { RecordCodec } from "./codec";
+export { RecordCodec, assertCompatibleRecordVersion } from "./codec";
 export type { RecordEnvelope, RecordVersion } from "./codec";
 export {
     hasExactJsonKeys,

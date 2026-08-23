@@ -103,18 +103,7 @@ export abstract class RecordCodec<Record> {
         if (value.kind !== this.kind) {
             throw new AgentCoreError("codec.invalid", `Expected record kind ${this.kind}`);
         }
-        if (value.version.major !== this.version.major) {
-            throw new AgentCoreError(
-                "codec.unknown-major",
-                `Unsupported ${this.kind} codec major ${value.version.major}`
-            );
-        }
-        if (value.version.minor > this.version.minor) {
-            throw new AgentCoreError(
-                "codec.invalid",
-                `Unsupported ${this.kind} codec minor ${value.version.minor}`
-            );
-        }
+        assertCompatibleRecordVersion(this.kind, value.version, this.version);
         const version = Object.freeze({
             major: value.version.major,
             minor: value.version.minor
@@ -134,6 +123,31 @@ export abstract class RecordCodec<Record> {
     protected abstract encodePayload(record: Record): JsonValue;
 
     protected abstract decodePayload(payload: JsonValue, version: RecordVersion): Record;
+}
+
+/**
+ * The single §8.3 compatibility decision shared by every record-codec reader:
+ * an unknown major fails as codec.unknown-major, an unsupported newer minor
+ * fails as codec.invalid, and an older minor tolerates read within the major.
+ * Both components must already be non-negative safe integers.
+ */
+export function assertCompatibleRecordVersion(
+    subject: string,
+    declared: RecordVersion,
+    supported: RecordVersion
+): void {
+    if (declared.major !== supported.major) {
+        throw new AgentCoreError(
+            "codec.unknown-major",
+            `Unsupported ${subject} codec major ${declared.major}`
+        );
+    }
+    if (declared.minor > supported.minor) {
+        throw new AgentCoreError(
+            "codec.invalid",
+            `Unsupported ${subject} codec minor ${declared.minor}`
+        );
+    }
 }
 
 function sealRecordClasses<Record>(recordClasses: RecordClasses<Record>): void {

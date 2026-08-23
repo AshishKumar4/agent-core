@@ -665,12 +665,13 @@ describe("W3 profile wire codec versioning", () => {
     });
 
     test("decodes only supported wire versions", { tags: "p1" }, () => {
-        const versioned = versionedProfileWireCodec<string>(
+        const versioned = new VersionedProfileWireCodec<string>(
             (value) => value,
-            (data) => String(data)
+            (data) => String(data),
+            1,
+            4
         );
-        expect(versioned.decodeVersion({ major: 1, minor: 0 }, "value")).toBe("value");
-        expect(versioned.decodeVersion({ major: 1, minor: 7 }, "value")).toBe("value");
+        expect(versioned.decodeVersion({ major: 1, minor: 2 }, "value")).toBe("value");
         expect(() => versioned.decodeVersion({ major: 2, minor: 0 }, "value")).toThrowError(
             expect.objectContaining({
                 code: "codec.unknown-major",
@@ -678,12 +679,24 @@ describe("W3 profile wire codec versioning", () => {
                 message: "Unsupported profile input codec major 2"
             })
         );
-        for (const minor of [-1, 1.5]) {
-            expect(() => versioned.decodeVersion({ major: 1, minor }, "value")).toThrowError(
+        expect(() => versioned.decodeVersion({ major: 1, minor: 5 }, "value")).toThrowError(
+            expect.objectContaining({
+                code: "codec.invalid",
+                detailCode: "wire.input",
+                message: "Unsupported profile input codec minor 5"
+            })
+        );
+        for (const version of [
+            { major: -1, minor: 0 },
+            { major: 1.5, minor: 0 },
+            { major: 1, minor: -1 },
+            { major: 1, minor: 1.5 }
+        ]) {
+            expect(() => versioned.decodeVersion(version, "value")).toThrowError(
                 expect.objectContaining({
                     code: "codec.invalid",
                     detailCode: "wire.input",
-                    message: "Profile input codec minor is invalid"
+                    message: "Profile input codec version is invalid"
                 })
             );
         }
