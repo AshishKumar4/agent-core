@@ -58,6 +58,7 @@ import {
 import { FacetRef } from "../../src/facets/id";
 import { BoundOperationRef, FacetOperationRef } from "../../src/facets/operation";
 import { SlotContributionOrigin } from "../../src/facets/slot-entry";
+import { SurfaceRegistration } from "../../src/facets/surface";
 
 const objectSchema = new JsonSchema({ type: "object" });
 const goldenPin = new PackagePin(
@@ -197,6 +198,123 @@ describe("Declarative facet vocabulary", () => {
                     ),
                 "codec.invalid"
             );
+        }
+    );
+
+    test(
+        "[facet.surface-registration] round-trips a Surface declaration together with its contribution attribution",
+        { tags: "p1" },
+        () => {
+            const registration = new SurfaceRegistration(
+                new SurfaceDescriptor(
+                    new SurfaceId("dashboard.overview"),
+                    "Overview",
+                    "Renders the workspace overview."
+                ),
+                goldenAttribution
+            );
+
+            const encoded = SurfaceRegistration.encode(registration);
+            expect(new TextDecoder().decode(encoded)).toBe(
+                '{"kind":"facet.surface-registration","payload":{"contributor":"workspace:codec.facet","descriptor":{"help":"Renders the workspace overview.","id":"dashboard.overview","title":"Overview"},"package":{"codeDigest":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","id":"acme.codec","manifestDigest":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","version":"1.2.3"}},"version":{"major":1,"minor":0}}'
+            );
+            const decoded = SurfaceRegistration.decode(encoded);
+            expect(decoded.descriptor.id.equals(registration.descriptor.id)).toBe(true);
+            expect(decoded.descriptor.title).toBe("Overview");
+            expect(decoded.descriptor.help).toBe("Renders the workspace overview.");
+            expect(decoded.attribution.equals(goldenAttribution)).toBe(true);
+            expect(Object.isFrozen(decoded)).toBe(true);
+            expect(Object.isFrozen(decoded.attribution)).toBe(true);
+
+            // A Surface declared without help omits the field rather than encoding a null,
+            // so the absent form is the only form ACQ-PRESENCE admits.
+            expect(
+                new SurfaceRegistration(
+                    new SurfaceDescriptor(new SurfaceId("dashboard.plain"), "Plain"),
+                    goldenAttribution
+                ).toData()
+            ).toEqual({
+                contributor: "workspace:codec.facet",
+                descriptor: { id: "dashboard.plain", title: "Plain" },
+                package: goldenPin.toData()
+            });
+        }
+    );
+
+    test("requires exact Surface registration payload fields", { tags: "p1" }, () => {
+        const descriptor = new SurfaceDescriptor(
+            new SurfaceId("dashboard.overview"),
+            "Overview"
+        ).toData();
+        for (const payload of [
+            { ...goldenAttribution.encodeFields(), descriptor, unknown: true },
+            { ...goldenAttribution.encodeFields() },
+            { contributor: "workspace:codec.facet", descriptor }
+        ]) {
+            expectCodecError(
+                () =>
+                    SurfaceRegistration.decode(
+                        encodeCanonicalJson({
+                            kind: "facet.surface-registration",
+                            payload,
+                            version: { major: 1, minor: 0 }
+                        })
+                    ),
+                "codec.invalid"
+            );
+        }
+        expect(() =>
+            // @ts-expect-error A descriptor field carrying no value has no registered form.
+            SurfaceRegistration.fromData({
+                ...goldenAttribution.encodeFields(),
+                descriptor: undefined
+            })
+        ).toThrow(/^Surface registration carries no Surface descriptor$/);
+        expect(() =>
+            SurfaceRegistration.fromData({
+                ...goldenAttribution.encodeFields(),
+                descriptor: { id: "dashboard.overview", title: "Overview", unknown: true }
+            })
+        ).toThrow(/missing or unknown fields/);
+    });
+
+    test(
+        "[C13-FACET-CONTRIBUTION-ATTRIBUTION] refuses to register a Surface from a missing or forged attribution",
+        { tags: "p0" },
+        () => {
+            const descriptor = new SurfaceDescriptor(
+                new SurfaceId("dashboard.overview"),
+                "Overview"
+            );
+            const pairError = /A Surface registration carries its descriptor and its attribution/;
+            // A structured clone keeps every field and loses the prototype, so the pair check
+            // is what stops a message-passed look-alike from registering as a Surface.
+            expect(
+                () => new SurfaceRegistration(structuredClone(descriptor), goldenAttribution)
+            ).toThrow(pairError);
+            expect(
+                () => new SurfaceRegistration(descriptor, structuredClone(goldenAttribution))
+            ).toThrow(pairError);
+            expect(
+                () =>
+                    // @ts-expect-error A registration without attribution has no valid form.
+                    new SurfaceRegistration(descriptor, undefined)
+            ).toThrow(pairError);
+            expect(() =>
+                SurfaceRegistration.fromData({
+                    contributor: "workspace:codec.facet",
+                    descriptor: descriptor.toData(),
+                    package: goldenPin.toData()
+                }).attribution.package.equals(goldenPin)
+            ).not.toThrow();
+            // The pin half is refused by name, so an unpinned registration cannot decode as
+            // an attributed one.
+            expect(() =>
+                ContributionAttribution.decodeFields(
+                    { contributor: "workspace:codec.facet" },
+                    "Surface registration"
+                )
+            ).toThrow(/^Surface registration carries no source Package pin$/);
         }
     );
 

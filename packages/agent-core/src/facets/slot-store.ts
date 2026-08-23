@@ -3,6 +3,7 @@ import { Revision } from "../core";
 import { AgentCoreError } from "../errors";
 import type { WorkspaceId } from "../identity";
 import type { ContributionAttribution } from "./attribution";
+import { equalBytes } from "./record-map";
 import { InstalledSlot } from "./slot";
 import { SlotEntry, type SlotContributionOrigin } from "./slot-entry";
 import type { FacetRef, SlotEntryId, SlotName } from "./id";
@@ -179,12 +180,6 @@ export abstract class WorkspaceSlotStore<Transaction> {
             return revision;
         });
     }
-}
-
-function equalBytes(left: Uint8Array, right: Uint8Array): boolean {
-    return (
-        left.byteLength === right.byteLength && left.every((value, index) => value === right[index])
-    );
 }
 
 export interface SlotQueryAuthorityPort<Viewer> {
