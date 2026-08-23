@@ -1,10 +1,15 @@
 import { requireSynchronousResult, type ActorRef, type SynchronousResultGuard } from "../actors";
-import { Digest, compareCanonicalText } from "../core";
+import { Digest, compareCanonicalText, encodeCanonicalJson } from "../core";
 import { AgentCoreError } from "../errors";
 import type { AuthorityCheckEvidence } from "./evidence";
 import { AuthorityPermit, AuthorityPermitExpectation } from "./permit";
 import { TargetAuthorityPermitDenial } from "./permit-denial";
 import { TargetAuthorityPermitRequest } from "./permit-request";
+import {
+    TargetLeaseEvidence,
+    TargetLeaseEvidenceKey,
+    TargetLeaseEvidenceReference
+} from "./target-lease-evidence";
 import {
     type AuthenticatedAuthorityPermit,
     requireAuthenticatedAuthorityPermit
@@ -56,9 +61,17 @@ export interface AuthorityPermitTargetStore<Transaction>
         AuthorityPermitTargetDenialStore<Transaction>,
         AuthorityPermitTargetAdmissionStore<Transaction> {}
 
-export interface AuthorityPermitIssueStore<
-    Transaction
-> extends AuthorityPermitTransactionStore<Transaction> {
+export interface AuthorityPermitEvidenceProjectionStore<Transaction> {
+    projectedEvidence(
+        transaction: Transaction,
+        reference: TargetLeaseEvidenceReference
+    ): TargetLeaseEvidence | undefined;
+    projectEvidence(transaction: Transaction, evidence: TargetLeaseEvidence): TargetLeaseEvidence;
+}
+
+export interface AuthorityPermitIssueStore<Transaction>
+    extends AuthorityPermitTransactionStore<Transaction>,
+        AuthorityPermitEvidenceProjectionStore<Transaction> {
     issued(transaction: Transaction, nonce: string): AuthorityPermit | undefined;
     issue(transaction: Transaction, permit: AuthorityPermit): AuthorityPermit;
 }
@@ -76,6 +89,7 @@ export class AuthorityPermitIssuer<Transaction> {
         if (!Number.isSafeInteger(issuedAtTime) || issuedAtTime < 0) {
             throw new TypeError("Authority permit issuance time is invalid");
         }
+        this.requireProjectedLeaseEvidence(transaction, request, issuedAt);
         if (request.expiresAt.getTime() <= issuedAtTime) {
             throw denied("Authority permit request expiry must be after issuance");
         }
@@ -103,14 +117,57 @@ export class AuthorityPermitIssuer<Transaction> {
             }
             return existing;
         }
-        const candidate = new AuthorityPermit({
-            ...request.expectation,
-            nonce: request.nonce,
-            requestDigest: request.digest(),
-            issuedAt,
-            expiresAt: request.expiresAt
-        });
-        return this.store.issue(transaction, candidate);
+        return this.store.issue(
+            transaction,
+            new AuthorityPermit({
+                ...request.expectation,
+                nonce: request.nonce,
+                requestDigest: request.digest(),
+                issuedAt,
+                expiresAt: request.expiresAt
+            })
+        );
+    }
+
+    private requireProjectedLeaseEvidence(
+        transaction: Transaction,
+        request: TargetAuthorityPermitRequest,
+        issuedAt: Date
+    ): void {
+        const reference = request.leaseEvidence;
+        const lease = request.expectation.lease;
+        if (lease === undefined) {
+            if (reference !== undefined) {
+                throw new AgentCoreError(
+                    "protocol.invalid-state",
+                    "Unleased authority permit request carries lease evidence"
+                );
+            }
+            return;
+        }
+        if (reference === undefined) {
+            return;
+        }
+        const projected = this.store.projectedEvidence(transaction, reference);
+        if (
+            projected === undefined ||
+            !projected.digest().equals(reference.digest) ||
+            !projected.matches({
+                key: reference.key,
+                tenant: request.expectation.tenant,
+                run: request.expectation.reservation.run,
+                lease,
+                target: request.expectation.target,
+                requestIdentity: request.identity()
+            }) ||
+            !projected.isCurrentAt(issuedAt) ||
+            request.expiresAt.getTime() > projected.deadline.getTime() ||
+            request.expectation.pathEpochs.path.some(
+                (entry) => projected.watermark.epoch(entry.scope) > entry.epoch
+            )
+        ) {
+            throw denied("Authority permit source lease evidence is stale or substituted");
+        }
     }
 }
 
@@ -143,7 +200,8 @@ export class StoredAuthorityPermitAdmissionPort<
 }
 
 export interface MemoryAuthorityPermitSnapshot {
-    readonly version: 3;
+    readonly version: 4;
+    readonly projectedEvidence: readonly { readonly key: string; readonly bytes: Uint8Array }[];
     readonly requested: readonly { readonly nonce: string; readonly bytes: Uint8Array }[];
     readonly issued: readonly { readonly nonce: string; readonly bytes: Uint8Array }[];
     readonly denied: readonly { readonly nonce: string; readonly bytes: Uint8Array }[];
@@ -158,6 +216,7 @@ export class MemoryAuthorityPermitTransaction {
 
 interface MemoryAuthorityPermitScope {
     readonly transaction: MemoryAuthorityPermitTransaction;
+    readonly projectedEvidence: Map<string, Uint8Array>;
     readonly requested: Map<string, Uint8Array>;
     readonly issued: Map<string, Uint8Array>;
     readonly denied: Map<string, Uint8Array>;
@@ -171,6 +230,7 @@ export class MemoryAuthorityPermitStore
 {
     readonly #transactions = new WeakSet<MemoryAuthorityPermitTransaction>();
     #active: MemoryAuthorityPermitScope | undefined;
+    #projectedEvidence = new Map<string, Uint8Array>();
     #requested = new Map<string, Uint8Array>();
     #issued = new Map<string, Uint8Array>();
     #denied = new Map<string, Uint8Array>();
@@ -196,6 +256,7 @@ export class MemoryAuthorityPermitStore
         const transaction = new MemoryAuthorityPermitTransaction();
         const scope: MemoryAuthorityPermitScope = {
             transaction,
+            projectedEvidence: cloneBytesMap(this.#projectedEvidence),
             requested: cloneBytesMap(this.#requested),
             issued: cloneBytesMap(this.#issued),
             denied: cloneBytesMap(this.#denied),
@@ -205,6 +266,7 @@ export class MemoryAuthorityPermitStore
         this.#active = scope;
         try {
             const result = requireSynchronousResult(operation(transaction));
+            this.#projectedEvidence = cloneBytesMap(scope.projectedEvidence);
             this.#requested = cloneBytesMap(scope.requested);
             this.#issued = cloneBytesMap(scope.issued);
             this.#denied = cloneBytesMap(scope.denied);
@@ -225,6 +287,39 @@ export class MemoryAuthorityPermitStore
         this.assertIssuedOwner(permit);
         if (permit.nonce !== nonce) throw corrupt();
         return permit;
+    }
+
+    public projectedEvidence(
+        transaction: MemoryAuthorityPermitTransaction,
+        reference: TargetLeaseEvidenceReference
+    ): TargetLeaseEvidence | undefined {
+        const bytes = this.requireTransaction(transaction).projectedEvidence.get(
+            evidenceProjectionKey(reference.key)
+        );
+        if (bytes === undefined) return undefined;
+        const evidence = TargetLeaseEvidence.decode(bytes.slice());
+        if (!evidence.key.equals(reference.key) || !evidence.digest().equals(reference.digest)) {
+            throw corrupt();
+        }
+        return evidence;
+    }
+
+    public projectEvidence(
+        transaction: MemoryAuthorityPermitTransaction,
+        evidence: TargetLeaseEvidence
+    ): TargetLeaseEvidence {
+        const scope = this.requireTransaction(transaction);
+        const key = evidenceProjectionKey(evidence.key);
+        const existingBytes = scope.projectedEvidence.get(key);
+        if (existingBytes !== undefined) {
+            const existing = TargetLeaseEvidence.decode(existingBytes.slice());
+            if (!existing.digest().equals(evidence.digest())) {
+                throw denied("Target lease evidence projection key is bound to another attestation");
+            }
+            return existing;
+        }
+        scope.projectedEvidence.set(key, TargetLeaseEvidence.encode(evidence));
+        return evidence;
     }
 
     public requested(
@@ -347,7 +442,12 @@ export class MemoryAuthorityPermitStore
 
     public snapshot(): MemoryAuthorityPermitSnapshot {
         return {
-            version: 3,
+            version: 4,
+            projectedEvidence: Object.freeze(
+                [...this.#projectedEvidence]
+                    .sort(([left], [right]) => compareCanonicalText(left, right))
+                    .map(([key, bytes]) => Object.freeze({ key, bytes: bytes.slice() }))
+            ),
             requested: Object.freeze(
                 [...this.#requested]
                     .sort(([left], [right]) => compareCanonicalText(left, right))
@@ -373,17 +473,27 @@ export class MemoryAuthorityPermitStore
 
     private restore(snapshot: MemoryAuthorityPermitSnapshot): void {
         if (
-            snapshot.version !== 3 ||
+            snapshot.version !== 4 ||
+            !Array.isArray(snapshot.projectedEvidence) ||
             !Array.isArray(snapshot.requested) ||
             !Array.isArray(snapshot.issued) ||
             !Array.isArray(snapshot.denied) ||
             !Array.isArray(snapshot.consumed)
         )
             throw corrupt();
+        const projectedEvidence = new Map<string, Uint8Array>();
         const requested = new Map<string, Uint8Array>();
         const issued = new Map<string, Uint8Array>();
         const denials = new Map<string, Uint8Array>();
         const consumed = new Map<string, Uint8Array>();
+        for (const record of snapshot.projectedEvidence) {
+            if (!isProjectedEvidenceRecord(record) || projectedEvidence.has(record.key)) {
+                throw corrupt();
+            }
+            const evidence = TargetLeaseEvidence.decode(record.bytes.slice());
+            if (evidenceProjectionKey(evidence.key) !== record.key) throw corrupt();
+            projectedEvidence.set(record.key, TargetLeaseEvidence.encode(evidence));
+        }
         for (const record of snapshot.requested) {
             if (!isRequestedPermitRecord(record) || requested.has(record.nonce)) throw corrupt();
             const request = TargetAuthorityPermitRequest.decode(record.bytes.slice());
@@ -444,6 +554,7 @@ export class MemoryAuthorityPermitStore
                 throw corrupt();
             }
         }
+        this.#projectedEvidence = cloneBytesMap(projectedEvidence);
         this.#requested = cloneBytesMap(requested);
         this.#issued = cloneBytesMap(issued);
         this.#denied = cloneBytesMap(denials);
@@ -549,6 +660,28 @@ export class MemoryAuthorityPermitStore
             throw denied("Authority permit request targets another Actor owner");
         }
     }
+}
+
+function isProjectedEvidenceRecord(
+    value: unknown
+): value is NonNullable<MemoryAuthorityPermitSnapshot["projectedEvidence"]>[number] {
+    return (
+        value !== null &&
+        typeof value === "object" &&
+        "key" in value &&
+        typeof value.key === "string" &&
+        "bytes" in value &&
+        value.bytes instanceof Uint8Array
+    );
+}
+
+function evidenceProjectionKey(key: TargetLeaseEvidenceKey): string {
+    return Digest.sha256(
+        encodeCanonicalJson({
+            idempotencyKey: key.idempotencyKey,
+            source: { id: key.source.id.value, kind: key.source.kind }
+        })
+    ).value;
 }
 
 function isRequestedPermitRecord(

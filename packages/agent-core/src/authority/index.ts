@@ -36,6 +36,28 @@ export type {
     AuthorityPermitTarget
 } from "./permit";
 export { TargetAuthorityPermitRequest } from "./permit-request";
+export {
+    TargetLeaseEvidence,
+    TargetLeaseEvidenceKey,
+    TargetLeaseEvidenceReference
+} from "./target-lease-evidence";
+export type {
+    TargetLeaseEvidenceBinding,
+    TargetLeaseEvidenceInit,
+    TargetLeaseEvidenceTarget
+} from "./target-lease-evidence";
+export {
+    RunTargetLeaseEvidenceStore,
+    TargetLeaseEvidenceIssuer,
+    TargetLeaseEvidenceSourcePort
+} from "./target-lease-evidence-store";
+export type {
+    TargetLeaseEvidenceSourceFacts,
+    TargetLeaseEvidenceSourceRuns,
+    TargetLeaseEvidenceSourceState,
+    TargetLeaseEvidenceSourceStore,
+    TargetLeaseEvidenceStore
+} from "./target-lease-evidence-store";
 export { TargetAuthorityPermitDenial } from "./permit-denial";
 export {
     AuthenticatedAuthorityPermit,

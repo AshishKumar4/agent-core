@@ -1533,7 +1533,7 @@ describe("W9 authority permit issuance guards", () => {
             await expect(boundary.issue(inputs.invocation, inputs.claim)).resolves.toMatchObject({
                 kind: "issued"
             });
-            expect(() => exceeded.issue(inputs.invocation, inputs.claim)).toThrow(
+            await expect(exceeded.issue(inputs.invocation, inputs.claim)).rejects.toThrow(
                 /Item claim exceeds the authority permit lifetime/
             );
             expect(
@@ -1547,7 +1547,7 @@ describe("W9 authority permit issuance guards", () => {
     test(
         "refuses a request clock that is not a non-negative safe integer",
         { tags: "p1" },
-        () => {
+        async () => {
             const expected = permitExpectation();
             const inputs = permitClaimInputs(expected);
 
@@ -1564,7 +1564,7 @@ describe("W9 authority permit issuance guards", () => {
                     10
                 );
 
-                expect(() => port.issue(inputs.invocation, inputs.claim)).toThrow(
+                await expect(port.issue(inputs.invocation, inputs.claim)).rejects.toThrow(
                     /Authority permit request time is invalid/
                 );
                 expect(
@@ -1579,7 +1579,7 @@ describe("W9 authority permit issuance guards", () => {
     test(
         "refuses a retained request that does not bind the current claim",
         { tags: "p0" },
-        () => {
+        async () => {
             const expected = permitExpectation();
             const inputs = permitClaimInputs(expected);
             const store = new MemoryAuthorityPermitStore(expected.target.actor);
@@ -1600,14 +1600,10 @@ describe("W9 authority permit issuance guards", () => {
                 20
             );
 
-            const refusal = refused(() => {
-                void port.issue(inputs.invocation, inputs.claim);
+            await expect(port.issue(inputs.invocation, inputs.claim)).resolves.toEqual({
+                kind: "invalid",
+                reason: "Retained authority permit request does not bind the current claim"
             });
-
-            expect(refusal.code).toBe("authority.denied");
-            expect(refusal.message).toBe(
-                "Retained authority permit request does not bind the current claim"
-            );
         }
     );
 

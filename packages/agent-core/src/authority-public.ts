@@ -18,4 +18,20 @@ export type {
     AuthorityPermitTargetRequestStore,
     AuthorityPermitTargetStore
 } from "./authority";
+export {
+    RunTargetLeaseEvidenceStore,
+    TargetLeaseEvidence,
+    TargetLeaseEvidenceIssuer,
+    TargetLeaseEvidenceKey,
+    TargetLeaseEvidenceReference,
+    TargetLeaseEvidenceSourcePort
+} from "./authority";
+export type {
+    TargetLeaseEvidenceBinding,
+    TargetLeaseEvidenceInit,
+    TargetLeaseEvidenceSourceState,
+    TargetLeaseEvidenceSourceStore,
+    TargetLeaseEvidenceStore,
+    TargetLeaseEvidenceTarget
+} from "./authority";
 export { FacetRef } from "./facets";

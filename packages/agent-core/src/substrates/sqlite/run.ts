@@ -23,7 +23,7 @@ import {
     type SqliteRow
 } from "./sqlite";
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const SCHEMA_TABLE = "agent_run_storage_schema";
 const RECORD_TABLE = "agent_run_records";
 const PARENT_TABLE = "agent_run_commit_parents";

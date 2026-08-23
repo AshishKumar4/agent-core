@@ -6,9 +6,24 @@ import {
     MemoryActorStore,
     type SynchronousResultGuard
 } from "../../src/actors";
-import { RunId, TurnId } from "../../src/agents";
+import {
+    MemoryRunStorage,
+    TurnInboxEntry,
+    TurnInboxEntryId,
+    RunCommit,
+    RunCommitId,
+    RunId,
+    RunRepository,
+    RunStoragePort,
+    RunRuntime,
+    Turn,
+    TurnPlacementSnapshot,
+    TurnId,
+    type RunTransaction
+} from "../../src/agents";
 import {
     AuthenticatedAuthorityPermit,
+    MemoryAuthorityPermitStore,
     AuthorityCheckEvidence,
     AuthorityCheckRequest,
     AuthorityPermit,
@@ -18,7 +33,12 @@ import {
     AuthorityPermitIssuer as TenantAuthorityPermitIssuer,
     Binding,
     GrantId,
-    MemoryAuthorityPermitStore,
+    InvalidationWatermark,
+    InvalidationWatermarkStore,
+    MemoryInvalidationWatermarkStore,
+    watermarkKey,
+    MemoryAuthorityPermitTransaction,
+    RunTargetLeaseEvidenceStore,
     MemoryTenantAuthorityPermitStore,
     MemoryTenantControlStore,
     PathEpochEvidence,
@@ -26,12 +46,17 @@ import {
     StoredAuthorityPermitAdmissionPort,
     TargetAuthorityPermitDenial,
     TargetAuthorityPermitRequest,
+    TargetLeaseEvidence,
+    TargetLeaseEvidenceIssuer,
+    TargetLeaseEvidenceKey,
     requireAuthenticatedAuthorityPermit,
     type AuthorityPermitExpectationInit,
     type AuthorityPermitIssueStore,
     type AuthorityPermitTargetStore,
     type MemoryAuthorityPermitSnapshot,
-    type MemoryTenantControlSnapshot
+    type MemoryTenantControlSnapshot,
+    TargetLeaseEvidenceSourceFacts,
+    type TargetLeaseEvidenceSourceStore
 } from "../../src/authority";
 import {
     Digest,
@@ -59,11 +84,26 @@ import { ClaimWorkerId, ItemClaimId } from "../../src/invocation-references";
 import { InvocationId } from "../../src/interaction-references";
 import {
     SqliteAuthorityPermitStore,
+    SqliteContentStore,
+    SqliteRunStorage,
     TransactionalSqlite,
     type SqliteRow,
     type SqliteValue
 } from "../../src/substrates";
 import { TestSqlite } from "../helpers/sqlite";
+import {
+    content,
+    genesis,
+    ids,
+    pins,
+    TestEvidencePort,
+    TestMergePort,
+    TestSettlementPort,
+    TestSourcePort,
+    TestSpawnPort,
+    UncontributedCutPoints,
+    fixtureContentEntries
+} from "../agents/runs/fixture";
 
 const tenant = new TenantId("permit-tenant");
 const principalId = new PrincipalId("permit-principal");
@@ -342,7 +382,7 @@ function permitStoreContract<Transaction>(
             }
         );
 
-        test("replays an exact issuance after response loss and restart", { tags: "p0" }, () => {
+        test("replays an exact issuance after response loss and restart", { tags: "p0" }, async () => {
             const harness = create();
             const authority = new CurrentAuthority<Transaction>();
             const expected = expectation();
@@ -572,7 +612,7 @@ function permitStoreContract<Transaction>(
             }
         );
 
-        test("[authority.target-permit-denial] stores exact denial", { tags: "p0" }, () => {
+        test("[authority.target-permit-denial] stores exact denial", { tags: "p0" }, async () => {
             const harness = create();
             const request = targetRequest(`${name}-denied`);
             const authority = new CurrentAuthority<Transaction>();
@@ -615,7 +655,7 @@ function permitStoreContract<Transaction>(
             ).toThrow();
         });
 
-        test("rolls target denial evidence back with its owner transaction", { tags: "p0" }, () => {
+        test("rolls target denial evidence back with its owner transaction", { tags: "p0" }, async () => {
             const harness = create();
             const request = targetRequest(`${name}-denial-rollback`);
             const authority = new CurrentAuthority<Transaction>();
@@ -722,12 +762,563 @@ permitStoreContract<TransactionalSqlite>("sqlite", () => {
     };
 });
 
-test("memory permit transactions do not expose mutable scope state", { tags: "p0" }, () => {
+test("memory permit transactions do not expose mutable scope state", { tags: "p0" }, async () => {
     const store = new MemoryAuthorityPermitStore(targetActor);
     store.transaction((transaction) => {
         expect(Reflect.ownKeys(transaction)).toEqual([]);
     });
 });
+
+test(
+    "Tenant issuance requires the exact projected source lease evidence",
+    { tags: "p0" },
+    () => {
+        const store = new MemoryAuthorityPermitStore(issuerActor);
+        const expected = expectation();
+        const nonce = "projected-source-evidence";
+        const authority = targetRequestFor(expected, nonce).authority;
+        const sourceKey = new TargetLeaseEvidenceKey(expected.source, nonce);
+        const sourceEvidence = new TargetLeaseEvidence({
+            key: sourceKey,
+            tenant: expected.tenant,
+            run: expected.reservation.run,
+            lease: expected.lease!,
+            target: expected.target,
+            requestIdentity: TargetAuthorityPermitRequest.identityFor(
+                expected,
+                authority,
+                nonce,
+                expiresAt
+            ),
+            deadline: expiresAt,
+            watermark: InvalidationWatermark.empty(
+                expected.tenant,
+                expected.source,
+                expected.lease!.holder
+            )
+        });
+        const request = new TargetAuthorityPermitRequest(
+            expected,
+            authority,
+            nonce,
+            expiresAt,
+            sourceEvidence.reference()
+        );
+        const decision = new CurrentAuthority<MemoryAuthorityPermitTransaction>().evidence(
+            undefined,
+            request,
+            issuedAt
+        );
+
+        expect(() =>
+            store.transaction((transaction) =>
+                new TenantAuthorityPermitIssuer(store).issue(
+                    transaction,
+                    request,
+                    decision,
+                    issuedAt
+                )
+            )
+        ).toThrow(/source lease evidence/);
+        const issued = store.transaction((transaction) => {
+            store.projectEvidence(transaction, sourceEvidence);
+            return new TenantAuthorityPermitIssuer(store).issue(
+                transaction,
+                request,
+                decision,
+                issuedAt
+            );
+        });
+        expect(issued.requestDigest.equals(request.digest())).toBe(true);
+        expect(() =>
+            store.transaction((transaction) =>
+                store.projectEvidence(
+                    transaction,
+                    new TargetLeaseEvidence({
+                        key: sourceEvidence.key,
+                        tenant: sourceEvidence.tenant,
+                        run: sourceEvidence.run,
+                        lease: sourceEvidence.lease,
+                        target: sourceEvidence.target,
+                        requestIdentity: Digest.sha256(
+                            new TextEncoder().encode("substituted-projected-evidence")
+                        ),
+                        deadline: sourceEvidence.deadline,
+                        watermark: sourceEvidence.watermark
+                    })
+                )
+            )
+        ).toThrow(/bound to another attestation/);
+    }
+);
+
+interface SourceEvidenceContext<Transaction> {
+    readonly storage: RunStoragePort<Transaction>;
+    readonly store: TargetLeaseEvidenceSourceStore<Transaction>;
+    readonly runtime: RunRuntime<Transaction>;
+    readonly repository: RunRepository<Transaction>;
+    readonly watermarks: InvalidationWatermarkStore;
+    readonly intents: Map<string, Digest>;
+    seededTurnId: TurnId | undefined;
+}
+
+const evidenceRuns = Object.freeze({ run: ids.run });
+
+// The canonical owners behind every context: leases live in the RunRepository,
+// watermarks in the canonical watermark store, and the delegation intent in this
+// host's single delegation ledger, which the facts seam reads and nothing else
+// mutates.
+function sourceFacts<Transaction>(
+    repository: RunRepository<Transaction>,
+    watermarks: InvalidationWatermarkStore,
+    intents: Map<string, Digest>
+): TargetLeaseEvidenceSourceFacts<Transaction> {
+    return {
+        turn: (tx, turn) => repository.loadTurn(tx, turn),
+        watermark: (_tx, holder) => {
+            const empty = InvalidationWatermark.empty(tenant, sourceActor, holder);
+            return watermarks.load(watermarkKey(empty)) ?? empty;
+        },
+        invocationIntent: (_tx, run) => intents.get(run.value)
+    };
+}
+
+async function memoryEvidenceContext(): Promise<SourceEvidenceContext<RunTransaction>> {
+    const storage = new MemoryRunStorage(tenant, sourceActor);
+    for (const entry of fixtureContentEntries()) await storage.content.put(entry.bytes);
+    const repository = new RunRepository(storage);
+    const runtime = new RunRuntime(
+        repository,
+        new TestSourcePort(),
+        new TestEvidencePort(),
+        new TestSettlementPort(),
+        new TestSpawnPort(),
+        new TestMergePort(),
+        new UncontributedCutPoints()
+    );
+    const watermarks = new MemoryInvalidationWatermarkStore(tenant, sourceActor);
+    const intents = new Map<string, Digest>();
+    return {
+        store: new RunTargetLeaseEvidenceStore(
+            tenant,
+            sourceActor,
+            storage,
+            sourceFacts(repository, watermarks, intents)
+        ),
+        storage,
+        runtime,
+        repository,
+        watermarks,
+        intents,
+        seededTurnId: undefined
+    };
+}
+
+async function sqliteEvidenceContext(): Promise<SourceEvidenceContext<RunTransaction>> {
+    const database = new TestSqlite();
+    // Content custody lives on its own lane outside Run storage transactions, so
+    // seed the genesis and Turn content through the standalone content store.
+    const contents = new SqliteContentStore(database);
+    for (const entry of fixtureContentEntries()) await contents.put(entry.bytes);
+    const storage = new SqliteRunStorage(database, tenant, sourceActor);
+    const repository = new RunRepository(storage);
+    const runtime = new RunRuntime(
+        repository,
+        new TestSourcePort(),
+        new TestEvidencePort(),
+        new TestSettlementPort(),
+        new TestSpawnPort(),
+        new TestMergePort(),
+        new UncontributedCutPoints()
+    );
+    const watermarks = new MemoryInvalidationWatermarkStore(tenant, sourceActor);
+    const intents = new Map<string, Digest>();
+    return {
+        store: new RunTargetLeaseEvidenceStore(
+            tenant,
+            sourceActor,
+            storage,
+            sourceFacts(repository, watermarks, intents)
+        ),
+        storage,
+        runtime,
+        repository,
+        watermarks,
+        intents,
+        seededTurnId: undefined
+    };
+}
+
+function seedDelegatedTurn<Transaction>(
+    context: SourceEvidenceContext<Transaction>,
+    label: string,
+    now: Date,
+    expiresAt: Date
+): void {
+    if (
+        context.repository.transaction((tx) => context.repository.loadRun(tx, evidenceRuns.run)) ===
+        undefined
+    ) {
+        context.runtime.createRun(genesis());
+    }
+    const turnId = new TurnId(`${label}-turn`);
+    const placement = new TurnPlacementSnapshot(turnId, pins(), []);
+    context.runtime.createTurn(
+        {
+            turn: new Turn({
+                id: turnId,
+                run: evidenceRuns.run,
+                branch: ids.branch,
+                startHead: ids.root,
+                effectiveInput: ids.root,
+                pins: pins(),
+                placement: placement.digest,
+                input: content("a"),
+                revision: new Revision(0)
+            }),
+            placement
+        },
+        new Revision(0)
+    );
+    context.runtime.claimTurn(turnId, new Revision(0), principal, now, expiresAt);
+    context.seededTurnId = turnId;
+}
+
+function seededTurn<Transaction>(context: SourceEvidenceContext<Transaction>): Turn {
+    if (context.seededTurnId === undefined) throw new TypeError("Evidence Turn is not seeded");
+    return context.repository.transaction((tx) => seededTurnIn(context, tx));
+}
+
+/** Reads the seeded Turn inside an already-open Run-Actor transaction. */
+function seededTurnIn<Transaction>(
+    context: SourceEvidenceContext<Transaction>,
+    tx: Parameters<RunRepository<Transaction>["loadTurn"]>[0]
+): Turn {
+    if (context.seededTurnId === undefined) throw new TypeError("Evidence Turn is not seeded");
+    const stored = context.repository.loadTurn(tx, context.seededTurnId);
+    if (stored === undefined) throw new TypeError("Seeded evidence Turn is missing");
+    return stored;
+}
+
+function sourceEvidenceContract<Transaction extends object>(
+    name: string,
+    createContext: () => SourceEvidenceContext<Transaction> | Promise<SourceEvidenceContext<Transaction>>
+): void {
+    describe(`source lease evidence issuer (${name})`, () => {
+        // A real RunRuntime claim opens the unclaimed Turn at epoch 1; every request
+        // names exactly the token the RunRepository now holds.
+        let expected = expectation({
+            lease: { ...lease, epoch: 1 },
+            reservation: {
+                run: evidenceRuns.run,
+                registryEpoch: 5,
+                obligation: { kind: "invocationItem", invocation, itemIndex: 2, itemKey }
+            }
+        });
+        const nonce = `source-issuer-${name}`;
+        const provisionalExpiry = new Date(issuedAt.getTime() + 10_000);
+        let request: TargetAuthorityPermitRequest = targetRequestFor(expected, nonce, provisionalExpiry);
+
+        function prepare(context: SourceEvidenceContext<Transaction>): TargetLeaseEvidenceIssuer<Transaction> {
+            context.intents.set(evidenceRuns.run.value, expected.intentDigest);
+            seedDelegatedTurn(context, nonce, issuedAt, expiresAt);
+            const storedTurn = seededTurn(context);
+            expected = expectation({
+                lease: { ...storedTurn.lease, holder: principal },
+                reservation: {
+                    run: evidenceRuns.run,
+                    registryEpoch: 5,
+                    obligation: { kind: "invocationItem", invocation, itemIndex: 2, itemKey }
+                }
+            });
+            request = targetRequestFor(expected, nonce, provisionalExpiry);
+            return new TargetLeaseEvidenceIssuer(context.store, context.store.source);
+        }
+
+        test("[target-lease-evidence-source] records the original current lease deadline and invocation lineage", { tags: "p0" }, async () => {
+            const context = await createContext();
+            const issuer = prepare(context);
+            const attested = context.store.transaction((transaction) =>
+                issuer.attest(transaction, request, issuedAt)
+            );
+
+            expect(attested?.deadline).toEqual(expiresAt);
+            expect(attested?.requestIdentity.equals(
+                TargetAuthorityPermitRequest.identityFor(
+                    expected,
+                    request.authority,
+                    nonce,
+                    expiresAt
+                )
+            )).toBe(true);
+        });
+
+        test("replays the original attestation when a renewed lease retries a lost response", { tags: "p0" }, async () => {
+            const context = await createContext();
+            const issuer = prepare(context);
+            const original = context.store.transaction((transaction) =>
+                issuer.attest(transaction, request, issuedAt)
+            );
+
+            // Renewal runs through the real RunRuntime inside the SAME transaction that
+            // re-attests: read-your-writes against the canonical lease, and the retry
+            // returns the committed record instead of regenerating a later deadline.
+            context.store.transaction((transaction) => {
+                const stored = seededTurnIn(context, transaction);
+                context.runtime.renewTurnInTransaction(
+                    transaction,
+                    stored.id,
+                    stored.revision,
+                    { turn: stored.id, holder: principal, epoch: stored.lease.epoch },
+                    issuedAt,
+                    provisionalExpiry
+                );
+                const replayed = issuer.attest(transaction, request, issuedAt);
+                expect(replayed?.digest().equals(original!.digest())).toBe(true);
+                expect(replayed?.deadline).toEqual(expiresAt);
+                return replayed;
+            });
+        });
+
+        test("refuses once the runtime reclaims the Turn or the watermark advances", { tags: "p0" }, async () => {
+            const reclaimed = await createContext();
+            const reclaimedIssuer = prepare(reclaimed);
+            reclaimed.store.transaction((transaction) =>
+                reclaimedIssuer.attest(transaction, request, issuedAt)
+            );
+            // A valid live lease from Run A with the request naming Run B refuses on
+            // the canonical run identity ALONE: Run B's ledger carries exactly the
+            // intent digest this request names, so only loaded.run !== request.run can
+            // refuse (a pre-fix store echoed the requested run and would pass).
+            const otherRunIntent = Digest.sha256(
+                new TextEncoder().encode("shared-other-run-intent")
+            );
+            const wrongRun = targetRequestFor(
+                expectation({
+                    lease: { ...seededTurn(reclaimed).lease, holder: principal },
+                    intentDigest: otherRunIntent,
+                    argumentsDigest: expected.argumentsDigest,
+                    reservation: {
+                        run: new RunId("evidence-other-run"),
+                        registryEpoch: 5,
+                        obligation: {
+                            kind: "invocationItem",
+                            invocation,
+                            itemIndex: 2,
+                            itemKey
+                        }
+                    }
+                }),
+                `${nonce}-wrong-run`,
+                provisionalExpiry
+            );
+            reclaimed.intents.set("evidence-other-run", otherRunIntent);
+            expect(
+                reclaimed.store.transaction((transaction) =>
+                    reclaimedIssuer.attest(transaction, wrongRun, issuedAt)
+                )
+            ).toBeUndefined();
+
+            // Fence the still-active Turn through the canonical RunRuntime held
+            // cancellation transition BEFORE the original lease/evidence deadline.
+            // A pre-fix mirrored lease remains live and accepts the original token;
+            // the repaired store reads the now-cancelled repository Turn and refuses.
+            {
+                const active = seededTurn(reclaimed);
+                const branch = reclaimed.repository.transaction((tx) =>
+                    reclaimed.repository.loadBranch(tx, active.branch)
+                );
+                if (branch === undefined) throw new TypeError("Seeded Turn branch is missing");
+                const originalToken = {
+                    turn: active.id,
+                    holder: principal,
+                    epoch: active.lease.epoch
+                };
+                const cancellation = new TurnInboxEntry(
+                    new TurnInboxEntryId(`${nonce}-active-cancel-entry`),
+                    active.id,
+                    0,
+                    "turn.cancel",
+                    content("b"),
+                    content("b").digest,
+                    `${nonce}-active-cancel-key`,
+                    originalToken,
+                    new Date(issuedAt.getTime() + 1)
+                );
+                const result = new RunCommit({
+                    id: new RunCommitId(`${nonce}-active-cancel-result`),
+                    run: active.run,
+                    branch: active.branch,
+                    kind: "result",
+                    parents: [branch.head],
+                    pins: active.pins,
+                    writer: { kind: "turn", token: originalToken },
+                    subjectTurn: active.id,
+                    content: content("7")
+                });
+                const beforeDeadline = new Date(issuedAt.getTime() + 2);
+                reclaimed.runtime.cancelHeldTurn(
+                    {
+                        turn: active.id,
+                        expectedTurnRevision: active.revision,
+                        expectedBranchRevision: branch.revision,
+                        token: originalToken,
+                        outcome: "cancelled",
+                        commit: result,
+                        now: beforeDeadline
+                    },
+                    cancellation
+                );
+                expect(
+                    reclaimed.store.transaction((transaction) =>
+                        reclaimedIssuer.attest(transaction, request, beforeDeadline)
+                    )
+                ).toBeUndefined();
+            }
+
+            // A token naming a Turn the RunRepository has never seen refuses at once.
+            const stranger = targetRequestFor(
+                expectation({
+                    lease: { turn: new TurnId("never-created-turn"), holder: principal, epoch: 1 },
+                    reservation: {
+                        run: evidenceRuns.run,
+                        registryEpoch: 5,
+                        obligation: { kind: "invocationItem", invocation, itemIndex: 2, itemKey }
+                    }
+                }),
+                `${nonce}-stranger-turn`,
+                provisionalExpiry
+            );
+            expect(
+                reclaimed.store.transaction((transaction) =>
+                    reclaimedIssuer.attest(transaction, stranger, issuedAt)
+                )
+            ).toBeUndefined();
+
+            const invalidated = await createContext();
+            const invalidatedIssuer = prepare(invalidated);
+            invalidated.store.transaction((transaction) =>
+                invalidatedIssuer.attest(transaction, request, issuedAt)
+            );
+            {
+                // Canonical invalidation delivery initializes the holder watermark,
+                // then joins the advanced epoch through the same owner.
+                const owner = invalidated.watermarks;
+                const empty = InvalidationWatermark.empty(tenant, sourceActor, principal);
+                const key = watermarkKey(empty);
+                if (owner.load(key) === undefined) owner.save(empty);
+                owner.join(key, [new ScopeEpoch(ScopeRef.tenant(tenant), path.path[0]!.epoch + 1)]);
+            }
+            expect(
+                invalidated.store.transaction((transaction) =>
+                    invalidatedIssuer.attest(transaction, request, issuedAt)
+                )
+            ).toBeUndefined();
+
+            // A token naming a wrong epoch for the same live Turn attests nothing.
+            const forged = await createContext();
+            const forgedIssuer = prepare(forged);
+            const liveTurn = seededTurn(forged);
+            const forgedRequest = targetRequestFor(
+                expectation({
+                    lease: { turn: liveTurn.id, holder: principal, epoch: liveTurn.lease.epoch + 7 },
+                    reservation: {
+                        run: evidenceRuns.run,
+                        registryEpoch: 5,
+                        obligation: { kind: "invocationItem", invocation, itemIndex: 2, itemKey }
+                    }
+                }),
+                `${nonce}-forged-epoch`,
+                provisionalExpiry
+            );
+            expect(
+                forged.store.transaction((transaction) =>
+                    forgedIssuer.attest(transaction, forgedRequest, issuedAt)
+                )
+            ).toBeUndefined();
+        });
+
+        test("refuses after intent substitution and detects a substituted same-key request", { tags: "p0" }, async () => {
+            const context = await createContext();
+            const issuer = prepare(context);
+            context.store.transaction((transaction) =>
+                issuer.attest(transaction, request, issuedAt)
+            );
+            // The delegation ledger moves to another intent under the same Run.
+            context.intents.set(
+                evidenceRuns.run.value,
+                Digest.sha256(new TextEncoder().encode(`${name}-intent-substitution`))
+            );
+            expect(
+                context.store.transaction((transaction) =>
+                    issuer.attest(transaction, request, issuedAt)
+                )
+            ).toBeUndefined();
+            const unrelated = targetRequestFor(expected, `${nonce}-unrelated`, provisionalExpiry);
+            expect(
+                context.store.transaction((transaction) =>
+                    issuer.attest(transaction, unrelated, issuedAt)
+                )
+            ).toBeUndefined();
+
+            const liveTurn = seededTurn(context);
+            const substituted = targetRequestFor(
+                expectation({
+                    lease: { ...liveTurn.lease, holder: principal },
+                    itemIndex: 3,
+                    reservation: {
+                        run: evidenceRuns.run,
+                        registryEpoch: 5,
+                        obligation: {
+                            kind: "invocationItem",
+                            invocation,
+                            itemIndex: 3,
+                            itemKey
+                        }
+                    }
+                }),
+                nonce,
+                provisionalExpiry
+            );
+            expect(() =>
+                context.store.transaction((transaction) =>
+                    issuer.attest(transaction, substituted, issuedAt)
+                )
+            ).toThrow(/bound to another source attestation/);
+        });
+
+        test("attests nothing for a foreign source owner", { tags: "p0" }, async () => {
+            const context = await createContext();
+            const issuer = prepare(context);
+            const foreign = targetRequestFor(
+                expectation({
+                    lease: { ...seededTurn(context).lease, holder: principal },
+                    source: targetActor,
+                    target: {
+                        actor: sourceActor,
+                        fence: 11,
+                        domain: new ProtectionDomain("backend", "permit-domain", "may-hold-secrets")
+                    },
+                    reservation: {
+                        run: evidenceRuns.run,
+                        registryEpoch: 5,
+                        obligation: { kind: "invocationItem", invocation, itemIndex: 2, itemKey }
+                    }
+                }),
+                `${nonce}-foreign`,
+                provisionalExpiry
+            );
+            expect(
+                context.store.transaction((transaction) =>
+                    issuer.attest(transaction, foreign, issuedAt)
+                )
+            ).toBeUndefined();
+        });
+    });
+}
+
+sourceEvidenceContract("memory", memoryEvidenceContext);
+sourceEvidenceContract("sqlite", sqliteEvidenceContext);
 
 describe("AuthorityPermit", () => {
     test(
@@ -876,7 +1467,7 @@ describe("AuthorityPermit", () => {
         }
     );
 
-    test("rejects malformed permit identities and times before issuance", { tags: "p0" }, () => {
+    test("rejects malformed permit identities and times before issuance", { tags: "p0" }, async () => {
         expect(() =>
             expectation({ issuer: new ActorRef("workspace", new ActorId("not-a-tenant")) })
         ).toThrow(/Tenant Actor/);
@@ -953,7 +1544,7 @@ describe("AuthorityPermit", () => {
         ).toThrow(/valid non-negative Date/);
     });
 
-    test("rejects reservation obligations that are not invocation items", { tags: "p0" }, () => {
+    test("rejects reservation obligations that are not invocation items", { tags: "p0" }, async () => {
         expect(() =>
             expectation({
                 reservation: {
@@ -968,7 +1559,7 @@ describe("AuthorityPermit", () => {
         ).toThrow(TypeError);
     });
 
-    test("rejects malformed codec variants fail closed", { tags: "p0" }, () => {
+    test("rejects malformed codec variants fail closed", { tags: "p0" }, async () => {
         const permit = new AuthorityPermit({
             ...expectation(),
             nonce: "malformed-codec",
@@ -1120,9 +1711,29 @@ describe("AuthorityPermit", () => {
             ).toThrow(/malformed/);
             expect(
                 () =>
+                    new MemoryAuthorityPermitStore(
+                        issuerActor,
+                        violating(snapshot, { version: 3 })
+                    )
+            ).toThrow(/malformed/);
+            expect(
+                () =>
+                    new MemoryAuthorityPermitStore(
+                        issuerActor,
+                        violating<MemoryAuthorityPermitSnapshot>({
+                            requested: [],
+                            issued: [],
+                            denied: [],
+                            consumed: []
+                        })
+                    )
+            ).toThrow(/malformed/);
+            expect(
+                () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 3,
+                        version: 4,
                         denied: [],
+                        projectedEvidence: [],
                         requested: [],
                         issued: [snapshot.issued[0]!, snapshot.issued[0]!],
                         consumed: []
@@ -1131,8 +1742,9 @@ describe("AuthorityPermit", () => {
             expect(
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 3,
+                        version: 4,
                         denied: [],
+                        projectedEvidence: [],
                         requested: [],
                         issued: [{ nonce: "wrong-nonce", bytes: snapshot.issued[0]!.bytes }],
                         consumed: []
@@ -1141,8 +1753,9 @@ describe("AuthorityPermit", () => {
             expect(
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 3,
+                        version: 4,
                         denied: [],
+                        projectedEvidence: [],
                         requested: [],
                         issued: [],
                         consumed: [{ nonce: "consumed", bytes: Uint8Array.of(0) }]
@@ -1151,8 +1764,9 @@ describe("AuthorityPermit", () => {
             expect(
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 3,
+                        version: 4,
                         denied: [],
+                        projectedEvidence: [],
                         requested: [],
                         issued: snapshot.issued,
                         consumed: [{ nonce: permit.nonce, bytes: AuthorityPermit.encode(permit) }]
@@ -1170,8 +1784,9 @@ describe("AuthorityPermit", () => {
             let malformedKey: unknown;
             try {
                 new MemoryAuthorityPermitStore(targetActor, {
-                    version: 3,
+                    version: 4,
                     denied: [],
+                    projectedEvidence: [],
                     requested: [],
                     issued: [violating(snapshot.issued[0]!, { nonce: 5 })],
                     consumed: []
@@ -1210,8 +1825,9 @@ describe("AuthorityPermit", () => {
             const malformedStores = [
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 3,
+                        version: 4,
                         denied: [],
+                        projectedEvidence: [],
                         requested: [],
                         // @ts-expect-error Issued ownership records cannot be null.
                         issued: [null],
@@ -1219,8 +1835,9 @@ describe("AuthorityPermit", () => {
                     }),
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 3,
+                        version: 4,
                         denied: [],
+                        projectedEvidence: [],
                         requested: [],
                         issued: [],
                         // @ts-expect-error Consumed ownership records cannot be null.
@@ -1228,8 +1845,9 @@ describe("AuthorityPermit", () => {
                     }),
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 3,
+                        version: 4,
                         denied: [],
+                        projectedEvidence: [],
                         requested: [],
                         issued: [],
                         consumed: [
@@ -1242,8 +1860,9 @@ describe("AuthorityPermit", () => {
                     }),
                 () =>
                     new MemoryAuthorityPermitStore(issuerActor, {
-                        version: 3,
+                        version: 4,
                         denied: [],
+                        projectedEvidence: [],
                         requested: [],
                         issued: [],
                         consumed: [
@@ -1803,7 +2422,7 @@ function requestDigestFor(
 }
 
 describe("AuthorityPermit mutation gates", () => {
-    test("exposes every expectation field through the permit getters", { tags: "p0" }, () => {
+    test("exposes every expectation field through the permit getters", { tags: "p0" }, async () => {
         const expected = expectation();
         const permit = new AuthorityPermit({
             ...expected,
@@ -1862,7 +2481,7 @@ describe("AuthorityPermit mutation gates", () => {
         }
     );
 
-    test("validates issuance and expiry times with exact subjects", { tags: "p0" }, () => {
+    test("validates issuance and expiry times with exact subjects", { tags: "p0" }, async () => {
         expect(
             () =>
                 new AuthorityPermit({
@@ -1908,7 +2527,7 @@ describe("AuthorityPermit mutation gates", () => {
         expect(epochPermit.issuedAt.getTime()).toBe(0);
     });
 
-    test("rejects blank and non-canonical nonces exactly", { tags: "p0" }, () => {
+    test("rejects blank and non-canonical nonces exactly", { tags: "p0" }, async () => {
         for (const nonce of ["", " padded"]) {
             expect(
                 () =>
@@ -1937,7 +2556,7 @@ describe("AuthorityPermit mutation gates", () => {
         }
     );
 
-    test("pins the reservation obligation to the exact invocation item", { tags: "p0" }, () => {
+    test("pins the reservation obligation to the exact invocation item", { tags: "p0" }, async () => {
         expect(() =>
             expectation({
                 reservation: {
@@ -1967,7 +2586,7 @@ describe("AuthorityPermit mutation gates", () => {
         );
     });
 
-    test("decodes only canonical Actor and claim owner kinds", { tags: "p0" }, () => {
+    test("decodes only canonical Actor and claim owner kinds", { tags: "p0" }, async () => {
         const data = expectation().toData();
         const withSource = (kind: string) =>
             AuthorityPermitExpectation.fromData({
@@ -2001,7 +2620,7 @@ describe("AuthorityPermit mutation gates", () => {
         ).toThrow(new TypeError("Authority permit impact is invalid"));
     });
 
-    test("requires lease tokens to carry exact qualified identities", { tags: "p0" }, () => {
+    test("requires lease tokens to carry exact qualified identities", { tags: "p0" }, async () => {
         expect(() =>
             expectation({
                 lease: Object.freeze({
@@ -2015,7 +2634,7 @@ describe("AuthorityPermit mutation gates", () => {
 });
 
 describe("AuthorityPermit authentication mutation gates", () => {
-    test("rejects authentications minted without the module issuer", { tags: "p0" }, () => {
+    test("rejects authentications minted without the module issuer", { tags: "p0" }, async () => {
         const permit = new AuthorityPermit({
             ...expectation(),
             nonce: "auth-forged",
@@ -2296,7 +2915,7 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         ]);
     });
 
-    test("snapshot bytes stay detached from committed state", { tags: "p0" }, () => {
+    test("snapshot bytes stay detached from committed state", { tags: "p0" }, async () => {
         const store = new MemoryAuthorityPermitStore(issuerActor);
         const permit = new AuthorityPermit({
             ...expectation(),
@@ -2318,7 +2937,7 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         ).toBe(permit.digest().value);
     });
 
-    test("detects issued records filed under a foreign nonce", { tags: "p0" }, () => {
+    test("detects issued records filed under a foreign nonce", { tags: "p0" }, async () => {
         const permit = new AuthorityPermit({
             ...expectation(),
             nonce: "store-real-nonce",
@@ -2329,8 +2948,9 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         const error = caughtAgentCoreError(
             () =>
                 new MemoryAuthorityPermitStore(issuerActor, {
-                    version: 3,
+                    version: 4,
                     denied: [],
+                    projectedEvidence: [],
                     requested: [],
                     issued: [
                         {
@@ -2345,13 +2965,14 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         expect(error.message).toBe("Stored authority permit ownership is malformed");
     });
 
-    test("restore rejects holed snapshot records as malformed", { tags: "p0" }, () => {
+    test("restore rejects holed snapshot records as malformed", { tags: "p0" }, async () => {
         // Length-only arrays model malformed persisted records without forging types.
         const issuedHole = caughtAgentCoreError(
             () =>
                 new MemoryAuthorityPermitStore(issuerActor, {
-                    version: 3,
+                    version: 4,
                     denied: [],
+                    projectedEvidence: [],
                     requested: [],
                     issued: Array.from<{ nonce: string; bytes: Uint8Array }>({ length: 1 }),
                     consumed: []
@@ -2363,8 +2984,9 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         const consumedHole = caughtAgentCoreError(
             () =>
                 new MemoryAuthorityPermitStore(issuerActor, {
-                    version: 3,
+                    version: 4,
                     denied: [],
+                    projectedEvidence: [],
                     requested: [],
                     issued: [],
                     consumed: Array.from<{ nonce: string; bytes: Uint8Array }>({ length: 1 })
@@ -2579,7 +3201,7 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         ).toBeUndefined();
     });
 
-    test("refuses a target request that targets another Actor owner", { tags: "p0" }, () => {
+    test("refuses a target request that targets another Actor owner", { tags: "p0" }, async () => {
         const store = new MemoryAuthorityPermitStore(targetActor);
         const foreign = targetRequest("store-foreign-target", {
             target: permitTarget(new ActorRef("run", new ActorId("permit-other-target-actor")))
@@ -2632,7 +3254,8 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
             const aliasedRequest = caughtAgentCoreError(
                 () =>
                     new MemoryAuthorityPermitStore(targetActor, {
-                        version: 3,
+                        version: 4,
+                        projectedEvidence: [],
                         requested: [
                             { nonce: alias, bytes: TargetAuthorityPermitRequest.encode(request) }
                         ],
@@ -2647,8 +3270,9 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
             const aliasedDenial = caughtAgentCoreError(
                 () =>
                     new MemoryAuthorityPermitStore(targetActor, {
-                        version: 3,
+                        version: 4,
                         requested: [requestedRecord(request)],
+                        projectedEvidence: [],
                         issued: [],
                         denied: [
                             { nonce: alias, bytes: TargetAuthorityPermitDenial.encode(denial) }
@@ -2661,15 +3285,16 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         }
     );
 
-    test("restore rejects duplicated requested and denied records", { tags: "p0" }, () => {
+    test("restore rejects duplicated requested and denied records", { tags: "p0" }, async () => {
         const request = targetRequest("store-restore-duplicate-nonce");
         const denial = deniedTargetRequest(request);
 
         const duplicatedRequest = caughtAgentCoreError(
             () =>
                 new MemoryAuthorityPermitStore(targetActor, {
-                    version: 3,
+                    version: 4,
                     requested: [requestedRecord(request), requestedRecord(request)],
+                    projectedEvidence: [],
                     issued: [],
                     denied: [],
                     consumed: []
@@ -2681,8 +3306,9 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
         const duplicatedDenial = caughtAgentCoreError(
             () =>
                 new MemoryAuthorityPermitStore(targetActor, {
-                    version: 3,
+                    version: 4,
                     requested: [requestedRecord(request)],
+                    projectedEvidence: [],
                     issued: [],
                     denied: [deniedRecord(denial), deniedRecord(denial)],
                     consumed: []
@@ -2703,8 +3329,9 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
             const orphanDenial = caughtAgentCoreError(
                 () =>
                     new MemoryAuthorityPermitStore(targetActor, {
-                        version: 3,
+                        version: 4,
                         requested: [],
+                        projectedEvidence: [],
                         issued: [],
                         denied: [deniedRecord(deniedTargetRequest(request))],
                         consumed: []
@@ -2716,8 +3343,9 @@ describe("MemoryAuthorityPermitStore mutation gates", () => {
             const orphanConsumed = caughtAgentCoreError(
                 () =>
                     new MemoryAuthorityPermitStore(targetActor, {
-                        version: 3,
+                        version: 4,
                         requested: [],
+                        projectedEvidence: [],
                         issued: [],
                         denied: [],
                         consumed: [
@@ -2917,7 +3545,7 @@ describe("TargetAuthorityPermitRequest construction gates", () => {
         }
     });
 
-    test("refuses a request whose authority input names another nonce", { tags: "p0" }, () => {
+    test("refuses a request whose authority input names another nonce", { tags: "p0" }, async () => {
         const valid = targetRequest("request-identity-gate");
 
         const error = caughtTypeError(
@@ -2935,7 +3563,7 @@ describe("TargetAuthorityPermitRequest construction gates", () => {
         );
     });
 
-    test("refuses a request whose Tenant issuer is its own target", { tags: "p0" }, () => {
+    test("refuses a request whose Tenant issuer is its own target", { tags: "p0" }, async () => {
         const nonce = "request-self-issued-gate";
         const mediated = targetRequestFor(
             expectation({ issuer: auxiliaryIssuerActor, target: permitTarget(issuerActor) }),
@@ -3082,7 +3710,7 @@ function permitRuntimeStore(
 }
 
 describe("MemoryTenantAuthorityPermitStore", () => {
-    test("refuses an owner that is not a Tenant Actor", { tags: "p0" }, () => {
+    test("refuses an owner that is not a Tenant Actor", { tags: "p0" }, async () => {
         const actors = permitRuntimeActors();
 
         const error = caughtTypeError(() => permitRuntimeStore(actors, targetActor));

@@ -5,6 +5,8 @@
     "authority-permit-owner-store",
     "authority-permit-target-store",
     "authority-mutation-store",
+    "target-lease-evidence-store",
+    "target-lease-evidence-source",
     "content-retention",
     "content-store",
     "identity-repository",

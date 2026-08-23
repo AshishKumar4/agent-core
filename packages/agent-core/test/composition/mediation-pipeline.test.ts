@@ -10,7 +10,10 @@ import {
     GrantId,
     InvalidationWatermark,
     PathEpochEvidence,
-    ScopeEpoch
+    ScopeEpoch,
+    TargetAuthorityPermitRequest,
+    TargetLeaseEvidence,
+    TargetLeaseEvidenceKey
 } from "../../src/authority";
 import { MemoryContentStore, type ContentStore } from "../../src/content";
 import {
@@ -87,6 +90,8 @@ import {
 import { OperationRequestKey } from "../../src/operations";
 import {
     AuthorityPermitIssuanceTransport,
+    TargetLeaseEvidenceTransport,
+    type TargetLeaseEvidenceAttestation,
     MediatedOperationPipeline,
     ResolvedOperationAuthority,
     activateTargetPermitMediation,
@@ -772,6 +777,29 @@ class DeniedPermitRequests implements AuthorityCheckRequestFactory<
     }
 }
 
+class DeniedSourceEvidenceTransport extends TargetLeaseEvidenceTransport {
+    public async attest(bytes: Uint8Array): Promise<TargetLeaseEvidenceAttestation | undefined> {
+        const request = TargetAuthorityPermitRequest.decode(bytes);
+        const lease = request.expectation.lease;
+        if (lease === undefined) return undefined;
+        const evidence = new TargetLeaseEvidence({
+            key: new TargetLeaseEvidenceKey(request.expectation.source, request.nonce),
+            tenant: request.expectation.tenant,
+            run: request.expectation.reservation.run,
+            lease,
+            target: request.expectation.target,
+            requestIdentity: request.identity(),
+            deadline: request.expiresAt,
+            watermark: InvalidationWatermark.empty(
+                request.expectation.tenant,
+                request.expectation.source,
+                lease.holder
+            )
+        });
+        return { reference: evidence.reference(), deadline: evidence.deadline };
+    }
+}
+
 class DeniedPermitTransport extends AuthorityPermitIssuanceTransport {
     public async issue(bytes: Uint8Array): Promise<Uint8Array> {
         const request = AuthorityPermitIssuanceRequest.decode(bytes).targetRequest;
@@ -952,9 +980,10 @@ describe("the published mediation composition root", () => {
                 manifests: [manifest()],
                 roots: [new MemoryFacet(observed)],
                 activations,
+                issuanceTransport: new DeniedPermitTransport(),
+                sourceAttestation: new DeniedSourceEvidenceTransport(),
                 expectations: new DeniedPermitExpectations(),
                 authorityRequests: new DeniedPermitRequests(),
-                issuanceTransport: new DeniedPermitTransport(),
                 authenticator: new AuthorityPermitAuthenticator(new MissingIssuedPermits()),
                 permitNonce: (_invocation, claim) => {
                     nonce = claim.id.value;

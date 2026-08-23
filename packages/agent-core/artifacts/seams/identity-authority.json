@@ -27,6 +27,26 @@
       "contractTest": "test/authority/permit.test.ts#[authority-permit-owner-store] memory issues and consumes exactly once across owner-store restart"
     },
     {
+      "id": "target-lease-evidence-store",
+      "disposition": "verified",
+      "contract": "src/authority/target-lease-evidence-store.ts#TargetLeaseEvidenceStore",
+      "implementations": [
+        "src/authority/target-lease-evidence-store.ts#RunTargetLeaseEvidenceStore"
+      ],
+      "memoryReference": "src/authority/target-lease-evidence-store.ts#RunTargetLeaseEvidenceStore",
+      "contractTest": "test/authority/target-lease-evidence.test.ts#TargetLeaseEvidence [target-lease-evidence-store] persists the source-owned record through SQLite restart"
+    },
+    {
+      "id": "target-lease-evidence-source",
+      "disposition": "verified",
+      "contract": "src/authority/target-lease-evidence-store.ts#TargetLeaseEvidenceSourceStore",
+      "implementations": [
+        "src/authority/target-lease-evidence-store.ts#RunTargetLeaseEvidenceStore"
+      ],
+      "memoryReference": "src/authority/target-lease-evidence-store.ts#RunTargetLeaseEvidenceStore",
+      "contractTest": "test/authority/permit.test.ts#source lease evidence issuer (memory) [target-lease-evidence-source] records the original current lease deadline and invocation lineage"
+    },
+    {
       "id": "tenant-authority-transaction-port",
       "disposition": "verified",
       "contract": "src/authority/permit-runtime.ts#TenantAuthorityTransactionPort",

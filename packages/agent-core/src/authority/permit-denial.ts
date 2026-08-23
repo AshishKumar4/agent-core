@@ -29,6 +29,10 @@ import { PathEpochEvidence, ScopeEpoch } from "./epoch";
 import { AuthorityPermitExpectation } from "./permit";
 import { TargetAuthorityPermitRequest } from "./permit-request";
 import {
+    TargetLeaseEvidenceKey,
+    TargetLeaseEvidenceReference
+} from "./target-lease-evidence";
+import {
     GuestVerificationScheme,
     PrincipalId,
     PrincipalRef,
@@ -57,6 +61,8 @@ class TargetAuthorityPermitDenialCodec extends RecordCodec<TargetAuthorityPermit
                 AuthorityCheckEvidence,
                 BindingLifecycle,
                 TargetAuthorityPermitRequest,
+                TargetLeaseEvidenceKey,
+                TargetLeaseEvidenceReference,
                 BindingCredentialCustody,
                 PathEpochEvidence,
                 PackagePin,

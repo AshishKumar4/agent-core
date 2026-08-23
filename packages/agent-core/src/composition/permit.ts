@@ -6,11 +6,15 @@ import {
     AuthorityCheckEvidence,
     TargetAuthorityPermitDenial,
     TargetAuthorityPermitRequest,
+    TargetLeaseEvidence,
+    TargetLeaseEvidenceIssuer,
+    type TargetLeaseEvidenceReference,
     type AuthorityCheckRequest,
     type AuthenticatedAuthorityPermit,
     type AuthorityPermitTargetDenialStore,
     type AuthorityPermitTargetRequestStore,
-    type ScopeEpoch
+    type ScopeEpoch,
+    type TargetLeaseEvidenceStore
 } from "../authority";
 import { AgentCoreError } from "../errors";
 import type { ActorRef } from "../actors";
@@ -111,8 +115,81 @@ export interface AuthorityCheckRequestFactory<Lease, Authority, Domain, PathEpoc
     ): AuthorityCheckRequest;
 }
 
+/**
+ * The immutable outcome a source host returns to the target: which committed
+ * attestation to name in the permit request, and the deadline it already bound.
+ * The record itself never crosses to the target.
+ */
+export interface TargetLeaseEvidenceAttestation {
+    readonly reference: TargetLeaseEvidenceReference;
+    readonly deadline: Date;
+}
+
+export abstract class TargetLeaseEvidenceTransport {
+    /**
+     * The source host commits one canonical immutable attestation for the provisional
+     * target request, projects it to its Tenant under its own authenticated caller
+     * after its transaction closes, and returns only the projected immutable reference.
+     * `undefined` means its current lease cannot attest the request.
+     */
+    public abstract attest(
+        request: Uint8Array
+    ): Promise<TargetLeaseEvidenceAttestation | undefined>;
+}
+
+/** The source's own authenticated channel to its Tenant for lease-evidence projection. */
+export abstract class TargetLeaseEvidenceProjectionTransport {
+    public abstract project(evidence: Uint8Array, idempotencyKey: string): Promise<Uint8Array>;
+}
+
+/**
+ * Source-side host step. The attestation commits in the owning Actor's transaction;
+ * the Tenant projection is originated by the source host itself only after that
+ * transaction has closed, so no target ever forwards evidence bytes or speaks as the
+ * source, and no await spans the commit.
+ */
+export class StoredProjectedTargetLeaseEvidence<Transaction> extends TargetLeaseEvidenceTransport {
+    public constructor(
+        private readonly store: TargetLeaseEvidenceStore<Transaction>,
+        private readonly issuer: TargetLeaseEvidenceIssuer<Transaction>,
+        private readonly projection: TargetLeaseEvidenceProjectionTransport,
+        private readonly now: () => Date
+    ) {
+        super();
+    }
+
+    public async attest(
+        request: Uint8Array
+    ): Promise<TargetLeaseEvidenceAttestation | undefined> {
+        let decoded: TargetAuthorityPermitRequest;
+        try {
+            decoded = TargetAuthorityPermitRequest.decode(request);
+        } catch {
+            throw new AgentCoreError("codec.invalid", "Target lease evidence request is malformed");
+        }
+        const evidence = this.store.transaction((transaction) =>
+            this.issuer.attest(transaction, decoded, this.now())
+        );
+        if (evidence === undefined) return undefined;
+        const projectedBytes = await this.projection.project(
+            TargetLeaseEvidence.encode(evidence),
+            evidence.key.idempotencyKey
+        );
+        let projected: TargetLeaseEvidence;
+        try {
+            projected = TargetLeaseEvidence.decode(projectedBytes);
+        } catch {
+            throw new AgentCoreError("codec.invalid", "Tenant projection reply is malformed");
+        }
+        if (!projected.digest().equals(evidence.digest())) {
+            throw denied("Tenant projection substituted source lease evidence");
+        }
+        return Object.freeze({ reference: evidence.reference(), deadline: evidence.deadline });
+    }
+}
+
 export abstract class AuthorityPermitIssuanceTransport {
-    public abstract issue(request: Uint8Array): Promise<Uint8Array>;
+    public abstract issue(request: Uint8Array, idempotencyKey: string): Promise<Uint8Array>;
 }
 
 export class AuthenticatedAuthorityPermitDenial {
@@ -176,14 +253,15 @@ export class IssuedAuthorityPermitPort<
             claim: ItemClaim<Lease>
         ) => string,
         private readonly now: () => Date,
-        private readonly lifetimeMilliseconds: number
+        private readonly lifetimeMilliseconds: number,
+        private readonly attestation: TargetLeaseEvidenceTransport | undefined = undefined
     ) {
         if (!Number.isSafeInteger(lifetimeMilliseconds) || lifetimeMilliseconds <= 0) {
             throw new TypeError("Authority permit lifetime must be a positive safe integer");
         }
     }
 
-    public issue(
+    public async issue(
         invocation: PreparedInvocation<Lease, Authority, Domain, PathEpochs>,
         claim: ItemClaim<Lease>
     ): Promise<
@@ -200,74 +278,131 @@ export class IssuedAuthorityPermitPort<
         | { readonly kind: "expired" }
     > {
         const nonce = this.nonce(invocation, claim);
-        const persisted = this.store.transaction((transaction) => {
+        const candidate = this.store.transaction((transaction) => {
             const retained = this.store.requested(transaction, nonce);
-            if (retained !== undefined) return retained;
+            if (retained !== undefined) return { kind: "ready" as const, request: retained };
             const createdAt = validTime(this.now(), "Authority permit request time");
             const claimExpiresAt = claim.expiresAt.getTime();
-            if (claimExpiresAt <= createdAt) return undefined;
+            if (claimExpiresAt <= createdAt) return { kind: "expired" as const };
             if (claimExpiresAt - createdAt > this.lifetimeMilliseconds) {
                 throw new TypeError("Item claim exceeds the authority permit lifetime");
             }
-            return this.store.request(
-                transaction,
-                new TargetAuthorityPermitRequest(
-                    this.expectations.forClaim(invocation, claim),
+            const expectation = this.expectations.forClaim(invocation, claim);
+            return {
+                kind: "ready" as const,
+                request: new TargetAuthorityPermitRequest(
+                    expectation,
                     this.authority.forClaim(invocation, claim, nonce),
                     nonce,
-                    claim.expiresAt
+                    claim.expiresAt,
+                    undefined
                 )
-            );
+            };
         });
-        if (persisted === undefined) return Promise.resolve({ kind: "expired" });
-        requireRetainedRequest(
-            persisted,
-            invocation,
-            claim,
-            nonce,
-            this.expectations,
-            this.authority
+        if (candidate.kind !== "ready") return candidate;
+
+        const provisional = candidate.request;
+        const attestation =
+            provisional.expectation.lease === undefined || this.attestation === undefined
+                ? undefined
+                : await this.readSourceAttestation(provisional);
+        if (
+            attestation === undefined &&
+            provisional.expectation.lease !== undefined &&
+            this.attestation !== undefined
+        ) {
+            return {
+                kind: "invalid",
+                reason: "Source Actor did not attest the exact current lease"
+            };
+        }
+        const expiresAt =
+            attestation === undefined
+                ? provisional.expiresAt
+                : new Date(Math.min(provisional.expiresAt.getTime(), attestation.deadline.getTime()));
+        const request = new TargetAuthorityPermitRequest(
+            provisional.expectation,
+            provisional.authority,
+            provisional.nonce,
+            expiresAt,
+            attestation?.reference
         );
+        let persisted: TargetAuthorityPermitRequest;
+        try {
+            persisted = this.store.transaction((transaction) => {
+                const retained = this.store.requested(transaction, nonce);
+                if (retained !== undefined) {
+                    if (!retained.digest().equals(request.digest())) {
+                        throw denied("Target permit request replay changed its source evidence");
+                    }
+                    return retained;
+                }
+                return this.store.request(transaction, request);
+            });
+            requireRetainedRequest(
+                persisted,
+                invocation,
+                claim,
+                nonce,
+                this.expectations,
+                this.authority,
+                attestation
+            );
+        } catch (error) {
+            if (isInvalidIssuanceReply(error)) {
+                return {
+                    kind: "invalid",
+                    reason: error.message || "Authority permit response is invalid"
+                };
+            }
+            throw error;
+        }
         const observedAt = validTime(this.now(), "Authority permit request observation time");
         if (observedAt >= persisted.expiresAt.getTime()) {
-            return Promise.resolve({ kind: "expired" });
+            return { kind: "expired" };
         }
         const payload = AuthorityPermitIssuanceRequest.encode(
             new AuthorityPermitIssuanceRequest(persisted)
         );
-        return this.transport.issue(payload).then((replyBytes) => {
+        try {
+            const replyBytes = await this.transport.issue(payload, nonce);
             const receivedAt = this.now();
             validTime(receivedAt, "Authority permit response time");
-            try {
-                const reply = AuthorityPermitIssuanceReply.decode(replyBytes);
-                requireIssuanceEvidence(reply.evidence, persisted, receivedAt);
-                if (reply.kind === "denied") {
-                    return {
-                        kind: "denied" as const,
-                        denial: new AuthenticatedAuthorityPermitDenial(
-                            denialAuthenticationAuthority,
-                            persisted,
-                            reply.evidence
-                        ),
-                        reason: `Tenant authority denied permit issuance: ${reply.evidence.reason}`
-                    };
-                }
-                const permit = reply.requirePermit();
-                requireIssuedPermit(permit, persisted, receivedAt);
+            const reply = AuthorityPermitIssuanceReply.decode(replyBytes);
+            requireIssuanceEvidence(reply.evidence, persisted, receivedAt);
+            if (reply.kind === "denied") {
                 return {
-                    kind: "issued" as const,
-                    admission: new AuthorityAdmissionReference(permit.toData(), permit.digest())
+                    kind: "denied",
+                    denial: new AuthenticatedAuthorityPermitDenial(
+                        denialAuthenticationAuthority,
+                        persisted,
+                        reply.evidence
+                    ),
+                    reason: `Tenant authority denied permit issuance: ${reply.evidence.reason}`
                 };
-            } catch (error) {
-                if (isInvalidIssuanceReply(error)) {
-                    return {
-                        kind: "invalid" as const,
-                        reason: error.message || "Authority permit response is invalid"
-                    };
-                }
-                throw error;
             }
-        });
+            const permit = reply.requirePermit();
+            requireIssuedPermit(permit, persisted, receivedAt);
+            return {
+                kind: "issued",
+                admission: new AuthorityAdmissionReference(permit.toData(), permit.digest())
+            };
+        } catch (error) {
+            if (isInvalidIssuanceReply(error)) {
+                return {
+                    kind: "invalid",
+                    reason: error.message || "Authority permit response is invalid"
+                };
+            }
+            throw error;
+        }
+    }
+
+    private async readSourceAttestation(
+        request: TargetAuthorityPermitRequest
+    ): Promise<TargetLeaseEvidenceAttestation | undefined> {
+        if (this.attestation === undefined) return undefined;
+        return this.attestation.attest(TargetAuthorityPermitRequest.encode(request));
     }
 
     public deny(
@@ -287,6 +422,7 @@ export class IssuedAuthorityPermitPort<
     }
 }
 
+
 function requireRetainedRequest<Transaction, Lease, Authority, Domain, PathEpochs>(
     request: TargetAuthorityPermitRequest,
     invocation: PreparedInvocation<Lease, Authority, Domain, PathEpochs>,
@@ -299,13 +435,19 @@ function requireRetainedRequest<Transaction, Lease, Authority, Domain, PathEpoch
         Domain,
         PathEpochs
     >,
-    authority: AuthorityCheckRequestFactory<Lease, Authority, Domain, PathEpochs>
+    authority: AuthorityCheckRequestFactory<Lease, Authority, Domain, PathEpochs>,
+    attestation: TargetLeaseEvidenceAttestation | undefined
 ): void {
+    const expectedExpiry =
+        attestation === undefined
+            ? claim.expiresAt.getTime()
+            : Math.min(claim.expiresAt.getTime(), attestation.deadline.getTime());
     if (
         request.nonce !== nonce ||
         !request.expectation.equals(expectations.forClaim(invocation, claim)) ||
         !request.authority.digest().equals(authority.forClaim(invocation, claim, nonce).digest()) ||
-        request.expiresAt.getTime() !== claim.expiresAt.getTime()
+        request.expiresAt.getTime() !== expectedExpiry ||
+        ((request.leaseEvidence === undefined) !== (attestation === undefined))
     ) {
         throw denied("Retained authority permit request does not bind the current claim");
     }

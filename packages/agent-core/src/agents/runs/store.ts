@@ -1,4 +1,5 @@
 import type { ActorRef, SynchronousResultGuard } from "../../actors";
+import { CodecRecord, isString, requireExactFields, requireObject } from "../record-data";
 import {
     ByteRange,
     ContentOwnerEdge,
@@ -8,7 +9,7 @@ import {
     requireOperationTime,
     type ContentPutResult
 } from "../../content";
-import { Revision, type ContentRef, type Digest, type RecordCodec } from "../../core";
+import { Revision, type ContentRef, type Digest, RecordCodec, type JsonValue, type JsonObject } from "../../core";
 import { AgentCoreError } from "../../errors";
 import type { TenantId } from "../../identity";
 import {
@@ -45,7 +46,7 @@ import type { RunCommitId, TurnId } from "../../execution-references";
 import { RunAdmissionRegistry, RunAdmissionRegistryCodec } from "./admission";
 import { ForcedTurnCancellation, ForcedTurnCancellationCodec } from "./forced-cancellation";
 import type { LeaseToken } from "./lease";
-import type { CodecRecord, ContentRetentionField } from "../record-data";
+import type { ContentRetentionField } from "../record-data";
 
 export interface RunExecutionScope {
     readonly run: Run;
@@ -70,7 +71,8 @@ export const RUN_RECORD_KINDS = Object.freeze([
     "admission",
     "forcedCancellation",
     "acceptance",
-    "verdict"
+    "verdict",
+    "targetLeaseEvidence"
 ] as const);
 
 export type RunRecordKind = (typeof RUN_RECORD_KINDS)[number];
@@ -851,6 +853,65 @@ type ContentProjection<Value extends CodecRecord> = (
     value: Value
 ) => readonly ContentRetentionField[];
 
+/**
+ * One immutable target lease attestation stored under its idempotency key. The
+ * canonical bytes are opaque to the runs plane: the authority plane owns their
+ * shape, the runs plane owns the durable, co-transacted storage.
+ */
+export class TargetLeaseEvidenceRecord extends CodecRecord {
+    public readonly key: string;
+    public readonly evidence: string;
+
+    public constructor(init: { readonly key: string; readonly evidence: string }) {
+        super();
+        if (init.key.length === 0 || init.key !== init.key.trim()) {
+            throw new TypeError("Stored lease evidence key must be canonical and nonblank");
+        }
+        if (init.evidence.length === 0) {
+            throw new TypeError("Stored lease evidence bytes must not be empty");
+        }
+        this.key = init.key;
+        this.evidence = init.evidence;
+        Object.freeze(this);
+    }
+
+    public static get codec(): RecordCodec<TargetLeaseEvidenceRecord> {
+        return targetLeaseEvidenceRecordCodec;
+    }
+
+    public toData(): JsonObject {
+        return { evidence: this.evidence, key: this.key };
+    }
+
+    public static fromData(payload: JsonValue): TargetLeaseEvidenceRecord {
+        const object = requireObject(payload, "Stored lease evidence record");
+        requireExactFields(object, ["evidence", "key"], [], "Stored lease evidence record");
+        const key = object["key"];
+        const evidence = object["evidence"];
+        if (!isString(key) || !isString(evidence)) {
+            throw new TypeError("Stored lease evidence fields must be strings");
+        }
+        return new TargetLeaseEvidenceRecord({ evidence, key });
+    }
+}
+
+class TargetLeaseEvidenceRecordCodec extends RecordCodec<TargetLeaseEvidenceRecord> {
+    public constructor() {
+        super([TargetLeaseEvidenceRecord, CodecRecord], "runs.target-lease-evidence", { major: 1, minor: 0 });
+    }
+
+    protected encodePayload(record: TargetLeaseEvidenceRecord): JsonValue {
+        return record.toData();
+    }
+
+    protected decodePayload(payload: JsonValue): TargetLeaseEvidenceRecord {
+        return TargetLeaseEvidenceRecord.fromData(payload);
+    }
+}
+
+export const targetLeaseEvidenceRecordCodec: RecordCodec<TargetLeaseEvidenceRecord> =
+    new TargetLeaseEvidenceRecordCodec();
+
 const RUN_RECORD_DESCRIPTORS = Object.freeze({
     configuration: recordDescriptor(RunConfigurationSnapshotCodec, (value) => value.id.value),
     run: recordDescriptor(
@@ -897,6 +958,7 @@ const RUN_RECORD_DESCRIPTORS = Object.freeze({
     ),
     forcedCancellation: recordDescriptor(ForcedTurnCancellationCodec, (value) => value.turn.value),
     acceptance: recordDescriptor(AcceptanceCriterionCodec, (value) => value.id.value),
+    targetLeaseEvidence: recordDescriptor(targetLeaseEvidenceRecordCodec, (value) => value.key),
     verdict: recordDescriptor(AcceptanceVerdictCodec, acceptanceVerdictKey)
 }) satisfies Readonly<Record<RunRecordKind, RunRecordDescriptorBase>>;
 

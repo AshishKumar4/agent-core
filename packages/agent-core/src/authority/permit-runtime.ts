@@ -7,6 +7,7 @@ import {
     type SynchronousResultGuard,
     type TransactionOperation
 } from "../actors";
+import type { TargetLeaseEvidence, TargetLeaseEvidenceReference } from "./target-lease-evidence";
 import type { AuthorityPermit } from "./permit";
 import {
     MemoryAuthorityPermitStore,
@@ -98,6 +99,24 @@ export class MemoryTenantAuthorityPermitStore<State extends object>
         );
         this.state.savePermits(transaction, permits.snapshot());
         return issued;
+    }
+
+    public projectedEvidence(
+        transaction: State,
+        reference: TargetLeaseEvidenceReference
+    ): TargetLeaseEvidence | undefined {
+        return this.readPermits(transaction, (store, permitTransaction) =>
+            store.projectedEvidence(permitTransaction, reference)
+        );
+    }
+
+    public projectEvidence(transaction: State, evidence: TargetLeaseEvidence): TargetLeaseEvidence {
+        const permits = this.permitStore(transaction);
+        const projected = permits.transaction((permitTransaction) =>
+            permits.projectEvidence(permitTransaction, evidence)
+        );
+        this.state.savePermits(transaction, permits.snapshot());
+        return projected;
     }
 
     private readPermits<Result>(

@@ -18,6 +18,7 @@ export { CommandPayloadMalformedError } from "./payload";
 export {
     AuthorityCheckPayloadCodec,
     AuthorityCheckReply,
+    TargetLeaseEvidencePayloadCodec,
     AuthorityPermitIssuancePayloadCodec,
     AuthorityPermitIssuanceReply,
     AuthorityPermitIssuanceRequest,
