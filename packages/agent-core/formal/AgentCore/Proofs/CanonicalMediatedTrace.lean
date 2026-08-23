@@ -344,8 +344,8 @@ private theorem persistIntent :
   · exact mediatedReady
   · exact EffectStep.persistIntent rfl
 
-private theorem intentReady : MediatedReady intentState request := by
-  simpa [intentState] using mediatedReady
+private theorem intentReady : MediatedReady intentState request :=
+  mediatedReady
 
 private theorem claimItem :
     MediatedStep intentState (.claimItem invocationId 0 ⟨1⟩) claimedState := by
@@ -365,8 +365,8 @@ private theorem claimItem :
     · rfl
     · rfl
 
-private theorem claimedReady : MediatedReady claimedState request := by
-  simpa [claimedState] using intentReady
+private theorem claimedReady : MediatedReady claimedState request :=
+  intentReady
 
 private theorem startAttempt :
     MediatedStep claimedState (.start invocationId attemptId attemptAuditId) attemptedState := by
@@ -586,7 +586,9 @@ private theorem authenticateAfterReset :
 private theorem targetAttempt :
     TargetAttemptStep claimedState expectation ⟨1⟩ attemptId attempt
       attemptAuditId attemptedState := by
-  simpa [claimedState, attemptedState] using targetAttemptForAuthority resolvedAuthority
+  have authorityChain : intentState.authority = resolvedAuthority := rfl
+  simpa [claimedState, attemptedState, authorityChain] using
+    targetAttemptForAuthority resolvedAuthority
 
 private theorem consumePermit :
     PermitStep authenticatedState (.consume owner nonce attemptId .unknown)
@@ -763,14 +765,14 @@ theorem canonical_expired_permit_cannot_consume :
   · have authenticated : exactAuthenticated authenticatedState.permits permit := by
       simp [exactAuthenticated, authenticatedState, authenticatedPermits,
         permit, targetRequest, expectation]
-    simpa [expiredState, expiredPermits, authenticatedState] using authenticated
+    exact authenticated
   · simp [expiredState, expiredPermits]
   · intro next observation after
     have authenticated : exactAuthenticated expiredState.permits permit := by
       have before : exactAuthenticated authenticatedState.permits permit := by
         simp [exactAuthenticated, authenticatedState, authenticatedPermits,
           permit, targetRequest, expectation]
-      simpa [expiredState, expiredPermits, authenticatedState] using before
+      exact before
     simpa [permit, targetRequest, expectation] using
       (expired_permit_cannot_consume (after := after)
         (attempt := next) (observation := observation) authenticated (by
@@ -786,14 +788,14 @@ theorem canonical_changed_fence_cannot_consume :
   · have authenticated : exactAuthenticated authenticatedState.permits permit := by
       simp [exactAuthenticated, authenticatedState, authenticatedPermits,
         permit, targetRequest, expectation]
-    simpa [fencedState, fencedPermits, authenticatedState] using authenticated
+    exact authenticated
   · simp [fencedState, fencedPermits, permit, targetRequest, expectation, owner]
   · intro next observation after
     have authenticated : exactAuthenticated fencedState.permits permit := by
       have before : exactAuthenticated authenticatedState.permits permit := by
         simp [exactAuthenticated, authenticatedState, authenticatedPermits,
           permit, targetRequest, expectation]
-      simpa [fencedState, fencedPermits, authenticatedState] using before
+      exact before
     simpa [permit, targetRequest, expectation] using
       (changed_target_fence_cannot_consume (after := after)
         (attempt := next) (observation := observation) authenticated (by

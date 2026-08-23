@@ -163,7 +163,7 @@ theorem indexIn_cons {head : Scope} {tail : List Scope} {scope : Scope} {index :
   split at found
   · next same => exact Or.inl ⟨same, by simpa using found.symm⟩
   · next different =>
-      rw [Option.map_eq_some'] at found
+      rw [Option.map_eq_some_iff] at found
       obtain ⟨inner, innerFound, position⟩ := found
       exact Or.inr ⟨different, inner, innerFound, position.symm⟩
 
@@ -173,8 +173,8 @@ theorem indexIn_mem {scopes : List Scope} {scope : Scope} {index : Nat}
   | nil => simp [indexIn] at found
   | cons head tail ih =>
       rcases indexIn_cons found with ⟨same, _⟩ | ⟨_, inner, innerFound, _⟩
-      · exact same ▸ List.mem_cons_self head tail
-      · exact List.mem_cons_of_mem head (ih innerFound)
+      · exact same ▸ List.mem_cons_self
+      · exact List.Mem.tail head (ih innerFound)
 
 /-- One position names one Scope: the scan returns the first match, so equal positions come
 from equal Scopes without any duplicate-freedom premise. -/
@@ -235,7 +235,7 @@ theorem orderedPath_pairwise (target : Scope) :
   | tenant tenant => rw [orderedPath_tenant]; simp
   | project tenant project =>
       rw [orderedPath_project]
-      simp only [List.pairwise_cons, List.mem_singleton, List.mem_cons, List.not_mem_nil]
+      simp only [List.pairwise_cons, List.mem_cons, List.not_mem_nil]
       refine ⟨?_, by simp⟩
       rintro other (rfl | ⟨_, _⟩)
       exact .tenantOfProject _ _
@@ -243,13 +243,13 @@ theorem orderedPath_pairwise (target : Scope) :
       cases project with
       | none =>
           rw [orderedPath_workspace_direct]
-          simp only [List.pairwise_cons, List.mem_singleton, List.mem_cons, List.not_mem_nil]
+          simp only [List.pairwise_cons, List.mem_cons, List.not_mem_nil]
           refine ⟨?_, by simp⟩
           rintro other (rfl | ⟨_, _⟩)
           exact .tenantOfWorkspace _ _ _
       | some project =>
           rw [orderedPath_workspace_nested]
-          simp only [List.pairwise_cons, List.mem_singleton, List.mem_cons, List.not_mem_nil,
+          simp only [List.pairwise_cons, List.mem_cons, List.not_mem_nil,
             or_false]
           refine ⟨?_, ?_, by simp⟩
           · rintro other (rfl | rfl)
@@ -266,7 +266,7 @@ theorem path_index_mem {target scope : Scope} {index : Nat}
 theorem indexIn_of_mem {scopes : List Scope} {scope : Scope} (member : scope ∈ scopes) :
     ∃ index, indexIn scopes scope = some index := by
   induction scopes with
-  | nil => exact absurd member (List.not_mem_nil scope)
+  | nil => exact absurd member List.not_mem_nil
   | cons head tail ih =>
       by_cases same : head = scope
       · exact ⟨0, by simp [indexIn, same]⟩
@@ -405,7 +405,7 @@ widening, so the asymmetry can only refuse more requests, never admit one the ex
 comparison would have refused. -/
 theorem matches_deny_of_matches_request {grant : AuthorityGrant} {request : AuthorityRequest}
     (matched : grant.MatchesRequest request) : grant.MatchesDeny request :=
-  ⟨List.mem_map_of_mem Subject.identity matched.1, matched.2.1, matched.2.2⟩
+  ⟨List.mem_map_of_mem matched.1, matched.2.1, matched.2.2⟩
 
 instance (grant : AuthorityGrant) (request : AuthorityRequest) :
     Decidable (grant.MatchesRequest request) :=
@@ -461,7 +461,7 @@ theorem deny_survives_verification_scheme_change {grants : List AuthorityGrant}
     ¬ EffectiveAuthority grants request := by
   intro effective
   refine effective.2 ⟨denyGrant, member, live, effect, ?_, reaches, admits⟩
-  simpa [stamped, Subject.identity] using List.mem_map_of_mem Subject.identity acting
+  simpa [stamped, Subject.identity] using List.mem_map_of_mem acting
 
 /-- **An allow is authority only under the scheme it was verified with.** The same foreign
 Principal stamped by another scheme is another subject to the allow side, which is what lets
@@ -503,8 +503,8 @@ theorem lookupGrant_mem {grants : List AuthorityGrant} {wanted : GrantId}
       simp only [lookupGrant] at found
       split at found
       · simp only [Option.some.injEq] at found
-        exact found ▸ List.mem_cons_self head rest
-      · exact List.mem_cons_of_mem head (ih found)
+        exact found ▸ List.mem_cons_self
+      · exact List.Mem.tail head (ih found)
 
 /-- One step of the walk, carrying the Grants already visited and a step budget. Exhaustion
 is refused as an invalid delegation, matching the implementation's refusal of a repeated
@@ -687,12 +687,12 @@ theorem denials_empty_iff {input : AuthorityInput} :
       simp only [AuthorityInput.denials, List.mem_filter, Bool.and_eq_true, beq_iff_eq]
       exact ⟨member, ⟨authority_grant_matches_deny_iff.mpr matched, live⟩, effect⟩
     rw [empty] at listed
-    exact absurd listed (List.not_mem_nil grant)
+    exact absurd listed List.not_mem_nil
   · intro absent
     cases hypothesis : input.denials with
     | nil => rfl
     | cons head _ =>
-        have member : head ∈ input.denials := by rw [hypothesis]; exact List.mem_cons_self _ _
+        have member : head ∈ input.denials := by rw [hypothesis]; exact List.mem_cons_self
         simp only [AuthorityInput.denials, List.mem_filter, Bool.and_eq_true, beq_iff_eq]
           at member
         exact absurd ⟨head, member.1, member.2.1.2, member.2.2,
