@@ -28,17 +28,16 @@ function snapshot(path) {
     };
 }
 
-function runGate() {
-    const result = spawnSync(process.execPath, [gate], {
+function runGate(scriptPath = gate) {
+    const result = spawnSync(process.execPath, [scriptPath], {
         cwd: packageRoot,
         encoding: "utf8",
-        maxBuffer: 64 * 1024 * 1024
+        maxBuffer: 512 * 1024 * 1024
     });
-    return {
-        exit: result.status,
-        output: `${result.stdout}${result.stderr}`
-    };
+    return { exit: result.status, output: `${result.stdout}${result.stderr}` };
 }
+
+const normativeGate = join(packageRoot, "scripts", "check-normative.mjs");
 
 const probes = [
     {
@@ -99,6 +98,33 @@ const probes = [
                 source.slice(decideIndex + "by decide".length)
             );
         }
+    },
+    {
+        // Regression for the 4.33.1 under-closure: applyDelta is reachable
+        // only through the internal replay._f artifact, so a semantic edit to
+        // it must turn the normative gate red instead of hiding behind the
+        // cutoff that once emptied the view-chain closures.
+        name: "semantic mutation behind internal artifact",
+        target: join(packageRoot, "formal", "AgentCore", "View.lean"),
+        script: normativeGate,
+        pattern: /normative\.lock is stale|check:normative Lean build failed/u,
+        plant(source) {
+            const anchor =
+                "def applyDelta (view : ViewState) (delta : ViewDelta) : Option ViewState :=";
+            if (!source.includes(anchor)) throw new Error("applyDelta anchor not found");
+            const start = source.indexOf(anchor);
+            const end = source.indexOf("def replay", start);
+            if (end === -1) throw new Error("replay anchor not found");
+            const segment = source.slice(start, end);
+            if (!segment.includes("view.revision + 1")) {
+                throw new Error("revision increment not found in applyDelta");
+            }
+            return (
+                source.slice(0, start) +
+                segment.replace("view.revision + 1", "view.revision + 2") +
+                source.slice(end)
+            );
+        }
     }
 ];
 
@@ -108,7 +134,7 @@ for (const probe of probes) {
     let outcome;
     try {
         writeFileSync(probe.target, probe.plant(readFileSync(probe.target, "utf8")));
-        outcome = runGate();
+        outcome = runGate(probe.script);
     } finally {
         snap.restore();
     }

@@ -231,6 +231,7 @@ function driverSource(designations, auditedModules) {
     return [
         ...auditedModules.map((moduleName) => `import ${moduleName}`),
         "",
+        "set_option maxHeartbeats 10000000 in",
         `#agent_core_normative ${tokens.map((token) => JSON.stringify(token)).join(" ")}`,
         ""
     ].join("\n");

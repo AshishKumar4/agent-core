@@ -5,7 +5,7 @@ namespace AgentCore.Normative
 
 open Lean
 
-def encodingVersion : String := "agent-core-lean-structure-v2"
+def encodingVersion : String := "agent-core-lean-structure-v3"
 
 private def jsonArray (items : List Json) : Json := .arr items.toArray
 
@@ -167,6 +167,29 @@ private def encodeRecursorRule (parameters : List Name)
   pure (tagged "rule" [encodeName rule.ctor, .str rule.nfields.repr, rhs.json],
     rhs.dependencies)
 
+/-- Authoritative provenance classification shared by manifest membership and
+    the per-declaration origin marker. Private declarations register ranges
+    under their mangled storage name, with the stripped user name as a single
+    authoritative fallback step. -/
+private def declarationOrigin [Monad m] [MonadEnv m] [MonadFileMap m] :
+    Name → m String := fun name => do
+  if (← findDeclarationRangesCore? name).isSome then
+    pure "sourced"
+  else match privateToUserName? name with
+    | some userName =>
+      if userName == name then pure "synthetic"
+      else if (← findDeclarationRangesCore? userName).isSome then pure "sourced"
+      else pure "synthetic"
+    | none => pure "synthetic"
+
+/-- Manifest members are sourced project declarations. Synthetic artifacts
+    remain fully transparent to closure traversal but never enter the
+    manifest, so member sets cannot drift when the compiler renames its own
+    helpers across toolchains. -/
+private def isGeneratedDeclaration (name : Name) : CoreM Bool := do
+  return (← declarationOrigin name) == "synthetic"
+
+
 private structure DeclarationEncoding where
   json : Option Json
   dependencies : List Name
@@ -174,8 +197,11 @@ private structure DeclarationEncoding where
 private def encodeDeclaration (info : ConstantInfo) : MetaM DeclarationEncoding := do
   let value := info.toConstantVal
   let encodedType ← encodeSemanticExpression value.levelParams [] value.type
+  -- Provenance marker consumed by lock audits: "sourced" declarations carry a
+  -- registered declaration range; "synthetic" ones are compiler artifacts.
+  let origin ← declarationOrigin value.name
   let header kind fields := tagged kind ([encodeName value.name, .str value.levelParams.length.repr,
-    encodedType.json] ++ fields)
+    encodedType.json, .str origin] ++ fields)
   let typeDependencies := encodedType.dependencies
   match info with
   | .axiomInfo declaration =>
@@ -291,6 +317,8 @@ private def isProjectModuleDeclaration (environment : Environment) (name : Name)
 private def isProjectDeclarationName (environment : Environment) (name : Name) : Bool :=
   !(userDeclarationName name).isInternal && isProjectModuleDeclaration environment name
 
+
+
 private def collectAxiomUnion [Monad m] [MonadEnv m] (roots : List Name) : m (Array Name) :=
   roots.foldlM (init := #[]) fun union root => do
     let axioms ← collectAxioms root
@@ -363,6 +391,29 @@ private def collectDeclarationGraph (environment : Environment) (roots : List Na
   let mut dependencies : NameMap (List Name) := {}
   let mut declarations : NameMap Json := {}
   let mut remaining := declarationCount + 1
+  -- Declarations elaborated from one syntax origin share an exact declaration
+  -- range: an inductive family, or a derived instance and its worker helpers.
+  -- Recording those groups lets traversal complete whole families no matter
+  -- which member a toolchain's compiled values happen to cite.
+  let projectNames := environment.constants.fold
+    (fun names name _ =>
+      if isProjectModuleDeclaration environment name then names.push name else names) #[]
+  let mut spanKeyOf : NameMap Name := {}
+  let mut spanGroups : NameMap (List Name) := {}
+  for projectName in projectNames do
+    match ← findDeclarationRangesCore? projectName with
+    | none => pure ()
+    | some ranges =>
+      let moduleKey :=
+        match environment.getModuleIdxFor? projectName with
+        | some moduleIndex => toString moduleIndex
+        | none => "local"
+      let rr := ranges.range
+      let spanKey := Name.mkSimple
+        s!"{moduleKey}.{rr.pos.line}.{rr.pos.column}.{rr.endPos.line}.{rr.endPos.column}"
+      spanKeyOf := spanKeyOf.insert projectName spanKey
+      spanGroups := spanGroups.insert spanKey
+        (projectName :: ((spanGroups.find? spanKey).getD []))
   while !pending.isEmpty do
     if remaining == 0 then
       throwError "normative closure exceeded the imported environment"
@@ -371,9 +422,8 @@ private def collectDeclarationGraph (environment : Environment) (roots : List Na
     pending := pending.tail!
     let some info := environment.find? name
       | throwError "reachable declaration {name} is absent from the environment"
-    if !isProjectDeclarationName environment name then
-      dependencies := dependencies.insert name []
-    else
+    let projectDeclaration := isProjectDeclarationName environment name
+    if projectDeclaration then
       if hasForbiddenSafety info then
         throwError "reachable declaration {name} is unsafe or partial"
       let expressions := declarationExpressions info
@@ -383,15 +433,32 @@ private def collectDeclarationGraph (environment : Environment) (roots : List Na
       | .axiomInfo _ =>
         throwError "reachable project axiom {userDeclarationName name} is forbidden"
       | _ => pure ()
+    -- Doctrine G-1: closure traversal follows declaration types and values.
+    -- Every project-module constant on the path is traversed, including the
+    -- compiler-generated artifacts whose names differ between toolchains, so
+    -- no reachable project declaration can silently drop out of the manifest.
+    -- Constants from outside the project module stay opaque leaves.
+    if isProjectModuleDeclaration environment name then
       let encoding ← Meta.MetaM.run' (encodeDeclaration info)
       let declarationDependencies := structuralDependencies info ++ encoding.dependencies
       let next := scheduleDependencies declarationDependencies pending scheduled
       pending := next.1
       scheduled := next.2
       dependencies := dependencies.insert name declarationDependencies
-      match encoding.json with
+      match spanKeyOf.find? name with
+      | some spanKey =>
+        let next := scheduleDependencies ((spanGroups.find? spanKey).getD []) pending scheduled
+        pending := next.1
+        scheduled := next.2
       | none => pure ()
-      | some encoded => declarations := declarations.insert name encoded
+      if projectDeclaration && !(← isGeneratedDeclaration name) then
+        match encoding.json with
+        | none => pure ()
+        | some encoded => declarations := declarations.insert name encoded
+    else
+      -- Constants outside the project module are opaque leaves: recorded as
+      -- terminal so the designation walk stays bounded by the graph itself.
+      dependencies := dependencies.insert name []
   pure { dependencies, declarations }
 
 private def collectDesignationClosure (graph : DeclarationGraph) (roots : List Name) :

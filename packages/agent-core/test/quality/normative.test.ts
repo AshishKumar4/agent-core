@@ -169,6 +169,58 @@ describe("normative structural encoder", { timeout: 120_000 }, () => {
         expect(committed).toBe(first);
     });
 
+    test("keeps the authored replay/applyDelta chain in every affected closure", async () => {
+        // Regression for the 4.33.1 under-closure: compiled values routed
+        // through internal artifacts (replay._f), and the graph walk cut them
+        // off, silently emptying the closures of nonvacuous_view_replay,
+        // replay_deterministic, and replay_revision.
+        const committed = JSON.parse(
+            await readFile(resolve(packageRoot, "artifacts/normative.lock"), "utf8")
+        ) as {
+            designations: { name: string; semanticClosureSha256: string }[];
+            semanticClosures: { sha256: string; declarations: string[] }[];
+        };
+        const membersOf = (designation: string): string[] => {
+            const entry = committed.designations.find((d) => d.name === designation);
+            expect(entry).toBeDefined();
+            const closure = committed.semanticClosures.find(
+                (c) => c.sha256 === entry?.semanticClosureSha256
+            );
+            expect(closure).toBeDefined();
+            return closure?.declarations ?? [];
+        };
+        // Authored surface that must never vanish behind compiler artifacts.
+        const required = [
+            "AgentCore.ViewDelta.base",
+            "AgentCore.ViewDelta.patch",
+            "AgentCore.ViewNode.blocks",
+            "AgentCore.ViewPatch.apply",
+            "AgentCore.ViewPatch.replace",
+            "AgentCore.ViewState.body",
+            "AgentCore.ViewState.revision",
+            "AgentCore.ViewState.mk",
+            "AgentCore.ViewNode.mk",
+            "AgentCore.applyDelta",
+            "AgentCore.replay",
+        ];
+        for (const designation of [
+            "AgentCore.Examples.nonvacuous_view_replay",
+            "AgentCore.replay_deterministic",
+            "AgentCore.replay_revision"
+        ]) {
+            const members = membersOf(designation);
+            const missing = required.filter((name) => !members.includes(name));
+            expect(missing, `${designation} lost closure members`).toEqual([]);
+        }
+        // Compiler naming must stay out of manifest membership entirely.
+        const artifactPattern = /(\._f$|\.match_\d+$|\.toCtorIdx$|\.ctorIdx$|\.brecOn\.go$)/u;
+        for (const closure of committed.semanticClosures) {
+            for (const name of closure.declarations) {
+                expect(artifactPattern.test(name), `${name} leaked into a closure`).toBe(false);
+            }
+        }
+    });
+
     test("emits byte-identical structural packages on repeated runs", async () => {
         const first = await runLean(fixture());
         const second = await runLean(fixture());
