@@ -89,8 +89,8 @@ theorem fresh_dynamic_isolate_admits_only_host_pass {label after}
     ∃ binding capability, label = .pass binding capability := by
   cases step with
   | pass fresh => exact ⟨_, _, rfl⟩
-  | invoke lookup => exact Option.noConfusion lookup
-  | egress lookup _named => exact Option.noConfusion lookup
+  | invoke lookup => exact (by cases lookup)
+  | egress lookup _named => exact (by cases lookup)
 
 /-- **An isolate invocation requires a passed Binding.** There is no ambient path: the
 capability the invoke exercises is in the passed table at the moment of the step. -/
@@ -135,8 +135,8 @@ def ActionsBacked (domain : DynamicDomain) : Prop :=
       ∀ binding destination, action = .egress binding destination →
         capability.destination = some destination
 
-theorem fresh_actions_backed : ActionsBacked .fresh := fun action member =>
-  absurd member (List.not_mem_nil action)
+theorem fresh_actions_backed : ActionsBacked .fresh := fun _action member =>
+  absurd member List.not_mem_nil
 
 theorem isolate_step_preserves_actions_backed {domain label after}
     (backed : ActionsBacked domain) (step : IsolateStep domain label after) :
@@ -149,7 +149,7 @@ theorem isolate_step_preserves_actions_backed {domain label after}
       refine ⟨found, ?_, egressNamed⟩
       by_cases same : action.binding = passed
       · rw [same, fresh] at lookup
-        exact Option.noConfusion lookup
+        exact (by cases lookup)
       · exact Eq.trans (tableSet_other _ _ _ same _) lookup
   | invoke lookup =>
       intro action member
@@ -190,7 +190,7 @@ theorem dynamic_only_manifest_never_places_ambient (policy substrate trust : Pla
   by_cases admits : ((policy.dynamic && substrate.dynamic) && trust.dynamic) = true
   · simp [admits]
   · simp [Bool.not_eq_true] at admits
-    simp [admits]
+    simp []
 
 structure SlateRecord where
   head : Option SlateVersionId
@@ -316,7 +316,7 @@ theorem committed_version_is_immutable {env ledger label after id record}
       by_cases same : id = version
       · subst same
         rw [lookup] at fresh
-        exact Option.noConfusion fresh
+        exact (by cases fresh)
       · exact Eq.trans (tableSet_other _ _ _ same _) lookup
   | _ => exact lookup
 
@@ -332,7 +332,7 @@ theorem publication_is_immutable {env ledger label after id record}
       by_cases same : id = publication
       · subst same
         rw [lookup] at fresh
-        exact Option.noConfusion fresh
+        exact (by cases fresh)
       · exact Eq.trans (tableSet_other _ _ _ same _) lookup
   | _ => exact lookup
 

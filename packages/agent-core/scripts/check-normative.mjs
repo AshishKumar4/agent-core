@@ -72,19 +72,72 @@ function stringField(value, field, location) {
     return fieldValue;
 }
 
-function structuralPackage(source) {
-    const lines = source
-        .split(/\r?\n/u)
-        .filter((candidate) => candidate.startsWith('{"encodingVersion":'));
-    if (lines.length !== 1) {
+export const structuralPackageKeys = Object.freeze([
+    "auditedModules",
+    "allowedAxioms",
+    "declarations",
+    "designations",
+    "encoding"
+]);
+
+export function parseStructuralPackageLine(line, location) {
+    let value;
+    try {
+        value = parseCanonicalJson(line, location);
+    } catch (error) {
         throw new TypeError(
-            `Lean emitted ${lines.length} normative structural packages; expected exactly one`
+            `${location} is not strict JSON: ${error instanceof Error ? error.message : String(error)}`
         );
     }
-    const value = parseCanonicalJson(lines[0], "Lean normative structural package");
-    if (!isJsonObject(value))
-        throw new TypeError("Lean normative structural package must be an object");
+    if (!isJsonObject(value)) {
+        throw new TypeError(`${location} must be an object`);
+    }
+    const expected = [...structuralPackageKeys].sort();
+    const keys = Object.keys(value).sort();
+    if (JSON.stringify(keys) !== JSON.stringify(expected)) {
+        throw new TypeError(
+            `${location} top-level key set must be exactly ${expected.join(", ")}`
+        );
+    }
+    strings(value.auditedModules, `${location}.auditedModules`);
+    strings(value.allowedAxioms, `${location}.allowedAxioms`);
+    objectArray(value.designations, `${location}.designations`);
+    objectArray(value.declarations, `${location}.declarations`);
+    const encoding = stringField(value, "encoding", location);
+    if (encoding !== "agent-core-lean-structure-sourced-closure") {
+        throw new TypeError(
+            `${location}.encoding must be agent-core-lean-structure-sourced-closure`
+        );
+    }
     return value;
+}
+
+
+export function structuralPackage(source) {
+    const candidates = [];
+    let lastError;
+    let candidateStarted = false;
+    for (const candidate of source.split(/\r?\n/u)) {
+        if (!candidate.startsWith('{"')) continue;
+        candidateStarted = true;
+        try {
+            candidates.push(
+                parseStructuralPackageLine(candidate, "Lean normative structural package")
+            );
+        } catch (error) {
+            lastError = error;
+        }
+    }
+    if (candidates.length !== 1) {
+        if (candidates.length === 0 && lastError !== undefined) throw lastError;
+        if (!candidateStarted) {
+            throw new TypeError("Lean emitted no normative structural package line");
+        }
+        throw new TypeError(
+            `Lean emitted ${candidates.length} normative structural packages; expected exactly one`
+        );
+    }
+    return candidates[0];
 }
 
 function dependencyIdentity(value, index) {
@@ -183,13 +236,43 @@ function driverSource(designations, auditedModules) {
     return [
         ...auditedModules.map((moduleName) => `import ${moduleName}`),
         "",
+        "set_option maxHeartbeats 10000000 in",
         `#agent_core_normative ${tokens.map((token) => JSON.stringify(token)).join(" ")}`,
         ""
     ].join("\n");
 }
 
+export const originMarkers = Object.freeze(["sourced", "synthetic"]);
+
+/**
+ * Exact trailing provenance marker of an encoded declaration structure.
+ * Fails closed: the last element must be the literal string `sourced` or
+ * `synthetic`; missing, non-string, unknown, or non-tail markers are
+ * rejected instead of defaulting to sourced.
+ */
+export function parseOriginMarker(structure) {
+    if (!Array.isArray(structure) || structure.length === 0) {
+        throw new TypeError("declaration structure must be a nonempty array");
+    }
+    const tail = structure[structure.length - 1];
+    if (!isNonEmptyString(tail) || !originMarkers.includes(tail)) {
+        throw new TypeError(
+            "declaration structure must end in origin marker sourced|synthetic"
+        );
+    }
+    const prefix = structure.slice(0, -1);
+    if (
+        prefix.some((item) => isNonEmptyString(item) && originMarkers.includes(item))
+    ) {
+        throw new TypeError(
+            "declaration origin marker must occur exactly once, at the tail"
+        );
+    }
+    return tail;
+}
+
 function validateAndHash(raw, expectedDesignations, expectedModules) {
-    const encodingVersion = stringField(raw, "encodingVersion", "structural package");
+    const encoding = stringField(raw, "encoding", "structural package");
     const auditedModules = strings(raw.auditedModules, "structural package auditedModules");
     if (new Set(auditedModules).size !== auditedModules.length) {
         throw new TypeError("Lean structural package contains duplicate audited modules");
@@ -216,7 +299,8 @@ function validateAndHash(raw, expectedDesignations, expectedModules) {
         if (declarations.has(name)) {
             throw new TypeError(`structural package contains duplicate declaration ${name}`);
         }
-        declarations.set(name, sha256(JSON.stringify(entry.structure)));
+        const synthetic = parseOriginMarker(entry.structure) === "synthetic";
+        declarations.set(name, { sha: sha256(JSON.stringify(entry.structure)), synthetic });
     }
 
     const emittedDesignations = objectArray(raw.designations, "structural package designations");
@@ -241,9 +325,14 @@ function validateAndHash(raw, expectedDesignations, expectedModules) {
             throw new TypeError(`${location}.closure contains duplicate declarations`);
         }
         for (const declarationName of closureNames) {
-            const declarationHash = declarations.get(declarationName);
-            if (declarationHash === undefined) {
+            const declarationRecord = declarations.get(declarationName);
+            if (declarationRecord === undefined) {
                 throw new TypeError(`${location}.closure references absent ${declarationName}`);
+            }
+            if (declarationRecord.synthetic) {
+                throw new TypeError(
+                    `${location}.closure leaks synthetic declaration ${declarationName}`
+                );
             }
             referencedDeclarations.add(declarationName);
         }
@@ -260,22 +349,22 @@ function validateAndHash(raw, expectedDesignations, expectedModules) {
     if (JSON.stringify([...observedAxioms].sort()) !== JSON.stringify(expectedAxioms)) {
         throw new TypeError("observed designated axiom union does not exactly match formal policy");
     }
-    const unreferenced = [...declarations.keys()].filter(
-        (name) => !referencedDeclarations.has(name)
-    );
+    const unreferenced = [...declarations.entries()]
+        .filter(([name, record]) => !referencedDeclarations.has(name) && !record.synthetic)
+        .map(([name]) => name);
     if (unreferenced.length > 0) {
         throw new TypeError(
             `structural package contains unreferenced declarations: ${unreferenced.join(", ")}`
         );
     }
     const declarationEntries = [...declarations]
-        .map(([name, declarationSha256]) => ({ name, sha256: declarationSha256 }))
+        .map(([name, record]) => ({ name, sha256: record.sha }))
         .sort((left, right) => compareCodeUnits(left.name, right.name));
     const semanticClosures = new Map();
     const normalizedDesignations = designations.map(({ semanticClosureNames, ...designation }) => {
         const closureEntries = semanticClosureNames.map((name) => ({
             name,
-            sha256: declarations.get(name)
+            sha256: declarations.get(name)?.sha
         }));
         const source = JSON.stringify(closureEntries);
         const closureSha256 = sha256(source);
@@ -293,7 +382,7 @@ function validateAndHash(raw, expectedDesignations, expectedModules) {
         auditedModules: [...auditedModules].sort(),
         declarations: declarationEntries,
         designations: normalizedDesignations,
-        encodingVersion,
+        encoding,
         semanticClosures: [...semanticClosures]
             .map(([closureSha256, closure]) => ({
                 declarations: closure.declarations,
@@ -321,7 +410,7 @@ export function generateNormativeLock() {
             auditedModules: normalized.auditedModules,
             declarations: normalized.declarations,
             designations: normalized.designations,
-            encodingVersion: normalized.encodingVersion,
+            encoding: normalized.encoding,
             pins: readPins(),
             schemaVersion,
             semanticClosures: normalized.semanticClosures

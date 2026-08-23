@@ -1,4 +1,5 @@
 import AgentCore
+set_option format.width 400
 
 /-! Final designated strengthened claims. Representation component-shape nonclaims are excluded. -/
 

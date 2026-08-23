@@ -70,12 +70,12 @@ theorem proposers_are_ancestors {store run pins root proposers aggregate}
       intro proposer membership
       rcases List.mem_append.mp membership with earlier | latest
       · -- An earlier proposer reaches the previous aggregate, which is a parent here.
-        exact Ancestor.parent lookup (parents ▸ List.mem_cons_self _ _) (ih proposer earlier)
+        exact Ancestor.parent lookup (parents ▸ List.mem_cons_self) (ih proposer earlier)
       · -- The latest proposer's head is itself a parent of this merge commit.
         cases latest with
         | head =>
             exact Ancestor.parent lookup
-              (parents ▸ List.mem_cons_of_mem _ (List.mem_cons_self _ _))
+              (parents ▸ List.Mem.tail _ (List.mem_cons_self))
               (Ancestor.refl proposerLookup)
         | tail _ empty => cases empty
 
@@ -87,7 +87,7 @@ theorem root_is_ancestor {store run pins root proposers aggregate}
   induction chain with
   | root lookup _ _ => exact Ancestor.refl lookup
   | merge _ lookup _ _ parents _ _ _ _ ih =>
-      exact Ancestor.parent lookup (parents ▸ List.mem_cons_self _ _) ih
+      exact Ancestor.parent lookup (parents ▸ List.mem_cons_self) ih
 
 /-- **The fan-out never escapes its run.** Every proposer head recorded by the chain
     belongs to the chain's run — aggregation cannot reach across run boundaries. -/

@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
 import { afterEach, beforeAll, describe, expect, test } from "vitest";
-import { generateNormativeLock } from "../../scripts/check-normative.mjs";
+import {
+    generateNormativeLock,
+    parseOriginMarker,
+    parseStructuralPackageLine,
+    structuralPackage
+} from "../../scripts/check-normative.mjs";
 
 const execFileAsync = promisify(execFile);
 const packageRoot = resolve(import.meta.dirname, "../..");
@@ -16,7 +21,7 @@ const allowedAxiomTokens = ["Classical.choice", "Quot.sound", "propext"]
 
 interface StructuralPackage {
     allowedAxioms: string[];
-    encodingVersion: string;
+    encoding: string;
     designations: {
         axioms: string[];
         closure: string[];
@@ -64,7 +69,10 @@ async function runLean(source: string): Promise<{ output?: StructuralPackage; st
     if (!result.failed) {
         const line = result.stdout
             .split(/\r?\n/u)
-            .find((candidate) => candidate.startsWith('{"encodingVersion":'));
+            .find(
+                (candidate) =>
+                    candidate.startsWith('{"') && candidate.includes('"encoding":"agent-core-lean-structure-sourced-closure"')
+            );
         return { output: line === undefined ? undefined : JSON.parse(line), stderr: result.stderr };
     }
     return { stderr: `${result.stdout}${result.stderr}` };
@@ -152,6 +160,32 @@ theorem claim : proposition (${proof}) ∧ value = value := ⟨True.intro, rfl�
 `);
 }
 
+describe("origin marker parser", () => {
+    test("accepts exact trailing sourced and synthetic markers", () => {
+        expect(parseOriginMarker(["tag", "sourced"])).toBe("sourced");
+        expect(parseOriginMarker(["tag", "x", "synthetic"])).toBe("synthetic");
+    });
+
+    test("fails closed on missing, non-string, and unknown tails", () => {
+        expect(() => parseOriginMarker([])).toThrow();
+        expect(() => parseOriginMarker(["tag"])).toThrow();
+        expect(() => parseOriginMarker(["tag", 7])).toThrow();
+        expect(() => parseOriginMarker(["tag", null])).toThrow();
+        expect(() => parseOriginMarker(["tag", {}])).toThrow();
+        expect(() => parseOriginMarker(undefined)).toThrow();
+        expect(() => parseOriginMarker(["tag", "sourcedd"])).toThrow();
+        expect(() => parseOriginMarker(["tag", "Sourced"])).toThrow();
+    });
+
+    test("rejects markers that are not exactly once at the tail", () => {
+        expect(() => parseOriginMarker(["sourced", "sourced"])).toThrow();
+        expect(() => parseOriginMarker(["sourced", "x", "synthetic", "sourced"])).toThrow();
+        expect(() => parseOriginMarker(["synthetic", "sourced"])).toThrow();
+        expect(() => parseOriginMarker(["sourced", "synthetic"])).toThrow();
+        expect(() => parseOriginMarker(["synthetic", "x", "synthetic"])).toThrow();
+    });
+});
+
 describe("normative structural encoder", { timeout: 120_000 }, () => {
     test("regenerates the complete committed lock byte-identically", async () => {
         const first = generateNormativeLock();
@@ -160,6 +194,71 @@ describe("normative structural encoder", { timeout: 120_000 }, () => {
 
         expect(second).toBe(first);
         expect(committed).toBe(first);
+    });
+
+    test("keeps the authored replay/applyDelta chain in every affected closure", async () => {
+        // Regression for the 4.33.1 under-closure: compiled values routed
+        // through internal artifacts (replay._f), and the graph walk cut them
+        // off, silently emptying the closures of nonvacuous_view_replay,
+        // replay_deterministic, and replay_revision.
+        // SAFETY: artifacts/normative.lock is machine-written by
+        // check-normative --update, whose strict parser validated these
+        // fields on the bytes it serialized.
+        const committed = JSON.parse(
+            await readFile(resolve(packageRoot, "artifacts/normative.lock"), "utf8")
+        ) as {
+            designations: { name: string; semanticClosureSha256: string }[];
+            semanticClosures: { sha256: string; declarations: string[] }[];
+        };
+        const membersOf = (designation: string): string[] => {
+            const entry = committed.designations.find((d) => d.name === designation);
+            expect(entry).toBeDefined();
+            const closure = committed.semanticClosures.find(
+                (c) => c.sha256 === entry?.semanticClosureSha256
+            );
+            expect(closure).toBeDefined();
+            return closure?.declarations ?? [];
+        };
+        // Authored surface that must never vanish behind compiler artifacts.
+        const required = [
+            "AgentCore.ViewDelta.base",
+            "AgentCore.ViewDelta.patch",
+            "AgentCore.ViewNode.blocks",
+            "AgentCore.ViewPatch.apply",
+            "AgentCore.ViewPatch.replace",
+            "AgentCore.ViewState.body",
+            "AgentCore.ViewState.revision",
+            "AgentCore.ViewState.mk",
+            "AgentCore.ViewNode.mk",
+            "AgentCore.applyDelta",
+            "AgentCore.replay",
+        ];
+        for (const designation of [
+            "AgentCore.Examples.nonvacuous_view_replay",
+            "AgentCore.replay_deterministic",
+            "AgentCore.replay_revision"
+        ]) {
+            const members = membersOf(designation);
+            const missing = required.filter((name) => !members.includes(name));
+            expect(missing, `${designation} lost closure members`).toEqual([]);
+        }
+        // Synthetic artifact structure is recorded as reachable semantics
+        // (P1: control-flow mutations inside _f must flip the lock), but the
+        // artifacts themselves stay out of membership.
+        // The committed lock carries content-addressed records for synthetic
+        // artifacts; their sourced|synthetic origin marker is enforced by the
+        // strict checker (closure-leak rejection plus reachability exemption).
+        const syntheticEntry = committed.declarations.find(
+            (d) => d.name === "AgentCore.replay._f"
+        );
+        expect(syntheticEntry?.sha256).toMatch(/^sha256:/u);
+        // Compiler naming must stay out of manifest membership entirely.
+        const artifactPattern = /(\._f$|\.match_\d+$|\.toCtorIdx$|\.ctorIdx$|\.brecOn\.go$)/u;
+        for (const closure of committed.semanticClosures) {
+            for (const name of closure.declarations) {
+                expect(artifactPattern.test(name), `${name} leaked into a closure`).toBe(false);
+            }
+        }
     });
 
     test("emits byte-identical structural packages on repeated runs", async () => {
@@ -418,7 +517,80 @@ end AgentCore.NormativeFixture
 
         expect(result.output).toBeUndefined();
         expect(result.stderr).toMatch(
-            /project theorem set depends on disallowed axiom .*ofReduceBool/u
+            /project (?:theorem set depends on disallowed axiom .*ofReduceBool|declaration \S* is a forbidden custom axiom)/u
+        );
+    });
+});
+
+describe("structural package line selector", () => {
+    const base = {
+        allowedAxioms: ["propext"],
+        auditedModules: ["AgentCore"],
+        declarations: [{ name: "X", structure: [] }],
+        designations: [{ kind: "claim", name: "Y", axioms: [], type: {}, closure: [] }],
+        encoding: "agent-core-lean-structure-sourced-closure"
+    };
+
+    test("accepts the canonical lexicographic package line", () => {
+        expect(() => parseStructuralPackageLine(JSON.stringify(base), "p")).not.toThrow();
+    });
+
+    test("rejects a non-JSON aaa line", () => {
+        expect(() => parseStructuralPackageLine("aaa", "p")).toThrow(/strict JSON/u);
+    });
+
+    test("rejects an unknown leading key", () => {
+        const line = JSON.stringify({ zzz: 1, ...base });
+        expect(() => parseStructuralPackageLine(line, "p")).toThrow(/key set/u);
+    });
+
+    test("rejects an unknown trailing key", () => {
+        const line = JSON.stringify({ ...base, zzz: 1 });
+        expect(() => parseStructuralPackageLine(line, "p")).toThrow(/key set/u);
+    });
+
+    test("rejects a missing semantic field", () => {
+        const { declarations: _dropped, ...rest } = base;
+        expect(() => parseStructuralPackageLine(JSON.stringify(rest), "p")).toThrow(/key set/u);
+    });
+
+    test("rejects a duplicate top-level key", () => {
+        const line =
+            '{"encoding":"v","encoding":"w","auditedModules":[],' +
+            '"allowedAxioms":[],"designations":[],"declarations":[]}';
+        expect(() => parseStructuralPackageLine(line, "p")).toThrow(/Duplicate key/u);
+    });
+
+    test("rejects a nested duplicate key inside designations", () => {
+        const line =
+            '{"encoding":"agent-core-lean-structure-sourced-closure","auditedModules":[],"allowedAxioms":[],"designations":' +
+            '[{"kind":"claim","kind":"claim","name":"X","axioms":[],"type":{},"closure":[]}],' +
+            '"declarations":[]}';
+        expect(() => parseStructuralPackageLine(line, "p")).toThrow(
+            /Duplicate key "kind" at \$.designations\[0\]/u
+        );
+    });
+    test.each([
+        ["auditedModules", JSON.stringify({ ...base, auditedModules: "AgentCore" })],
+        ["allowedAxioms", JSON.stringify({ ...base, allowedAxioms: 7 })],
+        ["designations", JSON.stringify({ ...base, designations: true })],
+        ["declarations", JSON.stringify({ ...base, declarations: "none" })],
+        ["encoding", JSON.stringify({ ...base, encoding: 9 })]
+    ])("rejects a mis-typed %s", (_field, line) => {
+        let message = "";
+        try {
+            parseStructuralPackageLine(line, "p");
+        } catch (error) {
+            message = error instanceof Error ? error.message : String(error);
+        }
+        expect(message).toMatch(/must be an array of nonempty strings|must be an array|nonempty string/u);
+    });
+
+    test("selector isolates the single complete package line from noise", () => {
+        const good = JSON.stringify(base);
+        const source = `noise line\n{"unrelated":true}\n${good}\n`;
+        expect(structuralPackage(source).encoding).toBe(
+            "agent-core-lean-structure-sourced-closure"
         );
     });
 });

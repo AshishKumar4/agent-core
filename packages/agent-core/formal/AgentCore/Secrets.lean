@@ -234,8 +234,8 @@ def CarrierRefOnly (ledger : SecretLedger) : Prop :=
   (∀ id secret raw, ledger.crossTenantReservations id ≠ some (.value secret raw))
 
 theorem boot_carriers_ref_only : CarrierRefOnly .boot :=
-  ⟨fun _ _ _ leak => Option.noConfusion leak, fun _ _ _ leak => Option.noConfusion leak,
-    fun _ _ _ leak => Option.noConfusion leak⟩
+  ⟨fun _ _ _ leak => (by cases leak), fun _ _ _ leak => (by cases leak),
+    fun _ _ _ leak => (by cases leak)⟩
 
 theorem secret_step_preserves_carrier_ref_only {before after label}
     (refOnly : CarrierRefOnly before) (step : SecretStep before label after) :
