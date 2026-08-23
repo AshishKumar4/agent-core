@@ -8,8 +8,11 @@ import {
 } from "../../src/actors";
 import {
     MemoryRunStorage,
+    TurnInboxEntry,
+    TurnInboxEntryId,
     RunId,
     RunRepository,
+    RunStoragePort,
     RunRuntime,
     Turn,
     TurnPlacementSnapshot,
@@ -54,6 +57,7 @@ import {
     type TargetLeaseEvidenceSourceStore
 } from "../../src/authority";
 import {
+    ContentRef,
     Digest,
     Revision,
     SemVer,
@@ -848,6 +852,7 @@ test(
 );
 
 interface SourceEvidenceContext<Transaction> {
+    readonly storage: RunStoragePort<Transaction>;
     readonly store: TargetLeaseEvidenceSourceStore<Transaction>;
     readonly runtime: RunRuntime<Transaction>;
     readonly repository: RunRepository<Transaction>;
@@ -899,6 +904,7 @@ async function memoryEvidenceContext(): Promise<SourceEvidenceContext<RunTransac
             storage,
             sourceFacts(repository, watermarks, intents)
         ),
+        storage,
         runtime,
         repository,
         watermarks,
@@ -933,6 +939,7 @@ async function sqliteEvidenceContext(): Promise<SourceEvidenceContext<RunTransac
             storage,
             sourceFacts(repository, watermarks, intents)
         ),
+        storage,
         runtime,
         repository,
         watermarks,
@@ -1079,10 +1086,17 @@ function sourceEvidenceContract<Transaction extends object>(
                 reclaimedIssuer.attest(transaction, request, issuedAt)
             );
             // A valid live lease from Run A with the request naming Run B refuses on
-            // the canonical run identity even when Run B's intent is also on file.
+            // the canonical run identity ALONE: Run B's ledger carries exactly the
+            // intent digest this request names, so only loaded.run !== request.run can
+            // refuse (a pre-fix store echoed the requested run and would pass).
+            const otherRunIntent = Digest.sha256(
+                new TextEncoder().encode("shared-other-run-intent")
+            );
             const wrongRun = targetRequestFor(
                 expectation({
                     lease: { ...seededTurn(reclaimed).lease, holder: principal },
+                    intentDigest: otherRunIntent,
+                    argumentsDigest: expected.argumentsDigest,
                     reservation: {
                         run: new RunId("evidence-other-run"),
                         registryEpoch: 5,
@@ -1097,15 +1111,50 @@ function sourceEvidenceContract<Transaction extends object>(
                 `${nonce}-wrong-run`,
                 provisionalExpiry
             );
-            reclaimed.intents.set(
-                "evidence-other-run",
-                Digest.sha256(new TextEncoder().encode("other-run-intent"))
-            );
+            reclaimed.intents.set("evidence-other-run", otherRunIntent);
             expect(
                 reclaimed.store.transaction((transaction) =>
                     reclaimedIssuer.attest(transaction, wrongRun, issuedAt)
                 )
             ).toBeUndefined();
+
+            // The runtime fences the live Turn through its real reclaim path: the
+            // turn.cancel inbox entry names the exact current token and the
+            // repository lease advances to a fresh epoch. Retrying the ORIGINAL
+            // token must fail against the repository's own changed lease — a store
+            // that kept a mirror lease (or echoed requested state) would pass here.
+            {
+                const fenced = seededTurn(reclaimed);
+                const cancelBytes = new TextEncoder().encode(`${nonce}-cancel-payload`);
+                await reclaimed.storage.content.put(cancelBytes);
+                const cancellation = new TurnInboxEntry(
+                    new TurnInboxEntryId(`${nonce}-cancel-entry`),
+                    fenced.id,
+                    0,
+                    "turn.cancel",
+                    ContentRef.fromDigest(Digest.sha256(cancelBytes)),
+                    Digest.sha256(cancelBytes),
+                    `${nonce}-cancel-key`,
+                    { turn: fenced.id, holder: principal, epoch: fenced.lease.epoch },
+                    issuedAt
+                );
+                const lapsed = new Date(expiresAt.getTime() + 1_000);
+                reclaimed.store.transaction((transaction) => {
+                    reclaimed.runtime.reclaimTurnInTransaction(
+                        transaction,
+                        fenced.id,
+                        fenced.revision,
+                        principal,
+                        lapsed,
+                        new Date(lapsed.getTime() + 60_000),
+                        cancellation
+                    );
+                    expect(
+                        reclaimedIssuer.attest(transaction, request, lapsed)
+                    ).toBeUndefined();
+                    return undefined;
+                });
+            }
 
             // A token naming a Turn the RunRepository has never seen refuses at once.
             const stranger = targetRequestFor(
