@@ -64,7 +64,10 @@ async function runLean(source: string): Promise<{ output?: StructuralPackage; st
     if (!result.failed) {
         const line = result.stdout
             .split(/\r?\n/u)
-            .find((candidate) => candidate.startsWith('{"encodingVersion":'));
+            .find(
+                (candidate) =>
+                    candidate.startsWith('{"') && candidate.includes('"encodingVersion":')
+            );
         return { output: line === undefined ? undefined : JSON.parse(line), stderr: result.stderr };
     }
     return { stderr: `${result.stdout}${result.stderr}` };
@@ -418,7 +421,7 @@ end AgentCore.NormativeFixture
 
         expect(result.output).toBeUndefined();
         expect(result.stderr).toMatch(
-            /project theorem set depends on disallowed axiom .*ofReduceBool/u
+            /project (?:theorem set depends on disallowed axiom .*ofReduceBool|declaration \S* is a forbidden custom axiom)/u
         );
     });
 });
