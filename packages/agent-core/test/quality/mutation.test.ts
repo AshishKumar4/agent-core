@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import {
     existsSync,
     mkdirSync,
@@ -1398,18 +1399,24 @@ describe("mutation run reuse", () => {
             rmSync(elsewhere, { recursive: true, force: true });
         }
     });
-    // Two real processes, one key, disagreeing reports, released together. A lock would
-    // have made the loser defer and drop its disagreement on the floor; creating the
-    // destination with `link` means exactly one wins and the loser reads the winner's
-    // record and says so. Whichever order the kernel picks, the pair must be one published
-    // and one refusal that names the disagreement — never two publishes, never silence.
-    test("lets one of two concurrent writers publish and makes the other say so", () => {
+
+    // Two processes that genuinely overlap. `spawnSync` in a loop proves nothing — the
+    // first child spins, publishes and exits before the second is created — so both are
+    // started with async `spawn` and only then awaited, and each waits on a barrier file
+    // this process creates once both are alive. The record is created with `link`, which
+    // never replaces, so exactly one wins; the loser reads the winner's record and, since
+    // the reports disagree under one key, says so instead of dropping the disagreement.
+    test("lets one of two simultaneous writers publish and makes the other say so", async () => {
+        const barrier = resolve(packageRoot, "reports/mutation/reuse-probe.barrier");
         clearProbe(probe);
+        mkdirSync(dirname(barrier), { recursive: true });
+        rmSync(barrier, { force: true });
         const publisher = (status: string): string =>
             [
                 `const { publishRunCache } = await import(${JSON.stringify(runModule)});`,
                 `const { mutationRunIdentity } = await import(${JSON.stringify(inputsModule)});`,
                 `const { sha256 } = await import(${JSON.stringify(projectModule)});`,
+                'const { existsSync } = await import("node:fs");',
                 `const report = ${JSON.stringify(probeReport(status))};`,
                 "const record = {",
                 '    edition: "1.0.0",',
@@ -1420,9 +1427,10 @@ describe("mutation run reuse", () => {
                 "    reportSha256: `sha256:${sha256(JSON.stringify(report))}`,",
                 "    report",
                 "};",
-                // Both children spin to the same wall-clock instant, so neither can finish
-                // before the other starts and the create is genuinely contended.
-                "while (Date.now() < Number(process.argv[2])) {}",
+                "console.log('ready');",
+                // Everything expensive is behind us; from here to the create is a few
+                // instructions, and both children arrive at it together.
+                `while (!existsSync(${JSON.stringify(barrier)})) {}`,
                 "try {",
                 `    console.log(publishRunCache(${JSON.stringify(probe)}, record));`,
                 "} catch (error) {",
@@ -1430,39 +1438,93 @@ describe("mutation run reuse", () => {
                 "}"
             ].join("\n");
 
-        const at = String(Date.now() + 2000);
         try {
-            const outcomes = ["Survived", "Killed"]
-                .map((status) =>
-                    runQualitySubprocess(
-                        process.execPath,
-                        ["--input-type=module", "-e", publisher(status), at],
-                        packageRoot
-                    )
+            const children = ["Survived", "Killed"].map((status) =>
+                spawn(process.execPath, ["--input-type=module", "-e", publisher(status)], {
+                    cwd: packageRoot,
+                    stdio: ["ignore", "pipe", "pipe"]
+                })
+            );
+            const said = children.map(
+                (child) =>
+                    new Promise<string>((settle, fail) => {
+                        let out = "";
+                        child.stdout.setEncoding("utf8");
+                        child.stdout.on("data", (chunk: string) => {
+                            out += chunk;
+                        });
+                        child.on("error", fail);
+                        child.on("close", () => settle(out));
+                    })
+            );
+            // Both are alive and past their imports before the barrier drops, so the
+            // contended window is the create itself and nothing before it.
+            await Promise.all(
+                children.map(
+                    (child) =>
+                        new Promise<void>((settle) => {
+                            const wait = (chunk: Buffer | string): void => {
+                                if (String(chunk).includes("ready")) settle();
+                            };
+                            child.stdout.on("data", wait);
+                        })
                 )
-                .map((child) => child.stdout.trim())
+            );
+            writeFileSync(barrier, "");
+            const outcomes = (await Promise.all(said))
+                .map((out) => out.replace("ready\n", "").trim())
                 .sort();
 
             expect(outcomes.filter((line) => line === "published")).toHaveLength(1);
             expect(outcomes.filter((line) => line.startsWith("refused:"))).toHaveLength(1);
             expect(outcomes.join("\n")).toContain("under run key sha256:contested disagree");
-            // The winner's record is the one on disk, whole and self-consistent.
+            // Exactly one authoritative record, and it reads back whole.
             expect(readRunCache(probe, "sha256:contested").reused).toBeDefined();
         } finally {
+            rmSync(barrier, { force: true });
             clearProbe(probe);
         }
     });
 
-    // A crash between the temp file and the create used to leave a lock nobody could take.
-    // There is no lock now, so the only residue is a temp nothing reads, and publication
-    // still works with one lying beside it.
-    test("publishes with a crashed writer's leavings beside it", () => {
+    // A lock left by a crash was the reason to have no lock. This kills a real writer
+    // after it has written its temp file and before it can create the record, then proves
+    // the next writer publishes anyway: the only residue a crash can leave is a temp
+    // nothing reads, and there is nothing to steal or time out.
+    test("publishes after a writer is killed mid-publication", async () => {
         const path = runCachePath(probe);
         clearProbe(probe);
         mkdirSync(dirname(path), { recursive: true });
-        const orphan = join(dirname(path), `.${basename(path)}.999999.deadbeef`);
-        writeFileSync(orphan, "half-written");
+        const doomed = spawn(
+            process.execPath,
+            [
+                "--input-type=module",
+                "-e",
+                [
+                    'const { openSync, writeFileSync, closeSync } = await import("node:fs");',
+                    // The same temp shape publishRunCache uses, written by a process that
+                    // then dies before it can link.
+                    `const temp = ${JSON.stringify(join(dirname(path), `.${basename(path)}.`))}` +
+                        " + process.pid + '.abandoned';",
+                    'const handle = openSync(temp, "wx", 0o600);',
+                    'writeFileSync(handle, "{}");',
+                    "closeSync(handle);",
+                    "console.log(temp);",
+                    // Held open on stdin rather than a timer: no clock in the test, and the
+                    // process dies the instant it is signalled.
+                    "process.stdin.resume();"
+                ].join("\n")
+            ],
+            { cwd: packageRoot, stdio: ["pipe", "pipe", "pipe"] }
+        );
+        const orphan = await new Promise<string>((settle, fail) => {
+            doomed.stdout.setEncoding("utf8");
+            doomed.stdout.on("data", (chunk: string) => settle(chunk.trim()));
+            doomed.on("error", fail);
+        });
+        doomed.kill("SIGKILL");
+
         try {
+            expect(existsSync(orphan)).toBe(true);
             expect(
                 publishRunCache(
                     probe,
