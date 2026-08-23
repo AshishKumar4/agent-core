@@ -1,4 +1,4 @@
-import { Digest, RecordCodec, Revision, TextId, type JsonValue } from "../core";
+import { canonicalTupleKey, Digest, RecordCodec, Revision, TextId, type JsonValue } from "../core";
 import { AgentCoreError } from "../errors";
 import {
     requireIdentityArray,
@@ -98,15 +98,22 @@ const openShareOffer = Object.freeze(new OpenShareOfferLifecycle());
 const revokedShareOffer = Object.freeze(new RevokedShareOfferLifecycle());
 
 /**
- * Identifies the holder a redemption is keyed on. A foreign holder's `verifiedVia` is
- * deliberately excluded: a guest who re-verifies under another scheme is the same holder, so
- * re-verification cannot consume a second unit of an offer's bound — the same reason §3.3
- * matches a deny-Grant on `{ homeTenant, principalId }` alone.
+ * Identifies the holder a redemption is keyed on. Canonical tuple encoding preserves every
+ * component boundary, including identifiers containing NUL. A foreign holder's
+ * `verifiedVia` is deliberately excluded: re-verification changes evidence, not identity.
  */
 export function shareOfferHolderKey(holder: ShareOfferHolder): string {
     return holder.kind === "principal"
-        ? `principal\u0000${holder.principal.tenantId.value}\u0000${holder.principal.principalId.value}`
-        : `foreign\u0000${holder.homeTenant.value}\u0000${holder.principalId.value}`;
+        ? canonicalTupleKey("agent-core.share-offer-holder.v1", [
+              "principal",
+              holder.principal.tenantId.value,
+              holder.principal.principalId.value
+          ])
+        : canonicalTupleKey("agent-core.share-offer-holder.v1", [
+              "foreign",
+              holder.homeTenant.value,
+              holder.principalId.value
+          ]);
 }
 
 /** One recorded redemption: which holder redeemed, which Membership it minted, and when. */
