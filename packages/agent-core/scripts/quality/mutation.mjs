@@ -44,6 +44,7 @@ import {
     reconcileEquivalence,
     requireCompleteMutationReport
 } from "./mutation-equivalence.mjs";
+import { gitHead, measureArea, requireAreaReport } from "./mutation-run.mjs";
 import {
     artifactRoot,
     compareCanonicalText,
@@ -160,7 +161,18 @@ function barrelOnly(files) {
     });
 }
 
-const report = measurement();
+const measured = await measurement();
+// One gate, one place, for every source a report can arrive from — measured, reused, or
+// named by `--report`. It used to be two: `measureArea` validated what it was about to
+// cache and `--report` went straight to the status check, so a hand-written report of no
+// files scored 100% and overwrote an area's committed discrimination attribution with
+// nothing. A contaminated run has already written its ledger by now, so the refusals here
+// name what went wrong without discarding what it cost to find out.
+const report = requireCompleteMutationReport(
+    measured.barrel
+        ? requireNothingToMutate(measured.report)
+        : requireAreaReport(measured.report, options.area)
+);
 
 /**
  * Where this run's mutant statuses come from. `--report` names a report a run already
@@ -169,32 +181,39 @@ const report = measurement();
  * next area overwrites, so a recorded copy is the only thing left to check against. It
  * cannot re-pin a baseline; `parseArguments` refuses that.
  */
-function measurement() {
+async function measurement() {
     if (options.report !== undefined) {
-        return requireCompleteMutationReport(
-            JSON.parse(readFileSync(resolve(packageRoot, options.report), "utf8"))
-        );
+        // A recorded report carries no commit, and the commit reading it is not the one
+        // that produced it. `measuredAt` says where a measurement happened, so here it
+        // says it does not know — the same word `gitHead` uses when git cannot answer.
+        return {
+            report: JSON.parse(readFileSync(resolve(packageRoot, options.report), "utf8")),
+            measuredAt: "unknown",
+            barrel: false
+        };
     }
     // An empty report carries a barrel-only area through the same classification, survivor
     // and baseline path as any other, recording the zeros it truly has instead of branching.
+    // It also costs nothing, so it earns no ledger and no cache entry.
     const areaSources = existsSync(areaRoot) ? typescriptSources(areaRoot) : [areaFile];
-    if (barrelOnly(areaSources)) return { files: {} };
-    const stryker = spawnSync(
-        "node",
-        [
-            resolve(packageRoot, "node_modules/@stryker-mutator/core/bin/stryker.js"),
-            "run",
-            "--mutate",
-            mutatePattern
-        ],
-        { cwd: packageRoot, encoding: "utf8", stdio: ["ignore", "inherit", "inherit"] }
-    );
-    if (stryker.status !== 0) throw new TypeError(`Stryker failed for area ${options.area}`);
-    return requireCompleteMutationReport(
-        JSON.parse(
-            readFileSync(resolve(packageRoot, "reports/quality/mutation/report.json"), "utf8")
-        )
-    );
+    if (barrelOnly(areaSources)) {
+        return { report: { files: {} }, measuredAt: gitHead(), barrel: true };
+    }
+    return { ...(await measureArea(options.area, mutatePattern)), barrel: false };
+}
+
+/**
+ * The one report allowed to be empty, and only because `barrelOnly` read the area's own
+ * statements and found nothing a mutator could touch. A measurement of no mutants scores
+ * 100% and reads to the ratchet as an area with no work left in it, so the exception is
+ * bound to that decision rather than to the emptiness itself: if the area has files to
+ * mutate, an empty report is a broken run, not a barrel.
+ */
+function requireNothingToMutate(empty) {
+    if (Object.keys(empty.files).length > 0) {
+        throw new TypeError(`Mutation area ${options.area} is barrel-only and reported mutants`);
+    }
+    return empty;
 }
 
 // Kill attribution is the trustworthy direction of a perTest measurement: a test is
@@ -263,9 +282,16 @@ for (const [path, file] of Object.entries(report.files)) {
             summary.survivors.push(survivorRecord(path, mutant, source, "actionable"));
             continue;
         }
-        if (mutant.status !== "Survived") {
+        // One status is a kill, and it is the one that names the tests that did it. The
+        // branch here used to read `!== "Survived"`, which made every status a kill by
+        // default: 25 of the 1042 mutants in the retained `actors` report timed out under
+        // machine load and 1 of 1732 in `identity` did, and every one of them raised
+        // `killed` and lowered `actionable`. `requireCompleteMutationReport` now refuses
+        // such a run outright, and this branch no longer infers a kill from the absence of
+        // survival, so neither guard depends on the other being right.
+        if (mutant.status === "Killed") {
             summary.killed += 1;
-            if (mutant.status === "Killed") recordKills(path, mutant);
+            recordKills(path, mutant);
             continue;
         }
         const classification = classify(mutant, source);
@@ -281,7 +307,7 @@ const baseline = existsSync(baselinePath)
     : { edition: "1.0.0", areas: {} };
 const previous = baseline.areas[options.area];
 const entry = {
-    measuredAt: gitHead(),
+    measuredAt: measured.measuredAt,
     fingerprint: mutationFingerprint(options.area),
     mutants: summary.mutants,
     killed: summary.killed,
@@ -524,14 +550,6 @@ function survivorRecord(path, mutant, source, classification, proof) {
     };
     if (proof === undefined) return record;
     return { ...record, proof };
-}
-
-function gitHead() {
-    const result = spawnSync("git", ["rev-parse", "HEAD"], {
-        cwd: packageRoot,
-        encoding: "utf8"
-    });
-    return result.status === 0 ? result.stdout.trim() : "unknown";
 }
 
 function parseArguments(args) {

@@ -44,6 +44,19 @@ export default {
     // the runner to read.
     tsconfigFile: "",
     tempDirName: ".stryker-tmp",
+    // Stryker's ProjectReader does not read .gitignore. It crawls the working directory
+    // and skips only its own ALWAYS_IGNORE list — node_modules, .git, *.tsbuildinfo,
+    // /stryker.log, and three framework directories — plus its temp directory, its
+    // reporter outputs, and whatever is named here. Without these three entries every
+    // sandbox copy carried 131 MB of reports/, 72 MB of Lean build output and 6.8 MB of
+    // dist, and two areas measured at once copied each other's private report and cache
+    // scratch out of reports/. Nothing that runs under the mutation lane reads any of
+    // them: every test that opens reports/ lives in test/quality, which
+    // vitest.mutation.config.mjs excludes, and no source or test imports dist.
+    //
+    // scripts/quality/mutation-inputs.mjs reads this list. The reuse key must hash what
+    // a run can read, and what a run can read is the crawl this list prunes.
+    ignorePatterns: ["/reports", "/dist", "**/.lake"],
     concurrency: 8,
     timeoutMS: 20000,
     // The instrumented dry run executes the whole behavior suite once; the 5-minute

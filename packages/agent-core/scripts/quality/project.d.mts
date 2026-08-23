@@ -28,3 +28,4 @@ export function assertUniqueIds<T>(
     idOf: (item: T) => string,
     owner: string
 ): readonly T[];
+export function sha256(value: string | Uint8Array): string;

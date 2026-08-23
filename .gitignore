@@ -16,3 +16,4 @@ packages/*/reports/
 docs/
 *.bundle
 .stryker-tmp/
+stryker.log
