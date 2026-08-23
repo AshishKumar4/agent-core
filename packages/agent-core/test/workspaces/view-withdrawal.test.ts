@@ -180,7 +180,10 @@ function withdrawRegisteredSurface(
 ): readonly SurfaceId[] {
     return harness.transact((storage) => {
         const set: SurfaceWithdrawalSet = surfaces.transaction((transaction) =>
-            surfaces.withdrawalSet(transaction, WITHDRAWN_FACET)
+            surfaces.withdrawalSet(
+                transaction,
+                contributionAttributionFixture(WITHDRAWN_FACET.value)
+            )
         );
         return harness.protocol.retire(storage, set, () => ({ view: [], delta: [] })).map((view) => view.surface);
     });
@@ -392,12 +395,12 @@ function preservesUnrelatedDirectViews(harness: ViewHarness): void {
 }
 
 function routingSweepRetryChangesNothing(harness: ViewHarness): void {
-    const owner = new FacetRef("workspace:routed");
+    const owner = contributionAttributionFixture("workspace:routed");
     harness.transact((storage) => {
         materializeAttributedSubscription(
             harness.persistence,
             storage,
-            contributionAttributionFixture(owner.value),
+            owner,
             subscriptionFixture("routed")
         );
         const reservation = reservationFixture("routed");

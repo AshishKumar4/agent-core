@@ -516,7 +516,11 @@ describe("§7.4 failure kinds at the mediated seam", () => {
                 );
                 if (persisted === undefined) throw new TypeError("Expected the stored Receipt");
                 expectIdentity(persisted, receipt);
-                observed.push([scenario.name, receipt.outcome, receipt.failure?.kind]);
+                observed.push([
+                    scenario.name,
+                    receipt.outcome,
+                    receipt instanceof AttemptReceipt ? receipt.failure?.kind : undefined
+                ]);
             }
             expect(observed).toEqual([
                 ["raised", "failed", "raised"],
@@ -677,11 +681,11 @@ function expectIdentity(decoded: Receipt, receipt: Receipt): void {
     if (!(decoded instanceof AttemptReceipt && receipt instanceof AttemptReceipt)) return;
     expect(decoded.attempt.equals(receipt.attempt)).toBe(true);
     expect(decoded.previous === undefined).toBe(receipt.previous === undefined);
-    if (decoded.previous !== undefined) {
+    if (decoded.previous !== undefined && receipt.previous !== undefined) {
         expect(decoded.previous.equals(receipt.previous)).toBe(true);
     }
     expect(decoded.result === undefined).toBe(receipt.result === undefined);
-    if (decoded.result !== undefined) {
+    if (decoded.result !== undefined && receipt.result !== undefined) {
         expect(decoded.result.equals(receipt.result)).toBe(true);
     }
 }
