@@ -388,6 +388,14 @@ describe("Device transport admission and declarations", () => {
                         detailCode: "wire.input"
                     })
                 );
+                expect(() =>
+                    codec.decodeVersion({ major: codec.major, minor: codec.minor + 1 }, {})
+                ).toThrow(
+                    expect.objectContaining({
+                        code: "codec.invalid",
+                        detailCode: "wire.input"
+                    })
+                );
             }
         }
     );

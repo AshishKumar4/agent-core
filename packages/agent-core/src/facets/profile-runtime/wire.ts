@@ -1,3 +1,5 @@
+import { assertCompatibleRecordVersion, type RecordVersion } from "../../core";
+import { AgentCoreError } from "../../errors";
 import type { FacetData } from "../data";
 import { canonicalFacetData } from "../data";
 import { DetailedProfileError } from "./error";
@@ -20,6 +22,8 @@ export class ProfileWireCodec<Value> {
 }
 
 export class VersionedProfileWireCodec<Value> extends ProfileWireCodec<Value> {
+    private readonly supported: RecordVersion;
+
     public constructor(
         encodeValue: (value: Value) => FacetData,
         decodeValue: (data: FacetData) => Value,
@@ -35,6 +39,7 @@ export class VersionedProfileWireCodec<Value> extends ProfileWireCodec<Value> {
         ) {
             throw new TypeError("Profile wire codec version is invalid");
         }
+        this.supported = Object.freeze({ major, minor });
         Object.freeze(this);
     }
 
@@ -42,19 +47,23 @@ export class VersionedProfileWireCodec<Value> extends ProfileWireCodec<Value> {
         version: { readonly major: number; readonly minor: number },
         data: FacetData
     ): Value {
-        if (version.major !== this.major) {
-            throw new DetailedProfileError(
-                "codec.unknown-major",
-                "wire.input",
-                `Unsupported profile input codec major ${version.major}`
-            );
-        }
-        if (!Number.isSafeInteger(version.minor) || version.minor < 0) {
+        if (
+            !Number.isSafeInteger(version.major) ||
+            version.major < 0 ||
+            !Number.isSafeInteger(version.minor) ||
+            version.minor < 0
+        ) {
             throw new DetailedProfileError(
                 "codec.invalid",
                 "wire.input",
-                "Profile input codec minor is invalid"
+                "Profile input codec version is invalid"
             );
+        }
+        try {
+            assertCompatibleRecordVersion("profile input", version, this.supported);
+        } catch (error) {
+            if (!(error instanceof AgentCoreError)) throw error;
+            throw new DetailedProfileError(error.code, "wire.input", error.message);
         }
         return this.decode(data);
     }
