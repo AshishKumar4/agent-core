@@ -1219,6 +1219,37 @@ describe("mutation run reuse", () => {
             clearProbe(probe);
         }
     });
+    // The Bun fixture forwards the complete environment to its external runtime. That
+    // includes Bun's own config/cache/runtime namespace, so BUN_* needs the same closure
+    // and redaction as STRYKER_* — otherwise a cache survives a changed Bun subprocess.
+    test("binds a BUN variable without persisting its raw value", async () => {
+        const secret = "bun-config-secret-never-on-disk";
+        const name = "BUN_SENTINEL_RUNTIME";
+        const restore = process.env[name];
+        const before = mutationRunKey("errors");
+        clearProbe(probe);
+        try {
+            process.env[name] = secret;
+            expect(mutationRunIdentity().environment[name]).toBe(`sha256:${sha256(secret)}`);
+            expect(mutationRunKey("errors")).not.toBe(before);
+            await measureArea(probe, probePattern, () => ({
+                report: probeReport("Survived"),
+                measuredAt: "bun-env-head",
+                strykerMs: 1
+            }));
+
+            for (const path of [runLedgerPath(probe), runCachePath(probe)]) {
+                const written = readFileSync(path, "utf8");
+                expect(written, path).not.toContain(secret);
+                expect(written, path).toContain(name);
+                expect(written, path).toContain(sha256(secret));
+            }
+        } finally {
+            if (restore === undefined) delete process.env[name];
+            else process.env[name] = restore;
+            clearProbe(probe);
+        }
+    });
 
     // The mutation lane contains materialization-bun.test.ts, which launches bare `bun`.
     // The external runtime is not Node, and a package lock cannot identify it. Resolution

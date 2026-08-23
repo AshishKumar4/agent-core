@@ -159,7 +159,7 @@ function resolveCommand(command, path) {
 // twin when it is set. The prefixes are there so a variable added to a config later is
 // bound without anyone remembering to list it.
 const RUNTIME_ENVIRONMENT = ["LANG", "LC_ALL", "NODE_ENV", "NODE_OPTIONS", "NODE_PATH", "TZ"];
-const RUNTIME_ENVIRONMENT_PREFIXES = ["AGENT_CORE_", "STRYKER", "VITE"];
+const RUNTIME_ENVIRONMENT_PREFIXES = ["AGENT_CORE_", "BUN_", "STRYKER", "VITE"];
 
 /**
  * Everything outside the tree that decides what a run computes: the interpreter, its
